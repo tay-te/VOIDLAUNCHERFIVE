@@ -5,6 +5,8 @@ import { MakerDMG } from "@electron-forge/maker-dmg";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { PublisherGithub } from "@electron-forge/publisher-github";
+import fs from "fs";
+import path from "path";
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -13,6 +15,14 @@ const config: ForgeConfig = {
     executableName: "void-launcher",
     appBundleId: "com.voidlauncher.app",
     icon: "./public/icon",
+    afterCopy: [
+      (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error) => void) => {
+        const src = path.resolve(__dirname, "node_modules/minecraft-java-core");
+        const dest = path.join(buildPath, "node_modules/minecraft-java-core");
+        fs.cpSync(src, dest, { recursive: true });
+        callback();
+      },
+    ],
   },
   rebuildConfig: {},
   makers: [
