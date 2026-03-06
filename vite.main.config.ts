@@ -7,7 +7,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["minecraft-java-core"],
+      external: ["minecraft-java-core", "electron-updater"],
     },
   },
 });

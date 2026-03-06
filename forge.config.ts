@@ -33,7 +33,7 @@ const config: ForgeConfig = {
         name: "VOIDLAUNCHERFIVE",
       },
       prerelease: false,
-      draft: true,
+      draft: false,
     }),
   ],
   plugins: [

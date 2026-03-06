@@ -13,25 +13,26 @@ Go to **Settings → Secrets and variables → Actions** in the repo and add:
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions.
 
-### App Icon (Optional)
+### App Icon
 
-Place icon files in `public/`:
+Icon files are in `public/`:
+- `icon.png` — Source (2000x2000)
 - `icon.icns` — macOS
 - `icon.ico` — Windows
 
-Then uncomment the icon lines in `forge.config.ts` (search for "uncomment when").
+These are generated from `void.png` and configured in `forge.config.ts`.
 
 ## Publishing a Release
 
 ### 1. Bump the version
 
 ```bash
-npm version patch   # 1.0.0 → 1.0.1
-npm version minor   # 1.0.0 → 1.1.0
-npm version major   # 1.0.0 → 2.0.0
+npm version patch   # 2.0.4 → 2.0.5
+npm version minor   # 2.0.4 → 2.1.0
+npm version major   # 2.0.4 → 3.0.0
 ```
 
-This updates `package.json` and creates a git tag (e.g. `v1.0.1`).
+This updates `package.json` and creates a git tag (e.g. `v2.0.5`).
 
 ### 2. Push to trigger CI
 
@@ -39,21 +40,19 @@ This updates `package.json` and creates a git tag (e.g. `v1.0.1`).
 git push origin main --tags
 ```
 
-GitHub Actions builds for all platforms:
-- macOS ARM (Apple Silicon)
-- macOS Intel
-- Windows x64
+GitHub Actions builds for:
+- **macOS** — Universal binary (works on both Apple Silicon and Intel)
+- **Windows** — x64
 
-Artifacts are uploaded as a **draft** GitHub Release.
+The CI workflow automatically syncs the `package.json` version to match the git tag, so artifacts always upload to the correct release.
 
-### 3. Publish the release
+Artifacts are uploaded as a **published** GitHub Release (not a draft), which is required for auto-update to work.
+
+### 3. Verify the release
 
 1. Go to **Releases** in the GitHub repo
-2. Find the new draft release
+2. Confirm the new release has `.dmg`, `.zip`, and `.exe` assets attached
 3. Edit the description if needed
-4. Click **Publish release**
-
-Users running the app will receive the update automatically within 30 minutes.
 
 ## Local Build (Manual)
 
@@ -75,10 +74,12 @@ Artifacts output to `out/make/`.
 
 ## How Auto-Update Works
 
-- The app checks GitHub Releases for new versions on launch and every 30 minutes
+- Uses `electron-updater` with the GitHub provider
+- Checks GitHub Releases for new versions on launch and every 30 minutes
 - Updates download in the background
 - Installed automatically on next app quit
 - Users see an in-app notification when an update is available/downloaded
+- Releases must be **published** (not draft) for the updater to detect them
 
 ## Code Signing (Future)
 
