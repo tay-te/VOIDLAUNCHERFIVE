@@ -5,9 +5,4 @@ export default defineConfig({
     conditions: ["node"],
     mainFields: ["module", "jsnext:main", "jsnext"],
   },
-  build: {
-    rollupOptions: {
-      external: ["minecraft-java-core"],
-    },
-  },
 });
