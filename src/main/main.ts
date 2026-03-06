@@ -9,7 +9,8 @@ import { execSync } from "node:child_process";
 import { Microsoft, Launch } from "minecraft-java-core";
 
 // Handle Squirrel events for Windows installer
-if (require("electron-squirrel-startup")) app.quit();
+import electronSquirrelStartup from "electron-squirrel-startup";
+if (electronSquirrelStartup) app.quit();
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
