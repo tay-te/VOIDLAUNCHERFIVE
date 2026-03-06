@@ -18,12 +18,12 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: "void-launcher",
-      // setupIcon: "./public/icon.ico",  // uncomment when icon.ico is added
+      setupIcon: "./public/icon.ico",
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerDMG({
       format: "ULFO",
-      // icon: "./public/icon.icns",  // uncomment when icon.icns is added
+      icon: "./public/icon.icns",
     }),
   ],
   publishers: [
