@@ -93,6 +93,123 @@ html, body, #root {
   -webkit-app-region: no-drag;
 }
 
+/* ─── Login screen animations ────────────────────────────────────────────── */
+
+/* Floating particles rise upward */
+@keyframes login-particle-float {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--particle-opacity, 0.2);
+  }
+  90% {
+    opacity: var(--particle-opacity, 0.2);
+  }
+  100% {
+    transform: translateY(-110vh) translateX(var(--drift, 0px));
+    opacity: 0;
+  }
+}
+.login-particle {
+  animation: login-particle-float linear infinite;
+}
+
+/* Gradient orbs drift slowly */
+@keyframes login-orb-drift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(var(--orb-x, 20px), var(--orb-y, -15px)) scale(1.15);
+  }
+  66% {
+    transform: translate(calc(var(--orb-x, 20px) * -0.7), calc(var(--orb-y, -15px) * -0.5)) scale(0.9);
+  }
+}
+.login-orb {
+  animation: login-orb-drift ease-in-out infinite;
+}
+
+/* Pulsing ring around logo */
+@keyframes login-ring-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.15;
+  }
+}
+.login-ring-pulse {
+  animation: login-ring-pulse 3s ease-in-out infinite;
+}
+
+/* Logo shine sweep */
+@keyframes login-logo-shine {
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-20deg);
+  }
+}
+.login-logo-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: login-logo-shine 3s ease-in-out 1s infinite;
+}
+
+/* Title glow */
+.login-title-glow {
+  text-shadow: 0 0 30px var(--color-accent-glow), 0 0 60px var(--color-accent-glow);
+}
+
+/* Button shimmer */
+@keyframes login-btn-shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(300%) skewX(-15deg);
+  }
+}
+.login-btn-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
+  animation: login-btn-shimmer 4s ease-in-out 2s infinite;
+  pointer-events: none;
+}
+
+/* Sign-in button hover lift */
+.login-sign-in-btn {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+.login-sign-in-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px var(--color-accent-glow), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.login-sign-in-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Error shake */
+@keyframes login-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(5px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-1px); }
+}
+
 /* Wizard animations */
 @keyframes wizard-backdrop-in {
   from { opacity: 0; }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, shell, session } from "electron";
 import { autoUpdater } from "electron-updater";
 import path from "node:path";
 import fs from "node:fs";
@@ -23,6 +23,18 @@ function getInstancesDir(): string {
 
 function getInstanceModsDir(instanceId: string): string {
   return path.join(getInstancesDir(), instanceId, "mods");
+}
+
+// Sanitize user-provided path segments to prevent directory traversal
+function sanitizePathSegment(segment: string): string {
+  // Strip any path separators and parent directory references
+  return segment.replace(/[/\\]/g, "").replace(/\.\./g, "");
+}
+
+function isPathWithin(parent: string, child: string): boolean {
+  const resolvedParent = path.resolve(parent) + path.sep;
+  const resolvedChild = path.resolve(child);
+  return resolvedChild.startsWith(resolvedParent) || resolvedChild === path.resolve(parent);
 }
 
 function ensureDir(dir: string): void {
@@ -209,6 +221,20 @@ function createWindow() {
     },
   });
 
+  // Set Content Security Policy
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          MAIN_WINDOW_VITE_DEV_SERVER_URL
+            ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws: https://api.modrinth.com https://*.supabase.co https://crafatar.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co;"
+            : "default-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.modrinth.com https://*.supabase.co https://crafatar.com https://cdn-raw.modrinth.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co; font-src 'self' data:;",
+        ],
+      },
+    });
+  });
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -224,8 +250,14 @@ function createWindow() {
 
 // Auto-updater setup
 function setupAutoUpdater() {
+  autoUpdater.setFeedURL({
+    provider: "github",
+    owner: "tay-te",
+    repo: "VOIDLAUNCHERFIVE",
+  });
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowDowngrade = false;
 
   autoUpdater.on("update-available", (info) => {
     mainWindow?.webContents.send("update-available", info);
@@ -236,11 +268,13 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on("error", (err) => {
+    console.error("Auto-updater error:", err.message);
     mainWindow?.webContents.send("update-error", err.message);
   });
 
-  autoUpdater.checkForUpdates();
-  setInterval(() => autoUpdater.checkForUpdates(), 30 * 60 * 1000);
+  // Check now, then every 30 minutes
+  autoUpdater.checkForUpdates().catch(() => {});
+  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 30 * 60 * 1000);
 }
 
 // Download a file from URL to a local path
@@ -316,9 +350,30 @@ ipcMain.handle(
     _event,
     { instanceId, url, filename }: { instanceId: string; url: string; filename: string }
   ) => {
-    const modsDir = getInstanceModsDir(instanceId);
+    const safeInstanceId = sanitizePathSegment(instanceId);
+    const safeFilename = sanitizePathSegment(filename);
+    if (!safeInstanceId || !safeFilename) {
+      return { success: false, error: "Invalid instance ID or filename" };
+    }
+
+    // Validate URL is from Modrinth CDN only
+    try {
+      const parsed = new URL(url);
+      if (!parsed.hostname.endsWith("modrinth.com") && !parsed.hostname.endsWith("cdn-raw.modrinth.com")) {
+        return { success: false, error: "Downloads only allowed from Modrinth" };
+      }
+    } catch {
+      return { success: false, error: "Invalid download URL" };
+    }
+
+    const modsDir = getInstanceModsDir(safeInstanceId);
     ensureDir(modsDir);
-    const destPath = path.join(modsDir, filename);
+    const destPath = path.join(modsDir, safeFilename);
+
+    // Final path containment check
+    if (!isPathWithin(modsDir, destPath)) {
+      return { success: false, error: "Invalid file path" };
+    }
 
     try {
       await downloadFile(url, destPath, (percent) => {
@@ -341,7 +396,20 @@ ipcMain.handle(
 ipcMain.handle(
   "remove-mod-file",
   async (_event, { instanceId, filename }: { instanceId: string; filename: string }) => {
-    const filePath = path.join(getInstanceModsDir(instanceId), filename);
+    const safeInstanceId = sanitizePathSegment(instanceId);
+    const safeFilename = sanitizePathSegment(filename);
+    if (!safeInstanceId || !safeFilename) {
+      return { success: false, error: "Invalid instance ID or filename" };
+    }
+
+    const modsDir = getInstanceModsDir(safeInstanceId);
+    const filePath = path.join(modsDir, safeFilename);
+
+    // Path containment check
+    if (!isPathWithin(modsDir, filePath)) {
+      return { success: false, error: "Invalid file path" };
+    }
+
     try {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
@@ -357,7 +425,10 @@ ipcMain.handle(
 );
 
 ipcMain.handle("open-instance-folder", async (_event, instanceId: string) => {
-  const dir = path.join(getInstancesDir(), instanceId);
+  const safeInstanceId = sanitizePathSegment(instanceId);
+  if (!safeInstanceId) return;
+  const dir = path.join(getInstancesDir(), safeInstanceId);
+  if (!isPathWithin(getInstancesDir(), dir)) return;
   ensureDir(dir);
   shell.openPath(dir);
 });
@@ -470,6 +541,15 @@ ipcMain.handle(
     }
   ) => {
     try {
+      // 0. Validate inputs
+      if (!/^\d+\.\d+(\.\d+)?$/.test(version)) {
+        return { success: false, error: "Invalid Minecraft version format" };
+      }
+      if (!["vanilla", "fabric", "forge"].includes(loader)) {
+        return { success: false, error: "Invalid loader type" };
+      }
+      const clampedMemory = Math.min(Math.max(512, Math.floor(memoryMb)), 32768);
+
       // 1. Check auth
       const stored = loadStoredAuth() as any;
       if (!stored) {
@@ -494,9 +574,16 @@ ipcMain.handle(
         });
       });
 
-      // 3. Set up paths
+      // 3. Set up paths (sanitize instanceId)
+      const safeInstanceId = sanitizePathSegment(instanceId);
+      if (!safeInstanceId) {
+        return { success: false, error: "Invalid instance ID" };
+      }
       const mcRoot = getMinecraftRoot();
-      const instanceDir = path.join(getInstancesDir(), instanceId);
+      const instanceDir = path.join(getInstancesDir(), safeInstanceId);
+      if (!isPathWithin(getInstancesDir(), instanceDir)) {
+        return { success: false, error: "Invalid instance path" };
+      }
       ensureDir(mcRoot);
       ensureDir(instanceDir);
 
@@ -569,7 +656,7 @@ ipcMain.handle(
         });
       });
 
-      const minMemory = Math.max(512, Math.floor(memoryMb / 2));
+      const minMemory = Math.max(512, Math.floor(clampedMemory / 2));
 
       await launcher.Launch({
         url: null,
@@ -598,7 +685,7 @@ ipcMain.handle(
         screen: {},
         memory: {
           min: `${minMemory}M`,
-          max: `${memoryMb}M`,
+          max: `${clampedMemory}M`,
         },
       });
 

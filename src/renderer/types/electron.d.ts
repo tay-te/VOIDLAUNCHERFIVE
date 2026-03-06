@@ -64,10 +64,10 @@ export interface ElectronAPI {
   openInstanceFolder: (instanceId: string) => Promise<void>;
   onDownloadProgress: (
     cb: (data: { instanceId: string; filename: string; percent: number }) => void
-  ) => void;
-  onUpdateAvailable: (cb: (info: unknown) => void) => void;
-  onUpdateDownloaded: (cb: (info: unknown) => void) => void;
-  onUpdateError: (cb: (msg: string) => void) => void;
+  ) => () => void;
+  onUpdateAvailable: (cb: (info: unknown) => void) => () => void;
+  onUpdateDownloaded: (cb: (info: unknown) => void) => () => void;
+  onUpdateError: (cb: (msg: string) => void) => () => void;
   microsoftLogin: () => Promise<MicrosoftAuthResult>;
   microsoftRefresh: () => Promise<MicrosoftAuthResult>;
   microsoftLogout: () => Promise<{ success: boolean }>;
@@ -86,11 +86,11 @@ export interface ElectronAPI {
     loader: "vanilla" | "fabric" | "forge";
     memoryMb: number;
   }) => Promise<{ success: boolean; error?: string }>;
-  onLaunchProgress: (cb: (data: LaunchProgress) => void) => void;
-  onLaunchSpeed: (cb: (data: { instanceId: string; speed: number }) => void) => void;
-  onGameClosed: (cb: (data: { instanceId: string }) => void) => void;
-  onGameError: (cb: (data: { instanceId: string; error: string }) => void) => void;
-  onGameLog: (cb: (data: { instanceId: string; line: string }) => void) => void;
+  onLaunchProgress: (cb: (data: LaunchProgress) => void) => () => void;
+  onLaunchSpeed: (cb: (data: { instanceId: string; speed: number }) => void) => () => void;
+  onGameClosed: (cb: (data: { instanceId: string }) => void) => () => void;
+  onGameError: (cb: (data: { instanceId: string; error: string }) => void) => () => void;
+  onGameLog: (cb: (data: { instanceId: string; line: string }) => void) => () => void;
 }
 
 declare global {

@@ -81,9 +81,14 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
         setTimeout(() => setLaunchError(null), 8000);
       }
     };
-    window.electronAPI.onLaunchProgress(handleProgress);
-    window.electronAPI.onGameClosed(handleClosed);
-    window.electronAPI.onGameError(handleError);
+    const cleanupProgress = window.electronAPI.onLaunchProgress(handleProgress);
+    const cleanupClosed = window.electronAPI.onGameClosed(handleClosed);
+    const cleanupError = window.electronAPI.onGameError(handleError);
+    return () => {
+      cleanupProgress();
+      cleanupClosed();
+      cleanupError();
+    };
   }, [selectedInstanceId]);
 
   const handleLaunch = async () => {

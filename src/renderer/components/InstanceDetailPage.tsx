@@ -115,9 +115,14 @@ export const InstanceDetailPage = observer(
           setTimeout(() => setLaunchError(null), 8000);
         }
       };
-      window.electronAPI.onLaunchProgress(handleProgress);
-      window.electronAPI.onGameClosed(handleClosed);
-      window.electronAPI.onGameError(handleError);
+      const cleanupProgress = window.electronAPI.onLaunchProgress(handleProgress);
+      const cleanupClosed = window.electronAPI.onGameClosed(handleClosed);
+      const cleanupError = window.electronAPI.onGameError(handleError);
+      return () => {
+        cleanupProgress();
+        cleanupClosed();
+        cleanupError();
+      };
     }, [instanceId]);
 
     const handleLaunch = useCallback(async () => {

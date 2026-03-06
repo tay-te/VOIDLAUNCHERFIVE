@@ -4,21 +4,36 @@ import { MakerZIP } from "@electron-forge/maker-zip";
 import { MakerDMG } from "@electron-forge/maker-dmg";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
 import { VitePlugin } from "@electron-forge/plugin-vite";
+import { PublisherGithub } from "@electron-forge/publisher-github";
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     name: "Void Launcher",
+    executableName: "void-launcher",
+    appBundleId: "com.voidlauncher.app",
     icon: "./public/icon",
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
       name: "void-launcher",
+      // setupIcon: "./public/icon.ico",  // uncomment when icon.ico is added
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerDMG({
       format: "ULFO",
+      // icon: "./public/icon.icns",  // uncomment when icon.icns is added
+    }),
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: "tay-te",
+        name: "VOIDLAUNCHERFIVE",
+      },
+      prerelease: false,
+      draft: true,
     }),
   ],
   plugins: [

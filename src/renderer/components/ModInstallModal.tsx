@@ -197,7 +197,8 @@ export const ModInstallModal = observer(({ mod, onClose, onInstalled }: Props) =
     const handler = (data: { percent: number }) => {
       // Granular progress within current file
     };
-    window.electronAPI.onDownloadProgress(handler);
+    const cleanup = window.electronAPI.onDownloadProgress(handler);
+    return cleanup;
   }, []);
 
   return (
