@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "./stores";
 import { Sidebar } from "./components/BottomNav";
@@ -8,18 +8,38 @@ import { InstancesPage } from "./components/InstancesPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { AuthPage } from "./components/AuthPage";
 import { ModPage } from "./components/ModPage";
+import { FriendsPage } from "./components/FriendsPage";
 import { LoginScreen } from "./components/LoginScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { ImportShareCodeModal } from "./components/ImportShareCodeModal";
+import { DownloadToast } from "./components/DownloadToast";
 import { CustomCursor } from "./components/CustomCursor";
 
 const App = observer(() => {
-  const { auth } = useStore();
+  const { auth, instances, sharing, notifications } = useStore();
   const [activePage, setActivePage] = useState("home");
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [modReturnPage, setModReturnPage] = useState("home");
   const [welcomeDone, setWelcomeDone] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const finishWelcome = useCallback(() => setWelcomeDone(true), []);
+
+  // Scope instances to the authenticated user
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.uuid) {
+      instances.setUser(auth.uuid, auth.username);
+      // Ensure Supabase profile exists for sharing features
+      sharing.ensureProfile(auth.uuid, auth.username).then(() => {
+        // Wire notification polling once profile is ready
+        if (sharing.profileId) {
+          notifications.setProfileId(sharing.profileId);
+        }
+      });
+    } else {
+      instances.clearUser();
+    }
+  }, [auth.isAuthenticated, auth.uuid, auth.username]);
 
   // Gate: show login/loading screen until authenticated
   if (auth.loading || !auth.isAuthenticated) {
@@ -57,6 +77,12 @@ const App = observer(() => {
         return <BrowsePage onOpenMod={openMod} />;
       case "instances":
         return <InstancesPage onNavigate={navigate} />;
+      case "friends":
+        return (
+          <FriendsPage
+            onImportCode={() => setShowImportModal(true)}
+          />
+        );
       case "settings":
         return <SettingsPage />;
       case "auth":
@@ -85,6 +111,17 @@ const App = observer(() => {
           {renderPage()}
         </main>
       </div>
+
+      {/* Import modal */}
+      {showImportModal && (
+        <ImportShareCodeModal
+          onClose={() => setShowImportModal(false)}
+          onImported={() => navigate("instances")}
+        />
+      )}
+
+      {/* Download progress toast */}
+      <DownloadToast />
     </div>
   );
 });

@@ -4,8 +4,10 @@ import path from "node:path";
 import fs from "node:fs";
 import https from "node:https";
 import http from "node:http";
+import os from "node:os";
+import { execSync } from "node:child_process";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { Microsoft } = require("minecraft-java-core");
+const { Microsoft, Launch } = require("minecraft-java-core");
 
 // Handle Squirrel events for Windows installer
 if (require("electron-squirrel-startup")) app.quit();
@@ -27,6 +29,168 @@ function ensureDir(dir: string): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+}
+
+// ─── Java version mapping ───────────────────────────────────────────
+function getRequiredJavaVersion(mcVersion: string): number {
+  const parts = mcVersion.split(".");
+  const major = parseInt(parts[0]) || 1;
+  const minor = parseInt(parts[1]) || 0;
+  const patch = parseInt(parts[2]) || 0;
+
+  // MC 1.20.5+ requires Java 21
+  if (major > 1 || (major === 1 && minor > 20) || (major === 1 && minor === 20 && patch >= 5)) {
+    return 21;
+  }
+  // MC 1.17+ requires Java 17
+  if (major > 1 || (major === 1 && minor >= 17)) {
+    return 17;
+  }
+  // Older versions use Java 8
+  return 8;
+}
+
+// ─── Adoptium OS/arch mapping ───────────────────────────────────────
+function getAdoptiumOS(): string {
+  switch (process.platform) {
+    case "darwin": return "mac";
+    case "win32": return "windows";
+    default: return "linux";
+  }
+}
+
+function getAdoptiumArch(): string {
+  switch (process.arch) {
+    case "arm64": return "aarch64";
+    case "x64": return "x64";
+    default: return "x64";
+  }
+}
+
+// ─── Java directory management ──────────────────────────────────────
+function getJavaBaseDir(): string {
+  return path.join(app.getPath("userData"), "java");
+}
+
+function getJavaVersionDir(javaVersion: number): string {
+  return path.join(getJavaBaseDir(), `java-${javaVersion}-${getAdoptiumArch()}`);
+}
+
+function findJavaBinary(javaVersionDir: string): string | null {
+  if (!fs.existsSync(javaVersionDir)) return null;
+
+  const entries = fs.readdirSync(javaVersionDir);
+  const jdkDir = entries.find((e) => e.startsWith("jdk-") || e.startsWith("jdk"));
+  if (!jdkDir) return null;
+
+  const jdkPath = path.join(javaVersionDir, jdkDir);
+  const javaBinName = process.platform === "win32" ? "javaw.exe" : "java";
+
+  // macOS JDKs have Contents/Home structure
+  const macPath = path.join(jdkPath, "Contents", "Home", "bin", javaBinName);
+  if (fs.existsSync(macPath)) return macPath;
+
+  const stdPath = path.join(jdkPath, "bin", javaBinName);
+  if (fs.existsSync(stdPath)) return stdPath;
+
+  return null;
+}
+
+// ─── Fetch JSON helper ──────────────────────────────────────────────
+function fetchJson(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const proto = url.startsWith("https") ? https : http;
+    proto
+      .get(url, { headers: { Accept: "application/json" } }, (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          fetchJson(res.headers.location).then(resolve).catch(reject);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        let data = "";
+        res.on("data", (chunk: Buffer) => (data += chunk));
+        res.on("end", () => {
+          try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+        });
+        res.on("error", reject);
+      })
+      .on("error", reject);
+  });
+}
+
+// ─── Adoptium Java download & extraction ────────────────────────────
+async function ensureJava(
+  javaVersion: number,
+  progressCb?: (data: { stage: string; percent: number }) => void
+): Promise<string> {
+  const versionDir = getJavaVersionDir(javaVersion);
+
+  // Check if already installed
+  const existing = findJavaBinary(versionDir);
+  if (existing) return existing;
+
+  ensureDir(versionDir);
+
+  const adoptOS = getAdoptiumOS();
+  const adoptArch = getAdoptiumArch();
+
+  progressCb?.({ stage: "Fetching Java info from Adoptium...", percent: 0 });
+
+  const apiUrl = `https://api.adoptium.net/v3/assets/latest/${javaVersion}/hotspot?architecture=${adoptArch}&image_type=jdk&os=${adoptOS}&vendor=eclipse`;
+
+  const assets = await fetchJson(apiUrl);
+  if (!assets || !assets.length) {
+    throw new Error(`No Adoptium JDK found for Java ${javaVersion} on ${adoptOS} ${adoptArch}`);
+  }
+
+  const pkg = assets[0].binary.package;
+  const downloadUrl: string = pkg.link;
+  const fileName: string = pkg.name;
+  const archivePath = path.join(versionDir, fileName);
+
+  progressCb?.({ stage: "Downloading Java from Adoptium...", percent: 5 });
+
+  await downloadFile(downloadUrl, archivePath, (percent) => {
+    progressCb?.({ stage: "Downloading Java...", percent: 5 + Math.floor(percent * 0.75) });
+  });
+
+  progressCb?.({ stage: "Extracting Java...", percent: 82 });
+
+  // Extract archive
+  if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) {
+    execSync(`tar -xzf "${archivePath}" -C "${versionDir}"`);
+  } else if (fileName.endsWith(".zip")) {
+    if (process.platform === "win32") {
+      execSync(
+        `powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${versionDir}' -Force"`
+      );
+    } else {
+      execSync(`unzip -o "${archivePath}" -d "${versionDir}"`);
+    }
+  }
+
+  // Clean up archive
+  try { fs.unlinkSync(archivePath); } catch { /* ignore */ }
+
+  progressCb?.({ stage: "Java ready!", percent: 100 });
+
+  const javaBin = findJavaBinary(versionDir);
+  if (!javaBin) throw new Error("Failed to locate java binary after extraction");
+
+  // Ensure executable permission on Unix
+  if (process.platform !== "win32") {
+    try { fs.chmodSync(javaBin, 0o755); } catch { /* ignore */ }
+  }
+
+  return javaBin;
+}
+
+// ─── Minecraft root directory ───────────────────────────────────────
+function getMinecraftRoot(): string {
+  return path.join(app.getPath("userData"), "minecraft");
 }
 
 function createWindow() {
@@ -265,6 +429,195 @@ ipcMain.handle("microsoft-get-stored", () => {
   if (stored) return { success: true, data: stored };
   return { success: false };
 });
+
+// ─── System info ────────────────────────────────────────────────────
+ipcMain.handle("get-system-info", () => {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    totalMemoryBytes: os.totalmem(),
+    totalMemoryMb: Math.floor(os.totalmem() / (1024 * 1024)),
+  };
+});
+
+// ─── Java status ────────────────────────────────────────────────────
+ipcMain.handle("get-java-status", (_event, { mcVersion }: { mcVersion: string }) => {
+  const javaVersion = getRequiredJavaVersion(mcVersion);
+  const versionDir = getJavaVersionDir(javaVersion);
+  const javaBin = findJavaBinary(versionDir);
+  return {
+    required: javaVersion,
+    installed: javaBin !== null,
+    path: javaBin,
+  };
+});
+
+// ─── Launch Minecraft ───────────────────────────────────────────────
+ipcMain.handle(
+  "launch-minecraft",
+  async (
+    _event,
+    {
+      instanceId,
+      version,
+      loader,
+      memoryMb,
+    }: {
+      instanceId: string;
+      version: string;
+      loader: "vanilla" | "fabric" | "forge";
+      memoryMb: number;
+    }
+  ) => {
+    try {
+      // 1. Check auth
+      const stored = loadStoredAuth() as any;
+      if (!stored) {
+        return { success: false, error: "Not logged in. Please sign in with Microsoft first." };
+      }
+
+      // 2. Ensure Java is installed
+      const javaVersion = getRequiredJavaVersion(version);
+      mainWindow?.webContents.send("launch-progress", {
+        instanceId,
+        stage: "java",
+        message: `Checking Java ${javaVersion}...`,
+        percent: 0,
+      });
+
+      const javaBin = await ensureJava(javaVersion, (progress) => {
+        mainWindow?.webContents.send("launch-progress", {
+          instanceId,
+          stage: "java",
+          message: progress.stage,
+          percent: progress.percent,
+        });
+      });
+
+      // 3. Set up paths
+      const mcRoot = getMinecraftRoot();
+      const instanceDir = path.join(getInstancesDir(), instanceId);
+      ensureDir(mcRoot);
+      ensureDir(instanceDir);
+
+      // 4. Launch via minecraft-java-core
+      mainWindow?.webContents.send("launch-progress", {
+        instanceId,
+        stage: "assets",
+        message: "Preparing game files...",
+        percent: 0,
+      });
+
+      const launcher = new Launch();
+
+      launcher.on("progress", (progress: number, size: number, element: string) => {
+        mainWindow?.webContents.send("launch-progress", {
+          instanceId,
+          stage: "download",
+          message: element,
+          percent: size > 0 ? Math.round((progress / size) * 100) : 0,
+        });
+      });
+
+      launcher.on("speed", (speed: number) => {
+        mainWindow?.webContents.send("launch-speed", { instanceId, speed });
+      });
+
+      launcher.on("estimated", (time: number) => {
+        mainWindow?.webContents.send("launch-estimated", { instanceId, time });
+      });
+
+      launcher.on("patch", (patch: any) => {
+        mainWindow?.webContents.send("launch-progress", {
+          instanceId,
+          stage: "patch",
+          message: typeof patch === "string" ? patch : "Patching...",
+          percent: -1,
+        });
+      });
+
+      launcher.on("check", (progress: number, size: number, element: string) => {
+        mainWindow?.webContents.send("launch-progress", {
+          instanceId,
+          stage: "check",
+          message: `Checking ${element}`,
+          percent: size > 0 ? Math.round((progress / size) * 100) : 0,
+        });
+      });
+
+      launcher.on("extract", (extract: any) => {
+        mainWindow?.webContents.send("launch-progress", {
+          instanceId,
+          stage: "extract",
+          message: typeof extract === "string" ? extract : "Extracting...",
+          percent: -1,
+        });
+      });
+
+      launcher.on("data", (data: string) => {
+        mainWindow?.webContents.send("game-log", { instanceId, line: data });
+      });
+
+      launcher.on("close", () => {
+        mainWindow?.webContents.send("game-closed", { instanceId });
+      });
+
+      launcher.on("error", (err: any) => {
+        mainWindow?.webContents.send("game-error", {
+          instanceId,
+          error: typeof err === "string" ? err : err?.error || err?.message || "Unknown error",
+        });
+      });
+
+      const minMemory = Math.max(512, Math.floor(memoryMb / 2));
+
+      await launcher.Launch({
+        url: null,
+        authenticator: stored,
+        timeout: 10000,
+        path: mcRoot,
+        version: version,
+        instance: null,
+        detached: false,
+        downloadFileMultiple: 5,
+        intelEnabledMac: false,
+        ignore_log4j: false,
+        loader: {
+          type: loader === "vanilla" ? null : loader,
+          build: "latest",
+          enable: loader !== "vanilla",
+        },
+        verify: false,
+        ignored: [],
+        JVM_ARGS: [],
+        GAME_ARGS: ["--gameDir", instanceDir],
+        java: {
+          path: javaBin,
+          type: "jdk",
+        },
+        screen: {},
+        memory: {
+          min: `${minMemory}M`,
+          max: `${memoryMb}M`,
+        },
+      });
+
+      mainWindow?.webContents.send("launch-progress", {
+        instanceId,
+        stage: "launched",
+        message: "Game launched!",
+        percent: 100,
+      });
+
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Launch failed",
+      };
+    }
+  }
+);
 
 app.whenReady().then(() => {
   createWindow();

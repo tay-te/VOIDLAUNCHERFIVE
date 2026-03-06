@@ -1,7 +1,8 @@
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores";
-import { Home, Search, Layers, Settings, User } from "lucide-react";
+import { Home, Search, Layers, Settings, User, Users } from "lucide-react";
 import { PlayerAvatar } from "./SkinViewer";
+import { NotificationTray } from "./NotificationTray";
 
 interface SidebarProps {
   activePage: string;
@@ -12,6 +13,7 @@ const navItems = [
   { id: "home", label: "Home", icon: Home },
   { id: "browse", label: "Browse", icon: Search },
   { id: "instances", label: "Instances", icon: Layers },
+  { id: "friends", label: "Friends", icon: Users },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -48,6 +50,9 @@ export const Sidebar = observer(
         })}
 
         <div className="flex-1" />
+
+        {/* Notifications */}
+        <NotificationTray />
 
         {/* User */}
         <button

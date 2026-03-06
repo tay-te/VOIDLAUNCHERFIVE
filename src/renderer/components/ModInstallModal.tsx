@@ -145,6 +145,13 @@ export const ModInstallModal = observer(({ mod, onClose, onInstalled }: Props) =
 
       for (let i = 0; i < modsToInstall.length; i++) {
         const { version, project } = modsToInstall[i];
+
+        // Re-check at install time in case it was installed between resolution and now,
+        // or by an earlier dependency in this same batch
+        if (store.hasModInstalled(selectedInstance.id, project.id)) {
+          continue;
+        }
+
         const primaryFile = version.files.find((f) => f.primary) ?? version.files[0];
         if (!primaryFile) continue;
 

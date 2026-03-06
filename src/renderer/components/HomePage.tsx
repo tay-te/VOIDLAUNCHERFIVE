@@ -9,7 +9,10 @@ import {
   Gamepad2,
   Clock,
   Layers,
+  Loader2,
+  Square,
 } from "lucide-react";
+import type { LaunchProgress } from "../types/electron";
 
 interface HomePageProps {
   onOpenMod: (id: string) => void;
@@ -29,6 +32,10 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
   const { auth, instances } = useStore();
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [showInstancePicker, setShowInstancePicker] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [launchProgress, setLaunchProgress] = useState<LaunchProgress | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [gameRunning, setGameRunning] = useState(false);
 
   const greeting = useMemo(() => getGreeting(), []);
 
@@ -49,9 +56,52 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
 
   const userName = auth.username;
 
-  const handleLaunch = () => {
-    if (selectedInstance) {
-      instances.launch(selectedInstance.id);
+  // Listen for launch events
+  useEffect(() => {
+    const handleProgress = (data: LaunchProgress) => {
+      if (selectedInstanceId && data.instanceId === selectedInstanceId) {
+        setLaunchProgress(data);
+        if (data.stage === "launched") {
+          setLaunching(false);
+          setGameRunning(true);
+        }
+      }
+    };
+    const handleClosed = (data: { instanceId: string }) => {
+      if (selectedInstanceId && data.instanceId === selectedInstanceId) {
+        setGameRunning(false);
+        setLaunchProgress(null);
+      }
+    };
+    const handleError = (data: { instanceId: string; error: string }) => {
+      if (selectedInstanceId && data.instanceId === selectedInstanceId) {
+        setLaunching(false);
+        setGameRunning(false);
+        setLaunchError(data.error);
+        setTimeout(() => setLaunchError(null), 8000);
+      }
+    };
+    window.electronAPI.onLaunchProgress(handleProgress);
+    window.electronAPI.onGameClosed(handleClosed);
+    window.electronAPI.onGameError(handleError);
+  }, [selectedInstanceId]);
+
+  const handleLaunch = async () => {
+    if (!selectedInstance || launching || gameRunning) return;
+    setLaunching(true);
+    setLaunchError(null);
+    setLaunchProgress(null);
+    instances.launch(selectedInstance.id);
+    const result = await window.electronAPI.launchMinecraft({
+      instanceId: selectedInstance.id,
+      version: selectedInstance.version,
+      loader: selectedInstance.loader,
+      memoryMb: selectedInstance.memoryMb ?? 4096,
+    });
+    if (!result.success) {
+      setLaunching(false);
+      setLaunchError(result.error || "Launch failed");
+      setTimeout(() => setLaunchError(null), 8000);
     }
   };
 
@@ -208,15 +258,46 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
         </div>
 
         {/* Launch button */}
-        <button
-          onClick={handleLaunch}
-          disabled={!selectedInstance}
-          className="launch-btn flex items-center gap-3 px-7 py-3.5 rounded-2xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white font-black text-lg tracking-tight transition-all duration-300 cursor-pointer hover:-translate-y-1 disabled:opacity-40 disabled:cursor-default disabled:hover:translate-y-0"
-        >
-          <span className="launch-shimmer" />
-          <Play size={18} fill="white" className="relative z-10" />
-          <span className="relative z-10">Launch</span>
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          {launching && launchProgress && (
+            <div className="px-4 py-2 rounded-xl bg-(--color-surface-secondary) border border-(--color-border) text-xs font-medium text-(--color-text-secondary) max-w-[260px] truncate">
+              {launchProgress.message}
+              {launchProgress.percent >= 0 && ` (${launchProgress.percent}%)`}
+            </div>
+          )}
+          {launchError && (
+            <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-medium text-red-500 max-w-[260px] truncate">
+              {launchError}
+            </div>
+          )}
+          <button
+            onClick={handleLaunch}
+            disabled={!selectedInstance || launching || gameRunning}
+            className={`launch-btn flex items-center gap-3 px-7 py-3.5 rounded-2xl text-white font-black text-lg tracking-tight transition-all duration-300 cursor-pointer hover:-translate-y-1 disabled:opacity-40 disabled:cursor-default disabled:hover:translate-y-0 ${
+              gameRunning
+                ? "bg-green-500 hover:bg-green-600"
+                : "bg-(--color-accent) hover:bg-(--color-accent-hover)"
+            }`}
+          >
+            <span className="launch-shimmer" />
+            {launching ? (
+              <>
+                <Loader2 size={18} className="animate-spin relative z-10" />
+                <span className="relative z-10">Launching...</span>
+              </>
+            ) : gameRunning ? (
+              <>
+                <Square size={16} fill="white" className="relative z-10" />
+                <span className="relative z-10">Running</span>
+              </>
+            ) : (
+              <>
+                <Play size={18} fill="white" className="relative z-10" />
+                <span className="relative z-10">Launch</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

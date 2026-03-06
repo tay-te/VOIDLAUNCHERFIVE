@@ -27,6 +27,26 @@ export interface MicrosoftAuthResult {
   error?: string;
 }
 
+export interface SystemInfo {
+  platform: string;
+  arch: string;
+  totalMemoryBytes: number;
+  totalMemoryMb: number;
+}
+
+export interface JavaStatus {
+  required: number;
+  installed: boolean;
+  path: string | null;
+}
+
+export interface LaunchProgress {
+  instanceId: string;
+  stage: string;
+  message: string;
+  percent: number;
+}
+
 export interface ElectronAPI {
   getSystemTheme: () => Promise<"dark" | "light">;
   installUpdate: () => Promise<void>;
@@ -52,6 +72,25 @@ export interface ElectronAPI {
   microsoftRefresh: () => Promise<MicrosoftAuthResult>;
   microsoftLogout: () => Promise<{ success: boolean }>;
   microsoftGetStored: () => Promise<MicrosoftAuthResult>;
+
+  // System info
+  getSystemInfo: () => Promise<SystemInfo>;
+
+  // Java management
+  getJavaStatus: (data: { mcVersion: string }) => Promise<JavaStatus>;
+
+  // Minecraft launching
+  launchMinecraft: (data: {
+    instanceId: string;
+    version: string;
+    loader: "vanilla" | "fabric" | "forge";
+    memoryMb: number;
+  }) => Promise<{ success: boolean; error?: string }>;
+  onLaunchProgress: (cb: (data: LaunchProgress) => void) => void;
+  onLaunchSpeed: (cb: (data: { instanceId: string; speed: number }) => void) => void;
+  onGameClosed: (cb: (data: { instanceId: string }) => void) => void;
+  onGameError: (cb: (data: { instanceId: string; error: string }) => void) => void;
+  onGameLog: (cb: (data: { instanceId: string; line: string }) => void) => void;
 }
 
 declare global {

@@ -24,4 +24,39 @@ contextBridge.exposeInMainWorld("electronAPI", {
   microsoftRefresh: () => ipcRenderer.invoke("microsoft-refresh"),
   microsoftLogout: () => ipcRenderer.invoke("microsoft-logout"),
   microsoftGetStored: () => ipcRenderer.invoke("microsoft-get-stored"),
+
+  // System info
+  getSystemInfo: () => ipcRenderer.invoke("get-system-info"),
+
+  // Java management
+  getJavaStatus: (data: { mcVersion: string }) =>
+    ipcRenderer.invoke("get-java-status", data),
+
+  // Minecraft launching
+  launchMinecraft: (data: {
+    instanceId: string;
+    version: string;
+    loader: "vanilla" | "fabric" | "forge";
+    memoryMb: number;
+  }) => ipcRenderer.invoke("launch-minecraft", data),
+  onLaunchProgress: (
+    cb: (data: {
+      instanceId: string;
+      stage: string;
+      message: string;
+      percent: number;
+    }) => void
+  ) => ipcRenderer.on("launch-progress", (_e, data) => cb(data)),
+  onLaunchSpeed: (
+    cb: (data: { instanceId: string; speed: number }) => void
+  ) => ipcRenderer.on("launch-speed", (_e, data) => cb(data)),
+  onGameClosed: (
+    cb: (data: { instanceId: string }) => void
+  ) => ipcRenderer.on("game-closed", (_e, data) => cb(data)),
+  onGameError: (
+    cb: (data: { instanceId: string; error: string }) => void
+  ) => ipcRenderer.on("game-error", (_e, data) => cb(data)),
+  onGameLog: (
+    cb: (data: { instanceId: string; line: string }) => void
+  ) => ipcRenderer.on("game-log", (_e, data) => cb(data)),
 });

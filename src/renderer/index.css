@@ -119,22 +119,12 @@ html, body, #root {
 }
 
 /* Welcome screen animations */
-@keyframes welcome-particle-float {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0; }
-  10% { opacity: 1; }
-  50% { transform: translateY(-40px) scale(1.5); }
-  90% { opacity: 1; }
+@keyframes welcome-dot-bounce {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
 }
-.welcome-particle {
-  animation: welcome-particle-float 5s ease-in-out infinite;
-}
-
-@keyframes welcome-status-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-.welcome-status-dot {
-  animation: welcome-status-blink 1.2s ease-in-out infinite;
+.welcome-dot {
+  animation: welcome-dot-bounce 1s ease-in-out infinite;
 }
 
 /* ─── Home page animations ──────────────────────────────────────────────── */
@@ -224,6 +214,51 @@ html, body, #root {
 .selector-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Browse page animations ────────────────────────────────────────────── */
+
+@keyframes browse-card-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.browse-mod-card {
+  animation: browse-card-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.browse-filter-card {
+  animation: browse-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Notification tray slide-in */
+@keyframes notification-tray-enter {
+  from { opacity: 0; transform: translateX(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+.notification-tray-enter {
+  animation: notification-tray-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Download toast slide-up */
+@keyframes download-toast-enter {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.download-toast-enter {
+  animation: download-toast-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Version dropdown slide-in */
+@keyframes version-dropdown-enter {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 280px; }
+}
+.version-dropdown-enter {
+  animation: version-dropdown-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Memory slider */

@@ -13,9 +13,15 @@ import {
   Clock,
   Calendar,
   Rocket,
+  Share2,
+  Download,
+  Globe,
+  Users,
 } from "lucide-react";
 import { CreateInstanceWizard } from "./CreateInstanceWizard";
 import { InstanceDetailPage } from "./InstanceDetailPage";
+import { ShareInstanceModal } from "./ShareInstanceModal";
+import { ImportShareCodeModal } from "./ImportShareCodeModal";
 import type { Instance } from "../stores/InstanceStore";
 
 const LOADER_META: Record<
@@ -47,12 +53,12 @@ interface InstancesPageProps {
 }
 
 export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
-  const { instances: store } = useStore();
+  const { instances: store, auth } = useStore();
   const [showWizard, setShowWizard] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
-    null
-  );
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [shareInstance, setShareInstance] = useState<Instance | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const handleCreate = (data: {
     name: string;
@@ -66,45 +72,67 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
 
   if (selectedInstanceId) {
     return (
-      <InstanceDetailPage
-        instanceId={selectedInstanceId}
-        onBack={() => setSelectedInstanceId(null)}
-        onBrowseMods={() => {
-          setSelectedInstanceId(null);
-          onNavigate?.("browse");
-        }}
-      />
+      <>
+        <InstanceDetailPage
+          instanceId={selectedInstanceId}
+          onBack={() => setSelectedInstanceId(null)}
+          onBrowseMods={() => {
+            setSelectedInstanceId(null);
+            onNavigate?.("browse");
+          }}
+          onShareInstance={(inst) => setShareInstance(inst)}
+        />
+        {shareInstance && (
+          <ShareInstanceModal
+            instance={shareInstance}
+            onClose={() => setShareInstance(null)}
+          />
+        )}
+      </>
     );
   }
 
   return (
-    <div className="p-8 space-y-5">
+    <div className="p-10 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-(--color-text-primary)">
-            Your <span className="void-text">Worlds</span>
+            <span className="text-(--color-text-secondary) font-semibold text-lg">{auth.username} /</span>{" "}
+            <span className="void-text">Worlds</span>
           </h1>
           <p className="text-sm text-(--color-text-secondary) mt-1">
             Craft, configure, and launch your Minecraft instances
           </p>
         </div>
-        {store.instances.length > 0 && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
           >
-            <Plus size={15} />
-            New Instance
+            <Download size={15} />
+            Import
           </button>
-        )}
+          {store.instances.length > 0 && (
+            <button
+              onClick={() => setShowWizard(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
+            >
+              <Plus size={15} />
+              New Instance
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content */}
       {store.instances.length === 0 ? (
-        <EmptyState onCreateClick={() => setShowWizard(true)} />
+        <EmptyState
+          onCreateClick={() => setShowWizard(true)}
+          onImportClick={() => setShowImport(true)}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {store.instances.map((inst) => (
             <InstanceCard
               key={inst.id}
@@ -112,6 +140,7 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
               isDeleting={deleteConfirm === inst.id}
               onClick={() => setSelectedInstanceId(inst.id)}
               onLaunch={() => store.launch(inst.id)}
+              onShare={() => setShareInstance(inst)}
               onDeleteRequest={() => setDeleteConfirm(inst.id)}
               onDeleteConfirm={() => {
                 store.remove(inst.id);
@@ -123,11 +152,25 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
         </div>
       )}
 
-      {/* Wizard overlay */}
+      {/* Modals */}
       {showWizard && (
         <CreateInstanceWizard
           onClose={() => setShowWizard(false)}
           onCreate={handleCreate}
+        />
+      )}
+
+      {shareInstance && (
+        <ShareInstanceModal
+          instance={shareInstance}
+          onClose={() => setShareInstance(null)}
+        />
+      )}
+
+      {showImport && (
+        <ImportShareCodeModal
+          onClose={() => setShowImport(false)}
+          onImported={() => {}}
         />
       )}
     </div>
@@ -136,7 +179,13 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
 
 /* -- Empty state -- */
 
-function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
+function EmptyState({
+  onCreateClick,
+  onImportClick,
+}: {
+  onCreateClick: () => void;
+  onImportClick: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-20">
       <div className="relative">
@@ -155,16 +204,24 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
         The void is empty
       </h3>
       <p className="text-sm text-(--color-text-secondary) mt-1 max-w-xs text-center">
-        Create your first instance to start building your modded Minecraft
-        universe.
+        Create your first instance or import one from a friend's share code.
       </p>
-      <button
-        onClick={onCreateClick}
-        className="mt-5 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
-      >
-        <Plus size={15} />
-        Create your first instance
-      </button>
+      <div className="flex items-center gap-3 mt-5">
+        <button
+          onClick={onCreateClick}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
+        >
+          <Plus size={15} />
+          Create Instance
+        </button>
+        <button
+          onClick={onImportClick}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
+        >
+          <Download size={15} />
+          Import Code
+        </button>
+      </div>
     </div>
   );
 }
@@ -176,6 +233,7 @@ function InstanceCard({
   isDeleting,
   onClick,
   onLaunch,
+  onShare,
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
@@ -184,6 +242,7 @@ function InstanceCard({
   isDeleting: boolean;
   onClick: () => void;
   onLaunch: () => void;
+  onShare: () => void;
   onDeleteRequest: () => void;
   onDeleteConfirm: () => void;
   onDeleteCancel: () => void;
@@ -197,7 +256,7 @@ function InstanceCard({
       className="group relative rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden hover:border-(--color-accent)/25 hover:shadow-md transition-all duration-200 cursor-pointer"
       onClick={onClick}
     >
-      <div className="p-4">
+      <div className="p-5">
         {/* Instance info */}
         <div className="flex items-start gap-3.5">
           <div
@@ -227,6 +286,18 @@ function InstanceCard({
                 <LoaderIcon size={9} />
                 {loaderMeta.label}
               </span>
+              {instance.shareCode && (
+                <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 bg-(--color-accent)/10 text-(--color-accent)">
+                  <Globe size={8} />
+                  Shared
+                </span>
+              )}
+              {instance.isCollaborative && (
+                <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 bg-purple-500/10 text-purple-500">
+                  <Users size={8} />
+                  Collab
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -251,7 +322,7 @@ function InstanceCard({
 
         {/* Actions */}
         <div
-          className="flex items-center gap-2 mt-3"
+          className="flex items-center gap-2 mt-4"
           onClick={(e) => e.stopPropagation()}
         >
           {isDeleting ? (
@@ -284,6 +355,12 @@ function InstanceCard({
               >
                 <Play size={12} fill="currentColor" />
                 Launch
+              </button>
+              <button
+                onClick={onShare}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-(--color-accent)/10 text-(--color-text-secondary) hover:text-(--color-accent) transition-colors cursor-pointer"
+              >
+                <Share2 size={12} />
               </button>
               <button className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer">
                 <Pencil size={12} />
