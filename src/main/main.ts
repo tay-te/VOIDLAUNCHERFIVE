@@ -6,8 +6,7 @@ import https from "node:https";
 import http from "node:http";
 import os from "node:os";
 import { execSync } from "node:child_process";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { Microsoft, Launch } = require("minecraft-java-core");
+import { Microsoft, Launch } from "minecraft-java-core";
 
 // Handle Squirrel events for Windows installer
 if (require("electron-squirrel-startup")) app.quit();
