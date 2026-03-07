@@ -26,6 +26,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onUpdateAvailable: createListener<unknown>("update-available"),
   onUpdateDownloaded: createListener<unknown>("update-downloaded"),
   onUpdateError: createListener<string>("update-error"),
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  onCheckingForUpdate: createListener<unknown>("checking-for-update"),
+  onUpdateNotAvailable: createListener<unknown>("update-not-available"),
+  onUpdateDownloadProgress: createListener<{
+    bytesPerSecond: number;
+    percent: number;
+    transferred: number;
+    total: number;
+  }>("update-download-progress"),
   microsoftLogin: () => ipcRenderer.invoke("microsoft-login"),
   microsoftRefresh: () => ipcRenderer.invoke("microsoft-refresh"),
   microsoftLogout: () => ipcRenderer.invoke("microsoft-logout"),

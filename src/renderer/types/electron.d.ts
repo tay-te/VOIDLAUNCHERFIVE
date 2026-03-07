@@ -68,6 +68,15 @@ export interface ElectronAPI {
   onUpdateAvailable: (cb: (info: unknown) => void) => () => void;
   onUpdateDownloaded: (cb: (info: unknown) => void) => () => void;
   onUpdateError: (cb: (msg: string) => void) => () => void;
+  checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
+  onCheckingForUpdate: (cb: (data: unknown) => void) => () => void;
+  onUpdateNotAvailable: (cb: (data: unknown) => void) => () => void;
+  onUpdateDownloadProgress: (cb: (data: {
+    bytesPerSecond: number;
+    percent: number;
+    transferred: number;
+    total: number;
+  }) => void) => () => void;
   microsoftLogin: () => Promise<MicrosoftAuthResult>;
   microsoftRefresh: () => Promise<MicrosoftAuthResult>;
   microsoftLogout: () => Promise<{ success: boolean }>;

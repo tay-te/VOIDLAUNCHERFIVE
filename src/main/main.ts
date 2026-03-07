@@ -269,8 +269,25 @@ function setupAutoUpdater() {
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowDowngrade = false;
 
+  autoUpdater.on("checking-for-update", () => {
+    mainWindow?.webContents.send("checking-for-update");
+  });
+
   autoUpdater.on("update-available", (info) => {
     mainWindow?.webContents.send("update-available", info);
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    mainWindow?.webContents.send("update-not-available");
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents.send("update-download-progress", {
+      bytesPerSecond: progress.bytesPerSecond,
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+    });
   });
 
   autoUpdater.on("update-downloaded", (info) => {
@@ -344,6 +361,15 @@ ipcMain.handle("get-system-theme", () => {
 
 ipcMain.handle("install-update", () => {
   autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Check failed" };
+  }
 });
 
 ipcMain.handle("get-app-version", () => {

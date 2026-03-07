@@ -13,6 +13,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ImportShareCodeModal } from "./components/ImportShareCodeModal";
 import { DownloadToast } from "./components/DownloadToast";
+import { UpdateOverlay } from "./components/UpdateOverlay";
 import { CustomCursor } from "./components/CustomCursor";
 
 const App = observer(() => {
@@ -122,6 +123,9 @@ const App = observer(() => {
 
       {/* Download progress toast */}
       <DownloadToast />
+
+      {/* Update overlay */}
+      <UpdateOverlay />
     </div>
   );
 });
