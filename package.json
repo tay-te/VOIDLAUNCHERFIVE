@@ -1,6 +1,6 @@
 {
   "name": "void-launcher",
-  "version": "2.0.5",
+  "version": "2.0.13",
   "description": "Minecraft Modding Client",
   "main": ".vite/build/main.js",
   "scripts": {
