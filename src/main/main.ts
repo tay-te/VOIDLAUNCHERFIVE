@@ -221,8 +221,18 @@ function createWindow() {
     },
   });
 
-  // Set Content Security Policy
+  // Set Content Security Policy — only for the app's own pages, not external
+  // windows (e.g. Microsoft OAuth popup opened by minecraft-java-core)
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const isAppPage =
+      details.url.startsWith("file://") ||
+      (MAIN_WINDOW_VITE_DEV_SERVER_URL && details.url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL));
+
+    if (!isAppPage) {
+      callback({ cancel: false });
+      return;
+    }
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
