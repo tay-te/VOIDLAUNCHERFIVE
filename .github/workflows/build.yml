@@ -14,9 +14,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            arch: universal
+            args: --mac --universal
           - os: windows-latest
-            arch: x64
+            args: --win --x64
 
     runs-on: ${{ matrix.os }}
 
@@ -41,5 +41,5 @@ jobs:
 
       - name: Build and publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish -- --arch=${{ matrix.arch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist:publish -- ${{ matrix.args }}

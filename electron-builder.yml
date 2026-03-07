@@ -1,0 +1,40 @@
+appId: com.voidlauncher.app
+productName: Void Launcher
+
+directories:
+  output: out
+
+extraMetadata:
+  main: dist/build/main.js
+
+files:
+  - dist/**/*
+  - package.json
+
+asar: true
+asarUnpack:
+  - node_modules/minecraft-java-core/**
+
+mac:
+  category: public.app-category.games
+  icon: public/icon.icns
+  target:
+    - dmg
+    - zip
+
+dmg:
+  format: ULFO
+
+win:
+  icon: public/icon.ico
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+publish:
+  provider: github
+  owner: tay-te
+  repo: VOIDLAUNCHERFIVE
