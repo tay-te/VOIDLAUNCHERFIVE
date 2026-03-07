@@ -17,9 +17,22 @@ const config: ForgeConfig = {
     icon: "./public/icon",
     afterCopy: [
       (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error) => void) => {
-        const src = path.resolve(__dirname, "node_modules/minecraft-java-core");
-        const dest = path.join(buildPath, "node_modules/minecraft-java-core");
-        fs.cpSync(src, dest, { recursive: true });
+        const copied = new Set<string>();
+        function copyWithDeps(mod: string) {
+          if (copied.has(mod)) return;
+          copied.add(mod);
+          const src = path.resolve(__dirname, "node_modules", mod);
+          if (!fs.existsSync(src)) return;
+          const dest = path.join(buildPath, "node_modules", mod);
+          fs.cpSync(src, dest, { recursive: true });
+          try {
+            const pkg = JSON.parse(fs.readFileSync(path.join(src, "package.json"), "utf-8"));
+            for (const dep of Object.keys(pkg.dependencies || {})) {
+              copyWithDeps(dep);
+            }
+          } catch {}
+        }
+        copyWithDeps("minecraft-java-core");
         callback();
       },
     ],

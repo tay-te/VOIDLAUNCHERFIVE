@@ -91,16 +91,28 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
   );
   const [versionSearch, setVersionSearch] = useState("");
   const [loadingVersions, setLoadingVersions] = useState(true);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
 
   // Step 3
   const [loader, setLoader] = useState<Loader>("fabric");
 
+  const loadVersions = () => {
+    setLoadingVersions(true);
+    setVersionsError(null);
+    getMinecraftVersions()
+      .then((data) => {
+        setVersions(data.versions);
+        setSelectedVersion(data.latest.release);
+        setLoadingVersions(false);
+      })
+      .catch(() => {
+        setLoadingVersions(false);
+        setVersionsError("Failed to load versions. Check your connection.");
+      });
+  };
+
   useEffect(() => {
-    getMinecraftVersions().then((data) => {
-      setVersions(data.versions);
-      setSelectedVersion(data.latest.release);
-      setLoadingVersions(false);
-    });
+    loadVersions();
   }, []);
 
   const filteredVersions = useMemo(() => {
@@ -372,6 +384,18 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
           {loadingVersions ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-6 h-6 border-2 border-(--color-accent) border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : versionsError ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <p className="text-sm text-(--color-text-secondary)">
+                {versionsError}
+              </p>
+              <button
+                onClick={loadVersions}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-(--color-accent) text-white hover:bg-(--color-accent-hover) transition-colors cursor-pointer"
+              >
+                Retry
+              </button>
             </div>
           ) : filteredVersions.length === 0 ? (
             <div className="text-center py-12 text-sm text-(--color-text-secondary)">

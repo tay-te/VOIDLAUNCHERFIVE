@@ -221,15 +221,25 @@ function createWindow() {
     },
   });
 
-  // Set Content Security Policy
+  // Set Content Security Policy — only for the app's own pages, not external
+  // windows (e.g. Microsoft OAuth popup opened by minecraft-java-core)
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const isAppPage =
+      details.url.startsWith("file://") ||
+      (MAIN_WINDOW_VITE_DEV_SERVER_URL && details.url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL));
+
+    if (!isAppPage) {
+      callback({ cancel: false });
+      return;
+    }
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         "Content-Security-Policy": [
           MAIN_WINDOW_VITE_DEV_SERVER_URL
-            ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws: https://api.modrinth.com https://*.supabase.co https://crafatar.com https://minotar.net; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net;"
-            : "default-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.modrinth.com https://*.supabase.co https://crafatar.com https://cdn-raw.modrinth.com https://minotar.net; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net; font-src 'self' data:;",
+            ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws: https://api.modrinth.com https://*.supabase.co https://crafatar.com https://minotar.net https://launchermeta.mojang.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net;"
+            : "default-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.modrinth.com https://*.supabase.co https://crafatar.com https://cdn-raw.modrinth.com https://minotar.net https://launchermeta.mojang.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net; font-src 'self' data:;",
         ],
       },
     });
