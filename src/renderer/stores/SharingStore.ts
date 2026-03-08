@@ -339,6 +339,50 @@ export class SharingStore {
     });
   }
 
+  /** Get all shared instances owned by the current user */
+  async getMySharedInstances(): Promise<SharedInstanceData[]> {
+    if (!this.profileId) return [];
+
+    try {
+      const { data: owned } = await supabase
+        .from("shared_instances")
+        .select(`
+          id, name, mc_version, loader, icon_color, share_code, is_collaborative,
+          owner:profiles!owner_id(id, mc_uuid, mc_username, avatar_url)
+        `)
+        .eq("owner_id", this.profileId);
+
+      if (!owned || owned.length === 0) return [];
+
+      const results: SharedInstanceData[] = [];
+      for (const shared of owned) {
+        const { data: mods } = await supabase
+          .from("shared_instance_mods")
+          .select("project_id, version_id, title, icon_url, filename")
+          .eq("instance_id", shared.id);
+
+        const ownerData = Array.isArray(shared.owner) ? shared.owner[0] : shared.owner;
+
+        results.push({
+          id: shared.id,
+          name: shared.name,
+          mc_version: shared.mc_version,
+          loader: shared.loader,
+          icon_color: shared.icon_color,
+          share_code: shared.share_code,
+          is_collaborative: shared.is_collaborative,
+          owner: ownerData as Profile,
+          mods: mods ?? [],
+          collaborators: [],
+        });
+      }
+
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
   /** Get instances shared with me */
   async getSharedWithMe(): Promise<SharedInstanceData[]> {
     if (!this.profileId) return [];

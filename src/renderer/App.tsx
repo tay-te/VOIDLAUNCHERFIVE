@@ -37,10 +37,24 @@ const App = observer(() => {
     if (auth.isAuthenticated && auth.uuid) {
       instances.setUser(auth.uuid, auth.username);
       // Ensure Supabase profile exists for sharing features
-      sharing.ensureProfile(auth.uuid, auth.username).then(() => {
+      sharing.ensureProfile(auth.uuid, auth.username).then(async () => {
+        if (!sharing.profileId) return;
         // Wire notification polling once profile is ready
-        if (sharing.profileId) {
-          notifications.setProfileId(sharing.profileId);
+        notifications.setProfileId(sharing.profileId);
+        // Check for cloud instances not installed on this device
+        instances.setLoadingCloud(true);
+        try {
+          const [owned, sharedWithMe] = await Promise.all([
+            sharing.getMySharedInstances(),
+            sharing.getSharedWithMe(),
+          ]);
+          const all = [...owned];
+          for (const s of sharedWithMe) {
+            if (!all.some((a) => a.id === s.id)) all.push(s);
+          }
+          instances.setCloudInstances(all);
+        } catch {
+          instances.setLoadingCloud(false);
         }
       });
     } else {

@@ -19,12 +19,14 @@ import {
   Users,
   Loader2,
   Square,
+  Cloud,
 } from "lucide-react";
 import { CreateInstanceWizard } from "./CreateInstanceWizard";
 import { InstanceDetailPage } from "./InstanceDetailPage";
 import { ShareInstanceModal } from "./ShareInstanceModal";
 import { ImportShareCodeModal } from "./ImportShareCodeModal";
 import type { Instance } from "../stores/InstanceStore";
+import type { SharedInstanceData } from "../stores/SharingStore";
 
 const LOADER_META: Record<
   string,
@@ -115,7 +117,7 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
             <Download size={15} />
             Import
           </button>
-          {store.instances.length > 0 && (
+          {(store.instances.length > 0 || store.cloudInstances.length > 0) && (
             <button
               onClick={() => setShowWizard(true)}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
@@ -128,33 +130,70 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
       </div>
 
       {/* Content */}
-      {store.instances.length === 0 ? (
+      {store.instances.length === 0 && store.cloudInstances.length === 0 && !store.loadingCloud ? (
         <EmptyState
           onCreateClick={() => setShowWizard(true)}
           onImportClick={() => setShowImport(true)}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {store.instances.map((inst) => (
-            <InstanceCard
-              key={inst.id}
-              instance={inst}
-              isDeleting={deleteConfirm === inst.id}
-              isLaunching={store.launchingInstanceId === inst.id}
-              isRunning={store.runningInstanceId === inst.id}
-              isBusy={store.isLaunching || store.isGameRunning}
-              launchProgress={store.launchingInstanceId === inst.id ? store.launchProgress : null}
-              onClick={() => setSelectedInstanceId(inst.id)}
-              onLaunch={() => store.launchGame(inst.id)}
-              onShare={() => setShareInstance(inst)}
-              onDeleteRequest={() => setDeleteConfirm(inst.id)}
-              onDeleteConfirm={() => {
-                store.remove(inst.id);
-                setDeleteConfirm(null);
-              }}
-              onDeleteCancel={() => setDeleteConfirm(null)}
-            />
-          ))}
+        <div className="space-y-5">
+          {/* Local instances */}
+          {store.instances.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {store.instances.map((inst) => (
+                <InstanceCard
+                  key={inst.id}
+                  instance={inst}
+                  isDeleting={deleteConfirm === inst.id}
+                  isLaunching={store.launchingInstanceId === inst.id}
+                  isRunning={store.runningInstanceId === inst.id}
+                  isBusy={store.isLaunching || store.isGameRunning}
+                  launchProgress={store.launchingInstanceId === inst.id ? store.launchProgress : null}
+                  onClick={() => setSelectedInstanceId(inst.id)}
+                  onLaunch={() => store.launchGame(inst.id)}
+                  onShare={() => setShareInstance(inst)}
+                  onDeleteRequest={() => setDeleteConfirm(inst.id)}
+                  onDeleteConfirm={() => {
+                    store.remove(inst.id);
+                    setDeleteConfirm(null);
+                  }}
+                  onDeleteCancel={() => setDeleteConfirm(null)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Cloud loading indicator */}
+          {store.loadingCloud && (
+            <div className="flex items-center justify-center gap-2 py-6 text-xs text-(--color-text-secondary)">
+              <Loader2 size={12} className="animate-spin text-(--color-accent)" />
+              <span>Checking your account for saved instances...</span>
+            </div>
+          )}
+
+          {/* Cloud instances — available from Supabase but not on this device */}
+          {store.cloudInstances.length > 0 && (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-(--color-border)" />
+                <span className="text-xs font-medium text-(--color-text-secondary) flex items-center gap-1.5 px-2">
+                  <Cloud size={12} />
+                  Available from your account
+                </span>
+                <div className="h-px flex-1 bg-(--color-border)" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {store.cloudInstances.map((cloud) => (
+                  <CloudInstanceCard
+                    key={cloud.id}
+                    data={cloud}
+                    syncProgress={store.syncingInstances.get(cloud.id) ?? null}
+                    onSync={() => store.syncCloudInstance(cloud)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -429,6 +468,119 @@ function InstanceCard({
               </button>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -- Cloud instance card -- */
+
+function CloudInstanceCard({
+  data,
+  syncProgress,
+  onSync,
+}: {
+  data: SharedInstanceData;
+  syncProgress: { message: string; percent: number } | null;
+  onSync: () => void;
+}) {
+  const loaderMeta = LOADER_META[data.loader] ?? LOADER_META.vanilla;
+  const LoaderIcon = loaderMeta.icon;
+  const letter = data.name[0]?.toUpperCase() ?? "?";
+  const isSyncing = syncProgress !== null;
+
+  return (
+    <div className="group relative rounded-2xl bg-(--color-surface-secondary) border border-dashed border-(--color-border) overflow-hidden opacity-60 hover:opacity-85 transition-all duration-200">
+      <div className="p-5">
+        {/* Instance info */}
+        <div className="flex items-start gap-3.5">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0 grayscale"
+            style={{
+              backgroundColor: data.icon_color + "15",
+              color: data.icon_color,
+            }}
+          >
+            {letter}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-(--color-text-primary) truncate">
+              {data.name}
+            </h3>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span className="text-[11px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-md">
+                {data.mc_version}
+              </span>
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"
+                style={{
+                  backgroundColor: loaderMeta.color + "12",
+                  color: loaderMeta.color,
+                }}
+              >
+                <LoaderIcon size={9} />
+                {loaderMeta.label}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 bg-(--color-text-secondary)/10 text-(--color-text-secondary)">
+                <Cloud size={8} />
+                Cloud
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Meta */}
+        <div className="flex items-center gap-3.5 mt-3 text-[11px] text-(--color-text-secondary)">
+          <span className="flex items-center gap-1">
+            <Layers size={10} />
+            {data.mods.length} mod{data.mods.length !== 1 ? "s" : ""}
+          </span>
+          <span className="flex items-center gap-1">
+            <Globe size={10} />
+            {data.owner.mc_username}
+          </span>
+        </div>
+
+        {/* Sync progress */}
+        {isSyncing && (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-medium text-(--color-accent) truncate">
+                {syncProgress.message}
+              </span>
+              <span className="text-(--color-text-secondary) ml-2 flex-shrink-0">
+                {syncProgress.percent}%
+              </span>
+            </div>
+            <div className="w-full h-1 rounded-full bg-(--color-surface-tertiary) overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300 bg-(--color-accent)"
+                style={{ width: `${syncProgress.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Action */}
+        <div className="flex items-center gap-2 mt-4">
+          <button
+            onClick={onSync}
+            disabled={isSyncing}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default bg-(--color-accent) hover:bg-(--color-accent-hover) shadow-sm shadow-(--color-accent)/20"
+          >
+            {isSyncing ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Installing...
+              </>
+            ) : (
+              <>
+                <Download size={12} />
+                Install to this device
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { LaunchProgress } from "../types/electron";
+import type { SharedInstanceData } from "./SharingStore";
+import { getVersion } from "../api/modrinth";
 
 export interface InstalledMod {
   projectId: string;
@@ -46,6 +48,11 @@ export class InstanceStore {
   launchProgress: LaunchProgress | null = null;
   launchError: string | null = null;
   runningInstanceId: string | null = null;
+
+  // Cloud sync state — instances on Supabase but not installed locally
+  cloudInstances: SharedInstanceData[] = [];
+  loadingCloud = false;
+  syncingInstances = new Map<string, { message: string; percent: number }>();
 
   cleanupFns: (() => void)[] = [];
   errorTimer: ReturnType<typeof setTimeout> | null = null;
@@ -166,6 +173,9 @@ export class InstanceStore {
     this.currentUserUuid = null;
     this.currentUserName = null;
     this.instances = [];
+    this.cloudInstances = [];
+    this.loadingCloud = false;
+    this.syncingInstances.clear();
   }
 
   private get storageKey(): string | null {
@@ -331,7 +341,110 @@ export class InstanceStore {
       syncedAt: new Date().toISOString(),
     };
     this.instances.unshift(instance);
+    this.cloudInstances = this.cloudInstances.filter((c) => c.id !== data.sharedInstanceId);
     this.persist();
     return instance;
+  }
+
+  /** Mark cloud loading state */
+  setLoadingCloud(loading: boolean) {
+    this.loadingCloud = loading;
+  }
+
+  /** Set cloud instances, filtering out ones already installed locally */
+  setCloudInstances(all: SharedInstanceData[]) {
+    const localSharedIds = new Set(
+      this.instances
+        .filter((i) => i.sharedInstanceId)
+        .map((i) => i.sharedInstanceId)
+    );
+    this.cloudInstances = all.filter((i) => !localSharedIds.has(i.id));
+    this.loadingCloud = false;
+  }
+
+  /** Download a cloud instance to this device */
+  async syncCloudInstance(sharedData: SharedInstanceData) {
+    if (this.syncingInstances.has(sharedData.id)) return;
+
+    this.syncingInstances.set(sharedData.id, { message: "Preparing...", percent: 0 });
+
+    try {
+      // Pre-generate instance ID so files download to the right directory
+      const instanceId = crypto.randomUUID();
+      const total = sharedData.mods.length;
+      const downloadedMods: InstalledMod[] = [];
+
+      for (let i = 0; i < sharedData.mods.length; i++) {
+        const mod = sharedData.mods[i];
+
+        runInAction(() => {
+          this.syncingInstances.set(sharedData.id, {
+            message: `Downloading ${mod.title}...`,
+            percent: Math.round((i / Math.max(total, 1)) * 100),
+          });
+        });
+
+        try {
+          const version = await getVersion(mod.version_id);
+          const primaryFile = version.files.find((f) => f.primary) ?? version.files[0];
+
+          if (primaryFile) {
+            const result = await window.electronAPI.downloadMod({
+              instanceId,
+              url: primaryFile.url,
+              filename: primaryFile.filename,
+            });
+
+            if (result.success) {
+              downloadedMods.push({
+                projectId: mod.project_id,
+                versionId: mod.version_id,
+                filename: primaryFile.filename,
+                title: mod.title,
+                iconUrl: mod.icon_url,
+              });
+            }
+          }
+        } catch {
+          // Skip failed mods but continue
+        }
+      }
+
+      // Create local instance with all downloaded mods
+      runInAction(() => {
+        if (!this.currentUserUuid || !this.currentUserName) {
+          this.syncingInstances.delete(sharedData.id);
+          return;
+        }
+
+        const instance: Instance = {
+          id: instanceId,
+          name: sharedData.name,
+          version: sharedData.mc_version,
+          loader: sharedData.loader as "vanilla" | "fabric" | "forge",
+          iconColor: sharedData.icon_color,
+          memoryMb: 4096,
+          modCount: downloadedMods.length,
+          installedMods: downloadedMods,
+          lastPlayed: null,
+          dateCreated: new Date().toISOString(),
+          ownerUuid: this.currentUserUuid!,
+          ownerName: this.currentUserName!,
+          shareCode: sharedData.share_code,
+          sharedInstanceId: sharedData.id,
+          isCollaborative: sharedData.is_collaborative,
+          syncedAt: new Date().toISOString(),
+        };
+
+        this.instances.unshift(instance);
+        this.cloudInstances = this.cloudInstances.filter((c) => c.id !== sharedData.id);
+        this.syncingInstances.delete(sharedData.id);
+        this.persist();
+      });
+    } catch {
+      runInAction(() => {
+        this.syncingInstances.delete(sharedData.id);
+      });
+    }
   }
 }
