@@ -43,7 +43,9 @@ export function UpdateOverlay() {
         setState("downloaded");
       }),
       api.onUpdateError(() => {
-        setState("hidden");
+        // Don't hide if update already downloaded — macOS fires a verification
+        // error after download when the app isn't code-signed
+        setState((prev) => (prev === "downloaded" ? "downloaded" : "hidden"));
       }),
     ];
 
