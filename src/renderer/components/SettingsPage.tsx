@@ -1,19 +1,43 @@
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores";
-import { Sun, Moon, Monitor, Zap, RefreshCw, Download, CheckCircle } from "lucide-react";
+import { Sun, Moon, Monitor, Zap, RefreshCw, Download, CheckCircle, ScrollText, Tag, Loader2 } from "lucide-react";
 import type { Theme } from "../stores/ThemeStore";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 type UpdateStatus = "idle" | "checking" | "up-to-date" | "available" | "error";
+
+interface GithubRelease {
+  tag_name: string;
+  name: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+  draft: boolean;
+  prerelease: boolean;
+}
 
 export const SettingsPage = observer(() => {
   const { theme } = useStore();
   const [version, setVersion] = useState("dev");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
   const checkingRef = useRef(false);
+  const [releases, setReleases] = useState<GithubRelease[]>([]);
+  const [loadingReleases, setLoadingReleases] = useState(true);
 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then(setVersion).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("https://api.github.com/repos/tay-te/VOIDLAUNCHERFIVE/releases?per_page=25")
+      .then((res) => res.json())
+      .then((data: GithubRelease[]) => {
+        setReleases(data.filter((r) => !r.draft && !r.prerelease));
+        setLoadingReleases(false);
+      })
+      .catch(() => setLoadingReleases(false));
   }, []);
 
   useEffect(() => {
@@ -163,6 +187,43 @@ export const SettingsPage = observer(() => {
         </div>
       </section>
 
+      {/* Changelog */}
+      <section className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-(--color-accent)/10 flex items-center justify-center">
+            <ScrollText size={15} className="text-(--color-accent)" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-(--color-text-primary)">
+              What's New
+            </h2>
+            <p className="text-xs text-(--color-text-secondary) mt-0.5">
+              Latest updates and improvements
+            </p>
+          </div>
+        </div>
+
+        {loadingReleases ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={16} className="animate-spin text-(--color-accent)" />
+          </div>
+        ) : releases.length === 0 ? (
+          <p className="text-xs text-(--color-text-secondary) text-center py-6">
+            No release notes available
+          </p>
+        ) : (
+          <div className="max-h-[400px] overflow-y-auto space-y-3 pr-1 changelog-scroll">
+            {releases.map((release) => (
+              <ChangelogEntry
+                key={release.tag_name}
+                release={release}
+                isCurrent={`v${version}` === release.tag_name}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* About */}
       <section className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
         <div className="flex items-center gap-3">
@@ -194,3 +255,51 @@ export const SettingsPage = observer(() => {
     </div>
   );
 });
+
+/* -- Changelog entry -- */
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function ChangelogEntry({ release, isCurrent }: { release: GithubRelease; isCurrent: boolean }) {
+  const rendered = useMemo(() => {
+    if (!release.body) return "";
+    const raw = marked.parse(release.body, { async: false }) as string;
+    return DOMPurify.sanitize(raw);
+  }, [release.body]);
+
+  return (
+    <div
+      className={`rounded-xl border p-4 space-y-2 transition-colors ${
+        isCurrent
+          ? "border-(--color-accent)/30 bg-(--color-accent)/5"
+          : "border-(--color-border) bg-(--color-surface-tertiary)/50"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Tag size={11} className={isCurrent ? "text-(--color-accent)" : "text-(--color-text-secondary)"} />
+          <span className={`text-xs font-bold ${isCurrent ? "text-(--color-accent)" : "text-(--color-text-primary)"}`}>
+            {release.tag_name}
+          </span>
+          {isCurrent && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-(--color-accent)/15 text-(--color-accent)">
+              Current
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] text-(--color-text-secondary)">
+          {formatDate(release.published_at)}
+        </span>
+      </div>
+      {rendered && (
+        <div
+          className="changelog-body text-xs text-(--color-text-secondary) leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: rendered }}
+        />
+      )}
+    </div>
+  );
+}

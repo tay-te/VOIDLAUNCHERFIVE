@@ -48,7 +48,32 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Publish draft release
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish release with changelog
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+        run: |
+          # Mark as non-draft
+          gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+
+          # Find previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${{ github.ref_name }}$" | head -1)
+
+          # Build release notes from commit messages (skip merges and co-author lines)
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log --pretty=format:"%s" "${PREV_TAG}..${{ github.ref_name }}" \
+              | grep -v "^Merge " \
+              | grep -v "Co-Authored-By" \
+              | sed 's/^/- /')
+          else
+            NOTES="- Initial release"
+          fi
+
+          # Only update if we have notes and the body is currently empty
+          CURRENT_BODY=$(gh release view "${{ github.ref_name }}" --json body -q '.body' --repo "${{ github.repository }}")
+          if [ -z "$CURRENT_BODY" ] && [ -n "$NOTES" ]; then
+            gh release edit "${{ github.ref_name }}" --notes "$NOTES" --repo "${{ github.repository }}"
+          fi

@@ -509,6 +509,39 @@ html, body, #root {
   font-weight: 600;
 }
 
+/* ─── Changelog styles ───────────────────────────────────────────────────── */
+
+.changelog-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.changelog-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.changelog-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+.changelog-body p {
+  margin: 0.3em 0;
+}
+.changelog-body ul, .changelog-body ol {
+  padding-left: 1.25em;
+  margin: 0.3em 0;
+}
+.changelog-body li {
+  margin: 0.15em 0;
+}
+.changelog-body ul li {
+  list-style-type: disc;
+}
+.changelog-body a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.changelog-body a:hover {
+  text-decoration: underline;
+}
+
 /* ─── Update overlay animations ──────────────────────────────────────────── */
 
 @keyframes update-overlay-enter {
