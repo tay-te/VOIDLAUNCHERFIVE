@@ -238,8 +238,8 @@ function createWindow() {
         ...details.responseHeaders,
         "Content-Security-Policy": [
           MAIN_WINDOW_VITE_DEV_SERVER_URL
-            ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws: https://api.modrinth.com https://*.supabase.co https://crafatar.com https://minotar.net https://launchermeta.mojang.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net;"
-            : "default-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.modrinth.com https://*.supabase.co https://crafatar.com https://cdn-raw.modrinth.com https://minotar.net https://launchermeta.mojang.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net; font-src 'self' data:;",
+            ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws: https://api.modrinth.com https://*.supabase.co https://crafatar.com https://minotar.net https://launchermeta.mojang.com https://api.github.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net;"
+            : "default-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.modrinth.com https://*.supabase.co https://crafatar.com https://cdn-raw.modrinth.com https://minotar.net https://launchermeta.mojang.com https://api.github.com; img-src 'self' data: https://cdn.modrinth.com https://crafatar.com https://*.supabase.co https://minotar.net; font-src 'self' data:;",
         ],
       },
     });
@@ -360,7 +360,14 @@ ipcMain.handle("get-system-theme", () => {
 });
 
 ipcMain.handle("install-update", () => {
-  autoUpdater.quitAndInstall();
+  setImmediate(() => {
+    // Force-close all windows to prevent quit from being blocked
+    BrowserWindow.getAllWindows().forEach((w) => {
+      w.removeAllListeners("close");
+      w.destroy();
+    });
+    autoUpdater.quitAndInstall(false, true);
+  });
 });
 
 ipcMain.handle("check-for-updates", async () => {
