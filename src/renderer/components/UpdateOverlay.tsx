@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, ExternalLink } from "lucide-react";
 
 interface DownloadProgress {
   bytesPerSecond: number;
@@ -19,6 +19,11 @@ export function UpdateOverlay() {
     total: 0,
   });
   const [dismissed, setDismissed] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    window.electronAPI?.getPlatform().then((p) => setIsMac(p === "darwin")).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const api = window.electronAPI;
@@ -171,7 +176,9 @@ export function UpdateOverlay() {
               <CheckCircle size={24} className="text-emerald-400" />
             </div>
             <p className="text-white/50 text-sm font-medium">
-              A new version is ready to install
+              {isMac
+                ? "A new version is available to download"
+                : "A new version is ready to install"}
             </p>
 
             <div className="flex gap-3">
@@ -183,9 +190,16 @@ export function UpdateOverlay() {
               </button>
               <button
                 onClick={handleInstall}
-                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-[var(--color-accent)] hover:brightness-110 transition-all shadow-lg shadow-[var(--color-accent)]/30 update-install-btn"
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-[var(--color-accent)] hover:brightness-110 transition-all shadow-lg shadow-[var(--color-accent)]/30 update-install-btn flex items-center gap-2"
               >
-                Install & Restart
+                {isMac ? (
+                  <>
+                    <ExternalLink size={13} />
+                    Download Update
+                  </>
+                ) : (
+                  "Install & Restart"
+                )}
               </button>
             </div>
           </div>

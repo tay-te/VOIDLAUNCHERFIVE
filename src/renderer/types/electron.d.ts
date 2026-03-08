@@ -50,6 +50,7 @@ export interface LaunchProgress {
 export interface ElectronAPI {
   getSystemTheme: () => Promise<"dark" | "light">;
   installUpdate: () => Promise<void>;
+  getPlatform: () => Promise<string>;
   getAppVersion: () => Promise<string>;
   getInstancesPath: () => Promise<string>;
   downloadMod: (data: {

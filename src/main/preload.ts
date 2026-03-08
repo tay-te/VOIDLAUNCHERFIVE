@@ -14,6 +14,7 @@ function createListener<T>(channel: string) {
 contextBridge.exposeInMainWorld("electronAPI", {
   getSystemTheme: () => ipcRenderer.invoke("get-system-theme"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
+  getPlatform: () => ipcRenderer.invoke("get-platform"),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getInstancesPath: () => ipcRenderer.invoke("get-instances-path"),
   downloadMod: (data: { instanceId: string; url: string; filename: string }) =>

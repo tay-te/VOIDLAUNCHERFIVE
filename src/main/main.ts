@@ -360,6 +360,11 @@ ipcMain.handle("get-system-theme", () => {
 });
 
 ipcMain.handle("install-update", () => {
+  if (process.platform === "darwin") {
+    // macOS: auto-install requires code signing; open releases page instead
+    shell.openExternal("https://github.com/tay-te/VOIDLAUNCHERFIVE/releases/latest");
+    return;
+  }
   setImmediate(() => {
     // Force-close all windows to prevent quit from being blocked
     BrowserWindow.getAllWindows().forEach((w) => {
@@ -368,6 +373,10 @@ ipcMain.handle("install-update", () => {
     });
     autoUpdater.quitAndInstall(false, true);
   });
+});
+
+ipcMain.handle("get-platform", () => {
+  return process.platform;
 });
 
 ipcMain.handle("check-for-updates", async () => {
