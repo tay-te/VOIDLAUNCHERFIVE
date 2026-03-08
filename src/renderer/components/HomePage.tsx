@@ -12,7 +12,6 @@ import {
   Loader2,
   Square,
 } from "lucide-react";
-import type { LaunchProgress } from "../types/electron";
 
 interface HomePageProps {
   onOpenMod: (id: string) => void;
@@ -32,10 +31,6 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
   const { auth, instances } = useStore();
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [showInstancePicker, setShowInstancePicker] = useState(false);
-  const [launching, setLaunching] = useState(false);
-  const [launchProgress, setLaunchProgress] = useState<LaunchProgress | null>(null);
-  const [launchError, setLaunchError] = useState<string | null>(null);
-  const [gameRunning, setGameRunning] = useState(false);
 
   const greeting = useMemo(() => getGreeting(), []);
 
@@ -56,58 +51,15 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
 
   const userName = auth.username;
 
-  // Listen for launch events
-  useEffect(() => {
-    const handleProgress = (data: LaunchProgress) => {
-      if (selectedInstanceId && data.instanceId === selectedInstanceId) {
-        setLaunchProgress(data);
-        if (data.stage === "launched") {
-          setLaunching(false);
-          setGameRunning(true);
-        }
-      }
-    };
-    const handleClosed = (data: { instanceId: string }) => {
-      if (selectedInstanceId && data.instanceId === selectedInstanceId) {
-        setGameRunning(false);
-        setLaunchProgress(null);
-      }
-    };
-    const handleError = (data: { instanceId: string; error: string }) => {
-      if (selectedInstanceId && data.instanceId === selectedInstanceId) {
-        setLaunching(false);
-        setGameRunning(false);
-        setLaunchError(data.error);
-        setTimeout(() => setLaunchError(null), 8000);
-      }
-    };
-    const cleanupProgress = window.electronAPI.onLaunchProgress(handleProgress);
-    const cleanupClosed = window.electronAPI.onGameClosed(handleClosed);
-    const cleanupError = window.electronAPI.onGameError(handleError);
-    return () => {
-      cleanupProgress();
-      cleanupClosed();
-      cleanupError();
-    };
-  }, [selectedInstanceId]);
+  // Derive launch state from centralized store
+  const launching = instances.launchingInstanceId === selectedInstanceId;
+  const gameRunning = instances.runningInstanceId === selectedInstanceId;
+  const launchProgress = (launching || gameRunning) ? instances.launchProgress : null;
+  const launchError = instances.launchError;
 
-  const handleLaunch = async () => {
-    if (!selectedInstance || launching || gameRunning) return;
-    setLaunching(true);
-    setLaunchError(null);
-    setLaunchProgress(null);
-    instances.launch(selectedInstance.id);
-    const result = await window.electronAPI.launchMinecraft({
-      instanceId: selectedInstance.id,
-      version: selectedInstance.version,
-      loader: selectedInstance.loader,
-      memoryMb: selectedInstance.memoryMb ?? 4096,
-    });
-    if (!result.success) {
-      setLaunching(false);
-      setLaunchError(result.error || "Launch failed");
-      setTimeout(() => setLaunchError(null), 8000);
-    }
+  const handleLaunch = () => {
+    if (!selectedInstance) return;
+    instances.launchGame(selectedInstance.id);
   };
 
   return (
@@ -277,7 +229,7 @@ export const HomePage = observer(({ onOpenMod, onNavigate }: HomePageProps) => {
           )}
           <button
             onClick={handleLaunch}
-            disabled={!selectedInstance || launching || gameRunning}
+            disabled={!selectedInstance || instances.isLaunching || instances.isGameRunning}
             className={`launch-btn flex items-center gap-3 px-7 py-3.5 rounded-2xl text-white font-black text-lg tracking-tight transition-all duration-300 cursor-pointer hover:-translate-y-1 disabled:opacity-40 disabled:cursor-default disabled:hover:translate-y-0 ${
               gameRunning
                 ? "bg-green-500 hover:bg-green-600"

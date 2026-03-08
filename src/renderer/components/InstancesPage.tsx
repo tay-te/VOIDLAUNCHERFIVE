@@ -17,6 +17,8 @@ import {
   Download,
   Globe,
   Users,
+  Loader2,
+  Square,
 } from "lucide-react";
 import { CreateInstanceWizard } from "./CreateInstanceWizard";
 import { InstanceDetailPage } from "./InstanceDetailPage";
@@ -138,8 +140,12 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
               key={inst.id}
               instance={inst}
               isDeleting={deleteConfirm === inst.id}
+              isLaunching={store.launchingInstanceId === inst.id}
+              isRunning={store.runningInstanceId === inst.id}
+              isBusy={store.isLaunching || store.isGameRunning}
+              launchProgress={store.launchingInstanceId === inst.id ? store.launchProgress : null}
               onClick={() => setSelectedInstanceId(inst.id)}
-              onLaunch={() => store.launch(inst.id)}
+              onLaunch={() => store.launchGame(inst.id)}
               onShare={() => setShareInstance(inst)}
               onDeleteRequest={() => setDeleteConfirm(inst.id)}
               onDeleteConfirm={() => {
@@ -231,6 +237,10 @@ function EmptyState({
 function InstanceCard({
   instance,
   isDeleting,
+  isLaunching,
+  isRunning,
+  isBusy,
+  launchProgress,
   onClick,
   onLaunch,
   onShare,
@@ -240,6 +250,10 @@ function InstanceCard({
 }: {
   instance: Instance;
   isDeleting: boolean;
+  isLaunching: boolean;
+  isRunning: boolean;
+  isBusy: boolean;
+  launchProgress: import("../types/electron").LaunchProgress | null;
   onClick: () => void;
   onLaunch: () => void;
   onShare: () => void;
@@ -320,6 +334,33 @@ function InstanceCard({
           </span>
         </div>
 
+        {/* Launch progress */}
+        {isLaunching && launchProgress && (
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-medium truncate" style={{ color: instance.iconColor }}>
+                {launchProgress.message}
+              </span>
+              {launchProgress.percent >= 0 && (
+                <span className="text-(--color-text-secondary) ml-2 flex-shrink-0">
+                  {launchProgress.percent}%
+                </span>
+              )}
+            </div>
+            {launchProgress.percent >= 0 && (
+              <div className="w-full h-1 rounded-full bg-(--color-surface-tertiary) overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${launchProgress.percent}%`,
+                    backgroundColor: instance.iconColor,
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Actions */}
         <div
           className="flex items-center gap-2 mt-4"
@@ -347,14 +388,29 @@ function InstanceCard({
             <>
               <button
                 onClick={onLaunch}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md"
+                disabled={isBusy}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default disabled:hover:shadow-none"
                 style={{
-                  backgroundColor: instance.iconColor,
-                  boxShadow: `0 2px 8px ${instance.iconColor}25`,
+                  backgroundColor: isRunning ? "#22c55e" : instance.iconColor,
+                  boxShadow: `0 2px 8px ${isRunning ? "#22c55e" : instance.iconColor}25`,
                 }}
               >
-                <Play size={12} fill="currentColor" />
-                Launch
+                {isLaunching ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Launching...
+                  </>
+                ) : isRunning ? (
+                  <>
+                    <Square size={10} fill="currentColor" />
+                    Running
+                  </>
+                ) : (
+                  <>
+                    <Play size={12} fill="currentColor" />
+                    Launch
+                  </>
+                )}
               </button>
               <button
                 onClick={onShare}

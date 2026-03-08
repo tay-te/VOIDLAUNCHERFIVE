@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import type { LaunchProgress } from "../types/electron";
 
 export interface InstalledMod {
   projectId: string;
@@ -40,8 +41,118 @@ export class InstanceStore {
   currentUserUuid: string | null = null;
   currentUserName: string | null = null;
 
+  // Centralized launch state — persists across page navigation
+  launchingInstanceId: string | null = null;
+  launchProgress: LaunchProgress | null = null;
+  launchError: string | null = null;
+  runningInstanceId: string | null = null;
+
+  cleanupFns: (() => void)[] = [];
+  errorTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, {
+      cleanupFns: false,
+      errorTimer: false,
+    });
+  }
+
+  /** Call once from App.tsx to wire up IPC listeners */
+  initLaunchListeners() {
+    // Prevent double-init
+    if (this.cleanupFns.length > 0) return;
+
+    const cleanupProgress = window.electronAPI.onLaunchProgress((data) => {
+      runInAction(() => {
+        this.launchProgress = data;
+        if (data.stage === "launched") {
+          this.launchingInstanceId = null;
+          this.runningInstanceId = data.instanceId;
+        }
+      });
+    });
+
+    const cleanupClosed = window.electronAPI.onGameClosed((data) => {
+      runInAction(() => {
+        if (this.runningInstanceId === data.instanceId) {
+          this.runningInstanceId = null;
+          this.launchProgress = null;
+        }
+      });
+    });
+
+    const cleanupError = window.electronAPI.onGameError((data) => {
+      runInAction(() => {
+        if (
+          this.launchingInstanceId === data.instanceId ||
+          this.runningInstanceId === data.instanceId
+        ) {
+          this.launchingInstanceId = null;
+          this.runningInstanceId = null;
+          this.launchError = data.error;
+          if (this.errorTimer) clearTimeout(this.errorTimer);
+          this.errorTimer = setTimeout(() => {
+            runInAction(() => {
+              this.launchError = null;
+            });
+          }, 8000);
+        }
+      });
+    });
+
+    this.cleanupFns = [cleanupProgress, cleanupClosed, cleanupError];
+  }
+
+  disposeLaunchListeners() {
+    this.cleanupFns.forEach((fn) => fn());
+    this.cleanupFns = [];
+    if (this.errorTimer) clearTimeout(this.errorTimer);
+  }
+
+  /** Launch a specific instance — the single entry point for all pages */
+  async launchGame(id: string) {
+    const inst = this.instances.find((i) => i.id === id);
+    if (!inst) return;
+    if (this.launchingInstanceId || this.runningInstanceId) return;
+
+    this.launchingInstanceId = id;
+    this.launchError = null;
+    this.launchProgress = null;
+    inst.lastPlayed = new Date().toISOString();
+    this.persist();
+
+    const result = await window.electronAPI.launchMinecraft({
+      instanceId: inst.id,
+      version: inst.version,
+      loader: inst.loader,
+      memoryMb: inst.memoryMb ?? 4096,
+    });
+
+    runInAction(() => {
+      if (!result.success) {
+        this.launchingInstanceId = null;
+        this.launchError = result.error || "Launch failed";
+        if (this.errorTimer) clearTimeout(this.errorTimer);
+        this.errorTimer = setTimeout(() => {
+          runInAction(() => {
+            this.launchError = null;
+          });
+        }, 8000);
+      }
+    });
+  }
+
+  get isLaunching() {
+    return this.launchingInstanceId !== null;
+  }
+
+  get isGameRunning() {
+    return this.runningInstanceId !== null;
+  }
+
+  /** Check if a specific instance is currently launching or running */
+  isInstanceBusy(id: string) {
+    return this.launchingInstanceId === id || this.runningInstanceId === id;
   }
 
   setUser(uuid: string, name: string) {
@@ -187,14 +298,6 @@ export class InstanceStore {
   hasModInstalled(instanceId: string, projectId: string): boolean {
     const inst = this.instances.find((i) => i.id === instanceId);
     return inst?.installedMods.some((m) => m.projectId === projectId) ?? false;
-  }
-
-  launch(id: string) {
-    const inst = this.instances.find((i) => i.id === id);
-    if (inst) {
-      inst.lastPlayed = new Date().toISOString();
-      this.persist();
-    }
   }
 
   /** Create a local instance from shared data (importing a share code) */

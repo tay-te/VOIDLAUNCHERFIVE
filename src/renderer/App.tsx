@@ -26,6 +26,12 @@ const App = observer(() => {
 
   const finishWelcome = useCallback(() => setWelcomeDone(true), []);
 
+  // Initialize launch IPC listeners once
+  useEffect(() => {
+    instances.initLaunchListeners();
+    return () => instances.disposeLaunchListeners();
+  }, []);
+
   // Scope instances to the authenticated user
   useEffect(() => {
     if (auth.isAuthenticated && auth.uuid) {
