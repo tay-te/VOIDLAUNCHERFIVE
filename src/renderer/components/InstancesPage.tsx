@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores";
 import {
@@ -7,6 +7,8 @@ import {
   Play,
   Trash2,
   Pencil,
+  Check,
+  X,
   Box,
   Zap,
   Hammer,
@@ -152,6 +154,7 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
                   onClick={() => setSelectedInstanceId(inst.id)}
                   onLaunch={() => store.launchGame(inst.id)}
                   onShare={() => setShareInstance(inst)}
+                  onRename={(name) => store.update(inst.id, { name })}
                   onDeleteRequest={() => setDeleteConfirm(inst.id)}
                   onDeleteConfirm={() => {
                     store.remove(inst.id);
@@ -283,6 +286,7 @@ function InstanceCard({
   onClick,
   onLaunch,
   onShare,
+  onRename,
   onDeleteRequest,
   onDeleteConfirm,
   onDeleteCancel,
@@ -296,6 +300,7 @@ function InstanceCard({
   onClick: () => void;
   onLaunch: () => void;
   onShare: () => void;
+  onRename: (name: string) => void;
   onDeleteRequest: () => void;
   onDeleteConfirm: () => void;
   onDeleteCancel: () => void;
@@ -303,11 +308,36 @@ function InstanceCard({
   const loaderMeta = LOADER_META[instance.loader] ?? LOADER_META.vanilla;
   const LoaderIcon = loaderMeta.icon;
   const letter = instance.name[0]?.toUpperCase() ?? "?";
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(instance.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) inputRef.current?.focus();
+  }, [isEditing]);
+
+  const handleStartEdit = () => {
+    setEditName(instance.name);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== instance.name) {
+      onRename(trimmed);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(instance.name);
+    setIsEditing(false);
+  };
 
   return (
     <div
       className="group relative rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden hover:border-(--color-accent)/25 hover:shadow-md transition-all duration-200 cursor-pointer"
-      onClick={onClick}
+      onClick={isEditing ? undefined : onClick}
     >
       <div className="p-5">
         {/* Instance info */}
@@ -322,9 +352,41 @@ function InstanceCard({
             {letter}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-(--color-text-primary) truncate">
-              {instance.name}
-            </h3>
+            {isEditing ? (
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <input
+                  ref={inputRef}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveEdit();
+                    if (e.key === "Escape") handleCancelEdit();
+                  }}
+                  onBlur={handleSaveEdit}
+                  className="text-sm font-bold text-(--color-text-primary) bg-(--color-surface-tertiary) border border-(--color-border) rounded-lg px-2 py-1 w-full outline-none focus:border-(--color-accent)/50"
+                  style={{ minWidth: 0 }}
+                />
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleSaveEdit}
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-white flex-shrink-0 cursor-pointer"
+                  style={{ backgroundColor: instance.iconColor }}
+                >
+                  <Check size={11} />
+                </button>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleCancelEdit}
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) flex-shrink-0 cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ) : (
+              <h3 className="text-sm font-bold text-(--color-text-primary) truncate">
+                {instance.name}
+              </h3>
+            )}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <span className="text-[11px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-md">
                 {instance.version}
@@ -457,7 +519,10 @@ function InstanceCard({
               >
                 <Share2 size={12} />
               </button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer">
+              <button
+                onClick={handleStartEdit}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+              >
                 <Pencil size={12} />
               </button>
               <button
