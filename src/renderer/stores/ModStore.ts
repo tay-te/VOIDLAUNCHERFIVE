@@ -43,8 +43,11 @@ export class ModStore {
   availableGameVersions: GameVersionTag[] = [];
   filtersLoaded = false;
 
+  // Abort controller for cancelling stale search requests
+  private searchController: AbortController | null = null;
+
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, { searchController: false });
   }
 
   get totalPages() {
@@ -117,6 +120,11 @@ export class ModStore {
   }
 
   async search(query: string, page = 0) {
+    // Cancel any in-flight search so stale results don't overwrite fresh ones
+    this.searchController?.abort();
+    const controller = new AbortController();
+    this.searchController = controller;
+
     this.searchQuery = query;
     this.currentPage = page;
     this.loading = true;
@@ -126,12 +134,16 @@ export class ModStore {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
         index: this.sortIndex,
+        signal: controller.signal,
       });
       runInAction(() => {
         this.mods = result.hits;
         this.totalHits = result.total_hits;
+        this.loading = false;
       });
-    } finally {
+    } catch (err) {
+      // Silently ignore aborted requests — a newer search is already running
+      if (err instanceof DOMException && err.name === "AbortError") return;
       runInAction(() => {
         this.loading = false;
       });

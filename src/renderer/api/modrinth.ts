@@ -125,8 +125,8 @@ const headers = {
   "User-Agent": "VoidLauncher/1.0.0 (contact@voidlauncher.app)",
 };
 
-async function apiFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers });
+async function apiFetch<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { headers, signal });
   if (!res.ok) {
     throw new Error(`Modrinth API error: ${res.status} ${res.statusText}`);
   }
@@ -140,6 +140,7 @@ export async function searchMods(
     limit?: number;
     offset?: number;
     index?: "relevance" | "downloads" | "follows" | "newest" | "updated";
+    signal?: AbortSignal;
   }
 ): Promise<SearchResult> {
   const params = new URLSearchParams({
@@ -161,7 +162,7 @@ export async function searchMods(
   if (cached) return cached;
 
   return dedupedFetch(cacheKey, async () => {
-    const data = await apiFetch<SearchResult>(`${BASE_URL}/search?${params}`);
+    const data = await apiFetch<SearchResult>(`${BASE_URL}/search?${params}`, options?.signal);
     setCache(cacheKey, data);
     // Also cache individual projects from search results as previews
     for (const hit of data.hits) {

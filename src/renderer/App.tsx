@@ -15,6 +15,7 @@ import { ImportShareCodeModal } from "./components/ImportShareCodeModal";
 import { DownloadToast } from "./components/DownloadToast";
 import { UpdateOverlay } from "./components/UpdateOverlay";
 import { CustomCursor } from "./components/CustomCursor";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const App = observer(() => {
   const { auth, instances, sharing, notifications } = useStore();
@@ -129,7 +130,9 @@ const App = observer(() => {
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="drag-region h-8 flex-shrink-0" />
         <main className="flex-1 overflow-y-auto">
-          {renderPage()}
+          <ErrorBoundary>
+            {renderPage()}
+          </ErrorBoundary>
         </main>
       </div>
 
