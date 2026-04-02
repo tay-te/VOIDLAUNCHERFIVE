@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { CheckCircle, ExternalLink } from "lucide-react";
 
 interface DownloadProgress {
@@ -8,7 +8,7 @@ interface DownloadProgress {
   total: number;
 }
 
-type OverlayState = "hidden" | "downloading" | "downloaded";
+type OverlayState = "hidden" | "available" | "downloading" | "downloaded";
 
 export function UpdateOverlay() {
   const [state, setState] = useState<OverlayState>("hidden");
@@ -20,9 +20,15 @@ export function UpdateOverlay() {
   });
   const [dismissed, setDismissed] = useState(false);
   const [isMac, setIsMac] = useState(false);
+  const isMacRef = useRef(false);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
 
   useEffect(() => {
-    window.electronAPI?.getPlatform().then((p) => setIsMac(p === "darwin")).catch(() => {});
+    window.electronAPI?.getPlatform().then((p) => {
+      const mac = p === "darwin";
+      isMacRef.current = mac;
+      setIsMac(mac);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -30,9 +36,14 @@ export function UpdateOverlay() {
     if (!api) return;
 
     const unsubs = [
-      api.onUpdateAvailable(() => {
-        setState("downloading");
+      api.onUpdateAvailable((info) => {
+        setUpdateVersion(info?.version ?? null);
         setDismissed(false);
+        if (isMacRef.current) {
+          setState("available");
+        } else {
+          setState("downloading");
+        }
       }),
       api.onUpdateDownloadProgress((data) => {
         setState("downloading");
@@ -144,7 +155,11 @@ export function UpdateOverlay() {
             VOID
           </h1>
           <p className="text-white/40 text-xs font-medium tracking-[0.2em] uppercase">
-            {state === "downloading" ? "Downloading Update" : "Update Ready"}
+            {state === "downloading"
+            ? "Downloading Update"
+            : state === "available"
+            ? "Update Available"
+            : "Update Ready"}
           </p>
         </div>
 
@@ -172,27 +187,69 @@ export function UpdateOverlay() {
               <span>{formatSpeed(progress.bytesPerSecond)}</span>
             </div>
           </div>
-        ) : (
+        ) : state === "available" ? (
           <div className="flex flex-col items-center gap-6 update-content-enter">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-              <CheckCircle size={24} className="text-emerald-400" />
+            <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <ExternalLink size={24} className="text-blue-400" />
             </div>
             <p className="text-white/50 text-sm font-medium">
-              {isMac
-                ? "A new version is available to download"
-                : "A new version is ready to install"}
+              {updateVersion ? `Version ${updateVersion} available` : "A new version is available"}
             </p>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setDismissed(true)}
                 className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white/70 bg-white/[0.06] hover:bg-white/[0.1] transition-all"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setDismissed(true)}
+              >
+                Later
+              </button>
+              <button
+                onClick={() =>
+                  window.electronAPI?.openExternal(
+                    "https://github.com/tay-te/VOIDLAUNCHERFIVE/releases/latest"
+                  )
+                }
+                className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-[var(--color-accent)] hover:brightness-110 transition-all shadow-lg shadow-[var(--color-accent)]/30 update-install-btn flex items-center gap-2"
+                tabIndex={0}
+                onKeyDown={(e) =>
+                  (e.key === "Enter" || e.key === " ") &&
+                  window.electronAPI?.openExternal(
+                    "https://github.com/tay-te/VOIDLAUNCHERFIVE/releases/latest"
+                  )
+                }
+              >
+                <ExternalLink size={13} />
+                Download Update
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-6 update-content-enter">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle size={24} className="text-emerald-400" />
+            </div>
+            <p className="text-white/50 text-sm font-medium">
+              A new version is ready to install
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDismissed(true)}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white/70 bg-white/[0.06] hover:bg-white/[0.1] transition-all"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setDismissed(true)}
               >
                 Later
               </button>
               <button
                 onClick={handleInstall}
                 className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-[var(--color-accent)] hover:brightness-110 transition-all shadow-lg shadow-[var(--color-accent)]/30 update-install-btn flex items-center gap-2"
+                tabIndex={0}
+                onKeyDown={(e) =>
+                  (e.key === "Enter" || e.key === " ") && handleInstall()
+                }
               >
                 {isMac ? (
                   <>

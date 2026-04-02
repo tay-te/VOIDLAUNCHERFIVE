@@ -51,6 +51,7 @@ export interface ElectronAPI {
   getSystemTheme: () => Promise<"dark" | "light">;
   installUpdate: () => Promise<void>;
   getPlatform: () => Promise<string>;
+  openExternal: (url: string) => Promise<void>;
   getAppVersion: () => Promise<string>;
   getInstancesPath: () => Promise<string>;
   downloadMod: (data: {
@@ -66,8 +67,8 @@ export interface ElectronAPI {
   onDownloadProgress: (
     cb: (data: { instanceId: string; filename: string; percent: number }) => void
   ) => () => void;
-  onUpdateAvailable: (cb: (info: unknown) => void) => () => void;
-  onUpdateDownloaded: (cb: (info: unknown) => void) => () => void;
+  onUpdateAvailable: (cb: (info: { version: string; releaseDate?: string }) => void) => () => void;
+  onUpdateDownloaded: (cb: (info: { version: string; releaseDate?: string }) => void) => () => void;
   onUpdateError: (cb: (msg: string) => void) => () => void;
   checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
   onCheckingForUpdate: (cb: (data: unknown) => void) => () => void;

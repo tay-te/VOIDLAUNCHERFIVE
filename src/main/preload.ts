@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSystemTheme: () => ipcRenderer.invoke("get-system-theme"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   getPlatform: () => ipcRenderer.invoke("get-platform"),
+  openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getInstancesPath: () => ipcRenderer.invoke("get-instances-path"),
   downloadMod: (data: { instanceId: string; url: string; filename: string }) =>
@@ -24,8 +25,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openInstanceFolder: (instanceId: string) =>
     ipcRenderer.invoke("open-instance-folder", instanceId),
   onDownloadProgress: createListener<{ instanceId: string; filename: string; percent: number }>("download-progress"),
-  onUpdateAvailable: createListener<unknown>("update-available"),
-  onUpdateDownloaded: createListener<unknown>("update-downloaded"),
+  onUpdateAvailable: createListener<{ version: string; releaseDate?: string }>("update-available"),
+  onUpdateDownloaded: createListener<{ version: string; releaseDate?: string }>("update-downloaded"),
   onUpdateError: createListener<string>("update-error"),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   onCheckingForUpdate: createListener<unknown>("checking-for-update"),

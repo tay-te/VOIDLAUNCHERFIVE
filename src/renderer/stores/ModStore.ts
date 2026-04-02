@@ -47,7 +47,7 @@ export class ModStore {
   private searchController: AbortController | null = null;
 
   constructor() {
-    makeAutoObservable(this, { searchController: false });
+    makeAutoObservable<this, "searchController">(this, { searchController: false });
   }
 
   get totalPages() {

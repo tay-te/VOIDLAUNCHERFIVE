@@ -251,8 +251,8 @@ function setupAutoUpdater() {
     owner: "tay-te",
     repo: "VOIDLAUNCHERFIVE",
   });
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoDownload = process.platform !== "darwin";
+  autoUpdater.autoInstallOnAppQuit = process.platform !== "darwin";
   autoUpdater.allowDowngrade = false;
 
   autoUpdater.on("checking-for-update", () => {
@@ -363,6 +363,13 @@ ipcMain.handle("install-update", () => {
 
 ipcMain.handle("get-platform", () => {
   return process.platform;
+});
+
+ipcMain.handle("open-external", (_e, url: string) => {
+  // Allowlist: only open https URLs to prevent arbitrary protocol abuse
+  if (typeof url === "string" && url.startsWith("https://")) {
+    shell.openExternal(url);
+  }
 });
 
 ipcMain.handle("check-for-updates", async () => {
@@ -498,7 +505,7 @@ const msAuth = new Microsoft("");
 ipcMain.handle("microsoft-login", async () => {
   try {
     const result = await msAuth.getAuth("electron");
-    if (!result || result === false) {
+    if (!result) {
       return { success: false, error: "Login cancelled" };
     }
     if ("error" in result && result.error) {
