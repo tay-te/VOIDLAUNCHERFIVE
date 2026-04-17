@@ -4,34 +4,34 @@
 
 :root {
   --color-surface: #ffffff;
-  --color-surface-secondary: #f7f7f9;
-  --color-surface-tertiary: #eeeff2;
-  --color-surface-solid: #e4e5ea;
-  --color-sidebar: #f0f1f4;
-  --color-border: rgba(0, 0, 0, 0.08);
+  --color-surface-secondary: #f4f5f7;
+  --color-surface-tertiary: #e9ebf0;
+  --color-surface-solid: #dde1e8;
+  --color-sidebar: #eef0f4;
+  --color-border: rgba(15, 23, 42, 0.09);
   --color-text-primary: #0f0f1a;
-  --color-text-secondary: #6e6e82;
-  --color-accent: #6366f1;
-  --color-accent-hover: #4f46e5;
-  --color-accent-glow: rgba(99, 102, 241, 0.12);
-  --color-glass: rgba(255, 255, 255, 0.92);
-  --color-glass-border: rgba(0, 0, 0, 0.06);
+  --color-text-secondary: #5f6375;
+  --color-accent: #5b63d3;
+  --color-accent-hover: #4b54bf;
+  --color-accent-glow: rgba(91, 99, 211, 0.1);
+  --color-glass: rgba(255, 255, 255, 0.88);
+  --color-glass-border: rgba(15, 23, 42, 0.08);
 }
 
 .dark {
   --color-surface: #0c0c10;
-  --color-surface-secondary: #141418;
-  --color-surface-tertiary: #1c1c24;
-  --color-surface-solid: #24242e;
+  --color-surface-secondary: #121219;
+  --color-surface-tertiary: #181a22;
+  --color-surface-solid: #21242d;
   --color-sidebar: #0f0f13;
-  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border: rgba(255, 255, 255, 0.08);
   --color-text-primary: #ededf0;
-  --color-text-secondary: #8888a0;
-  --color-accent: #818cf8;
-  --color-accent-hover: #a5b4fc;
-  --color-accent-glow: rgba(129, 140, 248, 0.15);
-  --color-glass: rgba(12, 12, 16, 0.92);
-  --color-glass-border: rgba(255, 255, 255, 0.06);
+  --color-text-secondary: #989bb0;
+  --color-accent: #737ae6;
+  --color-accent-hover: #656dd7;
+  --color-accent-glow: rgba(115, 122, 230, 0.12);
+  --color-glass: rgba(12, 12, 16, 0.88);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
 }
 
 html, body, #root {
@@ -43,17 +43,25 @@ html, body, #root {
   letter-spacing: -0.01em;
 }
 
-/* ─── Custom cursor ──────────────────────────────────────────────────────── */
-/* Hide the native cursor everywhere — replaced by CustomCursor component */
-*, *::before, *::after {
-  cursor: none !important;
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Glass morphism */
 .glass {
   background: var(--color-glass);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
   border: 1px solid var(--color-glass-border);
 }
 
@@ -70,7 +78,7 @@ html, body, #root {
 
 /* Accent glow */
 .void-glow {
-  box-shadow: 0 0 40px var(--color-accent-glow), 0 0 80px var(--color-accent-glow);
+  box-shadow: 0 0 24px var(--color-accent-glow), 0 0 48px var(--color-accent-glow);
 }
 
 /* Custom scrollbar */

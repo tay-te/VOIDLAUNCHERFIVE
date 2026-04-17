@@ -1,25 +1,23 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
-import * as THREE from "three";
 import {
   BoxGeometry,
+  type Group,
+  type Mesh,
+  type MeshStandardMaterial,
   NearestFilter,
+  type Object3D,
   TextureLoader,
   Vector2,
   DoubleSide,
   FrontSide,
   Float32BufferAttribute,
 } from "three";
-import { User } from "lucide-react";
 
 // ─── Minotar.net skin API ───────────────────────────────────────────────────
 
 function skinTextureUrl(username: string): string {
   return `https://minotar.net/skin/${encodeURIComponent(username)}`;
-}
-
-function avatarUrl(username: string, size: number): string {
-  return `https://minotar.net/helm/${encodeURIComponent(username)}/${size}`;
 }
 
 // ─── UV helpers (ported from skinview3d) ────────────────────────────────────
@@ -206,7 +204,7 @@ function lerp(current: number, target: number, factor: number) {
 
 function PlayerModel({ username, followMouse }: { username: string; followMouse: boolean }) {
   const texture = useLoader(TextureLoader, skinTextureUrl(username));
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<Group>(null);
 
   // Smoothed values for fluid animation
   const smooth = useRef({
@@ -244,10 +242,10 @@ function PlayerModel({ username, followMouse }: { username: string; followMouse:
 
   useEffect(() => {
     if (!groupRef.current || !texture) return;
-    groupRef.current.traverse((child: THREE.Object3D) => {
-      const mesh = child as THREE.Mesh;
+    groupRef.current.traverse((child: Object3D) => {
+      const mesh = child as Mesh;
       if (mesh.isMesh) {
-        const mat = mesh.material as THREE.MeshStandardMaterial;
+        const mat = mesh.material as MeshStandardMaterial;
         mat.map = texture;
         mat.needsUpdate = true;
       }
@@ -527,7 +525,8 @@ export function SkinViewer3D({
     <div ref={containerRef} className={className} style={{ cursor: "grab" }}>
       <Canvas
         camera={{ position: [0, 0, 3.2], fov: 50 }}
-        gl={{ alpha: true, antialias: true }}
+        dpr={[1, 1.25]}
+        gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
         style={{ background: "transparent" }}
       >
         <ambientLight intensity={0.9} />
@@ -558,52 +557,4 @@ class ErrorBoundary extends React.Component<
     if (this.state.hasError) return this.props.fallback;
     return this.props.children;
   }
-}
-
-// ─── Player avatar head (2D) ──────────────────────────────────────────────
-
-export function PlayerAvatar({
-  username,
-  size = 64,
-  className,
-}: {
-  uuid?: string | null;
-  username?: string;
-  size?: number;
-  className?: string;
-}) {
-  const [error, setError] = useState(false);
-  const name = username || "MHF_Steve";
-  const src = avatarUrl(name, size);
-
-  if (error) {
-    return (
-      <div
-        className={`rounded-2xl bg-(--color-surface-tertiary) flex items-center justify-center ${className ?? ""}`}
-        style={{ width: size, height: size }}
-      >
-        {username ? (
-          <span
-            className="font-bold text-(--color-text-secondary)"
-            style={{ fontSize: size * 0.4 }}
-          >
-            {username[0]?.toUpperCase()}
-          </span>
-        ) : (
-          <User size={size * 0.4} className="text-(--color-text-secondary)" />
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt="Player avatar"
-      className={`rounded-2xl shadow-md ${className ?? ""}`}
-      style={{ width: size, height: size, imageRendering: "pixelated" }}
-      draggable={false}
-      onError={() => setError(true)}
-    />
-  );
 }

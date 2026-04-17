@@ -45,9 +45,18 @@ export class ModStore {
 
   // Abort controller for cancelling stale search requests
   private searchController: AbortController | null = null;
+  private detailController: AbortController | null = null;
+  private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    makeAutoObservable<this, "searchController">(this, { searchController: false });
+    makeAutoObservable<this, "searchController" | "detailController" | "searchTimeout">(
+      this,
+      {
+        searchController: false,
+        detailController: false,
+        searchTimeout: false,
+      }
+    );
   }
 
   get totalPages() {
@@ -120,6 +129,10 @@ export class ModStore {
   }
 
   async search(query: string, page = 0) {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
+    }
     // Cancel any in-flight search so stale results don't overwrite fresh ones
     this.searchController?.abort();
     const controller = new AbortController();
@@ -154,9 +167,19 @@ export class ModStore {
     await this.search(this.searchQuery, page);
   }
 
+  scheduleSearch(query: string, page = 0, delay = 140) {
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.searchTimeout = null;
+      void this.search(query, page);
+    }, delay);
+  }
+
   setSortIndex(index: SortIndex) {
     this.sortIndex = index;
-    this.search(this.searchQuery, 0);
+    this.scheduleSearch(this.searchQuery, 0);
   }
 
   toggleCategory(cat: string) {
@@ -166,7 +189,7 @@ export class ModStore {
     } else {
       this.selectedCategories.push(cat);
     }
-    this.search(this.searchQuery, 0);
+    this.scheduleSearch(this.searchQuery, 0);
   }
 
   toggleLoader(loader: string) {
@@ -176,7 +199,7 @@ export class ModStore {
     } else {
       this.selectedLoaders.push(loader);
     }
-    this.search(this.searchQuery, 0);
+    this.scheduleSearch(this.searchQuery, 0);
   }
 
   toggleGameVersion(version: string) {
@@ -186,7 +209,7 @@ export class ModStore {
     } else {
       this.selectedGameVersions.push(version);
     }
-    this.search(this.searchQuery, 0);
+    this.scheduleSearch(this.searchQuery, 0);
   }
 
   clearFilters() {
@@ -194,7 +217,7 @@ export class ModStore {
     this.selectedLoaders = [];
     this.selectedGameVersions = [];
     this.sortIndex = "relevance";
-    this.search(this.searchQuery, 0);
+    this.scheduleSearch(this.searchQuery, 0, 60);
   }
 
   get hasActiveFilters() {
@@ -207,6 +230,10 @@ export class ModStore {
   }
 
   async selectMod(idOrSlug: string) {
+    this.detailController?.abort();
+    const controller = new AbortController();
+    this.detailController = controller;
+
     // Show cached preview instantly if available
     const preview = getCachedProjectPreview(idOrSlug);
     if (preview) {
@@ -223,23 +250,29 @@ export class ModStore {
         getProject(idOrSlug),
         getProjectVersions(idOrSlug),
       ]);
+      if (controller.signal.aborted) return;
       runInAction(() => {
         this.selectedMod = project;
         this.selectedModVersions = versions;
       });
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       runInAction(() => {
         this.detailError =
           err instanceof Error ? err.message : "Failed to load mod";
       });
     } finally {
-      runInAction(() => {
-        this.detailLoading = false;
-      });
+      if (this.detailController === controller) {
+        runInAction(() => {
+          this.detailController = null;
+          this.detailLoading = false;
+        });
+      }
     }
   }
 
   clearSelectedMod() {
+    this.detailController?.abort();
     this.selectedMod = null;
     this.selectedModVersions = [];
   }

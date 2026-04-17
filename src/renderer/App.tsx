@@ -1,24 +1,75 @@
-import { useState, useCallback, useEffect } from "react";
+import { Suspense, lazy, useState, useCallback, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "./stores";
 import { Sidebar } from "./components/BottomNav";
-import { HomePage } from "./components/HomePage";
-import { BrowsePage } from "./components/BrowsePage";
-import { InstancesPage } from "./components/InstancesPage";
-import { SettingsPage } from "./components/SettingsPage";
-import { AuthPage } from "./components/AuthPage";
-import { ModPage } from "./components/ModPage";
-import { FriendsPage } from "./components/FriendsPage";
-import { LoginScreen } from "./components/LoginScreen";
-import { WelcomeScreen } from "./components/WelcomeScreen";
-import { ImportShareCodeModal } from "./components/ImportShareCodeModal";
-import { DownloadToast } from "./components/DownloadToast";
-import { UpdateOverlay } from "./components/UpdateOverlay";
-import { CustomCursor } from "./components/CustomCursor";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
+const HomePage = lazy(() =>
+  import("./components/HomePage").then((module) => ({ default: module.HomePage }))
+);
+const BrowsePage = lazy(() =>
+  import("./components/BrowsePage").then((module) => ({ default: module.BrowsePage }))
+);
+const InstancesPage = lazy(() =>
+  import("./components/InstancesPage").then((module) => ({ default: module.InstancesPage }))
+);
+const SettingsPage = lazy(() =>
+  import("./components/SettingsPage").then((module) => ({ default: module.SettingsPage }))
+);
+const AuthPage = lazy(() =>
+  import("./components/AuthPage").then((module) => ({ default: module.AuthPage }))
+);
+const ModPage = lazy(() =>
+  import("./components/ModPage").then((module) => ({ default: module.ModPage }))
+);
+const FriendsPage = lazy(() =>
+  import("./components/FriendsPage").then((module) => ({ default: module.FriendsPage }))
+);
+const LoginScreen = lazy(() =>
+  import("./components/LoginScreen").then((module) => ({ default: module.LoginScreen }))
+);
+const WelcomeScreen = lazy(() =>
+  import("./components/WelcomeScreen").then((module) => ({ default: module.WelcomeScreen }))
+);
+const ImportShareCodeModal = lazy(() =>
+  import("./components/ImportShareCodeModal").then((module) => ({
+    default: module.ImportShareCodeModal,
+  }))
+);
+const DownloadToast = lazy(() =>
+  import("./components/DownloadToast").then((module) => ({ default: module.DownloadToast }))
+);
+const UpdateOverlay = lazy(() =>
+  import("./components/UpdateOverlay").then((module) => ({ default: module.UpdateOverlay }))
+);
+
+function preloadCommonViews() {
+  void import("./components/BrowsePage");
+  void import("./components/InstancesPage");
+  void import("./components/SettingsPage");
+  void import("./components/FriendsPage");
+  void import("./components/ModPage");
+}
+
+function FullScreenLoader() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-(--color-surface) text-sm font-medium text-(--color-text-secondary)">
+      <div className="drag-region absolute top-0 left-0 right-0 h-8" />
+      Loading...
+    </div>
+  );
+}
+
+function ContentLoader() {
+  return (
+    <div className="h-full flex items-center justify-center text-sm font-medium text-(--color-text-secondary)">
+      Loading...
+    </div>
+  );
+}
+
 const App = observer(() => {
-  const { auth, instances, sharing, notifications } = useStore();
+  const { auth, instances, sharing, notifications, installs } = useStore();
   const [activePage, setActivePage] = useState("home");
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [modReturnPage, setModReturnPage] = useState("home");
@@ -33,10 +84,28 @@ const App = observer(() => {
     return () => instances.disposeLaunchListeners();
   }, []);
 
+  useEffect(() => {
+    if (!auth.isAuthenticated || !welcomeDone) return;
+
+    const scheduler =
+      "requestIdleCallback" in window
+        ? window.requestIdleCallback(() => preloadCommonViews(), { timeout: 1500 })
+        : window.setTimeout(preloadCommonViews, 600);
+
+    return () => {
+      if (typeof scheduler === "number") {
+        window.clearTimeout(scheduler);
+      } else if ("cancelIdleCallback" in window) {
+        window.cancelIdleCallback(scheduler);
+      }
+    };
+  }, [auth.isAuthenticated, welcomeDone]);
+
   // Scope instances to the authenticated user
   useEffect(() => {
     if (auth.isAuthenticated && auth.uuid) {
       instances.setUser(auth.uuid, auth.username);
+      void installs.reconcileAllInstances();
       // Ensure Supabase profile exists for sharing features
       sharing.ensureProfile(auth.uuid, auth.username).then(async () => {
         if (!sharing.profileId) return;
@@ -65,12 +134,20 @@ const App = observer(() => {
 
   // Gate: show login/loading screen until authenticated
   if (auth.loading || !auth.isAuthenticated) {
-    return <><CustomCursor /><LoginScreen /></>;
+    return (
+      <Suspense fallback={<FullScreenLoader />}>
+        <LoginScreen />
+      </Suspense>
+    );
   }
 
   // Fancy welcome animation after login
   if (!welcomeDone) {
-    return <><CustomCursor /><WelcomeScreen onComplete={finishWelcome} /></>;
+    return (
+      <Suspense fallback={<FullScreenLoader />}>
+        <WelcomeScreen onComplete={finishWelcome} />
+      </Suspense>
+    );
   }
 
   const openMod = (id: string) => {
@@ -84,6 +161,9 @@ const App = observer(() => {
   };
 
   const navigate = (page: string) => {
+    if (page !== "browse") {
+      installs.clearPreferredInstance();
+    }
     setSelectedModId(null);
     setActivePage(page);
   };
@@ -116,7 +196,6 @@ const App = observer(() => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-(--color-surface)">
-      <CustomCursor />
       {/* Sidebar column */}
       <div className="flex flex-col flex-shrink-0 bg-(--color-sidebar) border-r border-(--color-border)">
         <div className="drag-region h-8" />
@@ -130,25 +209,33 @@ const App = observer(() => {
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="drag-region h-8 flex-shrink-0" />
         <main className="flex-1 overflow-y-auto">
-          <ErrorBoundary>
-            {renderPage()}
-          </ErrorBoundary>
+          <Suspense fallback={<ContentLoader />}>
+            <ErrorBoundary>
+              {renderPage()}
+            </ErrorBoundary>
+          </Suspense>
         </main>
       </div>
 
       {/* Import modal */}
       {showImportModal && (
-        <ImportShareCodeModal
-          onClose={() => setShowImportModal(false)}
-          onImported={() => navigate("instances")}
-        />
+        <Suspense fallback={null}>
+          <ImportShareCodeModal
+            onClose={() => setShowImportModal(false)}
+            onImported={() => navigate("instances")}
+          />
+        </Suspense>
       )}
 
       {/* Download progress toast */}
-      <DownloadToast />
+      <Suspense fallback={null}>
+        <DownloadToast />
+      </Suspense>
 
       {/* Update overlay */}
-      <UpdateOverlay />
+      <Suspense fallback={null}>
+        <UpdateOverlay />
+      </Suspense>
     </div>
   );
 });

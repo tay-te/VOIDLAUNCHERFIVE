@@ -14,8 +14,6 @@ import {
   Loader2,
 } from "lucide-react";
 import type { ShareNotification } from "../stores/NotificationStore";
-import { getVersion } from "../api/modrinth";
-import { supabase } from "../api/supabase";
 
 const LOADER_META: Record<string, { label: string; color: string; icon: typeof Box }> = {
   vanilla: { label: "Vanilla", color: "#22c55e", icon: Box },
@@ -39,98 +37,27 @@ interface Props {
 }
 
 export const NotificationTray = observer(({ onNavigateInstances }: Props) => {
-  const { notifications: store, instances: instanceStore, sharing } = useStore();
+  const { notifications: store, installs } = useStore();
   const [open, setOpen] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const handleDownload = async (notification: ShareNotification) => {
-    const inst = notification.sharedInstance;
     setDownloadingId(notification.id);
-
-    // Mark accepted
-    await store.markAccepted(notification.id);
-
-    // Fetch the mods for this shared instance
-    const { data: mods } = await supabase
-      .from("shared_instance_mods")
-      .select("project_id, version_id, title, icon_url, filename")
-      .eq("instance_id", inst.id);
-
-    const modList = mods ?? [];
-
-    // Start toast
-    store.startDownload({
-      id: notification.id,
-      instanceName: inst.name,
-      iconColor: inst.icon_color,
-      totalMods: modList.length,
-      downloadedMods: 0,
-      currentMod: modList.length > 0 ? `Preparing ${modList[0].title}...` : "Creating instance...",
-    });
-
-    // Create local instance
-    const localInstance = instanceStore.createFromShared({
-      name: inst.name,
-      version: inst.mc_version,
-      loader: inst.loader as "vanilla" | "fabric" | "forge",
-      iconColor: inst.icon_color,
-      sharedInstanceId: inst.id,
-      shareCode: inst.share_code,
-      isCollaborative: inst.is_collaborative,
-      mods: [],
-    });
-
-    if (!localInstance) {
-      store.failDownload("Failed to create instance");
-      setDownloadingId(null);
-      return;
-    }
-
-    // Join as collaborator if collaborative
-    if (inst.is_collaborative) {
-      await sharing.joinAsCollaborator(inst.id);
-    }
-
-    // Download each mod
     try {
-      for (let i = 0; i < modList.length; i++) {
-        const mod = modList[i];
-        store.updateDownloadProgress(i, `Downloading ${mod.title}...`);
-
-        try {
-          const version = await getVersion(mod.version_id);
-          const primaryFile = version.files.find((f) => f.primary) ?? version.files[0];
-
-          if (primaryFile) {
-            const result = await window.electronAPI.downloadMod({
-              instanceId: localInstance.id,
-              url: primaryFile.url,
-              filename: primaryFile.filename,
-            });
-
-            if (result.success) {
-              instanceStore.addMod(localInstance.id, {
-                projectId: mod.project_id,
-                versionId: mod.version_id,
-                filename: primaryFile.filename,
-                title: mod.title,
-                iconUrl: mod.icon_url,
-              });
-            }
-          }
-        } catch {
-          // skip failed mod
-        }
+      const fullShared = await store.fetchSharedInstance(notification.sharedInstance.id);
+      if (!fullShared) {
+        throw new Error("Failed to load shared instance");
       }
-
-      store.updateDownloadProgress(modList.length, "Complete!");
-      store.finishDownload();
-    } catch {
-      store.failDownload("Download failed");
+      await installs.installSharedInstance(fullShared, {
+        notificationId: notification.id,
+      });
+      setOpen(false);
+      onNavigateInstances?.();
+    } catch (error) {
+      // failure is surfaced through the install toast
     }
 
     setDownloadingId(null);
-    setOpen(false);
   };
 
   const pendingNotifications = store.notifications.filter((n) => n.status === "pending");
@@ -141,6 +68,8 @@ export const NotificationTray = observer(({ onNavigateInstances }: Props) => {
       {/* Bell button */}
       <button
         onClick={() => setOpen(!open)}
+        aria-label="Notifications"
+        aria-expanded={open}
         title="Notifications"
         className={`no-drag relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 cursor-pointer ${
           open
@@ -313,7 +242,7 @@ function NotificationRow({
           {!isPending && (
             <div className="flex items-center gap-1.5 mt-2 text-green-500">
               <CheckCircle2 size={12} />
-              <span className="text-[11px] font-semibold">Downloaded</span>
+              <span className="text-[11px] font-semibold">Imported</span>
             </div>
           )}
         </div>

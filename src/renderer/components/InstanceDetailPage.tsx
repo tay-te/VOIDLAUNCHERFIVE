@@ -76,7 +76,7 @@ interface Props {
 
 export const InstanceDetailPage = observer(
   ({ instanceId, onBack, onBrowseMods, onShareInstance }: Props) => {
-    const { instances: store, sharing, auth } = useStore();
+    const { instances: store, sharing, auth, installs } = useStore();
     const instance = store.instances.find((i) => i.id === instanceId);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -140,13 +140,9 @@ export const InstanceDetailPage = observer(
     const handleRemoveMod = async (mod: InstalledMod) => {
       setRemovingMod(mod.projectId);
       try {
-        await window.electronAPI.removeModFile({
-          instanceId: instance.id,
-          filename: mod.filename,
-        });
-        store.removeMod(instance.id, mod.projectId);
+        await installs.removeInstalledMod(instance.id, mod);
       } catch {
-        store.removeMod(instance.id, mod.projectId);
+        // failure is surfaced through the install toast
       }
       setRemovingMod(null);
     };
@@ -170,11 +166,10 @@ export const InstanceDetailPage = observer(
     };
 
     return (
-      <div className="p-10 space-y-8 wizard-step-enter max-w-5xl mx-auto">
-        {/* Back button */}
+      <div className="mx-auto max-w-6xl space-y-8 p-10 wizard-step-enter">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer group"
+          className="group flex items-center gap-2 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
         >
           <ArrowLeft
             size={16}
@@ -183,232 +178,277 @@ export const InstanceDetailPage = observer(
           Back to Instances
         </button>
 
-        {/* Hero section */}
-        <div
-          className="relative rounded-3xl overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, ${color}12 0%, ${color}06 50%, transparent 100%)`,
-            border: `1px solid ${color}15`,
-          }}
-        >
-          {/* Decorative gradient orb */}
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_22rem]">
           <div
-            className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl opacity-20 pointer-events-none"
-            style={{ backgroundColor: color }}
-          />
+            className="relative overflow-hidden rounded-[1.6rem] border p-7"
+            style={{
+              background: `linear-gradient(145deg, ${color}10 0%, rgba(13, 14, 22, 0.92) 42%, rgba(13, 14, 22, 0.98) 100%)`,
+              borderColor: `${color}20`,
+            }}
+          >
+            <div
+              className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full blur-3xl opacity-20"
+              style={{ backgroundColor: color }}
+            />
 
-          <div className="relative p-10">
-            <div className="flex items-start gap-8">
-              {/* Icon */}
-              <div
-                className="w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-black flex-shrink-0 shadow-xl"
-                style={{
-                  backgroundColor: color + "18",
-                  color: color,
-                  boxShadow: `0 12px 40px ${color}25`,
-                }}
-              >
-                {letter}
+            <div className="relative space-y-6">
+              <div className="flex flex-col gap-5 md:flex-row md:items-start">
+                <div
+                  className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.35rem] text-3xl font-black shadow-lg"
+                  style={{
+                    backgroundColor: `${color}18`,
+                    color,
+                    boxShadow: `0 10px 32px ${color}25`,
+                  }}
+                >
+                  {letter}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  {isEditingName ? (
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveEdit();
+                          if (e.key === "Escape") setIsEditingName(false);
+                        }}
+                        autoFocus
+                        className="w-full max-w-lg border-b-2 bg-transparent px-0 py-1 text-4xl font-black tracking-tight text-(--color-text-primary) focus:outline-none"
+                        style={{ borderColor: color }}
+                      />
+                      <button
+                        onClick={handleSaveEdit}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-white cursor-pointer"
+                        style={{ backgroundColor: color }}
+                      >
+                        <Check size={15} />
+                      </button>
+                      <button
+                        onClick={() => setIsEditingName(false)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) cursor-pointer"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="group/name flex items-center gap-3">
+                      <h1 className="truncate text-4xl font-black tracking-tight text-(--color-text-primary)">
+                        {instance.name}
+                      </h1>
+                      <button
+                        onClick={handleStartEdit}
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-(--color-text-secondary) opacity-0 transition-all hover:bg-(--color-surface-tertiary) group-hover/name:opacity-100 cursor-pointer"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-(--color-text-secondary)">
+                    <span>{instance.ownerName || auth.username}'s instance</span>
+                    <span className="hidden h-1 w-1 rounded-full bg-(--color-border) sm:block" />
+                    <span>
+                      Created {formatDate(instance.dateCreated)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                    <span className="rounded-lg bg-(--color-surface-tertiary)/70 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary)">
+                      {instance.version}
+                    </span>
+                    <span
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+                      style={{
+                        backgroundColor: `${loaderMeta.color}15`,
+                        color: loaderMeta.color,
+                      }}
+                    >
+                      <LoaderIcon size={13} />
+                      {loaderMeta.label}
+                    </span>
+                    {instance.shareCode && (
+                      <span className="flex items-center gap-1.5 rounded-lg bg-(--color-accent)/10 px-3 py-1.5 text-xs font-semibold text-(--color-accent)">
+                        <Globe size={12} />
+                        Shared
+                      </span>
+                    )}
+                    {instance.isCollaborative && (
+                      <span className="flex items-center gap-1.5 rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs font-semibold text-purple-500">
+                        <Users size={12} />
+                        Collaborative
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0 pt-1">
-                {isEditingName ? (
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleSaveEdit();
-                        if (e.key === "Escape") setIsEditingName(false);
-                      }}
-                      autoFocus
-                      className="text-4xl font-black tracking-tight text-(--color-text-primary) bg-transparent border-b-2 focus:outline-none px-0 py-1 w-full max-w-lg"
-                      style={{ borderColor: color }}
-                    />
-                    <button
-                      onClick={handleSaveEdit}
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-white cursor-pointer"
-                      style={{ backgroundColor: color }}
-                    >
-                      <Check size={15} />
-                    </button>
-                    <button
-                      onClick={() => setIsEditingName(false)}
-                      className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) cursor-pointer"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 group/name">
-                    <h1 className="text-4xl font-black tracking-tight text-(--color-text-primary) truncate">
-                      {instance.name}
-                    </h1>
-                    <button
-                      onClick={handleStartEdit}
-                      className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-all cursor-pointer flex-shrink-0 opacity-0 group-hover/name:opacity-100"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  </div>
-                )}
-
-                {/* Owner badge */}
-                <p className="text-sm text-(--color-text-secondary) mt-1.5">
-                  {instance.ownerName || auth.username}'s instance
-                </p>
-
-                <div className="flex items-center gap-3 mt-3 flex-wrap">
-                  <span className="text-sm font-semibold text-(--color-text-secondary) bg-(--color-surface-tertiary)/60 px-4 py-1.5 rounded-xl">
-                    {instance.version}
-                  </span>
-                  <span
-                    className="text-xs px-4 py-1.5 rounded-xl font-bold flex items-center gap-1.5"
-                    style={{
-                      backgroundColor: loaderMeta.color + "15",
-                      color: loaderMeta.color,
-                    }}
-                  >
-                    <LoaderIcon size={13} />
-                    {loaderMeta.label}
-                  </span>
-                  {instance.shareCode && (
-                    <span className="text-xs px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 bg-(--color-accent)/10 text-(--color-accent)">
-                      <Globe size={12} />
-                      Shared
-                    </span>
+              {(launching && launchProgress) || launchError ? (
+                <div className="rounded-[1.15rem] border border-(--color-border) bg-(--color-surface-secondary)/80 px-4 py-3">
+                  {launching && launchProgress && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium" style={{ color }}>
+                          {launchProgress.message}
+                        </span>
+                        <span className="text-(--color-text-secondary)">
+                          {launchProgress.percent}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--color-surface-tertiary)">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${launchProgress.percent}%`,
+                            backgroundColor: color,
+                          }}
+                        />
+                      </div>
+                    </div>
                   )}
-                  {instance.isCollaborative && (
-                    <span className="text-xs px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 bg-purple-500/10 text-purple-500">
-                      <Users size={12} />
-                      Collaborative
-                    </span>
+                  {launchError && (
+                    <div className="mt-2 flex items-center gap-2 text-xs font-medium text-red-500">
+                      <AlertTriangle size={13} />
+                      {launchError}
+                    </div>
                   )}
                 </div>
+              ) : null}
 
-                {/* Launch progress bar */}
-                {launching && launchProgress && (
-                  <div className="mt-4 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium" style={{ color }}>
-                        {launchProgress.message}
-                      </span>
-                      <span className="text-(--color-text-secondary)">
-                        {launchProgress.percent}%
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-(--color-surface-tertiary) overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{
-                          width: `${launchProgress.percent}%`,
-                          backgroundColor: color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {launchError && (
-                  <div className="mt-4 flex items-center gap-2 text-xs text-red-500 font-medium">
-                    <AlertTriangle size={13} />
-                    {launchError}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex items-center gap-3 mt-6">
-                  <button
-                    onClick={handleLaunch}
-                    disabled={store.isLaunching || store.isGameRunning}
-                    className="flex items-center gap-2.5 px-10 py-4 rounded-2xl text-white text-base font-bold transition-all cursor-pointer hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-none"
-                    style={{
-                      backgroundColor: gameRunning ? "#22c55e" : color,
-                      boxShadow: `0 6px 24px ${gameRunning ? "#22c55e" : color}35`,
-                    }}
-                  >
-                    {launching ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        {launchProgress?.message || "Launching..."}
-                      </>
-                    ) : gameRunning ? (
-                      <>
-                        <Square size={14} fill="currentColor" />
-                        Running
-                      </>
-                    ) : (
-                      <>
-                        <Play size={16} fill="currentColor" />
-                        Launch
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleStartEdit}
-                    className="flex items-center gap-2 px-6 py-4 rounded-2xl glass-subtle text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
-                  >
-                    <Pencil size={14} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    className="flex items-center gap-2 px-6 py-4 rounded-2xl glass-subtle text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
-                  >
-                    <Share2 size={14} />
-                    Share
-                  </button>
-                  {instance.sharedInstanceId && (
-                    <button
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className="flex items-center gap-2 px-5 py-4 rounded-2xl glass-subtle text-sm text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-                      Sync
-                    </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handleLaunch}
+                  disabled={store.isLaunching || store.isGameRunning}
+                  className="flex items-center gap-2.5 rounded-[1rem] px-6 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:cursor-default disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none cursor-pointer"
+                  style={{
+                    backgroundColor: gameRunning ? "#22c55e" : color,
+                    boxShadow: `0 6px 24px ${gameRunning ? "#22c55e" : color}35`,
+                  }}
+                >
+                  {launching ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {launchProgress?.message || "Launching..."}
+                    </>
+                  ) : gameRunning ? (
+                    <>
+                      <Square size={14} fill="currentColor" />
+                      Running
+                    </>
+                  ) : (
+                    <>
+                      <Play size={16} fill="currentColor" />
+                      Launch
+                    </>
                   )}
-                </div>
+                </button>
+                <button
+                  onClick={handleStartEdit}
+                  className="flex items-center gap-2 rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
+                >
+                  <Pencil size={14} />
+                  Edit
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-2 rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
+                >
+                  <Share2 size={14} />
+                  Share
+                </button>
+                {instance.sharedInstanceId && (
+                  <button
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="flex items-center gap-2 rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+                    Sync
+                  </button>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <SnapshotStat
+                  label="Last Played"
+                  value={instance.lastPlayed ? timeAgo(instance.lastPlayed) : "Never"}
+                  sub={instance.lastPlayed ? formatDate(instance.lastPlayed) : "Not yet launched"}
+                />
+                <SnapshotStat
+                  label="Installed Mods"
+                  value={String(installedMods.length)}
+                  sub={installedMods.length === 1 ? "mod installed" : "mods installed"}
+                />
+                <SnapshotStat
+                  label="Created"
+                  value={timeAgo(instance.dateCreated)}
+                  sub={formatDate(instance.dateCreated)}
+                />
+                <SnapshotStat
+                  label="Memory"
+                  value={formatMem(instance.memoryMb ?? 4096)}
+                  sub="Current allocation"
+                />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          <StatCard
-            icon={Calendar}
-            label="Created"
-            value={timeAgo(instance.dateCreated)}
-            sub={formatDate(instance.dateCreated)}
-            color={color}
-          />
-          <StatCard
-            icon={Clock}
-            label="Last Played"
-            value={instance.lastPlayed ? timeAgo(instance.lastPlayed) : "Never"}
-            sub={
-              instance.lastPlayed ? formatDate(instance.lastPlayed) : "Not yet"
-            }
-            color={color}
-          />
-          <StatCard
-            icon={Package}
-            label="Mods"
-            value={String(installedMods.length)}
-            sub={installedMods.length === 1 ? "mod installed" : "mods installed"}
-            color={color}
-          />
-          <StatCard
-            icon={LoaderIcon}
-            label="Loader"
-            value={loaderMeta.label}
-            sub={instance.version}
-            color={loaderMeta.color}
-          />
-        </div>
+          <aside className="rounded-[1.6rem] border border-(--color-border) bg-(--color-surface-secondary) p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                  Instance Snapshot
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-(--color-text-secondary)">
+                  Quick reference for the pack you are managing.
+                </p>
+              </div>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{ backgroundColor: `${color}12`, color }}
+              >
+                <LoaderIcon size={18} />
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <QuickFact label="Minecraft" value={instance.version} />
+              <QuickFact label="Loader" value={loaderMeta.label} />
+              <QuickFact
+                label="Share Code"
+                value={instance.shareCode ?? "Private instance"}
+              />
+              <QuickFact
+                label="Status"
+                value={gameRunning ? "Running" : launching ? "Launching" : "Ready"}
+              />
+            </div>
+
+            <div className="mt-5 rounded-[1.1rem] border border-(--color-border) bg-(--color-surface) p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+                Actions
+              </p>
+              <div className="mt-3 grid gap-2">
+                <button
+                  onClick={handleOpenFolder}
+                  className="flex items-center justify-between rounded-lg border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2.5 text-sm font-medium text-(--color-text-primary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
+                >
+                  <span>Open Folder</span>
+                  <FolderOpen size={15} className="text-(--color-text-secondary)" />
+                </button>
+                <button
+                  onClick={onBrowseMods}
+                  className="flex items-center justify-between rounded-lg border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2.5 text-sm font-medium text-(--color-text-primary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
+                >
+                  <span>Browse Mods</span>
+                  <Plus size={15} className="text-(--color-text-secondary)" />
+                </button>
+              </div>
+            </div>
+          </aside>
+        </section>
 
         {/* Installed Mods section */}
         <section className="space-y-5">
@@ -462,7 +502,13 @@ export const InstanceDetailPage = observer(
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-4">
+              <div className="mb-3 grid grid-cols-[minmax(0,1.3fr)_9rem_3rem] items-center gap-3 px-4">
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">Installed Mod</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">Version</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">Actions</span>
+              </div>
+              <div className="space-y-3">
               {installedMods.map((mod) => (
                 <ModRow
                   key={mod.projectId}
@@ -475,6 +521,7 @@ export const InstanceDetailPage = observer(
                   onRemoveConfirm={() => handleRemoveMod(mod)}
                 />
               ))}
+              </div>
             </div>
           )}
         </section>
@@ -485,7 +532,7 @@ export const InstanceDetailPage = observer(
             Instance Settings
           </h2>
 
-          <div className="glass-subtle rounded-3xl divide-y divide-(--color-border)/50">
+          <div className="glass-subtle rounded-[1.5rem] divide-y divide-(--color-border)/50">
             <SettingRow
               icon={FolderOpen}
               label="Game Directory"
@@ -550,7 +597,7 @@ export const InstanceDetailPage = observer(
             Danger Zone
           </h2>
 
-          <div className="rounded-3xl border border-red-500/20 bg-red-500/5">
+          <div className="rounded-[1.5rem] border border-red-500/20 bg-red-500/5">
             <div className="flex items-center justify-between p-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
@@ -617,7 +664,7 @@ function ModRow({
   onRemoveCancel: () => void;
   onRemoveConfirm: () => void;
 }) {
-  const { instances: store } = useStore();
+  const { installs } = useStore();
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<ModVersion[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -658,47 +705,18 @@ function ModRow({
   const handleSwapVersion = async (newVersion: ModVersion) => {
     setSwapping(true);
     try {
-      // Remove old file
-      try {
-        await window.electronAPI.removeModFile({
-          instanceId: instance.id,
-          filename: mod.filename,
-        });
-      } catch {
-        // old file might be gone
-      }
-
-      // Download new file
-      const primaryFile = newVersion.files.find((f) => f.primary) ?? newVersion.files[0];
-      if (!primaryFile) {
-        setSwapping(false);
-        return;
-      }
-
-      const result = await window.electronAPI.downloadMod({
-        instanceId: instance.id,
-        url: primaryFile.url,
-        filename: primaryFile.filename,
-      });
-
-      if (result.success) {
-        store.updateMod(instance.id, mod.projectId, {
-          versionId: newVersion.id,
-          filename: primaryFile.filename,
-        });
-      }
+      await installs.switchInstalledModVersion(instance.id, mod, newVersion);
     } catch {
-      // swap failed
+      // failure is surfaced through the install toast
     }
     setSwapping(false);
     setShowVersions(false);
   };
 
   return (
-    <div
-      className="glass-subtle rounded-2xl overflow-hidden transition-all"
-    >
-      <div className="flex items-center gap-4 p-5 group">
+    <div className="glass-subtle rounded-[1.125rem] overflow-hidden transition-all">
+      <div className="grid grid-cols-[minmax(0,1.3fr)_9rem_3rem] items-center gap-3 p-4 group">
+        <div className="flex min-w-0 items-center gap-4">
         {mod.iconUrl ? (
           <img
             src={mod.iconUrl}
@@ -721,6 +739,7 @@ function ModRow({
           <p className="text-[11px] text-(--color-text-secondary) truncate mt-0.5">
             {mod.filename}
           </p>
+        </div>
         </div>
 
         {/* Version selector button */}
@@ -871,7 +890,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="glass-subtle rounded-2xl p-5 space-y-3">
+    <div className="glass-subtle rounded-[1.25rem] p-5 space-y-3">
       <div className="flex items-center gap-2.5">
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center"
@@ -891,6 +910,47 @@ function StatCard({
           {sub}
         </p>
       </div>
+    </div>
+  );
+}
+
+function SnapshotStat({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+}) {
+  return (
+    <div className="rounded-[1rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+        {label}
+      </p>
+      <p className="mt-2 text-lg font-black tracking-tight text-(--color-text-primary)">
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-(--color-text-secondary)">{sub}</p>
+    </div>
+  );
+}
+
+function QuickFact({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-[1rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
+      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-(--color-text-primary) text-right">
+        {value}
+      </span>
     </div>
   );
 }

@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("download-mod", data),
   removeModFile: (data: { instanceId: string; filename: string }) =>
     ipcRenderer.invoke("remove-mod-file", data),
+  listInstanceModFiles: (instanceId: string) =>
+    ipcRenderer.invoke("list-instance-mod-files", instanceId),
   openInstanceFolder: (instanceId: string) =>
     ipcRenderer.invoke("open-instance-folder", instanceId),
   onDownloadProgress: createListener<{ instanceId: string; filename: string; percent: number }>("download-progress"),

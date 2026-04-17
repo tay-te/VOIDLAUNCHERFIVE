@@ -108,6 +108,51 @@ export class NotificationStore {
     }
   }
 
+  async fetchSharedInstance(sharedInstanceId: string): Promise<SharedInstanceData | null> {
+    try {
+      const { data: shared, error } = await supabase
+        .from("shared_instances")
+        .select(`
+          id, name, mc_version, loader, icon_color, share_code, is_collaborative,
+          owner:profiles!owner_id(id, mc_uuid, mc_username, avatar_url)
+        `)
+        .eq("id", sharedInstanceId)
+        .single();
+
+      if (error || !shared) return null;
+
+      const { data: mods } = await supabase
+        .from("shared_instance_mods")
+        .select("project_id, version_id, title, icon_url, filename")
+        .eq("instance_id", shared.id);
+
+      const { data: collabs } = await supabase
+        .from("instance_collaborators")
+        .select("role, profile:profiles!profile_id(id, mc_uuid, mc_username, avatar_url)")
+        .eq("instance_id", shared.id);
+
+      const ownerData = Array.isArray(shared.owner) ? shared.owner[0] : shared.owner;
+
+      return {
+        id: shared.id,
+        name: shared.name,
+        mc_version: shared.mc_version,
+        loader: shared.loader,
+        icon_color: shared.icon_color,
+        share_code: shared.share_code,
+        is_collaborative: shared.is_collaborative,
+        owner: ownerData as Profile,
+        mods: mods ?? [],
+        collaborators: (collabs ?? []).map((c: any) => ({
+          profile: Array.isArray(c.profile) ? c.profile[0] : c.profile,
+          role: c.role,
+        })),
+      };
+    } catch {
+      return null;
+    }
+  }
+
   /** Send a share notification to a friend */
   async sendShareNotification(
     receiverProfileId: string,

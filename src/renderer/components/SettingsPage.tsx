@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
-type UpdateStatus = "idle" | "checking" | "up-to-date" | "available" | "error";
+type UpdateStatus = "idle" | "checking" | "up-to-date" | "available" | "downloaded" | "error";
 
 interface GithubRelease {
   tag_name: string;
@@ -23,11 +23,17 @@ export const SettingsPage = observer(() => {
   const [version, setVersion] = useState("dev");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
   const checkingRef = useRef(false);
+  const platformRef = useRef("unknown");
+  const [platform, setPlatform] = useState("unknown");
   const [releases, setReleases] = useState<GithubRelease[]>([]);
   const [loadingReleases, setLoadingReleases] = useState(true);
 
   useEffect(() => {
     window.electronAPI?.getAppVersion().then(setVersion).catch(() => {});
+    window.electronAPI?.getPlatform().then((value) => {
+      platformRef.current = value;
+      setPlatform(value);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -57,6 +63,14 @@ export const SettingsPage = observer(() => {
       api.onUpdateAvailable(() => {
         if (checkingRef.current) {
           setUpdateStatus("available");
+          if (platformRef.current === "darwin") {
+            checkingRef.current = false;
+          }
+        }
+      }),
+      api.onUpdateDownloaded(() => {
+        if (checkingRef.current) {
+          setUpdateStatus("downloaded");
           checkingRef.current = false;
         }
       }),
@@ -91,23 +105,24 @@ export const SettingsPage = observer(() => {
     { value: "dark", label: "Dark", icon: Moon },
     { value: "system", label: "System", icon: Monitor },
   ];
+  const isMac = platform === "darwin";
 
   return (
     <div className="p-8 space-y-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight text-(--color-text-primary)">
-          <span className="void-text">Settings</span>
+          Settings
         </h1>
         <p className="text-sm text-(--color-text-secondary) mt-1">
-          Tune your launcher to perfection
+          Configure appearance, updates, and release notes
         </p>
       </div>
 
       {/* Theme */}
-      <section className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
+      <section className="rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-(--color-accent)/10 flex items-center justify-center">
-            <Sun size={15} className="text-(--color-accent)" />
+          <div className="w-8 h-8 rounded-lg bg-(--color-surface-tertiary) flex items-center justify-center">
+            <Sun size={15} className="text-(--color-text-primary)" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-(--color-text-primary)">
@@ -123,9 +138,9 @@ export const SettingsPage = observer(() => {
             <button
               key={value}
               onClick={() => theme.setTheme(value)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 theme.theme === value
-                  ? "bg-(--color-accent) text-white shadow-sm"
+                  ? "bg-(--color-surface) text-(--color-text-primary) border border-(--color-border) shadow-sm"
                   : "bg-(--color-surface-tertiary) text-(--color-text-secondary) hover:text-(--color-text-primary)"
               }`}
             >
@@ -137,10 +152,10 @@ export const SettingsPage = observer(() => {
       </section>
 
       {/* Updates */}
-      <section className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
+      <section className="rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-(--color-accent)/10 flex items-center justify-center">
-            <Download size={15} className="text-(--color-accent)" />
+          <div className="w-8 h-8 rounded-lg bg-(--color-surface-tertiary) flex items-center justify-center">
+            <Download size={15} className="text-(--color-text-primary)" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-(--color-text-primary)">
@@ -155,10 +170,10 @@ export const SettingsPage = observer(() => {
           <button
             onClick={handleCheckForUpdates}
             disabled={updateStatus === "checking"}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               updateStatus === "checking"
                 ? "bg-(--color-surface-tertiary) text-(--color-text-secondary)"
-                : "bg-(--color-accent) text-white hover:brightness-110"
+                : "bg-(--color-accent) text-white hover:bg-(--color-accent-hover)"
             }`}
           >
             <RefreshCw
@@ -176,7 +191,13 @@ export const SettingsPage = observer(() => {
           {updateStatus === "available" && (
             <span className="text-xs text-(--color-accent) font-medium flex items-center gap-1.5 wizard-step-enter">
               <Download size={13} />
-              Update found! Downloading...
+              {isMac ? "Update found. Open the overlay to download." : "Update found! Downloading..."}
+            </span>
+          )}
+          {updateStatus === "downloaded" && (
+            <span className="text-xs text-emerald-500 font-medium flex items-center gap-1.5 wizard-step-enter">
+              <CheckCircle size={13} />
+              Ready to install
             </span>
           )}
           {updateStatus === "error" && (
@@ -188,10 +209,10 @@ export const SettingsPage = observer(() => {
       </section>
 
       {/* Changelog */}
-      <section className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
+      <section className="rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-(--color-accent)/10 flex items-center justify-center">
-            <ScrollText size={15} className="text-(--color-accent)" />
+          <div className="w-8 h-8 rounded-lg bg-(--color-surface-tertiary) flex items-center justify-center">
+            <ScrollText size={15} className="text-(--color-text-primary)" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-(--color-text-primary)">
@@ -225,10 +246,10 @@ export const SettingsPage = observer(() => {
       </section>
 
       {/* About */}
-      <section className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
+      <section className="rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-(--color-accent)/10 flex items-center justify-center">
-            <Zap size={15} className="text-(--color-accent)" />
+          <div className="w-8 h-8 rounded-lg bg-(--color-surface-tertiary) flex items-center justify-center">
+            <Zap size={15} className="text-(--color-text-primary)" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-(--color-text-primary)">
@@ -239,7 +260,7 @@ export const SettingsPage = observer(() => {
             </p>
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-(--color-surface-tertiary) space-y-1.5">
+        <div className="p-4 rounded-lg bg-(--color-surface-tertiary) space-y-1.5">
           <p className="text-sm font-bold text-(--color-text-primary)">
             <span className="void-text">VOID</span>{" "}
             <span className="text-(--color-text-secondary) font-normal text-xs">
@@ -247,8 +268,8 @@ export const SettingsPage = observer(() => {
             </span>
           </p>
           <p className="text-xs text-(--color-text-secondary) leading-relaxed">
-            A modern Minecraft modding client. Explore, install, and manage
-            mods from the Modrinth ecosystem with style.
+            A modern Minecraft modding client for exploring, installing, and
+            managing mods from the Modrinth ecosystem.
           </p>
         </div>
       </section>
@@ -272,9 +293,9 @@ function ChangelogEntry({ release, isCurrent }: { release: GithubRelease; isCurr
 
   return (
     <div
-      className={`rounded-xl border p-4 space-y-2 transition-colors ${
+      className={`rounded-lg border p-4 space-y-2 transition-colors ${
         isCurrent
-          ? "border-(--color-accent)/30 bg-(--color-accent)/5"
+          ? "border-(--color-accent)/25 bg-(--color-accent)/4"
           : "border-(--color-border) bg-(--color-surface-tertiary)/50"
       }`}
     >

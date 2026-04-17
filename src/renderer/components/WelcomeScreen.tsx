@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores";
-import { PlayerAvatar } from "./SkinViewer";
+import { PlayerAvatar } from "./PlayerAvatar";
 
 interface WelcomeScreenProps {
   onComplete: () => void;

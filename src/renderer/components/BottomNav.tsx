@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores";
 import { Home, Search, Layers, Settings, User, Users } from "lucide-react";
-import { PlayerAvatar } from "./SkinViewer";
+import { PlayerAvatar } from "./PlayerAvatar";
 import { NotificationTray } from "./NotificationTray";
 
 interface SidebarProps {
@@ -19,7 +19,7 @@ const navItems = [
 
 export const Sidebar = observer(
   ({ activePage, onNavigate }: SidebarProps) => {
-    const { auth } = useStore();
+    const { auth, installs } = useStore();
 
     return (
       <nav className="w-16 flex flex-col items-center py-3 gap-1.5">
@@ -33,7 +33,14 @@ export const Sidebar = observer(
           return (
             <button
               key={id}
-              onClick={() => onNavigate(id)}
+              onClick={() => {
+                if (id === "browse") {
+                  installs.clearPreferredInstance();
+                }
+                onNavigate(id);
+              }}
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
               title={label}
               className={`no-drag relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 cursor-pointer ${
                 isActive
@@ -57,6 +64,8 @@ export const Sidebar = observer(
         {/* User */}
         <button
           onClick={() => onNavigate("auth")}
+          aria-label="Account"
+          aria-current={activePage === "auth" ? "page" : undefined}
           title="Account"
           className={`no-drag flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 cursor-pointer ${
             activePage === "auth"

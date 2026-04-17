@@ -59,7 +59,7 @@ interface InstancesPageProps {
 }
 
 export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
-  const { instances: store, auth } = useStore();
+  const { instances: store, auth, installs } = useStore();
   const [showWizard, setShowWizard] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
@@ -76,6 +76,19 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
     setShowWizard(false);
   };
 
+  const localCount = store.instances.length;
+  const cloudCount = store.cloudInstances.length;
+  const totalMods = store.instances.reduce(
+    (sum, instance) => sum + (instance.installedMods?.length ?? instance.modCount ?? 0),
+    0
+  );
+  const recentInstance =
+    [...store.instances].sort((a, b) => {
+      const aTime = a.lastPlayed ? new Date(a.lastPlayed).getTime() : 0;
+      const bTime = b.lastPlayed ? new Date(b.lastPlayed).getTime() : 0;
+      return bTime - aTime;
+    })[0] ?? null;
+
   if (selectedInstanceId) {
     return (
       <>
@@ -83,6 +96,7 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
           instanceId={selectedInstanceId}
           onBack={() => setSelectedInstanceId(null)}
           onBrowseMods={() => {
+            installs.setPreferredInstance(selectedInstanceId);
             setSelectedInstanceId(null);
             onNavigate?.("browse");
           }}
@@ -105,16 +119,16 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-(--color-text-primary)">
             <span className="text-(--color-text-secondary) font-semibold text-lg">{auth.username} /</span>{" "}
-            <span className="void-text">Worlds</span>
+            Worlds
           </h1>
           <p className="text-sm text-(--color-text-secondary) mt-1">
-            Craft, configure, and launch your Minecraft instances
+            Manage, configure, and launch your Minecraft instances
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
           >
             <Download size={15} />
             Import
@@ -122,7 +136,7 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
           {(store.instances.length > 0 || store.cloudInstances.length > 0) && (
             <button
               onClick={() => setShowWizard(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/12"
             >
               <Plus size={15} />
               New Instance
@@ -130,6 +144,56 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
           )}
         </div>
       </div>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+        <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-6">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                Workspace
+              </p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-(--color-text-primary)">
+                Your instance library
+              </h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-(--color-text-secondary)">
+                Launch active setups, maintain shared packs, and keep your local installs organized without leaving the launcher.
+              </p>
+            </div>
+            {recentInstance && (
+              <div className="min-w-[14rem] rounded-[1.125rem] border border-(--color-border) bg-(--color-surface) px-4 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+                  Most Recent
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-black"
+                    style={{
+                      backgroundColor: `${recentInstance.iconColor}15`,
+                      color: recentInstance.iconColor,
+                    }}
+                  >
+                    {recentInstance.name[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-(--color-text-primary)">
+                      {recentInstance.name}
+                    </p>
+                    <p className="text-[11px] text-(--color-text-secondary)">
+                      {recentInstance.lastPlayed ? `Played ${timeAgo(recentInstance.lastPlayed)}` : "Not launched yet"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+          <SummaryCard label="Local Instances" value={String(localCount)} sub="Installed on this device" icon={Layers} />
+          <SummaryCard label="Installed Mods" value={String(totalMods)} sub="Across local instances" icon={Box} />
+          <SummaryCard label="Cloud Packs" value={String(cloudCount)} sub="Available to sync" icon={Cloud} />
+        </div>
+      </section>
 
       {/* Content */}
       {store.instances.length === 0 && store.cloudInstances.length === 0 && !store.loadingCloud ? (
@@ -141,7 +205,21 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
         <div className="space-y-5">
           {/* Local instances */}
           {store.instances.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <section className="space-y-4">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                    Local Instances
+                  </p>
+                  <h3 className="mt-1 text-xl font-black tracking-tight text-(--color-text-primary)">
+                    Ready to launch
+                  </h3>
+                </div>
+                <p className="text-xs text-(--color-text-secondary)">
+                  {store.instances.length} instance{store.instances.length === 1 ? "" : "s"} on this device
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {store.instances.map((inst) => (
                 <InstanceCard
                   key={inst.id}
@@ -163,7 +241,8 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
                   onDeleteCancel={() => setDeleteConfirm(null)}
                 />
               ))}
-            </div>
+              </div>
+            </section>
           )}
 
           {/* Cloud loading indicator */}
@@ -176,26 +255,33 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
 
           {/* Cloud instances — available from Supabase but not on this device */}
           {store.cloudInstances.length > 0 && (
-            <>
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-(--color-border)" />
-                <span className="text-xs font-medium text-(--color-text-secondary) flex items-center gap-1.5 px-2">
-                  <Cloud size={12} />
-                  Available from your account
-                </span>
-                <div className="h-px flex-1 bg-(--color-border)" />
+            <section className="space-y-4">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                    Cloud Library
+                  </p>
+                  <h3 className="mt-1 text-xl font-black tracking-tight text-(--color-text-primary)">
+                    Available from your account
+                  </h3>
+                </div>
+                <p className="text-xs text-(--color-text-secondary)">
+                  Sync shared or remote packs onto this device
+                </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {store.cloudInstances.map((cloud) => (
                   <CloudInstanceCard
                     key={cloud.id}
                     data={cloud}
-                    syncProgress={store.syncingInstances.get(cloud.id) ?? null}
-                    onSync={() => store.syncCloudInstance(cloud)}
+                    syncProgress={installs.getSharedProgress(cloud.id)}
+                    onSync={() => {
+                      void installs.installSharedInstance(cloud);
+                    }}
                   />
                 ))}
               </div>
-            </>
+            </section>
           )}
         </div>
       )}
@@ -225,6 +311,31 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
   );
 });
 
+function SummaryCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: typeof Box;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-(--color-border) bg-(--color-surface-secondary) px-5 py-4">
+      <div className="flex items-center gap-2 text-(--color-text-secondary)">
+        <Icon size={13} />
+        <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+      </div>
+      <p className="mt-3 text-3xl font-black tracking-tight text-(--color-text-primary)">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-(--color-text-secondary)">{sub}</p>
+    </div>
+  );
+}
+
 /* -- Empty state -- */
 
 function EmptyState({
@@ -235,36 +346,36 @@ function EmptyState({
   onImportClick: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <div className="relative">
-        <div className="w-20 h-20 rounded-2xl bg-(--color-accent)/10 flex items-center justify-center mb-5">
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="relative">
+        <div className="w-20 h-20 rounded-[1.25rem] bg-(--color-accent)/8 flex items-center justify-center mb-5">
           <Rocket
             size={32}
             strokeWidth={1.5}
             className="text-(--color-accent)"
           />
         </div>
-        <div className="absolute -top-1 -right-1 w-7 h-7 rounded-lg bg-(--color-accent)/15 flex items-center justify-center animate-pulse">
+        <div className="absolute -top-1 -right-1 w-7 h-7 rounded-md bg-(--color-accent)/12 flex items-center justify-center animate-pulse">
           <Plus size={12} className="text-(--color-accent)" />
         </div>
       </div>
       <h3 className="text-lg font-bold text-(--color-text-primary)">
-        The void is empty
+        No instances yet
       </h3>
       <p className="text-sm text-(--color-text-secondary) mt-1 max-w-xs text-center">
-        Create your first instance or import one from a friend's share code.
+        Create your first instance or import one from a share code.
       </p>
       <div className="flex items-center gap-3 mt-5">
         <button
           onClick={onCreateClick}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/20"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/12"
         >
           <Plus size={15} />
           Create Instance
         </button>
         <button
           onClick={onImportClick}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
         >
           <Download size={15} />
           Import Code
@@ -336,14 +447,32 @@ function InstanceCard({
 
   return (
     <div
-      className="group relative rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden hover:border-(--color-accent)/25 hover:shadow-md transition-all duration-200 cursor-pointer"
+      role="button"
+      tabIndex={isEditing ? -1 : 0}
+      aria-label={`Open ${instance.name}`}
+      className="group relative rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden hover:border-white/12 hover:shadow-md transition-all duration-200 cursor-pointer"
       onClick={isEditing ? undefined : onClick}
+      onKeyDown={(event) => {
+        if (isEditing) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       <div className="p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+            Instance
+          </span>
+          <span className="text-[10px] font-medium text-(--color-text-secondary)">
+            {instance.lastPlayed ? `Played ${timeAgo(instance.lastPlayed)}` : "Never launched"}
+          </span>
+        </div>
         {/* Instance info */}
         <div className="flex items-start gap-3.5">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0"
+            className="w-12 h-12 rounded-lg flex items-center justify-center text-base font-bold flex-shrink-0"
             style={{
               backgroundColor: instance.iconColor + "15",
               color: instance.iconColor,
@@ -363,13 +492,13 @@ function InstanceCard({
                     if (e.key === "Escape") handleCancelEdit();
                   }}
                   onBlur={handleSaveEdit}
-                  className="text-sm font-bold text-(--color-text-primary) bg-(--color-surface-tertiary) border border-(--color-border) rounded-lg px-2 py-1 w-full outline-none focus:border-(--color-accent)/50"
+                  className="text-sm font-bold text-(--color-text-primary) bg-(--color-surface-tertiary) border border-(--color-border) rounded-md px-2 py-1 w-full outline-none focus:border-(--color-accent)/40"
                   style={{ minWidth: 0 }}
                 />
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleSaveEdit}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-white flex-shrink-0 cursor-pointer"
+                  className="w-6 h-6 rounded-sm flex items-center justify-center text-white flex-shrink-0 cursor-pointer"
                   style={{ backgroundColor: instance.iconColor }}
                 >
                   <Check size={11} />
@@ -377,7 +506,7 @@ function InstanceCard({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleCancelEdit}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) flex-shrink-0 cursor-pointer"
+                  className="w-6 h-6 rounded-sm flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) flex-shrink-0 cursor-pointer"
                 >
                   <X size={11} />
                 </button>
@@ -388,11 +517,11 @@ function InstanceCard({
               </h3>
             )}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-[11px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-sm">
                 {instance.version}
               </span>
               <span
-                className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"
+                className="text-[10px] px-2 py-0.5 rounded-sm font-semibold flex items-center gap-1"
                 style={{
                   backgroundColor: loaderMeta.color + "12",
                   color: loaderMeta.color,
@@ -402,13 +531,13 @@ function InstanceCard({
                 {loaderMeta.label}
               </span>
               {instance.shareCode && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 bg-(--color-accent)/10 text-(--color-accent)">
+                <span className="text-[10px] px-2 py-0.5 rounded-sm font-semibold flex items-center gap-1 bg-(--color-accent)/8 text-(--color-accent)">
                   <Globe size={8} />
                   Shared
                 </span>
               )}
               {instance.isCollaborative && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 bg-purple-500/10 text-purple-500">
+                <span className="text-[10px] px-2 py-0.5 rounded-sm font-semibold flex items-center gap-1 bg-purple-500/8 text-purple-400">
                   <Users size={8} />
                   Collab
                 </span>
@@ -418,6 +547,21 @@ function InstanceCard({
         </div>
 
         {/* Meta */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-(--color-surface) px-3 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-text-secondary)">Mods</span>
+            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{instance.installedMods?.length ?? instance.modCount}</p>
+          </div>
+          <div className="rounded-lg bg-(--color-surface) px-3 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-text-secondary)">Created</span>
+            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{timeAgo(instance.dateCreated)}</p>
+          </div>
+          <div className="rounded-lg bg-(--color-surface) px-3 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-text-secondary)">Status</span>
+            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{isRunning ? "Running" : isLaunching ? "Launching" : "Idle"}</p>
+          </div>
+        </div>
+
         <div className="flex items-center gap-3.5 mt-3 text-[11px] text-(--color-text-secondary)">
           <span className="flex items-center gap-1">
             <Layers size={10} />
@@ -474,13 +618,13 @@ function InstanceCard({
               </span>
               <button
                 onClick={onDeleteCancel}
-                className="px-3 py-1.5 rounded-lg text-xs text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-md text-xs text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={onDeleteConfirm}
-                className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-md bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors cursor-pointer"
               >
                 Delete
               </button>
@@ -490,10 +634,10 @@ function InstanceCard({
               <button
                 onClick={onLaunch}
                 disabled={isBusy}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default disabled:hover:shadow-none"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default disabled:hover:shadow-none"
                 style={{
                   backgroundColor: isRunning ? "#22c55e" : instance.iconColor,
-                  boxShadow: `0 2px 8px ${isRunning ? "#22c55e" : instance.iconColor}25`,
+                  boxShadow: `0 2px 8px ${isRunning ? "#22c55e" : instance.iconColor}18`,
                 }}
               >
                 {isLaunching ? (

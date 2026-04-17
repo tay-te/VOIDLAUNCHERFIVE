@@ -10,15 +10,11 @@ import {
 } from "lucide-react";
 
 export const DownloadToast = observer(() => {
-  const { notifications: store } = useStore();
+  const { installs: store } = useStore();
 
-  if (!store.toastVisible || !store.activeDownload) return null;
+  if (!store.toastVisible || !store.activeJob) return null;
 
-  const job = store.activeDownload;
-  const progress =
-    job.totalMods > 0
-      ? Math.round((job.downloadedMods / job.totalMods) * 100)
-      : 0;
+  const job = store.activeJob;
 
   return (
     <div className="fixed bottom-6 right-6 z-[300] w-80 download-toast-enter">
@@ -32,24 +28,24 @@ export const DownloadToast = observer(() => {
               color: job.iconColor,
             }}
           >
-            {job.instanceName[0]?.toUpperCase() ?? "?"}
+            {(job.instanceName || job.title)[0]?.toUpperCase() ?? "?"}
           </div>
 
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-(--color-text-primary) truncate">
-              {job.instanceName}
+              {job.title}
             </p>
             <p className="text-[10px] text-(--color-text-secondary) truncate mt-0.5">
               {job.status === "done"
-                ? "Download complete"
+                ? job.subtitle
                 : job.status === "error"
-                ? job.error ?? "Download failed"
-                : job.currentMod}
+                ? job.error ?? "Install failed"
+                : job.currentItem}
             </p>
           </div>
 
           {/* Status icon */}
-          {job.status === "downloading" && (
+          {job.status === "running" && (
             <Loader2
               size={16}
               className="animate-spin flex-shrink-0"
@@ -83,7 +79,7 @@ export const DownloadToast = observer(() => {
             <div
               className="h-full rounded-full transition-all duration-500 ease-out"
               style={{
-                width: `${job.status === "done" ? 100 : progress}%`,
+                width: `${job.status === "done" ? 100 : job.percent}%`,
                 backgroundColor:
                   job.status === "error"
                     ? "#ef4444"
@@ -97,7 +93,7 @@ export const DownloadToast = observer(() => {
           <div className="flex items-center justify-between mt-2">
             <span className="text-[10px] text-(--color-text-secondary) flex items-center gap-1">
               <Package size={9} />
-              {job.downloadedMods}/{job.totalMods} mods
+              {job.completedItems}/{job.totalItems} steps
             </span>
             <span
               className="text-[10px] font-bold"
@@ -114,7 +110,7 @@ export const DownloadToast = observer(() => {
                 ? "Complete"
                 : job.status === "error"
                 ? "Failed"
-                : `${progress}%`}
+                : `${job.percent}%`}
             </span>
           </div>
         </div>

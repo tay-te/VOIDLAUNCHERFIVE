@@ -322,6 +322,24 @@ export class InstanceStore {
     mods: InstalledMod[];
   }) {
     if (!this.currentUserUuid || !this.currentUserName) return null;
+
+    const existing = this.instances.find(
+      (instance) => instance.sharedInstanceId === data.sharedInstanceId
+    );
+    if (existing) {
+      Object.assign(existing, {
+        name: data.name,
+        version: data.version,
+        loader: data.loader,
+        iconColor: data.iconColor,
+        shareCode: data.shareCode,
+        isCollaborative: data.isCollaborative,
+      });
+      this.cloudInstances = this.cloudInstances.filter((c) => c.id !== data.sharedInstanceId);
+      this.persist();
+      return existing;
+    }
+
     const instance: Instance = {
       id: crypto.randomUUID(),
       name: data.name,

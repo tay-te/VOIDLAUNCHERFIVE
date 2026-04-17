@@ -414,22 +414,37 @@ ipcMain.handle(
     const modsDir = getInstanceModsDir(safeInstanceId);
     ensureDir(modsDir);
     const destPath = path.join(modsDir, safeFilename);
+    const tempPath = path.join(
+      modsDir,
+      `.${safeFilename}.${Date.now().toString(36)}.part`
+    );
 
     // Final path containment check
-    if (!isPathWithin(modsDir, destPath)) {
+    if (!isPathWithin(modsDir, destPath) || !isPathWithin(modsDir, tempPath)) {
       return { success: false, error: "Invalid file path" };
     }
 
     try {
-      await downloadFile(url, destPath, (percent) => {
+      await downloadFile(url, tempPath, (percent) => {
         mainWindow?.webContents.send("download-progress", {
           instanceId,
           filename,
           percent,
         });
       });
+      if (fs.existsSync(destPath)) {
+        fs.unlinkSync(destPath);
+      }
+      fs.renameSync(tempPath, destPath);
       return { success: true, path: destPath };
     } catch (err) {
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+        }
+      } catch {
+        // ignore cleanup failure
+      }
       return {
         success: false,
         error: err instanceof Error ? err.message : "Download failed",
@@ -476,6 +491,33 @@ ipcMain.handle("open-instance-folder", async (_event, instanceId: string) => {
   if (!isPathWithin(getInstancesDir(), dir)) return;
   ensureDir(dir);
   shell.openPath(dir);
+});
+
+ipcMain.handle("list-instance-mod-files", async (_event, instanceId: string) => {
+  const safeInstanceId = sanitizePathSegment(instanceId);
+  if (!safeInstanceId) {
+    return { success: false, error: "Invalid instance ID", files: [] as string[] };
+  }
+
+  const modsDir = getInstanceModsDir(safeInstanceId);
+  if (!isPathWithin(getInstancesDir(), modsDir)) {
+    return { success: false, error: "Invalid instance path", files: [] as string[] };
+  }
+
+  try {
+    ensureDir(modsDir);
+    const files = fs
+      .readdirSync(modsDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name);
+    return { success: true, files };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to list files",
+      files: [] as string[],
+    };
+  }
 });
 
 // Microsoft auth helpers

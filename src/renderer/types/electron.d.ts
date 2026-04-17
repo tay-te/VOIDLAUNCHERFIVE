@@ -63,6 +63,9 @@ export interface ElectronAPI {
     instanceId: string;
     filename: string;
   }) => Promise<{ success: boolean; error?: string }>;
+  listInstanceModFiles: (
+    instanceId: string
+  ) => Promise<{ success: boolean; files: string[]; error?: string }>;
   openInstanceFolder: (instanceId: string) => Promise<void>;
   onDownloadProgress: (
     cb: (data: { instanceId: string; filename: string; percent: number }) => void

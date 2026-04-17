@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores";
 import { Shield, LogOut } from "lucide-react";
-import { PlayerAvatar } from "./SkinViewer";
+import { PlayerAvatar } from "./PlayerAvatar";
 
 export const AuthPage = observer(
   ({ onBack }: { onBack: () => void }) => {

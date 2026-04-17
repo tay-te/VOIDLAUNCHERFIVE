@@ -33,7 +33,7 @@ interface Props {
 type Step = "input" | "loading" | "preview" | "installing" | "done" | "error";
 
 export const ImportShareCodeModal = observer(({ onClose, onImported }: Props) => {
-  const { instances: store, sharing } = useStore();
+  const { sharing, installs } = useStore();
   const [step, setStep] = useState<Step>("input");
   const [code, setCode] = useState("");
   const [sharedData, setSharedData] = useState<SharedInstanceData | null>(null);
@@ -65,64 +65,21 @@ export const ImportShareCodeModal = observer(({ onClose, onImported }: Props) =>
     if (!sharedData) return;
     setStep("installing");
     setInstallProgress(0);
+    setInstallStatus("Preparing import...");
 
     try {
-      // Create local instance
-      const instance = store.createFromShared({
-        name: sharedData.name,
-        version: sharedData.mc_version,
-        loader: sharedData.loader as "vanilla" | "fabric" | "forge",
-        iconColor: sharedData.icon_color,
-        sharedInstanceId: sharedData.id,
-        shareCode: sharedData.share_code,
-        isCollaborative: sharedData.is_collaborative,
-        mods: [], // Will add as we download
-      });
-
-      if (!instance) {
-        setStep("error");
-        setError("Failed to create instance. Are you logged in?");
-        return;
-      }
-
-      // Join as collaborator if collaborative
-      if (sharedData.is_collaborative) {
-        await sharing.joinAsCollaborator(sharedData.id);
-      }
-
-      // Download all mods
-      const total = sharedData.mods.length;
-      for (let i = 0; i < sharedData.mods.length; i++) {
-        const mod = sharedData.mods[i];
-        setInstallStatus(`Downloading ${mod.title}...`);
-        setInstallProgress(Math.round((i / Math.max(total, 1)) * 100));
-
-        try {
-          // Fetch version info to get download URL
-          const { getVersion } = await import("../api/modrinth");
-          const version = await getVersion(mod.version_id);
-          const primaryFile = version.files.find((f) => f.primary) ?? version.files[0];
-
-          if (primaryFile) {
-            const result = await window.electronAPI.downloadMod({
-              instanceId: instance.id,
-              url: primaryFile.url,
-              filename: primaryFile.filename,
-            });
-
-            if (result.success) {
-              store.addMod(instance.id, {
-                projectId: mod.project_id,
-                versionId: mod.version_id,
-                filename: primaryFile.filename,
-                title: mod.title,
-                iconUrl: mod.icon_url,
-              });
-            }
-          }
-        } catch {
-          // Skip failed mods but continue
+      const progressTimer = window.setInterval(() => {
+        const progress = installs.getSharedProgress(sharedData.id);
+        if (progress) {
+          setInstallStatus(progress.message);
+          setInstallProgress(progress.percent);
         }
+      }, 80);
+
+      try {
+        await installs.installSharedInstance(sharedData);
+      } finally {
+        window.clearInterval(progressTimer);
       }
 
       setInstallProgress(100);

@@ -18,9 +18,16 @@ import {
   Search,
   FileText,
   Box,
+  ShieldCheck,
+  Layers,
+  Image as ImageIcon,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+  Package,
 } from "lucide-react";
-import { ModInstallModal } from "./ModInstallModal";
 import type { ModVersion } from "../api/modrinth";
+import { ModInstallModal } from "./ModInstallModal";
 
 // Loader color config
 const LOADER_COLORS: Record<string, { color: string; bg: string }> = {
@@ -42,21 +49,32 @@ interface ModPageProps {
 }
 
 export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
-  const { mods } = useStore();
+  const { mods, installs } = useStore();
   const mod = mods.selectedMod;
   const versions = mods.selectedModVersions;
-  const [showInstallModal, setShowInstallModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"description" | "versions">("description");
+  const [selectedGalleryIndex, setSelectedGalleryIndex] = useState(0);
 
   // Version table filters
   const [versionLoaderFilter, setVersionLoaderFilter] = useState<string[]>([]);
   const [versionMcFilter, setVersionMcFilter] = useState<string[]>([]);
   const [versionTypeFilter, setVersionTypeFilter] = useState<string[]>([]);
   const [versionSearch, setVersionSearch] = useState("");
+  const [installModalState, setInstallModalState] = useState<{
+    open: boolean;
+    version: ModVersion | null;
+  }>({
+    open: false,
+    version: null,
+  });
 
   useEffect(() => {
     mods.selectMod(modId);
     return () => mods.clearSelectedMod();
+  }, [modId]);
+
+  useEffect(() => {
+    setSelectedGalleryIndex(0);
   }, [modId]);
 
   const renderedBody = useMemo(() => {
@@ -151,6 +169,44 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
   if (!mod) return null;
 
   const hasBody = !!mod.body;
+  const gallery = mod.gallery ?? [];
+  const selectedGalleryImage = gallery[selectedGalleryIndex] ?? gallery[0] ?? null;
+  const updatedLabel = (() => {
+    const dateValue = mod.date_modified || mod.date_created;
+    if (!dateValue) return "Unknown";
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return "Unknown";
+    return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  })();
+  const trustLinks = [
+    { url: mod.source_url, label: "Source" },
+    { url: mod.wiki_url, label: "Wiki" },
+    { url: mod.discord_url, label: "Discord" },
+    { url: mod.issues_url, label: "Issues" },
+  ].filter((l) => l.url);
+  const metaStats = [
+    {
+      label: "Downloads",
+      value: `${formatNumber(mod.downloads ?? 0)}`,
+      icon: Download,
+    },
+    {
+      label: "Followers",
+      value: `${formatNumber(mod.follows ?? mod.followers ?? 0)}`,
+      icon: Heart,
+    },
+    {
+      label: "Versions",
+      value: `${versions.length}`,
+      icon: Layers,
+    },
+    {
+      label: "Updated",
+      value: updatedLabel,
+      icon: Calendar,
+    },
+  ];
+  const installDisabled = installs.isProjectInstalling(mod.id);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -166,102 +222,161 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
             <ArrowLeft size={16} />
           </button>
 
-          <div className="flex items-start gap-6">
-            {/* Icon */}
-            {mod.icon_url ? (
-              <img src={mod.icon_url} alt={mod.title} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0 shadow-lg ring-1 ring-black/5" />
-            ) : (
-              <div className="w-24 h-24 rounded-3xl bg-(--color-surface-tertiary) flex items-center justify-center text-(--color-text-secondary) flex-shrink-0 shadow-lg">
-                <Sparkles size={32} />
-              </div>
-            )}
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_22rem]">
+            <div className="min-w-0">
+              <div className="flex items-start gap-6">
+                {mod.icon_url ? (
+                  <img src={mod.icon_url} alt={mod.title} className="w-24 h-24 rounded-3xl object-cover flex-shrink-0 shadow-lg ring-1 ring-black/5" />
+                ) : (
+                  <div className="w-24 h-24 rounded-3xl bg-(--color-surface-tertiary) flex items-center justify-center text-(--color-text-secondary) flex-shrink-0 shadow-lg">
+                    <Sparkles size={32} />
+                  </div>
+                )}
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-3xl font-black tracking-tighter text-(--color-text-primary) leading-none">
-                {mod.title}
-              </h1>
-              <p className="text-sm text-(--color-text-secondary) mt-2 leading-relaxed max-w-2xl">
-                {mod.description}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(mod.categories ?? []).slice(0, 3).map((cat) => (
+                      <span key={cat} className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-(--color-accent)/10 text-(--color-accent)">
+                        <Tag size={9} />
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                  <h1 className="mt-3 text-3xl font-black tracking-tighter text-(--color-text-primary) leading-none">
+                    {mod.title}
+                  </h1>
+                  <p className="mt-2 text-sm font-semibold text-(--color-text-secondary)">
+                    {mod.author ? `By ${mod.author}` : "Modrinth project"}
+                  </p>
+                  <p className="text-sm text-(--color-text-secondary) mt-3 leading-relaxed max-w-2xl">
+                    {mod.description}
+                  </p>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {metaStats.map(({ label, value, icon: Icon }) => (
+                      <div key={label} className="rounded-[1.125rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3">
+                        <div className="flex items-center gap-2 text-(--color-text-secondary)">
+                          <Icon size={12} />
+                          <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+                        </div>
+                        <p className="mt-2 text-sm font-bold text-(--color-text-primary)">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                Install & Verify
+              </p>
+              <button
+                onClick={() => {
+                  setInstallModalState({ open: true, version: null });
+                }}
+                disabled={installDisabled}
+                className="launch-btn mt-4 flex w-full items-center justify-center gap-2 px-7 py-3 rounded-[1.125rem] bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-bold transition-all cursor-pointer hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-default disabled:hover:translate-y-0"
+              >
+                <span className="launch-shimmer" />
+                <Download size={15} className="relative z-10" />
+                <span className="relative z-10">
+                  {installDisabled ? "Installing..." : "Install Mod"}
+                </span>
+              </button>
+
+              <p className="mt-3 text-[11px] leading-relaxed text-(--color-text-secondary)">
+                Opens the install modal so the player can choose a profile, review the dependency tree, and then confirm the install.
               </p>
 
-              {/* Stats row */}
-              <div className="flex items-center gap-2 mt-4 flex-wrap">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-text-secondary) bg-(--color-surface-secondary) border border-(--color-border) px-3 py-1.5 rounded-full">
-                  <Download size={12} />
-                  {formatNumber(mod.downloads ?? 0)} downloads
-                </span>
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-text-secondary) bg-(--color-surface-secondary) border border-(--color-border) px-3 py-1.5 rounded-full">
-                  <Heart size={12} />
-                  {formatNumber(mod.follows ?? mod.followers ?? 0)} followers
-                </span>
-                {mod.date_created && (
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-(--color-text-secondary) bg-(--color-surface-secondary) border border-(--color-border) px-3 py-1.5 rounded-full">
-                    <Calendar size={12} />
-                    {new Date(mod.date_created).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-                  </span>
-                )}
+              <div className="mt-4 rounded-[1.125rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
+                <div className="flex items-center gap-2 text-(--color-text-secondary)">
+                  <ShieldCheck size={13} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em]">Project Links</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {trustLinks.length > 0 ? trustLinks.map(({ url, label }) => (
+                    <a
+                      key={label}
+                      href={url!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-lg border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2 text-xs font-semibold text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors"
+                    >
+                      <ExternalLink size={12} />
+                      {label}
+                    </a>
+                  )) : (
+                    <p className="text-xs text-(--color-text-secondary)">No external project links available.</p>
+                  )}
+                </div>
               </div>
 
-              {/* Categories */}
-              {(mod.categories ?? []).length > 0 && (
-                <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                  {mod.categories.map((cat) => (
-                    <span key={cat} className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-(--color-accent)/10 text-(--color-accent)">
-                      <Tag size={9} />
-                      {cat}
-                    </span>
-                  ))}
+              {mod.license && (
+                <div className="mt-4 rounded-[1.125rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+                    License
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-(--color-text-primary)">
+                    {mod.license.name || mod.license.id || "Not specified"}
+                  </p>
                 </div>
               )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-3 mt-5">
-                <button
-                  onClick={() => setShowInstallModal(true)}
-                  className="launch-btn flex items-center gap-2 px-7 py-3 rounded-2xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-bold transition-all cursor-pointer hover:-translate-y-0.5"
-                >
-                  <span className="launch-shimmer" />
-                  <Download size={15} className="relative z-10" />
-                  <span className="relative z-10">Install Mod</span>
-                </button>
-
-                {/* External links */}
-                {[
-                  { url: mod.source_url, label: "Source" },
-                  { url: mod.wiki_url, label: "Wiki" },
-                  { url: mod.discord_url, label: "Discord" },
-                  { url: mod.issues_url, label: "Issues" },
-                ].filter((l) => l.url).map(({ url, label }) => (
-                  <a
-                    key={label}
-                    href={url!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) text-xs font-semibold text-(--color-text-secondary) hover:text-(--color-text-primary) hover:border-(--color-accent)/30 transition-all cursor-pointer"
-                  >
-                    <ExternalLink size={12} />
-                    {label}
-                  </a>
-                ))}
-              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Gallery */}
-      {mod.gallery && mod.gallery.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-3 px-8 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
-          {mod.gallery.map((img, i) => (
-            <img key={i} src={img.url} alt={img.title || `Screenshot ${i + 1}`} className="h-48 rounded-2xl object-cover flex-shrink-0 shadow-md ring-1 ring-black/5" />
-          ))}
+      {gallery.length > 0 && selectedGalleryImage && (
+        <div className="px-8">
+          <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-4">
+            <div className="flex items-center gap-2 text-(--color-text-secondary)">
+              <ImageIcon size={13} />
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em]">Media</span>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+              <div className="overflow-hidden rounded-[1.25rem] border border-(--color-border) bg-(--color-surface)">
+                <img
+                  src={selectedGalleryImage.url}
+                  alt={selectedGalleryImage.title || `Screenshot ${selectedGalleryIndex + 1}`}
+                  className="h-[18rem] w-full object-cover"
+                />
+                {(selectedGalleryImage.title || selectedGalleryImage.description) && (
+                  <div className="border-t border-(--color-border) px-4 py-3">
+                    {selectedGalleryImage.title && (
+                      <p className="text-sm font-bold text-(--color-text-primary)">{selectedGalleryImage.title}</p>
+                    )}
+                    {selectedGalleryImage.description && (
+                      <p className="mt-1 text-xs leading-relaxed text-(--color-text-secondary)">{selectedGalleryImage.description}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3 overflow-x-auto lg:flex-col">
+                {gallery.map((img, i) => (
+                  <button
+                    key={`${img.url}-${i}`}
+                    type="button"
+                    onClick={() => setSelectedGalleryIndex(i)}
+                    className={`overflow-hidden rounded-[1rem] border transition-all cursor-pointer ${
+                      selectedGalleryIndex === i
+                        ? "border-(--color-accent) shadow-sm"
+                        : "border-(--color-border) hover:border-white/15"
+                    }`}
+                  >
+                    <img src={img.url} alt={img.title || `Thumbnail ${i + 1}`} className="h-24 w-36 object-cover lg:w-full" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Tab bar */}
       <div className="px-8 mt-4 mb-1">
-        <div className="flex items-center gap-1 bg-(--color-surface-secondary) rounded-2xl p-1 w-fit border border-(--color-border)">
+        <div className="flex items-center gap-1 bg-(--color-surface-secondary) rounded-[1.25rem] p-1 w-fit border border-(--color-border)">
           <button
             onClick={() => setActiveTab("description")}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -293,7 +408,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
       {/* Tab content */}
       <div className="px-8 pb-8 mt-4">
         {activeTab === "description" && (
-          <div className="rounded-3xl bg-(--color-surface-secondary) border border-(--color-border) p-8 overflow-hidden">
+          <div className="rounded-[1.5rem] bg-(--color-surface-secondary) border border-(--color-border) p-8 overflow-hidden">
             {hasBody ? (
               <div className="mod-description prose" dangerouslySetInnerHTML={{ __html: renderedBody }} />
             ) : mods.detailLoading ? (
@@ -310,7 +425,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
         {activeTab === "versions" && (
           <div className="space-y-4">
             {/* Version filters */}
-            <div className="rounded-3xl bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
+            <div className="rounded-[1.5rem] bg-(--color-surface-secondary) border border-(--color-border) p-5 space-y-4">
               {/* Search */}
               <div className="relative">
                 <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--color-text-secondary)" />
@@ -419,7 +534,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
             {mods.detailLoading && versions.length === 0 ? (
               <div className="space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-16 rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) animate-pulse" />
+                  <div key={i} className="h-16 rounded-[1.125rem] bg-(--color-surface-secondary) border border-(--color-border) animate-pulse" />
                 ))}
               </div>
             ) : filteredVersions.length === 0 ? (
@@ -431,7 +546,14 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
             ) : (
               <div className="space-y-2">
                 {filteredVersions.map((v) => (
-                  <VersionRow key={v.id} version={v} onInstall={() => setShowInstallModal(true)} />
+                  <VersionRow
+                    key={v.id}
+                    version={v}
+                    installing={installDisabled}
+                    onInstall={(version) => {
+                      setInstallModalState({ open: true, version });
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -439,8 +561,13 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
         )}
       </div>
 
-      {showInstallModal && mod && (
-        <ModInstallModal mod={mod} onClose={() => setShowInstallModal(false)} onInstalled={() => {}} />
+      {installModalState.open && (
+        <ModInstallModal
+          mod={mod}
+          preferredVersion={installModalState.version}
+          onClose={() => setInstallModalState({ open: false, version: null })}
+          onInstalled={() => {}}
+        />
       )}
     </div>
   );
@@ -448,7 +575,15 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
 
 // ─── Version row ──────────────────────────────────────────────────────────────
 
-function VersionRow({ version: v, onInstall }: { version: ModVersion; onInstall: () => void }) {
+function VersionRow({
+  version: v,
+  installing,
+  onInstall,
+}: {
+  version: ModVersion;
+  installing: boolean;
+  onInstall: (version: ModVersion) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const typeStyle = VERSION_TYPE_STYLES[v.version_type] ?? VERSION_TYPE_STYLES.release;
   const primaryFile = v.files.find((f) => f.primary) ?? v.files[0];
@@ -460,11 +595,19 @@ function VersionRow({ version: v, onInstall }: { version: ModVersion; onInstall:
   };
 
   return (
-    <div className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden transition-all hover:border-(--color-accent)/20">
+    <div className="rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden transition-all hover:border-(--color-accent)/20">
       {/* Main row */}
       <div
+        role="button"
+        tabIndex={0}
         className="flex items-center gap-4 px-5 py-3.5 cursor-pointer"
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setExpanded((value) => !value);
+          }
+        }}
       >
         {/* Version number + name */}
         <div className="flex-1 min-w-0">
@@ -528,11 +671,15 @@ function VersionRow({ version: v, onInstall }: { version: ModVersion; onInstall:
 
         {/* Install button */}
         <button
-          onClick={(e) => { e.stopPropagation(); onInstall(); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-[11px] font-bold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/15 hover:shadow-md flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInstall(v);
+          }}
+          disabled={installing}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-[11px] font-bold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/15 hover:shadow-md flex-shrink-0 disabled:opacity-60 disabled:cursor-default"
         >
           <FileDown size={12} />
-          Install
+          {installing ? "Installing..." : "Install"}
         </button>
 
         {/* Expand chevron */}
