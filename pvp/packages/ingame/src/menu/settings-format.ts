@@ -2,7 +2,7 @@
  * How a mod setting reads in the UI. The frames print `1.0×`, `85%`, `8 px`.
  */
 
-import type { ModSettingValue } from '@/bridge/protocol';
+import type { SettingValue } from '@/store/store';
 import { SETTING_RANGES } from '@/registry';
 
 /** Human label for a settings key: `show_mouse` → `Show mouse`. */
@@ -60,7 +60,7 @@ export const SETTING_SUBTITLES: Record<string, string> = {
 };
 
 /** The value printed to the right of a slider. */
-export function formatSetting(key: string, value: ModSettingValue): string {
+export function formatSetting(key: string, value: SettingValue): string {
   if (typeof value !== 'number') return String(value ?? '—');
   switch (key) {
     case 'scale':
@@ -80,7 +80,7 @@ export function formatSetting(key: string, value: ModSettingValue): string {
 }
 
 /** Keybind chips read `R-Shift`, not `RSHIFT`. */
-export function keybindLabel(value: ModSettingValue): string {
+export function keybindLabel(value: SettingValue): string {
   if (typeof value !== 'string' || value === '' || value === 'NONE') return 'None';
   const named: Record<string, string> = {
     RSHIFT: 'R-Shift',

@@ -1,0 +1,448 @@
+/* ==========================================================================
+   Overlay-only styles.
+
+   Everything that draws a *component* — panels, tiles, cards, switches,
+   sliders, HUD chips, the editor toolbar and selection frame — comes from
+   `@void/ui`. What is left here is the two-layer composition this bundle owns:
+   where the layers sit, how a HUD item is positioned, and the screen-level
+   arrangements the shared package has no opinion about.
+
+   Ultralight rules that apply to every line below (ultralight-notes.md):
+   flexbox and absolute positioning only — no CSS grid (§7); 2D transforms only
+   (§4); flat scrims, never a backdrop blur (§1); no mix-blend-mode (§2); no
+   text-shadow (§3).
+   ========================================================================== */
+
+html,
+body,
+#void-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  /* The Ultralight view is composited over the game's GL frame; the page ground
+     is always transparent. */
+  background: transparent;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.void-app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The `?debug` harness renders at the authored frame size so the result can be
+   compared 1:1 against design/screens/*.png. Absent in game, where the view is
+   the framebuffer. */
+.void-app--debug {
+  width: var(--frame-w);
+  height: var(--frame-h);
+  margin: 0 auto;
+  border-radius: var(--radius-window);
+  background: var(--bg-base);
+}
+
+.void-debug-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+
+.void-debug-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 40;
+  padding: 4px 9px;
+  border-radius: var(--radius-badge);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-badge-lg);
+  text-transform: uppercase;
+  box-shadow: var(--shadow-tile);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ layers */
+
+/* §6.3: in HUD mode Ultralight receives no input at all, so the HUD layer never
+   needs to take any. */
+.hud-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hud-item {
+  /* placementStyle() supplies position / transform / transform-origin. */
+  pointer-events: none;
+}
+
+.hud-crosshair-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.menu-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.menu-layer__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--dim-overlay);
+}
+
+/* The overlay panel is 960 × 600 at (170, 110) in a 1300 × 820 frame — dead
+   centre on both axes, so centring keeps it on-model at any framebuffer size. */
+.panel-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------- Mods screen */
+
+.mods-body {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.mods-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 620px;
+  height: 414px;
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}
+
+/* The pane's non-keystrokes stand-in: the mod's own description, in the same
+   200 × 128 box the KeystrokesPreview occupies, so the pane height is stable. */
+.mod-pane-blurb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 128px;
+  padding: 16px;
+  border-radius: var(--radius-card-sm);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile);
+  text-align: center;
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+}
+
+/* ----------------------------------------------------- Mod settings screen */
+
+.mset {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.mset__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mset__enabled {
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+}
+
+.mset__keybind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--radius-field);
+  background: var(--tint-06);
+  border: 1px solid var(--tint-08);
+}
+
+.mset__keybind-label {
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}
+
+/* LIVE PREVIEW strip — 908 × 168. A plain fill over the game still the host
+   hands in; never a live blurred capture (ultralight-notes.md §1). */
+.mset__preview {
+  position: relative;
+  height: 168px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-cta);
+  background: var(--dim-preview);
+  border: 1px solid var(--tint-10);
+  overflow: hidden;
+}
+
+.mset__preview-caption,
+.mset__preview-meta {
+  position: absolute;
+  top: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs-2);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mset__preview-caption {
+  left: 16px;
+}
+
+.mset__preview-meta {
+  right: 16px;
+}
+
+.mset__preview-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mset__groups {
+  display: flex;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.mset__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto;
+  padding-bottom: 4px;
+}
+
+/* --------------------------------------------------------- Loadouts screen */
+
+.loadouts {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  padding-top: 18px;
+}
+
+/* ------------------------------------------------------------ Party screen */
+
+.party {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+}
+
+.party__left {
+  width: var(--list-w);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.party__gap {
+  height: 6px;
+}
+
+.party-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 12px;
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+}
+
+.party-row--invite {
+  height: 54px;
+  border-radius: var(--radius-card-sm);
+}
+
+.party-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.party-row__name {
+  font-size: var(--text-xl-2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-member);
+  color: var(--text-primary);
+}
+
+.party-row--invite .party-row__name {
+  font-size: var(--text-lg-2);
+  font-weight: var(--weight-medium);
+}
+
+.party-row__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+}
+
+.party__pane {
+  width: var(--pane-w);
+  align-self: flex-start;
+  height: 500px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-field);
+  background: var(--tint-04);
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.queue-row--selected {
+  background: var(--accent-tint-weak);
+  border-color: var(--accent-border-strong);
+}
+
+.queue-row__radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--tint-20);
+  flex: 0 0 auto;
+}
+
+.queue-row--selected .queue-row__radio {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px rgba(10, 11, 12, 0.85);
+}
+
+.queue-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.queue-row__title {
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.queue-row__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.queue-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-field);
+  background: var(--tint-06);
+  border: 1px solid var(--tint-10);
+  color: var(--text-primary);
+  font-size: var(--text-md-2);
+}
+
+.queue-picker__chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.party__leave {
+  width: 100%;
+  padding: 9px 0;
+  border-radius: var(--radius-field);
+  background: var(--tint-05);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+/* --------------------------------------------------------- HUD layout editor */
+
+.editor {
+  position: absolute;
+  inset: 0;
+}
+
+/* No panel here, so nothing to blur behind: the scrim is one flat fill, and it
+   is lighter than the panel dim so the real widget positions stay legible. */
+.editor__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--dim-hud-editor);
+}
+
+/* The 8px snap grid, drawn as two repeating gradients — no canvas, no SVG. */
+.editor__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 8px
+    ),
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 8px);
+}
+
+/* Widgets take input only in the editor. */
+.hud-layer--editor .hud-item {
+  pointer-events: auto;
+  cursor: move;
+}
+
+.editor__toolbar {
+  position: absolute;
+  left: 50%;
+  top: 15px;
+  transform: translateX(-50%);
+}
+
+.editor__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+}

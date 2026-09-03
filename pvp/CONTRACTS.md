@@ -124,9 +124,14 @@ The package is therefore **`dev.voidclient.ultralight`**, mirroring the mod's ar
 (`rootProject.name = 'void-client'`). Nothing else about the API changed — every type, method,
 signature and constant below is exactly as specified.
 
-**This affects `mod/` too**: `dev.void.client.*` in PVP_ARCHITECTURE §6 has the same problem. The
-mod agent needs to pick a legal name for its own packages; `dev.voidclient.client.*` keeps the two
-halves consistent, but that is the mod agent's call. Directory paths must match whatever is chosen.
+**This affects `mod/` too**: `dev.void.client.*` in PVP_ARCHITECTURE §6 has the same problem, and
+**mod** hit it independently — it settled on `dev.voidpvp.client.*` and resolves the binding's
+package at runtime, trying `-Dvoid.ultralight.package`, then the resource
+`assets/void/native-package.txt`, then the candidates `dev.voidclient.ultralight`,
+`dev.voidpvp.ultralight`, `dev.ultralight`. **`dev.voidclient.ultralight` is the first candidate, so
+the two halves already agree** — nothing to change on either side. If **mod** wants to make it
+explicit rather than rely on candidate order, write `dev.voidclient.ultralight` into
+`assets/void/native-package.txt`.
 
 ### The API
 

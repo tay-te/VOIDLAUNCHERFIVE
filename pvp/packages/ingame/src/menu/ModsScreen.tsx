@@ -1,21 +1,20 @@
 /**
  * Overlay — Mods · frame `244:538`.
  *
- * Header: title, 230 px search, All / HUD / PvP / Visual / Utility tabs, close.
- * Body: 3 × 4 grid of 200 × 96 tiles + the 278 px settings pane.
+ * Header: title, 230 px search, `All / HUD / PvP / Visual / Utility` tabs, close.
+ * Body: the 3 × 4 grid of 200 × 96 tiles + the 278 px settings pane, which shows
+ * whichever tile is selected.
  * Footer: `R-Shift closes   ·   drag any tile onto the game to place it   ·   ⌘K search`
  *
- * Keyboard: arrows move the selection through the grid, Enter toggles the
- * highlighted mod, Escape closes (unless the search field has focus).
+ * Keyboard: arrows walk the grid, Enter toggles the highlighted mod, Escape
+ * closes — unless the search field has focus, which `MenuLayer` handles.
  */
 
 import { useCallback, useMemo } from 'react';
 import { isModOn, useVoidStore } from '@/store/store';
-import { FILTER_TABS, MOD_ORDER, MOD_REGISTRY } from '@/registry';
-import type { ModId } from '@/bridge/protocol';
-import { IconWell, SearchField, Switch, FilterTabs } from '@/ui';
-import type { IconName } from '@/icons/Icon';
-import { Panel } from './Panel';
+import { FILTER_TABS, MOD_CATEGORY, MOD_ORDER, modLabel } from '@/registry';
+import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
+import { FilterTabs, Icon, ModGrid, ModTile, MOD_ICONS, Panel, SearchBar } from '@/ui';
 import { ModPane } from './ModPane';
 
 const COLUMNS = 3;
@@ -27,50 +26,40 @@ export const MODS_FOOTER =
 export function visibleMods(filter: string, query: string): ModId[] {
   const q = query.trim().toLowerCase();
   return MOD_ORDER.filter((id) => {
-    const entry = MOD_REGISTRY[id];
-    if (filter !== 'all' && entry.category !== filter) return false;
+    if (filter !== 'all' && MOD_CATEGORY[id] !== filter) return false;
     if (!q) return true;
     return (
-      entry.label.toLowerCase().includes(q) ||
-      entry.description.toLowerCase().includes(q) ||
+      modLabel(id).toLowerCase().includes(q) ||
+      MOD_REGISTRY[id].description.toLowerCase().includes(q) ||
       id.includes(q)
     );
   });
 }
 
-function ModTile({ id, selected }: { id: ModId; selected: boolean }) {
-  const entry = MOD_REGISTRY[id];
+function Tile({ id, selected }: { id: ModId; selected: boolean }) {
   const on = useVoidStore((s) => isModOn(s.loadout, id));
   const selectMod = useVoidStore((s) => s.selectMod);
   const toggleMod = useVoidStore((s) => s.toggleMod);
   const setRoute = useVoidStore((s) => s.setRoute);
 
   return (
-    <button
-      type="button"
+    <ModTile
       data-mod-id={id}
-      aria-pressed={on}
-      className={`mod-tile${selected ? ' mod-tile--selected' : ''}`}
-      onClick={() => selectMod(id)}
+      name={modLabel(id)}
+      category={MOD_CATEGORY[id]}
+      icon={MOD_ICONS[id]}
+      on={on}
+      selected={selected}
+      draggable
+      onSelect={() => selectMod(id)}
+      onToggle={(next) => {
+        selectMod(id);
+        toggleMod(id, next);
+      }}
+      // Double-click opens the mod's full settings screen (frame 244:834); the
+      // pane on the right is the single-click view.
       onDoubleClick={() => setRoute({ name: 'mod-settings', mod: id })}
-    >
-      <IconWell icon={entry.icon as IconName} size={34} on={on} />
-      <span className="mod-tile__body">
-        <span className="mod-tile__name">{entry.label}</span>
-        <span className="mod-tile__meta">
-          <Switch
-            on={on}
-            size="s"
-            label={entry.label}
-            onChange={(next) => {
-              selectMod(id);
-              toggleMod(id, next);
-            }}
-          />
-          <span className="mod-tile__tag">{entry.category}</span>
-        </span>
-      </span>
-    </button>
+    />
   );
 }
 
@@ -86,17 +75,18 @@ export function ModsScreen() {
 
   const ids = useMemo(() => visibleMods(filter, search), [filter, search]);
 
-  const rows = useMemo(() => {
-    const out: ModId[][] = [];
-    for (let i = 0; i < ids.length; i += COLUMNS) out.push(ids.slice(i, i + COLUMNS));
-    return out;
-  }, [ids]);
-
-  /** Arrow keys walk the grid; Enter toggles. Bound on the panel, not globally. */
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const delta =
-        e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' ? COLUMNS : e.key === 'ArrowUp' ? -COLUMNS : 0;
+        e.key === 'ArrowRight'
+          ? 1
+          : e.key === 'ArrowLeft'
+            ? -1
+            : e.key === 'ArrowDown'
+              ? COLUMNS
+              : e.key === 'ArrowUp'
+                ? -COLUMNS
+                : 0;
       if (delta !== 0) {
         if (ids.length === 0) return;
         e.preventDefault();
@@ -114,31 +104,39 @@ export function ModsScreen() {
   );
 
   return (
-    <div onKeyDown={onKeyDown}>
+    <div className="panel-wrap" onKeyDown={onKeyDown}>
       <Panel
+        surface="overlay"
+        animate
         title="Mods"
-        header={
+        onClose={closeMenu}
+        footer={MODS_FOOTER}
+        headerRight={
           <>
-            <SearchField value={search} onChange={setSearch} placeholder="Search" width={230} />
-            <FilterTabs tabs={FILTER_TABS} value={filter} onChange={setFilter} />
+            <SearchBar
+              variant="panel"
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Search"
+              style={{ width: 230 }}
+            />
+            <FilterTabs tabs={FILTER_TABS} value={filter} onChange={setFilter} label="Mod filter" />
+            <span className="v-spacer" />
           </>
         }
-        footer={MODS_FOOTER}
-        onClose={closeMenu}
       >
-        <div className="panel__body">
+        <div className="mods-body">
           {ids.length === 0 ? (
-            <div className="mods-empty">No mod matches “{search}”.</div>
-          ) : (
-            <div className="mods-grid">
-              {rows.map((row, index) => (
-                <div className="mods-grid__row" key={index}>
-                  {row.map((id) => (
-                    <ModTile key={id} id={id} selected={id === selected} />
-                  ))}
-                </div>
-              ))}
+            <div className="mods-empty">
+              <Icon name="search" size={14} />
+              &nbsp;No mod matches “{search}”.
             </div>
+          ) : (
+            <ModGrid>
+              {ids.map((id) => (
+                <Tile key={id} id={id} selected={id === selected} />
+              ))}
+            </ModGrid>
           )}
           <ModPane id={selected} />
         </div>
