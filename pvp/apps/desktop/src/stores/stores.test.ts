@@ -61,6 +61,10 @@ describe('session store', () => {
   });
 
   it('takes the account from the auth:status event, not from the login return', async () => {
+    // This one keeps the mock's timings (scaled down): the point of the device flow is
+    // that the code is shown *while* the exchange runs, which needs the two to be
+    // ordered in time rather than collapsed into one tick.
+    __setSpeed(0.01);
     const stop = await wireSessionEvents();
     await useSession.getState().loginMicrosoft();
     // The command returns a device code; the account only arrives on `complete`.
