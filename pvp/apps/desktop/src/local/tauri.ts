@@ -90,7 +90,6 @@ export interface Evt {
   'bridge:server': import('./protocol').BridgeServer;
   'loadout:switched': Loadout;
   'update:available': UpdateInfo;
-  nav: { screen: string };
 }
 
 export type EvtName = keyof Evt;

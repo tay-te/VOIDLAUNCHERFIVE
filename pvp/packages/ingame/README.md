@@ -39,7 +39,7 @@ window.__void_native  ──installVoidShim()──▶  window.void  ──┐
 | `src/store/hud-geometry.ts` | `anchor + dx/dy + scale` ⇄ pixels, snap, clamp, anchor re-pick. Pure |
 | `src/hud/` | The seven HUD mods, bound to the store; `HudLayer` places them |
 | `src/menu/` | The five overlay screens |
-| `src/palette/` | ⌘K: the command set and the fuzzy ranker |
+| `src/palette/` | ⌘K: the command set, the fuzzy ranker, and the selection / key routing over `@void/ui`'s palette shell |
 | `src/registry.ts` | The Figma-side view of the registry: filter category, grid order, panel copy |
 | `src/styles/overlay.css` | Layer composition and screen layout. Every *component* style is `@void/ui`'s |
 | `scripts/check-ultralight.mjs` | CI guard — fails the build on a banned CSS/JS feature |
@@ -127,6 +127,26 @@ The design exports are served by a **dev-server-only** middleware
 build time — CONTRACTS.md keeps that directory read-only reference material.
 
 ---
+
+## What this package draws, and what `@void/ui` draws
+
+Nothing presentational is duplicated here. Panels, tiles, cards, switches, sliders,
+keybind chips, filter tabs, HUD chips, the keystrokes widget, the editor toolbar and
+selection frame, the party rows and the palette shell are all `@void/ui`. This package
+supplies:
+
+* the **two-layer composition** — where the HUD and menu layers sit, and how a `hud_item`
+  becomes a positioned box (`src/styles/overlay.css`, `src/hud/HudLayer.tsx`);
+* the **bindings** — which bridge field feeds which prop, and which setting gates it;
+* the **behaviour** the frames imply but a component library cannot own: drag/snap/scale
+  in the HUD editor, palette selection and key routing, the keyboard contract, focus
+  reporting;
+* the **data** the schema does not carry: the filter taxonomy, grid order and panel copy
+  (`src/registry.ts`), and the potion colour table (`src/hud/format.ts`).
+
+There are **no local component fallbacks left**. Earlier drafts carried a `src/local/`
+tree standing in for `@void/ui` and `@void/protocol` while those packages were being
+written; both are now consumed directly and that tree is gone.
 
 ## Consuming `@void/ui` and `@void/protocol`
 
@@ -227,17 +247,17 @@ The directory is gitignored: it is a build output, and **mod** must never hand-e
 ```
   file                                             raw         gzip
   ----------------------------------------  ----------   ----------
-  assets/index-*.js                           261.7 KB      83.6 KB
+  assets/index-*.js                           263.5 KB      84.0 KB
   assets/bricolage-grotesque-800-*.woff2       25.1 KB      25.1 KB
   assets/dm-mono-500-*.woff2                   16.3 KB      16.3 KB
   assets/dm-mono-400-*.woff2                   16.1 KB      16.1 KB
   assets/outfit-600-*.woff2                    15.2 KB      15.1 KB
   assets/outfit-400-*.woff2                    15.1 KB      14.9 KB
   assets/outfit-500-*.woff2                    14.3 KB      14.3 KB
-  assets/style-*.css                           51.2 KB       8.6 KB
+  assets/style-*.css                           54.5 KB       9.1 KB
   index.html                                    0.4 KB       0.3 KB
   ----------------------------------------  ----------   ----------
-  TOTAL                                       415.4 KB     194.3 KB   (48.6% of budget)
+  TOTAL                                       420.4 KB     195.3 KB   (48.8% of budget)
 ```
 
 The three font families are 86 KB of that and do not compress further — they are already

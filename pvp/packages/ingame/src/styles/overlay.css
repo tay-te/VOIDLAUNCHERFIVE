@@ -288,49 +288,6 @@ body {
   height: 6px;
 }
 
-.party-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 64px;
-  padding: 0 12px;
-  border-radius: var(--radius-card);
-  background: var(--card-bg);
-  border: 1px solid var(--tint-07);
-  box-shadow: var(--shadow-tile), var(--inset-card);
-}
-
-.party-row--invite {
-  height: 54px;
-  border-radius: var(--radius-card-sm);
-}
-
-.party-row__body {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.party-row__name {
-  font-size: var(--text-xl-2);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-member);
-  color: var(--text-primary);
-}
-
-.party-row--invite .party-row__name {
-  font-size: var(--text-lg-2);
-  font-weight: var(--weight-medium);
-}
-
-.party-row__meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-}
-
 .party__pane {
   width: var(--pane-w);
   align-self: flex-start;

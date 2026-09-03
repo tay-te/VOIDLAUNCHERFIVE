@@ -124,10 +124,10 @@ export function SettingsPanel() {
               title="Java runtime"
               sub={
                 java?.found
-                  ? `${java.version} · ${java.source} · ${java.path}`
+                  ? `Java ${java.version} · ${java.source} · ${java.path}`
                   : java?.version
-                    ? `Found Java ${java.version}, but 1.8.9 needs Java 8`
-                    : 'Not found — the launcher will fetch Adoptium 8 on first launch'
+                    ? `Found Java ${java.version}, but 1.8.9 needs Java 8 — Temurin 8 will be fetched on first launch`
+                    : 'Not found — Temurin 8 will be fetched from Adoptium on first launch'
               }
             >
               <div className="inline-form">
@@ -241,7 +241,15 @@ export function SettingsPanel() {
 
           {/* --------------------------------------------------------- system */}
           <Group caption="DATA & UPDATES">
-            <Row title="Data folder" sub={dataDir || 'Loadouts, settings, game files and the Java runtime'}>
+            <Row
+              title="Data folder"
+              sub={
+                dataDir ||
+                (system
+                  ? `${system.data_dir} — loadouts, settings, game files and the Java runtime`
+                  : 'Loadouts, settings, game files and the Java runtime')
+              }
+            >
               <Button
                 variant="raised"
                 onClick={() => {

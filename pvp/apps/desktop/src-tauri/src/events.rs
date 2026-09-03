@@ -23,8 +23,6 @@ pub const BRIDGE_SESSION: &str = "bridge:session";
 pub const BRIDGE_SERVER: &str = "bridge:server";
 /// `loadout:switched` — the tray or another window changed the active loadout.
 pub const LOADOUT_SWITCHED: &str = "loadout:switched";
-/// `nav` — the tray asked the window to show a particular screen.
-pub const NAV: &str = "nav";
 
 /// Anything that can push an event at the web side.
 ///

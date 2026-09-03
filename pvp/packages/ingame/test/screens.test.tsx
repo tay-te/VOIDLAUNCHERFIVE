@@ -260,9 +260,9 @@ describe('Quick palette — frame 244:1900', () => {
     set(() => useVoidStore.getState().applyMenu(true));
     set(() => useVoidStore.getState().setPaletteOpen(true));
     const { container } = render(<App />);
-    const input = container.querySelector('.palette__input input') as HTMLInputElement;
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'fullb' } });
-    const titles = [...container.querySelectorAll('.palette__title')].map((el) => el.textContent);
+    const titles = [...container.querySelectorAll('.v-palette__title')].map((el) => el.textContent);
     expect(titles[0]).toBe('Toggle Fullbright');
     expect(titles[1]).toBe('Fullbright settings');
   });

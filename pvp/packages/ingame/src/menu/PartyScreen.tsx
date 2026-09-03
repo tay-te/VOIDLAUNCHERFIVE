@@ -10,7 +10,17 @@
  */
 
 import { useState } from 'react';
-import { Avatar, Badge, Button, FilterTabs, GroupCaption, Icon, IconWell, Pane, Panel } from '@/ui';
+import {
+  Button,
+  FilterTabs,
+  GroupCaption,
+  Icon,
+  IconWell,
+  InviteRow,
+  Pane,
+  Panel,
+  PartyMemberRow,
+} from '@/ui';
 import { useVoidStore } from '@/store/store';
 
 export const PARTY_FOOTER = 'Party chat  T   ·   push to talk  V   ·   R-Shift closes';
@@ -62,29 +72,19 @@ export function PartyScreen() {
           <div className="party__left">
             <GroupCaption label="In your party" count="·  2 of 4" />
             {MEMBERS.map((member) => (
-              <div className="party-row" key={member.name}>
-                <Avatar name={member.name} size={44} />
-                <span className="party-row__body">
-                  <span className="party-row__name">{member.name}</span>
-                  <span className="party-row__meta">{member.meta}</span>
-                </span>
-                <Badge tone={member.tone}>{member.badge}</Badge>
-              </div>
+              <PartyMemberRow
+                key={member.name}
+                name={member.name}
+                meta={member.meta}
+                badge={member.badge}
+                badgeTone={member.tone}
+              />
             ))}
 
             <div className="party__gap" />
             <GroupCaption label="Invite" count="·  3 online" />
             {INVITES.map((invite) => (
-              <div className="party-row party-row--invite" key={invite.name}>
-                <Avatar name={invite.name} size={34} />
-                <span className="party-row__body">
-                  <span className="party-row__name">{invite.name}</span>
-                  <span className="party-row__meta">{invite.meta}</span>
-                </span>
-                <Button variant="chip" icon="users">
-                  Invite
-                </Button>
-              </div>
+              <InviteRow key={invite.name} name={invite.name} meta={invite.meta} />
             ))}
           </div>
 

@@ -13,7 +13,7 @@ import { Dock } from './features/Dock';
 import { CommandPalette } from './features/CommandPalette';
 import { LaunchError, LogDrawer, SessionSummary } from './features/LogDrawer';
 import { TopNav } from './features/TopNav';
-import { IS_TAURI, listen } from './local/tauri';
+import { IS_TAURI } from './local/tauri';
 import { CosmeticsScreen } from './screens/Cosmetics';
 import { FriendsScreen } from './screens/Friends';
 import { ModsScreen } from './screens/Mods';
@@ -23,7 +23,7 @@ import { SettingsPanel } from './screens/Settings';
 import { useLaunch, wireLaunchEvents } from './stores/launch';
 import { useLoadouts, wireLoadoutEvents } from './stores/loadouts';
 import { useSession, wireSessionEvents } from './stores/session';
-import { SCREENS, useUi, type Screen } from './stores/ui';
+import { useUi } from './stores/ui';
 
 const SCREEN_COMPONENTS = {
   play: PlayScreen,
@@ -35,7 +35,6 @@ const SCREEN_COMPONENTS = {
 
 export function App() {
   const screen = useUi((s) => s.screen);
-  const go = useUi((s) => s.go);
   const hydrateSession = useSession((s) => s.hydrate);
   const hydrateLoadouts = useLoadouts((s) => s.hydrate);
   const phase = useLaunch((s) => s.phase);
@@ -48,18 +47,11 @@ export function App() {
   useEffect(() => {
     // One subscription set for the whole app. Every store's events are wired here so
     // that a screen mounting or unmounting can never drop a `game:closed`.
-    const pending = Promise.all([
-      wireSessionEvents(),
-      wireLoadoutEvents(),
-      wireLaunchEvents(),
-      listen('nav', ({ screen: next }) => {
-        if ((SCREENS as readonly string[]).includes(next)) go(next as Screen);
-      }),
-    ]);
+    const pending = Promise.all([wireSessionEvents(), wireLoadoutEvents(), wireLaunchEvents()]);
     return () => {
       void pending.then((unlisteners) => unlisteners.forEach((u) => u()));
     };
-  }, [go]);
+  }, []);
 
   const Screen = SCREEN_COMPONENTS[screen];
   const isPlay = screen === 'play';

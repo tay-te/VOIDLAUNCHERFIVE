@@ -1,6 +1,8 @@
-/* Overlay — Quick palette · frame 244:1900. 640 wide at (330, 190), height hugs.
-   No backdrop-filter and no blurred dim: one flat `--dim-palette` layer and a
-   solid `--palette-bg` body (ultralight-notes.md §1). */
+/* Quick palette placement · frame 244:1900.
+ *
+ * `@void/ui` draws the palette itself (`.v-palette*`); what is left here is
+ * where it sits over the game, and the flat dim behind it.
+ */
 
 .palette-layer {
   position: absolute;
@@ -9,197 +11,35 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  /* The frame puts the palette at y 190 in an 820-tall frame. */
   padding-top: 190px;
 }
 
+/* ultralight-notes.md §1: the authored `rgba(10,11,12,0.55)` + blur(3px) becomes
+   one flat layer at `--dim-palette` (0.62). Do not try to fake the blur — the
+   other overlay frames already use an unblurred dim, so this is on-model. */
 .palette-layer__dim {
   position: absolute;
   inset: 0;
   background: var(--dim-palette);
 }
 
-.palette {
+.palette-layer .v-palette {
   position: relative;
-  width: var(--palette-w);
   max-height: calc(100% - 220px);
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-surface);
-  background: var(--palette-bg);
-  border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel), var(--inset-hud);
-  overflow: hidden;
 }
 
-.palette__input {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 58px;
-  padding: 0 14px 0 18px;
-  color: var(--text-muted);
-  flex: 0 0 auto;
-}
-
-.palette__input input {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: var(--text-3xl);
-  color: var(--text-primary);
-  caret-color: var(--accent);
-  outline: none;
-}
-
-.palette__input input::placeholder {
-  color: var(--text-muted);
-}
-
-.palette__seam {
-  height: 1px;
-  background: var(--tint-08);
-  flex: 0 0 auto;
-}
-
-.palette__caption {
-  padding: 12px 0 6px 18px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-2);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--text-muted);
-  flex: 0 0 auto;
-}
-
-.palette__list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0 6px;
-  overflow-y: auto;
-}
-
-.palette__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 48px;
-  padding: 0 12px;
-  border-radius: var(--radius-field);
-  border: 1px solid transparent;
-  background: transparent;
-  text-align: left;
-  width: 100%;
-  flex: 0 0 auto;
-}
-
-.palette__row--selected {
-  background: var(--accent-tint-weak);
-  border-color: var(--accent-border);
-  box-shadow: var(--inset-row-selected);
-}
-
-.palette__well {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-chip);
-  background: var(--tint-07);
-  color: var(--text-secondary);
-  flex: 0 0 auto;
-}
-
-.palette__row--selected .palette__well {
-  background: var(--accent-tint-strong);
+/* The tail of a result's subtitle that previews the change: `→ on`. */
+.palette-sub-accent {
   color: var(--accent-ink);
 }
 
-.palette__body {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.palette__title {
-  font-size: var(--text-lg-2);
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.palette__sub {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.palette__row--selected .palette__sub {
-  color: var(--text-secondary);
-}
-
-.palette__sub-accent {
-  color: var(--accent-ink);
-}
-
-.palette__kbds {
-  display: flex;
-  gap: 6px;
-  flex: 0 0 auto;
-}
-
-.palette__row--selected .palette__kbds .vd-kbd {
-  color: var(--text-primary);
-}
-
-.palette__spacer {
+.palette-spacer {
   height: 6px;
   flex: 0 0 auto;
 }
 
-.palette__footer {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 14px 10px 18px;
-  flex: 0 0 auto;
-}
-
-.palette__hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.palette__hint-word {
-  font-size: var(--text-base);
-  color: var(--text-muted);
-}
-
-.palette__hint-key {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.palette__loadout {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.palette__empty {
+.palette-empty {
   padding: 18px;
   font-size: var(--text-md-2);
   color: var(--text-muted);

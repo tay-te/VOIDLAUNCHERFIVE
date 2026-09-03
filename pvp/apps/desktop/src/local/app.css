@@ -1,23 +1,32 @@
 /* ==========================================================================
    VOID PVP launcher — layout and component styles.
 
-   TODO(integrate): the component rules here move to `@void/ui` with the components
-   themselves (see `src/components/index.tsx`). Only the *shell* rules — `.shell`,
-   `.topnav`, `.canvas`, `.dock` — are genuinely launcher-only.
+   Every value here reads through a token from `@void/ui/tokens.css`, which is
+   `design/tokens.css` verbatim plus the two renderer layers. The only declarations
+   below are the two the launcher owns outright.
+
+   TODO(integrate): the *component* rules here move to `@void/ui` with the components
+   themselves (see `src/components/index.tsx`). Only the shell rules — `.shell`,
+   `.topnav`, `.canvas`, `.dock` — are genuinely launcher-only and stay.
 
    Geometry follows `design/README.md`'s component inventory. Where the frames give an
    absolute position inside a 1300 × 820 artboard, this uses flex with the same paddings
    and gaps, because the window resizes down to 1100 × 700.
 
-   `backdrop-filter` and the noise blend appear only under `[data-renderer='webview']`
-   — see `design/ultralight-notes.md` §1 and §2. The launcher gets the rich version;
-   the in-game bundle, which sets no `data-renderer`, falls through to the solid one.
+   `backdrop-filter` appears only under `[data-renderer='webview']` — see
+   `design/ultralight-notes.md` §1. The launcher gets the rich version; the in-game
+   bundle sets `data-renderer="ultralight"` and falls through to the solid one.
    ========================================================================== */
 
-/* TODO(integrate): `@void/ui/fonts.css` will bundle Bricolage Grotesque ExtraBold,
-   Outfit 400/500/600/700 and DM Mono 400/500 as local `@font-face` files. Until then
-   the stacks in tokens.css fall back to the system UI font, which changes the texture
-   but not the layout. */
+:root {
+  /* The launcher panel's height. `tokens.css` publishes the launcher and overlay
+     variants separately because they differ by 4px; this names the one in use. */
+  --panel-h: var(--panel-h-launcher);
+  /* The Launch button's hover state: `--shadow-cta` with the glow raised to the 0.55
+     the design notes call for. Not a design token — it is one component's hover. */
+  --shadow-cta-hover: 0 6px 14px -4px rgba(0, 0, 0, 0.35),
+    0 12px 32px -6px rgba(159, 139, 255, 0.55);
+}
 
 * {
   box-sizing: border-box;
