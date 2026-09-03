@@ -1,0 +1,24 @@
+{
+  "_comment": "A trimmed Legacy Fabric launcher profile, as meta.legacyfabric.net/v2/versions/loader/1.8.9/<loader>/profile/json returns it: inheritsFrom 1.8.9, a Knot main class, and libraries published as Maven coordinates plus a repository url rather than Mojang-style downloads. The guava entry is deliberately a newer version of one vanilla also ships, to exercise classpath shadowing; the LWJGL pair is copied verbatim from the real 1.8.9 profile, and lwjgl-platform is the natives-only case that has no plain jar in Maven at all.",
+  "id": "1.8.9-Legacy Fabric-0.16.0",
+  "inheritsFrom": "1.8.9",
+  "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+  "arguments": {
+    "game": [],
+    "jvm": ["-DFabricMcEmu= net.minecraft.client.main.Main "]
+  },
+  "libraries": [
+    { "name": "net.legacyfabric:intermediary:1.8.9", "url": "https://repo.legacyfabric.net/repository/legacyfabric/" },
+    { "name": "net.fabricmc:fabric-loader:0.16.0", "url": "https://maven.fabricmc.net/" },
+    { "name": "net.fabricmc:sponge-mixin:0.13.2+mixin.0.8.5", "url": "https://maven.fabricmc.net/" },
+    { "name": "org.ow2.asm:asm:9.6", "url": "https://maven.fabricmc.net/" },
+    { "name": "com.google.guava:guava:21.0", "url": "https://maven.fabricmc.net/" },
+    { "name": "org.lwjgl.lwjgl:lwjgl:2.9.4+legacyfabric.17", "url": "https://maven.legacyfabric.net/" },
+    {
+      "name": "org.lwjgl.lwjgl:lwjgl-platform:2.9.4+legacyfabric.17",
+      "url": "https://maven.legacyfabric.net/",
+      "extract": { "exclude": ["META-INF/"] },
+      "natives": { "linux": "natives-linux", "osx": "natives-osx", "windows": "natives-windows" }
+    }
+  ]
+}

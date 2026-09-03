@@ -1,0 +1,42 @@
+/* Bundled static faces, latin subset. No network: the page is loaded off the
+   JAR classpath. `font-display: block` so the HUD never flashes a fallback
+   metric into the middle of a fight.
+
+   ultralight-notes.md §7 asks for static instances rather than variable axes.
+   Google Fonts only publishes Outfit as a variable file, so it ships once with
+   a `wght` range and is driven by plain `font-weight` — no
+   `font-variation-settings` anywhere in this bundle (grep-checked by
+   scripts/check-ultralight.mjs). Bricolage Grotesque ships pinned at
+   opsz 14 / wdth 100 / wght 800, DM Mono as two real statics. */
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url('/fonts/outfit-var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/dm-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('/fonts/dm-mono-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+}

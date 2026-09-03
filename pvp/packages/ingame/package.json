@@ -1,5 +1,41 @@
 {
   "name": "@void/ingame",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "description": "In-game React entry: HUD layer + Right-Shift menu layer, rendered by Ultralight 1.4 inside the JVM.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --noEmit false tsconfig.build.json || true && vite build && node scripts/check-ultralight.mjs && node scripts/size.mjs",
+    "build:only": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint:ultralight": "node scripts/check-ultralight.mjs",
+    "size": "node scripts/size.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist node_modules/.vite"
+  },
+  "dependencies": {
+    "@void/protocol": "workspace:*",
+    "@void/ui": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
 }

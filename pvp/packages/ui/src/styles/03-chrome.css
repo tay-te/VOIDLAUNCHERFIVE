@@ -1,0 +1,395 @@
+/* ==========================================================================
+   Shell chrome and the launcher dock — TopNav, NavItem, SearchBar, PlayerChip,
+   LoadoutPicker, VersionPicker, LaunchButton, FriendsOnline.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- TopNav */
+
+.v-topnav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  height: var(--chrome-h);
+  padding: 0 var(--pad-chrome-x);
+}
+
+/** The 30 × 30 mark, with a 12px accent square outlined inside it. */
+.v-topnav__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  box-shadow: var(--inset-raised-soft);
+}
+
+.v-topnav__mark::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1.5px solid var(--accent);
+}
+
+.v-topnav__gap {
+  flex: 0 0 auto;
+  width: var(--space-4);
+}
+
+.v-topnav__tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+/* --------------------------------------------------------------- NavItem */
+
+.v-navitem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-9);
+  height: 34px;
+  padding: var(--pad-nav-tab);
+  border-radius: var(--radius-field);
+  border: 1px solid transparent;
+  font-size: var(--text-lg);
+  line-height: var(--leading-nav);
+  letter-spacing: var(--tracking-nav);
+  font-weight: var(--weight-regular);
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.v-navitem__icon {
+  display: flex;
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.v-navitem:hover:not(.v-navitem--active) {
+  color: var(--text-primary);
+  background: var(--tint-04);
+}
+
+.v-navitem--active {
+  background: var(--surface-3);
+  border-color: var(--hairline);
+  box-shadow: var(--shadow-raised), var(--inset-raised-soft);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+/* -------------------------------------------------------------- SearchBar */
+
+.v-searchbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  width: 300px;
+  height: 34px;
+  padding: 8px 8px 8px 13px;
+  border-radius: var(--radius-field);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--inset-field);
+  cursor: text;
+}
+
+/** The 8 × 8 accent dot that leads the launcher search. */
+.v-searchbar__dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.v-searchbar__icon {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--text-muted);
+}
+
+.v-searchbar__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.v-searchbar__input::placeholder {
+  color: var(--text-muted);
+}
+
+.v-searchbar__input:focus {
+  outline: none;
+}
+
+/** Panel variant — 230 × 34 (200 in Friends) on the recessed field background. */
+.v-searchbar--panel {
+  width: 230px;
+  padding: 0 var(--space-10) 0 var(--space-12);
+  gap: var(--space-8);
+  background: var(--field-bg);
+  border-color: var(--tint-07);
+  box-shadow: var(--inset-field-panel);
+}
+
+.v-searchbar--panel .v-searchbar__input {
+  font-size: var(--text-md-2);
+}
+
+.v-searchbar--narrow {
+  width: 200px;
+}
+
+/* ----------------------------------------------------------------- Dock */
+
+.v-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-panel);
+  background: var(--dock-bg);
+  border: 1px solid var(--border-dock);
+  box-shadow: var(--shadow-dock), var(--inset-dock);
+  -webkit-backdrop-filter: blur(var(--blur-dock));
+  backdrop-filter: blur(var(--blur-dock));
+}
+
+/* ------------------------------------------------------------ PlayerChip */
+
+.v-playerchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding-left: var(--space-4);
+}
+
+.v-playerchip__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.v-playerchip__name {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-name);
+  color: var(--text-primary);
+}
+
+.v-playerchip__level {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------- Loadout / Version pill */
+
+.v-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 52px;
+  padding: 0 var(--space-14) 0 var(--space-16);
+  border-radius: var(--radius-pill);
+  background: var(--raised-bg);
+  border: 1px solid var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.v-pill:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.v-pill--open {
+  border-color: var(--accent);
+}
+
+.v-pill__icon {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--accent);
+}
+
+.v-pill__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.v-pill__eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-caps-xs);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.v-pill__value {
+  font-size: var(--text-lg-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+/** The version pill sets both lines in DM Mono. */
+.v-pill--mono .v-pill__value {
+  font-family: var(--font-mono);
+}
+
+.v-pill__chevron {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--text-secondary);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.v-pill--open .v-pill__chevron {
+  transform: rotate(180deg);
+}
+
+/** In-game variant: a full-width row in the Party pane. */
+.v-pill--row {
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-field);
+  background: var(--tint-06);
+  border-color: var(--tint-10);
+  box-shadow: none;
+}
+
+.v-pill--row .v-pill__value {
+  font-size: var(--text-md-2);
+}
+
+/* ------------------------------------------------------------ LaunchButton */
+
+.v-launch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  width: 232px;
+  height: 56px;
+  border-radius: var(--radius-cta);
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: var(--shadow-cta), var(--inset-accent);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+.v-launch__label {
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-cta);
+}
+
+.v-launch__glyph {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.v-launch:hover:not(:disabled) {
+  box-shadow:
+    0 6px 14px -4px rgba(0, 0, 0, 0.35),
+    0 10px 28px -6px rgba(159, 139, 255, 0.55),
+    var(--inset-accent);
+}
+
+.v-launch:active:not(:disabled) {
+  box-shadow: var(--shadow-cta), inset 0 -2px 2px 0 rgba(0, 0, 0, 0.22);
+  transform: translateY(1px);
+}
+
+/** launching — the button is busy; the glyph becomes a 2D spinner. */
+.v-launch--launching {
+  cursor: progress;
+}
+
+.v-launch__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(10, 11, 12, 0.25);
+  border-top-color: var(--accent-fg);
+  /* 2D rotation only — Ultralight supports 2D transforms and nothing more (§4). */
+  animation: v-spin 0.9s linear infinite;
+}
+
+@keyframes v-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/** running — the game is up; the CTA becomes a raised, non-accent state. */
+.v-launch--running {
+  background: var(--raised-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+}
+
+.v-launch--running .v-launch__label {
+  font-size: var(--text-lg-2);
+}
+
+.v-launch--running .v-launch__glyph {
+  color: var(--ok);
+}
+
+.v-launch:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+/* ----------------------------------------------------------- FriendsOnline */
+
+.v-friends {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/** 80 × 32 box holding three 32px heads overlapped at x = 0 / 24 / 48. */
+.v-friends__heads {
+  position: relative;
+  flex: 0 0 auto;
+  width: 80px;
+  height: 32px;
+}
+
+.v-friends__head {
+  position: absolute;
+  top: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-field);
+  /* A 2px ring in the shell colour is what separates the overlapping heads. */
+  box-shadow: 0 0 0 2px #0a0b0c;
+}
+
+.v-friends__label {
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

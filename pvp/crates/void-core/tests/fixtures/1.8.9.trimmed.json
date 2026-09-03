@@ -1,0 +1,150 @@
+{
+  "_comment": "A trimmed 1.8.9 version JSON: the real document from piston-meta with most of its 40-odd libraries removed. What is kept is one plain library, the LWJGL pair (artifact plus natives classifiers), a library that is disallowed on Linux, a Windows-only library that uses ${arch} in its classifier, and one duplicated coordinate to exercise classpath shadowing. Sizes and hashes are truncated but well formed.",
+  "id": "1.8.9",
+  "type": "release",
+  "assets": "1.8",
+  "assetIndex": {
+    "id": "1.8",
+    "sha1": "f4ef42ee3a1c93a1c1e8f3d0c4a5c7b3a1d2e3f4",
+    "size": 40067,
+    "totalSize": 150476852,
+    "url": "https://launchermeta.mojang.com/v1/packages/f4ef42ee3a1c93a1c1e8f3d0c4a5c7b3a1d2e3f4/1.8.json"
+  },
+  "downloads": {
+    "client": {
+      "sha1": "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567",
+      "size": 10177098,
+      "url": "https://launcher.mojang.com/v1/objects/0a1b2c3d4e5f60718293a4b5c6d7e8f901234567/client.jar"
+    },
+    "server": {
+      "sha1": "1111111111111111111111111111111111111111",
+      "size": 9142168,
+      "url": "https://launcher.mojang.com/v1/objects/1111111111111111111111111111111111111111/server.jar"
+    }
+  },
+  "libraries": [
+    {
+      "name": "com.mojang:netty:1.6",
+      "downloads": {
+        "artifact": {
+          "path": "com/mojang/netty/1.6/netty-1.6.jar",
+          "sha1": "2222222222222222222222222222222222222222",
+          "size": 1449391,
+          "url": "https://libraries.minecraft.net/com/mojang/netty/1.6/netty-1.6.jar"
+        }
+      }
+    },
+    {
+      "name": "com.google.guava:guava:17.0",
+      "downloads": {
+        "artifact": {
+          "path": "com/google/guava/guava/17.0/guava-17.0.jar",
+          "sha1": "3333333333333333333333333333333333333333",
+          "size": 2243036,
+          "url": "https://libraries.minecraft.net/com/google/guava/guava/17.0/guava-17.0.jar"
+        }
+      }
+    },
+    {
+      "name": "org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209",
+      "downloads": {
+        "artifact": {
+          "path": "org/lwjgl/lwjgl/lwjgl/2.9.4-nightly-20150209/lwjgl-2.9.4-nightly-20150209.jar",
+          "sha1": "4444444444444444444444444444444444444444",
+          "size": 1047168,
+          "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl/2.9.4-nightly-20150209/lwjgl-2.9.4-nightly-20150209.jar"
+        }
+      }
+    },
+    {
+      "name": "org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209",
+      "natives": {
+        "linux": "natives-linux",
+        "osx": "natives-osx",
+        "windows": "natives-windows"
+      },
+      "extract": { "exclude": ["META-INF/"] },
+      "downloads": {
+        "classifiers": {
+          "natives-linux": {
+            "path": "org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-linux.jar",
+            "sha1": "5555555555555555555555555555555555555555",
+            "size": 578680,
+            "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-linux.jar"
+          },
+          "natives-osx": {
+            "path": "org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-osx.jar",
+            "sha1": "6666666666666666666666666666666666666666",
+            "size": 426843,
+            "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-osx.jar"
+          },
+          "natives-windows": {
+            "path": "org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-windows.jar",
+            "sha1": "7777777777777777777777777777777777777777",
+            "size": 613748,
+            "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-windows.jar"
+          }
+        }
+      }
+    },
+    {
+      "name": "tv.twitch:twitch-platform:5.16.0",
+      "rules": [
+        { "action": "allow" },
+        { "action": "disallow", "os": { "name": "linux" } }
+      ],
+      "natives": {
+        "linux": "natives-linux",
+        "osx": "natives-osx",
+        "windows": "natives-windows-${arch}"
+      },
+      "extract": { "exclude": ["META-INF/"] },
+      "downloads": {
+        "classifiers": {
+          "natives-osx": {
+            "path": "tv/twitch/twitch-platform/5.16.0/twitch-platform-5.16.0-natives-osx.jar",
+            "sha1": "8888888888888888888888888888888888888888",
+            "size": 379471,
+            "url": "https://libraries.minecraft.net/tv/twitch/twitch-platform/5.16.0/twitch-platform-5.16.0-natives-osx.jar"
+          },
+          "natives-windows-32": {
+            "path": "tv/twitch/twitch-platform/5.16.0/twitch-platform-5.16.0-natives-windows-32.jar",
+            "sha1": "9999999999999999999999999999999999999999",
+            "size": 5654047,
+            "url": "https://libraries.minecraft.net/tv/twitch/twitch-platform/5.16.0/twitch-platform-5.16.0-natives-windows-32.jar"
+          },
+          "natives-windows-64": {
+            "path": "tv/twitch/twitch-platform/5.16.0/twitch-platform-5.16.0-natives-windows-64.jar",
+            "sha1": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "size": 6011409,
+            "url": "https://libraries.minecraft.net/tv/twitch/twitch-platform/5.16.0/twitch-platform-5.16.0-natives-windows-64.jar"
+          }
+        }
+      }
+    },
+    {
+      "name": "tv.twitch:twitch-external-platform:4.5",
+      "rules": [{ "action": "allow", "os": { "name": "windows" } }],
+      "natives": { "windows": "natives-windows-${arch}" },
+      "extract": { "exclude": ["META-INF/"] },
+      "downloads": {
+        "classifiers": {
+          "natives-windows-32": {
+            "path": "tv/twitch/twitch-external-platform/4.5/twitch-external-platform-4.5-natives-windows-32.jar",
+            "sha1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "size": 5654047,
+            "url": "https://libraries.minecraft.net/tv/twitch/twitch-external-platform/4.5/twitch-external-platform-4.5-natives-windows-32.jar"
+          },
+          "natives-windows-64": {
+            "path": "tv/twitch/twitch-external-platform/4.5/twitch-external-platform-4.5-natives-windows-64.jar",
+            "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+            "size": 6011409,
+            "url": "https://libraries.minecraft.net/tv/twitch/twitch-external-platform/4.5/twitch-external-platform-4.5-natives-windows-64.jar"
+          }
+        }
+      }
+    }
+  ],
+  "mainClass": "net.minecraft.client.main.Main",
+  "minecraftArguments": "--username ${auth_player_name} --version ${version_name} --gameDir ${game_directory} --assetsDir ${assets_root} --assetIndex ${assets_index_name} --uuid ${auth_uuid} --accessToken ${auth_access_token} --userProperties ${user_properties} --userType ${user_type}"
+}

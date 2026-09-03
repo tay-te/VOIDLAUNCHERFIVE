@@ -1,0 +1,647 @@
+/* ==========================================================================
+   Primitives — Button, Card, Panel, Kbd, Tag, Avatar, IconButton, Toggle, Slider.
+   ========================================================================== */
+
+/* ----------------------------------------------------------------- Button */
+
+.v-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  border-radius: var(--radius-control);
+  font-family: var(--font-ui);
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+/* Accent buttons always carry --shadow-cta + --inset-accent. */
+.v-btn--accent {
+  padding: var(--space-10) var(--space-16);
+  border-radius: var(--radius-button);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-lg);
+  box-shadow: var(--shadow-cta), var(--inset-accent);
+}
+
+.v-btn--accent:hover:not(:disabled) {
+  box-shadow:
+    0 6px 14px -4px rgba(0, 0, 0, 0.35),
+    0 10px 28px -6px rgba(159, 139, 255, 0.55),
+    var(--inset-accent);
+}
+
+.v-btn--accent:active:not(:disabled) {
+  /* Drop the top highlight and settle 1px — the "pressed" read the frames imply. */
+  box-shadow: var(--shadow-cta), inset 0 -2px 2px 0 rgba(0, 0, 0, 0.22);
+  transform: translateY(1px);
+}
+
+/* Raised buttons always carry --shadow-raised + --inset-raised. */
+.v-btn--raised {
+  padding: var(--space-10) var(--space-16);
+  border-radius: var(--radius-button);
+  background: var(--raised-bg);
+  border: 1px solid var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+}
+
+.v-btn--raised:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.v-btn--ghost {
+  padding: var(--space-9) var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--tint-07);
+  border: 1px solid var(--tint-10);
+  color: var(--text-secondary);
+}
+
+.v-btn--ghost:hover:not(:disabled) {
+  background: var(--tint-10);
+}
+
+/** The `Join` / `Invite` chip. */
+.v-btn--chip {
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius-chip);
+  background: var(--tint-08);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+.v-btn--chip.v-btn--accent {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: var(--weight-bold);
+  border-radius: var(--radius-chip);
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-md);
+}
+
+/** `Leave party` — a bare text button. */
+.v-btn--text {
+  padding: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
+
+.v-btn--text:hover:not(:disabled) {
+  color: var(--text-secondary);
+}
+
+/** Full-width variant used by card CTAs and the pane CTA. */
+.v-btn--block {
+  display: flex;
+  width: 100%;
+  padding-top: var(--space-11);
+  padding-bottom: var(--space-11);
+  border-radius: var(--radius-button);
+  font-size: var(--text-lg-2);
+}
+
+.v-btn:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------- IconButton */
+
+.v-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  color: var(--text-secondary);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.v-icon-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/** The 32 × 32 close button on every overlay panel. */
+.v-icon-btn--close {
+  width: 32px;
+  height: 32px;
+  background: var(--raised-bg);
+  border-color: var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+}
+
+/** The 44 × 44 settings button at the right end of the dock. */
+.v-icon-btn--dock {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-avatar);
+  background: var(--raised-bg);
+  border-color: var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+}
+
+/* ------------------------------------------------------------------- Card */
+
+.v-card {
+  position: relative;
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+}
+
+.v-card--selected {
+  border-width: 1.5px;
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ Panel */
+
+.v-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--panel-w);
+  height: var(--panel-h-launcher);
+  border-radius: var(--radius-panel);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-panel);
+  box-shadow: var(--shadow-panel);
+  /* Reading the radius through a token is what makes the ultralight layer able to turn
+     it off: there it resolves to blur(0px). Never branch on @supports. */
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  backdrop-filter: blur(var(--blur-panel));
+}
+
+.v-panel--overlay {
+  height: var(--panel-h-overlay);
+}
+
+/** The ≈52px header band: title at 25, 21; every control at y 19. */
+.v-panel__header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: 19px var(--pad-panel) 0;
+  min-height: 52px;
+}
+
+.v-panel__title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-extrabold);
+  font-size: var(--text-6xl);
+  line-height: var(--leading-title);
+  letter-spacing: var(--tracking-title);
+  color: var(--text-primary);
+  margin: 2px 0 0;
+  white-space: nowrap;
+}
+
+.v-panel__subtitle {
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+  padding: 0 var(--pad-panel);
+  margin-top: 2px;
+}
+
+.v-panel__body {
+  flex: 1 1 auto;
+  position: relative;
+  display: flex;
+  gap: var(--space-10);
+  padding: 18px var(--pad-panel) 0;
+  min-height: 0;
+}
+
+.v-panel__footer {
+  padding: 0 var(--pad-panel) 21px;
+}
+
+/* Panel enter motion is 2D only: no flip, no depth, no perspective (§4). */
+.v-panel--enter {
+  animation: v-panel-in var(--duration-slow) var(--ease-out) both;
+}
+
+@keyframes v-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* -------------------------------------------------------------------- Kbd */
+
+.v-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/** nav flavour — the `⌘K` badge in the launcher search. */
+.v-kbd--nav {
+  padding: 2px 5px;
+  border-radius: var(--radius-kbd-sm);
+  background: var(--surface-2);
+  font-size: var(--text-xs-2);
+  line-height: var(--leading-kbd);
+  letter-spacing: var(--tracking-caps-kbd);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/** on-accent flavour — the `⌘↵` chip inside the Launch button. */
+.v-kbd--accent {
+  padding: 3px 7px;
+  border-radius: var(--radius-badge);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: var(--text-base);
+  color: rgba(10, 11, 12, 0.85);
+  box-shadow: var(--inset-kbd);
+}
+
+/** palette / settings flavour. */
+.v-kbd--palette {
+  padding: 3px 7px;
+  border-radius: var(--radius-kbd);
+  background: var(--tint-07);
+  border: 1px solid var(--tint-10);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* -------------------------------------------------------------------- Tag */
+
+/** ModTile category tag: `HUD` `PVP` `VISUAL` `UTILITY`. */
+.v-tag {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-tag);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/** A filled badge: `ACTIVE`, `LEADER`, `READY`, `NEW`. */
+.v-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: var(--radius-badge);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-badge-lg);
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.v-badge--ok {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+
+.v-badge--solid {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-tag);
+  padding: 2px 6px;
+  border-radius: var(--radius-kbd);
+}
+
+/* ----------------------------------------------------------------- Avatar */
+
+.v-avatar {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  border-radius: var(--radius-field);
+  background: var(--surface-2);
+  object-fit: cover;
+  overflow: hidden;
+}
+
+.v-avatar__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+/** 11px presence dot, ringed in the shell colour so it reads off any avatar. */
+.v-avatar__presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-shell);
+  background: var(--text-muted);
+}
+
+.v-avatar__presence--online {
+  background: var(--ok);
+}
+
+.v-avatar__presence--away {
+  background: var(--warn);
+}
+
+.v-avatar--offline {
+  opacity: 0.5;
+}
+
+/* ---------------------------------------------------------------- Iconwell */
+
+.v-icon-well {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-field);
+  background: var(--tint-08);
+  color: var(--text-secondary);
+}
+
+.v-icon-well--on {
+  background: var(--accent-tint-icon);
+  color: var(--accent-ink);
+}
+
+.v-icon-well--24 {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-swatch);
+}
+
+.v-icon-well--30 {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-chip);
+}
+
+.v-icon-well--34 {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-field);
+}
+
+.v-icon-well--44 {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-avatar);
+}
+
+/** The loadout-card icon block goes solid accent when the loadout is active. */
+.v-icon-well--solid {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* ----------------------------------------------------------------- Toggle */
+
+.v-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-field);
+  background: var(--tint-12);
+  transition: background-color var(--duration-instant) var(--ease-standard);
+}
+
+.v-toggle__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: transform var(--duration-instant) var(--ease-standard);
+}
+
+.v-toggle--on {
+  background: var(--accent);
+  box-shadow: var(--shadow-switch-on), var(--inset-switch);
+}
+
+.v-toggle--on .v-toggle__knob {
+  background: #ffffff;
+  transform: translateX(16px);
+}
+
+/* M — 40 × 22, knob 16, x 21 / 3. */
+.v-toggle--m {
+  width: 40px;
+  height: 22px;
+  border-radius: var(--radius-button);
+}
+
+.v-toggle--m .v-toggle__knob {
+  width: 16px;
+  height: 16px;
+}
+
+.v-toggle--m.v-toggle--on .v-toggle__knob {
+  transform: translateX(18px);
+}
+
+/* L — 44 × 24, knob 18, x 23 / 3. */
+.v-toggle--l {
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-card-sm);
+}
+
+.v-toggle--l .v-toggle__knob {
+  width: 18px;
+  height: 18px;
+}
+
+.v-toggle--l.v-toggle--on .v-toggle__knob {
+  transform: translateX(20px);
+}
+
+.v-toggle:disabled {
+  opacity: 0.45;
+}
+
+/* ----------------------------------------------------------------- Slider */
+
+.v-slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.v-slider__labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.v-slider__label {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+
+.v-slider__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-base-2);
+  color: var(--text-primary);
+}
+
+/** Compact track — the ModSettingsPanel sliders: 200 × 14, rail 5px at top 4. */
+.v-slider__track {
+  position: relative;
+  width: 200px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.v-slider__rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
+  height: 5px;
+  border-radius: var(--radius-xs);
+  background: var(--tint-12);
+}
+
+.v-slider__fill {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  height: 5px;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+}
+
+.v-slider__thumb {
+  position: absolute;
+  top: -1px;
+  width: 10px;
+  height: 16px;
+  margin-left: -5px;
+  border-radius: var(--radius-kbd-sm);
+  background: var(--text-primary);
+}
+
+/** Wide track — the settings-row sliders: 180 × 16, rail 6px at top 5. */
+.v-slider--wide .v-slider__track {
+  width: 180px;
+  height: 16px;
+}
+
+.v-slider--wide .v-slider__rail {
+  top: 5px;
+  height: 6px;
+  background: var(--tint-10);
+}
+
+.v-slider--wide .v-slider__fill {
+  top: 5px;
+  height: 6px;
+}
+
+.v-slider--wide .v-slider__thumb {
+  top: -2px;
+  width: 10px;
+  height: 20px;
+  border-radius: var(--radius-kbd);
+  box-shadow: var(--shadow-thumb);
+}
+
+.v-slider--disabled {
+  opacity: 0.45;
+}
+
+.v-slider--disabled .v-slider__track {
+  cursor: default;
+}
+
+/* ----------------------------------------------------------- KeybindChip */
+
+.v-keybind {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: var(--radius-kbd);
+  background: var(--kbd-bg);
+  border: 1px solid var(--tint-12);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.v-keybind:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--tint-20);
+}
+
+/** While capturing, the chip reads `Press a key…` in the accent. */
+.v-keybind--capturing {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: var(--accent-tint-faint);
+}
+
+/* --------------------------------------------------------------- StatusPill */
+
+.v-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius-control);
+  background: rgba(34, 38, 43, 0.97);
+  border: 1px solid var(--border-eyebrow);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  letter-spacing: var(--tracking-caps-lg);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

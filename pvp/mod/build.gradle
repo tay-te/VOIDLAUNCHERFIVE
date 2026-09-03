@@ -1,5 +1,7 @@
 plugins {
-    id 'legacy-looming' version '1.16.1'
+    // Legacy Fabric's fork of fabric-loom, which is what supports 1.8.9.
+    // 1.13.2 wraps fabric-loom 1.13, the newest that still runs on Gradle 8.
+    id 'legacy-looming' version '1.13.2'
     id 'java'
 }
 
@@ -11,28 +13,52 @@ base {
 }
 
 // ---------------------------------------------------------------------------
-// The Ultralight JNI binding lives in mod/native/ and is owned by another agent
-// (CONTRACTS.md). Its Java-facing API (package dev.void.ultralight) is compiled
-// into this JAR from there; we never build the C++ side.
+// mod/native — the Ultralight JNI binding, owned by another agent
+// (CONTRACTS.md). Its Java-facing API compiles into this JAR from
+// ../native/java; we never build its C++ side.
+//
+// The architecture names that package `dev.void.ultralight`, which cannot
+// exist: `void` is a Java keyword and is illegal as a package-name segment.
+// Both owners have to rename it (this one uses `dev.voidpvp.*`), so rather
+// than guess the other half's choice at compile time, dev.voidpvp.client.ui
+// binds to it reflectively and this block only records which package actually
+// turned up, as assets/void/native-package.txt.
 // ---------------------------------------------------------------------------
 def nativeJavaDir = file('../native/java')
-def nativeApiPresent = file('../native/java/dev/void/ultralight/Ultralight.java').exists()
+def nativeUltralightSource = nativeJavaDir.exists()
+        ? fileTree(nativeJavaDir) { include '**/Ultralight.java' }.files.find { true }
+        : null
+def nativePackage = null
+if (nativeUltralightSource != null) {
+    def matcher = nativeUltralightSource.text =~ /(?m)^\s*package\s+([A-Za-z0-9_.]+)\s*;/
+    if (matcher.find()) {
+        nativePackage = matcher.group(1)
+    }
+}
+def nativeUsable = nativePackage != null && !(nativePackage =~ /(^|\.)void(\.|$)/)
 
 sourceSets {
     main {
         java {
-            srcDir nativeJavaDir
+            if (nativeJavaDir.exists() && (nativeUltralightSource == null || nativeUsable)) {
+                srcDir nativeJavaDir
+            }
         }
     }
 }
 
-if (!nativeApiPresent) {
-    logger.lifecycle(
-        "void-client: ../native/java has no dev/void/ultralight/Ultralight.java yet — " +
-        "building without the Ultralight adapter. The JAR still runs (NullWebView); " +
-        "rebuild once mod/native/ lands.")
-    tasks.named('compileJava') {
-        exclude 'dev/void/client/ui/UltralightWebView.java'
+gradle.projectsEvaluated {
+    if (nativeUltralightSource == null) {
+        logger.lifecycle('void-client: ../native/java has no Ultralight.java yet. Building '
+                + 'without the binding — the JAR runs, with the in-game UI disabled '
+                + '(NullWebView). Rebuild once mod/native/ lands.')
+    } else if (!nativeUsable) {
+        logger.warn('void-client: ../native/java declares package "' + nativePackage
+                + '", which javac rejects — "void" is a Java keyword and cannot be a '
+                + 'package segment. Skipping those sources; the binding will not be in '
+                + 'this JAR. See README.md, "The one contract we could not honour".')
+    } else {
+        logger.lifecycle('void-client: Ultralight binding found in ' + nativePackage)
     }
 }
 
@@ -53,8 +79,9 @@ dependencies {
     mappings "net.legacyfabric:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    // Both ship with Minecraft 1.8.9 — pinned to the exact versions the game
-    // has on its classpath so we never compile against an API it lacks.
+    // Both of these ship inside Minecraft 1.8.9, pinned to the exact versions
+    // the game has on its classpath so we never compile against an API it
+    // lacks. Neither is bundled into the JAR.
     implementation 'com.google.code.gson:gson:2.2.4'
     implementation 'io.netty:netty-all:4.0.23.Final'
 
@@ -75,20 +102,38 @@ java {
 
 processResources {
     inputs.property 'version', project.version
+    inputs.property 'nativePackage', String.valueOf(nativePackage)
+
     filesMatching('fabric.mod.json') {
         expand 'version': project.version
+    }
+
+    // The bridge shim's source of truth is assets/void/shim/, because
+    // assets/void/ui/ is packages/ingame's build output and is gitignored.
+    // The in-game bundle loads it from assets/void/ui/void-shim.js, so it is
+    // published there too.
+    from('src/main/resources/assets/void/shim/void-shim.js') {
+        into 'assets/void/ui'
+    }
+
+    doLast {
+        def marker = new File(destinationDir, 'assets/void/native-package.txt')
+        if (nativeUsable) {
+            marker.parentFile.mkdirs()
+            marker.text = nativePackage + '\n'
+        } else if (marker.exists()) {
+            marker.delete()
+        }
     }
 }
 
 test {
     useJUnitPlatform()
+    // The schemas are the contract; the tests round-trip every example in
+    // them rather than a copy, so drift is a test failure (CONTRACTS.md).
+    systemProperty 'void.schema.dir', file('../schema').absolutePath
     testLogging {
         events 'passed', 'skipped', 'failed'
-    }
-}
-
-jar {
-    from('LICENSE') {
-        rename { "${it}_${project.base.archivesName.get()}" }
+        exceptionFormat = 'full'
     }
 }

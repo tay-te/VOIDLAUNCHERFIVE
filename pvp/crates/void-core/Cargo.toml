@@ -1,9 +1,48 @@
 [package]
 name = "void-core"
+description = "Auth, manifests, downloads, Java runtime and JVM spawn for the VOID PVP launcher."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[[bin]]
+name = "void-pvp"
+path = "src/bin/void-pvp.rs"
+
 [dependencies]
+void-bridge.workspace = true
+void-loadout.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+dirs.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+futures-util.workspace = true
+sha1.workspace = true
+md-5.workspace = true
+hex.workspace = true
+zip.workspace = true
+flate2.workspace = true
+tar.workspace = true
+clap.workspace = true
+
+# The keychain backend is per-platform. Linux uses the kernel keyring (`linux-native`),
+# which is pure Rust: no libdbus, no libsecret, nothing to install. Every backend can
+# fail at runtime — a headless box, a locked keychain — and `auth::TokenStore` falls
+# back to a file in the data directory with a warning when it does.
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { workspace = true, features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { workspace = true, features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { workspace = true, features = ["linux-native"] }
+
+[dev-dependencies]
+tempfile.workspace = true

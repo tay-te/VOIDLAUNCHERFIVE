@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "void",
+  "version": "${version}",
+  "name": "VOID Client",
+  "description": "The in-game half of the VOID PVP client: HUD and Right-Shift menus rendered inside Minecraft's own frame by Ultralight, driven by the loadout the VOID launcher is holding.",
+  "authors": ["VOID"],
+  "contact": {
+    "homepage": "https://void.dev"
+  },
+  "license": "ARR",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.voidpvp.client.VoidClient"]
+  },
+  "mixins": [
+    "void.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "1.8.9"
+  }
+}

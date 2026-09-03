@@ -1,0 +1,82 @@
+/* ==========================================================================
+   @void/ui — bundled webfaces
+
+   Three OFL families, as **static instances** in woff2. Ultralight loads static faces
+   reliably and variable axes much less so (design/ultralight-notes.md §7), so the two
+   variable sources are instanced at build time by scripts/fetch-fonts.mjs:
+
+     Bricolage Grotesque  opsz 14, wdth 100, wght 800   (the display axis pins the
+                                                         design authors on every title)
+     Outfit               wght 400 / 500 / 600
+     DM Mono              400 / 500  (already static upstream)
+
+   Because the instances are pinned, **no rule in this package uses
+   font-variation-settings** — the overlay CSS must not, and the launcher does not need
+   to, since these are the exact instances the design specifies.
+
+   `font-display: block`: the in-game bundle has no network and the faces are local, so
+   there is no FOUT to trade against — a swap would just flash the fallback for a frame
+   over a live game.
+
+   The url()s are relative, so the consumer's bundler resolves and fingerprints them.
+   With Vite that is automatic; see README.md, "Consuming the fonts".
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('./fonts/bricolage-grotesque-800.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/outfit-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('./fonts/outfit-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('./fonts/outfit-600.woff2') format('woff2');
+}
+
+/* The design also asks for Outfit Bold on keycap glyphs. The family ships no 700
+   instance here; 600 is the heaviest bundled weight and synthetic bolding is off, so
+   700 resolves to the 600 face rather than a smeared fake. */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('./fonts/outfit-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/dm-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('./fonts/dm-mono-500.woff2') format('woff2');
+}

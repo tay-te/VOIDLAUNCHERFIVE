@@ -1,0 +1,177 @@
+/* ==========================================================================
+   Base — the reset, the type ramp, and the two surface roots.
+
+   Every rule here is Ultralight-safe: flexbox, absolute positioning inside a relative
+   parent, border-radius (including overflow:hidden clipping), box-shadow with insets,
+   linear-gradient, rgba, opacity, 2D transform, transitions, @font-face,
+   letter-spacing, text-transform. Nothing else. See design/ultralight-notes.md §8.
+   ========================================================================== */
+
+.v-app *,
+.v-app *::before,
+.v-app *::after {
+  box-sizing: border-box;
+}
+
+.v-app {
+  font-family: var(--font-ui);
+  font-weight: var(--weight-regular);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  /* No text-shadow anywhere in this package: Ultralight's text rasteriser drops it and
+     on some builds smears the glyph atlas (§3). HUD legibility is solved structurally
+     — every readout over live game sits on its own chip. */
+}
+
+.v-app button,
+.v-app input {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  border: 0;
+  background: none;
+}
+
+.v-app button {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.v-app button:disabled {
+  cursor: default;
+}
+
+.v-app :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- surfaces */
+
+/** The window chrome — the outermost frame, 1300 × 820 at design size. */
+.v-shell {
+  position: relative;
+  width: var(--frame-w);
+  height: var(--frame-h);
+  border-radius: var(--radius-window);
+  background: var(--bg-shell);
+  overflow: hidden;
+}
+
+/** The recessed canvas inside the launcher shell: 1272 × 744 at 14, 62. */
+.v-canvas {
+  position: absolute;
+  left: var(--canvas-inset);
+  top: var(--chrome-h);
+  width: var(--canvas-w);
+  height: var(--canvas-h);
+  border-radius: var(--radius-surface);
+  border: 1px solid var(--rim);
+  background: var(--bg-base);
+  box-shadow: var(--inset-canvas);
+  overflow: hidden;
+}
+
+/** The scrim over the launcher hero art. */
+.v-canvas__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim-launcher);
+  pointer-events: none;
+}
+
+/** Full-bleed dim behind an overlay panel. */
+.v-dim {
+  position: absolute;
+  inset: 0;
+  background: var(--dim-overlay);
+}
+
+.v-dim--palette {
+  background: var(--dim-palette);
+}
+
+.v-dim--hud-editor {
+  background: var(--dim-hud-editor);
+}
+
+/* ------------------------------------------------------------- type helpers */
+
+.v-mono {
+  font-family: var(--font-mono);
+}
+
+.v-display {
+  font-family: var(--font-display);
+  font-weight: var(--weight-extrabold);
+}
+
+/** A section caption: `INCLUDES`, `APPEARANCE`, `ONLINE`. */
+.v-caption {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-xs-2);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.v-caption--sm {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps-sm);
+}
+
+/** The mono footer hint that sits at the bottom of every panel. */
+.v-hint {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ atoms */
+
+/** 1px vertical rule: 36px tall in the dock, 18px in the HUD-editor toolbar. */
+.v-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 36px;
+  background: var(--divider);
+}
+
+.v-divider--toolbar {
+  height: 18px;
+}
+
+/** 1px row separator inside a settings Group. */
+.v-seam {
+  height: 1px;
+  background: var(--seam);
+}
+
+/** 6–11px presence circle. */
+.v-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.v-dot--ok {
+  background: var(--ok);
+}
+
+.v-dot--warn {
+  background: var(--warn);
+}
+
+.v-dot--accent {
+  background: var(--accent);
+}
+
+.v-spacer {
+  flex: 1 1 auto;
+}

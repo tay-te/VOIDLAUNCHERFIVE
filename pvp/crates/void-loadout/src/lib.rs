@@ -3,25 +3,64 @@
 //! A loadout is a template — "a named snapshot of which mods are on, their settings and
 //! HUD layout" (PVP_ARCHITECTURE.md §8) — and it is fully hot-swappable.
 //!
-//! Responsibilities:
+//! This crate is the Rust side of three of the four schemas in `schema/`:
 //!
-//! - Rust types for `schema/loadout.json` and the mod registry in `schema/mods.json`:
-//!   the closed set of 12 mod ids, each mod's `kind` and `hypixel_safe` class, its
-//!   settings and its factory defaults.
-//! - Persistence of the user's loadout library, and migration when the registry version
-//!   changes. A loadout that omits a mod falls back to that mod's registry defaults,
-//!   which is what keeps old loadouts valid as mods are added.
-//! - Diffing a changed loadout into the flat dotted-path patch that `void-bridge`
-//!   sends and receives as `state` (`{"mods.fullbright.on": true}`), and applying an
-//!   inbound patch. Flat, not nested, so concurrent edits to sibling settings merge.
-//! - HUD layout as anchor + `dx`/`dy` + `scale`, never absolute pixels, so a layout
-//!   survives GUI-scale, resolution and fullscreen changes (§8.1). At most one entry
-//!   per mod id — an invariant enforced here, since JSON Schema cannot express it.
-//! - Accumulating `session` telemetry into each loadout's `played_ms` and `fps_avg`.
-//! - Deriving the HYPIXEL-READY badge: true when every *enabled* mod is `safe` (§11).
+//! - [`mods`] is `schema/mods.json`: the closed set of 12 mod ids, each mod's [`Kind`]
+//!   and [`HypixelSafe`] class, its typed settings and its factory defaults. The schema
+//!   document itself is compiled in with `include_str!`, so the registry cannot drift
+//!   from the contract without a test failing.
+//! - [`loadout`] is `schema/loadout.json`: the [`Loadout`] type the store persists, that
+//!   Rust sends to Java in `init` and `loadout`, and that Java pushes to the UI.
+//! - [`settings`] is `protocol.json#/definitions/global_settings`, which lives here
+//!   because it is persisted as well as sent.
+//!
+//! On top of them:
+//!
+//! - [`diff`] turns two loadouts into the flat dotted-path changes the `state` message
+//!   carries, and applies an inbound patch ([`apply_patch`]).
+//! - [`store`] is `~/.void-pvp/`: one JSON file per loadout plus `active.json` and
+//!   `settings.json`, written atomically.
+//! - [`defaults`] is the three loadouts created on first run.
 //!
 //! Note the ownership split of §2: while the game is running, **Java** is authoritative
 //! for live state and tells Rust afterwards. This crate is the store of record between
 //! sessions, not the referee during one.
 //!
-//! Stub: no implementation yet. Owned by the `core` agent (see `CONTRACTS.md`).
+//! ```
+//! use void_loadout::{apply_patch, defaults, hypixel_ready, ModId, StatePatch};
+//!
+//! let mut loadout = defaults::sword_pvp();
+//! assert!(hypixel_ready(&loadout));
+//!
+//! // What the mod sends after the player toggles fullbright in game.
+//! let mut patch = StatePatch::new();
+//! patch.insert(ModId::Fullbright, "on", true);
+//! apply_patch(&mut loadout, &patch).unwrap();
+//!
+//! assert!(!hypixel_ready(&loadout)); // fullbright is `grey` (§11)
+//! ```
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+pub mod defaults;
+pub mod diff;
+mod error;
+pub mod keybind;
+pub mod loadout;
+pub mod mods;
+pub mod settings;
+pub mod store;
+
+pub use error::Error;
+pub use diff::{apply_patch, diff, diff_split, Change, Diff, StatePatch};
+pub use keybind::{HexColor, Keybind};
+pub use loadout::{
+    hypixel_ready, Anchor, HudItem, HudLayout, Loadout, LoadoutId, LoadoutStats, LoadoutSummary,
+    ModStates, DEFAULT_MC,
+};
+pub use mods::{
+    defaults_json, registry, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo, Registry,
+};
+pub use settings::GlobalSettings;
+pub use store::Store;

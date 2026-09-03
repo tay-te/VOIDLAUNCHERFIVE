@@ -1,0 +1,231 @@
+/* ==========================================================================
+   VOID PVP — in-game token set.
+
+   Ported from `pvp/design/tokens.css` (read-only reference) with the overlay
+   fallbacks of `pvp/design/ultralight-notes.md` already applied:
+
+     · no --blur-*            §1  Ultralight has no backdrop-filter
+     · no --noise-*           §2  Ultralight has no mix-blend-mode
+     · no text-shadow         §3  unreliable rasterisation
+     · panel alphas raised    §1  0.84 -> 0.94 (GL blur pass on) / 0.97 (off)
+     · type ramp snapped      §7  sub-pixel sizes round inconsistently
+
+   `packages/ui` owns the shared token file for both bundles. When it publishes
+   one, this file becomes a thin import + the overlay overrides below.
+   ========================================================================== */
+
+:root {
+  /* ------------------------------------------------------------- elevation */
+  --bg-shell: #0a0b0c;
+  --bg-base: #101214;
+  /* §2 fallback 1: surfaces nudged ~1% lighter to stand in for the baked noise */
+  --surface-1: #1a1d21;
+  --surface-2: #23272c;
+  --surface-3: #2a2f35;
+
+  --rim: rgba(255, 255, 255, 0.05);
+  --hairline: rgba(255, 255, 255, 0.07);
+
+  --text-primary: #f1f3f5;
+  --text-secondary: #a6aeb6;
+  --text-muted: #6c747c;
+
+  --accent: #9f8bff;
+  --accent-ink: #c7bbff;
+  --accent-fg: #0a0b0c;
+
+  --ok: #3dd68c;
+  --ok-ink: #7bebb5;
+  --warn: #d9a93a;
+  --warn-ink: #e9be68;
+  --danger: #c05b54;
+  --sky: #4d87cd;
+  --teal: #2fb8a6;
+
+  /* --- translucent surfaces ------------------------------------------- */
+  /* Authored rgba(10,11,12,0.84) + blur(15px). The GL pass supplies the blur;
+     the web layer paints a semi-opaque solid. `data-glblur="off"` on <html>
+     switches to the denser value (see base.css). */
+  --panel-bg: rgba(10, 11, 12, 0.94);
+  --palette-bg: rgba(10, 11, 12, 0.96);
+  --dock-bg: rgba(10, 11, 12, 0.82);
+  --card-bg: rgba(26, 29, 33, 0.94);
+  --raised-bg: rgba(35, 39, 44, 0.97);
+  --key-bg: rgba(35, 39, 44, 0.96);
+  --field-bg: rgba(10, 11, 12, 0.92);
+  --kbd-bg: rgba(10, 11, 12, 0.8);
+  --kbd-bg-strong: rgba(10, 11, 12, 0.85);
+  --hud-chip-bg: rgba(10, 11, 12, 0.55);
+  --hud-chip-bg-strong: rgba(10, 11, 12, 0.62);
+  --stat-tile-bg: rgba(10, 11, 12, 0.6);
+  --party-row-bg: rgba(10, 11, 12, 0.5);
+
+  --accent-tint: rgba(159, 139, 255, 0.18);
+  --accent-tint-weak: rgba(159, 139, 255, 0.16);
+  --accent-tint-icon: rgba(159, 139, 255, 0.2);
+  --accent-tint-strong: rgba(159, 139, 255, 0.25);
+  --accent-tint-faint: rgba(159, 139, 255, 0.06);
+  --accent-border: rgba(159, 139, 255, 0.45);
+  --accent-border-strong: rgba(159, 139, 255, 0.5);
+  --ok-tint: rgba(61, 214, 140, 0.18);
+
+  --tint-04: rgba(255, 255, 255, 0.04);
+  --tint-05: rgba(255, 255, 255, 0.05);
+  --tint-06: rgba(255, 255, 255, 0.06);
+  --tint-07: rgba(255, 255, 255, 0.07);
+  --tint-08: rgba(255, 255, 255, 0.08);
+  --tint-10: rgba(255, 255, 255, 0.1);
+  --tint-12: rgba(255, 255, 255, 0.12);
+  --tint-14: rgba(255, 255, 255, 0.14);
+  --tint-20: rgba(255, 255, 255, 0.2);
+  --tint-30: rgba(255, 255, 255, 0.3);
+  --tint-35: rgba(255, 255, 255, 0.35);
+
+  --border-panel: rgba(255, 255, 255, 0.14);
+  --border-dock: rgba(255, 255, 255, 0.12);
+  --border-raised: rgba(255, 255, 255, 0.09);
+  --seam: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.12);
+
+  /* Scrims. All flat fills — §1 forbids blurring what is behind. */
+  --dim-overlay: rgba(10, 11, 12, 0.5);
+  --dim-palette: rgba(10, 11, 12, 0.62);
+  --dim-hud-editor: rgba(10, 11, 12, 0.38);
+  --dim-preview: rgba(10, 11, 12, 0.58);
+  --scrim-vignette: linear-gradient(
+    180deg,
+    rgba(10, 11, 12, 0.35) 0%,
+    rgba(10, 11, 12, 0.05) 50%,
+    rgba(10, 11, 12, 0.45) 100%
+  );
+
+  /* ---------------------------------------------------------------- radius */
+  --radius-hairline: 2px;
+  --radius-xs: 3px;
+  --radius-kbd-sm: 4px;
+  --radius-kbd: 5px;
+  --radius-badge: 6px;
+  --radius-swatch: 7px;
+  --radius-chip: 8px;
+  --radius-control: 9px;
+  --radius-field: 10px;
+  --radius-button: 11px;
+  --radius-card-sm: 12px;
+  --radius-avatar: 13px;
+  --radius-card: 14px;
+  --radius-pill: 15px;
+  --radius-cta: 16px;
+  --radius-surface: 18px;
+  --radius-window: 22px;
+  --radius-panel: 24px;
+
+  /* ------------------------------------------------------------ typography */
+  --font-display: 'Bricolage Grotesque', 'Outfit', system-ui, sans-serif;
+  --font-ui: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
+  /* Type ramp, snapped to whole pixels per ultralight-notes.md §7.
+     Authored value in the comment; one global rule, applied everywhere. */
+  --text-2xs: 9px; /* 8.5 */
+  --text-xs: 9px; /* 9   */
+  --text-xs-2: 10px; /* 9.5 */
+  --text-sm: 10px; /* 10  */
+  --text-sm-2: 10px; /* 10.5 */
+  --text-base: 11px; /* 11  */
+  --text-base-2: 12px; /* 11.5 */
+  --text-md: 12px; /* 12  */
+  --text-md-2: 13px; /* 12.5 */
+  --text-lg: 13px; /* 13  */
+  --text-lg-2: 14px; /* 13.5 */
+  --text-xl: 14px; /* 14  */
+  --text-xl-2: 15px; /* 15  */
+  --text-2xl: 16px; /* 16  */
+  --text-3xl: 17px; /* 17  */
+  --text-5xl: 22px; /* 22  */
+  --text-6xl: 26px; /* 26  */
+
+  --leading-title: 30px;
+  --leading-subtitle: 26px;
+  --leading-kbd: 13px;
+
+  --tracking-title: -0.52px;
+  --tracking-subtitle: -0.44px;
+  --tracking-pane: -0.16px;
+  --tracking-name: -0.14px;
+  --tracking-name-tight: -0.07px;
+  --tracking-member: -0.075px;
+  --tracking-caps-kbd: 1.425px;
+  --tracking-caps: 1.14px;
+  --tracking-caps-sm: 1.08px;
+  --tracking-tag: 0.85px;
+  --tracking-cps: 0.8px;
+  --tracking-badge: 0.76px;
+  --tracking-badge-lg: 0.9px;
+
+  /* ------------------------------------------------------------- elevation */
+  --shadow-tile: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0 2px 5.2px -1.4px rgba(0, 0, 0, 0.34);
+  --shadow-key: 0 3px 6px -1px rgba(0, 0, 0, 0.45);
+  --shadow-thumb: 0 2px 4px 0 rgba(0, 0, 0, 0.5);
+  --shadow-toolbar: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  --shadow-panel: 0 30px 70px -20px rgba(0, 0, 0, 0.6);
+  --shadow-cta: 0 6px 14px -4px rgba(0, 0, 0, 0.35),
+    0 10px 28px -6px rgba(159, 139, 255, 0.42);
+  --shadow-switch-on: 0 4px 12px -2px rgba(159, 139, 255, 0.45);
+  --shadow-key-on: 0 5px 14px -2px rgba(159, 139, 255, 0.5);
+  --shadow-card-active: 0 1px 2px 0 rgba(0, 0, 0, 0.3),
+    0 12px 36px -8px rgba(159, 139, 255, 0.3);
+
+  --inset-raised: inset 0 -1px 0 0 rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  --inset-card: inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  --inset-hud: inset 0 -1px 0 0 rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+  --inset-field-panel: inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
+    inset 0 1.5px 2px 0 rgba(0, 0, 0, 0.5);
+  --inset-accent: inset 0 -2px 2px 0 rgba(0, 0, 0, 0.22),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.32);
+  --inset-accent-tint: inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  --inset-switch: inset 0 1px 0 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.25);
+  --inset-key: inset 0 -2px 1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  --inset-kbd: inset 0 1.5px 1px 0 rgba(0, 0, 0, 0.28);
+  --inset-row-selected: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+
+  /* ---------------------------------------------------------------- motion */
+  --duration-instant: 80ms;
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---------------------------------------------------------------- layout */
+  --frame-w: 1300px;
+  --frame-h: 820px;
+  --panel-w: 960px;
+  --panel-h-overlay: 600px;
+  --panel-left-overlay: 170px;
+  --panel-top-overlay: 110px;
+  --pane-w: 308px;
+  --pane-w-narrow: 278px;
+  --list-w: 580px;
+  --palette-w: 640px;
+}
+
+/* ultralight-notes.md §1 host contract: when the host is NOT running the GL
+   blur pass, the panel has to carry the opacity itself. Never branch on
+   @supports (backdrop-filter) — Ultralight may claim support and no-op. */
+html[data-glblur='off'] {
+  --panel-bg: rgba(10, 11, 12, 0.97);
+  --palette-bg: rgba(10, 11, 12, 0.98);
+}
