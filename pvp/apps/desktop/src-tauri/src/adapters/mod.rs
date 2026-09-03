@@ -1,23 +1,19 @@
-//! Stand-ins for the parts of `void-core`, `void-bridge` and `void-loadout` the
-//! launcher needs but that are still doc-comment stubs (see `CONTRACTS.md`: those
-//! directories belong to the `core` agent and this one must not write to them).
+//! The thin layer between `void-core` / `void-bridge` / `void-loadout` and the command
+//! surface.
 //!
-//! Every module in here is either
+//! There are no stand-ins left in here. What remains is work the launcher genuinely
+//! owns and the core crates deliberately do not:
 //!
-//! - **real and staying** — `slp` (Minecraft server ping) and `java` (detection) are
-//!   launcher concerns with no core dependency; or
-//! - **a shaped stand-in** — `auth`, `prepare`, `game`, `store`. Each carries a
-//!   `TODO(integrate)` header naming the crate that takes it over. Their *signatures*
-//!   are the contract the `commands/` layer is written against, so the swap is a body
-//!   replacement, not an API change, and nothing in `src/` moves.
+//! - [`game`] orchestrates all three crates for one play session — bind the bridge,
+//!   start the store pump, spawn the JVM, fan the output out as events.
+//! - [`progress`] translates `void_core::download::Progress`, which counts files, into
+//!   the byte-driven `prepare:progress` the launch button renders.
+//! - [`slp`] is the Minecraft server-list ping behind "12 ms to Hypixel". It has no
+//!   `void-core` dependency because it is not part of launching a game.
 //!
-//! Nothing in this directory depends on Tauri: `cargo check --no-default-features`
-//! compiles all of it, which is how CI without webkit2gtk still covers the launch
-//! pipeline.
+//! Nothing here depends on Tauri: `cargo check --no-default-features` compiles all of
+//! it, which is how CI without webkit2gtk still covers the launch pipeline.
 
-pub mod auth;
 pub mod game;
-pub mod java;
-pub mod prepare;
+pub mod progress;
 pub mod slp;
-pub mod store;

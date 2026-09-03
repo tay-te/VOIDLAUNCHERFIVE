@@ -1,29 +1,34 @@
-//! TODO(integrate): two crates meet here and neither exists yet.
+//! The running game: the bridge server, the JVM, the log ring and the session summary.
 //!
-//! - `void-core` (§12.5) builds the JVM args — including `-Dvoid.port` and
-//!   `-Dvoid.token` — spawns the JVM and drains stdout into a ring buffer.
-//! - `void-bridge` (§7) binds `ws://127.0.0.1:<port>`, mints the per-spawn token,
-//!   rejects a `hello` carrying the wrong one, and hands us the `state` / `session` /
-//!   `server` messages we forward to the web side as `bridge:*` events.
+//! This is the one place the launcher orchestrates all three core crates at once, and
+//! the order matters:
 //!
-//! What is real here:
+//! 1. `void_bridge::BridgeServer::bind` — first, because the port and token it mints are
+//!    JVM arguments. Its `InitSource` is `void_core::sync::StoreInit`, which reads the
+//!    library on every `hello` rather than caching a snapshot, so a mod reconnecting
+//!    after a tray switch gets the loadout that is active *now*.
+//! 2. `void_core::sync::pump` — folds `state`, `hud` and `session` back into the store.
+//!    Java is authoritative for live state and tells Rust afterwards (§6.1); this is the
+//!    afterwards. It runs on its own task with its own `Store`.
+//! 3. A second subscriber on the same bus forwards every message to the webview as
+//!    `bridge:state` / `bridge:session` / `bridge:server`. Two independent broadcast
+//!    receivers, so the UI falling behind cannot stall persistence.
+//! 4. `void_core::launch::launch` — spawns the JVM.
 //!
-//! - **The port and the token.** The port comes from an actual bind on 127.0.0.1:0, so
-//!   it is a port nothing else holds; the token is 32 random hex characters. Both are
-//!   what `void-core` would pass to the JVM, and `launch` returns the port so the
-//!   Settings screen can show it.
-//! - **The log ring buffer**, capped, shared, and drained by the log drawer.
-//! - **The session lifecycle**: `game:started`, a stream of `game:log`, then
-//!   `game:closed` carrying the stats the Play screen shows when the window comes back
-//!   from the tray.
-//!
-//! What is simulated: the JVM itself. `LaunchReport::pid` is 0 and the first log line
-//! says so, so nothing downstream can mistake a stand-in run for a real one.
+//! The bridge server is kept alive in `GameState` for the whole session: dropping the
+//! last clone stops the listener, and the mod reconnects with backoff (§6.9), so an
+//! early drop would look like a flapping link.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use void_bridge::{BridgeServer, JavaToRust, RustToJava};
+use void_core::launch::{self, LaunchOptions, Stream};
+use void_core::manifest::LaunchProfile;
+use void_core::Paths;
+use void_loadout::{Loadout, Store};
 
 use crate::error::Error;
 use crate::events::{
@@ -31,109 +36,92 @@ use crate::events::{
 };
 use crate::models::{LaunchReport, LogLine, SessionStats};
 
-/// How many lines the log drawer can scroll back through. 2000 × ~120 chars ≈ 240 KB,
-/// which is the right order for "show me why it crashed" without holding a session's
-/// worth of chat spam in memory.
+/// How many lines the log drawer can scroll back through. 2,000 × ~120 chars ≈ 240 KB —
+/// the right order for "show me why it crashed" without holding a session of chat spam.
 const LOG_CAPACITY: usize = 2000;
 
-/// Everything about the currently running (or last-run) game.
+/// How often the launch task checks whether Force quit was pressed. `Child::wait` is
+/// cancel-safe, so this is a plain poll rather than a channel; 200 ms is imperceptible
+/// on a button that is already asking "are you sure".
+const KILL_POLL: Duration = Duration::from_millis(200);
+
 #[derive(Default)]
-pub struct Game {
+pub struct GameState {
     pub running: Arc<AtomicBool>,
-    pub log: Arc<Mutex<VecDeque<String>>>,
+    pub kill_requested: Arc<AtomicBool>,
+    pub log: Arc<Mutex<VecDeque<LogLine>>>,
     pub pid: Option<u32>,
-    pub bridge_port: Option<u16>,
     pub loadout: Option<String>,
-    /// Last `session` summary the mod sent, so `game:closed` can carry real numbers.
+    /// Kept alive for the session; see the module note.
+    pub bridge: Option<BridgeServer>,
+    /// Last `session` summary the mod sent, so `game:closed` carries real numbers.
     pub last_session: Arc<Mutex<Option<(u64, f64, Option<String>)>>>,
 }
 
-impl Game {
+impl GameState {
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }
 
+    pub fn bridge_port(&self) -> Option<u16> {
+        self.bridge.as_ref().map(|b| b.port())
+    }
+
     pub fn tail(&self, lines: usize) -> Vec<String> {
         let log = self.log.lock().unwrap();
-        log.iter().rev().take(lines).rev().cloned().collect()
+        log.iter().rev().take(lines).rev().map(|l| l.line.clone()).collect()
+    }
+
+    /// Push a loadout switch to a running game (§8.2 — the tray must hot-swap
+    /// mid-session). A no-op when nothing is connected, which is not an error: the mod
+    /// gets the current loadout in `init` when it next connects.
+    pub fn push_loadout(&self, loadout: &Loadout) {
+        if let Some(bridge) = &self.bridge {
+            let msg = RustToJava::Loadout { loadout: Box::new(loadout.clone()) };
+            if let Err(e) = bridge.send(&msg) {
+                tracing::warn!(error = %e, "could not push the loadout to the game");
+            }
+        }
+    }
+
+    /// Push changed global settings to a running game.
+    pub fn push_settings(&self, settings: &void_loadout::GlobalSettings) {
+        if let Some(bridge) = &self.bridge {
+            let msg = RustToJava::Settings { settings: settings.clone() };
+            if let Err(e) = bridge.send(&msg) {
+                tracing::warn!(error = %e, "could not push settings to the game");
+            }
+        }
     }
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
-fn push_log(game: &Game, emitter: &dyn Emitter, stream: &'static str, line: impl Into<String>) {
-    let line = line.into();
-    {
-        let mut log = game.log.lock().unwrap();
-        if log.len() == LOG_CAPACITY {
-            log.pop_front();
-        }
-        log.push_back(line.clone());
-    }
-    emit(
-        emitter,
-        GAME_LOG,
-        &LogLine {
-            stream,
-            line,
-            ts_ms: now_ms(),
-        },
-    );
+/// Everything `launch` needs that the command layer resolves for it.
+pub struct LaunchRequest {
+    pub profile: LaunchProfile,
+    pub paths: Paths,
+    pub store: Store,
+    pub loadout: Loadout,
+    pub options: LaunchOptionsSeed,
 }
 
-/// Reserve a localhost port by binding and immediately dropping the listener.
-///
-/// TODO(integrate): `void-bridge` should hand back a *bound* listener instead — this
-/// leaves a window in which something else could take the port. Acceptable while the
-/// JVM on the other end is simulated; not acceptable once it is real.
-pub fn reserve_bridge_port() -> Result<u16, Error> {
-    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).map_err(Error::other)?;
-    let port = listener.local_addr().map_err(Error::other)?.port();
-    Ok(port)
+/// The half of `LaunchOptions` the launcher decides; the port and token come from the
+/// bridge, which does not exist yet when the command builds this.
+pub struct LaunchOptionsSeed {
+    pub session: void_core::auth::Session,
+    pub java: std::path::PathBuf,
+    pub max_memory_mb: u32,
+    pub extra_jvm_args: Vec<String>,
+    pub mod_jar: Option<std::path::PathBuf>,
 }
 
-/// 32 hex characters, per-spawn. The mod echoes it in `hello`; a mismatch closes the
-/// socket (§6.9).
-pub fn mint_session_token() -> String {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    (0..32)
-        .map(|_| std::char::from_digit(rng.gen_range(0..16), 16).unwrap())
-        .collect()
-}
-
-/// The JVM argument list `void-core` will build. Written out here because it is the
-/// one part of the launch contract the desktop side genuinely owns a stake in: the two
-/// `-Dvoid.*` properties are the seam of §7, and `launch` must not silently drop them.
-pub fn jvm_args(ram_mb: u32, port: u16, token: &str) -> Vec<String> {
-    vec![
-        format!("-Xmx{ram_mb}M"),
-        format!("-Xms{}M", (ram_mb / 2).max(512)),
-        "-XX:+UnlockExperimentalVMOptions".into(),
-        "-XX:+UseG1GC".into(),
-        "-XX:G1NewSizePercent=20".into(),
-        "-XX:MaxGCPauseMillis=50".into(),
-        format!("-Dvoid.port={port}"),
-        format!("-Dvoid.token={token}"),
-    ]
-}
-
-/// Start a session. Emits `game:started`, then log lines, then `game:closed`.
-///
-/// Replace the body with: build args via `void_core`, start `void_bridge`'s server on
-/// `port`, spawn the JVM, and forward the bridge's inbound messages to `bridge:*`.
-#[allow(clippy::too_many_arguments)]
 pub async fn launch(
-    game: Arc<Mutex<Game>>,
+    game: Arc<Mutex<GameState>>,
     emitter: Arc<dyn Emitter>,
-    loadout: String,
-    ram_mb: u32,
-    java_path: String,
+    req: LaunchRequest,
 ) -> Result<LaunchReport, Error> {
     {
         let g = game.lock().unwrap();
@@ -142,159 +130,198 @@ pub async fn launch(
         }
     }
 
-    let port = reserve_bridge_port()?;
-    let token = mint_session_token();
-    let args = jvm_args(ram_mb, port, &token);
+    let loadout_id = req.loadout.id.to_string();
 
-    let (running, log, last_session) = {
+    // 1. The bridge, first: its port and token are JVM arguments.
+    let bridge =
+        BridgeServer::bind(void_core::sync::StoreInit::new(req.store.clone())).await?;
+    let port = bridge.port();
+    let token = bridge.token().to_string();
+
+    // 2. Persistence: every inbound message folded back into the store.
+    tokio::spawn(void_core::sync::pump(bridge.clone(), req.store.clone()));
+
+    // 3. The UI's own subscription to the same bus.
+    spawn_bridge_forwarder(bridge.subscribe(), emitter.clone(), game.clone());
+
+    // 4. The JVM.
+    let mut process = launch::launch(
+        &req.profile,
+        &req.paths,
+        &LaunchOptions {
+            session: req.options.session,
+            java: req.options.java,
+            max_memory_mb: req.options.max_memory_mb,
+            extra_jvm_args: req.options.extra_jvm_args,
+            bridge_port: port,
+            bridge_token: token,
+            mod_jar: req.options.mod_jar,
+        },
+    )
+    .await?;
+
+    let pid = process.pid().unwrap_or(0);
+    let args = process.args.clone();
+
+    let (running, kill_requested, log, last_session) = {
         let mut g = game.lock().unwrap();
         g.running.store(true, Ordering::SeqCst);
-        g.pid = Some(0);
-        g.bridge_port = Some(port);
-        g.loadout = Some(loadout.clone());
+        g.kill_requested.store(false, Ordering::SeqCst);
+        g.pid = Some(pid);
+        g.loadout = Some(loadout_id.clone());
+        g.bridge = Some(bridge);
         g.log.lock().unwrap().clear();
         *g.last_session.lock().unwrap() = None;
-        (g.running.clone(), g.log.clone(), g.last_session.clone())
+        (g.running.clone(), g.kill_requested.clone(), g.log.clone(), g.last_session.clone())
     };
 
-    {
-        let g = game.lock().unwrap();
-        push_log(
-            &g,
-            emitter.as_ref(),
-            "stdout",
-            "[void-desktop] SIMULATED LAUNCH — void-core's JVM spawn is not implemented yet.",
-        );
-        push_log(
-            &g,
-            emitter.as_ref(),
-            "stdout",
-            format!("[void-desktop] java: {java_path}"),
-        );
-        push_log(
-            &g,
-            emitter.as_ref(),
-            "stdout",
-            format!("[void-desktop] args: {}", args.join(" ")),
-        );
-        push_log(
-            &g,
-            emitter.as_ref(),
-            "stdout",
-            format!("[void-desktop] bridge listening on ws://127.0.0.1:{port} (token withheld)"),
-        );
-    }
+    push(&log, emitter.as_ref(), "stdout", format!("[void] bridge on ws://127.0.0.1:{port}"));
+    push(&log, emitter.as_ref(), "stdout", format!("[void] {}", args.join(" ")));
 
     emit(
         emitter.as_ref(),
         GAME_STARTED,
-        &serde_json::json!({ "pid": 0, "loadout": loadout, "bridge_port": port, "simulated": true }),
+        &serde_json::json!({ "pid": pid, "loadout": loadout_id, "bridge_port": port }),
     );
 
-    // The session itself, on a background task, so `launch` returns as soon as the
-    // window can hide to the tray.
+    // Drain the game's output on its own task. Taking the receiver out of the process
+    // leaves the process free to be `wait`ed and `kill`ed below without a split borrow.
+    let (dummy_tx, dummy_rx) = tokio::sync::mpsc::channel::<launch::LogLine>(1);
+    drop(dummy_tx);
+    let mut logs = std::mem::replace(&mut process.logs, dummy_rx);
+    {
+        let log = log.clone();
+        let emitter = emitter.clone();
+        tokio::spawn(async move {
+            while let Some(line) = logs.recv().await {
+                let stream = match line.stream {
+                    Stream::Stdout => "stdout",
+                    Stream::Stderr => "stderr",
+                };
+                push(&log, emitter.as_ref(), stream, line.text);
+            }
+        });
+    }
+
+    let started = Instant::now();
     let game_for_task = game.clone();
-    let loadout_for_task = loadout.clone();
     tokio::spawn(async move {
-        let started = std::time::Instant::now();
-        let script: [(&str, &str); 6] = [
-            ("stdout", "[Client thread/INFO]: Setting user: Searge"),
-            ("stdout", "[Client thread/INFO]: LWJGL Version: 2.9.4"),
-            ("stdout", "[void-client/INFO]: connected to launcher bridge"),
-            ("stdout", "[void-client/INFO]: applied loadout"),
-            ("stdout", "[Client thread/INFO]: Connecting to mc.hypixel.net, 25565"),
-            ("stdout", "[void-client/INFO]: session summary sent"),
-        ];
-
-        for (stream, line) in script {
-            if !running.load(Ordering::SeqCst) {
-                break;
+        let exit_code = loop {
+            if kill_requested.swap(false, Ordering::SeqCst) {
+                tracing::info!("force quit requested");
+                let _ = process.kill().await;
             }
-            tokio::time::sleep(Duration::from_millis(400)).await;
-            {
-                let mut buf = log.lock().unwrap();
-                if buf.len() == LOG_CAPACITY {
-                    buf.pop_front();
-                }
-                buf.push_back(line.to_string());
+            // Both branches borrow disjoint values, and `Child::wait` is cancel-safe, so
+            // the poll costs nothing and the kill above gets its turn between rounds.
+            tokio::select! {
+                res = process.wait() => break res.unwrap_or(-1),
+                _ = tokio::time::sleep(KILL_POLL) => {}
             }
-            emit(
-                emitter.as_ref(),
-                GAME_LOG,
-                &LogLine {
-                    stream: if stream == "stderr" { "stderr" } else { "stdout" },
-                    line: line.to_string(),
-                    ts_ms: now_ms(),
-                },
-            );
-        }
-
-        // The three bridge messages the launcher forwards verbatim (§7). Shapes are
-        // exactly `protocol.json`'s, so the web side is already written against the
-        // real thing.
-        emit(
-            emitter.as_ref(),
-            BRIDGE_SERVER,
-            &serde_json::json!({ "t": "server", "host": "mc.hypixel.net", "connected": true }),
-        );
-        emit(
-            emitter.as_ref(),
-            BRIDGE_STATE,
-            &serde_json::json!({
-                "t": "state",
-                "loadout": loadout_for_task,
-                "patch": { "mods.fullbright.on": true }
-            }),
-        );
-
-        let played_ms = started.elapsed().as_millis().max(1) as u64;
-        let fps_avg = 142.0;
-        emit(
-            emitter.as_ref(),
-            BRIDGE_SESSION,
-            &serde_json::json!({
-                "t": "session",
-                "fps_avg": fps_avg,
-                "played_ms": played_ms,
-                "server": "mc.hypixel.net",
-                "loadout": loadout_for_task,
-            }),
-        );
-        *last_session.lock().unwrap() = Some((played_ms, fps_avg, Some("mc.hypixel.net".into())));
+        };
 
         running.store(false, Ordering::SeqCst);
-        let crash_tail = None;
-        let stats = SessionStats {
-            code: 0,
-            loadout: loadout_for_task.clone(),
-            played_ms,
-            fps_avg,
-            server: Some("mc.hypixel.net".into()),
-            crash_tail,
-        };
+
+        let (played_ms, fps_avg, server) = last_session
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap_or((started.elapsed().as_millis() as u64, 0.0, None));
+
+        let crash_tail = (exit_code != 0).then(|| {
+            let log = log.lock().unwrap();
+            log.iter().rev().take(40).rev().map(|l| l.line.clone()).collect::<Vec<_>>()
+        });
+
         {
             let mut g = game_for_task.lock().unwrap();
             g.pid = None;
+            // Dropping the last clone stops the listener; the session is over, so this
+            // is the right moment rather than an early one.
+            g.bridge = None;
         }
-        emit(emitter.as_ref(), GAME_CLOSED, &stats);
+
+        emit(
+            emitter.as_ref(),
+            GAME_CLOSED,
+            &SessionStats {
+                code: exit_code,
+                loadout: loadout_id,
+                played_ms,
+                fps_avg,
+                server,
+                crash_tail,
+            },
+        );
     });
 
-    Ok(LaunchReport {
-        pid: 0,
-        bridge_port: port,
-        loadout,
-    })
+    Ok(LaunchReport { pid, bridge_port: port, loadout: req.loadout.id.to_string() })
 }
 
-/// Force-quit. Real once the JVM is real; today it flips the flag the session task
-/// polls, which ends the run at the next line.
-pub fn kill(game: &Game) -> Result<(), Error> {
+/// Forward the mod's messages to the webview, and remember the last `session` summary
+/// so `game:closed` can carry real numbers rather than wall-clock ones.
+fn spawn_bridge_forwarder(
+    mut bus: tokio::sync::broadcast::Receiver<JavaToRust>,
+    emitter: Arc<dyn Emitter>,
+    game: Arc<Mutex<GameState>>,
+) {
+    tokio::spawn(async move {
+        loop {
+            match bus.recv().await {
+                Ok(JavaToRust::State { loadout, patch }) => emit(
+                    emitter.as_ref(),
+                    BRIDGE_STATE,
+                    &serde_json::json!({ "t": "state", "loadout": loadout, "patch": patch }),
+                ),
+                Ok(JavaToRust::Session { fps_avg, played_ms, server, loadout }) => {
+                    if let Ok(mut slot) = game.lock().map(|g| g.last_session.clone()) {
+                        *slot.lock().unwrap() = Some((played_ms, fps_avg, server.clone()));
+                    }
+                    emit(
+                        emitter.as_ref(),
+                        BRIDGE_SESSION,
+                        &serde_json::json!({
+                            "t": "session", "fps_avg": fps_avg, "played_ms": played_ms,
+                            "server": server, "loadout": loadout,
+                        }),
+                    );
+                }
+                Ok(JavaToRust::Server { host, connected, port }) => emit(
+                    emitter.as_ref(),
+                    BRIDGE_SERVER,
+                    &serde_json::json!({
+                        "t": "server", "host": host, "connected": connected, "port": port
+                    }),
+                ),
+                // `hello`, `hud` and unknown tags are the store's business, not the
+                // launcher UI's — `sync::pump` has its own subscription for those.
+                Ok(_) => {}
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!(dropped = n, "bridge forwarder fell behind");
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    });
+}
+
+fn push(log: &Arc<Mutex<VecDeque<LogLine>>>, emitter: &dyn Emitter, stream: &'static str, line: String) {
+    let entry = LogLine { stream, line, ts_ms: now_ms() };
+    {
+        let mut buf = log.lock().unwrap();
+        if buf.len() == LOG_CAPACITY {
+            buf.pop_front();
+        }
+        buf.push_back(entry.clone());
+    }
+    emit(emitter, GAME_LOG, &entry);
+}
+
+/// Force quit. The launch task notices within [`KILL_POLL`].
+pub fn kill(game: &GameState) -> Result<(), Error> {
     if !game.is_running() {
         return Err(Error::NotRunning);
     }
-    game.running.store(false, Ordering::SeqCst);
-    // TODO(integrate): `child.kill()` on the JVM handle void-core returns, plus a
-    // SIGTERM-then-SIGKILL escalation so a hung JVM still goes away.
+    game.kill_requested.store(true, Ordering::SeqCst);
     Ok(())
 }
 
@@ -304,81 +331,84 @@ mod tests {
     use crate::events::test_support::Recorder;
 
     #[test]
-    fn jvm_args_carry_the_bridge_seam() {
-        let args = jvm_args(4096, 51234, "deadbeef");
-        assert!(args.contains(&"-Xmx4096M".to_string()));
-        assert!(args.contains(&"-Dvoid.port=51234".to_string()));
-        assert!(args.contains(&"-Dvoid.token=deadbeef".to_string()));
-        // -Xms is never larger than -Xmx and never below the floor.
-        assert!(args.contains(&"-Xms2048M".to_string()));
-        assert!(jvm_args(512, 1, "t").contains(&"-Xms512M".to_string()));
-    }
-
-    #[test]
-    fn tokens_are_32_hex_characters_and_do_not_repeat() {
-        let a = mint_session_token();
-        let b = mint_session_token();
-        assert_eq!(a.len(), 32);
-        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
-        assert_ne!(a, b);
-    }
-
-    #[test]
-    fn a_reserved_port_is_a_real_one() {
-        let port = reserve_bridge_port().unwrap();
-        assert!(port > 1024);
-    }
-
-    #[test]
-    fn the_log_ring_buffer_is_capped() {
-        let game = Game::default();
+    fn the_log_ring_is_capped_and_tails_from_the_end() {
+        let state = GameState::default();
         let rec = Recorder::default();
         for i in 0..(LOG_CAPACITY + 50) {
-            push_log(&game, &rec, "stdout", format!("line {i}"));
+            push(&state.log, &rec, "stdout", format!("line {i}"));
         }
-        assert_eq!(game.log.lock().unwrap().len(), LOG_CAPACITY);
-        assert_eq!(game.tail(1), vec![format!("line {}", LOG_CAPACITY + 49)]);
-    }
-
-    #[tokio::test]
-    async fn a_second_launch_is_refused_while_one_is_running() {
-        let game = Arc::new(Mutex::new(Game::default()));
-        let rec: Arc<dyn Emitter> = Arc::new(Recorder::default());
-        launch(game.clone(), rec.clone(), "sword-pvp".into(), 4096, "java".into())
-            .await
-            .unwrap();
-        let second = launch(game.clone(), rec, "bedwars".into(), 4096, "java".into()).await;
-        assert!(matches!(second, Err(Error::AlreadyRunning)));
-    }
-
-    #[tokio::test]
-    async fn a_session_emits_started_logs_bridge_events_then_closed() {
-        let game = Arc::new(Mutex::new(Game::default()));
-        let rec = Recorder::default();
-        let emitter: Arc<dyn Emitter> = Arc::new(rec.clone());
-        let report = launch(game, emitter, "sword-pvp".into(), 2048, "java".into())
-            .await
-            .unwrap();
-        assert!(report.bridge_port > 1024);
-
-        // The background task needs a moment to walk its script.
-        for _ in 0..80 {
-            if rec.names().iter().any(|n| n == GAME_CLOSED) {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-        let names = rec.names();
-        assert!(names.iter().any(|n| n == GAME_STARTED));
-        assert!(names.iter().any(|n| n == BRIDGE_SERVER));
-        assert!(names.iter().any(|n| n == BRIDGE_SESSION));
-        assert!(names.iter().any(|n| n == GAME_CLOSED));
-        assert_eq!(rec.payloads(GAME_CLOSED)[0]["code"], 0);
+        assert_eq!(state.log.lock().unwrap().len(), LOG_CAPACITY);
+        assert_eq!(state.tail(1), vec![format!("line {}", LOG_CAPACITY + 49)]);
+        assert_eq!(state.tail(3).len(), 3);
     }
 
     #[test]
-    fn killing_a_stopped_game_is_an_error_not_a_no_op() {
-        let game = Game::default();
-        assert!(matches!(kill(&game), Err(Error::NotRunning)));
+    fn killing_a_stopped_game_is_an_error_rather_than_a_silent_no_op() {
+        let state = GameState::default();
+        assert!(matches!(kill(&state), Err(Error::NotRunning)));
+        assert!(!state.kill_requested.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn kill_sets_the_flag_the_launch_task_polls() {
+        let state = GameState::default();
+        state.running.store(true, Ordering::SeqCst);
+        kill(&state).unwrap();
+        assert!(state.kill_requested.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn pushing_to_a_game_that_is_not_running_is_a_no_op() {
+        let state = GameState::default();
+        // No bridge, no panic: the mod gets everything in `init` when it connects.
+        state.push_loadout(&void_loadout::defaults::sword_pvp());
+        state.push_settings(&void_loadout::GlobalSettings::factory());
+    }
+
+    #[tokio::test]
+    async fn the_forwarder_translates_only_the_three_ui_facing_messages() {
+        let (tx, _) = tokio::sync::broadcast::channel(16);
+        let rec = Recorder::default();
+        let game = Arc::new(Mutex::new(GameState::default()));
+        spawn_bridge_forwarder(tx.subscribe(), Arc::new(rec.clone()), game.clone());
+
+        tx.send(JavaToRust::Hello {
+            v: 1,
+            mc: "1.8.9".into(),
+            mod_version: "0.1.0".into(),
+            token: "t".into(),
+        })
+        .unwrap();
+        tx.send(JavaToRust::Server {
+            host: "mc.hypixel.net".into(),
+            connected: true,
+            port: None,
+        })
+        .unwrap();
+        tx.send(JavaToRust::Session {
+            fps_avg: 142.0,
+            played_ms: 60_000,
+            server: Some("mc.hypixel.net".into()),
+            loadout: None,
+        })
+        .unwrap();
+
+        for _ in 0..50 {
+            if rec.names().len() >= 2 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        let names = rec.names();
+        assert!(names.contains(&BRIDGE_SERVER.to_string()));
+        assert!(names.contains(&BRIDGE_SESSION.to_string()));
+        // `hello` is the store's business, not the UI's.
+        assert_eq!(names.len(), 2, "{names:?}");
+
+        // The session summary is remembered for `game:closed`.
+        let slot = game.lock().unwrap().last_session.clone();
+        let remembered = slot.lock().unwrap().clone();
+        assert_eq!(remembered, Some((60_000, 142.0, Some("mc.hypixel.net".into()))));
     }
 }

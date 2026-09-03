@@ -435,6 +435,30 @@ class loader that is not thread-safe, this is where it will bite.
 returns the existing instance on a second call rather than pretending otherwise. Everything must be
 driven from the thread that created it.
 
+**7. WebCore aborts if the thread that used it terminates.** Found here, reproduced under gdb. When
+a thread that has touched WebCore exits as a *pthread*, glibc runs the thread-local destructors and
+`WebCore::ThreadGlobalData::~ThreadGlobalData()` tears down the font cache; `~Font` then calls
+`FontCache::forCurrentThread()`, which re-enters `WebCore::threadGlobalData()` **from inside its own
+destructor** and aborts in `WTFCrashWithInfo`:
+
+```
+#5  WTFCrashWithInfo
+#6  WebCore::MainThreadSharedTimer::setFiredFunction
+#8  WebCore::ThreadGlobalData::ThreadGlobalData()      <-- re-entered
+#9  WebCore::threadGlobalData()
+#10 WebCore::FontCache::forCurrentThread()
+#12 WebCore::Font::~Font()
+#19 WebCore::FontCache::~FontCache()
+#20 WebCore::ThreadGlobalData::~ThreadGlobalData()     <-- from __nptl_deallocate_tsd
+```
+
+It is independent of us: it fires whether the renderer is closed, purged, or leaked. **`System.exit()`
+avoids it entirely** — the process leaves from inside the thread, so the TSD destructors never run.
+Minecraft quits exactly that way (`Minecraft.shutdown()` -> `System.exit(0)`), so the game is not
+exposed; a headless tool that returns from `main` is, which is why the test harness ends with an
+explicit `System.exit`. Verified against 1.4.0b on Linux; assume it holds on macOS and Windows and
+do not add a "clean shutdown" path that lets the render thread die on its own.
+
 ---
 
 ## Layout

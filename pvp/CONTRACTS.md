@@ -225,7 +225,12 @@ transitions and `requestAnimationFrame` — without it the UI is static.
    Arial` silently gets Inter. This keeps the design identical on every machine — **ui** should
    treat it as a constraint on the token set, alongside the CSS restrictions already in §9.
 9. **`readPixels()` is test-only.** Full-frame readback in game is exactly what §6.2 forbids.
-10. **`natives/<os>-<arch>/` must be on the classpath** — `windows-x64`, `macos-x64`,
+10. **Never let the render thread terminate as a thread while Ultralight is live.** WebCore's
+    thread-local destructor aborts the process (a 1.4.0b bug, reproduced and documented in
+    `mod/native/README.md`). Quitting through `System.exit()` — which is what `Minecraft.shutdown()`
+    already does — sidesteps it completely. Do not add a "graceful shutdown" that joins and exits
+    the render thread instead.
+11. **`natives/<os>-<arch>/` must be on the classpath** — `windows-x64`, `macos-x64`,
     `macos-arm64` — including the generated `files.txt`. `mod/native/README.md` has the exact file
     list and a Gradle snippet. `-Dvoid.ultralight.nativeDir=<dir>` skips extraction for dev runs.
 
