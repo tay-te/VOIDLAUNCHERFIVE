@@ -23,7 +23,7 @@ export function App({ debugFrame, backdrop }: AppProps) {
   const editing = useVoidStore((s) => s.route.name === 'hud-editor');
 
   return (
-    <div className={`void-app${debugFrame ? ' void-app--debug' : ''}`}>
+    <div className={`v-app void-app${debugFrame ? ' void-app--debug' : ''}`}>
       {debugFrame && backdrop && (
         <div
           className="void-debug-backdrop"

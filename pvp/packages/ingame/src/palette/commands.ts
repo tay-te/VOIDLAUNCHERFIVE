@@ -4,8 +4,8 @@
  */
 
 import { isModOn, modsOnCount, type VoidState } from '@/store/store';
-import { MOD_ORDER, MOD_REGISTRY } from '@/registry';
-import type { IconName } from '@/icons/Icon';
+import { MOD_CATEGORY, MOD_ORDER, modLabel } from '@/registry';
+import { MOD_ICONS, type IconName } from '@/ui';
 import type { Rankable } from './fuzzy';
 
 export interface Command extends Rankable {
@@ -34,14 +34,13 @@ export function buildCommands(store: VoidState): Command[] {
   const { loadout, library } = store;
 
   for (const id of MOD_ORDER) {
-    const entry = MOD_REGISTRY[id];
     const on = isModOn(loadout, id);
     commands.push({
       id: `toggle:${id}`,
-      title: `Toggle ${entry.label}`,
-      sub: `${label(entry.category)}  ·  currently ${on ? 'on' : 'off'}  →  `,
+      title: `Toggle ${modLabel(id)}`,
+      sub: `${label(MOD_CATEGORY[id])}  ·  currently ${on ? 'on' : 'off'}  →  `,
       subAccent: on ? 'off' : 'on',
-      icon: entry.icon as IconName,
+      icon: MOD_ICONS[id],
       kbd: ['↵'],
       section: 'actions',
       weight: 6,
@@ -50,7 +49,7 @@ export function buildCommands(store: VoidState): Command[] {
     });
     commands.push({
       id: `settings:${id}`,
-      title: `${entry.label} settings`,
+      title: `${modLabel(id)} settings`,
       sub: 'Open in the mod menu',
       icon: 'settings',
       kbd: ['⌘', '↵'],
@@ -68,7 +67,7 @@ export function buildCommands(store: VoidState): Command[] {
       commands.push({
         id: `enable-in:${other.id}:${id}`,
         title: `Turn on in ${other.name} loadout`,
-        sub: `${MOD_REGISTRY[id].label} is off in that loadout`,
+        sub: `${modLabel(id)} is off in that loadout`,
         icon: 'layers',
         section: 'actions',
         weight: 1,
@@ -135,7 +134,7 @@ export function buildCommands(store: VoidState): Command[] {
       id: 'close',
       title: 'Close menu',
       sub: 'Back to the game  ·  R-Shift',
-      icon: 'x',
+      icon: 'close',
       kbd: ['esc'],
       section: 'also',
       run: (s) => s.closeMenu(),

@@ -306,7 +306,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   },
 
   resetMod(id) {
-    const defaults = MOD_REGISTRY[id].defaults as Record<string, SettingValue>;
+    const defaults = MOD_REGISTRY[id].defaults as unknown as Record<string, SettingValue>;
     for (const [key, value] of Object.entries(defaults)) {
       if (key === 'on') continue; // Reset restores settings, not enablement.
       get().setSetting(id, key, value);
@@ -347,7 +347,7 @@ function writeSetting(
  */
 export function modSettings(loadout: Loadout | null, id: ModId): Record<string, SettingValue> {
   const source = loadout ?? { mods: {} };
-  return resolveModSettings(source, id) as Record<string, SettingValue>;
+  return resolveModSettings(source, id) as unknown as Record<string, SettingValue>;
 }
 
 /** Whether a mod is enabled in the active loadout. */

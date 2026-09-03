@@ -207,6 +207,44 @@ describe('the component stylesheet stays inside what Ultralight can render', () 
 });
 
 /* -------------------------------------------------------------------------- */
+/* Every var() resolves                                                       */
+/* -------------------------------------------------------------------------- */
+
+describe('every custom property the stylesheet reads is declared', () => {
+  /** Properties this package declares itself, outside the copied token block. */
+  const LOCAL = new Set([
+    '--selection-border-style', // set by both renderer layers
+    '--noise-image', // noise.css
+    '--v-noise-opacity', // per-surface override, always used with a fallback
+  ]);
+
+  const declared = new Set<string>([
+    ...TOKEN_NAMES,
+    ...LOCAL,
+    ...[...tokenDecls.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1]!),
+  ]);
+
+  it.each([
+    ['styles/*.css', componentDecls, 60],
+    ['noise.css', declarations(noiseCss), 3],
+  ] as const)('%s reads no undeclared token', (_name, css, atLeast) => {
+    const used = new Set([...css.matchAll(/var\((--[a-z0-9-]+)/gi)].map((m) => m[1]!));
+    expect(used.size).toBeGreaterThanOrEqual(atLeast);
+    const missing = [...used].filter((name) => !declared.has(name));
+    expect(missing, `undeclared: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  it('the Tailwind preset maps tokens by reference, never by copied literal', () => {
+    const preset = declarations(readFileSync(path.join(srcDir, 'tailwind-preset.css'), 'utf8'));
+    const body = preset.slice(preset.indexOf('@theme'));
+    for (const [, value] of body.matchAll(/^\s*--[a-z0-9-]+:\s*([^;]+);/gim)) {
+      // A baked hex here would freeze the launcher's colours into the in-game bundle.
+      expect(value!.trim(), 'theme values must be var(--token)').toMatch(/^var\(--[a-z0-9-]+\)$/);
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
 /* fonts.css                                                                  */
 /* -------------------------------------------------------------------------- */
 

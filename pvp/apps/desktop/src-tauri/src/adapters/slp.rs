@@ -88,7 +88,7 @@ pub async fn ping(input: &str) -> Result<PingResult, Error> {
     let json = read_string(&mut body.as_slice()).map_err(&fail)?;
 
     // --- ping/pong: this, and only this, is the latency ----------------------------
-    let nonce: i64 = 0x564f_4944_0000_0001; // "VOID" + a counter, echoed back verbatim
+    let nonce: i64 = 0x564f_4944_0000_0001; // "VOID", echoed back verbatim
     let mut ping_body = Vec::with_capacity(8);
     ping_body.extend_from_slice(&nonce.to_be_bytes());
     let mut ping_pkt = Vec::with_capacity(16);

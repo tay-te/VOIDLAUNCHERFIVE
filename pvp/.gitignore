@@ -19,6 +19,12 @@ npm-debug.log*
 mod/src/main/resources/assets/void/ui/*
 !mod/src/main/resources/assets/void/ui/README.md
 
+# Build output of packages/ui: the gallery bundle and the font-build scratch dir.
+# The gallery is a development surface and is never shipped; the woff2 files it is
+# built from are committed under packages/ui/src/fonts/.
+packages/ui/gallery-dist/
+packages/ui/.font-build/
+
 # ---- Gradle / Java ----------------------------------------------------------
 .gradle/
 **/build/

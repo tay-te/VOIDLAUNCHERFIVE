@@ -10,8 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVoidStore } from '@/store/store';
-import { KbdChip } from '@/ui';
-import { Icon } from '@/icons/Icon';
+import { Icon, Kbd } from '@/ui';
 import { buildCommands, type Command } from './commands';
 import { rank } from './fuzzy';
 
@@ -107,7 +106,7 @@ export function QuickPalette() {
       {command.kbd && (
         <span className="palette__kbds">
           {command.kbd.map((key) => (
-            <KbdChip key={key}>{key}</KbdChip>
+            <Kbd key={key} flavour="palette">{key}</Kbd>
           ))}
         </span>
       )}
@@ -127,7 +126,7 @@ export function QuickPalette() {
             placeholder="Ask VOID anything"
             onChange={(e) => setQuery(e.target.value)}
           />
-          <KbdChip>esc</KbdChip>
+          <Kbd flavour="palette">esc</Kbd>
         </div>
         <div className="palette__seam" />
 

@@ -1,7 +1,7 @@
 //! The `#[tauri::command]` surface.
 //!
 //! Thin on purpose: every wrapper does three things and no more — adapt
-//! `State<'_, AppState>` to `&AppState`, hand the adapters an `Emitter`, and flatten
+//! `State<'_, AppState>` to `&AppState`, hand the layer below an `Emitter`, and flatten
 //! `Error` into the `String` the TypeScript side receives. The logic lives in
 //! `crate::commands`, which compiles without Tauri.
 //!
@@ -18,7 +18,7 @@ use crate::events::Emitter;
 use crate::models::*;
 use crate::state::AppState;
 
-/// Adapts a Tauri app handle to the tiny `Emitter` trait the adapters take.
+/// Adapts a Tauri app handle to the tiny `Emitter` trait the layer below takes.
 pub struct AppEmitter<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Emitter for AppEmitter<R> {
@@ -29,20 +29,32 @@ impl<R: Runtime> Emitter for AppEmitter<R> {
     }
 }
 
+fn emitter<R: Runtime>(app: &AppHandle<R>) -> Arc<dyn Emitter> {
+    Arc::new(AppEmitter(app.clone()))
+}
+
 // ------------------------------------------------------------------------- auth
 
+/// Start the Microsoft device flow.
+///
+/// Returns the user code and verification URL **immediately** — that is the whole point
+/// of the device flow, and the player has to go and type the code somewhere else while
+/// the exchange runs. Completion arrives as `auth:status`.
 #[tauri::command]
 pub async fn auth_login<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
 ) -> CmdResult<DeviceCode> {
-    let code = map_err(commands::auth::login(&state))?;
-    // The device flow continues in the background; the player already has the code.
-    let emitter = AppEmitter(app);
+    let (dto, code) = map_err(commands::auth::login(&state).await)?;
+
+    let app_for_task = app.clone();
     tauri::async_runtime::spawn(async move {
-        commands::auth::login_poll(&emitter).await;
+        let Some(state) = app_for_task.try_state::<AppState>() else { return };
+        let emitter = AppEmitter(app_for_task.clone());
+        commands::auth::login_poll(&state, &emitter, code).await;
     });
-    Ok(code)
+
+    Ok(dto)
 }
 
 #[tauri::command]
@@ -68,8 +80,7 @@ pub async fn prepare<R: Runtime>(
     state: State<'_, AppState>,
     loadout_id: String,
 ) -> CmdResult<PrepareReport> {
-    let emitter = AppEmitter(app);
-    map_err(commands::launch::prepare(&state, &emitter, &loadout_id).await)
+    map_err(commands::launch::prepare(&state, emitter(&app), &loadout_id).await)
 }
 
 #[tauri::command]
@@ -78,13 +89,12 @@ pub async fn launch<R: Runtime>(
     state: State<'_, AppState>,
     loadout_id: String,
 ) -> CmdResult<LaunchReport> {
-    let emitter: Arc<dyn Emitter> = Arc::new(AppEmitter(app.clone()));
-    let report = map_err(commands::launch::launch(&state, emitter, &loadout_id).await)?;
+    let report = map_err(commands::launch::launch(&state, emitter(&app), &loadout_id).await)?;
 
     // §5: after a successful spawn the window hides to the tray, and comes back on
-    // `game:closed` with the session stats. Configurable, because a second monitor
-    // makes it unwanted.
-    if state.store.lock().unwrap().settings().hide_to_tray_on_launch {
+    // `game:closed` with the session stats. Configurable, because a second monitor makes
+    // it unwanted.
+    if map_err(commands::settings::get(&state))?.hide_to_tray_on_launch {
         crate::window::hide_to_tray(&app);
     }
     Ok(report)
@@ -118,16 +128,16 @@ pub fn loadouts_active(state: State<'_, AppState>) -> CmdResult<Loadout> {
 }
 
 #[tauri::command]
-pub fn loadouts_create(
+pub fn loadouts_create<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     name: String,
     icon: Option<String>,
 ) -> CmdResult<Loadout> {
-    map_err(commands::loadouts::create(
-        &state,
-        &name,
-        icon.as_deref().unwrap_or("sword"),
-    ))
+    let loadout =
+        map_err(commands::loadouts::create(&state, &name, icon.as_deref().unwrap_or("sword")))?;
+    crate::tray::refresh(&app);
+    Ok(loadout)
 }
 
 #[tauri::command]
@@ -140,8 +150,14 @@ pub fn loadouts_update(
 }
 
 #[tauri::command]
-pub fn loadouts_delete(state: State<'_, AppState>, id: String) -> CmdResult<Vec<LoadoutSummary>> {
-    map_err(commands::loadouts::delete(&state, &id))
+pub fn loadouts_delete<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<Vec<LoadoutSummary>> {
+    let rest = map_err(commands::loadouts::delete(&state, &id))?;
+    crate::tray::refresh(&app);
+    Ok(rest)
 }
 
 #[tauri::command]
@@ -151,11 +167,10 @@ pub fn loadouts_switch<R: Runtime>(
     id: String,
 ) -> CmdResult<Loadout> {
     let loadout = map_err(commands::loadouts::switch(&state, &id))?;
-    // Tell every window (and, once void-bridge is wired, the running game) that the
-    // active loadout moved — the tray can switch it too, so the UI cannot assume it
-    // was the one that asked.
+    // Tell every window that the active loadout moved — the tray can switch it too, so
+    // the UI cannot assume it was the one that asked.
     let _ = app.emit(crate::events::LOADOUT_SWITCHED, &loadout);
-    crate::tray::refresh(&app, &state);
+    crate::tray::refresh(&app);
     Ok(loadout)
 }
 
@@ -189,12 +204,11 @@ pub async fn server_ping(host: String) -> CmdResult<PingResult> {
 }
 
 #[tauri::command]
-pub fn open_data_dir<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) -> CmdResult<String> {
+pub fn open_data_dir(state: State<'_, AppState>) -> CmdResult<String> {
     let dir = map_err(commands::system::data_dir(&state))?;
     if let Err(e) = tauri_plugin_opener::open_path(&dir, None::<&str>) {
         tracing::warn!(%e, "could not open the data folder");
     }
-    let _ = app;
     Ok(dir)
 }
 
@@ -202,7 +216,7 @@ pub fn open_data_dir<R: Runtime>(app: AppHandle<R>, state: State<'_, AppState>) 
 
 #[tauri::command]
 pub fn window_minimize<R: Runtime>(app: AppHandle<R>) -> CmdResult<()> {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = app.get_webview_window(crate::window::MAIN) {
         let _ = w.minimize();
     }
     Ok(())
@@ -210,7 +224,7 @@ pub fn window_minimize<R: Runtime>(app: AppHandle<R>) -> CmdResult<()> {
 
 #[tauri::command]
 pub fn window_toggle_maximize<R: Runtime>(app: AppHandle<R>) -> CmdResult<()> {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = app.get_webview_window(crate::window::MAIN) {
         match w.is_maximized() {
             Ok(true) => {
                 let _ = w.unmaximize();
