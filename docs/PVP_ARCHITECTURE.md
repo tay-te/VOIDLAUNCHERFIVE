@@ -21,7 +21,7 @@ screens (Figma frames `244:538` → `244:1900`).
 
 | Alternative | Rejected because |
 |---|---|
-| All-Java client (draw HUD in-game, Lunar's original approach) | Every widget hand-drawn in GL immediate mode; design system in Figma is unreachable from Java without a webview |
+| All-Java client (draw menus in-game GL — what Lunar and Vape do) | Custom font engine, SDF shaders, hand-drawn widgets; approximates a Figma, never matches it |
 | In-game webview (JCEF / Ultralight) | +60 MB, GPL/licensing friction, one more native binary per OS to ship |
 | Pure launcher + Modrinth mods | The Figma's 12 "mods" are client features, not community JARs |
 | **Overlay + sensor mod (chosen)** | Web UI renders the Figma 1:1; Java stays ~1.5k lines; adding a new MC version means re-targeting a thin mod, not a client |
@@ -173,7 +173,8 @@ Java owns the hotkey (it already has the keyboard; no OS-level hook needed).
 
 ```
 Player presses R-Shift
-  Java:  open empty GuiScreen            → MC releases mouse, stops reading WASD
+  Java:  open VoidBackdropScreen         → MC releases mouse, stops reading WASD,
+                                           and the screen renders the game blurred + tinted (§6.5)
   Java:  send { t:"hotkey", id:"overlay" }
   Rust:  overlay.set_ignore_cursor_events(false)
   Rust:  overlay.set_focus()
@@ -183,11 +184,19 @@ Player presses R-Shift again / Esc / clicks "×"
   Web:   emit close
   Rust:  overlay.set_ignore_cursor_events(true)
   Rust:  send { t:"cmd", id:"gui.close" }
-  Java:  close GuiScreen                  → MC recaptures mouse
+  Java:  close VoidBackdropScreen         → MC recaptures mouse, blur gone
 ```
 
 Both sides must flip on the same keypress or the player walks while dragging HUD tiles.
 Java is the single trigger; Rust follows.
+
+**Why the blur lives in Java.** The Figma overlay frames show the game blurred behind
+the panel. A Tauri window's `backdrop-filter` only blurs its *own* content — the game is
+a different window. So the layering is: Java blurs the game underneath, the overlay
+draws the panel on a fully transparent background on top. One composited image, and the
+blur toggles with the same `GuiScreen` that releases the mouse — no extra state to sync.
+(OS-compositor blur via `window-vibrancy` was considered and rejected: it blurs the whole
+overlay region, not just behind the panel, and Win10 acrylic lags on movement.)
 
 ### 5.4 Tray & lifecycle
 
@@ -201,7 +210,8 @@ avg fps — the numbers on the Loadouts frame).
 
 ### 6.1 Principles
 
-- **No UI.** Not one GuiScreen with widgets. The only screen it opens is empty (§5.3).
+- **No UI.** Not one GuiScreen with widgets. The only screen it opens is
+  `VoidBackdropScreen` — no widgets, it just releases the mouse and blurs the frame (§6.5).
 - **No config files.** Everything arrives from Rust in the `hello` message.
 - **No persistence.** Restart-safe by design; Rust re-sends state on reconnect.
 - **Read-only where possible.** Sensors never write game state. Only the five gameplay
@@ -241,7 +251,23 @@ On startup and on `toggleFullscreen`: if fullscreen, switch to borderless window
 monitor size, emit `window`. This is exactly what Lunar/Badlion do and why their overlays
 work.
 
-### 6.5 Transport
+### 6.5 Backdrop screen (the one GuiScreen)
+
+`VoidBackdropScreen extends GuiScreen`. Opened on R-Shift, closed on `cmd:gui.close`.
+Its `drawScreen`:
+
+1. Copy the main framebuffer to a ¼-resolution FBO
+2. Two-pass Gaussian blur shader (horizontal, vertical) on the small FBO — cheap at ¼ res
+3. Draw it back full-screen, then a `rgba(0,0,0,0.45)` tint quad
+
+~80 lines of Java plus two ~20-line GLSL shaders. Same technique Vape and Lunar use for
+their menus; we use it only for the backdrop and let the overlay draw everything else.
+It **does not** draw any widgets, text, or handle any clicks — those go to the overlay.
+
+`doesGuiPauseGame()` returns `false` (multiplayer anyway). Escape closes it and emits
+`hotkey:"overlay"` so Rust re-enables click-through.
+
+### 6.6 Transport
 
 Netty WS client (Netty ships with MC). Port and session token come in via JVM system
 properties set by Rust: `-Dvoid.port=… -Dvoid.token=…`. Reconnect with backoff; Rust
@@ -442,6 +468,8 @@ out with ~500 lines written, not 15k.
 | HUD positions | anchor + offset + scale | Survives DPI/monitor changes |
 | Repo | New monorepo `void-pvp` | Different toolchain and cadence from VOID |
 | Frontend | React, overlay budgeted, Preact fallback | Reuse VOID tokens/components |
+| Menu rendering | Overlay (web), **not** in-game GL | Figma is the contract; GL would mean a font engine + SDF shaders + hand-drawn widgets to approximate it |
+| Blur behind panel | Java `VoidBackdropScreen`, framebuffer blur | Overlay can't blur another window; ties blur to mouse-release, one trigger |
 
 ## 16. Still open
 
