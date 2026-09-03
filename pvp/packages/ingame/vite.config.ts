@@ -47,9 +47,23 @@ export default defineConfig(({ command }) => ({
   base: './',
   plugins: [react(), designScreensDevServer()],
   resolve: {
-    alias: {
-      '@': resolve(here, 'src'),
-    },
+    /**
+     * `@void/ui` and `@void/protocol` are consumed from **source**, not from their
+     * `dist/`. Both are written by sibling owners in this same monorepo and their
+     * `exports` maps point at build output that may not exist yet; aliasing to
+     * source means this bundle always compiles against what they have actually
+     * written, and never needs another package's build to have been run. The
+     * import specifiers in the code are the real package names either way.
+     */
+    alias: [
+      { find: '@void-ui-src', replacement: resolve(here, '../ui/src') },
+      { find: '@void/ui/tokens.css', replacement: resolve(here, '../ui/src/tokens.css') },
+      { find: '@void/ui/fonts.css', replacement: resolve(here, '../ui/src/fonts.css') },
+      { find: '@void/ui/styles.css', replacement: resolve(here, 'src/styles/void-ui.css') },
+      { find: /^@void\/ui$/, replacement: resolve(here, '../ui/src/index.ts') },
+      { find: /^@void\/protocol$/, replacement: resolve(here, '../protocol/src/index.ts') },
+      { find: '@', replacement: resolve(here, 'src') },
+    ],
   },
   server: {
     port: 5183,

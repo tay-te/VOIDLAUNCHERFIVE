@@ -3,18 +3,22 @@
  * (§9); everything else here is UI state that never leaves the page.
  *
  * Rendering discipline (§9, and the "update only the DOM that changed" rule):
- *   · `keys` is kept as eight independent numbers, so a keycap subscribed to
- *     `s.keys.w` re-renders only when W changes;
- *   · `tick` fields are flattened to primitives for the same reason — the FPS
- *     chip does not re-render because the ping moved;
+ *   · `tick` fields are flattened to primitives, so the FPS chip does not
+ *     re-render because the ping moved;
  *   · `armor` / `fx` arrays are replaced only on the ticks that carry them
  *     (bridge.json: an absent field means unchanged);
+ *   · `keys` is edge-triggered and lands as one object, and every consumer
+ *     subscribes to the single field it draws;
  *   · there is no animation frame loop anywhere in this bundle. The 20 Hz
  *     `tick` push is the clock.
  */
 
 import { create } from 'zustand';
 import {
+  MOD_REGISTRY,
+  enabledModCount,
+  isModEnabled,
+  resolveModSettings,
   type ArmorSlot,
   type GameplayModId,
   type HUDAnchor,
@@ -22,17 +26,19 @@ import {
   type Keybind,
   type KeysPayload,
   type Loadout,
+  type LoadoutId,
   type ModId,
-  type ModSettingValue,
   type PotionEffect,
   type Position,
   type ServerPayload,
   type TickPayload,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
-import { MOD_REGISTRY } from '@/registry';
 import { type ClickRing, cps, createClickRing, pushClick, risingEdges } from './cps';
 import { clampOffset, clampScale } from './hud-geometry';
+
+/** A scalar a mod setting may hold. */
+export type SettingValue = boolean | number | string | null;
 
 /** Which overlay screen the menu layer is showing. */
 export type Route =
@@ -52,7 +58,7 @@ const rings: { left: ClickRing; right: ClickRing } = {
 
 /**
  * FPS samples for the `· 1% low 96` reading on the HUD-layout frame. The bridge
- * has no such field, so it is derived here the same way CPS is — 30 s of the
+ * carries no such field, so it is derived here the same way CPS is — 30 s of the
  * 20 Hz tick, recomputed once a second.
  */
 const FPS_WINDOW = 600;
@@ -64,6 +70,13 @@ function onePercentLow(): number {
   return sorted[Math.floor(sorted.length * 0.01)] ?? 0;
 }
 
+/** Reset the derived rings. Tests call this between cases. */
+export function resetDerivedState(): void {
+  rings.left = createClickRing();
+  rings.right = createClickRing();
+  fpsSamples.length = 0;
+}
+
 export interface VoidState {
   /* ------------------------------------------------------------ live data */
   loadout: Loadout | null;
@@ -72,12 +85,14 @@ export interface VoidState {
    *
    * SCHEMA GAP: `bridge.json` has no accessor for it — Rust sends
    * `init.loadouts` to Java, but Java never forwards the list to JS. Until the
-   * bridge grows one, this is filled from the fake bridge's `__loadouts()` in a
-   * browser and falls back to `[active loadout]` in game. Raised in the report.
+   * bridge grows one, this is filled from the fake bridge's `getLoadouts()` in a
+   * browser and grows from the `loadout` events seen in game.
    */
   library: Loadout[];
   keys: KeysPayload;
   fps: number;
+  /** 1st-percentile FPS over the last ~30 s. 0 until enough samples exist. */
+  fpsLow: number;
   ping: number;
   pos: Position | null;
   armor: ArmorSlot[];
@@ -85,8 +100,6 @@ export interface VoidState {
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
-  /** 1st-percentile FPS over the last ~30 s. 0 until enough samples exist. */
-  fpsLow: number;
 
   /* -------------------------------------------------------------- UI state */
   menuOpen: boolean;
@@ -96,15 +109,11 @@ export interface VoidState {
   paletteOpen: boolean;
   modSearch: string;
   modFilter: string;
-  /** Set while `openKeybindCapture` is pending, so the chip can say so. */
-  capturingKeybind: ModId | null;
 
   /* ------------------------------------------------------- HUD editor state */
   editorTarget: HUDModId | null;
   editorSnap: boolean;
   editorGrid: boolean;
-  /** Live readout while dragging; null when the widget is at rest. */
-  editorDraft: { id: HUDModId; x: number; y: number; scale: number } | null;
 
   /* ------------------------------------------------------- bridge ingestion */
   applyLoadout(loadout: Loadout): void;
@@ -120,17 +129,16 @@ export interface VoidState {
   setModSearch(value: string): void;
   setModFilter(value: string): void;
   setEditorTarget(id: HUDModId | null): void;
-  toggleEditorSnap(): void;
-  toggleEditorGrid(): void;
-  setEditorDraft(draft: VoidState['editorDraft']): void;
+  setEditorSnap(on: boolean): void;
+  setEditorGrid(on: boolean): void;
 
   /* ------------------------------------------------------------ bridge calls */
   toggleMod(id: ModId, on: boolean): void;
-  setSetting(id: ModId, key: string, value: ModSettingValue): void;
+  setSetting(id: ModId, key: string, value: SettingValue): void;
   commitHud(id: HUDModId, anchor: HUDAnchor, dx: number, dy: number, scale: number): void;
-  switchLoadout(id: string): void;
+  switchLoadout(id: LoadoutId): void;
   closeMenu(): void;
-  captureKeybind(id: ModId, settingKey?: string): Promise<Keybind | null>;
+  captureKeybind(id: ModId): Promise<Keybind | null>;
   resetMod(id: ModId): void;
 }
 
@@ -139,6 +147,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   library: [],
   keys: EMPTY_KEYS,
   fps: 0,
+  fpsLow: 0,
   ping: -1,
   pos: null,
   armor: [],
@@ -146,7 +155,6 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
-  fpsLow: 0,
 
   menuOpen: false,
   route: { name: 'mods' },
@@ -154,25 +162,24 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   paletteOpen: false,
   modSearch: '',
   modFilter: 'all',
-  capturingKeybind: null,
 
   editorTarget: 'keystrokes',
   editorSnap: true,
   editorGrid: false,
-  editorDraft: null,
 
   applyLoadout(loadout) {
     const library = get().library;
     const known = library.some((l) => l.id === loadout.id);
     set({
       loadout,
-      library: known ? library.map((l) => (l.id === loadout.id ? loadout : l)) : [...library, loadout],
+      library: known
+        ? library.map((l) => (l.id === loadout.id ? loadout : l))
+        : [...library, loadout],
     });
   },
 
   applyKeys(next) {
-    const previous = get().keys;
-    const edges = risingEdges(previous, next);
+    const edges = risingEdges(get().keys, next);
     const now = Date.now();
     const patch: Partial<VoidState> = { keys: next };
     if (edges.lmb) {
@@ -199,8 +206,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     }
     if (tick.ping !== undefined) patch.ping = tick.ping;
     if (tick.pos !== undefined) patch.pos = tick.pos;
-    if (tick.armor !== undefined) patch.armor = tick.armor;
-    if (tick.fx !== undefined) patch.fx = tick.fx;
+    if (tick.armor !== undefined) patch.armor = tick.armor as ArmorSlot[];
+    if (tick.fx !== undefined) patch.fx = tick.fx as PotionEffect[];
 
     // The 20 Hz tick doubles as the CPS clock: without it a counter would sit
     // on its last value until the next click. Only write when it changed.
@@ -219,8 +226,12 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   },
 
   applyMenu(open) {
-    // Opening always lands on Mods; the editor is left only through Done/Esc.
-    set(open ? { menuOpen: true, route: { name: 'mods' }, paletteOpen: false } : { menuOpen: false });
+    // Opening always lands on Mods; the editor is left only through Done or Esc.
+    set(
+      open
+        ? { menuOpen: true, route: { name: 'mods' }, paletteOpen: false }
+        : { menuOpen: false, paletteOpen: false },
+    );
   },
 
   setRoute(route) {
@@ -241,30 +252,27 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   setEditorTarget(editorTarget) {
     set({ editorTarget });
   },
-  toggleEditorSnap() {
-    set({ editorSnap: !get().editorSnap });
+  setEditorSnap(editorSnap) {
+    set({ editorSnap });
   },
-  toggleEditorGrid() {
-    set({ editorGrid: !get().editorGrid });
-  },
-  setEditorDraft(editorDraft) {
-    set({ editorDraft });
+  setEditorGrid(editorGrid) {
+    set({ editorGrid });
   },
 
   toggleMod(id, on) {
     const bridge = getVoid();
-    const entry = MOD_REGISTRY[id];
     // §6.5: gameplay mods go through setGameplay, which writes the actuator
     // field the Mixin reads every frame. HUD mods have no actuator, so their
     // `on` is an ordinary setting.
     const applied =
-      entry.kind === 'gameplay'
+      MOD_REGISTRY[id].kind === 'gameplay'
         ? bridge.setGameplay(id as GameplayModId, on)
         : bridge.setModSetting(id, 'on', on);
     writeSetting(set, get, id, 'on', applied);
   },
 
   setSetting(id, key, value) {
+    // Synchronous and authoritative: bind to what Java stored, not what we sent.
     const applied = getVoid().setModSetting(id, key, value);
     writeSetting(set, get, id, key, applied);
   },
@@ -281,7 +289,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const hud = loadout.hud.some((h) => h.id === id)
       ? loadout.hud.map((h) => (h.id === id ? { ...h, ...stored } : h))
       : [...loadout.hud, stored];
-    set({ loadout: { ...loadout, hud }, editorDraft: null });
+    set({ loadout: { ...loadout, hud } });
   },
 
   switchLoadout(id) {
@@ -292,20 +300,13 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     getVoid().closeMenu();
   },
 
-  async captureKeybind(id, settingKey = 'key') {
-    set({ capturingKeybind: id });
-    try {
-      const key = await getVoid().openKeybindCapture(id);
-      // bridge.json: the capture call does not store the key — the UI does.
-      if (key !== null) get().setSetting(id, settingKey, key);
-      return key;
-    } finally {
-      set({ capturingKeybind: null });
-    }
+  async captureKeybind(id) {
+    // bridge.json: the capture call does not store the key — the UI does.
+    return getVoid().openKeybindCapture(id);
   },
 
   resetMod(id) {
-    const defaults = MOD_REGISTRY[id].defaults;
+    const defaults = MOD_REGISTRY[id].defaults as Record<string, SettingValue>;
     for (const [key, value] of Object.entries(defaults)) {
       if (key === 'on') continue; // Reset restores settings, not enablement.
       get().setSetting(id, key, value);
@@ -327,7 +328,7 @@ function writeSetting(
   get: () => VoidState,
   id: ModId,
   key: string,
-  value: ModSettingValue,
+  value: SettingValue,
 ): void {
   const loadout = get().loadout;
   if (!loadout) return;
@@ -340,20 +341,18 @@ function writeSetting(
 }
 
 /**
- * Effective settings of one mod: registry defaults overlaid with whatever the
- * loadout carries. `mod_states` says every key is optional and an omitted mod
- * falls back to its `defaults`, which is what keeps old loadouts valid.
+ * Effective settings of one mod: registry defaults overlaid with the loadout's
+ * own state. Thin wrapper over `resolveModSettings` that tolerates a null
+ * loadout, which is the state before the first `loadout` push arrives.
  */
-export function modSettings(
-  loadout: Loadout | null,
-  id: ModId,
-): Record<string, ModSettingValue> {
-  return { ...MOD_REGISTRY[id].defaults, ...(loadout?.mods?.[id] ?? {}) };
+export function modSettings(loadout: Loadout | null, id: ModId): Record<string, SettingValue> {
+  const source = loadout ?? { mods: {} };
+  return resolveModSettings(source, id) as Record<string, SettingValue>;
 }
 
 /** Whether a mod is enabled in the active loadout. */
 export function isModOn(loadout: Loadout | null, id: ModId): boolean {
-  return modSettings(loadout, id).on === true;
+  return isModEnabled(loadout ?? { mods: {} }, id);
 }
 
 /** The `hud[]` entry for a mod, or null when the loadout does not place it. */
@@ -363,6 +362,5 @@ export function hudItem(loadout: Loadout | null, id: HUDModId) {
 
 /** Number of enabled mods — the "24 mods on" line on a loadout card. */
 export function modsOnCount(loadout: Loadout | null): number {
-  if (!loadout) return 0;
-  return (Object.keys(MOD_REGISTRY) as ModId[]).filter((id) => isModOn(loadout, id)).length;
+  return loadout ? enabledModCount(loadout) : 0;
 }

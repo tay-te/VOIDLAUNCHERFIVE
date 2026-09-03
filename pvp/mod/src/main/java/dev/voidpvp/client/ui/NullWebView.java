@@ -45,6 +45,16 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public float uvScaleX() {
+        return 1f;
+    }
+
+    @Override
+    public float uvScaleY() {
+        return 1f;
+    }
+
+    @Override
     public boolean isDirty() {
         return false;
     }

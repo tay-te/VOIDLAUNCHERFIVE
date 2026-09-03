@@ -16,6 +16,10 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@void/ui": ["./src/index.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

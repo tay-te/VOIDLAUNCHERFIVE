@@ -15,7 +15,7 @@ base {
 // ---------------------------------------------------------------------------
 // mod/native — the Ultralight JNI binding, owned by another agent
 // (CONTRACTS.md). Its Java-facing API compiles into this JAR from
-// ../native/java; we never build its C++ side.
+// native/java; we never build its C++ side.
 //
 // The architecture names that package `dev.void.ultralight`, which cannot
 // exist: `void` is a Java keyword and is illegal as a package-name segment.
@@ -24,9 +24,10 @@ base {
 // binds to it reflectively and this block only records which package actually
 // turned up, as assets/void/native-package.txt.
 // ---------------------------------------------------------------------------
-def nativeJavaDir = file('../native/java')
+// mod/native/ is a sibling of src/, inside this Gradle project.
+def nativeJavaDir = file('native/java')
 def nativeUltralightSource = nativeJavaDir.exists()
-        ? fileTree(nativeJavaDir) { include '**/Ultralight.java' }.files.find { true }
+        ? fileTree(nativeJavaDir) { include '**/Ultralight.java' }.files.sort { it.path }.find { true }
         : null
 def nativePackage = null
 if (nativeUltralightSource != null) {
@@ -49,11 +50,11 @@ sourceSets {
 
 gradle.projectsEvaluated {
     if (nativeUltralightSource == null) {
-        logger.lifecycle('void-client: ../native/java has no Ultralight.java yet. Building '
+        logger.lifecycle('void-client: native/java has no Ultralight.java yet. Building '
                 + 'without the binding — the JAR runs, with the in-game UI disabled '
                 + '(NullWebView). Rebuild once mod/native/ lands.')
     } else if (!nativeUsable) {
-        logger.warn('void-client: ../native/java declares package "' + nativePackage
+        logger.warn('void-client: native/java declares package "' + nativePackage
                 + '", which javac rejects — "void" is a Java keyword and cannot be a '
                 + 'package segment. Skipping those sources; the binding will not be in '
                 + 'this JAR. See README.md, "The one contract we could not honour".')

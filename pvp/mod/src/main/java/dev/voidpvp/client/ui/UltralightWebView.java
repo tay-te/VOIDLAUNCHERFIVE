@@ -79,6 +79,28 @@ final class UltralightWebView implements WebView {
     }
 
     @Override
+    public float uvScaleX() {
+        return uvScale(NativeUltralight.viewUvScaleX);
+    }
+
+    @Override
+    public float uvScaleY() {
+        return uvScale(NativeUltralight.viewUvScaleY);
+    }
+
+    private float uvScale(java.lang.reflect.Method method) {
+        if (method == null) {
+            return 1f;
+        }
+        Object value = NativeUltralight.call(method, view);
+        if (!(value instanceof Number)) {
+            return 1f;
+        }
+        float scale = ((Number) value).floatValue();
+        return scale > 0f && scale <= 1f ? scale : 1f;
+    }
+
+    @Override
     public boolean isDirty() {
         Object dirty = NativeUltralight.call(NativeUltralight.viewIsDirty, view);
         return dirty instanceof Boolean && ((Boolean) dirty).booleanValue();

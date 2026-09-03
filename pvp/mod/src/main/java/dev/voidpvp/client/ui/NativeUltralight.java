@@ -41,8 +41,8 @@ final class NativeUltralight {
     private static final String PACKAGE_PROPERTY = "void.ultralight.package";
     private static final String PACKAGE_RESOURCE = "assets/void/native-package.txt";
     private static final List<String> CANDIDATES = Arrays.asList(
-            "dev.voidpvp.ultralight",
             "dev.voidclient.ultralight",
+            "dev.voidpvp.ultralight",
             "dev.ultralight");
 
     private static boolean resolved;
@@ -58,6 +58,8 @@ final class NativeUltralight {
     static Method viewResize;
     static Method viewSetDeviceScale;
     static Method viewGlTextureId;
+    static Method viewUvScaleX;
+    static Method viewUvScaleY;
     static Method viewIsDirty;
     static Method viewFireMouseEvent;
     static Method viewFireKeyEvent;
@@ -110,6 +112,12 @@ final class NativeUltralight {
             viewResize = view.getMethod("resize", int.class, int.class);
             viewSetDeviceScale = view.getMethod("setDeviceScale", double.class);
             viewGlTextureId = view.getMethod("glTextureId");
+            // The binding may back the view with a larger texture; these two
+            // are how the quad finds the sub-rectangle. Optional, because they
+            // are not part of the API the architecture agreed on: a binding
+            // without them is assumed to fill its texture exactly.
+            viewUvScaleX = optionalMethod(view, "uvScaleX");
+            viewUvScaleY = optionalMethod(view, "uvScaleY");
             viewIsDirty = view.getMethod("isDirty");
             viewFireMouseEvent = view.getMethod("fireMouseEvent",
                     int.class, int.class, int.class, int.class);
@@ -126,6 +134,14 @@ final class NativeUltralight {
         } catch (NoSuchMethodException e) {
             failure = "Ultralight binding in " + pkg + " does not match the agreed API: "
                     + e.getMessage();
+        }
+    }
+
+    private static Method optionalMethod(Class<?> owner, String name) {
+        try {
+            return owner.getMethod(name);
+        } catch (NoSuchMethodException e) {
+            return null;
         }
     }
 

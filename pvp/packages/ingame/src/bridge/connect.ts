@@ -6,15 +6,11 @@
  * page is loaded off the JAR classpath and the machine may have no internet.
  */
 
-import {
-  createFakeVoid,
-  installVoidShim,
-  type VoidBridge,
-} from './protocol';
+import { createFakeVoid, installVoidShim, type FakeVoid, type VoidBridge } from './protocol';
 import { useVoidStore } from '@/store/store';
 
 let bridge: VoidBridge | null = null;
-let usingFake = false;
+let fake: FakeVoid | null = null;
 
 /** The bridge, once {@link connectBridge} has run. */
 export function getVoid(): VoidBridge {
@@ -24,14 +20,14 @@ export function getVoid(): VoidBridge {
 
 /** True when the app is running against `createFakeVoid()` rather than the mod. */
 export function isDebugBridge(): boolean {
-  return usingFake;
+  return fake !== null;
 }
 
 /**
  * True while a text input owns the keyboard.
  *
  * `VoidMenuScreen` asks this before it acts on Escape (§6.3): with a search
- * field focused, Escape must reach the page so it can clear the field, and only
+ * field focused, Escape must reach the page so it can leave the field, and only
  * an unfocused Escape closes the screen. Read straight off the document — no
  * store round-trip, so it can never be one render behind the real focus.
  */
@@ -55,24 +51,35 @@ export interface ConnectResult {
   dispose(): void;
 }
 
+export interface ConnectOptions {
+  /** Force the fake bridge, for tests and the harness. */
+  forceFake?: boolean;
+  /** Start the fake bridge's 20 Hz timer. Off in tests, on in the browser. */
+  runFakeClock?: boolean;
+}
+
 /**
  * Install `window.void` and wire it to the store.
  *
  * In game the Java host has already installed `window.__void_native`, and
  * `installVoidShim()` builds the bridge on top of it. In a browser — or with
- * `?debug` in the query string — `createFakeVoid()` stands in.
+ * `?debug` in the query string — `createFakeVoid()` stands in, playing the part
+ * of Java: it owns the loadout library, clamps what it is given, and owns the
+ * Right-Shift key, because the mod's `KeyBinding` does in game (§6.3).
  */
-export function connectBridge(): ConnectResult {
+export function connectBridge(options: ConnectOptions = {}): ConnectResult {
   const debugRequested =
-    typeof location !== 'undefined' && /(^|[?&])debug($|[=&])/.test(location.search);
+    options.forceFake === true ||
+    (typeof location !== 'undefined' && /(^|[?&])debug($|[=&])/.test(location.search));
   const hasNative = typeof window !== 'undefined' && typeof window.__void_native === 'function';
 
   if (hasNative && !debugRequested) {
     bridge = installVoidShim();
-    usingFake = false;
+    fake = null;
   } else {
-    bridge = createFakeVoid({ menuOpen: debugRequested });
-    usingFake = true;
+    fake = createFakeVoid({ menuOpen: debugRequested });
+    fake.install();
+    bridge = fake;
   }
 
   // The shim's own __hasFocus tracks the menu channel. The Java side needs the
@@ -83,10 +90,11 @@ export function connectBridge(): ConnectResult {
 
   const store = useVoidStore.getState();
 
-  // The bridge exposes no loadout-library accessor (see VoidState.library). The
-  // fake one does, so seed the store from it when it is there.
-  const readLibrary = (bridge as { __loadouts?: () => typeof store.library }).__loadouts;
-  if (readLibrary) useVoidStore.setState({ library: readLibrary.call(bridge) });
+  // SCHEMA GAP: `bridge.json` exposes no accessor for the loadout library — Rust
+  // sends `init.loadouts` to Java, but Java never forwards the list to JS. The
+  // fake bridge does expose one, so the Loadouts screen is fully populated in
+  // the harness and falls back to `[active loadout]` in game.
+  if (fake) useVoidStore.setState({ library: fake.getLoadouts() });
 
   const offs = [
     bridge.on('loadout', store.applyLoadout),
@@ -96,11 +104,19 @@ export function connectBridge(): ConnectResult {
     bridge.on('menu', store.applyMenu),
   ];
 
+  if (fake) {
+    fake.emitInitialState();
+    if (options.runFakeClock ?? true) fake.start();
+  }
+
   return {
     bridge,
-    debug: usingFake,
+    debug: fake !== null,
     dispose() {
       for (const off of offs) off();
+      fake?.destroy();
+      fake = null;
+      bridge = null;
     },
   };
 }

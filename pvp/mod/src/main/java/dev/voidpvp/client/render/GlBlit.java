@@ -61,6 +61,16 @@ public final class GlBlit {
      */
     public static void drawTexture(int texture, float x, float y, float w, float h,
                                    boolean premultiplied, boolean flipV, float alpha) {
+        drawTexture(texture, x, y, w, h, premultiplied, flipV, alpha, 1f, 1f);
+    }
+
+    /**
+     * As above, sampling only the {@code uvScaleX x uvScaleY} corner of the
+     * texture — the binding is allowed to back a view with a larger texture.
+     */
+    public static void drawTexture(int texture, float x, float y, float w, float h,
+                                   boolean premultiplied, boolean flipV, float alpha,
+                                   float uvScaleX, float uvScaleY) {
         if (texture == 0) {
             return;
         }
@@ -75,16 +85,18 @@ public final class GlBlit {
         }
         GL11.glColor4f(alpha, alpha, alpha, alpha);
 
-        float v0 = flipV ? 1f : 0f;
-        float v1 = flipV ? 0f : 1f;
+        float u1 = uvScaleX <= 0f ? 1f : uvScaleX;
+        float vMax = uvScaleY <= 0f ? 1f : uvScaleY;
+        float v0 = flipV ? vMax : 0f;
+        float v1 = flipV ? 0f : vMax;
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glTexCoord2f(0f, v0);
         GL11.glVertex2f(x, y);
         GL11.glTexCoord2f(0f, v1);
         GL11.glVertex2f(x, y + h);
-        GL11.glTexCoord2f(1f, v1);
+        GL11.glTexCoord2f(u1, v1);
         GL11.glVertex2f(x + w, y + h);
-        GL11.glTexCoord2f(1f, v0);
+        GL11.glTexCoord2f(u1, v0);
         GL11.glVertex2f(x + w, y);
         GL11.glEnd();
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);

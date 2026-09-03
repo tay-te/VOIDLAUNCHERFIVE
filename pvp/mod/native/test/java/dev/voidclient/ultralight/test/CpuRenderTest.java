@@ -204,13 +204,16 @@ public final class CpuRenderTest {
     view.close();
     renderer.close();
 
-    if (failures > 0) {
-      System.out.println();
-      System.out.println("FAILED: " + failures + " check(s)");
-      System.exit(1);
-    }
     System.out.println();
-    System.out.println("PASSED");
+    System.out.println(failures > 0 ? "FAILED: " + failures + " check(s)" : "PASSED");
+
+    // Exit deliberately instead of returning from main. Letting the launcher thread terminate as a
+    // pthread runs WebCore's thread-local destructor, and in 1.4.0b that destructor re-enters
+    // WebCore::threadGlobalData() while tearing down the font cache and aborts inside
+    // WTFCrashWithInfo. System.exit() leaves the process from inside the thread, so the TSD
+    // destructors never run — which is also how Minecraft quits (Minecraft.shutdown ->
+    // System.exit(0)), so the game is not exposed to this. See README "Known risks".
+    System.exit(failures > 0 ? 1 : 0);
   }
 
   // ------------------------------------------------------------------------------------------------

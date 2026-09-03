@@ -1,38 +1,23 @@
 /**
- * Pure formatting helpers for the HUD readouts. No React, no bridge.
+ * Formatting the shared package does not cover: the potion colour table, the
+ * armour-row derivation, and the `played` figure on a loadout card.
+ *
+ * `formatPotionTime` / `formatAmplifier` come from `@void/ui`, and
+ * `cardinalFromYaw` from `@void/protocol`; none of them is re-implemented here.
  */
 
 import type { ArmorSlot, PotionEffect } from '@/bridge/protocol';
-
-/** MC 1.8.9 yaw: 0 faces +Z (south) and grows toward −X (west). */
-const COMPASS = ['S', 'SW', 'W', 'NW', 'N', 'NE', 'E', 'SE'] as const;
-
-export function cardinal(yaw: number): string {
-  const index = ((Math.round(yaw / 45) % 8) + 8) % 8;
-  return COMPASS[index]!;
-}
-
-/** `1:24` — the potion timer format of frame 244:1791. */
-export function duration(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
-
-/** 0-based amplifier to a Roman numeral: 0 → "", 1 → "II", 2 → "III". */
-export function roman(amplifier: number): string {
-  if (amplifier <= 0) return '';
-  const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-  return numerals[Math.min(amplifier, numerals.length - 1)] ?? String(amplifier + 1);
-}
 
 interface PotionMeta {
   label: string;
   color: string;
 }
 
-/** 1.8.9 potion ids → display label and the swatch colour used in the frames. */
+/**
+ * 1.8.9 potion ids → display label and swatch colour. The two the HUD-layout
+ * frame draws — Speed `#7aebb5` and Strength `#d9a93a` — are the frame's own
+ * values; the rest follow the same hue logic.
+ */
 const POTIONS: Record<number, PotionMeta> = {
   1: { label: 'Speed', color: '#7aebb5' },
   2: { label: 'Slowness', color: '#8b93a1' },
@@ -75,30 +60,25 @@ const SLOT_LABELS: Record<ArmorSlot['slot'], string> = {
   held: 'Held',
 };
 
-export interface ArmorRow {
+export interface DurabilityRow {
   slot: ArmorSlot['slot'];
   label: string;
   remaining: number;
   max: number;
-  /** 0..1 */
-  ratio: number;
-  /** Frame 244:1800 draws under half in --warn, the rest in --ok. */
-  tone: 'ok' | 'warn';
 }
 
-/** Turn one `armor` entry into the row the ArmorList draws. Empty slots drop. */
-export function armorRow(slot: ArmorSlot): ArmorRow | null {
+/**
+ * Turn one `armor` entry into the row `ArmorList` draws. Empty slots drop out —
+ * the frame lists only the pieces the player is wearing.
+ */
+export function armorRow(slot: ArmorSlot): DurabilityRow | null {
   if (!slot.item) return null;
   const max = slot.max_damage ?? 0;
-  const remaining = Math.max(0, max - (slot.damage ?? 0));
-  const ratio = max > 0 ? remaining / max : 1;
   return {
     slot: slot.slot,
     label: SLOT_LABELS[slot.slot],
-    remaining,
+    remaining: Math.max(0, max - (slot.damage ?? 0)),
     max,
-    ratio,
-    tone: ratio < 0.5 ? 'warn' : 'ok',
   };
 }
 
@@ -109,4 +89,11 @@ export function playedTime(ms: number): string {
   const rest = minutes % 60;
   if (hours === 0) return `${rest}m`;
   return `${hours}h ${String(rest).padStart(2, '0')}m`;
+}
+
+/** `mc.hypixel.net` reads as `Hypixel` in the frames. */
+export function shortHost(host: string): string {
+  const parts = host.split('.').filter(Boolean);
+  const core = parts.length >= 2 ? parts[parts.length - 2]! : (parts[0] ?? host);
+  return core.charAt(0).toUpperCase() + core.slice(1);
 }

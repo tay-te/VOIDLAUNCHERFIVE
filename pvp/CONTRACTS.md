@@ -99,3 +99,140 @@ downstream of the Ultralight view stalls with it, and we want to know that early
   over the WS. Only summaries cross to Rust.
 - Is it persisted? Java holds live state and tells Rust afterwards; Rust is the store of
   record between sessions (§6.1).
+
+---
+
+## Ultralight binding API
+
+Owned by **native** (`mod/native/`), consumed by **mod**. Built against Ultralight **1.4.0b
+(rev `081c48b`)**; see `mod/native/README.md` for the SDK provenance, the licence line that must
+appear in the About screen, and what is and is not verified.
+
+### ⚠️ One forced deviation: the package name
+
+The agreed package was `dev.void.ultralight`. **That is not a legal Java package.** `void` is a
+reserved word, and a keyword cannot be an identifier — neither `package dev.void.ultralight;` nor
+`import dev.void.ultralight.View;` compiles:
+
+```
+error: <identifier> expected
+package dev.void.ultralight;
+            ^
+```
+
+The package is therefore **`dev.voidclient.ultralight`**, mirroring the mod's artifact name
+(`rootProject.name = 'void-client'`). Nothing else about the API changed — every type, method,
+signature and constant below is exactly as specified.
+
+**This affects `mod/` too**: `dev.void.client.*` in PVP_ARCHITECTURE §6 has the same problem. The
+mod agent needs to pick a legal name for its own packages; `dev.voidclient.client.*` keeps the two
+halves consistent, but that is the mod agent's call. Directory paths must match whatever is chosen.
+
+### The API
+
+```java
+package dev.voidclient.ultralight;
+
+public final class Ultralight {
+  public static void load() throws UnsatisfiedLinkError;
+  public static Renderer createRenderer(String resourcePathPrefix); // e.g. "assets/void/ui/"
+  public static String version();          // Ultralight's version, e.g. "1.4.0"
+  public static String webKitVersion();    // e.g. "615.1.18.100.1"
+  public static String licenceNotice();    // the credit line §13 requires in About/credits
+  public static String nativeDirectory();  // where the natives were extracted; null before load()
+}
+
+public final class Renderer implements AutoCloseable {
+  public void update();                                          // once per game tick
+  public void refreshDisplay();                                  // once per frame, before render()
+  public View createView(int w, int h, boolean transparent);     // GPU, via our GL driver
+  public View createViewCpu(int w, int h, boolean transparent);  // CPU surface — tests only
+  public void purgeMemory();
+  public void close();
+}
+
+public final class View implements AutoCloseable {
+  public void loadUrl(String url);      // "file:///index.html" -> classpath under the prefix
+  public void loadHtml(String html);
+  public void resize(int w, int h);
+  public void setDeviceScale(double s); // MC GUI scale x window DPI
+
+  public int  glTextureId();            // valid after render(); RGBA, premultiplied, top-left origin
+  public int  textureWidth();           // backing texture may be larger than the view
+  public int  textureHeight();
+  public float uvScaleX();              // sample [0,uvScaleX] x [0,uvScaleY]; usually 1.0
+  public float uvScaleY();
+  public boolean isDirty();
+
+  public void fireMouseEvent(int type, int x, int y, int button); // 0 move 1 down 2 up / 0 none 1 L 2 M 3 R
+  public void fireKeyEvent(int type, int virtualKey, int modifiers, String text);
+                                        // 0 keydown 1 keyup 2 char; mods 1 alt 2 ctrl 4 meta 8 shift
+  public void fireScrollEvent(int dx, int dy);
+
+  public String evaluateScript(String js);   // "" if undefined; exceptions -> "" + logged
+  public void setMessageHandler(java.util.function.Function<String,String> handler);
+  public java.util.function.Function<String,String> messageHandler();
+
+  public void setFocus(boolean f);
+  public boolean hasInputFocus();       // true -> forward Escape to the page instead of closing
+  public boolean isLoading();
+  public byte[] readPixels();           // BGRA premultiplied, tight w*4 stride — CPU views only
+  public int width();
+  public int height();
+  public boolean isAccelerated();
+  public void close();
+}
+```
+
+Constants on `View`: `MOUSE_MOVED/DOWN/UP` = 0/1/2, `KEY_DOWN/UP/CHAR` = 0/1/2,
+`MOD_ALT/CTRL/META/SHIFT` = 1/2/4/8.
+
+### Additions beyond the agreed surface
+
+All additive — nothing specified was changed or removed. `version()`, `createViewCpu` and
+`readPixels` were requested; the rest exist because the mod needs them and guessing later is worse:
+
+`Ultralight.webKitVersion/licenceNotice/nativeDirectory`, `Renderer.refreshDisplay/purgeMemory`,
+`View.loadHtml/textureWidth/textureHeight/uvScaleX/uvScaleY/messageHandler/hasInputFocus/isLoading/width/height/isAccelerated`.
+
+`uvScaleX/Y` matter: Ultralight's render target may be larger than the view, and drawing the whole
+texture would show garbage at the edges. `refreshDisplay()` is what advances CSS animations,
+transitions and `requestAnimationFrame` — without it the UI is static.
+
+### Rules the mod must follow
+
+1. **One thread.** Everything on the thread that called `createRenderer` — the render thread.
+   There is no dispatch queue by design (§6.1: key press to pixel in the same frame).
+2. **One renderer per process.** A second `createRenderer` returns the first one.
+3. **Per frame:** `refreshDisplay()` then `render()`. **Per tick:** `update()`. Skip `render()` when
+   `isDirty()` is false — that is the first lever if the §10 paint budget is missed.
+4. **`loadUrl` takes three slashes**: `file:///index.html`. It resolves to the classpath resource
+   `<resourcePathPrefix> + index.html` via a `ULFileSystem` backed by
+   `ClassLoader.getResourceAsStream`; nothing is written to disk. Paths containing `..` are refused.
+   A miss falls back to the extracted natives directory, which is how `resources/cacert.pem`,
+   `resources/icudt67l.dat` and the bundled font are found.
+5. **`fireKeyEvent` takes Windows virtual-key codes** (Ultralight's `GK_*`), on every platform. The
+   mod maps LWJGL 2 key codes to them. A typed character needs **two** events: `KEY_DOWN` with the
+   virtual key, then `KEY_CHAR` with the text — a key-down alone inserts nothing.
+6. **`setMessageHandler` runs synchronously on the render thread** and its return value is the
+   JavaScript return value. It is re-installed automatically on every navigation. Returning null
+   yields `null` in JS; throwing is logged and surfaces as a JS exception, never escaping into Java.
+   This is the primitive `window.void` (§6.5) is built on, not a replacement for it.
+7. **The texture is premultiplied, top-left origin.** Blend with
+   `GL_ONE, GL_ONE_MINUS_SRC_ALPHA`, `v = 0` at the top, depth test off.
+8. **No system fonts.** The font loader serves one bundled face (Inter) for every family, so the UI
+   must declare its typefaces with `@font-face`; those are served from the classpath. `font-family:
+   Arial` silently gets Inter. This keeps the design identical on every machine — **ui** should
+   treat it as a constraint on the token set, alongside the CSS restrictions already in §9.
+9. **`readPixels()` is test-only.** Full-frame readback in game is exactly what §6.2 forbids.
+10. **`natives/<os>-<arch>/` must be on the classpath** — `windows-x64`, `macos-x64`,
+    `macos-arm64` — including the generated `files.txt`. `mod/native/README.md` has the exact file
+    list and a Gradle snippet. `-Dvoid.ultralight.nativeDir=<dir>` skips extraction for dev runs.
+
+### Open item for `core`
+
+The native payload is **20.8 MB** (Windows) / **50.3 MB** (+ mac-x64) / **77.4 MB** (+ mac-arm64) of
+JAR-deflated bytes, measured. PVP_ARCHITECTURE §13 budgets ~25 MB for all of it. Either the mod
+ships per-OS JARs (recommended — `void-core` already resolves downloads per launch and knows the
+target OS) or the natives become a separately downloaded, hash-verified artifact. Not a decision
+`native` can make alone.

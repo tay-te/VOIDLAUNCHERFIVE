@@ -25,6 +25,9 @@ public final class UiHost {
      */
     private static final String ENTRY_URL = "file:///index.html";
 
+    /** Frames painted unconditionally after a create, load or resize. */
+    private static final int FORCED_RENDERS = 3;
+
     private final VoidBridge bridge;
     private WebView view = new NullWebView();
     private boolean started;
@@ -34,6 +37,7 @@ public final class UiHost {
     private int framebufferWidth;
     private int framebufferHeight;
     private double deviceScale = 1;
+    private int forcedRenders;
 
     public UiHost(VoidBridge bridge) {
         this.bridge = bridge;
@@ -72,6 +76,7 @@ public final class UiHost {
                 }
             });
             view.loadUrl(ENTRY_URL);
+            forcedRenders = FORCED_RENDERS;
             VoidLog.info("in-game UI started at " + lw + "x" + lh + " (scale " + s + ")");
             return;
         }
@@ -84,6 +89,7 @@ public final class UiHost {
             framebufferWidth = fbWidth;
             framebufferHeight = fbHeight;
             view.resize(lw, lh);
+            forcedRenders = FORCED_RENDERS;
         }
         if (s != deviceScale) {
             deviceScale = s;
@@ -112,7 +118,16 @@ public final class UiHost {
                 view.evaluateScript(script);
             }
             view.update();
-            view.render();
+            // The binding asks us to skip render() on frames where nothing
+            // changed — the first lever against the paint budget of §10. The
+            // forced frames after a create or a resize cover the window where
+            // the dirty flag has not caught up with the new size yet.
+            if (view.isDirty() || forcedRenders > 0) {
+                if (forcedRenders > 0) {
+                    forcedRenders--;
+                }
+                view.render();
+            }
         } catch (RuntimeException e) {
             VoidLog.error("in-game UI frame failed, disabling", e);
             disable();
@@ -148,7 +163,7 @@ public final class UiHost {
         GlBlit.begin2d(screenWidth, screenHeight);
         try {
             GlBlit.drawTexture(texture, 0, 0, screenWidth, screenHeight,
-                    PREMULTIPLIED, true, 1f);
+                    PREMULTIPLIED, true, 1f, view.uvScaleX(), view.uvScaleY());
         } finally {
             GlBlit.end2d();
         }

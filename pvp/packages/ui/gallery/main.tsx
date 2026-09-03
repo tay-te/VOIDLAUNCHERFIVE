@@ -433,14 +433,14 @@ function Gallery() {
                       on={on[id] ?? false}
                       selected={selectedMod === id}
                       onSelect={() => setSelectedMod(id)}
-                      onToggle={(next) => setOn((s) => ({ ...s, [id]: next }))}
+                      onToggle={(value) => setOn((s) => ({ ...s, [id]: value }))}
                     />
                   ))}
                 </ModGrid>
                 <ModSettingsPanel
                   title="Keystrokes"
                   on={on['keystrokes'] ?? true}
-                  onToggle={(next) => setOn((s) => ({ ...s, keystrokes: next }))}
+                  onToggle={(value) => setOn((s) => ({ ...s, keystrokes: value }))}
                 >
                   <KeystrokesPreview keys={keys} />
                   <Slider
@@ -659,7 +659,7 @@ function Gallery() {
                     on={on[id] ?? false}
                     selected={selectedMod === id}
                     onSelect={() => setSelectedMod(id)}
-                    onToggle={(next) => setOn((s) => ({ ...s, [id]: next }))}
+                    onToggle={(value) => setOn((s) => ({ ...s, [id]: value }))}
                   />
                 ))}
               </ModGrid>

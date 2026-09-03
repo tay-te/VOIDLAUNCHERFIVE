@@ -7,7 +7,17 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
-  resolve: { alias: { '@': resolve(here, 'src') } },
+  resolve: {
+    alias: [
+      { find: '@void-ui-src', replacement: resolve(here, '../ui/src') },
+      { find: '@void/ui/tokens.css', replacement: resolve(here, '../ui/src/tokens.css') },
+      { find: '@void/ui/fonts.css', replacement: resolve(here, '../ui/src/fonts.css') },
+      { find: '@void/ui/styles.css', replacement: resolve(here, 'src/styles/void-ui.css') },
+      { find: /^@void\/ui$/, replacement: resolve(here, '../ui/src/index.ts') },
+      { find: /^@void\/protocol$/, replacement: resolve(here, '../protocol/src/index.ts') },
+      { find: '@', replacement: resolve(here, 'src') },
+    ],
+  },
   test: {
     environment: 'jsdom',
     globals: true,

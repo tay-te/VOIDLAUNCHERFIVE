@@ -200,11 +200,18 @@ export function SelectionFrame({
 }
 
 /**
+ * The separator the frames put between the readout's three parts: two non-breaking
+ * spaces, a middle dot, two more. Non-breaking so the readout never wraps inside the
+ * accent pill, and spelled with escapes so the intent survives a copy-paste.
+ */
+const SEP = '\u00a0\u00a0\u00b7\u00a0\u00a0';
+
+/**
  * Format the selection readout the way the frames do: `x 32  ·  y 580  ·  1.0×`.
  * `dx` and `dy` come straight off the `hud_item`; scale defaults to 1.
  */
 export function formatSelectionReadout(dx: number, dy: number, scale = 1): string {
-  return `x ${Math.round(dx)}  ·  y ${Math.round(dy)}  ·  ${scale.toFixed(1)}×`;
+  return `x ${Math.round(dx)}${SEP}y ${Math.round(dy)}${SEP}${scale.toFixed(1)}\u00d7`;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -17,7 +17,11 @@
     "noEmit": true,
     "types": ["vite/client"],
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/*": ["src/*"],
+      "@void/ui": ["../ui/src/index.ts"],
+      "@void/protocol": ["../protocol/src/index.ts"]
+    }
   },
   "include": ["src", "test", "vite.config.ts", "vitest.config.ts"]
 }

@@ -1,55 +1,69 @@
-//! Everything the commands share, and where it lives on disk.
+//! Everything the commands share.
 //!
-//! No Tauri types: `AppState` is built and exercised by the tests as well as managed
-//! by the app, which is what keeps `--no-default-features` honest.
+//! No Tauri types: `AppState` is built and exercised by the tests as well as managed by
+//! the app, which is what keeps `--no-default-features` honest.
 
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use crate::adapters::game::Game;
-use crate::adapters::store::Store;
+use void_core::auth::Session;
+use void_core::{Config, Paths};
+use void_loadout::Store;
+
+use crate::adapters::game::GameState;
 use crate::error::Error;
-use crate::models::Account;
 
 pub struct AppState {
-    pub data_dir: PathBuf,
-    pub store: Mutex<Store>,
-    pub account: Mutex<Option<Account>>,
-    pub game: Arc<Mutex<Game>>,
+    /// Where `void-core` keeps the installation: `$VOID_PVP_HOME` or `~/.void-pvp`.
+    pub paths: Paths,
+    /// The loadout library. Cheap to clone; the bridge's `StoreInit` gets its own.
+    pub store: Store,
+    /// One HTTP client for the process: connection pooling across manifests, assets and
+    /// the Adoptium tarball is most of what makes a cold install tolerable.
+    pub http: reqwest::Client,
+    /// The signed-in session, with its access token. Never crosses to the webview.
+    pub session: Mutex<Option<Session>>,
+    pub game: Arc<Mutex<GameState>>,
 }
 
 impl AppState {
-    pub fn new(data_dir: PathBuf) -> Result<Self, Error> {
-        let store = Store::open(&data_dir)?;
+    pub fn new(paths: Paths) -> Result<Self, Error> {
+        let store = Store::at(paths.root());
+        // Seeds the three starter loadouts on first run; a no-op afterwards.
+        store.init().map_err(Error::from)?;
+
         Ok(AppState {
-            data_dir,
-            store: Mutex::new(store),
-            account: Mutex::new(None),
-            game: Arc::new(Mutex::new(Game::default())),
+            paths,
+            store,
+            http: reqwest::Client::builder()
+                .user_agent(concat!("void-pvp-launcher/", env!("CARGO_PKG_VERSION")))
+                .build()
+                .unwrap_or_default(),
+            session: Mutex::new(None),
+            game: Arc::new(Mutex::new(GameState::default())),
         })
     }
 
-    /// `<platform data dir>/void-pvp`, overridable with `VOID_PVP_DATA_DIR` so a dev
-    /// build can be pointed at a scratch library without touching the real one.
-    pub fn default_data_dir() -> PathBuf {
-        if let Some(dir) = std::env::var_os("VOID_PVP_DATA_DIR") {
-            return PathBuf::from(dir);
-        }
-        dirs::data_dir()
-            .unwrap_or_else(std::env::temp_dir)
-            .join("void-pvp")
+    pub fn open_default() -> Result<Self, Error> {
+        Self::new(Paths::new()?)
+    }
+
+    /// `config.json`, re-read on each use: it is small, and a stale copy in memory is
+    /// how a launcher ends up spawning with the RAM the player just changed away from.
+    pub fn config(&self) -> Result<Config, Error> {
+        Config::load(&self.paths).map_err(Error::from)
     }
 }
 
 #[cfg(test)]
 pub fn scratch_state() -> AppState {
     let dir = std::env::temp_dir().join(format!(
-        "void-state-{}-{}",
+        "void-desktop-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
     ));
-    AppState::new(dir).unwrap()
+    std::fs::create_dir_all(&dir).unwrap();
+    AppState::new(Paths::at(dir)).unwrap()
 }

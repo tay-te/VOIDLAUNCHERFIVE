@@ -1,20 +1,13 @@
 /**
  * Single import point for the bridge contract.
  *
- * `@void/protocol` (owned by the **ui** agent) is the real home of these types,
- * of `installVoidShim()` and of `createFakeVoid()`. While that package is still
- * being written, this module re-exports the local transcription in
- * `src/local/protocol.ts` + `src/local/fake-void.ts`, both coded straight off
- * `pvp/schema/*.json` with the same export names.
+ * `@void/protocol` is the TypeScript face of `pvp/schema/*.json` — the generated
+ * types, `installVoidShim()` (the reference implementation of the `void-shim.js`
+ * the mod ships in the JAR), `createFakeVoid()` for the `?debug` harness, and the
+ * closed registry of the 12 mods.
  *
- * CONSOLIDATION: when `@void/protocol` exposes an entry point, replace the two
- * `export *` lines below with
- *
- *     export * from '@void/protocol';
- *
- * and delete `src/local/protocol.ts` + `src/local/fake-void.ts`. Nothing else in
- * the app imports either file directly — every module imports from here.
+ * Everything in this bundle imports the contract through here, so there is one
+ * place to look when the schema moves.
  */
 
-export * from '@/local/protocol';
-export * from '@/local/fake-void';
+export * from '@void/protocol';

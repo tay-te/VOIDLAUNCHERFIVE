@@ -75,9 +75,9 @@ struct LaunchArgs {
     /// Pin a Legacy Fabric loader build.
     #[arg(long)]
     loader: Option<String>,
-    /// Use the profile from a previous `prepare` and do not touch the network.
+    /// Launch from a previous `prepare` without touching the network.
     #[arg(long)]
-    offline_assets: bool,
+    skip_prepare: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -290,7 +290,7 @@ async fn do_launch(
     println!("Playing as {}{}", session.username, if session.is_offline() { " (offline)" } else { "" });
 
     let ctx = RuleContext::host()?;
-    let profile = match (args.offline_assets, install::cached_profile(paths, "1.8.9")) {
+    let profile = match (args.skip_prepare, install::cached_profile(paths, "1.8.9")) {
         (true, Some(cached)) => cached,
         (true, None) => {
             return Err(Error::Manifest(

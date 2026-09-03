@@ -1,11 +1,12 @@
 /**
  * Single import point for the shared component set.
  *
- * `@void/ui` (owned by the **ui** agent) is the real home of these. While that
- * package is being written the overlay uses `src/local/ui.tsx`, whose exports
- * carry the same names and props.
+ * `@void/ui` owns the components and the design tokens for both bundles (§9).
+ * This module re-exports it so the overlay's screens have one import to change
+ * if the package is ever split.
  *
- * CONSOLIDATION: replace the line below with `export * from '@void/ui';` and
- * delete `src/local/ui.tsx`. No screen imports the local file directly.
+ * The package is consumed from source through the aliases in `vite.config.ts`;
+ * see README.md, "Consuming @void/ui and @void/protocol".
  */
-export * from '@/local/ui';
+
+export * from '@void/ui';

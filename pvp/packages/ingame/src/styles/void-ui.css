@@ -1,0 +1,16 @@
+/* `@void/ui` stylesheet, consumed from source.
+ *
+ * The package publishes `@void/ui/styles.css` from its `dist/`, which its own
+ * `pnpm build` concatenates out of `src/styles/*.css`. This bundle consumes the
+ * package from **source** (see the aliases in `vite.config.ts`), so it does the
+ * same concatenation here rather than depending on a sibling package's build
+ * having been run. The order is the package's own numbering.
+ */
+
+@import '@void-ui-src/styles/01-base.css';
+@import '@void-ui-src/styles/02-primitives.css';
+@import '@void-ui-src/styles/03-chrome.css';
+@import '@void-ui-src/styles/04-mods.css';
+@import '@void-ui-src/styles/05-cards.css';
+@import '@void-ui-src/styles/06-hud.css';
+@import '@void-ui-src/styles/07-hud-editor.css';

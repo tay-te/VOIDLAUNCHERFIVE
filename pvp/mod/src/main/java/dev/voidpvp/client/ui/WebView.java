@@ -39,6 +39,16 @@ public interface WebView extends AutoCloseable {
     /** Valid after {@link #render}: RGBA, premultiplied alpha, top-left origin. */
     int glTextureId();
 
+    /**
+     * Right edge of the view inside its backing texture, in UV space.
+     * The binding may hand back a texture larger than the view, so the quad
+     * samples this sub-rectangle rather than the whole thing.
+     */
+    float uvScaleX();
+
+    /** Bottom edge of the view inside its backing texture, in UV space. */
+    float uvScaleY();
+
     boolean isDirty();
 
     /** type: 0 move, 1 down, 2 up. button: 0 none, 1 left, 2 middle, 3 right. */
