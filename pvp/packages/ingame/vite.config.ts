@@ -42,6 +42,32 @@ function designScreensDevServer(): Plugin {
 }
 
 /**
+ * Injects `<script src="./void-shim.js"></script>` at the top of `<head>` in the built
+ * `index.html`.
+ *
+ * The shim is **not** an asset of this package: it is committed by the mod at
+ * `mod/src/main/resources/assets/void/shim/void-shim.js` and copied next to this bundle
+ * by Gradle's `processResources`, so it exists in the JAR but never on disk here. That
+ * is exactly why the tag is injected rather than written in `index.html` — Vite would
+ * try to resolve a missing file and fail the build.
+ *
+ * Build only. In the browser harness there is no Java, `createFakeVoid()` installs
+ * `window.void` itself, and a 404 for the shim would be noise (CONTRACTS.md, "The
+ * bridge shim").
+ */
+function injectVoidShim(): Plugin {
+  return {
+    name: 'void-inject-shim',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      if (html.includes('void-shim.js')) return html;
+      return html.replace('<head>', '<head>\n    <script src="./void-shim.js"></script>');
+    },
+  };
+}
+
+/**
  * Strips the `crossorigin` attribute Vite puts on the emitted `<script>` and
  * `<link>`. The bundle is loaded by the Ultralight host from the JAR classpath,
  * not over HTTP: there is no origin to be cross to, and a CORS-flagged fetch on
@@ -62,7 +88,7 @@ export default defineConfig(({ command }) => ({
   // Relative URLs: the bundle is loaded from the JAR classpath as
   // `assets/void/ui/index.html`, where there is no server and no origin.
   base: './',
-  plugins: [react(), designScreensDevServer(), stripCrossorigin()],
+  plugins: [react(), designScreensDevServer(), injectVoidShim(), stripCrossorigin()],
   resolve: {
     /**
      * `@void/ui` and `@void/protocol` are consumed from **source**, not from their
@@ -90,6 +116,11 @@ export default defineConfig(({ command }) => ({
   build: {
     target: 'es2022',
     outDir: command === 'build' ? OUT_DIR : resolve(here, 'dist'),
+    // Safe to wipe: the only things in this directory are this bundle's own outputs.
+    // The shim lives one directory up in `assets/void/shim/` and is copied here by
+    // Gradle at package time, into `build/resources/main/`, never into the source tree
+    // — so the two builds cannot delete each other's work whichever runs first
+    // (CONTRACTS.md, "The bridge shim").
     emptyOutDir: true,
     assetsDir: 'assets',
     cssCodeSplit: false,

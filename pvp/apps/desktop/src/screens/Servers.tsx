@@ -6,34 +6,55 @@
  * version string come from, so a favourite that has gone away says so instead of
  * showing a stale number.
  *
- * The sparkline is the rolling history of those pings — the plain-`div` bars pattern
- * of `ultralight-notes.md` §5, kept identical to the in-game one.
+ * `ServerRow`, `Pane`, `StatTile`, `Sparkline` and `GroupCaption` are `@void/ui`'s.
+ * The sparkline is still the plain-`div` bars of `ultralight-notes.md` §5 — the
+ * package draws it that way so the launcher and the overlay are the same chart.
  */
-
-import { useEffect, useState } from 'react';
 
 import {
   Button,
-  Caption,
   FilterTabs,
-  Panel,
+  GroupCaption,
+  Icon,
   Pane,
-  SearchField,
+  Panel,
+  SearchBar,
+  ServerRow,
   Sparkline,
   StatTile,
-  StatusDot,
-  Switch,
-} from '../components';
-import { PlayIcon, PlusIcon, StarIcon, TrashIcon } from '../components/icons';
+  Toggle,
+} from '@void/ui';
+import { useEffect, useState } from 'react';
+
+import { TrashGlyph } from '../local/glyphs';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
-import { pingTone, useServers } from '../stores/servers';
+import { useServers } from '../stores/servers';
 
 const TABS = ['Favourites', 'Recent', 'Browse'] as const;
 type Tab = (typeof TABS)[number];
 
+/** `SearchBar` spreads its rest props onto the input, so an id is how Add server
+    reaches the field it wants you to type in. */
+const SEARCH_ID = 'servers-search';
+
+/**
+ * The sparkline draws bars 16–32 px tall, as the frame's twelve-hour history does.
+ * Only real samples get a bar: the frame has twelve because it has twelve hours of
+ * them, and a launcher two pings into a session has two. Padding the rest with stubs
+ * would draw a history that never happened.
+ */
+function bars(history: readonly number[]): { values: number[]; outliers: number[] } {
+  const window = [...history].slice(-12);
+  const max = Math.max(32, ...window);
+  const values = window.map((ms) => Math.max(6, Math.round((ms / max) * 32)));
+  const outliers = window.flatMap((ms, index) => (ms > 100 ? [index] : []));
+  return { values, outliers };
+}
+
 export function ServersScreen() {
-  const { servers, pings, selected, select, add, remove, toggleFavourite, ping, pingAll } = useServers();
+  const { servers, pings, selected, select, add, remove, toggleFavourite, ping, pingAll } =
+    useServers();
   const active = useLoadouts((s) => s.active);
   const start = useLaunch((s) => s.start);
   const phase = useLaunch((s) => s.phase);
@@ -58,37 +79,48 @@ export function ServersScreen() {
 
   const detail = servers.find((s) => s.host === selected) ?? list[0];
   const detailPing = detail ? pings[detail.host] : undefined;
+  const spark = bars(detailPing?.history ?? []);
 
   return (
     <Panel
       title="Servers"
-      controls={
+      headerRight={
         <>
-          <SearchField
+          <SearchBar
+            id={SEARCH_ID}
+            variant="panel"
+            placeholder="Search or paste an address"
             value={query}
             onChange={setQuery}
-            placeholder="Search or paste an address"
-            width={230}
-            onSubmit={(value) => {
+            onKeyDown={(event) => {
               // The field doubles as a direct-connect input, per the frame's note.
-              if (value.includes('.')) {
-                add(value);
-                setQuery('');
-              }
-            }}
-          />
-          <FilterTabs tabs={TABS} value={tab} onChange={setTab} />
-          <Button
-            variant="raised"
-            icon={PlusIcon}
-            onClick={() => {
-              if (query.trim()) {
+              if (event.key === 'Enter' && query.includes('.')) {
                 add(query);
                 setQuery('');
               }
             }}
-            disabled={!query.trim()}
-            title={query.trim() ? `Add ${query.trim()}` : 'Type an address to add a server'}
+          />
+          <FilterTabs
+            label="Server list"
+            tabs={TABS.map((id) => ({ id, label: id }))}
+            value={tab}
+            onChange={(id) => setTab(id as Tab)}
+          />
+          <span className="v-spacer" />
+          <Button
+            variant="raised"
+            icon="plus"
+            onClick={() => {
+              // The search field doubles as the address input, so with nothing typed
+              // this button's job is to send you there rather than to grey itself out.
+              if (!query.trim()) {
+                document.getElementById(SEARCH_ID)?.focus();
+                return;
+              }
+              add(query);
+              setQuery('');
+            }}
+            title={query.trim() ? `Add ${query.trim()}` : 'Type an address in the field to add a server'}
           >
             Add server
           </Button>
@@ -101,39 +133,25 @@ export function ServersScreen() {
             const state = pings[server.host];
             const ms = state?.result?.latency_ms;
             return (
-              <div
+              <ServerRow
                 key={server.host}
-                className={`row row--server${server.host === detail?.host ? ' is-selected' : ''}`}
-              >
-                <button type="button" className="row__hit" onClick={() => select(server.host)}>
-                  <span className="row__icon" aria-hidden="true">
-                    {server.name.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="row__text">
-                    <span className="row__title">{server.name}</span>
-                    <span className="row__sub">{server.host}</span>
-                  </span>
-                  <span className="row__count">
-                    {state?.status === 'ok' && state.result
-                      ? `${state.result.online.toLocaleString()} online`
-                      : state?.status === 'pinging'
-                        ? 'pinging…'
-                        : 'offline'}
-                  </span>
-                  <span className={`row__ping row__ping--${ms === undefined ? 'bad' : pingTone(ms)}`}>
-                    <StatusDot tone={ms === undefined ? 'muted' : pingTone(ms)} size={6} />
-                    {ms === undefined ? '—' : `${ms} ms`}
-                  </span>
-                </button>
-                <Button
-                  variant={server.host === detail?.host ? 'chip-accent' : 'chip'}
-                  onClick={() => active && phase === 'idle' && void start(active.id)}
-                  disabled={!active || phase !== 'idle'}
-                  title="Launch with the active loadout, then connect from the in-game server list"
-                >
-                  Join
-                </Button>
-              </div>
+                name={server.name}
+                address={server.host}
+                players={
+                  state?.status === 'ok' && state.result
+                    ? `${state.result.online.toLocaleString()} online`
+                    : state?.status === 'pinging'
+                      ? 'pinging…'
+                      : 'offline'
+                }
+                ping={ms}
+                selected={server.host === detail?.host}
+                onSelect={() => select(server.host)}
+                onJoin={
+                  active && phase === 'idle' ? () => void start(active.id) : undefined
+                }
+                title="Launch with the active loadout, then connect from the in-game server list"
+              />
             );
           })}
           {list.length === 0 ? (
@@ -159,16 +177,22 @@ export function ServersScreen() {
             </div>
 
             <div className="stat-tiles">
-              <StatTile value={detailPing?.result ? `${detailPing.result.latency_ms} ms` : '—'} unit="ping" />
+              <StatTile
+                value={detailPing?.result ? `${detailPing.result.latency_ms} ms` : '—'}
+                unit="ping"
+              />
               <StatTile
                 value={detailPing?.result ? detailPing.result.online.toLocaleString() : '—'}
                 unit="online"
               />
-              <StatTile value={detailPing?.result ? detailPing.result.max.toLocaleString() : '—'} unit="slots" />
+              <StatTile
+                value={detailPing?.result ? detailPing.result.max.toLocaleString() : '—'}
+                unit="slots"
+              />
             </div>
 
-            <Caption>PING · THIS SESSION</Caption>
-            <Sparkline values={detailPing?.history ?? []} />
+            <GroupCaption label="Ping · this session" />
+            <Sparkline values={spark.values} outliers={spark.outliers} />
 
             {detailPing?.status === 'error' ? (
               <p className="pane__error">{detailPing.error}</p>
@@ -176,34 +200,46 @@ export function ServersScreen() {
               <p className="pane__motd">{detailPing.result.motd}</p>
             ) : null}
 
+            <span className="v-spacer" />
+
             <div className="pane__row">
               <span className="pane__rowtext">
                 <span className="pane__rowtitle">Auto-switch loadout</span>
-                <span className="pane__rowsub">Not wired yet — needs a server profile schema (§16.3)</span>
+                <span className="pane__rowsub">
+                  {/* TODO(integrate): needs a server-profile schema (§16.3). */}
+                  Not wired yet — needs a server profile schema (§16.3)
+                </span>
               </span>
-              <Switch size="m" checked={false} onChange={() => undefined} label="Auto-switch loadout" disabled />
+              <Toggle size="m" checked={false} label="Auto-switch loadout" disabled />
             </div>
-
-            <div className="pane__spacer" />
 
             <Button
               variant="accent"
-              icon={PlayIcon}
-              full
+              icon="play"
+              block
               disabled={!active || phase !== 'idle'}
               onClick={() => active && void start(active.id)}
             >
               {active ? `Join with ${active.name}` : 'No loadout'}
             </Button>
-            <Button variant="ghost" icon={StarIcon} full onClick={() => toggleFavourite(detail.host)}>
+            <Button
+              variant="ghost"
+              icon="star"
+              block
+              onClick={() => toggleFavourite(detail.host)}
+            >
               {detail.favourite ? 'Favourited' : 'Add to favourites'}
             </Button>
-            <Button variant="text" icon={TrashIcon} full onClick={() => remove(detail.host)}>
-              Remove server
-            </Button>
-            <Button variant="text" full onClick={() => void ping(detail.host)}>
-              Ping now
-            </Button>
+            <div className="pane__actions">
+              <Button variant="text" onClick={() => remove(detail.host)}>
+                <TrashGlyph size={13} />
+                Remove server
+              </Button>
+              <Button variant="text" onClick={() => void ping(detail.host)}>
+                <Icon name="reset" size={13} />
+                Ping now
+              </Button>
+            </div>
           </Pane>
         ) : null}
       </div>

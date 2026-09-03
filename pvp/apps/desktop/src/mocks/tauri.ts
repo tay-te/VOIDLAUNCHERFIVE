@@ -232,15 +232,27 @@ const commands: Record<string, (args: Args) => unknown> = {
       25 * (tick + 1),
     );
 
-    return {
-      loadout: loadout.id,
-      version_id: '1.8.9',
-      files: 3184,
-      downloaded_bytes: total,
-      duration_ms: 25 * (tick + 1),
-      java_path: '/usr/lib/jvm/java-8/bin/java',
-      java_version: '1.8.0_412',
-    };
+    // …and only *then* resolve. `commands::launch::prepare` verifies ~3,000 objects
+    // before it returns, so a mock that resolved while its own progress events were
+    // still in flight would put the store into `launching` on the first frame and the
+    // CTA's progress bar would never render — the one launch state a reviewer most
+    // wants to see. `later` runs inline when the speed knob is 0, so the store tests
+    // still resolve synchronously.
+    return new Promise((resolve) => {
+      later(
+        () =>
+          resolve({
+            loadout: loadout.id,
+            version_id: '1.8.9',
+            files: 3184,
+            downloaded_bytes: total,
+            duration_ms: 25 * (tick + 1),
+            java_path: '/usr/lib/jvm/java-8/bin/java',
+            java_version: '1.8.0_412',
+          }),
+        25 * (tick + 2),
+      );
+    });
   },
 
   launch: ({ loadoutId }) => {

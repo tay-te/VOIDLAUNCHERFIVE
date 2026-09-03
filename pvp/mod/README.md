@@ -53,11 +53,21 @@ The JAR lands in `build/libs/void-client-<version>.jar`. First build downloads M
 1.8.9, the Legacy Fabric yarn mappings and Loom's caches (~150 MB, a couple of minutes);
 after that a clean build is seconds.
 
+That JAR carries **no Ultralight natives** — they are 21 MB per platform and 77 MB for all
+three (§13, measured in `native/README.md`), which is why the mod ships one JAR *per
+platform*. `./gradlew platformJars` repackages the already-remapped JAR once per staged
+`native/build*/natives/<os>-<arch>/` tree into `void-client-<version>-<os>-<arch>.jar`; it
+is a repackage rather than a second Loom remap because the classes are byte-identical
+across platforms and only the natives differ. With nothing staged it says so and produces
+nothing, rather than shipping a JAR that dies at `Ultralight.load()`. `void-core` picks the
+right one at prepare time (`install::ModPlatform`).
+
 Useful targets:
 
 | Command | Does |
 |---|---|
-| `./gradlew build` | compile, test, remap, JAR |
+| `./gradlew build` | compile, test, remap, JAR — **no natives**, 324 KB |
+| `./gradlew platformJars` | one `void-client-<version>-<os>-<arch>.jar` per staged natives tree |
 | `./gradlew test` | the JUnit suite only (no Minecraft needed) |
 | `./gradlew clean build` | from scratch |
 | `./gradlew vscode` / `eclipse` / `idea` | IDE run configs from Loom |
@@ -128,8 +138,8 @@ Minecraft cannot run in this environment, so the line is sharp.
   fails the build.
 - The JAR carries `fabric.mod.json` (id `void`, client entrypoint
   `dev.voidpvp.client.VoidClient`), `void.mixins.json`, the blur shaders, the bridge shim
-  at `assets/void/ui/void-shim.js`, and — when `native/java` is present — the Ultralight
-  binding classes.
+  at both `assets/void/shim/void-shim.js` and `assets/void/ui/void-shim.js`, and the
+  Ultralight binding classes from `native/java`.
 
 **Not verified here — needs a real game on Windows or macOS:**
 
@@ -151,16 +161,15 @@ Minecraft cannot run in this environment, so the line is sharp.
   pixels (`Mouse.getX() / deviceScale`), and the view is sized `framebuffer / deviceScale`
   with `deviceScale = MC GUI scale x ui_scale`. Right in theory, unmeasured in practice.
 
-## The one contract we could not honour
+## The package rename, and why it is no longer a runtime lookup
 
-PVP_ARCHITECTURE.md §4 and CONTRACTS.md put this mod in **`dev.void.client`** and the
-Ultralight binding in **`dev.void.ultralight`**. Neither package can exist: `void` is a
-Java keyword, so it is not a legal identifier and `package dev.void.client;` does not
-compile — nor does an `import` of it.
+PVP_ARCHITECTURE.md §4 originally put this mod in **`dev.void.client`** and the Ultralight
+binding in **`dev.void.ultralight`**. Neither package can exist: `void` is a Java keyword,
+so it is not a legal identifier and `package dev.void.client;` does not compile — nor does
+an `import` of it. Both owners renamed the one illegal segment, and §4 and CONTRACTS.md
+now carry the real names:
 
-Both owners hit this and both renamed the one illegal segment:
-
-| Contract | Actual |
+| Originally specified | Actual |
 |---|---|
 | `dev.void.client.*` | **`dev.voidpvp.client.*`** (this mod) |
 | `dev.void.ultralight.*` | **`dev.voidclient.ultralight.*`** (`native/`) |
@@ -169,30 +178,46 @@ Everything else is unchanged — the mod id is still `void`, the JS object is st
 `window.void` (a reserved word *is* legal as a property name in ES5 and later), the
 resource path is still `assets/void/`, and the JAR is still `void-client`.
 
-Because the two halves renamed independently, `dev.voidpvp.client.ui.NativeUltralight`
-binds to the binding **by reflection** rather than by import. It resolves the package at
-runtime from, in order: `-Dvoid.ultralight.package`, the build-generated
-`assets/void/native-package.txt`, then a short candidate list. That also buys the thing
-the brief asked for directly: the JAR builds and runs with `native/` absent entirely, and
-falls back to `NullWebView` — log once, HUD disabled, game untouched.
+While the two names were still being settled independently, `ui/NativeUltralight` bound to
+the binding **by reflection** and resolved the package at runtime. Both names are settled,
+and `build.gradle` already compiles `native/java` into this JAR, so that class is gone:
+`ui/UltralightWebView` has plain `import dev.voidclient.ultralight.*;` statements, and a
+signature change in the binding is a compile error here instead of a `NoSuchMethodException`
+in game. The `-Dvoid.ultralight.package` property, the `assets/void/native-package.txt`
+marker and the build step that wrote it are gone with it.
 
-`build.gradle` adds `native/java` as a source directory of `main`, reads the package out
-of whichever `Ultralight.java` it finds there, and writes it to
-`assets/void/native-package.txt`. If that directory ever declares a package containing the
-segment `void`, the build skips those sources with a warning rather than failing.
+**The `NullWebView` fallback is untouched**, and it is still the point. It triggers on
+`LinkageError`, which covers both real cases: this platform's natives are not in the JAR
+(`Ultralight.load()` throws `UnsatisfiedLinkError`), or the JAR was built with no
+`native/java` at all (`NoClassDefFoundError` on the first touch of `UltralightWebView`).
+`WebViews.create` catches both, logs once, and the game runs with the in-game UI disabled.
+Every reference to the binding lives in that one class so the error stays containable.
 
 ## The bridge shim
 
 `assets/void/shim/void-shim.js` is the source of truth; `processResources` also publishes
-it to `assets/void/ui/void-shim.js`, which is where the in-game bundle loads it from. The
-two-step exists because `assets/void/ui/` is `packages/ingame`'s build output and is
-gitignored — a file committed there would be deleted by the next UI build.
+it to `assets/void/ui/void-shim.js` **inside `build/resources/main/`**, which is where the
+in-game bundle loads it from in the JAR. The two-step exists because `assets/void/ui/` in
+the *source* tree is `packages/ingame`'s build output, gitignored and wiped by that build
+(`emptyOutDir`) — a file committed there would be deleted by the next UI build. Because
+the copy lands in Gradle's output tree and never in the source tree, the two builds cannot
+delete each other's work and the order they run in does not matter.
 
-The bundle loads the shim first and then only ever talks to `window.void`. Java pushes a
-frame's events as one `window.void.__emit([...])` call and answers
+The built `index.html` loads the shim first: `packages/ingame`'s Vite build injects
+`<script src="./void-shim.js"></script>` as the first element of `<head>` (its
+`injectVoidShim()` plugin, build-only — the browser harness has no Java and installs a
+fake `window.void` itself). The bundle then uses the `window.void` the shim already built
+rather than replacing it, so the object Java pushes into is the object the page listens
+on.
+
+Java pushes a frame's events as one `window.void.__emit([...])` call and answers
 `window.__void_native('{"c":…,"params":[…]}')` synchronously with `{"c":…,"returns":…}`.
-`openKeybindCapture` is the one asynchronous call: the synchronous answer only arms the
-capture, and Java resolves the Promise later with `window.void.__emitKeybind(key)`.
+`openKeybindCapture` is the one asynchronous call: its synchronous answer is
+`returns: null` and means **armed**, and the captured key follows later as a call-result
+envelope on the same channel — `window.void.__emit({"c":"openKeybindCapture","returns":"V"})`,
+or `returns: null` again when the player pressed Escape. Null therefore arrives on both
+channels meaning two different things, so the shim tells them apart by channel and never
+by value. `__emitKeybind(key)` remains as a shorthand for the same envelope.
 
 ## Conventions
 
@@ -207,4 +232,7 @@ capture, and Java resolves the Promise later with `window.void.__emitKeybind(key
   `glPushAttrib`/`glPopAttrib` so that cache stays honest.
 - **`schema/` is the contract, not a suggestion.** The mod re-implements `mods.json`'s
   registry in `state/ModRegistry` because it cannot read the schema at runtime, and
-  `ModRegistryTest` diffs the two on every build.
+  `ModRegistryTest` diffs the two on every build — ids, `kind`, `category`, `label` and
+  every factory default. `state/ModRegistry` carries `category` and `label` even though
+  the game never filters or prints them, precisely so that test can prove the
+  transcription the UI depends on.

@@ -1,45 +1,57 @@
 /**
  * Overlay-side view of the mod registry.
  *
- * Identity, kind, safety class, description and factory defaults all come from
- * `@void/protocol`'s `MOD_REGISTRY`, which is generated from
- * `pvp/schema/mods.json` — that file is owned by **core** and is the single
- * source of truth (CONTRACTS.md). Nothing is redeclared here.
+ * Identity, kind, **category**, safety class, label, description and factory defaults
+ * all come from `@void/protocol`'s `MOD_REGISTRY`, which is generated from
+ * `pvp/schema/mods.json` — that file is owned by **core** and is the single source of
+ * truth (CONTRACTS.md). Nothing is redeclared here.
  *
- * What this module adds is presentation the schema does not carry:
+ * This module used to carry three overrides, all now folded into the schema:
  *
- *   · `category` — the Mods panel's filter taxonomy (All / HUD / PvP / Visual /
- *     Utility). `mods.json` classifies by `kind` (hud | gameplay), which is a
- *     data-direction split, not the product one the frame tabs across. Values
- *     read off frame 244:538 tile by tile.
- *   · `order` — the reading order of the 3 × 4 tile grid on that frame.
- *   · `label` — the frames read "FPS display", "CPS counter" and "Ping display"
- *     where `mods.json` says "FPS", "CPS", "Ping". Panel copy, so the frames
- *     win; flagged for reconciliation in schema/mods.json.
+ *   · `category` — the Mods panel's filter taxonomy. `mods.json` carries it per mod as
+ *     `hud | pvp | visual | utility`; {@link MOD_CATEGORY} is only the uppercase tag
+ *     the tile prints, derived from it.
+ *   · `label` — the frames read "FPS display", "CPS counter", "Ping display"; the
+ *     registry now says exactly that, so `modLabel` is a straight lookup.
  *
- * Icons come from `@void/ui`'s `MOD_ICONS`, which is that package's resolution
- * of the same 12 ids.
+ * What is still local is the one thing the schema genuinely does not carry: the
+ * **reading order of the tile grid** on frame 244:538, which is a layout decision, not
+ * a property of a mod.
+ *
+ * Icons come from `@void/ui`'s `MOD_ICONS`, which is that package's resolution of the
+ * same 12 ids.
  */
 
-import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
+import {
+  MOD_CATEGORIES,
+  MOD_FILTER_TABS,
+  MOD_IDS,
+  MOD_REGISTRY,
+  getCategoryLabel,
+  getModCategory,
+  type ModCategory as SchemaModCategory,
+  type ModId,
+} from '@/bridge/protocol';
 
+/** The uppercase tag a tile prints, e.g. `HUD`. */
 export type ModCategory = 'HUD' | 'PVP' | 'VISUAL' | 'UTILITY';
 
-/** Filter-tab taxonomy, per frame 244:538. */
-export const MOD_CATEGORY: Record<ModId, ModCategory> = {
-  fps: 'HUD',
-  keystrokes: 'HUD',
-  cps: 'HUD',
-  toggle_sprint: 'PVP',
-  crosshair: 'VISUAL',
-  zoom: 'UTILITY',
-  fullbright: 'VISUAL',
-  hitboxes: 'PVP',
-  armor_status: 'HUD',
-  potion_effects: 'HUD',
-  ping: 'HUD',
-  coordinates: 'HUD',
+const TAGS: Record<SchemaModCategory, ModCategory> = {
+  hud: 'HUD',
+  pvp: 'PVP',
+  visual: 'VISUAL',
+  utility: 'UTILITY',
 };
+
+/**
+ * Filter-tab taxonomy, read out of `mods.json` rather than transcribed from the frame.
+ *
+ * The values are the uppercase tags because that is what the tile and the mod-settings
+ * subtitle print; the filter compares against the same table, so the two cannot drift.
+ */
+export const MOD_CATEGORY: Record<ModId, ModCategory> = Object.fromEntries(
+  MOD_IDS.map((id) => [id, TAGS[getModCategory(id)]]),
+) as Record<ModId, ModCategory>;
 
 /** Reading order of the tile grid on frame 244:538, left to right, top to bottom. */
 export const MOD_ORDER: ModId[] = [
@@ -57,26 +69,30 @@ export const MOD_ORDER: ModId[] = [
   'coordinates',
 ];
 
-/** Panel copy where it differs from the registry's `label`. */
-const LABEL_OVERRIDES: Partial<Record<ModId, string>> = {
-  fps: 'FPS display',
-  cps: 'CPS counter',
-  ping: 'Ping display',
-};
-
-/** The name the Mods panel prints for a mod. */
+/** The name the Mods panel prints for a mod. Panel copy lives in `mods.json`. */
 export function modLabel(id: ModId): string {
-  return LABEL_OVERRIDES[id] ?? MOD_REGISTRY[id].label;
+  return MOD_REGISTRY[id].label;
 }
 
-/** Tab set of the Mods panel, verbatim from frame 244:538. */
-export const FILTER_TABS = [
-  { id: 'all', label: 'All' },
-  { id: 'HUD', label: 'HUD' },
-  { id: 'PVP', label: 'PvP' },
-  { id: 'VISUAL', label: 'Visual' },
-  { id: 'UTILITY', label: 'Utility' },
-] as const;
+/**
+ * Tab set of the Mods panel, frame 244:538. `all` is the no-filter tab; the rest are
+ * the categories `mods.json` declares, tagged to match {@link MOD_CATEGORY}.
+ */
+export const FILTER_TABS: ReadonlyArray<{ id: string; label: string }> = MOD_FILTER_TABS.map(
+  (tab) => ({
+    id: tab.id === 'all' ? 'all' : TAGS[tab.id as SchemaModCategory],
+    label: tab.label,
+  }),
+);
+
+/** Every category tag, in tab order — the values {@link MOD_CATEGORY} can take. */
+export const MOD_CATEGORY_TAGS: readonly ModCategory[] = MOD_CATEGORIES.map((c) => TAGS[c]);
+
+/** The tab label for a tag, e.g. `PVP` → `PvP`. */
+export function categoryLabel(tag: ModCategory): string {
+  const category = MOD_CATEGORIES.find((c) => TAGS[c] === tag);
+  return category ? getCategoryLabel(category) : tag;
+}
 
 /**
  * Numeric ranges for the settings controls, transcribed from the `<id>_settings`
@@ -100,12 +116,7 @@ export const SETTING_RANGES: Record<
   size: { min: 1, max: 20, step: 1, unit: 'px' },
   thickness: { min: 1, max: 5, step: 1, unit: 'px' },
   gap: { min: 0, max: 10, step: 1, unit: 'px' },
-  /**
-   * SCHEMA GAP: the Mod settings frame (244:834) draws a `Corner radius` slider
-   * for Keystrokes, but `keystrokes_settings` in mods.json has no such key. It
-   * is written through `setModSetting` like any other setting — Java clamps
-   * rather than throws — and is flagged for reconciliation.
-   */
+  /** `keystrokes.corner_radius`, 0–20 px in `keystrokes_settings`. */
   corner_radius: { min: 0, max: 20, step: 1, unit: 'px' },
 };
 
@@ -116,4 +127,8 @@ export const SETTING_ENUMS: Record<string, readonly string[]> = {
   'armor_status.orientation': ['horizontal', 'vertical'],
   'toggle_sprint.mode': ['toggle', 'hold'],
   'crosshair.style': ['default', 'cross', 'dot', 'circle', 't_shape', 'none'],
+  // `keystrokes.key_color` and `keystrokes.pressed_color` are enums in mods.json too,
+  // but deliberately absent here: this table drives the *generic* chip row, and the
+  // Mod settings frame draws those two as colour swatches instead. Listing them would
+  // render each one twice.
 };

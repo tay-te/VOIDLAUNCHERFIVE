@@ -1,0 +1,5 @@
+# Raw captures, diffs and the score files are build output — only the side-by-side
+# sheets and report.md are worth keeping in the tree.
+out/
+node_modules/
+package-lock.json

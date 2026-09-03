@@ -108,6 +108,7 @@ export function ModsScreen() {
       <Panel
         surface="overlay"
         animate
+        className="mods-panel"
         title="Mods"
         onClose={closeMenu}
         footer={MODS_FOOTER}

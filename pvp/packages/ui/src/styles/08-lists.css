@@ -57,7 +57,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
 }

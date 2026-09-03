@@ -30,8 +30,15 @@ public interface WebView extends AutoCloseable {
     /** MC GUI scale x window DPI x the launcher's {@code ui_scale} (§6.2). */
     void setDeviceScale(double scale);
 
-    /** Runs JS timers and layout; once per frame, before {@link #render}. */
+    /** Runs JS timers and layout; once per game <em>tick</em> (CONTRACTS.md, rule 3). */
     void update();
+
+    /**
+     * Advances CSS animations, transitions and {@code requestAnimationFrame};
+     * once per frame, immediately before {@link #render}. Without it the page is
+     * static — the panel enter motion of §9 never plays (CONTRACTS.md, rule 3).
+     */
+    void refreshDisplay();
 
     /** Paints dirty views into their GL textures; needs MC's GL context current. */
     void render();

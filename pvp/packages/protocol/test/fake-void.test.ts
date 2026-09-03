@@ -1,6 +1,6 @@
 /**
  * The fake bridge is what every UI surface develops against, so it has to behave like
- * the real one: emit the five channels with on-model payloads, answer the six calls
+ * the real one: emit the seven channels with on-model payloads, answer the six calls
  * with the value actually applied, and be reproducible under a seed.
  */
 
@@ -323,6 +323,45 @@ describe('createFakeVoid — keyboard', () => {
   });
 });
 
+describe('the library and setting channels', () => {
+  it('emitInitialState pushes the whole library before the active loadout', () => {
+    const fake = createFakeVoid({ seed: 3, attachKeyboard: false });
+    const order: string[] = [];
+    let library: Loadout[] = [];
+    fake.on('loadouts', (l) => {
+      order.push('loadouts');
+      library = l;
+    });
+    fake.on('loadout', () => order.push('loadout'));
+
+    fake.emitInitialState();
+
+    expect(order.slice(0, 2)).toEqual(['loadouts', 'loadout']);
+    expect(library.map((l) => l.id)).toEqual(fake.getLoadouts().map((l) => l.id));
+    // Whole loadouts, so the Loadouts frame can compare them without further calls.
+    expect(library[1]?.mods).toBeTypeOf('object');
+  });
+
+  it('applyModSetting clamps, stores and pushes `setting`', () => {
+    const fake = createFakeVoid({ seed: 3, attachKeyboard: false });
+    const seen: unknown[] = [];
+    fake.on('setting', (s) => seen.push(s));
+
+    // 9 is out of `opacity`'s 0..1 range, so it clamps — the event carries what was
+    // stored, exactly like the return value of setModSetting.
+    expect(fake.applyModSetting('keystrokes', 'opacity', 9)).toBe(1);
+    expect(seen).toEqual([{ id: 'keystrokes', key: 'opacity', value: 1 }]);
+  });
+
+  it('a page-driven setModSetting does not push `setting`', () => {
+    const fake = createFakeVoid({ seed: 3, attachKeyboard: false });
+    const seen: unknown[] = [];
+    fake.on('setting', (s) => seen.push(s));
+    fake.setModSetting('keystrokes', 'opacity', 0.5);
+    expect(seen).toEqual([]);
+  });
+});
+
 describe('installVoidShim', () => {
   /** A stand-in for the Java host: answers call envelopes, echoes what it applied. */
   function nativeHost(overrides: Record<string, unknown> = {}) {
@@ -333,7 +372,11 @@ describe('installVoidShim', () => {
       if (envelope.c in overrides) {
         return JSON.stringify({ c: envelope.c, returns: overrides[envelope.c] });
       }
-      if (envelope.c === 'openKeybindCapture') return ''; // deferred
+      // Exactly what the mod answers: `returns: null` means *armed*, not *cancelled*.
+      // The captured key follows later on the __emit channel.
+      if (envelope.c === 'openKeybindCapture') {
+        return JSON.stringify({ c: 'openKeybindCapture', returns: null });
+      }
       if (envelope.c === 'closeMenu') return JSON.stringify({ c: 'closeMenu', returns: null });
       return JSON.stringify({ c: envelope.c, returns: envelope.params[1] ?? true });
     };
@@ -371,6 +414,46 @@ describe('installVoidShim', () => {
     const promise = bridge.openKeybindCapture('zoom');
     bridge.__emit({ c: 'openKeybindCapture', returns: 'V' });
     await expect(promise).resolves.toBe('V');
+  });
+
+  it('does not mistake the armed null for the captured key', async () => {
+    // The synchronous answer is `returns: null` and means "armed"; the real value
+    // arrives later on __emit and may itself be null (Escape). Settling on the
+    // synchronous null would end every capture instantly with no key.
+    const host = nativeHost();
+    const bridge = installVoidShim({ native: host.native, target: null });
+
+    let settled = false;
+    const promise = bridge.openKeybindCapture('zoom').then((key) => {
+      settled = true;
+      return key;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    bridge.__emit({ c: 'openKeybindCapture', returns: 'F' });
+    await expect(promise).resolves.toBe('F');
+  });
+
+  it('resolves with null when the deferred envelope says the player cancelled', async () => {
+    const host = nativeHost();
+    const bridge = installVoidShim({ native: host.native, target: null });
+    const promise = bridge.openKeybindCapture('zoom');
+    bridge.__emit({ c: 'openKeybindCapture', returns: null });
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('routes the loadouts and setting channels', () => {
+    const host = nativeHost();
+    const bridge = installVoidShim({ native: host.native, target: null });
+    const libraries: unknown[] = [];
+    const settings: unknown[] = [];
+    bridge.on('loadouts', (l) => libraries.push(l));
+    bridge.on('setting', (s) => settings.push(s));
+    bridge.__emit({ e: 'loadouts', payload: [] });
+    bridge.__emit({ e: 'setting', payload: { id: 'keystrokes', key: 'on', value: false } });
+    expect(libraries).toEqual([[]]);
+    expect(settings).toEqual([{ id: 'keystrokes', key: 'on', value: false }]);
   });
 
   it('survives a throwing handler without breaking the push loop', () => {

@@ -1,5 +1,6 @@
 package dev.voidpvp.client.state;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -100,8 +101,15 @@ public final class LiveState {
     // -- guarded state ---------------------------------------------------
     private Loadout active = Loadout.defaults("default", "Default");
     private GlobalSettings settings = GlobalSettings.defaults();
-    private final List<JsonObject> library = new ArrayList<JsonObject>();
-    private final Map<String, Loadout> fullLoadouts = new LinkedHashMap<String, Loadout>();
+    /**
+     * The library, in library order, as whole loadouts.
+     *
+     * <p>{@code init.loadouts} carries complete loadouts (protocol.json,
+     * {@code msg_init}), so every entry can be applied on its own. That is what
+     * makes {@link #switchLoadout} a sub-frame local operation with no round
+     * trip and no "waiting for Rust to push it" state (§8.2).</p>
+     */
+    private final Map<String, Loadout> library = new LinkedHashMap<String, Loadout>();
     private volatile Sink sink = NO_SINK;
     private volatile boolean initialised;
 
@@ -126,9 +134,18 @@ public final class LiveState {
         return settings;
     }
 
-    /** Loadout summaries from {@code init.loadouts}, in library order. */
-    public synchronized List<JsonObject> library() {
-        return Collections.unmodifiableList(new ArrayList<JsonObject>(library));
+    /** The whole library from {@code init.loadouts}, in library order. */
+    public synchronized List<Loadout> library() {
+        return Collections.unmodifiableList(new ArrayList<Loadout>(library.values()));
+    }
+
+    /** The library as the {@code loadouts} bridge event carries it. */
+    public synchronized JsonArray libraryJson() {
+        JsonArray arr = new JsonArray();
+        for (Loadout l : library.values()) {
+            arr.add(l.toJson());
+        }
+        return arr;
     }
 
     // -----------------------------------------------------------------
@@ -136,11 +153,15 @@ public final class LiveState {
     // -----------------------------------------------------------------
 
     /** Applies {@code init}: the entire world of state the mod starts from. */
-    public synchronized void applyInit(Loadout loadout, List<JsonObject> summaries,
+    public synchronized void applyInit(Loadout loadout, List<Loadout> loadouts,
                                        GlobalSettings globals) {
         library.clear();
-        if (summaries != null) {
-            library.addAll(summaries);
+        if (loadouts != null) {
+            for (Loadout l : loadouts) {
+                if (l != null) {
+                    library.put(l.id(), l);
+                }
+            }
         }
         applySettings(globals);
         applyLoadoutInternal(loadout, false);
@@ -170,7 +191,8 @@ public final class LiveState {
         }
         Loadout previous = active;
         active = loadout;
-        fullLoadouts.put(loadout.id(), loadout);
+        // The active loadout is part of the library, and this copy is the live one.
+        library.put(loadout.id(), loadout);
         applyActuatorFields(loadout);
         if (report) {
             Map<String, JsonElement> patch = LoadoutDiff.diff(previous, loadout);
@@ -298,72 +320,42 @@ public final class LiveState {
     /**
      * {@code void.switchLoadout(id)} — hot-swaps in-process (§8.2).
      *
-     * <p>Returns true when the id names a loadout in the library Java received
-     * in {@code init.loadouts}. The switch applies immediately when the full
-     * loadout is already known (it is the active one, or Rust has pushed it
-     * this session); when only the summary is known the id is remembered and
-     * the switch completes as soon as Rust pushes that loadout. The protocol
-     * has no "fetch loadout" message, so this is the only way in.</p>
+     * <p>Always immediate. {@code init.loadouts} carries whole loadouts, so
+     * every id in the library is one the mod can apply on the spot: there is no
+     * round trip, no pending state and no "fetch loadout" message in the
+     * protocol, which is exactly why the whole library is sent up front.</p>
+     *
+     * @return true when the id named a loadout in the library
      */
     public synchronized boolean switchLoadout(String id) {
-        if (id == null || !isInLibrary(id)) {
+        if (id == null) {
             return false;
         }
         if (id.equals(active.id())) {
             return true;
         }
-        Loadout target = fullLoadouts.get(id);
+        Loadout target = library.get(id);
         if (target == null) {
-            pendingSwitch = id;
-            return true;
+            return false;
         }
-        pendingSwitch = null;
         applyLoadoutInternal(target, true);
         return true;
     }
 
-    private String pendingSwitch;
-
-    /** The id a {@link #switchLoadout} is still waiting on, or {@code null}. */
-    public synchronized String pendingSwitch() {
-        return pendingSwitch;
-    }
-
-    /** Caches a full loadout pushed by Rust and completes a pending switch. */
-    public synchronized boolean cacheLoadout(Loadout loadout) {
-        if (loadout == null) {
-            return false;
+    /** Stores a loadout Rust pushed, without switching to it. */
+    public synchronized void cacheLoadout(Loadout loadout) {
+        if (loadout != null) {
+            library.put(loadout.id(), loadout);
         }
-        fullLoadouts.put(loadout.id(), loadout);
-        if (loadout.id().equals(pendingSwitch)) {
-            pendingSwitch = null;
-            applyLoadoutInternal(loadout, true);
-            return true;
-        }
-        return false;
     }
 
     public synchronized boolean isInLibrary(String id) {
-        if (active.id().equals(id)) {
-            return true;
-        }
-        for (JsonObject o : library) {
-            if (id.equals(Json.string(o, "id", null))) {
-                return true;
-            }
-        }
-        return false;
+        return active.id().equals(id) || library.containsKey(id);
     }
 
     /** The id after {@code current} in library order, wrapping — the L key (§6.3). */
     public synchronized String nextLoadoutId() {
-        List<String> ids = new ArrayList<String>();
-        for (JsonObject o : library) {
-            String id = Json.string(o, "id", null);
-            if (id != null) {
-                ids.add(id);
-            }
-        }
+        List<String> ids = new ArrayList<String>(library.keySet());
         if (ids.isEmpty()) {
             return null;
         }

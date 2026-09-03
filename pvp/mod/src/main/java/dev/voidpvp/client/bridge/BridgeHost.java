@@ -11,9 +11,11 @@ public interface BridgeHost {
 
     /**
      * {@code void.openKeybindCapture(modId)} — takes over key input until the
-     * next press. Java answers the call immediately; the captured key reaches
-     * JS later through {@code window.void.__emitKeybind}, which is what
-     * resolves the Promise the shim handed the caller.
+     * next press. Java answers the call immediately with {@code returns: null},
+     * which means <em>armed</em>, not <em>cancelled</em>; the captured key
+     * reaches JS later as a call-result envelope on the push channel
+     * ({@link VoidBridge#keybindScript}), and that is what resolves the Promise
+     * the shim handed the caller.
      */
     void beginKeybindCapture(String modId);
 }

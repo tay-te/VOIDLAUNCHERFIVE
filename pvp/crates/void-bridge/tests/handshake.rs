@@ -20,7 +20,7 @@ fn payload() -> InitPayload {
     let library = defaults::default_library();
     InitPayload {
         loadout: library[0].clone(),
-        loadouts: library.iter().map(|l| l.summary()).collect(),
+        loadouts: library.clone(),
         settings: GlobalSettings::factory(),
     }
 }
@@ -72,6 +72,9 @@ async fn handshake_then_state_reaches_the_bus() {
     assert_eq!(init["v"], PROTOCOL_VERSION);
     assert_eq!(init["loadout"]["id"], "sword-pvp");
     assert_eq!(init["loadouts"].as_array().unwrap().len(), 3);
+    // Whole loadouts, not summaries: the mod switches to any of them without asking.
+    assert!(init["loadouts"][1]["mods"].is_object(), "init.loadouts carries full loadouts");
+    assert!(init["loadouts"][1]["hud"].is_array(), "init.loadouts carries full loadouts");
     assert_eq!(init["settings"]["menu_key"], "RSHIFT");
     // It must parse as the real type, not just look right.
     let parsed: RustToJava = serde_json::from_value(init).expect("init is a RustToJava");

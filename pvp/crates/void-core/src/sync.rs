@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use void_bridge::{BridgeServer, InitPayload, InitSource, JavaToRust};
+use void_bridge::{BridgeServer, HotkeyId, InitPayload, InitSource, JavaToRust};
 use void_loadout::{GlobalSettings, LoadoutId, Store};
 
 /// Answers `init` from the on-disk library, freshly read on every connect.
@@ -32,9 +32,12 @@ impl InitSource for StoreInit {
             tracing::error!(error = %e, "cannot read the active loadout; sending the built-in default");
             void_loadout::defaults::sword_pvp()
         });
-        let loadouts = self.store.summaries().unwrap_or_else(|e| {
+        // The whole library, in full: `init.loadouts` carries complete loadouts so the
+        // mod can hot-swap to any of them in under a frame without asking (§8.2), and so
+        // the in-game Loadouts screen has something to list.
+        let loadouts = self.store.list().unwrap_or_else(|e| {
             tracing::error!(error = %e, "cannot read the library");
-            vec![loadout.summary()]
+            vec![loadout.clone()]
         });
         let settings = self.store.settings().unwrap_or_else(|e| {
             tracing::error!(error = %e, "cannot read settings");
@@ -97,9 +100,35 @@ pub async fn pump(server: BridgeServer, store: Store) {
                 tracing::info!(%host, connected, ?port, "server presence");
             }
 
+            // A notification, never a request: the mod has already done the thing. The
+            // L cycle moved the active loadout, so the pointer on disk has to follow or
+            // the tray and the next launch would disagree with the running game.
+            JavaToRust::Hotkey { id } => match id {
+                HotkeyId::LoadoutNext => {
+                    if let Err(e) = advance_active(&store) {
+                        tracing::error!(error = %e, "could not follow the in-game loadout cycle");
+                    }
+                }
+                HotkeyId::Overlay => tracing::debug!("the overlay was toggled in game"),
+            },
+
             JavaToRust::Unknown => {}
         }
     }
+}
+
+/// Moves the stored active pointer one step, mirroring the mod's L-key cycle.
+///
+/// The mod cycles in the order it received in `init.loadouts`, which is the store's own
+/// library order, so walking `next_after` here lands on the same loadout.
+fn advance_active(store: &Store) -> Result<(), void_loadout::Error> {
+    let current = store.active_id()?;
+    let next = store.next_after(&current)?;
+    if next != current {
+        store.set_active(&next)?;
+        tracing::info!(%next, "active loadout followed the in-game L cycle");
+    }
+    Ok(())
 }
 
 fn apply_state(
@@ -153,6 +182,33 @@ mod tests {
         store.set_active(&LoadoutId::new("uhc").unwrap()).unwrap();
         assert_eq!(source.init().loadout.id.as_str(), "uhc");
         assert_eq!(source.init().loadouts.len(), 3);
+    }
+
+    #[test]
+    fn init_carries_whole_loadouts_not_summaries() {
+        let (_d, store) = store();
+        let payload = StoreInit::new(store).init();
+        assert_eq!(payload.loadouts.len(), 3);
+        // The mod hot-swaps straight out of this list (§8.2), so every entry must be
+        // applyable on its own — mod states and all.
+        for l in &payload.loadouts {
+            assert!(!l.name.is_empty());
+            assert!(l.mods.effective(ModId::Keystrokes).contains_key("on"));
+        }
+        assert!(payload.loadouts.iter().any(|l| l.id == payload.loadout.id));
+    }
+
+    #[test]
+    fn the_l_key_hotkey_moves_the_stored_active_pointer() {
+        let (_d, store) = store();
+        let first = store.active_id().unwrap();
+        advance_active(&store).unwrap();
+        let second = store.active_id().unwrap();
+        assert_ne!(first, second, "the L cycle must be visible to the tray and the next launch");
+        // Three defaults, so cycling three times comes back round.
+        advance_active(&store).unwrap();
+        advance_active(&store).unwrap();
+        assert_eq!(store.active_id().unwrap(), first);
     }
 
     #[test]

@@ -1,35 +1,83 @@
 /* ==========================================================================
-   VOID PVP launcher — layout and component styles.
+   VOID PVP launcher — the four regions `@void/ui` does not own.
 
-   Every value here reads through a token from `@void/ui/tokens.css`, which is
-   `design/tokens.css` verbatim plus the two renderer layers. The only declarations
-   below are the two the launcher owns outright.
+   Everything that appears in `design/README.md`'s component inventory now comes from
+   the shared package: `@void/ui/styles.css` carries every `v-` class, and this file
+   holds only what is launcher-shaped:
 
-   TODO(integrate): the *component* rules here move to `@void/ui` with the components
-   themselves (see `src/components/index.tsx`). Only the shell rules — `.shell`,
-   `.topnav`, `.canvas`, `.dock` — are genuinely launcher-only and stay.
+     · the window shell and the frameless window's own controls
+     · the recessed canvas, its backdrop art and the dock's placement on it
+     · the Play hero — 104px display type over that canvas
+     · the surfaces the frames do not draw at all: the loadout/version dropdown, the
+       JVM log drawer, the launch banners, and the Settings modal
 
-   Geometry follows `design/README.md`'s component inventory. Where the frames give an
-   absolute position inside a 1300 × 820 artboard, this uses flex with the same paddings
-   and gaps, because the window resizes down to 1100 × 700.
+   Every value reads through a token from `@void/ui/tokens.css`, which is
+   `design/tokens.css` verbatim plus the two renderer layers. Where the frames give an
+   absolute position inside the 1300 × 820 artboard, the rule below reproduces it as a
+   padding or an offset, because the window resizes down to 1100 × 700 and the frames
+   are a single size.
 
-   `backdrop-filter` appears only under `[data-renderer='webview']` — see
-   `design/ultralight-notes.md` §1. The launcher gets the rich version; the in-game
-   bundle sets `data-renderer="ultralight"` and falls through to the solid one.
+   `backdrop-filter` and the noise blend are allowed here and forbidden in the in-game
+   bundle (`design/ultralight-notes.md` §1–2). `index.html` carries
+   `data-renderer="webview"`, which is what selects the launcher's token layer and what
+   switches `@void/ui`'s `.v-noise` grain on.
    ========================================================================== */
 
-:root {
-  /* The launcher panel's height. `tokens.css` publishes the launcher and overlay
-     variants separately because they differ by 4px; this names the one in use. */
-  --panel-h: var(--panel-h-launcher);
-  /* The Launch button's hover state: `--shadow-cta` with the glow raised to the 0.55
-     the design notes call for. Not a design token — it is one component's hover. */
-  --shadow-cta-hover: 0 6px 14px -4px rgba(0, 0, 0, 0.35),
-    0 12px 32px -6px rgba(159, 139, 255, 0.55);
+/* ------------------------------------------------- the package's own reset
+
+   `@void/ui` puts its reset on `.v-app`, and `01-base.css` includes
+
+       .v-app button, .v-app input { … background: none; }
+
+   That selector is (0,1,1). Every component background in the package —
+   `.v-btn--accent`, `.v-toggle--on`, `.v-launch`, `.v-pill`, `.v-tab--selected`,
+   `.v-icon-btn` — is a single class, (0,1,0). So with `v-app` on the tree the reset
+   wins and **every button in the package paints transparent**: measured in a real
+   Chromium, `getComputedStyle('.v-launch').backgroundColor` is `rgba(0,0,0,0)`.
+
+   TODO(ui): the fix belongs in `packages/ui/src/styles/01-base.css` — scoping the
+   reset as `.v-app :where(button, input)` keeps its intent at zero specificity — and
+   then this block goes away and `App.tsx` reads `<div className="v-app shell">` again,
+   which is what that package's README asks for. Until then the launcher carries the
+   same reset itself, written with `:where()` so it cannot outrank a component, plus
+   the four inherited values `.v-app` sets. No design value is duplicated here.
+   ========================================================================== */
+
+.shell {
+  font-family: var(--font-ui);
+  font-weight: var(--weight-regular);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
-* {
+.shell *,
+.shell *::before,
+.shell *::after {
   box-sizing: border-box;
+}
+
+:where(.shell) :where(button, input) {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  border: 0;
+  background: none;
+}
+
+:where(.shell) :where(button) {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:where(.shell) :where(button):disabled {
+  cursor: default;
+}
+
+.shell :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 html,
@@ -43,36 +91,14 @@ body {
   background: var(--bg-shell);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: var(--text-lg);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
 }
 
-button,
-input {
-  font: inherit;
-  color: inherit;
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-  padding: 0;
-}
-
-button:disabled {
-  cursor: default;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 /* ------------------------------------------------------------------- shell */
 
+/** The 1300 × 820 frame: a 62px chrome band over a 14px-inset canvas. */
 .shell {
   display: flex;
   flex-direction: column;
@@ -82,140 +108,67 @@ button:disabled {
   overflow: hidden;
 }
 
-/* ------------------------------------------------------------------ topnav */
+/* ------------------------------------------------ chrome band (additions) */
 
-.topnav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--chrome-h);
-  padding: 0 var(--pad-chrome-x, 16px);
-  flex: 0 0 auto;
-}
-
-.topnav__mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-control);
-  background: var(--surface-2);
-  box-shadow: var(--inset-raised-soft);
-  margin-right: 4px;
-  flex: 0 0 auto;
-}
-
-.topnav__mark-inner {
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid var(--accent);
-  border-radius: 3px;
-}
-
-.topnav__tabs {
-  display: flex;
-  gap: 6px;
-}
-
-.navtab {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  height: 34px;
-  padding: 9px 16px 9px 13px;
-  border-radius: var(--radius-field);
-  color: var(--text-secondary);
-  font-size: var(--text-lg);
-  line-height: 16px;
-  letter-spacing: var(--tracking-nav);
-  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast);
-}
-
-.navtab:hover {
-  color: var(--text-primary);
-  background: var(--tint-05);
-}
-
-.navtab.is-active {
-  background: var(--surface-3);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-raised), var(--inset-raised-soft);
-  color: var(--text-primary);
-  font-weight: var(--weight-medium);
-  padding: 8px 15px 8px 12px;
-}
-
-.topnav__spacer {
-  flex: 1;
-  height: 100%;
-}
-
-.askbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 300px;
-  height: 34px;
-  padding: 8px 8px 8px 13px;
-  border-radius: var(--radius-field);
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--inset-field);
-}
-
-.askbar:hover {
-  border-color: var(--tint-14);
-}
-
-.askbar__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--accent);
-  flex: 0 0 auto;
-}
-
-.askbar__placeholder {
-  flex: 1;
-  text-align: left;
-  color: var(--text-muted);
-  font-size: var(--text-lg);
-}
+/* `TopNav`, `NavItem`, `SearchBar` and `IconButton` are the package's. These two are
+   not: a frameless Tauri window has to draw its own window buttons, and the account
+   avatar in the nav is a button rather than a plain image. */
 
 .topnav__avatar {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex: 0 0 auto;
   border-radius: var(--radius-field);
 }
 
 .wincontrols {
   display: flex;
+  flex: 0 0 auto;
   gap: 2px;
-  margin-left: 6px;
+  margin-left: var(--space-6);
 }
 
-.wincontrols__close:hover {
+.wincontrols__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-button);
+  color: var(--text-secondary);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.wincontrols__btn:hover {
+  background: var(--tint-07);
+  color: var(--text-primary);
+}
+
+.wincontrols__btn--close:hover {
   background: var(--danger);
   color: var(--text-primary);
 }
 
 /* ------------------------------------------------------------------ canvas */
 
+/** `244:57` — 1272 × 744 at 14, 62, radius 18, `--inset-canvas`. */
 .canvas {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
   margin: 0 var(--canvas-inset) var(--canvas-inset);
   border-radius: var(--radius-surface);
   border: 1px solid var(--rim);
   box-shadow: var(--inset-canvas);
   overflow: hidden;
   background: var(--bg-base);
+  --v-noise-opacity: var(--noise-opacity-canvas);
 }
 
 /*
-  The hero art. The frames use a rendered Minecraft still; shipping one is an asset
-  decision the launcher does not own yet, so this is a gradient in the same key —
-  warm torch-light from the upper right over the recessed ground.
+  TODO(art): `244:58` is a rendered Minecraft still, `object-fit: cover` over the whole
+  canvas. There is no licenced render in this repository and `design/` is read-only
+  reference material, so the shipped launcher draws a gradient in the same key — warm
+  torch-light from the upper right over the recessed ground. Drop a real asset in and
+  this rule becomes a `background-image`.
 */
 .canvas__art {
   position: absolute;
@@ -226,31 +179,63 @@ button:disabled {
     linear-gradient(160deg, #241a12 0%, #16161c 48%, #0d0f12 100%);
 }
 
+/*
+  The browser preview's stand-in: the design frame itself, shifted so its own canvas
+  rectangle lands on ours (the frame's canvas starts at 14, 62 and has a 1px rim).
+  `src/dev/backdrops.ts` explains why this exists and how it cannot ship.
+*/
+.canvas__art--design {
+  background-repeat: no-repeat;
+  background-position: -15px -63px;
+}
+
 .canvas__scrim {
   position: absolute;
   inset: 0;
   background: var(--scrim-launcher);
 }
 
+/**
+ * Where a screen sits on the canvas. The Panel is 960 × 596 at canvas 155, 19, so the
+ * content box is inset 18px at the top and stops 127px short of the bottom, which is
+ * exactly the panel's height — and the dock then floats over that clearance.
+ */
 .canvas__content {
   position: relative;
+  z-index: 1;
   height: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 19px 0 132px;
+  padding: 18px 2px 127px 0;
   overflow: hidden;
 }
 
 .canvas__content.is-play {
   align-items: stretch;
+  padding-right: 0;
 }
 
+/** A short window shrinks the panel rather than clipping it. */
+.canvas__content > .v-panel {
+  max-height: 100%;
+}
+
+/* The frames leave ~20px between a panel's search field and its tabs (Mods `109 → 359`
+   over a 230px field, Servers `139 → 389`, Friends `135 → 355`) where the header's own
+   gap is 12. The extra 8 is a launcher-side nudge, not a change to the component. */
+.v-panel__header > .v-searchbar + .v-tabs {
+  margin-left: 12px;
+}
+
+/** `244:66` — the dock hugs its content and centres over the canvas at bottom 28. */
 .canvas__dock {
   position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  bottom: 28px;
+  display: flex;
+  justify-content: center;
   z-index: 3;
 }
 
@@ -261,7 +246,7 @@ button:disabled {
   bottom: 118px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: center;
   pointer-events: none;
   z-index: 4;
@@ -273,24 +258,29 @@ button:disabled {
 
 /* -------------------------------------------------------------------- hero */
 
+/**
+ * `244:60`–`244:65`. The eyebrow pill sits at canvas 31, 27; the three-line block is
+ * anchored from the bottom so a shorter window loses canvas, not type: at the design's
+ * 820px the kicker lands on canvas y 403, the 104px title on 419 and the meta on 531.
+ */
 .hero {
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 27px 31px 0;
-  display: flex;
-  flex-direction: column;
+  padding: 9px 0 0 30px;
 }
 
 .hero__body {
-  margin-top: auto;
-  padding-bottom: 24px;
+  position: absolute;
+  left: 28px;
+  bottom: 68px;
 }
 
 .hero__kicker {
-  margin: 0 0 4px 6px;
+  margin: 0 0 0 6px;
   font-family: var(--font-mono);
   font-size: var(--text-sm-2);
+  line-height: 16px;
   letter-spacing: var(--tracking-caps-xl);
   color: var(--accent-ink);
 }
@@ -299,15 +289,17 @@ button:disabled {
   margin: 0;
   font-family: var(--font-display);
   font-weight: var(--weight-extrabold);
-  font-size: clamp(64px, 8vw, var(--text-hero));
-  line-height: 1;
+  font-size: var(--text-hero);
+  line-height: var(--leading-hero);
   letter-spacing: var(--tracking-hero);
+  white-space: nowrap;
 }
 
 .hero__meta {
-  margin: 14px 0 0 6px;
+  margin: 8px 0 0 6px;
   font-family: var(--font-mono);
   font-size: var(--text-md-2);
+  line-height: 16px;
   color: var(--text-secondary);
 }
 
@@ -326,707 +318,105 @@ button:disabled {
 
 /* -------------------------------------------------------------------- dock */
 
-.dock {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--radius-panel);
-  background: var(--dock-bg);
-  border: 1px solid var(--border-dock);
-  box-shadow: var(--shadow-dock), var(--inset-dock);
-}
-
-[data-renderer='webview'] .dock {
-  backdrop-filter: blur(var(--blur-dock));
-}
-
-.dock__identity {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-left: 4px;
-}
-
-.dock__identity-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dock__name {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-name);
-}
-
-.dock__level {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-}
-
-.friends-online {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.friends-online__heads {
+/**
+ * The dock's own chrome is `@void/ui`'s `Dock`. What is added here is the download
+ * progress the CTA shows while `prepare` runs: the frames have no "fetching 3,000
+ * asset objects" state and this one is real, so it rides on the accent button as a
+ * fill behind the label rather than as a second control.
+ */
+.dock__launch {
   position: relative;
-  width: 80px;
-  height: 32px;
+  overflow: hidden;
 }
 
-.friends-online__head {
-  position: absolute;
-  top: 0;
-  border-radius: var(--radius-field);
-  box-shadow: 0 0 0 2px #0a0b0c;
-  display: block;
-}
-
-.friends-online__label {
-  font-size: var(--text-md-2);
-  font-weight: var(--weight-medium);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-/* --------------------------------------------------------------------- CTA */
-
-.cta {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  width: 232px;
-  height: 56px;
-  border-radius: var(--radius-cta);
+/* The button is genuinely unpressable while `prepare` runs, so it carries `disabled` —
+   but the package's disabled state is "off", and this one is "working". Keep the CTA
+   accent and let the fill and the spinner carry the state. */
+.dock__launch:disabled {
   background: var(--accent);
   color: var(--accent-fg);
-  font-size: var(--text-4xl);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-cta);
   box-shadow: var(--shadow-cta), var(--inset-accent);
-  overflow: hidden;
-  transition: box-shadow var(--duration-fast), transform var(--duration-instant);
 }
 
-.cta:hover:not(:disabled) {
-  box-shadow: var(--shadow-cta-hover), var(--inset-accent);
-}
-
-.cta:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: var(--shadow-cta);
-}
-
-.cta:disabled {
-  background: var(--surface-2);
-  color: var(--text-muted);
-  box-shadow: none;
-}
-
-.cta--signin {
+.dock__launch .v-launch__label {
   font-size: var(--text-lg-2);
-  background: var(--surface-2);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
 }
 
-.cta--busy {
-  background: var(--surface-2);
-  color: var(--text-primary);
-  box-shadow: var(--inset-raised);
-}
-
-.cta__progress {
+.dock__launch::before {
+  content: '';
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  background: var(--accent-tint-strong);
-  transition: width var(--duration-base) linear;
+  width: var(--v-progress, 0%);
+  background: rgba(255, 255, 255, 0.22);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 
-.cta__busy-text {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
-}
-
-.cta__rate {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-regular);
-  color: var(--text-secondary);
-}
-
-.cta--running {
-  background: var(--surface-2);
-  color: var(--text-primary);
-  font-size: var(--text-lg-2);
-  gap: 10px;
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-}
-
-.cta__pulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ok);
-  box-shadow: 0 0 0 0 rgba(61, 214, 140, 0.6);
-  animation: pulse 1.8s var(--ease-out) infinite;
-}
-
-@keyframes pulse {
-  70% {
-    box-shadow: 0 0 0 8px rgba(61, 214, 140, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(61, 214, 140, 0);
-  }
-}
-
-/* ------------------------------------------------------------------- atoms */
-
-.kbd {
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-kbd-sm);
-  padding: 2px 5px;
-  background: var(--surface-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-2);
-  line-height: 13px;
-  letter-spacing: var(--tracking-caps-kbd);
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.kbd--accent {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: var(--radius-badge);
-  padding: 3px 7px;
-  font-size: var(--text-base);
-  color: rgba(10, 11, 12, 0.85);
-  box-shadow: var(--inset-kbd);
-  letter-spacing: normal;
-}
-
-.kbd--palette {
-  background: var(--tint-07);
-  border: 1px solid var(--tint-10);
-  border-radius: var(--radius-kbd);
-  padding: 3px 7px;
-  font-size: var(--text-sm);
-  letter-spacing: normal;
-}
-
-.dot {
-  display: inline-block;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-.dot--ok { background: var(--ok); }
-.dot--warn { background: var(--warn); }
-.dot--bad { background: var(--danger); }
-.dot--muted { background: var(--text-muted); }
-.dot--accent { background: var(--accent); }
-
-.divider {
-  display: inline-block;
-  width: 1px;
-  background: var(--divider);
-  flex: 0 0 auto;
-}
-
-.icon-well {
-  display: grid;
-  place-items: center;
-  background: var(--tint-08);
-  color: var(--text-secondary);
-  flex: 0 0 auto;
-}
-
-.icon-well.is-active {
-  background: var(--accent-tint-icon);
-  color: var(--accent-ink);
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-tag);
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.tag--accent {
-  background: var(--accent);
-  color: var(--accent-fg);
-  border-radius: var(--radius-kbd);
-  padding: 2px 6px;
-}
-
-.tag--ok { color: var(--ok-ink); }
-.tag--warn { color: var(--warn-ink); }
-
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-radius: var(--radius-control);
-  background: rgba(34, 38, 43, 0.97);
-  border: 1px solid var(--border-eyebrow);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-  align-self: flex-start;
-}
-
-.eyebrow__text {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  letter-spacing: var(--tracking-caps-lg);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-}
-
-.avatar {
-  display: block;
-  object-fit: cover;
-  flex: 0 0 auto;
-}
-
-.avatar--placeholder {
-  display: grid;
-  place-items: center;
-  font-weight: var(--weight-bold);
-  color: rgba(255, 255, 255, 0.86);
-}
-
-/* ---------------------------------------------------------------- controls */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border-radius: var(--radius-button);
-  font-size: var(--text-md-2);
-  font-weight: var(--weight-medium);
-  transition: background var(--duration-fast), border-color var(--duration-fast), opacity var(--duration-fast);
-  white-space: nowrap;
-}
-
-.btn--full {
-  width: 100%;
-}
-
-.btn--accent {
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: var(--weight-bold);
-  box-shadow: var(--shadow-cta), var(--inset-accent);
-}
-
-.btn--raised {
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-}
-
-.btn--ghost {
-  background: var(--tint-07);
-  border: 1px solid var(--tint-10);
-  color: var(--text-secondary);
-}
-
-.btn--text {
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  padding: 6px 8px;
-}
-
-.btn--text:hover:not(:disabled) {
-  color: var(--text-secondary);
-}
-
-.btn--chip,
-.btn--chip-accent {
-  padding: 6px 12px;
-  border-radius: var(--radius-chip);
-  font-size: var(--text-md);
-  font-weight: var(--weight-medium);
-}
-
-.btn--chip {
-  background: var(--tint-08);
-  color: var(--text-primary);
-}
-
-.btn--chip-accent {
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: var(--weight-bold);
-}
-
-.btn:disabled {
-  opacity: 0.45;
-  box-shadow: none;
-}
-
-.icon-btn {
-  display: grid;
-  place-items: center;
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  color: var(--text-secondary);
-  transition: background var(--duration-fast), color var(--duration-fast);
-  flex: 0 0 auto;
-}
-
-.icon-btn:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--text-primary);
-}
-
-.icon-btn.has-activity {
-  color: var(--accent-ink);
-  border-color: var(--accent-border);
-}
-
-/* Dock gear is the raised variant. */
-.dock .icon-btn {
-  background: var(--raised-bg);
-  border-color: var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  border-radius: 999px;
-  background: var(--tint-12);
-  transition: background var(--duration-fast) var(--ease-standard);
-  flex: 0 0 auto;
-}
-
-.switch--s { width: 36px; height: 20px; }
-.switch--m { width: 40px; height: 22px; }
-.switch--l { width: 44px; height: 24px; }
-
-.switch.is-on {
-  background: var(--accent);
-  box-shadow: var(--shadow-switch-on), var(--inset-switch);
-}
-
-.switch:disabled {
-  opacity: 0.5;
-}
-
-.switch__knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform var(--duration-instant) var(--ease-standard);
-}
-
-.switch--s .switch__knob { width: 14px; height: 14px; }
-.switch--m .switch__knob { width: 16px; height: 16px; }
-.switch--l .switch__knob { width: 18px; height: 18px; }
-
-.switch--s.is-on .switch__knob { transform: translateX(16px); }
-.switch--m.is-on .switch__knob { transform: translateX(18px); }
-.switch--l.is-on .switch__knob { transform: translateX(20px); }
-
-.slider {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-}
-
-.slider--wide {
-  width: 180px;
-}
-
-.slider__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.slider__label {
-  font-size: var(--text-md);
-  color: var(--text-secondary);
-}
-
-.slider__value {
-  font-family: var(--font-mono);
-  font-size: var(--text-base-2);
-  color: var(--text-primary);
-}
-
-.slider__track {
-  position: relative;
-  height: 16px;
-  display: flex;
-  align-items: center;
-}
-
-.slider__track::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 5px;
-  border-radius: var(--radius-xs);
-  background: var(--tint-12);
-}
-
-.slider__fill {
-  position: absolute;
-  left: 0;
-  height: 5px;
-  border-radius: var(--radius-xs);
-  background: var(--accent);
-}
-
-.slider__thumb {
-  position: absolute;
-  width: 10px;
-  height: 16px;
-  margin-left: -5px;
-  border-radius: var(--radius-kbd-sm);
-  background: var(--text-primary);
-  box-shadow: var(--shadow-thumb);
-  pointer-events: none;
-}
-
-.slider input[type='range'] {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.segmented {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.segmented__chip {
-  padding: 5px 10px;
-  border-radius: var(--radius-chip);
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-  font-size: var(--text-base-2);
-  color: var(--text-secondary);
-  text-transform: capitalize;
-}
-
-.segmented__chip.is-selected {
-  background: var(--accent-tint);
-  border-color: var(--accent-border);
-  box-shadow: var(--inset-accent-tint);
-  color: var(--accent-ink);
-  font-weight: var(--weight-medium);
-}
-
-.keybind {
-  border-radius: var(--radius-kbd);
-  background: var(--kbd-bg);
-  border: 1px solid var(--tint-12);
-  padding: 3px 7px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.keybind.is-capturing {
-  border-color: var(--accent-border);
-  color: var(--accent-ink);
-}
-
-.swatches {
-  display: flex;
-  gap: 6px;
-}
-
-.swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-swatch);
-  border: 1px solid var(--tint-14);
-}
-
-.swatch.is-selected {
-  border: 2px solid var(--text-primary);
-}
-
-.search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding-left: 12px;
-  padding-right: 10px;
-  border-radius: var(--radius-field);
-  background: var(--field-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--inset-field-panel);
-  color: var(--text-muted);
-}
-
-.search input {
-  flex: 1;
-  min-width: 0;
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--text-primary);
-  font-size: var(--text-md-2);
-}
-
-.search input::placeholder {
-  color: var(--text-muted);
-}
-
-.tabs {
-  display: flex;
-  gap: 4px;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 33px;
-  padding: 8px 12px;
-  border-radius: var(--radius-control);
-  font-size: var(--text-md-2);
-  color: var(--text-secondary);
-  border: 1px solid transparent;
-}
-
-.tab.is-selected {
-  background: var(--accent-tint);
-  border-color: var(--accent-border);
-  box-shadow: var(--inset-accent-tint);
-  color: var(--accent-ink);
-  font-weight: var(--weight-medium);
-}
-
-.tab__count {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.tab.is-selected .tab__count { color: var(--accent-ink); }
-.tab__count--ok { color: var(--ok-ink); }
-
-/* -------------------------------------------------------------------- menu */
-
-.menu {
+.dock__launch > * {
   position: relative;
 }
 
-.pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 52px;
-  padding: 0 14px 0 16px;
-  border-radius: var(--radius-pill);
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-  color: var(--text-secondary);
-}
-
-.pill:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-
-.pill.is-open {
-  border-color: var(--accent-border);
-}
-
-.pill__text {
+.dock__launch-text {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  min-width: 68px;
+  gap: 1px;
+  line-height: 1.2;
 }
 
-.pill__eyebrow {
+.dock__launch-rate {
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-caps-xs);
-  color: var(--text-muted);
+  font-size: var(--text-sm);
+  opacity: 0.75;
 }
 
-.pill__value {
-  font-size: var(--text-lg-2);
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-  white-space: nowrap;
+/* -------------------------------------------------------------------- menu */
+
+/**
+ * The dropdown the dock's two pills open. `@void/ui` ships the pill and not a popover
+ * — in game the same picker opens the Loadouts panel instead of a list — so the
+ * surface below the pill is launcher-only.
+ */
+.menu {
+  position: relative;
+  display: flex;
 }
 
 .menu__list {
   position: absolute;
-  bottom: calc(100% + 8px);
   left: 0;
+  bottom: calc(100% + 8px);
   min-width: 200px;
   margin: 0;
   padding: 6px;
   list-style: none;
   border-radius: var(--radius-cta);
-  background: var(--palette-bg);
+  background: var(--panel-bg);
   border: 1px solid var(--border-panel);
   box-shadow: var(--shadow-panel);
   z-index: 20;
 }
 
 [data-renderer='webview'] .menu__list {
+  -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
 }
 
 .menu__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-8);
   width: 100%;
-  padding: 9px 10px;
+  padding: 8px 10px;
   border-radius: var(--radius-field);
-  font-size: var(--text-lg);
+  font-size: var(--text-md-2);
   color: var(--text-secondary);
   text-align: left;
 }
 
 .menu__item:hover:not(:disabled) {
-  background: var(--tint-06);
+  background: var(--tint-07);
   color: var(--text-primary);
 }
 
@@ -1035,7 +425,7 @@ button:disabled {
 }
 
 .menu__item:disabled {
-  color: var(--text-muted);
+  opacity: 0.45;
 }
 
 .menu__hint {
@@ -1045,102 +435,257 @@ button:disabled {
   color: var(--text-muted);
 }
 
-/* ------------------------------------------------------------------- panel */
+/* -------------------------------------------------------------------- mods */
 
-.panel {
+/**
+ * `252:189` puts the settings pane at 278 × 410 beside the 620 × 414 grid. The pane's
+ * rows come from the registry, and a mod with more settings than Keystrokes' three
+ * would otherwise push the CTA off the bottom — so the rows scroll inside the pane and
+ * the pane keeps the frame's height.
+ */
+.mods__pane {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  /* `252:189` — 278 × 410, its bottom 4px above the grid's. The registry gives some
+     mods more rows than the frame's three, and those scroll inside the pane rather
+     than pushing its foot past the grid's. */
+  height: 410px;
+}
+
+.mods__settings {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  width: min(var(--panel-w), calc(100% - 48px));
-  height: min(var(--panel-h), 100%);
-  border-radius: var(--radius-panel);
-  background: var(--panel-bg);
-  border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
+  gap: var(--space-12);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tint-14) transparent;
+}
+
+.mods__settings.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.mods__desc,
+.mods__note {
+  margin: 0;
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}
+
+.mods__empty,
+.list__empty {
+  padding: 24px 12px;
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------- cosmetics */
+
+/**
+ * `246:16` — the 300 × 452 character stage. This is the one region of the design that
+ * is a render rather than a component, so it stays here: a glow ellipse, a blocky skin
+ * stand-in and the equipped pill.
+ */
+.stage {
+  position: relative;
+  flex: 0 0 auto;
+  width: 300px;
+  height: 452px;
+  margin-right: 14px;
+  border-radius: var(--radius-surface);
+  background: var(--card-bg);
   overflow: hidden;
 }
 
-[data-renderer='webview'] .panel {
-  backdrop-filter: blur(var(--blur-panel));
+/* A soft ellipse behind the character. `filter: blur()` is launcher-only — the shared
+   package may not use it, and this element never crosses into the overlay. */
+.stage__glow {
+  position: absolute;
+  left: -11px;
+  top: 89px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  opacity: 0.3;
+  filter: blur(56px);
 }
 
-.panel__head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 21px var(--pad-panel, 25px) 19px;
-  flex: 0 0 auto;
-}
-
-.panel__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: var(--weight-extrabold);
-  font-size: var(--text-6xl);
-  line-height: 30px;
-  letter-spacing: var(--tracking-title);
-}
-
-.panel__counter {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-}
-
-.panel__head > .btn {
-  margin-left: auto;
-}
-
-.panel__body {
-  flex: 1;
-  min-height: 0;
-  padding: 0 var(--pad-panel, 25px);
-  overflow: auto;
-}
-
-.panel__footer {
-  flex: 0 0 auto;
-  padding: 14px var(--pad-panel, 25px) 18px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-}
-
-/* -------------------------------------------------------------------- pane */
-
-.pane {
+/*
+  TODO(art): `246:16` holds a rendered player skin, 160 × 376 at 69, 29. Rendering a
+  real skin needs the skin PNG and a projection, neither of which the launcher has —
+  so this is a blocky stand-in at the frame's box, and it is the piece to replace when
+  the cosmetics pipeline lands (§16.1).
+*/
+.stage__skin {
+  position: absolute;
+  left: 69px;
+  top: 29px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: var(--pane-w);
-  flex: 0 0 auto;
-  padding: var(--pad-pane, 16px);
-  border-radius: var(--radius-cta);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile), var(--inset-card);
-  overflow: auto;
+  align-items: center;
+  width: 160px;
+  height: 376px;
+  padding-top: 22px;
 }
 
-.pane--narrow {
-  width: var(--pane-w-narrow);
+.stage__head {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-kbd-sm);
+  background: linear-gradient(150deg, #f3cfad 0%, #e5b891 55%, #c99a72 100%);
 }
 
+.stage__torso {
+  position: relative;
+  display: flex;
+  margin-top: 4px;
+}
+
+.stage__body {
+  width: 92px;
+  height: 112px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #24262c, #131519);
+}
+
+.stage__arm {
+  width: 26px;
+  height: 108px;
+  margin-top: 2px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #1c1e23, #101216);
+}
+
+.stage__legs {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.stage__leg {
+  width: 44px;
+  height: 118px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #191b20, #0d0f12);
+}
+
+/* The equipped cape hangs behind the figure, which is the only place the stage shows
+   which cosmetic is on besides the pill. */
+.stage__cape {
+  position: absolute;
+  left: 50%;
+  top: 86px;
+  width: 108px;
+  height: 196px;
+  margin-left: -54px;
+  border-radius: 4px;
+  opacity: 0.92;
+}
+
+.stage__pill {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 6px 12px;
+  border-radius: var(--radius-control);
+  background: var(--raised-bg);
+  border: 1px solid var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+  font-size: var(--text-md-2);
+  white-space: nowrap;
+}
+
+.stage__pill-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-hairline);
+}
+
+.cosmetics {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cosmetics__counter {
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Nested flex rows, not CSS Grid — the same rule `@void/ui`'s ModGrid follows. */
+.cosmetics__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  align-content: flex-start;
+}
+
+.cosmetics__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  margin-top: 26px;
+}
+
+.cosmetics__note {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------- lists and panes */
+
+/** `247:17` / `248:20` — a 580px list beside the 308px detail pane, 20px apart. */
+.split {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  gap: 20px;
+  height: 100%;
+  padding-bottom: 8px;
+}
+
+/** `247:74` / `248:72` — the detail pane is 308 × 500 at the top of the body. */
+.split > .v-pane {
+  height: 500px;
+}
+
+.list {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tint-14) transparent;
+}
+
+/* The detail pane's header, stat row and toggle row: composition, not new components. */
 .pane__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.pane__headline {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  gap: var(--space-12);
 }
 
 .pane__icon {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   width: 52px;
   height: 52px;
   border-radius: var(--radius-card);
@@ -1159,18 +704,14 @@ button:disabled {
 
 .pane__title {
   font-family: var(--font-display);
-  font-size: var(--text-5xl);
   font-weight: var(--weight-extrabold);
+  font-size: var(--text-5xl);
+  line-height: var(--leading-subtitle);
   letter-spacing: var(--tracking-subtitle);
 }
 
+.pane__sub,
 .pane__count {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-}
-
-.pane__sub {
   font-family: var(--font-mono);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
@@ -1192,14 +733,14 @@ button:disabled {
 .pane__row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .pane__rowtext {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 .pane__rowtitle {
@@ -1212,770 +753,120 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.pane__spacer {
-  flex: 1;
-  min-height: 8px;
-}
-
-.caption {
+.pane__actions {
   display: flex;
-  gap: 8px;
-  padding: 8px 0 4px 12px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-2);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.caption__count {
-  font-weight: var(--weight-regular);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
 }
 
 .stat-tiles {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
-.stat-tile {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 9px 10px;
-  border-radius: var(--radius-field);
-  background: var(--stat-tile-bg);
+.stat-tiles > .v-stattile {
+  flex: 1 1 0;
   min-width: 0;
 }
 
-.stat-tile__value {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text-primary);
-}
-
-.stat-tile__unit {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.sparkline {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 32px;
-}
-
-.sparkline__bar {
-  width: 10px;
-  border-radius: var(--radius-hairline);
-  background: var(--accent);
-  opacity: 0.6;
-}
-
-.sparkline__bar.is-current { opacity: 1; }
-.sparkline__bar.is-warn { background: var(--warn); opacity: 1; }
-
-/* ------------------------------------------------------------------- lists */
-
-.split {
-  display: flex;
-  gap: 20px;
-  height: 100%;
-  padding-bottom: 8px;
-}
-
-.list {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.list__empty,
-.mods__empty {
-  padding: 24px 12px;
-  font-size: var(--text-md-2);
-  color: var(--text-muted);
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 12px;
-  border-radius: var(--radius-card);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile), var(--inset-card);
-}
-
-.row--server { height: 62px; }
-.row--friend { height: 56px; }
-
-.row.is-selected {
-  border: 1.5px solid var(--accent);
-}
-
-.row.is-offline .row__title { color: var(--text-secondary); }
-.row.is-offline .avatar { opacity: 0.5; }
-
-.row__hit {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  text-align: left;
-}
-
-.row__icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-button);
-  background: var(--surface-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-md);
-  color: var(--text-secondary);
-  flex: 0 0 auto;
-}
-
-.row__avatar {
-  position: relative;
-  flex: 0 0 auto;
-}
-
-.row__presence {
-  position: absolute;
-  left: 27px;
-  top: 27px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  box-shadow: 0 0 0 2px var(--bg-shell);
-}
-
-.row__presence.is-online { background: var(--ok); }
-
-.row__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.row__title {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.row__sub {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.row__count {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.row__ping {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  min-width: 64px;
-  justify-content: flex-end;
-}
-
-.row__ping--ok { color: var(--ok-ink); }
-.row__ping--warn { color: var(--warn-ink); }
-.row__ping--bad { color: var(--text-muted); }
-
+/* The party pane's role line is the row's meta, tinted (`248:72`). */
 .party {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
-.party__row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: var(--radius-card-sm);
-  background: var(--party-row-bg);
+/* `badge={null}` asks the compact row for its status dot; the empty label beside it
+   would otherwise reserve the design's 14px aside column. */
+.party__row .v-row__aside {
+  display: none;
 }
 
-.party__text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 1;
-}
-
-.party__name { font-size: var(--text-lg); }
-
-.party__role {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-2);
-}
-
-.party__role--leader { color: var(--accent-ink); }
-.party__role--ready { color: var(--ok-ink); }
-
-.chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.chip {
-  padding: 5px 10px;
-  border-radius: var(--radius-chip);
-  background: var(--tint-06);
-  border: 1px solid var(--tint-10);
-  font-size: var(--text-base-2);
-  color: var(--text-secondary);
-}
-
-.chip--selected {
-  background: var(--accent-tint);
-  border-color: var(--accent-border-strong);
+.party__row--leader .v-row__meta {
   color: var(--accent-ink);
+}
+
+.party__row--ready .v-row__meta {
+  color: var(--ok-ink);
 }
 
 .import-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .import-row__field {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   height: 32px;
   padding: 0 10px;
   border-radius: var(--radius-field);
   background: var(--field-bg);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tint-07);
   box-shadow: var(--inset-field-panel);
   font-size: var(--text-md-2);
-}
-
-.import-row__field:disabled {
-  color: var(--text-muted);
-}
-
-/* -------------------------------------------------------------------- mods */
-
-.mods {
-  display: flex;
-  gap: 20px;
-  height: 100%;
-  padding-bottom: 8px;
-}
-
-.mods__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 10px;
-  align-content: start;
-  flex: 1;
-  min-width: 0;
-}
-
-.tile {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 96px;
-  padding: 0 12px;
-  border-radius: var(--radius-card);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile), var(--inset-card);
-  transition: border-color var(--duration-fast);
-}
-
-.tile.is-selected {
-  border: 1.5px solid var(--accent);
-}
-
-.tile__hit {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  text-align: left;
-}
-
-.tile__text {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.tile__name {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tile__meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tile__switch {
-  position: absolute;
-  left: 56px;
-  bottom: 24px;
-}
-
-/* The switch overlaps the tag row, exactly as the frame draws it. */
-.tile__meta { padding-left: 46px; }
-
-.mod-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: var(--pane-w-narrow);
-  flex: 0 0 auto;
-  padding: 16px;
-  border-radius: var(--radius-cta);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile);
-  overflow: auto;
-}
-
-.mod-pane__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.mod-pane__title {
-  margin: 0;
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-pane);
-}
-
-.mod-pane__desc {
-  margin: 0;
-  font-size: var(--text-md-2);
-  color: var(--text-secondary);
-}
-
-.mod-pane__settings {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.mod-pane__settings.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.mod-pane__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.mod-pane__row-label {
-  font-size: var(--text-md);
-  color: var(--text-secondary);
-}
-
-.mod-pane__spacer { flex: 1; min-height: 4px; }
-
-.mod-pane__note {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.keys-preview {
-  position: relative;
-  height: 128px;
-  border-radius: var(--radius-card-sm);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile);
-}
-
-.keycap {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-badge);
-  background: var(--kbd-bg-strong);
-  border: 1px solid var(--tint-12);
-  font-size: var(--text-sm-2);
-  font-weight: var(--weight-bold);
-  color: var(--text-primary);
-}
-
-.keycap.is-pressed {
-  background: var(--accent);
-  border-color: var(--tint-30);
-  color: var(--accent-fg);
-}
-
-/* --------------------------------------------------------------- cosmetics */
-
-.cosmetics {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  grid-template-rows: 1fr auto;
-  gap: 24px;
-  height: 100%;
-  padding-bottom: 8px;
-}
-
-.stage {
-  position: relative;
-  grid-row: 1 / span 2;
-  border-radius: var(--radius-surface);
-  background: var(--card-bg);
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-
-.stage__glow {
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.5;
-}
-
-.stage__skin {
-  position: relative;
-  width: 160px;
-  height: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stage__head {
-  width: 88px;
-  height: 88px;
-  border-radius: 6px;
-  background: linear-gradient(160deg, #f0c9a6, #c99a72);
-}
-
-.stage__body {
-  width: 96px;
-  height: 190px;
-  margin-top: 8px;
-  border-radius: 6px;
-  background: linear-gradient(180deg, #1d1f24, #0f1114);
-}
-
-.stage__cape {
-  position: absolute;
-  top: 96px;
-  width: 62px;
-  height: 140px;
-  border-radius: 4px;
-  opacity: 0.95;
-}
-
-.stage__pill {
-  position: absolute;
-  bottom: 22px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: var(--radius-control);
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  font-size: var(--text-md-2);
-}
-
-.stage__pill-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-}
-
-.cosmetics__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
-  gap: 12px;
-  align-content: start;
-}
-
-.cape {
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-cta);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile), var(--inset-card);
-  overflow: hidden;
-  text-align: left;
-}
-
-.cape.is-selected {
-  border: 1.5px solid var(--accent);
-}
-
-.cape__preview {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 140px;
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--hairline);
-}
-
-.cape__new {
-  position: absolute;
-  left: 9px;
-  top: 9px;
-}
-
-.cape__hanger {
-  position: absolute;
-  top: 19px;
-  width: 70px;
-  height: 8px;
-  border-radius: 3px;
-  background: var(--tint-20);
-}
-
-.cape__swatch {
-  width: 62px;
-  height: 98px;
-  border-radius: 6px;
-  margin-top: 8px;
-}
-
-.cape__title {
-  padding: 12px 13px 0;
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-}
-
-.cape__state {
-  padding: 6px 13px 14px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-.cape__state--accent { color: var(--accent-ink); }
-.cape__state--ok { color: var(--ok-ink); }
-.cape__state--muted { color: var(--text-secondary); }
-
-.cosmetics__footer {
-  grid-column: 2;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cosmetics__note {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
+  outline: none;
 }
 
 /* ----------------------------------------------------------------- palette */
 
+/**
+ * `@void/ui` draws the palette itself; the launcher supplies the dim it floats on and
+ * the scroll region, because in game the palette is sized to its own results and here
+ * it ranks every screen, loadout, mod and server.
+ */
 .palette-scrim {
   position: fixed;
   inset: 0;
-  background: var(--dim-palette, rgba(10, 11, 12, 0.55));
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 14vh;
+  /* `244:1923` puts the palette at y 190 on an 820px frame. */
+  padding-top: 23vh;
+  background: var(--dim-palette);
   z-index: 50;
 }
 
-.palette {
-  width: var(--palette-w);
-  max-width: calc(100% - 48px);
-  border-radius: var(--radius-surface);
-  background: var(--palette-bg);
-  border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
-  overflow: hidden;
+[data-renderer='webview'] .palette-scrim {
+  -webkit-backdrop-filter: blur(var(--blur-dim));
+  backdrop-filter: blur(var(--blur-dim));
+}
+
+.palette-scrim > .v-palette {
   animation: palette-in var(--duration-slow) var(--ease-out);
 }
 
 @keyframes palette-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  from {
+    opacity: 0;
+    /* 2D only — the same constraint the shared package keeps to (§4). */
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-[data-renderer='webview'] .palette {
-  backdrop-filter: blur(var(--blur-panel));
-}
-
-.palette__input {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 58px;
-  padding: 0 14px 0 18px;
-  border-bottom: 1px solid var(--tint-08);
-  color: var(--text-muted);
-}
-
-.palette__input input {
-  flex: 1;
-  min-width: 0;
-  background: none;
-  border: none;
-  outline: none;
-  font-size: var(--text-3xl);
-  color: var(--text-primary);
-}
-
-.palette__list {
+.palette__scroll {
   max-height: 46vh;
-  overflow: auto;
-  padding: 0 6px 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tint-14) transparent;
 }
-
-.palette__caption {
-  padding: 12px 0 6px 12px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-2);
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-muted);
-}
-
-.palette__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  height: 48px;
-  padding: 0 12px;
-  border-radius: var(--radius-field);
-  border: 1px solid transparent;
-  text-align: left;
-}
-
-.palette__row.is-selected {
-  background: var(--accent-tint-weak);
-  border-color: var(--accent-border);
-  box-shadow: var(--inset-row-selected);
-}
-
-.palette__icon {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-chip);
-  background: var(--tint-07);
-  color: var(--text-secondary);
-  flex: 0 0 auto;
-}
-
-.palette__row.is-selected .palette__icon {
-  background: var(--accent-tint-strong);
-  color: var(--accent-ink);
-}
-
-.palette__text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 1;
-  min-width: 0;
-}
-
-.palette__title {
-  font-size: var(--text-lg-2);
-  font-weight: var(--weight-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.palette__sub {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.palette__row.is-selected .palette__sub { color: var(--accent-ink); }
 
 .palette__empty {
-  padding: 24px 14px;
-  color: var(--text-muted);
+  margin: 0;
+  padding: 20px 18px;
   font-size: var(--text-md-2);
-}
-
-.palette__footer {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 14px 10px 18px;
-  border-top: 1px solid var(--tint-08);
-  font-size: var(--text-base);
   color: var(--text-muted);
-}
-
-.palette__footer > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.palette__footer-spacer { flex: 1; }
-
-.palette__loadout {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
 }
 
 /* ------------------------------------------------------------------ drawer */
 
+/** The JVM log. There is no JVM log inside the JVM, so this is launcher-only. */
 .drawer {
   position: fixed;
   left: var(--canvas-inset);
@@ -1994,7 +885,7 @@ button:disabled {
 .drawer__head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   padding: 10px 12px;
   border-bottom: 1px solid var(--seam);
   color: var(--text-secondary);
@@ -2011,10 +902,12 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.drawer__spacer { flex: 1; }
+.drawer__spacer {
+  flex: 1 1 auto;
+}
 
 .drawer__body {
-  flex: 1;
+  flex: 1 1 auto;
   overflow: auto;
   padding: 10px 14px;
   user-select: text;
@@ -2030,7 +923,9 @@ button:disabled {
   word-break: break-word;
 }
 
-.drawer__line.is-err { color: var(--warn-ink); }
+.drawer__line.is-err {
+  color: var(--warn-ink);
+}
 
 .drawer__empty {
   margin: 0;
@@ -2043,7 +938,7 @@ button:disabled {
 .banner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
   max-width: 900px;
   padding: 10px 10px 10px 14px;
   border-radius: var(--radius-card-sm);
@@ -2067,18 +962,25 @@ button:disabled {
   color: var(--text-secondary);
 }
 
-.banner__text { flex: 1; }
+.banner__text {
+  flex: 1 1 auto;
+}
 
 /* ---------------------------------------------------------------- settings */
 
+/**
+ * Settings has no frame of its own — §8.3 draws the line it respects, and the frames
+ * stop at the gear. It reuses the panel surface and `@void/ui`'s `SettingsGroup` /
+ * `SettingsRow`, which the mod-settings frame does define.
+ */
 .settings-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(10, 11, 12, 0.6);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 6vh 24px;
+  background: rgba(10, 11, 12, 0.6);
   z-index: 60;
 }
 
@@ -2096,6 +998,7 @@ button:disabled {
 }
 
 [data-renderer='webview'] .settings {
+  -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
 }
 
@@ -2110,81 +1013,45 @@ button:disabled {
   font-family: var(--font-display);
   font-weight: var(--weight-extrabold);
   font-size: var(--text-6xl);
+  line-height: var(--leading-title);
   letter-spacing: var(--tracking-title);
 }
 
-.settings__spacer { flex: 1; }
+.settings__spacer {
+  flex: 1 1 auto;
+}
 
 .settings__body {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding: 0 25px 25px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
-.group {
-  border-radius: var(--radius-cta);
-  background: var(--card-bg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile), var(--inset-card);
-  overflow: hidden;
-}
-
-.group__cap {
-  padding: 14px 16px 8px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-2);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.settings-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--seam);
-}
-
-.group > .settings-row:first-of-type {
-  border-top: none;
-}
-
-.settings-row__label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.settings-row__title {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-medium);
-}
-
-.settings-row__sub {
-  font-size: var(--text-base);
-  color: var(--text-muted);
-  overflow-wrap: anywhere;
-}
-
-.settings-row__control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* The frames size a settings Group to the mod-settings column; here it fills the
+   modal, which is the one geometry change the launcher makes to a shared component.
+   `.v-group` carries `overflow: hidden`, which zeroes a flex item's automatic minimum
+   size — without `flex: 0 0 auto` the column squeezes every group down to its caption
+   and all but the first row disappears. */
+.settings__body > * {
   flex: 0 0 auto;
+}
+
+.settings__body .v-group {
+  width: 100%;
+}
+
+.settings__body .v-group__row + .v-group__row {
+  border-top: 1px solid var(--seam);
 }
 
 .inline-form {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .inline-form__field {
@@ -2193,13 +1060,15 @@ button:disabled {
   padding: 0 10px;
   border-radius: var(--radius-field);
   background: var(--field-bg);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--tint-07);
   box-shadow: var(--inset-field-panel);
   font-size: var(--text-md-2);
   outline: none;
 }
 
-.inline-form__field--wide { width: 320px; }
+.inline-form__field--wide {
+  width: 320px;
+}
 
 .mono-value {
   font-family: var(--font-mono);
@@ -2211,7 +1080,7 @@ button:disabled {
   padding: 4px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .credits__line {
@@ -2220,7 +1089,9 @@ button:disabled {
   color: var(--text-secondary);
 }
 
-.credits__line--muted { color: var(--text-muted); }
+.credits__line--muted {
+  color: var(--text-muted);
+}
 
 .credits__notice {
   margin: 0;
@@ -2234,23 +1105,34 @@ button:disabled {
   user-select: text;
 }
 
-.credits__url { color: var(--text-secondary); }
+.credits__url {
+  color: var(--text-secondary);
+}
 
 /* --------------------------------------------------------------- responsive
    The frames are one 1300 × 820 size; the window goes down to 1100 × 700. Below
    1240 the side panes go first, since the list is the screen's subject. */
 
 @media (max-width: 1239px) {
-  .pane,
-  .mod-pane {
+  .split {
+    gap: 14px;
+  }
+  .split > .v-pane {
     width: 260px;
   }
-  .cosmetics {
-    grid-template-columns: 240px 1fr;
+  .stage {
+    width: 240px;
   }
 }
 
 @media (max-height: 759px) {
-  .canvas__content { padding-bottom: 120px; }
-  .hero { padding-top: 18px; }
+  .canvas__content {
+    padding-bottom: 120px;
+  }
+  .hero__body {
+    bottom: 60px;
+  }
+  .mods__pane {
+    height: 100%;
+  }
 }

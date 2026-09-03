@@ -58,15 +58,15 @@ class LiveStateTest {
     @BeforeEach
     void setUp() {
         JsonObject init = initExample();
-        List<JsonObject> summaries = new ArrayList<JsonObject>();
+        List<Loadout> library = new ArrayList<Loadout>();
         JsonArray arr = init.getAsJsonArray("loadouts");
         for (int i = 0; i < arr.size(); i++) {
-            summaries.add(arr.get(i).getAsJsonObject());
+            library.add(Loadout.fromJson(arr.get(i).getAsJsonObject()));
         }
         state = new LiveState();
         sink = new RecordingSink();
         state.setSink(sink);
-        state.applyInit(Loadout.fromJson(init.getAsJsonObject("loadout")), summaries,
+        state.applyInit(Loadout.fromJson(init.getAsJsonObject("loadout")), library,
                 GlobalSettings.fromJson(init.getAsJsonObject("settings")));
     }
 
@@ -179,31 +179,41 @@ class LiveStateTest {
     }
 
     @Test
-    @DisplayName("switchLoadout needs the full loadout, and waits for it when it must")
-    void switchLoadoutWaitsForRust() {
+    @DisplayName("switchLoadout applies immediately, because init carries whole loadouts")
+    void switchLoadoutIsImmediate() {
         assertFalse(state.switchLoadout("not-in-the-library"));
         assertTrue(state.switchLoadout("sword-pvp"), "switching to the active one is a no-op");
-        assertNull(state.pendingSwitch());
 
-        // `bedwars` is in init.loadouts as a summary only: the protocol has no
-        // way to ask for the rest, so the switch is armed and completes when
-        // the launcher pushes it.
+        // `bedwars` arrived in init.loadouts in full, so there is nothing to wait for:
+        // the switch is done before this line returns (§8.2). That is the whole reason
+        // the protocol sends whole loadouts and has no `request_loadout` message.
         assertTrue(state.switchLoadout("bedwars"));
-        assertEquals("bedwars", state.pendingSwitch());
-        assertEquals("sword-pvp", state.loadout().id(), "nothing changed yet");
-
-        state.cacheLoadout(Loadout.fromJson(bedwarsExample()));
-        assertNull(state.pendingSwitch());
         assertEquals("bedwars", state.loadout().id());
         assertTrue(state.zoomOn);
         assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("V"), state.zoomKeyCode,
                 "the new loadout's zoom key is live");
-        assertFalse(state.toggleSprintOn == false, "bedwars keeps toggle_sprint on");
 
         assertFalse(sink.patches.isEmpty(), "the switch reported a state delta");
         assertEquals("bedwars", sink.patchLoadouts.get(sink.patchLoadouts.size() - 1),
                 "the delta is tagged with the loadout it applies to");
         assertTrue(sink.lastPatch().containsKey("mods.zoom.key"));
+    }
+
+    @Test
+    @DisplayName("the library is the whole library, in library order")
+    void libraryIsWholeLoadouts() {
+        assertEquals(2, state.library().size());
+        assertEquals("sword-pvp", state.library().get(0).id());
+        assertEquals("bedwars", state.library().get(1).id());
+        // Whole loadouts: every entry can be applied on its own.
+        assertTrue(state.library().get(1).isOn("keystrokes"));
+        assertEquals(2, state.libraryJson().size());
+        assertTrue(state.libraryJson().get(1).getAsJsonObject().has("mods"));
+
+        // L wraps in library order.
+        assertEquals("bedwars", state.nextLoadoutId());
+        state.switchLoadout("bedwars");
+        assertEquals("sword-pvp", state.nextLoadoutId());
     }
 
     @Test

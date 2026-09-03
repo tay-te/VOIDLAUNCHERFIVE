@@ -81,20 +81,26 @@ JVM to be drawn; it goes Mixin → JS in the same process.
 The Figma treats them uniformly. The code doesn't — but with Ultralight in-process the
 split is about *data direction*, not *who draws*. Everything is drawn by the UI.
 
-| Mod | Kind | Data source / effect |
-|---|---|---|
-| FPS display | HUD | `Minecraft.debugFPS` |
-| Keystrokes | HUD | `KeyBinding` state, edge-triggered |
-| CPS counter | HUD | derived from clicks in JS |
-| Ping display | HUD | own `NetworkPlayerInfo.responseTime` |
-| Coordinates | HUD | `EntityPlayerSP` pos/yaw |
-| Armor status | HUD | `InventoryPlayer.armorInventory` durability |
-| Potion effects | HUD | `getActivePotionEffects` |
-| Toggle sprint | Gameplay | `KeyBinding` override in `onLivingUpdate` |
-| Fullbright | Gameplay | `gammaSetting` override (client-side, Watchdog-tolerated) |
-| Hitboxes | Gameplay | `RenderManager.debugBoundingBox` |
-| Zoom | Gameplay | FOV override while key held |
-| Crosshair | Gameplay* | replaces vanilla crosshair pass; drawn in GL at exact center |
+`kind` is that data-direction split. **`category` is a second, independent axis**: the
+tab the Mods panel files a mod under (Figma 244:538). The two do not agree — Crosshair
+and Fullbright are `gameplay` but `visual`, Zoom is `gameplay` but `utility` — so both
+live in `schema/mods.json` and nothing derives one from the other or re-declares either.
+The `Mod` column below is the registry's `label`, which is the panel copy verbatim.
+
+| Mod (`label`) | `kind` | `category` | Data source / effect |
+|---|---|---|---|
+| FPS display | HUD | hud | `Minecraft.debugFPS` |
+| Keystrokes | HUD | hud | `KeyBinding` state, edge-triggered |
+| CPS counter | HUD | hud | derived from clicks in JS |
+| Ping display | HUD | hud | own `NetworkPlayerInfo.responseTime` |
+| Coordinates | HUD | hud | `EntityPlayerSP` pos/yaw |
+| Armor status | HUD | hud | `InventoryPlayer.armorInventory` durability |
+| Potion effects | HUD | hud | `getActivePotionEffects` |
+| Toggle sprint | Gameplay | pvp | `KeyBinding` override in `onLivingUpdate` |
+| Fullbright | Gameplay | visual | `gammaSetting` override (client-side, Watchdog-tolerated) |
+| Hitboxes | Gameplay | pvp | `RenderManager.debugBoundingBox` |
+| Zoom | Gameplay | utility | FOV override while key held |
+| Crosshair | Gameplay* | visual | replaces vanilla crosshair pass; drawn in GL at exact center |
 
 \* Crosshair stays GL: it must sit at the exact pixel center and is 20 lines. Everything
 else is HTML.
@@ -126,8 +132,9 @@ void-pvp/
 ├── mod/                        Legacy Fabric mod, Gradle, Java 8 target
 │   ├── native/                 Our JNI binding to Ultralight's C API + OpenGL GPUDriver.
 │   │                           C++17, CMake. Built in CI for win-x64, mac-x64, mac-arm64.
+│   │                           Java API in dev.voidclient.ultralight.
 │   │                           (~150 C functions wrapped; 3–4k lines total)
-│   └── src/main/java/dev/void/client/
+│   └── src/main/java/dev/voidpvp/client/
 │       ├── mixin/              sensors + actuators, one per feature
 │       ├── ui/                 Ultralight host: view lifecycle, GL upload, input forwarding
 │       ├── bridge/             JS ⇄ Java bindings (the `void.*` object)
@@ -142,6 +149,26 @@ void-pvp/
 
 `void-core` has no Tauri dependency: CLI for free (`void-pvp launch --loadout sword`),
 tests without a webview. Same lesson as VOID's 761-line `main.ts`.
+
+### Java package names: `dev.void.*` does not exist
+
+The names in the tree above are the real ones. `dev.void.client` and `dev.void.ultralight`,
+which earlier drafts of this document and of `pvp/CONTRACTS.md` used, **cannot be
+compiled**: `void` is a Java keyword and is not a legal identifier, so neither
+`package dev.void.client;` nor an `import` of it parses. Both owners renamed the one
+illegal segment:
+
+| Was specified | Actual |
+|---|---|
+| `dev.void.client.*` | **`dev.voidpvp.client.*`** — the mod |
+| `dev.void.ultralight.*` | **`dev.voidclient.ultralight.*`** — the JNI binding in `mod/native/java` |
+
+Nothing else moved. The Fabric mod id is still `void`, the JS object is still
+`window.void` (a reserved word *is* a legal property name in ES5 and later), the resource
+root is still `assets/void/`, and the JAR is still `void-client`. `mod/build.gradle`
+compiles `native/java` into the mod JAR, so `dev.voidpvp.client.ui.UltralightWebView`
+imports the binding directly — a signature change there is a compile error, not a
+runtime surprise.
 
 ---
 
@@ -181,7 +208,11 @@ WS connection.
   `glTexSubImage2D` of full frames.
 - Rendered at the end of `GuiIngame.renderGameOverlay` (HUD layer) and again in
   `VoidMenuScreen.drawScreen` (menu layer) — same view, the React app decides what's
-  visible. Depth test off, straight-alpha blend.
+  visible. Depth test off, **premultiplied**-alpha blend: the binding hands back an RGBA
+  texture with premultiplied alpha and a top-left origin, so the quad draws with
+  `glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, …)` and `v = 0` at the top.
+  Straight alpha — which an earlier draft of this section specified — double-darkens
+  every antialiased edge in the UI.
 - `View` resize on `Minecraft.resize`. Scale = MC GUI scale × window DPI, passed to
   React as a CSS variable.
 - Ticked once per game tick for JS timers; painted once per frame.
@@ -215,11 +246,13 @@ A single `window.void` object. Java → JS is push (no polling); JS → Java is 
 
 ```ts
 // Java → JS  (pushed from the render/tick thread, batched per frame)
-void.on('keys',   (k: { w:0|1, a, s, d, lmb, rmb, space, shift }) => …)   // edge-triggered
-void.on('tick',   (t: { fps, ping, pos:{x,y,z,yaw}, armor:[…], fx:[…] }) => …) // 20 Hz
-void.on('server', (s: { host, connected }) => …)
-void.on('loadout',(l: Loadout) => …)          // on hello + on switch (from Rust or L key)
-void.on('menu',   (open: boolean) => …)
+void.on('keys',    (k: { w:0|1, a, s, d, lmb, rmb, space, shift }) => …)  // edge-triggered
+void.on('tick',    (t: { fps, ping, pos:{x,y,z,yaw}, armor:[…], fx:[…] }) => …) // 20 Hz
+void.on('server',  (s: { host, connected }) => …)
+void.on('loadout', (l: Loadout) => …)         // on init + on switch (from Rust or L key)
+void.on('loadouts',(library: Loadout[]) => …) // the whole library, from init.loadouts
+void.on('setting', (s: { id, key, value }) => …) // one setting Java changed by itself
+void.on('menu',    (open: boolean) => …)
 
 // JS → Java
 void.setGameplay('fullbright', true)           // returns applied state (sync, in-process)
@@ -232,6 +265,18 @@ void.openKeybindCapture(modId) → Promise<key>
 
 Because this is in-process, `setGameplay` is synchronous and the toggle in the UI shows
 real state — no optimistic UI, no `ack`.
+
+`loadouts` exists because the Loadouts frame lists the whole library and the quick
+palette offers "turn on in *other* loadout": without it JS would only know the loadouts
+it happened to watch go by. `setting` exists because an in-game hotkey can change one
+setting, and replacing the whole loadout to say so re-renders the world for one boolean.
+
+**`openKeybindCapture` is the one asynchronous call, and its shape is easy to get
+wrong.** The hop is still synchronous and still answers — with `returns: null`, meaning
+*armed*. The captured key arrives later on the push channel as a call-result envelope,
+`__emit({ c:'openKeybindCapture', returns:'V' })`, or `returns: null` again when the
+player cancelled with Escape. Null therefore travels on both channels meaning two
+different things, and a shim must tell them apart **by channel, never by value**.
 
 ### 6.6 Sensors (Mixins)
 
@@ -270,20 +315,35 @@ Carries state and telemetry summaries, **not** per-frame data. JSON, versioned b
 
 ```jsonc
 // Java → Rust
-{ "t":"hello",   "v":1, "mc":"1.8.9", "mod":"0.1.0", "token":"…" }
+{ "t":"hello",   "v":2, "mc":"1.8.9", "mod":"0.1.0", "token":"…" }
 { "t":"state",   "loadout":"sword-pvp", "patch":{ "mods.fullbright.on":true } }   // on change
 { "t":"hud",     "loadout":"sword-pvp", "items":[ {id, anchor, dx, dy, scale} ] }  // on drop
 { "t":"session", "fps_avg":142, "played_ms":812000, "server":"mc.hypixel.net" }  // every 60 s + on exit
 { "t":"server",  "host":"mc.hypixel.net", "connected":true }
+{ "t":"hotkey",  "id":"loadout.next" }       // or "overlay" — already applied in game
 
 // Rust → Java
-{ "t":"init",    "v":1, "loadout":{…}, "loadouts":[…summaries], "settings":{…} }
+{ "t":"init",    "v":2, "loadout":{…}, "loadouts":[…full loadouts], "settings":{…} }
 { "t":"loadout", "loadout":{…} }             // launcher/tray switched it
 { "t":"settings","settings":{…} }
 ```
 
 Rules: unknown `t`/fields ignored (forward compatible). `v` mismatch → launcher refuses
 to launch and prompts update; mod and launcher ship together.
+
+`hotkey` is a notification, never a request: by the time it arrives Java has already
+cycled the loadout or toggled the overlay. It exists so the launcher's own active-loadout
+pointer, and the tray, follow the running game instead of contradicting it. It is dropped
+rather than queued when the link is down — the *state* the key press produced travels in
+its own `state` message, which is queued, so replaying a keystroke from minutes ago would
+be noise.
+
+`init.loadouts` carries **whole loadouts, not summaries**. A loadout is around a kilobyte
+and the library is capped at 128, so the whole library is a few hundred KB sent once per
+launch. In exchange `switchLoadout` and the L-key cycle apply any loadout in under a frame
+with no round trip (§8.2), and the in-game Loadouts screen has something to list — which
+is why there is deliberately **no** `request_loadout` message. `loadout_summary` still
+exists in `schema/loadout.json`, but only for the launcher's own tray and IPC.
 
 ---
 
@@ -388,8 +448,13 @@ Port of VOID's `main.ts`, minus Node:
 
 1. Microsoft OAuth → Xbox Live → XSTS → MC token. Refresh token in OS keychain.
 2. Resolve 1.8.9 + Legacy Fabric manifests. Parallel downloads, SHA-1 verify, hash cache.
-3. Download `void-client` JAR (which embeds the UI bundle + Ultralight natives for the
-   host OS) from our release channel; verify signature.
+3. Download the **per-OS** `void-client` JAR — `void-client-<version>-<os>-<arch>.jar`,
+   embedding the UI bundle plus the Ultralight natives for *that* platform — from our
+   release channel; verify signature. `void_core::install::ModPlatform` picks it at
+   `prepare` time from the OS the JVM will run as, and `void-pvp prepare --platform`
+   overrides that for cross-preparing another machine's install. Note "the OS the JVM
+   will run as": on Apple Silicon the game runs on an x64 JVM under Rosetta, so an arm64
+   Mac takes the **mac-x64** JAR (§13).
 4. Java 8 runtime: detect or fetch Adoptium.
 5. JVM args cached by manifest hash; spawn; stdout → ring buffer for the log view.
 
@@ -408,8 +473,24 @@ Port of VOID's `main.ts`, minus Node:
   front; ongoing cost is tracking Ultralight releases (two in the last three years).
 - **CSS subset**: no `backdrop-filter`, no `text-shadow`; some effects need solid fallbacks.
 - **No Chrome devtools** in-game; debug via the browser `?debug` harness.
-- **Native binaries in the JAR**: Ultralight natives + our JNI lib per OS/arch — JAR is
-  ~25 MB. Linux out of scope.
+- **Native binaries in the JAR**: Ultralight natives + our JNI lib per OS/arch. The
+  ~25 MB in earlier drafts of this line was wrong. Measured, deflated as a JAR stores
+  them (`mod/native/README.md`): **20.8 MB** for `windows-x64` alone, **50.3 MB** with
+  `macos-x64`, **77.4 MB** with `macos-arm64` too. `WebCore` is 45–80 MB uncompressed
+  per platform and is nearly all of it.
+
+  **Decision: one JAR per platform**, not one fat JAR and not a separate natives
+  download. `mod/build.gradle`'s `platformJars` task repackages the remapped JAR once per
+  staged `mod/native/build*/natives/<os>-<arch>/` tree into
+  `void-client-<version>-<os>-<arch>.jar` — a repackage, not a second Loom remap, because
+  the classes are byte-identical across platforms and only the natives differ. The base
+  `void-client-<version>.jar` carries **no** natives at all (324 KB), which is what keeps
+  `./gradlew build` and the test loop fast; CI runs `platformJars` after fetching the
+  three natives trees. `void-core` selects one at prepare time (§12.3). A separate
+  hash-verified natives download was the alternative and was rejected: it adds a second
+  artifact, a second version to keep in step, and a second way for a half-installed
+  machine to fail, to save nothing the per-OS split does not already save.
+  Linux out of scope for shipping; `linux-x64` is built for the binding's own tests.
 - **macOS**: 1.8.9 runs on an x64 JVM under Rosetta on Apple Silicon (LWJGL 2 has no
   official arm64 natives), so mac-x64 Ultralight matches the JVM; arm64 is a bonus.
   macOS OpenGL is deprecated but present; MC uses GL 2.1 via LWJGL2, our GPUDriver must

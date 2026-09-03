@@ -312,6 +312,9 @@
 .v-group__sub {
   font-size: var(--text-base);
   color: var(--text-muted);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre-wrap;
 }
 
 /** The right-aligned 48px value column next to a wide slider. */

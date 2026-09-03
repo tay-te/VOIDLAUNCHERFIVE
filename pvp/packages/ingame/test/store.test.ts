@@ -46,6 +46,35 @@ describe('bridge ingestion', () => {
     expect(state.library.length).toBeGreaterThan(1);
   });
 
+  it('fills the library from the `loadouts` event, not from loadouts it happened to see', () => {
+    // The library arrives whole on the `loadouts` channel — Rust sends full loadouts in
+    // `init.loadouts` — so every card on the Loadouts frame has mod state to compare,
+    // including the ones never switched to.
+    const library = useVoidStore.getState().library;
+    expect(library.length).toBe(3);
+    for (const l of library) {
+      expect(l.mods).toBeTypeOf('object');
+      expect(Array.isArray(l.hud)).toBe(true);
+    }
+  });
+
+  it('a `setting` push applies one key without replacing the loadout', () => {
+    const before = useVoidStore.getState().loadout!;
+    useVoidStore.getState().applySetting({ id: 'keystrokes', key: 'opacity', value: 0.4 });
+    const after = useVoidStore.getState().loadout!;
+    expect(modSettings(after, 'keystrokes').opacity).toBe(0.4);
+    expect(after.id).toBe(before.id);
+    // Everything the push did not name is the same object it was.
+    expect(after.hud).toBe(before.hud);
+  });
+
+  it('keeps the library copy of the active loadout in step with a setting write', () => {
+    const id = useVoidStore.getState().loadout!.id;
+    useVoidStore.getState().setSetting('keystrokes', 'opacity', 0.25);
+    const inLibrary = useVoidStore.getState().library.find((l) => l.id === id)!;
+    expect(modSettings(inLibrary, 'keystrokes').opacity).toBe(0.25);
+  });
+
   it('replaces the loadout wholesale on a switch', () => {
     const other = useVoidStore.getState().library.find(
       (l) => l.id !== useVoidStore.getState().loadout?.id,

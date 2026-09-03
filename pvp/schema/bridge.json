@@ -13,9 +13,9 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The five channels Java pushes on. Closed set; `void.on` with any other name is a programming error.",
+      "description": "The seven channels Java pushes on. Closed set; `void.on` with any other name is a programming error.",
       "type": "string",
-      "enum": ["keys", "tick", "server", "loadout", "menu"]
+      "enum": ["keys", "tick", "server", "loadout", "loadouts", "setting", "menu"]
     },
     "call_name": {
       "title": "Call name",
@@ -32,6 +32,8 @@
         { "description": "Per-tick telemetry.", "$ref": "#/definitions/event_tick" },
         { "description": "Server connection changed.", "$ref": "#/definitions/event_server" },
         { "description": "Active loadout changed.", "$ref": "#/definitions/event_loadout" },
+        { "description": "The loadout library changed, or was delivered for the first time.", "$ref": "#/definitions/event_loadouts" },
+        { "description": "One mod setting changed outside the UI's own call.", "$ref": "#/definitions/event_setting" },
         { "description": "Menu opened or closed.", "$ref": "#/definitions/event_menu" }
       ]
     },
@@ -77,6 +79,28 @@
       "properties": {
         "e": { "description": "Event discriminator; always `loadout`.", "type": "string", "const": "loadout" },
         "payload": { "description": "The loadout now active.", "$ref": "#/definitions/loadout_payload" }
+      }
+    },
+    "event_loadouts": {
+      "title": "loadouts event",
+      "description": "Envelope for the `loadouts` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `loadouts`.", "type": "string", "const": "loadouts" },
+        "payload": { "description": "The whole library, in library order.", "$ref": "#/definitions/loadouts_payload" }
+      }
+    },
+    "event_setting": {
+      "title": "setting event",
+      "description": "Envelope for the `setting` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `setting`.", "type": "string", "const": "setting" },
+        "payload": { "description": "The mod, the key and the value Java stored.", "$ref": "#/definitions/setting_payload" }
       }
     },
     "event_menu": {
@@ -185,6 +209,25 @@
       "title": "loadout payload",
       "description": "The full active loadout. Pushed once on `hello` and again on every switch, whether the switch came from Rust, from the tray, from the L key or from `void.switchLoadout` (§6.5). The UI store treats this as a whole-state replacement.",
       "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+    },
+    "loadouts_payload": {
+      "title": "loadouts payload",
+      "description": "Every loadout in the library, in full and in library order, including the active one — exactly what Rust sent in `init.loadouts`. Pushed once on `init` and again whenever the library changes, so the in-game Loadouts frame (Figma 244:1130) can list and compare loadouts, and the quick palette can offer `Turn on in <other> loadout`, without a bridge accessor and without waiting to observe a `loadout` event per entry. Whole-state replacement, like `loadout`.",
+      "type": "array",
+      "maxItems": 128,
+      "items": { "description": "One complete loadout.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" }
+    },
+    "setting_payload": {
+      "title": "setting payload",
+      "description": "One mod setting Java changed on its own — an in-game hotkey toggling a mod (the `keystrokes.keybind` overlay key), or a launcher-side `state` echo. It is *not* pushed for a change the page itself made through `setModSetting`: that call already returned the stored value, and re-pushing it would fight the control the player is holding. The UI applies it exactly as it applies the return value of `setModSetting`, so a whole-loadout replacement is not needed for a one-key change.",
+      "type": "object",
+      "required": ["id", "key", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Which mod changed. Any of the 12.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id" },
+        "key": { "description": "Name of the setting, a property of that mod's settings sub-schema. `on` included.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "value": { "description": "The value Java stored, after clamping — the same value `setModSetting` would have returned.", "type": ["boolean", "number", "string", "null"] }
+      }
     },
     "menu_payload": {
       "title": "menu payload",
@@ -424,7 +467,7 @@
 
     "call_openKeybindCapture": {
       "title": "openKeybindCapture call",
-      "description": "`void.openKeybindCapture(modId)`. The one asynchronous call on the bridge: Java takes over key input until the next key press and the JS side receives a Promise. Escape cancels. The captured key is not stored by this call; the UI writes it with `setModSetting(modId, 'key', captured)`.",
+      "description": "`void.openKeybindCapture(modId)`. The one asynchronous call on the bridge. It is still one synchronous hop like every other call, but the hop only **arms** the capture: Java answers `{c: 'openKeybindCapture', returns: null}` immediately, meaning \"armed\", and keeps key input until the player presses something. The key itself arrives later on the push channel, as a *call-result* envelope delivered through `__emit`: `__emit({c: 'openKeybindCapture', returns: 'V'})`, or `returns: null` when the player cancelled with Escape. The shim turns the armed answer into a pending Promise and the later envelope into its resolution, in FIFO order; the Promise never rejects. Because a null arrives on both channels, a shim must never read the synchronous null as the resolution — that is the one way to get this wrong. The captured key is not stored by this call; the UI writes it with `setModSetting(modId, 'key', captured)`.",
       "type": "object",
       "required": ["c", "params"],
       "additionalProperties": false,
@@ -446,21 +489,21 @@
     },
     "openKeybindCapture_returns": {
       "title": "openKeybindCapture returns",
-      "description": "The captured key, or null when the player cancelled with Escape. The JS side sees this as the resolution value of a Promise; it never rejects.",
+      "description": "Two different things travel in this shape, which is why it admits null twice over. The **synchronous** answer of `__void_native` is always null and means \"capture armed\". The **deferred** envelope, delivered later through `__emit`, carries the captured key — or null again when the player cancelled with Escape. A shim distinguishes them by channel, never by value: the synchronous answer opens a Promise, the `__emit` envelope resolves it.",
       "oneOf": [
-        { "description": "The captured key.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keybind" },
-        { "description": "Capture cancelled.", "type": "null" }
+        { "description": "The captured key, delivered later through `__emit`.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keybind" },
+        { "description": "Capture armed (the synchronous answer), or cancelled with Escape (the deferred one).", "type": "null" }
       ]
     },
     "result_openKeybindCapture": {
       "title": "openKeybindCapture result",
-      "description": "Envelope for an openKeybindCapture resolution value.",
+      "description": "Envelope for an openKeybindCapture answer. Both the synchronous armed answer and the deferred resolution use it; only the channel tells them apart.",
       "type": "object",
       "required": ["c", "returns"],
       "additionalProperties": false,
       "properties": {
         "c": { "description": "Call discriminator; always `openKeybindCapture`.", "type": "string", "const": "openKeybindCapture" },
-        "returns": { "description": "The captured key or null.", "$ref": "#/definitions/openKeybindCapture_returns" }
+        "returns": { "description": "Null when armed or cancelled; the captured key otherwise.", "$ref": "#/definitions/openKeybindCapture_returns" }
       }
     }
   },
@@ -511,6 +554,31 @@
     { "c": "closeMenu", "params": [] },
     { "c": "closeMenu", "returns": null },
     { "c": "openKeybindCapture", "params": ["zoom"] },
-    { "c": "openKeybindCapture", "returns": "V" }
+    { "c": "openKeybindCapture", "returns": null },
+    { "c": "openKeybindCapture", "returns": "V" },
+    { "e": "setting", "payload": { "id": "keystrokes", "key": "on", "value": false } },
+    {
+      "e": "loadouts",
+      "payload": [
+        {
+          "id": "sword-pvp",
+          "name": "Sword PvP",
+          "icon": "sword",
+          "server": "hypixel",
+          "mc": "1.8.9",
+          "mods": { "keystrokes": { "on": true, "scale": 1, "opacity": 0.85 }, "cps": { "on": true }, "zoom": { "on": true, "key": "C" } },
+          "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1 }]
+        },
+        {
+          "id": "bedwars",
+          "name": "Bedwars",
+          "icon": "bed",
+          "server": null,
+          "mc": "1.8.9",
+          "mods": { "keystrokes": { "on": true }, "cps": { "on": true, "mode": "both" } },
+          "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 24, "dy": -24 }]
+        }
+      ]
+    }
   ]
 }

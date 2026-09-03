@@ -12,10 +12,15 @@
 //!    refuses to launch.
 
 use serde::{Deserialize, Serialize};
-use void_loadout::{GlobalSettings, HudItem, Loadout, LoadoutId, LoadoutSummary, StatePatch};
+use void_loadout::{GlobalSettings, HudItem, Loadout, LoadoutId, StatePatch};
 
 /// The protocol version carried on `hello` and `init`. Bumped on any breaking change.
-pub const PROTOCOL_VERSION: u32 = 1;
+///
+/// **2** since `init.loadouts` became whole loadouts rather than summaries: a v2 mod
+/// talking to a v1 launcher would receive summaries, materialise every mod at its factory
+/// default, and silently apply the wrong loadout on a switch. Refusing the pair is the
+/// whole job of this constant.
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// A message the mod sends to the launcher.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -75,11 +80,42 @@ pub enum JavaToRust {
         port: Option<u16>,
     },
 
+    /// A global hotkey the player pressed in game (§6.3).
+    ///
+    /// A notification, not a request: Java has already cycled the loadout or opened the
+    /// overlay by the time this arrives. The loadout the L key selected still travels in
+    /// its own `state` message.
+    Hotkey {
+        /// Which hotkey fired.
+        id: HotkeyId,
+    },
+
     /// A `t` this build does not know. Kept rather than rejected, per §7.
     ///
     /// Never construct this to *send*: it would serialize as `{"t":"unknown"}`.
     #[serde(other)]
     Unknown,
+}
+
+/// The global hotkeys the mod reports, `protocol.json#/definitions/hotkey_id`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HotkeyId {
+    /// The L-key cycle of §6.3, already applied when the message is sent.
+    #[serde(rename = "loadout.next")]
+    LoadoutNext,
+    /// The menu key opened or closed VoidMenuScreen.
+    #[serde(rename = "overlay")]
+    Overlay,
+}
+
+impl HotkeyId {
+    /// The wire id.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            HotkeyId::LoadoutNext => "loadout.next",
+            HotkeyId::Overlay => "overlay",
+        }
+    }
 }
 
 impl JavaToRust {
@@ -91,6 +127,7 @@ impl JavaToRust {
             JavaToRust::Hud { .. } => "hud",
             JavaToRust::Session { .. } => "session",
             JavaToRust::Server { .. } => "server",
+            JavaToRust::Hotkey { .. } => "hotkey",
             JavaToRust::Unknown => "unknown",
         }
     }
@@ -106,8 +143,13 @@ pub enum RustToJava {
         v: u32,
         /// The full active loadout to apply immediately.
         loadout: Box<Loadout>,
-        /// Summaries of every loadout in the library, in library order.
-        loadouts: Vec<LoadoutSummary>,
+        /// Every loadout in the library, in full and in library order.
+        ///
+        /// Whole loadouts rather than summaries: a library is capped at 128 entries of
+        /// roughly a kilobyte each and is sent once per launch, and in exchange the mod
+        /// can hot-swap to any of them in under a frame with no round trip (§8.2), and
+        /// the in-game Loadouts screen can list them without a bridge accessor.
+        loadouts: Vec<Loadout>,
         /// Global settings that affect the game session.
         settings: GlobalSettings,
     },
@@ -141,8 +183,8 @@ impl RustToJava {
 pub struct InitPayload {
     /// The active loadout.
     pub loadout: Loadout,
-    /// The library, in order.
-    pub loadouts: Vec<LoadoutSummary>,
+    /// The library, in full and in order.
+    pub loadouts: Vec<Loadout>,
     /// Global settings.
     pub settings: GlobalSettings,
 }

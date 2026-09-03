@@ -75,6 +75,37 @@ check("gameplay_mod_id == entries with kind gameplay", JSON.stringify(ids.filter
 check("every mod has a <id>_settings definition", ids.every((k) => docs.get("mods.json").definitions[`${k}_settings`]));
 check("loadout.mods keys == mod_id enum", JSON.stringify(Object.keys(docs.get("loadout.json").definitions.mod_states.properties)) === JSON.stringify(enumIds));
 
+// `category` is the Mods panel's filter taxonomy (frame 244:538). It is deliberately
+// independent of `kind`, so the only thing to assert is that every entry carries one,
+// that it is in the enum, and that each entry's narrowing agrees with the entry itself.
+const categoryEnum = docs.get("mods.json").definitions.category.enum;
+check(
+  "every entry carries a category from the enum",
+  ids.every((k) => categoryEnum.includes(registry[k].category)),
+  ids.filter((k) => !categoryEnum.includes(registry[k].category)).join(", "),
+);
+check(
+  "every <id>_entry narrows category to the registry's value",
+  ids.every((k) => {
+    const narrowed = docs.get("mods.json").definitions[`${k}_entry`].allOf?.[1]?.properties?.category?.const;
+    return narrowed === registry[k].category;
+  }),
+  ids.filter((k) => docs.get("mods.json").definitions[`${k}_entry`].allOf?.[1]?.properties?.category?.const !== registry[k].category).join(", "),
+);
+check("every category has at least one mod", categoryEnum.every((c) => ids.some((k) => registry[k].category === c)));
+check("labels are unique", new Set(ids.map((k) => registry[k].label)).size === ids.length);
+
+// The two bridge channels that carry a whole loadout and the protocol's `init.loadouts`
+// must agree, or the in-game library would be shaped differently depending on where it
+// came from.
+const initItems = docs.get("protocol.json").definitions.msg_init.properties.loadouts.items.$ref;
+const loadoutsPayload = docs.get("bridge.json").definitions.loadouts_payload.items.$ref;
+check(
+  "init.loadouts and the loadouts bridge event carry the same thing",
+  initItems === loadoutsPayload && initItems.endsWith("loadout.json#/definitions/loadout"),
+  `${initItems} vs ${loadoutsPayload}`,
+);
+
 // Every registry `defaults` must validate against that mod's own settings sub-schema.
 for (const k of ids) {
   const v = ajv.getSchema(`https://schema.void.dev/pvp/mods.json#/definitions/${k}_settings`);

@@ -8,8 +8,9 @@
 
 import { useEffect, useRef } from 'react';
 
-import { Button, IconButton } from '../components';
-import { TerminalIcon, XIcon } from '../components/icons';
+import { Button, IconButton } from '@void/ui';
+
+import { TerminalGlyph } from '../local/glyphs';
 import { invoke } from '../local/tauri';
 import { useLaunch } from '../stores/launch';
 import { useUi } from '../stores/ui';
@@ -47,7 +48,7 @@ export function LogDrawer() {
   return (
     <aside className="drawer" aria-label="Game log">
       <header className="drawer__head">
-        <TerminalIcon size={14} />
+        <TerminalGlyph size={14} />
         <span className="drawer__title">Game log</span>
         <span className="drawer__meta">
           {phase === 'running' ? 'running' : 'idle'}
@@ -57,7 +58,7 @@ export function LogDrawer() {
         <Button variant="text" onClick={clearLog}>
           Clear
         </Button>
-        <IconButton icon={XIcon} size={28} glyph={13} label="Close log" onClick={() => setOpen(false)} />
+        <IconButton icon="close" size="close" label="Close log" onClick={() => setOpen(false)} />
       </header>
       <div className="drawer__body" ref={bodyRef}>
         {log.length === 0 ? (
@@ -87,7 +88,7 @@ export function LaunchError() {
       <Button variant="ghost" onClick={() => setLogOpen(true)}>
         Open log
       </Button>
-      <IconButton icon={XIcon} size={28} glyph={12} label="Dismiss" onClick={dismiss} />
+      <IconButton icon="close" size="close" label="Dismiss" onClick={dismiss} />
     </div>
   );
 }
@@ -105,7 +106,7 @@ export function SessionSummary() {
         Session ended · {minutes} min played · {Math.round(session.fps_avg)} fps avg
         {session.server ? ` · ${session.server}` : ''}
       </span>
-      <IconButton icon={XIcon} size={28} glyph={12} label="Dismiss" onClick={dismiss} />
+      <IconButton icon="close" size="close" label="Dismiss" onClick={dismiss} />
     </div>
   );
 }

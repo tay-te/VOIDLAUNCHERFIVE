@@ -36,6 +36,10 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public void refreshDisplay() {
+    }
+
+    @Override
     public void render() {
     }
 

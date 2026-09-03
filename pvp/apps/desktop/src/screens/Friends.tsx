@@ -5,12 +5,25 @@
  * presence and invites — a whole backend. So this screen renders the frame with the
  * frame's own data and every action disabled, with the import-code field carrying an
  * explicit "coming soon". Nothing here fakes a network.
+ *
+ * `FriendRow`, `GroupCaption`, `PartyMemberRow`, `Pane` and `PositionChips` are all
+ * `@void/ui`'s — the party pane's row variant is the package's `compact` one, which is
+ * exactly the launcher treatment the design describes (r 12, `--party-row-bg`, 32px
+ * avatar) as opposed to the 64px overlay row.
  */
 
+import {
+  Button,
+  FilterTabs,
+  FriendRow,
+  GroupCaption,
+  Pane,
+  Panel,
+  PartyMemberRow,
+  PositionChips,
+  SearchBar,
+} from '@void/ui';
 import { useState } from 'react';
-
-import { Avatar, Button, Caption, FilterTabs, Panel, Pane, SearchField, StatusDot, Tag } from '../components';
-import { PlusIcon, UsersIcon } from '../components/icons';
 
 const TABS = ['Online', 'All', 'Requests'] as const;
 type Tab = (typeof TABS)[number];
@@ -30,10 +43,15 @@ const FRIENDS: Friend[] = [
   { name: 'kestrel', status: 'Last seen yesterday', action: 'Message', online: false },
 ];
 
+const QUEUES = [
+  { id: 'bedwars', label: 'Bedwars 4v4' },
+  { id: 'duels', label: 'Duels' },
+  { id: 'uhc', label: 'UHC' },
+];
+
 export function FriendsScreen() {
   const [tab, setTab] = useState<Tab>('Online');
   const [query, setQuery] = useState('');
-  const [code, setCode] = useState('');
 
   const q = query.trim().toLowerCase();
   const filtered = FRIENDS.filter((f) => {
@@ -47,16 +65,21 @@ export function FriendsScreen() {
   return (
     <Panel
       title="Friends"
-      controls={
+      headerRight={
         <>
-          <SearchField value={query} onChange={setQuery} placeholder="Find a friend" width={200} />
+          <SearchBar variant="panel" narrow placeholder="Find a friend" value={query} onChange={setQuery} />
           <FilterTabs
-            tabs={TABS}
+            label="Friends list"
+            tabs={[
+              { id: 'Online', label: 'Online', count: 3 },
+              { id: 'All', label: 'All', count: 8 },
+              { id: 'Requests', label: 'Requests', count: 2, countTone: 'ok' },
+            ]}
             value={tab}
-            onChange={setTab}
-            counts={{ Online: { value: 3 }, All: { value: 8 }, Requests: { value: 2, tone: 'ok' } }}
+            onChange={(id) => setTab(id as Tab)}
           />
-          <Button variant="accent" icon={PlusIcon} disabled title="Needs a friends backend (§16.2)">
+          <span className="v-spacer" />
+          <Button variant="accent" icon="plus" disabled title="Needs a friends backend (§16.2)">
             Add friend
           </Button>
         </>
@@ -69,94 +92,69 @@ export function FriendsScreen() {
             <p className="list__empty">Requests need a friends backend. Nothing to show.</p>
           ) : null}
 
-          {online.length > 0 ? <Caption count={online.length}>ONLINE</Caption> : null}
+          {online.length > 0 ? <GroupCaption label="Online" count={`· ${online.length}`} /> : null}
           {online.map((f) => (
-            <FriendRow key={f.name} friend={f} />
+            <FriendRow
+              key={f.name}
+              name={f.name}
+              status={f.status}
+              presence="online"
+              action={f.action}
+              actionVariant={f.action === 'Join' ? 'chip-accent' : 'chip'}
+            />
           ))}
 
-          {offline.length > 0 ? <Caption count={offline.length}>OFFLINE</Caption> : null}
+          {offline.length > 0 ? <GroupCaption label="Offline" count={`· ${offline.length}`} /> : null}
           {offline.map((f) => (
-            <FriendRow key={f.name} friend={f} />
+            <FriendRow
+              key={f.name}
+              name={f.name}
+              status={f.status}
+              presence="offline"
+              action={f.action}
+            />
           ))}
         </div>
 
-        <Pane>
-          <div className="pane__headline">
-            <span className="pane__title">Your party</span>
-            <span className="pane__count">2 / 4</span>
-          </div>
-
+        <Pane heading="Your party" headingAside={<span className="pane__count">2 / 4</span>}>
           <div className="party">
-            <div className="party__row">
-              <Avatar name="Searge" size={32} />
-              <span className="party__text">
-                <span className="party__name">Searge</span>
-                <span className="party__role party__role--leader">Leader</span>
-              </span>
-              <StatusDot tone="ok" size={8} />
-            </div>
-            <div className="party__row">
-              <Avatar name="marrow" size={32} />
-              <span className="party__text">
-                <span className="party__name">marrow</span>
-                <span className="party__role party__role--ready">Ready</span>
-              </span>
-              <StatusDot tone="ok" size={8} />
-            </div>
+            {/* The role is the row's meta line, tinted; `badge={null}` is what asks the
+                compact variant for its trailing status dot without a label beside it. */}
+            <PartyMemberRow
+              variant="compact"
+              className="party__row party__row--leader"
+              name="Searge"
+              meta="Leader"
+              badge={null}
+              badgeTone="accent"
+            />
+            <PartyMemberRow
+              variant="compact"
+              className="party__row party__row--ready"
+              name="marrow"
+              meta="Ready"
+              badge={null}
+              badgeTone="ok"
+            />
           </div>
 
-          <Button variant="ghost" icon={UsersIcon} full disabled>
+          <Button variant="ghost" icon="users" block disabled>
             Invite 2 more
           </Button>
 
-          <Caption>QUEUE</Caption>
-          <div className="chips">
-            <span className="chip chip--selected">Bedwars 4v4</span>
-            <span className="chip">Duels</span>
-            <span className="chip">UHC</span>
-          </div>
+          <span className="v-spacer" />
 
-          <div className="pane__spacer" />
+          <GroupCaption label="Queue" />
+          <PositionChips options={QUEUES} value="bedwars" aria-label="Queue" />
 
-          <Caption>IMPORT FRIENDS</Caption>
-          <div className="import-row">
-            <input
-              className="import-row__field"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Import code"
-              aria-label="Import code"
-              disabled
-            />
-            <Tag tone="muted">COMING SOON</Tag>
-          </div>
-
-          <Button variant="accent" full disabled>
+          <Button variant="accent" block disabled>
             Queue with party
           </Button>
-          <Button variant="text" full disabled>
+          <Button variant="text" block disabled>
             Leave party
           </Button>
         </Pane>
       </div>
     </Panel>
-  );
-}
-
-function FriendRow({ friend }: { friend: Friend }) {
-  return (
-    <div className={`row row--friend${friend.online ? '' : ' is-offline'}`}>
-      <span className="row__avatar">
-        <Avatar name={friend.name} size={36} />
-        <span className={`row__presence${friend.online ? ' is-online' : ''}`} />
-      </span>
-      <span className="row__text">
-        <span className="row__title">{friend.name}</span>
-        <span className="row__sub">{friend.status}</span>
-      </span>
-      <Button variant={friend.action === 'Join' ? 'chip-accent' : 'chip'} disabled>
-        {friend.action}
-      </Button>
-    </div>
   );
 }

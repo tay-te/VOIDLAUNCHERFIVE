@@ -12,6 +12,7 @@ import type {
   HUDModId,
   HypixelSafetyClass,
   Loadout,
+  ModCategory,
   ModId,
   ModKind,
   ModStates,
@@ -26,6 +27,8 @@ export interface ModEntry<I extends ModId = ModId> {
   readonly id: I;
   /** Whether this mod draws (`hud`) or mutates a client-side option (`gameplay`). */
   readonly kind: ModKind;
+  /** Which tab of the Mods panel this mod sits under (Figma 244:538). */
+  readonly category: ModCategory;
   /** Anti-cheat class of §11. */
   readonly hypixel_safe: HypixelSafetyClass;
   /** Human-readable name, as it appears in the Mods panel. */
@@ -117,9 +120,62 @@ export function getModDefaults<I extends ModId>(id: I): ModSettingsFor<I> {
   return MOD_REGISTRY[id].defaults;
 }
 
-/** Human-readable name for a mod, e.g. `Armor status`. */
+/** Human-readable name for a mod, e.g. `FPS display`. Panel copy; never overridden. */
 export function getModLabel(id: ModId): string {
   return MOD_REGISTRY[id].label;
+}
+
+/**
+ * The Mods panel's filter tabs, in the order frame 244:538 draws them.
+ *
+ * `all` is not a category — it is the "no filter" tab — so it is not in
+ * {@link MOD_CATEGORIES} and {@link modsInCategory} does not accept it.
+ */
+export const MOD_FILTER_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'hud', label: 'HUD' },
+  { id: 'pvp', label: 'PvP' },
+  { id: 'visual', label: 'Visual' },
+  { id: 'utility', label: 'Utility' },
+] as const satisfies readonly { id: 'all' | ModCategory; label: string }[];
+
+/** Every category, in tab order. */
+export const MOD_CATEGORIES = ['hud', 'pvp', 'visual', 'utility'] as const satisfies
+  readonly ModCategory[];
+
+/** Tab labels as the frame prints them: `HUD`, `PvP`, `Visual`, `Utility`. */
+const CATEGORY_LABELS: Record<ModCategory, string> = {
+  hud: 'HUD',
+  pvp: 'PvP',
+  visual: 'Visual',
+  utility: 'Utility',
+};
+
+/**
+ * Which filter tab a mod sits under.
+ *
+ * Deliberately not derivable from `kind`: `kind` is a data-direction split (draw, or
+ * mutate a client-side option) and `category` is the product one. Crosshair is
+ * `kind: gameplay` but `category: visual`; Zoom is `kind: gameplay` but
+ * `category: utility`. It comes from `mods.json`, so no surface hard-codes a mapping.
+ */
+export function getModCategory(id: ModId): ModCategory {
+  return MOD_REGISTRY[id].category;
+}
+
+/** The tab label for a category, e.g. `PvP`. */
+export function getCategoryLabel(category: ModCategory): string {
+  return CATEGORY_LABELS[category];
+}
+
+/** True when `value` is one of the four categories. */
+export function isModCategory(value: string): value is ModCategory {
+  return (MOD_CATEGORIES as readonly string[]).includes(value);
+}
+
+/** Every mod in a category, in registry order. */
+export function modsInCategory(category: ModCategory): ModId[] {
+  return MOD_IDS.filter((id) => getModCategory(id) === category);
 }
 
 /**

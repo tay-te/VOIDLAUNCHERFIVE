@@ -14,34 +14,29 @@ base {
 
 // ---------------------------------------------------------------------------
 // mod/native — the Ultralight JNI binding, owned by another agent
-// (CONTRACTS.md). Its Java-facing API compiles into this JAR from
-// native/java; we never build its C++ side.
+// (CONTRACTS.md). Its Java-facing API compiles into this JAR from native/java;
+// we never build its C++ side.
 //
-// The architecture names that package `dev.void.ultralight`, which cannot
-// exist: `void` is a Java keyword and is illegal as a package-name segment.
-// Both owners have to rename it (this one uses `dev.voidpvp.*`), so rather
-// than guess the other half's choice at compile time, dev.voidpvp.client.ui
-// binds to it reflectively and this block only records which package actually
-// turned up, as assets/void/native-package.txt.
+// PVP_ARCHITECTURE §4 names the binding's package `dev.void.ultralight`, which
+// cannot exist: `void` is a Java keyword and is illegal as a package-name
+// segment. Both owners renamed the one illegal segment — the binding is
+// `dev.voidclient.ultralight`, this mod is `dev.voidpvp.client` — and both
+// names are now settled, so `dev.voidpvp.client.ui.UltralightWebView` imports
+// the binding directly. A signature change there is a compile error here,
+// which is the point.
+//
+// The NullWebView fallback is unaffected: it triggers on LinkageError at
+// runtime (no natives for this platform, or no binding classes at all), not on
+// a missing source directory. Building without native/java is still possible
+// and still yields a JAR that runs with the in-game UI disabled — it just also
+// warns, because that JAR is not shippable.
 // ---------------------------------------------------------------------------
-// mod/native/ is a sibling of src/, inside this Gradle project.
 def nativeJavaDir = file('native/java')
-def nativeUltralightSource = nativeJavaDir.exists()
-        ? fileTree(nativeJavaDir) { include '**/Ultralight.java' }.files.sort { it.path }.find { true }
-        : null
-def nativePackage = null
-if (nativeUltralightSource != null) {
-    def matcher = nativeUltralightSource.text =~ /(?m)^\s*package\s+([A-Za-z0-9_.]+)\s*;/
-    if (matcher.find()) {
-        nativePackage = matcher.group(1)
-    }
-}
-def nativeUsable = nativePackage != null && !(nativePackage =~ /(^|\.)void(\.|$)/)
 
 sourceSets {
     main {
         java {
-            if (nativeJavaDir.exists() && (nativeUltralightSource == null || nativeUsable)) {
+            if (nativeJavaDir.exists()) {
                 srcDir nativeJavaDir
             }
         }
@@ -49,17 +44,66 @@ sourceSets {
 }
 
 gradle.projectsEvaluated {
-    if (nativeUltralightSource == null) {
-        logger.lifecycle('void-client: native/java has no Ultralight.java yet. Building '
-                + 'without the binding — the JAR runs, with the in-game UI disabled '
-                + '(NullWebView). Rebuild once mod/native/ lands.')
-    } else if (!nativeUsable) {
-        logger.warn('void-client: native/java declares package "' + nativePackage
-                + '", which javac rejects — "void" is a Java keyword and cannot be a '
-                + 'package segment. Skipping those sources; the binding will not be in '
-                + 'this JAR. See README.md, "The one contract we could not honour".')
-    } else {
-        logger.lifecycle('void-client: Ultralight binding found in ' + nativePackage)
+    if (!nativeJavaDir.exists()) {
+        logger.warn('void-client: native/java is missing, so the Ultralight binding is not '
+                + 'in this JAR. It builds and runs, with the in-game UI disabled '
+                + '(NullWebView). Not a shippable artifact.')
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Per-OS JARs (PVP_ARCHITECTURE §13)
+//
+// The Ultralight natives are ~21 MB per platform and 77 MB for all three,
+// measured in mod/native/README.md, against the ~25 MB §13 budgeted. So the
+// natives never go in the base JAR: each staged `natives/<os>-<arch>/` tree
+// produces its own `void-client-<version>-<os>-<arch>.jar`, and `void-core`
+// picks one at prepare time (install::ModPlatform).
+//
+// This repackages the already-remapped JAR rather than running the Loom remap
+// per platform: the classes are identical across platforms, only the natives
+// differ, so a second remap would cost minutes to produce the same bytes.
+// ---------------------------------------------------------------------------
+def nativeStages = [
+    'windows-x64': file("$projectDir/native/build-win/natives/windows-x64"),
+    'macos-x64'  : file("$projectDir/native/build-macx64/natives/macos-x64"),
+    'macos-arm64': file("$projectDir/native/build-macarm64/natives/macos-arm64"),
+]
+
+// A local host build lands in native/build/natives/<key>/ instead.
+file("$projectDir/native/build/natives").listFiles()?.each { d ->
+    if (d.directory) nativeStages.putIfAbsent(d.name, d)
+}
+
+def platformJars = nativeStages.findAll { it.value.directory }.collect { key, dir ->
+    tasks.register("platformJar${key.split('-').collect { it.capitalize() }.join()}", Jar) {
+        group = 'build'
+        description = "Repackages the remapped JAR with the $key Ultralight natives"
+        dependsOn tasks.named('remapJar')
+        archiveBaseName = project.archives_base_name
+        archiveVersion = project.version
+        archiveClassifier = key
+        // The remapped classes, verbatim, plus this platform's natives tree.
+        from { zipTree(tasks.named('remapJar').get().archiveFile) }
+        from(dir) { into "natives/$key" }
+        // Both trees can carry a natives manifest; the platform one wins.
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}
+
+tasks.register('platformJars') {
+    group = 'build'
+    description = 'Every per-OS void-client JAR that has staged natives'
+    dependsOn platformJars
+    doLast {
+        if (platformJars.isEmpty()) {
+            logger.lifecycle('void-client: no Ultralight natives staged, so no per-OS JARs. '
+                    + 'Run mod/native/scripts/build.sh (or build.ps1), or fetch the CI '
+                    + 'artifacts into mod/native/build-*/natives/.')
+        } else {
+            logger.lifecycle('void-client: per-OS JARs for '
+                    + nativeStages.findAll { it.value.directory }.keySet().join(', '))
+        }
     }
 }
 
@@ -103,7 +147,6 @@ java {
 
 processResources {
     inputs.property 'version', project.version
-    inputs.property 'nativePackage', String.valueOf(nativePackage)
 
     filesMatching('fabric.mod.json') {
         expand 'version': project.version
@@ -117,15 +160,6 @@ processResources {
         into 'assets/void/ui'
     }
 
-    doLast {
-        def marker = new File(destinationDir, 'assets/void/native-package.txt')
-        if (nativeUsable) {
-            marker.parentFile.mkdirs()
-            marker.text = nativePackage + '\n'
-        } else if (marker.exists()) {
-            marker.delete()
-        }
-    }
 }
 
 test {

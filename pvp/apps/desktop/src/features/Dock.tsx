@@ -2,38 +2,42 @@
  * The dock of `244:66`: PlayerChip · LoadoutPicker · VersionPicker · LaunchButton ·
  * FriendsOnline · settings gear.
  *
- * It sits on every screen, not just Play — the Figma shows it under the panel on Mods,
- * Cosmetics, Servers and Friends too.
+ * Every part is `@void/ui`'s. The two launcher-only additions are the dropdown the
+ * pills open (`./Menu`) and the download progress the CTA shows while `prepare` runs —
+ * a `--v-progress` width on the button's own `::before`, because the frames have no
+ * "downloading 3,000 assets" state and this one is real.
  */
 
+import {
+  Divider,
+  Dock as DockBar,
+  FriendsOnline,
+  IconButton,
+  LaunchButton,
+  LoadoutPicker,
+  PlayerChip,
+  resolveLoadoutIcon,
+  VersionPicker,
+} from '@void/ui';
 import { useEffect } from 'react';
 
-import { Avatar, Divider, IconButton, Kbd, Menu } from '../components';
-import { GearIcon, PlayIcon } from '../components/icons';
-import { LOADOUT_ICONS, SwordIcon } from '../components/icons';
+import { Menu } from './Menu';
 import { formatBytes, stepLabel, useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
 import { useSession } from '../stores/session';
 import { useUi } from '../stores/ui';
 
-/** The three overlapped heads + "3 online". Static until Friends has a backend. */
-function FriendsOnline({ count = 3 }: { count?: number }) {
-  const names = ['marrow', 'pilot_ash', 'nine'];
-  return (
-    <div className="friends-online">
-      <div className="friends-online__heads">
-        {names.slice(0, 3).map((n, i) => (
-          <span key={n} className="friends-online__head" style={{ left: i * 24 }}>
-            <Avatar name={n} size={32} />
-          </span>
-        ))}
-      </div>
-      <span className="friends-online__label">{count} online</span>
-    </div>
-  );
-}
+/** The three heads the frame draws. Static until Friends has a backend (§16.2). */
+const FRIEND_HEADS = [{ name: 'marrow' }, { name: 'pilot_ash' }, { name: 'nine' }];
 
-function LaunchButton() {
+/** 1.8.9 is the only version this client targets (§15); the rest are shown as coming. */
+const VERSIONS = [
+  { id: '1.8.9', label: '1.8.9' },
+  { id: '1.12.2', label: '1.12.2', disabled: true, hint: 'not yet' },
+  { id: '1.21.4', label: '1.21.4', disabled: true, hint: 'not yet' },
+];
+
+function DockLaunchButton() {
   const phase = useLaunch((s) => s.phase);
   const progress = useLaunch((s) => s.progress);
   const start = useLaunch((s) => s.start);
@@ -46,9 +50,9 @@ function LaunchButton() {
 
   // ⌘↵ / Ctrl+↵ launches — the kbd chip inside the button is a promise, so honour it.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
         if (canLaunch && active) void start(active.id);
       }
     };
@@ -58,50 +62,47 @@ function LaunchButton() {
 
   if (phase === 'running') {
     return (
-      <button type="button" className="cta cta--running" onClick={() => void kill()}>
-        <span className="cta__pulse" />
-        Running · Force quit
-      </button>
+      <LaunchButton
+        state="running"
+        label="Playing"
+        title="Stop the game"
+        onClick={() => void kill()}
+      />
     );
   }
 
   if (phase === 'preparing' || phase === 'launching') {
     const pct = progress && progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
     return (
-      <button type="button" className="cta cta--busy" disabled>
-        <span className="cta__progress" style={{ width: `${pct}%` }} />
-        <span className="cta__busy-text">
-          {phase === 'launching' ? 'Launching…' : stepLabel(progress?.step ?? 'manifest')}
-          {phase === 'preparing' && progress ? (
-            <span className="cta__rate">
-              {Math.round(pct)}% · {formatBytes(progress.bytes_per_sec)}/s
+      <LaunchButton
+        state="launching"
+        className="dock__launch"
+        style={{ '--v-progress': `${pct}%` } as React.CSSProperties}
+        disabled
+        label={
+          phase === 'launching' ? (
+            'Launching…'
+          ) : (
+            <span className="dock__launch-text">
+              {stepLabel(progress?.step ?? 'manifest')}
+              {progress ? (
+                <span className="dock__launch-rate">
+                  {Math.round(pct)}% · {formatBytes(progress.bytes_per_sec)}/s
+                </span>
+              ) : null}
             </span>
-          ) : null}
-        </span>
-      </button>
+          )
+        }
+      />
     );
   }
 
   if (!account) {
-    return (
-      <button type="button" className="cta cta--signin" onClick={openSettings}>
-        <PlayIcon size={16} />
-        Sign in to launch
-      </button>
-    );
+    return <LaunchButton label="Sign in to launch" kbd={null} onClick={openSettings} />;
   }
 
   return (
-    <button
-      type="button"
-      className="cta"
-      disabled={!canLaunch}
-      onClick={() => active && void start(active.id)}
-    >
-      <PlayIcon size={16} />
-      <span className="cta__label">Launch</span>
-      <Kbd tone="accent">⌘↵</Kbd>
-    </button>
+    <LaunchButton disabled={!canLaunch} onClick={() => active && void start(active.id)} />
   );
 }
 
@@ -110,56 +111,56 @@ export function Dock() {
   const { active, library, switchTo } = useLoadouts();
   const openSettings = useUi((s) => s.openSettings);
 
-  const LoadoutIcon = LOADOUT_ICONS[active?.icon ?? 'sword'] ?? SwordIcon;
-
   return (
-    <div className="dock">
-      <div className="dock__identity">
-        <Avatar name={account?.name ?? 'Guest'} src={account?.skin_url} size={44} />
-        <span className="dock__identity-text">
-          <span className="dock__name">{account?.name ?? 'Not signed in'}</span>
-          <span className="dock__level">
-            {account
-              ? account.kind === 'offline'
-                ? 'Offline account'
-                : 'Microsoft account'
-              : 'Sign in to launch'}
-          </span>
-        </span>
-      </div>
+    <DockBar>
+      <PlayerChip
+        name={account?.name ?? 'Not signed in'}
+        avatarSrc={account?.skin_url ?? undefined}
+        // The frame prints `Lvl 42`; there is no level, so the second line says which
+        // kind of account this is. Kept to one word so the chip keeps the frame's width.
+        level={account ? (account.kind === 'offline' ? 'Offline' : 'Microsoft') : 'Signed out'}
+      />
 
       <Divider />
 
       <Menu
-        label="Loadout"
-        eyebrow="LOADOUT"
-        value={active?.name ?? '—'}
-        icon={LoadoutIcon}
         items={library.map((l) => ({ id: l.id, label: l.name }))}
+        current={active?.name}
         onSelect={(id) => void switchTo(id)}
+        trigger={(open, toggle) => (
+          <LoadoutPicker
+            value={active?.name ?? '—'}
+            icon={resolveLoadoutIcon(active?.icon ?? 'sword')}
+            open={open}
+            onClick={toggle}
+            aria-label="Loadout"
+          />
+        )}
       />
 
       <Menu
-        label="Minecraft version"
-        eyebrow="VERSION"
-        value="1.8.9"
-        items={[
-          { id: '1.8.9', label: '1.8.9' },
-          { id: '1.12.2', label: '1.12.2', disabled: true, hint: 'not yet' },
-          { id: '1.21.4', label: '1.21.4', disabled: true, hint: 'not yet' },
-        ]}
+        items={VERSIONS}
+        current="1.8.9"
         onSelect={() => {
           /* 1.8.9 is the only version this client targets (§15). */
         }}
+        trigger={(open, toggle) => (
+          <VersionPicker
+            value="1.8.9"
+            open={open}
+            onClick={toggle}
+            aria-label="Minecraft version"
+          />
+        )}
       />
 
-      <LaunchButton />
+      <DockLaunchButton />
 
       <Divider />
 
-      <FriendsOnline />
+      <FriendsOnline friends={FRIEND_HEADS} total={3} />
 
-      <IconButton icon={GearIcon} size={44} glyph={16} label="Settings" onClick={openSettings} />
-    </div>
+      <IconButton icon="settings" size="dock" label="Settings" onClick={openSettings} />
+    </DockBar>
   );
 }

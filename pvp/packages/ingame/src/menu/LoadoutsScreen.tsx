@@ -46,6 +46,7 @@ export function LoadoutsScreen() {
         surface="overlay"
         animate
         title="Loadouts"
+        className="loadouts-panel"
         subtitle="A loadout is which mods are on, their settings and HUD layout."
         onClose={closeMenu}
         footer={LOADOUTS_FOOTER}

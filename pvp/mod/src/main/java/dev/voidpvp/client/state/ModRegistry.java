@@ -31,6 +31,18 @@ public final class ModRegistry {
     /** Data direction of a mod, {@code mods.json#/definitions/kind}. */
     public enum Kind { HUD, GAMEPLAY }
 
+    /**
+     * Mods-panel filter taxonomy, {@code mods.json#/definitions/category}.
+     *
+     * <p>Deliberately not derivable from {@link Kind}: kind is a data-direction
+     * split, category is the product one the panel tabs across. Crosshair is
+     * {@code GAMEPLAY} but {@code VISUAL}; Zoom is {@code GAMEPLAY} but
+     * {@code UTILITY}. The mod itself never filters anything — it carries the
+     * value so {@code ModRegistryTest} can prove the transcription matches the
+     * schema the UI reads.</p>
+     */
+    public enum Category { HUD, PVP, VISUAL, UTILITY }
+
     private ModRegistry() {
     }
 
@@ -57,6 +69,8 @@ public final class ModRegistry {
     }
 
     private static final Map<String, Kind> KINDS = new LinkedHashMap<String, Kind>();
+    private static final Map<String, Category> CATEGORIES = new LinkedHashMap<String, Category>();
+    private static final Map<String, String> LABELS = new LinkedHashMap<String, String>();
     private static final Map<String, Map<String, Setting>> SETTINGS =
             new LinkedHashMap<String, Map<String, Setting>>();
 
@@ -87,42 +101,48 @@ public final class ModRegistry {
         return new Setting(Type.KEYBIND, 0, 0, null, new JsonPrimitive(def));
     }
 
-    private static Map<String, Setting> mod(String id, Kind kind, Object... pairs) {
+    private static Map<String, Setting> mod(String id, Kind kind, Category category,
+                                            String label, Object... pairs) {
         Map<String, Setting> map = new LinkedHashMap<String, Setting>();
         for (int i = 0; i < pairs.length; i += 2) {
             map.put((String) pairs[i], (Setting) pairs[i + 1]);
         }
         KINDS.put(id, kind);
+        CATEGORIES.put(id, category);
+        LABELS.put(id, label);
         SETTINGS.put(id, Collections.unmodifiableMap(map));
         return map;
     }
 
     static {
         // --- HUD mods -------------------------------------------------
-        mod("fps", Kind.HUD,
+        mod("fps", Kind.HUD, Category.HUD, "FPS display",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
                 "color", color("#FFFFFF"),
                 "show_label", bool(true));
 
-        mod("keystrokes", Kind.HUD,
+        mod("keystrokes", Kind.HUD, Category.HUD, "Keystrokes",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 0.85),
                 "keybind", keybind("NONE"),
                 "show_mouse", bool(true),
                 "show_spacebar", bool(true),
-                "show_cps", bool(false));
+                "show_cps", bool(false),
+                "corner_radius", integer(0, 20, 8),
+                "key_color", enumOf("shell", "shell", "raised", "pill", "sky", "teal"),
+                "pressed_color", enumOf("accent", "accent", "sky", "warn", "fear", "teal"));
 
-        mod("cps", Kind.HUD,
+        mod("cps", Kind.HUD, Category.HUD, "CPS counter",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
                 "mode", enumOf("left", "left", "right", "both"),
                 "window_ms", integer(200, 5000, 1000));
 
-        mod("ping", Kind.HUD,
+        mod("ping", Kind.HUD, Category.HUD, "Ping display",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
@@ -130,7 +150,7 @@ public final class ModRegistry {
                 "good_ms", integer(0, 1000, 60),
                 "bad_ms", integer(0, 2000, 150));
 
-        mod("coordinates", Kind.HUD,
+        mod("coordinates", Kind.HUD, Category.HUD, "Coordinates",
                 "on", bool(false),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
@@ -138,7 +158,7 @@ public final class ModRegistry {
                 "show_direction", bool(true),
                 "layout", enumOf("stacked", "stacked", "inline"));
 
-        mod("armor_status", Kind.HUD,
+        mod("armor_status", Kind.HUD, Category.HUD, "Armor status",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
@@ -146,7 +166,7 @@ public final class ModRegistry {
                 "show_durability", bool(true),
                 "show_held_item", bool(true));
 
-        mod("potion_effects", Kind.HUD,
+        mod("potion_effects", Kind.HUD, Category.HUD, "Potion effects",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
@@ -155,30 +175,30 @@ public final class ModRegistry {
                 "hide_ambient", bool(false));
 
         // --- Gameplay mods --------------------------------------------
-        mod("toggle_sprint", Kind.GAMEPLAY,
+        mod("toggle_sprint", Kind.GAMEPLAY, Category.PVP, "Toggle sprint",
                 "on", bool(true),
                 "mode", enumOf("toggle", "toggle", "hold"),
                 "sneak_too", bool(false),
                 "show_status", bool(true));
 
-        mod("fullbright", Kind.GAMEPLAY,
+        mod("fullbright", Kind.GAMEPLAY, Category.VISUAL, "Fullbright",
                 "on", bool(false),
                 "gamma", number(1, 15, 10));
 
-        mod("hitboxes", Kind.GAMEPLAY,
+        mod("hitboxes", Kind.GAMEPLAY, Category.PVP, "Hitboxes",
                 "on", bool(false),
                 "line_width", number(0.5, 5, 2),
                 "color", color("#FFFFFFFF"),
                 "show_eye_line", bool(false));
 
-        mod("zoom", Kind.GAMEPLAY,
+        mod("zoom", Kind.GAMEPLAY, Category.UTILITY, "Zoom",
                 "on", bool(true),
                 "key", keybind("C"),
                 "fov_divisor", number(1.1, 10, 4),
                 "smooth", bool(true),
                 "cinematic", bool(false));
 
-        mod("crosshair", Kind.GAMEPLAY,
+        mod("crosshair", Kind.GAMEPLAY, Category.VISUAL, "Crosshair",
                 "on", bool(false),
                 "style", enumOf("cross", "default", "cross", "dot", "circle", "t_shape", "none"),
                 "size", integer(1, 20, 5),
@@ -208,6 +228,16 @@ public final class ModRegistry {
 
     public static boolean isHud(String id) {
         return KINDS.get(id) == Kind.HUD;
+    }
+
+    /** Mods-panel filter category of a mod, or {@code null} for an unknown id. */
+    public static Category category(String id) {
+        return CATEGORIES.get(id);
+    }
+
+    /** Panel copy for a mod, e.g. {@code FPS display}; {@code null} for an unknown id. */
+    public static String label(String id) {
+        return LABELS.get(id);
     }
 
     /** Setting keys of a mod, in schema order. */

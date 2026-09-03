@@ -8,7 +8,7 @@
 //! - [`BridgeServer`] binds `ws://127.0.0.1:<port>` on an OS-assigned port and mints a
 //!   session token; `void-core` passes both to the JVM as `-Dvoid.port` and
 //!   `-Dvoid.token`.
-//! - The first frame must be `hello` with a matching token and `v == 1`; anything else
+//! - The first frame must be `hello` with a matching token and a matching `v`; anything else
 //!   is closed with a policy close frame ([`Rejection`]).
 //! - Inbound messages fan out on a [`tokio::sync::broadcast`] bus
 //!   ([`BridgeServer::subscribe`]); outbound go through [`BridgeServer::send`].
@@ -22,7 +22,7 @@
 //! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 //! let loadout = defaults::sword_pvp();
 //! let server = BridgeServer::bind(StaticInit(InitPayload {
-//!     loadouts: vec![loadout.summary()],
+//!     loadouts: vec![loadout.clone()],
 //!     loadout,
 //!     settings: GlobalSettings::factory(),
 //! }))
@@ -43,7 +43,7 @@ mod protocol;
 mod server;
 
 pub use protocol::{
-    InitPayload, InitSource, JavaToRust, RustToJava, StaticInit, PROTOCOL_VERSION,
+    HotkeyId, InitPayload, InitSource, JavaToRust, RustToJava, StaticInit, PROTOCOL_VERSION,
 };
 pub use server::{BridgeServer, Rejection};
 

@@ -24,8 +24,14 @@
      — every readout over live game sits on its own chip. */
 }
 
-.v-app button,
-.v-app input {
+/* The form reset is written through `:where()` so it contributes **no**
+   specificity. `.v-app button` (0,1,1) out-ranks every component class
+   (`.v-btn`, `.v-toggle--on`, `.v-tab--selected` … all 0,1,0), so a plain
+   reset here silently wins the cascade: `background: none` erased every accent
+   fill, `border: 0` erased every rim, and the `font` shorthand reset
+   `font-weight` to 400 under the bold CTA and keycap labels. Zero-specificity
+   is what a reset wants — the components below win by simply existing. */
+:where(.v-app) :where(button, input) {
   font: inherit;
   color: inherit;
   margin: 0;
@@ -33,13 +39,13 @@
   background: none;
 }
 
-.v-app button {
+:where(.v-app) :where(button) {
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
 }
 
-.v-app button:disabled {
+:where(.v-app) :where(button:disabled) {
   cursor: default;
 }
 
@@ -128,7 +134,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: pre;
 }
 
 /* ------------------------------------------------------------------ atoms */

@@ -30,11 +30,15 @@ import java.util.List;
  */
 public final class VoidBridge {
 
-    /** The five channels of {@code bridge.json#/definitions/event_name}. */
+    /** The seven channels of {@code bridge.json#/definitions/event_name}. */
     public static final String EVENT_KEYS = "keys";
     public static final String EVENT_TICK = "tick";
     public static final String EVENT_SERVER = "server";
     public static final String EVENT_LOADOUT = "loadout";
+    /** The whole loadout library, from {@code init.loadouts}. */
+    public static final String EVENT_LOADOUTS = "loadouts";
+    /** One mod setting changed outside a UI call — an in-game hotkey. */
+    public static final String EVENT_SETTING = "setting";
     public static final String EVENT_MENU = "menu";
 
     private final LiveState state;
@@ -123,8 +127,9 @@ public final class VoidBridge {
             if (host != null) {
                 host.beginKeybindCapture(p.size() > 0 ? p.get(0).getAsString() : null);
             }
-            // The captured key arrives later through __emitKeybind; the
-            // synchronous answer only says the capture is armed.
+            // The synchronous answer only says the capture is armed. The key
+            // itself arrives later as a call-result envelope on the push
+            // channel — see keybindScript.
             return JsonNull.INSTANCE;
         }
         return JsonNull.INSTANCE;
@@ -155,7 +160,8 @@ public final class VoidBridge {
             // `tick`, `keys`, `menu` and `server` carry whole state, so an
             // older envelope on the same channel is dead weight. `loadout` is
             // whole-state too but a switch is rare enough to keep in order.
-            if (EVENT_TICK.equals(event) || EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)) {
+            if (EVENT_TICK.equals(event) || EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
+                    || EVENT_LOADOUTS.equals(event)) {
                 dropChannel(event);
             }
             pending.addLast(env);
@@ -195,9 +201,29 @@ public final class VoidBridge {
         return "window.void.__emit(" + batch.toString() + ")";
     }
 
-    /** The script that resolves an {@code openKeybindCapture} promise. */
+    /**
+     * The script that resolves an {@code openKeybindCapture} promise.
+     *
+     * <p>A <em>call-result</em> envelope on the same {@code __emit} channel the
+     * events use, which is what {@code bridge.json} specifies and what
+     * {@code @void/protocol}'s reference shim listens for. The synchronous
+     * answer to the call was {@code returns: null} and only meant "armed"; this
+     * is the value the Promise actually settles with — the key, or null when
+     * the player pressed Escape.</p>
+     */
     public static String keybindScript(String keyName) {
-        JsonElement value = keyName == null ? JsonNull.INSTANCE : new JsonPrimitive(keyName);
-        return "window.void.__emitKeybind(" + value.toString() + ")";
+        JsonObject envelope = new JsonObject();
+        envelope.addProperty("c", "openKeybindCapture");
+        envelope.add("returns", keyName == null ? JsonNull.INSTANCE : new JsonPrimitive(keyName));
+        return "window.void.__emit(" + envelope.toString() + ")";
+    }
+
+    /** Queues the {@code setting} event for one mod setting Java changed itself. */
+    public void emitSetting(String modId, String key, JsonElement value) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("id", modId);
+        payload.addProperty("key", key);
+        payload.add("value", value == null ? JsonNull.INSTANCE : value);
+        emit(EVENT_SETTING, payload);
     }
 }

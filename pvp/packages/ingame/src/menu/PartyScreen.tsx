@@ -58,6 +58,7 @@ export function PartyScreen() {
       <Panel
         surface="overlay"
         animate
+        className="party-panel"
         title="Party"
         onClose={closeMenu}
         footer={PARTY_FOOTER}
@@ -81,8 +82,11 @@ export function PartyScreen() {
               />
             ))}
 
-            <div className="party__gap" />
-            <GroupCaption label="Invite" count="·  3 online" />
+            <GroupCaption
+              className="party__invite-cap"
+              label="Invite"
+              count="·  3 online"
+            />
             {INVITES.map((invite) => (
               <InviteRow key={invite.name} name={invite.name} meta={invite.meta} />
             ))}
@@ -90,6 +94,9 @@ export function PartyScreen() {
 
           <Pane heading="Queue" className="party__pane">
             <span className="v-caption v-caption--sm">Game</span>
+            {/* The three game rows are a 6px-gap group inside the pane's own 12px
+                rhythm, as the frame stacks them. */}
+            <div className="queue-rows">
             {GAMES.map((entry) => (
               <button
                 type="button"
@@ -104,10 +111,11 @@ export function PartyScreen() {
                 </span>
               </button>
             ))}
+            </div>
 
             <span className="v-caption v-caption--sm">Loadout</span>
             <div className="queue-picker">
-              <IconWell icon="sword" size={24} on />
+              <IconWell icon="sword" size={24} solid />
               <span>{loadout?.name ?? '—'}</span>
               <span className="queue-picker__chevron">
                 <Icon name="chevron-down" size={14} />

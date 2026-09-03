@@ -89,6 +89,43 @@ class ModRegistryTest {
     }
 
     @Test
+    @DisplayName("every mod's category matches mods.json")
+    void categoriesMatch() {
+        for (Map.Entry<String, JsonElement> e : registry().entrySet()) {
+            String id = e.getKey();
+            String category = e.getValue().getAsJsonObject().get("category").getAsString();
+            ModRegistry.Category ours = ModRegistry.category(id);
+            assertNotNull(ours, id + " has no category");
+            assertEquals(category, ours.name().toLowerCase(java.util.Locale.ROOT),
+                    id + " category");
+        }
+    }
+
+    @Test
+    @DisplayName("every mod's label matches mods.json")
+    void labelsMatch() {
+        // The frames read "FPS display", "CPS counter", "Ping display"; the registry is
+        // the one place that copy lives, so the mod transcribes it rather than the UI
+        // overriding it.
+        for (Map.Entry<String, JsonElement> e : registry().entrySet()) {
+            String id = e.getKey();
+            String label = e.getValue().getAsJsonObject().get("label").getAsString();
+            assertEquals(label, ModRegistry.label(id), id + " label");
+        }
+    }
+
+    @Test
+    @DisplayName("category is not a restatement of kind")
+    void categoryIsNotKind() {
+        // If these ever agreed for all 12, `category` would be dead weight and the panel
+        // could filter on `kind`. Crosshair and Zoom are the two that prove they differ.
+        assertEquals(ModRegistry.Kind.GAMEPLAY, ModRegistry.kind("crosshair"));
+        assertEquals(ModRegistry.Category.VISUAL, ModRegistry.category("crosshair"));
+        assertEquals(ModRegistry.Kind.GAMEPLAY, ModRegistry.kind("zoom"));
+        assertEquals(ModRegistry.Category.UTILITY, ModRegistry.category("zoom"));
+    }
+
+    @Test
     @DisplayName("the hud and gameplay splits match mods.json")
     void splitsMatch() {
         JsonObject mods = Schemas.load("mods.json").getAsJsonObject("definitions")

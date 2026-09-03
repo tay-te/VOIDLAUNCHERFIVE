@@ -246,6 +246,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             } else {
                 mc.setScreen(new VoidMenuScreen(this));
             }
+            reportHotkey(dev.voidpvp.client.net.Protocol.HOTKEY_OVERLAY);
         }
 
         boolean cycleDown = !otherScreenOpen && !menuScreenOpen
@@ -255,16 +256,20 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
 
         // keystrokes.keybind: the one per-mod hotkey in the registry. It hides
-        // and shows the overlay without opening the menu, so it writes the
-        // mod's own `on` and re-pushes the loadout for the UI to re-render.
+        // and shows the overlay without opening the menu. One setting changed,
+        // so it pushes the `setting` event rather than a whole loadout — the UI
+        // applies it exactly as it applies the return value of setModSetting
+        // (bridge.json, `setting_payload`).
         int keystrokesCode = state.keystrokesToggleCode;
         boolean keystrokesDown = keystrokesCode != KeyNames.KEY_NONE && !otherScreenOpen
                 && !menuScreenOpen && isKeyDown(keystrokesCode);
         if (keystrokesKey.pressed(keystrokesDown) && canOpen) {
             boolean on = state.loadout().isOn("keystrokes");
-            state.setModSetting("keystrokes", "on",
+            com.google.gson.JsonElement stored = state.setModSetting("keystrokes", "on",
                     new JsonPrimitive(Boolean.valueOf(!on)));
-            emitLoadout();
+            if (stored != null) {
+                bridge.emitSetting("keystrokes", "on", stored);
+            }
         }
     }
 
@@ -274,7 +279,17 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (next != null && !next.equals(state.loadout().id())) {
             if (state.switchLoadout(next)) {
                 emitLoadout();
+                // The launcher's own pointer has to follow, or the tray and the next
+                // launch disagree with the running game (protocol.json, `msg_hotkey`).
+                reportHotkey(dev.voidpvp.client.net.Protocol.HOTKEY_LOADOUT_NEXT);
             }
+        }
+    }
+
+    /** Tells the launcher a global hotkey fired. Best-effort: never queued (§6.9). */
+    private void reportHotkey(String id) {
+        if (socket != null) {
+            socket.sendHotkey(id);
         }
     }
 
@@ -493,15 +508,24 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         bridge.emit(VoidBridge.EVENT_LOADOUT, state.loadout().toJson());
     }
 
+    /** The whole library, {@code bridge.json}'s {@code loadouts} event. */
+    private void emitLoadouts() {
+        bridge.emit(VoidBridge.EVENT_LOADOUTS, state.libraryJson());
+    }
+
     // -----------------------------------------------------------------
     // VoidSocket.Listener
     // -----------------------------------------------------------------
 
     @Override
-    public void onInit(Loadout loadout, List<JsonObject> summaries, GlobalSettings settings) {
-        state.applyInit(loadout, summaries, settings);
+    public void onInit(Loadout loadout, List<Loadout> loadouts, GlobalSettings settings) {
+        state.applyInit(loadout, loadouts, settings);
+        // The library first, then the active loadout: `loadouts` is whole-state and the
+        // `loadout` push is the live copy, so the UI store settles on the right one.
+        emitLoadouts();
         emitLoadout();
-        VoidLog.info("loadout '" + state.loadout().id() + "' applied from launcher");
+        VoidLog.info("loadout '" + state.loadout().id() + "' applied from launcher ("
+                + state.library().size() + " in library)");
     }
 
     @Override
@@ -509,9 +533,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (loadout == null) {
             return;
         }
-        if (!state.cacheLoadout(loadout)) {
-            state.applyRemoteLoadout(loadout);
-        }
+        // A switch made outside the game (launcher or tray, §8.2): apply it, and keep
+        // the library copy current so the Loadouts frame does not show a stale card.
+        state.applyRemoteLoadout(loadout);
+        emitLoadouts();
         emitLoadout();
     }
 

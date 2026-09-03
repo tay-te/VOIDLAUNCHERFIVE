@@ -12,20 +12,21 @@
   "definitions": {
     "protocol_version": {
       "title": "Protocol version",
-      "description": "Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7).",
+      "description": "Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.",
       "type": "integer",
-      "const": 1
+      "const": 2
     },
 
     "java_to_rust": {
       "title": "Java to Rust",
-      "description": "The five messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
+      "description": "The six messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
       "oneOf": [
         { "description": "Handshake sent immediately on connect.", "$ref": "#/definitions/msg_hello" },
         { "description": "Live loadout state delta.", "$ref": "#/definitions/msg_state" },
         { "description": "HUD layout after a drag in the HUD editor.", "$ref": "#/definitions/msg_hud" },
         { "description": "Periodic session telemetry summary.", "$ref": "#/definitions/msg_session" },
-        { "description": "Server connect/disconnect notification.", "$ref": "#/definitions/msg_server" }
+        { "description": "Server connect/disconnect notification.", "$ref": "#/definitions/msg_server" },
+        { "description": "A global hotkey the player pressed in game.", "$ref": "#/definitions/msg_hotkey" }
       ]
     },
 
@@ -124,9 +125,28 @@
       }
     },
 
+    "msg_hotkey": {
+      "title": "hotkey (Java to Rust)",
+      "description": "Sent when the player pressed one of the two global hotkeys of §6.3 in game. It is a notification, not a request: Java has already done the thing — cycled the loadout, opened or closed the overlay — and this tells the launcher so the tray and the launcher window can follow. The loadout that the L key selected still travels in its own `state` message; this one carries no state of its own, which is why the payload is a single id.",
+      "type": "object",
+      "required": ["t", "id"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `hotkey`.", "type": "string", "const": "hotkey" },
+        "id": { "description": "Which hotkey fired.", "$ref": "#/definitions/hotkey_id" }
+      }
+    },
+
+    "hotkey_id": {
+      "title": "Hotkey id",
+      "description": "Closed set of the global hotkeys the mod reports. `loadout.next` is the L-key cycle of §6.3, already applied when this is sent. `overlay` is the menu key (Right Shift by default) opening or closing VoidMenuScreen; the launcher uses it only for presence, since the menu is entirely in-game.",
+      "type": "string",
+      "enum": ["loadout.next", "overlay"]
+    },
+
     "msg_init": {
       "title": "init (Rust to Java)",
-      "description": "The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, summaries of the rest of the library for the in-game switcher, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here.",
+      "description": "The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, **every other loadout in full**, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here. `loadouts` carries whole loadouts rather than summaries on purpose: a loadout is roughly 1 KB and a library is capped at 128, so the whole library is a few hundred kilobytes at worst, sent once per launch — and in exchange `void.switchLoadout` and the L-key cycle can apply any loadout in under a frame (§8.2) with no round trip, and the in-game Loadouts screen can list the library without a bridge accessor of its own. There is deliberately no `request_loadout` message: nothing the mod does needs one.",
       "type": "object",
       "required": ["t", "v", "loadout", "loadouts", "settings"],
       "additionalProperties": true,
@@ -134,7 +154,7 @@
         "t": { "description": "Message discriminator; always `init`.", "type": "string", "const": "init" },
         "v": { "description": "Protocol version the launcher speaks. The mod disconnects and reports a version mismatch if it differs from its own.", "$ref": "#/definitions/protocol_version" },
         "loadout": { "description": "The full active loadout to apply immediately.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" },
-        "loadouts": { "description": "Summaries of every loadout in the library, in library order. Backs the L-key cycle and the in-game switcher.", "type": "array", "maxItems": 128, "items": { "description": "One loadout summary.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_summary" } },
+        "loadouts": { "description": "Every loadout in the library, in full and in library order, including the active one. Backs the L-key cycle, the in-game switcher and the `loadouts` bridge event.", "type": "array", "maxItems": 128, "items": { "description": "One complete loadout.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" } },
         "settings": { "description": "Global, non-loadout settings that affect the game session.", "$ref": "#/definitions/global_settings" }
       }
     },
@@ -179,7 +199,7 @@
   },
 
   "examples": [
-    { "t": "hello", "v": 1, "mc": "1.8.9", "mod": "0.1.0", "token": "b7f1c0a94e2d43aa9c1e5f6b8d0a2c34" },
+    { "t": "hello", "v": 2, "mc": "1.8.9", "mod": "0.1.0", "token": "b7f1c0a94e2d43aa9c1e5f6b8d0a2c34" },
     { "t": "state", "loadout": "sword-pvp", "patch": { "mods.fullbright.on": true } },
     { "t": "state", "loadout": "sword-pvp", "patch": { "mods.zoom.key": "V", "mods.cps.window_ms": 2000 } },
     {
@@ -193,9 +213,11 @@
     },
     { "t": "session", "fps_avg": 142, "played_ms": 812000, "server": "mc.hypixel.net" },
     { "t": "server", "host": "mc.hypixel.net", "connected": true },
+    { "t": "hotkey", "id": "loadout.next" },
+    { "t": "hotkey", "id": "overlay" },
     {
       "t": "init",
-      "v": 1,
+      "v": 2,
       "loadout": {
         "id": "sword-pvp",
         "name": "Sword PvP",
@@ -217,8 +239,35 @@
         "stats": { "played_ms": 15600000, "fps_avg": 142 }
       },
       "loadouts": [
-        { "id": "sword-pvp", "name": "Sword PvP", "icon": "sword", "server": "hypixel", "stats": { "played_ms": 15600000, "fps_avg": 142 } },
-        { "id": "bedwars", "name": "Bedwars", "icon": "bed", "server": null }
+        {
+          "id": "sword-pvp",
+          "name": "Sword PvP",
+          "icon": "sword",
+          "server": "hypixel",
+          "mc": "1.8.9",
+          "mods": {
+            "fps": { "on": true },
+            "keystrokes": { "on": true, "scale": 1, "opacity": 0.85 },
+            "cps": { "on": true },
+            "toggle_sprint": { "on": true },
+            "fullbright": { "on": false },
+            "zoom": { "on": true, "key": "C" }
+          },
+          "hud": [
+            { "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1 },
+            { "id": "fps", "anchor": "top-left", "dx": 20, "dy": 20 }
+          ],
+          "stats": { "played_ms": 15600000, "fps_avg": 142 }
+        },
+        {
+          "id": "bedwars",
+          "name": "Bedwars",
+          "icon": "bed",
+          "server": null,
+          "mc": "1.8.9",
+          "mods": { "keystrokes": { "on": true }, "cps": { "on": true, "mode": "both" }, "zoom": { "on": true, "key": "V" } },
+          "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 24, "dy": -24 }]
+        }
       ],
       "settings": { "menu_key": "RSHIFT", "cycle_loadout_key": "L", "theme": "void-dark", "ui_scale": 1, "hud_editor_grid": 4 }
     },

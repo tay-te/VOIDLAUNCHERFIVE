@@ -129,6 +129,9 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: rgba(10, 11, 12, 0.75);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
 }
 
 /* ---------------------------------------------------------------- HintBar */
@@ -145,7 +148,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: pre;
 }
 
 .v-hintbar__sep {

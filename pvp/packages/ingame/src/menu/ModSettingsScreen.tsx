@@ -40,10 +40,11 @@ export const MOD_SETTINGS_FOOTER = 'R-Shift closes   ·   changes apply instantl
 /**
  * The two swatch rows of the Appearance group.
  *
- * SCHEMA GAP: neither `key_color` nor `pressed_color` exists in
- * `keystrokes_settings`. The frame draws both, so they are written through
- * `setModSetting` under those keys — Java clamps rather than throws — and are
- * flagged for reconciliation in schema/mods.json, alongside `corner_radius`.
+ * `keystrokes.key_color` and `keystrokes.pressed_color` are in `keystrokes_settings`
+ * (mods.json), as enums of these swatch names rather than hex values — a name survives
+ * a theme change, a hex would freeze the launcher's palette into the in-game bundle.
+ * They are deliberately not in `SETTING_ENUMS`: that table drives the generic chip row,
+ * and the frame draws these two as swatches.
  */
 const KEY_COLOURS = [
   { id: 'shell', color: 'var(--bg-shell)', label: 'Shell' },
@@ -122,7 +123,31 @@ export function ModSettingsScreen({ id }: { id: ModId }) {
         animate
         className="mset-panel"
         onClose={closeMenu}
-        footer={MOD_SETTINGS_FOOTER}
+        footer={
+          <>
+            <span className="mset__footer-hint">{MOD_SETTINGS_FOOTER}</span>
+            {/* The frame bottom-aligns `Edit position` / `Reset` with the footer
+                hint on one band (actions 547 → 578, hint 563), so they belong to
+                the footer row, not to the scrolling body above it. */}
+            <div className="mset__actions">
+              {isHud && (
+                <Button
+                  variant="accent"
+                  icon="move"
+                  onClick={() => {
+                    setEditorTarget(id as HUDModId);
+                    setRoute({ name: 'hud-editor' });
+                  }}
+                >
+                  Edit position
+                </Button>
+              )}
+              <Button variant="raised" icon="reset" onClick={() => resetMod(id)}>
+                Reset
+              </Button>
+            </div>
+          </>
+        }
         subtitle={`${MOD_CATEGORY[id]}   ·   on in ${onInHowMany} loadout${
           onInHowMany === 1 ? '' : 's'
         }`}
@@ -165,7 +190,7 @@ export function ModSettingsScreen({ id }: { id: ModId }) {
             </span>
             <div className="mset__preview-stage">
               {id === 'keystrokes' ? (
-                <HudKeystrokes />
+                <HudKeystrokes className="v-keystrokes--preview" />
               ) : (
                 <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-md-2)' }}>
                   {MOD_REGISTRY[id].description}
@@ -275,23 +300,6 @@ export function ModSettingsScreen({ id }: { id: ModId }) {
             </SettingsGroup>
           </div>
 
-          <div className="mset__actions">
-            {isHud && (
-              <Button
-                variant="accent"
-                icon="move"
-                onClick={() => {
-                  setEditorTarget(id as HUDModId);
-                  setRoute({ name: 'hud-editor' });
-                }}
-              >
-                Edit position
-              </Button>
-            )}
-            <Button variant="raised" icon="reset" onClick={() => resetMod(id)}>
-              Reset
-            </Button>
-          </div>
         </div>
       </Panel>
     </div>

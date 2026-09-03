@@ -13,8 +13,15 @@
  * handler the bare `payload`, and the call methods take positional arguments,
  * exactly as bridge.json describes. Because Ultralight runs inside the JVM the
  * calls are synchronous and return the state actually applied: no ack, no
- * request id, no optimistic UI. openKeybindCapture is the one exception and
- * returns a Promise that Java resolves later through __emitKeybind.
+ * request id, no optimistic UI.
+ *
+ * openKeybindCapture is the one exception. Its synchronous answer is
+ * `{"c":"openKeybindCapture","returns":null}` and means *armed*, not
+ * *cancelled*; the captured key arrives later as a call-result envelope on the
+ * same __emit channel, `__emit({"c":"openKeybindCapture","returns":"V"})`, or
+ * null again when the player pressed Escape. Null therefore arrives on both
+ * channels meaning two different things, so they are told apart by channel and
+ * never by value. `__emitKeybind(key)` is a shorthand for the same envelope.
  *
  * `window.void` is a legal property name — `void` is a reserved word, but ES5
  * onwards allows reserved words as property names, so `window.void.on(...)`
@@ -30,9 +37,13 @@
     return;
   }
 
-  var EVENTS = ['keys', 'tick', 'server', 'loadout', 'menu'];
+  var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu'];
+  var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
+    'openKeybindCapture'];
   var handlers = {};
-  var pendingKeybind = null;
+  // FIFO, so a second capture opened before the first resolved still lines up with
+  // the envelopes Java sends back in the order it armed them.
+  var pendingCaptures = [];
 
   for (var i = 0; i < EVENTS.length; i++) {
     handlers[EVENTS[i]] = [];
@@ -57,16 +68,39 @@
     }
   }
 
+  function resolveCapture(key) {
+    var resolve = pendingCaptures.shift();
+    if (resolve) {
+      resolve(key === undefined ? null : key);
+    }
+  }
+
   var bridge = {
     __isVoidBridge: true,
 
-    /** Subscribe to one of the five Java -> JS channels. */
+    /** The six calls of bridge.json, for a host that wants to enumerate them. */
+    __calls: CALLS,
+
+    /** The seven push channels of bridge.json. */
+    __events: EVENTS,
+
+    /**
+     * Subscribe to one of the seven Java -> JS channels. Returns an
+     * unsubscribe function, which is what @void/protocol's VoidBridge.on
+     * promises and what the app's teardown calls.
+     */
     on: function (event, handler) {
       var list = handlers[event];
-      if (list && typeof handler === 'function' && list.indexOf(handler) === -1) {
+      if (!list || typeof handler !== 'function') {
+        return function () {};
+      }
+      if (list.indexOf(handler) === -1) {
         list.push(handler);
       }
-      return this;
+      var self = this;
+      return function () {
+        self.off(event, handler);
+      };
     },
 
     /** Unsubscribe. Passing no handler drops every handler on the channel. */
@@ -95,13 +129,30 @@
       var list = Array.isArray(batch) ? batch : [batch];
       for (var i = 0; i < list.length; i++) {
         var envelope = list[i];
-        if (!envelope || !envelope.e) {
+        if (typeof envelope === 'string') {
+          try {
+            envelope = JSON.parse(envelope);
+          } catch (e) {
+            continue;
+          }
+        }
+        if (!envelope) {
+          continue;
+        }
+        // A deferred call result: today only openKeybindCapture, which resolves
+        // the Promise armed by the synchronous answer.
+        if (!envelope.e && envelope.c && 'returns' in envelope) {
+          if (envelope.c === 'openKeybindCapture') {
+            resolveCapture(envelope.returns);
+          }
           continue;
         }
         var subscribers = handlers[envelope.e];
         if (!subscribers) {
           continue;
         }
+        // Copy first: a handler may unsubscribe itself while we iterate.
+        subscribers = subscribers.slice();
         for (var j = 0; j < subscribers.length; j++) {
           try {
             subscribers[j](envelope.payload);
@@ -140,13 +191,13 @@
         && type !== 'submit' && type !== 'range' && type !== 'color';
     },
 
-    /** Java resolves the pending openKeybindCapture promise through this. */
+    /**
+     * Shorthand for __emit({c: 'openKeybindCapture', returns: key}). Kept
+     * because it reads better from Java's evaluateScript, and because a host
+     * that predates the call-result envelope still works.
+     */
     __emitKeybind: function (key) {
-      var resolve = pendingKeybind;
-      pendingKeybind = null;
-      if (resolve) {
-        resolve(key === undefined ? null : key);
-      }
+      resolveCapture(key);
     },
 
     // -- the six calls of bridge.json --------------------------------------
@@ -182,13 +233,11 @@
      * open at a time; a second call cancels the first.
      */
     openKeybindCapture: function (modId) {
-      if (pendingKeybind) {
-        var stale = pendingKeybind;
-        pendingKeybind = null;
-        stale(null);
-      }
       return new Promise(function (resolve) {
-        pendingKeybind = resolve;
+        pendingCaptures.push(resolve);
+        // The answer is `returns: null` and only means "armed". Reading it as
+        // the resolution would settle every capture instantly with no key, so
+        // it is deliberately discarded: the key comes back through __emit.
         call('openKeybindCapture', [modId]);
       });
     }

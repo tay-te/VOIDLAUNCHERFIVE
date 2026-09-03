@@ -254,11 +254,12 @@ export function GroupCaption({
 /** A back link — `← Mods` — as the Mod settings frame draws it. */
 export function BackButton({
   label = 'Mods',
+  className,
   ...rest
 }: { label?: ReactNode } & HTMLAttributes<HTMLButtonElement>): React.ReactElement {
   return (
-    <Button variant="raised" {...rest}>
-      <Icon name="arrow-left" size={13} />
+    <Button variant="raised" className={cx('v-btn--back', className)} {...rest}>
+      <Icon name="arrow-left" size={12} />
       {label}
     </Button>
   );

@@ -54,6 +54,7 @@ sub-schema.
 
 ```ts
 interface VoidBridge {
+  readonly __isVoidBridge?: true;    // marker: "a bridge is already installed here"
   on<E>(event: E, cb): () => void;   // returns an unsubscribe
   off<E>(event: E, cb): void;
   __emit(envelope: VoidEnvelope | string): void;
@@ -68,10 +69,14 @@ interface VoidBridge {
 }
 ```
 
-Five push channels — `keys`, `tick`, `server`, `loadout`, `menu` — and six calls. The
-bridge is in-process (Ultralight lives inside the JVM), so calls are **synchronous and
-authoritative**: they return the state actually applied. Bind your control to the return
-value, never to what you sent.
+Seven push channels — `keys`, `tick`, `server`, `loadout`, `loadouts`, `setting`, `menu`
+— and six calls. The bridge is in-process (Ultralight lives inside the JVM), so calls are
+**synchronous and authoritative**: they return the state actually applied. Bind your
+control to the return value, never to what you sent.
+
+`loadouts` carries the whole library, in full, from `init.loadouts`; `setting` carries one
+`{id, key, value}` Java changed by itself, such as an in-game hotkey. Neither is pushed for
+anything the page did through a call — those already returned their applied value.
 
 ### How it is assembled at runtime
 
@@ -95,12 +100,20 @@ const bridge = installVoidShim({ native, target: null }); // or drive it yoursel
 `__hasFocus()` reports whether the web layer owns input. It tracks the `menu` channel,
 because in HUD mode Ultralight receives no input events at all (§6.3).
 
-**`openKeybindCapture` is the one asynchronous call.** Java takes over key input until
-the next key press, so `__void_native` acknowledges without a `returns` field and Java
-later delivers the resolution through the same `__emit` channel as a call-result
-envelope: `__emit({ c: 'openKeybindCapture', returns: 'V' })`, or `returns: null` when
-the player pressed Escape. The shim keeps pending resolvers in FIFO order. The promise
-never rejects.
+**`openKeybindCapture` is the one asynchronous call, and its shape is the one easy thing
+to get wrong.** Java takes over key input until the next key press, so it cannot answer
+with the key. The hop still happens and still answers — with
+`{c:'openKeybindCapture', returns: null}`, which means **armed** — and Java later delivers
+the resolution through the same `__emit` channel as a call-result envelope:
+`__emit({ c: 'openKeybindCapture', returns: 'V' })`, or `returns: null` when the player
+pressed Escape.
+
+Null therefore arrives on *both* channels meaning two different things. `installVoidShim`
+tells them apart **by channel, never by value**: it discards the synchronous answer
+outright and always waits for `__emit`. Reading that null as the resolution — which it
+used to do — settles every capture instantly with no key, and
+`test/fake-void.test.ts` has a case named after exactly that. The shim keeps pending
+resolvers in FIFO order, and the promise never rejects.
 
 ---
 
@@ -115,7 +128,9 @@ fake.install();          // window.void = fake
 fake.start();            // 20 Hz pushes on a real timer
 ```
 
-It emits a realistic `tick` at 20 Hz — fps wandering in 130–160, ping in 40–50,
+On `emitInitialState()` it pushes `loadouts` — the whole library — then `loadout`,
+`server` and `menu`, in the order Java does after `init`. It emits a realistic `tick` at
+20 Hz — fps wandering in 130–160, ping in 40–50,
 coordinates drifting as the player walks, armour durability ticking down while LMB is
 held, and two potion effects (`Speed II` and `Strength`) counting down — plus random,
 **edge-triggered** `keys`: a push happens only when a key actually changes. It answers
@@ -136,6 +151,8 @@ fake.advance(1000);       // exactly 20 ticks
 
 Beyond `VoidBridge` it adds `start` / `stop` / `advance` / `tickOnce`,
 `emitInitialState`, `setMenuOpen` / `isMenuOpen`, `setKeys` / `getKeys`, `setServer`,
+`applyModSetting` (Java changing a setting by itself — clamps, stores, pushes `setting`;
+unlike `setModSetting`, which is the *page* asking and pushes nothing),
 `getLoadout` / `getLoadouts`, `resolveKeybindCapture` / `isCapturingKeybind`,
 `getCalls` / `clearCalls` (the `?debug` recording), `attachKeyboard`, `install` and
 `destroy`.
@@ -150,12 +167,19 @@ needs:
 | Export | What it answers |
 |---|---|
 | `MOD_REGISTRY`, `MOD_REGISTRY_VERSION` | the 12 rows, keyed by id |
+| `getModCategory`, `MOD_CATEGORIES`, `MOD_FILTER_TABS`, `getCategoryLabel`, `isModCategory`, `modsInCategory` | the Mods panel's filter taxonomy — `hud`/`pvp`/`visual`/`utility`, straight out of `mods.json`'s `category`, never derived from `kind` |
 | `MOD_IDS`, `HUD_MOD_IDS`, `GAMEPLAY_MOD_IDS` | deterministic iteration order |
 | `isModId`, `isHudMod`, `isGameplayMod` | type guards — `isGameplayMod` gates `setGameplay`, `isHudMod` gates `setHud` |
 | `getModEntry`, `getModDefaults`, `getModLabel` | one row, its factory settings, its display name |
 | `resolveModSettings(loadout, id)` | the loadout's own state merged over the defaults |
 | `isModEnabled`, `enabledMods`, `enabledModCount` | the `24 mods on` line |
 | `hypixelReady(loadout)`, `greyMods(loadout)` | the **HYPIXEL-READY** badge |
+
+`category` is not a restatement of `kind`. `kind` says which direction data flows (does
+the mod draw, or does it mutate a client-side option); `category` says which tab the tile
+sits under. Crosshair is `kind: gameplay` but `category: visual`, and Zoom is
+`kind: gameplay` but `category: utility`. Both are rows in `mods.json`, so no surface
+hard-codes a mapping — the overlay used to, read off the Figma tile by tile.
 
 `hypixelReady` implements §11 literally: the badge shows only when *every enabled mod*
 is classified `safe`. A `grey` mod sitting in the loadout but switched off — Fullbright

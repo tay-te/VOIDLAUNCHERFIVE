@@ -15,7 +15,6 @@
 // ------------------------------------------------------- from the schemas
 export type {
   Loadout,
-  LoadoutSummary,
   LoadoutId,
   LoadoutStats,
   ModId,
@@ -28,7 +27,24 @@ export type {
   Keybind,
 } from '@void/protocol';
 
-import type { Loadout, ModId, ModStates } from '@void/protocol';
+import type { Loadout, LoadoutId, LoadoutStats, ModId, ModStates } from '@void/protocol';
+
+/**
+ * What `loadouts_list` / `loadouts_delete` return — `void_loadout::LoadoutSummary`,
+ * field for field.
+ *
+ * It sits on the launcher-only side of this file because it is a launcher-only shape:
+ * the bridge sends the mod whole loadouts (`init.loadouts`, `loadouts`), never
+ * summaries, so `schema/loadout.json` has no reason to describe one and
+ * `@void/protocol` does not generate it.
+ */
+export interface LoadoutSummary {
+  id: LoadoutId;
+  name: string;
+  icon: string;
+  server?: string | null;
+  stats?: LoadoutStats;
+}
 
 /** One mod's settings, as an open bag — the union of all twelve settings shapes. */
 export type ModSettings = NonNullable<ModStates[ModId]> & Record<string, unknown>;

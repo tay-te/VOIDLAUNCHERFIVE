@@ -14,13 +14,14 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 1,
+    "version": 2,
     "mods": {
       "fps": {
         "id": "fps",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
-        "label": "FPS",
+        "label": "FPS display",
         "description": "Frames per second, updated once per tick.",
         "source": "Minecraft.debugFPS",
         "defaults": {
@@ -34,6 +35,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "keystrokes": {
         "id": "keystrokes",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
         "label": "Keystrokes",
         "description": "WASD, mouse and spacebar tiles that light up as you press them.",
@@ -45,14 +47,18 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "keybind": "NONE",
           "show_mouse": true,
           "show_spacebar": true,
-          "show_cps": false
+          "show_cps": false,
+          "corner_radius": 8,
+          "key_color": "shell",
+          "pressed_color": "accent"
         }
       },
       "cps": {
         "id": "cps",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
-        "label": "CPS",
+        "label": "CPS counter",
         "description": "Clicks per second over a sliding window.",
         "source": "derived from clicks in JS",
         "defaults": {
@@ -66,8 +72,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "ping": {
         "id": "ping",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
-        "label": "Ping",
+        "label": "Ping display",
         "description": "Round-trip time to the current server.",
         "source": "own NetworkPlayerInfo.responseTime",
         "defaults": {
@@ -82,6 +89,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "coordinates": {
         "id": "coordinates",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
         "label": "Coordinates",
         "description": "Player position and facing direction.",
@@ -98,6 +106,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "armor_status": {
         "id": "armor_status",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
         "label": "Armor status",
         "description": "Worn armor and held item with remaining durability.",
@@ -114,6 +123,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "potion_effects": {
         "id": "potion_effects",
         "kind": "hud",
+        "category": "hud",
         "hypixel_safe": "safe",
         "label": "Potion effects",
         "description": "Active potion effects with amplifier and remaining duration.",
@@ -130,6 +140,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "toggle_sprint": {
         "id": "toggle_sprint",
         "kind": "gameplay",
+        "category": "pvp",
         "hypixel_safe": "safe",
         "label": "Toggle sprint",
         "description": "Latches sprint instead of holding the key.",
@@ -144,6 +155,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "fullbright": {
         "id": "fullbright",
         "kind": "gameplay",
+        "category": "visual",
         "hypixel_safe": "grey",
         "label": "Fullbright",
         "description": "Raises gamma so caves and shadows are fully lit.",
@@ -156,6 +168,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "hitboxes": {
         "id": "hitboxes",
         "kind": "gameplay",
+        "category": "pvp",
         "hypixel_safe": "grey",
         "label": "Hitboxes",
         "description": "Draws entity bounding boxes.",
@@ -170,6 +183,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "zoom": {
         "id": "zoom",
         "kind": "gameplay",
+        "category": "utility",
         "hypixel_safe": "safe",
         "label": "Zoom",
         "description": "Narrows FOV while the zoom key is held.",
@@ -185,6 +199,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
       "crosshair": {
         "id": "crosshair",
         "kind": "gameplay",
+        "category": "visual",
         "hypixel_safe": "safe",
         "label": "Crosshair",
         "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",
@@ -367,7 +382,7 @@ export const LOADOUT_EXAMPLES: Loadout[] = [
 export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
   {
     "t": "hello",
-    "v": 1,
+    "v": 2,
     "mc": "1.8.9",
     "mod": "0.1.0",
     "token": "b7f1c0a94e2d43aa9c1e5f6b8d0a2c34"
@@ -424,8 +439,16 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
     "connected": true
   },
   {
+    "t": "hotkey",
+    "id": "loadout.next"
+  },
+  {
+    "t": "hotkey",
+    "id": "overlay"
+  },
+  {
     "t": "init",
-    "v": 1,
+    "v": 2,
     "loadout": {
       "id": "sword-pvp",
       "name": "Sword PvP",
@@ -481,6 +504,45 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
         "name": "Sword PvP",
         "icon": "sword",
         "server": "hypixel",
+        "mc": "1.8.9",
+        "mods": {
+          "fps": {
+            "on": true
+          },
+          "keystrokes": {
+            "on": true,
+            "scale": 1,
+            "opacity": 0.85
+          },
+          "cps": {
+            "on": true
+          },
+          "toggle_sprint": {
+            "on": true
+          },
+          "fullbright": {
+            "on": false
+          },
+          "zoom": {
+            "on": true,
+            "key": "C"
+          }
+        },
+        "hud": [
+          {
+            "id": "keystrokes",
+            "anchor": "bottom-left",
+            "dx": 32,
+            "dy": -40,
+            "scale": 1
+          },
+          {
+            "id": "fps",
+            "anchor": "top-left",
+            "dx": 20,
+            "dy": 20
+          }
+        ],
         "stats": {
           "played_ms": 15600000,
           "fps_avg": 142
@@ -490,7 +552,29 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
         "id": "bedwars",
         "name": "Bedwars",
         "icon": "bed",
-        "server": null
+        "server": null,
+        "mc": "1.8.9",
+        "mods": {
+          "keystrokes": {
+            "on": true
+          },
+          "cps": {
+            "on": true,
+            "mode": "both"
+          },
+          "zoom": {
+            "on": true,
+            "key": "V"
+          }
+        },
+        "hud": [
+          {
+            "id": "keystrokes",
+            "anchor": "bottom-left",
+            "dx": 24,
+            "dy": -24
+          }
+        ]
       }
     ],
     "settings": {
@@ -740,7 +824,78 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   },
   {
     "c": "openKeybindCapture",
+    "returns": null
+  },
+  {
+    "c": "openKeybindCapture",
     "returns": "V"
+  },
+  {
+    "e": "setting",
+    "payload": {
+      "id": "keystrokes",
+      "key": "on",
+      "value": false
+    }
+  },
+  {
+    "e": "loadouts",
+    "payload": [
+      {
+        "id": "sword-pvp",
+        "name": "Sword PvP",
+        "icon": "sword",
+        "server": "hypixel",
+        "mc": "1.8.9",
+        "mods": {
+          "keystrokes": {
+            "on": true,
+            "scale": 1,
+            "opacity": 0.85
+          },
+          "cps": {
+            "on": true
+          },
+          "zoom": {
+            "on": true,
+            "key": "C"
+          }
+        },
+        "hud": [
+          {
+            "id": "keystrokes",
+            "anchor": "bottom-left",
+            "dx": 32,
+            "dy": -40,
+            "scale": 1
+          }
+        ]
+      },
+      {
+        "id": "bedwars",
+        "name": "Bedwars",
+        "icon": "bed",
+        "server": null,
+        "mc": "1.8.9",
+        "mods": {
+          "keystrokes": {
+            "on": true
+          },
+          "cps": {
+            "on": true,
+            "mode": "both"
+          }
+        },
+        "hud": [
+          {
+            "id": "keystrokes",
+            "anchor": "bottom-left",
+            "dx": 24,
+            "dy": -24
+          }
+        ]
+      }
+    ]
   }
 ];
 

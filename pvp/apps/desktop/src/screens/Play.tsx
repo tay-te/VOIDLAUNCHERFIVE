@@ -8,11 +8,14 @@
  *   `N mods on`      — counted from the active loadout against the registry defaults
  *   `fps avg`        — the loadout's accumulated `stats.fps_avg` (from `session`)
  *   `ms to Hypixel`  — a live `server_ping` SLP round trip
+ *
+ * The pill is `@void/ui`'s `StatusPill`; the hero type ramp is launcher-only — 104px
+ * display over a recessed canvas is a thing only this bundle has.
  */
 
+import { StatusPill } from '@void/ui';
 import { useEffect } from 'react';
 
-import { Eyebrow } from '../components';
 import { hypixelReady } from '../local/hypixelReady';
 import { enabledCount } from '../local/registry';
 import { useLaunch } from '../stores/launch';
@@ -65,9 +68,9 @@ export function PlayScreen() {
 
   return (
     <div className="hero">
-      <Eyebrow tone={readiness.ready ? 'ok' : 'warn'}>
+      <StatusPill tone={readiness.ready ? 'ok' : 'warn'}>
         VOID PVP &nbsp;·&nbsp; {active.mc} &nbsp;·&nbsp; {readiness.label}
-      </Eyebrow>
+      </StatusPill>
 
       <div className="hero__body">
         <p className="hero__kicker">ACTIVE LOADOUT</p>

@@ -67,3 +67,12 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# ---- Visual QA (agent output) -----------------------------------------------
+# Screenshots, diffs and working images from the visual QA pass. Only the report
+# and one final side-by-side per screen are tracked.
+packages/ingame/visual-qa/*
+!packages/ingame/visual-qa/report.md
+!packages/ingame/visual-qa/final/
+packages/ingame/visual-qa/final/*
+!packages/ingame/visual-qa/final/*.png

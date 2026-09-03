@@ -81,13 +81,13 @@ class BridgeExamplesTest {
             }
         }
         assertNotNull(init, "protocol.json lost its init example");
-        List<JsonObject> summaries = new ArrayList<JsonObject>();
+        List<Loadout> library = new ArrayList<Loadout>();
         JsonArray arr = init.getAsJsonArray("loadouts");
         for (int i = 0; i < arr.size(); i++) {
-            summaries.add(arr.get(i).getAsJsonObject());
+            library.add(Loadout.fromJson(arr.get(i).getAsJsonObject()));
         }
         LiveState state = new LiveState();
-        state.applyInit(Loadout.fromJson(init.getAsJsonObject("loadout")), summaries,
+        state.applyInit(Loadout.fromJson(init.getAsJsonObject("loadout")), library,
                 dev.voidpvp.client.state.GlobalSettings.fromJson(
                         init.getAsJsonObject("settings")));
         return state;
@@ -272,12 +272,75 @@ class BridgeExamplesTest {
                 "the synchronous answer only arms the capture; the key arrives later");
         assertEquals("zoom", host.captured, "the host was told which mod is being bound");
 
-        // bridge.json's {c: openKeybindCapture, returns: "V"} is the value the
-        // Promise resolves with, which Java delivers through the shim.
-        JsonElement expected = callExample("openKeybindCapture", true).get("returns");
-        assertEquals("window.void.__emitKeybind(" + expected + ")",
+        // The captured key comes back as a call-result envelope on the __emit channel,
+        // which is what bridge.json specifies and what the shim listens for. Null
+        // arrives on both channels, so the shim tells them apart by channel, never by
+        // value — hence the deferred one is an envelope and not a bare value.
+        JsonElement expected = null;
+        JsonArray examples = Schemas.examples("bridge.json");
+        for (int i = 0; i < examples.size(); i++) {
+            JsonObject o = examples.get(i).getAsJsonObject();
+            if (o.has("c") && "openKeybindCapture".equals(o.get("c").getAsString())
+                    && o.has("returns") && !o.get("returns").isJsonNull()) {
+                expected = o.get("returns");
+            }
+        }
+        assertNotNull(expected, "bridge.json lost its captured-key example");
+        assertEquals("window.void.__emit({\"c\":\"openKeybindCapture\",\"returns\":"
+                        + expected + "})",
                 VoidBridge.keybindScript(expected.getAsString()));
-        assertEquals("window.void.__emitKeybind(null)", VoidBridge.keybindScript(null));
+        assertEquals("window.void.__emit({\"c\":\"openKeybindCapture\",\"returns\":null})",
+                VoidBridge.keybindScript(null));
+    }
+
+    @Test
+    @DisplayName("the setting event carries what Java stored, not what was asked for")
+    void settingEventCarriesTheStoredValue() {
+        LiveState state = seededState();
+        VoidBridge bridge = new VoidBridge(state, new Host());
+
+        // 9 is far outside opacity's 0..1 range: the registry clamps, and the event
+        // carries the clamped value, exactly as setModSetting's return would.
+        JsonElement stored = state.setModSetting("keystrokes", "opacity",
+                new com.google.gson.JsonPrimitive(Integer.valueOf(9)));
+        bridge.emitSetting("keystrokes", "opacity", stored);
+
+        String script = bridge.drainScript();
+        JsonArray batch = Json.parse(script.substring("window.void.__emit(".length(),
+                script.length() - 1)).getAsJsonArray();
+        JsonObject envelope = batch.get(0).getAsJsonObject();
+        assertEquals("setting", envelope.get("e").getAsString());
+        JsonObject payload = envelope.getAsJsonObject("payload");
+        assertEquals("keystrokes", payload.get("id").getAsString());
+        assertEquals("opacity", payload.get("key").getAsString());
+        assertEquals(1.0, payload.get("value").getAsDouble(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("the mod knows every event name and every call name bridge.json declares")
+    void theSurfaceIsCovered() {
+        JsonObject defs = Schemas.load("bridge.json").getAsJsonObject("definitions");
+
+        java.util.List<String> events = new ArrayList<String>();
+        for (JsonElement e : defs.getAsJsonObject("event_name").getAsJsonArray("enum")) {
+            events.add(e.getAsString());
+        }
+        assertEquals(java.util.Arrays.asList(
+                VoidBridge.EVENT_KEYS, VoidBridge.EVENT_TICK, VoidBridge.EVENT_SERVER,
+                VoidBridge.EVENT_LOADOUT, VoidBridge.EVENT_LOADOUTS, VoidBridge.EVENT_SETTING,
+                VoidBridge.EVENT_MENU), events,
+                "the mod's channel constants are exactly bridge.json's event_name enum");
+
+        // Every declared call must be dispatchable: an unknown call answers `null`, so a
+        // call the mod forgot would silently do nothing in game.
+        VoidBridge bridge = new VoidBridge(seededState(), new Host());
+        for (JsonElement e : defs.getAsJsonObject("call_name").getAsJsonArray("enum")) {
+            String name = e.getAsString();
+            JsonObject answer = Json.parseObject(
+                    bridge.dispatch(callExample(name, false).toString()));
+            assertEquals(name, answer.get("c").getAsString(), name + " is dispatched");
+        }
+        assertTrue(bridge.errors().isEmpty(), "no dispatch threw: " + bridge.errors());
     }
 
     @Test

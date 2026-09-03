@@ -35,7 +35,7 @@
 
     "loadout_summary": {
       "title": "Loadout summary",
-      "description": "The reduced form sent in `init.loadouts` and used by the tray's Switch loadout submenu: enough to list and pick a loadout without carrying its mod state.",
+      "description": "The reduced form used by the launcher: the tray's Switch loadout submenu and the desktop's `loadouts_list` IPC. Enough to list and pick a loadout without carrying its mod state. It is **not** what crosses the WS any more — `init.loadouts` carries whole loadouts, so the mod can hot-swap to any of them in under a frame without asking (§8.2, protocol.json `msg_init`).",
       "type": "object",
       "required": ["id", "name", "icon"],
       "additionalProperties": false,

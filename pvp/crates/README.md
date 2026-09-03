@@ -21,7 +21,7 @@ The Rust side of `schema/mods.json` and `schema/loadout.json`, plus the store.
 
 | Module | What it is |
 |---|---|
-| `mods` | The closed registry of 12 mods: `ModId`, `Kind`, `HypixelSafe`, a typed settings struct per mod, and the factory defaults. `schema/mods.json` is compiled in with `include_str!` and its `examples[0]` *is* the shipped registry — there is no second copy to drift. |
+| `mods` | The closed registry of 12 mods: `ModId`, `Kind`, `Category`, `HypixelSafe`, the panel `label`, a typed settings struct per mod, and the factory defaults. `schema/mods.json` is compiled in with `include_str!` and its `examples[0]` *is* the shipped registry — there is no second copy to drift. `Category` (`hud`/`pvp`/`visual`/`utility`) is the Mods-panel filter taxonomy and is deliberately independent of `Kind`: Crosshair is `Gameplay` but `Visual`, Zoom is `Gameplay` but `Utility`. |
 | `loadout` | `Loadout`, `ModStates`, `HudItem`/`Anchor` (anchor + `dx`/`dy` + `scale`, never pixels, §8.1), `LoadoutStats`, and `hypixel_ready`. |
 | `settings` | `GlobalSettings` — `protocol.json#/definitions/global_settings`. It lives here because it is persisted as well as sent; unknown keys survive a round trip via `#[serde(flatten)]`, which is the one place the schemas allow extra keys. |
 | `keybind` | `Keybind` and `HexColor`: validating newtypes for the two string formats the schema pins with a regex. |
@@ -39,10 +39,19 @@ The localhost WebSocket server the mod connects back to (§6.9). Binds `127.0.0.
 OS-assigned port — and mints a fresh 32-byte hex session token per spawn; `void-core`
 passes both to the JVM as `-Dvoid.port` and `-Dvoid.token`.
 
-- `JavaToRust` / `RustToJava`: every message in `schema/protocol.json`, tagged on `t`.
-  Unknown `t` values land in `JavaToRust::Unknown` and unknown fields are ignored, never
-  an error (§7) — no type here uses `deny_unknown_fields`.
-- Handshake: the first frame must be `hello` with a matching token and `v == 1`, or the
+- `JavaToRust` / `RustToJava`: every message in `schema/protocol.json`, tagged on `t` —
+  six inbound, three outbound. Unknown `t` values land in `JavaToRust::Unknown` and
+  unknown fields are ignored, never an error (§7) — no type here uses
+  `deny_unknown_fields`.
+- `JavaToRust::Hotkey { id: HotkeyId }` is a *notification*: the mod already cycled the
+  loadout or toggled the overlay by the time it arrives. `void-core`'s `sync::pump`
+  follows `loadout.next` by advancing the stored active pointer, so the tray and the next
+  launch agree with the running game.
+- `InitPayload.loadouts` is `Vec<Loadout>`, not `Vec<LoadoutSummary>`. Whole loadouts, so
+  the mod can hot-swap to any of them in under a frame with no round trip (§8.2) and the
+  in-game Loadouts screen has something to list. `LoadoutSummary` still exists in
+  `void-loadout` for the tray and the desktop's `loadouts_list` IPC.
+- Handshake: the first frame must be `hello` with a matching token and the current `v`, or the
   socket is closed with a policy close frame and nothing is disclosed.
 - Inbound messages fan out on a `tokio::sync::broadcast` bus (`subscribe()`); outbound go
   through `send()`.
@@ -59,7 +68,19 @@ passes both to the JVM as `-Dvoid.port` and `-Dvoid.token`.
 | `java` | Finds a Java 8 in `JAVA_HOME`, on `PATH` and in the per-OS install directories; otherwise fetches Adoptium Temurin 8. **Apple Silicon gets the x64 build on purpose** — LWJGL 2 has no arm64 natives, so 1.8.9 runs under Rosetta and the JVM has to match (§13). |
 | `launch` | Classpath, LWJGL 2 natives extraction, JVM args (`-Xmx`, `-Djava.library.path`, `-Dvoid.port`, `-Dvoid.token`, `-XstartOnFirstThread` on macOS), the mod JAR into `mods/`, spawn, stdout/stderr streamed line by line, exit code. The argument list is cached under `cache/args/<hash>.json`, keyed by profile hash. |
 | `sync` | Answers `init` from the live store, and folds inbound `state` / `hud` / `session` back into it. Java is authoritative while the game runs; this is the "and tells Rust afterwards" half of §6.1. |
-| `install` | `prepare`: resolve, download the profile's files, then every asset object. |
+| `install` | `prepare`: resolve, download the profile's files, then every asset object. Also `ModPlatform` — which per-OS `void-client-<version>-<os>-<arch>.jar` this install needs (§13). Derived from the OS the **JVM** will run as: on Apple Silicon the game runs x64 under Rosetta, so an arm64 Mac takes `macos-x64`. `prepare_for` and `void-pvp prepare --platform` cross-prepare for another machine. |
+
+#### The profile cache key
+
+`prepare` writes the resolved profile to `versions/<version_id>/<profile_id>.profile.json`
+and `cached_profile` reads it back, so `launch` on a warm install never touches the
+network. The two used to derive that directory separately — one from `profile.version_id`,
+callers of the other from a literal `"1.8.9"` — and a divergence there is **silent**:
+nothing fails, `launch` just re-resolves the manifests every single start. They now share
+one private helper and `cached_profile` takes no version argument at all, with
+`install::tests::profiles_are_cached_where_they_are_looked_for` as the guard. The version
+*directory* is the vanilla version (that is also where the client jar lives); the merged
+Legacy Fabric id names the *file* inside it, so several loader versions cache side by side.
 
 ### Layout on disk
 
@@ -171,7 +192,12 @@ the registry — the Rust equivalent of `schema/validate.mjs`, which belongs in 
 ### Verified here
 
 - [x] `cargo build --workspace`, `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings` — all green.
-- [x] Round trip of every `examples` entry in all three schemas; registry ↔ enum cross-checks.
+- [x] Round trip of every `examples` entry in all three schemas; registry ↔ enum cross-checks,
+      including that every mod carries a `category` and that `category` is not a restatement
+      of `kind`.
+- [x] The profile cache is written where it is read (the regression above), and several
+      loader versions share one version directory.
+- [x] `ModPlatform`: key round-trips, JAR naming, and that an arm64 Mac takes the x64 JAR.
 - [x] Loadout store: first-run seeding, atomic writes, switch, delete, L-cycle order, stats accumulation.
 - [x] `diff` / `apply_patch`: path parsing, defaults materialisation, rejection of unknown keys and bad types, patch↔diff round trip.
 - [x] `hypixel_ready` on all three default loadouts.

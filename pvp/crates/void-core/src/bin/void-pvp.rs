@@ -56,6 +56,11 @@ struct PrepareArgs {
     /// Skip the Java 8 check and download.
     #[arg(long)]
     no_java: bool,
+    /// Prepare for another platform's mod JAR: windows-x64, macos-x64, macos-arm64,
+    /// linux-x64. Defaults to this host's. The mod JAR carries the Ultralight natives
+    /// and they are 21 MB per platform, so one JAR is published per platform (§13).
+    #[arg(long)]
+    platform: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -242,14 +247,34 @@ fn progress_printer() -> mpsc::Sender<void_core::download::Progress> {
 
 async fn prepare(http: &reqwest::Client, paths: &Paths, args: &PrepareArgs) -> Result<()> {
     let ctx = RuleContext::host()?;
+    let platform = match args.platform.as_deref() {
+        None => install::ModPlatform::for_host(&ctx)?,
+        Some(name) => install::ModPlatform::parse(name).ok_or_else(|| {
+            Error::UnsupportedPlatform(format!(
+                "{name}; expected one of {}",
+                install::ModPlatform::ALL
+                    .iter()
+                    .map(|p| p.key())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })?,
+    };
     println!("Installing into {}", paths.root().display());
 
-    let profile =
-        install::prepare(http, paths, &ctx, args.loader.as_deref(), Some(progress_printer()))
-            .await?;
+    let profile = install::prepare_for(
+        http,
+        paths,
+        &ctx,
+        platform,
+        args.loader.as_deref(),
+        Some(progress_printer()),
+    )
+    .await?;
     println!(
-        "Ready: {} ({} libraries, {} natives jars, main class {})",
+        "Ready: {} for {} ({} libraries, {} natives jars, main class {})",
         profile.profile_id,
+        platform.key(),
         profile.libraries.len(),
         profile.natives.len(),
         profile.main_class
@@ -290,7 +315,7 @@ async fn do_launch(
     println!("Playing as {}{}", session.username, if session.is_offline() { " (offline)" } else { "" });
 
     let ctx = RuleContext::host()?;
-    let profile = match (args.skip_prepare, install::cached_profile(paths, "1.8.9")) {
+    let profile = match (args.skip_prepare, install::cached_profile(paths)) {
         (true, Some(cached)) => cached,
         (true, None) => {
             return Err(Error::Manifest(

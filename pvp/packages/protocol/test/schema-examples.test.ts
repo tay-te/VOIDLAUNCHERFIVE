@@ -68,16 +68,24 @@ describe('schema examples', () => {
     expect(MODS_EXAMPLES).toHaveLength(1);
     expect(LOADOUT_EXAMPLES).toHaveLength(2);
     expect(PROTOCOL_EXAMPLES.length).toBeGreaterThanOrEqual(8);
-    expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(17);
+    expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(20);
   });
 
-  it('covers all five events and all six calls in the bridge examples', () => {
+  it('covers all seven events and all six calls in the bridge examples', () => {
     const events = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { e: string }> => 'e' in e).map(
         (e) => e.e,
       ),
     );
-    expect([...events].sort()).toEqual(['keys', 'loadout', 'menu', 'server', 'tick']);
+    expect([...events].sort()).toEqual([
+      'keys',
+      'loadout',
+      'loadouts',
+      'menu',
+      'server',
+      'setting',
+      'tick',
+    ]);
 
     const calls = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { c: string }> => 'c' in e).map(

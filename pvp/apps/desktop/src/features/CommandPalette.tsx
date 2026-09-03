@@ -11,45 +11,47 @@
  * mod selected), servers, actions.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-
-import { Kbd } from '../components';
 import {
-  GearIcon,
-  LayersIcon,
-  PlayIcon,
-  SearchIcon,
-  ServerIcon,
-  ShirtIcon,
-  SwordIcon,
-  TerminalIcon,
-  UsersIcon,
-} from '../components/icons';
-import type { ComponentType } from 'react';
-import { MOD_ICONS } from '../components/icons';
+  MOD_ICONS,
+  Palette,
+  PaletteFooter,
+  PaletteInput,
+  PaletteResult,
+  PaletteSeam,
+  PaletteSection,
+  resolveLoadoutIcon,
+  type IconName,
+} from '@void/ui';
+import { useEffect, useMemo, useState } from 'react';
+
 import { MOD_GRID_ORDER, MOD_REGISTRY, isOn } from '../local/registry';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
 import { useServers } from '../stores/servers';
-import { SCREENS, SCREEN_LABELS, useUi } from '../stores/ui';
+import { SCREENS, SCREEN_LABELS, useUi, type Screen } from '../stores/ui';
 
 interface Result {
   id: string;
   group: string;
   title: string;
   sub: string;
-  icon: ComponentType<{ size?: number }>;
+  icon: IconName;
   keys?: string[];
   run: () => void;
 }
 
-const SCREEN_ICONS = {
-  play: PlayIcon,
-  mods: LayersIcon,
-  cosmetics: ShirtIcon,
-  servers: ServerIcon,
-  friends: UsersIcon,
-} as const;
+/**
+ * Palette rows draw from `@void/ui`'s icon set only — the two launcher-only nav marks
+ * (`local/glyphs`) exist for the 14px nav band and would need `setIconRenderer` to
+ * reach a `PaletteResult`, which is not worth a process-wide swap for two rows.
+ */
+const SCREEN_ICONS: Record<Screen, IconName> = {
+  play: 'play',
+  mods: 'layers',
+  cosmetics: 'sparkle',
+  servers: 'box',
+  friends: 'users',
+};
 
 /** Subsequence match — "swp" finds "Sword PvP" — with a simple relevance score. */
 function score(query: string, text: string): number {
@@ -87,7 +89,6 @@ export function CommandPalette() {
 
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // ⌘K / Ctrl+K anywhere.
   useEffect(() => {
@@ -105,8 +106,7 @@ export function CommandPalette() {
     if (open) {
       setQuery('');
       setCursor(0);
-      // A frame, so the element exists before we reach for it.
-      requestAnimationFrame(() => inputRef.current?.focus());
+      // `PaletteInput` carries `autoFocus`, so React focuses it as it mounts.
     }
   }, [open]);
 
@@ -130,7 +130,7 @@ export function CommandPalette() {
         group: 'LOADOUTS',
         title: l.name,
         sub: l.id === active?.id ? 'Active loadout' : 'Switch to this loadout',
-        icon: SwordIcon,
+        icon: resolveLoadoutIcon(l.icon ?? 'sword'),
         run: () => void switchTo(l.id),
       });
     }
@@ -143,7 +143,7 @@ export function CommandPalette() {
         group: 'MODS',
         title: entry.label,
         sub: on ? 'On · open settings' : 'Off · turn on',
-        icon: MOD_ICONS[id] ?? LayersIcon,
+        icon: MOD_ICONS[id] ?? 'layers',
         run: () => {
           selectMod(id);
           go('mods');
@@ -154,7 +154,7 @@ export function CommandPalette() {
         group: 'MODS',
         title: `${on ? 'Turn off' : 'Turn on'} ${entry.label}`,
         sub: entry.description,
-        icon: MOD_ICONS[id] ?? LayersIcon,
+        icon: MOD_ICONS[id] ?? 'layers',
         run: () => void setMod(id, { on: !on }),
       });
     }
@@ -165,7 +165,7 @@ export function CommandPalette() {
         group: 'SERVERS',
         title: s.name,
         sub: s.host,
-        icon: ServerIcon,
+        icon: 'box',
         run: () => {
           selectServer(s.host);
           go('servers');
@@ -179,7 +179,7 @@ export function CommandPalette() {
         group: 'ACTIONS',
         title: phase === 'idle' ? 'Launch Minecraft' : 'Launch in progress',
         sub: active ? `with ${active.name}` : 'no loadout',
-        icon: PlayIcon,
+        icon: 'play',
         keys: ['⌘', '↵'],
         run: () => active && phase === 'idle' && void start(active.id),
       },
@@ -188,7 +188,7 @@ export function CommandPalette() {
         group: 'ACTIONS',
         title: 'Toggle game log',
         sub: 'JVM stdout and stderr',
-        icon: TerminalIcon,
+        icon: 'reset',
         run: toggleLog,
       },
       {
@@ -196,17 +196,23 @@ export function CommandPalette() {
         group: 'ACTIONS',
         title: 'Open settings',
         sub: 'Account, Java, RAM, hotkeys',
-        icon: GearIcon,
+        icon: 'settings',
         run: openSettings,
       },
     );
 
-    return all
+    const ranked = all
       .map((r) => ({ r, s: Math.max(score(query, r.title), score(query, r.sub) * 0.4) }))
       .filter(({ s }) => s > 0)
       .sort((a, b) => b.s - a.s)
       .slice(0, 12)
       .map(({ r }) => r);
+
+    // The palette is captioned by group, so a group has to be one run of rows: rank
+    // first, then pull each group together behind its best-scoring member. Without
+    // this the list reads `MODS · ACTIONS · MODS`.
+    const order = [...new Set(ranked.map((r) => r.group))];
+    return order.flatMap((group) => ranked.filter((r) => r.group === group));
   }, [query, library, active, servers, phase, go, switchTo, selectMod, setMod, selectServer, start, toggleLog, openSettings]);
 
   if (!open) return null;
@@ -218,98 +224,84 @@ export function CommandPalette() {
     close();
   };
 
-  let lastGroup = '';
+  // Results arrive already ranked, so a group is a run of adjacent rows — which is
+  // what `PaletteSection` renders: one caption over one list.
+  const groups: { caption: string; rows: { result: Result; index: number }[] }[] = [];
+  results.forEach((result, index) => {
+    const last = groups[groups.length - 1];
+    if (last && last.caption === result.group) last.rows.push({ result, index });
+    else groups.push({ caption: result.group, rows: [{ result, index }] });
+  });
 
   return (
     <div className="palette-scrim" onMouseDown={close} role="presentation">
-      <div
-        className="palette"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command palette"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="palette__input">
-          <SearchIcon size={18} />
-          <input
-            ref={inputRef}
-            value={query}
-            placeholder="Ask VOID anything"
-            aria-label="Ask VOID anything"
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setCursor(0);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setCursor((c) => Math.min(c + 1, results.length - 1));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setCursor((c) => Math.max(c - 1, 0));
-              } else if (e.key === 'Enter') {
-                e.preventDefault();
-                run(cursor);
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                close();
-              }
-            }}
-          />
-          <Kbd tone="palette">esc</Kbd>
-        </div>
+      <Palette aria-label="Command palette" onMouseDown={(e) => e.stopPropagation()}>
+        <PaletteInput
+          autoFocus
+          // The launcher's palette is a focused `<input>`, so the browser already draws
+          // a caret at the cursor. The package's decorative one is for a still.
+          showCaret={false}
+          value={query}
+          placeholder="Ask VOID anything"
+          aria-label="Ask VOID anything"
+          onChange={(next) => {
+            setQuery(next);
+            setCursor(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setCursor((c) => Math.min(c + 1, results.length - 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setCursor((c) => Math.max(c - 1, 0));
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              run(cursor);
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              close();
+            }
+          }}
+        />
 
-        <div className="palette__list">
+        <PaletteSeam />
+
+        <div className="palette__scroll">
           {results.length === 0 ? (
             <p className="palette__empty">Nothing matches “{query}”.</p>
           ) : (
-            results.map((r, i) => {
-              const showGroup = r.group !== lastGroup;
-              lastGroup = r.group;
-              const Icon = r.icon;
-              return (
-                <div key={r.id}>
-                  {showGroup ? <div className="palette__caption">{r.group}</div> : null}
-                  <button
-                    type="button"
-                    className={`palette__row${i === cursor ? ' is-selected' : ''}`}
-                    onMouseEnter={() => setCursor(i)}
-                    onClick={() => run(i)}
-                  >
-                    <span className="palette__icon">
-                      <Icon size={16} />
-                    </span>
-                    <span className="palette__text">
-                      <span className="palette__title">{r.title}</span>
-                      <span className="palette__sub">{r.sub}</span>
-                    </span>
-                    {r.keys?.map((k) => (
-                      <Kbd key={k} tone="palette">
-                        {k}
-                      </Kbd>
-                    ))}
-                  </button>
-                </div>
-              );
-            })
+            groups.map((group) => (
+              <PaletteSection key={group.caption} caption={group.caption}>
+                {group.rows.map(({ result, index }) => (
+                  <PaletteResult
+                    key={result.id}
+                    title={result.title}
+                    sub={result.sub}
+                    icon={result.icon}
+                    keys={result.keys}
+                    selected={index === cursor}
+                    onMouseEnter={() => setCursor(index)}
+                    onSelect={() => run(index)}
+                  />
+                ))}
+              </PaletteSection>
+            ))
           )}
         </div>
 
-        <div className="palette__footer">
-          <span>
-            <Kbd tone="palette">↑↓</Kbd> navigate
-          </span>
-          <span>
-            <Kbd tone="palette">↵</Kbd> run
-          </span>
-          <span>
-            <Kbd tone="palette">esc</Kbd> close
-          </span>
-          <span className="palette__footer-spacer" />
-          <SwordIcon size={14} />
-          <span className="palette__loadout">{active?.name ?? '—'}</span>
-        </div>
-      </div>
+        <PaletteSeam />
+
+        <PaletteFooter
+          hints={[
+            { keys: '\u2191\u2193', word: 'move' },
+            { keys: '\u21b5', word: 'run' },
+            { keys: 'esc', word: 'close' },
+          ]}
+          loadout={active?.name ?? '\u2014'}
+          loadoutIcon={resolveLoadoutIcon(active?.icon ?? 'sword')}
+        />
+      </Palette>
     </div>
   );
 }

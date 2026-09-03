@@ -33,6 +33,12 @@ import { armorRow, potionMeta, shortHost } from './format';
 export interface HudWidgetProps {
   /** `compact` in game, `editor` on the HUD-layout frame. */
   variant?: HudVariant;
+  /**
+   * Extra class on the widget root. `HudLayer` types every widget as
+   * `ComponentType<HudWidgetProps>` and places them all through one table, so a widget
+   * that takes a prop outside this interface cannot go in that table.
+   */
+  className?: string;
 }
 
 /* -------------------------------------------------------------------- FPS */
@@ -132,7 +138,7 @@ export const HudArmorStatus = memo(function HudArmorStatus() {
 
 /* ------------------------------------------------------------- keystrokes */
 
-export const HudKeystrokes = memo(function HudKeystrokes() {
+export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidgetProps) {
   const keys = useVoidStore((s) => s.keys);
   const settings = useModSettings('keystrokes');
   const cpsLeft = useVoidStore((s) => s.cpsLeft);
@@ -140,8 +146,9 @@ export const HudKeystrokes = memo(function HudKeystrokes() {
   const radius = settings.corner_radius;
   return (
     <KeystrokesWidget
-      // `corner_radius` is on the Mod settings frame but not in mods.json; it is
-      // applied by overriding the token the keycaps read.
+      className={className}
+      // `keystrokes.corner_radius` (mods.json), applied by overriding the token the
+      // keycaps read rather than by a bespoke style hook.
       style={
         typeof radius === 'number'
           ? ({ ['--radius-control' as string]: `${radius}px` } as React.CSSProperties)

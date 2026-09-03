@@ -24,8 +24,15 @@ import java.util.Map;
  */
 public final class Protocol {
 
-    /** {@code protocol.json#/definitions/protocol_version}. */
-    public static final int VERSION = 1;
+    /**
+     * {@code protocol.json#/definitions/protocol_version}.
+     *
+     * <p>2 since {@code init.loadouts} became whole loadouts rather than
+     * summaries: against a v1 launcher this mod would receive summaries,
+     * materialise every mod at its factory default, and silently apply the
+     * wrong loadout on a switch. Refusing that pair is what {@code v} is for.</p>
+     */
+    public static final int VERSION = 2;
 
     private Protocol() {
     }
@@ -83,6 +90,18 @@ public final class Protocol {
         return o;
     }
 
+    /** {@code hotkey}: the player pressed a global hotkey; §6.3, already applied. */
+    public static JsonObject hotkey(String id) {
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "hotkey");
+        o.addProperty("id", id);
+        return o;
+    }
+
+    /** {@code hotkey.id} values, {@code protocol.json#/definitions/hotkey_id}. */
+    public static final String HOTKEY_LOADOUT_NEXT = "loadout.next";
+    public static final String HOTKEY_OVERLAY = "overlay";
+
     public static JsonObject server(String host, boolean connected, int port) {
         JsonObject o = new JsonObject();
         o.addProperty("t", "server");
@@ -104,10 +123,11 @@ public final class Protocol {
         public final Kind kind;
         public final int version;
         public final Loadout loadout;
-        public final List<JsonObject> loadouts;
+        /** The whole library from {@code init.loadouts} — full loadouts, not summaries. */
+        public final List<Loadout> loadouts;
         public final GlobalSettings settings;
 
-        Inbound(Kind kind, int version, Loadout loadout, List<JsonObject> loadouts,
+        Inbound(Kind kind, int version, Loadout loadout, List<Loadout> loadouts,
                 GlobalSettings settings) {
             this.kind = kind;
             this.version = version;
@@ -135,12 +155,14 @@ public final class Protocol {
         String t = o.get("t").getAsString();
         try {
             if ("init".equals(t)) {
-                List<JsonObject> summaries = new ArrayList<JsonObject>();
+                // Whole loadouts: every entry is applyable on its own, which is what
+                // makes switchLoadout and the L cycle sub-frame with no round trip.
+                List<Loadout> loadouts = new ArrayList<Loadout>();
                 if (o.has("loadouts") && o.get("loadouts").isJsonArray()) {
                     JsonArray arr = o.getAsJsonArray("loadouts");
                     for (int i = 0; i < arr.size(); i++) {
                         if (arr.get(i).isJsonObject()) {
-                            summaries.add(arr.get(i).getAsJsonObject());
+                            loadouts.add(Loadout.fromJson(arr.get(i).getAsJsonObject()));
                         }
                     }
                 }
@@ -150,7 +172,7 @@ public final class Protocol {
                         o.has("settings") && o.get("settings").isJsonObject()
                                 ? o.getAsJsonObject("settings") : null);
                 return new Inbound(Inbound.Kind.INIT, Json.integer(o, "v", 0), loadout,
-                        summaries, settings);
+                        loadouts, settings);
             }
             if ("loadout".equals(t)) {
                 if (!o.has("loadout") || !o.get("loadout").isJsonObject()) {

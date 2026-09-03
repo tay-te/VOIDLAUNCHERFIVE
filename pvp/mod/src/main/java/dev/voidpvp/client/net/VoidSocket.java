@@ -51,7 +51,8 @@ public final class VoidSocket implements LiveState.Sink {
 
     /** What the rest of the mod wants to know about the link. */
     public interface Listener {
-        void onInit(Loadout loadout, List<JsonObject> summaries, GlobalSettings settings);
+        /** {@code init}: the whole world of state, library included, in full. */
+        void onInit(Loadout loadout, List<Loadout> loadouts, GlobalSettings settings);
 
         void onLoadout(Loadout loadout);
 
@@ -211,6 +212,20 @@ public final class VoidSocket implements LiveState.Sink {
             send(message);
         } else {
             queue.setServer(message);
+        }
+    }
+
+    /**
+     * {@code hotkey}: a global hotkey the player pressed (§6.3).
+     *
+     * <p>Dropped rather than queued when the link is down. It is a notification
+     * about a key press that already happened — the state it produced travels in
+     * its own {@code state} message and <em>is</em> queued — so replaying it after
+     * a reconnect would tell the launcher about a keystroke from minutes ago.</p>
+     */
+    public void sendHotkey(String id) {
+        if (isUp()) {
+            send(Protocol.hotkey(id));
         }
     }
 

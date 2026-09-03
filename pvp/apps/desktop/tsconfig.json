@@ -25,7 +25,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@dev/backdrops": ["./src/dev/backdrops.ts"]
     }
   },
   "include": ["src", "vite.config.ts", "vitest.config.ts"]

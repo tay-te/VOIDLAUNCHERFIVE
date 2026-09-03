@@ -32,6 +32,7 @@ import {
   type PotionEffect,
   type Position,
   type ServerPayload,
+  type SettingPayload,
   type TickPayload,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
@@ -84,10 +85,11 @@ export interface VoidState {
   /**
    * The loadout library the Loadouts frame lists.
    *
-   * SCHEMA GAP: `bridge.json` has no accessor for it — Rust sends
-   * `init.loadouts` to Java, but Java never forwards the list to JS. Until the
-   * bridge grows one, this is filled from the fake bridge's `getLoadouts()` in a
-   * browser and grows from the `loadout` events seen in game.
+   * Delivered whole by the `loadouts` bridge event, which Java pushes on `init` and
+   * again whenever the library changes — Rust sends full loadouts in `init.loadouts`
+   * (protocol.json, `msg_init`), so this is the real library in game as well as in the
+   * harness. `applyLoadout` still folds the active loadout in, so a switch keeps the
+   * list current between pushes.
    */
   library: Loadout[];
   keys: KeysPayload;
@@ -118,6 +120,8 @@ export interface VoidState {
 
   /* ------------------------------------------------------- bridge ingestion */
   applyLoadout(loadout: Loadout): void;
+  applyLoadouts(library: Loadout[]): void;
+  applySetting(change: SettingPayload): void;
   applyKeys(keys: KeysPayload): void;
   applyTick(tick: TickPayload): void;
   applyServer(server: ServerPayload): void;
@@ -177,6 +181,23 @@ export const useVoidStore = create<VoidState>((set, get) => ({
         ? library.map((l) => (l.id === loadout.id ? loadout : l))
         : [...library, loadout],
     });
+  },
+
+  applyLoadouts(library) {
+    // Whole-state replacement (bridge.json, `loadouts_payload`). The active loadout is
+    // in the list, but the copy the `loadout` channel pushed is the live one, so it
+    // wins where both describe the same id.
+    const active = get().loadout;
+    set({
+      library: active ? library.map((l) => (l.id === active.id ? active : l)) : library,
+    });
+  },
+
+  applySetting({ id, key, value }) {
+    // One key changed outside our own call — an in-game hotkey, or a launcher echo.
+    // Applied exactly as the return value of `setModSetting` is; no whole-loadout
+    // replacement, so nothing else in the tree re-renders.
+    writeSetting(set, get, id, key, value as SettingValue);
   },
 
   applyKeys(next) {
@@ -331,13 +352,17 @@ function writeSetting(
   key: string,
   value: SettingValue,
 ): void {
-  const loadout = get().loadout;
+  const { loadout, library } = get();
   if (!loadout) return;
+  const next: Loadout = {
+    ...loadout,
+    mods: { ...loadout.mods, [id]: { ...(loadout.mods[id] ?? {}), [key]: value } },
+  };
+  // The library holds a copy of the active loadout; leaving it behind is how the
+  // Loadouts frame ends up showing a stale "24 mods on" for the loadout you are on.
   set({
-    loadout: {
-      ...loadout,
-      mods: { ...loadout.mods, [id]: { ...(loadout.mods[id] ?? {}), [key]: value } },
-    },
+    loadout: next,
+    library: library.map((l) => (l.id === next.id ? next : l)),
   });
 }
 

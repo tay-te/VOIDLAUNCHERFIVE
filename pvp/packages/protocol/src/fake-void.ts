@@ -19,6 +19,7 @@ import type {
   KeysPayload,
   Loadout,
   LoadoutId,
+  ModId,
   PotionEffect,
   ServerPayload,
   TickPayload,
@@ -177,9 +178,9 @@ export interface FakeVoid extends VoidBridge {
   /** Emit exactly one tick's worth of pushes. */
   tickOnce(): void;
   /**
-   * Push the opening world of state — `loadout`, then `server`, then `menu` — the way
-   * Java does after `hello`. {@link FakeVoid.start} calls this once; call it yourself
-   * when you drive the fake with {@link FakeVoid.advance} instead.
+   * Push the opening world of state — `loadouts`, `loadout`, `server`, then `menu` —
+   * the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
+   * yourself when you drive the fake with {@link FakeVoid.advance} instead.
    */
   emitInitialState(): void;
   /** Open or close the menu layer, emitting `menu`. */
@@ -192,6 +193,12 @@ export interface FakeVoid extends VoidBridge {
   getKeys(): KeysPayload;
   /** Set server presence, emitting `server`. */
   setServer(server: ServerPayload): void;
+  /**
+   * Change one mod setting the way Java does on its own — an in-game hotkey toggling a
+   * mod — clamping it and emitting the `setting` event. Returns the value stored.
+   * Distinct from `setModSetting`, which is the *page* asking and pushes nothing.
+   */
+  applyModSetting(id: ModId, key: string, value: ModSettingValue): ModSettingValue;
   /** The active loadout (a live reference; do not mutate). */
   getLoadout(): Loadout;
   /** The whole library. */
@@ -472,6 +479,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   const bridge: FakeVoid = {
     /* --- VoidBridge ------------------------------------------------------- */
 
+    __isVoidBridge: true,
+
     on(event, cb) {
       let set = handlers.get(event);
       if (!set) {
@@ -559,6 +568,10 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     /* --- FakeVoid controls ------------------------------------------------ */
 
     emitInitialState() {
+      // The library first, then the active loadout: `init` carries both, and the
+      // Loadouts frame wants the whole list rather than whatever it has happened to
+      // observe (bridge.json, `loadouts_payload`).
+      emit({ e: 'loadouts', payload: library.map(structuredCloneish) });
       emit({ e: 'loadout', payload: structuredCloneish(active) });
       emit({ e: 'server', payload: { ...server } });
       emit({ e: 'menu', payload: menuOpen });
@@ -618,6 +631,17 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     setServer(next) {
       server = { ...next };
       emit({ e: 'server', payload: { ...server } });
+    },
+
+    applyModSetting(id, key, value) {
+      // Plays the part of Java changing a setting on its own — an in-game hotkey, or a
+      // launcher-side echo. Clamps exactly as `setModSetting` does, then pushes the
+      // `setting` event rather than a whole loadout, because one key changed.
+      if (!isModId(id)) return value;
+      const applied = clampSetting(key, value);
+      settingsFor(id)[key] = applied;
+      emit({ e: 'setting', payload: { id, key, value: applied } });
+      return applied;
     },
 
     getLoadout() {

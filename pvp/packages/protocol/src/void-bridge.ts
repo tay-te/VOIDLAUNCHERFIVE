@@ -29,11 +29,13 @@
  * ## `openKeybindCapture` is the one asynchronous call
  *
  * Java takes over key input until the next key press, so it cannot answer synchronously.
- * `__void_native` acknowledges the call without a `returns` field, and Java later
- * delivers the resolution as a **call-result envelope** through the same `__emit`
- * channel: `__emit({ c: 'openKeybindCapture', returns: 'V' })` — or `returns: null`
- * when the player pressed Escape. The shim keeps the pending resolvers in FIFO order.
- * The promise never rejects.
+ * The hop still happens and still answers — with `{c: 'openKeybindCapture',
+ * returns: null}`, meaning **armed** — and Java later delivers the resolution as a
+ * **call-result envelope** through the same `__emit` channel:
+ * `__emit({ c: 'openKeybindCapture', returns: 'V' })`, or `returns: null` when the
+ * player pressed Escape. Null therefore arrives on *both* channels and means two
+ * different things; a shim must tell them apart by channel, never by value. The shim
+ * keeps the pending resolvers in FIFO order, and the promise never rejects.
  */
 
 import type {
@@ -45,8 +47,10 @@ import type {
   KeysPayload,
   Loadout,
   LoadoutId,
+  LoadoutsPayload,
   ModId,
   ServerPayload,
+  SettingPayload,
   TickPayload,
 } from './generated/schema.js';
 
@@ -54,10 +58,18 @@ import type {
 /* Events                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** The five channels Java pushes on. Closed set; any other name is a programming error. */
-export const VOID_EVENTS = ['keys', 'tick', 'server', 'loadout', 'menu'] as const;
+/** The seven channels Java pushes on. Closed set; any other name is a programming error. */
+export const VOID_EVENTS = [
+  'keys',
+  'tick',
+  'server',
+  'loadout',
+  'loadouts',
+  'setting',
+  'menu',
+] as const;
 
-/** Name of one of the five push channels. */
+/** Name of one of the seven push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -70,6 +82,18 @@ export interface VoidEventPayloadMap {
   server: ServerPayload;
   /** The full loadout that is now active. Treat as whole-state replacement. */
   loadout: Loadout;
+  /**
+   * The whole loadout library, in library order — what Rust sent in `init.loadouts`.
+   * Pushed once on `init` and again whenever the library changes. Whole-state
+   * replacement, like `loadout`.
+   */
+  loadouts: LoadoutsPayload;
+  /**
+   * One mod setting Java changed on its own: an in-game hotkey, or a launcher-side
+   * echo. Never pushed for a change this page made through `setModSetting`, which
+   * already returned the stored value.
+   */
+  setting: SettingPayload;
   /** True when VoidMenuScreen opened, false when it closed. */
   menu: boolean;
 }
@@ -160,6 +184,14 @@ export type VoidEnvelope = VoidEventEnvelope | VoidCallEnvelope | VoidCallResult
  */
 export interface VoidBridge {
   /**
+   * Marker set by every implementation of this surface — `void-shim.js` in the JAR,
+   * {@link installVoidShim} and {@link createFakeVoid}. It is how a page tells "the
+   * host already installed a bridge" from "`window.void` is something else", and how
+   * the shim makes itself idempotent when it runs twice.
+   */
+  readonly __isVoidBridge?: true;
+
+  /**
    * Subscribe to a push channel. Returns an unsubscribe function; calling it is
    * equivalent to `off(event, cb)`.
    */
@@ -170,8 +202,9 @@ export interface VoidBridge {
 
   /**
    * Deliver one envelope into the page. Java calls this to push events; it also accepts
-   * a deferred `openKeybindCapture` call result. Accepts the envelope as an object or
-   * as its JSON encoding, because the Java side hands over a string.
+   * a deferred `openKeybindCapture` call result, which is what resolves the Promise
+   * that call handed out. Accepts the envelope as an object or as its JSON encoding,
+   * because the Java side hands over a string.
    */
   __emit(envelope: VoidEnvelope | string): void;
 
@@ -352,6 +385,8 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
   }
 
   const bridge: VoidBridge = {
+    __isVoidBridge: true,
+
     on(event, cb) {
       let set = handlers.get(event);
       if (!set) {
@@ -415,8 +450,13 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
     },
 
     openKeybindCapture(modId) {
-      const immediate = call('openKeybindCapture', [modId]);
-      if (immediate !== undefined) return Promise.resolve(immediate);
+      // The synchronous answer is `{c, returns: null}` and means *armed*, not
+      // *cancelled* — the captured key arrives later on the `__emit` channel. Reading
+      // that null as the resolution would settle every capture instantly with null, so
+      // the answer is deliberately discarded and the Promise always waits for `__emit`.
+      // The two are told apart by channel, never by value (bridge.json,
+      // `openKeybindCapture_returns`).
+      call('openKeybindCapture', [modId]);
       return new Promise<Keybind | null>((resolve) => {
         pendingCaptures.push(resolve);
       });

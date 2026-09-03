@@ -133,8 +133,22 @@ body {
 
 .mods-body {
   display: flex;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
+}
+
+/* The frame draws the pane 278 × 414 — the exact height of the 4-row grid beside
+   it (4 × 96 + 3 × 10). Left to stretch it filled the panel body and pushed
+   `Edit position` ~76px below the grid's last row. */
+.mods-body .v-modsettings {
+  height: 414px;
+}
+
+/* Tabs sit at 359 in the frame: 20px clear of the 230px search field, not the
+   header's default 12px gap. */
+.mods-panel .v-panel__header .v-tabs {
+  margin-left: 8px;
 }
 
 .mods-empty {
@@ -167,10 +181,36 @@ body {
 
 /* ----------------------------------------------------- Mod settings screen */
 
-/* The frame puts the subtitle at x 121, clear of the `← Mods` button that
-   occupies 25 → 111 on the header band. */
+/* Both overlay panels that carry a subtitle draw it *inside* the header band
+   (Mod settings at 121, 51; Loadouts at 25, 53) rather than stacked below it.
+   In flow it pushed the entire body down — 24px on Mod settings, 12px on
+   Loadouts — and every row after it missed its authored y. Out of flow here,
+   with each screen's body padding restoring the frame's own content top. */
+.mset-panel .v-panel__subtitle,
+.loadouts-panel .v-panel__subtitle {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  margin-top: 0;
+}
+
+/* Mod settings' subtitle is DM Mono in the frame, not the UI face. */
 .mset-panel .v-panel__subtitle {
+  top: 50px;
   padding-left: 121px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+}
+
+/* Header band 52 + 36 = the frame's 89px top for the loadout cards. */
+.loadouts-panel .v-panel__body {
+  padding-top: 36px;
+}
+
+/* Header band 52 + 26 = the frame's 81px top for the preview strip. */
+.mset-panel .v-panel__body {
+  padding-top: 26px;
 }
 
 .mset {
@@ -225,12 +265,15 @@ body {
   font-family: var(--font-mono);
   font-size: var(--text-xs-2);
   letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
   color: var(--text-muted);
+  /* `Bottom left   ·   1.0×   ·   85%` — the frame's spaced separators. */
+  white-space: pre;
 }
 
+/* Only the caption is set in caps; the readout beside it is sentence case. */
 .mset__preview-caption {
   left: 16px;
+  text-transform: uppercase;
 }
 
 .mset__preview-meta {
@@ -251,12 +294,23 @@ body {
   flex: 0 0 auto;
 }
 
+/* The footer band carries the hint on the left and the two actions on the
+   right, bottom-aligned with the hint's baseline — the frame's 547 / 563 pair. */
+.mset-panel .v-panel__footer .v-hint {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mset__footer-hint {
+  white-space: pre;
+}
+
 .mset__actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-end;
   gap: 10px;
-  margin-top: auto;
-  padding-bottom: 4px;
 }
 
 /* --------------------------------------------------------- Loadouts screen */
@@ -271,6 +325,16 @@ body {
 
 /* ------------------------------------------------------------ Party screen */
 
+/* Tabs sit at 119 in the frame, a column clear of the `Party` title. */
+.party-panel .v-panel__header .v-tabs {
+  margin-left: 12px;
+}
+
+/* Header band 52 + 22 = the frame's 75px content top for both columns. */
+.party-panel .v-panel__body {
+  padding-top: 22px;
+}
+
 .party {
   display: flex;
   gap: 20px;
@@ -284,8 +348,10 @@ body {
   gap: 6px;
 }
 
-.party__gap {
-  height: 6px;
+/* The frame steps 9px from the last member row to the INVITE caption; the
+   column's own 6px gap supplies most of it. */
+.party__invite-cap {
+  margin-top: 3px;
 }
 
 .party__pane {
@@ -294,11 +360,18 @@ body {
   height: 500px;
 }
 
+/* The frame stacks the three game rows 6px apart inside the pane's 12px rhythm. */
+.queue-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .queue-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 5px 12px;
   border-radius: var(--radius-field);
   background: var(--tint-04);
   border: 1px solid transparent;
@@ -311,17 +384,17 @@ body {
 }
 
 .queue-row__radio {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
   border: 1.5px solid var(--tint-20);
   flex: 0 0 auto;
 }
 
+/* The frame fills the selected radio solid — no punched-out centre. */
 .queue-row--selected .queue-row__radio {
   border-color: var(--accent);
   background: var(--accent);
-  box-shadow: inset 0 0 0 3px rgba(10, 11, 12, 0.85);
 }
 
 .queue-row__body {
@@ -360,11 +433,11 @@ body {
   color: var(--text-muted);
 }
 
+/* `Leave party` is the frames' bare Text button — no fill, no rim. */
 .party__leave {
   width: 100%;
   padding: 9px 0;
   border-radius: var(--radius-field);
-  background: var(--tint-05);
   color: var(--text-muted);
   font-size: var(--text-md);
   font-weight: var(--weight-medium);

@@ -60,7 +60,8 @@ pub use loadout::{
     ModStates, DEFAULT_MC,
 };
 pub use mods::{
-    defaults_json, registry, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo, Registry,
+    defaults_json, registry, Category, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo,
+    Registry,
 };
 pub use settings::GlobalSettings;
 pub use store::Store;

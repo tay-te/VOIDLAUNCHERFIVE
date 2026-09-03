@@ -1,5 +1,5 @@
 /**
- * Boot: pick a bridge, subscribe the five channels, report focus.
+ * Boot: pick a bridge, subscribe the seven channels, report focus.
  *
  * §6.5 / bridge.json — Java → JS is push through `void.on(...)`; JS → Java is a
  * synchronous call. There is no fetch, no XHR and no socket in this bundle: the
@@ -74,7 +74,14 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
   const hasNative = typeof window !== 'undefined' && typeof window.__void_native === 'function';
 
   if (hasNative && !debugRequested) {
-    bridge = installVoidShim();
+    // `index.html` loads `./void-shim.js` before this bundle, and that file — shipped in
+    // the JAR by the mod, source of truth `assets/void/shim/void-shim.js` — has already
+    // built `window.void` on top of `window.__void_native`. Use it rather than replacing
+    // it, so the object Java pushes into (`window.void.__emit(...)`) is the object this
+    // page listens on. `installVoidShim()` is the fallback for a host that installed
+    // `__void_native` but no shim, and is the same semantics either way (CONTRACTS.md,
+    // "The bridge shim").
+    bridge = window.void?.__isVoidBridge === true ? window.void : installVoidShim();
     fake = null;
   } else {
     fake = createFakeVoid({ menuOpen: debugRequested });
@@ -90,14 +97,13 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
 
   const store = useVoidStore.getState();
 
-  // SCHEMA GAP: `bridge.json` exposes no accessor for the loadout library — Rust
-  // sends `init.loadouts` to Java, but Java never forwards the list to JS. The
-  // fake bridge does expose one, so the Loadouts screen is fully populated in
-  // the harness and falls back to `[active loadout]` in game.
-  if (fake) useVoidStore.setState({ library: fake.getLoadouts() });
-
   const offs = [
+    // `loadouts` before `loadout`: the library is whole-state and the active loadout
+    // wins where they overlap. Java pushes them in that order on `init`, and the fake
+    // bridge's `emitInitialState` does the same.
+    bridge.on('loadouts', store.applyLoadouts),
     bridge.on('loadout', store.applyLoadout),
+    bridge.on('setting', store.applySetting),
     bridge.on('keys', store.applyKeys),
     bridge.on('tick', store.applyTick),
     bridge.on('server', store.applyServer),

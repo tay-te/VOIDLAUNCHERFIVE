@@ -5,9 +5,20 @@
  * hero art behind a scrim, panels floating on the canvas and the dock at the bottom —
  * but expressed as a flex layout rather than absolute pixels, because the window is
  * resizable down to 1100 × 700 and the frames are a single 1300 × 820 size.
+ *
+ * Everything inside the shell is either a component from `@void/ui` or one of the four
+ * launcher-only regions this file arranges — chrome band, canvas, hero, dock.
+ *
+ * The root would normally carry `v-app`, which is where that package's reset and type
+ * ramp live. It does not, for one reason spelled out at the top of `local/app.css`:
+ * the `.v-app button` half of that reset outranks the package's own component
+ * backgrounds, so `v-app` makes every button in it transparent. `local/app.css`
+ * carries the same reset at zero specificity until that is fixed upstream.
  */
 
 import { useEffect } from 'react';
+
+import { BACKDROPS } from '@dev/backdrops';
 
 import { Dock } from './features/Dock';
 import { CommandPalette } from './features/CommandPalette';
@@ -56,13 +67,22 @@ export function App() {
   const Screen = SCREEN_COMPONENTS[screen];
   const isPlay = screen === 'play';
 
+  // In the browser preview the canvas shows the design frame itself, cropped to the
+  // canvas rectangle; the frames are composites, so their scrim is already baked in and
+  // ours would double-darken. A real build gets an empty map — see src/dev/backdrops.ts.
+  const backdrop = BACKDROPS[screen];
+
   return (
     <div className="shell" data-phase={phase}>
       <TopNav />
 
-      <main className="canvas">
-        <div className="canvas__art" aria-hidden="true" />
-        <div className="canvas__scrim" aria-hidden="true" />
+      <main className="canvas v-noise">
+        <div
+          className={`canvas__art${backdrop ? ' canvas__art--design' : ''}`}
+          style={backdrop ? { backgroundImage: `url(${backdrop})` } : undefined}
+          aria-hidden="true"
+        />
+        {backdrop ? null : <div className="canvas__scrim" aria-hidden="true" />}
 
         <div className={`canvas__content${isPlay ? ' is-play' : ''}`}>
           <Screen />

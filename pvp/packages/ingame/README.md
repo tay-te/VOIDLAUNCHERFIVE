@@ -16,13 +16,14 @@ Owner: **ingame** (CONTRACTS.md). Design source: `pvp/design/README.md` frames `
 ## Architecture
 
 ```
-window.__void_native  ──installVoidShim()──▶  window.void  ──┐
-   (Java, in-process)                                        │  on('keys'|'tick'|
-                                                             │      'server'|'loadout'|'menu')
-                                                             ▼
-                                                     src/store/store.ts   (Zustand)
-                                                             │
-                                    ┌────────────────────────┴────────────────────────┐
+window.__void_native  ──void-shim.js──▶  window.void          ──┐
+   (Java, in-process)      (from the JAR)                       │  on('keys'|'tick'|
+                                                                │      'server'|'loadout'|
+                                                                │      'loadouts'|'setting'|'menu')
+                                                                ▼
+                                                        src/store/store.ts   (Zustand)
+                                                                │
+                                    ┌───────────────────────────┴─────────────────────┐
                                     ▼                                                 ▼
                           src/hud/HudLayer.tsx                            src/menu/MenuLayer.tsx
                        always mounted · no input                     mounted while `menu` is true
@@ -33,27 +34,40 @@ window.__void_native  ──installVoidShim()──▶  window.void  ──┐
 | Path | What lives there |
 |---|---|
 | `src/bridge/protocol.ts` | The one import of `@void/protocol` — types, `installVoidShim`, `createFakeVoid`, `MOD_REGISTRY` |
-| `src/bridge/connect.ts` | Picks the real or the fake bridge, subscribes the five channels, owns `__hasFocus` |
+| `src/bridge/connect.ts` | Picks the real or the fake bridge, subscribes the seven channels, owns `__hasFocus` |
 | `src/store/store.ts` | The single Zustand store. `window.void.on(...)` is the only writer of live data |
 | `src/store/cps.ts` | Clicks-per-second from the rising edges of `keys.lmb` / `keys.rmb`. Pure |
 | `src/store/hud-geometry.ts` | `anchor + dx/dy + scale` ⇄ pixels, snap, clamp, anchor re-pick. Pure |
 | `src/hud/` | The seven HUD mods, bound to the store; `HudLayer` places them |
 | `src/menu/` | The five overlay screens |
 | `src/palette/` | ⌘K: the command set, the fuzzy ranker, and the selection / key routing over `@void/ui`'s palette shell |
-| `src/registry.ts` | The Figma-side view of the registry: filter category, grid order, panel copy |
+| `src/registry.ts` | The overlay's view of the registry: category tags and filter tabs **derived from `mods.json`**, plus the one thing the schema does not carry — the tile grid order |
 | `src/styles/overlay.css` | Layer composition and screen layout. Every *component* style is `@void/ui`'s |
 | `scripts/check-ultralight.mjs` | CI guard — fails the build on a banned CSS/JS feature |
 | `scripts/size.mjs` | CI guard — fails the build over the 400 KB gzip budget |
 
 ### The bridge is the only input
 
-`bridge.json` is a closed surface: five push channels and six calls. Because Ultralight
-runs inside the JVM, the calls are **synchronous and authoritative** — `setModSetting`
-returns the value Java stored after clamping, and that returned value is what the control
-binds to. There is no optimistic UI and no `ack` anywhere in this package.
+`bridge.json` is a closed surface: **seven** push channels and six calls. Because
+Ultralight runs inside the JVM, the calls are **synchronous and authoritative** —
+`setModSetting` returns the value Java stored after clamping, and that returned value is
+what the control binds to. There is no optimistic UI and no `ack` anywhere in this package.
 
-`openKeybindCapture` is the one exception and returns a Promise; the captured key is not
-stored by that call, so the UI writes it back with `setModSetting(id, 'key', captured)`.
+Two of the seven channels exist because this package needed them:
+
+* **`loadouts`** — the whole library, in full, in library order. `init.loadouts` carries
+  complete loadouts, so the Loadouts frame lists and compares every card and the palette
+  can offer `Turn on in <other> loadout` without having watched that loadout go past.
+  The store treats it as whole-state, and the active loadout's own push wins where both
+  describe the same id.
+* **`setting`** — one `{id, key, value}` Java changed by itself, such as the
+  `keystrokes.keybind` overlay hotkey. Applied exactly as the return value of
+  `setModSetting` is, so one key changing does not re-render the world.
+
+`openKeybindCapture` is the one asynchronous call and returns a Promise. Its synchronous
+answer is `returns: null` and means *armed*; the key follows on the `__emit` channel as a
+call-result envelope. The captured key is not stored by that call, so the UI writes it
+back with `setModSetting(id, 'key', captured)`.
 
 ### Rendering discipline
 
@@ -141,8 +155,10 @@ supplies:
 * the **behaviour** the frames imply but a component library cannot own: drag/snap/scale
   in the HUD editor, palette selection and key routing, the keyboard contract, focus
   reporting;
-* the **data** the schema does not carry: the filter taxonomy, grid order and panel copy
-  (`src/registry.ts`), and the potion colour table (`src/hud/format.ts`).
+* the **data** the schema does not carry: the tile grid order (`src/registry.ts`) and the
+  potion colour table (`src/hud/format.ts`). The filter taxonomy and the panel copy used
+  to be here too; `mods.json` now carries `category` and the frames' `label`, so both are
+  derived and `test/registry.test.ts` is what stops them being re-hard-coded.
 
 There are **no local component fallbacks left**. Earlier drafts carried a `src/local/`
 tree standing in for `@void/ui` and `@void/protocol` while those packages were being
@@ -237,6 +253,19 @@ no origin behind a classpath loader — and the `crossorigin` attribute Vite emi
 stripped for the same reason. Target is **ES2022** with real ES modules, which Ultralight
 1.4's JavaScriptCore supports.
 
+The built `index.html` also gets `<script src="./void-shim.js"></script>` as the first
+element of `<head>`, injected by the `injectVoidShim()` plugin. That file is **not** an
+asset of this package — the mod commits it at `assets/void/shim/void-shim.js` and Gradle
+copies it next to this bundle inside the JAR — which is exactly why the tag is injected
+rather than written into `index.html`, where Vite would try to resolve a missing file. The
+plugin is build-only: in the harness there is no Java and `createFakeVoid()` installs
+`window.void` itself.
+
+`emptyOutDir` is on and safe. The only things in that directory are this bundle's own
+outputs; the shim lives one level up in `assets/void/shim/` and Gradle's copy lands in
+`build/resources/main/`, never in the source tree, so neither build can delete the other's
+work whichever runs first (CONTRACTS.md, "The bridge shim").
+
 The directory is gitignored: it is a build output, and **mod** must never hand-edit it
 (CONTRACTS.md).
 
@@ -279,6 +308,7 @@ pnpm --filter @void/ingame check    # typecheck + Ultralight guard + tests
 | `test/fuzzy.test.ts` | Palette ranking, including the frame's own `fullb` ordering |
 | `test/store.test.ts` | Reducers against the real `createFakeVoid()`: CPS through the store, clamped writes, `setHud` round-trip, `__hasFocus` |
 | `test/screens.test.tsx` | A render smoke test per screen, asserting the frames' verbatim copy — footer hints included |
+| `test/registry.test.ts` | That category, label and filter tabs are *derived* from `mods.json` and not re-transcribed, and that `category` stays distinct from `kind` |
 
 The store and screen tests run against the **real fake bridge** from `@void/protocol`,
 not a hand-written mock, so they exercise the actual call and event shapes of
@@ -286,27 +316,26 @@ not a hand-written mock, so they exercise the actual call and event shapes of
 
 ---
 
-## Known gaps, raised rather than worked around
+## Known gaps
 
-These are contract questions for **core** (`schema/` is written by core and read by
-everyone; a change there is a contract change).
+The first four entries here were contract questions for **core**; all four were answered
+in `schema/` and the workarounds are gone. They are kept as a record of what moved.
 
-1. **No loadout-library accessor on the bridge.** Rust sends `init.loadouts` to Java, but
-   `bridge.json` gives JS no way to read the list — and the Loadouts frame lists every
-   loadout. The store's `library` is filled from the fake bridge's `getLoadouts()` in the
-   harness and otherwise grows from the `loadout` events actually seen, so in game it
-   starts as just the active loadout.
-2. **Three settings the Mod settings frame draws are not in `mods.json`:**
-   `keystrokes.corner_radius`, `keystrokes.key_color`, `keystrokes.pressed_color`. They
-   are written through `setModSetting` under those keys (Java clamps rather than throws)
-   and flagged here for reconciliation.
-3. **`mods.json` labels disagree with the frames** for three mods: the registry says
-   `FPS`, `CPS`, `Ping`; the panels read `FPS display`, `CPS counter`, `Ping display`.
-   `src/registry.ts` overrides the three, since this is panel copy.
-4. **No category taxonomy in the schema.** The Mods panel filters across
-   All / HUD / PvP / Visual / Utility, which is a product split; `mods.json` only carries
-   `kind` (hud | gameplay), a data-direction split. The mapping is in `src/registry.ts`,
-   read off frame 244:538 tile by tile.
+1. ~~**No loadout-library accessor on the bridge.**~~ **Resolved.** `bridge.json` gained a
+   `loadouts` event carrying the whole library, and `protocol.json`'s `init.loadouts` now
+   carries *full* loadouts rather than summaries. `store.library` is the real library in
+   game, not just the loadouts this session happened to see.
+2. ~~**Three settings the Mod settings frame draws are not in `mods.json`.**~~
+   **Resolved.** `keystrokes.corner_radius` (0–20 px, default 8), `keystrokes.key_color`
+   (`shell|raised|pill|sky|teal`, default `shell`) and `keystrokes.pressed_color`
+   (`accent|sky|warn|fear|teal`, default `accent`) are in `keystrokes_settings`, with the
+   frame's defaults. Java clamps them like any other setting instead of dropping them.
+3. ~~**`mods.json` labels disagree with the frames.**~~ **Resolved.** The registry says
+   `FPS display`, `CPS counter` and `Ping display`; `modLabel` is a straight lookup and
+   the three overrides are deleted.
+4. ~~**No category taxonomy in the schema.**~~ **Resolved.** Every registry entry carries
+   `category` (`hud | pvp | visual | utility`), matching frame 244:538 tag for tag.
+   `MOD_CATEGORY` and `FILTER_TABS` are derived from it; the hand-written map is gone.
 5. **Party is presentational.** No bridge event or call carries party, presence or queue
    state, and §16.2 is still open. Nothing on that screen is wired, and no bridge call was
    invented for it.

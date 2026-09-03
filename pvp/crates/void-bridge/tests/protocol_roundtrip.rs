@@ -52,7 +52,7 @@ fn tags(direction: &str) -> Vec<String> {
 #[test]
 fn protocol_examples_round_trip() {
     let examples = examples();
-    assert_eq!(examples.len(), 9, "protocol.json ships nine examples");
+    assert_eq!(examples.len(), 11, "protocol.json ships eleven examples");
 
     let inbound = tags("java_to_rust");
     let mut seen: Vec<String> = Vec::new();
@@ -84,10 +84,10 @@ fn protocol_examples_round_trip() {
 }
 
 #[test]
-fn the_two_directions_cover_all_eight_messages_exactly_once() {
+fn the_two_directions_cover_all_nine_messages_exactly_once() {
     let inbound = tags("java_to_rust");
     let outbound = tags("rust_to_java");
-    assert_eq!(inbound, ["hello", "state", "hud", "session", "server"]);
+    assert_eq!(inbound, ["hello", "state", "hud", "session", "server", "hotkey"]);
     assert_eq!(outbound, ["init", "loadout", "settings"]);
     for t in &inbound {
         assert!(!outbound.contains(t), "`{t}` is claimed by both directions");

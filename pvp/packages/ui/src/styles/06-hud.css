@@ -51,6 +51,9 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-muted);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
 }
 
 /* ---------------------------------------------------------------- FpsChip */
@@ -63,6 +66,9 @@
 
 .v-coordschip {
   gap: var(--space-12);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
 }
 
 .v-coordschip__axis {
@@ -264,6 +270,26 @@
 /** The space bar spans the WASD block. */
 .v-keystrokes__key--space {
   width: 130px;
+}
+
+/**
+ * The Mod settings LIVE PREVIEW strip draws the widget one step down from HUD
+ * size: 36px caps, 56.5px mouse keys, 12px labels (frame 244:834). At full HUD
+ * size the block overflows the 168px strip.
+ */
+.v-keystrokes--preview .v-keystrokes__key {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-chip);
+  font-size: var(--text-md);
+}
+
+.v-keystrokes--preview .v-keystrokes__key--wide {
+  width: 56.5px;
+}
+
+.v-keystrokes--preview .v-keystrokes__key--space {
+  width: 118px;
 }
 
 .v-keystrokes__key--pressed {

@@ -30,6 +30,10 @@ export type FPSDisplayEntry = RegistryEntry & {
    */
   kind?: 'hud';
   /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
    * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
@@ -55,6 +59,10 @@ export type ModId =
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
 export type ModKind = 'hud' | 'gameplay';
+/**
+ * The product taxonomy the Mods panel filters across — the tabs `All / HUD / PvP / Visual / Utility` of Figma 244:538, and the tag printed on each tile. Distinct from `kind`, which is a data-direction split (does the mod draw, or does it mutate a client-side option): Crosshair is `kind: gameplay` but `category: visual`, and Zoom is `kind: gameplay` but `category: utility`. Carried here so no consumer has to hard-code the mapping.
+ */
+export type ModCategory = 'hud' | 'pvp' | 'visual' | 'utility';
 /**
  * Anti-cheat posture of §11. `safe` mods are unambiguously allowed; `grey` mods change what the player can see and are tolerated but not endorsed. The HYPIXEL-READY badge is shown only when every enabled mod in the loadout is `safe`.
  */
@@ -88,6 +96,10 @@ export type KeystrokesEntry = RegistryEntry & {
    */
   kind?: 'hud';
   /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
    * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
@@ -97,6 +109,14 @@ export type KeystrokesEntry = RegistryEntry & {
  * An LWJGL 2 key name in upper case as used by Minecraft 1.8.9 `Keyboard.getKeyName`, a mouse button as MOUSE0..MOUSE7, or NONE for unbound. Produced by `void.openKeybindCapture`.
  */
 export type Keybind = string;
+/**
+ * One of the five unpressed-key swatches on the Mod settings frame, named by the design token it resolves to (`--bg-shell`, `--surface-2`, `--surface-3`, `--sky`, `--teal`). A name rather than a hex value so the choice survives a theme change.
+ */
+export type KeyColourSwatch = 'shell' | 'raised' | 'pill' | 'sky' | 'teal';
+/**
+ * One of the five pressed-key swatches on the Mod settings frame, named by the design token it resolves to (`--accent`, `--sky`, `--warn`, `--danger`, `--teal`). `accent` is the frame's default and follows the loadout accent.
+ */
+export type PressedColourSwatch = 'accent' | 'sky' | 'warn' | 'fear' | 'teal';
 /**
  * Registry entry for the CPS counter, narrowed to its constant classification.
  */
@@ -109,6 +129,10 @@ export type CPSCounterEntry = RegistryEntry & {
    * Always `hud`.
    */
   kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
   /**
    * Always `safe` (§11).
    */
@@ -128,6 +152,10 @@ export type PingDisplayEntry = RegistryEntry & {
    */
   kind?: 'hud';
   /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
    * Always `safe`; §11 does not list ping explicitly, and a read of the player's own responseTime cannot affect play.
    */
   hypixel_safe?: 'safe';
@@ -145,6 +173,10 @@ export type CoordinatesEntry = RegistryEntry & {
    * Always `hud`.
    */
   kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
   /**
    * Always `safe` (§11).
    */
@@ -164,6 +196,10 @@ export type ArmorStatusEntry = RegistryEntry & {
    */
   kind?: 'hud';
   /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
    * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
@@ -181,6 +217,10 @@ export type PotionEffectsEntry = RegistryEntry & {
    * Always `hud`.
    */
   kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
   /**
    * Always `safe` (§11).
    */
@@ -200,6 +240,10 @@ export type ToggleSprintEntry = RegistryEntry & {
    */
   kind?: 'gameplay';
   /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
    * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
@@ -217,6 +261,10 @@ export type FullbrightEntry = RegistryEntry & {
    * Always `gameplay`.
    */
   kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
   /**
    * Always `grey` (§11).
    */
@@ -236,6 +284,10 @@ export type HitboxesEntry = RegistryEntry & {
    */
   kind?: 'gameplay';
   /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
    * Always `grey` (§11).
    */
   hypixel_safe?: 'grey';
@@ -254,6 +306,10 @@ export type ZoomEntry = RegistryEntry & {
    */
   kind?: 'gameplay';
   /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
    * Always `safe`; §11 does not list zoom explicitly, and an FOV override is the long-standing allowed Optifine behaviour.
    */
   hypixel_safe?: 'safe';
@@ -271,6 +327,10 @@ export type CrosshairEntry = RegistryEntry & {
    * Always `gameplay`; §3 marks it Gameplay* because it is drawn in GL rather than HTML, but its data direction is that of an actuator.
    */
   kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
   /**
    * Always `safe`; §11 does not list crosshair explicitly, and it is a purely cosmetic replacement of the vanilla crosshair pass.
    */
@@ -310,14 +370,23 @@ export type HUDLayout = HUDItem[];
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The five messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The six messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
-  HelloJavaToRust | StateJavaToRust | HudJavaToRust | SessionJavaToRust | ServerJavaToRust;
+  | HelloJavaToRust
+  | StateJavaToRust
+  | HudJavaToRust
+  | SessionJavaToRust
+  | ServerJavaToRust
+  | HotkeyJavaToRust;
 /**
- * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7).
+ * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.
  */
-export type ProtocolVersion = 1;
+export type ProtocolVersion = 2;
+/**
+ * Closed set of the global hotkeys the mod reports. `loadout.next` is the L-key cycle of §6.3, already applied when this is sent. `overlay` is the menu key (Right Shift by default) opening or closing VoidMenuScreen; the launcher uses it only for presence, since the menu is entirely in-game.
+ */
+export type HotkeyId = 'loadout.next' | 'overlay';
 /**
  * The three messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
  */
@@ -329,11 +398,18 @@ export type BridgeEnvelope = Event | Call | CallResult;
 /**
  * One push from Java to JS, enveloped as {e, payload}. In the real bridge the envelope does not exist on the wire: `payload` is the single argument the `void.on(e, handler)` handler receives.
  */
-export type Event = KeysEvent | TickEvent | ServerEvent | LoadoutEvent | MenuEvent;
+export type Event =
+  KeysEvent | TickEvent | ServerEvent | LoadoutEvent | LoadoutsEvent | SettingEvent | MenuEvent;
 /**
  * 0 released, 1 pressed.
  */
 export type KeyState = 0 | 1;
+/**
+ * Every loadout in the library, in full and in library order, including the active one — exactly what Rust sent in `init.loadouts`. Pushed once on `init` and again whenever the library changes, so the in-game Loadouts frame (Figma 244:1130) can list and compare loadouts, and the quick palette can offer `Turn on in <other> loadout`, without a bridge accessor and without waiting to observe a `loadout` event per entry. Whole-state replacement, like `loadout`.
+ *
+ * @maxItems 128
+ */
+export type LoadoutsPayload = Loadout[];
 /**
  * True when VoidMenuScreen opened, false when it closed. The React app draws the HUD layer and the menu layer into the same Ultralight view (§6.2); this flag is how it decides which is visible.
  */
@@ -437,12 +513,12 @@ export type SwitchLoadoutReturns = boolean;
  */
 export type CloseMenuReturns = null;
 /**
- * The captured key, or null when the player cancelled with Escape. The JS side sees this as the resolution value of a Promise; it never rejects.
+ * Two different things travel in this shape, which is why it admits null twice over. The **synchronous** answer of `__void_native` is always null and means "capture armed". The **deferred** envelope, delivered later through `__emit`, carries the captured key — or null again when the player cancelled with Escape. A shim distinguishes them by channel, never by value: the synchronous answer opens a Promise, the `__emit` envelope resolves it.
  */
 export type OpenKeybindCaptureReturns = Keybind | null;
 
 /**
- * The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11 and the factory defaults. This file is the single source of truth for mod identity: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
+ * The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
  */
 export interface ModRegistryDocument {
   version: RegistryVersion;
@@ -471,6 +547,7 @@ export interface Mods {
 export interface RegistryEntry {
   id: ModId;
   kind: ModKind;
+  category: ModCategory;
   hypixel_safe: HypixelSafetyClass;
   /**
    * Human-readable name as it appears in the Mods panel of the Figma.
@@ -522,6 +599,12 @@ export interface KeystrokesSettings {
    * Whether to print the current CPS inside the LMB and RMB tiles.
    */
   show_cps?: boolean;
+  /**
+   * Corner radius of a key tile in unscaled GUI pixels, drawn as the `Corner radius` slider on the Mod settings frame (Figma 244:834). 0 is a square tile.
+   */
+  corner_radius?: number;
+  key_color?: KeyColourSwatch;
+  pressed_color?: PressedColourSwatch;
 }
 /**
  * Settings for the CPS counter HUD mod. Derived entirely in JS from mouse edges on the `keys` event (§3), so no Java sensor exists for it.
@@ -888,7 +971,18 @@ export interface ServerJavaToRust {
   [k: string]: any | undefined;
 }
 /**
- * The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, summaries of the rest of the library for the in-game switcher, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here.
+ * Sent when the player pressed one of the two global hotkeys of §6.3 in game. It is a notification, not a request: Java has already done the thing — cycled the loadout, opened or closed the overlay — and this tells the launcher so the tray and the launcher window can follow. The loadout that the L key selected still travels in its own `state` message; this one carries no state of its own, which is why the payload is a single id.
+ */
+export interface HotkeyJavaToRust {
+  /**
+   * Message discriminator; always `hotkey`.
+   */
+  t: 'hotkey';
+  id: HotkeyId;
+  [k: string]: any | undefined;
+}
+/**
+ * The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, **every other loadout in full**, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here. `loadouts` carries whole loadouts rather than summaries on purpose: a loadout is roughly 1 KB and a library is capped at 128, so the whole library is a few hundred kilobytes at worst, sent once per launch — and in exchange `void.switchLoadout` and the L-key cycle can apply any loadout in under a frame (§8.2) with no round trip, and the in-game Loadouts screen can list the library without a bridge accessor of its own. There is deliberately no `request_loadout` message: nothing the mod does needs one.
  */
 export interface InitRustToJava {
   /**
@@ -898,32 +992,13 @@ export interface InitRustToJava {
   v: ProtocolVersion;
   loadout: Loadout;
   /**
-   * Summaries of every loadout in the library, in library order. Backs the L-key cycle and the in-game switcher.
+   * Every loadout in the library, in full and in library order, including the active one. Backs the L-key cycle, the in-game switcher and the `loadouts` bridge event.
    *
    * @maxItems 128
    */
-  loadouts: LoadoutSummary[];
+  loadouts: Loadout[];
   settings: GlobalSettings;
   [k: string]: any | undefined;
-}
-/**
- * The reduced form sent in `init.loadouts` and used by the tray's Switch loadout submenu: enough to list and pick a loadout without carrying its mod state.
- */
-export interface LoadoutSummary {
-  id: LoadoutId;
-  /**
-   * Display name of the summarised loadout.
-   */
-  name: string;
-  /**
-   * Icon name of the summarised loadout.
-   */
-  icon: string;
-  /**
-   * Server slug of the summarised loadout, or null.
-   */
-  server?: string | null;
-  stats?: LoadoutStats;
 }
 /**
  * The subset of §8.3 global settings the game needs. Account, Java path and RAM stay on the Rust side and are deliberately absent: they are launcher concerns and the mod has no use for them. additionalProperties is true so the launcher can add a global without a protocol bump.
@@ -1135,6 +1210,40 @@ export interface LoadoutEvent {
   payload: Loadout;
 }
 /**
+ * Envelope for the `loadouts` event.
+ */
+export interface LoadoutsEvent {
+  /**
+   * Event discriminator; always `loadouts`.
+   */
+  e: 'loadouts';
+  payload: LoadoutsPayload;
+}
+/**
+ * Envelope for the `setting` event.
+ */
+export interface SettingEvent {
+  /**
+   * Event discriminator; always `setting`.
+   */
+  e: 'setting';
+  payload: SettingPayload;
+}
+/**
+ * One mod setting Java changed on its own — an in-game hotkey toggling a mod (the `keystrokes.keybind` overlay key), or a launcher-side `state` echo. It is *not* pushed for a change the page itself made through `setModSetting`: that call already returned the stored value, and re-pushing it would fight the control the player is holding. The UI applies it exactly as it applies the return value of `setModSetting`, so a whole-loadout replacement is not needed for a one-key change.
+ */
+export interface SettingPayload {
+  id: ModId;
+  /**
+   * Name of the setting, a property of that mod's settings sub-schema. `on` included.
+   */
+  key: string;
+  /**
+   * The value Java stored, after clamping — the same value `setModSetting` would have returned.
+   */
+  value: boolean | number | string | null;
+}
+/**
  * Envelope for the `menu` event.
  */
 export interface MenuEvent {
@@ -1195,7 +1304,7 @@ export interface CloseMenuCall {
   params: CloseMenuParams;
 }
 /**
- * `void.openKeybindCapture(modId)`. The one asynchronous call on the bridge: Java takes over key input until the next key press and the JS side receives a Promise. Escape cancels. The captured key is not stored by this call; the UI writes it with `setModSetting(modId, 'key', captured)`.
+ * `void.openKeybindCapture(modId)`. The one asynchronous call on the bridge. It is still one synchronous hop like every other call, but the hop only **arms** the capture: Java answers `{c: 'openKeybindCapture', returns: null}` immediately, meaning "armed", and keeps key input until the player presses something. The key itself arrives later on the push channel, as a *call-result* envelope delivered through `__emit`: `__emit({c: 'openKeybindCapture', returns: 'V'})`, or `returns: null` when the player cancelled with Escape. The shim turns the armed answer into a pending Promise and the later envelope into its resolution, in FIFO order; the Promise never rejects. Because a null arrives on both channels, a shim must never read the synchronous null as the resolution — that is the one way to get this wrong. The captured key is not stored by this call; the UI writes it with `setModSetting(modId, 'key', captured)`.
  */
 export interface OpenKeybindCaptureCall {
   /**
@@ -1255,7 +1364,7 @@ export interface CloseMenuResult {
   returns: CloseMenuReturns;
 }
 /**
- * Envelope for an openKeybindCapture resolution value.
+ * Envelope for an openKeybindCapture answer. Both the synchronous armed answer and the deferred resolution use it; only the channel tells them apart.
  */
 export interface OpenKeybindCaptureResult {
   /**

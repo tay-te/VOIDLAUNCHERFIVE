@@ -85,7 +85,7 @@ pub async fn launch(
     // A profile from a previous `prepare`, so pressing Launch on a warm install does not
     // touch the network at all (§10: "warm launch ≤ 3 s to MC window").
     let ctx = RuleContext::host()?;
-    let profile = match install::cached_profile(&state.paths, &version_id(&ctx)) {
+    let profile = match install::cached_profile(&state.paths) {
         Some(profile) => profile,
         None => install::prepare(&state.http, &state.paths, &ctx, None, None).await?,
     };
@@ -125,11 +125,6 @@ pub async fn launch(
         },
     )
     .await
-}
-
-/// The vanilla version this launcher targets. Only 1.8.9 exists (§15).
-fn version_id(_ctx: &RuleContext) -> String {
-    void_loadout::DEFAULT_MC.to_string()
 }
 
 pub fn kill(state: &AppState) -> Result<(), Error> {

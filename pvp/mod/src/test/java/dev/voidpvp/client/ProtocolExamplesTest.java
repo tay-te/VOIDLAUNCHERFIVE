@@ -26,7 +26,7 @@ class ProtocolExamplesTest {
     @DisplayName("every protocol.json example round-trips through the codec")
     void roundTripsEveryExample() {
         JsonArray examples = Schemas.examples("protocol.json");
-        assertTrue(examples.size() >= 9, "protocol.json lost examples: " + examples.size());
+        assertTrue(examples.size() >= 11, "protocol.json lost examples: " + examples.size());
         int javaToRust = 0;
         int rustToJava = 0;
 
@@ -78,6 +78,10 @@ class ProtocolExamplesTest {
                         example.has("port") ? example.get("port").getAsInt() : 25565);
                 assertEquals(example, rebuilt, where);
                 javaToRust++;
+            } else if ("hotkey".equals(t)) {
+                JsonObject rebuilt = Protocol.hotkey(example.get("id").getAsString());
+                assertEquals(example, rebuilt, where);
+                javaToRust++;
             } else if ("init".equals(t)) {
                 Protocol.Inbound in = Protocol.parse(example.toString());
                 assertEquals(Protocol.Inbound.Kind.INIT, in.kind, where);
@@ -89,6 +93,13 @@ class ProtocolExamplesTest {
                         in.loadout.toJson(), where + " loadout");
                 assertEquals(example.getAsJsonArray("loadouts").size(), in.loadouts.size(),
                         where + " library size");
+                // Whole loadouts, not summaries: every entry parses into an applyable
+                // Loadout, which is what makes switchLoadout sub-frame (§8.2).
+                JsonArray library = example.getAsJsonArray("loadouts");
+                for (int j = 0; j < library.size(); j++) {
+                    Schemas.assertContains(library.get(j).getAsJsonObject(),
+                            in.loadouts.get(j).toJson(), where + " loadouts[" + j + "]");
+                }
                 Schemas.assertContains(example.getAsJsonObject("settings"),
                         in.settings.toJson(), where + " settings");
                 rustToJava++;
@@ -109,8 +120,23 @@ class ProtocolExamplesTest {
                         + "; teach net/Protocol about it");
             }
         }
-        assertEquals(6, javaToRust, "expected six Java to Rust examples");
+        assertEquals(8, javaToRust, "expected eight Java to Rust examples");
         assertEquals(3, rustToJava, "expected three Rust to Java examples");
+    }
+
+    @Test
+    @DisplayName("both hotkey ids are the ones the schema declares")
+    void hotkeyIdsMatchTheSchema() {
+        JsonObject hotkeyId = Schemas.load("protocol.json").getAsJsonObject("definitions")
+                .getAsJsonObject("hotkey_id");
+        List<String> declared = new ArrayList<String>();
+        for (JsonElement e : hotkeyId.getAsJsonArray("enum")) {
+            declared.add(e.getAsString());
+        }
+        List<String> ours = new ArrayList<String>();
+        ours.add(Protocol.HOTKEY_LOADOUT_NEXT);
+        ours.add(Protocol.HOTKEY_OVERLAY);
+        assertEquals(declared, ours, "the mod sends exactly the ids protocol.json allows");
     }
 
     @Test

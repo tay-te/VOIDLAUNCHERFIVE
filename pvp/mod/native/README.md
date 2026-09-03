@@ -196,76 +196,65 @@ PVP_ARCHITECTURE §13 budgets "~25 MB" for the natives. Measured, deflated as a 
 | `windows-x64` + `macos-x64` + `macos-arm64` | **77.4 MB** |
 
 `WebCore` is 45–80 MB uncompressed per platform and is most of it. 25 MB is achievable for *one*
-platform, not three. Two ways out, both outside this directory's ownership:
+platform, not three.
 
-1. **Per-OS mod JARs.** `void-core` already resolves and downloads the client JAR per launch
-   (§12.3) and knows the target OS, so picking `void-client-<os>-<arch>.jar` costs nothing.
-2. **Natives as a separate download**, verified by hash and cached like any other asset — the
-   launcher's download pipeline already does SHA-1 verification and hash caching.
+**Settled: per-OS mod JARs** (option 1). §13 has been corrected and `mod/build.gradle` implements
+it — `./gradlew platformJars` repackages the already-remapped JAR once per staged
+`natives/<os>-<arch>/` tree into `void-client-<version>-<os>-<arch>.jar`, and the base JAR carries no
+natives at all (324 KB). It is a repackage, not a second Loom remap: the classes are byte-identical
+across platforms and only these trees differ. `void-core` picks one at prepare time
+(`install::ModPlatform`, §12.3), which costs nothing because it already resolves downloads per
+launch and knows the target OS.
 
-Recommended: (1). Raise it with `core` before M2.
+Option 2 — natives as a separate hash-verified download — was rejected: it adds a second artifact, a
+second version to keep in step with the mod, and a second way for a half-installed machine to fail,
+to save nothing the per-OS split does not already save.
 
-### Gradle snippet for the mod build
+### The Gradle side, as landed
 
-Drop this in `mod/build.gradle`. It copies whichever staged trees exist into the JAR and fails
-loudly if none do, rather than shipping a JAR that dies at `Ultralight.load()`.
+`mod/build.gradle` carries this; it is reproduced here because this file is where the payload it
+stages is described. It differs from the original sketch in two ways, both deliberate: the natives
+never enter the **base** JAR (so `./gradlew build` and the test loop stay fast and small), and the
+API classes are compiled unconditionally from `native/java` rather than behind a package-name probe,
+because both package names are settled and the mod now imports the binding directly.
 
 ```gradle
-// ---- Ultralight natives, produced by mod/native/scripts/build.{sh,ps1} ------------------------
-// Each `natives/<os>-<arch>/` tree is self-contained: the binding, Ultralight's runtime libraries,
-// resources/ and the files.txt manifest NativeLoader reads. Nothing here is built by Gradle — the
-// `native` agent owns that build and CI publishes the trees.
+// The API classes compile with the mod: one javac, one --release 8, so a signature change
+// in the binding is a compile error in dev.voidpvp.client.ui.UltralightWebView.
+sourceSets.main.java.srcDir file('native/java')
 
+// Each `natives/<os>-<arch>/` tree is self-contained: the binding, Ultralight's runtime
+// libraries, resources/ and the files.txt manifest NativeLoader reads. Nothing here is
+// built by Gradle — the `native` agent owns that build and CI publishes the trees.
 def nativeStages = [
     'windows-x64': file("$projectDir/native/build-win/natives/windows-x64"),
     'macos-x64'  : file("$projectDir/native/build-macx64/natives/macos-x64"),
     'macos-arm64': file("$projectDir/native/build-macarm64/natives/macos-arm64"),
 ]
-
 // Local dev: a single host build lands in native/build/natives/<key>/.
 file("$projectDir/native/build/natives").listFiles()?.each { d ->
     if (d.directory) nativeStages.putIfAbsent(d.name, d)
 }
 
-tasks.register('copyUltralightNatives', Copy) {
-    description = 'Stages Ultralight + voidultralight natives into the JAR under natives/<os>-<arch>/'
-    into layout.buildDirectory.dir('ultralight-natives')
-    nativeStages.each { key, dir ->
-        if (dir.directory) {
-            from(dir) { into "natives/$key" }
-        }
-    }
-    doFirst {
-        def present = nativeStages.findAll { it.value.directory }.keySet()
-        if (present.isEmpty()) {
-            throw new GradleException(
-                'No Ultralight natives staged. Run mod/native/scripts/build.sh (or build.ps1) first, '
-                + 'or fetch the CI artifacts into mod/native/build-*/natives/.')
-        }
-        logger.lifecycle("Ultralight natives: ${present.join(', ')}")
+// One JAR per staged platform, built from the remapped JAR rather than remapped again:
+// the classes are byte-identical across platforms and only the natives differ.
+def platformJars = nativeStages.findAll { it.value.directory }.collect { key, dir ->
+    tasks.register("platformJar${key.split('-').collect { it.capitalize() }.join()}", Jar) {
+        dependsOn tasks.named('remapJar')
+        archiveBaseName = project.archives_base_name
+        archiveVersion = project.version
+        archiveClassifier = key                      // void-client-<version>-<os>-<arch>.jar
+        from { zipTree(tasks.named('remapJar').get().archiveFile) }
+        from(dir) { into "natives/$key" }
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 }
 
-// The API classes. Prefer compiling them with the mod (one javac, one --release 8) so that a
-// signature change is a compile error rather than a runtime NoSuchMethodError.
-sourceSets.main.java.srcDir "$projectDir/native/java"
-
-processResources.dependsOn tasks.named('copyUltralightNatives')
-sourceSets.main.resources.srcDir layout.buildDirectory.dir('ultralight-natives')
-
-// Java 8 target, per PVP_ARCHITECTURE: 1.8.9 runs on a Java 8 JVM.
-tasks.withType(JavaCompile).configureEach {
-    options.release = 8
-}
-
-// The natives are already compressed binaries; re-deflating them costs build time for nothing.
-tasks.named('jar', Jar) {
-    entryCompression = ZipEntryCompression.DEFLATED
-    filesMatching(['natives/**/*.dll', 'natives/**/*.dylib', 'natives/**/*.so']) {
-        // keep deflate: STORED would add ~150 MB. Listed here so the choice is visible.
-    }
-}
+tasks.register('platformJars') { dependsOn platformJars /* + a lifecycle log */ }
 ```
+
+Deflate, not STORED: the natives are already-compressed binaries, but `STORED` would add ~150 MB per
+JAR for no gain. Gradle's `Jar` deflates by default, so nothing has to say so.
 
 ---
 

@@ -118,6 +118,10 @@ public final class UiHost {
                 view.evaluateScript(script);
             }
             view.update();
+            // refreshDisplay() is what advances CSS animations and transitions;
+            // it must run every frame, before render(), or the UI is static
+            // (CONTRACTS.md, "Rules the mod must follow", rule 3).
+            view.refreshDisplay();
             // The binding asks us to skip render() on frames where nothing
             // changed — the first lever against the paint budget of §10. The
             // forced frames after a create or a resize cover the window where

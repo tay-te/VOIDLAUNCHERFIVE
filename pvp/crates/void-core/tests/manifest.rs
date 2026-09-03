@@ -221,6 +221,19 @@ fn a_vanilla_only_profile_still_resolves() {
     assert!(profile.jvm_arguments.is_empty());
 }
 
+/// `version_id` is the *vanilla* version, never the merged Legacy Fabric id — that is
+/// `profile_id`. `install::cached_profile` keys the profile cache directory on the
+/// vanilla version, so if these two ever swapped, `prepare` would write the cache
+/// somewhere `launch` never looks and every launch would silently re-resolve.
+#[test]
+fn version_id_stays_the_vanilla_version_even_with_a_loader() {
+    let merged =
+        resolve_profile(&vanilla(), Some(&loader()), &RuleContext::new(Os::Linux, "x86_64"))
+            .unwrap();
+    assert_eq!(merged.version_id, "1.8.9");
+    assert_ne!(merged.version_id, merged.profile_id, "the loader id names the file, not the dir");
+}
+
 #[test]
 fn profile_ids_are_safe_as_directory_names() {
     // Legacy Fabric really does publish ids with spaces in them.

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schema.void.dev/pvp/mods.json",
   "title": "VOID PVP — Mod registry",
-  "description": "The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11 and the factory defaults. This file is the single source of truth for mod identity: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
+  "description": "The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
   "type": "object",
   "required": ["version", "mods"],
   "additionalProperties": false,
@@ -67,6 +67,24 @@
       "type": "string",
       "enum": ["hud", "gameplay"]
     },
+    "category": {
+      "title": "Mod category",
+      "description": "The product taxonomy the Mods panel filters across — the tabs `All / HUD / PvP / Visual / Utility` of Figma 244:538, and the tag printed on each tile. Distinct from `kind`, which is a data-direction split (does the mod draw, or does it mutate a client-side option): Crosshair is `kind: gameplay` but `category: visual`, and Zoom is `kind: gameplay` but `category: utility`. Carried here so no consumer has to hard-code the mapping.",
+      "type": "string",
+      "enum": ["hud", "pvp", "visual", "utility"]
+    },
+    "key_swatch": {
+      "title": "Key colour swatch",
+      "description": "One of the five unpressed-key swatches on the Mod settings frame, named by the design token it resolves to (`--bg-shell`, `--surface-2`, `--surface-3`, `--sky`, `--teal`). A name rather than a hex value so the choice survives a theme change.",
+      "type": "string",
+      "enum": ["shell", "raised", "pill", "sky", "teal"]
+    },
+    "pressed_swatch": {
+      "title": "Pressed colour swatch",
+      "description": "One of the five pressed-key swatches on the Mod settings frame, named by the design token it resolves to (`--accent`, `--sky`, `--warn`, `--danger`, `--teal`). `accent` is the frame's default and follows the loadout accent.",
+      "type": "string",
+      "enum": ["accent", "sky", "warn", "fear", "teal"]
+    },
     "hypixel_safe": {
       "title": "Hypixel safety class",
       "description": "Anti-cheat posture of §11. `safe` mods are unambiguously allowed; `grey` mods change what the player can see and are tolerated but not endorsed. The HYPIXEL-READY badge is shown only when every enabled mod in the loadout is `safe`.",
@@ -111,11 +129,12 @@
       "title": "Registry entry",
       "description": "One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.",
       "type": "object",
-      "required": ["id", "kind", "hypixel_safe", "label", "description", "source", "defaults"],
+      "required": ["id", "kind", "category", "hypixel_safe", "label", "description", "source", "defaults"],
       "additionalProperties": false,
       "properties": {
         "id": { "description": "The mod's snake_case id; equals the key this entry is stored under.", "$ref": "#/definitions/mod_id" },
         "kind": { "description": "Whether this mod draws (hud) or mutates a client-side option (gameplay).", "$ref": "#/definitions/kind" },
+        "category": { "description": "Filter-tab taxonomy of the Mods panel, per frame 244:538.", "$ref": "#/definitions/category" },
         "hypixel_safe": { "description": "Anti-cheat class of §11.", "$ref": "#/definitions/hypixel_safe" },
         "label": { "description": "Human-readable name as it appears in the Mods panel of the Figma.", "type": "string", "minLength": 1 },
         "description": { "description": "One-line explanation shown under the label in the Mods panel.", "type": "string", "minLength": 1 },
@@ -151,7 +170,10 @@
         "keybind": { "description": "Optional key that toggles the keystrokes overlay on and off in game without opening the menu. NONE leaves it always visible while the mod is on.", "$ref": "#/definitions/keybind", "default": "NONE" },
         "show_mouse": { "description": "Whether to render the LMB and RMB tiles under the WASD block.", "type": "boolean", "default": true },
         "show_spacebar": { "description": "Whether to render the spacebar tile.", "type": "boolean", "default": true },
-        "show_cps": { "description": "Whether to print the current CPS inside the LMB and RMB tiles.", "type": "boolean", "default": false }
+        "show_cps": { "description": "Whether to print the current CPS inside the LMB and RMB tiles.", "type": "boolean", "default": false },
+        "corner_radius": { "description": "Corner radius of a key tile in unscaled GUI pixels, drawn as the `Corner radius` slider on the Mod settings frame (Figma 244:834). 0 is a square tile.", "type": "integer", "minimum": 0, "maximum": 20, "default": 8 },
+        "key_color": { "description": "Background of an unpressed key tile, as one of the five named swatches the Mod settings frame offers. A token name rather than a hex value, so the tile keeps following the theme when the theme changes.", "$ref": "#/definitions/key_swatch", "default": "shell" },
+        "pressed_color": { "description": "Fill of a pressed key tile, as one of the five named swatches the Mod settings frame offers. `accent` follows the loadout accent, which is the frame's default.", "$ref": "#/definitions/pressed_swatch", "default": "accent" }
       }
     },
     "cps_settings": {
@@ -306,6 +328,7 @@
           "properties": {
             "id": { "description": "Always `fps`.", "const": "fps" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory FPS settings.", "$ref": "#/definitions/fps_settings" }
           }
@@ -321,6 +344,7 @@
           "properties": {
             "id": { "description": "Always `keystrokes`.", "const": "keystrokes" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory keystrokes settings.", "$ref": "#/definitions/keystrokes_settings" }
           }
@@ -336,6 +360,7 @@
           "properties": {
             "id": { "description": "Always `cps`.", "const": "cps" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory CPS settings.", "$ref": "#/definitions/cps_settings" }
           }
@@ -351,6 +376,7 @@
           "properties": {
             "id": { "description": "Always `ping`.", "const": "ping" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe`; §11 does not list ping explicitly, and a read of the player's own responseTime cannot affect play.", "const": "safe" },
             "defaults": { "description": "Factory ping settings.", "$ref": "#/definitions/ping_settings" }
           }
@@ -366,6 +392,7 @@
           "properties": {
             "id": { "description": "Always `coordinates`.", "const": "coordinates" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory coordinates settings.", "$ref": "#/definitions/coordinates_settings" }
           }
@@ -381,6 +408,7 @@
           "properties": {
             "id": { "description": "Always `armor_status`.", "const": "armor_status" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory armor status settings.", "$ref": "#/definitions/armor_status_settings" }
           }
@@ -396,6 +424,7 @@
           "properties": {
             "id": { "description": "Always `potion_effects`.", "const": "potion_effects" },
             "kind": { "description": "Always `hud`.", "const": "hud" },
+            "category": { "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).", "const": "hud" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory potion effects settings.", "$ref": "#/definitions/potion_effects_settings" }
           }
@@ -411,6 +440,7 @@
           "properties": {
             "id": { "description": "Always `toggle_sprint`.", "const": "toggle_sprint" },
             "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "category": { "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).", "const": "pvp" },
             "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
             "defaults": { "description": "Factory toggle sprint settings.", "$ref": "#/definitions/toggle_sprint_settings" }
           }
@@ -426,6 +456,7 @@
           "properties": {
             "id": { "description": "Always `fullbright`.", "const": "fullbright" },
             "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "category": { "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).", "const": "visual" },
             "hypixel_safe": { "description": "Always `grey` (§11).", "const": "grey" },
             "defaults": { "description": "Factory fullbright settings.", "$ref": "#/definitions/fullbright_settings" }
           }
@@ -441,6 +472,7 @@
           "properties": {
             "id": { "description": "Always `hitboxes`.", "const": "hitboxes" },
             "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "category": { "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).", "const": "pvp" },
             "hypixel_safe": { "description": "Always `grey` (§11).", "const": "grey" },
             "defaults": { "description": "Factory hitboxes settings.", "$ref": "#/definitions/hitboxes_settings" }
           }
@@ -456,6 +488,7 @@
           "properties": {
             "id": { "description": "Always `zoom`.", "const": "zoom" },
             "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "category": { "description": "Always `utility`; the Mods panel tabs it under Utility (frame 244:538).", "const": "utility" },
             "hypixel_safe": { "description": "Always `safe`; §11 does not list zoom explicitly, and an FOV override is the long-standing allowed Optifine behaviour.", "const": "safe" },
             "defaults": { "description": "Factory zoom settings.", "$ref": "#/definitions/zoom_settings" }
           }
@@ -471,6 +504,7 @@
           "properties": {
             "id": { "description": "Always `crosshair`.", "const": "crosshair" },
             "kind": { "description": "Always `gameplay`; §3 marks it Gameplay* because it is drawn in GL rather than HTML, but its data direction is that of an actuator.", "const": "gameplay" },
+            "category": { "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).", "const": "visual" },
             "hypixel_safe": { "description": "Always `safe`; §11 does not list crosshair explicitly, and it is a purely cosmetic replacement of the vanilla crosshair pass.", "const": "safe" },
             "defaults": { "description": "Factory crosshair settings.", "$ref": "#/definitions/crosshair_settings" }
           }
@@ -481,13 +515,14 @@
 
   "examples": [
     {
-      "version": 1,
+      "version": 2,
       "mods": {
         "fps": {
           "id": "fps",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
-          "label": "FPS",
+          "label": "FPS display",
           "description": "Frames per second, updated once per tick.",
           "source": "Minecraft.debugFPS",
           "defaults": { "on": true, "scale": 1, "opacity": 1, "color": "#FFFFFF", "show_label": true }
@@ -495,17 +530,19 @@
         "keystrokes": {
           "id": "keystrokes",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
           "label": "Keystrokes",
           "description": "WASD, mouse and spacebar tiles that light up as you press them.",
           "source": "KeyBinding.setKeyBindState, edge-triggered",
-          "defaults": { "on": true, "scale": 1, "opacity": 0.85, "keybind": "NONE", "show_mouse": true, "show_spacebar": true, "show_cps": false }
+          "defaults": { "on": true, "scale": 1, "opacity": 0.85, "keybind": "NONE", "show_mouse": true, "show_spacebar": true, "show_cps": false, "corner_radius": 8, "key_color": "shell", "pressed_color": "accent" }
         },
         "cps": {
           "id": "cps",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
-          "label": "CPS",
+          "label": "CPS counter",
           "description": "Clicks per second over a sliding window.",
           "source": "derived from clicks in JS",
           "defaults": { "on": true, "scale": 1, "opacity": 1, "mode": "left", "window_ms": 1000 }
@@ -513,8 +550,9 @@
         "ping": {
           "id": "ping",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
-          "label": "Ping",
+          "label": "Ping display",
           "description": "Round-trip time to the current server.",
           "source": "own NetworkPlayerInfo.responseTime",
           "defaults": { "on": true, "scale": 1, "opacity": 1, "show_label": true, "good_ms": 60, "bad_ms": 150 }
@@ -522,6 +560,7 @@
         "coordinates": {
           "id": "coordinates",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
           "label": "Coordinates",
           "description": "Player position and facing direction.",
@@ -531,6 +570,7 @@
         "armor_status": {
           "id": "armor_status",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
           "label": "Armor status",
           "description": "Worn armor and held item with remaining durability.",
@@ -540,6 +580,7 @@
         "potion_effects": {
           "id": "potion_effects",
           "kind": "hud",
+          "category": "hud",
           "hypixel_safe": "safe",
           "label": "Potion effects",
           "description": "Active potion effects with amplifier and remaining duration.",
@@ -549,6 +590,7 @@
         "toggle_sprint": {
           "id": "toggle_sprint",
           "kind": "gameplay",
+          "category": "pvp",
           "hypixel_safe": "safe",
           "label": "Toggle sprint",
           "description": "Latches sprint instead of holding the key.",
@@ -558,6 +600,7 @@
         "fullbright": {
           "id": "fullbright",
           "kind": "gameplay",
+          "category": "visual",
           "hypixel_safe": "grey",
           "label": "Fullbright",
           "description": "Raises gamma so caves and shadows are fully lit.",
@@ -567,6 +610,7 @@
         "hitboxes": {
           "id": "hitboxes",
           "kind": "gameplay",
+          "category": "pvp",
           "hypixel_safe": "grey",
           "label": "Hitboxes",
           "description": "Draws entity bounding boxes.",
@@ -576,6 +620,7 @@
         "zoom": {
           "id": "zoom",
           "kind": "gameplay",
+          "category": "utility",
           "hypixel_safe": "safe",
           "label": "Zoom",
           "description": "Narrows FOV while the zoom key is held.",
@@ -585,6 +630,7 @@
         "crosshair": {
           "id": "crosshair",
           "kind": "gameplay",
+          "category": "visual",
           "hypixel_safe": "safe",
           "label": "Crosshair",
           "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",

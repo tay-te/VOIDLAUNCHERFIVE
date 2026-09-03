@@ -33,18 +33,30 @@
 }
 
 .v-palette__query {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
+  overflow: hidden;
   font-size: var(--text-3xl);
   color: var(--text-primary);
 }
 
+/* The field covers the whole query column and draws the text; the ghost beside
+   it is what actually measures it, so the caret can sit against the last glyph. */
 .v-palette__query input {
+  position: absolute;
+  inset: 0;
   width: 100%;
   font: inherit;
   color: inherit;
+}
+
+.v-palette__ghost {
+  flex: 0 0 auto;
+  visibility: hidden;
+  white-space: pre;
 }
 
 .v-palette__query input::placeholder {
@@ -139,7 +151,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
-  white-space: nowrap;
+  white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
 }

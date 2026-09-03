@@ -16,13 +16,14 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 1,
+  "version": 2,
   "mods": {
     "fps": {
       "id": "fps",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
-      "label": "FPS",
+      "label": "FPS display",
       "description": "Frames per second, updated once per tick.",
       "source": "Minecraft.debugFPS",
       "defaults": {
@@ -36,6 +37,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "keystrokes": {
       "id": "keystrokes",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
       "label": "Keystrokes",
       "description": "WASD, mouse and spacebar tiles that light up as you press them.",
@@ -47,14 +49,18 @@ export const MOD_REGISTRY_DOCUMENT = {
         "keybind": "NONE",
         "show_mouse": true,
         "show_spacebar": true,
-        "show_cps": false
+        "show_cps": false,
+        "corner_radius": 8,
+        "key_color": "shell",
+        "pressed_color": "accent"
       }
     },
     "cps": {
       "id": "cps",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
-      "label": "CPS",
+      "label": "CPS counter",
       "description": "Clicks per second over a sliding window.",
       "source": "derived from clicks in JS",
       "defaults": {
@@ -68,8 +74,9 @@ export const MOD_REGISTRY_DOCUMENT = {
     "ping": {
       "id": "ping",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
-      "label": "Ping",
+      "label": "Ping display",
       "description": "Round-trip time to the current server.",
       "source": "own NetworkPlayerInfo.responseTime",
       "defaults": {
@@ -84,6 +91,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "coordinates": {
       "id": "coordinates",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
       "label": "Coordinates",
       "description": "Player position and facing direction.",
@@ -100,6 +108,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "armor_status": {
       "id": "armor_status",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
       "label": "Armor status",
       "description": "Worn armor and held item with remaining durability.",
@@ -116,6 +125,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "potion_effects": {
       "id": "potion_effects",
       "kind": "hud",
+      "category": "hud",
       "hypixel_safe": "safe",
       "label": "Potion effects",
       "description": "Active potion effects with amplifier and remaining duration.",
@@ -132,6 +142,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "toggle_sprint": {
       "id": "toggle_sprint",
       "kind": "gameplay",
+      "category": "pvp",
       "hypixel_safe": "safe",
       "label": "Toggle sprint",
       "description": "Latches sprint instead of holding the key.",
@@ -146,6 +157,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "fullbright": {
       "id": "fullbright",
       "kind": "gameplay",
+      "category": "visual",
       "hypixel_safe": "grey",
       "label": "Fullbright",
       "description": "Raises gamma so caves and shadows are fully lit.",
@@ -158,6 +170,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "hitboxes": {
       "id": "hitboxes",
       "kind": "gameplay",
+      "category": "pvp",
       "hypixel_safe": "grey",
       "label": "Hitboxes",
       "description": "Draws entity bounding boxes.",
@@ -172,6 +185,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "zoom": {
       "id": "zoom",
       "kind": "gameplay",
+      "category": "utility",
       "hypixel_safe": "safe",
       "label": "Zoom",
       "description": "Narrows FOV while the zoom key is held.",
@@ -187,6 +201,7 @@ export const MOD_REGISTRY_DOCUMENT = {
     "crosshair": {
       "id": "crosshair",
       "kind": "gameplay",
+      "category": "visual",
       "hypixel_safe": "safe",
       "label": "Crosshair",
       "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",

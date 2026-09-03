@@ -13,6 +13,9 @@
   font-family: var(--font-ui);
   font-size: var(--text-md-2);
   font-weight: var(--weight-medium);
+  /* Explicit leading: `normal` on Outfit resolves to ~1.4em, which made every
+     inline button 38px tall where the frames draw 31. */
+  line-height: 15px;
   color: var(--text-primary);
   white-space: nowrap;
   transition:
@@ -23,7 +26,7 @@
 
 /* Accent buttons always carry --shadow-cta + --inset-accent. */
 .v-btn--accent {
-  padding: var(--space-10) var(--space-16);
+  padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-button);
   background: var(--accent);
   color: var(--accent-fg);
@@ -47,7 +50,7 @@
 
 /* Raised buttons always carry --shadow-raised + --inset-raised. */
 .v-btn--raised {
-  padding: var(--space-10) var(--space-16);
+  padding: var(--space-7) var(--space-12);
   border-radius: var(--radius-button);
   background: var(--raised-bg);
   border: 1px solid var(--border-raised);
@@ -88,6 +91,14 @@
   font-size: var(--text-md);
 }
 
+/** `← Mods` on the Mod settings header band — 71 × 28, r 9 (frame 244:834). */
+.v-btn--back {
+  height: 28px;
+  padding: 0 var(--space-11);
+  gap: var(--space-7);
+  border-radius: var(--radius-control);
+}
+
 /** `Leave party` — a bare text button. */
 .v-btn--text {
   padding: 0;
@@ -108,6 +119,13 @@
   padding-bottom: var(--space-11);
   border-radius: var(--radius-button);
   font-size: var(--text-lg-2);
+}
+
+/* A raised block button adds a 1px rim top and bottom; the frames draw it the
+   same height as the accent block button next to it. */
+.v-btn--block.v-btn--raised {
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-10);
 }
 
 .v-btn:disabled {
@@ -182,8 +200,10 @@
   height: var(--panel-h-launcher);
   border-radius: var(--radius-panel);
   background: var(--panel-bg);
-  border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
+  /* The rim is an inset ring rather than a border: Figma strokes the panel on the
+     inside, so its children sit at 25, 21 from the *outer* edge. A real border
+     pushed every child of every overlay screen 1px down and right. */
+  box-shadow: var(--shadow-panel), inset 0 0 0 1px var(--border-panel);
   /* Reading the radius through a token is what makes the ultralight layer able to turn
      it off: there it resolves to blur(0px). Never branch on @supports. */
   -webkit-backdrop-filter: blur(var(--blur-panel));
@@ -220,6 +240,9 @@
   color: var(--text-secondary);
   padding: 0 var(--pad-panel);
   margin-top: 2px;
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
 }
 
 .v-panel__body {
@@ -233,6 +256,9 @@
 
 .v-panel__footer {
   padding: 0 var(--pad-panel) 21px;
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
 }
 
 /* Panel enter motion is 2D only: no flip, no depth, no perspective (§4). */
@@ -433,6 +459,10 @@
 
 /* ----------------------------------------------------------------- Toggle */
 
+/* The off track is a recessed near-black well in the frames — sampling
+   Overlay-Mods at the Fullbright switch gives rgb(11,12,14) over the tile, which
+   is exactly --field-bg over --card-bg. A --tint-12 track reads as a light grey
+   pill instead and is the single loudest difference on the mod grid. */
 .v-toggle {
   position: relative;
   flex: 0 0 auto;
@@ -440,7 +470,8 @@
   width: 36px;
   height: 20px;
   border-radius: var(--radius-field);
-  background: var(--tint-12);
+  background: var(--field-bg);
+  box-shadow: var(--inset-field);
   transition: background-color var(--duration-instant) var(--ease-standard);
 }
 
@@ -460,8 +491,10 @@
   box-shadow: var(--shadow-switch-on), var(--inset-switch);
 }
 
+/* The knob on an accent track is the accent's own foreground — rgb(10,11,12) in
+   the frames — not white. */
 .v-toggle--on .v-toggle__knob {
-  background: #ffffff;
+  background: var(--accent-fg);
   transform: translateX(16px);
 }
 

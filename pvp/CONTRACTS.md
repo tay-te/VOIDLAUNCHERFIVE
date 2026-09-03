@@ -1,8 +1,12 @@
-# CONTRACTS — who owns what
+# CONTRACTS — who owns what, and what the seams actually are
 
-Six agents build `void-pvp` in parallel. This page is the whole coordination protocol.
+Six agents built `void-pvp` in parallel. This page is the coordination protocol **and the
+record of where the seams landed**. It describes the tree as it is, not as it was planned:
+every "we could not honour this" in earlier drafts has been folded back into
+`schema/*.json` and `docs/PVP_ARCHITECTURE.md`, and what remains here is the contract.
+
 The design contract it implements is `docs/PVP_ARCHITECTURE.md` in `VOIDLAUNCHERFIVE`;
-section references below (§4, §6.5, §7, §8) point there.
+section references below (§3, §4, §6.5, §7, §8, §12, §13) point there.
 
 ## The one rule
 
@@ -12,7 +16,8 @@ by reading `schema/*.json` — never by editing another owner's files.**
 If you need something another owner has not built yet, do not reach into their directory,
 do not stub their file "temporarily", and do not vendor a copy. Read the schema, code
 against it, and if the schema does not say what you need, that is the bug: raise it, get
-`schema/` changed, and everyone recompiles against the new contract.
+`schema/` changed, and everyone recompiles against the new contract. Every change listed
+under "Contract changes" in `schema/README.md` arrived exactly that way.
 
 ## Ownership map
 
@@ -26,7 +31,7 @@ against it, and if the schema does not say what you need, that is the bug: raise
 | **native** | `mod/native/` | The JNI binding to Ultralight's C API and the OpenGL `GPUDriver`; C++17, CMake, built in CI for win-x64 / mac-x64 / mac-arm64 |
 
 `schema/` is written by **core** and read by everyone. A change there is a contract change:
-propose it, don't just land it.
+propose it, don't just land it, and append it to the changelog in `schema/README.md`.
 
 `design/` pre-dates this scaffold: Figma screen exports plus `tokens.css` / `tokens.json`.
 It is **reference material, read-only for everyone**. **ui** ports the tokens into
@@ -36,22 +41,107 @@ Root files not listed above (`package.json`, `pnpm-workspace.yaml`, `.gitignore`
 file) are shared. Touch them only to register your own package or ignore your own build
 output.
 
+---
+
+## Java package names
+
+`dev.void.client` and `dev.void.ultralight`, as earlier drafts of §4 and of this file
+specified them, **cannot be compiled**: `void` is a Java keyword, so it is not a legal
+identifier and neither `package dev.void.client;` nor an `import` of it parses. Both
+owners renamed the one illegal segment, and both names are now settled and written into
+§4:
+
+| Was specified | Actual |
+|---|---|
+| `dev.void.client.*` | **`dev.voidpvp.client.*`** — the mod |
+| `dev.void.ultralight.*` | **`dev.voidclient.ultralight.*`** — the binding, in `mod/native/java` |
+
+Nothing else moved. The Fabric mod id is still `void`, the JS object is still
+`window.void` (a reserved word *is* a legal property name in ES5 and later), the resource
+root is still `assets/void/`, and the JAR is still `void-client`.
+
+**The mod imports the binding directly.** `mod/build.gradle` adds `native/java` as a
+source directory of `main`, so `dev.voidpvp.client.ui.UltralightWebView` has plain
+`import dev.voidclient.ultralight.*;` statements and a signature change in the binding is
+a compile error here. The runtime package lookup this used to do by reflection — a
+`-Dvoid.ultralight.package` property, an `assets/void/native-package.txt` resource, a
+candidate list — is gone along with `NativeUltralight` and the build step that wrote the
+marker file: with both names settled it bought nothing but a stringly-typed API.
+
+**The `NullWebView` fallback is unchanged and is still the point.** It triggers on
+`LinkageError` at runtime, which covers both real cases: this platform's natives are not
+in the JAR (`Ultralight.load()` throws `UnsatisfiedLinkError`), or the JAR was built with
+no `native/java` at all (`NoClassDefFoundError` on the first touch of
+`UltralightWebView`). `WebViews.create` catches both, logs once, and the game runs with
+the in-game UI disabled. Every reference to the binding lives in that one class so the
+error stays containable.
+
+---
+
 ## The seams
 
 ### `window.void` — Java ⇄ JS, in-process
 
-The bridge object is named exactly **`window.void`**. Defined in `schema/bridge.json`, §6.5.
-It is implemented by **mod** (`mod/src/main/java/dev/void/client/bridge/`) and consumed by
-**ingame**.
+The bridge object is named exactly **`window.void`**. Defined in `schema/bridge.json`,
+§6.5. Implemented by **mod** (`mod/src/main/java/dev/voidpvp/client/bridge/`) and consumed
+by **ingame**.
 
-- Java → JS is push: `void.on('keys'|'tick'|'server'|'loadout'|'menu', handler)`.
-- JS → Java is a call: `setGameplay`, `setHud`, `setModSetting`, `switchLoadout`,
-  `closeMenu`, `openKeybindCapture`.
+- Java → JS is push, on **seven** channels:
+  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu', handler)`.
+  - `loadouts` carries the whole library, in full, from `init.loadouts`. Without it JS
+    would only know the loadouts it happened to watch go past, and the Loadouts frame
+    lists all of them.
+  - `setting` carries one `{id, key, value}` Java changed **by itself** — an in-game
+    hotkey, or a launcher echo. It is *not* pushed for a change the page made through
+    `setModSetting`, which already returned the stored value; re-pushing that would fight
+    the control the player is holding.
+- JS → Java is a call, still exactly six: `setGameplay`, `setHud`, `setModSetting`,
+  `switchLoadout`, `closeMenu`, `openKeybindCapture`.
 - Ultralight runs **inside the JVM**, so calls are synchronous and return the state
-  actually applied. No ack, no request id, no optimistic UI. `openKeybindCapture` is the
-  one exception and returns a Promise.
+  actually applied. No ack, no request id, no optimistic UI.
+- **`openKeybindCapture` is the one asynchronous call, and the one easy thing to get
+  wrong.** The hop is still synchronous and still answers — with `returns: null`, meaning
+  *armed*. The captured key arrives later on the push channel as a **call-result
+  envelope**, `__emit({c:'openKeybindCapture', returns:'V'})`, or `returns: null` again
+  when the player cancelled with Escape. Null therefore travels on both channels meaning
+  two different things: tell them apart **by channel, never by value**. A shim that reads
+  the synchronous null as the resolution settles every capture instantly with no key.
 - **ingame** must also run against a fake `window.void` in a normal browser (the `?debug`
-  harness, §9) — there are no devtools in game.
+  harness, §9) — there are no devtools in game. `createFakeVoid()` in `@void/protocol` is
+  that fake, and it plays Java: it owns the library, clamps what it is given, and pushes
+  `loadouts` before `loadout` on `emitInitialState()`, in the order Java does.
+
+### The bridge shim — one file, three copies of the semantics
+
+```
+mod/src/main/resources/assets/void/shim/void-shim.js   the shipped shim, committed (mod)
+  → processResources copies it to  build/resources/main/assets/void/ui/void-shim.js
+packages/protocol/src/void-bridge.ts  installVoidShim()  the reference implementation (ui)
+packages/protocol/src/fake-void.ts    createFakeVoid()   the browser stand-in (ui)
+```
+
+`void-shim.js` is the source of truth for what ships. `installVoidShim()` is the
+specification: if the two ever disagree, `void-bridge.ts` settles it, and both are tested
+against the same `bridge.json` examples.
+
+**The two builds do not fight, and here is why.** `packages/ingame`'s Vite build writes to
+`mod/src/main/resources/assets/void/ui/` with `emptyOutDir: true` — it owns that directory
+and wipes it. The shim is **not** in it: it is committed one level up in
+`assets/void/shim/`, and Gradle's `processResources` copies it into
+`build/resources/main/assets/void/ui/`, which is Gradle's own output tree. Neither build
+writes where the other reads, so the order they run in does not matter.
+
+`packages/ingame/index.html` does **not** contain the shim tag — Vite would try to resolve
+a file that does not exist in that package and fail the build. The `injectVoidShim()`
+plugin in `vite.config.ts` inserts `<script src="./void-shim.js"></script>` as the first
+element of `<head>` in the **built** `index.html` only. In the browser harness there is no
+Java and `createFakeVoid()` installs `window.void` itself, so the tag would only be a 404.
+
+At runtime, in the JAR: `void-shim.js` runs first and builds `window.void` on top of
+`window.__void_native`; then the bundle runs, and `connectBridge()` **uses the
+`window.void` that is already there** (it checks `__isVoidBridge`) rather than replacing
+it, so the object Java pushes into is the object the page listens on. `installVoidShim()`
+is the fallback for a host that installed `__void_native` but no shim.
 
 ### `-Dvoid.port` / `-Dvoid.token` — Rust ⇄ Java, over localhost WS
 
@@ -60,10 +150,26 @@ the JVM as the system properties **`-Dvoid.port`** and **`-Dvoid.token`**. **mod
 them in `net/`, connects, and sends `hello` carrying the token; the server closes the
 socket if it does not match.
 
-Messages are defined in `schema/protocol.json`, §7. The link carries **state, never
-frames**. `v` is the protocol version, `1`, present on `hello` and `init` only; a mismatch
-means the two halves were not shipped together, and the launcher refuses to launch.
-Unknown `t` values and unknown fields are ignored by both sides.
+Messages are defined in `schema/protocol.json`, §7 — **six** Java→Rust, three Rust→Java.
+The link carries **state, never frames**. `v` is the protocol version, `1`, present on
+`hello` and `init` only; a mismatch means the two halves were not shipped together, and
+the launcher refuses to launch. Unknown `t` values and unknown fields are ignored by both
+sides.
+
+Two things about it are worth stating here because both were seams:
+
+- **`init.loadouts` carries whole loadouts, not summaries.** A loadout is about a kilobyte
+  and a library is capped at 128, so the whole library is a few hundred KB sent once per
+  launch. In exchange `void.switchLoadout` and the L-key cycle apply any loadout in under
+  a frame with no round trip (§8.2), and the `loadouts` bridge event has something to
+  forward. There is deliberately **no** `request_loadout` message; `LiveState` has no
+  "pending switch" state either, because nothing is ever pending.
+- **`hotkey` is a notification, never a request.** `{"t":"hotkey","id":"loadout.next"|
+  "overlay"}` says the player pressed a global hotkey and Java has *already* acted on it.
+  `void-core`'s sync loop follows `loadout.next` by advancing its own active pointer, so
+  the tray and the next launch agree with the running game. It is dropped rather than
+  queued when the link is down: the state the key press produced travels in its own
+  `state` message, which *is* queued, so replaying the keystroke would double-count.
 
 ### `packages/ingame` → `mod/src/main/resources/assets/void/ui/`
 
@@ -73,7 +179,7 @@ only-in-your-own-directory rule, and it is a *build output*, not source: the dir
 contents are gitignored, and **mod** must not hand-edit anything in it.
 
 **mod** loads the bundle from that classpath path (`assets/void/ui/index.html`) into the
-Ultralight view. Budget: ≤ 400 KB gzipped (§10).
+Ultralight view. Budget: ≤ 400 KB gzipped (§10); currently 196 KB.
 
 ### `packages/ui` → both bundles
 
@@ -89,6 +195,8 @@ in-game renderer is the constraint, not the launcher.
 consumes it and never builds it. This is the M1 gate (§14): if it stalls, everything
 downstream of the Ultralight view stalls with it, and we want to know that early.
 
+---
+
 ## Deciding where something goes
 
 - Does it change how the game *plays*? It belongs in the **loadout** (`schema/loadout.json`),
@@ -99,41 +207,22 @@ downstream of the Ultralight view stalls with it, and we want to know that early
   over the WS. Only summaries cross to Rust.
 - Is it persisted? Java holds live state and tells Rust afterwards; Rust is the store of
   record between sessions (§6.1).
+- Is it a property of a *mod* — its label, its filter tab, its clamp range, its factory
+  default? Then it is a row in `schema/mods.json`, and no consumer re-declares it. That
+  file now carries `category` (`hud | pvp | visual | utility`, the Mods-panel tabs of frame
+  244:538) alongside `kind`, and the frames' own copy as `label` (`FPS display`, `CPS
+  counter`, `Ping display`). The overrides `packages/ingame/src/registry.ts` used to hold
+  are gone; what is left there is the tile **grid order**, which is layout, not a property
+  of a mod.
 
 ---
 
 ## Ultralight binding API
 
 Owned by **native** (`mod/native/`), consumed by **mod**. Built against Ultralight **1.4.0b
-(rev `081c48b`)**; see `mod/native/README.md` for the SDK provenance, the licence line that must
-appear in the About screen, and what is and is not verified.
-
-### ⚠️ One forced deviation: the package name
-
-The agreed package was `dev.void.ultralight`. **That is not a legal Java package.** `void` is a
-reserved word, and a keyword cannot be an identifier — neither `package dev.void.ultralight;` nor
-`import dev.void.ultralight.View;` compiles:
-
-```
-error: <identifier> expected
-package dev.void.ultralight;
-            ^
-```
-
-The package is therefore **`dev.voidclient.ultralight`**, mirroring the mod's artifact name
-(`rootProject.name = 'void-client'`). Nothing else about the API changed — every type, method,
-signature and constant below is exactly as specified.
-
-**This affects `mod/` too**: `dev.void.client.*` in PVP_ARCHITECTURE §6 has the same problem, and
-**mod** hit it independently — it settled on `dev.voidpvp.client.*` and resolves the binding's
-package at runtime, trying `-Dvoid.ultralight.package`, then the resource
-`assets/void/native-package.txt`, then the candidates `dev.voidclient.ultralight`,
-`dev.voidpvp.ultralight`, `dev.ultralight`. **`dev.voidclient.ultralight` is the first candidate, so
-the two halves already agree** — nothing to change on either side. If **mod** wants to make it
-explicit rather than rely on candidate order, write `dev.voidclient.ultralight` into
-`assets/void/native-package.txt`.
-
-### The API
+(rev `081c48b`)**; see `mod/native/README.md` for the SDK provenance, the licence line that
+must appear in the About screen, and what is and is not verified. Package:
+**`dev.voidclient.ultralight`** (see "Java package names" above).
 
 ```java
 package dev.voidclient.ultralight;
@@ -150,6 +239,7 @@ public final class Ultralight {
 public final class Renderer implements AutoCloseable {
   public void update();                                          // once per game tick
   public void refreshDisplay();                                  // once per frame, before render()
+  public void render();                                          // paints dirty views
   public View createView(int w, int h, boolean transparent);     // GPU, via our GL driver
   public View createViewCpu(int w, int h, boolean transparent);  // CPU surface — tests only
   public void purgeMemory();
@@ -202,7 +292,8 @@ All additive — nothing specified was changed or removed. `version()`, `createV
 
 `uvScaleX/Y` matter: Ultralight's render target may be larger than the view, and drawing the whole
 texture would show garbage at the edges. `refreshDisplay()` is what advances CSS animations,
-transitions and `requestAnimationFrame` — without it the UI is static.
+transitions and `requestAnimationFrame` — without it the UI is static, which is why `UiHost.frame()`
+calls it every frame between `update()` and `render()`.
 
 ### Rules the mod must follow
 
@@ -224,7 +315,9 @@ transitions and `requestAnimationFrame` — without it the UI is static.
    yields `null` in JS; throwing is logged and surfaces as a JS exception, never escaping into Java.
    This is the primitive `window.void` (§6.5) is built on, not a replacement for it.
 7. **The texture is premultiplied, top-left origin.** Blend with
-   `GL_ONE, GL_ONE_MINUS_SRC_ALPHA`, `v = 0` at the top, depth test off.
+   `GL_ONE, GL_ONE_MINUS_SRC_ALPHA`, `v = 0` at the top, depth test off. §6.2 said "straight alpha"
+   in an earlier draft and has been corrected: straight-alpha blending double-darkens every
+   antialiased edge in the UI.
 8. **No system fonts.** The font loader serves one bundled face (Inter) for every family, so the UI
    must declare its typefaces with `@font-face`; those are served from the classpath. `font-family:
    Arial` silently gets Inter. This keeps the design identical on every machine — **ui** should
@@ -236,13 +329,23 @@ transitions and `requestAnimationFrame` — without it the UI is static.
     already does — sidesteps it completely. Do not add a "graceful shutdown" that joins and exits
     the render thread instead.
 11. **`natives/<os>-<arch>/` must be on the classpath** — `windows-x64`, `macos-x64`,
-    `macos-arm64` — including the generated `files.txt`. `mod/native/README.md` has the exact file
-    list and a Gradle snippet. `-Dvoid.ultralight.nativeDir=<dir>` skips extraction for dev runs.
+    `macos-arm64` — including the generated `files.txt`. That is what the per-OS JARs below are
+    for. `-Dvoid.ultralight.nativeDir=<dir>` skips extraction for dev runs.
 
-### Open item for `core`
+### Natives size — settled: per-OS JARs
 
 The native payload is **20.8 MB** (Windows) / **50.3 MB** (+ mac-x64) / **77.4 MB** (+ mac-arm64) of
-JAR-deflated bytes, measured. PVP_ARCHITECTURE §13 budgets ~25 MB for all of it. Either the mod
-ships per-OS JARs (recommended — `void-core` already resolves downloads per launch and knows the
-target OS) or the natives become a separately downloaded, hash-verified artifact. Not a decision
-`native` can make alone.
+JAR-deflated bytes, measured. §13 budgeted ~25 MB for all of it and has been corrected.
+
+**The mod ships one JAR per platform.** `mod/build.gradle`'s `platformJars` task repackages the
+already-remapped JAR once per staged `mod/native/build*/natives/<os>-<arch>/` tree into
+`void-client-<version>-<os>-<arch>.jar`. It is a repackage, not a second Loom remap: the classes are
+byte-identical across platforms and only the natives differ, so remapping again would cost minutes to
+produce the same bytes. The base `void-client-<version>.jar` carries **no** natives (324 KB), which
+is what keeps `./gradlew build` and the test loop fast; `./gradlew platformJars` is the CI step, and
+it says so plainly when no natives are staged instead of shipping a JAR that dies at
+`Ultralight.load()`.
+
+`void-core` selects one at prepare time: `install::ModPlatform`, derived from the OS the **JVM** will
+run as — on Apple Silicon the game runs x64 under Rosetta, so an arm64 Mac takes the `macos-x64` JAR
+(§13). `void-pvp prepare --platform <os>-<arch>` overrides it for cross-preparing another machine.

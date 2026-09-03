@@ -1,5 +1,8 @@
 package dev.voidpvp.client.ui;
 
+import dev.voidclient.ultralight.Renderer;
+import dev.voidclient.ultralight.Ultralight;
+import dev.voidclient.ultralight.View;
 import dev.voidpvp.client.VoidLog;
 
 import java.util.function.Function;
@@ -10,16 +13,34 @@ import java.util.function.Function;
  * Minecraft's GL context (§6.2). No CPU readback and no full-frame texture
  * upload — the view paints into a GL texture we then draw as a quad.
  *
- * <p>Every call goes through {@link NativeUltralight}; see the note there on
- * why the binding is reached by reflection rather than by import.</p>
+ * <p><b>Why this is a plain import now.</b> It used to reach the binding by
+ * reflection, because the architecture's {@code dev.void.ultralight} is not a
+ * legal package (§4: {@code void} is a keyword) and the two owners had to
+ * rename it independently. Both names are settled —
+ * {@code dev.voidclient.ultralight} for the binding, {@code dev.voidpvp.client}
+ * for the mod — and {@code build.gradle} already compiles {@code native/java}
+ * into this JAR, so the indirection bought nothing but a stringly-typed API
+ * that could not be checked at compile time. A signature change in the binding
+ * is now a compile error instead of a {@code NoSuchMethodException} in game.</p>
+ *
+ * <p><b>The fallback is unaffected.</b> {@link WebViews} still answers with
+ * {@link NullWebView} when the binding cannot run: {@link Ultralight#load()}
+ * throws {@link UnsatisfiedLinkError} when this platform's natives are not in
+ * the JAR, and a JAR built without {@code native/java} at all throws
+ * {@link NoClassDefFoundError} on the first touch of this class — both are
+ * {@link LinkageError}, both are caught there, and neither reaches the game.
+ * That is why every reference to the binding lives in this one class.</p>
  */
 final class UltralightWebView implements WebView {
 
-    private final Object renderer;
-    private final Object view;
+    /** Where {@code Ultralight.load()} extracts natives from and resolves URLs against. */
+    static final String RESOURCE_PREFIX = "assets/void/ui/";
+
+    private final Renderer renderer;
+    private final View view;
     private boolean closed;
 
-    private UltralightWebView(Object renderer, Object view) {
+    private UltralightWebView(Renderer renderer, View view) {
         this.renderer = renderer;
         this.view = view;
     }
@@ -27,17 +48,21 @@ final class UltralightWebView implements WebView {
     /**
      * Creates the renderer and its one view.
      *
-     * @throws UnsatisfiedLinkError when the binding or its natives are missing;
-     *         {@link WebViews#create} turns that into a {@link NullWebView}
+     * @throws UnsatisfiedLinkError when the natives are missing or will not load
+     * @throws NoClassDefFoundError when the JAR was built without {@code native/java}
      */
     static UltralightWebView create(int width, int height) {
-        Object renderer = NativeUltralight.createRenderer();
-        Object view = NativeUltralight.call(NativeUltralight.rendererCreateView, renderer,
-                Integer.valueOf(Math.max(1, width)), Integer.valueOf(Math.max(1, height)),
-                Boolean.TRUE);
+        Ultralight.load();
+        Renderer renderer = Ultralight.createRenderer(RESOURCE_PREFIX);
+        if (renderer == null) {
+            throw new UnsatisfiedLinkError("Ultralight.createRenderer returned null");
+        }
+        View view = renderer.createView(Math.max(1, width), Math.max(1, height), true);
         if (view == null) {
             throw new UnsatisfiedLinkError("Ultralight createView returned null");
         }
+        VoidLog.info("Ultralight " + Ultralight.version() + " (WebKit "
+                + Ultralight.webKitVersion() + ") ready");
         return new UltralightWebView(renderer, view);
     }
 
@@ -48,98 +73,88 @@ final class UltralightWebView implements WebView {
 
     @Override
     public void loadUrl(String url) {
-        NativeUltralight.call(NativeUltralight.viewLoadUrl, view, url);
+        view.loadUrl(url);
     }
 
     @Override
     public void resize(int width, int height) {
-        NativeUltralight.call(NativeUltralight.viewResize, view,
-                Integer.valueOf(Math.max(1, width)), Integer.valueOf(Math.max(1, height)));
+        view.resize(Math.max(1, width), Math.max(1, height));
     }
 
     @Override
     public void setDeviceScale(double scale) {
-        NativeUltralight.call(NativeUltralight.viewSetDeviceScale, view, Double.valueOf(scale));
+        view.setDeviceScale(scale);
     }
 
     @Override
     public void update() {
-        NativeUltralight.call(NativeUltralight.rendererUpdate, renderer);
+        renderer.update();
+    }
+
+    @Override
+    public void refreshDisplay() {
+        renderer.refreshDisplay();
     }
 
     @Override
     public void render() {
-        NativeUltralight.call(NativeUltralight.rendererRender, renderer);
+        renderer.render();
     }
 
     @Override
     public int glTextureId() {
-        Object id = NativeUltralight.call(NativeUltralight.viewGlTextureId, view);
-        return id instanceof Number ? ((Number) id).intValue() : 0;
+        return view.glTextureId();
     }
 
     @Override
     public float uvScaleX() {
-        return uvScale(NativeUltralight.viewUvScaleX);
+        return clampUv(view.uvScaleX());
     }
 
     @Override
     public float uvScaleY() {
-        return uvScale(NativeUltralight.viewUvScaleY);
+        return clampUv(view.uvScaleY());
     }
 
-    private float uvScale(java.lang.reflect.Method method) {
-        if (method == null) {
-            return 1f;
-        }
-        Object value = NativeUltralight.call(method, view);
-        if (!(value instanceof Number)) {
-            return 1f;
-        }
-        float scale = ((Number) value).floatValue();
+    /** A binding that fills its texture exactly reports 1; anything odd is treated as 1. */
+    private static float clampUv(float scale) {
         return scale > 0f && scale <= 1f ? scale : 1f;
     }
 
     @Override
     public boolean isDirty() {
-        Object dirty = NativeUltralight.call(NativeUltralight.viewIsDirty, view);
-        return dirty instanceof Boolean && ((Boolean) dirty).booleanValue();
+        return view.isDirty();
     }
 
     @Override
     public void fireMouseEvent(int type, int x, int y, int button) {
-        NativeUltralight.call(NativeUltralight.viewFireMouseEvent, view,
-                Integer.valueOf(type), Integer.valueOf(x), Integer.valueOf(y),
-                Integer.valueOf(button));
+        view.fireMouseEvent(type, x, y, button);
     }
 
     @Override
     public void fireKeyEvent(int type, int virtualKey, int modifiers, String text) {
-        NativeUltralight.call(NativeUltralight.viewFireKeyEvent, view,
-                Integer.valueOf(type), Integer.valueOf(virtualKey), Integer.valueOf(modifiers),
-                text == null ? "" : text);
+        view.fireKeyEvent(type, virtualKey, modifiers, text == null ? "" : text);
     }
 
     @Override
     public void fireScrollEvent(int dx, int dy) {
-        NativeUltralight.call(NativeUltralight.viewFireScrollEvent, view,
-                Integer.valueOf(dx), Integer.valueOf(dy));
+        view.fireScrollEvent(dx, dy);
     }
 
     @Override
     public String evaluateScript(String js) {
-        Object result = NativeUltralight.call(NativeUltralight.viewEvaluateScript, view, js);
-        return result == null ? "" : result.toString();
+        String result = view.evaluateScript(js);
+        return result == null ? "" : result;
     }
 
     @Override
     public void setMessageHandler(Function<String, String> handler) {
-        NativeUltralight.call(NativeUltralight.viewSetMessageHandler, view, handler);
+        view.setMessageHandler(handler);
     }
 
     @Override
     public void setFocus(boolean focused) {
-        NativeUltralight.call(NativeUltralight.viewSetFocus, view, Boolean.valueOf(focused));
+        view.setFocus(focused);
     }
 
     @Override
@@ -149,8 +164,8 @@ final class UltralightWebView implements WebView {
         }
         closed = true;
         try {
-            NativeUltralight.call(NativeUltralight.viewClose, view);
-            NativeUltralight.call(NativeUltralight.rendererClose, renderer);
+            view.close();
+            renderer.close();
         } catch (RuntimeException e) {
             VoidLog.warn("Ultralight close failed: " + e);
         }

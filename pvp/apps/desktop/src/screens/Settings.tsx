@@ -13,8 +13,19 @@
 
 import { useEffect, useState } from 'react';
 
-import { Button, Group, IconButton, KeybindChip, Row, Segmented, Slider, StatusDot, Switch } from '../components';
-import { XIcon } from '../components/icons';
+import {
+  Button,
+  IconButton,
+  KeybindChip,
+  PositionChips,
+  SettingsGroup,
+  SettingsRow,
+  Slider,
+  StatusDot,
+  Toggle,
+} from '@void/ui';
+
+import { captureKey, prettyKey } from '../local/keys';
 import type { UpdateInfo } from '../local/protocol';
 import { errorText, invoke } from '../local/tauri';
 import { useLaunch } from '../stores/launch';
@@ -60,30 +71,30 @@ export function SettingsPanel() {
         <header className="settings__head">
           <h1 className="settings__title">Settings</h1>
           <span className="settings__spacer" />
-          <IconButton icon={XIcon} size={32} glyph={14} label="Close settings" onClick={close} />
+          <IconButton icon="close" size="close" label="Close settings" onClick={close} />
         </header>
 
         <div className="settings__body">
           {error ? (
             <div className="banner banner--error">
               <span className="banner__text">{error}</span>
-              <IconButton icon={XIcon} size={26} glyph={12} label="Dismiss" onClick={dismissError} />
+              <IconButton icon="close" size="close" label="Dismiss" onClick={dismissError} />
             </div>
           ) : null}
 
           {/* -------------------------------------------------------- account */}
-          <Group caption="ACCOUNT">
+          <SettingsGroup caption="ACCOUNT">
             {account ? (
               <>
-                <Row title={account.name} sub={`${account.kind === 'offline' ? 'Offline account' : 'Microsoft account'} · ${account.uuid}`}>
+                <SettingsRow title={account.name} sub={`${account.kind === 'offline' ? 'Offline account' : 'Microsoft account'} · ${account.uuid}`}>
                   <Button variant="ghost" onClick={() => void logout()} disabled={phase !== 'idle'}>
                     Sign out
                   </Button>
-                </Row>
+                </SettingsRow>
               </>
             ) : (
               <>
-                <Row
+                <SettingsRow
                   title="Microsoft account"
                   sub={
                     deviceCode
@@ -94,8 +105,8 @@ export function SettingsPanel() {
                   <Button variant="accent" onClick={() => void loginMicrosoft()}>
                     {deviceCode ? 'Waiting…' : 'Sign in'}
                   </Button>
-                </Row>
-                <Row title="Play offline" sub="A local account. Works on offline-mode servers only.">
+                </SettingsRow>
+                <SettingsRow title="Play offline" sub="A local account. Works on offline-mode servers only.">
                   <div className="inline-form">
                     <input
                       className="inline-form__field"
@@ -113,14 +124,14 @@ export function SettingsPanel() {
                       Use
                     </Button>
                   </div>
-                </Row>
+                </SettingsRow>
               </>
             )}
-          </Group>
+          </SettingsGroup>
 
           {/* ----------------------------------------------------------- java */}
-          <Group caption="JAVA & MEMORY">
-            <Row
+          <SettingsGroup caption="JAVA & MEMORY">
+            <SettingsRow
               title="Java runtime"
               sub={
                 java?.found
@@ -136,17 +147,17 @@ export function SettingsPanel() {
                   Re-detect
                 </Button>
               </div>
-            </Row>
-            <Row title="Find Java automatically" sub="Off lets you point at a specific JVM.">
-              <Switch
+            </SettingsRow>
+            <SettingsRow title="Find Java automatically" sub="Off lets you point at a specific JVM.">
+              <Toggle
                 size="l"
                 checked={settings.java_auto}
                 onChange={(next) => void saveSettings({ java_auto: next })}
                 label="Find Java automatically"
               />
-            </Row>
+            </SettingsRow>
             {!settings.java_auto ? (
-              <Row title="Java path" sub="Path to a Java 8 `java` executable.">
+              <SettingsRow title="Java path" sub="Path to a Java 8 `java` executable.">
                 <input
                   className="inline-form__field inline-form__field--wide"
                   value={settings.java_path ?? ''}
@@ -154,10 +165,11 @@ export function SettingsPanel() {
                   aria-label="Java path"
                   onChange={(e) => void saveSettings({ java_path: e.target.value || null })}
                 />
-              </Row>
+              </SettingsRow>
             ) : null}
-            <Row
+            <SettingsRow
               title="Memory"
+              value={`${(settings.ram_mb / 1024).toFixed(1)} GB`}
               sub={
                 system
                   ? `${system.ram_total_mb.toLocaleString()} MB installed · ${system.recommended_ram_mb} MB recommended`
@@ -165,83 +177,97 @@ export function SettingsPanel() {
               }
             >
               <Slider
-                wide
-                label="RAM"
+                variant="wide"
+                hideLabels
+                ariaLabel="RAM"
                 value={settings.ram_mb}
                 min={1024}
                 max={ramMax}
                 step={512}
-                display={`${(settings.ram_mb / 1024).toFixed(1)} GB`}
+                readout={`${(settings.ram_mb / 1024).toFixed(1)} GB`}
+                onCommit={(next) => void saveSettings({ ram_mb: next })}
                 onChange={(next) => void saveSettings({ ram_mb: next })}
               />
-            </Row>
-          </Group>
+            </SettingsRow>
+          </SettingsGroup>
 
           {/* -------------------------------------------------------- hotkeys */}
-          <Group caption="IN-GAME HOTKEYS">
-            <Row title="Menu key" sub="Opens and closes the VOID panel in game.">
+          <SettingsGroup caption="IN-GAME HOTKEYS">
+            <SettingsRow title="Menu key" sub="Opens and closes the VOID panel in game.">
               <KeybindChip
-                label="Menu key"
-                value={settings.menu_key}
+                aria-label="Menu key"
+                value={prettyKey(settings.menu_key)}
+                onCapture={captureKey}
                 onChange={(next) => void saveSettings({ menu_key: next })}
               />
-            </Row>
-            <Row title="Cycle loadout" sub="Steps to the next loadout in the library.">
+            </SettingsRow>
+            <SettingsRow title="Cycle loadout" sub="Steps to the next loadout in the library.">
               <KeybindChip
-                label="Cycle loadout key"
-                value={settings.cycle_loadout_key}
+                aria-label="Cycle loadout key"
+                value={prettyKey(settings.cycle_loadout_key)}
+                onCapture={captureKey}
                 onChange={(next) => void saveSettings({ cycle_loadout_key: next })}
               />
-            </Row>
-            <Row title="HUD editor grid" sub="Snap size in GUI pixels. 0 disables snapping.">
+            </SettingsRow>
+            <SettingsRow
+              title="HUD editor grid"
+              sub="Snap size in GUI pixels. 0 disables snapping."
+              value={settings.hud_editor_grid === 0 ? 'off' : `${settings.hud_editor_grid} px`}
+            >
               <Slider
-                wide
-                label="Grid"
+                variant="wide"
+                hideLabels
+                ariaLabel="HUD editor grid"
                 value={settings.hud_editor_grid}
                 min={0}
                 max={32}
                 step={1}
-                display={settings.hud_editor_grid === 0 ? 'off' : `${settings.hud_editor_grid} px`}
+                readout={settings.hud_editor_grid === 0 ? 'off' : `${settings.hud_editor_grid} px`}
                 onChange={(next) => void saveSettings({ hud_editor_grid: next })}
               />
-            </Row>
-          </Group>
+            </SettingsRow>
+          </SettingsGroup>
 
           {/* --------------------------------------------------- appearance */}
-          <Group caption="APPEARANCE & WINDOW">
-            <Row title="Theme" sub="Shared by the launcher and the in-game UI.">
-              <Segmented
-                label="Theme"
+          <SettingsGroup caption="APPEARANCE & WINDOW">
+            <SettingsRow title="Theme" sub="Shared by the launcher and the in-game UI.">
+              <PositionChips
+                aria-label="Theme"
                 value={settings.theme}
-                options={['void-dark']}
+                options={[{ id: 'void-dark', label: 'void-dark' }]}
                 onChange={(next) => void saveSettings({ theme: next })}
               />
-            </Row>
-            <Row title="In-game UI scale" sub="On top of the game's GUI scale.">
+            </SettingsRow>
+            <SettingsRow
+              title="In-game UI scale"
+              sub="On top of the game's GUI scale."
+              value={`${settings.ui_scale.toFixed(1)}×`}
+            >
               <Slider
-                wide
-                label="UI scale"
+                variant="wide"
+                hideLabels
+                ariaLabel="In-game UI scale"
                 value={settings.ui_scale}
                 min={0.5}
                 max={3}
                 step={0.1}
-                display={`${settings.ui_scale.toFixed(1)}×`}
+                readout={`${settings.ui_scale.toFixed(1)}×`}
                 onChange={(next) => void saveSettings({ ui_scale: next })}
               />
-            </Row>
-            <Row title="Hide to tray on launch" sub="The window returns when the game closes.">
-              <Switch
+            </SettingsRow>
+            <SettingsRow title="Hide to tray on launch" sub="The window returns when the game closes.">
+              <Toggle
                 size="l"
                 checked={settings.hide_to_tray_on_launch}
                 onChange={(next) => void saveSettings({ hide_to_tray_on_launch: next })}
                 label="Hide to tray on launch"
               />
-            </Row>
-          </Group>
+            </SettingsRow>
+          </SettingsGroup>
 
           {/* --------------------------------------------------------- system */}
-          <Group caption="DATA & UPDATES">
-            <Row
+          <SettingsGroup caption="DATA & UPDATES">
+            <SettingsRow
               title="Data folder"
               sub={
                 dataDir ||
@@ -260,8 +286,8 @@ export function SettingsPanel() {
               >
                 Open
               </Button>
-            </Row>
-            <Row
+            </SettingsRow>
+            <SettingsRow
               title="Version"
               sub={
                 system
@@ -270,8 +296,8 @@ export function SettingsPanel() {
               }
             >
               <span className="mono-value">{system?.app_version ?? '—'}</span>
-            </Row>
-            <Row
+            </SettingsRow>
+            <SettingsRow
               title="Updates"
               sub={
                 update?.error
@@ -302,11 +328,11 @@ export function SettingsPanel() {
               >
                 Check now
               </Button>
-            </Row>
-          </Group>
+            </SettingsRow>
+          </SettingsGroup>
 
           {/* -------------------------------------------------------- credits */}
-          <Group caption="CREDITS">
+          <SettingsGroup caption="CREDITS">
             <div className="credits">
               <p className="credits__line">
                 <strong>Ultralight</strong> — the in-game UI renderer.
@@ -330,7 +356,7 @@ export function SettingsPanel() {
                 Synergies AB.
               </p>
             </div>
-          </Group>
+          </SettingsGroup>
         </div>
       </section>
     </div>

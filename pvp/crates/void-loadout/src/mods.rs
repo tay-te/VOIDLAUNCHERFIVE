@@ -101,6 +101,11 @@ impl ModId {
         registry().info(self).hypixel_safe
     }
 
+    /// The Mods-panel filter category of this mod (Figma 244:538).
+    pub fn category(self) -> Category {
+        registry().info(self).category
+    }
+
     /// The `hud_mod_id` narrowing, when this mod owns a draggable HUD item.
     pub fn as_hud(self) -> Option<HudModId> {
         HudModId::from_mod_id(self)
@@ -233,6 +238,57 @@ pub enum Kind {
     Gameplay,
 }
 
+/// The Mods panel's filter taxonomy — the tabs of Figma 244:538.
+///
+/// Independent of [`Kind`] on purpose: `Kind` says which direction data flows (draw, or
+/// mutate a client-side option), this says which tab the tile sits under. Crosshair is
+/// [`Kind::Gameplay`] but [`Category::Visual`]; Zoom is [`Kind::Gameplay`] but
+/// [`Category::Utility`]. It lives in `mods.json` so no consumer hard-codes the mapping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Category {
+    /// Draws a readout over the game.
+    Hud,
+    /// Changes how a fight plays.
+    Pvp,
+    /// Changes how the game looks.
+    Visual,
+    /// A convenience that is neither of the above.
+    Utility,
+}
+
+impl Category {
+    /// Every category, in tab order.
+    pub const ALL: [Category; 4] =
+        [Category::Hud, Category::Pvp, Category::Visual, Category::Utility];
+
+    /// The lower-case id used in `mods.json`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Category::Hud => "hud",
+            Category::Pvp => "pvp",
+            Category::Visual => "visual",
+            Category::Utility => "utility",
+        }
+    }
+
+    /// The tab label as the frame prints it: `HUD`, `PvP`, `Visual`, `Utility`.
+    pub fn label(self) -> &'static str {
+        match self {
+            Category::Hud => "HUD",
+            Category::Pvp => "PvP",
+            Category::Visual => "Visual",
+            Category::Utility => "Utility",
+        }
+    }
+}
+
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Anti-cheat posture of a mod (§11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -291,6 +347,50 @@ pub struct KeystrokesSettings {
     /// Whether to print CPS inside the mouse tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_cps: Option<bool>,
+    /// Corner radius of a key tile in unscaled GUI pixels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corner_radius: Option<i64>,
+    /// Background swatch of an unpressed key tile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_color: Option<KeySwatch>,
+    /// Fill swatch of a pressed key tile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pressed_color: Option<PressedSwatch>,
+}
+
+/// One of the five unpressed-key swatches on the Mod settings frame.
+///
+/// A token name rather than a hex value, so the choice survives a theme change; the UI
+/// resolves each to `--bg-shell` / `--surface-2` / `--surface-3` / `--sky` / `--teal`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeySwatch {
+    /// `--bg-shell`, the frame's default.
+    Shell,
+    /// `--surface-2`.
+    Raised,
+    /// `--surface-3`.
+    Pill,
+    /// `--sky`.
+    Sky,
+    /// `--teal`.
+    Teal,
+}
+
+/// One of the five pressed-key swatches on the Mod settings frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PressedSwatch {
+    /// `--accent`, the frame's default; follows the loadout accent.
+    Accent,
+    /// `--sky`.
+    Sky,
+    /// `--warn`.
+    Warn,
+    /// `--danger`, named `fear` on the frame.
+    Fear,
+    /// `--teal`.
+    Teal,
 }
 
 /// Which mouse buttons the CPS counter counts.
@@ -571,6 +671,8 @@ pub struct ModEntry<S> {
     pub id: ModId,
     /// Whether this mod draws or mutates.
     pub kind: Kind,
+    /// Which tab of the Mods panel this mod sits under.
+    pub category: Category,
     /// Anti-cheat class.
     pub hypixel_safe: HypixelSafe,
     /// Human-readable name as it appears in the Mods panel.
@@ -592,6 +694,8 @@ pub struct ModInfo<'a> {
     pub id: ModId,
     /// Whether this mod draws or mutates.
     pub kind: Kind,
+    /// Which tab of the Mods panel this mod sits under.
+    pub category: Category,
     /// Anti-cheat class.
     pub hypixel_safe: HypixelSafe,
     /// Human-readable name.
@@ -663,6 +767,7 @@ impl Registry {
                 ModInfo {
                     id: $e.id,
                     kind: $e.kind,
+                    category: $e.category,
                     hypixel_safe: $e.hypixel_safe,
                     label: $e.label.as_str(),
                     description: $e.description.as_str(),
@@ -769,7 +874,7 @@ mod tests {
     #[test]
     fn registry_holds_all_twelve_mods() {
         let r = registry();
-        assert_eq!(r.version, 1);
+        assert_eq!(r.version, 2, "mods.json gained category + three keystrokes settings");
         assert_eq!(r.all_info().len(), 12);
         for id in ModId::ALL {
             assert_eq!(r.info(id).id, id, "entry `id` must equal its key");
@@ -790,6 +895,33 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn category_is_carried_by_the_registry_and_is_not_kind() {
+        // Every mod has one, every tab has at least one mod, and the two
+        // classifications genuinely differ — if they ever collapsed into each other,
+        // `category` would be dead weight and the Mods panel could filter on `kind`.
+        for c in Category::ALL {
+            assert!(
+                ModId::ALL.into_iter().any(|id| id.category() == c),
+                "no mod is categorised {c}",
+            );
+        }
+        assert_eq!(ModId::Crosshair.kind(), Kind::Gameplay);
+        assert_eq!(ModId::Crosshair.category(), Category::Visual);
+        assert_eq!(ModId::Zoom.category(), Category::Utility);
+        assert_eq!(ModId::Fps.category(), Category::Hud);
+    }
+
+    #[test]
+    fn labels_are_the_panel_copy_the_frames_print() {
+        // Figma 244:538 reads "FPS display", "CPS counter", "Ping display"; the registry
+        // is the one place that copy lives, so no consumer overrides it.
+        let r = registry();
+        assert_eq!(r.info(ModId::Fps).label, "FPS display");
+        assert_eq!(r.info(ModId::Cps).label, "CPS counter");
+        assert_eq!(r.info(ModId::Ping).label, "Ping display");
     }
 
     #[test]

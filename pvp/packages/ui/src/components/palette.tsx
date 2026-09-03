@@ -64,8 +64,14 @@ export function PaletteInput({
           onChange={onChange ? (event) => onChange(event.target.value) : undefined}
           {...rest}
         />
+        {/* An invisible copy of the query, in the same face and size, that gives the
+            caret below it the exact width of the typed text — the frame sets the
+            caret against the last glyph (`fullb|`), not at the end of the field. */}
+        <span className="v-palette__ghost" aria-hidden="true">
+          {value}
+        </span>
+        {showCaret ? <span className="v-palette__caret" aria-hidden="true" /> : null}
       </span>
-      {showCaret ? <span className="v-palette__caret" aria-hidden="true" /> : null}
       {hint}
     </div>
   );
