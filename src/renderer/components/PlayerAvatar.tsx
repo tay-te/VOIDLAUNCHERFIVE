@@ -22,12 +22,12 @@ export function PlayerAvatar({
   if (error) {
     return (
       <div
-        className={`rounded-2xl bg-(--color-surface-tertiary) flex items-center justify-center ${className ?? ""}`}
+        className={`rounded-panel bg-(--color-surface-tertiary) flex items-center justify-center ${className ?? ""}`}
         style={{ width: size, height: size }}
       >
         {username ? (
           <span
-            className="font-bold text-(--color-text-secondary)"
+            className="font-strong text-(--color-text-secondary)"
             style={{ fontSize: size * 0.4 }}
           >
             {username[0]?.toUpperCase()}
@@ -43,7 +43,7 @@ export function PlayerAvatar({
     <img
       src={src}
       alt="Player avatar"
-      className={`rounded-2xl shadow-md ${className ?? ""}`}
+      className={`rounded-panel shadow-md ${className ?? ""}`}
       style={{ width: size, height: size, imageRendering: "pixelated" }}
       draggable={false}
       onError={() => setError(true)}

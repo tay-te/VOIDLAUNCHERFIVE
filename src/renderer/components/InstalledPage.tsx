@@ -3,7 +3,7 @@ import { Package } from "lucide-react";
 export function InstalledPage() {
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-(--color-text-primary)">
+      <h1 className="text-2xl font-strong text-(--color-text-primary)">
         Installed Mods
       </h1>
 

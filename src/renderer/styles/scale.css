@@ -1,0 +1,81 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   SCALE TOKENS — shape, type, motion, elevation
+   ─────────────────────────────────────────────────────────────────────────────
+   Theme-independent defaults. Any theme file may override any of these, so a
+   theme can change density or roundness, not just color.
+
+   Radius is deliberately SEMANTIC (control/card/panel/modal/window/pill) rather
+   than t-shirt sized. Naming by role is what stops a codebase from drifting back
+   to 21 different corner values.
+   ────────────────────────────────────────────────────────────────────────────*/
+
+:root {
+  /* ── Radius ──────────────────────────────────────────────────────────────
+     control  buttons, inputs, chips, small icon squares
+     card     list rows, mod cards, instance tiles
+     panel    sections, sidebars, grouped regions
+     modal    dialogs, dropdowns, large floating surfaces
+     window   the app window chrome itself
+     pill     fully rounded                                                  */
+  --v-radius-control: 0.5rem;
+  --v-radius-card: 0.75rem;
+  --v-radius-panel: 1rem;
+  --v-radius-modal: 1.25rem;
+  --v-radius-window: 1.125rem;
+  --v-radius-pill: 9999px;
+
+  /* ── Type scale ──────────────────────────────────────────────────────────
+     micro/caption exist because the UI genuinely needs 10px and 11px labels;
+     naming them stops `text-[10px]` from reappearing 64 times.              */
+  --v-text-micro: 0.625rem;    /* 10px — uppercase metadata labels */
+  --v-text-caption: 0.6875rem; /* 11px — dense secondary text */
+  --v-text-xs: 0.75rem;
+  --v-text-sm: 0.875rem;
+  --v-text-base: 1rem;
+  --v-text-lg: 1.125rem;
+  --v-text-xl: 1.25rem;
+  --v-text-2xl: 1.5rem;
+  --v-text-3xl: 1.875rem;
+  --v-text-display: 2.5rem;
+
+  /* ── Line height ─────────────────────────────────────────────────────────*/
+  --v-leading-tight: 1.15;
+  --v-leading-snug: 1.35;
+  --v-leading-normal: 1.55;
+  --v-leading-relaxed: 1.75;
+
+  /* ── Weight ──────────────────────────────────────────────────────────────
+     Four roles, not six weights. `body` is the default, `emphasis` lifts a
+     label, `strong` is a heading, `display` is brand-scale typography.       */
+  --v-weight-body: 500;
+  --v-weight-emphasis: 600;
+  --v-weight-strong: 700;
+  --v-weight-display: 900;
+
+  /* ── Letter spacing ──────────────────────────────────────────────────────*/
+  --v-tracking-tight: -0.02em;
+  --v-tracking-normal: 0;
+  --v-tracking-wide: 0.08em;
+  --v-tracking-caps: 0.18em; /* uppercase metadata labels */
+
+  /* ── Motion ──────────────────────────────────────────────────────────────*/
+  --v-duration-instant: 100ms;
+  --v-duration-fast: 150ms;
+  --v-duration-normal: 250ms;
+  --v-duration-slow: 400ms;
+  --v-duration-slower: 600ms;
+
+  --v-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --v-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --v-ease-linear: linear;
+
+  /* ── Layout ──────────────────────────────────────────────────────────────*/
+  --v-sidebar-width: 23rem;
+  --v-sidebar-width-compact: 19rem;
+  --v-header-height: 6.875rem;
+  --v-page-padding: 1.75rem;
+
+  /* ── Blur ────────────────────────────────────────────────────────────────*/
+  --v-blur-glass: 18px;
+  --v-glass-saturate: 145%;
+}

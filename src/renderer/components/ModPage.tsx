@@ -132,15 +132,15 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
   if ((mods.detailLoading && !mod) || (!mod && !mods.detailError)) {
     return (
       <div className="h-full overflow-y-auto p-8 space-y-6">
-        <button onClick={onBack} className="w-10 h-10 rounded-full glass-subtle flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer">
+        <button onClick={onBack} className="w-10 h-10 rounded-pill glass-subtle flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer">
           <ArrowLeft size={16} />
         </button>
         <div className="space-y-4">
           <div className="flex items-start gap-5">
             <div className="w-24 h-24 rounded-3xl glass-subtle animate-pulse" />
             <div className="flex-1 space-y-3">
-              <div className="h-8 w-64 rounded-full glass-subtle animate-pulse" />
-              <div className="h-4 w-96 rounded-full glass-subtle animate-pulse" />
+              <div className="h-8 w-64 rounded-pill glass-subtle animate-pulse" />
+              <div className="h-4 w-96 rounded-pill glass-subtle animate-pulse" />
             </div>
           </div>
           <div className="h-96 rounded-3xl glass-subtle animate-pulse" />
@@ -152,13 +152,13 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
   if (mods.detailError && !mod) {
     return (
       <div className="h-full overflow-y-auto p-8 space-y-6">
-        <button onClick={onBack} className="w-10 h-10 rounded-full glass-subtle flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer">
+        <button onClick={onBack} className="w-10 h-10 rounded-pill glass-subtle flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer">
           <ArrowLeft size={16} />
         </button>
         <div className="flex flex-col items-center justify-center py-24 text-(--color-text-secondary)">
-          <p className="text-lg font-bold text-(--color-text-primary)">Failed to load mod</p>
+          <p className="text-lg font-strong text-(--color-text-primary)">Failed to load mod</p>
           <p className="text-sm mt-1">{mods.detailError}</p>
-          <button onClick={() => mods.selectMod(modId)} className="mt-4 px-5 py-2.5 rounded-full bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold cursor-pointer">
+          <button onClick={() => mods.selectMod(modId)} className="mt-4 px-5 py-2.5 rounded-pill bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-sm font-emphasis cursor-pointer">
             Retry
           </button>
         </div>
@@ -214,11 +214,11 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
       <div className="relative px-8 pt-8 pb-6">
         {/* Background glow from icon */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 left-20 w-[400px] h-[250px] rounded-full bg-(--color-accent)/6 blur-3xl" />
+          <div className="absolute top-0 left-20 w-[400px] h-[250px] rounded-pill bg-(--color-accent)/6 blur-3xl" />
         </div>
 
         <div className="relative z-10">
-          <button onClick={onBack} className="w-10 h-10 rounded-full glass-subtle flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer mb-6">
+          <button onClick={onBack} className="w-10 h-10 rounded-pill glass-subtle flex items-center justify-center text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer mb-6">
             <ArrowLeft size={16} />
           </button>
 
@@ -236,16 +236,16 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     {(mod.categories ?? []).slice(0, 3).map((cat) => (
-                      <span key={cat} className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-(--color-accent)/10 text-(--color-accent)">
+                      <span key={cat} className="flex items-center gap-1 text-micro font-emphasis px-2.5 py-1 rounded-pill bg-(--color-accent)/10 text-(--color-accent)">
                         <Tag size={9} />
                         {cat}
                       </span>
                     ))}
                   </div>
-                  <h1 className="mt-3 text-3xl font-black tracking-tighter text-(--color-text-primary) leading-none">
+                  <h1 className="mt-3 text-3xl font-display tracking-tighter text-(--color-text-primary) leading-none">
                     {mod.title}
                   </h1>
-                  <p className="mt-2 text-sm font-semibold text-(--color-text-secondary)">
+                  <p className="mt-2 text-sm font-emphasis text-(--color-text-secondary)">
                     {mod.author ? `By ${mod.author}` : "Modrinth project"}
                   </p>
                   <p className="text-sm text-(--color-text-secondary) mt-3 leading-relaxed max-w-2xl">
@@ -254,12 +254,12 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {metaStats.map(({ label, value, icon: Icon }) => (
-                      <div key={label} className="rounded-[1.125rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3">
+                      <div key={label} className="rounded-window border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3">
                         <div className="flex items-center gap-2 text-(--color-text-secondary)">
                           <Icon size={12} />
-                          <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+                          <span className="text-micro font-strong uppercase tracking-[0.16em]">{label}</span>
                         </div>
-                        <p className="mt-2 text-sm font-bold text-(--color-text-primary)">{value}</p>
+                        <p className="mt-2 text-sm font-strong text-(--color-text-primary)">{value}</p>
                       </div>
                     ))}
                   </div>
@@ -268,7 +268,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
             </div>
 
             <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+              <p className="text-caption font-strong uppercase tracking-[0.18em] text-(--color-text-secondary)">
                 Install & Verify
               </p>
               <button
@@ -276,7 +276,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                   setInstallModalState({ open: true, version: null });
                 }}
                 disabled={installDisabled}
-                className="launch-btn mt-4 flex w-full items-center justify-center gap-2 px-7 py-3 rounded-[1.125rem] bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-bold transition-all cursor-pointer hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-default disabled:hover:translate-y-0"
+                className="launch-btn mt-4 flex w-full items-center justify-center gap-2 px-7 py-3 rounded-window bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-sm font-strong transition-all cursor-pointer hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-default disabled:hover:translate-y-0"
               >
                 <span className="launch-shimmer" />
                 <Download size={15} className="relative z-10" />
@@ -285,14 +285,14 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                 </span>
               </button>
 
-              <p className="mt-3 text-[11px] leading-relaxed text-(--color-text-secondary)">
+              <p className="mt-3 text-caption leading-relaxed text-(--color-text-secondary)">
                 Opens the install modal so the player can choose a profile, review the dependency tree, and then confirm the install.
               </p>
 
-              <div className="mt-4 rounded-[1.125rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
+              <div className="mt-4 rounded-window border border-(--color-border) bg-(--color-surface) px-4 py-3">
                 <div className="flex items-center gap-2 text-(--color-text-secondary)">
                   <ShieldCheck size={13} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em]">Project Links</span>
+                  <span className="text-micro font-strong uppercase tracking-[0.16em]">Project Links</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {trustLinks.length > 0 ? trustLinks.map(({ url, label }) => (
@@ -301,7 +301,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                       href={url!}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 rounded-lg border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2 text-xs font-semibold text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors"
+                      className="flex items-center gap-1.5 rounded-control border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2 text-xs font-emphasis text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors"
                     >
                       <ExternalLink size={12} />
                       {label}
@@ -313,11 +313,11 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
               </div>
 
               {mod.license && (
-                <div className="mt-4 rounded-[1.125rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+                <div className="mt-4 rounded-window border border-(--color-border) bg-(--color-surface) px-4 py-3">
+                  <p className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
                     License
                   </p>
-                  <p className="mt-2 text-sm font-semibold text-(--color-text-primary)">
+                  <p className="mt-2 text-sm font-emphasis text-(--color-text-primary)">
                     {mod.license.name || mod.license.id || "Not specified"}
                   </p>
                 </div>
@@ -333,10 +333,10 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
           <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-4">
             <div className="flex items-center gap-2 text-(--color-text-secondary)">
               <ImageIcon size={13} />
-              <span className="text-[11px] font-bold uppercase tracking-[0.18em]">Media</span>
+              <span className="text-caption font-strong uppercase tracking-[0.18em]">Media</span>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
-              <div className="overflow-hidden rounded-[1.25rem] border border-(--color-border) bg-(--color-surface)">
+              <div className="overflow-hidden rounded-modal border border-(--color-border) bg-(--color-surface)">
                 <img
                   src={selectedGalleryImage.url}
                   alt={selectedGalleryImage.title || `Screenshot ${selectedGalleryIndex + 1}`}
@@ -345,7 +345,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                 {(selectedGalleryImage.title || selectedGalleryImage.description) && (
                   <div className="border-t border-(--color-border) px-4 py-3">
                     {selectedGalleryImage.title && (
-                      <p className="text-sm font-bold text-(--color-text-primary)">{selectedGalleryImage.title}</p>
+                      <p className="text-sm font-strong text-(--color-text-primary)">{selectedGalleryImage.title}</p>
                     )}
                     {selectedGalleryImage.description && (
                       <p className="mt-1 text-xs leading-relaxed text-(--color-text-secondary)">{selectedGalleryImage.description}</p>
@@ -359,10 +359,10 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                     key={`${img.url}-${i}`}
                     type="button"
                     onClick={() => setSelectedGalleryIndex(i)}
-                    className={`overflow-hidden rounded-[1rem] border transition-all cursor-pointer ${
+                    className={`overflow-hidden rounded-panel border transition-all cursor-pointer ${
                       selectedGalleryIndex === i
                         ? "border-(--color-accent) shadow-sm"
-                        : "border-(--color-border) hover:border-white/15"
+                        : "border-(--color-border) hover:border-line-strong"
                     }`}
                   >
                     <img src={img.url} alt={img.title || `Thumbnail ${i + 1}`} className="h-24 w-36 object-cover lg:w-full" />
@@ -376,10 +376,10 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
 
       {/* Tab bar */}
       <div className="px-8 mt-4 mb-1">
-        <div className="flex items-center gap-1 bg-(--color-surface-secondary) rounded-[1.25rem] p-1 w-fit border border-(--color-border)">
+        <div className="flex items-center gap-1 bg-(--color-surface-secondary) rounded-modal p-1 w-fit border border-(--color-border)">
           <button
             onClick={() => setActiveTab("description")}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-card text-xs font-strong transition-all cursor-pointer ${
               activeTab === "description"
                 ? "bg-(--color-surface) text-(--color-text-primary) shadow-sm"
                 : "text-(--color-text-secondary) hover:text-(--color-text-primary)"
@@ -390,7 +390,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
           </button>
           <button
             onClick={() => setActiveTab("versions")}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-card text-xs font-strong transition-all cursor-pointer ${
               activeTab === "versions"
                 ? "bg-(--color-surface) text-(--color-text-primary) shadow-sm"
                 : "text-(--color-text-secondary) hover:text-(--color-text-primary)"
@@ -398,7 +398,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
           >
             <Box size={13} />
             Versions
-            <span className="text-[10px] font-bold bg-(--color-surface-tertiary) px-1.5 py-0.5 rounded-md">
+            <span className="text-micro font-strong bg-(--color-surface-tertiary) px-1.5 py-0.5 rounded-md">
               {versions.length}
             </span>
           </button>
@@ -414,7 +414,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
             ) : mods.detailLoading ? (
               <div className="flex items-center justify-center py-16 gap-3 text-(--color-text-secondary)">
                 <Loader2 size={20} className="animate-spin" />
-                <span className="text-sm font-medium">Loading description...</span>
+                <span className="text-sm font-body">Loading description...</span>
               </div>
             ) : (
               <p className="text-sm text-(--color-text-secondary) py-8 text-center">No description available</p>
@@ -434,7 +434,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                   value={versionSearch}
                   onChange={(e) => setVersionSearch(e.target.value)}
                   placeholder="Filter versions..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-(--color-surface) border border-(--color-border) text-xs text-(--color-text-primary) placeholder:text-(--color-text-secondary)/60 focus:outline-none focus:ring-2 focus:ring-(--color-accent)/30 transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-card bg-(--color-surface) border border-(--color-border) text-xs text-(--color-text-primary) placeholder:text-(--color-text-secondary)/60 focus:outline-none focus:ring-2 focus:ring-(--color-accent)/30 transition-all"
                 />
               </div>
 
@@ -443,7 +443,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                 {/* Loader filter */}
                 {allLoaders.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider w-16 flex-shrink-0">Loader</span>
+                    <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider w-16 flex-shrink-0">Loader</span>
                     {allLoaders.map((loader) => {
                       const meta = LOADER_COLORS[loader] ?? { color: "var(--color-text-secondary)", bg: "var(--color-surface-tertiary)" };
                       const isActive = versionLoaderFilter.includes(loader);
@@ -451,7 +451,7 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                         <button
                           key={loader}
                           onClick={() => setVersionLoaderFilter((prev) => isActive ? prev.filter((l) => l !== loader) : [...prev, loader])}
-                          className="px-3 py-1 rounded-lg text-[11px] font-semibold capitalize transition-all cursor-pointer border"
+                          className="px-3 py-1 rounded-control text-caption font-emphasis capitalize transition-all cursor-pointer border"
                           style={{
                             backgroundColor: isActive ? meta.bg : "transparent",
                             color: isActive ? meta.color : "var(--color-text-secondary)",
@@ -468,14 +468,14 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                 {/* MC version filter */}
                 {allMcVersions.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider w-16 flex-shrink-0">Version</span>
+                    <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider w-16 flex-shrink-0">Version</span>
                     {allMcVersions.slice(0, 12).map((ver) => {
                       const isActive = versionMcFilter.includes(ver);
                       return (
                         <button
                           key={ver}
                           onClick={() => setVersionMcFilter((prev) => isActive ? prev.filter((v) => v !== ver) : [...prev, ver])}
-                          className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
+                          className={`px-3 py-1 rounded-control text-caption font-emphasis transition-all cursor-pointer border ${
                             isActive
                               ? "bg-(--color-accent)/12 text-(--color-accent) border-(--color-accent)/30"
                               : "text-(--color-text-secondary) border-(--color-border) hover:text-(--color-text-primary)"
@@ -486,21 +486,21 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
                       );
                     })}
                     {allMcVersions.length > 12 && (
-                      <span className="text-[10px] text-(--color-text-secondary)">+{allMcVersions.length - 12} more</span>
+                      <span className="text-micro text-(--color-text-secondary)">+{allMcVersions.length - 12} more</span>
                     )}
                   </div>
                 )}
 
                 {/* Release type filter */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider w-16 flex-shrink-0">Type</span>
+                  <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider w-16 flex-shrink-0">Type</span>
                   {Object.entries(VERSION_TYPE_STYLES).map(([type, style]) => {
                     const isActive = versionTypeFilter.includes(type);
                     return (
                       <button
                         key={type}
                         onClick={() => setVersionTypeFilter((prev) => isActive ? prev.filter((t) => t !== type) : [...prev, type])}
-                        className="px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border"
+                        className="px-3 py-1 rounded-control text-caption font-emphasis transition-all cursor-pointer border"
                         style={{
                           backgroundColor: isActive ? style.bg : "transparent",
                           color: isActive ? style.color : "var(--color-text-secondary)",
@@ -517,12 +517,12 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
               {/* Active filters summary */}
               {(versionLoaderFilter.length > 0 || versionMcFilter.length > 0 || versionTypeFilter.length > 0 || versionSearch) && (
                 <div className="flex items-center justify-between pt-2 border-t border-(--color-border)">
-                  <span className="text-[11px] font-medium text-(--color-text-secondary)">
+                  <span className="text-caption font-body text-(--color-text-secondary)">
                     {filteredVersions.length} of {versions.length} versions
                   </span>
                   <button
                     onClick={() => { setVersionLoaderFilter([]); setVersionMcFilter([]); setVersionTypeFilter([]); setVersionSearch(""); }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-(--color-accent) hover:underline cursor-pointer"
+                    className="flex items-center gap-1 text-caption font-emphasis text-(--color-accent) hover:underline cursor-pointer"
                   >
                     <X size={11} /> Clear filters
                   </button>
@@ -534,13 +534,13 @@ export const ModPage = observer(({ modId, onBack }: ModPageProps) => {
             {mods.detailLoading && versions.length === 0 ? (
               <div className="space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-16 rounded-[1.125rem] bg-(--color-surface-secondary) border border-(--color-border) animate-pulse" />
+                  <div key={i} className="h-16 rounded-window bg-(--color-surface-secondary) border border-(--color-border) animate-pulse" />
                 ))}
               </div>
             ) : filteredVersions.length === 0 ? (
               <div className="flex flex-col items-center py-12 text-(--color-text-secondary)">
                 <Search size={32} className="mb-3 opacity-20" />
-                <p className="text-sm font-bold text-(--color-text-primary)">No matching versions</p>
+                <p className="text-sm font-strong text-(--color-text-primary)">No matching versions</p>
                 <p className="text-xs mt-1">Try adjusting your filters</p>
               </div>
             ) : (
@@ -595,7 +595,7 @@ function VersionRow({
   };
 
   return (
-    <div className="rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden transition-all hover:border-(--color-accent)/20">
+    <div className="rounded-modal bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden transition-all hover:border-(--color-accent)/20">
       {/* Main row */}
       <div
         role="button"
@@ -612,18 +612,18 @@ function VersionRow({
         {/* Version number + name */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5">
-            <span className="text-sm font-bold text-(--color-text-primary) truncate">
+            <span className="text-sm font-strong text-(--color-text-primary) truncate">
               {v.version_number}
             </span>
             <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+              className="text-micro font-strong px-2 py-0.5 rounded-pill flex-shrink-0"
               style={{ backgroundColor: typeStyle.bg, color: typeStyle.color }}
             >
               {typeStyle.label}
             </span>
           </div>
           {v.name && v.name !== v.version_number && (
-            <p className="text-[11px] text-(--color-text-secondary) mt-0.5 truncate">{v.name}</p>
+            <p className="text-caption text-(--color-text-secondary) mt-0.5 truncate">{v.name}</p>
           )}
         </div>
 
@@ -634,7 +634,7 @@ function VersionRow({
             return (
               <span
                 key={l}
-                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full capitalize"
+                className="text-micro font-strong px-2.5 py-0.5 rounded-pill capitalize"
                 style={{ backgroundColor: meta.bg, color: meta.color }}
               >
                 {l}
@@ -646,25 +646,25 @@ function VersionRow({
         {/* MC version tags (show first 2) */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {v.game_versions.slice(0, 2).map((gv) => (
-            <span key={gv} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-(--color-surface-tertiary) text-(--color-text-secondary)">
+            <span key={gv} className="text-micro font-emphasis px-2 py-0.5 rounded-pill bg-(--color-surface-tertiary) text-(--color-text-secondary)">
               {gv}
             </span>
           ))}
           {v.game_versions.length > 2 && (
-            <span className="text-[10px] text-(--color-text-secondary)">
+            <span className="text-micro text-(--color-text-secondary)">
               +{v.game_versions.length - 2}
             </span>
           )}
         </div>
 
         {/* Date */}
-        <span className="text-[11px] text-(--color-text-secondary) flex-shrink-0 w-20 text-right">
+        <span className="text-caption text-(--color-text-secondary) flex-shrink-0 w-20 text-right">
           {new Date(v.date_published).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
         </span>
 
         {/* Size */}
         {primaryFile && (
-          <span className="text-[11px] text-(--color-text-secondary) flex-shrink-0 w-16 text-right font-medium">
+          <span className="text-caption text-(--color-text-secondary) flex-shrink-0 w-16 text-right font-body">
             {formatSize(primaryFile.size)}
           </span>
         )}
@@ -676,7 +676,7 @@ function VersionRow({
             onInstall(v);
           }}
           disabled={installing}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-[11px] font-bold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/15 hover:shadow-md flex-shrink-0 disabled:opacity-60 disabled:cursor-default"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-card bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-caption font-strong transition-all cursor-pointer shadow-sm shadow-(--color-accent)/15 hover:shadow-md flex-shrink-0 disabled:opacity-60 disabled:cursor-default"
         >
           <FileDown size={12} />
           {installing ? "Installing..." : "Install"}
@@ -694,12 +694,12 @@ function VersionRow({
         <div className="px-5 pb-4 pt-1 border-t border-(--color-border) space-y-3">
           {/* All game versions */}
           <div>
-            <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider">
+            <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider">
               Supported Minecraft Versions
             </span>
             <div className="flex flex-wrap gap-1 mt-1.5">
               {v.game_versions.map((gv) => (
-                <span key={gv} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-(--color-surface-tertiary) text-(--color-text-secondary)">
+                <span key={gv} className="text-micro font-emphasis px-2 py-0.5 rounded-pill bg-(--color-surface-tertiary) text-(--color-text-secondary)">
                   {gv}
                 </span>
               ))}
@@ -708,14 +708,14 @@ function VersionRow({
 
           {/* All loaders */}
           <div>
-            <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider">
+            <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider">
               Mod Loaders
             </span>
             <div className="flex flex-wrap gap-1 mt-1.5">
               {v.loaders.map((l) => {
                 const meta = LOADER_COLORS[l.toLowerCase()] ?? { color: "var(--color-text-secondary)", bg: "var(--color-surface-tertiary)" };
                 return (
-                  <span key={l} className="text-[10px] font-bold px-2.5 py-0.5 rounded-full capitalize" style={{ backgroundColor: meta.bg, color: meta.color }}>
+                  <span key={l} className="text-micro font-strong px-2.5 py-0.5 rounded-pill capitalize" style={{ backgroundColor: meta.bg, color: meta.color }}>
                     {l}
                   </span>
                 );
@@ -725,17 +725,17 @@ function VersionRow({
 
           {/* Files */}
           <div>
-            <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider">
+            <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider">
               Files
             </span>
             <div className="space-y-1.5 mt-1.5">
               {v.files.map((f) => (
-                <div key={f.filename} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-(--color-surface)/60 border border-(--color-border)">
+                <div key={f.filename} className="flex items-center gap-3 px-3 py-2 rounded-card bg-(--color-surface)/60 border border-(--color-border)">
                   <FileDown size={12} className="text-(--color-text-secondary) flex-shrink-0" />
-                  <span className="text-[11px] text-(--color-text-primary) font-medium truncate flex-1">{f.filename}</span>
-                  <span className="text-[10px] text-(--color-text-secondary) flex-shrink-0">{formatSize(f.size)}</span>
+                  <span className="text-caption text-(--color-text-primary) font-body truncate flex-1">{f.filename}</span>
+                  <span className="text-micro text-(--color-text-secondary) flex-shrink-0">{formatSize(f.size)}</span>
                   {f.primary && (
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-(--color-accent)/10 text-(--color-accent) flex-shrink-0">
+                    <span className="text-[9px] font-strong px-2 py-0.5 rounded-pill bg-(--color-accent)/10 text-(--color-accent) flex-shrink-0">
                       Primary
                     </span>
                   )}
@@ -747,17 +747,17 @@ function VersionRow({
           {/* Dependencies */}
           {v.dependencies.length > 0 && (
             <div>
-              <span className="text-[10px] font-bold text-(--color-text-secondary) uppercase tracking-wider">
+              <span className="text-micro font-strong text-(--color-text-secondary) uppercase tracking-wider">
                 Dependencies ({v.dependencies.length})
               </span>
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {v.dependencies.map((dep, i) => (
                   <span
                     key={i}
-                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      dep.dependency_type === "required" ? "bg-amber-500/10 text-amber-500"
-                      : dep.dependency_type === "optional" ? "bg-sky-500/10 text-sky-500"
-                      : dep.dependency_type === "incompatible" ? "bg-red-500/10 text-red-500"
+                    className={`text-micro font-emphasis px-2 py-0.5 rounded-pill ${
+                      dep.dependency_type === "required" ? "bg-warning/10 text-warning"
+                      : dep.dependency_type === "optional" ? "bg-info/10 text-info"
+                      : dep.dependency_type === "incompatible" ? "bg-danger/10 text-danger"
                       : "bg-(--color-surface-tertiary) text-(--color-text-secondary)"
                     }`}
                   >
@@ -771,7 +771,7 @@ function VersionRow({
           {/* Downloads */}
           <div className="flex items-center gap-2">
             <Download size={11} className="text-(--color-text-secondary)" />
-            <span className="text-[11px] text-(--color-text-secondary) font-medium">
+            <span className="text-caption text-(--color-text-secondary) font-body">
               {v.downloads.toLocaleString()} downloads
             </span>
           </div>

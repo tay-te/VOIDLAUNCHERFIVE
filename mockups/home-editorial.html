@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VOID — Editorial Home Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:        #f4efe6;
+    --paper-2:      #ece5d7;
+    --ink:          #1a1714;
+    --ink-2:        #4a423a;
+    --ink-3:        #8a7f72;
+    --rule:         #d6cdbc;
+    --rule-soft:    #e3dccb;
+    --accent:       #8a3324;   /* oxblood */
+    --accent-soft:  #b8553f;
+    --gold:         #b8923c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* paper grain */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+    z-index: 1;
+    mix-blend-mode: multiply;
+  }
+
+  .frame {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 64px 96px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* masthead */
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 8px;
+  }
+  .wordmark {
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 1;
+  }
+  .wordmark sup {
+    font-size: 10px;
+    font-weight: 500;
+    margin-left: 6px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    vertical-align: super;
+  }
+  .masthead .meta {
+    display: flex; gap: 28px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-2);
+  }
+  .masthead .meta span b { color: var(--ink); font-weight: 500; }
+
+  .issue-line {
+    display: flex; justify-content: space-between;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* HERO */
+  .hero {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 56px;
+    padding: 56px 0 48px;
+    border-bottom: 1px solid var(--rule);
+    align-items: end;
+  }
+
+  .kicker {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .kicker::before {
+    content: ""; width: 28px; height: 1px; background: var(--accent);
+  }
+
+  h1.lede {
+    font-family: "Fraunces", serif;
+    font-weight: 300;
+    font-size: 92px;
+    line-height: 0.92;
+    letter-spacing: -0.035em;
+    margin: 0 0 24px;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+  }
+  h1.lede em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
+  }
+  h1.lede .name {
+    display: block;
+    font-weight: 900;
+    letter-spacing: -0.045em;
+  }
+
+  .deck {
+    font-family: "Fraunces", serif;
+    font-weight: 400;
+    font-size: 19px;
+    line-height: 1.45;
+    color: var(--ink-2);
+    max-width: 38ch;
+    font-style: italic;
+  }
+
+  /* avatar column */
+  .avatar-col {
+    position: relative;
+    padding-left: 40px;
+    border-left: 1px solid var(--rule);
+  }
+  .avatar-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 16px;
+  }
+  .avatar-frame {
+    aspect-ratio: 3/4;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .avatar-frame::after {
+    content: "";
+    position: absolute; inset: 14px;
+    border: 1px solid var(--rule-soft);
+    pointer-events: none;
+  }
+  .avatar-frame .silhouette {
+    font-family: "Fraunces", serif;
+    font-size: 180px;
+    font-weight: 900;
+    color: var(--ink);
+    line-height: 1;
+    letter-spacing: -0.06em;
+  }
+  .caption {
+    margin-top: 14px;
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+  .caption b { font-weight: 600; font-style: normal; color: var(--ink); }
+
+  /* LAUNCH SECTION */
+  .launch-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 48px;
+    align-items: center;
+    padding: 56px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 22px;
+  }
+  .section-label .num {
+    color: var(--accent);
+    margin-right: 14px;
+    font-weight: 500;
+  }
+
+  .instance-card {
+    display: flex; align-items: center; gap: 28px;
+  }
+  .instance-mark {
+    width: 88px; height: 88px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 52px;
+    display: flex; align-items: center; justify-content: center;
+    letter-spacing: -0.04em;
+    flex-shrink: 0;
+  }
+  .instance-title {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 42px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin-bottom: 10px;
+  }
+  .instance-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    display: flex; gap: 18px;
+  }
+  .instance-meta .dot { color: var(--rule); }
+  .instance-byline {
+    margin-top: 12px;
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-3);
+  }
+
+  .launch-cta {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  }
+  .launch-btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 22px 44px;
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 18px;
+    transition: background 0.2s;
+  }
+  .launch-btn:hover { background: var(--accent); }
+  .launch-btn .glyph {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 26px;
+    font-weight: 300;
+  }
+  .launch-hint {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .launch-hint kbd {
+    border: 1px solid var(--rule);
+    padding: 2px 6px;
+    background: var(--paper-2);
+    margin: 0 2px;
+  }
+
+  /* STATS — almanac style */
+  .almanac {
+    padding: 56px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .almanac h2 {
+    font-family: "Fraunces", serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: 22px;
+    margin: 0 0 32px;
+    color: var(--ink-2);
+  }
+  .almanac h2 b { font-weight: 700; font-style: normal; color: var(--ink); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .stat {
+    padding: 4px 28px;
+    border-left: 1px solid var(--rule);
+  }
+  .stat:first-child { border-left: none; padding-left: 0; }
+  .stat-num {
+    font-family: "Fraunces", serif;
+    font-weight: 300;
+    font-size: 68px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144;
+  }
+  .stat-num sup {
+    font-size: 18px;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--accent);
+    margin-left: 4px;
+    vertical-align: super;
+  }
+  .stat-label {
+    margin-top: 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .stat-note {
+    margin-top: 8px;
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-3);
+    line-height: 1.4;
+  }
+
+  /* RECENT — column rules like a newspaper */
+  .recent {
+    padding: 56px 0 24px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 64px;
+  }
+  .recent-head h3 {
+    font-family: "Fraunces", serif;
+    font-weight: 400;
+    font-size: 36px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin: 0 0 14px;
+  }
+  .recent-head h3 em { font-style: italic; color: var(--accent); }
+  .recent-head p {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    color: var(--ink-3);
+    font-size: 13px;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .recent-list { display: flex; flex-direction: column; }
+  .entry {
+    display: grid;
+    grid-template-columns: 36px 1fr auto auto;
+    gap: 24px;
+    align-items: baseline;
+    padding: 18px 0;
+    border-top: 1px solid var(--rule);
+    cursor: pointer;
+    transition: padding 0.18s;
+  }
+  .entry:last-child { border-bottom: 1px solid var(--rule); }
+  .entry:hover { padding-left: 8px; }
+  .entry:hover .entry-title { color: var(--accent); }
+  .entry-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+  }
+  .entry-title {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.015em;
+    transition: color 0.18s;
+  }
+  .entry-title span {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ink-3);
+    font-size: 14px;
+    margin-left: 12px;
+  }
+  .entry-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-2);
+  }
+  .entry-date {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+
+  /* FOOTER */
+  .colophon {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--ink);
+    display: flex; justify-content: space-between;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .colophon em {
+    font-family: "Fraunces", serif;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-2);
+    font-size: 12px;
+  }
+
+  /* Decorative ornament */
+  .ornament {
+    text-align: center;
+    font-family: "Fraunces", serif;
+    font-size: 20px;
+    color: var(--ink-3);
+    letter-spacing: 1em;
+    margin: 12px 0 0;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+
+    <header class="masthead">
+      <div class="wordmark">VOID<sup>Launcher</sup></div>
+      <div class="meta">
+        <span>Vol. <b>II</b> · Issue <b>0029</b></span>
+        <span>Sunday · <b>May 24, 2026</b></span>
+        <span>Java <b>21.0.3</b></span>
+      </div>
+    </header>
+    <div class="issue-line">
+      <span>The Daily Launch — A record of worlds, mods, and time well spent.</span>
+      <span>Bittontayte</span>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div>
+        <div class="kicker">Good afternoon · Established 2024</div>
+        <h1 class="lede">
+          Welcome <em>back,</em>
+          <span class="name">Bittontayte.</span>
+        </h1>
+        <p class="deck">
+          Three worlds await your return. The mods are patched, the JVM is warm, and the afternoon is yours.
+        </p>
+      </div>
+      <aside class="avatar-col">
+        <div class="avatar-label">Plate I — The Player</div>
+        <div class="avatar-frame">
+          <div class="silhouette">B</div>
+        </div>
+        <p class="caption"><b>Bittontayte</b><br/><i>Verified · Microsoft account</i></p>
+      </aside>
+    </section>
+
+    <!-- LAUNCH -->
+    <section class="launch-row">
+      <div>
+        <div class="section-label"><span class="num">I.</span>Launch ready</div>
+        <div class="instance-card">
+          <div class="instance-mark">A</div>
+          <div>
+            <div class="instance-title">All The Mods 9</div>
+            <div class="instance-meta">
+              <span>1.20.1</span><span class="dot">·</span>
+              <span>Forge</span><span class="dot">·</span>
+              <span>342 Mods</span>
+            </div>
+            <div class="instance-byline">Last opened Tuesday evening, just past nine.</div>
+          </div>
+        </div>
+      </div>
+      <div class="launch-cta">
+        <button class="launch-btn">
+          Launch <span class="glyph">▸</span>
+        </button>
+        <div class="launch-hint">Press <kbd>⌘</kbd><kbd>↵</kbd> to begin</div>
+      </div>
+    </section>
+
+    <!-- ALMANAC -->
+    <section class="almanac">
+      <h2>An <b>almanac</b> of your library, as it stands today.</h2>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-num">03<sup>inst.</sup></div>
+          <div class="stat-label">Instances</div>
+          <div class="stat-note">Across two loaders</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">487</div>
+          <div class="stat-label">Installed Mods</div>
+          <div class="stat-note">Modrinth &amp; CurseForge</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">14<sup>h</sup></div>
+          <div class="stat-label">This Week</div>
+          <div class="stat-note">A reasonable indulgence</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">02</div>
+          <div class="stat-label">Friends Online</div>
+          <div class="stat-note">Worth a wave, perhaps</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECENT -->
+    <section class="recent">
+      <div class="recent-head">
+        <h3>Of <em>late</em>.</h3>
+        <p>Worlds you've visited within the fortnight. Selected and ordered by hand of last opening.</p>
+      </div>
+      <div class="recent-list">
+        <div class="entry">
+          <div class="entry-num">01</div>
+          <div class="entry-title">All The Mods 9 <span>— a sprawling kitchen-sink</span></div>
+          <div class="entry-meta">1.20.1 · Forge</div>
+          <div class="entry-date">Two days past</div>
+        </div>
+        <div class="entry">
+          <div class="entry-num">02</div>
+          <div class="entry-title">Cobblemon: Spring <span>— with friends</span></div>
+          <div class="entry-meta">1.20.1 · Fabric</div>
+          <div class="entry-date">Last Friday</div>
+        </div>
+        <div class="entry">
+          <div class="entry-num">03</div>
+          <div class="entry-title">Vanilla 1.21.4 <span>— for the purists</span></div>
+          <div class="entry-meta">1.21.4 · Vanilla</div>
+          <div class="entry-date">A week ago</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="ornament">⁂</div>
+
+    <footer class="colophon">
+      <span>Set in Fraunces &amp; JetBrains Mono</span>
+      <em>Pressed locally on an Apple silicon press.</em>
+      <span>v2.0.29 · MIT</span>
+    </footer>
+
+  </div>
+</body>
+</html>

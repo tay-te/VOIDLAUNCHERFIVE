@@ -187,14 +187,14 @@ export const InstanceDetailPage = observer(
             }}
           >
             <div
-              className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full blur-3xl opacity-20"
+              className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-pill blur-3xl opacity-20"
               style={{ backgroundColor: color }}
             />
 
             <div className="relative space-y-6">
               <div className="flex flex-col gap-5 md:flex-row md:items-start">
                 <div
-                  className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.35rem] text-3xl font-black shadow-lg"
+                  className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.35rem] text-3xl font-display shadow-lg"
                   style={{
                     backgroundColor: `${color}18`,
                     color,
@@ -216,31 +216,31 @@ export const InstanceDetailPage = observer(
                           if (e.key === "Escape") setIsEditingName(false);
                         }}
                         autoFocus
-                        className="w-full max-w-lg border-b-2 bg-transparent px-0 py-1 text-4xl font-black tracking-tight text-(--color-text-primary) focus:outline-none"
+                        className="w-full max-w-lg border-b-2 bg-transparent px-0 py-1 text-4xl font-display tracking-tight text-(--color-text-primary) focus:outline-none"
                         style={{ borderColor: color }}
                       />
                       <button
                         onClick={handleSaveEdit}
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-white cursor-pointer"
+                        className="flex h-9 w-9 items-center justify-center rounded-pill text-white cursor-pointer"
                         style={{ backgroundColor: color }}
                       >
                         <Check size={15} />
                       </button>
                       <button
                         onClick={() => setIsEditingName(false)}
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) cursor-pointer"
+                        className="flex h-9 w-9 items-center justify-center rounded-pill text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) cursor-pointer"
                       >
                         <X size={15} />
                       </button>
                     </div>
                   ) : (
                     <div className="group/name flex items-center gap-3">
-                      <h1 className="truncate text-4xl font-black tracking-tight text-(--color-text-primary)">
+                      <h1 className="truncate text-4xl font-display tracking-tight text-(--color-text-primary)">
                         {instance.name}
                       </h1>
                       <button
                         onClick={handleStartEdit}
-                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-(--color-text-secondary) opacity-0 transition-all hover:bg-(--color-surface-tertiary) group-hover/name:opacity-100 cursor-pointer"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-pill text-(--color-text-secondary) opacity-0 transition-all hover:bg-(--color-surface-tertiary) group-hover/name:opacity-100 cursor-pointer"
                       >
                         <Pencil size={13} />
                       </button>
@@ -249,18 +249,18 @@ export const InstanceDetailPage = observer(
 
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-(--color-text-secondary)">
                     <span>{instance.ownerName || auth.username}'s instance</span>
-                    <span className="hidden h-1 w-1 rounded-full bg-(--color-border) sm:block" />
+                    <span className="hidden h-1 w-1 rounded-pill bg-(--color-border) sm:block" />
                     <span>
                       Created {formatDate(instance.dateCreated)}
                     </span>
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                    <span className="rounded-lg bg-(--color-surface-tertiary)/70 px-3 py-1.5 text-xs font-semibold text-(--color-text-primary)">
+                    <span className="rounded-control bg-(--color-surface-tertiary)/70 px-3 py-1.5 text-xs font-emphasis text-(--color-text-primary)">
                       {instance.version}
                     </span>
                     <span
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold"
+                      className="flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-strong"
                       style={{
                         backgroundColor: `${loaderMeta.color}15`,
                         color: loaderMeta.color,
@@ -270,13 +270,13 @@ export const InstanceDetailPage = observer(
                       {loaderMeta.label}
                     </span>
                     {instance.shareCode && (
-                      <span className="flex items-center gap-1.5 rounded-lg bg-(--color-accent)/10 px-3 py-1.5 text-xs font-semibold text-(--color-accent)">
+                      <span className="flex items-center gap-1.5 rounded-control bg-(--color-accent)/10 px-3 py-1.5 text-xs font-emphasis text-(--color-accent)">
                         <Globe size={12} />
                         Shared
                       </span>
                     )}
                     {instance.isCollaborative && (
-                      <span className="flex items-center gap-1.5 rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs font-semibold text-purple-500">
+                      <span className="flex items-center gap-1.5 rounded-control bg-collab/10 px-3 py-1.5 text-xs font-emphasis text-collab">
                         <Users size={12} />
                         Collaborative
                       </span>
@@ -290,16 +290,16 @@ export const InstanceDetailPage = observer(
                   {launching && launchProgress && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium" style={{ color }}>
+                        <span className="font-body" style={{ color }}>
                           {launchProgress.message}
                         </span>
                         <span className="text-(--color-text-secondary)">
                           {launchProgress.percent}%
                         </span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--color-surface-tertiary)">
+                      <div className="h-1.5 w-full overflow-hidden rounded-pill bg-(--color-surface-tertiary)">
                         <div
-                          className="h-full rounded-full transition-all duration-300"
+                          className="h-full rounded-pill transition-all duration-300"
                           style={{
                             width: `${launchProgress.percent}%`,
                             backgroundColor: color,
@@ -309,7 +309,7 @@ export const InstanceDetailPage = observer(
                     </div>
                   )}
                   {launchError && (
-                    <div className="mt-2 flex items-center gap-2 text-xs font-medium text-red-500">
+                    <div className="mt-2 flex items-center gap-2 text-xs font-body text-danger">
                       <AlertTriangle size={13} />
                       {launchError}
                     </div>
@@ -321,7 +321,7 @@ export const InstanceDetailPage = observer(
                 <button
                   onClick={handleLaunch}
                   disabled={store.isLaunching || store.isGameRunning}
-                  className="flex items-center gap-2.5 rounded-[1rem] px-6 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:cursor-default disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none cursor-pointer"
+                  className="flex items-center gap-2.5 rounded-panel px-6 py-3 text-sm font-strong text-white transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:cursor-default disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none cursor-pointer"
                   style={{
                     backgroundColor: gameRunning ? "#22c55e" : color,
                     boxShadow: `0 6px 24px ${gameRunning ? "#22c55e" : color}35`,
@@ -346,14 +346,14 @@ export const InstanceDetailPage = observer(
                 </button>
                 <button
                   onClick={handleStartEdit}
-                  className="flex items-center gap-2 rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
+                  className="flex items-center gap-2 rounded-panel border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
                 >
                   <Pencil size={14} />
                   Edit
                 </button>
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-2 rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
+                  className="flex items-center gap-2 rounded-panel border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) cursor-pointer"
                 >
                   <Share2 size={14} />
                   Share
@@ -362,7 +362,7 @@ export const InstanceDetailPage = observer(
                   <button
                     onClick={handleSync}
                     disabled={syncing}
-                    className="flex items-center gap-2 rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-2 rounded-panel border border-(--color-border) bg-(--color-surface-secondary) px-4 py-3 text-sm text-(--color-text-secondary) transition-colors hover:text-(--color-text-primary) disabled:opacity-50 cursor-pointer"
                   >
                     <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
                     Sync
@@ -398,7 +398,7 @@ export const InstanceDetailPage = observer(
           <aside className="rounded-[1.6rem] border border-(--color-border) bg-(--color-surface-secondary) p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                <p className="text-caption font-strong uppercase tracking-[0.18em] text-(--color-text-secondary)">
                   Instance Snapshot
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-(--color-text-secondary)">
@@ -406,7 +406,7 @@ export const InstanceDetailPage = observer(
                 </p>
               </div>
               <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                className="flex h-10 w-10 items-center justify-center rounded-card"
                 style={{ backgroundColor: `${color}12`, color }}
               >
                 <LoaderIcon size={18} />
@@ -427,20 +427,20 @@ export const InstanceDetailPage = observer(
             </div>
 
             <div className="mt-5 rounded-[1.1rem] border border-(--color-border) bg-(--color-surface) p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+              <p className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
                 Actions
               </p>
               <div className="mt-3 grid gap-2">
                 <button
                   onClick={handleOpenFolder}
-                  className="flex items-center justify-between rounded-lg border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2.5 text-sm font-medium text-(--color-text-primary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
+                  className="flex items-center justify-between rounded-control border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2.5 text-sm font-body text-(--color-text-primary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
                 >
                   <span>Open Folder</span>
                   <FolderOpen size={15} className="text-(--color-text-secondary)" />
                 </button>
                 <button
                   onClick={onBrowseMods}
-                  className="flex items-center justify-between rounded-lg border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2.5 text-sm font-medium text-(--color-text-primary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
+                  className="flex items-center justify-between rounded-control border border-(--color-border) bg-(--color-surface-secondary) px-3 py-2.5 text-sm font-body text-(--color-text-primary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
                 >
                   <span>Browse Mods</span>
                   <Plus size={15} className="text-(--color-text-secondary)" />
@@ -454,7 +454,7 @@ export const InstanceDetailPage = observer(
         <section className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-black text-(--color-text-primary) tracking-tight">
+              <h2 className="text-2xl font-display text-(--color-text-primary) tracking-tight">
                 Installed Mods
               </h2>
               <p className="text-xs text-(--color-text-secondary) mt-1">
@@ -463,7 +463,7 @@ export const InstanceDetailPage = observer(
             </div>
             <button
               onClick={onBrowseMods}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer text-white hover:opacity-90 hover:-translate-y-0.5"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-card text-sm font-emphasis transition-all cursor-pointer text-white hover:opacity-90 hover:-translate-y-0.5"
               style={{
                 backgroundColor: color,
                 boxShadow: `0 4px 16px ${color}25`,
@@ -478,12 +478,12 @@ export const InstanceDetailPage = observer(
             <div className="glass-subtle rounded-3xl">
               <div className="flex flex-col items-center justify-center py-20 text-(--color-text-secondary)">
                 <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                  className="w-16 h-16 rounded-panel flex items-center justify-center mb-5"
                   style={{ backgroundColor: color + "10", color: color }}
                 >
                   <Package size={28} strokeWidth={1.5} />
                 </div>
-                <p className="text-base font-semibold text-(--color-text-primary)">
+                <p className="text-base font-emphasis text-(--color-text-primary)">
                   No mods installed yet
                 </p>
                 <p className="text-sm mt-1.5 max-w-xs text-center">
@@ -491,7 +491,7 @@ export const InstanceDetailPage = observer(
                 </p>
                 <button
                   onClick={onBrowseMods}
-                  className="mt-6 flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all cursor-pointer hover:opacity-90"
+                  className="mt-6 flex items-center gap-2 px-6 py-3 rounded-card text-sm font-strong text-white transition-all cursor-pointer hover:opacity-90"
                   style={{
                     backgroundColor: color,
                   }}
@@ -504,9 +504,9 @@ export const InstanceDetailPage = observer(
           ) : (
             <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-4">
               <div className="mb-3 grid grid-cols-[minmax(0,1.3fr)_9rem_3rem] items-center gap-3 px-4">
-                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">Installed Mod</span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">Version</span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">Actions</span>
+                <span className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">Installed Mod</span>
+                <span className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">Version</span>
+                <span className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">Actions</span>
               </div>
               <div className="space-y-3">
               {installedMods.map((mod) => (
@@ -528,7 +528,7 @@ export const InstanceDetailPage = observer(
 
         {/* Instance Settings section */}
         <section className="space-y-5">
-          <h2 className="text-2xl font-black text-(--color-text-primary) tracking-tight">
+          <h2 className="text-2xl font-display text-(--color-text-primary) tracking-tight">
             Instance Settings
           </h2>
 
@@ -541,7 +541,7 @@ export const InstanceDetailPage = observer(
             >
               <button
                 onClick={handleOpenFolder}
-                className="px-5 py-2 rounded-xl text-xs font-semibold bg-(--color-surface-tertiary)/80 text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-card text-xs font-emphasis bg-(--color-surface-tertiary)/80 text-(--color-text-secondary) hover:text-(--color-text-primary) transition-colors cursor-pointer"
               >
                 Open Folder
               </button>
@@ -559,7 +559,7 @@ export const InstanceDetailPage = observer(
               description={`Minecraft ${instance.version}`}
               color={color}
             >
-              <span className="text-sm font-bold text-(--color-text-primary)">
+              <span className="text-sm font-strong text-(--color-text-primary)">
                 {instance.version}
               </span>
             </SettingRow>
@@ -572,7 +572,7 @@ export const InstanceDetailPage = observer(
                 color="var(--color-accent)"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-mono font-bold text-(--color-accent) bg-(--color-accent)/10 px-3 py-1.5 rounded-lg">
+                  <span className="text-sm font-mono font-strong text-(--color-accent) bg-(--color-accent)/10 px-3 py-1.5 rounded-control">
                     {instance.shareCode}
                   </span>
                   <button
@@ -581,7 +581,7 @@ export const InstanceDetailPage = observer(
                       setCopiedCode(true);
                       setTimeout(() => setCopiedCode(false), 2000);
                     }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-(--color-text-secondary) hover:text-(--color-accent) transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-control text-xs font-body text-(--color-text-secondary) hover:text-(--color-accent) transition-colors cursor-pointer"
                   >
                     {copiedCode ? <Check size={14} /> : <Copy size={14} />}
                   </button>
@@ -593,18 +593,18 @@ export const InstanceDetailPage = observer(
 
         {/* Danger zone */}
         <section className="space-y-5">
-          <h2 className="text-2xl font-black text-red-500 tracking-tight">
+          <h2 className="text-2xl font-display text-danger tracking-tight">
             Danger Zone
           </h2>
 
-          <div className="rounded-[1.5rem] border border-red-500/20 bg-red-500/5">
+          <div className="rounded-[1.5rem] border border-danger/20 bg-danger/5">
             <div className="flex items-center justify-between p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
+                <div className="w-12 h-12 rounded-panel bg-danger/10 flex items-center justify-center text-danger">
                   <AlertTriangle size={20} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-(--color-text-primary)">
+                  <p className="text-sm font-strong text-(--color-text-primary)">
                     Delete Instance
                   </p>
                   <p className="text-xs text-(--color-text-secondary) mt-0.5">
@@ -617,13 +617,13 @@ export const InstanceDetailPage = observer(
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="px-5 py-2.5 rounded-xl text-xs text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
+                    className="px-5 py-2.5 rounded-card text-xs text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDelete}
-                    className="px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    className="px-5 py-2.5 rounded-card bg-danger hover:bg-danger-hover text-white text-xs font-emphasis transition-colors cursor-pointer"
                   >
                     Yes, Delete
                   </button>
@@ -631,7 +631,7 @@ export const InstanceDetailPage = observer(
               ) : (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-500/30 text-red-500 text-xs font-semibold hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-card border border-danger/30 text-danger text-xs font-emphasis hover:bg-danger hover:text-white transition-all cursor-pointer"
                 >
                   <Trash2 size={13} />
                   Delete
@@ -714,18 +714,18 @@ function ModRow({
   };
 
   return (
-    <div className="glass-subtle rounded-[1.125rem] overflow-hidden transition-all">
+    <div className="glass-subtle rounded-window overflow-hidden transition-all">
       <div className="grid grid-cols-[minmax(0,1.3fr)_9rem_3rem] items-center gap-3 p-4 group">
         <div className="flex min-w-0 items-center gap-4">
         {mod.iconUrl ? (
           <img
             src={mod.iconUrl}
             alt={mod.title}
-            className="w-12 h-12 rounded-xl object-cover flex-shrink-0 shadow-sm ring-1 ring-black/5"
+            className="w-12 h-12 rounded-card object-cover flex-shrink-0 shadow-sm ring-1 ring-black/5"
           />
         ) : (
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            className="w-12 h-12 rounded-card flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: color + "10", color: color }}
           >
             <Package size={18} />
@@ -733,10 +733,10 @@ function ModRow({
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-(--color-text-primary) truncate">
+          <p className="text-sm font-strong text-(--color-text-primary) truncate">
             {mod.title}
           </p>
-          <p className="text-[11px] text-(--color-text-secondary) truncate mt-0.5">
+          <p className="text-caption text-(--color-text-secondary) truncate mt-0.5">
             {mod.filename}
           </p>
         </div>
@@ -746,7 +746,7 @@ function ModRow({
         <button
           onClick={loadVersions}
           disabled={swapping}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer hover:bg-(--color-surface-tertiary)"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-control text-caption font-emphasis transition-all cursor-pointer hover:bg-(--color-surface-tertiary)"
           style={{
             color: showVersions ? color : "var(--color-text-secondary)",
           }}
@@ -768,18 +768,18 @@ function ModRow({
         {/* Remove */}
         {isRemoving ? (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-red-500 font-semibold">
+            <span className="text-caption text-danger font-emphasis">
               Remove?
             </span>
             <button
               onClick={onRemoveCancel}
-              className="px-3 py-1.5 rounded-lg text-[11px] text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-control text-caption text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
             >
               No
             </button>
             <button
               onClick={onRemoveConfirm}
-              className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-[11px] font-semibold hover:bg-red-600 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-control bg-danger text-white text-caption font-emphasis hover:bg-danger-hover transition-colors cursor-pointer"
             >
               Yes
             </button>
@@ -787,7 +787,7 @@ function ModRow({
         ) : (
           <button
             onClick={onRemoveRequest}
-            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-red-500/10 text-(--color-text-secondary) hover:text-red-500 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+            className="w-9 h-9 rounded-card flex items-center justify-center hover:bg-danger/10 text-(--color-text-secondary) hover:text-danger transition-all cursor-pointer opacity-0 group-hover:opacity-100"
           >
             <Trash2 size={14} />
           </button>
@@ -823,7 +823,7 @@ function ModRow({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-xs font-semibold ${
+                        className={`text-xs font-emphasis ${
                           isCurrent
                             ? "text-(--color-accent)"
                             : "text-(--color-text-primary)"
@@ -832,30 +832,30 @@ function ModRow({
                         {v.version_number}
                       </span>
                       <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                        className={`text-[9px] px-1.5 py-0.5 rounded-pill font-strong uppercase ${
                           v.version_type === "release"
-                            ? "bg-green-500/10 text-green-500"
+                            ? "bg-success/10 text-success"
                             : v.version_type === "beta"
-                            ? "bg-amber-500/10 text-amber-500"
-                            : "bg-red-500/10 text-red-500"
+                            ? "bg-warning/10 text-warning"
+                            : "bg-danger/10 text-danger"
                         }`}
                       >
                         {v.version_type}
                       </span>
                       {isCurrent && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-(--color-accent)/10 text-(--color-accent) font-bold">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-pill bg-(--color-accent)/10 text-(--color-accent) font-strong">
                           CURRENT
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-(--color-text-secondary) mt-0.5 truncate">
+                    <p className="text-micro text-(--color-text-secondary) mt-0.5 truncate">
                       {primaryFile?.filename ?? "No file"} &middot;{" "}
                       {new Date(v.date_published).toLocaleDateString()}
                     </p>
                   </div>
                   {!isCurrent && (
                     <span
-                      className="text-[10px] font-semibold px-3 py-1 rounded-lg"
+                      className="text-micro font-emphasis px-3 py-1 rounded-control"
                       style={{
                         backgroundColor: color + "10",
                         color: color,
@@ -890,23 +890,23 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="glass-subtle rounded-[1.25rem] p-5 space-y-3">
+    <div className="glass-subtle rounded-modal p-5 space-y-3">
       <div className="flex items-center gap-2.5">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center"
+          className="w-8 h-8 rounded-card flex items-center justify-center"
           style={{ backgroundColor: color + "12", color: color }}
         >
           <Icon size={15} />
         </div>
-        <span className="text-[11px] font-semibold text-(--color-text-secondary) uppercase tracking-wider">
+        <span className="text-caption font-emphasis text-(--color-text-secondary) uppercase tracking-wider">
           {label}
         </span>
       </div>
       <div>
-        <p className="text-2xl font-black text-(--color-text-primary) tracking-tight">
+        <p className="text-2xl font-display text-(--color-text-primary) tracking-tight">
           {value}
         </p>
-        <p className="text-[11px] text-(--color-text-secondary) mt-0.5">
+        <p className="text-caption text-(--color-text-secondary) mt-0.5">
           {sub}
         </p>
       </div>
@@ -924,14 +924,14 @@ function SnapshotStat({
   sub: string;
 }) {
   return (
-    <div className="rounded-[1rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
-      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+    <div className="rounded-panel border border-(--color-border) bg-(--color-surface) px-4 py-3">
+      <p className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
         {label}
       </p>
-      <p className="mt-2 text-lg font-black tracking-tight text-(--color-text-primary)">
+      <p className="mt-2 text-lg font-display tracking-tight text-(--color-text-primary)">
         {value}
       </p>
-      <p className="mt-1 text-[11px] text-(--color-text-secondary)">{sub}</p>
+      <p className="mt-1 text-caption text-(--color-text-secondary)">{sub}</p>
     </div>
   );
 }
@@ -944,11 +944,11 @@ function QuickFact({
   value: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-[1rem] border border-(--color-border) bg-(--color-surface) px-4 py-3">
-      <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+    <div className="flex items-center justify-between gap-4 rounded-panel border border-(--color-border) bg-(--color-surface) px-4 py-3">
+      <span className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
         {label}
       </span>
-      <span className="text-sm font-semibold text-(--color-text-primary) text-right">
+      <span className="text-sm font-emphasis text-(--color-text-primary) text-right">
         {value}
       </span>
     </div>
@@ -1013,23 +1013,23 @@ function MemorySlider({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-card flex items-center justify-center"
             style={{ backgroundColor: color + "10", color: color }}
           >
             <Settings size={17} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-(--color-text-primary)">
+            <p className="text-sm font-emphasis text-(--color-text-primary)">
               Memory Allocation
             </p>
-            <p className="text-[11px] text-(--color-text-secondary) mt-0.5">
+            <p className="text-caption text-(--color-text-secondary) mt-0.5">
               System: {formatMem(systemMemoryMb)} total · Recommended: {formatMem(recommended)}
             </p>
           </div>
         </div>
 
         <span
-          className="text-sm font-black min-w-[4.5rem] text-right"
+          className="text-sm font-display min-w-[4.5rem] text-right"
           style={{ color }}
         >
           {steps.length > 0 ? formatMem(steps[currentIndex]) : formatMem(memoryMb)}
@@ -1045,7 +1045,7 @@ function MemorySlider({
             step={1}
             value={currentIndex}
             onChange={(e) => onChange(steps[Number(e.target.value)])}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer memory-slider"
+            className="w-full h-1.5 rounded-pill appearance-none cursor-pointer memory-slider"
             style={
               {
                 "--slider-color": color,
@@ -1054,10 +1054,10 @@ function MemorySlider({
             }
           />
           <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-(--color-text-secondary)">
+            <span className="text-micro text-(--color-text-secondary)">
               {formatMem(steps[0])}
             </span>
-            <span className="text-[10px] text-(--color-text-secondary)">
+            <span className="text-micro text-(--color-text-secondary)">
               {formatMem(steps[steps.length - 1])}
             </span>
           </div>
@@ -1086,16 +1086,16 @@ function SettingRow({
     <div className="flex items-center justify-between p-5">
       <div className="flex items-center gap-3">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          className="w-10 h-10 rounded-card flex items-center justify-center"
           style={{ backgroundColor: color + "10", color: color }}
         >
           <Icon size={17} />
         </div>
         <div>
-          <p className="text-sm font-semibold text-(--color-text-primary)">
+          <p className="text-sm font-emphasis text-(--color-text-primary)">
             {label}
           </p>
-          <p className="text-[11px] text-(--color-text-secondary) mt-0.5">
+          <p className="text-caption text-(--color-text-secondary) mt-0.5">
             {description}
           </p>
         </div>

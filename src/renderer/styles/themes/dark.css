@@ -1,0 +1,66 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   THEME: dark  (the default "Void" look)
+   ─────────────────────────────────────────────────────────────────────────────
+   Values carried over verbatim from the pre-tokenization .dark block.
+   ────────────────────────────────────────────────────────────────────────────*/
+
+/* The `:root:not([data-theme])` arm is a safety net: if the bootstrap ever
+   fails to run, the app still has a complete token set rather than rendering
+   with every custom property unresolved. */
+[data-theme="dark"],
+:root:not([data-theme]) {
+  color-scheme: dark;
+
+  /* ── Surfaces ────────────────────────────────────────────────────────────*/
+  --v-surface: #050605;
+  --v-surface-raised: #0a0b0a;
+  --v-surface-hover: #202220;
+  --v-surface-strong: #272b27;
+  --v-sidebar: #111211;
+  --v-preview-panel: #080a08;
+
+  /* ── Text ────────────────────────────────────────────────────────────────*/
+  --v-text: #f2f3ef;
+  --v-text-muted: #9a9d95;
+  --v-text-on-accent: #000000;  /* replaces the `dark:text-black` override */
+  --v-text-inverse: #050605;
+
+  /* ── Borders ─────────────────────────────────────────────────────────────*/
+  --v-border: rgba(255, 255, 255, 0.095);
+  --v-border-subtle: rgba(255, 255, 255, 0.09);
+  --v-border-strong: rgba(255, 255, 255, 0.18);
+
+  /* ── Accent ──────────────────────────────────────────────────────────────*/
+  --v-accent: #86ef8a;
+  --v-accent-hover: #75d979;
+  --v-accent-glow: rgba(134, 239, 138, 0.1);
+  --v-accent-rgb: 134 239 138;
+
+  /* ── Status ──────────────────────────────────────────────────────────────
+     Deliberately identical to the light theme: these replace hardcoded
+     Tailwind palette utilities that rendered the same in both themes, so
+     migrating markup onto them is a no-op on screen. Now that they are tokens,
+     tuning dark-mode contrast is a one-line change here.                     */
+  --v-success: #80e184;
+  --v-danger: #ef4444;
+  --v-danger-hover: #dc2626;
+  --v-warning: #f59e0b;
+  --v-info: #0ea5e9;
+  --v-collab: #a855f7;
+
+  --v-accent-gradient-end: #4f46e5;
+  --v-window-backdrop: #000000;
+
+  /* ── Glass ───────────────────────────────────────────────────────────────*/
+  --v-glass: rgba(9, 10, 9, 0.9);
+  --v-glass-border: rgba(255, 255, 255, 0.09);
+  --v-glass-bg: rgba(255, 255, 255, 0.06);
+
+  /* ── Elevation ───────────────────────────────────────────────────────────*/
+  --v-shadow-color: rgba(0, 0, 0, 0.6);
+
+  /* ── Fixed-context colors ────────────────────────────────────────────────*/
+  --v-scrim: rgba(0, 0, 0, 0.6);
+  --v-stage: #000000;
+  --v-overlay-fg: #ffffff;
+}

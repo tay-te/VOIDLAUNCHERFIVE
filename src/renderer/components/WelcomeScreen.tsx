@@ -51,7 +51,7 @@ export const WelcomeScreen = observer(({ onComplete }: WelcomeScreenProps) => {
       {/* Subtle accent glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-(--color-accent)/8 blur-3xl"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-pill bg-(--color-accent)/8 blur-3xl"
           style={{
             transform: `translate(-50%, -50%) scale(${phase >= 1 ? 1.2 : 0.8})`,
             transition: "transform 1.5s ease",
@@ -70,11 +70,11 @@ export const WelcomeScreen = observer(({ onComplete }: WelcomeScreenProps) => {
           }}
         >
           <div className="relative">
-            <div className="absolute -inset-4 rounded-full bg-(--color-accent)/10 blur-2xl" />
+            <div className="absolute -inset-4 rounded-pill bg-(--color-accent)/10 blur-2xl" />
             <PlayerAvatar
               username={auth.username}
               size={80}
-              className="relative rounded-2xl shadow-lg shadow-(--color-accent)/20"
+              className="relative rounded-panel shadow-lg shadow-(--color-accent)/20"
             />
           </div>
         </div>
@@ -88,13 +88,13 @@ export const WelcomeScreen = observer(({ onComplete }: WelcomeScreenProps) => {
             transition: "all 0.5s ease 0.15s",
           }}
         >
-          <p className="text-sm font-medium text-(--color-text-secondary) welcome-loading-text">
+          <p className="text-sm font-body text-(--color-text-secondary) welcome-loading-text">
             {message}
           </p>
           <div className="flex gap-1 mt-1">
-            <div className="w-1 h-1 rounded-full bg-(--color-accent) welcome-dot" style={{ animationDelay: "0s" }} />
-            <div className="w-1 h-1 rounded-full bg-(--color-accent) welcome-dot" style={{ animationDelay: "0.15s" }} />
-            <div className="w-1 h-1 rounded-full bg-(--color-accent) welcome-dot" style={{ animationDelay: "0.3s" }} />
+            <div className="w-1 h-1 rounded-pill bg-(--color-accent) welcome-dot" style={{ animationDelay: "0s" }} />
+            <div className="w-1 h-1 rounded-pill bg-(--color-accent) welcome-dot" style={{ animationDelay: "0.15s" }} />
+            <div className="w-1 h-1 rounded-pill bg-(--color-accent) welcome-dot" style={{ animationDelay: "0.3s" }} />
           </div>
         </div>
       </div>

@@ -121,15 +121,15 @@ export const ModInstallModal = observer(
           if (event.target === event.currentTarget && step !== "installing") onClose();
         }}
       >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-scrim backdrop-blur-sm" />
 
         <div className="relative mx-4 w-full max-w-2xl wizard-modal">
-          <div className="glass overflow-hidden rounded-2xl shadow-2xl shadow-black/30">
+          <div className="glass overflow-hidden rounded-panel shadow-2xl shadow-black/30">
             <div className="relative px-7 pb-5 pt-7">
               {step !== "installing" && (
                 <button
                   onClick={onClose}
-                  className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
+                  className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-pill text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -140,15 +140,15 @@ export const ModInstallModal = observer(
                   <img
                     src={mod.icon_url}
                     alt={mod.title}
-                    className="h-12 w-12 rounded-2xl object-cover shadow-md ring-1 ring-black/5"
+                    className="h-12 w-12 rounded-panel object-cover shadow-md ring-1 ring-black/5"
                   />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-(--color-surface-tertiary) text-(--color-text-secondary)">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-(--color-surface-tertiary) text-(--color-text-secondary)">
                     <Package size={20} />
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h2 className="truncate text-xl font-black tracking-tight text-(--color-text-primary)">
+                  <h2 className="truncate text-xl font-display tracking-tight text-(--color-text-primary)">
                     Install {mod.title}
                   </h2>
                   <p className="mt-0.5 text-xs text-(--color-text-secondary)">
@@ -176,7 +176,7 @@ export const ModInstallModal = observer(
                   return (
                     <div key={key} className="flex flex-1 items-center last:flex-initial">
                       <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
+                        className={`h-2 rounded-pill transition-all duration-300 ${
                           current
                             ? "w-6 bg-(--color-accent) shadow-md shadow-(--color-accent)/30"
                             : active
@@ -236,7 +236,7 @@ export const ModInstallModal = observer(
                 <>
                   <button
                     onClick={onClose}
-                    className="cursor-pointer rounded-full px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
+                    className="cursor-pointer rounded-pill px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
                   >
                     Cancel
                   </button>
@@ -251,14 +251,14 @@ export const ModInstallModal = observer(
                       setPreview(null);
                       setStep("pick-instance");
                     }}
-                    className="flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
+                    className="flex cursor-pointer items-center gap-2 rounded-pill px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
                   >
                     <ChevronLeft size={16} />
                     Back
                   </button>
                   <button
                     onClick={handleInstall}
-                    className="flex cursor-pointer items-center gap-2 rounded-full bg-(--color-accent) px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-(--color-accent)/20 transition-all hover:bg-(--color-accent-hover)"
+                    className="flex cursor-pointer items-center gap-2 rounded-pill bg-(--color-accent) px-6 py-2.5 text-sm font-emphasis text-fg-on-accent shadow-md shadow-(--color-accent)/20 transition-all hover:bg-(--color-accent-hover)"
                   >
                     <Download size={15} />
                     Install
@@ -271,7 +271,7 @@ export const ModInstallModal = observer(
                   <div />
                   <button
                     onClick={handleDone}
-                    className="flex cursor-pointer items-center gap-2 rounded-full bg-(--color-accent) px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-(--color-accent)/20 transition-all hover:bg-(--color-accent-hover)"
+                    className="flex cursor-pointer items-center gap-2 rounded-pill bg-(--color-accent) px-6 py-2.5 text-sm font-emphasis text-fg-on-accent shadow-md shadow-(--color-accent)/20 transition-all hover:bg-(--color-accent-hover)"
                   >
                     <Check size={15} />
                     Done
@@ -286,14 +286,14 @@ export const ModInstallModal = observer(
                       setError("");
                       setStep("pick-instance");
                     }}
-                    className="flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
+                    className="flex cursor-pointer items-center gap-2 rounded-pill px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
                   >
                     <ChevronLeft size={16} />
                     Try Again
                   </button>
                   <button
                     onClick={onClose}
-                    className="cursor-pointer rounded-full px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
+                    className="cursor-pointer rounded-pill px-5 py-2.5 text-sm text-(--color-text-secondary) transition-colors hover:bg-(--color-surface-tertiary)"
                   >
                     Close
                   </button>
@@ -331,18 +331,18 @@ function TargetPickerStep({
     <div className="space-y-3">
       <button
         onClick={() => onSelect(null)}
-        className={`w-full rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+        className={`w-full rounded-panel border p-4 text-left transition-all cursor-pointer ${
           selectedId === null
             ? "border-(--color-accent) bg-(--color-accent)/5"
             : "border-(--color-border) hover:border-(--color-text-secondary)/30 hover:bg-(--color-surface-tertiary)/30"
         }`}
       >
         <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-(--color-accent)/10 text-(--color-accent)">
+          <div className="flex h-11 w-11 items-center justify-center rounded-card bg-(--color-accent)/10 text-(--color-accent)">
             <Sparkles size={18} />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-(--color-text-primary)">Auto-select</p>
+            <p className="text-sm font-emphasis text-(--color-text-primary)">Auto-select</p>
             <p className="mt-1 text-xs text-(--color-text-secondary)">
               The engine chooses the best compatible profile, or creates one automatically.
             </p>
@@ -360,7 +360,7 @@ function TargetPickerStep({
           <button
             key={instance.id}
             onClick={() => onSelect(instance.id)}
-            className={`w-full rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+            className={`w-full rounded-panel border p-4 text-left transition-all cursor-pointer ${
               selectedId === instance.id
                 ? "border-(--color-accent) bg-(--color-accent)/5"
                 : "border-(--color-border) hover:border-(--color-text-secondary)/30 hover:bg-(--color-surface-tertiary)/30"
@@ -368,7 +368,7 @@ function TargetPickerStep({
           >
             <div className="flex items-center gap-4">
               <div
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-base font-bold"
+                className="flex h-11 w-11 items-center justify-center rounded-card text-base font-strong"
                 style={{
                   backgroundColor: `${instance.iconColor}18`,
                   color: instance.iconColor,
@@ -379,21 +379,21 @@ function TargetPickerStep({
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-(--color-text-primary)">
+                  <p className="truncate text-sm font-emphasis text-(--color-text-primary)">
                     {instance.name}
                   </p>
                   {installed && (
-                    <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold text-green-500">
+                    <span className="rounded-pill bg-success/10 px-2 py-0.5 text-micro font-emphasis text-success">
                       Installed
                     </span>
                   )}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="rounded-md bg-(--color-surface-tertiary)/80 px-2 py-0.5 text-[11px] text-(--color-text-secondary)">
+                  <span className="rounded-md bg-(--color-surface-tertiary)/80 px-2 py-0.5 text-caption text-(--color-text-secondary)">
                     {instance.version}
                   </span>
                   <span
-                    className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold"
+                    className="flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-emphasis"
                     style={{ backgroundColor: `${meta.color}15`, color: meta.color }}
                   >
                     <LoaderIcon size={9} />
@@ -415,14 +415,14 @@ function ResolvingState() {
   return (
     <div className="flex flex-col items-center justify-center py-20">
       <div className="relative">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-(--color-accent)/10">
+        <div className="flex h-16 w-16 items-center justify-center rounded-pill bg-(--color-accent)/10">
           <Loader2 size={28} className="animate-spin text-(--color-accent)" />
         </div>
-        <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface)">
+        <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-pill border border-(--color-border) bg-(--color-surface)">
           <Shield size={13} className="text-(--color-accent)" />
         </div>
       </div>
-      <p className="mt-5 text-base font-bold text-(--color-text-primary)">Resolving install</p>
+      <p className="mt-5 text-base font-strong text-(--color-text-primary)">Resolving install</p>
       <p className="mt-1 text-xs text-(--color-text-secondary)">
         Matching versions, checking the profile, and building the dependency tree...
       </p>
@@ -447,33 +447,33 @@ function ReviewStep({
   return (
     <div className="space-y-4">
       {alreadyInstalled && (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3.5">
-          <AlertTriangle size={16} className="flex-shrink-0 text-amber-500" />
-          <p className="text-xs font-medium text-amber-500">
+        <div className="flex items-center gap-3 rounded-panel border border-warning/20 bg-warning/10 p-3.5">
+          <AlertTriangle size={16} className="flex-shrink-0 text-warning" />
+          <p className="text-xs font-body text-warning">
             This mod is already installed in {targetName}.
           </p>
         </div>
       )}
 
-      <div className="rounded-2xl border border-(--color-border) bg-(--color-surface-tertiary)/30 p-4">
+      <div className="rounded-panel border border-(--color-border) bg-(--color-surface-tertiary)/30 p-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-(--color-text-secondary)">
+            <p className="text-micro font-body uppercase tracking-wider text-(--color-text-secondary)">
               Installing To
             </p>
-            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{targetName}</p>
-            <p className="text-[11px] text-(--color-text-secondary)">
+            <p className="mt-1 text-sm font-strong text-(--color-text-primary)">{targetName}</p>
+            <p className="text-caption text-(--color-text-secondary)">
               {targetVersion} · {targetLoader}
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-(--color-text-secondary)">
+            <p className="text-micro font-body uppercase tracking-wider text-(--color-text-secondary)">
               Version
             </p>
-            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">
+            <p className="mt-1 text-sm font-strong text-(--color-text-primary)">
               {preview.plan.rootVersion.version_number}
             </p>
-            <p className="text-[11px] text-(--color-text-secondary)">
+            <p className="text-caption text-(--color-text-secondary)">
               {preview.plan.rootVersion.version_type}
             </p>
           </div>
@@ -482,7 +482,7 @@ function ReviewStep({
 
       {preview.plan.dependencyTree.length > 0 && (
         <div className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-(--color-text-secondary)">
+          <h4 className="flex items-center gap-1.5 text-xs font-strong uppercase tracking-wider text-(--color-text-secondary)">
             <Shield size={11} />
             Dependency Tree
           </h4>
@@ -493,21 +493,21 @@ function ReviewStep({
       )}
 
       {preview.plan.dependencyTree.length === 0 && (
-        <div className="rounded-2xl border border-(--color-border) bg-(--color-surface-tertiary)/20 p-4 text-xs text-(--color-text-secondary)">
+        <div className="rounded-panel border border-(--color-border) bg-(--color-surface-tertiary)/20 p-4 text-xs text-(--color-text-secondary)">
           No extra dependencies are required for this install.
         </div>
       )}
 
       {preview.plan.conflicts.length > 0 && (
         <div className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-500">
+          <h4 className="flex items-center gap-1.5 text-xs font-strong uppercase tracking-wider text-danger">
             <XCircle size={11} />
             Conflicts
           </h4>
           {preview.plan.conflicts.map((conflict) => (
             <div
               key={conflict.id}
-              className="rounded-xl border border-red-500/15 bg-red-500/5 px-3 py-2.5 text-xs text-red-400"
+              className="rounded-card border border-danger/15 bg-danger/5 px-3 py-2.5 text-xs text-danger"
             >
               {conflict.title}
             </div>
@@ -517,14 +517,14 @@ function ReviewStep({
 
       {preview.plan.missing.length > 0 && (
         <div className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-500">
+          <h4 className="flex items-center gap-1.5 text-xs font-strong uppercase tracking-wider text-danger">
             <AlertTriangle size={11} />
             Missing
           </h4>
           {preview.plan.missing.map((name) => (
             <div
               key={name}
-              className="rounded-xl border border-red-500/15 bg-red-500/5 px-3 py-2.5 text-xs text-red-400"
+              className="rounded-card border border-danger/15 bg-danger/5 px-3 py-2.5 text-xs text-danger"
             >
               {name}
             </div>
@@ -553,27 +553,27 @@ function DependencyTreeRow({
     },
     update: {
       label: "Update",
-      className: "bg-amber-500/10 text-amber-500",
+      className: "bg-warning/10 text-warning",
       icon: AlertTriangle,
     },
     "already-installed": {
       label: "Installed",
-      className: "bg-green-500/10 text-green-500",
+      className: "bg-success/10 text-success",
       icon: CheckCircle2,
     },
     missing: {
       label: "Missing",
-      className: "bg-red-500/10 text-red-500",
+      className: "bg-danger/10 text-danger",
       icon: XCircle,
     },
     conflict: {
       label: "Conflict",
-      className: "bg-red-500/10 text-red-500",
+      className: "bg-danger/10 text-danger",
       icon: XCircle,
     },
     optional: {
       label: "Optional",
-      className: "bg-sky-500/10 text-sky-400",
+      className: "bg-info/10 text-info",
       icon: Info,
     },
   };
@@ -594,30 +594,30 @@ function DependencyTreeRow({
   return (
     <div className="space-y-2">
       <div
-        className="flex items-center gap-3 rounded-xl border border-(--color-border) bg-(--color-surface-tertiary)/20 px-3 py-2.5"
+        className="flex items-center gap-3 rounded-card border border-(--color-border) bg-(--color-surface-tertiary)/20 px-3 py-2.5"
         style={{ marginLeft: depth * 14 }}
       >
         {node.iconUrl ? (
           <img
             src={node.iconUrl}
             alt={node.title}
-            className="h-7 w-7 flex-shrink-0 rounded-lg object-cover"
+            className="h-7 w-7 flex-shrink-0 rounded-control object-cover"
           />
         ) : (
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-(--color-surface-tertiary)">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-control bg-(--color-surface-tertiary)">
             <CircleDot size={14} className="text-(--color-accent)" />
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-(--color-text-primary)">{node.title}</p>
-          <p className="text-[10px] text-(--color-text-secondary)">
+          <p className="truncate text-xs font-body text-(--color-text-primary)">{node.title}</p>
+          <p className="text-micro text-(--color-text-secondary)">
             {dependencyLabel}
             {node.versionNumber ? ` · ${node.versionNumber}` : ""}
           </p>
         </div>
 
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${meta.className}`}>
+        <span className={`inline-flex items-center gap-1 rounded-pill px-2 py-1 text-micro font-emphasis ${meta.className}`}>
           <Icon size={10} />
           {meta.label}
         </span>
@@ -661,10 +661,10 @@ function InstallingState({ progress, status }: { progress: number; status: strin
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold text-(--color-accent)">{progress}%</span>
+          <span className="text-sm font-strong text-(--color-accent)">{progress}%</span>
         </div>
       </div>
-      <p className="mt-5 text-base font-bold text-(--color-text-primary)">{status}</p>
+      <p className="mt-5 text-base font-strong text-(--color-text-primary)">{status}</p>
       <p className="mt-1 text-xs text-(--color-text-secondary)">Please wait...</p>
     </div>
   );
@@ -674,14 +674,14 @@ function DoneState({ mod, instanceName }: { mod: ModrinthProject; instanceName: 
   return (
     <div className="flex flex-col items-center justify-center py-16">
       <div className="relative">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10">
-          <CheckCircle2 size={36} className="text-green-500" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-pill bg-success/10">
+          <CheckCircle2 size={36} className="text-success" />
         </div>
-        <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) shadow-sm">
+        <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-pill border border-(--color-border) bg-(--color-surface) shadow-sm">
           <Sparkles size={14} className="text-(--color-accent)" />
         </div>
       </div>
-      <p className="mt-5 text-lg font-black text-(--color-text-primary)">{mod.title} installed!</p>
+      <p className="mt-5 text-lg font-display text-(--color-text-primary)">{mod.title} installed!</p>
       <p className="mt-1 text-xs text-(--color-text-secondary)">Added to {instanceName}</p>
     </div>
   );
@@ -690,10 +690,10 @@ function DoneState({ mod, instanceName }: { mod: ModrinthProject; instanceName: 
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
-        <XCircle size={28} className="text-red-500" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-pill bg-danger/10">
+        <XCircle size={28} className="text-danger" />
       </div>
-      <p className="mt-5 text-base font-bold text-(--color-text-primary)">Installation failed</p>
+      <p className="mt-5 text-base font-strong text-(--color-text-primary)">Installation failed</p>
       <p className="mt-1 max-w-xs text-center text-xs text-(--color-text-secondary)">
         {message}
       </p>

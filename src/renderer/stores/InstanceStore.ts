@@ -216,7 +216,10 @@ export class InstanceStore {
         this.instances = parsed.map((inst) => ({
           ...inst,
           installedMods: inst.installedMods ?? [],
-          modCount: inst.installedMods?.length ?? inst.modCount ?? 0,
+          modCount:
+            inst.installedMods && inst.installedMods.length > 0
+              ? inst.installedMods.length
+              : inst.modCount ?? 0,
           ownerUuid: inst.ownerUuid || this.currentUserUuid || "",
           ownerName: inst.ownerName || this.currentUserName || "Player",
           shareCode: inst.shareCode ?? null,

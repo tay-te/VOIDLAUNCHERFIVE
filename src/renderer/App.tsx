@@ -3,6 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStore } from "./stores";
 import { Sidebar } from "./components/BottomNav";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { NotificationTray } from "./components/NotificationTray";
 
 const HomePage = lazy(() =>
   import("./components/HomePage").then((module) => ({ default: module.HomePage }))
@@ -53,7 +54,7 @@ function preloadCommonViews() {
 
 function FullScreenLoader() {
   return (
-    <div className="h-screen flex items-center justify-center bg-(--color-surface) text-sm font-medium text-(--color-text-secondary)">
+    <div className="h-screen flex items-center justify-center bg-(--color-surface) text-sm font-body text-(--color-text-secondary)">
       <div className="drag-region absolute top-0 left-0 right-0 h-8" />
       Loading...
     </div>
@@ -62,7 +63,7 @@ function FullScreenLoader() {
 
 function ContentLoader() {
   return (
-    <div className="h-full flex items-center justify-center text-sm font-medium text-(--color-text-secondary)">
+    <div className="h-full flex items-center justify-center text-sm font-body text-(--color-text-secondary)">
       Loading...
     </div>
   );
@@ -168,6 +169,41 @@ const App = observer(() => {
     setActivePage(page);
   };
 
+  const pageMeta = selectedModId
+    ? {
+        title: "Mod details",
+        subtitle: "Review compatibility, versions, and install targets",
+      }
+    : {
+        home: {
+          title: "Home",
+          subtitle: "Launch, manage, and discover your Minecraft setup",
+        },
+        browse: {
+          title: "Browse",
+          subtitle: "Search Modrinth and install into your instances",
+        },
+        instances: {
+          title: "Instances",
+          subtitle: "Organize local worlds, shared packs, and launch settings",
+        },
+        friends: {
+          title: "Friends",
+          subtitle: "Manage sharing, imports, and friend requests",
+        },
+        settings: {
+          title: "Settings",
+          subtitle: "Appearance, updates, and release history",
+        },
+        auth: {
+          title: "Account",
+          subtitle: "Microsoft account and launcher profile",
+        },
+      }[activePage] ?? {
+        title: "Home",
+        subtitle: "Launch, manage, and discover your Minecraft setup",
+      };
+
   const renderPage = () => {
     if (selectedModId) {
       return <ModPage modId={selectedModId} onBack={closeMod} />;
@@ -195,26 +231,55 @@ const App = observer(() => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-(--color-surface)">
-      {/* Sidebar column */}
-      <div className="flex flex-col flex-shrink-0 bg-(--color-sidebar) border-r border-(--color-border)">
-        <div className="drag-region h-8" />
-        <Sidebar
-          activePage={selectedModId ? "" : activePage}
-          onNavigate={navigate}
-        />
-      </div>
+    <div className="flex h-screen overflow-hidden bg-window-backdrop p-4 text-(--color-text-primary) max-md:p-0">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-[18px] border border-(--color-border-strong) bg-(--color-surface) shadow-2xl shadow-black/60 max-md:rounded-none max-md:border-0 max-md:flex-col">
+        <div className="flex flex-shrink-0 border-r border-(--color-border) bg-(--color-sidebar) max-md:border-r-0 max-md:border-b">
+          <Sidebar
+            activePage={selectedModId ? "" : activePage}
+            onNavigate={navigate}
+          />
+        </div>
 
-      {/* Content column */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="drag-region h-8 flex-shrink-0" />
-        <main className="flex-1 overflow-y-auto">
-          <Suspense fallback={<ContentLoader />}>
-            <ErrorBoundary>
-              {renderPage()}
-            </ErrorBoundary>
-          </Suspense>
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="drag-region flex min-h-[6.875rem] flex-shrink-0 items-center justify-between gap-5 border-b border-(--color-border) bg-(--color-surface) px-7 py-5 max-lg:min-h-20 max-md:h-auto max-md:flex-col max-md:items-start max-md:px-4">
+            <div className="min-w-0">
+              <p className="text-caption font-strong text-(--color-text-secondary)">
+                {auth.username} / minecraft workspace
+              </p>
+              <h1 className="mt-1 truncate text-2xl font-display leading-none text-(--color-text-primary)">
+                {pageMeta.title}
+              </h1>
+              <p className="mt-2 max-w-xl truncate text-sm font-body text-(--color-text-secondary)">
+                {pageMeta.subtitle}
+              </p>
+            </div>
+            <div className="no-drag flex flex-wrap items-center justify-end gap-2">
+              <div className="hidden overflow-hidden rounded-control border border-(--color-border) bg-(--color-surface-secondary) lg:flex">
+                {["Ready", "Mods", "Cloud"].map((label, index) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={`h-10 border-r border-(--color-border) px-4 text-xs font-display last:border-r-0 ${
+                      index === 0
+                        ? "bg-(--color-surface-tertiary) text-(--color-text-primary)"
+                        : "text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) hover:text-(--color-text-primary)"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <NotificationTray onNavigateInstances={() => navigate("instances")} />
+            </div>
+          </header>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden bg-(--color-surface)">
+            <Suspense fallback={<ContentLoader />}>
+              <ErrorBoundary>
+                {renderPage()}
+              </ErrorBoundary>
+            </Suspense>
+          </main>
+        </div>
       </div>
 
       {/* Import modal */}

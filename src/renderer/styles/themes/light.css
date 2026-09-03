@@ -1,0 +1,75 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   THEME: light
+   ─────────────────────────────────────────────────────────────────────────────
+   Values are carried over verbatim from the pre-tokenization :root block, so
+   this theme renders pixel-identically to before.
+
+   To add a theme: copy this file, change the values, register it in
+   stores/themeRegistry.ts. Nothing else needs to change.
+   ────────────────────────────────────────────────────────────────────────────*/
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ── Surfaces ────────────────────────────────────────────────────────────*/
+  --v-surface: #f7f8f7;         /* page background */
+  --v-surface-raised: #ffffff;  /* cards, panels, sections */
+  --v-surface-hover: #edf0ed;   /* hover + selected fills */
+  --v-surface-strong: #dfe5df;  /* pressed / high-contrast fills */
+  --v-sidebar: #f1f3f1;
+  --v-preview-panel: #eef2e8;
+
+  /* ── Text ────────────────────────────────────────────────────────────────*/
+  --v-text: #0f0f1a;
+  --v-text-muted: #5f6375;
+  --v-text-on-accent: #ffffff;  /* replaces `text-white` on accent fills */
+  --v-text-inverse: #ffffff;
+
+  /* ── Borders ─────────────────────────────────────────────────────────────*/
+  --v-border: rgba(15, 23, 42, 0.1);
+  --v-border-subtle: rgba(15, 23, 42, 0.08);
+  --v-border-strong: rgba(15, 23, 42, 0.16);
+
+  /* ── Accent ──────────────────────────────────────────────────────────────*/
+  --v-accent: #2f8f46;
+  --v-accent-hover: #28783b;
+  --v-accent-glow: rgba(47, 143, 70, 0.1);
+  /* Space-separated channels, for `rgb(var(--v-accent-rgb) / <alpha>)` in
+     gradients where a hex cannot carry a separate alpha. */
+  --v-accent-rgb: 47 143 70;
+
+  /* ── Status ──────────────────────────────────────────────────────────────
+     Previously hardcoded as text-red-500 / bg-green-500 / text-amber-500.
+     These carry the exact values the hardcoded utilities used, so migrating
+     markup onto them changes nothing on screen.                              */
+  --v-success: #2f8f46;
+  --v-danger: #ef4444;        /* was red-500 */
+  --v-danger-hover: #dc2626;  /* was red-600 */
+  --v-warning: #f59e0b;       /* was amber-500 */
+  --v-info: #0ea5e9;          /* was sky-500 — "optional" dependencies */
+  --v-collab: #a855f7;        /* was purple-500 — shared / collaborative */
+
+  /* Gradient partner for the login logo mark (was `to-indigo-600`). */
+  --v-accent-gradient-end: #4f46e5;
+
+  /* Backdrop behind the floating window chrome (was a hardcoded `bg-black`). */
+  --v-window-backdrop: #000000;
+
+  /* ── Glass ───────────────────────────────────────────────────────────────*/
+  --v-glass: rgba(255, 255, 255, 0.88);
+  --v-glass-border: rgba(15, 23, 42, 0.08);
+  /* Translucent card fill on BrowsePage. Kept at the white-alpha value the
+     hardcoded fallback used, so light mode renders exactly as it does today —
+     it is faint here, and is now a token you can tune. */
+  --v-glass-bg: rgba(255, 255, 255, 0.06);
+
+  /* ── Elevation ───────────────────────────────────────────────────────────*/
+  --v-shadow-color: rgba(15, 23, 42, 0.12);
+
+  /* ── Fixed-context colors ────────────────────────────────────────────────
+     These sit on surfaces whose darkness is intrinsic, not thematic: the modal
+     scrim, the 3D skin-viewer stage, and the full-screen update overlay.      */
+  --v-scrim: rgba(0, 0, 0, 0.6);
+  --v-stage: #000000;
+  --v-overlay-fg: #ffffff;
+}

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VOID — Tactile Mechanics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --shell:#0A0B0C; --ground:#101214; --card:#191C20; --raised:#22262B; --pill:#2A2F35;
+  --hair:rgba(255,255,255,.07); --rim:rgba(255,255,255,.05); --track:rgba(255,255,255,.07);
+  --ink:#F1F3F5; --ink2:#A6AEB6; --ink3:#6C747C;
+  --acc:#34A46E; --accInk:#6FD3A0; --warn:#D9A93A; --fear:#C05B54; --sky:#4D87CD; --violet:#8A72D6;
+  --sans:'Outfit',system-ui,-apple-system,sans-serif;
+  --mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* a detent, not a bounce: ~4% overshoot then settle */
+  --detent:linear(0,.006,.025,.101,.539 .5,.826,.934,.981,1.001,1.004,1);
+  --swift:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--shell); color:var(--ink); font-family:var(--sans); font-weight:400;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; padding:34px 30px 70px;
+}
+/* THE GRAIN IS FIXED TO THE WINDOW. Everything slides underneath it. */
+#grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.55;mix-blend-mode:overlay;
+  background-repeat:repeat;background-size:96px 96px}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font-weight:300;font-size:34px;letter-spacing:-.02em;margin-bottom:6px}
+.lede{color:var(--ink3);font-size:14.5px;max-width:70ch;margin-bottom:30px}
+.mono{font-family:var(--mono);font-weight:500;font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
+.cap{font-family:var(--mono);font-weight:400;font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink3)}
+.well{background:var(--ground);border:1px solid var(--rim);border-radius:18px;overflow:hidden;
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.62),inset 0 -1px 0 rgba(255,255,255,.045);
+  padding:16px;display:grid;grid-template-columns:300px 1fr;gap:16px;margin-bottom:34px}
+
+/* ── raised material ── */
+.card{background:var(--card);border:1px solid var(--hair);border-radius:14px;
+  box-shadow:0 8px 22px -6px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.075),
+             inset 0 -1px 0 rgba(0,0,0,.4);}
+.groove{background:var(--shell);border-radius:12px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72),inset 0 -1px 0 rgba(255,255,255,.07)}
+
+/* ── 1. rail cursor TRAVELS ── */
+.rail{position:relative;padding:12px 0}
+.rail .cap{padding:2px 14px 10px}
+.cursor{position:absolute;left:11px;width:3px;height:26px;border-radius:2px;background:var(--acc);
+  transition:transform .22s var(--detent),opacity .16s linear;will-change:transform}
+.row{display:flex;align-items:center;gap:11px;padding:9px 13px 9px 11px;cursor:pointer;
+  border-radius:10px;margin:0 8px;transition:background .14s linear}
+.row:hover{background:rgba(255,255,255,.032)}
+.row.on{background:var(--card);box-shadow:0 3px 8px -2px rgba(0,0,0,.34),
+  inset 0 1px 0 rgba(255,255,255,.075),inset 0 -1px 0 rgba(0,0,0,.4)}
+.sw{width:30px;height:30px;border-radius:10px;flex:none;display:grid;place-items:center;
+  font-size:11px;font-weight:500;color:#fff}
+.rname{font-size:13px;color:var(--ink2);flex:1;min-width:0}
+.row.on .rname{color:var(--ink)}
+.rsize{font-family:var(--mono);font-size:10px;color:var(--ink3)}
+
+/* ── 2. the key: real travel ── */
+.stage{display:flex;flex-direction:column;gap:16px}
+.hero{border-radius:16px;padding:22px 24px;display:flex;align-items:center;gap:26px;
+  background:linear-gradient(0deg,rgba(52,164,110,.07),rgba(52,164,110,.07)),var(--card);
+  border:1px solid var(--hair);
+  box-shadow:0 10px 26px -7px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.075),
+             inset 0 -1px 0 rgba(0,0,0,.4)}
+.plate{width:112px;height:112px;border-radius:32px;background:var(--acc);flex:none;
+  display:grid;place-items:center;font-size:58px;font-weight:400;color:#fff;
+  border:1px solid var(--hair);
+  box-shadow:0 14px 30px -6px rgba(0,0,0,.6),inset 0 2px 0 rgba(255,255,255,.22),
+             inset 0 -3px 2px rgba(0,0,0,.28)}
+.title{font-weight:300;font-size:44px;letter-spacing:-.022em;line-height:1.05}
+.meta{font-family:var(--mono);font-weight:500;font-size:11.5px;color:var(--ink2);margin-top:7px}
+.acts{display:flex;gap:10px;margin-top:18px}
+
+button{font-family:inherit;font-size:13px;border:0;cursor:pointer;color:var(--ink2)}
+.key{
+  --lift:3px;
+  position:relative;display:inline-flex;align-items:center;gap:10px;
+  padding:13px 15px 13px 18px;border-radius:10px;background:var(--acc);color:#fff;font-weight:500;
+  box-shadow:0 var(--lift) 6px -1px rgba(0,0,0,.55),
+             inset 0 1px 0 rgba(255,255,255,.28),
+             inset 0 -2px 1px rgba(0,0,0,.30);
+  transition:transform .11s var(--swift), box-shadow .11s var(--swift), filter .14s linear;
+}
+.key:hover{filter:brightness(1.07);--lift:5px}
+.key:active{transform:translateY(2px);
+  box-shadow:0 0 0 0 rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.10),
+             inset 0 3px 5px rgba(0,0,0,.42)}
+.ghost{display:inline-flex;align-items:center;padding:13px 16px;border-radius:10px;
+  background:var(--raised);border:1px solid var(--hair);
+  box-shadow:0 2px 5px -1px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.06);
+  transition:transform .11s var(--swift),box-shadow .11s var(--swift),background .14s linear}
+.ghost:hover{background:#282d33;box-shadow:0 4px 9px -2px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.09)}
+.ghost:active{transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+.kbd{font-family:var(--mono);font-size:9.5px;padding:2px 5px;border-radius:4px;
+  background:rgba(0,0,0,.26);color:#fff}
+
+/* ── 3. groove focus ── */
+.field{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;
+  position:relative;overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72),inset 0 -1px 0 rgba(255,255,255,.07);
+  transition:box-shadow .16s var(--swift)}
+.field input{background:0;border:0;outline:0;color:var(--ink);font-family:inherit;font-size:13px;flex:1}
+.field input::placeholder{color:var(--ink3)}
+.field::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--acc);
+  transform:scaleX(0);transform-origin:50%;transition:transform .2s var(--detent)}
+.field:focus-within{box-shadow:inset 0 2px 5px rgba(0,0,0,.85),inset 0 -1px 0 rgba(255,255,255,.09)}
+.field:focus-within::after{transform:scaleX(1)}
+
+/* ── 4. tab detent ── */
+.tabs{position:relative;display:inline-flex;gap:2px;padding:4px;border-radius:12px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72),inset 0 -1px 0 rgba(255,255,255,.07)}
+.marker{position:absolute;top:4px;bottom:4px;border-radius:9px;background:var(--pill);
+  border:1px solid var(--hair);
+  box-shadow:0 3px 8px -2px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);
+  transition:transform .26s var(--detent),width .26s var(--detent);will-change:transform,width}
+.tab{position:relative;z-index:1;background:0;padding:8px 15px;border-radius:9px;color:var(--ink3);
+  transition:color .16s linear}
+.tab.on{color:var(--ink);font-weight:500}
+
+/* ── 5. cards lift ── */
+.mods{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.mod{padding:16px;border-radius:14px;cursor:pointer;
+  transition:transform .16s var(--swift),box-shadow .16s var(--swift)}
+.mod:hover{transform:translateY(-3px);
+  box-shadow:0 14px 30px -8px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.1),
+             inset 0 -1px 0 rgba(0,0,0,.4)}
+.mod:active{transform:translateY(-1px)}
+.mtitle{font-size:15px;font-weight:500;margin-bottom:3px}
+.msub{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.bar{height:5px;border-radius:3px;margin-top:14px;overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72),inset 0 -1px 0 rgba(255,255,255,.07)}
+.fill{height:100%;border-radius:3px;transition:width .9s var(--swift)}
+
+/* ── notes ── */
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.note{padding:18px 20px;border-radius:14px}
+.note h3{font-size:15px;font-weight:500;margin-bottom:7px}
+.note p{font-size:13px;color:var(--ink3);margin-bottom:9px}
+.note code{font-family:var(--mono);font-size:11px;color:var(--accInk);display:block;
+  padding:9px 11px;border-radius:8px;background:var(--shell);white-space:pre-wrap;line-height:1.6}
+.hint{color:var(--ink3);font-size:12.5px;margin:-8px 0 18px}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div id="grain"></div>
+<div class="wrap">
+  <h1>Tactile mechanics</h1>
+  <p class="lede">Every surface below is the shipped material — same tokens, same elevation ladder, same grain.
+  What is new is <em>behaviour</em>. Press the key. Click the pack rows. Focus the field. Drag a tab.</p>
+
+  <div class="well">
+    <!-- rail -->
+    <div class="card rail" id="rail">
+      <div class="cap">Library</div>
+      <div class="cursor" id="cursor"></div>
+      <div class="row on" data-hue="#34A46E"><div class="sw" style="background:#34A46E">A</div>
+        <div class="rname">All The Mods 9</div><div class="rsize">14.2 GB</div></div>
+      <div class="row" data-hue="#D9A93A"><div class="sw" style="background:#D9A93A">C</div>
+        <div class="rname">Cobblemon Spring</div><div class="rsize">6.8 GB</div></div>
+      <div class="row" data-hue="#C05B54"><div class="sw" style="background:#C05B54">F</div>
+        <div class="rname">Fear Nightfall</div><div class="rsize">9.1 GB</div></div>
+      <div class="row" data-hue="#8A72D6"><div class="sw" style="background:#8A72D6">C</div>
+        <div class="rname">Create: A &amp; B</div><div class="rsize">4.4 GB</div></div>
+      <div class="row" data-hue="#4D87CD"><div class="sw" style="background:#4D87CD">S</div>
+        <div class="rname">SkyFactory 5</div><div class="rsize">2.6 GB</div></div>
+      <div class="row" data-hue="#34A46E"><div class="sw" style="background:#34A46E">E</div>
+        <div class="rname">Enigmatica 9</div><div class="rsize">5.9 GB</div></div>
+    </div>
+
+    <div class="stage">
+      <div class="hero">
+        <div class="plate" id="plate">A</div>
+        <div style="flex:1">
+          <div class="title" id="ptitle">All The Mods 9</div>
+          <div class="meta"><span id="pver">1.20.1 &nbsp;·&nbsp; Forge 47.2.20</span> &nbsp;·&nbsp;
+            <span class="mono" id="count">0</span> mods</div>
+          <div class="acts">
+            <button class="key" id="launch">▶ Launch <span class="kbd">⌘↵</span></button>
+            <button class="ghost">Edit pack</button>
+            <button class="ghost">Folder</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <div class="field groove" style="flex:1;min-width:240px">
+          <span class="cap" style="letter-spacing:0">⌕</span>
+          <input placeholder="Ask VOID anything" aria-label="Search">
+          <span class="kbd" style="background:var(--raised);color:var(--ink3)">⌘K</span>
+        </div>
+        <div class="tabs groove" id="tabs">
+          <div class="marker" id="marker"></div>
+          <button class="tab on">Description</button>
+          <button class="tab">Gallery</button>
+          <button class="tab">Versions</button>
+        </div>
+      </div>
+
+      <div class="mods">
+        <div class="mod card"><div class="mtitle">Sodium</div><div class="msub">38M · performance</div>
+          <div class="bar groove"><div class="fill" style="background:#4D87CD;width:62%"></div></div></div>
+        <div class="mod card"><div class="mtitle">Iris Shaders</div><div class="msub">21M · shaders</div>
+          <div class="bar groove"><div class="fill" style="background:#8A72D6;width:34%"></div></div></div>
+        <div class="mod card"><div class="mtitle">Create</div><div class="msub">19M · tech</div>
+          <div class="bar groove"><div class="fill" style="background:#34A46E;width:78%"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">The six mechanics, and the numbers behind them.</p>
+  <div class="notes">
+    <div class="note card"><h3>The grain never moves</h3>
+      <p>The noise is fixed to the window, so cards slide <em>under</em> a stationary film. Attach it to
+      each card instead and it reads as a sticker — the illusion dies. Highest-leverage decision here.</p>
+      <code>#grain{position:fixed;inset:0;
+  mix-blend-mode:overlay;opacity:.55}</code></div>
+
+    <div class="note card"><h3>Key travel</h3>
+      <p>Hover raises the key 3px→5px and brightens it. Press drops it 2px, collapses the contact shadow to
+      zero and inverts the bevel, so it bottoms out against the surface.</p>
+      <code>:active{transform:translateY(2px);
+  box-shadow:0 0 0 0,
+   inset 0 3px 5px rgba(0,0,0,.42)}</code></div>
+
+    <div class="note card"><h3>The cursor travels</h3>
+      <p>The accent marker slides between rows instead of teleporting. This single detail does more for the
+      machine feeling than anything else on the screen.</p>
+      <code>transition:transform .22s var(--detent)</code></div>
+
+    <div class="note card"><h3>Detent, not bounce</h3>
+      <p>Tabs settle with about 4% overshoot — a switch clicking into a notch, not jelly. Same curve on the
+      rail cursor and the field underline.</p>
+      <code>--detent:linear(0,.006,.025,.101,
+  .539 .5,.826,.934,.981,1.001,1.004,1)</code></div>
+
+    <div class="note card"><h3>Grooves close a contact</h3>
+      <p>The field is cut into the surface. Focus deepens the inner shadow and wipes an accent line along the
+      bottom edge from the centre out.</p>
+      <code>:focus-within::after{transform:scaleX(1)}</code></div>
+
+    <div class="note card"><h3>Digits tick</h3>
+      <p>Counts count up in tabular mono so nothing reflows while they move. Click a pack row to watch the mod
+      count run to its new value.</p>
+      <code>font-variant-numeric:tabular-nums</code></div>
+  </div>
+</div>
+
+<script>
+/* grain: generated once, tiled, never animated */
+(function(){
+  var s=96,c=document.createElement('canvas');c.width=c.height=s;
+  var x=c.getContext('2d'),d=x.createImageData(s,s),p=d.data,seed=0x9E3779B9;
+  function rnd(){seed^=seed<<13;seed>>>=0;seed^=seed>>>17;seed^=seed<<5;seed>>>=0;return seed/4294967296}
+  for(var i=0;i<p.length;i+=4){var v=128+(rnd()-.5)*92;p[i]=p[i+1]=p[i+2]=v;p[i+3]=255}
+  x.putImageData(d,0,0);
+  document.getElementById('grain').style.backgroundImage='url('+c.toDataURL()+')';
+})();
+
+var PACKS=[
+ {n:'All The Mods 9',v:'1.20.1 &nbsp;·&nbsp; Forge 47.2.20',c:342,h:'#34A46E',l:'A'},
+ {n:'Cobblemon Spring',v:'1.21.1 &nbsp;·&nbsp; Fabric 0.16.5',c:118,h:'#D9A93A',l:'C'},
+ {n:'Fear Nightfall',v:'1.20.1 &nbsp;·&nbsp; Forge 47.2.20',c:214,h:'#C05B54',l:'F'},
+ {n:'Create: A & B',v:'1.19.2 &nbsp;·&nbsp; Forge 43.3.0',c:186,h:'#8A72D6',l:'C'},
+ {n:'SkyFactory 5',v:'1.20.1 &nbsp;·&nbsp; Forge 47.2.20',c:96,h:'#4D87CD',l:'S'},
+ {n:'Enigmatica 9',v:'1.20.1 &nbsp;·&nbsp; NeoForge 20.4',c:271,h:'#34A46E',l:'E'}];
+
+var rows=[].slice.call(document.querySelectorAll('.row')),
+    cursor=document.getElementById('cursor'), rail=document.getElementById('rail'),
+    plate=document.getElementById('plate'), ptitle=document.getElementById('ptitle'),
+    pver=document.getElementById('pver'), countEl=document.getElementById('count');
+
+function placeCursor(el){
+  var t=el.getBoundingClientRect().top-rail.getBoundingClientRect().top
+        +(el.offsetHeight-26)/2;
+  cursor.style.transform='translateY('+t+'px)';
+}
+var shown=0;
+function tick(to){
+  var from=shown,t0=null,dur=520;
+  function step(ts){ if(!t0)t0=ts; var k=Math.min(1,(ts-t0)/dur);
+    var e=1-Math.pow(1-k,3);
+    countEl.textContent=Math.round(from+(to-from)*e);
+    if(k<1)requestAnimationFrame(step); else shown=to; }
+  requestAnimationFrame(step);
+}
+rows.forEach(function(r,i){
+  r.addEventListener('click',function(){
+    rows.forEach(function(x){x.classList.remove('on')});
+    r.classList.add('on'); placeCursor(r);
+    var p=PACKS[i];
+    plate.style.background=p.h; plate.textContent=p.l;
+    ptitle.textContent=p.n; pver.innerHTML=p.v; tick(p.c);
+  });
+});
+placeCursor(rows[0]); tick(342);
+window.addEventListener('resize',function(){
+  var on=document.querySelector('.row.on'); if(on)placeCursor(on);
+});
+
+var tabs=[].slice.call(document.querySelectorAll('.tab')), marker=document.getElementById('marker');
+function placeMarker(el){
+  marker.style.width=el.offsetWidth+'px';
+  marker.style.transform='translateX('+(el.offsetLeft-4)+'px)';
+}
+tabs.forEach(function(t){
+  t.addEventListener('click',function(){
+    tabs.forEach(function(x){x.classList.remove('on')});
+    t.classList.add('on'); placeMarker(t);
+  });
+});
+placeMarker(tabs[0]);
+
+document.getElementById('launch').addEventListener('click',function(){
+  var f=document.querySelectorAll('.fill');
+  f.forEach(function(el){ el.style.width=Math.round(20+Math.random()*70)+'%' });
+});
+</script>
+</body>
+</html>

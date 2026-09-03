@@ -71,7 +71,7 @@ export const NotificationTray = observer(({ onNavigateInstances }: Props) => {
         aria-label="Notifications"
         aria-expanded={open}
         title="Notifications"
-        className={`no-drag relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 cursor-pointer ${
+        className={`no-drag relative flex items-center justify-center w-10 h-10 rounded-card transition-all duration-200 cursor-pointer ${
           open
             ? "bg-(--color-accent)/12 text-(--color-accent)"
             : "text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-(--color-surface-tertiary)"
@@ -79,8 +79,8 @@ export const NotificationTray = observer(({ onNavigateInstances }: Props) => {
       >
         <Bell size={20} strokeWidth={open ? 2.5 : 1.75} />
         {store.unreadCount > 0 && (
-          <div className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 flex items-center justify-center shadow-sm">
-            <span className="text-[9px] font-bold text-white leading-none">
+          <div className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-pill bg-danger flex items-center justify-center shadow-sm">
+            <span className="text-[9px] font-strong text-white leading-none">
               {store.unreadCount > 9 ? "9+" : store.unreadCount}
             </span>
           </div>
@@ -96,16 +96,16 @@ export const NotificationTray = observer(({ onNavigateInstances }: Props) => {
             onClick={() => setOpen(false)}
           />
 
-          <div className="absolute left-full top-0 ml-2 w-80 z-[100] notification-tray-enter">
-            <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/20">
+          <div className="absolute right-0 top-full z-[100] mt-2 w-80 notification-tray-enter">
+            <div className="glass rounded-panel overflow-hidden shadow-2xl shadow-black/20">
               {/* Header */}
               <div className="px-5 py-4 border-b border-(--color-border)/50">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-(--color-text-primary) tracking-tight">
+                  <h3 className="text-sm font-display text-(--color-text-primary) tracking-tight">
                     Notifications
                   </h3>
                   {store.unreadCount > 0 && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-(--color-accent)/10 text-(--color-accent) font-bold">
+                    <span className="text-micro px-2 py-0.5 rounded-pill bg-(--color-accent)/10 text-(--color-accent) font-strong">
                       {store.unreadCount} new
                     </span>
                   )}
@@ -117,8 +117,8 @@ export const NotificationTray = observer(({ onNavigateInstances }: Props) => {
                 {pendingNotifications.length === 0 && recentAccepted.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-(--color-text-secondary)">
                     <Bell size={24} className="mb-3 opacity-30" />
-                    <p className="text-xs font-medium">No notifications</p>
-                    <p className="text-[11px] mt-0.5 opacity-70">
+                    <p className="text-xs font-body">No notifications</p>
+                    <p className="text-caption mt-0.5 opacity-70">
                       Shares from friends will appear here
                     </p>
                   </div>
@@ -173,7 +173,7 @@ function NotificationRow({
     <div className={`p-4 transition-all ${isPending ? "bg-(--color-accent)/3" : ""}`}>
       <div className="flex items-start gap-3">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
+          className="w-10 h-10 rounded-card flex items-center justify-center text-sm font-display flex-shrink-0"
           style={{
             backgroundColor: inst.icon_color + "15",
             color: inst.icon_color,
@@ -184,16 +184,16 @@ function NotificationRow({
 
         <div className="flex-1 min-w-0">
           <p className="text-xs text-(--color-text-primary)">
-            <span className="font-bold">{notification.sender.mc_username}</span>
+            <span className="font-strong">{notification.sender.mc_username}</span>
             {" shared "}
-            <span className="font-bold">{inst.name}</span>
+            <span className="font-strong">{inst.name}</span>
           </p>
           <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[10px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary)/60 px-1.5 py-0.5 rounded">
+            <span className="text-micro font-body text-(--color-text-secondary) bg-(--color-surface-tertiary)/60 px-1.5 py-0.5 rounded">
               {inst.mc_version}
             </span>
             <span
-              className="text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"
+              className="text-[9px] px-1.5 py-0.5 rounded font-strong flex items-center gap-0.5"
               style={{
                 backgroundColor: loaderMeta.color + "12",
                 color: loaderMeta.color,
@@ -202,7 +202,7 @@ function NotificationRow({
               <LoaderIcon size={8} />
               {loaderMeta.label}
             </span>
-            <span className="text-[10px] text-(--color-text-secondary) flex items-center gap-1">
+            <span className="text-micro text-(--color-text-secondary) flex items-center gap-1">
               <Clock size={9} />
               {timeAgo(notification.created_at)}
             </span>
@@ -214,7 +214,7 @@ function NotificationRow({
               <button
                 onClick={onDownload}
                 disabled={isDownloading}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold text-white transition-all cursor-pointer disabled:opacity-60"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-card text-caption font-strong text-white transition-all cursor-pointer disabled:opacity-60"
                 style={{ backgroundColor: inst.icon_color }}
               >
                 {isDownloading ? (
@@ -232,7 +232,7 @@ function NotificationRow({
               <button
                 onClick={onDismiss}
                 disabled={isDownloading}
-                className="px-3 py-2 rounded-xl text-[11px] text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-card text-caption text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
               >
                 Dismiss
               </button>
@@ -240,9 +240,9 @@ function NotificationRow({
           )}
 
           {!isPending && (
-            <div className="flex items-center gap-1.5 mt-2 text-green-500">
+            <div className="flex items-center gap-1.5 mt-2 text-success">
               <CheckCircle2 size={12} />
-              <span className="text-[11px] font-semibold">Imported</span>
+              <span className="text-caption font-emphasis">Imported</span>
             </div>
           )}
         </div>
@@ -251,7 +251,7 @@ function NotificationRow({
         {!isPending && (
           <button
             onClick={onDismiss}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer flex-shrink-0"
+            className="w-6 h-6 rounded-pill flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer flex-shrink-0"
           >
             <X size={12} />
           </button>

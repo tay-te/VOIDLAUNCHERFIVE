@@ -37,7 +37,7 @@ export const Sidebar = observer(({ activePage, onNavigate }: SidebarProps) => {
   return (
     <aside className="w-56 h-full flex flex-col border-r border-(--color-border) bg-(--color-sidebar)">
       {/* Logo / Title */}
-      <div className="drag-region h-12 flex items-center px-4 font-bold text-lg tracking-tight">
+      <div className="drag-region h-12 flex items-center px-4 font-strong text-lg tracking-tight">
         <span className="no-drag text-(--color-text-primary)">VOID</span>
         <span className="no-drag ml-1 text-(--color-text-secondary) font-light">
           Launcher
@@ -50,7 +50,7 @@ export const Sidebar = observer(({ activePage, onNavigate }: SidebarProps) => {
           <button
             key={id}
             onClick={() => onNavigate(id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-card text-sm transition-all cursor-pointer ${
               activePage === id
                 ? "border border-(--color-border) bg-(--color-surface) text-(--color-text-primary) shadow-sm"
                 : "border border-transparent text-(--color-text-secondary) hover:bg-(--color-surface-secondary) hover:text-(--color-text-primary)"
@@ -64,12 +64,12 @@ export const Sidebar = observer(({ activePage, onNavigate }: SidebarProps) => {
 
       {/* Theme switcher */}
       <div className="px-3 py-2">
-        <div className="flex items-center gap-1 rounded-xl border border-(--color-border) bg-(--color-surface-secondary) p-1">
+        <div className="flex items-center gap-1 rounded-card border border-(--color-border) bg-(--color-surface-secondary) p-1">
           {themeOptions.map(({ value, icon: Icon }) => (
             <button
               key={value}
               onClick={() => theme.setTheme(value)}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+              className={`flex-1 flex justify-center py-1.5 rounded-control text-xs transition-colors cursor-pointer ${
                 theme.theme === value
                   ? "bg-(--color-surface) text-(--color-text-primary)"
                   : "text-(--color-text-secondary) hover:text-(--color-text-primary)"
@@ -89,15 +89,15 @@ export const Sidebar = observer(({ activePage, onNavigate }: SidebarProps) => {
               uuid={auth.uuid}
               username={auth.username}
               size={32}
-              className="rounded-full"
+              className="rounded-pill"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate text-(--color-text-primary)">
+              <p className="text-xs font-body truncate text-(--color-text-primary)">
                 {auth.username}
               </p>
               <button
                 onClick={() => auth.signOut()}
-                className="text-[10px] text-(--color-text-secondary) hover:text-(--color-text-primary) cursor-pointer"
+                className="text-micro text-(--color-text-secondary) hover:text-(--color-text-primary) cursor-pointer"
               >
                 Sign out
               </button>
@@ -106,7 +106,7 @@ export const Sidebar = observer(({ activePage, onNavigate }: SidebarProps) => {
         ) : (
           <button
             onClick={() => onNavigate("auth")}
-            className="w-full py-2 rounded-xl bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-medium transition-colors cursor-pointer"
+            className="w-full py-2 rounded-card bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-sm font-body transition-colors cursor-pointer"
           >
             Sign In
           </button>

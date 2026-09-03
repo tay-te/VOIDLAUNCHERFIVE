@@ -69,7 +69,7 @@ export function CustomCursor() {
       {/* Outer ring — trails behind */}
       <div
         ref={ringRef}
-        className="fixed top-0 left-0 pointer-events-none z-[99999] rounded-full border transition-[width,height,border-color,opacity] duration-200"
+        className="fixed top-0 left-0 pointer-events-none z-[99999] rounded-pill border transition-[width,height,border-color,opacity] duration-200"
         style={{
           width: hovering ? 44 : 32,
           height: hovering ? 44 : 32,
@@ -86,7 +86,7 @@ export function CustomCursor() {
       {/* Inner dot — instant follow */}
       <div
         ref={dotRef}
-        className="fixed top-0 left-0 pointer-events-none z-[99999] rounded-full transition-[width,height,opacity] duration-150"
+        className="fixed top-0 left-0 pointer-events-none z-[99999] rounded-pill transition-[width,height,opacity] duration-150"
         style={{
           width: clicking ? 3 : hovering ? 6 : 5,
           height: clicking ? 3 : hovering ? 6 : 5,

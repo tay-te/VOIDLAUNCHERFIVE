@@ -1,0 +1,1766 @@
+<title>Four Ways to Build VOID</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   THE WALL &mdash; presentation chrome. Committed single ground (a crit wall),
+   painted explicitly so it holds on any host theme.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --wall:        #131513;
+  --wall-2:      #1b1e1a;
+  --wall-line:   #2c302a;
+  --wall-ink:    #e9ece5;
+  --wall-ink-2:  #979d90;
+  --wall-ink-3:  #6a7064;
+  --wall-sage:   #9db38a;
+  --wall-mono:   ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --wall-sans:   "Avenir Next", "Helvetica Neue", -apple-system, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--wall);
+  color: var(--wall-ink);
+  font-family: var(--wall-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:focus-visible {
+  outline: 2px solid var(--wall-sage);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.wrap {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 28px 96px;
+}
+
+/* ── masthead ─────────────────────────────────────────────────────────── */
+.masthead {
+  padding: 52px 0 30px;
+  border-bottom: 1px solid var(--wall-line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 40px;
+  align-items: end;
+}
+.masthead h1 {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 52px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+.masthead h1 i {
+  font-style: normal;
+  color: var(--wall-sage);
+}
+.masthead p {
+  margin: 16px 0 0;
+  max-width: 60ch;
+  color: var(--wall-ink-2);
+  font-size: 16px;
+}
+.stamp {
+  font-family: var(--wall-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wall-ink-3);
+  text-align: right;
+  line-height: 2;
+  white-space: nowrap;
+}
+.stamp b { color: var(--wall-ink-2); font-weight: 500; }
+
+/* ── tab bar ──────────────────────────────────────────────────────────── */
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  background: color-mix(in srgb, var(--wall) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--wall-line);
+  margin-bottom: 44px;
+}
+.tab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--wall-ink-2);
+  font-family: var(--wall-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 9px 15px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.16s, background 0.16s, border-color 0.16s;
+}
+.tab:hover { color: var(--wall-ink); background: var(--wall-2); }
+.tab[aria-selected="true"] {
+  color: var(--wall);
+  background: var(--wall-sage);
+  border-color: var(--wall-sage);
+  font-weight: 600;
+}
+.tab .idx { opacity: 0.55; margin-right: 8px; }
+.tab[aria-selected="true"] .idx { opacity: 0.65; }
+
+/* ── deck header ──────────────────────────────────────────────────────── */
+.deck[hidden] { display: none; }
+.deck-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 48px;
+  align-items: start;
+  margin-bottom: 30px;
+}
+.deck-head h2 {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.deck-head .thesis {
+  margin: 14px 0 0;
+  font-size: 17px;
+  color: var(--wall-ink-2);
+  max-width: 52ch;
+}
+.risk {
+  border-left: 2px solid var(--wall-line);
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--wall-ink-2);
+  line-height: 1.6;
+}
+.risk dt {
+  font-family: var(--wall-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wall-ink-3);
+  margin-bottom: 4px;
+}
+.risk dd { margin: 0 0 12px; }
+.risk dd:last-child { margin-bottom: 0; }
+
+/* ── stage: holds the app mock ────────────────────────────────────────── */
+.stage {
+  overflow-x: auto;
+  overflow-y: hidden; /* keeps the wheel chaining to the page instead of dying here */
+  padding: 24px 24px 34px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(45deg, #191c18 0 10px, #161915 10px 20px);
+  border: 1px solid var(--wall-line);
+}
+.stage::-webkit-scrollbar { height: 8px; }
+.stage::-webkit-scrollbar-thumb { background: var(--wall-line); border-radius: 4px; }
+
+/* ── spec strip below each mock ───────────────────────────────────────── */
+.spec {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--wall-line);
+  border: 1px solid var(--wall-line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.spec section {
+  background: var(--wall-2);
+  padding: 20px 22px;
+}
+.spec h3 {
+  margin: 0 0 14px;
+  font-family: var(--wall-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wall-ink-3);
+  font-weight: 500;
+}
+.spec p { margin: 0; font-size: 13.5px; color: var(--wall-ink-2); line-height: 1.6; }
+.spec p + p { margin-top: 9px; }
+.spec b { color: var(--wall-ink); font-weight: 500; }
+
+.swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.sw { min-width: 0; }
+.sw i {
+  display: block;
+  height: 38px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.09);
+}
+.sw span {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--wall-mono);
+  font-size: 8px;
+  color: var(--wall-ink-3);
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.typerow { margin-bottom: 14px; }
+.typerow:last-child { margin-bottom: 0; }
+.typerow em {
+  display: block;
+  font-style: normal;
+  font-family: var(--wall-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wall-ink-3);
+  margin-bottom: 3px;
+}
+.typerow strong { font-weight: 400; font-size: 19px; color: var(--wall-ink); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THE APP MOCK &mdash; shared structure, driven entirely by tokens.
+   Each direction re-declares the token block; overrides below are the
+   places where a direction needs more than a token can express.
+   ═══════════════════════════════════════════════════════════════════════ */
+.app {
+  width: 1160px;
+  height: 748px;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: var(--r-window, 12px);
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 13px;
+  line-height: 1.5;
+  border: var(--bw, 1px) solid var(--line);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  position: relative;
+}
+
+/* rail */
+.rail {
+  background: var(--rail-bg, var(--panel));
+  border-right: var(--bw, 1px) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 14px;
+  gap: 18px;
+  min-height: 0;
+}
+.dots { display: flex; gap: 7px; padding: 2px 4px 0; }
+.dots i {
+  width: 11px; height: 11px; border-radius: 50%; display: block;
+}
+.brand { display: flex; align-items: center; gap: 11px; padding: 0 4px; }
+.brand .mark {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--mark-bg, var(--accent));
+  color: var(--on-accent);
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+  flex-shrink: 0;
+}
+.brand .name {
+  font-family: var(--f-display);
+  font-weight: var(--brand-weight, 700);
+  font-size: 16px;
+  letter-spacing: var(--brand-track, -0.02em);
+  line-height: 1.1;
+}
+.brand .sub {
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.who {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  background: var(--card);
+  border: var(--bw, 1px) solid var(--line);
+}
+.who .face {
+  width: 28px; height: 28px; flex-shrink: 0;
+  border-radius: var(--r-face, 4px);
+  background: linear-gradient(150deg, #b5764a, #8a5433);
+  position: relative;
+  overflow: hidden;
+}
+.who .face::before {
+  content: ""; position: absolute; inset: 0 0 58% 0;
+  background: #3a2a1c;
+}
+.who .nm { font-weight: 600; font-size: 12.5px; }
+.who .st {
+  font-family: var(--f-mono);
+  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ok); display: flex; align-items: center; gap: 5px; margin-top: 2px;
+}
+.who .st::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ok); }
+
+.railcap {
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0 4px;
+  margin-bottom: -8px;
+}
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav a {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  border: var(--bw, 1px) solid transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.nav a:hover { background: var(--card); color: var(--ink); }
+.nav a[aria-current] {
+  background: var(--nav-on-bg, var(--card));
+  color: var(--nav-on-ink, var(--accent));
+  border-color: var(--nav-on-line, var(--line));
+  font-weight: 600;
+}
+.gl { width: 15px; height: 15px; flex-shrink: 0; display: block; }
+
+.recent { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; }
+.rec {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 9px;
+  border-radius: var(--r-sm);
+  border: var(--bw, 1px) solid var(--line);
+  background: var(--card);
+}
+.rec .tile {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: var(--r-face, 4px);
+  display: grid; place-items: center;
+  font-family: var(--f-display);
+  font-weight: 800; font-size: 12px; color: #fff;
+}
+.rec .t { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec .m { font-family: var(--f-mono); font-size: 9px; color: var(--ink-3); letter-spacing: 0.04em; }
+
+.railfoot {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: var(--bw, 1px) solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* main */
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--main-bg, var(--ground));
+  position: relative;
+  overflow: hidden;
+}
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 16px 24px;
+  border-bottom: var(--bw, 1px) solid var(--line);
+  flex-shrink: 0;
+}
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.topbar h1 {
+  margin: 3px 0 0;
+  font-family: var(--f-display);
+  font-size: var(--h1, 22px);
+  font-weight: var(--h1-weight, 700);
+  letter-spacing: var(--h1-track, -0.025em);
+  line-height: 1.05;
+}
+.tbtns { display: flex; gap: 8px; flex-shrink: 0; }
+.btn {
+  appearance: none;
+  font: inherit;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 14px;
+  border-radius: var(--r-sm);
+  border: var(--bw, 1px) solid var(--line);
+  background: var(--card);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.08s;
+}
+.btn:hover { color: var(--ink); background: var(--card-2, var(--card)); }
+.btn:active { transform: translateY(1px); }
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 296px;
+  gap: var(--gap, 18px);
+  padding: var(--pad, 22px) 24px 24px;
+  overflow: hidden;
+}
+.col { display: flex; flex-direction: column; gap: var(--gap, 18px); min-height: 0; }
+
+.card {
+  background: var(--card);
+  border: var(--bw, 1px) solid var(--line);
+  border-radius: var(--r);
+  padding: 20px;
+}
+
+/* hero */
+.hero { display: flex; flex-direction: column; gap: 18px; }
+.heroTop { display: flex; align-items: flex-start; gap: 18px; }
+.heroMark {
+  width: 66px; height: 66px; flex-shrink: 0;
+  border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  font-family: var(--f-display);
+  font-size: 30px; font-weight: 800; color: #fff;
+  letter-spacing: -0.04em;
+  background: linear-gradient(150deg, #4f9a3f, #2f6f2c);
+}
+.heroName {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: var(--h2, 30px);
+  font-weight: var(--h2-weight, 800);
+  letter-spacing: var(--h2-track, -0.035em);
+  line-height: 1;
+}
+.meta {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 9px;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.meta s { text-decoration: none; color: var(--ink-3); }
+.byline { margin: 10px 0 0; color: var(--ink-3); font-size: 12.5px; }
+
+.launchRow { display: flex; align-items: center; gap: 10px; }
+.launch {
+  appearance: none;
+  font-family: var(--f-display);
+  font-size: var(--cta, 16px);
+  font-weight: var(--cta-weight, 700);
+  letter-spacing: var(--cta-track, -0.01em);
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: var(--cta-pad, 14px 30px);
+  border-radius: var(--r-sm);
+  border: var(--bw, 1px) solid transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.08s, box-shadow 0.2s;
+  flex: var(--cta-flex, 0 0 auto);
+}
+.launch:hover { filter: brightness(1.08); }
+.launch:active { transform: translateY(1px); }
+.launch .tri { width: 0; height: 0; border-left: 9px solid currentColor; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+.kbd {
+  font-family: var(--f-mono);
+  font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3);
+  display: flex; align-items: center; gap: 5px;
+}
+.kbd b {
+  font-weight: 500;
+  border: 1px solid var(--line); border-radius: 3px; padding: 2px 5px; color: var(--ink-2);
+}
+
+/* readiness */
+.ready { display: flex; flex-direction: column; }
+.rrow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.rrow:last-child { border-bottom: 0; padding-bottom: 0; }
+.rrow .lbl { font-weight: 600; }
+.rrow .val { margin-left: auto; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.06em; }
+.tick { width: 14px; height: 14px; flex-shrink: 0; color: var(--ok); }
+
+/* stats */
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); row-gap: 18px; }
+.stat { padding: 0 14px; border-left: 1px solid var(--line); }
+.stat:nth-child(odd) { border-left: 0; padding-left: 0; }
+.stat .n {
+  font-family: var(--f-display);
+  font-size: var(--stat, 28px);
+  font-weight: var(--stat-weight, 800);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat .n sup { font-size: 12px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; margin-left: 3px; }
+.stat .l {
+  margin-top: 7px;
+  font-family: var(--f-mono);
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3);
+}
+
+/* skin preview */
+.preview {
+  flex: 1;
+  min-height: 0;
+  display: flex; flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.pvhead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: var(--bw, 1px) solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3);
+}
+.pvstage {
+  flex: 1;
+  position: relative;
+  display: grid; place-items: center;
+  background: var(--stage-bg, var(--card-2, var(--card)));
+  overflow: hidden;
+}
+.pvstage .floor {
+  position: absolute; inset: auto 0 0 0; height: 46%;
+  background-image:
+    linear-gradient(var(--grid, rgba(255,255,255,0.07)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid, rgba(255,255,255,0.07)) 1px, transparent 1px);
+  background-size: 26px 26px;
+  transform: perspective(340px) rotateX(64deg);
+  transform-origin: bottom;
+}
+/* CSS-built voxel character */
+.guy { position: relative; z-index: 2; width: 96px; }
+.guy div { position: absolute; }
+.guy .head { left: 26px; top: 0; width: 44px; height: 44px; background: #b58254; }
+.guy .hair { left: 26px; top: 0; width: 44px; height: 14px; background: #3d2a19; }
+.guy .eyeL, .guy .eyeR { top: 20px; width: 7px; height: 7px; background: #f2f2f2; }
+.guy .eyeL { left: 36px; } .guy .eyeR { left: 53px; }
+.guy .pupL, .guy .pupR { top: 20px; width: 4px; height: 7px; background: #38507e; }
+.guy .pupL { left: 39px; } .guy .pupR { left: 56px; }
+.guy .torso { left: 30px; top: 48px; width: 36px; height: 52px; background: #3f7f4e; }
+.guy .belt { left: 30px; top: 90px; width: 36px; height: 10px; background: #2c5a38; }
+.guy .armL { left: 12px; top: 48px; width: 16px; height: 50px; background: #3f7f4e; }
+.guy .armR { left: 68px; top: 48px; width: 16px; height: 50px; background: #3f7f4e; }
+.guy .handL { left: 12px; top: 86px; width: 16px; height: 12px; background: #b58254; }
+.guy .handR { left: 68px; top: 86px; width: 16px; height: 12px; background: #b58254; }
+.guy .legL { left: 31px; top: 102px; width: 16px; height: 44px; background: #3b4a72; }
+.guy .legR { left: 49px; top: 102px; width: 16px; height: 44px; background: #3b4a72; }
+.guy .bootL { left: 31px; top: 136px; width: 16px; height: 10px; background: #26304a; }
+.guy .bootR { left: 49px; top: 136px; width: 16px; height: 10px; background: #26304a; }
+.guy { height: 146px; }
+
+.pvfoot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px;
+  border-top: var(--bw, 1px) solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.pvfoot b { color: var(--ink-2); font-weight: 600; }
+
+/* side panel bits */
+.panelcap {
+  font-family: var(--f-mono);
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 13px;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--ok-bg);
+  color: var(--ok);
+  font-family: var(--f-mono);
+  font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600;
+  border: var(--bw, 1px) solid var(--ok-line, transparent);
+}
+.chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+.friends { display: flex; flex-direction: column; gap: 9px; }
+.fr { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+.fr .av {
+  width: 24px; height: 24px; flex-shrink: 0; border-radius: var(--r-face, 4px);
+  display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff;
+}
+.fr .w { font-weight: 600; }
+.fr .z { margin-left: auto; font-family: var(--f-mono); font-size: 9px; color: var(--ink-3); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIRECTION 1 &mdash; DEEP FIELD
+   ═══════════════════════════════════════════════════════════════════════ */
+[data-dir="deepfield"] .app {
+  --ground:   #060810;
+  --panel:    #0b0e18;
+  --card:     rgba(255,255,255,0.035);
+  --card-2:   rgba(255,255,255,0.06);
+  --line:     rgba(150,175,255,0.11);
+  --ink:      #eef1f8;
+  --ink-2:    #a3abc4;
+  --ink-3:    #6b7391;
+  --accent:   #7ef0b0;
+  --accent-2: #8b9dff;
+  --on-accent:#04120c;
+  --ok:       #7ef0b0;
+  --ok-bg:    rgba(126,240,176,0.1);
+  --f-display: -apple-system, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --f-body:    -apple-system, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --f-mono:    ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --r: 16px; --r-sm: 11px; --r-face: 7px; --r-window: 14px;
+  --h2: 34px;
+  --stage-bg: radial-gradient(ellipse 70% 60% at 50% 82%, rgba(126,240,176,0.14), transparent 70%), #05070e;
+  --grid: rgba(139,157,255,0.16);
+}
+[data-dir="deepfield"] .main::before {
+  content: "";
+  position: absolute; inset: -30% -10% auto -10%; height: 90%;
+  background:
+    radial-gradient(ellipse 46% 52% at 22% 8%, rgba(126,240,176,0.17), transparent 68%),
+    radial-gradient(ellipse 52% 46% at 78% 0%, rgba(139,157,255,0.20), transparent 66%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+[data-dir="deepfield"] .rail {
+  background: linear-gradient(180deg, rgba(139,157,255,0.07), transparent 40%), #080b14;
+}
+[data-dir="deepfield"] .card {
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+[data-dir="deepfield"] .hero {
+  background: linear-gradient(135deg, rgba(126,240,176,0.09), rgba(139,157,255,0.07) 55%, transparent);
+  border-color: rgba(150,175,255,0.18);
+}
+[data-dir="deepfield"] .launch {
+  background: linear-gradient(105deg, #7ef0b0, #8b9dff);
+  box-shadow: 0 8px 30px rgba(126,240,176,0.22), 0 2px 10px rgba(139,157,255,0.28);
+}
+[data-dir="deepfield"] .brand .mark {
+  background: linear-gradient(140deg, #7ef0b0, #8b9dff);
+}
+[data-dir="deepfield"] .nav a[aria-current] {
+  background: linear-gradient(100deg, rgba(126,240,176,0.16), rgba(139,157,255,0.10));
+  border-color: rgba(126,240,176,0.24);
+  color: #b9f7d5;
+}
+[data-dir="deepfield"] .stat .n {
+  background: linear-gradient(120deg, #eef1f8 30%, #8b9dff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIRECTION 2 &mdash; BLOCKWORK
+   ═══════════════════════════════════════════════════════════════════════ */
+[data-dir="blockwork"] .app {
+  --ground:   #d9d5c8;
+  --panel:    #c8c3b2;
+  --card:     #f0ece0;
+  --card-2:   #e4dfcf;
+  --line:     #1c1a16;
+  --ink:      #1c1a16;
+  --ink-2:    #4c473c;
+  --ink-3:    #6f695b;
+  --accent:   #5aa832;
+  --on-accent:#0d1a06;
+  --ok:       #2f7d20;
+  --ok-bg:    #cfe6c0;
+  --ok-line:  #1c1a16;
+  --f-display: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+  --f-body:    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --f-mono:    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 0px; --r-sm: 0px; --r-face: 0px; --r-window: 0px; --r-pill: 0px;
+  --bw: 2px;
+  --h1: 20px; --h2: 30px; --h2-track: -0.02em; --stat: 29px;
+  --cta: 15px; --cta-track: 0.06em; --cta-pad: 15px 28px;
+  --gap: 14px;
+  --stage-bg: #b9b4a2;
+  --grid: rgba(28,26,22,0.16);
+  --mark-bg: #1c1a16;
+}
+[data-dir="blockwork"] .app {
+  border-width: 3px;
+  box-shadow: 14px 14px 0 rgba(0,0,0,0.42);
+}
+[data-dir="blockwork"] .main {
+  background-image: repeating-linear-gradient(0deg, rgba(28,26,22,0.035) 0 1px, transparent 1px 16px),
+                    repeating-linear-gradient(90deg, rgba(28,26,22,0.035) 0 1px, transparent 1px 16px);
+}
+[data-dir="blockwork"] .card { box-shadow: 5px 5px 0 rgba(28,26,22,0.85); }
+[data-dir="blockwork"] .hero { background: #f6f3e8; }
+[data-dir="blockwork"] .launch {
+  border: 3px solid #1c1a16;
+  box-shadow: 5px 5px 0 #1c1a16;
+  text-transform: uppercase;
+  color: #f4f2e6;
+  background: #4d9a2a;
+}
+[data-dir="blockwork"] .launch:hover { filter: none; background: #59ad30; }
+[data-dir="blockwork"] .launch:active { transform: translate(4px, 4px); box-shadow: 1px 1px 0 #1c1a16; }
+[data-dir="blockwork"] .btn { box-shadow: 3px 3px 0 rgba(28,26,22,0.85); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; }
+[data-dir="blockwork"] .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(28,26,22,0.85); }
+[data-dir="blockwork"] .dots i { border-radius: 0; border: 2px solid #1c1a16; }
+[data-dir="blockwork"] .brand .mark { color: #8ede5c; }
+[data-dir="blockwork"] .nav a { border-color: transparent; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; font-weight: 700; }
+[data-dir="blockwork"] .nav a[aria-current] { background: #1c1a16; color: #d9f0c4; border-color: #1c1a16; }
+[data-dir="blockwork"] .nav a[aria-current] .gl { color: #8ede5c; }
+[data-dir="blockwork"] .heroMark {
+  background: #5aa832;
+  border: 3px solid #1c1a16;
+  box-shadow: 4px 4px 0 #1c1a16;
+  color: #f4f2e6;
+}
+[data-dir="blockwork"] .rec .tile, [data-dir="blockwork"] .fr .av { border: 2px solid #1c1a16; }
+[data-dir="blockwork"] .topbar { background: #1c1a16; color: #f0ece0; border-bottom-width: 3px; }
+[data-dir="blockwork"] .topbar h1 { color: #f6f3e8; }
+[data-dir="blockwork"] .topbar .eyebrow { color: #a8a294; }
+[data-dir="blockwork"] .topbar .btn { background: #33302a; color: #e6e2d6; border-color: #f0ece0; box-shadow: 3px 3px 0 rgba(0,0,0,0.5); }
+[data-dir="blockwork"] .rail { border-right-width: 3px; }
+[data-dir="blockwork"] .stat .n { font-family: "Arial Black", sans-serif; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIRECTION 3 &mdash; CONSOLE
+   ═══════════════════════════════════════════════════════════════════════ */
+[data-dir="console"] .app {
+  --ground:   #101211;
+  --panel:    #0b0d0c;
+  --card:     #161917;
+  --card-2:   #1d211e;
+  --line:     #262b28;
+  --ink:      #e8ebe6;
+  --ink-2:    #9aa199;
+  --ink-3:    #666d64;
+  --accent:   #d8dcd6;
+  --accent-2: #f0a93a;
+  --on-accent:#0b0d0c;
+  --ok:       #6fcf8f;
+  --ok-bg:    rgba(111,207,143,0.09);
+  --ok-line:  rgba(111,207,143,0.28);
+  --f-display: "Helvetica Neue", -apple-system, system-ui, sans-serif;
+  --f-body:    "Helvetica Neue", -apple-system, system-ui, sans-serif;
+  --f-mono:    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 3px; --r-sm: 2px; --r-face: 2px; --r-window: 5px; --r-pill: 2px;
+  --h1: 18px; --h1-weight: 500; --h1-track: -0.01em;
+  --h2: 26px; --h2-weight: 500; --h2-track: -0.02em;
+  --stat: 27px; --stat-weight: 300;
+  --cta: 12px; --cta-weight: 600; --cta-track: 0.18em; --cta-pad: 14px 26px;
+  --gap: 12px; --pad: 16px;
+  --stage-bg: #0a0c0b;
+  --grid: rgba(232,235,230,0.06);
+}
+[data-dir="console"] .app { font-size: 12.5px; }
+[data-dir="console"] .card { padding: 16px; }
+[data-dir="console"] .launch { text-transform: uppercase; }
+[data-dir="console"] .btn {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; font-weight: 500; padding: 8px 12px;
+}
+[data-dir="console"] .heroMark {
+  background: #1d211e; border: 1px solid #2f352f; color: #e8ebe6;
+  font-family: var(--f-mono); font-size: 22px; font-weight: 500;
+}
+[data-dir="console"] .brand .mark { background: #e8ebe6; color: #0b0d0c; }
+[data-dir="console"] .nav a[aria-current] { background: #1d211e; color: #e8ebe6; border-color: #2f352f; }
+[data-dir="console"] .nav a[aria-current]::before {
+  content: ""; width: 2px; height: 15px; background: var(--accent-2); margin: 0 -6px 0 -4px;
+}
+[data-dir="console"] .meta { color: var(--ink-3); }
+[data-dir="console"] .stats { border-top: 1px solid var(--line); padding-top: 14px; }
+[data-dir="console"] .rrow .val { color: var(--ok); }
+[data-dir="console"] .rrow.warn .tick { color: var(--accent-2); }
+[data-dir="console"] .rrow.warn .val { color: var(--accent-2); }
+[data-dir="console"] .hero { border-left: 2px solid var(--ok); }
+[data-dir="console"] .dots i { border-radius: 2px; width: 9px; height: 9px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIRECTION 4 &mdash; FIELD MANUAL
+   ═══════════════════════════════════════════════════════════════════════ */
+[data-dir="fieldmanual"] .app {
+  --ground:   #e8e6df;
+  --panel:    #e1dfd6;
+  --card:     #f3f2ec;
+  --card-2:   #eae8e0;
+  --line:     #cbc8bb;
+  --ink:      #191b21;
+  --ink-2:    #4b4f5a;
+  --ink-3:    #82868f;
+  --accent:   #1f3a93;
+  --accent-2: #1f3a93;
+  --on-accent:#f3f2ec;
+  --ok:       #2f6b45;
+  --ok-bg:    rgba(47,107,69,0.09);
+  --ok-line:  rgba(47,107,69,0.3);
+  --f-display: "Iowan Old Style", "Hoefler Text", "Palatino Linotype", Georgia, serif;
+  --f-body:    "Iowan Old Style", "Hoefler Text", "Palatino Linotype", Georgia, serif;
+  --f-mono:    "Avenir Next", "Helvetica Neue", system-ui, sans-serif;
+  --r: 2px; --r-sm: 2px; --r-face: 2px; --r-window: 3px; --r-pill: 2px;
+  --h1: 21px; --h1-weight: 600; --h1-track: -0.015em;
+  --h2: 36px; --h2-weight: 400; --h2-track: -0.025em;
+  --stat: 34px; --stat-weight: 400;
+  --cta: 17px; --cta-weight: 600; --cta-track: -0.01em; --cta-pad: 13px 30px;
+  --gap: 0px; --pad: 0px;
+  --stage-bg: #e4e2d9;
+  --grid: rgba(25,27,33,0.09);
+}
+[data-dir="fieldmanual"] .app { box-shadow: 0 26px 60px rgba(0,0,0,0.4); }
+[data-dir="fieldmanual"] .body { padding: 0; gap: 0; }
+[data-dir="fieldmanual"] .col:first-child { padding: 26px 30px; }
+[data-dir="fieldmanual"] .col:last-child { padding: 26px 24px; border-left: 1px solid var(--line); background: var(--panel); }
+[data-dir="fieldmanual"] .card {
+  background: none; border: 0; border-top: 1px solid var(--line);
+  padding: 22px 0 0; border-radius: 0;
+}
+[data-dir="fieldmanual"] .col > .card:first-child { border-top: 0; padding-top: 0; }
+[data-dir="fieldmanual"] .col:last-child > .card + .card { margin-top: 20px; }
+[data-dir="fieldmanual"] .col:first-child > .card + .card { margin-top: 22px; }
+[data-dir="fieldmanual"] .preview { border: 1px solid var(--line); background: var(--card); }
+[data-dir="fieldmanual"] .topbar { background: var(--card); }
+[data-dir="fieldmanual"] .heroMark {
+  background: #191b21; color: #f3f2ec; border-radius: 2px;
+  font-family: var(--f-display); font-weight: 700; font-size: 34px;
+}
+[data-dir="fieldmanual"] .brand .mark { background: #191b21; color: #f3f2ec; font-family: var(--f-display); }
+[data-dir="fieldmanual"] .brand .name { font-family: var(--f-display); font-weight: 700; letter-spacing: -0.01em; }
+[data-dir="fieldmanual"] .who, [data-dir="fieldmanual"] .rec {
+  background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 9px 4px;
+}
+[data-dir="fieldmanual"] .nav a { border-radius: 2px; }
+[data-dir="fieldmanual"] .nav a[aria-current] { background: #191b21; color: #f3f2ec; border-color: #191b21; }
+[data-dir="fieldmanual"] .nav a[aria-current] .gl { color: #a9b6e8; }
+[data-dir="fieldmanual"] .heroName { font-style: normal; }
+[data-dir="fieldmanual"] .byline { font-style: italic; font-size: 13.5px; }
+[data-dir="fieldmanual"] .meta { font-size: 10px; letter-spacing: 0.16em; font-weight: 500; }
+[data-dir="fieldmanual"] .launch { box-shadow: none; }
+[data-dir="fieldmanual"] .stat .n sup { font-style: italic; color: var(--accent); }
+[data-dir="fieldmanual"] .btn { font-family: var(--f-mono); font-size: 11px; font-weight: 500; }
+[data-dir="fieldmanual"] .rec .tile, [data-dir="fieldmanual"] .fr .av { font-family: var(--f-display); }
+[data-dir="fieldmanual"] .dots i { width: 10px; height: 10px; }
+
+/* ── overview grid ────────────────────────────────────────────────────── */
+.overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 18px; }
+.ovcard {
+  border: 1px solid var(--wall-line);
+  border-radius: 5px;
+  background: var(--wall-2);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.ovtop { height: 116px; display: grid; place-items: center; position: relative; }
+.ovtop .lbl {
+  font-family: var(--wall-mono); font-size: 10px; letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.ovbody { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.ovbody h3 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.ovbody p { margin: 0; font-size: 13.5px; color: var(--wall-ink-2); line-height: 1.55; }
+.ovmeta {
+  margin-top: auto;
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-family: var(--wall-mono); font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--wall-ink-3);
+  padding-top: 12px; border-top: 1px solid var(--wall-line);
+}
+.ovmeta b { color: var(--wall-ink-2); font-weight: 500; }
+
+.verdict {
+  margin-top: 44px;
+  border: 1px solid var(--wall-line);
+  border-left: 3px solid var(--wall-sage);
+  border-radius: 4px;
+  background: var(--wall-2);
+  padding: 26px 30px;
+}
+.verdict h3 { margin: 0 0 12px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.verdict p { margin: 0 0 12px; color: var(--wall-ink-2); font-size: 14.5px; max-width: 72ch; }
+.verdict p:last-child { margin-bottom: 0; }
+.verdict b { color: var(--wall-ink); font-weight: 500; }
+
+@media (max-width: 860px) {
+  .masthead, .deck-head { grid-template-columns: 1fr; gap: 24px; }
+  .stamp { text-align: left; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Four ways to build <i>VOID</i></h1>
+      <p>The launcher currently wears the same neutral-grey-and-green dashboard as every other Electron app shipped this year. These are four home screens that don't. Same data, same components, four different opinions about what a Minecraft launcher should feel like.</p>
+    </div>
+    <div class="stamp">
+      Design study<br />
+      <b>v2.0.31</b> &middot; Home screen<br />
+      Aug 2026
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Design directions">
+    <button class="tab" role="tab" aria-selected="true" aria-controls="p-overview" id="t-overview" type="button">Overview</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p-deepfield" id="t-deepfield" type="button"><span class="idx">01</span>Deep Field</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p-blockwork" id="t-blockwork" type="button"><span class="idx">02</span>Blockwork</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p-console" id="t-console" type="button"><span class="idx">03</span>Console</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p-fieldmanual" id="t-fieldmanual" type="button"><span class="idx">04</span>Field Manual</button>
+  </nav>
+
+  <!-- ══════════════════════════ OVERVIEW ══════════════════════════ -->
+  <div class="deck" id="p-overview" role="tabpanel" aria-labelledby="t-overview">
+    <div class="overview">
+
+      <article class="ovcard">
+        <div class="ovtop" style="background: radial-gradient(ellipse 60% 70% at 30% 20%, rgba(126,240,176,0.30), transparent 65%), radial-gradient(ellipse 60% 70% at 75% 10%, rgba(139,157,255,0.34), transparent 62%), #060810;">
+          <span class="lbl" style="color:#9df3c4;">Deep Field</span>
+        </div>
+        <div class="ovbody">
+          <h3>Cinematic depth</h3>
+          <p>Blue-black ground, a mint-to-iris gradient used as light rather than as a dot of neon, glass panels that actually stack. Closest to where you are now &mdash; the same tokens, pushed until they mean something.</p>
+          <div class="ovmeta"><span>Risk <b>low</b></span><span>Effort <b>2 days</b></span><span>Dark only</span></div>
+        </div>
+      </article>
+
+      <article class="ovcard">
+        <div class="ovtop" style="background: #d9d5c8; background-image: repeating-linear-gradient(0deg, rgba(28,26,22,0.07) 0 1px, transparent 1px 16px), repeating-linear-gradient(90deg, rgba(28,26,22,0.07) 0 1px, transparent 1px 16px);">
+          <span class="lbl" style="color:#1c1a16; font-family:'Arial Black',sans-serif; letter-spacing:0.12em; background:#5aa832; padding:8px 14px; border:3px solid #1c1a16; box-shadow:5px 5px 0 #1c1a16;">Blockwork</span>
+        </div>
+        <div class="ovbody">
+          <h3>Voxel brutalism</h3>
+          <p>Three-pixel black borders, hard offset shadows, no rounded corners anywhere, buttons that physically press down. The only direction that looks like it belongs to Minecraft and nothing else.</p>
+          <div class="ovmeta"><span>Risk <b>high</b></span><span>Effort <b>5 days</b></span><span>Light + dark</span></div>
+        </div>
+      </article>
+
+      <article class="ovcard">
+        <div class="ovtop" style="background:#101211; background-image: linear-gradient(rgba(232,235,230,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(232,235,230,0.05) 1px, transparent 1px); background-size: 22px 22px;">
+          <span class="lbl" style="color:#e8ebe6; border-left:2px solid #f0a93a; padding-left:12px;">Console</span>
+        </div>
+        <div class="ovbody">
+          <h3>Precision instrument</h3>
+          <p>Hairline rules, monospace readouts, dense rows, and one rule held absolutely: colour appears only where it carries state. Everything decorative is greyscale. Built for people running 340-mod packs.</p>
+          <div class="ovmeta"><span>Risk <b>medium</b></span><span>Effort <b>3 days</b></span><span>Dark first</span></div>
+        </div>
+      </article>
+
+      <article class="ovcard">
+        <div class="ovtop" style="background:#e8e6df;">
+          <span class="lbl" style="color:#191b21; font-family:'Iowan Old Style',Georgia,serif; font-size:22px; letter-spacing:-0.02em; text-transform:none; border-bottom:1px solid #1f3a93; padding-bottom:4px;">Field Manual</span>
+        </div>
+        <div class="ovbody">
+          <h3>Printed reference</h3>
+          <p>Cool paper, an old-style serif, ultramarine, and rules instead of cards. The launcher as a well-set technical book. Calm where the others are loud, and the only one that reads as premium in daylight.</p>
+          <div class="ovmeta"><span>Risk <b>high</b></span><span>Effort <b>4 days</b></span><span>Light only</span></div>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="verdict">
+      <h3>How to read these</h3>
+      <p>Every screen below is the same home page with the same data: <b>Bittontayte</b>, three instances, <b>All The Mods 9</b> selected, Java 21.0.3, two friends on. Nothing is invented to flatter a direction &mdash; if a layout struggles with a 342-mod pack, you'll see it struggle here.</p>
+      <p>They also share one stylesheet. Each direction is a block of CSS custom properties plus a short override list, which is exactly how it would land in <b>index.css</b> &mdash; the structural markup never changes. That's the practical argument for picking two and shipping them as themes rather than picking one and rewriting components.</p>
+      <p>My recommendation: <b>Console</b> as the default and <b>Field Manual</b> as the light theme. Deep Field is the safe answer and will look like every other launcher in a year; Blockwork is the memorable answer but it will fight you on every dense screen &mdash; the Browse grid especially.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ 01 DEEP FIELD ══════════════════════════ -->
+  <div class="deck" id="p-deepfield" role="tabpanel" aria-labelledby="t-deepfield" data-dir="deepfield" hidden>
+    <div class="deck-head">
+      <div>
+        <h2>01 &mdash; Deep Field</h2>
+        <p class="thesis">Depth as the organising idea. The background is a lit space, not a flat colour; panels float in it with real blur and a hairline of light along their top edge. Accent is a mint-to-iris gradient, so it reads as illumination instead of a highlighter.</p>
+      </div>
+      <dl class="risk">
+        <dt>Where it wins</dt>
+        <dd>Screenshots. This is the one that sells the launcher on a store page or a Discord post.</dd>
+        <dt>Where it hurts</dt>
+        <dd>Backdrop blur on many panels costs real frames in Electron. And it's a crowded look &mdash; half the tools you use already do it.</dd>
+      </dl>
+    </div>
+
+    <div class="stage">
+      <div class="app">
+        <aside class="rail">
+          <div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+          <div class="brand">
+            <div class="mark">V</div>
+            <div>
+              <div class="name">VOID</div>
+              <div class="sub">Launcher</div>
+            </div>
+          </div>
+          <div class="who">
+            <div class="face"></div>
+            <div>
+              <div class="nm">Bittontayte</div>
+              <div class="st">Online</div>
+            </div>
+          </div>
+          <nav class="nav">
+            <a href="#" aria-current="page"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Home</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Browse</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Instances</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5"/></svg>Friends</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></svg>Settings</a>
+          </nav>
+          <div class="railcap">Recent</div>
+          <div class="recent">
+            <div class="rec">
+              <div class="tile" style="background:#4f9a3f">A</div>
+              <div style="min-width:0">
+                <div class="t">All The Mods 9</div>
+                <div class="m">Forge &middot; 342</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#8b9dff">C</div>
+              <div style="min-width:0">
+                <div class="t">Cobblemon Spring</div>
+                <div class="m">Fabric &middot; 84</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#6b7391">V</div>
+              <div style="min-width:0">
+                <div class="t">Vanilla 1.21.4</div>
+                <div class="m">Vanilla &middot; 0</div>
+              </div>
+            </div>
+          </div>
+          <div class="railfoot"><span>v2.0.31</span><span>Sign out</span></div>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div>
+              <div class="eyebrow">Good afternoon</div>
+              <h1>Three worlds are waiting</h1>
+            </div>
+            <div class="tbtns">
+              <button class="btn" type="button">Add instance</button>
+              <button class="btn" type="button">Import code</button>
+            </div>
+          </div>
+
+          <div class="body">
+            <div class="col">
+              <div class="card hero">
+                <div class="heroTop">
+                  <div class="heroMark">A</div>
+                  <div style="min-width:0;flex:1">
+                    <h2 class="heroName">All The Mods 9</h2>
+                    <div class="meta"><span>1.20.1</span><s>/</s><span>Forge</span><s>/</s><span>342 mods</span></div>
+                    <p class="byline">Last played Tuesday, 9:14 PM &middot; 8 GB allocated</p>
+                  </div>
+                  <span class="chip">Ready</span>
+                </div>
+                <div class="launchRow">
+                  <button class="launch" type="button"><span class="tri"></span> Launch</button>
+                  <button class="btn" type="button">Manage mods</button>
+                  <button class="btn" type="button">Open folder</button>
+                  <span class="kbd" style="margin-left:auto"><b>&#8984;</b><b>&#8629;</b></span>
+                </div>
+              </div>
+
+              <div class="card preview">
+                <div class="pvhead"><span>Skin preview</span><span>Drag to rotate</span></div>
+                <div class="pvstage">
+                  <div class="floor"></div>
+                  <div class="guy">
+                    <div class="head"></div><div class="hair"></div>
+                    <div class="eyeL"></div><div class="eyeR"></div><div class="pupL"></div><div class="pupR"></div>
+                    <div class="torso"></div><div class="belt"></div>
+                    <div class="armL"></div><div class="armR"></div><div class="handL"></div><div class="handR"></div>
+                    <div class="legL"></div><div class="legR"></div><div class="bootL"></div><div class="bootR"></div>
+                  </div>
+                </div>
+                <div class="pvfoot"><b>Bittontayte</b> &middot; Microsoft account &middot; Classic model</div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="card">
+                <div class="panelcap">Launch readiness</div>
+                <div class="ready">
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Game files</span><span class="val">Up to date</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Mods</span><span class="val">342 enabled</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Java</span><span class="val">21.0.3</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Memory</span><span class="val">8 GB</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Friends</div>
+                <div class="friends">
+                  <div class="fr"><span class="av" style="background:#8b9dff">M</span><span class="w">Marlowe</span><span class="z">In game</span></div>
+                  <div class="fr"><span class="av" style="background:#7ef0b0;color:#04120c">P</span><span class="w">Pinefall</span><span class="z">Browsing</span></div>
+                  <div class="fr" style="opacity:0.45"><span class="av" style="background:#3a4055">K</span><span class="w">Kestrel</span><span class="z">3d ago</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Library</div>
+                <div class="stats">
+                  <div class="stat"><div class="n">3</div><div class="l">Packs</div></div>
+                  <div class="stat"><div class="n">426</div><div class="l">Mods</div></div>
+                  <div class="stat"><div class="n">14<sup>h</sup></div><div class="l">Week</div></div>
+                  <div class="stat"><div class="n">2</div><div class="l">Online</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div class="spec">
+      <section>
+        <h3>Palette</h3>
+        <div class="swatches">
+          <div class="sw"><i style="background:#060810"></i><span>060810</span></div>
+          <div class="sw"><i style="background:#0b0e18"></i><span>0B0E18</span></div>
+          <div class="sw"><i style="background:#7ef0b0"></i><span>7EF0B0</span></div>
+          <div class="sw"><i style="background:#8b9dff"></i><span>8B9DFF</span></div>
+          <div class="sw"><i style="background:#a3abc4"></i><span>A3ABC4</span></div>
+          <div class="sw"><i style="background:#eef1f8"></i><span>EEF1F8</span></div>
+        </div>
+      </section>
+      <section>
+        <h3>Type</h3>
+        <div class="typerow"><em>Display / body</em><strong>SF Pro</strong></div>
+        <div class="typerow"><em>Data + labels</em><strong style="font-family:var(--wall-mono);font-size:16px">SF Mono</strong></div>
+      </section>
+      <section>
+        <h3>Form</h3>
+        <p><b>16px</b> radius, 1px hairlines tinted toward iris, panels at 3.5% white over the ground.</p>
+        <p>Gradient is reserved for the primary action, the app mark, and stat numerals. Nothing else.</p>
+      </section>
+      <section>
+        <h3>What changes in code</h3>
+        <p>Token swap in <b>index.css</b> plus a gradient utility for <b>.launch-btn</b>. Existing <b>.glass</b> class already does most of this.</p>
+        <p>Cheapest direction to ship.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ 02 BLOCKWORK ══════════════════════════ -->
+  <div class="deck" id="p-blockwork" role="tabpanel" aria-labelledby="t-blockwork" data-dir="blockwork" hidden>
+    <div class="deck-head">
+      <div>
+        <h2>02 &mdash; Blockwork</h2>
+        <p class="thesis">The game is made of cubes, so the interface is too. Three-pixel black outlines, hard shadows offset down-right with zero blur, a 16px block grid showing faintly through every surface, and a launch button that travels four pixels when you press it.</p>
+      </div>
+      <dl class="risk">
+        <dt>Where it wins</dt>
+        <dd>Identity. Nobody confuses this with a generic Electron app, and the physicality makes clicking things feel good.</dd>
+        <dt>Where it hurts</dt>
+        <dd>Density. Hard borders and offset shadows need air &mdash; the Browse grid and mod lists will each need a quieter variant.</dd>
+      </dl>
+    </div>
+
+    <div class="stage">
+      <div class="app">
+        <aside class="rail">
+          <div class="dots"><i style="background:#e0483c"></i><i style="background:#e8b024"></i><i style="background:#5aa832"></i></div>
+          <div class="brand">
+            <div class="mark">V</div>
+            <div>
+              <div class="name">VOID</div>
+              <div class="sub">Launcher</div>
+            </div>
+          </div>
+          <div class="who">
+            <div class="face"></div>
+            <div>
+              <div class="nm">Bittontayte</div>
+              <div class="st">Online</div>
+            </div>
+          </div>
+          <nav class="nav">
+            <a href="#" aria-current="page"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Home</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Browse</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Instances</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5"/></svg>Friends</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></svg>Settings</a>
+          </nav>
+          <div class="railcap">Recent</div>
+          <div class="recent">
+            <div class="rec">
+              <div class="tile" style="background:#5aa832">A</div>
+              <div style="min-width:0">
+                <div class="t">All The Mods 9</div>
+                <div class="m">Forge &middot; 342</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#3f6fb5">C</div>
+              <div style="min-width:0">
+                <div class="t">Cobblemon Spring</div>
+                <div class="m">Fabric &middot; 84</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#8a5a3b">V</div>
+              <div style="min-width:0">
+                <div class="t">Vanilla 1.21.4</div>
+                <div class="m">Vanilla &middot; 0</div>
+              </div>
+            </div>
+          </div>
+          <div class="railfoot"><span>v2.0.31</span><span>Sign out</span></div>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div>
+              <div class="eyebrow">Good afternoon</div>
+              <h1>THREE WORLDS ARE WAITING</h1>
+            </div>
+            <div class="tbtns">
+              <button class="btn" type="button">Add instance</button>
+              <button class="btn" type="button">Import code</button>
+            </div>
+          </div>
+
+          <div class="body">
+            <div class="col">
+              <div class="card hero">
+                <div class="heroTop">
+                  <div class="heroMark">A</div>
+                  <div style="min-width:0;flex:1">
+                    <h2 class="heroName">ALL THE MODS 9</h2>
+                    <div class="meta"><span>1.20.1</span><s>&middot;</s><span>Forge</span><s>&middot;</s><span>342 mods</span></div>
+                    <p class="byline">Last played Tuesday, 9:14 PM &middot; 8 GB allocated</p>
+                  </div>
+                  <span class="chip">Ready</span>
+                </div>
+                <div class="launchRow">
+                  <button class="launch" type="button"><span class="tri"></span> Launch</button>
+                  <button class="btn" type="button">Manage mods</button>
+                  <button class="btn" type="button">Open folder</button>
+                  <span class="kbd" style="margin-left:auto"><b>&#8984;</b><b>&#8629;</b></span>
+                </div>
+              </div>
+
+              <div class="card preview">
+                <div class="pvhead"><span>Skin preview</span><span>Drag to rotate</span></div>
+                <div class="pvstage">
+                  <div class="floor"></div>
+                  <div class="guy">
+                    <div class="head"></div><div class="hair"></div>
+                    <div class="eyeL"></div><div class="eyeR"></div><div class="pupL"></div><div class="pupR"></div>
+                    <div class="torso"></div><div class="belt"></div>
+                    <div class="armL"></div><div class="armR"></div><div class="handL"></div><div class="handR"></div>
+                    <div class="legL"></div><div class="legR"></div><div class="bootL"></div><div class="bootR"></div>
+                  </div>
+                </div>
+                <div class="pvfoot"><b>Bittontayte</b> &middot; Microsoft account &middot; Classic model</div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="card">
+                <div class="panelcap">Launch readiness</div>
+                <div class="ready">
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Game files</span><span class="val">Up to date</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Mods</span><span class="val">342 enabled</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Java</span><span class="val">21.0.3</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Memory</span><span class="val">8 GB</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Friends</div>
+                <div class="friends">
+                  <div class="fr"><span class="av" style="background:#3f6fb5">M</span><span class="w">Marlowe</span><span class="z">In game</span></div>
+                  <div class="fr"><span class="av" style="background:#5aa832">P</span><span class="w">Pinefall</span><span class="z">Browsing</span></div>
+                  <div class="fr" style="opacity:0.45"><span class="av" style="background:#6f695b">K</span><span class="w">Kestrel</span><span class="z">3d ago</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Library</div>
+                <div class="stats">
+                  <div class="stat"><div class="n">3</div><div class="l">Packs</div></div>
+                  <div class="stat"><div class="n">426</div><div class="l">Mods</div></div>
+                  <div class="stat"><div class="n">14<sup>h</sup></div><div class="l">Week</div></div>
+                  <div class="stat"><div class="n">2</div><div class="l">Online</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div class="spec">
+      <section>
+        <h3>Palette</h3>
+        <div class="swatches">
+          <div class="sw"><i style="background:#d9d5c8"></i><span>D9D5C8</span></div>
+          <div class="sw"><i style="background:#f0ece0"></i><span>F0ECE0</span></div>
+          <div class="sw"><i style="background:#1c1a16"></i><span>1C1A16</span></div>
+          <div class="sw"><i style="background:#5aa832"></i><span>5AA832</span></div>
+          <div class="sw"><i style="background:#8a5a3b"></i><span>8A5A3B</span></div>
+          <div class="sw"><i style="background:#3f6fb5"></i><span>3F6FB5</span></div>
+        </div>
+      </section>
+      <section>
+        <h3>Type</h3>
+        <div class="typerow"><em>Display</em><strong style="font-family:'Arial Black',sans-serif;font-size:17px;letter-spacing:-0.02em">Arial Black</strong></div>
+        <div class="typerow"><em>Everything else</em><strong style="font-family:var(--wall-mono);font-size:16px">SF Mono</strong></div>
+      </section>
+      <section>
+        <h3>Form</h3>
+        <p>Radius <b>0</b> everywhere. Borders <b>2&ndash;3px</b> solid ink. Shadows are <b>solid offsets</b>, never blurred.</p>
+        <p>Press states translate the element into its own shadow &mdash; the click has weight.</p>
+      </section>
+      <section>
+        <h3>What changes in code</h3>
+        <p>Token swap plus removing every <b>rounded-*</b> and <b>shadow-*</b> Tailwind class in favour of two utilities.</p>
+        <p>Touches every component file. Biggest lift of the four.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ 03 CONSOLE ══════════════════════════ -->
+  <div class="deck" id="p-console" role="tabpanel" aria-labelledby="t-console" data-dir="console" hidden>
+    <div class="deck-head">
+      <div>
+        <h2>03 &mdash; Console</h2>
+        <p class="thesis">Built for the person running a 342-mod pack who wants to know why it takes 90 seconds to load. Hairline rules, monospace readouts, tight rows, and one hard rule: colour appears only where it carries state. Everything decorative stays greyscale, so amber genuinely means look here.</p>
+      </div>
+      <dl class="risk">
+        <dt>Where it wins</dt>
+        <dd>Scales. Every dense screen you have &mdash; Browse, mod lists, instance detail &mdash; gets easier, not harder.</dd>
+        <dt>Where it hurts</dt>
+        <dd>Cold on first run. A new player sees a control panel, not a game. The onboarding screens need warmth added back deliberately.</dd>
+      </dl>
+    </div>
+
+    <div class="stage">
+      <div class="app">
+        <aside class="rail">
+          <div class="dots"><i style="background:#4a504b"></i><i style="background:#4a504b"></i><i style="background:#4a504b"></i></div>
+          <div class="brand">
+            <div class="mark">V</div>
+            <div>
+              <div class="name">VOID</div>
+              <div class="sub">2.0.31 &middot; stable</div>
+            </div>
+          </div>
+          <div class="who">
+            <div class="face"></div>
+            <div>
+              <div class="nm">Bittontayte</div>
+              <div class="st">Authenticated</div>
+            </div>
+          </div>
+          <nav class="nav">
+            <a href="#" aria-current="page"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Home</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Browse</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Instances</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5"/></svg>Friends</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></svg>Settings</a>
+          </nav>
+          <div class="railcap">Instances &mdash; 3</div>
+          <div class="recent">
+            <div class="rec">
+              <div class="tile" style="background:#2f6b45">A</div>
+              <div style="min-width:0">
+                <div class="t">All The Mods 9</div>
+                <div class="m">forge 47.2.20 &middot; 342</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#3a4a5e">C</div>
+              <div style="min-width:0">
+                <div class="t">Cobblemon Spring</div>
+                <div class="m">fabric 0.15.11 &middot; 84</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#4a504b">V</div>
+              <div style="min-width:0">
+                <div class="t">Vanilla 1.21.4</div>
+                <div class="m">vanilla &middot; 0</div>
+              </div>
+            </div>
+          </div>
+          <div class="railfoot"><span>Java 21.0.3</span><span>Sign out</span></div>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div>
+              <div class="eyebrow">Session &middot; 15 Aug 2026 &middot; 16:42</div>
+              <h1>Home</h1>
+            </div>
+            <div class="tbtns">
+              <button class="btn" type="button">New instance</button>
+              <button class="btn" type="button">Import</button>
+              <button class="btn" type="button">Logs</button>
+            </div>
+          </div>
+
+          <div class="body">
+            <div class="col">
+              <div class="card hero">
+                <div class="heroTop">
+                  <div class="heroMark">A</div>
+                  <div style="min-width:0;flex:1">
+                    <h2 class="heroName">All The Mods 9</h2>
+                    <div class="meta"><span>1.20.1</span><s>/</s><span>forge 47.2.20</span><s>/</s><span>342 mods</span><s>/</s><span>8192 MB</span></div>
+                    <p class="byline">Last launch 12 Aug 21:14 &middot; exit 0 &middot; 2h 41m session</p>
+                  </div>
+                  <span class="chip">Ready</span>
+                </div>
+                <div class="launchRow">
+                  <button class="launch" type="button"><span class="tri"></span> Launch</button>
+                  <button class="btn" type="button">Mods</button>
+                  <button class="btn" type="button">Folder</button>
+                  <button class="btn" type="button">JVM args</button>
+                  <span class="kbd" style="margin-left:auto"><b>&#8984;</b><b>&#8629;</b></span>
+                </div>
+              </div>
+
+              <div class="card preview">
+                <div class="pvhead"><span>Profile &middot; skin</span><span>bittontayte.png &middot; 64&times;64</span></div>
+                <div class="pvstage">
+                  <div class="floor"></div>
+                  <div class="guy">
+                    <div class="head"></div><div class="hair"></div>
+                    <div class="eyeL"></div><div class="eyeR"></div><div class="pupL"></div><div class="pupR"></div>
+                    <div class="torso"></div><div class="belt"></div>
+                    <div class="armL"></div><div class="armR"></div><div class="handL"></div><div class="handR"></div>
+                    <div class="legL"></div><div class="legR"></div><div class="bootL"></div><div class="bootR"></div>
+                  </div>
+                </div>
+                <div class="pvfoot"><b>3d0e&hellip;a91f</b> &middot; Microsoft &middot; classic model</div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="card">
+                <div class="panelcap">Preflight</div>
+                <div class="ready">
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Game files</span><span class="val">OK</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Mods</span><span class="val">342 / 342</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Java runtime</span><span class="val">21.0.3</span></div>
+                  <div class="rrow warn"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4.5 21 20H3z"/><path d="M12 10v4M12 17h.01"/></svg><span class="lbl">Memory headroom</span><span class="val">8 / 16 GB</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Friends &middot; 2 online</div>
+                <div class="friends">
+                  <div class="fr"><span class="av" style="background:#2f6b45">M</span><span class="w">Marlowe</span><span class="z">ATM9</span></div>
+                  <div class="fr"><span class="av" style="background:#3a4a5e">P</span><span class="w">Pinefall</span><span class="z">Idle</span></div>
+                  <div class="fr" style="opacity:0.4"><span class="av" style="background:#333834">K</span><span class="w">Kestrel</span><span class="z">3d</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Library</div>
+                <div class="stats">
+                  <div class="stat"><div class="n">3</div><div class="l">Packs</div></div>
+                  <div class="stat"><div class="n">426</div><div class="l">Mods</div></div>
+                  <div class="stat"><div class="n">14<sup>h</sup></div><div class="l">7d</div></div>
+                  <div class="stat"><div class="n">2</div><div class="l">Online</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div class="spec">
+      <section>
+        <h3>Palette</h3>
+        <div class="swatches">
+          <div class="sw"><i style="background:#101211"></i><span>101211</span></div>
+          <div class="sw"><i style="background:#161917"></i><span>161917</span></div>
+          <div class="sw"><i style="background:#262b28"></i><span>262B28</span></div>
+          <div class="sw"><i style="background:#e8ebe6"></i><span>E8EBE6</span></div>
+          <div class="sw"><i style="background:#6fcf8f"></i><span>6FCF8F</span></div>
+          <div class="sw"><i style="background:#f0a93a"></i><span>F0A93A</span></div>
+        </div>
+      </section>
+      <section>
+        <h3>Type</h3>
+        <div class="typerow"><em>Headings</em><strong style="font-family:'Helvetica Neue',sans-serif;font-weight:500">Helvetica Neue</strong></div>
+        <div class="typerow"><em>All data</em><strong style="font-family:var(--wall-mono);font-size:16px">SF Mono</strong></div>
+      </section>
+      <section>
+        <h3>Form</h3>
+        <p>Radius <b>2&ndash;3px</b>. Rules over fills. The hero carries a 2px state stripe on its left edge &mdash; green ready, amber blocked, red failed.</p>
+        <p>Green and amber are the <b>only</b> hues in the interface.</p>
+      </section>
+      <section>
+        <h3>What changes in code</h3>
+        <p>Token swap, a global radius reduction, and moving instance metadata to <b>tabular-nums</b> mono.</p>
+        <p>Also the only direction that asks for new content &mdash; exit codes, session length, memory headroom.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ 04 FIELD MANUAL ══════════════════════════ -->
+  <div class="deck" id="p-fieldmanual" role="tabpanel" aria-labelledby="t-fieldmanual" data-dir="fieldmanual" hidden>
+    <div class="deck-head">
+      <div>
+        <h2>04 &mdash; Field Manual</h2>
+        <p class="thesis">The launcher as a well-set reference book. Cool grey paper rather than the warm cream every AI-designed page reaches for, an old-style serif at real sizes, ultramarine for anything actionable, and rules doing the work cards used to do. Nothing floats; everything sits on the page.</p>
+      </div>
+      <dl class="risk">
+        <dt>Where it wins</dt>
+        <dd>Daylight and long sessions. It's genuinely restful, and it makes the app feel considered rather than gamer-default.</dd>
+        <dt>Where it hurts</dt>
+        <dd>Mod art. Modrinth icons are saturated and glossy &mdash; they'll look pasted onto this page unless every thumbnail gets a frame and a matte.</dd>
+      </dl>
+    </div>
+
+    <div class="stage">
+      <div class="app">
+        <aside class="rail">
+          <div class="dots"><i style="background:#c0553f"></i><i style="background:#c39b3a"></i><i style="background:#4f7d5c"></i></div>
+          <div class="brand">
+            <div class="mark">V</div>
+            <div>
+              <div class="name">VOID</div>
+              <div class="sub">Launcher</div>
+            </div>
+          </div>
+          <div class="who">
+            <div class="face"></div>
+            <div>
+              <div class="nm">Bittontayte</div>
+              <div class="st">Online</div>
+            </div>
+          </div>
+          <nav class="nav">
+            <a href="#" aria-current="page"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5 12 3l9 7.5V21H3z"/></svg>Home</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Browse</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Instances</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5"/></svg>Friends</a>
+            <a href="#"><svg class="gl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></svg>Settings</a>
+          </nav>
+          <div class="railcap">Recently opened</div>
+          <div class="recent">
+            <div class="rec">
+              <div class="tile" style="background:#2f6b45">A</div>
+              <div style="min-width:0">
+                <div class="t">All The Mods 9</div>
+                <div class="m">Forge &middot; 342 mods</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#1f3a93">C</div>
+              <div style="min-width:0">
+                <div class="t">Cobblemon Spring</div>
+                <div class="m">Fabric &middot; 84 mods</div>
+              </div>
+            </div>
+            <div class="rec">
+              <div class="tile" style="background:#82868f">V</div>
+              <div style="min-width:0">
+                <div class="t">Vanilla 1.21.4</div>
+                <div class="m">Vanilla &middot; no mods</div>
+              </div>
+            </div>
+          </div>
+          <div class="railfoot"><span>v2.0.31</span><span>Sign out</span></div>
+        </aside>
+
+        <main class="main">
+          <div class="topbar">
+            <div>
+              <div class="eyebrow">Saturday afternoon &middot; 15 August</div>
+              <h1>Three worlds are waiting</h1>
+            </div>
+            <div class="tbtns">
+              <button class="btn" type="button">Add instance</button>
+              <button class="btn" type="button">Import code</button>
+            </div>
+          </div>
+
+          <div class="body">
+            <div class="col">
+              <div class="card hero">
+                <div class="heroTop">
+                  <div class="heroMark">A</div>
+                  <div style="min-width:0;flex:1">
+                    <h2 class="heroName">All The Mods 9</h2>
+                    <div class="meta"><span>1.20.1</span><s>&middot;</s><span>Forge</span><s>&middot;</s><span>342 mods</span></div>
+                    <p class="byline">Last opened Tuesday evening, just past nine. Eight gigabytes set aside.</p>
+                  </div>
+                  <span class="chip">Ready</span>
+                </div>
+                <div class="launchRow">
+                  <button class="launch" type="button"><span class="tri"></span> Launch</button>
+                  <button class="btn" type="button">Manage mods</button>
+                  <button class="btn" type="button">Open folder</button>
+                  <span class="kbd" style="margin-left:auto"><b>&#8984;</b><b>&#8629;</b></span>
+                </div>
+              </div>
+
+              <div class="card preview">
+                <div class="pvhead"><span>Plate I &mdash; The player</span><span>Drag to rotate</span></div>
+                <div class="pvstage">
+                  <div class="floor"></div>
+                  <div class="guy">
+                    <div class="head"></div><div class="hair"></div>
+                    <div class="eyeL"></div><div class="eyeR"></div><div class="pupL"></div><div class="pupR"></div>
+                    <div class="torso"></div><div class="belt"></div>
+                    <div class="armL"></div><div class="armR"></div><div class="handL"></div><div class="handR"></div>
+                    <div class="legL"></div><div class="legR"></div><div class="bootL"></div><div class="bootR"></div>
+                  </div>
+                </div>
+                <div class="pvfoot"><b>Bittontayte</b> &middot; Verified Microsoft account</div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="card">
+                <div class="panelcap">Launch readiness</div>
+                <div class="ready">
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Game files</span><span class="val">Up to date</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Mods</span><span class="val">342 enabled</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Java</span><span class="val">21.0.3</span></div>
+                  <div class="rrow"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12.5 5 5L20 6.5"/></svg><span class="lbl">Memory</span><span class="val">8 GB</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">Friends</div>
+                <div class="friends">
+                  <div class="fr"><span class="av" style="background:#1f3a93">M</span><span class="w">Marlowe</span><span class="z">In game</span></div>
+                  <div class="fr"><span class="av" style="background:#2f6b45">P</span><span class="w">Pinefall</span><span class="z">Browsing</span></div>
+                  <div class="fr" style="opacity:0.5"><span class="av" style="background:#a4a79f">K</span><span class="w">Kestrel</span><span class="z">3d ago</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="panelcap">The library, as it stands</div>
+                <div class="stats">
+                  <div class="stat"><div class="n">3</div><div class="l">Packs</div></div>
+                  <div class="stat"><div class="n">426</div><div class="l">Mods</div></div>
+                  <div class="stat"><div class="n">14<sup>h</sup></div><div class="l">Week</div></div>
+                  <div class="stat"><div class="n">2</div><div class="l">Online</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div class="spec">
+      <section>
+        <h3>Palette</h3>
+        <div class="swatches">
+          <div class="sw"><i style="background:#e8e6df"></i><span>E8E6DF</span></div>
+          <div class="sw"><i style="background:#f3f2ec"></i><span>F3F2EC</span></div>
+          <div class="sw"><i style="background:#cbc8bb"></i><span>CBC8BB</span></div>
+          <div class="sw"><i style="background:#191b21"></i><span>191B21</span></div>
+          <div class="sw"><i style="background:#1f3a93"></i><span>1F3A93</span></div>
+          <div class="sw"><i style="background:#2f6b45"></i><span>2F6B45</span></div>
+        </div>
+      </section>
+      <section>
+        <h3>Type</h3>
+        <div class="typerow"><em>Display / body</em><strong style="font-family:'Iowan Old Style',Georgia,serif;font-size:20px">Iowan Old Style</strong></div>
+        <div class="typerow"><em>Labels</em><strong style="font-family:'Avenir Next',sans-serif;font-size:14px;letter-spacing:0.16em;text-transform:uppercase">Avenir Next</strong></div>
+      </section>
+      <section>
+        <h3>Form</h3>
+        <p>Radius <b>2px</b>, effectively none. No card backgrounds in the main column &mdash; sections are separated by a single rule and generous space.</p>
+        <p>The right column is a tinted margin, like a book's gutter notes.</p>
+      </section>
+      <section>
+        <h3>What changes in code</h3>
+        <p>Token swap, a serif stack, and replacing card containers with rule-separated sections on Home and Instance Detail.</p>
+        <p>Needs a matching dark theme or an explicit decision to ship light-only.</p>
+      </section>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.deck'));
+
+  function show(id) {
+    tabs.forEach(function (t) {
+      var on = t.getAttribute('aria-controls') === id;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    panels.forEach(function (p) { p.hidden = p.id !== id; });
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { show(t.getAttribute('aria-controls')); });
+    t.addEventListener('keydown', function (e) {
+      var next = null;
+      if (e.key === 'ArrowRight') next = tabs[(i + 1) % tabs.length];
+      if (e.key === 'ArrowLeft') next = tabs[(i - 1 + tabs.length) % tabs.length];
+      if (next) { e.preventDefault(); next.focus(); show(next.getAttribute('aria-controls')); }
+    });
+  });
+})();
+</script>

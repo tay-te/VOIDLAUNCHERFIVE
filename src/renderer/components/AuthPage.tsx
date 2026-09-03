@@ -11,16 +11,16 @@ export const AuthPage = observer(
       return (
         <div className="flex items-center justify-center h-full">
           <div className="w-full max-w-sm space-y-6">
-            <div className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-8 text-center">
+            <div className="rounded-panel bg-(--color-surface-secondary) border border-(--color-border) p-8 text-center">
               <div className="mx-auto mb-4 w-14 h-14">
                 <PlayerAvatar
                   uuid={auth.uuid}
                   username={auth.username}
                   size={56}
-                  className="rounded-full ring-2 ring-(--color-accent)/25"
+                  className="rounded-pill ring-2 ring-(--color-accent)/25"
                 />
               </div>
-              <h1 className="text-2xl font-black tracking-tight text-(--color-text-primary)">
+              <h1 className="text-2xl font-display tracking-tight text-(--color-text-primary)">
                 {auth.username}
               </h1>
               <p className="text-sm text-(--color-text-secondary) mt-1">
@@ -38,7 +38,7 @@ export const AuthPage = observer(
                 await auth.signOut();
                 onBack();
               }}
-              className="w-full py-3 rounded-xl bg-(--color-surface-secondary) border border-(--color-border) hover:bg-(--color-surface-tertiary) text-(--color-text-primary) text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-card bg-(--color-surface-secondary) border border-(--color-border) hover:bg-(--color-surface-tertiary) text-(--color-text-primary) text-sm font-strong transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <LogOut size={16} />
               Sign Out
@@ -51,11 +51,11 @@ export const AuthPage = observer(
     return (
       <div className="flex items-center justify-center h-full">
         <div className="w-full max-w-sm space-y-6">
-          <div className="rounded-2xl bg-(--color-surface-secondary) border border-(--color-border) p-8 text-center">
-            <div className="w-12 h-12 rounded-xl bg-(--color-accent)/10 flex items-center justify-center mx-auto mb-4">
+          <div className="rounded-panel bg-(--color-surface-secondary) border border-(--color-border) p-8 text-center">
+            <div className="w-12 h-12 rounded-card bg-(--color-accent)/10 flex items-center justify-center mx-auto mb-4">
               <Shield size={22} className="text-(--color-accent)" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-(--color-text-primary)">
+            <h1 className="text-2xl font-display tracking-tight text-(--color-text-primary)">
               Enter the <span className="void-text">Void</span>
             </h1>
             <p className="text-sm text-(--color-text-secondary) mt-1.5">
@@ -64,13 +64,13 @@ export const AuthPage = observer(
           </div>
 
           {auth.error && (
-            <p className="text-xs text-red-500 px-1 text-center">{auth.error}</p>
+            <p className="text-xs text-danger px-1 text-center">{auth.error}</p>
           )}
 
           <button
             onClick={() => auth.signInWithMicrosoft()}
             disabled={auth.loggingIn}
-            className="w-full py-3 rounded-xl bg-[#2F2F2F] hover:bg-[#404040] text-white text-sm font-bold transition-colors cursor-pointer flex items-center justify-center gap-3 shadow-md shadow-black/15 disabled:opacity-50"
+            className="w-full py-3 rounded-card bg-[#2F2F2F] hover:bg-[#404040] text-white text-sm font-strong transition-colors cursor-pointer flex items-center justify-center gap-3 shadow-md shadow-black/15 disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 21 21" fill="none">
               <rect x="1" y="1" width="9" height="9" fill="#F25022" />

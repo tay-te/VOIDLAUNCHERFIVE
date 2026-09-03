@@ -27,18 +27,18 @@ export function InstallTargetPicker({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`flex w-full items-center justify-between gap-3 rounded-[1rem] border border-(--color-border) bg-(--color-surface) text-left transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer ${
+        className={`flex w-full items-center justify-between gap-3 rounded-panel border border-(--color-border) bg-(--color-surface) text-left transition-colors hover:bg-(--color-surface-tertiary) cursor-pointer ${
           compact ? "px-3 py-2.5" : "px-4 py-3"
         }`}
       >
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+          <p className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
             Install Target
           </p>
-          <p className="mt-1 truncate text-sm font-semibold text-(--color-text-primary)">
+          <p className="mt-1 truncate text-sm font-emphasis text-(--color-text-primary)">
             {selectedInstance ? selectedInstance.name : "Auto-select best profile"}
           </p>
-          <p className="text-[11px] text-(--color-text-secondary)">
+          <p className="text-caption text-(--color-text-secondary)">
             {selectedInstance
               ? `${selectedInstance.version} · ${selectedInstance.loader}`
               : "Use the best compatible profile, or create one automatically"}
@@ -53,7 +53,7 @@ export function InstallTargetPicker({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-[1rem] border border-(--color-border) bg-(--color-surface-secondary) p-1.5 shadow-xl shadow-black/10 picker-dropdown">
+        <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-panel border border-(--color-border) bg-(--color-surface-secondary) p-1.5 shadow-xl shadow-black/10 picker-dropdown">
           <button
             type="button"
             onClick={() => {
@@ -68,8 +68,8 @@ export function InstallTargetPicker({
           >
             <Laptop2 size={14} className="flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">Auto-select best profile</p>
-              <p className="text-[11px] text-(--color-text-secondary)">
+              <p className="truncate text-sm font-emphasis">Auto-select best profile</p>
+              <p className="text-caption text-(--color-text-secondary)">
                 Installs into the best compatible profile, or creates one
               </p>
             </div>
@@ -91,7 +91,7 @@ export function InstallTargetPicker({
               }`}
             >
               <div
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold"
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control text-xs font-strong"
                 style={{
                   backgroundColor: `${instance.iconColor}18`,
                   color: instance.iconColor,
@@ -100,10 +100,10 @@ export function InstallTargetPicker({
                 {instance.name[0]?.toUpperCase() ?? "?"}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-(--color-text-primary)">
+                <p className="truncate text-sm font-emphasis text-(--color-text-primary)">
                   {instance.name}
                 </p>
-                <p className="text-[11px] text-(--color-text-secondary)">
+                <p className="text-caption text-(--color-text-secondary)">
                   {instance.version} · {instance.loader}
                 </p>
               </div>

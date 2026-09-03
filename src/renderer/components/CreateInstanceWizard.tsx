@@ -162,20 +162,20 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-scrim backdrop-blur-sm" />
 
       <div className="relative w-full max-w-2xl mx-4 wizard-modal">
-        <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/30">
+        <div className="glass rounded-panel overflow-hidden shadow-2xl shadow-black/30">
           {/* Header */}
           <div className="relative px-8 pt-8 pb-6">
             <button
               onClick={onClose}
-              className="absolute top-6 right-6 w-8 h-8 rounded-full flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+              className="absolute top-6 right-6 w-8 h-8 rounded-pill flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
             >
               <X size={16} />
             </button>
 
-            <h2 className="text-3xl font-black tracking-tight text-(--color-text-primary)">
+            <h2 className="text-3xl font-display tracking-tight text-(--color-text-primary)">
               Create Instance
             </h2>
 
@@ -189,11 +189,11 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => i < step && setStep(i)}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                      className={`w-8 h-8 rounded-pill flex items-center justify-center text-xs font-strong transition-all duration-300 ${
                         i < step
-                          ? "bg-(--color-accent) text-white cursor-pointer"
+                          ? "bg-(--color-accent) text-fg-on-accent cursor-pointer"
                           : i === step
-                          ? "bg-(--color-accent) text-white shadow-lg shadow-(--color-accent)/30"
+                          ? "bg-(--color-accent) text-fg-on-accent shadow-lg shadow-(--color-accent)/30"
                           : "bg-(--color-surface-tertiary) text-(--color-text-secondary)"
                       }`}
                       disabled={i >= step}
@@ -201,7 +201,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                       {i < step ? <Check size={14} /> : i + 1}
                     </button>
                     <span
-                      className={`text-xs font-medium hidden sm:block transition-colors ${
+                      className={`text-xs font-body hidden sm:block transition-colors ${
                         i <= step
                           ? "text-(--color-text-primary)"
                           : "text-(--color-text-secondary)"
@@ -239,7 +239,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
           <div className="px-8 pb-8 flex items-center justify-between">
             <button
               onClick={step === 0 ? onClose : back}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-pill text-sm text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer"
             >
               {step === 0 ? (
                 "Cancel"
@@ -253,7 +253,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
             <button
               onClick={next}
               disabled={!canProceed}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-medium transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-(--color-accent)/25"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-pill bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-sm font-body transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-(--color-accent)/25"
             >
               {step === 3 ? (
                 <>
@@ -286,7 +286,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
         <div className="flex flex-col items-center gap-6">
           {/* Icon preview */}
           <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all duration-300 shadow-lg"
+            className="w-20 h-20 rounded-panel flex items-center justify-center text-3xl font-strong transition-all duration-300 shadow-lg"
             style={{
               backgroundColor: iconColor + "20",
               color: iconColor,
@@ -304,12 +304,12 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
             onKeyDown={(e) => e.key === "Enter" && canProceed && next()}
             placeholder="My Awesome Instance..."
             autoFocus
-            className="w-full max-w-md text-center px-6 py-4 rounded-2xl bg-(--color-surface-tertiary)/50 border border-(--color-border) text-lg text-(--color-text-primary) placeholder:text-(--color-text-secondary)/50 focus:outline-none focus:ring-2 focus:ring-(--color-accent)/50 focus:border-transparent transition-all"
+            className="w-full max-w-md text-center px-6 py-4 rounded-panel bg-(--color-surface-tertiary)/50 border border-(--color-border) text-lg text-(--color-text-primary) placeholder:text-(--color-text-secondary)/50 focus:outline-none focus:ring-2 focus:ring-(--color-accent)/50 focus:border-transparent transition-all"
           />
 
           {/* Color picker */}
           <div className="space-y-2">
-            <p className="text-xs text-(--color-text-secondary) text-center font-medium">
+            <p className="text-xs text-(--color-text-secondary) text-center font-body">
               Accent Color
             </p>
             <div className="flex items-center gap-3">
@@ -317,13 +317,13 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                 <button
                   key={c.value}
                   onClick={() => setIconColor(c.value)}
-                  className="relative w-8 h-8 rounded-full transition-all duration-200 cursor-pointer hover:scale-110"
+                  className="relative w-8 h-8 rounded-pill transition-all duration-200 cursor-pointer hover:scale-110"
                   style={{ backgroundColor: c.value }}
                   title={c.name}
                 >
                   {iconColor === c.value && (
                     <div
-                      className="absolute inset-0 rounded-full flex items-center justify-center"
+                      className="absolute inset-0 rounded-pill flex items-center justify-center"
                       style={{
                         boxShadow: `0 0 0 2px var(--color-surface), 0 0 0 4px ${c.value}`,
                       }}
@@ -349,14 +349,14 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
 
         {/* Filter tabs + search */}
         <div className="flex items-center gap-3">
-          <div className="flex gap-1 bg-(--color-surface-tertiary)/50 rounded-xl p-1">
+          <div className="flex gap-1 bg-(--color-surface-tertiary)/50 rounded-card p-1">
             {(["release", "snapshot"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setVersionFilter(f)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-medium capitalize transition-all cursor-pointer ${
+                className={`px-4 py-1.5 rounded-control text-xs font-body capitalize transition-all cursor-pointer ${
                   versionFilter === f
-                    ? "bg-(--color-accent) text-white shadow-sm"
+                    ? "bg-(--color-accent) text-fg-on-accent shadow-sm"
                     : "text-(--color-text-secondary) hover:text-(--color-text-primary)"
                 }`}
               >
@@ -374,16 +374,16 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
               value={versionSearch}
               onChange={(e) => setVersionSearch(e.target.value)}
               placeholder="Search versions..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-(--color-surface-tertiary)/50 border border-(--color-border) text-xs text-(--color-text-primary) placeholder:text-(--color-text-secondary)/50 focus:outline-none focus:ring-2 focus:ring-(--color-accent)/50 transition-all"
+              className="w-full pl-9 pr-4 py-2 rounded-card bg-(--color-surface-tertiary)/50 border border-(--color-border) text-xs text-(--color-text-primary) placeholder:text-(--color-text-secondary)/50 focus:outline-none focus:ring-2 focus:ring-(--color-accent)/50 transition-all"
             />
           </div>
         </div>
 
         {/* Version list */}
-        <div className="max-h-[240px] overflow-y-auto rounded-2xl border border-(--color-border) bg-(--color-surface-tertiary)/20">
+        <div className="max-h-[240px] overflow-y-auto rounded-panel border border-(--color-border) bg-(--color-surface-tertiary)/20">
           {loadingVersions ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-(--color-accent) border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-(--color-accent) border-t-transparent rounded-pill animate-spin" />
             </div>
           ) : versionsError ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -392,7 +392,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
               </p>
               <button
                 onClick={loadVersions}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-(--color-accent) text-white hover:bg-(--color-accent-hover) transition-colors cursor-pointer"
+                className="px-4 py-1.5 rounded-control text-xs font-body bg-(--color-accent) text-fg-on-accent hover:bg-(--color-accent-hover) transition-colors cursor-pointer"
               >
                 Retry
               </button>
@@ -415,7 +415,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                   }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                    className={`w-5 h-5 rounded-pill border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       isSelected
                         ? "border-(--color-accent) bg-(--color-accent)"
                         : "border-(--color-border)"
@@ -427,7 +427,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <span
-                      className={`text-sm font-medium ${
+                      className={`text-sm font-body ${
                         isSelected
                           ? "text-(--color-accent)"
                           : "text-(--color-text-primary)"
@@ -436,7 +436,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                       {v.id}
                     </span>
                   </div>
-                  <span className="text-[11px] text-(--color-text-secondary) flex-shrink-0">
+                  <span className="text-caption text-(--color-text-secondary) flex-shrink-0">
                     {formatDate(v.releaseTime)}
                   </span>
                 </button>
@@ -463,7 +463,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
               <button
                 key={l.id}
                 onClick={() => setLoader(l.id)}
-                className={`relative flex flex-col items-center text-center p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer group ${
+                className={`relative flex flex-col items-center text-center p-6 rounded-panel border-2 transition-all duration-300 cursor-pointer group ${
                   isSelected
                     ? "border-transparent shadow-xl"
                     : "border-(--color-border) hover:border-(--color-text-secondary)/30 hover:shadow-lg"
@@ -480,7 +480,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
               >
                 {isSelected && (
                   <div
-                    className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center"
+                    className="absolute top-3 right-3 w-5 h-5 rounded-pill flex items-center justify-center"
                     style={{ backgroundColor: l.color }}
                   >
                     <Check size={12} className="text-white" />
@@ -488,7 +488,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                 )}
 
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
+                  className="w-14 h-14 rounded-panel flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
                   style={{
                     backgroundColor: l.color + "15",
                     color: l.color,
@@ -498,7 +498,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                 </div>
 
                 <h3
-                  className="text-base font-bold tracking-tight transition-colors"
+                  className="text-base font-strong tracking-tight transition-colors"
                   style={isSelected ? { color: l.color } : undefined}
                 >
                   <span className={isSelected ? "" : "text-(--color-text-primary)"}>
@@ -506,12 +506,12 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                   </span>
                 </h3>
                 <p
-                  className="text-[11px] font-medium mt-0.5"
+                  className="text-caption font-body mt-0.5"
                   style={{ color: l.color }}
                 >
                   {l.subtitle}
                 </p>
-                <p className="text-[11px] text-(--color-text-secondary) mt-2 leading-relaxed">
+                <p className="text-caption text-(--color-text-secondary) mt-2 leading-relaxed">
                   {l.description}
                 </p>
               </button>
@@ -534,7 +534,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
         </p>
 
         <div
-          className="rounded-2xl border-2 p-6 space-y-5 transition-all"
+          className="rounded-panel border-2 p-6 space-y-5 transition-all"
           style={{
             borderColor: iconColor + "40",
             backgroundColor: iconColor + "08",
@@ -543,7 +543,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
           {/* Instance header */}
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg"
+              className="w-16 h-16 rounded-panel flex items-center justify-center text-2xl font-strong shadow-lg"
               style={{
                 backgroundColor: iconColor + "20",
                 color: iconColor,
@@ -553,7 +553,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
               {letter}
             </div>
             <div>
-              <h3 className="text-2xl font-black text-(--color-text-primary) tracking-tight">
+              <h3 className="text-2xl font-display text-(--color-text-primary) tracking-tight">
                 {name}
               </h3>
               <p className="text-sm text-(--color-text-secondary) mt-0.5">
@@ -567,15 +567,15 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
           {/* Details */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-(--color-text-secondary) uppercase tracking-wider">
+              <p className="text-caption font-body text-(--color-text-secondary) uppercase tracking-wider">
                 Minecraft Version
               </p>
-              <p className="text-sm font-semibold text-(--color-text-primary)">
+              <p className="text-sm font-emphasis text-(--color-text-primary)">
                 {selectedVersion}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-(--color-text-secondary) uppercase tracking-wider">
+              <p className="text-caption font-body text-(--color-text-secondary) uppercase tracking-wider">
                 Mod Loader
               </p>
               <div className="flex items-center gap-2">
@@ -588,7 +588,7 @@ export function CreateInstanceWizard({ onClose, onCreate }: Props) {
                 >
                   <LoaderIcon size={12} />
                 </div>
-                <span className="text-sm font-semibold text-(--color-text-primary)">
+                <span className="text-sm font-emphasis text-(--color-text-primary)">
                   {selectedLoader.name}
                 </span>
               </div>

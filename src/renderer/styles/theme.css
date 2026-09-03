@@ -1,0 +1,159 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   TAILWIND TOKEN MAPPING
+   ─────────────────────────────────────────────────────────────────────────────
+   Turns the semantic --v-* tokens into first-class Tailwind utilities:
+
+       bg-surface-raised    text-fg-muted     border-line
+       rounded-card         text-caption      font-strong
+       shadow-panel         ease-out          text-danger
+
+   `@theme inline` is deliberate: it inlines `var(--v-*)` into each utility
+   instead of emitting a fixed value, so a `[data-theme]` swap anywhere in the
+   tree re-resolves live. That is what makes theme switching instant, and what
+   lets a subtree (e.g. a theme preview card) render in a different theme than
+   the rest of the app.
+
+   This block is purely ADDITIVE — it introduces new utility names and does not
+   redefine any Tailwind default, so existing markup renders unchanged.
+   ────────────────────────────────────────────────────────────────────────────*/
+
+@theme inline {
+  /* ── Surface colors ──────────────────────────────────────────────────────*/
+  --color-surface: var(--v-surface);
+  --color-surface-raised: var(--v-surface-raised);
+  --color-surface-hover: var(--v-surface-hover);
+  --color-surface-strong: var(--v-surface-strong);
+  --color-sidebar: var(--v-sidebar);
+  --color-preview: var(--v-preview-panel);
+
+  /* ── Foreground colors ───────────────────────────────────────────────────
+     Named `fg` rather than `text` so utilities read `text-fg-muted` instead
+     of the confusing `text-text-secondary`.                                 */
+  --color-fg: var(--v-text);
+  --color-fg-muted: var(--v-text-muted);
+  --color-fg-on-accent: var(--v-text-on-accent);
+  --color-fg-inverse: var(--v-text-inverse);
+
+  /* ── Border colors ───────────────────────────────────────────────────────
+     Named `line` so utilities read `border-line` instead of `border-border`. */
+  --color-line: var(--v-border);
+  --color-line-subtle: var(--v-border-subtle);
+  --color-line-strong: var(--v-border-strong);
+
+  /* ── Accent ──────────────────────────────────────────────────────────────*/
+  --color-accent: var(--v-accent);
+  --color-accent-hover: var(--v-accent-hover);
+  --color-accent-glow: var(--v-accent-glow);
+
+  /* ── Status ──────────────────────────────────────────────────────────────*/
+  --color-success: var(--v-success);
+  --color-danger: var(--v-danger);
+  --color-danger-hover: var(--v-danger-hover);
+  --color-warning: var(--v-warning);
+  --color-info: var(--v-info);
+  --color-collab: var(--v-collab);
+
+  /* ── Chrome ──────────────────────────────────────────────────────────────*/
+  --color-window-backdrop: var(--v-window-backdrop);
+  --color-accent-gradient-end: var(--v-accent-gradient-end);
+
+  /* ── Fixed-context ───────────────────────────────────────────────────────
+     `scrim` already carries its own alpha, so use `bg-scrim` plain rather
+     than `bg-scrim/60`.                                                     */
+  --color-scrim: var(--v-scrim);
+  --color-stage: var(--v-stage);
+  --color-overlay-fg: var(--v-overlay-fg);
+
+  /* ── Glass ───────────────────────────────────────────────────────────────*/
+  --color-glass: var(--v-glass);
+  --color-glass-line: var(--v-glass-border);
+
+  /* ── Radius (semantic, by role) ──────────────────────────────────────────*/
+  --radius-control: var(--v-radius-control);
+  --radius-card: var(--v-radius-card);
+  --radius-panel: var(--v-radius-panel);
+  --radius-modal: var(--v-radius-modal);
+  --radius-window: var(--v-radius-window);
+  --radius-pill: var(--v-radius-pill);
+
+  /* ── Type: the two sizes the UI kept hardcoding, plus display ────────────*/
+  --text-micro: var(--v-text-micro);
+  --text-caption: var(--v-text-caption);
+  --text-display: var(--v-text-display);
+
+  /* ── Weight (semantic roles) ─────────────────────────────────────────────*/
+  --font-weight-body: var(--v-weight-body);
+  --font-weight-emphasis: var(--v-weight-emphasis);
+  --font-weight-strong: var(--v-weight-strong);
+  --font-weight-display: var(--v-weight-display);
+
+  /* ── Tracking ────────────────────────────────────────────────────────────*/
+  --tracking-caps: var(--v-tracking-caps);
+
+  /* ── Elevation ───────────────────────────────────────────────────────────*/
+  --shadow-card: 0 1px 3px var(--v-shadow-color);
+  --shadow-panel: 0 4px 16px var(--v-shadow-color);
+  --shadow-modal: 0 12px 40px var(--v-shadow-color);
+  --shadow-glow: 0 0 24px var(--v-accent-glow), 0 0 48px var(--v-accent-glow);
+
+  /* ── Easing ──────────────────────────────────────────────────────────────*/
+  --ease-out: var(--v-ease-out);
+  --ease-smooth: var(--v-ease-in-out);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LEGACY ALIASES  — DEPRECATED, do not use in new code
+   ─────────────────────────────────────────────────────────────────────────────
+   The pre-token codebase addresses colors through Tailwind's arbitrary-property
+   syntax, e.g. `bg-(--color-surface-secondary)`. That syntax reads a real CSS
+   custom property at runtime, so these must exist as actual declarations —
+   `@theme inline` entries above are inlined and never emitted to :root.
+
+   Every one of these forwards to a semantic token, which means the old markup
+   is already fully themed: a theme swap moves the whole app today, before a
+   single component is migrated.
+
+   Delete this block once no component references `--color-*` directly.
+   Check with:
+     grep -rn "(--color-" src/renderer --include=*.tsx | wc -l
+   ────────────────────────────────────────────────────────────────────────────*/
+
+:root {
+  /* Surfaces */
+  --color-surface: var(--v-surface);
+  --color-surface-secondary: var(--v-surface-raised);
+  --color-surface-tertiary: var(--v-surface-hover);
+  --color-sidebar: var(--v-sidebar);
+  --color-preview-panel: var(--v-preview-panel);
+
+  /* Text */
+  --color-text-primary: var(--v-text);
+  --color-text-secondary: var(--v-text-muted);
+
+  /* Borders */
+  --color-border: var(--v-border);
+  --color-border-strong: var(--v-border-strong);
+
+  /* Accent */
+  --color-accent: var(--v-accent);
+  --color-accent-hover: var(--v-accent-hover);
+  --color-accent-glow: var(--v-accent-glow);
+
+  /* Status */
+  --color-success: var(--v-success);
+
+  /* Glass */
+  --color-glass: var(--v-glass);
+  --color-glass-border: var(--v-glass-border);
+
+  /* Previously DANGLING — referenced by BrowsePage.tsx but never defined, so
+     both silently used their inline fallbacks. Now real, themeable tokens.
+     `--color-accent-raw` had been falling back to `139 92 246`, a leftover from
+     the old indigo accent, which is why those card hover glows read purple. */
+  --color-glass-bg: var(--v-glass-bg);
+  --color-accent-raw: var(--v-accent-rgb);
+
+  /* NOTE: `--color-surface-solid` is intentionally dropped — it was defined in
+     both palettes but never consumed by any component or stylesheet. The
+     semantic slot lives on as `--v-surface-strong` if a theme wants it. */
+}

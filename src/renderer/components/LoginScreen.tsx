@@ -53,7 +53,7 @@ export const LoginScreen = observer(() => {
         {orbs.map((orb) => (
           <div
             key={orb.id}
-            className="absolute rounded-full login-orb"
+            className="absolute rounded-pill login-orb"
             style={{
               left: `${orb.x}%`,
               top: `${orb.y}%`,
@@ -90,7 +90,7 @@ export const LoginScreen = observer(() => {
         {particles.map((p) => (
           <div
             key={p.id}
-            className="absolute rounded-full login-particle"
+            className="absolute rounded-pill login-particle"
             style={{
               left: `${p.x}%`,
               bottom: "-5%",
@@ -140,7 +140,7 @@ export const LoginScreen = observer(() => {
 
           {/* Logo */}
           <div
-            className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-(--color-accent) to-indigo-600 flex items-center justify-center text-white text-3xl font-black shadow-2xl"
+            className="relative w-20 h-20 rounded-panel bg-gradient-to-br from-(--color-accent) to-accent-gradient-end flex items-center justify-center text-fg-on-accent text-3xl font-display shadow-2xl"
             style={{
               transform: mounted ? "scale(1) translateY(0)" : "scale(0.5) translateY(20px)",
               opacity: mounted ? 1 : 0,
@@ -152,7 +152,7 @@ export const LoginScreen = observer(() => {
           >
             V
             {/* Shine sweep */}
-            <div className="absolute inset-0 rounded-2xl overflow-hidden">
+            <div className="absolute inset-0 rounded-panel overflow-hidden">
               <div className="login-logo-shine" />
             </div>
           </div>
@@ -168,13 +168,13 @@ export const LoginScreen = observer(() => {
             }}
           >
             <Loader2 size={14} className="animate-spin text-(--color-accent)" />
-            <span className="text-sm font-medium">Loading...</span>
+            <span className="text-sm font-body">Loading...</span>
           </div>
         ) : (
           <>
             {/* Title */}
             <h1
-              className="text-3xl font-black tracking-tight text-(--color-text-primary) mb-1"
+              className="text-3xl font-display tracking-tight text-(--color-text-primary) mb-1"
               style={{
                 opacity: ready ? 1 : 0,
                 transform: ready ? "translateY(0)" : "translateY(12px)",
@@ -200,7 +200,7 @@ export const LoginScreen = observer(() => {
             {/* Error message */}
             {auth.error && (
               <div
-                className="mb-5 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 text-center max-w-xs"
+                className="mb-5 px-4 py-2 rounded-card bg-danger/10 border border-danger/20 text-xs text-danger text-center max-w-xs"
                 style={{ animation: "login-shake 0.4s ease" }}
               >
                 {auth.error}
@@ -218,17 +218,17 @@ export const LoginScreen = observer(() => {
               <button
                 onClick={() => auth.signInWithMicrosoft()}
                 disabled={auth.loggingIn}
-                className="group relative px-8 py-3.5 rounded-2xl text-white text-sm font-semibold transition-all duration-300 flex items-center gap-3 disabled:opacity-50 login-sign-in-btn"
+                className="group relative px-8 py-3.5 rounded-panel text-white text-sm font-emphasis transition-all duration-300 flex items-center gap-3 disabled:opacity-50 login-sign-in-btn"
                 style={{
                   background: "linear-gradient(135deg, #2a2a3a 0%, #1a1a2e 100%)",
                 }}
               >
                 {/* Hover glow */}
-                <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-(--color-accent)/0 via-(--color-accent)/0 to-(--color-accent)/0 group-hover:from-(--color-accent)/20 group-hover:via-(--color-accent)/30 group-hover:to-(--color-accent)/20 transition-all duration-500 opacity-0 group-hover:opacity-100" />
+                <div className="absolute -inset-px rounded-panel bg-gradient-to-r from-(--color-accent)/0 via-(--color-accent)/0 to-(--color-accent)/0 group-hover:from-(--color-accent)/20 group-hover:via-(--color-accent)/30 group-hover:to-(--color-accent)/20 transition-all duration-500 opacity-0 group-hover:opacity-100" />
                 {/* Border */}
-                <div className="absolute inset-0 rounded-2xl border border-white/[0.06] group-hover:border-white/[0.12] transition-colors duration-300" />
+                <div className="absolute inset-0 rounded-panel border border-white/[0.06] group-hover:border-white/[0.12] transition-colors duration-300" />
                 {/* Shimmer */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                <div className="absolute inset-0 rounded-panel overflow-hidden">
                   <div className="login-btn-shimmer" />
                 </div>
 
@@ -253,7 +253,7 @@ export const LoginScreen = observer(() => {
 
             {/* Bottom tagline */}
             <p
-              className="mt-10 text-[10px] text-(--color-text-secondary)/40 tracking-widest uppercase"
+              className="mt-10 text-micro text-(--color-text-secondary)/40 tracking-widest uppercase"
               style={{
                 opacity: ready ? 1 : 0,
                 transition: "opacity 1s ease 0.8s",

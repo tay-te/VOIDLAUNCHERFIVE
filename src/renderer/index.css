@@ -1,38 +1,17 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* ── Design tokens ──────────────────────────────────────────────────────────
+   Order matters: scale defaults, then themes (which may override any of them),
+   then the Tailwind mapping that exposes both as utilities.                   */
+@import "./styles/scale.css";
+@import "./styles/themes/light.css";
+@import "./styles/themes/dark.css";
+@import "./styles/theme.css";
 
-:root {
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f4f5f7;
-  --color-surface-tertiary: #e9ebf0;
-  --color-surface-solid: #dde1e8;
-  --color-sidebar: #eef0f4;
-  --color-border: rgba(15, 23, 42, 0.09);
-  --color-text-primary: #0f0f1a;
-  --color-text-secondary: #5f6375;
-  --color-accent: #5b63d3;
-  --color-accent-hover: #4b54bf;
-  --color-accent-glow: rgba(91, 99, 211, 0.1);
-  --color-glass: rgba(255, 255, 255, 0.88);
-  --color-glass-border: rgba(15, 23, 42, 0.08);
-}
-
-.dark {
-  --color-surface: #0c0c10;
-  --color-surface-secondary: #121219;
-  --color-surface-tertiary: #181a22;
-  --color-surface-solid: #21242d;
-  --color-sidebar: #0f0f13;
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-text-primary: #ededf0;
-  --color-text-secondary: #989bb0;
-  --color-accent: #737ae6;
-  --color-accent-hover: #656dd7;
-  --color-accent-glow: rgba(115, 122, 230, 0.12);
-  --color-glass: rgba(12, 12, 16, 0.88);
-  --color-glass-border: rgba(255, 255, 255, 0.08);
-}
+/* `dark:` utilities key off the resolved color scheme, not a specific theme,
+   so every dark-family theme gets them. ThemeStore sets `data-scheme` on
+   <html> alongside `data-theme`. */
+@custom-variant dark (&:where([data-scheme="dark"], [data-scheme="dark"] *));
 
 html, body, #root {
   height: 100%;
@@ -40,7 +19,13 @@ html, body, #root {
   font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+body {
+  overflow: hidden;
 }
 
 :focus-visible {

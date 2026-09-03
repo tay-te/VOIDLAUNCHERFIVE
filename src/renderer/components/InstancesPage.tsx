@@ -54,12 +54,16 @@ function timeAgo(dateStr: string): string {
   return `${months}mo ago`;
 }
 
+function getInstanceModCount(instance: Pick<Instance, "installedMods" | "modCount">) {
+  return instance.installedMods.length > 0 ? instance.installedMods.length : instance.modCount;
+}
+
 interface InstancesPageProps {
   onNavigate?: (page: string) => void;
 }
 
 export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
-  const { instances: store, auth, installs } = useStore();
+  const { instances: store, installs } = useStore();
   const [showWizard, setShowWizard] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
@@ -79,7 +83,7 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
   const localCount = store.instances.length;
   const cloudCount = store.cloudInstances.length;
   const totalMods = store.instances.reduce(
-    (sum, instance) => sum + (instance.installedMods?.length ?? instance.modCount ?? 0),
+    (sum, instance) => sum + getInstanceModCount(instance),
     0
   );
   const recentInstance =
@@ -113,22 +117,11 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
   }
 
   return (
-    <div className="p-10 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-(--color-text-primary)">
-            <span className="text-(--color-text-secondary) font-semibold text-lg">{auth.username} /</span>{" "}
-            Worlds
-          </h1>
-          <p className="text-sm text-(--color-text-secondary) mt-1">
-            Manage, configure, and launch your Minecraft instances
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="space-y-5 p-6 lg:p-7">
+      <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-control glass-subtle text-sm font-body text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
           >
             <Download size={15} />
             Import
@@ -136,23 +129,22 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
           {(store.instances.length > 0 || store.cloudInstances.length > 0) && (
             <button
               onClick={() => setShowWizard(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/12"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-control bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-sm font-emphasis transition-all cursor-pointer shadow-sm shadow-(--color-accent)/12"
             >
               <Plus size={15} />
               New Instance
             </button>
           )}
-        </div>
       </div>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <div className="rounded-[1.5rem] border border-(--color-border) bg-(--color-surface-secondary) p-6">
+        <div className="rounded-card border border-(--color-border) bg-(--color-surface-secondary) p-6">
           <div className="flex items-start justify-between gap-6">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+              <p className="text-caption font-strong uppercase tracking-[0.18em] text-(--color-text-secondary)">
                 Workspace
               </p>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-(--color-text-primary)">
+              <h2 className="mt-2 text-2xl font-display tracking-tight text-(--color-text-primary)">
                 Your instance library
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-(--color-text-secondary)">
@@ -160,13 +152,13 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
               </p>
             </div>
             {recentInstance && (
-              <div className="min-w-[14rem] rounded-[1.125rem] border border-(--color-border) bg-(--color-surface) px-4 py-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+              <div className="min-w-[14rem] rounded-window border border-(--color-border) bg-(--color-surface) px-4 py-4">
+                <p className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
                   Most Recent
                 </p>
                 <div className="mt-3 flex items-center gap-3">
                   <div
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-black"
+                    className="flex h-10 w-10 items-center justify-center rounded-control text-sm font-display"
                     style={{
                       backgroundColor: `${recentInstance.iconColor}15`,
                       color: recentInstance.iconColor,
@@ -175,10 +167,10 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
                     {recentInstance.name[0]?.toUpperCase() ?? "?"}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-(--color-text-primary)">
+                    <p className="truncate text-sm font-strong text-(--color-text-primary)">
                       {recentInstance.name}
                     </p>
-                    <p className="text-[11px] text-(--color-text-secondary)">
+                    <p className="text-caption text-(--color-text-secondary)">
                       {recentInstance.lastPlayed ? `Played ${timeAgo(recentInstance.lastPlayed)}` : "Not launched yet"}
                     </p>
                   </div>
@@ -208,10 +200,10 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
             <section className="space-y-4">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                  <p className="text-caption font-strong uppercase tracking-[0.18em] text-(--color-text-secondary)">
                     Local Instances
                   </p>
-                  <h3 className="mt-1 text-xl font-black tracking-tight text-(--color-text-primary)">
+                  <h3 className="mt-1 text-xl font-display tracking-tight text-(--color-text-primary)">
                     Ready to launch
                   </h3>
                 </div>
@@ -258,10 +250,10 @@ export const InstancesPage = observer(({ onNavigate }: InstancesPageProps) => {
             <section className="space-y-4">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-(--color-text-secondary)">
+                  <p className="text-caption font-strong uppercase tracking-[0.18em] text-(--color-text-secondary)">
                     Cloud Library
                   </p>
-                  <h3 className="mt-1 text-xl font-black tracking-tight text-(--color-text-primary)">
+                  <h3 className="mt-1 text-xl font-display tracking-tight text-(--color-text-primary)">
                     Available from your account
                   </h3>
                 </div>
@@ -323,12 +315,12 @@ function SummaryCard({
   icon: typeof Box;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-(--color-border) bg-(--color-surface-secondary) px-5 py-4">
+    <div className="rounded-modal border border-(--color-border) bg-(--color-surface-secondary) px-5 py-4">
       <div className="flex items-center gap-2 text-(--color-text-secondary)">
         <Icon size={13} />
-        <span className="text-[10px] font-bold uppercase tracking-[0.16em]">{label}</span>
+        <span className="text-micro font-strong uppercase tracking-[0.16em]">{label}</span>
       </div>
-      <p className="mt-3 text-3xl font-black tracking-tight text-(--color-text-primary)">
+      <p className="mt-3 text-3xl font-display tracking-tight text-(--color-text-primary)">
         {value}
       </p>
       <p className="mt-1 text-xs text-(--color-text-secondary)">{sub}</p>
@@ -348,7 +340,7 @@ function EmptyState({
   return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="relative">
-        <div className="w-20 h-20 rounded-[1.25rem] bg-(--color-accent)/8 flex items-center justify-center mb-5">
+        <div className="w-20 h-20 rounded-modal bg-(--color-accent)/8 flex items-center justify-center mb-5">
           <Rocket
             size={32}
             strokeWidth={1.5}
@@ -359,7 +351,7 @@ function EmptyState({
           <Plus size={12} className="text-(--color-accent)" />
         </div>
       </div>
-      <h3 className="text-lg font-bold text-(--color-text-primary)">
+      <h3 className="text-lg font-strong text-(--color-text-primary)">
         No instances yet
       </h3>
       <p className="text-sm text-(--color-text-secondary) mt-1 max-w-xs text-center">
@@ -368,14 +360,14 @@ function EmptyState({
       <div className="flex items-center gap-3 mt-5">
         <button
           onClick={onCreateClick}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-(--color-accent) hover:bg-(--color-accent-hover) text-white text-sm font-semibold transition-all cursor-pointer shadow-sm shadow-(--color-accent)/12"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-control bg-(--color-accent) hover:bg-(--color-accent-hover) text-fg-on-accent text-sm font-emphasis transition-all cursor-pointer shadow-sm shadow-(--color-accent)/12"
         >
           <Plus size={15} />
           Create Instance
         </button>
         <button
           onClick={onImportClick}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg glass-subtle text-sm font-medium text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-control glass-subtle text-sm font-body text-(--color-text-secondary) hover:text-(--color-text-primary) transition-all cursor-pointer"
         >
           <Download size={15} />
           Import Code
@@ -450,7 +442,7 @@ function InstanceCard({
       role="button"
       tabIndex={isEditing ? -1 : 0}
       aria-label={`Open ${instance.name}`}
-      className="group relative rounded-[1.25rem] bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden hover:border-white/12 hover:shadow-md transition-all duration-200 cursor-pointer"
+      className="group relative rounded-modal bg-(--color-surface-secondary) border border-(--color-border) overflow-hidden hover:border-line-strong hover:shadow-md transition-all duration-200 cursor-pointer"
       onClick={isEditing ? undefined : onClick}
       onKeyDown={(event) => {
         if (isEditing) return;
@@ -462,17 +454,17 @@ function InstanceCard({
     >
       <div className="p-5">
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--color-text-secondary)">
+          <span className="text-micro font-strong uppercase tracking-[0.16em] text-(--color-text-secondary)">
             Instance
           </span>
-          <span className="text-[10px] font-medium text-(--color-text-secondary)">
+          <span className="text-micro font-body text-(--color-text-secondary)">
             {instance.lastPlayed ? `Played ${timeAgo(instance.lastPlayed)}` : "Never launched"}
           </span>
         </div>
         {/* Instance info */}
         <div className="flex items-start gap-3.5">
           <div
-            className="w-12 h-12 rounded-lg flex items-center justify-center text-base font-bold flex-shrink-0"
+            className="w-12 h-12 rounded-control flex items-center justify-center text-base font-strong flex-shrink-0"
             style={{
               backgroundColor: instance.iconColor + "15",
               color: instance.iconColor,
@@ -492,7 +484,7 @@ function InstanceCard({
                     if (e.key === "Escape") handleCancelEdit();
                   }}
                   onBlur={handleSaveEdit}
-                  className="text-sm font-bold text-(--color-text-primary) bg-(--color-surface-tertiary) border border-(--color-border) rounded-md px-2 py-1 w-full outline-none focus:border-(--color-accent)/40"
+                  className="text-sm font-strong text-(--color-text-primary) bg-(--color-surface-tertiary) border border-(--color-border) rounded-md px-2 py-1 w-full outline-none focus:border-(--color-accent)/40"
                   style={{ minWidth: 0 }}
                 />
                 <button
@@ -512,16 +504,16 @@ function InstanceCard({
                 </button>
               </div>
             ) : (
-              <h3 className="text-sm font-bold text-(--color-text-primary) truncate">
+              <h3 className="text-sm font-strong text-(--color-text-primary) truncate">
                 {instance.name}
               </h3>
             )}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-[11px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-sm">
+              <span className="text-caption font-body text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-sm">
                 {instance.version}
               </span>
               <span
-                className="text-[10px] px-2 py-0.5 rounded-sm font-semibold flex items-center gap-1"
+                className="text-micro px-2 py-0.5 rounded-sm font-emphasis flex items-center gap-1"
                 style={{
                   backgroundColor: loaderMeta.color + "12",
                   color: loaderMeta.color,
@@ -531,13 +523,13 @@ function InstanceCard({
                 {loaderMeta.label}
               </span>
               {instance.shareCode && (
-                <span className="text-[10px] px-2 py-0.5 rounded-sm font-semibold flex items-center gap-1 bg-(--color-accent)/8 text-(--color-accent)">
+                <span className="text-micro px-2 py-0.5 rounded-sm font-emphasis flex items-center gap-1 bg-(--color-accent)/8 text-(--color-accent)">
                   <Globe size={8} />
                   Shared
                 </span>
               )}
               {instance.isCollaborative && (
-                <span className="text-[10px] px-2 py-0.5 rounded-sm font-semibold flex items-center gap-1 bg-purple-500/8 text-purple-400">
+                <span className="text-micro px-2 py-0.5 rounded-sm font-emphasis flex items-center gap-1 bg-collab/8 text-collab">
                   <Users size={8} />
                   Collab
                 </span>
@@ -548,24 +540,24 @@ function InstanceCard({
 
         {/* Meta */}
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-lg bg-(--color-surface) px-3 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-text-secondary)">Mods</span>
-            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{instance.installedMods?.length ?? instance.modCount}</p>
+          <div className="rounded-control bg-(--color-surface) px-3 py-2">
+            <span className="text-micro font-strong uppercase tracking-[0.14em] text-(--color-text-secondary)">Mods</span>
+            <p className="mt-1 text-sm font-strong text-(--color-text-primary)">{getInstanceModCount(instance)}</p>
           </div>
-          <div className="rounded-lg bg-(--color-surface) px-3 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-text-secondary)">Created</span>
-            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{timeAgo(instance.dateCreated)}</p>
+          <div className="rounded-control bg-(--color-surface) px-3 py-2">
+            <span className="text-micro font-strong uppercase tracking-[0.14em] text-(--color-text-secondary)">Created</span>
+            <p className="mt-1 text-sm font-strong text-(--color-text-primary)">{timeAgo(instance.dateCreated)}</p>
           </div>
-          <div className="rounded-lg bg-(--color-surface) px-3 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-(--color-text-secondary)">Status</span>
-            <p className="mt-1 text-sm font-bold text-(--color-text-primary)">{isRunning ? "Running" : isLaunching ? "Launching" : "Idle"}</p>
+          <div className="rounded-control bg-(--color-surface) px-3 py-2">
+            <span className="text-micro font-strong uppercase tracking-[0.14em] text-(--color-text-secondary)">Status</span>
+            <p className="mt-1 text-sm font-strong text-(--color-text-primary)">{isRunning ? "Running" : isLaunching ? "Launching" : "Idle"}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3.5 mt-3 text-[11px] text-(--color-text-secondary)">
+        <div className="flex items-center gap-3.5 mt-3 text-caption text-(--color-text-secondary)">
           <span className="flex items-center gap-1">
             <Layers size={10} />
-            {instance.installedMods?.length ?? instance.modCount} mod{(instance.installedMods?.length ?? instance.modCount) !== 1 ? "s" : ""}
+            {getInstanceModCount(instance)} mod{getInstanceModCount(instance) !== 1 ? "s" : ""}
           </span>
           {instance.lastPlayed && (
             <span className="flex items-center gap-1">
@@ -582,8 +574,8 @@ function InstanceCard({
         {/* Launch progress */}
         {isLaunching && launchProgress && (
           <div className="mt-3 space-y-1.5">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-medium truncate" style={{ color: instance.iconColor }}>
+            <div className="flex items-center justify-between text-caption">
+              <span className="font-body truncate" style={{ color: instance.iconColor }}>
                 {launchProgress.message}
               </span>
               {launchProgress.percent >= 0 && (
@@ -593,9 +585,9 @@ function InstanceCard({
               )}
             </div>
             {launchProgress.percent >= 0 && (
-              <div className="w-full h-1 rounded-full bg-(--color-surface-tertiary) overflow-hidden">
+              <div className="w-full h-1 rounded-pill bg-(--color-surface-tertiary) overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-300"
+                  className="h-full rounded-pill transition-all duration-300"
                   style={{
                     width: `${launchProgress.percent}%`,
                     backgroundColor: instance.iconColor,
@@ -613,7 +605,7 @@ function InstanceCard({
         >
           {isDeleting ? (
             <>
-              <span className="text-xs text-red-500 font-medium flex-1">
+              <span className="text-xs text-danger font-body flex-1">
                 Delete this instance?
               </span>
               <button
@@ -624,7 +616,7 @@ function InstanceCard({
               </button>
               <button
                 onClick={onDeleteConfirm}
-                className="px-3 py-1.5 rounded-md bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-md bg-danger hover:bg-danger-hover text-white text-xs font-body transition-colors cursor-pointer"
               >
                 Delete
               </button>
@@ -634,7 +626,7 @@ function InstanceCard({
               <button
                 onClick={onLaunch}
                 disabled={isBusy}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default disabled:hover:shadow-none"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-control text-white text-xs font-strong transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default disabled:hover:shadow-none"
                 style={{
                   backgroundColor: isRunning ? "#22c55e" : instance.iconColor,
                   boxShadow: `0 2px 8px ${isRunning ? "#22c55e" : instance.iconColor}18`,
@@ -659,19 +651,19 @@ function InstanceCard({
               </button>
               <button
                 onClick={onShare}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-(--color-accent)/10 text-(--color-text-secondary) hover:text-(--color-accent) transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-control flex items-center justify-center hover:bg-(--color-accent)/10 text-(--color-text-secondary) hover:text-(--color-accent) transition-colors cursor-pointer"
               >
                 <Share2 size={12} />
               </button>
               <button
                 onClick={handleStartEdit}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-control flex items-center justify-center hover:bg-(--color-surface-tertiary) text-(--color-text-secondary) transition-colors cursor-pointer"
               >
                 <Pencil size={12} />
               </button>
               <button
                 onClick={onDeleteRequest}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-500/10 text-(--color-text-secondary) hover:text-red-500 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-control flex items-center justify-center hover:bg-danger/10 text-(--color-text-secondary) hover:text-danger transition-colors cursor-pointer"
               >
                 <Trash2 size={12} />
               </button>
@@ -700,12 +692,12 @@ function CloudInstanceCard({
   const isSyncing = syncProgress !== null;
 
   return (
-    <div className="group relative rounded-2xl bg-(--color-surface-secondary) border border-dashed border-(--color-border) overflow-hidden opacity-60 hover:opacity-85 transition-all duration-200">
+    <div className="group relative rounded-panel bg-(--color-surface-secondary) border border-dashed border-(--color-border) overflow-hidden opacity-60 hover:opacity-85 transition-all duration-200">
       <div className="p-5">
         {/* Instance info */}
         <div className="flex items-start gap-3.5">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0 grayscale"
+            className="w-12 h-12 rounded-card flex items-center justify-center text-base font-strong flex-shrink-0 grayscale"
             style={{
               backgroundColor: data.icon_color + "15",
               color: data.icon_color,
@@ -714,15 +706,15 @@ function CloudInstanceCard({
             {letter}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-(--color-text-primary) truncate">
+            <h3 className="text-sm font-strong text-(--color-text-primary) truncate">
               {data.name}
             </h3>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-[11px] font-medium text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-md">
+              <span className="text-caption font-body text-(--color-text-secondary) bg-(--color-surface-tertiary) px-2 py-0.5 rounded-md">
                 {data.mc_version}
               </span>
               <span
-                className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"
+                className="text-micro px-2 py-0.5 rounded-md font-emphasis flex items-center gap-1"
                 style={{
                   backgroundColor: loaderMeta.color + "12",
                   color: loaderMeta.color,
@@ -731,7 +723,7 @@ function CloudInstanceCard({
                 <LoaderIcon size={9} />
                 {loaderMeta.label}
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 bg-(--color-text-secondary)/10 text-(--color-text-secondary)">
+              <span className="text-micro px-2 py-0.5 rounded-md font-emphasis flex items-center gap-1 bg-(--color-text-secondary)/10 text-(--color-text-secondary)">
                 <Cloud size={8} />
                 Cloud
               </span>
@@ -740,7 +732,7 @@ function CloudInstanceCard({
         </div>
 
         {/* Meta */}
-        <div className="flex items-center gap-3.5 mt-3 text-[11px] text-(--color-text-secondary)">
+        <div className="flex items-center gap-3.5 mt-3 text-caption text-(--color-text-secondary)">
           <span className="flex items-center gap-1">
             <Layers size={10} />
             {data.mods.length} mod{data.mods.length !== 1 ? "s" : ""}
@@ -754,17 +746,17 @@ function CloudInstanceCard({
         {/* Sync progress */}
         {isSyncing && (
           <div className="mt-3 space-y-1.5">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-medium text-(--color-accent) truncate">
+            <div className="flex items-center justify-between text-caption">
+              <span className="font-body text-(--color-accent) truncate">
                 {syncProgress.message}
               </span>
               <span className="text-(--color-text-secondary) ml-2 flex-shrink-0">
                 {syncProgress.percent}%
               </span>
             </div>
-            <div className="w-full h-1 rounded-full bg-(--color-surface-tertiary) overflow-hidden">
+            <div className="w-full h-1 rounded-pill bg-(--color-surface-tertiary) overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-300 bg-(--color-accent)"
+                className="h-full rounded-pill transition-all duration-300 bg-(--color-accent)"
                 style={{ width: `${syncProgress.percent}%` }}
               />
             </div>
@@ -776,7 +768,7 @@ function CloudInstanceCard({
           <button
             onClick={onSync}
             disabled={isSyncing}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-xs font-bold transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default bg-(--color-accent) hover:bg-(--color-accent-hover) shadow-sm shadow-(--color-accent)/20"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-card text-fg-on-accent text-xs font-strong transition-all cursor-pointer hover:shadow-md disabled:opacity-50 disabled:cursor-default bg-(--color-accent) hover:bg-(--color-accent-hover) shadow-sm shadow-(--color-accent)/20"
           >
             {isSyncing ? (
               <>

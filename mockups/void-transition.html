@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VOID — Browse → Mod detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --shell:#0A0B0C;--ground:#101214;--card:#191C20;--raised:#22262B;--pill:#2A2F35;
+  --hair:rgba(255,255,255,.07);--rim:rgba(255,255,255,.05);
+  --ink:#F1F3F5;--ink2:#A6AEB6;--ink3:#6C747C;
+  --acc:#34A46E;--accInk:#6FD3A0;--warn:#D9A93A;--fear:#C05B54;--sky:#4D87CD;--violet:#8A72D6;
+  --sans:'Outfit',system-ui,-apple-system,sans-serif;
+  --mono:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --swift:cubic-bezier(.22,.61,.36,1);
+  /* leaving: accelerate out. arriving: decelerate in with a 4% overshoot and settle. */
+  --snap:cubic-bezier(.6,0,.9,.2);
+  --settle:linear(0,.006,.025,.101,.539 .5,.826,.934,.981,1.001,1.004,1);
+  --s:1;
+  --collapse:calc(120ms*var(--s));
+  --geo:calc(340ms*var(--s));
+  --out:calc(90ms*var(--s));
+  --in:calc(200ms*var(--s));
+  --beat:calc(170ms*var(--s));   /* stillness before the big move commits */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#050607;color:var(--ink);font-family:var(--sans);font-size:14px;
+  -webkit-font-smoothing:antialiased;padding:22px 20px 50px}
+#grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.5;
+  mix-blend-mode:overlay;background-repeat:repeat;background-size:96px 96px}
+.wrap{max-width:1300px;margin:0 auto}
+.mono{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+.cap{font-family:var(--mono);font-weight:400;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink3)}
+.ctl{display:flex;gap:9px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.ctl button{font-family:inherit;font-size:12.5px;padding:8px 13px;border-radius:9px;cursor:pointer;
+  background:var(--raised);border:1px solid var(--hair);color:var(--ink2)}
+.ctl button.on{background:var(--acc);color:#fff;border-color:transparent}
+.ctl .n{color:var(--ink3);font-size:12px}.ctl .sp{flex:1}
+
+.win{border-radius:20px;background:var(--shell);overflow:hidden;box-shadow:0 30px 80px -20px #000}
+.chrome{height:54px;display:flex;align-items:center;gap:7px;padding:0 14px}
+.mk{width:26px;height:26px;border-radius:8px;background:var(--raised);border:1px solid var(--hair);
+  display:grid;place-items:center;margin-right:4px}
+.mk i{width:12px;height:12px;border-radius:4px;border:1.6px solid var(--acc)}
+.ct{padding:7px 12px;border-radius:9px;color:var(--ink2);font-size:12.5px;display:flex;gap:7px;align-items:center}
+.ct.on{background:var(--pill);color:var(--ink);font-weight:500;border:1px solid var(--hair);
+  box-shadow:0 3px 8px -2px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08)}
+.ct i{width:11px;height:11px;border-radius:3px;border:1.4px solid currentColor;opacity:.75}
+.askc{margin-left:auto;display:flex;gap:8px;align-items:center}
+.askf{width:300px;height:32px;border-radius:10px;background:var(--card);border:1px solid var(--hair);
+  display:flex;align-items:center;gap:9px;padding:0 10px;font-size:12.5px;color:var(--ink3);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72)}
+.askf b{width:7px;height:7px;border-radius:2px;background:var(--acc)}
+.askf s{margin-left:auto;font-family:var(--mono);font-size:9px;text-decoration:none;
+  background:var(--raised);padding:2px 5px;border-radius:4px}
+.ico{width:32px;height:32px;border-radius:9px;background:var(--card);border:1px solid var(--hair)}
+.avt{width:30px;height:30px;border-radius:50%;background:var(--warn)}
+
+/* ── the well: two collapsing rows, two resizing columns ── */
+.well{margin:0 12px 12px;border-radius:16px;background:var(--ground);border:1px solid var(--rim);
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.62);padding:14px;height:640px;
+  display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:12px;min-height:0;
+  transition:grid-template-columns var(--geo) var(--settle) var(--beat)}
+.app[data-m="d"] .split{grid-template-columns:340px minmax(0,1fr)}
+
+/* query row — collapses entirely */
+.query{display:grid;grid-template-rows:1fr;
+  transition:grid-template-rows var(--collapse) var(--snap)}
+.query>div{overflow:hidden;min-height:0;transform-origin:top;
+  transition:transform var(--collapse) var(--snap)}
+.app[data-m="d"] .query{grid-template-rows:0fr}
+.app[data-m="d"] .query>div{transform:translateY(-14px)}
+.qrow{display:flex;align-items:center;gap:12px;padding-bottom:11px}
+.sfield{width:300px;height:36px;border-radius:10px;background:var(--shell);display:flex;
+  align-items:center;gap:9px;padding:0 12px;font-size:13px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72),inset 0 -1px 0 rgba(255,255,255,.07)}
+.sfield o{width:11px;height:11px;border-radius:50%;border:1.3px solid var(--ink3)}
+.res{font-size:16px;font-weight:500}
+.resq{font-size:12px;color:var(--ink3)}
+.sorts{margin-left:auto;display:flex;gap:3px}
+.sort{padding:7px 12px;border-radius:8px;font-size:11.5px;color:var(--ink3)}
+.sort.on{background:var(--card);color:var(--ink);border:1px solid var(--hair);
+  box-shadow:0 2px 6px -1px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07)}
+.frow{display:flex;align-items:center;gap:9px;padding:4px 0}
+.chip{padding:6px 10px;border-radius:8px;background:var(--raised);font-size:11.5px;color:var(--ink2);
+  display:flex;gap:7px;align-items:center}
+.chip u{font-family:var(--mono);font-size:9.5px;color:var(--ink3);text-decoration:none}
+.chip.on{background:var(--acc);color:#fff;box-shadow:0 3px 6px -1px rgba(0,0,0,.5),
+  inset 0 1px 0 rgba(255,255,255,.28)}
+.chip.on u{color:rgba(255,255,255,.75)}
+.chip.pl{background:transparent}
+
+/* list */
+.list{border-radius:13px;background:var(--shell);overflow:hidden;min-width:0;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.72),inset 0 -1px 0 rgba(255,255,255,.07);
+  display:flex;flex-direction:column}
+/* list header only exists in detail */
+.lhead{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--in) var(--swift),
+  opacity var(--in) linear;opacity:0}
+.lhead>div{overflow:hidden}
+.app[data-m="d"] .lhead{grid-template-rows:1fr;opacity:1;transition-delay:calc(120ms*var(--s))}
+.lhead .in{display:flex;padding:12px 13px 9px}
+/* table header collapses */
+.thead{display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--collapse) var(--swift),
+  opacity var(--collapse) linear}
+.thead>div{overflow:hidden}
+.app[data-m="d"] .thead{grid-template-rows:0fr;opacity:0}
+.thead .in{display:flex;align-items:center;padding:11px 13px 8px;gap:10px}
+.rows{flex:1;overflow:hidden;padding:4px 0}
+.row{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 10px;margin:0 7px;
+  border-radius:10px;cursor:pointer;transition:background .14s linear}
+.row:hover{background:rgba(255,255,255,.03)}
+.row:active{transform:translateY(1px)}
+.row{transition:background .14s linear,transform 90ms var(--snap)}
+.row.on{background:var(--card);box-shadow:0 3px 8px -2px rgba(0,0,0,.34),
+  inset 0 1px 0 rgba(255,255,255,.075),inset 0 -1px 0 rgba(0,0,0,.4)}
+.cur{width:3px;height:20px;border-radius:2px;background:var(--acc);opacity:0;flex:none;
+  transition:opacity 90ms linear,transform 200ms var(--settle)}
+.row.on .cur{opacity:1}
+.art{width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;
+  font-size:10px;font-weight:500;color:#fff}
+.nmw{flex:none;width:150px;min-width:0}
+.nm{font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.on .nm{color:var(--ink)}
+.col{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:none;
+  transition:width calc(240ms*var(--s)) var(--snap),flex-basis calc(240ms*var(--s)) var(--snap),
+             opacity calc(110ms*var(--s)) linear;
+  transition-delay:calc(var(--rd,0ms)*var(--s) + 40ms*var(--s))}
+.c-desc{flex:1 1 auto;min-width:0;font-size:12px;color:var(--ink3)}
+.c-type{width:90px;font-size:11px;color:var(--ink3);font-family:var(--mono);font-weight:400}
+.c-ins{width:52px;text-align:right;font-family:var(--mono);font-weight:500;font-size:10.5px;color:var(--ink2)}
+.c-add{width:82px;display:flex;justify-content:flex-end}
+.addm{padding:6px 10px;border-radius:7px;background:var(--acc);color:#fff;font-size:11px;font-weight:500;
+  box-shadow:0 2px 5px -1px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25);white-space:nowrap}
+.addm.inst{background:transparent;color:var(--ink3);box-shadow:none;font-weight:400}
+.app[data-m="d"] .c-desc{flex:0 0 0;width:0;opacity:0}
+.app[data-m="d"] .c-type{width:0;opacity:0}
+.app[data-m="d"] .c-add{width:0;opacity:0}
+.app[data-m="d"] .nmw{width:auto;flex:1}
+.nmw{transition:width calc(240ms*var(--s)) var(--snap),flex calc(240ms*var(--s)) var(--snap);
+  transition-delay:calc(var(--rd,0ms)*var(--s) + 40ms*var(--s))}
+/* keyboard bar collapses */
+.kbar{display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--collapse) var(--swift),
+  opacity var(--collapse) linear}
+.kbar>div{overflow:hidden}
+.app[data-m="d"] .kbar{grid-template-rows:0fr;opacity:0}
+.kbar .in{display:flex;align-items:center;gap:8px;padding:10px 13px;font-size:11px;color:var(--ink3)}
+.kk{font-family:var(--mono);font-size:9.5px;background:var(--raised);padding:3px 6px;border-radius:5px;color:var(--ink2)}
+
+/* panel */
+.panel{border-radius:15px;overflow:hidden;min-width:0;display:flex;flex-direction:column;
+  background:var(--card);border:1px solid var(--hair);
+  box-shadow:0 14px 36px -10px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.075),
+             inset 0 -1px 0 rgba(0,0,0,.4)}
+.phead{display:flex;align-items:center;gap:14px;padding:16px 18px}
+.pcov{border-radius:15px;display:grid;place-items:center;color:#fff;font-weight:500;flex:none;
+  width:48px;height:48px;font-size:15px;
+  box-shadow:0 6px 16px -4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.2);
+  transition:width var(--geo) var(--settle) var(--beat),height var(--geo) var(--settle) var(--beat),
+             font-size var(--geo) var(--settle) var(--beat),
+             border-radius var(--geo) var(--settle) var(--beat)}
+.app[data-m="d"] .pcov{width:62px;height:62px;font-size:18px;border-radius:19px}
+.pname{font-weight:300;font-size:25px;letter-spacing:-.015em;line-height:1.1;
+  transition:font-size var(--geo) var(--settle) var(--beat)}
+.app[data-m="d"] .pname{font-size:30px}
+.pmeta{font-size:11.5px;color:var(--ink3);margin-top:6px;display:flex;gap:8px;align-items:center}
+.tagp{padding:3px 8px;border-radius:6px;background:var(--raised);font-size:9px;
+  font-family:var(--mono);color:var(--ink2);letter-spacing:.08em;text-transform:uppercase}
+.follow{margin-left:auto;padding:8px 13px;border-radius:9px;background:var(--raised);
+  border:1px solid var(--hair);font-size:12px;color:var(--ink2);white-space:nowrap}
+.seam{height:1px;background:var(--hair);flex:none}
+.pbody{flex:1;min-height:0;overflow:hidden;position:relative}
+.pscroll{padding:16px 18px}
+
+/* mode blocks */
+.b-only{transition:opacity var(--out) linear,transform var(--out) var(--snap)}
+.app[data-m="d"] .b-only{opacity:0;transform:translateY(-10px);pointer-events:none;
+  position:absolute;inset:0 0 auto 0}
+/* the mask: content slides up into a clipped box. no dissolve anywhere. */
+.d-only{overflow:hidden}
+.d-only>*{display:block;transform:translateY(26px);
+  transition:transform var(--in) var(--settle)}
+.app[data-m="b"] .d-only{pointer-events:none;position:absolute;inset:0 0 auto 0;
+  height:0;overflow:hidden}
+.app[data-m="b"] .d-only>*{transform:translateY(26px)}
+.app[data-m="d"] .d-only>*{transform:translateY(0);
+  transition-delay:calc((var(--i,0)*70ms + 300ms)*var(--s))}
+
+.k{margin-bottom:7px}
+.p{font-size:13px;color:var(--ink2);line-height:1.62}
+.fitr{display:flex;align-items:center;gap:10px;padding:6px 0}
+.fdot{width:11px;height:11px;border-radius:50%;flex:none}
+.fnm{flex:1;font-size:12.5px;color:var(--ink)}
+.fver{font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+.frd{font-size:10.5px;color:var(--accInk);width:58px;text-align:right}
+.vchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.vc{padding:5px 9px;border-radius:7px;background:var(--raised);font-family:var(--mono);
+  font-size:10.5px;color:var(--ink2)}
+.vc.on{background:var(--acc);color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px 10px;margin-top:12px}
+.g2 .cap{margin-bottom:4px}
+.g2 b{font-family:var(--mono);font-weight:500;font-size:12.5px;color:var(--ink)}
+.tabs2{display:flex;gap:4px;align-items:center;padding:0 18px 12px}
+.t2{padding:8px 13px;border-radius:9px;font-size:12.5px;color:var(--ink3)}
+.t2.on{background:var(--raised);color:var(--ink);font-weight:500;
+  box-shadow:0 2px 6px -1px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07)}
+.tstats{margin-left:auto;display:flex;gap:14px;align-items:baseline}
+.tstats b{font-family:var(--mono);font-weight:500;font-size:11.5px;color:var(--ink2)}
+.callout{display:flex;gap:13px;padding:14px 16px;border-radius:11px;background:var(--raised);margin-bottom:20px}
+.callout i{width:3px;border-radius:2px;background:var(--acc);flex:none}
+.h2{font-size:21px;font-weight:300;letter-spacing:-.015em;margin:20px 0 10px}
+.li{display:flex;gap:9px;align-items:center;padding:5px 0;font-size:12.5px}
+.li b{font-weight:500;font-size:12px;color:var(--ink)}
+.li s{color:var(--ink3);text-decoration:none}
+.li em{width:4px;height:4px;border-radius:1px;background:var(--sky);flex:none}
+.pfoot{display:flex;align-items:center;gap:11px;padding:13px 18px}
+.fnote{flex:1;min-width:0}
+.fnote b{display:block;font-size:11.5px;color:var(--ink2);font-family:var(--mono);font-weight:500}
+.fnote s{display:block;font-size:11.5px;color:var(--ink3);text-decoration:none;margin-top:3px}
+.vsel{padding:9px 11px;border-radius:9px;background:var(--raised);border:1px solid var(--hair);
+  font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.addbtn{padding:11px 16px;border-radius:10px;background:var(--acc);color:#fff;font-weight:500;
+  font-size:12.5px;border:0;cursor:pointer;white-space:nowrap;
+  box-shadow:0 3px 6px -1px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.28),
+             inset 0 -2px 1px rgba(0,0,0,.3);
+  transition:flex-grow var(--geo) var(--swift),transform .11s var(--swift),box-shadow .11s var(--swift)}
+.addbtn:active{transform:translateY(2px);box-shadow:0 0 0 0,inset 0 3px 5px rgba(0,0,0,.42)}
+.openp{padding:11px 16px;border-radius:10px;background:var(--raised);border:1px solid var(--hair);
+  font-size:12.5px;color:var(--ink2);white-space:nowrap;
+  transition:opacity var(--out) linear,max-width var(--geo) var(--swift),
+             padding var(--geo) var(--swift),margin var(--geo) var(--swift)}
+.app[data-m="d"] .openp{opacity:0;max-width:0;padding-left:0;padding-right:0;margin-left:-11px;overflow:hidden}
+.app[data-m="b"] .addbtn{flex:1}
+.app[data-m="b"] .vsel{opacity:0;max-width:0;padding:0;overflow:hidden;
+  transition:opacity var(--out) linear,max-width var(--geo) var(--swift),padding var(--geo) var(--swift)}
+.app[data-m="d"] .vsel{transition:opacity var(--in) linear .18s,max-width var(--geo) var(--swift)}
+
+.spec{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px}
+.sp1{padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid var(--hair)}
+.sp1 h4{font-size:13px;font-weight:500;margin-bottom:5px}
+.sp1 p{font-size:12px;color:var(--ink3);line-height:1.55}
+.sp1 code{font-family:var(--mono);font-size:10px;color:var(--accInk)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<div id="grain"></div>
+<div class="wrap">
+  <div class="ctl">
+    <button id="tg" class="on">Open Sodium →</button>
+    <button id="sl">Slow motion ¼×</button>
+    <span class="n">click any row · <span class="mono">ESC</span> back</span>
+    <span class="sp"></span><span class="n mono" id="ml">browse</span>
+  </div>
+
+<div class="app" data-m="b" id="app">
+<div class="win">
+  <div class="chrome">
+    <div class="mk"><i></i></div>
+    <div class="ct"><i></i>New pack</div>
+    <div class="ct"><i></i>Play</div><div class="ct"><i></i>Packs</div>
+    <div class="ct on"><i></i>Browse</div><div class="ct"><i></i>Friends</div>
+    <div class="askc"><div class="askf"><b></b>Ask VOID anything<s>⌘K</s></div>
+      <div class="ico"></div><div class="avt"></div></div>
+  </div>
+
+  <div class="well">
+    <!-- ROW 1 : query controls. collapses to nothing. -->
+    <div class="query"><div>
+      <div class="qrow">
+        <div class="sfield"><o></o>shaders</div>
+        <div class="res mono">2,318</div><div class="res">results</div>
+        <div class="resq">for “shaders” in Forge 1.20.1</div>
+        <div class="sorts"><div class="sort on">Relevance</div>
+          <div class="sort">Downloads</div><div class="sort">Updated</div></div>
+      </div>
+      <div class="frow"><span class="cap" style="width:66px">Loader</span>
+        <span class="chip on">Forge <u>4.1K</u></span><span class="chip pl">Fabric <u>6.8K</u></span>
+        <span class="chip pl">NeoForge <u>2.2K</u></span><span class="chip pl">Quilt <u>910</u></span>
+        <span class="cap" style="width:60px;margin-left:14px">Version</span>
+        <span class="chip pl mono">1.21.1</span><span class="chip on mono">1.20.1</span>
+        <span class="chip pl mono">1.19.2</span><span class="chip pl mono">1.18.2</span>
+        <span class="chip pl mono">1.16.5</span></div>
+      <div class="frow"><span class="cap" style="width:66px">Category</span>
+        <span class="chip pl">Performance <u>412</u></span><span class="chip on">Shaders <u>188</u></span>
+        <span class="chip pl">Utility <u>2.9K</u></span><span class="chip pl">Tech <u>1.4K</u></span>
+        <span class="chip pl">World gen <u>760</u></span></div>
+    </div></div>
+
+    <!-- ROW 2 : the split -->
+    <div class="split">
+      <div class="list">
+        <div class="lhead"><div><div class="in"><span class="cap">Results</span>
+          <span style="flex:1"></span><span class="cap mono">2,318</span></div></div></div>
+        <div class="thead"><div><div class="in">
+          <span class="cur" style="opacity:0"></span><span style="width:26px"></span>
+          <span class="cap nmw">Mod</span><span class="cap c-desc"></span>
+          <span class="cap c-type">Type</span><span class="cap c-ins">Installs</span>
+          <span class="c-add"></span></div></div></div>
+        <div class="rows" id="rows"></div>
+        <div class="kbar"><div><div class="in">
+          <span class="kk">↑</span><span class="kk">↓</span> move
+          <span class="kk" style="margin-left:8px">↵</span> open
+          <span class="kk" style="margin-left:8px">A</span> add to All The Mods 9
+          <span style="flex:1"></span>
+          <span class="mono">12</span> of <span class="mono">2,318</span> loaded</div></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="phead">
+          <div class="pcov" id="cov" style="background:#8A72D6">IR</div>
+          <div style="min-width:0;flex:1">
+            <div class="pname" id="nm">Iris Shaders</div>
+            <div class="pmeta"><span class="tagp" id="cat">Shaders</span>
+              <span class="mono" id="dl" style="font-size:11px">21M</span>
+              <span id="upd">· Updated 3 days ago</span></div>
+          </div>
+          <div class="follow d-only" style="--i:0">☆ Follow</div>
+        </div>
+
+        <div class="tabs2 d-only" style="--i:1">
+          <div class="t2 on">Description</div><div class="t2">Gallery</div>
+          <div class="t2">Versions</div><div class="t2">Changelog</div>
+          <div class="tstats"><span><b id="s1">38M</b> <span class="cap">downloads</span></span>
+            <span><b>3d ago</b> <span class="cap">updated</span></span>
+            <span><b>1.2 MB</b> <span class="cap">size</span></span></div>
+        </div>
+        <div class="seam"></div>
+
+        <div class="pbody"><div class="pscroll">
+          <!-- BROWSE BODY -->
+          <div class="b-only">
+            <div class="k cap">Overview</div>
+            <p class="p" id="ov">Shader support that works alongside Sodium. It loads OptiFine-format
+              shader packs without replacing your renderer, so frame-rates stay where Sodium put them.</p>
+            <div style="display:flex;margin:20px 0 6px"><span class="cap">Fits your packs</span>
+              <span style="flex:1"></span><span class="cap"><b class="mono">6</b> of 9 packs</span></div>
+            <div class="fitr"><span class="fdot" style="background:#34A46E"></span>
+              <span class="fnm">All The Mods 9</span><span class="fver">Forge 1.20.1</span>
+              <span class="frd">✓ Ready</span></div>
+            <div class="fitr"><span class="fdot" style="background:#4D87CD"></span>
+              <span class="fnm">Cobblemon Spring</span><span class="fver">Fabric 1.20.1</span>
+              <span class="frd">✓ Ready</span></div>
+            <div class="fitr"><span class="fdot" style="background:#D9A93A"></span>
+              <span class="fnm">Create Arcane</span><span class="fver">Forge 1.20.1</span>
+              <span class="frd">✓ Ready</span></div>
+            <div class="fitr"><span class="fdot" style="background:#C05B54"></span>
+              <span class="fnm">Fear Nightfall</span><span class="fver">Forge 1.18.2</span>
+              <span class="frd" style="color:var(--ink3)">needs 1.20.1</span></div>
+            <p style="font-size:11.5px;color:var(--ink3);margin-top:10px">and 5 more packs in your library</p>
+            <div class="k cap" style="margin:20px 0 0">Versions</div>
+            <div class="vchips"><span class="vc on">1.20.1</span><span class="vc">1.19.2</span>
+              <span class="vc">1.18.2</span><span class="vc">1.16.5</span></div>
+            <div class="grid2">
+              <div class="g2"><div class="cap">Updated</div><b>3 days ago</b></div>
+              <div class="g2"><div class="cap">Licence</div><b>LGPL-3.0</b></div>
+              <div class="g2"><div class="cap">Size</div><b>1.4 MB</b></div>
+              <div class="g2"><div class="cap">Author</div><b>@coderbot</b></div>
+            </div>
+          </div>
+
+          <!-- DETAIL BODY -->
+          <div class="d-only" style="--i:2">
+            <div class="callout"><i></i><div>
+              <div style="font-size:14px;font-weight:500;color:var(--accInk)">Safe to add — it fits 5 of your 9 packs</div>
+              <div style="font-size:12.5px;color:var(--ink2);margin-top:5px">VOID installs
+                <span class="mono">0.5.8</span> for <span class="mono">1.20.1</span> Forge, not the newest
+                <span class="mono">1.21</span> build. Nothing else has to be installed.</div></div></div>
+          </div>
+          <div class="d-only" style="--i:3">
+            <div class="h2" id="h2a" style="margin-top:0">Sodium</div>
+            <p class="p" id="para">Sodium is a free and open-source rendering engine replacement for
+              Minecraft which greatly improves frame rates and reduces micro-stutter, while fixing many
+              graphical issues.</p>
+            <p class="p" style="color:var(--ink3);border-left:2px solid var(--hair);padding-left:14px;
+              margin-top:16px;font-size:12.5px">Not a drop-in replacement for OptiFine. It does not include
+              shader support on its own — use Iris alongside it.</p>
+          </div>
+          <div class="d-only" style="--i:4">
+            <div class="h2">Why it is faster</div>
+            <p class="p">The vanilla renderer rebuilds chunk meshes on the main thread and re-uploads more
+              geometry than it needs to. Sodium rewrites that path rather than patching around it.</p>
+            <div style="margin-top:12px">
+              <div class="li"><em></em><b>Multi-threaded chunk meshing</b><s>— so world updates stop blocking the frame</s></div>
+              <div class="li"><em></em><b>Vertex format compression</b><s>— cutting GPU memory use by roughly 40%</s></div>
+              <div class="li"><em></em><b>Smarter culling</b><s>— geometry behind you is never submitted</s></div>
+              <div class="li"><em></em><b>Fixed translucency sorting</b><s>— on water, ice and stained glass</s></div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="seam"></div>
+        <div class="pfoot">
+          <div class="fnote d-only" style="--i:5"><b>Installs 0.5.8 for 1.20.1 Forge</b>
+            <s>No other mods required</s></div>
+          <div class="vsel">0.5.8 ▾</div>
+          <button class="addbtn" id="addb">+ Add to All The Mods 9</button>
+          <div class="openp" id="openp">Open page</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+  <div class="spec">
+    <div class="sp1"><h4>Nothing cross-fades</h4>
+      <p>Sheet content slides up <em>into a clipped box</em> rather than dissolving. Physical things are
+      revealed or occluded — dissolving is what made the old version feel like a web page.</p></div>
+    <div class="sp1"><h4>Leaving ≠ arriving</h4>
+      <p>Departures accelerate out on <code>cubic-bezier(.6,0,.9,.2)</code>. Arrivals decelerate in with a
+      4% overshoot and settle. Two different physics for two different jobs.</p></div>
+    <div class="sp1"><h4>There is a beat of stillness</h4>
+      <p>Query controls snap shut in <code>120ms</code>, then <strong>nothing happens for 170ms</strong>,
+      then the panel commits. Silence is what makes each move read as an event.</p></div>
+    <div class="sp1"><h4>Rows collapse in sequence</h4>
+      <p><code>13ms</code> apart, top to bottom. Twelve rows collapsing in perfect unison was the single most
+      mechanical-feeling mistake in the old build.</p></div>
+    <div class="sp1"><h4>The press lands first</h4>
+      <p>The row pushes down 1px on <code>:active</code> before any layout moves. Cause has to visibly
+      precede effect or the whole thing feels like it happened <em>to</em> you.</p></div>
+    <div class="sp1"><h4>The panel has mass</h4>
+      <p>Cover, title and geometry share one delayed, overshooting curve, so the panel reads as a single
+      heavy object arriving — not six properties animating.</p></div>
+  </div>
+</div>
+
+<script>
+(function(){var s=96,c=document.createElement('canvas');c.width=c.height=s;
+var x=c.getContext('2d'),d=x.createImageData(s,s),p=d.data,seed=0x9E3779B9;
+function rnd(){seed^=seed<<13;seed>>>=0;seed^=seed>>>17;seed^=seed<<5;seed>>>=0;return seed/4294967296}
+for(var i=0;i<p.length;i+=4){var v=128+(rnd()-.5)*92;p[i]=p[i+1]=p[i+2]=v;p[i+3]=255}
+x.putImageData(d,0,0);document.getElementById('grain').style.backgroundImage='url('+c.toDataURL()+')';})();
+
+var M=[
+ ['Sodium','SO','#4D87CD','Performance','38M','Modern rendering engine; large frame-rate gains','jellysquid3',1],
+ ['Iris Shaders','IR','#8A72D6','Shaders','21M','Shader support that works alongside Sodium','coderbot',0],
+ ['Just Enough Items','JE','#D9A93A','Utility','44M','Item and recipe lookup for every mod you have','mezz',1],
+ ['Create','CR','#34A46E','Tech','19M','Mechanical contraptions built from rotating shafts','simibubi',0],
+ ['Distant Horizons','DH','#4D87CD','Performance','3.4M','Level-of-detail terrain far past render distance','jeseibel',0],
+ ["Farmer's Delight",'FD','#C05B54','Food','12M','Cooking, farming and a great deal more to eat','vectorwing',0],
+ ["Xaero's Minimap",'XM','#34A46E','Utility','28M','Minimap with waypoints and a full world map','xaero96',1],
+ ['Oculus','OC','#8A72D6','Shaders','9.1M','Iris for Forge, without leaving your pack','Asek3',0],
+ ['Applied Energistics 2','AE','#4D87CD','Tech','15M','Digital storage networks and autocrafting','AlgorithmX2',0],
+ ['Complementary Shaders','CS','#8A72D6','Shaders','8.6M','A polished shader pack tuned for wide hardware','EminGT',0],
+ ['Rubidium','RU','#4D87CD','Performance','14M','A Forge port of Sodium for older packs','Asek3',0],
+ ['Chunky','CH','#34A46E','Utility','6.2M','Pre-generate world chunks before anyone joins','pop4959',0]];
+
+var rowsEl=document.getElementById('rows'),app=document.getElementById('app'),sel=1;
+M.forEach(function(m,i){
+  var r=document.createElement('div');r.className='row'+(i===sel?' on':'');
+  r.innerHTML='<span class="cur"></span><span class="art" style="background:'+m[2]+'">'+m[1]+'</span>'+
+   '<span class="nmw"><span class="nm">'+m[0]+'</span></span>'+
+   '<span class="col c-desc">'+m[5]+'</span><span class="col c-type">'+m[3]+'</span>'+
+   '<span class="col c-ins">'+m[4]+'</span>'+
+   '<span class="col c-add">'+(m[7]?'<span class="addm inst">✓ Installed</span>':'<span class="addm">+ Add</span>')+'</span>';
+  r.style.setProperty('--rd',(i*13)+'ms');
+  r.onclick=function(){pick(i);open_()};rowsEl.appendChild(r);
+});
+function pick(i){
+  sel=i;var m=M[i];
+  [].forEach.call(document.querySelectorAll('.row'),function(r,k){r.classList.toggle('on',k===i)});
+  var c=document.getElementById('cov');c.style.background=m[2];c.textContent=m[1];
+  document.getElementById('nm').textContent=m[0];
+  document.getElementById('cat').textContent=m[3];
+  document.getElementById('dl').textContent=m[4];
+  document.getElementById('s1').textContent=m[4];
+  document.getElementById('ov').textContent=m[5]+'.';
+  document.getElementById('h2a').textContent=m[0];
+  document.getElementById('para').textContent=m[5]+'. Maintained by @'+m[6]+
+    ', with '+m[4]+' downloads across every loader VOID supports.';
+  document.getElementById('addb').textContent='+ Add to All The Mods 9';
+}
+function open_(){app.dataset.m='d';sync()}
+function close_(){app.dataset.m='b';sync()}
+function sync(){var d=app.dataset.m==='d';
+  document.getElementById('ml').textContent=d?'detail':'browse';
+  var t=document.getElementById('tg');
+  t.textContent=d?'← Back to results':'Open '+M[sel][0]+' →';t.classList.toggle('on',!d)}
+document.getElementById('tg').onclick=function(){app.dataset.m==='d'?close_():open_()};
+document.getElementById('openp').onclick=open_;
+document.onkeydown=function(e){if(e.key==='Escape')close_()};
+var slow=false;
+document.getElementById('sl').onclick=function(){slow=!slow;
+  document.documentElement.style.setProperty('--s',slow?'4':'1');
+  this.classList.toggle('on',slow);this.textContent=slow?'Normal speed':'Slow motion ¼×'};
+pick(1);sync();
+</script>
+</body>
+</html>

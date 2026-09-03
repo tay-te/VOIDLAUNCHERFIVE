@@ -18,11 +18,11 @@ export const DownloadToast = observer(() => {
 
   return (
     <div className="fixed bottom-6 right-6 z-[300] w-80 download-toast-enter">
-      <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/20">
+      <div className="glass rounded-panel overflow-hidden shadow-2xl shadow-black/20">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-2">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
+            className="w-9 h-9 rounded-card flex items-center justify-center text-sm font-display flex-shrink-0"
             style={{
               backgroundColor: job.iconColor + "15",
               color: job.iconColor,
@@ -32,10 +32,10 @@ export const DownloadToast = observer(() => {
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-(--color-text-primary) truncate">
+            <p className="text-xs font-strong text-(--color-text-primary) truncate">
               {job.title}
             </p>
-            <p className="text-[10px] text-(--color-text-secondary) truncate mt-0.5">
+            <p className="text-micro text-(--color-text-secondary) truncate mt-0.5">
               {job.status === "done"
                 ? job.subtitle
                 : job.status === "error"
@@ -55,19 +55,19 @@ export const DownloadToast = observer(() => {
           {job.status === "done" && (
             <CheckCircle2
               size={16}
-              className="text-green-500 flex-shrink-0"
+              className="text-success flex-shrink-0"
             />
           )}
           {job.status === "error" && (
             <AlertTriangle
               size={16}
-              className="text-red-500 flex-shrink-0"
+              className="text-danger flex-shrink-0"
             />
           )}
 
           <button
             onClick={() => store.dismissToast()}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer flex-shrink-0"
+            className="w-6 h-6 rounded-pill flex items-center justify-center text-(--color-text-secondary) hover:bg-(--color-surface-tertiary) transition-colors cursor-pointer flex-shrink-0"
           >
             <X size={12} />
           </button>
@@ -75,9 +75,9 @@ export const DownloadToast = observer(() => {
 
         {/* Progress bar */}
         <div className="px-4 pb-4 pt-2">
-          <div className="w-full h-1.5 rounded-full bg-(--color-surface-tertiary) overflow-hidden">
+          <div className="w-full h-1.5 rounded-pill bg-(--color-surface-tertiary) overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-500 ease-out"
+              className="h-full rounded-pill transition-all duration-500 ease-out"
               style={{
                 width: `${job.status === "done" ? 100 : job.percent}%`,
                 backgroundColor:
@@ -91,12 +91,12 @@ export const DownloadToast = observer(() => {
           </div>
 
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[10px] text-(--color-text-secondary) flex items-center gap-1">
+            <span className="text-micro text-(--color-text-secondary) flex items-center gap-1">
               <Package size={9} />
               {job.completedItems}/{job.totalItems} steps
             </span>
             <span
-              className="text-[10px] font-bold"
+              className="text-micro font-strong"
               style={{
                 color:
                   job.status === "error"
