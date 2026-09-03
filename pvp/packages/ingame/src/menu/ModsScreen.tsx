@@ -113,13 +113,7 @@ export function ModsScreen() {
         footer={MODS_FOOTER}
         headerRight={
           <>
-            <SearchBar
-              variant="panel"
-              value={search}
-              onValueChange={setSearch}
-              placeholder="Search"
-              style={{ width: 230 }}
-            />
+            <SearchBar variant="panel" value={search} onChange={setSearch} placeholder="Search" />
             <FilterTabs tabs={FILTER_TABS} value={filter} onChange={setFilter} label="Mod filter" />
             <span className="v-spacer" />
           </>

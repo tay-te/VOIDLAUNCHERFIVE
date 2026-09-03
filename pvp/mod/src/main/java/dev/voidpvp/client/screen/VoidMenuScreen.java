@@ -26,11 +26,13 @@ public final class VoidMenuScreen extends Screen {
     /** The {@code rgba(0, 0, 0, 0.45)} tint of §6.4. */
     private static final int TINT = 0x73000000;
 
-    private final VoidClient client;
+    private final VoidClient voidClient;
     private final BlurBackdrop backdrop = new BlurBackdrop();
 
-    public VoidMenuScreen(VoidClient client) {
-        this.client = client;
+    public VoidMenuScreen(VoidClient voidClient) {
+        // Deliberately not called `client`: Screen already has a field of that
+        // name holding the MinecraftClient, and shadowing it reads badly.
+        this.voidClient = voidClient;
     }
 
     /** The game keeps running behind the menu; this is a PVP client (§6.4). */
@@ -41,22 +43,22 @@ public final class VoidMenuScreen extends Screen {
 
     @Override
     public void init() {
-        client.onMenuOpened();
-        UiHost ui = client.ui();
+        voidClient.onMenuOpened();
+        UiHost ui = voidClient.ui();
         ui.setFocus(true);
     }
 
     @Override
     public void removed() {
         backdrop.release();
-        client.ui().setFocus(false);
-        client.onMenuClosed();
+        voidClient.ui().setFocus(false);
+        voidClient.onMenuClosed();
     }
 
     @Override
     public void render(int mouseX, int mouseY, float delta) {
-        MinecraftClient mc = this.client.minecraft();
-        UiHost ui = this.client.ui();
+        MinecraftClient mc = voidClient.minecraft();
+        UiHost ui = voidClient.ui();
         int fbWidth = Math.max(1, mc.width);
         int fbHeight = Math.max(1, mc.height);
 
@@ -64,7 +66,7 @@ public final class VoidMenuScreen extends Screen {
         backdrop.draw(this.width, this.height, fbWidth, fbHeight, TINT);
 
         // 4. the menu layer, from the same view the HUD uses
-        this.client.pumpUi();
+        voidClient.pumpUi();
         ui.paint(this.width, this.height);
 
         forwardMouseMove(ui);
@@ -76,7 +78,7 @@ public final class VoidMenuScreen extends Screen {
             return;
         }
         int x = (int) (Mouse.getX() / scale);
-        int y = (int) ((this.client.minecraft().height - Mouse.getY()) / scale);
+        int y = (int) ((voidClient.minecraft().height - Mouse.getY()) / scale);
         ui.mouseMoved(x, y);
     }
 
@@ -87,9 +89,9 @@ public final class VoidMenuScreen extends Screen {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
-        UiHost ui = client.ui();
-        if (client.captureActive()) {
-            client.finishKeybindCapture("MOUSE" + button);
+        UiHost ui = voidClient.ui();
+        if (voidClient.captureActive()) {
+            voidClient.finishKeybindCapture("MOUSE" + button);
             return;
         }
         ui.mouseDown(viewX(ui), viewY(ui), button);
@@ -97,13 +99,13 @@ public final class VoidMenuScreen extends Screen {
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int button) {
-        UiHost ui = client.ui();
+        UiHost ui = voidClient.ui();
         ui.mouseUp(viewX(ui), viewY(ui), button);
     }
 
     @Override
     protected void mouseDragged(int mouseX, int mouseY, int button, long heldMs) {
-        UiHost ui = client.ui();
+        UiHost ui = voidClient.ui();
         ui.mouseMoved(viewX(ui), viewY(ui));
     }
 
@@ -113,7 +115,7 @@ public final class VoidMenuScreen extends Screen {
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0) {
             // LWJGL reports 120 per notch; Ultralight wants pixels.
-            client.ui().scroll(0, wheel / 120 * 48);
+            voidClient.ui().scroll(0, wheel / 120 * 48);
         }
         super.handleMouse();
     }
@@ -124,27 +126,27 @@ public final class VoidMenuScreen extends Screen {
         // from the event itself or the view would never see a key released.
         if (Keyboard.getEventKey() != 0 && !Keyboard.getEventKeyState()) {
             int code = Keyboard.getEventKey();
-            client.ui().keyUp(KeyNames.virtualKey(code), modifiers());
+            voidClient.ui().keyUp(KeyNames.virtualKey(code), modifiers());
         }
         super.handleKeyboard();
     }
 
     @Override
     protected void keyPressed(char character, int keyCode) {
-        UiHost ui = client.ui();
+        UiHost ui = voidClient.ui();
 
-        if (client.captureActive()) {
-            client.finishKeybindCapture(
+        if (voidClient.captureActive()) {
+            voidClient.finishKeybindCapture(
                     keyCode == KeyNames.KEY_ESCAPE ? null : KeyNames.nameOf(keyCode));
             return;
         }
-        if (keyCode == client.state().menuKeyCode) {
+        if (keyCode == voidClient.state().menuKeyCode) {
             // The hotkey poll owns open/close; swallow it here so the view
             // does not also see it.
             return;
         }
         if (keyCode == KeyNames.KEY_ESCAPE && !ui.hasFocusedInput()) {
-            client.closeMenu();
+            voidClient.closeMenu();
             return;
         }
         int mods = modifiers();
@@ -179,7 +181,7 @@ public final class VoidMenuScreen extends Screen {
 
     private int viewY(UiHost ui) {
         double scale = ui.deviceScale();
-        return scale <= 0 ? 0 : (int) ((client.minecraft().height - Mouse.getY()) / scale);
+        return scale <= 0 ? 0 : (int) ((voidClient.minecraft().height - Mouse.getY()) / scale);
     }
 
     /** The scaled-GUI size, so callers do not have to build a {@link Window}. */

@@ -66,6 +66,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     private final EdgeKey menuKey = new EdgeKey();
     private final EdgeKey cycleKey = new EdgeKey();
+    private final EdgeKey keystrokesKey = new EdgeKey();
 
     private VoidSocket socket;
     private SessionStats stats;
@@ -251,6 +252,19 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 && isKeyDown(state.cycleLoadoutKeyCode);
         if (cycleKey.pressed(cycleDown) && canOpen) {
             cycleLoadout();
+        }
+
+        // keystrokes.keybind: the one per-mod hotkey in the registry. It hides
+        // and shows the overlay without opening the menu, so it writes the
+        // mod's own `on` and re-pushes the loadout for the UI to re-render.
+        int keystrokesCode = state.keystrokesToggleCode;
+        boolean keystrokesDown = keystrokesCode != KeyNames.KEY_NONE && !otherScreenOpen
+                && !menuScreenOpen && isKeyDown(keystrokesCode);
+        if (keystrokesKey.pressed(keystrokesDown) && canOpen) {
+            boolean on = state.loadout().isOn("keystrokes");
+            state.setModSetting("keystrokes", "on",
+                    new JsonPrimitive(Boolean.valueOf(!on)));
+            emitLoadout();
         }
     }
 
