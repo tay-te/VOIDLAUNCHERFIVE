@@ -199,6 +199,68 @@ Nothing else is more than 2px out.
 
 ---
 
+## 4b. Coordinator's three items
+
+**(1) `.v-app button { background: none }` out-specifying components — fixed.** This is the
+same defect described in section 2; it was found independently here by probing
+`getComputedStyle` on the running page. The reset is now `:where()`-scoped. Re-measured on
+the gallery afterwards, every selector named:
+
+| selector | before | after |
+|---|---|---|
+| `.v-launch` | `rgba(0,0,0,0)` | `rgb(159,139,255)` |
+| `.v-btn--accent` | `rgba(0,0,0,0)` | `rgb(159,139,255)`, weight 700 |
+| `.v-toggle--on` | `rgba(0,0,0,0)` | `rgb(159,139,255)` |
+| `.v-tab--selected` | `rgba(0,0,0,0)`, border 0 | `rgba(159,139,255,0.18)`, border 1px |
+| `.v-pill` | `rgba(0,0,0,0)`, border 0 | `rgba(34,38,43,0.97)`, border 1px |
+| `.v-icon-btn` / `.v-keybind` | `rgba(0,0,0,0)`, border 0 | filled, border 1px |
+
+**(2) Bricolage `opsz` pinning — confirmed, and fixed for display sizes.** The axis is
+`opsz 12 → 96` (default 96); `fetch-fonts.mjs` instanced only at 14. Measuring glyph ink
+with fontTools against the exports:
+
+| | frame | opsz 14 | opsz 96 |
+|---|---:|---:|---:|
+| `Sword PvP` @ 104 / −4.16 (launcher hero) | 462 | 517.3 **(+11.9 %)** | 465.4 (+0.7 %) |
+| `Mods` @ 26 / −0.52 (panel title) | 66 | 67.8 (+2.7 %) | 61.5 (−6.8 %) |
+| `Loadouts` @ 26 / −0.52 | 111 | 112.6 (+1.4 %) | 102.9 (−7.3 %) |
+
+Confirmed in-browser on the built faces: 520 vs **461.1** advance at 104px. Figma resolves
+`opsz` from the font size, so **neither instance covers the whole ramp** — 14 is right for
+the titles, 96 for the hero. Added as a second static instance
+(`bricolage-grotesque-800-display.woff2`, `opsz 96`) under its own family, since CSS cannot
+pick a face by size.
+
+It lives in a **separate stylesheet**, `@void/ui/fonts-display.css`, which `fonts.css` does
+not import. Nothing in either of these two packages renders `--font-display` above 26px
+(`--text-hero: 104px` is an unused token here; the hero belongs to the launcher), so the
+in-game bundle would have paid ~25 KB for glyphs it never draws. Verified: the display face
+is **not** in the emitted bundle and the size budget is unchanged at 195.8 KB (48.9 %).
+
+The launcher picks it up with one import and one token:
+
+```js
+import '@void/ui/fonts.css';
+import '@void/ui/fonts-display.css';   // adds --font-display-hero
+```
+```css
+.hero { font-family: var(--font-display-hero); }   /* or class .v-display--hero */
+```
+
+Still a static instance, so `font-variation-settings` remains unused (§7).
+
+**(3) DM Mono at 0.667em — a measurement artifact, not a font or tracking bug.** DM Mono's
+advance really is 0.6em: measured at 100px it is exactly 60.0px/char. The 0.667em reading
+comes from **headless Chromium hinting glyph advances to whole pixels at small sizes** —
+10.5 × 0.6 = 6.3 rounds to 7.0, which is the 11 % discrepancy. Launch with
+`--font-render-hinting=none` and the same string measures 6.3px/char, matching the frame.
+Nothing in the CSS needs to change, and adding letter-spacing to compensate would have made
+every mono string in the bundle genuinely wrong on the real renderer. This is also why the
+whole-frame numbers in section 1 dropped when the flag was added rather than when CSS
+changed.
+
+---
+
 ## 5. Harness notes for whoever runs this next
 
 Two things silently corrupted the numbers before they were found, both worth keeping:
@@ -226,6 +288,7 @@ had to be reverted while a sibling agent was editing it.
 | `packages/ui` — `pnpm test` | **258 passed** |
 | `packages/ui` — `pnpm typecheck` | clean |
 | `packages/ui` — `pnpm build` | clean |
+| `packages/ui` — `pnpm gallery:build` | clean |
 | `packages/ingame` — `pnpm test` | **93 passed** |
 | `packages/ingame` — `pnpm typecheck` | clean |
 | `packages/ingame` — `node scripts/check-ultralight.mjs` | **passed — 30 files, 22 rules** (src *and* emitted bundle) |

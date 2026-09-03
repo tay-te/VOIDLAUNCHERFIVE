@@ -1,0 +1,49 @@
+/* ==========================================================================
+   @void/ui — the display-size cut of Bricolage Grotesque
+
+   Bricolage Grotesque carries an optical-size axis (opsz 12 → 96). Figma resolves
+   it from the font size, so one static instance cannot serve the whole ramp: the
+   frames' 26px panel titles are drawn near the bottom of the axis and the 104px
+   launcher hero at the top. Measured against the exports (glyph ink, fontTools):
+
+     `Mods` @ 26 / -0.52     frame 66     opsz 14  67.8     opsz 96  61.5
+     `Sword PvP` @ 104/-4.16 frame 462    opsz 14 517.3     opsz 96 465.4
+
+   So `fonts.css` keeps `opsz 14` — correct for every title in the overlay, none of
+   which exceeds 26px — and this file adds the `opsz 96` cut under its own family
+   for type set at display sizes (roughly ≥48px), which in practice is the launcher
+   hero. CSS cannot pick a face by size, so it has to be a separate family.
+
+   **This file is deliberately not imported by `fonts.css`.** The in-game bundle
+   imports only `fonts.css`, so it never pulls the extra ~25KB for a size it does
+   not render; the launcher imports both:
+
+       import '@void/ui/fonts.css';
+       import '@void/ui/fonts-display.css';
+
+   and sets the hero in `--font-display-hero`.
+
+   Static instance, as §7 requires — no `font-variation-settings` anywhere.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Bricolage Grotesque Display';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('./fonts/bricolage-grotesque-800-display.woff2') format('woff2');
+}
+
+:root {
+  /* The display-size counterpart of --font-display. Falls back to the opsz 14 cut,
+     so a consumer that forgets this stylesheet degrades to slightly wide, not to
+     the system sans. */
+  --font-display-hero: 'Bricolage Grotesque Display', 'Bricolage Grotesque', 'Outfit',
+    system-ui, sans-serif;
+}
+
+/** Opt-in utility: display-size headings that must match the frames' hero. */
+.v-display--hero {
+  font-family: var(--font-display-hero);
+  font-weight: var(--weight-extrabold);
+}

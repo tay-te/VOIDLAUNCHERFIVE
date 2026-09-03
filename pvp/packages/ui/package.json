@@ -16,6 +16,7 @@
     "./styles.css": "./dist/styles.css",
     "./tokens.css": "./dist/tokens.css",
     "./fonts.css": "./dist/fonts.css",
+    "./fonts-display.css": "./dist/fonts-display.css",
     "./tailwind-preset.css": "./dist/tailwind-preset.css",
     "./tokens.json": "./dist/tokens.json",
     "./fonts/*": "./dist/fonts/*",

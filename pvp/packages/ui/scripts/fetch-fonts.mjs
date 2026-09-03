@@ -8,6 +8,8 @@
  * is instanced to a fixed axis location before it is compressed to woff2. The design
  * pins Bricolage Grotesque at `opsz 14, wdth 100, wght 800`, which is exactly the
  * instance produced here — the overlay CSS never needs `font-variation-settings`.
+ * A second Bricolage instance is cut at the top of the optical-size axis for display
+ * sizes; see the `bricolage-grotesque-800-display` entry for the measurements.
  *
  * The output is committed; this script only needs to run when a family is added or a
  * font is updated. Requires python3 with `fonttools` and `brotli`:
@@ -50,6 +52,25 @@ const FACES = [
     out: 'bricolage-grotesque-800.woff2',
     // The design pins `opsz 14, wdth 100` on every display title.
     axes: { opsz: 14, wdth: 100, wght: 800 },
+  },
+  {
+    dir: 'ofl/bricolagegrotesque',
+    src: 'BricolageGrotesque[opsz,wdth,wght].ttf',
+    out: 'bricolage-grotesque-800-display.woff2',
+    /**
+     * The same face at the top of the optical-size axis, for type set at display
+     * sizes. Figma resolves `opsz` from the font size, so the frames' 26px panel
+     * titles are drawn near `opsz 14` but the 104px launcher hero is drawn at the
+     * axis maximum. Measuring the ink of `Sword PvP` in Launcher-Play.png against
+     * instances of this file (design 462px wide at 104/-4.16):
+     *
+     *     opsz 14 -> 517.3  (+11.9%)      opsz 96 -> 465.4  (+0.7%)
+     *
+     * and at 26px, where the frames' titles live, the ordering reverses:
+     * `Mods` is 66px in the frame, 67.8 at opsz 14 and 61.5 at opsz 96. Both
+     * instances are real; neither one covers the whole ramp.
+     */
+    axes: { opsz: 96, wdth: 100, wght: 800 },
   },
 ];
 

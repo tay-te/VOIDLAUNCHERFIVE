@@ -6,7 +6,8 @@
  *
  *   1. concatenates `src/styles/*.css` (in filename order) plus `src/noise.css` into a
  *      single `dist/styles.css`, so a consumer makes one import and one request;
- *   2. copies `tokens.css`, `fonts.css`, `tailwind-preset.css` and `tokens.json`;
+ *   2. copies `tokens.css`, `fonts.css`, `fonts-display.css`, `tailwind-preset.css`
+ *      and `tokens.json`;
  *   3. copies `src/fonts/` verbatim, keeping the relative `url()`s in `fonts.css`
  *      valid — the consumer's bundler resolves and fingerprints them from there.
  *
@@ -64,7 +65,7 @@ process.stdout.write(`built dist/styles.css (${parts.length + 1} sections)\n`);
 
 /* ---- 2. standalone stylesheets and tokens.json --------------------------- */
 
-for (const name of ['tokens.css', 'fonts.css', 'tailwind-preset.css', 'tokens.json']) {
+for (const name of ['tokens.css', 'fonts.css', 'fonts-display.css', 'tailwind-preset.css', 'tokens.json']) {
   copyFileSync(path.join(srcDir, name), path.join(distDir, name));
   process.stdout.write(`copied dist/${name}\n`);
 }
