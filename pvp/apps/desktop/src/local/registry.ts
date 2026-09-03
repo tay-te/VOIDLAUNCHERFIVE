@@ -1,33 +1,54 @@
 /**
- * The mod registry: the 12 rows of `pvp/schema/mods.json`, plus the extra bits the
- * Mods screen needs to render a tile and its settings pane.
+ * The mod registry, plus the one thing the launcher adds to it: how each setting is
+ * *rendered*.
  *
- * TODO(integrate): this is a transcription of `schema/mods.json`'s registry and its
- * per-mod settings sub-schemas. `mods.json` is written by `core` and read by everyone
- * (CONTRACTS.md), so the right home for this is `@void/protocol` — as generated data,
- * not just generated types. When it exports the registry, delete `MOD_REGISTRY` and
- * `SETTING_SCHEMA` here and import them; `hypixelReady`, the tile grid and the
- * settings pane all read through this module's helpers and will not move.
+ * The registry itself — ids, kinds, `hypixel_safe` classes, labels, descriptions and
+ * factory defaults — comes from `@void/protocol`, generated from `pvp/schema/mods.json`.
+ * A mod is declared in exactly one place, and it is not here.
  *
- * Two rules from the schema that the UI must honour and that are easy to lose:
- *
- * 1. A loadout may omit a mod. The omitted mod falls back to `defaults` here — that is
- *    what keeps a loadout written before a mod existed valid afterwards. Never write
- *    all twelve blocks into a new loadout.
- * 2. Settings values are validated by the sub-schema, so the control a setting gets is
- *    a property of the schema, not of the mod: booleans get a switch, enums get a
- *    segmented control, numbers get a slider with the schema's own min/max/step.
+ * What is here is `SETTING_SPECS`: which control a setting gets, and its range. That is
+ * a UI decision, not a contract one, and it is derived from the settings sub-schema
+ * rather than chosen per mod — booleans get a switch, enums a segmented control,
+ * numbers a slider with the schema's own bounds. When `@void/ui` grows a schema-driven
+ * settings renderer this file shrinks to the category map.
  */
 
-import type { HypixelSafe, ModId, ModKind, ModState } from './protocol';
+import {
+  MOD_IDS,
+  MOD_REGISTRY,
+  enabledMods,
+  getModEntry,
+  getModLabel,
+  isModEnabled,
+  resolveModSettings,
+} from '@void/protocol';
+import type { Loadout, ModId } from './protocol';
 
-/** Which FilterTab a mod sits under — the tab set is `All/HUD/PvP/Visual/Utility`. */
+export { MOD_IDS, MOD_REGISTRY, getModEntry, getModLabel, isModEnabled, enabledMods };
+
+/** Which FilterTab a mod sits under. The tab set is `All/HUD/PvP/Visual/Utility`. */
 export type ModCategory = 'HUD' | 'PVP' | 'VISUAL' | 'UTILITY';
+
+/**
+ * The Figma's grouping (`244:110`), which is finer than the registry's `kind`: a
+ * gameplay mod can be a PvP one (Toggle sprint, Hitboxes), a visual one (Fullbright,
+ * Crosshair) or a utility (Zoom). Every HUD mod is `HUD`.
+ */
+const CATEGORY_OVERRIDES: Partial<Record<ModId, ModCategory>> = {
+  toggle_sprint: 'PVP',
+  hitboxes: 'PVP',
+  fullbright: 'VISUAL',
+  crosshair: 'VISUAL',
+  zoom: 'UTILITY',
+};
+
+export function categoryOf(id: ModId): ModCategory {
+  return CATEGORY_OVERRIDES[id] ?? 'HUD';
+}
 
 export interface SettingSpec {
   key: string;
   label: string;
-  /** Rendered control. Derived from the sub-schema's type, not chosen per mod. */
   control: 'switch' | 'slider' | 'select' | 'keybind' | 'color';
   min?: number;
   max?: number;
@@ -35,19 +56,6 @@ export interface SettingSpec {
   options?: readonly string[];
   /** How the value reads next to the label: `1.0×`, `85%`, `1000 ms`. */
   format?: 'multiplier' | 'percent' | 'ms' | 'plain';
-}
-
-export interface ModEntry {
-  id: ModId;
-  kind: ModKind;
-  hypixel_safe: HypixelSafe;
-  category: ModCategory;
-  label: string;
-  description: string;
-  /** The 1.8.9 field or injection point, quoted from the §3 table. Docs only. */
-  source: string;
-  defaults: ModState;
-  settings: readonly SettingSpec[];
 }
 
 const SCALE: SettingSpec = {
@@ -69,233 +77,90 @@ const OPACITY: SettingSpec = {
   format: 'percent',
 };
 
-export const MOD_REGISTRY: Readonly<Record<ModId, ModEntry>> = {
-  fps: {
-    id: 'fps',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'FPS display',
-    description: 'Frames per second, updated once per tick.',
-    source: 'Minecraft.debugFPS',
-    defaults: { on: true, scale: 1, opacity: 1, color: '#FFFFFF', show_label: true },
-    settings: [SCALE, OPACITY, { key: 'show_label', label: 'Show label', control: 'switch' }],
-  },
-  keystrokes: {
-    id: 'keystrokes',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'Keystrokes',
-    description: 'WASD, mouse and spacebar tiles that light up as you press them.',
-    source: 'KeyBinding.setKeyBindState, edge-triggered',
-    defaults: {
-      on: true,
-      scale: 1,
-      opacity: 0.85,
-      keybind: 'NONE',
-      show_mouse: true,
-      show_spacebar: true,
-      show_cps: false,
+/** Bounds and control kinds, transcribed from each mod's settings sub-schema. */
+export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
+  fps: [SCALE, OPACITY, { key: 'show_label', label: 'Show label', control: 'switch' }],
+  keystrokes: [
+    SCALE,
+    OPACITY,
+    { key: 'keybind', label: 'Keybind', control: 'keybind' },
+    { key: 'show_mouse', label: 'Show mouse', control: 'switch' },
+    { key: 'show_spacebar', label: 'Show spacebar', control: 'switch' },
+    { key: 'show_cps', label: 'Show CPS', control: 'switch' },
+  ],
+  cps: [
+    SCALE,
+    OPACITY,
+    { key: 'mode', label: 'Buttons', control: 'select', options: ['left', 'right', 'both'] },
+    { key: 'window_ms', label: 'Window', control: 'slider', min: 200, max: 5000, step: 50, format: 'ms' },
+  ],
+  ping: [
+    SCALE,
+    OPACITY,
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    { key: 'good_ms', label: 'Good under', control: 'slider', min: 0, max: 1000, step: 5, format: 'ms' },
+    { key: 'bad_ms', label: 'Bad over', control: 'slider', min: 0, max: 2000, step: 5, format: 'ms' },
+  ],
+  coordinates: [
+    SCALE,
+    OPACITY,
+    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 3, step: 1, format: 'plain' },
+    { key: 'show_direction', label: 'Show direction', control: 'switch' },
+    { key: 'layout', label: 'Layout', control: 'select', options: ['stacked', 'inline'] },
+  ],
+  armor_status: [
+    SCALE,
+    OPACITY,
+    { key: 'orientation', label: 'Orientation', control: 'select', options: ['horizontal', 'vertical'] },
+    { key: 'show_durability', label: 'Show durability', control: 'switch' },
+    { key: 'show_held_item', label: 'Show held item', control: 'switch' },
+  ],
+  potion_effects: [
+    SCALE,
+    OPACITY,
+    { key: 'show_duration', label: 'Show duration', control: 'switch' },
+    { key: 'show_amplifier', label: 'Show amplifier', control: 'switch' },
+    { key: 'hide_ambient', label: 'Hide ambient', control: 'switch' },
+  ],
+  toggle_sprint: [
+    { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
+    { key: 'sneak_too', label: 'Sneak too', control: 'switch' },
+    { key: 'show_status', label: 'Show status', control: 'switch' },
+  ],
+  fullbright: [
+    { key: 'gamma', label: 'Gamma', control: 'slider', min: 1, max: 15, step: 0.5, format: 'plain' },
+  ],
+  hitboxes: [
+    { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
+    { key: 'color', label: 'Colour', control: 'color' },
+    { key: 'show_eye_line', label: 'Show eye line', control: 'switch' },
+  ],
+  zoom: [
+    { key: 'key', label: 'Keybind', control: 'keybind' },
+    { key: 'fov_divisor', label: 'Amount', control: 'slider', min: 1.1, max: 10, step: 0.1, format: 'multiplier' },
+    { key: 'smooth', label: 'Smooth', control: 'switch' },
+    { key: 'cinematic', label: 'Cinematic', control: 'switch' },
+  ],
+  crosshair: [
+    {
+      key: 'style',
+      label: 'Style',
+      control: 'select',
+      options: ['default', 'cross', 'dot', 'circle', 't_shape', 'none'],
     },
-    settings: [
-      SCALE,
-      OPACITY,
-      { key: 'keybind', label: 'Keybind', control: 'keybind' },
-      { key: 'show_mouse', label: 'Show mouse', control: 'switch' },
-      { key: 'show_spacebar', label: 'Show spacebar', control: 'switch' },
-      { key: 'show_cps', label: 'Show CPS', control: 'switch' },
-    ],
-  },
-  cps: {
-    id: 'cps',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'CPS counter',
-    description: 'Clicks per second over a sliding window.',
-    source: 'derived from clicks in JS',
-    defaults: { on: true, scale: 1, opacity: 1, mode: 'left', window_ms: 1000 },
-    settings: [
-      SCALE,
-      OPACITY,
-      { key: 'mode', label: 'Buttons', control: 'select', options: ['left', 'right', 'both'] },
-      { key: 'window_ms', label: 'Window', control: 'slider', min: 200, max: 5000, step: 50, format: 'ms' },
-    ],
-  },
-  ping: {
-    id: 'ping',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'Ping display',
-    description: 'Round-trip time to the current server.',
-    source: 'own NetworkPlayerInfo.responseTime',
-    defaults: { on: true, scale: 1, opacity: 1, show_label: true, good_ms: 60, bad_ms: 150 },
-    settings: [
-      SCALE,
-      OPACITY,
-      { key: 'show_label', label: 'Show label', control: 'switch' },
-      { key: 'good_ms', label: 'Good under', control: 'slider', min: 0, max: 1000, step: 5, format: 'ms' },
-      { key: 'bad_ms', label: 'Bad over', control: 'slider', min: 0, max: 2000, step: 5, format: 'ms' },
-    ],
-  },
-  coordinates: {
-    id: 'coordinates',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'Coordinates',
-    description: 'Player position and facing direction.',
-    source: 'EntityPlayerSP pos/yaw',
-    defaults: { on: false, scale: 1, opacity: 1, decimals: 1, show_direction: true, layout: 'stacked' },
-    settings: [
-      SCALE,
-      OPACITY,
-      { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 3, step: 1, format: 'plain' },
-      { key: 'show_direction', label: 'Show direction', control: 'switch' },
-      { key: 'layout', label: 'Layout', control: 'select', options: ['stacked', 'inline'] },
-    ],
-  },
-  armor_status: {
-    id: 'armor_status',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'Armor status',
-    description: 'Worn armor and held item with remaining durability.',
-    source: 'InventoryPlayer.armorInventory durability',
-    defaults: {
-      on: true,
-      scale: 1,
-      opacity: 1,
-      orientation: 'horizontal',
-      show_durability: true,
-      show_held_item: true,
-    },
-    settings: [
-      SCALE,
-      OPACITY,
-      { key: 'orientation', label: 'Orientation', control: 'select', options: ['horizontal', 'vertical'] },
-      { key: 'show_durability', label: 'Show durability', control: 'switch' },
-      { key: 'show_held_item', label: 'Show held item', control: 'switch' },
-    ],
-  },
-  potion_effects: {
-    id: 'potion_effects',
-    kind: 'hud',
-    hypixel_safe: 'safe',
-    category: 'HUD',
-    label: 'Potion effects',
-    description: 'Active potion effects with amplifier and remaining duration.',
-    source: 'getActivePotionEffects',
-    defaults: {
-      on: true,
-      scale: 1,
-      opacity: 1,
-      show_duration: true,
-      show_amplifier: true,
-      hide_ambient: false,
-    },
-    settings: [
-      SCALE,
-      OPACITY,
-      { key: 'show_duration', label: 'Show duration', control: 'switch' },
-      { key: 'show_amplifier', label: 'Show amplifier', control: 'switch' },
-      { key: 'hide_ambient', label: 'Hide ambient', control: 'switch' },
-    ],
-  },
-  toggle_sprint: {
-    id: 'toggle_sprint',
-    kind: 'gameplay',
-    hypixel_safe: 'safe',
-    category: 'PVP',
-    label: 'Toggle sprint',
-    description: 'Latches sprint instead of holding the key.',
-    source: 'KeyBinding override in onLivingUpdate',
-    defaults: { on: true, mode: 'toggle', sneak_too: false, show_status: true },
-    settings: [
-      { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
-      { key: 'sneak_too', label: 'Sneak too', control: 'switch' },
-      { key: 'show_status', label: 'Show status', control: 'switch' },
-    ],
-  },
-  fullbright: {
-    id: 'fullbright',
-    kind: 'gameplay',
-    hypixel_safe: 'grey',
-    category: 'VISUAL',
-    label: 'Fullbright',
-    description: 'Raises gamma so caves and shadows are fully lit.',
-    source: 'gammaSetting override (client-side, Watchdog-tolerated)',
-    defaults: { on: false, gamma: 10 },
-    settings: [{ key: 'gamma', label: 'Gamma', control: 'slider', min: 1, max: 15, step: 0.5, format: 'plain' }],
-  },
-  hitboxes: {
-    id: 'hitboxes',
-    kind: 'gameplay',
-    hypixel_safe: 'grey',
-    category: 'PVP',
-    label: 'Hitboxes',
-    description: 'Draws entity bounding boxes.',
-    source: 'RenderManager.debugBoundingBox',
-    defaults: { on: false, line_width: 2, color: '#FFFFFFFF', show_eye_line: false },
-    settings: [
-      { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
-      { key: 'color', label: 'Colour', control: 'color' },
-      { key: 'show_eye_line', label: 'Show eye line', control: 'switch' },
-    ],
-  },
-  zoom: {
-    id: 'zoom',
-    kind: 'gameplay',
-    hypixel_safe: 'safe',
-    category: 'UTILITY',
-    label: 'Zoom',
-    description: 'Narrows FOV while the zoom key is held.',
-    source: 'FOV override while key held',
-    defaults: { on: true, key: 'C', fov_divisor: 4, smooth: true, cinematic: false },
-    settings: [
-      { key: 'key', label: 'Keybind', control: 'keybind' },
-      { key: 'fov_divisor', label: 'Amount', control: 'slider', min: 1.1, max: 10, step: 0.1, format: 'multiplier' },
-      { key: 'smooth', label: 'Smooth', control: 'switch' },
-      { key: 'cinematic', label: 'Cinematic', control: 'switch' },
-    ],
-  },
-  crosshair: {
-    id: 'crosshair',
-    kind: 'gameplay',
-    hypixel_safe: 'safe',
-    category: 'VISUAL',
-    label: 'Crosshair',
-    description: 'Replaces the vanilla crosshair with a configurable one at the exact screen centre.',
-    source: 'replaces vanilla crosshair pass; drawn in GL at exact center',
-    defaults: {
-      on: false,
-      style: 'cross',
-      size: 5,
-      thickness: 1,
-      gap: 2,
-      color: '#FFFFFFFF',
-      outline: true,
-      dynamic: false,
-    },
-    settings: [
-      { key: 'style', label: 'Style', control: 'select', options: ['default', 'cross', 'dot', 'circle', 't_shape', 'none'] },
-      { key: 'size', label: 'Size', control: 'slider', min: 1, max: 20, step: 1, format: 'plain' },
-      { key: 'thickness', label: 'Thickness', control: 'slider', min: 1, max: 5, step: 1, format: 'plain' },
-      { key: 'gap', label: 'Gap', control: 'slider', min: 0, max: 10, step: 1, format: 'plain' },
-      { key: 'color', label: 'Colour', control: 'color' },
-      { key: 'outline', label: 'Outline', control: 'switch' },
-      { key: 'dynamic', label: 'Dynamic', control: 'switch' },
-    ],
-  },
+    { key: 'size', label: 'Size', control: 'slider', min: 1, max: 20, step: 1, format: 'plain' },
+    { key: 'thickness', label: 'Thickness', control: 'slider', min: 1, max: 5, step: 1, format: 'plain' },
+    { key: 'gap', label: 'Gap', control: 'slider', min: 0, max: 10, step: 1, format: 'plain' },
+    { key: 'color', label: 'Colour', control: 'color' },
+    { key: 'outline', label: 'Outline', control: 'switch' },
+    { key: 'dynamic', label: 'Dynamic', control: 'switch' },
+  ],
 };
 
 /**
- * Reading order of the Mods grid, taken from the Figma (`244:110`) rather than from
- * the registry's alphabetical key order — the frame groups the on-by-default HUD mods
- * first and the off ones last, which is what makes the grid read.
+ * Reading order of the Mods grid, taken from the Figma rather than from registry order:
+ * the frame leads with the mods that are on by default and trails with the ones that
+ * are off, which is what makes the grid read at a glance.
  */
 export const MOD_GRID_ORDER: readonly ModId[] = [
   'fps',
@@ -312,31 +177,35 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'coordinates',
 ];
 
-export const MOD_IDS = MOD_GRID_ORDER;
-
 export const FILTER_TABS = ['All', 'HUD', 'PvP', 'Visual', 'Utility'] as const;
 export type FilterTab = (typeof FILTER_TABS)[number];
 
-export function matchesTab(entry: ModEntry, tab: FilterTab): boolean {
-  if (tab === 'All') return true;
-  return entry.category === tab.toUpperCase();
+export function matchesTab(id: ModId, tab: FilterTab): boolean {
+  return tab === 'All' || categoryOf(id) === tab.toUpperCase();
 }
 
 /**
- * The effective state of a mod in a loadout: the loadout's own values layered over the
- * registry defaults. Rule 1 above lives here.
+ * The settings a mod actually runs with: the loadout's own values over the registry
+ * defaults. A mod the loadout omits falls back entirely — that is what keeps a loadout
+ * written before a mod existed valid afterwards.
  */
-export function effectiveState(mods: Partial<Record<ModId, ModState>>, id: ModId): ModState {
-  const entry = MOD_REGISTRY[id];
-  return { ...entry.defaults, ...(mods[id] ?? {}) } as ModState;
+export function effectiveState(
+  loadout: Pick<Loadout, 'mods'>,
+  id: ModId,
+): Record<string, unknown> {
+  return resolveModSettings(loadout, id) as unknown as Record<string, unknown>;
 }
 
-export function isOn(mods: Partial<Record<ModId, ModState>>, id: ModId): boolean {
-  return effectiveState(mods, id).on === true;
+export function isOn(loadout: Pick<Loadout, 'mods'>, id: ModId): boolean {
+  return isModEnabled(loadout, id);
 }
 
-export function enabledCount(mods: Partial<Record<ModId, ModState>>): number {
-  return MOD_IDS.filter((id) => isOn(mods, id)).length;
+export function enabledCount(loadout: Pick<Loadout, 'mods'>): number {
+  return enabledMods(loadout).length;
+}
+
+export function settingsFor(id: ModId): readonly SettingSpec[] {
+  return SETTING_SPECS[id];
 }
 
 /** Format a setting value the way the settings pane prints it next to its label. */

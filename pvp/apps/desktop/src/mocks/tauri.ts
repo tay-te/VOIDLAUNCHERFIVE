@@ -28,11 +28,13 @@ import {
   MOCK_SYSTEM,
   SWORD_PVP,
 } from './fixtures';
+import { resolveModSettings } from '@void/protocol';
 import type {
   Account,
   Loadout,
   LoadoutPatch,
   LoadoutSummary,
+  ModId,
   Settings,
   SettingsPatch,
 } from '../local/protocol';
@@ -145,23 +147,31 @@ export function invoke(cmd: string, args: Args = {}): Promise<unknown> {
 const commands: Record<string, (args: Args) => unknown> = {
   // --- auth ---------------------------------------------------------------
   auth_login: () => {
+    // The real command needs an Azure application id, which is per-publisher and
+    // deliberately not compiled in (`void_core::Config::ms_client_id`). The preview
+    // walks the stages it would emit and then reports the same missing-config error,
+    // so the sign-in panel's every state is reviewable without an Azure tenant.
     const stages = [
       { stage: 'pending', message: 'Waiting for you to finish signing in…' },
       { stage: 'xbox', message: 'Authenticating with Xbox Live…' },
       { stage: 'minecraft', message: 'Fetching your Minecraft profile…' },
       {
-        stage: 'failed',
-        message:
-          'Microsoft sign-in needs void-core’s auth pipeline, which is not implemented yet. ' +
-          'Use "Play offline" in the meantime.',
+        stage: 'complete',
+        account: { ...structuredClone(MOCK_ACCOUNT), kind: 'microsoft' },
       },
     ];
-    stages.forEach((s, i) => later(() => emit('auth:status', s), 700 * (i + 1)));
+    stages.forEach((s, i) => {
+      later(() => {
+        if (s.stage === 'complete') state.account = (s as { account: Account }).account;
+        emit('auth:status', s);
+      }, 700 * (i + 1));
+    });
     return {
-      user_code: 'VOID-SETUP',
+      user_code: 'VOID-PREVIEW',
       verification_uri: 'https://www.microsoft.com/link',
       expires_in_s: 900,
       interval_s: 5,
+      message: 'Browser preview: this code is a fixture and Microsoft has never seen it.',
     };
   },
 
@@ -185,11 +195,12 @@ const commands: Record<string, (args: Args) => unknown> = {
     const loadout = find(String(loadoutId));
     if (!loadout) throw `No loadout called \`${loadoutId}\`.`;
 
+    // The same phases `commands::launch::prepare` names, weighted the way a cold
+    // 1.8.9 + Legacy Fabric + Temurin 8 install actually falls out.
     const steps: [string, number][] = [
       ['manifest', 2 * 1024 * 1024],
       ['libraries', 48 * 1024 * 1024],
       ['assets', 160 * 1024 * 1024],
-      ['fabric', 6 * 1024 * 1024],
       ['java', 95 * 1024 * 1024],
       ['mod', 25 * 1024 * 1024],
     ];
@@ -223,10 +234,12 @@ const commands: Record<string, (args: Args) => unknown> = {
 
     return {
       loadout: loadout.id,
-      bytes_downloaded: 0,
+      version_id: '1.8.9',
+      files: 3184,
+      downloaded_bytes: total,
       duration_ms: 25 * (tick + 1),
       java_path: '/usr/lib/jvm/java-8/bin/java',
-      from_cache: false,
+      java_version: '1.8.0_412',
     };
   },
 
@@ -240,7 +253,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     state.log = [];
     const port = 51000 + Math.floor(Math.random() * 4000);
 
-    later(() => emit('game:started', { pid: 0, loadout: loadout.id, bridge_port: port, simulated: true }), 10);
+    later(() => emit('game:started', { pid: 4242, loadout: loadout.id, bridge_port: port }), 10);
 
     MOCK_LOG_SCRIPT.forEach((line, i) => {
       later(() => {
@@ -282,7 +295,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       });
     }, after + 400);
 
-    return { pid: 0, bridge_port: port, loadout: loadout.id };
+    return { pid: 4242, bridge_port: port, loadout: loadout.id };
   },
 
   game_kill: () => {
@@ -334,7 +347,15 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (p.icon !== undefined) l.icon = p.icon;
     if (p.server !== undefined) l.server = p.server;
     if (p.hud !== undefined) l.hud = p.hud;
-    if (p.mods !== undefined) l.mods = { ...l.mods, ...p.mods };
+    if (p.mods !== undefined) {
+      // Rust merges each named mod over its *effective* settings, so a partial write
+      // ({gamma}) keeps `on`. The preview does the same or the Mods pane would appear
+      // to clear settings it never touched.
+      for (const [id, incoming] of Object.entries(p.mods)) {
+        const key = id as ModId;
+        l.mods[key] = { ...resolveModSettings(l, key), ...incoming } as never;
+      }
+    }
     return structuredClone(l);
   },
 
@@ -367,6 +388,11 @@ const commands: Record<string, (args: Args) => unknown> = {
       ...p,
       ...(p.ram_mb !== undefined ? { ram_mb: clamp(p.ram_mb, 1024, 32768) } : {}),
       ...(p.ui_scale !== undefined ? { ui_scale: clamp(p.ui_scale, 0.5, 3) } : {}),
+      ...(p.hud_editor_grid !== undefined
+        ? { hud_editor_grid: clamp(p.hud_editor_grid, 0, 64) }
+        : {}),
+      // Turning auto-detect back on forgets the configured path, as Rust does.
+      ...(p.java_auto === true ? { java_path: null } : {}),
     };
     return structuredClone(state.settings);
   },
@@ -378,6 +404,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     found: true,
     path: '/usr/lib/jvm/java-8-openjdk/bin/java',
     version: '1.8.0_412',
+    major: 8,
     source: 'system',
   }),
 
@@ -398,7 +425,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     };
   },
 
-  open_data_dir: () => '~/Library/Application Support/void-pvp',
+  open_data_dir: () => MOCK_SYSTEM.data_dir,
 
   updater_check: () => ({
     available: false,
@@ -406,7 +433,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     version: null,
     notes: null,
     date: null,
-    error: 'The updater endpoint is a placeholder (updates.void.invalid).',
+    error: 'The updater endpoint is a placeholder (updates.void.invalid) until release signing exists.',
   }),
 
   // --- window -------------------------------------------------------------

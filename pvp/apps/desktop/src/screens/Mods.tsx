@@ -18,7 +18,7 @@ import {
   MOD_GRID_ORDER,
   MOD_REGISTRY,
   type FilterTab,
-  effectiveState,
+  categoryOf,
   matchesTab,
 } from '../local/registry';
 import { useLoadouts } from '../stores/loadouts';
@@ -36,13 +36,13 @@ export function ModsScreen() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return MOD_GRID_ORDER.filter((id) => {
-      const entry = MOD_REGISTRY[id];
-      if (!matchesTab(entry, tab)) return false;
+      if (!matchesTab(id, tab)) return false;
       if (!q) return true;
+      const entry = MOD_REGISTRY[id];
       return (
         entry.label.toLowerCase().includes(q) ||
         entry.description.toLowerCase().includes(q) ||
-        entry.category.toLowerCase().includes(q)
+        categoryOf(id).toLowerCase().includes(q)
       );
     });
   }, [tab, query]);
@@ -71,7 +71,7 @@ export function ModsScreen() {
             <ModTile
               key={id}
               id={id}
-              state={effectiveState(active.mods, id)}
+              loadout={active}
               selected={id === selectedMod}
               onSelect={() => selectMod(id)}
               onToggle={(next) => void setMod(id, { on: next })}
@@ -82,7 +82,7 @@ export function ModsScreen() {
 
         <ModSettingsPane
           id={selectedMod}
-          mods={active.mods}
+          loadout={active}
           onChange={(next) => void setMod(selectedMod, next)}
         />
       </div>

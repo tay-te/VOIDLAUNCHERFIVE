@@ -51,9 +51,10 @@ export function PlayScreen() {
     );
   }
 
-  const readiness = hypixelReady(active.mods);
-  const mods = enabledCount(active.mods);
-  const fps = active.stats.fps_avg > 0 ? `${Math.round(active.stats.fps_avg)} fps avg` : 'no sessions yet';
+  const readiness = hypixelReady(active);
+  const mods = enabledCount(active);
+  const fpsAvg = active.stats?.fps_avg ?? 0;
+  const fps = fpsAvg > 0 ? `${Math.round(fpsAvg)} fps avg` : 'no sessions yet';
   const pingState = pings[host];
   const pingText =
     pingState?.status === 'ok' && pingState.result

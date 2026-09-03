@@ -137,7 +137,7 @@ export const GRID = 8;
 
 /** Snap a value to the 8 px editor grid. */
 export function snapTo(value: number, grid = GRID): number {
-  return Math.round(value / grid) * grid;
+  return Math.round(value / grid) * grid + 0;
 }
 
 /** Keep a widget's top-left corner inside the viewport, allowing a small bleed. */
@@ -148,9 +148,11 @@ export function clampToViewport(
   viewport: Size,
   bleed = 0,
 ): { x: number; y: number } {
+  // `+ 0` normalises -0, which Object.is (and therefore React and Vitest)
+  // treats as a different value from 0.
   return {
-    x: Math.min(Math.max(x, -bleed), Math.max(-bleed, viewport.width - size.width + bleed)),
-    y: Math.min(Math.max(y, -bleed), Math.max(-bleed, viewport.height - size.height + bleed)),
+    x: Math.min(Math.max(x, -bleed), Math.max(-bleed, viewport.width - size.width + bleed)) + 0,
+    y: Math.min(Math.max(y, -bleed), Math.max(-bleed, viewport.height - size.height + bleed)) + 0,
   };
 }
 

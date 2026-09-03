@@ -189,14 +189,41 @@ mod tests {
     fn a_setting_the_schema_rejects_never_reaches_disk() {
         let state = scratch_state();
         let id = active(&state).unwrap().id.to_string();
-        let mut mods = Map::new();
-        mods.insert("zoom".into(), json!({ "fov_divisor": 999.0 }));
-        assert!(update(&state, &id, LoadoutPatch { mods: Some(mods), ..Default::default() }).is_err());
 
+        // A mod outside the closed 12.
         let mut unknown = Map::new();
         unknown.insert("teleport".into(), json!({ "on": true }));
         assert!(update(&state, &id, LoadoutPatch { mods: Some(unknown), ..Default::default() })
             .is_err());
+
+        // A setting of the wrong type. `ModStates::set` runs the value through the mod's
+        // settings sub-schema, so this never reaches disk.
+        let mut wrong_type = Map::new();
+        wrong_type.insert("zoom".into(), json!({ "fov_divisor": "fast" }));
+        assert!(update(&state, &id, LoadoutPatch { mods: Some(wrong_type), ..Default::default() })
+            .is_err());
+
+        // A mod body that is not an object at all.
+        let mut not_object = Map::new();
+        not_object.insert("zoom".into(), json!(true));
+        assert!(update(&state, &id, LoadoutPatch { mods: Some(not_object), ..Default::default() })
+            .is_err());
+
+        // …and none of the three left a mark.
+        assert_eq!(active(&state).unwrap(), get(&state, &id).unwrap());
+    }
+
+    #[test]
+    fn a_hud_layout_with_a_duplicate_entry_is_refused() {
+        use void_loadout::{Anchor, HudItem};
+        let state = scratch_state();
+        let id = active(&state).unwrap().id.to_string();
+        let dup = vec![
+            HudItem::new(void_loadout::HudModId::Fps, Anchor::TopLeft, 20.0, 20.0),
+            HudItem::new(void_loadout::HudModId::Fps, Anchor::TopRight, -20.0, 20.0),
+        ];
+        // `Loadout::validate` enforces the one-item-per-mod invariant JSON Schema cannot.
+        assert!(update(&state, &id, LoadoutPatch { hud: Some(dup), ..Default::default() }).is_err());
     }
 
     #[test]

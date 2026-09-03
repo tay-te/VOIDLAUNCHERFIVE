@@ -153,6 +153,42 @@ export type {
   GroupCaptionProps,
 } from './components/cards.js';
 
+/* ----------------------------------------------------------------- lists */
+
+export {
+  ServerRow,
+  FriendRow,
+  PartyMemberRow,
+  InviteRow,
+  CosmeticCard,
+} from './components/lists.js';
+export type {
+  ServerRowProps,
+  FriendRowProps,
+  FriendPresence,
+  PartyMemberRowProps,
+  InviteRowProps,
+  CosmeticCardProps,
+} from './components/lists.js';
+
+/* --------------------------------------------------------- quick palette */
+
+export {
+  Palette,
+  PaletteInput,
+  PaletteSeam,
+  PaletteSection,
+  PaletteResult,
+  PaletteFooter,
+} from './components/palette.js';
+export type {
+  PaletteInputProps,
+  PaletteSectionProps,
+  PaletteResultProps,
+  PaletteFooterProps,
+  PaletteHint,
+} from './components/palette.js';
+
 /* ------------------------------------------------------------ HUD widgets */
 
 export {

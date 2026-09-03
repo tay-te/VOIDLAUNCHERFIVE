@@ -150,6 +150,8 @@ export function SearchBar({
         className="v-searchbar__input"
         placeholder={placeholder}
         value={value}
+        // A value with no handler is a display-only field, not a mistake.
+        readOnly={value !== undefined && !onChange}
         onChange={onChange ? (event) => onChange(event.target.value) : undefined}
         {...rest}
       />

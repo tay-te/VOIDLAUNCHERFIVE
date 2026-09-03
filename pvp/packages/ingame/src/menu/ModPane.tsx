@@ -18,14 +18,14 @@ import {
 } from '@/ui';
 import { HUD_MOD_IDS, MOD_REGISTRY, type HUDModId, type ModId } from '@/bridge/protocol';
 import { SETTING_RANGES, modLabel } from '@/registry';
-import { modSettings, useVoidStore } from '@/store/store';
+import { useModSettings, useVoidStore } from '@/store/store';
 import { formatSetting, keybindLabel, settingLabel } from './settings-format';
 
 /** Sliders the pane shows, in the order the frame lists them. */
 const PANE_SLIDERS = ['scale', 'opacity'] as const;
 
 export function ModPane({ id }: { id: ModId }) {
-  const settings = useVoidStore((s) => modSettings(s.loadout, id));
+  const settings = useModSettings(id);
   const keys = useVoidStore((s) => s.keys);
   const setSetting = useVoidStore((s) => s.setSetting);
   const toggleMod = useVoidStore((s) => s.toggleMod);

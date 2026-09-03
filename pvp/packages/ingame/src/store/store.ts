@@ -13,6 +13,7 @@
  *     `tick` push is the clock.
  */
 
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import {
   MOD_REGISTRY,
@@ -34,7 +35,7 @@ import {
   type TickPayload,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
-import { type ClickRing, cps, createClickRing, pushClick, risingEdges } from './cps';
+import { type ClickRing, cps, createClickRing, pushClick, risingEdges, trimRing } from './cps';
 import { clampOffset, clampScale } from './hud-geometry';
 
 /** A scalar a mod setting may hold. */
@@ -213,8 +214,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // on its last value until the next click. Only write when it changed.
     const now = Date.now();
     const w = windowMs(get().loadout);
-    const left = cps(rings.left, now, w);
-    const right = cps(rings.right, now, w);
+    const left = cps(trimRing(rings.left, now, w), now, w);
+    const right = cps(trimRing(rings.right, now, w), now, w);
     if (left !== get().cpsLeft) patch.cpsLeft = left;
     if (right !== get().cpsRight) patch.cpsRight = right;
 
@@ -348,6 +349,18 @@ function writeSetting(
 export function modSettings(loadout: Loadout | null, id: ModId): Record<string, SettingValue> {
   const source = loadout ?? { mods: {} };
   return resolveModSettings(source, id) as unknown as Record<string, SettingValue>;
+}
+
+/**
+ * React hook form of {@link modSettings}.
+ *
+ * `modSettings` builds a fresh object, and zustand v5 compares snapshots with
+ * `Object.is` — selecting it directly would hand React a new value on every
+ * render and spin. Select the loadout (a stable reference) and merge in a memo.
+ */
+export function useModSettings(id: ModId): Record<string, SettingValue> {
+  const loadout = useVoidStore((s) => s.loadout);
+  return useMemo(() => modSettings(loadout, id), [loadout, id]);
 }
 
 /** Whether a mod is enabled in the active loadout. */

@@ -2,22 +2,25 @@
  * The mod tile grid and the mod settings pane.
  *
  * These are the two components the launcher's Mods screen and the in-game Mods panel
- * share (§9: "one React codebase, two bundles"), so they are written against the
- * registry and a plain `onChange`, with no store and no `invoke` — the caller decides
- * whether a change goes to `loadouts_update` (launcher, applies next launch) or to
+ * share (§9: "one React codebase, two bundles"), so they take a loadout and a plain
+ * `onChange` and know nothing about stores or `invoke` — the caller decides whether a
+ * change goes to `loadouts_update` (launcher, applies next launch) or to
  * `void.setModSetting` (in game, applies instantly).
  *
- * TODO(integrate): these belong in `@void/ui` for exactly that reason. They live here
- * until `packages/ui` has a build, and are written to move without edits: no imports
- * outside `./icons`, `./index` and the registry.
+ * TODO(integrate): `@void/ui` owns these two, for exactly that reason. Its `src/` has a
+ * `components/mods.tsx` but no built `dist` yet, so importing it would break
+ * `pnpm typecheck` here. The swap is an import change: nothing below reaches outside
+ * `./icons`, `./index` and the registry.
  */
 
-import type { ModId, ModState } from '../local/protocol';
+import type { Loadout, ModId } from '../local/protocol';
 import {
   MOD_REGISTRY,
   type SettingSpec,
+  categoryOf,
   effectiveState,
   formatSetting,
+  settingsFor,
 } from '../local/registry';
 import { MOD_ICONS, MoveIcon } from './icons';
 import {
@@ -33,26 +36,26 @@ import {
 
 export function ModTile({
   id,
-  state,
+  loadout,
   selected,
   onSelect,
   onToggle,
 }: {
   id: ModId;
-  state: ModState;
+  loadout: Pick<Loadout, 'mods'>;
   selected: boolean;
   onSelect: () => void;
   onToggle: (next: boolean) => void;
 }) {
   const entry = MOD_REGISTRY[id];
   const Icon = MOD_ICONS[id] ?? MoveIcon;
-  const on = state.on === true;
+  const on = effectiveState(loadout, id).on === true;
 
   return (
     <div
       className={`tile${selected ? ' is-selected' : ''}`}
       // Drag source: the Mods footer promises "drag any tile onto the HUD editor to
-      // place it". The HUD editor is in-game, so what travels is the mod id.
+      // place it". The editor is in-game, so what travels is the mod id.
       draggable={entry.kind === 'hud'}
       onDragStart={(e) => e.dataTransfer.setData('application/x-void-mod', id)}
     >
@@ -61,7 +64,7 @@ export function ModTile({
         <span className="tile__text">
           <span className="tile__name">{entry.label}</span>
           <span className="tile__meta">
-            <Tag tone={entry.hypixel_safe === 'grey' ? 'warn' : 'muted'}>{entry.category}</Tag>
+            <Tag tone={entry.hypixel_safe === 'grey' ? 'warn' : 'muted'}>{categoryOf(id)}</Tag>
           </span>
         </span>
       </button>
@@ -74,15 +77,11 @@ export function ModTile({
 
 /**
  * The Keystrokes preview of `252:189` — six keycaps that light up. Rendered for the
- * keystrokes mod only; every other mod gets its description instead.
+ * keystrokes mod only; every other mod gets its registry description instead.
  */
 function KeystrokesPreview({ pressed }: { pressed: readonly string[] }) {
   const cap = (key: string, style: React.CSSProperties) => (
-    <span
-      key={key}
-      className={`keycap${pressed.includes(key) ? ' is-pressed' : ''}`}
-      style={style}
-    >
+    <span key={key} className={`keycap${pressed.includes(key) ? ' is-pressed' : ''}`} style={style}>
       {key}
     </span>
   );
@@ -109,14 +108,7 @@ function SettingControl({
 }) {
   switch (spec.control) {
     case 'switch':
-      return (
-        <Switch
-          size="l"
-          checked={value === true}
-          onChange={onChange}
-          label={spec.label}
-        />
-      );
+      return <Switch size="l" checked={value === true} onChange={onChange} label={spec.label} />;
     case 'slider':
       return (
         <Slider
@@ -147,17 +139,17 @@ function SettingControl({
 
 export function ModSettingsPane({
   id,
-  mods,
+  loadout,
   onChange,
   onEditPosition,
 }: {
   id: ModId;
-  mods: Partial<Record<ModId, ModState>>;
-  onChange: (next: Partial<ModState>) => void;
+  loadout: Pick<Loadout, 'mods'>;
+  onChange: (next: Record<string, unknown>) => void;
   onEditPosition?: () => void;
 }) {
   const entry = MOD_REGISTRY[id];
-  const state = effectiveState(mods, id);
+  const state = effectiveState(loadout, id);
   const on = state.on === true;
 
   return (
@@ -174,7 +166,7 @@ export function ModSettingsPane({
       )}
 
       <div className={`mod-pane__settings${on ? '' : ' is-disabled'}`}>
-        {entry.settings.map((spec) =>
+        {settingsFor(id).map((spec) =>
           spec.control === 'slider' ? (
             <SettingControl
               key={spec.key}

@@ -27,7 +27,7 @@ import {
 } from '../components/icons';
 import type { ComponentType } from 'react';
 import { MOD_ICONS } from '../components/icons';
-import { MOD_GRID_ORDER, MOD_REGISTRY } from '../local/registry';
+import { MOD_GRID_ORDER, MOD_REGISTRY, isOn } from '../local/registry';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
 import { useServers } from '../stores/servers';
@@ -137,7 +137,7 @@ export function CommandPalette() {
 
     for (const id of MOD_GRID_ORDER) {
       const entry = MOD_REGISTRY[id];
-      const on = active ? (active.mods[id]?.on ?? entry.defaults.on) === true : false;
+      const on = active ? isOn(active, id) : false;
       all.push({
         id: `mod:${id}`,
         group: 'MODS',

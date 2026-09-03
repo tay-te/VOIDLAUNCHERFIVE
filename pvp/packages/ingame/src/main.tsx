@@ -37,6 +37,10 @@ setGlBlur(params.get('glblur') !== 'off');
 
 const { debug } = connectBridge();
 
+// The harness renders at the authored frame size, which may exceed the browser
+// window; let the page scroll so the whole frame is comparable to the PNG.
+if (debug && import.meta.env.DEV) document.body.classList.add('void-debug-body');
+
 const container = document.getElementById('void-root');
 if (!container) throw new Error('#void-root is missing from index.html');
 

@@ -31,7 +31,7 @@ import {
   type ModId,
 } from '@/bridge/protocol';
 import { MOD_CATEGORY, SETTING_ENUMS, SETTING_RANGES, modLabel } from '@/registry';
-import { hudItem, modSettings, useVoidStore, type SettingValue } from '@/store/store';
+import { hudItem, useModSettings, useVoidStore, type SettingValue } from '@/store/store';
 import { HudKeystrokes } from '@/hud/widgets';
 import { SETTING_SUBTITLES, formatSetting, keybindLabel, settingLabel } from './settings-format';
 
@@ -87,7 +87,7 @@ const APPEARANCE_KEYS = [
 ];
 
 export function ModSettingsScreen({ id }: { id: ModId }) {
-  const settings = useVoidStore((s) => modSettings(s.loadout, id));
+  const settings = useModSettings(id);
   const setSetting = useVoidStore((s) => s.setSetting);
   const toggleMod = useVoidStore((s) => s.toggleMod);
   const resetMod = useVoidStore((s) => s.resetMod);

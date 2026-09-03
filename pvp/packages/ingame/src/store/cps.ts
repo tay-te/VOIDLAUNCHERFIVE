@@ -30,16 +30,32 @@ export function pushClick(ring: ClickRing, now: number): ClickRing {
 }
 
 /**
- * Clicks inside the trailing `windowMs`, dropping everything older.
+ * Clicks inside the trailing `windowMs`. Pure — it counts, it does not prune, so
+ * the same ring can be read with two different windows (the left and right
+ * counters share a `window_ms` today, but nothing here assumes that).
  *
  * The window is half-open: a click at exactly `now - windowMs` has aged out.
  */
 export function cps(ring: ClickRing, now: number, windowMs = 1000): number {
   const cutoff = now - windowMs;
+  let count = 0;
+  for (let i = ring.at.length - 1; i >= 0; i -= 1) {
+    if (ring.at[i]! <= cutoff) break; // timestamps are ordered, so we are done
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * Drop samples that can no longer count, so the ring does not grow without
+ * bound in a long session. Called from the 20 Hz tick, never from a hot path.
+ */
+export function trimRing(ring: ClickRing, now: number, windowMs = 1000): ClickRing {
+  const cutoff = now - windowMs;
   let drop = 0;
   while (drop < ring.at.length && ring.at[drop]! <= cutoff) drop += 1;
   if (drop > 0) ring.at.splice(0, drop);
-  return ring.at.length;
+  return ring;
 }
 
 /**

@@ -71,6 +71,7 @@
 /* ---------------------------------------------------------------- ModTile */
 
 .v-modtile {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-10);
@@ -119,6 +120,32 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
+}
+
+/* The tile carries two controls, so the select action is a stretched button *behind*
+   the contents rather than a wrapper around them: a button inside a button is invalid
+   HTML and would leave the switch unreachable by keyboard. */
+.v-modtile__select {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: none;
+}
+
+.v-modtile > *:not(.v-modtile__select) {
+  position: relative;
+  z-index: 1;
+}
+
+/* …and the switch must still take its own clicks, so it opts back in. */
+.v-modtile .v-toggle {
+  pointer-events: auto;
+}
+
+.v-modtile__select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }
 
 /** Tiles are drag sources — dragging one onto the HUD editor places that widget. */

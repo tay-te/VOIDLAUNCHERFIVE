@@ -17,7 +17,7 @@ import { useUi } from '../stores/ui';
 export function LogDrawer() {
   const open = useUi((s) => s.logOpen);
   const setOpen = useUi((s) => s.setLogOpen);
-  const { log, phase, bridgePort, simulated, clearLog } = useLaunch();
+  const { log, phase, bridgePort, clearLog } = useLaunch();
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Pull whatever the ring buffer already holds when the drawer opens mid-session —
@@ -52,7 +52,6 @@ export function LogDrawer() {
         <span className="drawer__meta">
           {phase === 'running' ? 'running' : 'idle'}
           {bridgePort ? ` · bridge :${bridgePort}` : ''}
-          {simulated ? ' · simulated' : ''}
         </span>
         <span className="drawer__spacer" />
         <Button variant="text" onClick={clearLog}>

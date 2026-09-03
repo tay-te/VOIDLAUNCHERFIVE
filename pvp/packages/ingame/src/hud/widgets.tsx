@@ -27,7 +27,7 @@ import {
   type HudVariant,
 } from '@/ui';
 import { cardinalFromYaw } from '@/bridge/protocol';
-import { modSettings, useVoidStore } from '@/store/store';
+import { modSettings, useModSettings, useVoidStore } from '@/store/store';
 import { armorRow, potionMeta, shortHost } from './format';
 
 export interface HudWidgetProps {
@@ -75,7 +75,7 @@ export const HudPing = memo(function HudPing({ variant }: HudWidgetProps) {
 
 export const HudCoordinates = memo(function HudCoordinates({ variant }: HudWidgetProps) {
   const pos = useVoidStore((s) => s.pos);
-  const settings = useVoidStore((s) => modSettings(s.loadout, 'coordinates'));
+  const settings = useModSettings('coordinates');
   if (!pos) return null;
   return (
     <CoordsChip
@@ -93,7 +93,7 @@ export const HudCoordinates = memo(function HudCoordinates({ variant }: HudWidge
 
 export const HudPotionEffects = memo(function HudPotionEffects() {
   const fx = useVoidStore((s) => s.fx);
-  const settings = useVoidStore((s) => modSettings(s.loadout, 'potion_effects'));
+  const settings = useModSettings('potion_effects');
   const visible = settings.hide_ambient ? fx.filter((f) => !f.ambient) : fx;
   if (visible.length === 0) return null;
   return (
@@ -116,7 +116,7 @@ export const HudPotionEffects = memo(function HudPotionEffects() {
 
 export const HudArmorStatus = memo(function HudArmorStatus() {
   const armor = useVoidStore((s) => s.armor);
-  const settings = useVoidStore((s) => modSettings(s.loadout, 'armor_status'));
+  const settings = useModSettings('armor_status');
   const rows = armor
     .filter((slot) => settings.show_held_item !== false || slot.slot !== 'held')
     .map(armorRow)
@@ -134,7 +134,7 @@ export const HudArmorStatus = memo(function HudArmorStatus() {
 
 export const HudKeystrokes = memo(function HudKeystrokes() {
   const keys = useVoidStore((s) => s.keys);
-  const settings = useVoidStore((s) => modSettings(s.loadout, 'keystrokes'));
+  const settings = useModSettings('keystrokes');
   const cpsLeft = useVoidStore((s) => s.cpsLeft);
   const cpsRight = useVoidStore((s) => s.cpsRight);
   const radius = settings.corner_radius;

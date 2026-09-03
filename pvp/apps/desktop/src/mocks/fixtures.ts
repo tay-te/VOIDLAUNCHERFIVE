@@ -9,10 +9,11 @@
 import type { Account, Loadout, Settings, SystemInfo } from '../local/protocol';
 
 export const MOCK_ACCOUNT: Account = {
-  uuid: '3bce9672-43f0-3d12-a71c-7fcdc529a9b1',
+  // The vanilla offline-mode UUID for this name, hyphen-free, exactly as
+  // `void_core::auth::offline_uuid` produces it.
+  uuid: '3bce967243f03d12a71c7fcdc529a9b1',
   name: 'Searge',
   kind: 'offline',
-  level: 42,
   skin_url: null,
 };
 
@@ -80,11 +81,13 @@ export const MOCK_SETTINGS: Settings = {
   theme: 'void-dark',
   ui_scale: 1,
   hud_editor_grid: 4,
-  java_auto: true,
-  java_path: null,
-  ram_mb: 4096,
   hide_to_tray_on_launch: true,
   update_channel: 'stable',
+  java_auto: true,
+  java_path: null,
+  // `void_core::DEFAULT_MAX_MEMORY_MB` — two gigabytes is what every PVP client ships.
+  ram_mb: 2048,
+  mod_jar: null,
   active_loadout: 'sword-pvp',
 };
 
@@ -98,6 +101,7 @@ export const MOCK_SYSTEM: SystemInfo = {
   ram_available_mb: 18_400,
   recommended_ram_mb: 8192,
   app_version: '0.1.0',
+  data_dir: '~/.void-pvp',
 };
 
 /** The Servers screen's favourites, with the pings the Figma shows. */

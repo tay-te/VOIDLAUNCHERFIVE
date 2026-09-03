@@ -83,7 +83,7 @@ export interface Evt {
   'auth:status': import('./protocol').AuthStatus;
   'prepare:progress': import('./protocol').PrepareProgress;
   'game:log': import('./protocol').LogLine;
-  'game:started': { pid: number; loadout: string; bridge_port: number; simulated?: boolean };
+  'game:started': { pid: number; loadout: string; bridge_port: number };
   'game:closed': import('./protocol').SessionStats;
   'bridge:state': import('./protocol').BridgeState;
   'bridge:session': import('./protocol').BridgeSession;

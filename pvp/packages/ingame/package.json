@@ -5,8 +5,8 @@
   "type": "module",
   "description": "In-game React entry: HUD layer + Right-Shift menu layer, rendered by Ultralight 1.4 inside the JVM.",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b --noEmit false tsconfig.build.json || true && vite build && node scripts/check-ultralight.mjs && node scripts/size.mjs",
+    "dev": "vite --port 5183",
+    "build": "vite build && node scripts/check-ultralight.mjs && node scripts/size.mjs",
     "build:only": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -14,7 +14,8 @@
     "size": "node scripts/size.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist node_modules/.vite"
+    "clean": "rm -rf dist node_modules/.vite",
+    "check": "pnpm typecheck && pnpm lint:ultralight && pnpm test"
   },
   "dependencies": {
     "@void/protocol": "workspace:*",

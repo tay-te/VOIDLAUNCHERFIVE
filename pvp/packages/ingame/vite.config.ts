@@ -41,11 +41,28 @@ function designScreensDevServer(): Plugin {
   };
 }
 
+/**
+ * Strips the `crossorigin` attribute Vite puts on the emitted `<script>` and
+ * `<link>`. The bundle is loaded by the Ultralight host from the JAR classpath,
+ * not over HTTP: there is no origin to be cross to, and a CORS-flagged fetch on
+ * a custom scheme is a way to fail for nothing.
+ */
+function stripCrossorigin(): Plugin {
+  return {
+    name: 'void-strip-crossorigin',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      return html.replace(/\s+crossorigin(?==|>|\s)/g, '');
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   // Relative URLs: the bundle is loaded from the JAR classpath as
   // `assets/void/ui/index.html`, where there is no server and no origin.
   base: './',
-  plugins: [react(), designScreensDevServer()],
+  plugins: [react(), designScreensDevServer(), stripCrossorigin()],
   resolve: {
     /**
      * `@void/ui` and `@void/protocol` are consumed from **source**, not from their

@@ -5,10 +5,10 @@
  * in the loadout, not here.** So there are no mod toggles on this screen. What is here
  * is account, Java, RAM, hotkeys, theme, hide-to-tray, data folder, updates, credits.
  *
- * The credits section carries the Ultralight notice §13 requires — read from
- * `mod/native/sdk/*/license/NOTICES.md` and reproduced verbatim below. It is a licence
- * obligation, not a nicety: the free tier requires a credit line from `NOTICES.txt` to
- * appear in an About/credits screen.
+ * The credits section carries the Ultralight notice §13 requires, read from the SDK's
+ * own `license/NOTICES.md` under `mod/native/sdk/` and reproduced verbatim below. It is
+ * a licence obligation, not a nicety: the free tier requires a credit line from
+ * Ultralight's NOTICES to appear in an About/credits screen.
  */
 
 import { useEffect, useState } from 'react';

@@ -9,10 +9,10 @@
  */
 
 const BONUS_CONSECUTIVE = 8;
-const BONUS_WORD_START = 10;
+const BONUS_WORD_START = 12;
 const BONUS_FIRST_CHAR = 14;
 const PENALTY_GAP = 1;
-const PENALTY_LEADING = 0.5;
+const PENALTY_LEADING = 0.15;
 
 function isBoundary(text: string, index: number): boolean {
   if (index === 0) return true;

@@ -18,6 +18,7 @@ import {
   Button,
   Card,
   CoordsChip,
+  CosmeticCard,
   CpsChip,
   Crosshair,
   Divider,
@@ -25,6 +26,7 @@ import {
   EditPositionButton,
   EditorToolbar,
   FpsChip,
+  FriendRow,
   FriendsOnline,
   GroupCaption,
   HintBar,
@@ -42,14 +44,22 @@ import {
   ModSettingsPanel,
   ModSettingsRow,
   ModTile,
+  InviteRow,
   NavItem,
+  Palette,
+  PaletteFooter,
+  PaletteInput,
+  PaletteResult,
+  PaletteSection,
   Pane,
   Panel,
   PingChip,
   PlayerChip,
+  PartyMemberRow,
   PositionChips,
   PotionList,
   SearchBar,
+  ServerRow,
   SelectionFrame,
   SettingsGroup,
   SettingsRow,
@@ -139,6 +149,19 @@ const PUBLIC_API = [
   'Sparkline',
   'GroupCaption',
   'BackButton',
+  // lists
+  'ServerRow',
+  'FriendRow',
+  'PartyMemberRow',
+  'InviteRow',
+  'CosmeticCard',
+  // quick palette
+  'Palette',
+  'PaletteInput',
+  'PaletteSeam',
+  'PaletteSection',
+  'PaletteResult',
+  'PaletteFooter',
   // HUD
   'FpsChip',
   'PingChip',
@@ -206,7 +229,14 @@ describe('shell chrome', () => {
   it('SearchBar is controllable', () => {
     const onChange = vi.fn();
     render(<SearchBar value="hypixel" onChange={onChange} />);
-    expect(screen.getByRole('searchbox')).toHaveValue('hypixel');
+    const input = screen.getByRole('searchbox');
+    expect(input).toHaveValue('hypixel');
+    expect(input).not.toHaveAttribute('readonly');
+  });
+
+  it('SearchBar with a value but no handler is read-only, not a React warning', () => {
+    render(<SearchBar value="hypixel" />);
+    expect(screen.getByRole('searchbox')).toHaveAttribute('readonly');
   });
 
   it('StatusPill carries the live status LED', () => {
@@ -523,6 +553,26 @@ describe('mods', () => {
     screen.getByRole('switch').click();
     expect(onToggle).toHaveBeenCalledWith(false);
     expect(onSelect).not.toHaveBeenCalled();
+
+    screen.getByRole('button', { name: 'Zoom' }).click();
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
+
+  it('ModTile keeps its two controls as siblings, not nested', () => {
+    // A <button> inside a <button> is invalid HTML and leaves the switch unreachable by
+    // keyboard, so the select action is a stretched sibling behind the contents.
+    const { container } = render(<ModTile name="Zoom" category="UTILITY" on />);
+    const select = container.querySelector('.v-modtile__select')!;
+    const toggle = container.querySelector('.v-toggle')!;
+    expect(select.contains(toggle)).toBe(false);
+    expect(toggle.contains(select)).toBe(false);
+    expect(container.querySelector('button button')).toBeNull();
+  });
+
+  it('ModTile disables both of its controls together', () => {
+    render(<ModTile name="Zoom" category="UTILITY" on disabled />);
+    expect(screen.getByRole('button', { name: 'Zoom' })).toBeDisabled();
+    expect(screen.getByRole('switch')).toBeDisabled();
   });
 
   it('KeystrokesPreview lights only the pressed caps', () => {
@@ -687,6 +737,177 @@ describe('panes and stats', () => {
     render(<GroupCaption label="Online" count="· 3" />);
     expect(screen.getByText('Online')).toBeInTheDocument();
     expect(screen.getByText('· 3')).toBeInTheDocument();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* List rows and the cosmetics card                                           */
+/* -------------------------------------------------------------------------- */
+
+describe('list rows', () => {
+  it('ServerRow shows name, address, players and a ping coloured by threshold', () => {
+    const { container, rerender } = render(
+      <ServerRow name="Hypixel" address="mc.hypixel.net" players="24,118 online" ping={42} />,
+    );
+    expect(screen.getByText('Hypixel')).toBeInTheDocument();
+    expect(screen.getByText('mc.hypixel.net')).toBeInTheDocument();
+    expect(screen.getByText('24,118 online')).toBeInTheDocument();
+    expect(screen.getByText(/42 ms/)).toBeInTheDocument();
+    expect(container.querySelector('.v-row__ping--warn')).toBeNull();
+
+    rerender(<ServerRow name="Minemen Club EU" ping={112} />);
+    expect(container.querySelector('.v-row__ping--warn')).not.toBeNull();
+  });
+
+  it('ServerRow marks selection and turns the Join chip accent', () => {
+    const onJoin = vi.fn();
+    const { container } = render(
+      <ServerRow name="Hypixel" ping={42} selected onJoin={onJoin} />,
+    );
+    expect(container.querySelector('.v-row--selected')).not.toBeNull();
+    expect(container.querySelector('.v-btn--chip.v-btn--accent')).not.toBeNull();
+    screen.getByRole('button', { name: 'Join' }).click();
+    expect(onJoin).toHaveBeenCalledOnce();
+  });
+
+  it('FriendRow dims an offline friend and keeps its presence dot', () => {
+    const { container, rerender } = render(
+      <FriendRow name="marrow" status="Bedwars  ·  Hypixel  ·  2h" action="Join" />,
+    );
+    expect(container.querySelector('.v-avatar__presence--online')).not.toBeNull();
+    expect(container.querySelector('.v-row--offline')).toBeNull();
+
+    rerender(
+      <FriendRow name="doorframe" status="Last seen 4 hours ago" presence="offline" action="Message" />,
+    );
+    expect(container.querySelector('.v-row--offline')).not.toBeNull();
+    expect(container.querySelector('.v-avatar--offline')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Message' })).toBeInTheDocument();
+  });
+
+  it('PartyMemberRow badges LEADER in accent and READY in green', () => {
+    const { container } = render(
+      <>
+        <PartyMemberRow name="Searge" meta="Sword PvP  ·  1.8.9" badge="Leader" />
+        <PartyMemberRow name="marrow" meta="Sword PvP  ·  1.8.9" badge="Ready" badgeTone="ok" />
+      </>,
+    );
+    expect(container.querySelectorAll('.v-row__badge')).toHaveLength(2);
+    expect(container.querySelectorAll('.v-row__badge--ok')).toHaveLength(1);
+  });
+
+  it('PartyMemberRow has a compact launcher variant with a status dot', () => {
+    const { container } = render(
+      <PartyMemberRow name="Searge" meta="Leader" variant="compact" badge="Leader" />,
+    );
+    expect(container.querySelector('.v-row--member-compact')).not.toBeNull();
+    expect(container.querySelector('.v-row__badge')).toBeNull();
+    expect(container.querySelector('.v-dot--accent')).not.toBeNull();
+  });
+
+  it('InviteRow offers the Invite action', () => {
+    const onInvite = vi.fn();
+    render(<InviteRow name="nine" meta="In lobby  ·  Hypixel" onInvite={onInvite} />);
+    screen.getByRole('button', { name: /Invite/ }).click();
+    expect(onInvite).toHaveBeenCalledOnce();
+  });
+
+  it('CosmeticCard tones its state line and can carry the NEW badge', () => {
+    const { container } = render(
+      <>
+        <CosmeticCard name="Void Trail" state="Equipped" stateTone="equipped" color="#9f8bff" selected />
+        <CosmeticCard name="Ember" state="Owned" stateTone="owned" color="#fa8c33" />
+        <CosmeticCard name="Aurora" state="900 coins" color="#4df2b2" isNew />
+      </>,
+    );
+    expect(container.querySelectorAll('.v-cosmetic__state--equipped')).toHaveLength(1);
+    expect(container.querySelectorAll('.v-cosmetic__state--owned')).toHaveLength(1);
+    expect(container.querySelectorAll('.v-cosmetic--selected')).toHaveLength(1);
+    expect(screen.getByText('New')).toBeInTheDocument();
+  });
+
+  it('CosmeticCard draws the glow as a box-shadow, never a filter', () => {
+    const { container } = render(
+      <CosmeticCard name="Void Trail" color="#9f8bff" glow="rgba(115,89,242,0.45)" />,
+    );
+    const swatch = container.querySelector<HTMLElement>('.v-cosmetic__swatch')!;
+    expect(swatch.style.boxShadow).toContain('rgba(115,89,242,0.45)');
+    expect(swatch.style.filter).toBe('');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Quick palette                                                              */
+/* -------------------------------------------------------------------------- */
+
+describe('quick palette', () => {
+  it('renders the input, the sections and the footer', () => {
+    render(
+      <Palette>
+        <PaletteInput value="fullb" onChange={() => undefined} />
+        <PaletteSection caption="Actions">
+          <PaletteResult
+            selected
+            title="Toggle Fullbright"
+            sub="Visual  ·  currently off  →  on"
+            keys={['↵']}
+          />
+          <PaletteResult title="Fullbright settings" sub="Open in the mod menu" keys={['⌘', '↵']} />
+        </PaletteSection>
+        <PaletteFooter loadout="Sword PvP" hints={[{ keys: '↑↓', word: 'move' }]} />
+      </Palette>,
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue('fullb');
+    expect(screen.getByText('Actions')).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+    expect(screen.getByText('Sword PvP')).toBeInTheDocument();
+    expect(screen.getByText('move')).toBeInTheDocument();
+  });
+
+  it('marks exactly one result selected and keeps only it in the tab order', () => {
+    render(
+      <PaletteSection caption="Actions">
+        <PaletteResult selected title="Toggle Fullbright" />
+        <PaletteResult title="Fullbright settings" />
+      </PaletteSection>,
+    );
+    const options = screen.getAllByRole('option');
+    expect(options.filter((o) => o.getAttribute('aria-selected') === 'true')).toHaveLength(1);
+    expect(options[0]).toHaveAttribute('tabindex', '0');
+    expect(options[1]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('a result runs on click and on Enter', () => {
+    const onSelect = vi.fn();
+    render(<PaletteResult title="Toggle Fullbright" selected onSelect={onSelect} />);
+    const option = screen.getByRole('option');
+    option.click();
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders zero, one or two trailing key chips', () => {
+    const { container } = render(
+      <>
+        <PaletteResult title="No keys" />
+        <PaletteResult title="One key" keys={['↵']} />
+        <PaletteResult title="Two keys" keys={['⌘', '↵']} />
+      </>,
+    );
+    expect(container.querySelectorAll('.v-kbd')).toHaveLength(3);
+  });
+
+  it('the input carries the blinking accent caret, which can be turned off', () => {
+    const { container, rerender } = render(<PaletteInput value="fullb" />);
+    expect(container.querySelector('.v-palette__caret')).not.toBeNull();
+    rerender(<PaletteInput value="fullb" showCaret={false} />);
+    expect(container.querySelector('.v-palette__caret')).toBeNull();
+  });
+
+  it('a value with no handler is read-only rather than a React warning', () => {
+    render(<PaletteInput value="fullb" />);
+    expect(screen.getByRole('textbox')).toHaveAttribute('readonly');
   });
 });
 
@@ -913,6 +1134,43 @@ describe('HUD editor', () => {
     expect(screen.getByText('Drag to move')).toBeInTheDocument();
     expect(screen.getByText('Esc to exit')).toBeInTheDocument();
     expect(container.querySelectorAll('.v-hintbar__sep')).toHaveLength(2);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* No component nests one interactive control inside another                  */
+/* -------------------------------------------------------------------------- */
+
+describe('interactive nesting', () => {
+  it('no composite component puts a button inside a button', () => {
+    const { container } = render(
+      <>
+        <ModTile name="Keystrokes" category="HUD" on />
+        <ModSettingsPanel title="Keystrokes" on>
+          <ModSettingsRow label="Keybind">chip</ModSettingsRow>
+        </ModSettingsPanel>
+        <LoadoutCard name="Bedwars" icon="bed" includes={[{ label: 'CPS' }]} />
+        <Panel title="Mods" surface="overlay" onClose={() => undefined}>
+          body
+        </Panel>
+        <EditorToolbar />
+        <Dock>
+          <LoadoutPicker value="Sword PvP" />
+          <LaunchButton />
+        </Dock>
+        <SettingsGroup caption="Behaviour">
+          <SettingsRow title="Show CPS" />
+        </SettingsGroup>
+      </>,
+    );
+    expect(container.querySelector('button button')).toBeNull();
+    expect(container.querySelector('a button')).toBeNull();
+    // …and every interactive element is reachable: nothing is tabindex -1 by accident.
+    const controls = container.querySelectorAll('button:not(:disabled)');
+    expect(controls.length).toBeGreaterThan(8);
+    for (const control of controls) {
+      expect(control.getAttribute('tabindex')).not.toBe('-1');
+    }
   });
 });
 

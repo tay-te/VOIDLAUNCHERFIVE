@@ -220,6 +220,29 @@ the same fake bridge the in-game `?debug` harness uses.
 
 ---
 
+## What is in here
+
+Every entry in the design README's component inventory.
+
+| Group | Components |
+|---|---|
+| **Shell chrome** | `TopNav`, `NavItem`, `SearchBar`, `StatusPill` |
+| **Launcher dock** | `Dock`, `PlayerChip`, `LoadoutPicker`, `VersionPicker`, `LaunchButton`, `FriendsOnline` |
+| **Panels** | `Panel`, `FilterTabs` |
+| **Primitives** | `Button`, `IconButton`, `Card`, `Kbd`, `Tag`, `Badge`, `Avatar`, `IconWell`, `Divider`, `StatusDot`, `Icon` |
+| **Controls** | `Toggle`, `Slider`, `KeybindChip` |
+| **Mods** | `ModGrid`, `ModTile`, `ModSettingsPanel`, `ModSettingsRow`, `KeystrokesPreview`, `EditPositionButton`, `SettingsGroup`, `SettingsRow`, `Swatches`, `PositionChips` |
+| **Cards & panes** | `LoadoutCard`, `Pane`, `StatTile`, `Sparkline`, `GroupCaption`, `BackButton` |
+| **List rows** | `ServerRow`, `FriendRow`, `PartyMemberRow`, `InviteRow`, `CosmeticCard` |
+| **HUD widgets** | `FpsChip`, `PingChip`, `CoordsChip`, `CpsChip`, `PotionList`, `ArmorList`, `KeystrokesWidget`, `Crosshair`, `Hotbar` |
+| **HUD editor** | `EditorToolbar`, `Tool`, `SelectionFrame`, `HintBar` |
+| **Quick palette** | `Palette`, `PaletteInput`, `PaletteSeam`, `PaletteSection`, `PaletteResult`, `PaletteFooter` |
+
+Plus the formatters the frames imply: `formatPotionTime`, `formatAmplifier`,
+`formatSelectionReadout`.
+
+---
+
 ## Scripts
 
 | Script | What it does |
@@ -247,5 +270,9 @@ the same fake bridge the in-game `?debug` harness uses.
   `void.openKeybindCapture`'s promise.
 - Interactive components carry their ARIA roles: `switch`, `slider`, `tablist`/`tab`,
   `radiogroup`/`radio`. The in-game overlay is navigable without a mouse.
+- A component that holds two actions keeps them as **siblings**, never nested.
+  `ModTile` is the case in point: it is a `<div>` with a stretched select `<button>`
+  behind its contents and the switch layered above, because a button inside a button is
+  invalid HTML and would leave the switch unreachable by keyboard.
 - `src/index.ts` exports are stable. If something is renamed, the old name stays as an
   alias — `packages/ingame` and `apps/desktop` import these names directly.

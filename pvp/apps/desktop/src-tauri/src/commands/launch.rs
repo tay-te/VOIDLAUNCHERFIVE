@@ -9,7 +9,7 @@
 use std::sync::{Arc, Mutex};
 
 use void_core::manifest::RuleContext;
-use void_core::{install, java, launch as core_launch};
+use void_core::{install, java};
 
 use crate::adapters::game::{self, LaunchOptionsSeed, LaunchRequest};
 use crate::adapters::progress::{self, PrepareProgressSink};
@@ -143,18 +143,6 @@ pub fn is_running(state: &AppState) -> bool {
 /// The last `lines` of JVM output, for the log drawer when it opens mid-session.
 pub fn log_tail(state: &AppState, lines: usize) -> Result<Vec<String>, Error> {
     Ok(state.game.lock().unwrap().tail(lines.min(2000)))
-}
-
-/// The classpath, natives and argument list a spawn would use, without spawning.
-///
-/// Not wired to a command: it exists so `launch`'s argument construction stays
-/// exercised by a test that does not need a JVM, a network or an account.
-#[cfg(test)]
-fn arg_preview(
-    profile: &void_core::LaunchProfile,
-    paths: &void_core::Paths,
-) -> Vec<std::path::PathBuf> {
-    core_launch::build_classpath(profile, paths)
 }
 
 #[cfg(test)]

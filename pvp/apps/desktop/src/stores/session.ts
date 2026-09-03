@@ -55,7 +55,15 @@ export const useSession = create<SessionState>((set, get) => ({
     set({ error: null, authStatus: null });
     try {
       const code = await invoke('auth_login');
-      set({ deviceCode: { user_code: code.user_code, verification_uri: code.verification_uri } });
+      // The device flow runs on a background task, and on a warm keychain it can
+      // finish before this promise resolves. Showing the code after the account has
+      // already landed would leave the panel asking the player to type a code that no
+      // longer means anything, so the arrival of an account wins.
+      if (get().account === null) {
+        set({
+          deviceCode: { user_code: code.user_code, verification_uri: code.verification_uri },
+        });
+      }
     } catch (e) {
       set({ error: errorText(e), deviceCode: null });
     }

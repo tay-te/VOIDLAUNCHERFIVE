@@ -29,8 +29,6 @@ interface LaunchState {
   progress: PrepareProgress | null;
   log: LogLine[];
   bridgePort: number | null;
-  /** True when the running game is the desktop stand-in rather than a real JVM. */
-  simulated: boolean;
   error: string | null;
   lastSession: SessionStats | null;
   /** Live presence from `bridge:server`, shown on the Play screen. */
@@ -48,7 +46,6 @@ export const useLaunch = create<LaunchState>((set, get) => ({
   progress: null,
   log: [],
   bridgePort: null,
-  simulated: false,
   error: null,
   lastSession: null,
   server: null,
@@ -106,7 +103,6 @@ export async function wireLaunchEvents(): Promise<() => void> {
       useLaunch.setState({
         phase: 'running',
         bridgePort: payload.bridge_port,
-        simulated: payload.simulated === true,
         progress: null,
       });
     }),
@@ -136,13 +132,11 @@ export async function wireLaunchEvents(): Promise<() => void> {
 export function stepLabel(step: PrepareProgress['step']): string {
   switch (step) {
     case 'manifest':
-      return 'Resolving manifests';
+      return 'Resolving 1.8.9 + Legacy Fabric';
     case 'libraries':
       return 'Downloading libraries';
     case 'assets':
       return 'Downloading assets';
-    case 'fabric':
-      return 'Installing Legacy Fabric';
     case 'java':
       return 'Fetching Java 8';
     case 'mod':

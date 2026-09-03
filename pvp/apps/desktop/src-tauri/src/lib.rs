@@ -1,25 +1,25 @@
 //! VOID PVP — desktop launcher.
 //!
-//! Per `CONTRACTS.md`, this crate owns `apps/desktop/` and nothing else: one frameless
+//! Per `CONTRACTS.md` this crate owns `apps/desktop/` and nothing else: one frameless
 //! window, the tray, the updater, and thin `#[tauri::command]` wrappers over
-//! `void-core`. Auth, downloads, the JVM spawn, the WS bridge and the loadout store
-//! belong to the three crates under `pvp/crates/`; where those are still stubs, the
-//! `adapters/` module holds a shaped stand-in with a `TODO(integrate)` header naming
-//! the crate that takes it over.
+//! `void-core`. Auth, downloads, the JVM spawn, the WS bridge and the loadout store all
+//! live in `pvp/crates/`, and this crate calls into them rather than re-implementing
+//! any of it.
 //!
 //! Layering, outermost first:
 //!
 //! ```text
-//!   ipc.rs        #[tauri::command] wrappers      ← needs Tauri
-//!   tray.rs       tray menu + loadout submenu     ← needs Tauri
-//!   window.rs     show / hide-to-tray             ← needs Tauri
-//!   commands/     the actual logic                ← no Tauri
-//!   adapters/     void-core stand-ins + SLP       ← no Tauri
-//!   models.rs     the DTOs that cross `invoke`    ← no Tauri
+//!   ipc.rs        #[tauri::command] wrappers        ← needs Tauri
+//!   tray.rs       tray menu + loadout submenu       ← needs Tauri
+//!   window.rs     show / hide-to-tray               ← needs Tauri
+//!   updater.rs    tauri-plugin-updater              ← needs Tauri
+//!   commands/     the launcher's own logic          ← no Tauri
+//!   adapters/     bridge+JVM orchestration, SLP     ← no Tauri
+//!   models.rs     the DTOs that cross `invoke`      ← no Tauri
 //! ```
 //!
-//! The bottom half compiles with `--no-default-features`, which is what lets a Linux
-//! CI runner with no webkit2gtk still type-check the launch pipeline.
+//! The bottom half compiles with `--no-default-features`, which is what lets a Linux CI
+//! runner with no webkit2gtk still type-check and test the launch pipeline.
 
 pub mod adapters;
 pub mod commands;
@@ -48,27 +48,44 @@ pub fn run() {
         )
         .init();
 
-    let data_dir = state::AppState::default_data_dir();
-    tracing::info!(?data_dir, "starting VOID PVP launcher");
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
-            // Failing to open the store is fatal and must say why: without it there is
-            // no loadout library, and every screen is empty.
-            let app_state = state::AppState::new(data_dir.clone()).map_err(|e| {
-                tracing::error!(%e, ?data_dir, "could not open the launcher data directory");
+            // Failing to open the installation is fatal and must say why: without it
+            // there is no loadout library, and every screen is empty.
+            let app_state = state::AppState::open_default().map_err(|e| {
+                tracing::error!(%e, "could not open the VOID installation");
                 std::io::Error::other(e.to_string())
             })?;
+            tracing::info!(root = %app_state.paths.root().display(), "starting VOID PVP");
             app.manage(app_state);
 
-            if let Err(e) = tray::build(&app.handle().clone()) {
+            let handle = app.handle().clone();
+            if let Err(e) = tray::build(&handle) {
                 // A missing tray is a degraded launcher, not a dead one.
                 tracing::warn!(%e, "could not build the tray icon");
             }
 
-            updater::spawn_check(app.handle().clone());
+            // Sign in from the keychain before the first frame asks. Not awaited: a slow
+            // or unreachable Microsoft must not hold the window closed.
+            let auth_handle = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                let Some(state) = auth_handle.try_state::<state::AppState>() else { return };
+                match commands::auth::restore(&state).await {
+                    Ok(Some(account)) => {
+                        use tauri::Emitter as _;
+                        let _ = auth_handle.emit(
+                            events::AUTH_STATUS,
+                            models::AuthStatus::Complete { account },
+                        );
+                    }
+                    Ok(None) => tracing::info!("no stored account"),
+                    Err(e) => tracing::warn!(%e, "could not restore the stored account"),
+                }
+            });
+
+            updater::spawn_check(handle);
             Ok(())
         })
         .on_window_event(|window, event| {

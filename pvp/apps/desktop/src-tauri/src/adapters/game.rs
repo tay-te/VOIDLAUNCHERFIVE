@@ -273,7 +273,7 @@ fn spawn_bridge_forwarder(
                     &serde_json::json!({ "t": "state", "loadout": loadout, "patch": patch }),
                 ),
                 Ok(JavaToRust::Session { fps_avg, played_ms, server, loadout }) => {
-                    if let Ok(mut slot) = game.lock().map(|g| g.last_session.clone()) {
+                    if let Ok(slot) = game.lock().map(|g| g.last_session.clone()) {
                         *slot.lock().unwrap() = Some((played_ms, fps_avg, server.clone()));
                     }
                     emit(

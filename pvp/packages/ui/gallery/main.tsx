@@ -19,6 +19,7 @@ import {
   Button,
   Card,
   CoordsChip,
+  CosmeticCard,
   CpsChip,
   Crosshair,
   Divider,
@@ -27,6 +28,7 @@ import {
   EditorToolbar,
   FilterTabs,
   FpsChip,
+  FriendRow,
   FriendsOnline,
   GroupCaption,
   HintBar,
@@ -46,17 +48,26 @@ import {
   ModSettingsRow,
   ModTile,
   NavItem,
+  Palette,
+  PaletteFooter,
+  PaletteInput,
+  PaletteResult,
+  PaletteSection,
+  PaletteSeam,
   Pane,
   Panel,
   PingChip,
   PlayerChip,
+  PartyMemberRow,
   PositionChips,
   PotionList,
   SearchBar,
+  ServerRow,
   SelectionFrame,
   SettingsGroup,
   SettingsRow,
   Slider,
+  InviteRow,
   Sparkline,
   StatTile,
   StatusDot,
@@ -84,6 +95,8 @@ import '../src/styles/04-mods.css';
 import '../src/styles/05-cards.css';
 import '../src/styles/06-hud.css';
 import '../src/styles/07-hud-editor.css';
+import '../src/styles/08-lists.css';
+import '../src/styles/09-palette.css';
 import './gallery.css';
 
 /* -------------------------------------------------------------------------- */
@@ -132,6 +145,8 @@ const SECTIONS = [
   ['mods', 'Mods'],
   ['settings', 'Mod settings'],
   ['cards', 'Cards & panes'],
+  ['lists', 'List rows & cosmetics'],
+  ['palette', 'Quick palette'],
   ['hud', 'HUD widgets'],
   ['editor', 'HUD editor'],
 ] as const;
@@ -943,6 +958,211 @@ function Gallery() {
                   Favourited
                 </Button>
               </Pane>
+            </Specimen>
+          </Section>
+
+          {/* ------------------------------------------------------- lists */}
+          <Section
+            id="lists"
+            title="List rows & cosmetics"
+            note="ServerRow 580 × 62, FriendRow 580 × 56, PartyMemberRow 580 × 64, InviteRow 580 × 54 — one shell, four heights. CosmeticCard is 186 × 216 with a flat swatch and a coloured glow."
+          >
+            <Specimen name="ServerRow" state="selected · default · high ping">
+              <div className="g-col" style={{ width: 580 }}>
+                <ServerRow
+                  name="Hypixel"
+                  address="mc.hypixel.net"
+                  players="24,118 online"
+                  ping={42}
+                  selected
+                  onSelect={() => undefined}
+                  onJoin={() => undefined}
+                />
+                <ServerRow
+                  name="Minemen Club NA"
+                  address="na.minemen.club"
+                  players="1,204 online"
+                  ping={68}
+                  onSelect={() => undefined}
+                  onJoin={() => undefined}
+                />
+                <ServerRow
+                  name="Minemen Club EU"
+                  address="eu.minemen.club"
+                  players="987 online"
+                  ping={112}
+                  onSelect={() => undefined}
+                  onJoin={() => undefined}
+                />
+                <ServerRow name="PvP Land" address="pvp.land" players="612 online" ping={74} />
+              </div>
+            </Specimen>
+
+            <Specimen name="FriendRow" state="in a match · in a lobby · offline">
+              <div className="g-col" style={{ width: 580 }}>
+                <GroupCaption label="Online" count="· 3" />
+                <FriendRow
+                  name="marrow"
+                  status="Bedwars  ·  Hypixel  ·  2h"
+                  action="Join"
+                  actionVariant="chip-accent"
+                />
+                <FriendRow
+                  name="pilot_ash"
+                  status="Sword duels  ·  Minemen  ·  40m"
+                  action="Join"
+                  actionVariant="chip-accent"
+                />
+                <FriendRow name="nine" status="In lobby  ·  Hypixel" action="Invite" />
+                <GroupCaption label="Offline" count="· 5" />
+                <FriendRow
+                  name="doorframe"
+                  status="Last seen 4 hours ago"
+                  presence="offline"
+                  action="Message"
+                />
+                <FriendRow
+                  name="kestrel"
+                  status="Last seen yesterday"
+                  presence="offline"
+                  action="Message"
+                />
+              </div>
+            </Specimen>
+
+            <Specimen name="PartyMemberRow · InviteRow" state="overlay · compact">
+              <div className="g-col" style={{ width: 580 }}>
+                <GroupCaption label="In your party" count="· 2 of 4" />
+                <PartyMemberRow name="Searge" meta="Sword PvP  ·  1.8.9" badge="Leader" />
+                <PartyMemberRow
+                  name="marrow"
+                  meta="Sword PvP  ·  1.8.9"
+                  badge="Ready"
+                  badgeTone="ok"
+                />
+                <GroupCaption label="Invite" count="· 3 online" />
+                <InviteRow name="pilot_ash" meta="Sword duels  ·  Minemen" />
+                <InviteRow name="nine" meta="In lobby  ·  Hypixel" />
+              </div>
+              <div className="g-col" style={{ width: 276 }}>
+                <PartyMemberRow name="Searge" meta="Leader" variant="compact" badge="Leader" />
+                <PartyMemberRow
+                  name="marrow"
+                  meta="Ready"
+                  variant="compact"
+                  badge="Ready"
+                  badgeTone="ok"
+                />
+              </div>
+            </Specimen>
+
+            <Specimen name="CosmeticCard" state="equipped · owned · price · new">
+              <CosmeticCard
+                name="Void Trail"
+                state="Equipped"
+                stateTone="equipped"
+                selected
+                color="#9f8bff"
+                glow="rgba(115,89,242,0.45)"
+                onSelect={() => undefined}
+              />
+              <CosmeticCard
+                name="Ember"
+                state="Owned"
+                stateTone="owned"
+                color="#fa8c33"
+                glow="rgba(250,140,51,0.45)"
+                onSelect={() => undefined}
+              />
+              <CosmeticCard
+                name="Frost"
+                state="1,200 coins"
+                color="#bff2ff"
+                glow="rgba(191,242,255,0.45)"
+                onSelect={() => undefined}
+              />
+              <CosmeticCard
+                name="Aurora"
+                state="900 coins"
+                color="#4df2b2"
+                glow="rgba(77,242,178,0.45)"
+                isNew
+                onSelect={() => undefined}
+              />
+            </Specimen>
+          </Section>
+
+          {/* ----------------------------------------------------- palette */}
+          <Section
+            id="palette"
+            title="Quick palette"
+            note="640px wide, height hugs. ↑↓ moves, ↵ runs, ⌘↵ opens settings, esc closes. The selected result previews the state change inline; the footer always shows the active loadout."
+          >
+            <Specimen name="Palette" state="the whole surface" game>
+              <Palette>
+                <PaletteInput value="fullb" onChange={() => undefined} />
+                <PaletteSeam />
+                <PaletteSection caption="Actions">
+                  <PaletteResult
+                    selected
+                    icon="sun"
+                    title="Toggle Fullbright"
+                    sub="Visual  ·  currently off  →  on"
+                    keys={['↵']}
+                  />
+                  <PaletteResult
+                    icon="settings"
+                    title="Fullbright settings"
+                    sub="Open in the mod menu"
+                    keys={['⌘', '↵']}
+                  />
+                  <PaletteResult
+                    icon="layers"
+                    title="Turn on in Bedwars loadout"
+                    sub="Fullbright is off in that loadout"
+                  />
+                </PaletteSection>
+                <PaletteSection caption="Also">
+                  <PaletteResult
+                    icon="eye"
+                    title="Fullscreen"
+                    sub="Window  ·  F11"
+                    keys={['F11']}
+                  />
+                  <PaletteResult
+                    icon="sun"
+                    title="Brightness  ·  Gamma 100%"
+                    sub="Video settings"
+                  />
+                </PaletteSection>
+                <div style={{ height: 6 }} />
+                <PaletteSeam />
+                <PaletteFooter
+                  loadout="Sword PvP"
+                  hints={[
+                    { keys: '↑↓', word: 'move' },
+                    { keys: '↵', word: 'run' },
+                    { keys: '⌘↵', word: 'settings' },
+                    { keys: 'esc', word: 'close' },
+                  ]}
+                />
+              </Palette>
+            </Specimen>
+
+            <Specimen name="PaletteResult" state="selected · default · with two keys">
+              <div style={{ width: 600, background: 'var(--palette-bg)', borderRadius: 18 }}>
+                <div className="v-palette__list">
+                  <PaletteResult
+                    selected
+                    icon="sun"
+                    title="Toggle Fullbright"
+                    sub="Visual  ·  currently off  →  on"
+                    keys={['↵']}
+                  />
+                  <PaletteResult icon="settings" title="Fullbright settings" sub="Open in the mod menu" keys={['⌘', '↵']} />
+                  <PaletteResult icon="layers" title="Turn on in Bedwars loadout" sub="Fullbright is off in that loadout" />
+                </div>
+              </div>
             </Specimen>
           </Section>
 

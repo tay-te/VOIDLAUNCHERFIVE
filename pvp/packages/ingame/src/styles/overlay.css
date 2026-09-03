@@ -43,6 +43,13 @@ body {
 /* The `?debug` harness renders at the authored frame size so the result can be
    compared 1:1 against design/screens/*.png. Absent in game, where the view is
    the framebuffer. */
+/* Dev only: the harness draws at a fixed 1300 × 820, which may be larger than
+   the browser window, so the page has to be allowed to scroll. In game the view
+   is the framebuffer and this class is never set. */
+.void-debug-body {
+  overflow: auto;
+}
+
 .void-app--debug {
   width: var(--frame-w);
   height: var(--frame-h);
@@ -160,6 +167,12 @@ body {
 
 /* ----------------------------------------------------- Mod settings screen */
 
+/* The frame puts the subtitle at x 121, clear of the `← Mods` button that
+   occupies 25 → 111 on the header band. */
+.mset-panel .v-panel__subtitle {
+  padding-left: 121px;
+}
+
 .mset {
   display: flex;
   flex-direction: column;
@@ -248,11 +261,12 @@ body {
 
 /* --------------------------------------------------------- Loadouts screen */
 
+/* Three 292 × 428 cards at y 89 in the frame; the Panel's header + subtitle +
+   body padding already put the body at ~87, so no extra offset. */
 .loadouts {
   display: flex;
   gap: 16px;
   width: 100%;
-  padding-top: 18px;
 }
 
 /* ------------------------------------------------------------ Party screen */

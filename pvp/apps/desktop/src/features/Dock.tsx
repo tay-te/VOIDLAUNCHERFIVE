@@ -118,7 +118,13 @@ export function Dock() {
         <Avatar name={account?.name ?? 'Guest'} src={account?.skin_url} size={44} />
         <span className="dock__identity-text">
           <span className="dock__name">{account?.name ?? 'Not signed in'}</span>
-          <span className="dock__level">{account ? `Lvl ${account.level}` : 'Offline or Microsoft'}</span>
+          <span className="dock__level">
+            {account
+              ? account.kind === 'offline'
+                ? 'Offline account'
+                : 'Microsoft account'
+              : 'Sign in to launch'}
+          </span>
         </span>
       </div>
 

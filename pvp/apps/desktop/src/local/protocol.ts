@@ -1,109 +1,54 @@
 /**
- * TODO(integrate): these types belong to `@void/protocol`, which generates them from
- * `pvp/schema/*.json` with `json-schema-to-typescript`. That package currently ships
- * `src/generated/*` but has no built `dist` and no `src/index.ts`, so importing it
- * would break `pnpm typecheck` here.
+ * The contract types, in one import.
  *
- * When it does export them, delete the type bodies below and re-export instead:
+ * Everything the schemas define comes from `@void/protocol`, which generates it from
+ * `pvp/schema/*.json`. Nothing in `src/` re-declares a schema type, and nothing imports
+ * `@void/protocol` directly — going through this module means the launcher-only shapes
+ * below sit next to the shared ones instead of being mistaken for them.
  *
- * ```ts
- * export type { Loadout, LoadoutSummary, HudItem, Anchor, ModId, GlobalSettings }
- *   from '@void/protocol';
- * ```
- *
- * Everything in `src/` imports from this module and never from `@void/protocol`
- * directly, so that swap is a one-file change. The shapes below are transcribed from
- * the schemas and match what `src-tauri/src/models.rs` serialises — the two halves of
- * the same contract, kept side by side deliberately.
+ * The launcher-only half is the DTOs `src-tauri/src/models.rs` declares: things that
+ * exist between the window and Rust and never reach the game. They are transcribed by
+ * hand because there is no schema for them — the schemas describe the Rust ⇄ Java seam,
+ * not the Rust ⇄ webview one.
  */
 
-// ------------------------------------------------------------------ mod registry
+// ------------------------------------------------------- from the schemas
+export type {
+  Loadout,
+  LoadoutSummary,
+  LoadoutId,
+  LoadoutStats,
+  ModId,
+  ModStates,
+  ModKind,
+  HypixelSafetyClass,
+  HUDItem,
+  HUDModId,
+  HUDAnchor,
+  Keybind,
+} from '@void/protocol';
 
-/** The closed set of 12 mod ids (`mods.json#/definitions/mod_id`). */
-export type ModId =
-  | 'fps'
-  | 'keystrokes'
-  | 'cps'
-  | 'ping'
-  | 'coordinates'
-  | 'armor_status'
-  | 'potion_effects'
-  | 'toggle_sprint'
-  | 'fullbright'
-  | 'hitboxes'
-  | 'zoom'
-  | 'crosshair';
+import type { Loadout, ModId, ModStates } from '@void/protocol';
 
-/** HUD mods draw; gameplay mods mutate a documented client-side option. */
-export type ModKind = 'hud' | 'gameplay';
+/** One mod's settings, as an open bag — the union of all twelve settings shapes. */
+export type ModSettings = NonNullable<ModStates[ModId]> & Record<string, unknown>;
 
-/** §11: the badge is on only when every *enabled* mod is `safe`. */
-export type HypixelSafe = 'safe' | 'grey';
-
-/** One mod's live state: `on` plus an open bag of settings. */
-export type ModState = { on: boolean } & Record<string, unknown>;
-
-export type ModStates = Partial<Record<ModId, ModState>>;
-
-// ----------------------------------------------------------------------- loadout
-
-export type Anchor =
-  | 'top-left'
-  | 'top'
-  | 'top-right'
-  | 'left'
-  | 'center'
-  | 'right'
-  | 'bottom-left'
-  | 'bottom'
-  | 'bottom-right';
-
-export interface HudItem {
-  id: ModId;
-  anchor: Anchor;
-  dx: number;
-  dy: number;
-  scale?: number;
-}
-
-export interface LoadoutStats {
-  played_ms: number;
-  fps_avg: number;
-}
-
-export interface Loadout {
-  id: string;
-  name: string;
-  icon: string;
-  server: string | null;
-  mc: string;
-  mods: ModStates;
-  hud: HudItem[];
-  stats: LoadoutStats;
-}
-
-export interface LoadoutSummary {
-  id: string;
-  name: string;
-  icon: string;
-  server: string | null;
-  stats: LoadoutStats;
-}
-
-/** What `loadouts_update` accepts — only what the player touched. */
+/** What `loadouts_update` accepts: only what the player touched. */
 export interface LoadoutPatch {
   name?: string;
   icon?: string;
   server?: string | null;
-  mods?: ModStates;
-  hud?: HudItem[];
+  /** One mod at a time; Rust merges each over the registry defaults and validates it. */
+  mods?: Partial<Record<ModId, Record<string, unknown>>>;
+  hud?: Loadout['hud'];
 }
 
-// ---------------------------------------------------------------------- settings
+// -------------------------------------------------------- launcher only
 
 /**
- * `protocol.json#/definitions/global_settings` plus the launcher-only fields.
- * The first five cross to the game in `init`; the rest never leave Rust.
+ * The settings screen's view, joined from three stores by `settings_get`:
+ * `settings.json` (crosses to the game), its `extra` map (launcher preferences) and
+ * `config.json` (launcher only). See `src-tauri/src/models.rs`.
  */
 export interface Settings {
   menu_key: string;
@@ -111,23 +56,22 @@ export interface Settings {
   theme: string;
   ui_scale: number;
   hud_editor_grid: number;
+  hide_to_tray_on_launch: boolean;
+  update_channel: string;
   java_auto: boolean;
   java_path: string | null;
   ram_mb: number;
-  hide_to_tray_on_launch: boolean;
-  update_channel: string;
+  mod_jar: string | null;
   active_loadout: string;
 }
 
 export type SettingsPatch = Partial<Omit<Settings, 'active_loadout'>>;
 
-// ----------------------------------------------------------------------- account
-
+/** The account as the dock renders it. Never carries an access token. */
 export interface Account {
   uuid: string;
   name: string;
   kind: 'microsoft' | 'offline';
-  level: number;
   skin_url: string | null;
 }
 
@@ -136,6 +80,7 @@ export interface DeviceCode {
   verification_uri: string;
   expires_in_s: number;
   interval_s: number;
+  message: string | null;
 }
 
 export type AuthStatus =
@@ -144,8 +89,6 @@ export type AuthStatus =
   | { stage: 'minecraft'; message: string }
   | { stage: 'complete'; account: Account }
   | { stage: 'failed'; message: string };
-
-// ------------------------------------------------------------ system / prepare
 
 export interface SystemInfo {
   os: string;
@@ -157,23 +100,19 @@ export interface SystemInfo {
   ram_available_mb: number;
   recommended_ram_mb: number;
   app_version: string;
+  data_dir: string;
 }
 
 export interface JavaStatus {
+  /** True only for Java **8**: 1.8.9 will not start on anything newer. */
   found: boolean;
   path: string | null;
   version: string | null;
+  major: number | null;
   source: string;
 }
 
-export type PrepareStep =
-  | 'manifest'
-  | 'libraries'
-  | 'assets'
-  | 'fabric'
-  | 'java'
-  | 'mod'
-  | 'done';
+export type PrepareStep = 'manifest' | 'libraries' | 'assets' | 'java' | 'mod' | 'done';
 
 export interface PrepareProgress {
   step: PrepareStep;
@@ -185,10 +124,12 @@ export interface PrepareProgress {
 
 export interface PrepareReport {
   loadout: string;
-  bytes_downloaded: number;
+  version_id: string;
+  files: number;
+  downloaded_bytes: number;
   duration_ms: number;
   java_path: string;
-  from_cache: boolean;
+  java_version: string;
 }
 
 export interface LaunchReport {
@@ -232,7 +173,7 @@ export interface UpdateInfo {
   error: string | null;
 }
 
-// -------------------------------------------------- bridge messages (§7, forwarded)
+// ------------------------------- bridge messages (§7), forwarded verbatim
 
 /** `bridge:state` — a flat map of `mods.<mod>.<setting>` to its new value. */
 export interface BridgeState {
@@ -247,7 +188,7 @@ export interface BridgeSession {
   fps_avg: number;
   played_ms: number;
   server?: string | null;
-  loadout?: string;
+  loadout?: string | null;
 }
 
 /** `bridge:server` — presence, on connect and disconnect. */
@@ -255,5 +196,5 @@ export interface BridgeServer {
   t: 'server';
   host: string;
   connected: boolean;
-  port?: number;
+  port?: number | null;
 }

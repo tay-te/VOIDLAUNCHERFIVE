@@ -8,14 +8,7 @@
 
 import { create } from 'zustand';
 
-import type {
-  Loadout,
-  LoadoutSummary,
-  ModId,
-  ModState,
-  Settings,
-  SettingsPatch,
-} from '../local/protocol';
+import type { Loadout, LoadoutSummary, ModId, Settings, SettingsPatch } from '../local/protocol';
 import { errorText, invoke, listen } from '../local/tauri';
 import { effectiveState } from '../local/registry';
 
@@ -37,7 +30,7 @@ interface LoadoutState {
    * than patching locally — the Rust side merges, and a local guess would drift the
    * moment a setting gains a clamp.
    */
-  setMod: (id: ModId, next: Partial<ModState>) => Promise<void>;
+  setMod: (id: ModId, next: Record<string, unknown>) => Promise<void>;
   saveSettings: (patch: SettingsPatch) => Promise<void>;
   /** Apply a `bridge:state` patch from a running game (§6.1: Java is authoritative). */
   applyStatePatch: (loadoutId: string, patch: Record<string, unknown>) => void;
@@ -100,13 +93,13 @@ export const useLoadouts = create<LoadoutState>((set, get) => ({
   setMod: async (id, next) => {
     const active = get().active;
     if (!active) return;
-    // Send the full effective state for this one mod, not a sparse delta: the schema
-    // validates a mod's settings as a unit, and a half-written block would fail it.
-    const merged = { ...effectiveState(active.mods, id), ...next } as ModState;
+    // Rust merges this over the mod's effective settings and validates the result
+    // against that mod's settings sub-schema, so a sparse patch is safe and is what the
+    // Mods screen sends — one switch flip, one key.
     try {
       const updated = await invoke('loadouts_update', {
         id: active.id,
-        patch: { mods: { [id]: merged } },
+        patch: { mods: { [id]: next } },
       });
       set({ active: updated, error: null });
     } catch (e) {
@@ -133,8 +126,9 @@ export const useLoadouts = create<LoadoutState>((set, get) => ({
       if (parts.length !== 3 || parts[0] !== 'mods') continue;
       const modId = parts[1] as ModId;
       const key = parts[2] as string;
-      const current = effectiveState(active.mods, modId);
-      mods[modId] = { ...current, [key]: value } as ModState;
+      // Layer over the *effective* settings so a patch touching one key does not leave
+      // a half-written block behind.
+      mods[modId] = { ...effectiveState(active, modId), [key]: value } as never;
     }
     set({ active: { ...active, mods } });
   },
