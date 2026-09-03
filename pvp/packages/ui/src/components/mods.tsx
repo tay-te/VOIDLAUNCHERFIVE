@@ -16,10 +16,7 @@ export function ModGrid({ className, ...rest }: HTMLAttributes<HTMLDivElement>) 
 
 /** Props for {@link ModTile}. */
 export interface ModTileProps
-  extends Omit<
-    ButtonHTMLAttributes<HTMLButtonElement>,
-    'onChange' | 'onSelect' | 'onToggle' | 'name'
-  > {
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'onSelect' | 'onToggle'> {
   /** Display name, e.g. `FPS display`. */
   name: ReactNode;
   /** The uppercase category tag: `HUD`, `PVP`, `VISUAL`, `UTILITY`. */
@@ -34,8 +31,15 @@ export interface ModTileProps
   onSelect?: () => void;
   /** The 16px glyph in the icon well. */
   icon?: IconName;
+  /**
+   * Accessible name for the select action, when `name` is not a plain string.
+   * Defaults to `name`.
+   */
+  selectLabel?: string;
   /** Make the tile a drag source — dropping it on the HUD places that widget. */
   draggable?: boolean;
+  /** Disable both the select action and the switch. */
+  disabled?: boolean;
 }
 
 /**
@@ -43,6 +47,11 @@ export interface ModTileProps
  *
  * On/off is carried by the switch and the icon-well tint; **selection is carried by the
  * border alone**, with no fill change, exactly as the frames draw it.
+ *
+ * The tile holds two independent controls — select the mod, and turn it on — so it is a
+ * container with a stretched select button behind its contents and the switch layered
+ * above. Making the whole tile one `<button>` would nest a button inside a button, which
+ * is invalid HTML and leaves the switch unreachable by keyboard.
  *
  * @example
  * ```tsx
@@ -58,36 +67,37 @@ export function ModTile({
   selected = false,
   onSelect,
   icon = 'box',
+  selectLabel,
+  disabled = false,
   className,
-  type = 'button',
   ...rest
 }: ModTileProps): React.ReactElement {
+  const label = selectLabel ?? (typeof name === 'string' ? name : 'Mod');
   return (
-    <button
-      type={type}
-      aria-pressed={selected}
-      className={cx('v-modtile', selected && 'v-modtile--selected', className)}
-      onClick={onSelect}
-      {...rest}
-    >
+    <div className={cx('v-modtile', selected && 'v-modtile--selected', className)} {...rest}>
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={label}
+        disabled={disabled}
+        className="v-modtile__select"
+        onClick={onSelect}
+      />
       <IconWell icon={icon} size={34} on={on} />
       <span className="v-modtile__text">
         <span className="v-modtile__name">{name}</span>
-        <span
-          className="v-modtile__row"
-          // The switch lives inside a button, so stop the tile's onSelect firing too.
-          onClick={(event) => event.stopPropagation()}
-        >
+        <span className="v-modtile__row">
           <Toggle
             checked={on}
             onChange={onToggle}
+            disabled={disabled}
             size="s"
-            label={typeof name === 'string' ? `${name} enabled` : 'Enabled'}
+            label={`${label} enabled`}
           />
           <Tag>{category}</Tag>
         </span>
       </span>
-    </button>
+    </div>
   );
 }
 
