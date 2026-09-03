@@ -27,11 +27,22 @@ import servers from '../../../../design/screens/Launcher-Servers.png?url';
 
 import type { Screen } from '../stores/ui';
 
+/**
+ * `?no-backdrop` turns them off again, which is how the visual-QA pass scores the
+ * launcher as it actually ships — gradient placeholder and all — against the same
+ * frames. Two numbers, one comparable to the pass before the components were adopted
+ * and one that isolates the components from the missing art.
+ */
+const off =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).has('no-backdrop');
+
 /** The frame each screen sits on, or `{}` in a real build. */
-export const BACKDROPS: Partial<Record<Screen, string>> = {
-  play,
-  mods,
-  cosmetics,
-  servers,
-  friends,
-};
+export const BACKDROPS: Partial<Record<Screen, string>> = off
+  ? {}
+  : {
+      play,
+      mods,
+      cosmetics,
+      servers,
+      friends,
+    };

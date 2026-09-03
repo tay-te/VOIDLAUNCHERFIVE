@@ -32,6 +32,12 @@
   gap: var(--space-12);
 }
 
+/* The frame centres the ACTIVE badge on the 44px icon block; the header's
+   flex-start alignment pinned it to the row's top edge, 13px high. */
+.v-loadoutcard__header > .v-badge {
+  align-self: center;
+}
+
 .v-loadoutcard__heading {
   flex: 1 1 auto;
   display: flex;
@@ -76,6 +82,9 @@
   font-size: var(--text-base-2);
   color: var(--text-secondary);
   white-space: nowrap;
+  /* The frame stacks the chip rows on a 30px step — a 24px chip over a 6px gap.
+     `normal` leading on 11.5px Outfit makes it 27 and the rows drift. */
+  line-height: 12px;
 }
 
 /* Chips read in --text-primary on the active card and --text-secondary elsewhere. */

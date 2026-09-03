@@ -9,17 +9,21 @@ reference in [`../../design/README.md`](../../design/README.md).
 ```
 apps/desktop/
 ├── src/                    the launcher React entry
-│   ├── components/         local port of the shared component set  (→ @void/ui)
-│   ├── features/           TopNav · Dock · CommandPalette · LogDrawer
+│   ├── features/           TopNav · Dock · Menu · CommandPalette · LogDrawer
 │   ├── screens/            Play · Mods · Cosmetics · Servers · Friends · Settings
 │   ├── stores/             Zustand: session · loadouts · launch · servers · ui
-│   ├── local/              the seam: typed invoke/listen, registry, tokens
+│   ├── local/              the seam: typed invoke/listen, registry, keys, glyphs, CSS
+│   ├── dev/backdrops.ts    preview-only canvas art, aliased away in a Tauri build
 │   └── mocks/tauri.ts      a mock @tauri-apps/api, so every screen runs in a browser
+├── visual-qa/              the Chromium + pixelmatch pass against design/screens
 └── src-tauri/              the Rust half
     ├── src/commands/       the launcher's own logic          — no Tauri
     ├── src/adapters/       bridge+JVM orchestration, SLP     — no Tauri
     └── src/{ipc,tray,window,updater}.rs                      — needs Tauri
 ```
+
+There is no `src/components/`. Every component the design's inventory names comes from
+[`@void/ui`](../../packages/ui/README.md) — see *Components* below.
 
 ## Prerequisites
 
@@ -69,6 +73,123 @@ a shipped bundle. A banner on the canvas says when you are looking at the previe
 Other scripts: `pnpm typecheck`, `pnpm test`, `pnpm build` (typecheck + Vite), and
 inside `src-tauri/`, `cargo test` and `cargo check --no-default-features`.
 
+### The canvas backdrop
+
+Figma `244:58` is a rendered Minecraft still behind the recessed canvas. There is no
+licenced render in this repository and `design/` is read-only reference material, so the
+app draws a gradient in the same key — `.canvas__art` in `local/app.css`, carrying the
+`TODO(art)` that says what replaces it.
+
+`pnpm dev:web` shows the frame's own canvas rectangle instead, so a review pass is not
+looking at a placeholder where the design has art. That rides the same alias that swaps
+in the mocked `@tauri-apps/api`: `vite.config.ts` resolves `@dev/backdrops` to
+[`src/dev/backdrops.ts`](src/dev/backdrops.ts) when `TAURI_ENV_PLATFORM` is unset and to
+`backdrops.none.ts` when it is set, so an installer contains none of it — checked with
+`TAURI_ENV_PLATFORM=linux pnpm exec vite build`, which emits zero `Launcher-*.png`
+assets. Append `?no-backdrop` to the preview URL to see the placeholder the app ships.
+
+## Components
+
+Every component in `design/README.md`'s inventory comes from
+[`@void/ui`](../../packages/ui/README.md). The launcher used to carry a local port of the
+set — `src/components/{index,mods,icons}.tsx` and the component half of `local/app.css` —
+written while that package was still being built. All of it is gone.
+
+`main.tsx` imports the three stylesheets once, in the order that package's README gives:
+
+```ts
+import '@void/ui/tokens.css';   // tokens + the two renderer layers — first
+import '@void/ui/fonts.css';    // the three bundled OFL families
+import '@void/ui/styles.css';   // every component style
+import './local/app.css';       // the four regions below
+```
+
+`index.html` carries `data-renderer="webview"`, which is what selects the launcher's
+token layer: this bundle runs in a real system webview, so it keeps the `backdrop-filter`
+radii and the `.v-noise` grain the in-game bundle has to drop
+(`design/ultralight-notes.md` §1–2).
+
+| From the package | Where |
+|---|---|
+| `TopNav` `NavItem` `SearchBar` `IconButton` `Avatar` `Kbd` | the chrome band |
+| `Dock` `PlayerChip` `LoadoutPicker` `VersionPicker` `LaunchButton` `FriendsOnline` `Divider` | the dock |
+| `StatusPill` | the Play eyebrow |
+| `Panel` `FilterTabs` | every screen but Play |
+| `ModGrid` `ModTile` `ModSettingsPanel` `ModSettingsRow` `KeystrokesPreview` `EditPositionButton` `Slider` `Toggle` `KeybindChip` `Swatches` `PositionChips` | Mods |
+| `CosmeticCard` `Button` | Cosmetics |
+| `ServerRow` `Pane` `StatTile` `Sparkline` `GroupCaption` | Servers |
+| `FriendRow` `PartyMemberRow` | Friends |
+| `SettingsGroup` `SettingsRow` | Settings |
+| `Palette` `PaletteInput` `PaletteSeam` `PaletteSection` `PaletteResult` `PaletteFooter` | ⌘K |
+| `Icon` `MOD_ICONS` `resolveLoadoutIcon` `Tag` `StatusDot` `IconWell` | throughout |
+
+### What is still local, and why
+
+**`local/app.css`** — four regions the package has no reason to own, because the overlay
+has no window: the shell and its frameless window controls; the recessed canvas, its
+backdrop and where the dock sits on it; the Play hero (104 px display type over that
+canvas); and the surfaces no frame draws at all — the loadout/version dropdown, the JVM
+log drawer, the launch banners and the Settings modal. Nothing in it restates a design
+value that a token already carries.
+
+**`local/glyphs.tsx`** — six SVG glyphs, and not a second icon set. Minimise, maximise
+and window-close exist because a frameless Tauri window draws its own buttons; `terminal`
+because there is no JVM log inside the JVM; `trash` for removing a favourite; and the
+Cosmetics and Servers nav marks, because the overlay has neither screen so those two
+never reached the shared set. They follow the same drawing contract (one 24 × 24 grid,
+1.6 px stroke, round caps) so a sprite-sheet renderer can swap them the same way.
+
+**`features/Menu.tsx`** — the dropdown the dock's two pills open. `@void/ui` ships the
+pill and not a popover, because in game the same picker opens the Loadouts panel instead
+of a list. The pill is the package's; only the list below it is here.
+
+**`local/keys.ts`** — `KeybindChip` takes the applied key from a promise, because in game
+that promise is `void.openKeybindCapture(modId)` and Java is authoritative for the key it
+actually saw. There is no game here, so `captureKey()` resolves the same promise from the
+browser's own `KeyboardEvent.code`.
+
+**One shim, with a `TODO(ui)`.** `@void/ui`'s reset includes
+`.v-app button { background: none }` at specificity (0,1,1), and every component
+background in the package is a single class at (0,1,0) — so putting `v-app` on the tree
+makes **every button in it transparent** (measured:
+`getComputedStyle('.v-launch').backgroundColor` is `rgba(0,0,0,0)`). Until that reset is
+scoped upstream — `.v-app :where(button, input)` keeps its intent at zero specificity —
+the root does not carry `v-app` and `local/app.css` carries the same reset itself, with
+`:where()` so it cannot outrank a component. The block at the top of that file is the
+whole of it, and no design value is duplicated.
+
+## Visual QA
+
+[`visual-qa/`](visual-qa/) drives `pnpm dev:web` in a real Chromium at the frames' own
+1300 × 820 and diffs the result against `design/screens/Launcher-*.png` with `pixelmatch`.
+[`visual-qa/report.md`](visual-qa/report.md) has the numbers, the side-by-side sheets and
+a measured account of every difference that is left.
+
+```sh
+pnpm dev:web                                   # terminal 1
+cd visual-qa
+node capture.mjs after                         # eight shots: 5 screens + Settings + ⌘K + the launch progress
+node capture.mjs after-plain --no-backdrop     # the same eight on the shipped gradient placeholder
+node compare.mjs after && node compare.mjs after-plain
+```
+
+`playwright`, `pixelmatch` and `pngjs` are **not** dependencies of `@void/desktop`: they
+are a review tool, not something the launcher ships, and adding them would put a browser
+download into every `pnpm install` in the workspace. `visual-qa/lib.mjs` resolves them at
+run time from `visual-qa/node_modules`, `NODE_PATH`, or the global root — so either
+
+```sh
+npm i -g playwright pixelmatch pngjs        # and once: npx playwright install chromium
+npm --prefix visual-qa i --no-save playwright pixelmatch pngjs
+```
+
+works. Set `PLAYWRIGHT_BROWSERS_PATH` if the browsers live somewhere unusual, and
+`VQA_URL` if the dev server is not on port 5183.
+
+Sheets are written to `visual-qa/<screen>.png` (design | render | diff, half scale) and
+are the only thing in that folder besides the scripts and `report.md` that is not
+gitignored; the full-resolution captures and per-pixel diffs land in `visual-qa/out/`.
+
 ## First-run flow
 
 1. **Sign in.** The gear → *Account*. Microsoft is a device-code flow: the launcher shows
@@ -108,12 +229,16 @@ Verified on this Linux container (Rust 1.94, Node 22, pnpm 10, webkit2gtk 2.52):
 - `cargo test` — 44 tests over the command layer, the launch orchestration, the progress
   translation and the SLP pinger.
 - `pnpm typecheck`, `pnpm test` (32 store/mock tests), `pnpm build`.
+- **The screens.** All five, plus Settings, the ⌘K palette and the dock mid-launch, are
+  rendered in a real headless Chromium at 1300 × 820 and diffed against the frames — see
+  *Visual QA* above and [`visual-qa/report.md`](visual-qa/report.md).
 
 **Not verified here, and not verifiable here:**
 
-- **The window.** There is no display in this container, so nothing was ever rendered.
-  Layout, the custom drag region, the frameless chrome, tray behaviour, hide-to-tray and
-  the ⌘↵ shortcut all need a desktop session.
+- **The window itself.** The screens render, but they render in a browser. The custom
+  drag region, the frameless chrome, tray behaviour, hide-to-tray, the real system
+  webview's `backdrop-filter`, and the ⌘↵ shortcut reaching the app when the window is
+  not focused all need a desktop session.
 - **A real launch.** No Minecraft was downloaded and no JVM was spawned: that needs
   network access to Mojang and Adoptium, an account, and several hundred megabytes.
   The launch path is exercised up to its guards (unknown loadout, not signed in, wrong
@@ -142,6 +267,17 @@ Verified on this Linux container (Rust 1.94, Node 22, pnpm 10, webkit2gtk 2.52):
   *here* and forbidden in the in-game bundle. `index.html` carries
   `data-renderer="webview"`, and every effect the overlay cannot have is scoped under
   that attribute so one stylesheet can serve both bundles.
+- **Two findings that belong to `packages/ui`, not here.** Its reset makes every button
+  in the package paint transparent (see *What is still local* above), and its bundled
+  Bricolage Grotesque is pinned at `opsz 14`, which renders the 104 px hero title 12 %
+  wider than the frame — 26 px titles agree exactly, so it only shows on Play. Both are
+  measured in [`visual-qa/report.md`](visual-qa/report.md). The launcher works around the
+  first and lives with the second rather than distorting type to chase a diff.
+- **`local/protocol.ts` re-exports, it does not transcribe.** Everything the schemas
+  define comes from `@void/protocol` — including the three `JavaToRust` messages the
+  bridge forwarder republishes to the window, which are aliased there rather than
+  rewritten. What that file *declares* is only the Rust ⇄ webview DTOs of
+  `src-tauri/src/models.rs`, which no schema describes.
 - **The three-way settings split** (§8.3) is deliberate and easy to undo by accident:
   `menu_key`/`cycle_loadout_key`/`theme`/`ui_scale`/`hud_editor_grid` are
   `void-loadout`'s `GlobalSettings` and cross to the mod in `init`; `java_path`/`ram_mb`/

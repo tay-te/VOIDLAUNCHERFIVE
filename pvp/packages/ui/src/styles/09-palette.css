@@ -97,6 +97,10 @@
 
 .v-palette__caption {
   padding: 12px 0 6px 18px;
+  /* 12 + 11 + 6 = the frame's 29px caption block, which puts the first result
+     row at 279. `normal` leading on 9.5px makes it 34 and the whole list —
+     rows, captions and footer — lands 5px low. */
+  line-height: 11px;
 }
 
 /* ----------------------------------------------------------------- list */

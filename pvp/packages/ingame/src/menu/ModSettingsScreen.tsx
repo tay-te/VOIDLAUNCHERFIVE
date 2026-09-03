@@ -70,6 +70,9 @@ const POSITIONS: Array<{ id: HUDAnchor; label: string }> = [
   { id: 'bottom-right', label: 'Bottom right' },
 ];
 
+/** BEHAVIOUR rows, in the order frame 244:834 stacks them. */
+const BEHAVIOUR_KEYS = ['show_mouse', 'show_cps', 'show_spacebar', 'show_sneak'];
+
 /** Keys that belong in APPEARANCE rather than BEHAVIOUR, in row order. */
 const APPEARANCE_KEYS = [
   'scale',
@@ -107,9 +110,17 @@ export function ModSettingsScreen({ id }: { id: ModId }) {
   const keybindKey = 'keybind' in settings ? 'keybind' : 'key' in settings ? 'key' : null;
 
   const numericKeys = APPEARANCE_KEYS.filter((key) => key in settings && SETTING_RANGES[key]);
-  const booleanKeys = Object.keys(settings).filter(
+  // Row order is panel layout, not data: `Object.keys` follows whatever order the
+  // bridge happens to send, which put `Show space bar` above `Show CPS`. The frame
+  // reads mouse buttons → CPS → space bar → sneak, so the known keys are laid out
+  // in that order and anything unlisted keeps its incoming order at the end.
+  const allBooleanKeys = Object.keys(settings).filter(
     (key) => key !== 'on' && typeof settings[key] === 'boolean',
   );
+  const booleanKeys = [
+    ...BEHAVIOUR_KEYS.filter((key) => allBooleanKeys.includes(key)),
+    ...allBooleanKeys.filter((key) => !BEHAVIOUR_KEYS.includes(key)),
+  ];
   const enumKeys = Object.keys(settings).filter(
     (key) => key !== keybindKey && SETTING_ENUMS[`${id}.${key}`] !== undefined,
   );

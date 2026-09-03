@@ -81,6 +81,33 @@ async function load(name) {
 }
 
 /**
+ * The regions of a frame that carry UI, per screen.
+ *
+ * The launcher has no hero raster to ship (`src/dev/backdrops.ts`), so on a shot taken
+ * with the gradient placeholder the canvas backdrop is 40–60 % of the frame and differs
+ * for a reason no component can fix. Scoring those rectangles alone is what makes a
+ * "before" pass and an "after" pass comparable: both run on the same placeholder, and
+ * the number then moves only when the components move.
+ *
+ * Boxes are the Figma's, plus a few pixels of bleed for shadows and the 1.5px selected
+ * borders: the chrome band, the dock, and the panel. Play has no panel and its hero
+ * type sits directly on the missing raster, so its regions stop at the eyebrow pill —
+ * the hero's own geometry is checked by measuring glyph ink bounds instead, which
+ * `report.md` records.
+ */
+const CHROME = [0, 0, 1300, 62];
+const DOCK = [216, 690, 868, 94];
+const PANEL = [162, 74, 976, 612];
+
+export const UI_REGIONS = {
+  play: [CHROME, DOCK, [42, 86, 360, 34]],
+  mods: [CHROME, DOCK, PANEL],
+  cosmetics: [CHROME, DOCK, PANEL],
+  servers: [CHROME, DOCK, PANEL],
+  friends: [CHROME, DOCK, PANEL],
+};
+
+/**
  * The eight shots the pass takes. `design` names the frame to diff against; the three
  * with no `design` entry have no Figma frame of their own (Settings is a launcher
  * addition, the palette's frame is the in-game one, and the progress dock is a state

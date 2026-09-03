@@ -200,6 +200,19 @@ export function ServersScreen() {
               <p className="pane__motd">{detailPing.result.motd}</p>
             ) : null}
 
+            {/* The two housekeeping actions sit with the server's own data, above the
+                spacer, so the pane still ends on the frame's Join / Favourited pair. */}
+            <div className="pane__actions">
+              <Button variant="text" onClick={() => remove(detail.host)}>
+                <TrashGlyph size={13} />
+                Remove server
+              </Button>
+              <Button variant="text" onClick={() => void ping(detail.host)}>
+                <Icon name="reset" size={13} />
+                Ping now
+              </Button>
+            </div>
+
             <span className="v-spacer" />
 
             <div className="pane__row">
@@ -230,16 +243,6 @@ export function ServersScreen() {
             >
               {detail.favourite ? 'Favourited' : 'Add to favourites'}
             </Button>
-            <div className="pane__actions">
-              <Button variant="text" onClick={() => remove(detail.host)}>
-                <TrashGlyph size={13} />
-                Remove server
-              </Button>
-              <Button variant="text" onClick={() => void ping(detail.host)}>
-                <Icon name="reset" size={13} />
-                Ping now
-              </Button>
-            </div>
           </Pane>
         ) : null}
       </div>

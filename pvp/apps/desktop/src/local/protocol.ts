@@ -24,10 +24,20 @@ export type {
   HUDItem,
   HUDModId,
   HUDAnchor,
+  HUDLayout,
   Keybind,
+  ProtocolVersion,
+  JavaToRust,
 } from '@void/protocol';
 
-import type { Loadout, LoadoutId, LoadoutStats, ModId, ModStates } from '@void/protocol';
+import type {
+  JavaToRust as JavaToRustMessage,
+  Loadout,
+  LoadoutId,
+  LoadoutStats,
+  ModId,
+  ModStates,
+} from '@void/protocol';
 
 /**
  * What `loadouts_list` / `loadouts_delete` return — `void_loadout::LoadoutSummary`,
@@ -191,26 +201,16 @@ export interface UpdateInfo {
 
 // ------------------------------- bridge messages (§7), forwarded verbatim
 
-/** `bridge:state` — a flat map of `mods.<mod>.<setting>` to its new value. */
-export interface BridgeState {
-  t: 'state';
-  loadout: string;
-  patch: Record<string, boolean | number | string | null>;
-}
-
-/** `bridge:session` — telemetry summary, every 60 s and on exit. */
-export interface BridgeSession {
-  t: 'session';
-  fps_avg: number;
-  played_ms: number;
-  server?: string | null;
-  loadout?: string | null;
-}
-
-/** `bridge:server` — presence, on connect and disconnect. */
-export interface BridgeServer {
-  t: 'server';
-  host: string;
-  connected: boolean;
-  port?: number | null;
-}
+/**
+ * The three `protocol.json` messages `adapters::game`'s forwarder republishes to the
+ * window as `bridge:state` / `bridge:session` / `bridge:server`.
+ *
+ * They are **aliases**, not transcriptions: these are schema types, so they come from
+ * `@void/protocol` like every other one. The launcher re-names them only because
+ * `StateJavaToRust` reads oddly at a `listen('bridge:state', …)` call site. The other
+ * three `JavaToRust` variants (`hello`, `hud`, `hotkey`) never reach the window —
+ * Rust answers `hello`, persists `hud` and acts on `hotkey` itself.
+ */
+export type BridgeState = Extract<JavaToRustMessage, { t: 'state' }>;
+export type BridgeSession = Extract<JavaToRustMessage, { t: 'session' }>;
+export type BridgeServer = Extract<JavaToRustMessage, { t: 'server' }>;

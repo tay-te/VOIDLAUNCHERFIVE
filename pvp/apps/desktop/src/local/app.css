@@ -452,6 +452,12 @@ body {
   height: 410px;
 }
 
+/* The pane is a fixed-height flex column, so its header, preview and CTA must not be
+   squeezed by the settings block — only the settings block gives. */
+.mods__pane > * {
+  flex: 0 0 auto;
+}
+
 .mods__settings {
   flex: 1 1 auto;
   min-height: 0;
@@ -461,6 +467,11 @@ body {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--tint-14) transparent;
+  /* Chromium's overlay scrollbar shows nothing at rest, so a row below the fold would
+     read as a missing row. The fade is the affordance. Launcher-only: `mask-image` is
+     one more thing the in-game renderer does not have. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
 }
 
 .mods__settings.is-disabled {
@@ -579,12 +590,12 @@ body {
 .stage__cape {
   position: absolute;
   left: 50%;
-  top: 86px;
-  width: 108px;
-  height: 196px;
-  margin-left: -54px;
+  top: 96px;
+  width: 100px;
+  height: 208px;
+  margin-left: -50px;
   border-radius: 4px;
-  opacity: 0.92;
+  opacity: 0.9;
 }
 
 .stage__pill {
@@ -661,6 +672,12 @@ body {
 /** `247:74` / `248:72` — the detail pane is 308 × 500 at the top of the body. */
 .split > .v-pane {
   height: 500px;
+}
+
+/* A caption inside a pane is flush with the pane's padding; the 12px indent the
+   component carries is for the list, where it lines rows up with their group label. */
+.v-pane > .v-groupcaption {
+  padding-left: 0;
 }
 
 .list {
@@ -789,25 +806,6 @@ body {
 
 .party__row--ready .v-row__meta {
   color: var(--ok-ink);
-}
-
-.import-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-
-.import-row__field {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 32px;
-  padding: 0 10px;
-  border-radius: var(--radius-field);
-  background: var(--field-bg);
-  border: 1px solid var(--tint-07);
-  box-shadow: var(--inset-field-panel);
-  font-size: var(--text-md-2);
-  outline: none;
 }
 
 /* ----------------------------------------------------------------- palette */

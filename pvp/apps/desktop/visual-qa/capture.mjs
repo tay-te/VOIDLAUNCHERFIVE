@@ -14,6 +14,14 @@ import { need, OUT, SHOTS, VIEWPORT } from './lib.mjs';
 const URL_BASE = process.env.VQA_URL ?? 'http://127.0.0.1:5183/';
 const TAG = process.argv[2] ?? 'after'; // `before` for the baseline pass
 
+/**
+ * `--no-backdrop` runs the preview with the dev-only design crop switched off, so the
+ * canvas shows the gradient placeholder the shipped launcher draws. That is the pass
+ * to compare against an older baseline; the default pass is the one that isolates the
+ * components from the art the repository does not have.
+ */
+const PAGE = URL_BASE + (process.argv.includes('--no-backdrop') ? '?no-backdrop' : '');
+
 const { chromium } = await need('playwright');
 
 rmSync(path.join(OUT, TAG), { recursive: true, force: true });
@@ -27,7 +35,7 @@ const page = await browser.newPage({
   reducedMotion: 'reduce',
 });
 
-await page.goto(URL_BASE, { waitUntil: 'networkidle' });
+await page.goto(PAGE, { waitUntil: 'networkidle' });
 
 // The preview banner says "you are looking at the mock". It is true and it belongs on
 // the screen — but it is not in any frame, so it is hidden for the comparison shots.
@@ -57,7 +65,7 @@ const shot = async (id) => {
   process.stdout.write(`  ${id}\n`);
 };
 
-process.stdout.write(`capturing (${TAG}) from ${URL_BASE}\n`);
+process.stdout.write(`capturing (${TAG}) from ${PAGE}\n`);
 await signIn();
 
 await go('Play');
