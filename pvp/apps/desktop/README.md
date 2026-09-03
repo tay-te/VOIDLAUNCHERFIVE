@@ -27,7 +27,8 @@ There is no `src/components/`. Every component the design's inventory names come
 
 ## Prerequisites
 
-Everywhere: **Rust 1.77+**, **Node 22**, **pnpm 10**.
+Everywhere: **Rust 1.85+** (the workspace `rust-version`), **Node 22**, and the pnpm
+`pvp/package.json` pins in `packageManager` — **pnpm 9** (`corepack enable` picks it up).
 
 | OS | Also needed |
 |---|---|
@@ -62,6 +63,10 @@ pnpm dev:web        # browser preview at http://127.0.0.1:5183 — no Rust, no w
 pnpm tauri dev      # the real launcher
 pnpm tauri build    # a signed-shaped installer for the host OS
 ```
+
+`dev:web` pins **5183** with `--strictPort`, so it fails loudly rather than drifting to
+another port. [`packages/ingame`](../../packages/ingame/README.md)'s harness sits on
+**5184** for exactly that reason — the two run side by side.
 
 `pnpm dev:web` is the one to reach for when reviewing screens. `vite.config.ts` aliases
 `@tauri-apps/api/{core,event}` to [`src/mocks/tauri.ts`](src/mocks/tauri.ts) whenever
@@ -221,7 +226,7 @@ folder* → **Open** reveals it.
 
 ## What is verified here, and what needs a real machine
 
-Verified on this Linux container (Rust 1.94, Node 22, pnpm 10, webkit2gtk 2.52):
+Verified on this Linux container (Rust 1.94, Node 22, pnpm 9.12.3, webkit2gtk 2.52):
 
 - `cargo check --all-targets` and `cargo check --no-default-features` — both feature
   configurations compile, so a CI runner with no webkit2gtk still type-checks the whole

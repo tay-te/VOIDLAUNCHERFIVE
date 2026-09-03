@@ -5,7 +5,7 @@
   "type": "module",
   "description": "In-game React entry: HUD layer + Right-Shift menu layer, rendered by Ultralight 1.4 inside the JVM.",
   "scripts": {
-    "dev": "vite --port 5183",
+    "dev": "vite --port 5184",
     "build": "vite build && node scripts/check-ultralight.mjs && node scripts/size.mjs",
     "build:only": "vite build",
     "preview": "vite preview",

@@ -91,8 +91,9 @@ problem.
 Three surfaces run in an ordinary browser with no Rust, no JVM and no game. This is the
 fastest way to see the design, and the only place with devtools.
 
-> All three dev servers want a port near 5183 and `@void/desktop`'s uses `--strictPort`.
-> Run **one at a time**, or the second will fail to bind or silently take another port.
+> The three dev servers have distinct ports — `@void/ui` gallery **5177**, `@void/ingame`
+> **5184**, `@void/desktop` `dev:web` **5183** (`--strictPort`) — so they can all run at
+> once, which is the point: the launcher and the in-game harness side by side.
 
 ### 2a. The component gallery — `@void/ui`
 
@@ -111,6 +112,14 @@ players see over the game.
 Live specimens (keystrokes, FPS chip, ping chip) animate off `createFakeVoid({ seed: 42 })`
 — the same fake bridge the in-game harness uses.
 
+**Check the type.** Six bundled OFL faces come from `@void/ui/fonts.css` — Bricolage
+Grotesque 800, Outfit 400/500/600 (700 maps to the 600 instance, so nothing is
+synthetically bolded) and DM Mono 400/500. The launcher additionally opts into
+`@void/ui/fonts-display.css`, the `opsz 96` cut of Bricolage Grotesque for type at display
+sizes (≥ 48px) — that is the one the *hero title on the Play screen* should be set in, and
+the in-game bundle deliberately does not ship it. If the hero looks slightly too wide in
+`dev:web`, that stylesheet is missing.
+
 **Success:** the page renders on the dark `ground` background, the toggle visibly changes
 panel opacity and the grain, and nothing is unstyled.
 **Failure:** unstyled text means `tokens.css` did not load — check the terminal for a Vite
@@ -119,7 +128,7 @@ resolve error and re-run `pnpm --filter @void/ui build`.
 ### 2b. The in-game bundle — `@void/ingame`
 
 ```sh
-pnpm --filter @void/ingame dev      # then open http://localhost:5183/?debug
+pnpm --filter @void/ingame dev      # then open http://localhost:5184/?debug
 ```
 
 `?debug` forces the fake bridge and opens the menu. The harness renders at the authored

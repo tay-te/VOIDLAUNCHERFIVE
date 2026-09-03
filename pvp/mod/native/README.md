@@ -407,8 +407,13 @@ is thorough but it is a list, and lists have holes. The likely symptom is not a 
 world rendering after the first HUD paint — untextured blocks, wrong blending, a missing sky.
 Suspect this first for any "the game looks wrong since the mod" report.
 
-**3. The JAR size problem above.** 77 MB of natives for three platforms against a §13 budget of 25.
-Needs a decision from `core`, not a fix here.
+**3. ~~The JAR size problem above.~~ Settled — no longer a risk.** 77 MB of natives for three
+platforms against a §13 budget of 25 was a real problem; the decision was taken and landed. **One
+JAR per platform**: `mod/build.gradle`'s `platformJars` repackages the remapped JAR once per staged
+`natives/<os>-<arch>/` tree, the base JAR carries no natives at all (324 KB), and `void-core` picks
+the right one at prepare time (`install::ModPlatform`). §13, `pvp/CONTRACTS.md` and `mod/README.md`
+all say the same thing, and the measured numbers above are what it is sized against. Kept here as
+the record of what moved.
 
 **4. `1.4.0b` is a beta.** The dev bucket's `latest` moves. We pin `081c48b` with a SHA-256, so
 nothing changes under us — but there is no stable 1.4 release to move to, and the C API has at least

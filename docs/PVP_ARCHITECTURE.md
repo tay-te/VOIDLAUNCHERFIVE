@@ -147,7 +147,7 @@ void-pvp/
 └── docs/
 ```
 
-`void-core` has no Tauri dependency: CLI for free (`void-pvp launch --loadout sword`),
+`void-core` has no Tauri dependency: CLI for free (`void-pvp launch --loadout sword-pvp`),
 tests without a webview. Same lesson as VOID's 761-line `main.ts`.
 
 ### Java package names: `dev.void.*` does not exist
@@ -397,11 +397,17 @@ theme. If it changes how the game *plays*, it's in the loadout.
   from VOID `c83b777`). `apps/desktop` bundles the launcher; `packages/ingame` bundles
   the HUD + menus into static files embedded in the mod JAR.
 - **Ultralight constraints** (WebKit-derived, older CSS surface):
-  - ✅ flexbox, grid, `border-radius`, `box-shadow`, gradients, transforms, transitions,
+  - ✅ flexbox, `border-radius`, `box-shadow`, gradients, 2D transforms, transitions,
     `@font-face`, custom properties
-  - ✅ (1.4) CSS `filter`, grid + subgrid, `@font-face`, ES2022 + modules
+  - ✅ (1.4) CSS `filter`, `@font-face`, ES2022 + modules
   - ❌ `backdrop-filter` (slated for 1.4.1, **not shipped** as of Sep 2026), `text-shadow`,
-    3D transforms, WebGL, video. The panel backdrop blur is GL (§6.4); *glass inside
+    3D transforms, WebGL, video, **CSS Grid**, `position: sticky`.
+    **On grid specifically**: earlier drafts of this list had "grid + subgrid" under
+    1.4, read off the wiki. That claim is for **1.4.1**, and the SDK we pin and ship is
+    **1.4.0b (`081c48b`)** — so grid is not available to us. The design is flex plus
+    absolute positioning throughout, `packages/ui` ships no `display: grid`, and
+    `packages/ingame/scripts/check-ultralight.mjs` fails the build on it. **Keep the
+    guard**; revisit only if we ever move to 1.4.1. The panel backdrop blur is GL (§6.4); *glass inside
     cards* is the fidelity risk and is what M1 tests. Design tokens must not rely on
     `text-shadow`.
   - JS: JavaScriptCore, ES2022. No Chrome devtools — we ship a `?debug` mode that
@@ -542,5 +548,6 @@ GL path fails, we learn it before any product code exists. Fallback: v1 overlay 
 4. **"Ask VOID anything" ⌘K** — command palette or LLM?
 5. **Signing** — Apple notarization + Authenticode for launcher; the JAR's natives should
    be signed too or Gatekeeper will complain on first load.
-6. **Ultralight 1.4.1** — `backdrop-filter` + GPU-accelerated filters are slated for it;
-   unreleased. Don't design around it; adopt if it lands.
+6. **Ultralight 1.4.1** — `backdrop-filter`, GPU-accelerated filters and CSS Grid are
+   slated for it; unreleased, and we ship 1.4.0b. Don't design around it; adopt if it
+   lands.

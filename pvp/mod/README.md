@@ -73,7 +73,11 @@ Useful targets:
 | `./gradlew vscode` / `eclipse` / `idea` | IDE run configs from Loom |
 
 Versions live in `gradle.properties`: Minecraft `1.8.9`, yarn `1.8.9+build.604`,
-fabric-loader `0.16.14`. The Loom plugin is Legacy Fabric's `legacy-looming 1.13.2`, which
+fabric-loader `0.16.14`. **`loader_version` is Loom's development environment only** — the
+loader `./gradlew runClient` and the compile classpath use. It is *not* what players run:
+`void-core` resolves the newest stable Legacy Fabric loader from `meta.legacyfabric.net`
+at prepare time, so the version in a real launch log is whatever that endpoint currently
+offers (0.19.3 at the time of writing) and is expected to differ from this file. The Loom plugin is Legacy Fabric's `legacy-looming 1.13.2`, which
 wraps `fabric-loom 1.13` — **the newest Loom that still runs on Gradle 8**. Loom 1.14 and
 later require Gradle 9; if you bump `legacy-looming` past 1.13.x you must bump the wrapper
 too.
@@ -130,7 +134,7 @@ Minecraft cannot run in this environment, so the line is sharp.
   `method_2954`, `onResolutionChanged` → `method_2923`, `connect` → `method_2930`,
   `Minecraft.debugFPS` → `field_3787`. A name that did not exist would have failed the
   build, so the *names* are right even though the *behaviour* is not exercised.
-- 68 JUnit tests over the protocol codec, the bridge, `LiveState`, the loadout diff, the
+- 75 JUnit tests over the protocol codec, the bridge, `LiveState`, the loadout diff, the
   mod registry, the sensors and the actuators. Every `examples` entry in
   `schema/protocol.json`, `schema/bridge.json`, `schema/loadout.json` and
   `schema/mods.json` is replayed against the code that has to speak it — the tests read

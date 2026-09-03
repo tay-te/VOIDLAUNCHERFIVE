@@ -119,8 +119,13 @@ loadout library, clamps what it is given the way `void-loadout` will, drives a 2
 
 ```bash
 pnpm --filter @void/ingame dev
-# then open http://localhost:5183/?debug
+# then open http://localhost:5184/?debug
 ```
+
+The port is **5184**, not 5183: [`apps/desktop`](../../apps/desktop/README.md)'s
+`dev:web` takes 5183 with `--strictPort`, and reviewing the launcher and the in-game
+harness side by side is normal. `visual-qa/capture.mjs` and `measure.mjs` default to the
+same 5184.
 
 The harness renders at the authored **1300 × 820** frame size and puts the matching Figma
 export behind the UI, so the result can be compared 1:1 with `design/screens/*.png`.
@@ -276,28 +281,31 @@ The directory is gitignored: it is a build output, and **mod** must never hand-e
 ```
   file                                             raw         gzip
   ----------------------------------------  ----------   ----------
-  assets/index-*.js                           263.5 KB      84.0 KB
-  assets/bricolage-grotesque-800-*.woff2       25.1 KB      25.1 KB
-  assets/dm-mono-500-*.woff2                   16.3 KB      16.3 KB
+  assets/index-*.js                           264.6 KB      84.3 KB
+  assets/bricolage-grotesque-800-*.woff2       25.0 KB      25.1 KB
+  assets/dm-mono-500-*.woff2                   16.4 KB      16.4 KB
   assets/dm-mono-400-*.woff2                   16.1 KB      16.1 KB
   assets/outfit-600-*.woff2                    15.2 KB      15.1 KB
-  assets/outfit-400-*.woff2                    15.1 KB      14.9 KB
+  assets/outfit-400-*.woff2                    15.1 KB      15.0 KB
   assets/outfit-500-*.woff2                    14.3 KB      14.3 KB
-  assets/style-*.css                           54.5 KB       9.1 KB
-  index.html                                    0.4 KB       0.3 KB
+  assets/style-*.css                           55.9 KB       9.4 KB
+  index.html                                    0.5 KB       0.3 KB
   ----------------------------------------  ----------   ----------
-  TOTAL                                       420.4 KB     195.3 KB   (48.8% of budget)
+  TOTAL                                       423.0 KB     195.8 KB   (48.9% of budget)
 ```
 
-The three font families are 86 KB of that and do not compress further — they are already
-woff2. React + React DOM + Zustand are most of the JS. There is ~205 KB of headroom.
+The six bundled faces are 102 KB of that and do not compress further — they are already
+woff2. (`fonts-display.css`'s `opsz 96` cut of Bricolage Grotesque is *not* among them:
+`@void/ui` deliberately leaves it out of `fonts.css`, and this bundle sets nothing at
+display size.) React + React DOM + Zustand are most of the JS. There is ~204 KB of
+headroom.
 
 ---
 
 ## Tests
 
 ```bash
-pnpm --filter @void/ingame test     # 84 tests
+pnpm --filter @void/ingame test     # 93 tests
 pnpm --filter @void/ingame check    # typecheck + Ultralight guard + tests
 ```
 
@@ -339,9 +347,11 @@ in `schema/` and the workarounds are gone. They are kept as a record of what mov
 5. **Party is presentational.** No bridge event or call carries party, presence or queue
    state, and §16.2 is still open. Nothing on that screen is wired, and no bridge call was
    invented for it.
-6. **`Outfit` ships at 400/500/600**, and the design sets keycap labels and CTA labels at
-   700. Those weights are synthesised. If Ultralight's synthesis reads badly, `@void/ui`
-   should add the 700 instance.
+6. ~~**`Outfit` ships at 400/500/600** and the design sets keycap and CTA labels at 700,
+   so those weights are synthesised.~~ **Resolved.** `@void/ui`'s `fonts.css` now declares
+   an explicit `font-weight: 700` `@font-face` pointing at the 600 instance, so a 700 rule
+   resolves to a real bundled face instead of a synthetic bold. Nothing here changes; the
+   labels stay at 700 in the CSS.
 7. **Icons are inline SVG.** `ultralight-notes.md` §7 rates that **[risky]** and asks for
    a 2×/3× PNG sprite. `@void/ui`'s `Icon` already resolves through `setIconRenderer`, so
    the swap is one call at boot once the sprite exists — no call site changes.

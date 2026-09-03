@@ -104,9 +104,9 @@ Then, in rough order of how much they prove:
 
 ```sh
 # 1. Review the UI in a normal browser (no Rust, no game).
-pnpm --filter @void/ui gallery                    # component gallery, both renderers
-pnpm --filter @void/ingame dev                    # then open http://localhost:5183/?debug
-pnpm --filter @void/desktop dev:web               # launcher screens with mock IPC
+pnpm --filter @void/ui gallery                    # :5177  component gallery, both renderers
+pnpm --filter @void/ingame dev                    # :5184  then open /?debug
+pnpm --filter @void/desktop dev:web               # :5183  launcher screens with mock IPC
 
 # 2. Launch vanilla 1.8.9 + Legacy Fabric from the CLI, with no account and no mod.
 cargo build --release
@@ -175,8 +175,12 @@ are both under US$100k; crossing either starts a 30-day window to buy Pro
 
 **Fonts.** The face Ultralight's bundled font loader serves is **Inter**, SIL Open Font
 License 1.1, shipped with its `OFL.txt` alongside. The UI's own three families —
-Bricolage Grotesque, Outfit, DM Mono — are also OFL 1.1 and ship with
-`OFL-<family>.txt` in `@void/ui`.
+Bricolage Grotesque, Outfit, DM Mono — are also OFL 1.1 and ship with `OFL-<family>.txt`
+in `@void/ui`, as static woff2 instances (no variable axes: Ultralight loads static faces
+reliably). Both bundles import `@void/ui/fonts.css`; the launcher additionally opts into
+`@void/ui/fonts-display.css`, the `opsz 96` cut of Bricolage Grotesque for type set at
+display sizes (≥ 48px, in practice the Play hero). The in-game bundle leaves it out on
+purpose — it renders nothing that large, and that is ~25 KB against the 400 KB budget.
 
 The client itself is unlicensed and private (`publish = false`, every package `private`).
 

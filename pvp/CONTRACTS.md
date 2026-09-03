@@ -151,9 +151,11 @@ them in `net/`, connects, and sends `hello` carrying the token; the server close
 socket if it does not match.
 
 Messages are defined in `schema/protocol.json`, §7 — **six** Java→Rust, three Rust→Java.
-The link carries **state, never frames**. `v` is the protocol version, `1`, present on
-`hello` and `init` only; a mismatch means the two halves were not shipped together, and
-the launcher refuses to launch. Unknown `t` values and unknown fields are ignored by both
+The link carries **state, never frames**. `v` is the protocol version, **`2`** — bumped
+from 1 by the integration pass, for `init.loadouts` carrying whole loadouts rather than
+summaries (`schema/README.md`, and `void_bridge::PROTOCOL_VERSION`) — present on `hello`
+and `init` only; a mismatch means the two halves were not shipped together, and the
+launcher refuses to launch. Unknown `t` values and unknown fields are ignored by both
 sides.
 
 Two things about it are worth stating here because both were seams:

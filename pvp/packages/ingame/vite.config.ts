@@ -109,7 +109,10 @@ export default defineConfig(({ command }) => ({
     ],
   },
   server: {
-    port: 5183,
+    // 5184, not 5183: `apps/desktop`'s `dev:web` takes 5183 with --strictPort, and
+    // reviewing the launcher and the in-game harness side by side is normal.
+    // `visual-qa/{capture,measure}.mjs` already default to 5184.
+    port: 5184,
     strictPort: false,
     open: false,
   },

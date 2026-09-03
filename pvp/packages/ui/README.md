@@ -46,7 +46,8 @@ type ramp and the base colours; without it the components inherit the host page'
 |---|---|
 | `@void/ui` | The components, the icon set, `setRenderer`, `cx`, `TOKEN_NAMES` |
 | `@void/ui/tokens.css` | `:root` tokens + `[data-renderer]` layers. **Import first.** |
-| `@void/ui/fonts.css` | The six `@font-face` rules |
+| `@void/ui/fonts.css` | The seven `@font-face` rules (three families; Outfit 700 maps to the 600 instance) |
+| `@void/ui/fonts-display.css` | **Launcher-only, opt-in.** The `opsz 96` cut of Bricolage Grotesque for type set at display sizes (≥ 48px), plus `--font-display-hero` and `.v-display--hero`. Not imported by `fonts.css` |
 | `@void/ui/styles.css` | Every component style, one file |
 | `@void/ui/tailwind-preset.css` | Tailwind 4 `@theme` mapping (optional) |
 | `@void/ui/tokens.json` | The Figma token export, for tooling |
@@ -131,13 +132,31 @@ If you add a rule to this package, it has to hold in the overlay too:
 
 ## Fonts
 
-Three OFL families, bundled as **static-instance** woff2 (~104 KB total):
+Three OFL families, bundled as **static-instance** woff2 (~104 KB in `fonts.css`, plus a
+~25 KB display cut the launcher can opt into):
 
-| Family | Weights | Instance |
-|---|---|---|
-| Bricolage Grotesque | 800 | `opsz 14, wdth 100, wght 800` — the axes every display title pins |
-| Outfit | 400 / 500 / 600 | (700 aliases 600; no fake bolding) |
-| DM Mono | 400 / 500 | static upstream |
+| Family | Weights | Instance | Stylesheet |
+|---|---|---|---|
+| Bricolage Grotesque | 800 | `opsz 14, wdth 100, wght 800` — correct for every title up to the 26px panel headings | `fonts.css` |
+| Bricolage Grotesque **Display** | 800 | `opsz 96` — the same face at the top of the optical-size axis | **`fonts-display.css`** |
+| Outfit | 400 / 500 / 600 | 700 is declared and points at the 600 instance, so a 700 rule gets a real face and never a synthetic bold | `fonts.css` |
+| DM Mono | 400 / 500 | static upstream | `fonts.css` |
+
+**`fonts-display.css` is a separate, opt-in import and the launcher's alone.** Bricolage
+Grotesque has an `opsz 12 → 96` axis that Figma resolves from the font size, so one static
+instance cannot serve both the 26px panel titles and the 104px launcher hero. `fonts.css`
+keeps the `opsz 14` cut — right for everything the overlay draws — and `fonts-display.css`
+adds the `opsz 96` cut under its own family name (`Bricolage Grotesque Display`), because
+CSS cannot pick a face by size. The in-game bundle imports only `fonts.css` and so never
+pays the extra ~25 KB for a size it does not render; the launcher imports both and sets its
+hero in `var(--font-display-hero)` (or with the `.v-display--hero` utility), which falls
+back to the `opsz 14` cut if the stylesheet is missing:
+
+```ts
+import '@void/ui/tokens.css';
+import '@void/ui/fonts.css';
+import '@void/ui/fonts-display.css';  // launcher only
+```
 
 `font-display: block`: the in-game bundle has no network and the faces are local, so
 there is no FOUT to trade against — a swap would just flash the fallback for a frame
@@ -262,6 +281,11 @@ Plus the formatters the frames imply: `formatPotionTime`, `formatAmplifier`,
 
 - Class names are `v-<component>__<part>` with `v-<component>--<modifier>`. Nothing is
   hashed, so a consumer can target a part when it must.
+- **`Toggle`'s colours come from tokens, and the on-state knob is not white.** The track
+  is `--field-bg` with `--inset-field`; on, it is `--accent` with
+  `--shadow-switch-on, --inset-switch`. The knob is `--text-secondary` when off and
+  **`--accent-fg`** — `rgb(10,11,12)` in the frames — when on, because a white knob on an
+  accent track is not what the design draws.
 - Components are **controlled**. `Toggle`, `Slider`, `FilterTabs` and `ModTile` never
   hold their own value — the bridge is authoritative and returns the state actually
   applied, so an optimistic local state would be a bug waiting to happen.
