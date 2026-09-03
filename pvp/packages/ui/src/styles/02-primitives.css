@@ -200,10 +200,11 @@
   height: var(--panel-h-launcher);
   border-radius: var(--radius-panel);
   background: var(--panel-bg);
-  /* The rim is an inset ring rather than a border: Figma strokes the panel on the
-     inside, so its children sit at 25, 21 from the *outer* edge. A real border
-     pushed every child of every overlay screen 1px down and right. */
-  box-shadow: var(--shadow-panel), inset 0 0 0 1px var(--border-panel);
+  /* A real border, not an inset ring: scanning the frames' tile edges shows Figma
+     lays the panel's children out *after* the 1px stroke, so the README's 25, 21
+     is inner-relative. An inset ring moved every child 1px up and left. */
+  border: 1px solid var(--border-panel);
+  box-shadow: var(--shadow-panel);
   /* Reading the radius through a token is what makes the ultralight layer able to turn
      it off: there it resolves to blur(0px). Never branch on @supports. */
   -webkit-backdrop-filter: blur(var(--blur-panel));

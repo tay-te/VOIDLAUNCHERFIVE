@@ -373,7 +373,9 @@ mod tests {
         spawn_bridge_forwarder(tx.subscribe(), Arc::new(rec.clone()), game.clone());
 
         tx.send(JavaToRust::Hello {
-            v: 1,
+            // Never a literal: `hello.v` is whatever `void_bridge` currently speaks, and
+            // the forwarder has to keep ignoring it across a protocol bump.
+            v: void_bridge::PROTOCOL_VERSION,
             mc: "1.8.9".into(),
             mod_version: "0.1.0".into(),
             token: "t".into(),
