@@ -1,0 +1,94 @@
+plugins {
+    id 'legacy-looming' version '1.16.1'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+// ---------------------------------------------------------------------------
+// The Ultralight JNI binding lives in mod/native/ and is owned by another agent
+// (CONTRACTS.md). Its Java-facing API (package dev.void.ultralight) is compiled
+// into this JAR from there; we never build the C++ side.
+// ---------------------------------------------------------------------------
+def nativeJavaDir = file('../native/java')
+def nativeApiPresent = file('../native/java/dev/void/ultralight/Ultralight.java').exists()
+
+sourceSets {
+    main {
+        java {
+            srcDir nativeJavaDir
+        }
+    }
+}
+
+if (!nativeApiPresent) {
+    logger.lifecycle(
+        "void-client: ../native/java has no dev/void/ultralight/Ultralight.java yet — " +
+        "building without the Ultralight adapter. The JAR still runs (NullWebView); " +
+        "rebuild once mod/native/ lands.")
+    tasks.named('compileJava') {
+        exclude 'dev/void/client/ui/UltralightWebView.java'
+    }
+}
+
+repositories {
+    maven {
+        name = 'Legacy Fabric'
+        url = 'https://repo.legacyfabric.net/repository/legacyfabric/'
+    }
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.legacyfabric:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Both ship with Minecraft 1.8.9 — pinned to the exact versions the game
+    // has on its classpath so we never compile against an API it lacks.
+    implementation 'com.google.code.gson:gson:2.2.4'
+    implementation 'io.netty:netty-all:4.0.23.Final'
+
+    testImplementation 'com.google.code.gson:gson:2.2.4'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+}
+
+// Minecraft 1.8.9 runs on Java 8; everything we ship must be Java 8 bytecode.
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+    it.options.release = 8
+}
+
+java {
+    withSourcesJar()
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+jar {
+    from('LICENSE') {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
