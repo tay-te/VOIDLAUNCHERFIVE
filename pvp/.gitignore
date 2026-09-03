@@ -1,0 +1,63 @@
+# ---- Rust -------------------------------------------------------------------
+target/
+**/target/
+*.rs.bk
+Cargo.lock.orig
+
+# ---- Node / pnpm ------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+
+# Build output of packages/ingame, copied into the mod JAR by Gradle.
+# Generated on every build; never committed.
+mod/src/main/resources/assets/void/ui/*
+!mod/src/main/resources/assets/void/ui/README.md
+
+# ---- Gradle / Java ----------------------------------------------------------
+.gradle/
+**/build/
+!**/src/**/build/
+out/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+run/
+
+# ---- CMake / native ---------------------------------------------------------
+mod/native/build/
+mod/native/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.pdb
+*.lib
+*.a
+
+# ---- Ultralight SDK downloads -----------------------------------------------
+# The SDK ships as a .7z; it is fetched by CI, never committed (~25 MB of natives).
+*.7z
+mod/native/sdk/
+mod/native/third_party/ultralight/
+
+# ---- Tauri ------------------------------------------------------------------
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# ---- Editors / OS -----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

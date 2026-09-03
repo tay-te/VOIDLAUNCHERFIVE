@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/protocol.json",
+  "title": "VOID PVP — Rust/Java WS protocol",
+  "description": "Every message on the localhost WebSocket between the Rust launcher (server, `void-bridge`) and the Java mod (client, `net/`), as specified in PVP_ARCHITECTURE.md §7. One JSON object per WS text frame, discriminated on `t`. The link carries state and telemetry summaries only, never per-frame data (§2): telemetry that is drawn never leaves the JVM. Forward compatibility rule of §7: a receiver ignores an unknown `t` and ignores unknown fields, which is why every message here sets additionalProperties true. `v` is the protocol version and is carried only on the two handshake messages, `hello` and `init`; a mismatch makes the launcher refuse to launch and prompt for an update, since mod and launcher ship together. Connection parameters reach the JVM as -Dvoid.port and -Dvoid.token (§6.9).",
+
+  "oneOf": [
+    { "description": "A message sent by the mod to the launcher.", "$ref": "#/definitions/java_to_rust" },
+    { "description": "A message sent by the launcher to the mod.", "$ref": "#/definitions/rust_to_java" }
+  ],
+
+  "definitions": {
+    "protocol_version": {
+      "title": "Protocol version",
+      "description": "Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7).",
+      "type": "integer",
+      "const": 1
+    },
+
+    "java_to_rust": {
+      "title": "Java to Rust",
+      "description": "The five messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
+      "oneOf": [
+        { "description": "Handshake sent immediately on connect.", "$ref": "#/definitions/msg_hello" },
+        { "description": "Live loadout state delta.", "$ref": "#/definitions/msg_state" },
+        { "description": "HUD layout after a drag in the HUD editor.", "$ref": "#/definitions/msg_hud" },
+        { "description": "Periodic session telemetry summary.", "$ref": "#/definitions/msg_session" },
+        { "description": "Server connect/disconnect notification.", "$ref": "#/definitions/msg_server" }
+      ]
+    },
+
+    "rust_to_java": {
+      "title": "Rust to Java",
+      "description": "The three messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.",
+      "oneOf": [
+        { "description": "Handshake reply carrying the initial world of state.", "$ref": "#/definitions/msg_init" },
+        { "description": "Loadout switched from the launcher or the tray.", "$ref": "#/definitions/msg_loadout" },
+        { "description": "Global settings changed in the launcher.", "$ref": "#/definitions/msg_settings" }
+      ]
+    },
+
+    "msg_hello": {
+      "title": "hello (Java to Rust)",
+      "description": "First frame the mod sends after the WS connects. Identifies the game and mod build and authenticates with the session token the launcher passed as -Dvoid.token. The launcher answers with `init`.",
+      "type": "object",
+      "required": ["t", "v", "mc", "mod", "token"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `hello`.", "type": "string", "const": "hello" },
+        "v": { "description": "Protocol version the mod speaks.", "$ref": "#/definitions/protocol_version" },
+        "mc": { "description": "Minecraft version the mod is running inside, e.g. `1.8.9`.", "type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$" },
+        "mod": { "description": "Semantic version of the void-client mod build.", "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" },
+        "token": { "description": "Session token the launcher generated for this spawn and passed as -Dvoid.token. The launcher rejects and closes the socket if it does not match.", "type": "string", "minLength": 16, "maxLength": 256 }
+      }
+    },
+
+    "msg_state": {
+      "title": "state (Java to Rust)",
+      "description": "Sent by the mod on every change to live loadout state, as a flat patch of dotted paths (§7). Java is authoritative for live state (§6.1); this message tells Rust what already happened, it never asks for permission. Batched per change, not per frame.",
+      "type": "object",
+      "required": ["t", "loadout", "patch"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `state`.", "type": "string", "const": "state" },
+        "loadout": { "description": "Id of the loadout the patch applies to; the loadout that was active when the change was made.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" },
+        "patch": { "description": "Changed fields as a flat map of dotted path to new value.", "$ref": "#/definitions/state_patch" }
+      }
+    },
+
+    "state_patch": {
+      "title": "State patch",
+      "description": "Flat map of dotted paths into the loadout to their new values, e.g. `{\"mods.fullbright.on\": true}`. Flat rather than nested so that concurrent changes to sibling settings merge without conflict. Paths address `mods.<mod_id>.<setting>` only; HUD layout changes travel in the `hud` message instead.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "description": "A dotted path of the form mods.<mod_id>.<setting>.",
+        "pattern": "^mods\\.[a-z_]+\\.[a-z_]+$"
+      },
+      "additionalProperties": {
+        "description": "The new value at that path. Type depends on the setting; validate against the mod's settings sub-schema in mods.json after applying.",
+        "type": ["boolean", "number", "string", "null"]
+      }
+    },
+
+    "msg_hud": {
+      "title": "hud (Java to Rust)",
+      "description": "Sent by the mod when the HUD editor commits a drag (§9, Figma 244:1722). Carries the whole layout for the loadout rather than a delta, because the editor already holds the full list and a whole-list write cannot leave Rust with a partially moved layout.",
+      "type": "object",
+      "required": ["t", "loadout", "items"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `hud`.", "type": "string", "const": "hud" },
+        "loadout": { "description": "Id of the loadout whose HUD layout this replaces.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" },
+        "items": { "description": "The complete new HUD layout, replacing whatever Rust had stored for this loadout.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/hud_layout" }
+      }
+    },
+
+    "msg_session": {
+      "title": "session (Java to Rust)",
+      "description": "Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time and average-fps numbers on the launcher's Loadouts frame. Values are cumulative for the current game session, not deltas.",
+      "type": "object",
+      "required": ["t", "fps_avg", "played_ms"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `session`.", "type": "string", "const": "session" },
+        "fps_avg": { "description": "Mean frames per second over the session so far.", "type": "number", "minimum": 0 },
+        "played_ms": { "description": "Milliseconds elapsed since the game window opened.", "type": "integer", "minimum": 0 },
+        "server": { "description": "Host of the server the player is on, or null in the main menu or singleplayer.", "type": ["string", "null"], "maxLength": 253 },
+        "loadout": { "description": "Id of the loadout active at the time of the report. Optional; Rust attributes stats to the loadout it last saw active when absent.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" }
+      }
+    },
+
+    "msg_server": {
+      "title": "server (Java to Rust)",
+      "description": "Sent by the mod on connect to and disconnect from a multiplayer server, mirroring the `server` bridge event. Lets the launcher show current presence and, later, server-bound default loadouts (open question §16.3).",
+      "type": "object",
+      "required": ["t", "host", "connected"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `server`.", "type": "string", "const": "server" },
+        "host": { "description": "Hostname of the server, without port, e.g. `mc.hypixel.net`. Empty string when disconnecting.", "type": "string", "maxLength": 253 },
+        "connected": { "description": "True on connect, false on disconnect.", "type": "boolean" },
+        "port": { "description": "Port of the server when it is not the default 25565.", "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+
+    "msg_init": {
+      "title": "init (Rust to Java)",
+      "description": "The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, summaries of the rest of the library for the in-game switcher, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here.",
+      "type": "object",
+      "required": ["t", "v", "loadout", "loadouts", "settings"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `init`.", "type": "string", "const": "init" },
+        "v": { "description": "Protocol version the launcher speaks. The mod disconnects and reports a version mismatch if it differs from its own.", "$ref": "#/definitions/protocol_version" },
+        "loadout": { "description": "The full active loadout to apply immediately.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" },
+        "loadouts": { "description": "Summaries of every loadout in the library, in library order. Backs the L-key cycle and the in-game switcher.", "type": "array", "maxItems": 128, "items": { "description": "One loadout summary.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_summary" } },
+        "settings": { "description": "Global, non-loadout settings that affect the game session.", "$ref": "#/definitions/global_settings" }
+      }
+    },
+
+    "msg_loadout": {
+      "title": "loadout (Rust to Java)",
+      "description": "Sent when the loadout was switched outside the game, from the launcher UI or the tray's Switch loadout submenu (§5, §8.2). Java applies it exactly as it applies an in-game switch, then pushes the `loadout` bridge event to the UI. Java does not answer with `state`; the launcher already knows.",
+      "type": "object",
+      "required": ["t", "loadout"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `loadout`.", "type": "string", "const": "loadout" },
+        "loadout": { "description": "The full loadout to switch to.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" }
+      }
+    },
+
+    "msg_settings": {
+      "title": "settings (Rust to Java)",
+      "description": "Sent when global settings changed in the launcher while the game is running, e.g. the player rebound the menu key. Carries the whole settings object, not a delta.",
+      "type": "object",
+      "required": ["t", "settings"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `settings`.", "type": "string", "const": "settings" },
+        "settings": { "description": "The complete new global settings.", "$ref": "#/definitions/global_settings" }
+      }
+    },
+
+    "global_settings": {
+      "title": "Global settings",
+      "description": "The subset of §8.3 global settings the game needs. Account, Java path and RAM stay on the Rust side and are deliberately absent: they are launcher concerns and the mod has no use for them. additionalProperties is true so the launcher can add a global without a protocol bump.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "menu_key": { "description": "Key that opens and closes VoidMenuScreen. Right Shift by default (§6.3).", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keybind", "default": "RSHIFT" },
+        "cycle_loadout_key": { "description": "Key that cycles to the next loadout in the library. L by default (§6.3).", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keybind", "default": "L" },
+        "theme": { "description": "Name of the design-token theme both renderers use.", "type": "string", "minLength": 1, "maxLength": 32, "default": "void-dark" },
+        "ui_scale": { "description": "Extra multiplier on the in-game UI, applied on top of MC GUI scale x window DPI (§6.2). 1 means follow the game.", "type": "number", "minimum": 0.5, "maximum": 3, "default": 1 },
+        "hud_editor_grid": { "description": "Snap grid size in unscaled GUI pixels used by the HUD editor. 0 disables snapping.", "type": "integer", "minimum": 0, "maximum": 64, "default": 4 }
+      }
+    }
+  },
+
+  "examples": [
+    { "t": "hello", "v": 1, "mc": "1.8.9", "mod": "0.1.0", "token": "b7f1c0a94e2d43aa9c1e5f6b8d0a2c34" },
+    { "t": "state", "loadout": "sword-pvp", "patch": { "mods.fullbright.on": true } },
+    { "t": "state", "loadout": "sword-pvp", "patch": { "mods.zoom.key": "V", "mods.cps.window_ms": 2000 } },
+    {
+      "t": "hud",
+      "loadout": "sword-pvp",
+      "items": [
+        { "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1 },
+        { "id": "fps", "anchor": "top-left", "dx": 20, "dy": 20 },
+        { "id": "armor_status", "anchor": "right", "dx": -20, "dy": 0 }
+      ]
+    },
+    { "t": "session", "fps_avg": 142, "played_ms": 812000, "server": "mc.hypixel.net" },
+    { "t": "server", "host": "mc.hypixel.net", "connected": true },
+    {
+      "t": "init",
+      "v": 1,
+      "loadout": {
+        "id": "sword-pvp",
+        "name": "Sword PvP",
+        "icon": "sword",
+        "server": "hypixel",
+        "mc": "1.8.9",
+        "mods": {
+          "fps": { "on": true },
+          "keystrokes": { "on": true, "scale": 1, "opacity": 0.85 },
+          "cps": { "on": true },
+          "toggle_sprint": { "on": true },
+          "fullbright": { "on": false },
+          "zoom": { "on": true, "key": "C" }
+        },
+        "hud": [
+          { "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1 },
+          { "id": "fps", "anchor": "top-left", "dx": 20, "dy": 20 }
+        ],
+        "stats": { "played_ms": 15600000, "fps_avg": 142 }
+      },
+      "loadouts": [
+        { "id": "sword-pvp", "name": "Sword PvP", "icon": "sword", "server": "hypixel", "stats": { "played_ms": 15600000, "fps_avg": 142 } },
+        { "id": "bedwars", "name": "Bedwars", "icon": "bed", "server": null }
+      ],
+      "settings": { "menu_key": "RSHIFT", "cycle_loadout_key": "L", "theme": "void-dark", "ui_scale": 1, "hud_editor_grid": 4 }
+    },
+    {
+      "t": "loadout",
+      "loadout": {
+        "id": "bedwars",
+        "name": "Bedwars",
+        "icon": "bed",
+        "server": null,
+        "mc": "1.8.9",
+        "mods": { "keystrokes": { "on": true }, "cps": { "on": true, "mode": "both" }, "zoom": { "on": true, "key": "V" } },
+        "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 24, "dy": -24 }]
+      }
+    },
+    { "t": "settings", "settings": { "menu_key": "RSHIFT", "cycle_loadout_key": "L", "theme": "void-dark", "ui_scale": 1 } }
+  ]
+}

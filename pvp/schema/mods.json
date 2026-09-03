@@ -1,0 +1,597 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/mods.json",
+  "title": "VOID PVP — Mod registry",
+  "description": "The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11 and the factory defaults. This file is the single source of truth for mod identity: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
+  "type": "object",
+  "required": ["version", "mods"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "title": "Registry version",
+      "description": "Integer revision of the registry document. Bumped whenever a mod is added, removed or reclassified. Independent of the wire protocol version `v` in protocol.json.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "mods": {
+      "title": "Mods",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 12 keys are required and no others are permitted.",
+      "type": "object",
+      "required": [
+        "fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects",
+        "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "fps": { "description": "FPS display registry entry.", "$ref": "#/definitions/fps_entry" },
+        "keystrokes": { "description": "Keystrokes registry entry.", "$ref": "#/definitions/keystrokes_entry" },
+        "cps": { "description": "CPS counter registry entry.", "$ref": "#/definitions/cps_entry" },
+        "ping": { "description": "Ping display registry entry.", "$ref": "#/definitions/ping_entry" },
+        "coordinates": { "description": "Coordinates registry entry.", "$ref": "#/definitions/coordinates_entry" },
+        "armor_status": { "description": "Armor status registry entry.", "$ref": "#/definitions/armor_status_entry" },
+        "potion_effects": { "description": "Potion effects registry entry.", "$ref": "#/definitions/potion_effects_entry" },
+        "toggle_sprint": { "description": "Toggle sprint registry entry.", "$ref": "#/definitions/toggle_sprint_entry" },
+        "fullbright": { "description": "Fullbright registry entry.", "$ref": "#/definitions/fullbright_entry" },
+        "hitboxes": { "description": "Hitboxes registry entry.", "$ref": "#/definitions/hitboxes_entry" },
+        "zoom": { "description": "Zoom registry entry.", "$ref": "#/definitions/zoom_entry" },
+        "crosshair": { "description": "Crosshair registry entry.", "$ref": "#/definitions/crosshair_entry" }
+      }
+    }
+  },
+
+  "definitions": {
+    "mod_id": {
+      "title": "Mod id",
+      "description": "Closed enum of the 12 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "type": "string",
+      "enum": [
+        "fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects",
+        "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
+      ]
+    },
+    "hud_mod_id": {
+      "title": "HUD mod id",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "type": "string",
+      "enum": ["fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects"]
+    },
+    "gameplay_mod_id": {
+      "title": "Gameplay mod id",
+      "description": "The subset of mod ids whose `kind` is `gameplay`, i.e. the mods an actuator Mixin reads every frame. These are the only ids accepted by `void.setGameplay`.",
+      "type": "string",
+      "enum": ["toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"]
+    },
+    "kind": {
+      "title": "Mod kind",
+      "description": "Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.",
+      "type": "string",
+      "enum": ["hud", "gameplay"]
+    },
+    "hypixel_safe": {
+      "title": "Hypixel safety class",
+      "description": "Anti-cheat posture of §11. `safe` mods are unambiguously allowed; `grey` mods change what the player can see and are tolerated but not endorsed. The HYPIXEL-READY badge is shown only when every enabled mod in the loadout is `safe`.",
+      "type": "string",
+      "enum": ["safe", "grey"]
+    },
+    "keybind": {
+      "title": "Keybind",
+      "description": "An LWJGL 2 key name in upper case as used by Minecraft 1.8.9 `Keyboard.getKeyName`, a mouse button as MOUSE0..MOUSE7, or NONE for unbound. Produced by `void.openKeybindCapture`.",
+      "type": "string",
+      "pattern": "^(?:NONE|[A-Z0-9]|F[1-9]|F1[0-2]|NUMPAD[0-9]|MOUSE[0-7]|SPACE|TAB|ESCAPE|RETURN|BACK|DELETE|INSERT|HOME|END|PRIOR|NEXT|UP|DOWN|LEFT|RIGHT|LSHIFT|RSHIFT|LCONTROL|RCONTROL|LMENU|RMENU|CAPITAL|LBRACKET|RBRACKET|SEMICOLON|APOSTROPHE|COMMA|PERIOD|SLASH|BACKSLASH|MINUS|EQUALS|GRAVE)$"
+    },
+    "scale": {
+      "title": "Scale",
+      "description": "Multiplier applied to the mod's rendered size, on top of MC GUI scale x window DPI (§6.2). 1 is the design size.",
+      "type": "number",
+      "minimum": 0.25,
+      "maximum": 4,
+      "default": 1
+    },
+    "opacity": {
+      "title": "Opacity",
+      "description": "Alpha of the mod's rendered element, 0 fully transparent to 1 fully opaque.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    },
+    "hex_color": {
+      "title": "Colour",
+      "description": "sRGB colour as #RRGGBB or #RRGGBBAA. Lower case or upper case hex both accepted.",
+      "type": "string",
+      "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "on": {
+      "title": "Enabled",
+      "description": "Whether the mod is enabled. Present in every mod state inside a loadout, and in the registry `defaults` as the factory enabled state.",
+      "type": "boolean"
+    },
+
+    "mod_entry": {
+      "title": "Registry entry",
+      "description": "One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.",
+      "type": "object",
+      "required": ["id", "kind", "hypixel_safe", "label", "description", "source", "defaults"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "The mod's snake_case id; equals the key this entry is stored under.", "$ref": "#/definitions/mod_id" },
+        "kind": { "description": "Whether this mod draws (hud) or mutates a client-side option (gameplay).", "$ref": "#/definitions/kind" },
+        "hypixel_safe": { "description": "Anti-cheat class of §11.", "$ref": "#/definitions/hypixel_safe" },
+        "label": { "description": "Human-readable name as it appears in the Mods panel of the Figma.", "type": "string", "minLength": 1 },
+        "description": { "description": "One-line explanation shown under the label in the Mods panel.", "type": "string", "minLength": 1 },
+        "source": { "description": "The Minecraft 1.8.9 field, method or injection point the sensor reads or the actuator writes, quoted from the §3 table. Documentation only; not consumed at runtime.", "type": "string", "minLength": 1 },
+        "defaults": { "description": "Factory settings for this mod, used when a loadout omits it. Validates against the mod's own settings sub-schema.", "type": "object" }
+      }
+    },
+
+    "fps_settings": {
+      "title": "FPS display settings",
+      "description": "Settings for the FPS display HUD mod. Reads `Minecraft.debugFPS` once per tick.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the FPS display is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the FPS tile.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the FPS tile.", "$ref": "#/definitions/opacity" },
+        "color": { "description": "Text colour of the FPS readout.", "$ref": "#/definitions/hex_color" },
+        "show_label": { "description": "Whether to render the trailing \"FPS\" label after the number.", "type": "boolean", "default": true }
+      }
+    },
+    "keystrokes_settings": {
+      "title": "Keystrokes settings",
+      "description": "Settings for the Keystrokes HUD mod. Fed by the edge-triggered `keys` bridge event (§6.5), never by polling.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the keystrokes overlay is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the key tiles.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the key tiles when a key is not pressed.", "$ref": "#/definitions/opacity" },
+        "keybind": { "description": "Optional key that toggles the keystrokes overlay on and off in game without opening the menu. NONE leaves it always visible while the mod is on.", "$ref": "#/definitions/keybind", "default": "NONE" },
+        "show_mouse": { "description": "Whether to render the LMB and RMB tiles under the WASD block.", "type": "boolean", "default": true },
+        "show_spacebar": { "description": "Whether to render the spacebar tile.", "type": "boolean", "default": true },
+        "show_cps": { "description": "Whether to print the current CPS inside the LMB and RMB tiles.", "type": "boolean", "default": false }
+      }
+    },
+    "cps_settings": {
+      "title": "CPS counter settings",
+      "description": "Settings for the CPS counter HUD mod. Derived entirely in JS from mouse edges on the `keys` event (§3), so no Java sensor exists for it.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the CPS counter is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the CPS tile.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the CPS tile.", "$ref": "#/definitions/opacity" },
+        "mode": { "description": "Which mouse buttons to count: left only, right only, or both shown side by side.", "type": "string", "enum": ["left", "right", "both"], "default": "left" },
+        "window_ms": { "description": "Length of the sliding window in milliseconds over which clicks are counted before being scaled to clicks per second.", "type": "integer", "minimum": 200, "maximum": 5000, "default": 1000 }
+      }
+    },
+    "ping_settings": {
+      "title": "Ping display settings",
+      "description": "Settings for the Ping display HUD mod. Reads the player's own `NetworkPlayerInfo.responseTime`.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the ping display is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the ping tile.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the ping tile.", "$ref": "#/definitions/opacity" },
+        "show_label": { "description": "Whether to render the trailing \"ms\" unit after the number.", "type": "boolean", "default": true },
+        "good_ms": { "description": "Ping at or below this many milliseconds renders in the good colour.", "type": "integer", "minimum": 0, "maximum": 1000, "default": 60 },
+        "bad_ms": { "description": "Ping at or above this many milliseconds renders in the bad colour. Must be greater than `good_ms`; not enforced by the schema.", "type": "integer", "minimum": 0, "maximum": 2000, "default": 150 }
+      }
+    },
+    "coordinates_settings": {
+      "title": "Coordinates settings",
+      "description": "Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the coordinates display is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the coordinates tile.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the coordinates tile.", "$ref": "#/definitions/opacity" },
+        "decimals": { "description": "Number of decimal places printed for X, Y and Z.", "type": "integer", "minimum": 0, "maximum": 3, "default": 1 },
+        "show_direction": { "description": "Whether to append the cardinal direction derived from yaw.", "type": "boolean", "default": true },
+        "layout": { "description": "Whether X, Y and Z are stacked on three lines or printed on one.", "type": "string", "enum": ["stacked", "inline"], "default": "stacked" }
+      }
+    },
+    "armor_status_settings": {
+      "title": "Armor status settings",
+      "description": "Settings for the Armor status HUD mod. Reads `InventoryPlayer.armorInventory` durability, pushed only when it changes.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the armor status display is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the armor row.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the armor row.", "$ref": "#/definitions/opacity" },
+        "orientation": { "description": "Whether armor pieces are laid out left to right or top to bottom.", "type": "string", "enum": ["horizontal", "vertical"], "default": "horizontal" },
+        "show_durability": { "description": "Whether to print remaining durability as a number under each piece.", "type": "boolean", "default": true },
+        "show_held_item": { "description": "Whether to include the currently held item as a sixth slot.", "type": "boolean", "default": true }
+      }
+    },
+    "potion_effects_settings": {
+      "title": "Potion effects settings",
+      "description": "Settings for the Potion effects HUD mod. Reads `getActivePotionEffects`, pushed only when the set changes.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the potion effects display is enabled.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the effect list.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the effect list.", "$ref": "#/definitions/opacity" },
+        "show_duration": { "description": "Whether to print the remaining duration next to each effect.", "type": "boolean", "default": true },
+        "show_amplifier": { "description": "Whether to print the roman-numeral amplifier next to each effect name.", "type": "boolean", "default": true },
+        "hide_ambient": { "description": "Whether to omit ambient effects such as a beacon aura from the list.", "type": "boolean", "default": false }
+      }
+    },
+    "toggle_sprint_settings": {
+      "title": "Toggle sprint settings",
+      "description": "Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether toggle sprint is enabled.", "$ref": "#/definitions/on" },
+        "mode": { "description": "`toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint but keeps the status readout.", "type": "string", "enum": ["toggle", "hold"], "default": "toggle" },
+        "sneak_too": { "description": "Whether the same latching behaviour is applied to sneak.", "type": "boolean", "default": false },
+        "show_status": { "description": "Whether the mod draws its own [Sprinting] status line above the hotbar.", "type": "boolean", "default": true }
+      }
+    },
+    "fullbright_settings": {
+      "title": "Fullbright settings",
+      "description": "Settings for the Fullbright gameplay mod. Overrides `gameSettings.gammaSetting`; client-side only and Watchdog-tolerated (§3), but classified `grey` in §11.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether fullbright is enabled.", "$ref": "#/definitions/on" },
+        "gamma": { "description": "Value written to `gammaSetting` while the mod is on. Vanilla's slider tops out at 1; 10 is the conventional fullbright value.", "type": "number", "minimum": 1, "maximum": 15, "default": 10 }
+      }
+    },
+    "hitboxes_settings": {
+      "title": "Hitboxes settings",
+      "description": "Settings for the Hitboxes gameplay mod. Forces `RenderManager.debugBoundingBox`. Classified `grey` in §11.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether entity hitboxes are drawn.", "$ref": "#/definitions/on" },
+        "line_width": { "description": "GL line width used for the bounding box wireframe.", "type": "number", "minimum": 0.5, "maximum": 5, "default": 2 },
+        "color": { "description": "Colour of the bounding box wireframe.", "$ref": "#/definitions/hex_color" },
+        "show_eye_line": { "description": "Whether to draw the vanilla eye-direction ray along with the box.", "type": "boolean", "default": false }
+      }
+    },
+    "zoom_settings": {
+      "title": "Zoom settings",
+      "description": "Settings for the Zoom gameplay mod. Overrides FOV while `key` is held.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether zoom is enabled.", "$ref": "#/definitions/on" },
+        "key": { "description": "Key held to zoom. Captured through `void.openKeybindCapture('zoom')`.", "$ref": "#/definitions/keybind", "default": "C" },
+        "fov_divisor": { "description": "The player's FOV is divided by this factor while zoomed. 4 approximates the familiar Optifine zoom.", "type": "number", "minimum": 1.1, "maximum": 10, "default": 4 },
+        "smooth": { "description": "Whether the FOV change is eased over a few frames rather than snapping.", "type": "boolean", "default": true },
+        "cinematic": { "description": "Whether smooth-camera mouse damping is applied while zoomed.", "type": "boolean", "default": false }
+      }
+    },
+    "crosshair_settings": {
+      "title": "Crosshair settings",
+      "description": "Settings for the Crosshair mod. Uniquely among the 12 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the vanilla crosshair pass is replaced.", "$ref": "#/definitions/on" },
+        "style": { "description": "Shape drawn at the screen centre.", "type": "string", "enum": ["default", "cross", "dot", "circle", "t_shape", "none"], "default": "cross" },
+        "size": { "description": "Half-length in pixels of each crosshair arm, before GUI scale.", "type": "integer", "minimum": 1, "maximum": 20, "default": 5 },
+        "thickness": { "description": "Stroke thickness in pixels, before GUI scale.", "type": "integer", "minimum": 1, "maximum": 5, "default": 1 },
+        "gap": { "description": "Empty gap in pixels between the centre point and the start of each arm.", "type": "integer", "minimum": 0, "maximum": 10, "default": 2 },
+        "color": { "description": "Colour of the crosshair.", "$ref": "#/definitions/hex_color" },
+        "outline": { "description": "Whether a one-pixel black outline is drawn around the shape for contrast.", "type": "boolean", "default": true },
+        "dynamic": { "description": "Whether the gap widens while the attack cooldown is not full and while sprinting.", "type": "boolean", "default": false }
+      }
+    },
+
+    "fps_entry": {
+      "title": "FPS display entry",
+      "description": "Registry entry for the FPS display, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `fps`.", "const": "fps" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory FPS settings.", "$ref": "#/definitions/fps_settings" }
+          }
+        }
+      ]
+    },
+    "keystrokes_entry": {
+      "title": "Keystrokes entry",
+      "description": "Registry entry for Keystrokes, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `keystrokes`.", "const": "keystrokes" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory keystrokes settings.", "$ref": "#/definitions/keystrokes_settings" }
+          }
+        }
+      ]
+    },
+    "cps_entry": {
+      "title": "CPS counter entry",
+      "description": "Registry entry for the CPS counter, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `cps`.", "const": "cps" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory CPS settings.", "$ref": "#/definitions/cps_settings" }
+          }
+        }
+      ]
+    },
+    "ping_entry": {
+      "title": "Ping display entry",
+      "description": "Registry entry for the Ping display, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `ping`.", "const": "ping" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe`; §11 does not list ping explicitly, and a read of the player's own responseTime cannot affect play.", "const": "safe" },
+            "defaults": { "description": "Factory ping settings.", "$ref": "#/definitions/ping_settings" }
+          }
+        }
+      ]
+    },
+    "coordinates_entry": {
+      "title": "Coordinates entry",
+      "description": "Registry entry for Coordinates, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `coordinates`.", "const": "coordinates" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory coordinates settings.", "$ref": "#/definitions/coordinates_settings" }
+          }
+        }
+      ]
+    },
+    "armor_status_entry": {
+      "title": "Armor status entry",
+      "description": "Registry entry for Armor status, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `armor_status`.", "const": "armor_status" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory armor status settings.", "$ref": "#/definitions/armor_status_settings" }
+          }
+        }
+      ]
+    },
+    "potion_effects_entry": {
+      "title": "Potion effects entry",
+      "description": "Registry entry for Potion effects, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `potion_effects`.", "const": "potion_effects" },
+            "kind": { "description": "Always `hud`.", "const": "hud" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory potion effects settings.", "$ref": "#/definitions/potion_effects_settings" }
+          }
+        }
+      ]
+    },
+    "toggle_sprint_entry": {
+      "title": "Toggle sprint entry",
+      "description": "Registry entry for Toggle sprint, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `toggle_sprint`.", "const": "toggle_sprint" },
+            "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "hypixel_safe": { "description": "Always `safe` (§11).", "const": "safe" },
+            "defaults": { "description": "Factory toggle sprint settings.", "$ref": "#/definitions/toggle_sprint_settings" }
+          }
+        }
+      ]
+    },
+    "fullbright_entry": {
+      "title": "Fullbright entry",
+      "description": "Registry entry for Fullbright, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `fullbright`.", "const": "fullbright" },
+            "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "hypixel_safe": { "description": "Always `grey` (§11).", "const": "grey" },
+            "defaults": { "description": "Factory fullbright settings.", "$ref": "#/definitions/fullbright_settings" }
+          }
+        }
+      ]
+    },
+    "hitboxes_entry": {
+      "title": "Hitboxes entry",
+      "description": "Registry entry for Hitboxes, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `hitboxes`.", "const": "hitboxes" },
+            "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "hypixel_safe": { "description": "Always `grey` (§11).", "const": "grey" },
+            "defaults": { "description": "Factory hitboxes settings.", "$ref": "#/definitions/hitboxes_settings" }
+          }
+        }
+      ]
+    },
+    "zoom_entry": {
+      "title": "Zoom entry",
+      "description": "Registry entry for Zoom, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `zoom`.", "const": "zoom" },
+            "kind": { "description": "Always `gameplay`.", "const": "gameplay" },
+            "hypixel_safe": { "description": "Always `safe`; §11 does not list zoom explicitly, and an FOV override is the long-standing allowed Optifine behaviour.", "const": "safe" },
+            "defaults": { "description": "Factory zoom settings.", "$ref": "#/definitions/zoom_settings" }
+          }
+        }
+      ]
+    },
+    "crosshair_entry": {
+      "title": "Crosshair entry",
+      "description": "Registry entry for Crosshair, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `crosshair`.", "const": "crosshair" },
+            "kind": { "description": "Always `gameplay`; §3 marks it Gameplay* because it is drawn in GL rather than HTML, but its data direction is that of an actuator.", "const": "gameplay" },
+            "hypixel_safe": { "description": "Always `safe`; §11 does not list crosshair explicitly, and it is a purely cosmetic replacement of the vanilla crosshair pass.", "const": "safe" },
+            "defaults": { "description": "Factory crosshair settings.", "$ref": "#/definitions/crosshair_settings" }
+          }
+        }
+      ]
+    }
+  },
+
+  "examples": [
+    {
+      "version": 1,
+      "mods": {
+        "fps": {
+          "id": "fps",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "FPS",
+          "description": "Frames per second, updated once per tick.",
+          "source": "Minecraft.debugFPS",
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "color": "#FFFFFF", "show_label": true }
+        },
+        "keystrokes": {
+          "id": "keystrokes",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "Keystrokes",
+          "description": "WASD, mouse and spacebar tiles that light up as you press them.",
+          "source": "KeyBinding.setKeyBindState, edge-triggered",
+          "defaults": { "on": true, "scale": 1, "opacity": 0.85, "keybind": "NONE", "show_mouse": true, "show_spacebar": true, "show_cps": false }
+        },
+        "cps": {
+          "id": "cps",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "CPS",
+          "description": "Clicks per second over a sliding window.",
+          "source": "derived from clicks in JS",
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "mode": "left", "window_ms": 1000 }
+        },
+        "ping": {
+          "id": "ping",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "Ping",
+          "description": "Round-trip time to the current server.",
+          "source": "own NetworkPlayerInfo.responseTime",
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "show_label": true, "good_ms": 60, "bad_ms": 150 }
+        },
+        "coordinates": {
+          "id": "coordinates",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "Coordinates",
+          "description": "Player position and facing direction.",
+          "source": "EntityPlayerSP pos/yaw",
+          "defaults": { "on": false, "scale": 1, "opacity": 1, "decimals": 1, "show_direction": true, "layout": "stacked" }
+        },
+        "armor_status": {
+          "id": "armor_status",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "Armor status",
+          "description": "Worn armor and held item with remaining durability.",
+          "source": "InventoryPlayer.armorInventory durability",
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "orientation": "horizontal", "show_durability": true, "show_held_item": true }
+        },
+        "potion_effects": {
+          "id": "potion_effects",
+          "kind": "hud",
+          "hypixel_safe": "safe",
+          "label": "Potion effects",
+          "description": "Active potion effects with amplifier and remaining duration.",
+          "source": "getActivePotionEffects",
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "show_duration": true, "show_amplifier": true, "hide_ambient": false }
+        },
+        "toggle_sprint": {
+          "id": "toggle_sprint",
+          "kind": "gameplay",
+          "hypixel_safe": "safe",
+          "label": "Toggle sprint",
+          "description": "Latches sprint instead of holding the key.",
+          "source": "KeyBinding override in onLivingUpdate",
+          "defaults": { "on": true, "mode": "toggle", "sneak_too": false, "show_status": true }
+        },
+        "fullbright": {
+          "id": "fullbright",
+          "kind": "gameplay",
+          "hypixel_safe": "grey",
+          "label": "Fullbright",
+          "description": "Raises gamma so caves and shadows are fully lit.",
+          "source": "gammaSetting override (client-side, Watchdog-tolerated)",
+          "defaults": { "on": false, "gamma": 10 }
+        },
+        "hitboxes": {
+          "id": "hitboxes",
+          "kind": "gameplay",
+          "hypixel_safe": "grey",
+          "label": "Hitboxes",
+          "description": "Draws entity bounding boxes.",
+          "source": "RenderManager.debugBoundingBox",
+          "defaults": { "on": false, "line_width": 2, "color": "#FFFFFFFF", "show_eye_line": false }
+        },
+        "zoom": {
+          "id": "zoom",
+          "kind": "gameplay",
+          "hypixel_safe": "safe",
+          "label": "Zoom",
+          "description": "Narrows FOV while the zoom key is held.",
+          "source": "FOV override while key held",
+          "defaults": { "on": true, "key": "C", "fov_divisor": 4, "smooth": true, "cinematic": false }
+        },
+        "crosshair": {
+          "id": "crosshair",
+          "kind": "gameplay",
+          "hypixel_safe": "safe",
+          "label": "Crosshair",
+          "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",
+          "source": "replaces vanilla crosshair pass; drawn in GL at exact center",
+          "defaults": { "on": false, "style": "cross", "size": 5, "thickness": 1, "gap": 2, "color": "#FFFFFFFF", "outline": true, "dynamic": false }
+        }
+      }
+    }
+  ]
+}

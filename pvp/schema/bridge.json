@@ -1,0 +1,516 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/bridge.json",
+  "title": "VOID PVP — window.void bridge surface",
+  "description": "The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md §6.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, §6.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of §9 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary.",
+
+  "oneOf": [
+    { "description": "A Java to JS event push.", "$ref": "#/definitions/event" },
+    { "description": "A JS to Java call.", "$ref": "#/definitions/call" },
+    { "description": "The value a JS to Java call returned.", "$ref": "#/definitions/call_result" }
+  ],
+
+  "definitions": {
+    "event_name": {
+      "title": "Event name",
+      "description": "The five channels Java pushes on. Closed set; `void.on` with any other name is a programming error.",
+      "type": "string",
+      "enum": ["keys", "tick", "server", "loadout", "menu"]
+    },
+    "call_name": {
+      "title": "Call name",
+      "description": "The six methods JS may call on `window.void`. Closed set.",
+      "type": "string",
+      "enum": ["setGameplay", "setHud", "setModSetting", "switchLoadout", "closeMenu", "openKeybindCapture"]
+    },
+
+    "event": {
+      "title": "Event",
+      "description": "One push from Java to JS, enveloped as {e, payload}. In the real bridge the envelope does not exist on the wire: `payload` is the single argument the `void.on(e, handler)` handler receives.",
+      "oneOf": [
+        { "description": "Key state changed.", "$ref": "#/definitions/event_keys" },
+        { "description": "Per-tick telemetry.", "$ref": "#/definitions/event_tick" },
+        { "description": "Server connection changed.", "$ref": "#/definitions/event_server" },
+        { "description": "Active loadout changed.", "$ref": "#/definitions/event_loadout" },
+        { "description": "Menu opened or closed.", "$ref": "#/definitions/event_menu" }
+      ]
+    },
+    "event_keys": {
+      "title": "keys event",
+      "description": "Envelope for the `keys` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `keys`.", "type": "string", "const": "keys" },
+        "payload": { "description": "The new key state.", "$ref": "#/definitions/keys_payload" }
+      }
+    },
+    "event_tick": {
+      "title": "tick event",
+      "description": "Envelope for the `tick` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `tick`.", "type": "string", "const": "tick" },
+        "payload": { "description": "The coalesced per-tick telemetry.", "$ref": "#/definitions/tick_payload" }
+      }
+    },
+    "event_server": {
+      "title": "server event",
+      "description": "Envelope for the `server` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `server`.", "type": "string", "const": "server" },
+        "payload": { "description": "The new server connection state.", "$ref": "#/definitions/server_payload" }
+      }
+    },
+    "event_loadout": {
+      "title": "loadout event",
+      "description": "Envelope for the `loadout` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `loadout`.", "type": "string", "const": "loadout" },
+        "payload": { "description": "The loadout now active.", "$ref": "#/definitions/loadout_payload" }
+      }
+    },
+    "event_menu": {
+      "title": "menu event",
+      "description": "Envelope for the `menu` event.",
+      "type": "object",
+      "required": ["e", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "e": { "description": "Event discriminator; always `menu`.", "type": "string", "const": "menu" },
+        "payload": { "description": "Whether the menu is now open.", "$ref": "#/definitions/menu_payload" }
+      }
+    },
+
+    "keys_payload": {
+      "title": "keys payload",
+      "description": "Edge-triggered key state, pushed only when a key changes, from `KeyBinding.setKeyBindState` (§6.6). Each field is 0 for released and 1 for pressed -- integers, not booleans, so the UI can index a sprite row and so that a future analogue axis fits without a shape change. In HUD mode Ultralight receives no input events at all (§6.3); this event is how the player's keys reach the UI, as data. The renderer must touch only the changed key's node (§9).",
+      "type": "object",
+      "required": ["w", "a", "s", "d", "lmb", "rmb", "space", "shift"],
+      "additionalProperties": false,
+      "properties": {
+        "w": { "description": "Forward key state.", "$ref": "#/definitions/key_state" },
+        "a": { "description": "Strafe-left key state.", "$ref": "#/definitions/key_state" },
+        "s": { "description": "Back key state.", "$ref": "#/definitions/key_state" },
+        "d": { "description": "Strafe-right key state.", "$ref": "#/definitions/key_state" },
+        "lmb": { "description": "Left mouse button state. The CPS mod derives clicks per second from the rising edges of this field (§3).", "$ref": "#/definitions/key_state" },
+        "rmb": { "description": "Right mouse button state.", "$ref": "#/definitions/key_state" },
+        "space": { "description": "Jump key state.", "$ref": "#/definitions/key_state" },
+        "shift": { "description": "Sneak key state.", "$ref": "#/definitions/key_state" }
+      }
+    },
+    "key_state": {
+      "title": "Key state",
+      "description": "0 released, 1 pressed.",
+      "type": "integer",
+      "enum": [0, 1]
+    },
+
+    "tick_payload": {
+      "title": "tick payload",
+      "description": "All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (§6.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fps": { "description": "Current frames per second from `Minecraft.debugFPS`.", "type": "integer", "minimum": 0, "maximum": 100000 },
+        "ping": { "description": "Round-trip time in milliseconds from the player's own `NetworkPlayerInfo.responseTime`; -1 when unknown, such as in singleplayer or before the player list arrives.", "type": "integer", "minimum": -1, "maximum": 60000 },
+        "pos": { "description": "Player position and facing.", "$ref": "#/definitions/position" },
+        "armor": { "description": "Worn armor and, when enabled, the held item. Present only on the ticks where durability or the equipped set changed.", "type": "array", "maxItems": 5, "items": { "description": "One equipment slot.", "$ref": "#/definitions/armor_slot" } },
+        "fx": { "description": "Active potion effects. Present only on the ticks where the effect set changed.", "type": "array", "maxItems": 32, "items": { "description": "One active potion effect.", "$ref": "#/definitions/potion_effect" } }
+      }
+    },
+    "position": {
+      "title": "Position",
+      "description": "Player position and yaw from `EntityPlayerSP`, read once per tick. Pitch is deliberately absent: no mod in §3 uses it.",
+      "type": "object",
+      "required": ["x", "y", "z", "yaw"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "description": "World X in blocks.", "type": "number" },
+        "y": { "description": "World Y in blocks, feet level.", "type": "number" },
+        "z": { "description": "World Z in blocks.", "type": "number" },
+        "yaw": { "description": "Facing in degrees, normalised to [-180, 180). The coordinates mod derives the cardinal direction from this.", "type": "number", "minimum": -180, "exclusiveMaximum": 180 }
+      }
+    },
+    "armor_slot": {
+      "title": "Armor slot",
+      "description": "One equipment slot from `InventoryPlayer.armorInventory`, or the held item when the armor status mod has `show_held_item` on.",
+      "type": "object",
+      "required": ["slot", "item"],
+      "additionalProperties": false,
+      "properties": {
+        "slot": { "description": "Which slot this entry describes.", "type": "string", "enum": ["helmet", "chestplate", "leggings", "boots", "held"] },
+        "item": { "description": "Minecraft item id such as `diamond_chestplate`, or null when the slot is empty.", "type": ["string", "null"], "maxLength": 64 },
+        "damage": { "description": "Damage taken by the item. 0 is undamaged.", "type": "integer", "minimum": 0 },
+        "max_damage": { "description": "Maximum durability of the item; 0 for items that do not take damage.", "type": "integer", "minimum": 0 },
+        "count": { "description": "Stack size, relevant only for the held slot.", "type": "integer", "minimum": 0, "maximum": 64 },
+        "enchanted": { "description": "Whether the item has any enchantment, so the UI can draw the glint treatment.", "type": "boolean" }
+      }
+    },
+    "potion_effect": {
+      "title": "Potion effect",
+      "description": "One entry from `getActivePotionEffects`.",
+      "type": "object",
+      "required": ["id", "amplifier", "duration_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Numeric potion id as used by 1.8.9.", "type": "integer", "minimum": 1, "maximum": 255 },
+        "name": { "description": "Unlocalised effect name such as `potion.moveSpeed`, for the UI to map to a label and icon.", "type": "string", "maxLength": 64 },
+        "amplifier": { "description": "Amplifier level, 0-based: 0 renders as I, 1 as II.", "type": "integer", "minimum": 0, "maximum": 255 },
+        "duration_ms": { "description": "Remaining duration in milliseconds, converted from ticks by the sensor so the UI never needs to know the tick rate.", "type": "integer", "minimum": 0 },
+        "ambient": { "description": "Whether the effect comes from an ambient source such as a beacon; hidden when `hide_ambient` is set.", "type": "boolean" }
+      }
+    },
+    "server_payload": {
+      "title": "server payload",
+      "description": "Pushed on connect and disconnect (§6.6). The same information also goes to Rust as the `server` protocol message.",
+      "type": "object",
+      "required": ["host", "connected"],
+      "additionalProperties": false,
+      "properties": {
+        "host": { "description": "Hostname of the server without port; empty string on disconnect.", "type": "string", "maxLength": 253 },
+        "connected": { "description": "True on connect, false on disconnect.", "type": "boolean" }
+      }
+    },
+    "loadout_payload": {
+      "title": "loadout payload",
+      "description": "The full active loadout. Pushed once on `hello` and again on every switch, whether the switch came from Rust, from the tray, from the L key or from `void.switchLoadout` (§6.5). The UI store treats this as a whole-state replacement.",
+      "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+    },
+    "menu_payload": {
+      "title": "menu payload",
+      "description": "True when VoidMenuScreen opened, false when it closed. The React app draws the HUD layer and the menu layer into the same Ultralight view (§6.2); this flag is how it decides which is visible.",
+      "type": "boolean"
+    },
+
+    "call": {
+      "title": "Call",
+      "description": "One JS to Java call, enveloped as {c, params}. In the real bridge `params` is the positional argument list of the method.",
+      "oneOf": [
+        { "description": "Toggle a gameplay mod.", "$ref": "#/definitions/call_setGameplay" },
+        { "description": "Move or scale a HUD item.", "$ref": "#/definitions/call_setHud" },
+        { "description": "Change one setting of one mod.", "$ref": "#/definitions/call_setModSetting" },
+        { "description": "Switch the active loadout.", "$ref": "#/definitions/call_switchLoadout" },
+        { "description": "Close the menu screen.", "$ref": "#/definitions/call_closeMenu" },
+        { "description": "Capture the next key press.", "$ref": "#/definitions/call_openKeybindCapture" }
+      ]
+    },
+    "call_result": {
+      "title": "Call result",
+      "description": "The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).",
+      "oneOf": [
+        { "description": "Result of setGameplay.", "$ref": "#/definitions/result_setGameplay" },
+        { "description": "Result of setHud.", "$ref": "#/definitions/result_setHud" },
+        { "description": "Result of setModSetting.", "$ref": "#/definitions/result_setModSetting" },
+        { "description": "Result of switchLoadout.", "$ref": "#/definitions/result_switchLoadout" },
+        { "description": "Result of closeMenu.", "$ref": "#/definitions/result_closeMenu" },
+        { "description": "Result of openKeybindCapture.", "$ref": "#/definitions/result_openKeybindCapture" }
+      ]
+    },
+
+    "call_setGameplay": {
+      "title": "setGameplay call",
+      "description": "`void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.",
+      "type": "object",
+      "required": ["c", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `setGameplay`.", "type": "string", "const": "setGameplay" },
+        "params": { "description": "Positional arguments.", "$ref": "#/definitions/setGameplay_params" }
+      }
+    },
+    "setGameplay_params": {
+      "title": "setGameplay params",
+      "description": "[id, on].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        { "description": "Which gameplay mod to toggle. Only the five `kind: gameplay` mods are accepted; a HUD mod is a programming error.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/gameplay_mod_id" },
+        { "description": "Desired enabled state.", "type": "boolean" }
+      ]
+    },
+    "setGameplay_returns": {
+      "title": "setGameplay returns",
+      "description": "The state actually applied. Normally equals the requested value; differs only if the mod refused the change.",
+      "type": "boolean"
+    },
+    "result_setGameplay": {
+      "title": "setGameplay result",
+      "description": "Envelope for a setGameplay return value.",
+      "type": "object",
+      "required": ["c", "returns"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `setGameplay`.", "type": "string", "const": "setGameplay" },
+        "returns": { "description": "The applied enabled state.", "$ref": "#/definitions/setGameplay_returns" }
+      }
+    },
+
+    "call_setHud": {
+      "title": "setHud call",
+      "description": "`void.setHud(id, placement)`. Called by the HUD editor on drop (§9). Java applies it to the live layout and mirrors the whole layout to Rust as the `hud` protocol message, which is what persists it.",
+      "type": "object",
+      "required": ["c", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `setHud`.", "type": "string", "const": "setHud" },
+        "params": { "description": "Positional arguments.", "$ref": "#/definitions/setHud_params" }
+      }
+    },
+    "setHud_params": {
+      "title": "setHud params",
+      "description": "[id, { anchor, dx, dy, scale }].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        { "description": "Which HUD item to place.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/hud_mod_id" },
+        {
+          "description": "The new placement. Same shape as a `hud_item` minus its `id`, which is the first argument.",
+          "type": "object",
+          "required": ["anchor", "dx", "dy"],
+          "additionalProperties": false,
+          "properties": {
+            "anchor": { "description": "Screen anchor the offsets are measured from.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/anchor" },
+            "dx": { "description": "Horizontal offset in unscaled GUI pixels from the anchor.", "type": "number", "minimum": -4096, "maximum": 4096 },
+            "dy": { "description": "Vertical offset in unscaled GUI pixels from the anchor.", "type": "number", "minimum": -4096, "maximum": 4096 },
+            "scale": { "description": "Per-item size multiplier; omitted means leave unchanged.", "type": "number", "minimum": 0.25, "maximum": 4 }
+          }
+        }
+      ]
+    },
+    "setHud_returns": {
+      "title": "setHud returns",
+      "description": "The stored HUD item after snapping and clamping, so the editor can settle the dragged element on the value Java actually kept.",
+      "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/hud_item"
+    },
+    "result_setHud": {
+      "title": "setHud result",
+      "description": "Envelope for a setHud return value.",
+      "type": "object",
+      "required": ["c", "returns"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `setHud`.", "type": "string", "const": "setHud" },
+        "returns": { "description": "The stored HUD item.", "$ref": "#/definitions/setHud_returns" }
+      }
+    },
+
+    "call_setModSetting": {
+      "title": "setModSetting call",
+      "description": "`void.setModSetting(id, key, value)`. The generic writer behind every control in a mod's settings pane. The value must satisfy that mod's settings sub-schema in mods.json; Java clamps rather than throws when it does not.",
+      "type": "object",
+      "required": ["c", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `setModSetting`.", "type": "string", "const": "setModSetting" },
+        "params": { "description": "Positional arguments.", "$ref": "#/definitions/setModSetting_params" }
+      }
+    },
+    "setModSetting_params": {
+      "title": "setModSetting params",
+      "description": "[id, key, value].",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "additionalItems": false,
+      "items": [
+        { "description": "Which mod to configure. Any of the 12.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id" },
+        { "description": "Name of the setting, a property of that mod's settings sub-schema, e.g. `opacity`. `on` is settable here too, though gameplay mods should use `setGameplay`.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        { "description": "New value for the setting. Scalars only; no mod has an object- or array-valued setting.", "type": ["boolean", "number", "string", "null"] }
+      ]
+    },
+    "setModSetting_returns": {
+      "title": "setModSetting returns",
+      "description": "The value actually stored, after clamping to the setting's range or enum. The control binds to this, not to what it sent.",
+      "type": ["boolean", "number", "string", "null"]
+    },
+    "result_setModSetting": {
+      "title": "setModSetting result",
+      "description": "Envelope for a setModSetting return value.",
+      "type": "object",
+      "required": ["c", "returns"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `setModSetting`.", "type": "string", "const": "setModSetting" },
+        "returns": { "description": "The stored value.", "$ref": "#/definitions/setModSetting_returns" }
+      }
+    },
+
+    "call_switchLoadout": {
+      "title": "switchLoadout call",
+      "description": "`void.switchLoadout(id)`. Writes every actuator field and re-renders the HUD in under a frame (§8.2), then reports `state` to Rust. A `loadout` event follows with the new loadout, so the caller does not need the returned object.",
+      "type": "object",
+      "required": ["c", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `switchLoadout`.", "type": "string", "const": "switchLoadout" },
+        "params": { "description": "Positional arguments.", "$ref": "#/definitions/switchLoadout_params" }
+      }
+    },
+    "switchLoadout_params": {
+      "title": "switchLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        { "description": "Id of a loadout present in the library Java received in `init.loadouts`.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" }
+      ]
+    },
+    "switchLoadout_returns": {
+      "title": "switchLoadout returns",
+      "description": "True when a loadout with that id existed and was applied; false when it did not, in which case nothing changed.",
+      "type": "boolean"
+    },
+    "result_switchLoadout": {
+      "title": "switchLoadout result",
+      "description": "Envelope for a switchLoadout return value.",
+      "type": "object",
+      "required": ["c", "returns"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `switchLoadout`.", "type": "string", "const": "switchLoadout" },
+        "returns": { "description": "Whether the switch happened.", "$ref": "#/definitions/switchLoadout_returns" }
+      }
+    },
+
+    "call_closeMenu": {
+      "title": "closeMenu call",
+      "description": "`void.closeMenu()`. Closes VoidMenuScreen and returns the mouse to the game, the same thing the menu key does. A `menu` event with payload false follows.",
+      "type": "object",
+      "required": ["c", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `closeMenu`.", "type": "string", "const": "closeMenu" },
+        "params": { "description": "Positional arguments.", "$ref": "#/definitions/closeMenu_params" }
+      }
+    },
+    "closeMenu_params": {
+      "title": "closeMenu params",
+      "description": "No arguments.",
+      "type": "array",
+      "maxItems": 0
+    },
+    "closeMenu_returns": {
+      "title": "closeMenu returns",
+      "description": "Always null; the call has no result.",
+      "type": "null"
+    },
+    "result_closeMenu": {
+      "title": "closeMenu result",
+      "description": "Envelope for a closeMenu return value.",
+      "type": "object",
+      "required": ["c", "returns"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `closeMenu`.", "type": "string", "const": "closeMenu" },
+        "returns": { "description": "Always null.", "$ref": "#/definitions/closeMenu_returns" }
+      }
+    },
+
+    "call_openKeybindCapture": {
+      "title": "openKeybindCapture call",
+      "description": "`void.openKeybindCapture(modId)`. The one asynchronous call on the bridge: Java takes over key input until the next key press and the JS side receives a Promise. Escape cancels. The captured key is not stored by this call; the UI writes it with `setModSetting(modId, 'key', captured)`.",
+      "type": "object",
+      "required": ["c", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `openKeybindCapture`.", "type": "string", "const": "openKeybindCapture" },
+        "params": { "description": "Positional arguments.", "$ref": "#/definitions/openKeybindCapture_params" }
+      }
+    },
+    "openKeybindCapture_params": {
+      "title": "openKeybindCapture params",
+      "description": "[modId].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        { "description": "The mod whose keybind is being captured, used only to label the capture prompt.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id" }
+      ]
+    },
+    "openKeybindCapture_returns": {
+      "title": "openKeybindCapture returns",
+      "description": "The captured key, or null when the player cancelled with Escape. The JS side sees this as the resolution value of a Promise; it never rejects.",
+      "oneOf": [
+        { "description": "The captured key.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keybind" },
+        { "description": "Capture cancelled.", "type": "null" }
+      ]
+    },
+    "result_openKeybindCapture": {
+      "title": "openKeybindCapture result",
+      "description": "Envelope for an openKeybindCapture resolution value.",
+      "type": "object",
+      "required": ["c", "returns"],
+      "additionalProperties": false,
+      "properties": {
+        "c": { "description": "Call discriminator; always `openKeybindCapture`.", "type": "string", "const": "openKeybindCapture" },
+        "returns": { "description": "The captured key or null.", "$ref": "#/definitions/openKeybindCapture_returns" }
+      }
+    }
+  },
+
+  "examples": [
+    { "e": "keys", "payload": { "w": 1, "a": 0, "s": 0, "d": 0, "lmb": 1, "rmb": 0, "space": 0, "shift": 1 } },
+    {
+      "e": "tick",
+      "payload": {
+        "fps": 142,
+        "ping": 38,
+        "pos": { "x": -142.31, "y": 71, "z": 88.06, "yaw": -87.4 },
+        "armor": [
+          { "slot": "helmet", "item": "diamond_helmet", "damage": 12, "max_damage": 363, "count": 1, "enchanted": true },
+          { "slot": "chestplate", "item": "diamond_chestplate", "damage": 40, "max_damage": 528, "count": 1, "enchanted": true },
+          { "slot": "leggings", "item": null },
+          { "slot": "boots", "item": "diamond_boots", "damage": 0, "max_damage": 429, "count": 1, "enchanted": false },
+          { "slot": "held", "item": "diamond_sword", "damage": 3, "max_damage": 1561, "count": 1, "enchanted": true }
+        ],
+        "fx": [
+          { "id": 1, "name": "potion.moveSpeed", "amplifier": 1, "duration_ms": 41500, "ambient": false },
+          { "id": 5, "name": "potion.damageBoost", "amplifier": 0, "duration_ms": 8000, "ambient": false }
+        ]
+      }
+    },
+    { "e": "server", "payload": { "host": "mc.hypixel.net", "connected": true } },
+    { "e": "menu", "payload": true },
+    {
+      "e": "loadout",
+      "payload": {
+        "id": "sword-pvp",
+        "name": "Sword PvP",
+        "icon": "sword",
+        "server": "hypixel",
+        "mc": "1.8.9",
+        "mods": { "keystrokes": { "on": true, "scale": 1, "opacity": 0.85 }, "cps": { "on": true }, "zoom": { "on": true, "key": "C" } },
+        "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1 }]
+      }
+    },
+    { "c": "setGameplay", "params": ["fullbright", true] },
+    { "c": "setGameplay", "returns": true },
+    { "c": "setHud", "params": ["keystrokes", { "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1.25 }] },
+    { "c": "setHud", "returns": { "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1.25 } },
+    { "c": "setModSetting", "params": ["keystrokes", "opacity", 0.6] },
+    { "c": "setModSetting", "returns": 0.6 },
+    { "c": "switchLoadout", "params": ["bedwars"] },
+    { "c": "switchLoadout", "returns": true },
+    { "c": "closeMenu", "params": [] },
+    { "c": "closeMenu", "returns": null },
+    { "c": "openKeybindCapture", "params": ["zoom"] },
+    { "c": "openKeybindCapture", "returns": "V" }
+  ]
+}

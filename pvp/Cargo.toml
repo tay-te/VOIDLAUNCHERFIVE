@@ -1,0 +1,29 @@
+# void-pvp Rust workspace.
+#
+# Three library crates, no binaries yet. `void-core` deliberately has no Tauri
+# dependency (PVP_ARCHITECTURE.md §4): that buys a CLI for free and lets the auth
+# and launch path be tested without a webview.
+#
+# `apps/desktop/src-tauri` is NOT a member of this workspace yet. The desktop agent
+# owns apps/desktop and adds its crate to `members` when it scaffolds the Tauri app;
+# adding it here first would break `cargo check` for everyone until that lands.
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/void-core",
+    "crates/void-bridge",
+    "crates/void-loadout",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+void-core = { path = "crates/void-core" }
+void-bridge = { path = "crates/void-bridge" }
+void-loadout = { path = "crates/void-loadout" }

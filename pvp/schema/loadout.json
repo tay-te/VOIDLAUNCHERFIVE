@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/loadout.json",
+  "title": "VOID PVP — Loadout",
+  "description": "The loadout model of PVP_ARCHITECTURE.md §8: \"a named snapshot of which mods are on, their settings and HUD layout\". An instance of this schema is one complete loadout, the unit that `void-loadout` persists, that Rust sends to Java in `init` and `loadout`, and that Java pushes to the UI as the `loadout` bridge event. Mod ids and per-mod settings are not defined here; they are $ref'd from mods.json so that mods are declared in exactly one place. HUD positions are anchor + offset + scale, never absolute pixels (§8.1).",
+  "$ref": "#/definitions/loadout",
+
+  "definitions": {
+    "loadout": {
+      "title": "Loadout",
+      "description": "A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).",
+      "type": "object",
+      "required": ["id", "name", "icon", "mc", "mods", "hud"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Stable slug identifying the loadout. Used by `void.switchLoadout`, by the `state`/`hud` protocol messages and by the tray switcher.", "$ref": "#/definitions/loadout_id" },
+        "name": { "description": "Display name shown in the launcher's loadout library and in the in-game loadout switcher.", "type": "string", "minLength": 1, "maxLength": 48 },
+        "icon": { "description": "Name of the icon rendered on the loadout card. Resolved by the UI against the shared icon set in packages/ui; not a file path.", "type": "string", "minLength": 1, "maxLength": 32 },
+        "server": { "description": "Slug of the server profile this loadout is intended for, or null when it is not server-specific. Purely advisory today; whether servers get a default loadout is open question §16.3.", "type": ["string", "null"], "maxLength": 32, "default": null },
+        "mc": { "description": "Minecraft version this loadout targets. Only 1.8.9 exists today (§15).", "type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$", "default": "1.8.9" },
+        "mods": { "description": "Per-mod enabled state and settings.", "$ref": "#/definitions/mod_states" },
+        "hud": { "description": "Layout of the HUD items this loadout draws.", "$ref": "#/definitions/hud_layout" },
+        "stats": { "description": "Accumulated play statistics for this loadout, shown on the Loadouts frame.", "$ref": "#/definitions/loadout_stats" }
+      }
+    },
+
+    "loadout_id": {
+      "title": "Loadout id",
+      "description": "Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 48
+    },
+
+    "loadout_summary": {
+      "title": "Loadout summary",
+      "description": "The reduced form sent in `init.loadouts` and used by the tray's Switch loadout submenu: enough to list and pick a loadout without carrying its mod state.",
+      "type": "object",
+      "required": ["id", "name", "icon"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Slug of the summarised loadout; matches the `id` of the full loadout.", "$ref": "#/definitions/loadout_id" },
+        "name": { "description": "Display name of the summarised loadout.", "type": "string", "minLength": 1, "maxLength": 48 },
+        "icon": { "description": "Icon name of the summarised loadout.", "type": "string", "minLength": 1, "maxLength": 32 },
+        "server": { "description": "Server slug of the summarised loadout, or null.", "type": ["string", "null"], "maxLength": 32 },
+        "stats": { "description": "Play statistics of the summarised loadout.", "$ref": "#/definitions/loadout_stats" }
+      }
+    },
+
+    "mod_states": {
+      "title": "Mod states",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 12 is permitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fps": { "description": "FPS display state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/fps_settings" },
+        "keystrokes": { "description": "Keystrokes state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keystrokes_settings" },
+        "cps": { "description": "CPS counter state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/cps_settings" },
+        "ping": { "description": "Ping display state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/ping_settings" },
+        "coordinates": { "description": "Coordinates state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/coordinates_settings" },
+        "armor_status": { "description": "Armor status state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/armor_status_settings" },
+        "potion_effects": { "description": "Potion effects state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/potion_effects_settings" },
+        "toggle_sprint": { "description": "Toggle sprint state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/toggle_sprint_settings" },
+        "fullbright": { "description": "Fullbright state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/fullbright_settings" },
+        "hitboxes": { "description": "Hitboxes state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/hitboxes_settings" },
+        "zoom": { "description": "Zoom state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/zoom_settings" },
+        "crosshair": { "description": "Crosshair state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/crosshair_settings" }
+      }
+    },
+
+    "anchor": {
+      "title": "HUD anchor",
+      "description": "The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).",
+      "type": "string",
+      "enum": ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"]
+    },
+
+    "hud_item": {
+      "title": "HUD item",
+      "description": "The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.",
+      "type": "object",
+      "required": ["id", "anchor", "dx", "dy"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Which HUD mod this item positions. Restricted to mods whose registry `kind` is `hud`; a gameplay mod that later grows a draggable readout must first be added to `hud_mod_id` in mods.json.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/hud_mod_id" },
+        "anchor": { "description": "Screen anchor the offsets are measured from.", "$ref": "#/definitions/anchor" },
+        "dx": { "description": "Horizontal offset in unscaled GUI pixels from the anchor. Positive is right; negative values are normal on right-hand anchors.", "type": "number", "minimum": -4096, "maximum": 4096 },
+        "dy": { "description": "Vertical offset in unscaled GUI pixels from the anchor. Positive is down; negative values are normal on bottom anchors.", "type": "number", "minimum": -4096, "maximum": 4096 },
+        "scale": { "description": "Per-item size multiplier applied on top of the mod's own `scale` setting. Omitted means 1.", "type": "number", "minimum": 0.25, "maximum": 4, "default": 1 }
+      }
+    },
+
+    "hud_layout": {
+      "title": "HUD layout",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "type": "array",
+      "maxItems": 7,
+      "items": { "description": "One HUD item placement.", "$ref": "#/definitions/hud_item" }
+    },
+
+    "loadout_stats": {
+      "title": "Loadout stats",
+      "description": "Session statistics accumulated by Rust from the `session` protocol message and shown on the launcher's Loadouts frame (§5).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "played_ms": { "description": "Total milliseconds played with this loadout active.", "type": "integer", "minimum": 0, "default": 0 },
+        "fps_avg": { "description": "Average frames per second across all sessions with this loadout active.", "type": "number", "minimum": 0, "default": 0 }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "id": "sword-pvp",
+      "name": "Sword PvP",
+      "icon": "sword",
+      "server": "hypixel",
+      "mc": "1.8.9",
+      "mods": {
+        "fps": { "on": true, "scale": 1, "opacity": 1, "color": "#FFFFFF", "show_label": true },
+        "keystrokes": { "on": true, "scale": 1, "opacity": 0.85, "keybind": "NONE", "show_mouse": true, "show_spacebar": true, "show_cps": true },
+        "cps": { "on": true, "mode": "left", "window_ms": 1000 },
+        "ping": { "on": true, "good_ms": 60, "bad_ms": 150 },
+        "coordinates": { "on": false },
+        "armor_status": { "on": true, "orientation": "horizontal", "show_durability": true, "show_held_item": true },
+        "potion_effects": { "on": true },
+        "toggle_sprint": { "on": true, "mode": "toggle", "show_status": true },
+        "fullbright": { "on": false, "gamma": 10 },
+        "hitboxes": { "on": false },
+        "zoom": { "on": true, "key": "C", "fov_divisor": 4, "smooth": true },
+        "crosshair": { "on": true, "style": "cross", "size": 5, "gap": 2, "color": "#FFFFFFFF", "outline": true }
+      },
+      "hud": [
+        { "id": "keystrokes", "anchor": "bottom-left", "dx": 32, "dy": -40, "scale": 1 },
+        { "id": "cps", "anchor": "bottom-left", "dx": 32, "dy": -8, "scale": 1 },
+        { "id": "fps", "anchor": "top-left", "dx": 20, "dy": 20 },
+        { "id": "ping", "anchor": "top-left", "dx": 20, "dy": 38 },
+        { "id": "armor_status", "anchor": "right", "dx": -20, "dy": 0 },
+        { "id": "potion_effects", "anchor": "top-right", "dx": -20, "dy": 20 }
+      ],
+      "stats": { "played_ms": 15600000, "fps_avg": 142 }
+    },
+    {
+      "id": "bedwars",
+      "name": "Bedwars",
+      "icon": "bed",
+      "server": null,
+      "mc": "1.8.9",
+      "mods": {
+        "keystrokes": { "on": true },
+        "cps": { "on": true, "mode": "both" },
+        "toggle_sprint": { "on": true },
+        "zoom": { "on": true, "key": "V" }
+      },
+      "hud": [
+        { "id": "keystrokes", "anchor": "bottom-left", "dx": 24, "dy": -24 },
+        { "id": "cps", "anchor": "bottom", "dx": 0, "dy": -60, "scale": 0.75 }
+      ]
+    }
+  ]
+}
