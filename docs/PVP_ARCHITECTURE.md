@@ -31,7 +31,7 @@ it **is** in-game.
 | Transparent always-on-top Tauri window over the game (v1, the Overwolf / Xbox Game Bar model) | Separate window → 1-frame HUD lag, alt-tab flicker, window tracking per OS, macOS Spaces, OBS Game Capture can't see it, no exclusive fullscreen |
 | CEF/Electron offscreen → shared GPU texture → GL (Discord's model) | Ships Chromium (~120 MB), two per-OS GPU-interop layers, JNI to reach CGL on Mac. Right idea, wrong weight |
 | JCEF inside the JVM | Chromium competing with the game for RAM; shaky on Java 8 / 1.8.9 |
-| **Ultralight inside the JVM (chosen)** | ~10 MB, renders straight into MC's GL context, proven on 1.8.9 by LabyMod 4 via `ultralight-java`. Same React/CSS as the launcher |
+| **Ultralight inside the JVM (chosen)** | ~10 MB, renders straight into MC's GL context. LabyMod 4 proved the *approach* on 1.8.9. Same React/CSS as the launcher. **We write and own the JNI binding** — see §6.2 and §13 |
 
 One design system, two renderers: the launcher runs it in Tauri's system webview, the
 game runs it in Ultralight. Rust stays the owner of state.
@@ -124,6 +124,9 @@ void-pvp/
 │   ├── void-bridge/            WS server, protocol types (serde)
 │   └── void-loadout/           Loadout schema, persistence, diff
 ├── mod/                        Legacy Fabric mod, Gradle, Java 8 target
+│   ├── native/                 Our JNI binding to Ultralight's C API + OpenGL GPUDriver.
+│   │                           C++17, CMake. Built in CI for win-x64, mac-x64, mac-arm64.
+│   │                           (~150 C functions wrapped; 3–4k lines total)
 │   └── src/main/java/dev/void/client/
 │       ├── mixin/              sensors + actuators, one per feature
 │       ├── ui/                 Ultralight host: view lifecycle, GL upload, input forwarding
@@ -168,9 +171,14 @@ WS connection.
 
 ### 6.2 Ultralight host (`ui/`)
 
-- One `View` sized to the framebuffer, transparent background, GPU renderer via
-  `ultralight-java`'s GL driver — it renders directly into MC's GL context. No CPU
-  readback, no `glTexSubImage2D` of full frames.
+- **Binding is ours.** Both public Java bindings are dead: `LabyMod/ultralight-java`
+  (targets 1.3 beta, last commit Jul 2021, archived Jun 2024) and
+  `Janrupf/ultralight-java-reborn` (0.0.2-SNAPSHOT, last commit Jul 2023). Neither
+  targets 1.4. `mod/native/` wraps Ultralight's C API over JNI (Java 8 → no Panama) and
+  implements the `GPUDriver` in OpenGL. Ultralight 1.4 (Apr 2025) is the target.
+- One `View` sized to the framebuffer, transparent background, GPU renderer via our GL
+  driver — it renders directly into MC's GL context. No CPU readback, no
+  `glTexSubImage2D` of full frames.
 - Rendered at the end of `GuiIngame.renderGameOverlay` (HUD layer) and again in
   `VoidMenuScreen.drawScreen` (menu layer) — same view, the React app decides what's
   visible. Depth test off, straight-alpha blend.
@@ -331,11 +339,13 @@ theme. If it changes how the game *plays*, it's in the loadout.
 - **Ultralight constraints** (WebKit-derived, older CSS surface):
   - ✅ flexbox, grid, `border-radius`, `box-shadow`, gradients, transforms, transitions,
     `@font-face`, custom properties
-  - ❌ `backdrop-filter` — the panel backdrop blur is GL (§6.4); *glass inside cards* is
-    the fidelity risk and is what M1 tests
-  - JS: JavaScriptCore, ES2019-ish. Babel target accordingly. No Chrome devtools — we
-    ship a `?debug` mode that renders the in-game bundle in a normal browser with a
-    fake `window.void`.
+  - ✅ (1.4) CSS `filter`, grid + subgrid, `@font-face`, ES2022 + modules
+  - ❌ `backdrop-filter` (slated for 1.4.1, **not shipped** as of Sep 2026), `text-shadow`,
+    3D transforms, WebGL, video. The panel backdrop blur is GL (§6.4); *glass inside
+    cards* is the fidelity risk and is what M1 tests. Design tokens must not rely on
+    `text-shadow`.
+  - JS: JavaScriptCore, ES2022. No Chrome devtools — we ship a `?debug` mode that
+    renders the in-game bundle in a normal browser with a fake `window.void`.
 - **State**: a small store (Zustand); `window.void.on(...)` is the only writer of live
   data. No MobX — the HUD wants cheap frequent updates.
 - **Rendering discipline**: `transform` for positions, repaint on state change only,
@@ -387,28 +397,39 @@ Port of VOID's `main.ts`, minus Node:
 
 ## 13. Known limitations (accepted)
 
-- **Ultralight license**: free while company revenue < $100k/yr; paid above. Budget it.
-- **CSS subset**: no `backdrop-filter`; a few effects may need solid fallbacks.
+- **Ultralight license (verified Sep 2026)**. Free tier: **$0** while *both* last-fiscal-
+  year turnover **and** total funding raised are **< $100k**; on crossing, 30 days to buy
+  Pro (**$3,000/yr per application**, < $10M revenue) or distribution rights terminate.
+  A credit line from their `NOTICES.txt` must appear in an About/credits screen. "Limited
+  performance / feature-set" on the pricing page is not defined in the license; the free
+  SDK is the full SDK, minus the `NetworkListener` API (Pro) and custom allocator
+  (Enterprise). "PC platforms" = Windows/macOS/Linux.
+- **We own the binding.** No maintained Java binding exists (§6.2). ~2 focused weeks up
+  front; ongoing cost is tracking Ultralight releases (two in the last three years).
+- **CSS subset**: no `backdrop-filter`, no `text-shadow`; some effects need solid fallbacks.
 - **No Chrome devtools** in-game; debug via the browser `?debug` harness.
-- **Native binaries in the JAR**: Ultralight ships per-OS natives (Win x64, macOS
-  x64/arm64) — JAR is ~25 MB. Linux out of scope.
-- **macOS OpenGL is deprecated** but present; 1.8.9 uses GL 2.1 via LWJGL2 and Ultralight's
-  GL driver targets 3.2 core. **Verify in M1** on Apple Silicon.
+- **Native binaries in the JAR**: Ultralight natives + our JNI lib per OS/arch — JAR is
+  ~25 MB. Linux out of scope.
+- **macOS**: 1.8.9 runs on an x64 JVM under Rosetta on Apple Silicon (LWJGL 2 has no
+  official arm64 natives), so mac-x64 Ultralight matches the JVM; arm64 is a bonus.
+  macOS OpenGL is deprecated but present; MC uses GL 2.1 via LWJGL2, our GPUDriver must
+  work in that context. **Verify in M1.**
 
 ## 14. Milestones
 
 | # | Goal | Proves |
 |---|---|---|
 | **M0** | Monorepo, CI, `void-core` launches vanilla 1.8.9 + Legacy Fabric from CLI | Auth + launch |
-| **M1 (gate)** | Ultralight view painting in-game on Win + Mac; one Figma card (Keystrokes tile) rendered from the shared components; paint-cost measured | **Fidelity + cost + macOS GL** |
+| **M1 (gate)** | `mod/native/` JNI binding + GL GPUDriver against Ultralight 1.4; view painting in-game on Win + Mac; one Figma card (Keystrokes tile) rendered from the shared components; paint-cost measured | **Binding feasibility + fidelity + cost + macOS GL** |
 | **M2** | `VoidMenuScreen` (blur + mouse release), input forwarding, full Mods panel, Keystrokes settings, HUD editor | Input model |
 | **M3** | All 7 HUD + 5 gameplay mods over the bridge | Full bridge |
 | **M4** | Loadouts: create / switch / L-cycle / stats; Rust sync; tray switch | Loadout model |
 | **M5** | Launcher screens: Play, Mods, Cosmetics, Servers, Friends; updater; signing | Ship |
 
-M1 is the gate. If Ultralight can't hold the card design or the Mac GL path fails, we
-learn it with a few hundred lines written. Fallback if it fails: v1 overlay design (kept
-in git history).
+M1 is the gate, and it is bigger than in v1 of this doc because the binding is ours.
+Budget ~2 weeks. If the binding stalls, Ultralight can't hold the card design, or the Mac
+GL path fails, we learn it before any product code exists. Fallback: v1 overlay design
+(kept in git history).
 
 ---
 
@@ -416,7 +437,9 @@ in git history).
 
 | Decision | Choice | Why |
 |---|---|---|
-| In-game rendering | **Ultralight in the JVM** | Figma is the contract; in-frame; LabyMod-proven on 1.8.9 |
+| In-game rendering | **Ultralight 1.4 in the JVM** | Figma is the contract; in-frame; LabyMod proved the approach on 1.8.9 |
+| Ultralight binding | **Write our own** (JNI, C API, GL GPUDriver) | Both public Java bindings are dead and target 1.3 |
+| Ultralight licence | Free tier now; Pro ($3k/yr/app) budgeted for when revenue or funding crosses $100k | Verified Sep 2026 |
 | Platforms | Windows + macOS | Linux out of scope |
 | MC version | 1.8.9 | Hypixel PVP meta |
 | Mod loader | Legacy Fabric (Fabric has no 1.8.9) | Mixins; thin re-target to mainline Fabric for 1.21.x later |
@@ -438,4 +461,5 @@ in git history).
 4. **"Ask VOID anything" ⌘K** — command palette or LLM?
 5. **Signing** — Apple notarization + Authenticode for launcher; the JAR's natives should
    be signed too or Gatekeeper will complain on first load.
-6. **Ultralight licensing** — confirm current terms before M1.
+6. **Ultralight 1.4.1** — `backdrop-filter` + GPU-accelerated filters are slated for it;
+   unreleased. Don't design around it; adopt if it lands.
