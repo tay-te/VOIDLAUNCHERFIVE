@@ -32,7 +32,9 @@ packages/ui/.font-build/
 out/
 *.class
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
+# The negation must be a full-path glob: a bare `gradle/...` pattern is resolved
+# relative to this file (pvp/), so it never matched pvp/mod/gradle/wrapper/.
+!**/gradle/wrapper/gradle-wrapper.jar
 run/
 
 # ---- CMake / native ---------------------------------------------------------
