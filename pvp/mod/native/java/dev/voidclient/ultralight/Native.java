@@ -59,6 +59,9 @@ final class Native {
 
   static native boolean viewIsDirty(long view);
 
+  /** Marks the whole view dirty, so the next render repaints every pixel. */
+  static native void viewSetNeedsPaint(long view, boolean needsPaint);
+
   static native void viewFireMouseEvent(long view, int type, int x, int y, int button);
 
   static native void viewFireKeyEvent(long view, int type, int virtualKey, int modifiers,

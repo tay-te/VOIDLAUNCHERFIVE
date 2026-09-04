@@ -484,7 +484,16 @@
   height: 14px;
   border-radius: 50%;
   background: var(--text-secondary);
-  transition: transform var(--duration-instant) var(--ease-standard);
+  /* The travel is a variable so the interaction states below can add a scale without
+     losing it — `transform` is one property, and a press rule that set only a scale
+     would silently drop the knob back to the off position. */
+  --knob-x: 0px;
+  --knob-scale-x: 1;
+  transform: translateX(var(--knob-x)) scaleX(var(--knob-scale-x));
+  transform-origin: left center;
+  transition:
+    transform var(--duration-instant) var(--ease-standard),
+    background-color var(--duration-instant) var(--ease-standard);
 }
 
 .v-toggle--on {
@@ -496,7 +505,8 @@
    the frames — not white. */
 .v-toggle--on .v-toggle__knob {
   background: var(--accent-fg);
-  transform: translateX(16px);
+  --knob-x: 16px;
+  transform-origin: right center;
 }
 
 /* M — 40 × 22, knob 16, x 21 / 3. */
@@ -512,7 +522,7 @@
 }
 
 .v-toggle--m.v-toggle--on .v-toggle__knob {
-  transform: translateX(18px);
+  --knob-x: 18px;
 }
 
 /* L — 44 × 24, knob 18, x 23 / 3. */
@@ -528,7 +538,33 @@
 }
 
 .v-toggle--l.v-toggle--on .v-toggle__knob {
-  transform: translateX(20px);
+  --knob-x: 20px;
+}
+
+/* Hover and press.
+   Off, the well lightens so the control reads as live before it is clicked. On, the
+   accent glow strengthens instead — the track is already accent, so a tint change there
+   would be invisible. The press stretches the knob toward its direction of travel, which
+   is why `transform-origin` flips with the state: the pill appears to take the push. */
+.v-toggle:hover:not(:disabled) {
+  background: var(--tint-08);
+}
+
+.v-toggle--on:hover:not(:disabled) {
+  background: var(--accent);
+  box-shadow: var(--shadow-switch-on), var(--shadow-switch-on), var(--inset-switch);
+}
+
+.v-toggle:hover:not(:disabled) .v-toggle__knob {
+  background: var(--text-primary);
+}
+
+.v-toggle--on:hover:not(:disabled) .v-toggle__knob {
+  background: var(--accent-fg);
+}
+
+.v-toggle:active:not(:disabled) .v-toggle__knob {
+  --knob-scale-x: 1.22;
 }
 
 .v-toggle:disabled {

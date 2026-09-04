@@ -51,6 +51,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     public static final String MOD_VERSION = "0.1.0";
     public static final String MC_VERSION = "1.8.9";
 
+    /**
+     * The frame every screen in {@code design/} is drawn in (design/README.md: "11 frames,
+     * each 1300 x 820"). The in-game UI is that fixed canvas, not a responsive layout — the
+     * menu panel is a 960 x 600 box centred in it — so the view has to be given at least this
+     * many CSS pixels or the panel is clipped by {@code .void-app}'s {@code overflow: hidden}.
+     */
+    private static final double DESIGN_WIDTH = 1300;
+    private static final double DESIGN_HEIGHT = 820;
+
     private static VoidClient instance;
 
     private final LiveState state = LiveState.get();
@@ -178,8 +187,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null) {
             return;
         }
-        double scale = new Window(mc).getScaleFactor() * state.uiScale;
-        ui.ensure(Math.max(1, mc.width), Math.max(1, mc.height), scale);
+        int fbWidth = Math.max(1, mc.width);
+        int fbHeight = Math.max(1, mc.height);
+        // Scale the design canvas to fit, on whichever axis is tighter, instead of inheriting
+        // Minecraft's GUI scale. That setting is 4 on Auto at large resolutions, which left the
+        // view only 427 x 240 CSS pixels and rendered the menu three times oversized and clipped.
+        // Fitting keeps the UI on-model at any window size; uiScale stays as the user's override.
+        double fit = Math.min(fbWidth / DESIGN_WIDTH, fbHeight / DESIGN_HEIGHT);
+        double scale = fit * state.uiScale;
+        ui.ensure(fbWidth, fbHeight, scale);
         ui.frame();
         advanceZoom(mc);
     }
@@ -215,6 +231,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null || mc.options == null) {
             return;
         }
+        // Before anything reads mc.width/height: at the main menu the UI is not pumped, so this
+        // is the only beat that runs from the first tick onwards.
+        applyRetinaResolution(mc);
         refreshKeyBindings(mc);
         pollHotkeys(mc);
         applyActuators(mc);
@@ -232,6 +251,29 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 mc.options.useKey.getCode(),
                 mc.options.jumpKey.getCode(),
                 mc.options.sneakKey.getCode());
+    }
+
+    /**
+     * Puts the game on the display's real resolution (§13, {@link HiDpi}).
+     *
+     * <p>1.8.9 sets {@code width}/{@code height} straight from the launcher's window size at
+     * startup and only routes through {@code onResolutionChanged} on an actual resize, so the
+     * mixin that converts those arguments to pixels never runs until the player drags the window.
+     * Driving one resolution change as soon as a mismatch is seen fixes that, and costs nothing
+     * afterwards because the sizes then agree.</p>
+     */
+    private void applyRetinaResolution(MinecraftClient mc) {
+        if (!HiDpi.active()) {
+            return;
+        }
+        int wantWidth = HiDpi.toPixels(org.lwjgl.opengl.Display.getWidth());
+        int wantHeight = HiDpi.toPixels(org.lwjgl.opengl.Display.getHeight());
+        if (mc.width == wantWidth && mc.height == wantHeight) {
+            return;
+        }
+        // The mixin rescales these, so pass the point size the resize path would have passed.
+        ((dev.voidpvp.client.mixin.MinecraftClientInvoker) mc).void$onResolutionChanged(
+                org.lwjgl.opengl.Display.getWidth(), org.lwjgl.opengl.Display.getHeight());
     }
 
     private void pollHotkeys(MinecraftClient mc) {

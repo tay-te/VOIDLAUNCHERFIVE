@@ -216,6 +216,8 @@ describe('every custom property the stylesheet reads is declared', () => {
     '--selection-border-style', // set by both renderer layers
     '--noise-image', // noise.css
     '--v-noise-opacity', // per-surface override, always used with a fallback
+    '--knob-x', // toggle: travel, kept separate so a press can add a scale to it
+    '--knob-scale-x', // toggle: press stretch
   ]);
 
   const declared = new Set<string>([

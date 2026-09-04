@@ -734,6 +734,12 @@ void restore_gl_state() {
   s.valid = false;
 }
 
+unsigned int gl_texture_for(unsigned int texture_id) {
+  Driver& dr = d();
+  auto it = dr.textures.find(texture_id);
+  return it == dr.textures.end() ? 0u : static_cast<unsigned int>(it->second.id);
+}
+
 void shutdown() {
   Driver& dr = d();
   if (!G.loaded) return;

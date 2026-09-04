@@ -127,6 +127,11 @@ public final class View implements AutoCloseable {
     return Native.viewIsDirty(handle);
   }
 
+  /** Marks every pixel dirty, so the next render repaints the whole view. */
+  public void setNeedsPaint(boolean needsPaint) {
+    Native.viewSetNeedsPaint(handle, needsPaint);
+  }
+
   /**
    * Delivers a mouse event.
    *

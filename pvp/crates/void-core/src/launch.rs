@@ -109,8 +109,12 @@ pub fn extract_natives(profile: &LaunchProfile, paths: &Paths) -> Result<PathBuf
 
 /// Copies the `void-client` JAR into the game's `mods/` directory.
 ///
-/// Legacy Fabric loads every jar in that directory; the name is kept so an upgrade
-/// replaces rather than duplicates.
+/// Legacy Fabric loads *every* jar in that directory, and the file name carries both the
+/// version and the platform classifier — so a rebuild under a different classifier lands
+/// beside the old one rather than over it, and Fabric then sees two jars declaring mod id
+/// `void`. Whichever it picks may be the one whose natives do not match this JVM, which
+/// surfaces much later as "Ultralight is unavailable ... built without natives for this
+/// platform". Every other `void-client-*.jar` is therefore removed first.
 pub fn install_mod_jar(paths: &Paths, jar: &Path) -> Result<PathBuf> {
     if !jar.exists() {
         return Err(Error::io(jar, std::io::Error::new(std::io::ErrorKind::NotFound, "no such mod jar")));
@@ -121,6 +125,20 @@ pub fn install_mod_jar(paths: &Paths, jar: &Path) -> Result<PathBuf> {
         .file_name()
         .ok_or_else(|| Error::Manifest(format!("{} has no file name", jar.display())))?;
     let dest = mods.join(name);
+
+    if let Ok(entries) = std::fs::read_dir(&mods) {
+        for stale in entries.flatten().map(|e| e.path()).filter(|p| {
+            *p != dest
+                && p.extension().is_some_and(|e| e == "jar")
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("void-client-"))
+        }) {
+            tracing::info!(path = %stale.display(), "removing a previously installed void-client jar");
+            let _ = std::fs::remove_file(&stale);
+        }
+    }
+
     if dest != jar {
         std::fs::copy(jar, &dest).map_err(|e| Error::io(&dest, e))?;
     }
@@ -162,9 +180,19 @@ pub fn build_arg_template(
     args.push("-Dvoid.token=${void_token}".to_string());
 
     if os == Os::Osx {
-        // LWJGL 2 drives AppKit from the main thread; without this the window never opens.
-        args.push("-XstartOnFirstThread".to_string());
+        // Deliberately NOT -XstartOnFirstThread. That flag is for LWJGL 3 (1.13+), whose GLFW
+        // event loop must own thread 0. LWJGL 2 goes through AWT, which starts NSApplicationAWT
+        // and runs [NSApp run] on thread 0 itself; forcing main() there instead leaves the AppKit
+        // run loop unpumped, so the window is created at the WindowServer level but stays 0x0,
+        // never composites, and the process is never promoted out of BackgroundOnly.
         args.push("-Xdock:name=Minecraft".to_string());
+        // Retina (§13). LWJGL asks AppKit for a backing store at the display's real pixel size,
+        // but only *records* the ratio behind Display.getPixelScaleFactor() — it does not apply it
+        // to Display.getWidth() or to mouse coordinates, and 1.8.9 sizes its viewport and its
+        // framebuffer from the former. The mod's HiDpi/MinecraftClientMixin pair is what converts
+        // both, so this flag must not be set without that half of the change: on its own it leaves
+        // the drawable twice the size the game draws into, i.e. the game in one corner.
+        args.push("-Dorg.lwjgl.opengl.Display.enableHighDPI=true".to_string());
     }
 
     args.extend(profile.jvm_arguments.iter().cloned());
@@ -451,17 +479,27 @@ mod tests {
     }
 
     #[test]
-    fn macos_gets_the_main_thread_flag_and_others_do_not() {
+    fn no_os_gets_the_first_thread_flag() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::at(dir.path());
+        let natives = paths.natives_dir("x");
+        for os in [Os::Osx, Os::Windows, Os::Linux] {
+            let t = build_arg_template(&profile(), &paths, &natives, os, 2048, &[]);
+            assert!(
+                !t.args.contains(&"-XstartOnFirstThread".to_string()),
+                "{os:?} — LWJGL 2 needs thread 0 free for AWT's AppKit run loop"
+            );
+        }
+    }
+
+    #[test]
+    fn macos_gets_the_dock_name() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::at(dir.path());
         let natives = paths.natives_dir("x");
         for (os, expected) in [(Os::Osx, true), (Os::Windows, false), (Os::Linux, false)] {
             let t = build_arg_template(&profile(), &paths, &natives, os, 2048, &[]);
-            assert_eq!(
-                t.args.contains(&"-XstartOnFirstThread".to_string()),
-                expected,
-                "{os:?} — LWJGL 2 needs AppKit on the main thread, but only on macOS"
-            );
+            assert_eq!(t.args.contains(&"-Xdock:name=Minecraft".to_string()), expected, "{os:?}");
         }
     }
 

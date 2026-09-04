@@ -28,6 +28,12 @@ void draw_command_list();
 void save_gl_state();
 void restore_gl_state();
 
+// Resolves an Ultralight texture id — the id the driver handed out, which is what
+// ULRenderTarget::texture_id carries — to the GL texture name backing it. They are not the
+// same number, and the Ultralight one is small, so passing it to glBindTexture binds whatever
+// unrelated texture the game happens to have under that name. Returns 0 if unknown.
+unsigned int gl_texture_for(unsigned int texture_id);
+
 // Frees GL objects. Requires a current context.
 void shutdown();
 

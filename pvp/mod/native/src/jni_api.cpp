@@ -289,7 +289,9 @@ JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureId(JNIEn
   ULView v = view_of(handle);
   if (!v || !ulViewIsAccelerated(v)) return 0;
   ULRenderTarget rt = ulViewGetRenderTarget(v);
-  return rt.is_empty ? 0 : static_cast<jint>(rt.texture_id);
+  if (rt.is_empty) return 0;
+  // rt.texture_id is the driver's own id, not a GL name — Java binds the result directly.
+  return static_cast<jint>(voidul::gpu::gl_texture_for(rt.texture_id));
 }
 
 JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureWidth(JNIEnv* e, jclass,
@@ -329,6 +331,13 @@ JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_viewIsDirty(JNI
   if (!s) return JNI_FALSE;
   ULIntRect r = ulSurfaceGetDirtyBounds(s);
   return (r.right > r.left && r.bottom > r.top) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_viewSetNeedsPaint(JNIEnv* e, jclass,
+                                                                              jlong handle,
+                                                                              jboolean needsPaint) {
+  ULView v = view_of(handle);
+  if (v) ulViewSetNeedsPaint(v, needsPaint == JNI_TRUE);
 }
 
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_viewFireMouseEvent(

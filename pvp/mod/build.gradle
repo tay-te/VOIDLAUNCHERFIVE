@@ -70,9 +70,11 @@ def nativeStages = [
     'macos-arm64': file("$projectDir/native/build-macarm64/natives/macos-arm64"),
 ]
 
-// A local host build lands in native/build/natives/<key>/ instead.
+// A local host build lands in native/build/natives/<key>/ instead. It fills in any key
+// whose canonical build-* tree is absent — putIfAbsent would not, because every key is
+// already present above, just pointing at a directory that need not exist.
 file("$projectDir/native/build/natives").listFiles()?.each { d ->
-    if (d.directory) nativeStages.putIfAbsent(d.name, d)
+    if (d.directory && !nativeStages[d.name]?.directory) nativeStages[d.name] = d
 }
 
 def platformJars = nativeStages.findAll { it.value.directory }.collect { key, dir ->

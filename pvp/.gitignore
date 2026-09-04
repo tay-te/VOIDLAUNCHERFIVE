@@ -37,6 +37,9 @@ run/
 
 # ---- CMake / native ---------------------------------------------------------
 mod/native/build/
+# scripts/build.sh --arch <arch> cross-configures into build-<arch>/, and Gradle's
+# platformJars reads staged trees from build-macx64/, build-macarm64/, build-win/.
+mod/native/build-*/
 mod/native/cmake-build-*/
 CMakeCache.txt
 CMakeFiles/

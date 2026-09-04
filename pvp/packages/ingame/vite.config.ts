@@ -2,7 +2,7 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { existsSync, createReadStream } from 'node:fs';
+import { existsSync, createReadStream, readFileSync, writeFileSync, rmSync } from 'node:fs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -68,6 +68,107 @@ function injectVoidShim(): Plugin {
 }
 
 /**
+ * Folds the emitted JS, the emitted CSS and the bridge shim into `index.html` as inline
+ * `<script>` / `<style>`, and deletes the now-unreferenced standalone files.
+ *
+ * **Why this is not optional.** Ultralight loads this bundle through the host's classpath
+ * FileSystem on a `file:///` scheme with no origin. Two of the three subresource kinds do
+ * not survive that:
+ *
+ *  - `<script type="module">` is *always* fetched with CORS semantics, whatever the
+ *    `crossorigin` attribute says, and an opaque custom scheme cannot satisfy it — so
+ *    `stripCrossorigin()` below is necessary but not sufficient, and the React bundle
+ *    never executed in game.
+ *  - the classic `<script src>` for the shim did not execute either, so `window.void` was
+ *    undefined and every `__emit` from Java threw — the HUD and the Right-Shift menu stayed
+ *    empty even though the view itself was painting.
+ *
+ *  - the webfaces did not load either. That one is silent rather than fatal: Ultralight's
+ *    own loader answers with a single bundled face (Inter) for any family it cannot fetch,
+ *    so the whole design simply renders in the wrong typeface — no error anywhere.
+ *
+ * So everything the page needs is folded in, fonts included as base64. Verified in game on
+ * 1.8.9: inlined, the menu renders in the design's own faces and the bridge round-trips;
+ * external, it does not.
+ *
+ * Build only — the browser harness at `pnpm dev` serves over HTTP, where none of this applies.
+ */
+function inlineForUltralight(outDir: string): Plugin {
+  return {
+    name: 'void-inline-for-ultralight',
+    apply: 'build',
+    enforce: 'post',
+    closeBundle() {
+      const indexHtml = join(outDir, 'index.html');
+      if (!existsSync(indexHtml)) return;
+      let html = readFileSync(indexHtml, 'utf8');
+      const consumed: string[] = [];
+
+      // Vite emits the app as <script type="module"> in <head>. A module is deferred until
+      // after parsing, but an inline classic script is not — left in <head> it would run
+      // before #void-root exists and React would have nothing to mount on. So the app moves
+      // to the end of <body>, which is where a module would effectively have run anyway.
+      const deferred: string[] = [];
+      html = html.replace(
+        /<script\b([^>]*)\bsrc="\.\/([^"]+)"[^>]*><\/script>/g,
+        (tag, attrs: string, src: string) => {
+          const file = join(outDir, src);
+          if (!existsSync(file)) return tag;
+          consumed.push(file);
+          const code = readFileSync(file, 'utf8');
+          if (/\btype="module"/.test(attrs)) {
+            deferred.push(code);
+            return '';
+          }
+          return `<script>${code}</script>`;
+        },
+      );
+      for (const code of deferred) {
+        html = html.replace('</body>', `  <script>${code}</script>\n  </body>`);
+      }
+
+      html = html.replace(
+        /<link\b[^>]*\brel="stylesheet"[^>]*\bhref="\.\/([^"]+)"[^>]*>/g,
+        (tag, href: string) => {
+          const file = join(outDir, href);
+          if (!existsSync(file)) return tag;
+          consumed.push(file);
+          // The CSS moves from assets/ up to the document root, so its own relative
+          // url(./x.woff2) references have to gain that segment back.
+          // Fonts have to be inlined too. Ultralight's own loader answers with a single
+          // bundled face (Inter) for any family it cannot fetch, so a font that fails to
+          // load is not a visible error — it is the whole design silently rendering in the
+          // wrong typeface. Base64 costs ~33% before gzip, which woff2 largely recovers.
+          let css = readFileSync(file, 'utf8').replace(
+            /url\(\s*['"]?\.\/([^'")]+\.woff2)['"]?\s*\)/g,
+            (ref, name: string) => {
+              const font = join(outDir, 'assets', name);
+              if (!existsSync(font)) return ref;
+              consumed.push(font);
+              return `url(data:font/woff2;base64,${readFileSync(font).toString('base64')})`;
+            },
+          );
+          return `<style>${css}</style>`;
+        },
+      );
+
+      // The shim is the mod's file, copied next to this bundle by Gradle at package time —
+      // at build time it is still only at its source path.
+      const shim = resolve(here, '../../mod/src/main/resources/assets/void/shim/void-shim.js');
+      if (existsSync(shim)) {
+        html = html.replace(
+          '<script src="./void-shim.js"></script>',
+          `<script>${readFileSync(shim, 'utf8')}</script>`,
+        );
+      }
+
+      writeFileSync(indexHtml, html);
+      for (const file of consumed) rmSync(file, { force: true });
+    },
+  };
+}
+
+/**
  * Strips the `crossorigin` attribute Vite puts on the emitted `<script>` and
  * `<link>`. The bundle is loaded by the Ultralight host from the JAR classpath,
  * not over HTTP: there is no origin to be cross to, and a CORS-flagged fetch on
@@ -88,7 +189,13 @@ export default defineConfig(({ command }) => ({
   // Relative URLs: the bundle is loaded from the JAR classpath as
   // `assets/void/ui/index.html`, where there is no server and no origin.
   base: './',
-  plugins: [react(), designScreensDevServer(), injectVoidShim(), stripCrossorigin()],
+  plugins: [
+    react(),
+    designScreensDevServer(),
+    injectVoidShim(),
+    stripCrossorigin(),
+    inlineForUltralight(command === 'build' ? OUT_DIR : resolve(here, 'dist')),
+  ],
   resolve: {
     /**
      * `@void/ui` and `@void/protocol` are consumed from **source**, not from their

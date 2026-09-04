@@ -1,5 +1,6 @@
 package dev.voidpvp.client.mixin;
 
+import dev.voidpvp.client.HiDpi;
 import dev.voidpvp.client.VoidClient;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
@@ -7,6 +8,7 @@ import net.minecraft.client.world.ClientWorld;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -34,6 +36,26 @@ public abstract class MinecraftClientMixin {
         if (client != null) {
             client.onResize();
         }
+    }
+
+    /**
+     * Retina (§13): {@code onResolutionChanged} is handed {@code Display.getWidth()/getHeight()},
+     * which LWJGL reports in points even when the backing store is 2x. It assigns them straight to
+     * {@code width}/{@code height}, and those are what size the viewport, the main framebuffer and
+     * {@code Window}'s GUI scale — so rewriting the arguments here is what makes the whole game
+     * render at the display's real resolution rather than being upscaled by the compositor.
+     * See {@link HiDpi}; a no-op wherever the factor is 1.
+     */
+    @ModifyVariable(method = "onResolutionChanged(II)V", at = @At("HEAD"), argsOnly = true,
+            ordinal = 0)
+    private int void$resolutionWidthInPixels(int width) {
+        return HiDpi.toPixels(width);
+    }
+
+    @ModifyVariable(method = "onResolutionChanged(II)V", at = @At("HEAD"), argsOnly = true,
+            ordinal = 1)
+    private int void$resolutionHeightInPixels(int height) {
+        return HiDpi.toPixels(height);
     }
 
     /**

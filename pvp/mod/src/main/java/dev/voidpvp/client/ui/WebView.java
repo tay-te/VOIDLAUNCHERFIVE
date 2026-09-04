@@ -24,6 +24,17 @@ public interface WebView extends AutoCloseable {
     /** Resolves inside the renderer's resource prefix, e.g. {@code file:///index.html}. */
     void loadUrl(String url);
 
+    /**
+     * Marks the whole view dirty.
+     *
+     * <p>The renderer runs with {@code ForceRepaint} off, so it repaints only the regions it
+     * knows changed and treats the rest of the render target as still valid. After a resize
+     * that assumption is wrong — the target holds pixels drawn at the previous size, and any
+     * area the new layout does not happen to touch keeps showing them. That is what the
+     * ghosted, larger-looking text was.</p>
+     */
+    void setNeedsPaint();
+
     /** Logical (CSS pixel) size of the view. */
     void resize(int width, int height);
 

@@ -1,5 +1,6 @@
 package dev.voidpvp.client.screen;
 
+import dev.voidpvp.client.HiDpi;
 import dev.voidpvp.client.VoidClient;
 import dev.voidpvp.client.input.KeyNames;
 import dev.voidpvp.client.ui.UiHost;
@@ -77,9 +78,7 @@ public final class VoidMenuScreen extends Screen {
         if (scale <= 0) {
             return;
         }
-        int x = (int) (Mouse.getX() / scale);
-        int y = (int) ((voidClient.minecraft().height - Mouse.getY()) / scale);
-        ui.mouseMoved(x, y);
+        ui.mouseMoved(viewX(ui), viewY(ui));
     }
 
     // -----------------------------------------------------------------
@@ -174,14 +173,21 @@ public final class VoidMenuScreen extends Screen {
         return mods;
     }
 
+    // Mouse still reports points even when the drawable is 2x, while deviceScale and
+    // MinecraftClient.height are both in pixels now (HiDpi) — so the raw position has to be
+    // converted before it can be divided by the one and subtracted from the other.
     private int viewX(UiHost ui) {
         double scale = ui.deviceScale();
-        return scale <= 0 ? 0 : (int) (Mouse.getX() / scale);
+        return scale <= 0 ? 0 : (int) (HiDpi.toPixels((double) Mouse.getX()) / scale);
     }
 
     private int viewY(UiHost ui) {
         double scale = ui.deviceScale();
-        return scale <= 0 ? 0 : (int) ((voidClient.minecraft().height - Mouse.getY()) / scale);
+        if (scale <= 0) {
+            return 0;
+        }
+        double fromTop = voidClient.minecraft().height - HiDpi.toPixels((double) Mouse.getY());
+        return (int) (fromTop / scale);
     }
 
     /** The scaled-GUI size, so callers do not have to build a {@link Window}. */

@@ -37,6 +37,8 @@ public final class UiHost {
     private int framebufferWidth;
     private int framebufferHeight;
     private double deviceScale = 1;
+    /** Whether the page has finished loading far enough to have installed {@code window.void}. */
+    private boolean bridgeReady;
     private int forcedRenders;
 
     public UiHost(VoidBridge bridge) {
@@ -62,7 +64,11 @@ public final class UiHost {
             framebufferWidth = fbWidth;
             framebufferHeight = fbHeight;
             deviceScale = s;
-            view = WebViews.create(lw, lh);
+            // Ultralight sizes a view in DEVICE PIXELS; the CSS viewport it lays out in is that
+            // size divided by the device scale. So the framebuffer goes in as-is and `s` does the
+            // dividing — passing the already-divided logical size instead would land the page on
+            // fb / s^2, i.e. everything drawn `s` times too large.
+            view = WebViews.create(fbWidth, fbHeight);
             if (!view.isAvailable()) {
                 return;
             }
@@ -83,17 +89,28 @@ public final class UiHost {
         if (!view.isAvailable()) {
             return;
         }
-        if (lw != logicalWidth || lh != logicalHeight) {
+        boolean sizeChanged = lw != logicalWidth || lh != logicalHeight;
+        boolean scaleChanged = s != deviceScale;
+        // Scale first, then size. The render target is allocated from logical size x device
+        // scale, so resizing while the old scale is still set sizes the texture for the wrong
+        // number of pixels; the view then draws into a target that does not match it and the
+        // blit samples the wrong fraction of it. A scale change therefore has to re-issue the
+        // resize as well, even when the logical size is unchanged.
+        if (scaleChanged) {
+            deviceScale = s;
+            view.setDeviceScale(s);
+        }
+        if (sizeChanged || scaleChanged) {
             logicalWidth = lw;
             logicalHeight = lh;
             framebufferWidth = fbWidth;
             framebufferHeight = fbHeight;
-            view.resize(lw, lh);
+            view.resize(fbWidth, fbHeight);
+            // The render target now holds pixels drawn at the old size. Ultralight repaints only
+            // what it believes changed, so without this the untouched areas keep showing them —
+            // which is the ghosted, oversized text that survived every resize.
+            view.setNeedsPaint();
             forcedRenders = FORCED_RENDERS;
-        }
-        if (s != deviceScale) {
-            deviceScale = s;
-            view.setDeviceScale(s);
         }
     }
 
@@ -113,9 +130,20 @@ public final class UiHost {
             return;
         }
         try {
-            String script = bridge.drainScript();
-            if (script != null) {
-                view.evaluateScript(script);
+            // The shim installs window.void during page load, which finishes some frames after
+            // the view is created. drainScript() empties the queue before the script runs, so
+            // emitting early does not just fail — it throws away the events, and the first batch
+            // is the registry and loadout that populate the mods grid. Losing it leaves the menu
+            // permanently empty. So hold everything queued until the page can actually receive it.
+            if (!bridgeReady) {
+                String probe = view.evaluateScript("!!(window.void && window.void.__emit)");
+                bridgeReady = "true".equalsIgnoreCase(probe == null ? "" : probe.trim());
+            }
+            if (bridgeReady) {
+                String script = bridge.drainScript();
+                if (script != null) {
+                    view.evaluateScript(script);
+                }
             }
             view.update();
             // refreshDisplay() is what advances CSS animations and transitions;
@@ -166,8 +194,11 @@ public final class UiHost {
         }
         GlBlit.begin2d(screenWidth, screenHeight);
         try {
+            // flipV = false: the GPU driver already renders with ulApplyProjection's flip_y, so
+            // glTextureId() hands back a texture whose v = 0 is the top. Flipping again here
+            // would stand the whole UI on its head.
             GlBlit.drawTexture(texture, 0, 0, screenWidth, screenHeight,
-                    PREMULTIPLIED, true, 1f, view.uvScaleX(), view.uvScaleY());
+                    PREMULTIPLIED, false, 1f, view.uvScaleX(), view.uvScaleY());
         } finally {
             GlBlit.end2d();
         }
@@ -273,6 +304,7 @@ public final class UiHost {
     public double deviceScale() {
         return deviceScale;
     }
+
 
     public int framebufferWidth() {
         return framebufferWidth;

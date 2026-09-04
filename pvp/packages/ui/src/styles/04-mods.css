@@ -25,12 +25,18 @@
   white-space: nowrap;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
 }
 
 .v-tab:hover:not(.v-tab--selected) {
   background: var(--tint-04);
   color: var(--text-primary);
+}
+
+/* Small controls need a deeper press than a tile to register at all. */
+.v-tab:active {
+  transform: scale(0.94);
 }
 
 .v-tab--selected {
@@ -85,12 +91,20 @@
   text-align: left;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard);
+    border-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
 }
 
 .v-modtile:hover {
   background: var(--surface-1);
   border-color: var(--tint-12);
+}
+
+/* A tile is a big target, so the press reads better as the whole card taking the push
+   than as a colour change. 0.985 is deliberately small: at 300px wide that is a ~4px
+   travel, enough to feel and not enough to disturb the grid. */
+.v-modtile:active {
+  transform: scale(0.985);
 }
 
 /* Selection is carried by the border alone — no fill change. */
@@ -367,7 +381,12 @@
   white-space: nowrap;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+.v-chip:active {
+  transform: scale(0.94);
 }
 
 .v-chip:hover:not(.v-chip--selected) {

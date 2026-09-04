@@ -20,6 +20,10 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public void setNeedsPaint() {
+    }
+
+    @Override
     public void loadUrl(String url) {
     }
 

@@ -72,6 +72,11 @@ final class UltralightWebView implements WebView {
     }
 
     @Override
+    public void setNeedsPaint() {
+        view.setNeedsPaint(true);
+    }
+
+    @Override
     public void loadUrl(String url) {
         view.loadUrl(url);
     }
