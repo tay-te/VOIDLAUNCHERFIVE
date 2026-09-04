@@ -28,6 +28,20 @@ public final class UiHost {
     /** Frames painted unconditionally after a create, load or resize. */
     private static final int FORCED_RENDERS = 3;
 
+    /**
+     * Device pixels per CSS pixel to rasterise at, and the most supersampling allowed to reach it.
+     *
+     * <p>The framebuffer alone does not give browser-like density. The design is a fixed 1300-wide
+     * canvas fitted to the window, so in a small window the page lays out at ~1459 CSS pixels with
+     * only ~1708 device pixels to draw into — about 1.17 per CSS pixel, where a browser on a 2x
+     * display gets 2.0. The antialiasing is not wrong at that point, there is simply not enough of
+     * it, which is what reads as jagged. Rendering the view larger than the framebuffer and letting
+     * the blit minify recovers the samples. A window that already clears the target pays nothing,
+     * which is also why the factor is capped: at full screen the framebuffer is already dense.</p>
+     */
+    private static final double TARGET_DENSITY = 2.0;
+    private static final int MAX_SUPERSAMPLE = 2;
+
     private final VoidBridge bridge;
     private WebView view = new NullWebView();
     private boolean started;
@@ -39,6 +53,8 @@ public final class UiHost {
     private double deviceScale = 1;
     /** Whether the page has finished loading far enough to have installed {@code window.void}. */
     private boolean bridgeReady;
+    /** While true, render every frame rather than only when the view reports itself dirty. */
+    private boolean continuous;
     private int forcedRenders;
 
     public UiHost(VoidBridge bridge) {
@@ -57,6 +73,13 @@ public final class UiHost {
         double s = scale <= 0 ? 1 : scale;
         int lw = Math.max(1, (int) Math.ceil(fbWidth / s));
         int lh = Math.max(1, (int) Math.ceil(fbHeight / s));
+        // An integer factor only: a fractional one puts glyphs on a non-integer grid relative to
+        // the screen and trades one kind of shimmer for another.
+        int ss = Math.max(1, Math.min(MAX_SUPERSAMPLE, (int) Math.ceil(TARGET_DENSITY / s)));
+        int vw = Math.max(1, fbWidth * ss);
+        int vh = Math.max(1, fbHeight * ss);
+        // The page still lays out in fb / s CSS pixels; only the rasterisation gets denser.
+        double viewScale = s * ss;
         if (!started) {
             started = true;
             logicalWidth = lw;
@@ -68,11 +91,11 @@ public final class UiHost {
             // size divided by the device scale. So the framebuffer goes in as-is and `s` does the
             // dividing — passing the already-divided logical size instead would land the page on
             // fb / s^2, i.e. everything drawn `s` times too large.
-            view = WebViews.create(fbWidth, fbHeight);
+            view = WebViews.create(vw, vh);
             if (!view.isAvailable()) {
                 return;
             }
-            view.setDeviceScale(s);
+            view.setDeviceScale(viewScale);
             view.setMessageHandler(new Function<String, String>() {
                 @Override
                 public String apply(String request) {
@@ -83,7 +106,8 @@ public final class UiHost {
             });
             view.loadUrl(ENTRY_URL);
             forcedRenders = FORCED_RENDERS;
-            VoidLog.info("in-game UI started at " + lw + "x" + lh + " (scale " + s + ")");
+            VoidLog.info("in-game UI started at " + lw + "x" + lh + " (scale " + s
+                    + ", rasterised " + vw + "x" + vh + " at " + viewScale + " dp/css)");
             return;
         }
         if (!view.isAvailable()) {
@@ -98,20 +122,33 @@ public final class UiHost {
         // resize as well, even when the logical size is unchanged.
         if (scaleChanged) {
             deviceScale = s;
-            view.setDeviceScale(s);
+            view.setDeviceScale(viewScale);
         }
         if (sizeChanged || scaleChanged) {
             logicalWidth = lw;
             logicalHeight = lh;
             framebufferWidth = fbWidth;
             framebufferHeight = fbHeight;
-            view.resize(fbWidth, fbHeight);
+            view.resize(vw, vh);
             // The render target now holds pixels drawn at the old size. Ultralight repaints only
             // what it believes changed, so without this the untouched areas keep showing them —
             // which is the ghosted, oversized text that survived every resize.
             view.setNeedsPaint();
             forcedRenders = FORCED_RENDERS;
         }
+    }
+
+    /**
+     * Whether to render every frame, regardless of what the view reports.
+     *
+     * <p>On for the menu, off for the HUD. The CPU renderer's dirty flag only becomes true *after*
+     * a render, so gating purely on it means an idle view never wakes up — which showed as menu
+     * cards appearing only once hovered. Rendering unconditionally fixes that but measured 2.4 ms
+     * a frame against 0.07 ms on demand, and the HUD cannot afford it: §10 budgets 0.5 ms there and
+     * 2 ms with the menu open, where frame rate is explicitly not a PVP concern.</p>
+     */
+    public void setContinuous(boolean continuous) {
+        this.continuous = continuous;
     }
 
     /** Called from {@code Minecraft.onResolutionChanged}; the next frame resizes. */
@@ -154,9 +191,19 @@ public final class UiHost {
             // changed — the first lever against the paint budget of §10. The
             // forced frames after a create or a resize cover the window where
             // the dirty flag has not caught up with the new size yet.
-            if (view.isDirty() || forcedRenders > 0) {
+            if ((continuous && view.rendersEveryFrame()) || view.isDirty() || forcedRenders > 0) {
                 if (forcedRenders > 0) {
                     forcedRenders--;
+                }
+                // Repaint the whole view, not just the regions Ultralight damaged. Its incremental
+                // path leaves the changed region uncleared, and glyphs are composited premultiplied
+                // over whatever is already there, so anything that updates — the fps readout, the
+                // CPS counter — piles successive frames on top of each other until it is unreadable.
+                // Config-level ForceRepaint fixes it too but marks the view dirty every frame, which
+                // measured 22 ms against 0.5 ms; this pays the full repaint only on the frames that
+                // actually changed.
+                if (view.needsFullRepaintEachFrame()) {
+                    view.setNeedsPaint();
                 }
                 view.render();
             }

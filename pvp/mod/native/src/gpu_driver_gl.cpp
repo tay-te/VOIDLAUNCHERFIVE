@@ -564,6 +564,27 @@ void draw_command_list() {
   Driver& dr = d();
   if (!dr.ready || dr.commands.empty()) return;
 
+  // Clear the view's own render buffer first.
+  //
+  // Ultralight clears its scratch and layer buffers but never the view's target: incremental
+  // painting assumes redrawing a damaged region covers what was there. That holds for an opaque
+  // page and fails for this one, which is a transparent overlay — the HUD chips are semi-opaque,
+  // so each repaint composited over the previous frame's glyphs and text piled up until it was
+  // unreadable. UiHost forces a full repaint before every render, so everything about to be drawn
+  // is complete and clearing first is safe. The target is the buffer the final command draws into:
+  // Ultralight renders layers offscreen and composites into the view last.
+  unsigned view_rb = 0;
+  for (const ULCommand& cmd : dr.commands) {
+    if (cmd.command_type != kCommandType_ClearRenderBuffer) view_rb = cmd.gpu_state.render_buffer_id;
+  }
+  if (view_rb != 0) {
+    bind_render_buffer(view_rb);
+    G.Disable(GL_SCISSOR_TEST);
+    G.ColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    G.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    G.Clear(GL_COLOR_BUFFER_BIT);
+  }
+
   for (const ULCommand& cmd : dr.commands) {
     if (cmd.command_type == kCommandType_ClearRenderBuffer) {
       bind_render_buffer(cmd.gpu_state.render_buffer_id);
@@ -732,6 +753,66 @@ void restore_gl_state() {
   }
 
   s.valid = false;
+}
+
+unsigned int upload_surface(unsigned int texture, unsigned int& texture_width,
+                            unsigned int& texture_height, ULBitmap bitmap, ULIntRect dirty) {
+  if (!gl::load()) return 0;
+
+  uint32_t w = ulBitmapGetWidth(bitmap);
+  uint32_t h = ulBitmapGetHeight(bitmap);
+  uint32_t bpp = ulBitmapGetBpp(bitmap);
+  uint32_t row_bytes = ulBitmapGetRowBytes(bitmap);
+  if (w == 0 || h == 0 || bpp == 0) return texture;
+
+  // Reallocate whenever the surface has been resized, not only on first use.
+  bool fresh = texture == 0 || texture_width != w || texture_height != h;
+  GLuint tex = static_cast<GLuint>(texture);
+  if (fresh && tex == 0) {
+    G.GenTextures(1, &tex);
+    G.BindTexture(GL_TEXTURE_2D, tex);
+    G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  } else {
+    G.BindTexture(GL_TEXTURE_2D, tex);
+  }
+  if (fresh) {
+    texture_width = w;
+    texture_height = h;
+  }
+
+  // A surface is BGRA8 straight-alpha. The quad samples it the same way an accelerated view's
+  // render target is sampled, so nothing above this changes between the two paths.
+  const void* pixels = ulBitmapLockPixels(bitmap);
+  G.PixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  G.PixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(row_bytes / bpp));
+  if (fresh) {
+    G.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, static_cast<GLsizei>(w), static_cast<GLsizei>(h), 0,
+                 GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+  } else {
+    // Only what changed. This is the whole reason the CPU path can keep up: a ticking fps
+    // readout dirties a chip, not a screen.
+    GLint x = dirty.left < 0 ? 0 : dirty.left;
+    GLint y = dirty.top < 0 ? 0 : dirty.top;
+    GLsizei dw = dirty.right > dirty.left ? dirty.right - dirty.left : 0;
+    GLsizei dh = dirty.bottom > dirty.top ? dirty.bottom - dirty.top : 0;
+    if (dw > 0 && dh > 0) {
+      if (x + dw > static_cast<GLint>(w)) dw = static_cast<GLsizei>(w) - x;
+      if (y + dh > static_cast<GLint>(h)) dh = static_cast<GLsizei>(h) - y;
+      G.PixelStorei(GL_UNPACK_SKIP_PIXELS, x);
+      G.PixelStorei(GL_UNPACK_SKIP_ROWS, y);
+      G.TexSubImage2D(GL_TEXTURE_2D, 0, x, y, dw, dh, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+    }
+  }
+  // Minecraft uploads its own textures through this same state, so put it back.
+  G.PixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+  G.PixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+  G.PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+  G.PixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  ulBitmapUnlockPixels(bitmap);
+  return static_cast<unsigned int>(tex);
 }
 
 unsigned int gl_texture_for(unsigned int texture_id) {

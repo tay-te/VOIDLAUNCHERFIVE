@@ -35,6 +35,28 @@ public interface WebView extends AutoCloseable {
      */
     void setNeedsPaint();
 
+    /**
+     * Whether every render has to repaint the whole view.
+     *
+     * <p>True for the accelerated renderer, where our GPU driver's handling of Ultralight's damage
+     * rectangles is what corrupts changing text. False for the CPU renderer, whose damage tracking
+     * is Ultralight's own and correct — and where a full repaint would also throw away the reason
+     * that path is affordable, since only the dirty rectangle is uploaded.</p>
+     */
+    boolean needsFullRepaintEachFrame();
+
+    /**
+     * Whether {@code render()} should be called every frame rather than only when the view reports
+     * itself dirty.
+     *
+     * <p>True for the CPU renderer. Its {@code render()} is internally a no-op when nothing has
+     * changed, and the signal that something *has* changed is the surface's dirty bounds — which
+     * only exist after a render. Gating the render on a dirty flag therefore deadlocks: nothing
+     * renders, so nothing is dirty, so nothing renders. In practice the view then only updated when
+     * an input event forced a repaint, which looked like cards appearing only once hovered.</p>
+     */
+    boolean rendersEveryFrame();
+
     /** Logical (CSS pixel) size of the view. */
     void resize(int width, int height);
 

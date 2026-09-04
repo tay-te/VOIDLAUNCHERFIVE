@@ -34,6 +34,12 @@ void restore_gl_state();
 // unrelated texture the game happens to have under that name. Returns 0 if unknown.
 unsigned int gl_texture_for(unsigned int texture_id);
 
+// Uploads a CPU-rendered view's surface into a GL texture, creating it when `texture` is 0.
+// Only `dirty` is re-uploaded; pass the full bitmap bounds to refresh everything. Returns the GL
+// texture name, or 0 if GL is unavailable. Requires a current context.
+unsigned int upload_surface(unsigned int texture, unsigned int& texture_width,
+                            unsigned int& texture_height, ULBitmap bitmap, ULIntRect dirty);
+
 // Frees GL objects. Requires a current context.
 void shutdown();
 

@@ -20,6 +20,16 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public boolean needsFullRepaintEachFrame() {
+        return false;
+    }
+
+    @Override
+    public boolean rendersEveryFrame() {
+        return false;
+    }
+
+    @Override
     public void setNeedsPaint() {
     }
 

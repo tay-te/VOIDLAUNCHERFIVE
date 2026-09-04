@@ -38,11 +38,13 @@ final class UltralightWebView implements WebView {
 
     private final Renderer renderer;
     private final View view;
+    private final boolean accelerated;
     private boolean closed;
 
-    private UltralightWebView(Renderer renderer, View view) {
+    private UltralightWebView(Renderer renderer, View view, boolean accelerated) {
         this.renderer = renderer;
         this.view = view;
+        this.accelerated = accelerated;
     }
 
     /**
@@ -57,18 +59,35 @@ final class UltralightWebView implements WebView {
         if (renderer == null) {
             throw new UnsatisfiedLinkError("Ultralight.createRenderer returned null");
         }
-        View view = renderer.createView(Math.max(1, width), Math.max(1, height), true);
+        // -Dvoid.ui.renderer=gpu selects the accelerated view, which renders through our own
+        // OpenGL GPUDriver. The CPU renderer is the default: Ultralight rasterises into a surface
+        // and owns its own damage tracking, and we upload the dirty rectangle into a texture.
+        boolean accelerated = "gpu".equalsIgnoreCase(System.getProperty("void.ui.renderer", "cpu"));
+        View view = accelerated
+                ? renderer.createView(Math.max(1, width), Math.max(1, height), true)
+                : renderer.createViewCpu(Math.max(1, width), Math.max(1, height), true);
         if (view == null) {
             throw new UnsatisfiedLinkError("Ultralight createView returned null");
         }
         VoidLog.info("Ultralight " + Ultralight.version() + " (WebKit "
                 + Ultralight.webKitVersion() + ") ready");
-        return new UltralightWebView(renderer, view);
+        VoidLog.info("in-game renderer: " + (accelerated ? "accelerated (GL driver)" : "cpu surface"));
+        return new UltralightWebView(renderer, view, accelerated);
     }
 
     @Override
     public boolean isAvailable() {
         return !closed;
+    }
+
+    @Override
+    public boolean needsFullRepaintEachFrame() {
+        return accelerated;
+    }
+
+    @Override
+    public boolean rendersEveryFrame() {
+        return !accelerated;
     }
 
     @Override

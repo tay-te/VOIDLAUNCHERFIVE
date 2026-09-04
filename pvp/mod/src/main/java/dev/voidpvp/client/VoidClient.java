@@ -193,6 +193,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null) {
             return;
         }
+        ui.setContinuous(mc.currentScreen instanceof VoidMenuScreen);
         int fbWidth = Math.max(1, mc.width);
         int fbHeight = Math.max(1, mc.height);
         // Scale the design canvas to fit, on whichever axis is tighter, instead of inheriting

@@ -130,7 +130,17 @@ JNIEXPORT jlong JNICALL Java_dev_voidclient_ultralight_Native_createRenderer(
   ulDestroyString(resource_prefix);
   // Counter-clockwise is Ultralight's default and matches GL's default front face.
   ulConfigSetFaceWinding(config, kFaceWinding_CounterClockwise);
-  ulConfigSetFontHinting(config, kFontHinting_Normal);
+  // Smooth, not Normal. Normal is full hinting, which the SDK documents as a balance struck "at
+  // smaller font sizes": it distorts outlines onto the pixel grid, which on a 2x display is both
+  // unnecessary and wrong — macOS itself does no hinting, which is why browser text looks the way
+  // it does. It also snaps every glyph horizontally, so a run that shifts sub-pixel during a
+  // transition re-snaps and the text visibly jumps. Smooth snaps vertically only and preserves
+  // inter-glyph spacing.
+  ulConfigSetFontHinting(config, kFontHinting_Smooth);
+  // Incremental painting. A full repaint every frame was measured at 22 ms against 1-5 ms for
+  // the incremental path — enough to take the game from ~100 fps to 33, which reads as the whole
+  // interface being sluggish. If damage-rectangle artefacts reappear, fix the driver's handling
+  // of them rather than paying this.
   ulConfigSetForceRepaint(config, false);
 
   gl.renderer = ulCreateRenderer(config);
@@ -210,6 +220,9 @@ JNIEXPORT jlong JNICALL Java_dev_voidclient_ultralight_Native_createView(
   ulViewConfigSetIsTransparent(cfg, transparent == JNI_TRUE);
   ulViewConfigSetInitialDeviceScale(cfg, 1.0);
   ulViewConfigSetInitialFocus(cfg, false);
+  // ulRefreshDisplay(renderer, 0) is what advances CSS animations, and it only reaches views
+  // whose display id matches. Pin it rather than relying on the default.
+  ulViewConfigSetDisplayId(cfg, 0);
   ulViewConfigSetEnableImages(cfg, true);
   ulViewConfigSetEnableJavaScript(cfg, true);
 
@@ -286,10 +299,37 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_viewSetDeviceScale(
 
 JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureId(JNIEnv* e, jclass,
                                                                           jlong handle) {
+  ViewState* vs = state_of(handle);
   ULView v = view_of(handle);
-  if (!v || !ulViewIsAccelerated(v)) return 0;
+  if (!v) return 0;
+  if (!ulViewIsAccelerated(v)) {
+    // CPU path: Ultralight rasterised into a bitmap surface; hand Java a GL texture holding it.
+    ULSurface surface = ulViewGetSurface(v);
+    if (!surface) return 0;
+    ULBitmap bitmap = ulBitmapSurfaceGetBitmap(surface);
+    if (!bitmap) return 0;
+    ULIntRect dirty = ulSurfaceGetDirtyBounds(surface);
+    bool first = vs->cpu_texture == 0;
+    if (first || !ulIntRectIsEmpty(dirty)) {
+      vs->cpu_texture = gpu::upload_surface(vs->cpu_texture, vs->cpu_texture_width,
+                                            vs->cpu_texture_height, bitmap, dirty);
+      ulSurfaceClearDirtyBounds(surface);
+    }
+    return static_cast<jint>(vs->cpu_texture);
+  }
   ULRenderTarget rt = ulViewGetRenderTarget(v);
   if (rt.is_empty) return 0;
+  {
+    // One line per distinct render target. If the texture is bigger than the view, the uv
+    // coordinates are the only thing that keeps the blit from magnifying a sub-rectangle.
+    static unsigned last_w = 0, last_h = 0;
+    if (rt.width != last_w || rt.height != last_h) {
+      last_w = rt.width;
+      last_h = rt.height;
+      log_info("render target: view %ux%u, texture %ux%u, uv %.4f x %.4f", rt.width, rt.height,
+               rt.texture_width, rt.texture_height, rt.uv_coords.right, rt.uv_coords.bottom);
+    }
+  }
   // rt.texture_id is the driver's own id, not a GL name — Java binds the result directly.
   return static_cast<jint>(voidul::gpu::gl_texture_for(rt.texture_id));
 }
@@ -297,14 +337,16 @@ JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureId(JNIEn
 JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureWidth(JNIEnv* e, jclass,
                                                                              jlong handle) {
   ULView v = view_of(handle);
-  if (!v || !ulViewIsAccelerated(v)) return 0;
+  if (!v) return 0;
+  if (!ulViewIsAccelerated(v)) return static_cast<jint>(ulViewGetWidth(v));
   return static_cast<jint>(ulViewGetRenderTarget(v).texture_width);
 }
 
 JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureHeight(JNIEnv* e, jclass,
                                                                               jlong handle) {
   ULView v = view_of(handle);
-  if (!v || !ulViewIsAccelerated(v)) return 0;
+  if (!v) return 0;
+  if (!ulViewIsAccelerated(v)) return static_cast<jint>(ulViewGetHeight(v));
   return static_cast<jint>(ulViewGetRenderTarget(v).texture_height);
 }
 
@@ -312,6 +354,7 @@ JNIEXPORT jfloat JNICALL Java_dev_voidclient_ultralight_Native_viewUvScaleX(JNIE
                                                                            jlong handle) {
   ULView v = view_of(handle);
   if (!v || !ulViewIsAccelerated(v)) return 1.0f;
+  if (!ulViewIsAccelerated(v)) return 1.0f;
   return ulViewGetRenderTarget(v).uv_coords.right;
 }
 
@@ -319,6 +362,7 @@ JNIEXPORT jfloat JNICALL Java_dev_voidclient_ultralight_Native_viewUvScaleY(JNIE
                                                                            jlong handle) {
   ULView v = view_of(handle);
   if (!v || !ulViewIsAccelerated(v)) return 1.0f;
+  if (!ulViewIsAccelerated(v)) return 1.0f;
   return ulViewGetRenderTarget(v).uv_coords.bottom;
 }
 
@@ -327,6 +371,9 @@ JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_viewIsDirty(JNI
   ViewState* vs = state_of(handle);
   if (!vs || !vs->view) return JNI_FALSE;
   if (vs->accelerated) return ulViewGetNeedsPaint(vs->view) ? JNI_TRUE : JNI_FALSE;
+  // Either the page wants repainting, or it has already painted pixels we have not uploaded.
+  // Only the first can be true before render(); only the second after it.
+  if (ulViewGetNeedsPaint(vs->view)) return JNI_TRUE;
   ULSurface s = ulViewGetSurface(vs->view);
   if (!s) return JNI_FALSE;
   ULIntRect r = ulSurfaceGetDirtyBounds(s);
