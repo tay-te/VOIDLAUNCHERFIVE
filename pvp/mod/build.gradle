@@ -162,6 +162,14 @@ processResources {
         into 'assets/void/ui'
     }
 
+    // Same reason for the design's webfaces: they are the mod's, but they are read
+    // through the renderer's resource prefix, which is assets/void/ui/. The native
+    // font loader serves them by family and weight — Ultralight never fetches an
+    // @font-face itself, so a face that is not published here renders as Inter.
+    from('src/main/resources/assets/void/fonts') {
+        into 'assets/void/ui/fonts'
+    }
+
 }
 
 test {

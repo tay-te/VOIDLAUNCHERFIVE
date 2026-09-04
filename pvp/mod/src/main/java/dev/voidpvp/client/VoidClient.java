@@ -168,6 +168,12 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null) {
             return;
         }
+        // Hotkeys are sampled here rather than on the 20 Hz client tick. Edge detection over a
+        // polled key can only see presses that straddle a sample, and at 20 Hz that misses a tap
+        // shorter than 50 ms outright — which is why Right Shift sometimes did not close the menu
+        // at all. This runs once per frame, so the window is a frame rather than a tick.
+        pollHotkeys(mc);
+
         boolean menuOpen = mc.currentScreen instanceof VoidMenuScreen;
         Window window = new Window(mc);
 
@@ -235,7 +241,6 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // is the only beat that runs from the first tick onwards.
         applyRetinaResolution(mc);
         refreshKeyBindings(mc);
-        pollHotkeys(mc);
         applyActuators(mc);
         pushTick(mc);
         pushSession(mc);

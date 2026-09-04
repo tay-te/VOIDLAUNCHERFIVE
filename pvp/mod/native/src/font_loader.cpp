@@ -27,6 +27,9 @@
 // Inter. The UI must bundle what it wants to use.
 
 #include <Ultralight/platform/FontLoader.h>
+
+#include <cctype>
+#include <set>
 #include <Ultralight/platform/Platform.h>
 
 #include <string>
@@ -38,6 +41,49 @@ namespace {
 
 const char kFallbackFamily[] = "Inter";
 const char kFontRelPath[] = "resources/fonts/Inter-Variable.ttf";
+
+// The design's own faces, published by the mod next to the UI bundle (build.gradle) and so
+// reachable under the renderer's classpath prefix. They are static instances on purpose: the
+// fallback is a *variable* font, and serving it for every family is why nothing in the UI was
+// ever bold — the weight axis is never set, so every run came out at 400.
+struct Face {
+  const char* family;  // lower-case, as compared
+  int weight;
+  const char* file;
+};
+
+const Face kFaces[] = {
+    {"bricolage grotesque", 800, "fonts/bricolage-grotesque-800.ttf"},
+    {"outfit", 400, "fonts/outfit-400.ttf"},
+    {"outfit", 500, "fonts/outfit-500.ttf"},
+    {"outfit", 600, "fonts/outfit-600.ttf"},
+    {"dm mono", 400, "fonts/dm-mono-400.ttf"},
+    {"dm mono", 500, "fonts/dm-mono-500.ttf"},
+};
+
+std::string lower(const ultralight::String& s) {
+  const char* raw = s.utf8().data();
+  if (!raw) return std::string();
+  std::string out(raw, s.utf8().length());
+  for (char& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return out;
+}
+
+/// The bundled file for a family, at the nearest weight it ships. Empty when we do not have it.
+std::string face_for(const ultralight::String& family, int weight) {
+  std::string name = lower(family);
+  const char* best = nullptr;
+  int best_distance = 0;
+  for (const Face& face : kFaces) {
+    if (name != face.family) continue;
+    int distance = face.weight > weight ? face.weight - weight : weight - face.weight;
+    if (!best || distance < best_distance) {
+      best = face.file;
+      best_distance = distance;
+    }
+  }
+  return best ? std::string(best) : std::string();
+}
 
 class BundledFontLoader : public ultralight::FontLoader {
  public:
@@ -51,6 +97,28 @@ class BundledFontLoader : public ultralight::FontLoader {
   ultralight::RefPtr<ultralight::FontFile> Load(const ultralight::String& family, int weight,
                                                 bool italic) override {
     Globals& gl = g();
+
+    // A family the design ships wins over the fallback. Ultralight never fetches an @font-face
+    // itself — every family the page names is resolved through this loader — so this is the only
+    // place the UI can be made to render in its own typefaces rather than in Inter.
+    std::string face = face_for(family, weight);
+    if (!face.empty() && !gl.classpath_prefix.empty()) {
+      std::string blob;
+      if (read_classpath(gl.classpath_prefix + face, &blob)) {
+        // Once per face. Which typeface the UI is actually drawn in is otherwise invisible:
+        // a family that fails to resolve does not error, it silently comes out as Inter.
+        static std::set<std::string> announced;
+        if (announced.insert(face).second) {
+          log_info("font_load: '%s' weight %d -> %s (%zu bytes)", lower(family).c_str(), weight,
+                   face.c_str(), blob.size());
+        }
+        ultralight::RefPtr<ultralight::Buffer> buffer =
+            ultralight::Buffer::CreateFromCopy(blob.data(), blob.size());
+        return ultralight::FontFile::Create(buffer);
+      }
+      log_error("font_load: '%s' weight %d maps to %s, which is not on the classpath under '%s'",
+                lower(family).c_str(), weight, face.c_str(), gl.classpath_prefix.c_str());
+    }
 
     // Preferred: the file on disk next to the extracted natives. FreeType can mmap it instead of
     // us holding ~900 KB of font in the heap.
