@@ -1,0 +1,46 @@
+/* Quick palette placement · frame 244:1900.
+ *
+ * `@void/ui` draws the palette itself (`.v-palette*`); what is left here is
+ * where it sits over the game, and the flat dim behind it.
+ */
+
+.palette-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  /* The frame puts the palette at y 190 in an 820-tall frame. */
+  padding-top: 190px;
+}
+
+/* ultralight-notes.md §1: the authored `rgba(10,11,12,0.55)` + blur(3px) becomes
+   one flat layer at `--dim-palette` (0.62). Do not try to fake the blur — the
+   other overlay frames already use an unblurred dim, so this is on-model. */
+.palette-layer__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--dim-palette);
+}
+
+.palette-layer .v-palette {
+  position: relative;
+  max-height: calc(100% - 220px);
+}
+
+/* The tail of a result's subtitle that previews the change: `→ on`. */
+.palette-sub-accent {
+  color: var(--accent-ink);
+}
+
+.palette-spacer {
+  height: 6px;
+  flex: 0 0 auto;
+}
+
+.palette-empty {
+  padding: 18px;
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}

@@ -1,0 +1,70 @@
+# VOID PVP — desktop launcher (Tauri 2).
+#
+# This package is DELIBERATELY NOT a member of `pvp/Cargo.toml`'s workspace.
+#
+# Linux CI has no webkit2gtk, and `tauri` transitively needs it to even resolve its
+# build scripts. Keeping this crate out of the workspace means `cargo check` at the
+# repo root still compiles void-core / void-bridge / void-loadout on a bare Linux
+# runner. The empty `[workspace]` table below is what opts the package out — without
+# it, Cargo walks up and finds `pvp/Cargo.toml`, which does not list us as a member,
+# and errors.
+#
+# The three core crates are consumed as plain path dependencies. They belong to the
+# root workspace and inherit their `version`/`edition` from it; that works fine
+# across the workspace boundary.
+[workspace]
+
+[package]
+name = "void-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "UNLICENSED"
+publish = false
+description = "The VOID PVP desktop launcher: one frameless window, tray, updater, and thin command wrappers over void-core."
+
+[lib]
+# `void_desktop_lib` rather than `void_desktop` so the binary and the library do not
+# collide on Windows (the usual Tauri 2 layout).
+name = "void_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "void-desktop"
+path = "src/main.rs"
+
+[features]
+# `desktop` pulls in Tauri and everything that needs a webview. Turn it off
+# (`cargo check --no-default-features`) to compile the command layer, the adapters
+# and the SLP pinger on a machine with no webkit2gtk — that is what CI does.
+default = ["desktop"]
+desktop = ["dep:tauri", "dep:tauri-plugin-updater", "dep:tauri-plugin-opener"]
+
+[dependencies]
+void-core = { path = "../../../crates/void-core" }
+void-bridge = { path = "../../../crates/void-bridge" }
+void-loadout = { path = "../../../crates/void-loadout" }
+
+tauri = { version = "2", features = ["tray-icon", "image-png"], optional = true }
+tauri-plugin-updater = { version = "2", optional = true }
+tauri-plugin-opener = { version = "2", optional = true }
+
+reqwest = { version = "0.13", features = ["json", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "6"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs", "process"] }
+sysinfo = "0.33"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

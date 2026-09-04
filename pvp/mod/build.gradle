@@ -1,0 +1,174 @@
+plugins {
+    // Legacy Fabric's fork of fabric-loom, which is what supports 1.8.9.
+    // 1.13.2 wraps fabric-loom 1.13, the newest that still runs on Gradle 8.
+    id 'legacy-looming' version '1.13.2'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+// ---------------------------------------------------------------------------
+// mod/native — the Ultralight JNI binding, owned by another agent
+// (CONTRACTS.md). Its Java-facing API compiles into this JAR from native/java;
+// we never build its C++ side.
+//
+// PVP_ARCHITECTURE §4 names the binding's package `dev.void.ultralight`, which
+// cannot exist: `void` is a Java keyword and is illegal as a package-name
+// segment. Both owners renamed the one illegal segment — the binding is
+// `dev.voidclient.ultralight`, this mod is `dev.voidpvp.client` — and both
+// names are now settled, so `dev.voidpvp.client.ui.UltralightWebView` imports
+// the binding directly. A signature change there is a compile error here,
+// which is the point.
+//
+// The NullWebView fallback is unaffected: it triggers on LinkageError at
+// runtime (no natives for this platform, or no binding classes at all), not on
+// a missing source directory. Building without native/java is still possible
+// and still yields a JAR that runs with the in-game UI disabled — it just also
+// warns, because that JAR is not shippable.
+// ---------------------------------------------------------------------------
+def nativeJavaDir = file('native/java')
+
+sourceSets {
+    main {
+        java {
+            if (nativeJavaDir.exists()) {
+                srcDir nativeJavaDir
+            }
+        }
+    }
+}
+
+gradle.projectsEvaluated {
+    if (!nativeJavaDir.exists()) {
+        logger.warn('void-client: native/java is missing, so the Ultralight binding is not '
+                + 'in this JAR. It builds and runs, with the in-game UI disabled '
+                + '(NullWebView). Not a shippable artifact.')
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Per-OS JARs (PVP_ARCHITECTURE §13)
+//
+// The Ultralight natives are ~21 MB per platform and 77 MB for all three,
+// measured in mod/native/README.md, against the ~25 MB §13 budgeted. So the
+// natives never go in the base JAR: each staged `natives/<os>-<arch>/` tree
+// produces its own `void-client-<version>-<os>-<arch>.jar`, and `void-core`
+// picks one at prepare time (install::ModPlatform).
+//
+// This repackages the already-remapped JAR rather than running the Loom remap
+// per platform: the classes are identical across platforms, only the natives
+// differ, so a second remap would cost minutes to produce the same bytes.
+// ---------------------------------------------------------------------------
+def nativeStages = [
+    'windows-x64': file("$projectDir/native/build-win/natives/windows-x64"),
+    'macos-x64'  : file("$projectDir/native/build-macx64/natives/macos-x64"),
+    'macos-arm64': file("$projectDir/native/build-macarm64/natives/macos-arm64"),
+]
+
+// A local host build lands in native/build/natives/<key>/ instead.
+file("$projectDir/native/build/natives").listFiles()?.each { d ->
+    if (d.directory) nativeStages.putIfAbsent(d.name, d)
+}
+
+def platformJars = nativeStages.findAll { it.value.directory }.collect { key, dir ->
+    tasks.register("platformJar${key.split('-').collect { it.capitalize() }.join()}", Jar) {
+        group = 'build'
+        description = "Repackages the remapped JAR with the $key Ultralight natives"
+        dependsOn tasks.named('remapJar')
+        archiveBaseName = project.archives_base_name
+        archiveVersion = project.version
+        archiveClassifier = key
+        // The remapped classes, verbatim, plus this platform's natives tree.
+        from { zipTree(tasks.named('remapJar').get().archiveFile) }
+        from(dir) { into "natives/$key" }
+        // Both trees can carry a natives manifest; the platform one wins.
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}
+
+tasks.register('platformJars') {
+    group = 'build'
+    description = 'Every per-OS void-client JAR that has staged natives'
+    dependsOn platformJars
+    doLast {
+        if (platformJars.isEmpty()) {
+            logger.lifecycle('void-client: no Ultralight natives staged, so no per-OS JARs. '
+                    + 'Run mod/native/scripts/build.sh (or build.ps1), or fetch the CI '
+                    + 'artifacts into mod/native/build-*/natives/.')
+        } else {
+            logger.lifecycle('void-client: per-OS JARs for '
+                    + nativeStages.findAll { it.value.directory }.keySet().join(', '))
+        }
+    }
+}
+
+repositories {
+    maven {
+        name = 'Legacy Fabric'
+        url = 'https://repo.legacyfabric.net/repository/legacyfabric/'
+    }
+    maven {
+        name = 'Fabric'
+        url = 'https://maven.fabricmc.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.legacyfabric:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Both of these ship inside Minecraft 1.8.9, pinned to the exact versions
+    // the game has on its classpath so we never compile against an API it
+    // lacks. Neither is bundled into the JAR.
+    implementation 'com.google.code.gson:gson:2.2.4'
+    implementation 'io.netty:netty-all:4.0.23.Final'
+
+    testImplementation 'com.google.code.gson:gson:2.2.4'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+}
+
+// Minecraft 1.8.9 runs on Java 8; everything we ship must be Java 8 bytecode.
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+    it.options.release = 8
+}
+
+java {
+    withSourcesJar()
+}
+
+processResources {
+    inputs.property 'version', project.version
+
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+
+    // The bridge shim's source of truth is assets/void/shim/, because
+    // assets/void/ui/ is packages/ingame's build output and is gitignored.
+    // The in-game bundle loads it from assets/void/ui/void-shim.js, so it is
+    // published there too.
+    from('src/main/resources/assets/void/shim/void-shim.js') {
+        into 'assets/void/ui'
+    }
+
+}
+
+test {
+    useJUnitPlatform()
+    // The schemas are the contract; the tests round-trip every example in
+    // them rather than a copy, so drift is a test failure (CONTRACTS.md).
+    systemProperty 'void.schema.dir', file('../schema').absolutePath
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+    }
+}

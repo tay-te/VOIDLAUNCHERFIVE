@@ -1,0 +1,207 @@
+/* ==========================================================================
+   Quick palette — the ⌘K command surface over the game.
+   ========================================================================== */
+
+.v-palette {
+  display: flex;
+  flex-direction: column;
+  width: var(--palette-w);
+  border-radius: var(--radius-surface);
+  background: var(--palette-bg);
+  border: 1px solid var(--border-panel);
+  box-shadow: var(--shadow-panel), var(--inset-hud);
+  overflow: hidden;
+  /* Read through the token so the ultralight layer can make it inert. */
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  backdrop-filter: blur(var(--blur-panel));
+}
+
+/* ------------------------------------------------------------------ input */
+
+.v-palette__input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: 58px;
+  padding: 0 var(--space-14) 0 var(--space-18);
+}
+
+.v-palette__search {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--text-muted);
+}
+
+.v-palette__query {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  font-size: var(--text-3xl);
+  color: var(--text-primary);
+}
+
+/* The field covers the whole query column and draws the text; the ghost beside
+   it is what actually measures it, so the caret can sit against the last glyph. */
+.v-palette__query input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.v-palette__ghost {
+  flex: 0 0 auto;
+  visibility: hidden;
+  white-space: pre;
+}
+
+.v-palette__query input::placeholder {
+  color: var(--text-muted);
+}
+
+.v-palette__query input:focus {
+  outline: none;
+}
+
+/** The 2 × 22 accent caret beside the query. */
+.v-palette__caret {
+  flex: 0 0 auto;
+  width: 2px;
+  height: 22px;
+  background: var(--accent);
+  /* Blinking is an opacity animation, which Ultralight handles. */
+  animation: v-caret 1.1s steps(2, jump-none) infinite;
+}
+
+@keyframes v-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ----------------------------------------------------------------- seams */
+
+.v-palette__seam {
+  height: 1px;
+  background: var(--tint-08);
+}
+
+.v-palette__caption {
+  padding: 12px 0 6px 18px;
+  /* 12 + 11 + 6 = the frame's 29px caption block, which puts the first result
+     row at 279. `normal` leading on 9.5px makes it 34 and the whole list —
+     rows, captions and footer — lands 5px low. */
+  line-height: 11px;
+}
+
+/* ----------------------------------------------------------------- list */
+
+.v-palette__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-6);
+}
+
+.v-palette__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: 48px;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-field);
+  border: 1px solid transparent;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.v-palette__row:hover:not(.v-palette__row--selected) {
+  background: var(--tint-04);
+}
+
+.v-palette__row--selected {
+  background: var(--accent-tint-weak);
+  border-color: var(--accent-border);
+  box-shadow: var(--inset-row-selected);
+}
+
+.v-palette__text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.v-palette__title {
+  font-size: var(--text-lg-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v-palette__sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The selected row previews the state change inline, in the accent ink. */
+.v-palette__row--selected .v-palette__sub {
+  color: var(--accent-ink);
+}
+
+.v-palette__keys {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.v-palette__row--selected .v-palette__keys .v-kbd {
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- footer */
+
+.v-palette__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-14);
+  padding: 10px 14px 10px 18px;
+}
+
+.v-palette__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.v-palette__hint-word {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/** The footer's right-hand side always shows the active loadout. */
+.v-palette__loadout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}

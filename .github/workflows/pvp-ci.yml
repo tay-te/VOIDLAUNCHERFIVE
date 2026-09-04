@@ -1,0 +1,382 @@
+# ---------------------------------------------------------------------------
+# void-pvp CI
+#
+# The monorepo under `pvp/` has five toolchains, so this file has five jobs plus
+# `platform-jars`, which joins three of them. What each job proves, and what it deliberately
+# cannot prove, is spelled out in `pvp/README.md` ("Verified in CI vs. needs a
+# real machine") and in `pvp/docs/TESTING.md`.
+#
+# Nothing here has a display or a GPU. The OpenGL GPUDriver, the menu backdrop
+# blur, the Mixin behaviour and a real launch are the M1 gate and are tested by
+# hand — `pvp/docs/TESTING.md` is that script.
+# ---------------------------------------------------------------------------
+name: pvp CI
+
+on:
+  push:
+    paths: ['pvp/**', '.github/workflows/pvp-ci.yml']
+  pull_request:
+    paths: ['pvp/**', '.github/workflows/pvp-ci.yml']
+
+concurrency:
+  group: pvp-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # The mod compiles to Java 8 bytecode (`options.release = 8`); Gradle itself
+  # needs 17+. 21 is what `pvp/mod/README.md` builds against.
+  JAVA_VERSION: '21'
+  NODE_VERSION: '22'
+
+jobs:
+  # -------------------------------------------------------------------------
+  # schema/ is the contract every other job compiles against, so it goes first
+  # and is cheap. validate.mjs asserts what JSON Schema cannot: the 12-mod
+  # registry against the id enums, category vs kind, unique labels, and that
+  # init.loadouts and the `loadouts` bridge event carry the same thing.
+  # -------------------------------------------------------------------------
+  schemas:
+    name: schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # validate.mjs needs exactly one dependency, and schema/ is not a
+      # workspace package — `pvp/schema/README.md` documents this line.
+      - name: Validate all four schemas
+        working-directory: pvp/schema
+        run: |
+          npm i --no-save ajv
+          node validate.mjs
+
+  # -------------------------------------------------------------------------
+  # The three core crates, plus a type-check of the Tauri crate — which is
+  # deliberately NOT a member of the root workspace (apps/desktop/README.md),
+  # so it needs its own cargo invocation and the GTK/WebKit dev packages.
+  # -------------------------------------------------------------------------
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            pvp/target
+            pvp/apps/desktop/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('pvp/Cargo.lock', 'pvp/apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo build
+        working-directory: pvp
+        run: cargo build --workspace
+
+      - name: cargo test
+        working-directory: pvp
+        run: cargo test --workspace
+
+      - name: cargo clippy
+        working-directory: pvp
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # Tauri 2 resolves webkit2gtk through pkg-config in its build scripts, so
+      # even `cargo check` needs these present on Linux.
+      - name: Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: cargo check (desktop, default features)
+        working-directory: pvp/apps/desktop/src-tauri
+        run: cargo check --all-targets
+
+      # The command layer must also compile with Tauri switched off — that is
+      # what keeps the launcher's own logic testable on a bare runner.
+      - name: cargo check (desktop, no default features)
+        working-directory: pvp/apps/desktop/src-tauri
+        run: cargo check --no-default-features
+
+      - name: cargo test (desktop)
+        working-directory: pvp/apps/desktop/src-tauri
+        run: cargo test
+
+  # -------------------------------------------------------------------------
+  # protocol -> ui -> ingame -> desktop. The build order matters: `ingame` and
+  # `desktop` consume `@void/ui`, which consumes `@void/protocol`.
+  # -------------------------------------------------------------------------
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: pvp/package.json   # pins pnpm from `packageManager`
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pvp/pnpm-lock.yaml
+
+      - name: pnpm install
+        working-directory: pvp
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @void/protocol
+        working-directory: pvp
+        run: pnpm --filter @void/protocol build
+
+      - name: Build @void/ui
+        working-directory: pvp
+        run: pnpm --filter @void/ui build
+
+      # `ingame`'s own `build` script already runs the two guards; they are
+      # repeated below so a failure names itself in the job log.
+      - name: Build @void/ingame (into the mod resources tree)
+        working-directory: pvp
+        run: pnpm --filter @void/ingame build
+
+      - name: Typecheck everything
+        working-directory: pvp
+        run: pnpm -r typecheck
+
+      - name: Test everything
+        working-directory: pvp
+        run: pnpm -r test
+
+      - name: Ultralight constraint guard (22 rules, src + emitted bundle)
+        working-directory: pvp
+        run: pnpm --filter @void/ingame lint:ultralight
+
+      - name: In-game bundle size budget (400 KB gzipped, §10)
+        working-directory: pvp
+        run: pnpm --filter @void/ingame size
+
+      - name: Build the launcher bundle
+        working-directory: pvp
+        run: pnpm --filter @void/desktop build
+
+      # The per-OS mod JARs need this bundle inside them; `platform-jars` picks
+      # it up from here rather than re-running the whole web build.
+      - name: Upload the in-game bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingame-bundle
+          path: pvp/mod/src/main/resources/assets/void/ui
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # The Legacy Fabric mod. Gradle runs on JDK 21; the mod itself is compiled
+  # with `options.release = 8`, and its own tests assert class file major 52.
+  # This produces the BASE JAR — no natives, ~324 KB (§13).
+  # -------------------------------------------------------------------------
+  mod:
+    name: mod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # Caches ~/.gradle and the Loom / Minecraft / yarn downloads.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: gradlew build
+        working-directory: pvp/mod
+        run: ./gradlew build --stacktrace
+
+      - name: Upload the base JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-client-base-jar
+          path: pvp/mod/build/libs/void-client-*.jar
+
+  # -------------------------------------------------------------------------
+  # The Ultralight JNI binding. Ultralight ships separate per-arch SDKs and no
+  # fat binaries, so macOS builds twice: macos-x64 is the one the game actually
+  # uses (1.8.9 runs x64 under Rosetta, §13) and macos-arm64 is the bonus.
+  # -------------------------------------------------------------------------
+  native:
+    name: native (${{ matrix.key }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            key: linux-x64
+          - os: windows-latest
+            key: windows-x64
+          - os: macos-14
+            key: macos-arm64
+          - os: macos-14
+            key: macos-x64
+    steps:
+      - uses: actions/checkout@v4
+
+      # javac --release 8 builds the dev.voidclient.ultralight API and the CPU
+      # test harness; the JDK also supplies jni.h.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # The SDK is a pinned revision verified by SHA-256, fetched by CMake into
+      # mod/native/sdk/ and never committed (~25 MB of .7z per platform).
+      - name: Cache the Ultralight SDK
+        uses: actions/cache@v4
+        with:
+          path: pvp/mod/native/sdk
+          key: ultralight-sdk-${{ matrix.key }}-${{ hashFiles('pvp/mod/native/cmake/UltralightSDK.cmake') }}
+
+      - name: Build (Linux)
+        if: matrix.key == 'linux-x64'
+        working-directory: pvp/mod/native
+        run: scripts/build.sh
+
+      - name: Build (Windows)
+        if: matrix.key == 'windows-x64'
+        working-directory: pvp/mod/native
+        shell: pwsh
+        run: scripts\build.ps1
+
+      - name: Build (macOS arm64)
+        if: matrix.key == 'macos-arm64'
+        working-directory: pvp/mod/native
+        run: scripts/build.sh --arch arm64
+
+      - name: Build (macOS x86_64)
+        if: matrix.key == 'macos-x64'
+        working-directory: pvp/mod/native
+        run: scripts/build.sh --arch x86_64
+
+      # The CPU-renderer test (21 checks: layout, @font-face through the
+      # classpath filesystem, evaluateScript, the __void_native round trip,
+      # readPixels, transparency, top-left origin) runs where the binary is
+      # native to the runner. It is skipped for the cross-configured macos-x64
+      # tree — an arm64 runner cannot be relied on to have Rosetta — and on
+      # Windows, where a headless run of this harness has never been proven
+      # (mod/native/README.md, "Verified here": Linux only).
+      - name: ctest cpu_render (Linux)
+        if: matrix.key == 'linux-x64'
+        working-directory: pvp/mod/native
+        run: ctest --test-dir build --output-on-failure
+
+      - name: ctest cpu_render (macOS arm64)
+        if: matrix.key == 'macos-arm64'
+        working-directory: pvp/mod/native
+        run: ctest --test-dir build-arm64 --output-on-failure
+
+      # scripts/build.sh stages into build/ for a host build and build-<arch>/
+      # for a macOS cross-configure; the tree inside is always natives/<key>/.
+      - name: Locate the staged natives
+        id: stage
+        shell: bash
+        working-directory: pvp/mod/native
+        run: |
+          for dir in build build-arm64 build-x86_64; do
+            if [ -d "$dir/natives/${{ matrix.key }}" ]; then
+              echo "path=pvp/mod/native/$dir/natives/${{ matrix.key }}" >> "$GITHUB_OUTPUT"
+              ls -l "$dir/natives/${{ matrix.key }}"
+              exit 0
+            fi
+          done
+          echo "no natives/${{ matrix.key }} staged" >&2
+          exit 1
+
+      - name: Upload natives/${{ matrix.key }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.key }}
+          path: ${{ steps.stage.outputs.path }}
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # One JAR per platform (§13). `platformJars` repackages the already-remapped
+  # JAR once per staged natives tree — a repackage, not a second Loom remap,
+  # because the classes are byte-identical and only the natives differ.
+  #
+  # `web` is a dependency as well as `mod` and `native`: a JAR without
+  # assets/void/ui in it loads a blank view in game, so the shippable artifact
+  # needs the in-game bundle staged before Gradle runs.
+  # -------------------------------------------------------------------------
+  platform-jars:
+    name: platform JARs
+    needs: [mod, native, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Download the natives trees
+        uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: staging
+
+      # build.gradle keys each JAR off the DIRECTORY NAME under
+      # native/build/natives/, so `natives-windows-x64` has to land as
+      # `windows-x64`.
+      - name: Stage them where build.gradle looks
+        run: |
+          mkdir -p pvp/mod/native/build/natives
+          for dir in staging/natives-*; do
+            key="${dir##*/natives-}"
+            mv "$dir" "pvp/mod/native/build/natives/$key"
+            echo "staged $key: $(du -sh "pvp/mod/native/build/natives/$key" | cut -f1)"
+          done
+
+      - name: Download the in-game bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ingame-bundle
+          path: pvp/mod/src/main/resources/assets/void/ui
+
+      - name: gradlew platformJars
+        working-directory: pvp/mod
+        run: ./gradlew platformJars --stacktrace
+
+      # windows-x64, macos-x64, macos-arm64 are the shipping three; linux-x64 is
+      # built for the binding's own tests and rides along here (§13).
+      - name: Upload the per-OS JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-client-platform-jars
+          path: pvp/mod/build/libs/void-client-*-*.jar
+          if-no-files-found: error

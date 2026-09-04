@@ -1,0 +1,156 @@
+/* ==========================================================================
+   HUD editor — EditorToolbar, SelectionFrame, HintBar.
+   ========================================================================== */
+
+/* ---------------------------------------------------------- EditorToolbar */
+
+.v-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 46px;
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-card);
+  background: var(--dock-bg);
+  border: 1px solid var(--border-dock);
+  box-shadow: var(--shadow-toolbar), var(--inset-hud);
+}
+
+.v-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-7);
+  height: 32px;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.v-tool:hover:not(.v-tool--active):not(.v-tool--primary):not(.v-tool--mode) {
+  background: var(--tint-06);
+  color: var(--text-primary);
+}
+
+/** The mode label on the left (`HUD layout`) — a label, not a button. */
+.v-tool--mode {
+  cursor: default;
+}
+
+.v-tool--active {
+  background: var(--accent-tint-weak);
+  border-color: var(--accent-border);
+  box-shadow: var(--inset-accent-tint);
+  color: var(--accent-ink);
+}
+
+.v-tool--primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: var(--weight-medium);
+  box-shadow: var(--shadow-cta), var(--inset-accent);
+}
+
+/* ---------------------------------------------------------- SelectionFrame */
+
+.v-selection {
+  position: absolute;
+  border-radius: var(--radius-card-sm);
+  /* Dash phase on rounded corners is inconsistent in Ultralight, so the border style
+     comes from a token the ultralight layer flips to `solid`. The
+     --accent-tint-faint fill already distinguishes the selection either way. */
+  border: 1.5px var(--selection-border-style) var(--accent);
+  background: var(--accent-tint-faint);
+  pointer-events: none;
+}
+
+/** 8 × 8 grip, centred on each corner (4px outside the box). */
+.v-selection__handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-hairline);
+  background: var(--text-primary);
+  border: 1.5px solid var(--accent);
+  pointer-events: auto;
+}
+
+.v-selection__handle--nw {
+  left: -5px;
+  top: -5px;
+  cursor: nwse-resize;
+}
+
+.v-selection__handle--ne {
+  right: -5px;
+  top: -5px;
+  cursor: nesw-resize;
+}
+
+.v-selection__handle--sw {
+  left: -5px;
+  bottom: -5px;
+  cursor: nesw-resize;
+}
+
+.v-selection__handle--se {
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
+}
+
+/** The live position readout, sitting 30px above the selection. */
+.v-selection__label {
+  position: absolute;
+  left: 0;
+  top: -30px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 4px 8px;
+  border-radius: var(--radius-badge);
+  background: var(--accent);
+  white-space: nowrap;
+}
+
+.v-selection__name {
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-base);
+  color: var(--accent-fg);
+}
+
+.v-selection__readout {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: rgba(10, 11, 12, 0.75);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
+}
+
+/* ---------------------------------------------------------------- HintBar */
+
+.v-hintbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius-chip);
+  background: var(--raised-bg);
+  border: 1px solid var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+  white-space: pre;
+}
+
+.v-hintbar__sep {
+  color: var(--tint-20);
+}

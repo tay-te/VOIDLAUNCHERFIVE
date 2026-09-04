@@ -1,0 +1,364 @@
+/**
+ * Settings — the gear, over whichever screen is up.
+ *
+ * §8.3 draws the line this screen respects: **if it changes how the game plays it is
+ * in the loadout, not here.** So there are no mod toggles on this screen. What is here
+ * is account, Java, RAM, hotkeys, theme, hide-to-tray, data folder, updates, credits.
+ *
+ * The credits section carries the Ultralight notice §13 requires, read from the SDK's
+ * own `license/NOTICES.md` under `mod/native/sdk/` and reproduced verbatim below. It is
+ * a licence obligation, not a nicety: the free tier requires a credit line from
+ * Ultralight's NOTICES to appear in an About/credits screen.
+ */
+
+import { useEffect, useState } from 'react';
+
+import {
+  Button,
+  IconButton,
+  KeybindChip,
+  PositionChips,
+  SettingsGroup,
+  SettingsRow,
+  Slider,
+  StatusDot,
+  Toggle,
+} from '@void/ui';
+
+import { captureKey, prettyKey } from '../local/keys';
+import type { UpdateInfo } from '../local/protocol';
+import { errorText, invoke } from '../local/tauri';
+import { useLaunch } from '../stores/launch';
+import { useLoadouts } from '../stores/loadouts';
+import { useSession } from '../stores/session';
+import { useUi } from '../stores/ui';
+
+export function SettingsPanel() {
+  const open = useUi((s) => s.settingsOpen);
+  const close = useUi((s) => s.closeSettings);
+
+  const { account, system, java, deviceCode, authStatus, error, loginMicrosoft, loginOffline, logout, refreshJava, dismissError } =
+    useSession();
+  const { settings, saveSettings } = useLoadouts();
+  const phase = useLaunch((s) => s.phase);
+
+  const [offlineName, setOfflineName] = useState('');
+  const [dataDir, setDataDir] = useState('');
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, close]);
+
+  if (!open || !settings) return null;
+
+  const ramMax = system ? Math.min(32768, Math.max(4096, Math.floor(system.ram_total_mb * 0.75))) : 16384;
+
+  return (
+    <div className="settings-scrim" onMouseDown={close} role="presentation">
+      <section
+        className="settings"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header className="settings__head">
+          <h1 className="settings__title">Settings</h1>
+          <span className="settings__spacer" />
+          <IconButton icon="close" size="close" label="Close settings" onClick={close} />
+        </header>
+
+        <div className="settings__body">
+          {error ? (
+            <div className="banner banner--error">
+              <span className="banner__text">{error}</span>
+              <IconButton icon="close" size="close" label="Dismiss" onClick={dismissError} />
+            </div>
+          ) : null}
+
+          {/* -------------------------------------------------------- account */}
+          <SettingsGroup caption="ACCOUNT">
+            {account ? (
+              <>
+                <SettingsRow title={account.name} sub={`${account.kind === 'offline' ? 'Offline account' : 'Microsoft account'} · ${account.uuid}`}>
+                  <Button variant="ghost" onClick={() => void logout()} disabled={phase !== 'idle'}>
+                    Sign out
+                  </Button>
+                </SettingsRow>
+              </>
+            ) : (
+              <>
+                <SettingsRow
+                  title="Microsoft account"
+                  sub={
+                    deviceCode
+                      ? `Enter ${deviceCode.user_code} at ${deviceCode.verification_uri}`
+                      : (authStatus && 'message' in authStatus ? authStatus.message : 'Sign in to launch')
+                  }
+                >
+                  <Button variant="accent" onClick={() => void loginMicrosoft()}>
+                    {deviceCode ? 'Waiting…' : 'Sign in'}
+                  </Button>
+                </SettingsRow>
+                <SettingsRow title="Play offline" sub="A local account. Works on offline-mode servers only.">
+                  <div className="inline-form">
+                    <input
+                      className="inline-form__field"
+                      value={offlineName}
+                      onChange={(e) => setOfflineName(e.target.value)}
+                      placeholder="Name"
+                      aria-label="Offline account name"
+                      maxLength={16}
+                    />
+                    <Button
+                      variant="raised"
+                      disabled={!offlineName.trim()}
+                      onClick={() => void loginOffline(offlineName)}
+                    >
+                      Use
+                    </Button>
+                  </div>
+                </SettingsRow>
+              </>
+            )}
+          </SettingsGroup>
+
+          {/* ----------------------------------------------------------- java */}
+          <SettingsGroup caption="JAVA & MEMORY">
+            <SettingsRow
+              title="Java runtime"
+              sub={
+                java?.found
+                  ? `Java ${java.version} · ${java.source} · ${java.path}`
+                  : java?.version
+                    ? `Found Java ${java.version}, but 1.8.9 needs Java 8 — Temurin 8 will be fetched on first launch`
+                    : 'Not found — Temurin 8 will be fetched from Adoptium on first launch'
+              }
+            >
+              <div className="inline-form">
+                <StatusDot tone={java?.found ? 'ok' : 'warn'} size={8} />
+                <Button variant="ghost" onClick={() => void refreshJava()}>
+                  Re-detect
+                </Button>
+              </div>
+            </SettingsRow>
+            <SettingsRow title="Find Java automatically" sub="Off lets you point at a specific JVM.">
+              <Toggle
+                size="l"
+                checked={settings.java_auto}
+                onChange={(next) => void saveSettings({ java_auto: next })}
+                label="Find Java automatically"
+              />
+            </SettingsRow>
+            {!settings.java_auto ? (
+              <SettingsRow title="Java path" sub="Path to a Java 8 `java` executable.">
+                <input
+                  className="inline-form__field inline-form__field--wide"
+                  value={settings.java_path ?? ''}
+                  placeholder="/usr/lib/jvm/java-8/bin/java"
+                  aria-label="Java path"
+                  onChange={(e) => void saveSettings({ java_path: e.target.value || null })}
+                />
+              </SettingsRow>
+            ) : null}
+            <SettingsRow
+              title="Memory"
+              value={`${(settings.ram_mb / 1024).toFixed(1)} GB`}
+              sub={
+                system
+                  ? `${system.ram_total_mb.toLocaleString()} MB installed · ${system.recommended_ram_mb} MB recommended`
+                  : 'Allocated to the JVM'
+              }
+            >
+              <Slider
+                variant="wide"
+                hideLabels
+                ariaLabel="RAM"
+                value={settings.ram_mb}
+                min={1024}
+                max={ramMax}
+                step={512}
+                readout={`${(settings.ram_mb / 1024).toFixed(1)} GB`}
+                onCommit={(next) => void saveSettings({ ram_mb: next })}
+                onChange={(next) => void saveSettings({ ram_mb: next })}
+              />
+            </SettingsRow>
+          </SettingsGroup>
+
+          {/* -------------------------------------------------------- hotkeys */}
+          <SettingsGroup caption="IN-GAME HOTKEYS">
+            <SettingsRow title="Menu key" sub="Opens and closes the VOID panel in game.">
+              <KeybindChip
+                aria-label="Menu key"
+                value={prettyKey(settings.menu_key)}
+                onCapture={captureKey}
+                onChange={(next) => void saveSettings({ menu_key: next })}
+              />
+            </SettingsRow>
+            <SettingsRow title="Cycle loadout" sub="Steps to the next loadout in the library.">
+              <KeybindChip
+                aria-label="Cycle loadout key"
+                value={prettyKey(settings.cycle_loadout_key)}
+                onCapture={captureKey}
+                onChange={(next) => void saveSettings({ cycle_loadout_key: next })}
+              />
+            </SettingsRow>
+            <SettingsRow
+              title="HUD editor grid"
+              sub="Snap size in GUI pixels. 0 disables snapping."
+              value={settings.hud_editor_grid === 0 ? 'off' : `${settings.hud_editor_grid} px`}
+            >
+              <Slider
+                variant="wide"
+                hideLabels
+                ariaLabel="HUD editor grid"
+                value={settings.hud_editor_grid}
+                min={0}
+                max={32}
+                step={1}
+                readout={settings.hud_editor_grid === 0 ? 'off' : `${settings.hud_editor_grid} px`}
+                onChange={(next) => void saveSettings({ hud_editor_grid: next })}
+              />
+            </SettingsRow>
+          </SettingsGroup>
+
+          {/* --------------------------------------------------- appearance */}
+          <SettingsGroup caption="APPEARANCE & WINDOW">
+            <SettingsRow title="Theme" sub="Shared by the launcher and the in-game UI.">
+              <PositionChips
+                aria-label="Theme"
+                value={settings.theme}
+                options={[{ id: 'void-dark', label: 'void-dark' }]}
+                onChange={(next) => void saveSettings({ theme: next })}
+              />
+            </SettingsRow>
+            <SettingsRow
+              title="In-game UI scale"
+              sub="On top of the game's GUI scale."
+              value={`${settings.ui_scale.toFixed(1)}×`}
+            >
+              <Slider
+                variant="wide"
+                hideLabels
+                ariaLabel="In-game UI scale"
+                value={settings.ui_scale}
+                min={0.5}
+                max={3}
+                step={0.1}
+                readout={`${settings.ui_scale.toFixed(1)}×`}
+                onChange={(next) => void saveSettings({ ui_scale: next })}
+              />
+            </SettingsRow>
+            <SettingsRow title="Hide to tray on launch" sub="The window returns when the game closes.">
+              <Toggle
+                size="l"
+                checked={settings.hide_to_tray_on_launch}
+                onChange={(next) => void saveSettings({ hide_to_tray_on_launch: next })}
+                label="Hide to tray on launch"
+              />
+            </SettingsRow>
+          </SettingsGroup>
+
+          {/* --------------------------------------------------------- system */}
+          <SettingsGroup caption="DATA & UPDATES">
+            <SettingsRow
+              title="Data folder"
+              sub={
+                dataDir ||
+                (system
+                  ? `${system.data_dir} — loadouts, settings, game files and the Java runtime`
+                  : 'Loadouts, settings, game files and the Java runtime')
+              }
+            >
+              <Button
+                variant="raised"
+                onClick={() => {
+                  void invoke('open_data_dir')
+                    .then(setDataDir)
+                    .catch((e) => setDataDir(errorText(e)));
+                }}
+              >
+                Open
+              </Button>
+            </SettingsRow>
+            <SettingsRow
+              title="Version"
+              sub={
+                system
+                  ? `${system.app_version} · ${system.os} ${system.os_version} · ${system.arch}`
+                  : 'unknown'
+              }
+            >
+              <span className="mono-value">{system?.app_version ?? '—'}</span>
+            </SettingsRow>
+            <SettingsRow
+              title="Updates"
+              sub={
+                update?.error
+                  ? update.error
+                  : update?.available
+                    ? `${update.version} is available`
+                    : update
+                      ? 'You are up to date'
+                      : 'The update endpoint is a placeholder until release signing is set up (§16.5)'
+              }
+            >
+              <Button
+                variant="raised"
+                onClick={() => {
+                  void invoke('updater_check')
+                    .then(setUpdate)
+                    .catch((e) =>
+                      setUpdate({
+                        available: false,
+                        current_version: system?.app_version ?? '0.0.0',
+                        version: null,
+                        notes: null,
+                        date: null,
+                        error: errorText(e),
+                      }),
+                    );
+                }}
+              >
+                Check now
+              </Button>
+            </SettingsRow>
+          </SettingsGroup>
+
+          {/* -------------------------------------------------------- credits */}
+          <SettingsGroup caption="CREDITS">
+            <div className="credits">
+              <p className="credits__line">
+                <strong>Ultralight</strong> — the in-game UI renderer.
+              </p>
+              <p className="credits__notice">
+                Ultralight © 2023 Ultralight, Inc. All rights reserved. Ultralight is a trademark of
+                Ultralight, Inc. This software includes portions of WebKit; all WebKit modifications
+                are published under LGPL 2.1 at{' '}
+                <span className="credits__url">https://github.com/ultralight-ux/WebCore</span>.
+                Ultralight also includes brotli, cURL, FreeType, Harfbuzz, mimalloc, ICU,
+                libjpeg-turbo, libpng, libressl, libxml2, libxslt, nghttp2, skia, SQLite and zlib
+                under their respective licences.
+              </p>
+              <p className="credits__line">
+                <strong>Legacy Fabric</strong> — mod loader for Minecraft 1.8.9. ·{' '}
+                <strong>Mixin</strong> (SpongePowered). · <strong>Tauri</strong>, <strong>React</strong>,{' '}
+                <strong>Zustand</strong>, <strong>Vite</strong>.
+              </p>
+              <p className="credits__line credits__line--muted">
+                Not affiliated with Mojang, Microsoft or Hypixel. Minecraft is a trademark of Mojang
+                Synergies AB.
+              </p>
+            </div>
+          </SettingsGroup>
+        </div>
+      </section>
+    </div>
+  );
+}

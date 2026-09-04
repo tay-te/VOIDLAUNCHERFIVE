@@ -1,0 +1,199 @@
+/* The gallery's own chrome. Not shipped — `dist/` never contains this file. */
+
+html,
+body {
+  margin: 0;
+  background: var(--bg-shell);
+  color: var(--text-primary);
+}
+
+.g-root {
+  min-height: 100vh;
+  /* The `ground` background: the recessed canvas colour the design puts every panel on. */
+  background: var(--bg-base);
+}
+
+.g-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 14px 24px;
+  background: var(--bg-shell);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.g-bar__title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-extrabold);
+  font-size: 20px;
+  letter-spacing: var(--tracking-title);
+}
+
+.g-bar__note {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+}
+
+.g-body {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 24px;
+}
+
+.g-nav {
+  position: sticky;
+  top: 78px;
+  flex: 0 0 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.g-nav a {
+  padding: 5px 10px;
+  border-radius: var(--radius-chip);
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.g-nav a:hover {
+  background: var(--tint-06);
+  color: var(--text-primary);
+}
+
+.g-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.g-section {
+  scroll-margin-top: 90px;
+}
+
+.g-section > h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: var(--weight-extrabold);
+  font-size: var(--text-5xl);
+  letter-spacing: var(--tracking-subtitle);
+}
+
+.g-section > p {
+  margin: 0 0 16px;
+  max-width: 68ch;
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+}
+
+.g-specimen {
+  border-radius: var(--radius-cta);
+  border: 1px solid var(--hairline);
+  background: var(--bg-base);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.g-specimen__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-10);
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.g-specimen__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+}
+
+.g-specimen__state {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.g-specimen__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  /* The `ground` background every specimen is judged against. */
+  background: var(--bg-base);
+}
+
+.g-specimen__body--dark {
+  background: var(--bg-shell);
+}
+
+/* A stand-in for the live game render behind the HUD widgets and the editor. */
+.g-game {
+  position: relative;
+  background:
+    linear-gradient(180deg, #2b4f7a 0%, #4c7fae 42%, #b99a6b 42%, #d9bf8e 100%);
+}
+
+.g-game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--dim-hud-editor);
+  pointer-events: none;
+}
+
+.g-game > * {
+  position: relative;
+  z-index: 1;
+}
+
+.g-stage {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+}
+
+.g-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.g-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.g-toggle {
+  display: inline-flex;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+}
+
+.g-toggle button {
+  padding: 6px 12px;
+  font-size: var(--text-md-2);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border: 0;
+  cursor: pointer;
+}
+
+.g-toggle button[aria-pressed='true'] {
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}

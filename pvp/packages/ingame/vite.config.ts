@@ -1,0 +1,141 @@
+import { defineConfig, type Plugin } from 'vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve, join } from 'node:path';
+import { existsSync, createReadStream } from 'node:fs';
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * The build output path is pre-agreed in CONTRACTS.md: `packages/ingame` is the only
+ * package allowed to write outside its own directory, and only here.
+ */
+const OUT_DIR = resolve(here, '../../mod/src/main/resources/assets/void/ui');
+
+/**
+ * DEV ONLY. Serves the read-only Figma exports in `pvp/design/screens` at
+ * `/__design/<name>.png` so `pnpm dev` can put the real frame behind the UI for a
+ * side-by-side pixel comparison. Never runs in `vite build`, so nothing from
+ * `design/` is ever imported at build time (CONTRACTS.md).
+ */
+function designScreensDevServer(): Plugin {
+  const screens = resolve(here, '../../design/screens');
+  return {
+    name: 'void-design-screens-dev',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url ?? '';
+        if (!url.startsWith('/__design/')) return next();
+        const name = url.slice('/__design/'.length).split('?')[0];
+        if (!/^[A-Za-z0-9._-]+\.png$/.test(name)) return next();
+        const file = join(screens, name);
+        if (!existsSync(file)) {
+          res.statusCode = 404;
+          return res.end('no such design screen');
+        }
+        res.setHeader('content-type', 'image/png');
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
+/**
+ * Injects `<script src="./void-shim.js"></script>` at the top of `<head>` in the built
+ * `index.html`.
+ *
+ * The shim is **not** an asset of this package: it is committed by the mod at
+ * `mod/src/main/resources/assets/void/shim/void-shim.js` and copied next to this bundle
+ * by Gradle's `processResources`, so it exists in the JAR but never on disk here. That
+ * is exactly why the tag is injected rather than written in `index.html` — Vite would
+ * try to resolve a missing file and fail the build.
+ *
+ * Build only. In the browser harness there is no Java, `createFakeVoid()` installs
+ * `window.void` itself, and a 404 for the shim would be noise (CONTRACTS.md, "The
+ * bridge shim").
+ */
+function injectVoidShim(): Plugin {
+  return {
+    name: 'void-inject-shim',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      if (html.includes('void-shim.js')) return html;
+      return html.replace('<head>', '<head>\n    <script src="./void-shim.js"></script>');
+    },
+  };
+}
+
+/**
+ * Strips the `crossorigin` attribute Vite puts on the emitted `<script>` and
+ * `<link>`. The bundle is loaded by the Ultralight host from the JAR classpath,
+ * not over HTTP: there is no origin to be cross to, and a CORS-flagged fetch on
+ * a custom scheme is a way to fail for nothing.
+ */
+function stripCrossorigin(): Plugin {
+  return {
+    name: 'void-strip-crossorigin',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      return html.replace(/\s+crossorigin(?==|>|\s)/g, '');
+    },
+  };
+}
+
+export default defineConfig(({ command }) => ({
+  // Relative URLs: the bundle is loaded from the JAR classpath as
+  // `assets/void/ui/index.html`, where there is no server and no origin.
+  base: './',
+  plugins: [react(), designScreensDevServer(), injectVoidShim(), stripCrossorigin()],
+  resolve: {
+    /**
+     * `@void/ui` and `@void/protocol` are consumed from **source**, not from their
+     * `dist/`. Both are written by sibling owners in this same monorepo and their
+     * `exports` maps point at build output that may not exist yet; aliasing to
+     * source means this bundle always compiles against what they have actually
+     * written, and never needs another package's build to have been run. The
+     * import specifiers in the code are the real package names either way.
+     */
+    alias: [
+      { find: '@void-ui-src', replacement: resolve(here, '../ui/src') },
+      { find: '@void/ui/tokens.css', replacement: resolve(here, '../ui/src/tokens.css') },
+      { find: '@void/ui/fonts.css', replacement: resolve(here, '../ui/src/fonts.css') },
+      { find: '@void/ui/styles.css', replacement: resolve(here, 'src/styles/void-ui.css') },
+      { find: /^@void\/ui$/, replacement: resolve(here, '../ui/src/index.ts') },
+      { find: /^@void\/protocol$/, replacement: resolve(here, '../protocol/src/index.ts') },
+      { find: '@', replacement: resolve(here, 'src') },
+    ],
+  },
+  server: {
+    // 5184, not 5183: `apps/desktop`'s `dev:web` takes 5183 with --strictPort, and
+    // reviewing the launcher and the in-game harness side by side is normal.
+    // `visual-qa/{capture,measure}.mjs` already default to 5184.
+    port: 5184,
+    strictPort: false,
+    open: false,
+  },
+  build: {
+    target: 'es2022',
+    outDir: command === 'build' ? OUT_DIR : resolve(here, 'dist'),
+    // Safe to wipe: the only things in this directory are this bundle's own outputs.
+    // The shim lives one directory up in `assets/void/shim/` and is copied here by
+    // Gradle at package time, into `build/resources/main/`, never into the source tree
+    // — so the two builds cannot delete each other's work whichever runs first
+    // (CONTRACTS.md, "The bridge shim").
+    emptyOutDir: true,
+    assetsDir: 'assets',
+    cssCodeSplit: false,
+    modulePreload: { polyfill: false },
+    sourcemap: false,
+    reportCompressedSize: true,
+    assetsInlineLimit: 4096,
+    rollupOptions: {
+      output: {
+        // One JS chunk, one CSS file. Fewer requests off a classpath loader.
+        manualChunks: undefined,
+      },
+    },
+  },
+}));

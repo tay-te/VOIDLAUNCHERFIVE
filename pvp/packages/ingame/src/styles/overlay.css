@@ -1,0 +1,492 @@
+/* ==========================================================================
+   Overlay-only styles.
+
+   Everything that draws a *component* — panels, tiles, cards, switches,
+   sliders, HUD chips, the editor toolbar and selection frame — comes from
+   `@void/ui`. What is left here is the two-layer composition this bundle owns:
+   where the layers sit, how a HUD item is positioned, and the screen-level
+   arrangements the shared package has no opinion about.
+
+   Ultralight rules that apply to every line below (ultralight-notes.md):
+   flexbox and absolute positioning only — no CSS grid (§7); 2D transforms only
+   (§4); flat scrims, never a backdrop blur (§1); no mix-blend-mode (§2); no
+   text-shadow (§3).
+   ========================================================================== */
+
+html,
+body,
+#void-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  /* The Ultralight view is composited over the game's GL frame; the page ground
+     is always transparent. */
+  background: transparent;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.void-app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The `?debug` harness renders at the authored frame size so the result can be
+   compared 1:1 against design/screens/*.png. Absent in game, where the view is
+   the framebuffer. */
+/* Dev only: the harness draws at a fixed 1300 × 820, which may be larger than
+   the browser window, so the page has to be allowed to scroll. In game the view
+   is the framebuffer and this class is never set. */
+.void-debug-body {
+  overflow: auto;
+}
+
+.void-app--debug {
+  width: var(--frame-w);
+  height: var(--frame-h);
+  margin: 0 auto;
+  border-radius: var(--radius-window);
+  background: var(--bg-base);
+}
+
+.void-debug-backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+
+.void-debug-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 40;
+  padding: 4px 9px;
+  border-radius: var(--radius-badge);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-badge-lg);
+  text-transform: uppercase;
+  box-shadow: var(--shadow-tile);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ layers */
+
+/* §6.3: in HUD mode Ultralight receives no input at all, so the HUD layer never
+   needs to take any. */
+.hud-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hud-item {
+  /* placementStyle() supplies position / transform / transform-origin. */
+  pointer-events: none;
+}
+
+.hud-crosshair-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.menu-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.menu-layer__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--dim-overlay);
+}
+
+/* The overlay panel is 960 × 600 at (170, 110) in a 1300 × 820 frame — dead
+   centre on both axes, so centring keeps it on-model at any framebuffer size. */
+.panel-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------- Mods screen */
+
+.mods-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+/* The frame draws the pane 278 × 414 — the exact height of the 4-row grid beside
+   it (4 × 96 + 3 × 10). Left to stretch it filled the panel body and pushed
+   `Edit position` ~76px below the grid's last row. */
+.mods-body .v-modsettings {
+  height: 414px;
+}
+
+/* Tabs sit at 359 in the frame: 20px clear of the 230px search field, not the
+   header's default 12px gap. */
+.mods-panel .v-panel__header .v-tabs {
+  margin-left: 8px;
+}
+
+.mods-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 620px;
+  height: 414px;
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}
+
+/* The pane's non-keystrokes stand-in: the mod's own description, in the same
+   200 × 128 box the KeystrokesPreview occupies, so the pane height is stable. */
+.mod-pane-blurb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 128px;
+  padding: 16px;
+  border-radius: var(--radius-card-sm);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile);
+  text-align: center;
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+}
+
+/* ----------------------------------------------------- Mod settings screen */
+
+/* Both overlay panels that carry a subtitle draw it *inside* the header band
+   (Mod settings at 121, 51; Loadouts at 25, 53) rather than stacked below it.
+   In flow it pushed the entire body down — 24px on Mod settings, 12px on
+   Loadouts — and every row after it missed its authored y. Out of flow here,
+   with each screen's body padding restoring the frame's own content top. */
+.mset-panel .v-panel__subtitle,
+.loadouts-panel .v-panel__subtitle {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  margin-top: 0;
+}
+
+/* Mod settings' subtitle is DM Mono in the frame, not the UI face. */
+.mset-panel .v-panel__subtitle {
+  top: 50px;
+  padding-left: 121px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+}
+
+/* Header band 52 + 36 = the frame's 89px top for the loadout cards. */
+.loadouts-panel .v-panel__body {
+  padding-top: 36px;
+}
+
+/* Header band 52 + 26 = the frame's 81px top for the preview strip. */
+.mset-panel .v-panel__body {
+  padding-top: 26px;
+}
+
+.mset {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.mset__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mset__enabled {
+  font-size: var(--text-md-2);
+  color: var(--text-secondary);
+}
+
+.mset__keybind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--radius-field);
+  background: var(--tint-06);
+  border: 1px solid var(--tint-08);
+}
+
+.mset__keybind-label {
+  font-size: var(--text-md-2);
+  color: var(--text-muted);
+}
+
+/* LIVE PREVIEW strip — 908 × 168. A plain fill over the game still the host
+   hands in; never a live blurred capture (ultralight-notes.md §1). */
+.mset__preview {
+  position: relative;
+  height: 168px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-cta);
+  background: var(--dim-preview);
+  border: 1px solid var(--tint-10);
+  overflow: hidden;
+}
+
+.mset__preview-caption,
+.mset__preview-meta {
+  position: absolute;
+  top: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs-2);
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+  /* `Bottom left   ·   1.0×   ·   85%` — the frame's spaced separators. */
+  white-space: pre;
+}
+
+/* Only the caption is set in caps; the readout beside it is sentence case. */
+.mset__preview-caption {
+  left: 16px;
+  text-transform: uppercase;
+}
+
+.mset__preview-meta {
+  right: 16px;
+}
+
+.mset__preview-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mset__groups {
+  display: flex;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+/* The footer band carries the hint on the left and the two actions on the
+   right, bottom-aligned with the hint's baseline — the frame's 547 / 563 pair. */
+.mset-panel .v-panel__footer .v-hint {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mset__footer-hint {
+  white-space: pre;
+}
+
+.mset__actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* --------------------------------------------------------- Loadouts screen */
+
+/* Three 292 × 428 cards at y 89 in the frame; the Panel's header + subtitle +
+   body padding already put the body at ~87, so no extra offset. */
+.loadouts {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------ Party screen */
+
+/* Tabs sit at 119 in the frame, a column clear of the `Party` title. */
+.party-panel .v-panel__header .v-tabs {
+  margin-left: 12px;
+}
+
+/* Header band 52 + 22 = the frame's 75px content top for both columns. */
+.party-panel .v-panel__body {
+  padding-top: 22px;
+}
+
+.party {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+}
+
+.party__left {
+  width: var(--list-w);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The frame steps 9px from the last member row to the INVITE caption; the
+   column's own 6px gap supplies most of it. */
+.party__invite-cap {
+  margin-top: 3px;
+}
+
+.party__pane {
+  width: var(--pane-w);
+  align-self: flex-start;
+  height: 500px;
+}
+
+/* The frame stacks the three game rows 6px apart inside the pane's 12px rhythm. */
+.queue-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  border-radius: var(--radius-field);
+  background: var(--tint-04);
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.queue-row--selected {
+  background: var(--accent-tint-weak);
+  border-color: var(--accent-border-strong);
+}
+
+.queue-row__radio {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--tint-20);
+  flex: 0 0 auto;
+}
+
+/* The frame fills the selected radio solid — no punched-out centre. */
+.queue-row--selected .queue-row__radio {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.queue-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.queue-row__title {
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.queue-row__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.queue-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-field);
+  background: var(--tint-06);
+  border: 1px solid var(--tint-10);
+  color: var(--text-primary);
+  font-size: var(--text-md-2);
+}
+
+.queue-picker__chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+/* `Leave party` is the frames' bare Text button — no fill, no rim. */
+.party__leave {
+  width: 100%;
+  padding: 9px 0;
+  border-radius: var(--radius-field);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+/* --------------------------------------------------------- HUD layout editor */
+
+.editor {
+  position: absolute;
+  inset: 0;
+}
+
+/* No panel here, so nothing to blur behind: the scrim is one flat fill, and it
+   is lighter than the panel dim so the real widget positions stay legible. */
+.editor__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--dim-hud-editor);
+}
+
+/* The 8px snap grid, drawn as two repeating gradients — no canvas, no SVG. */
+.editor__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 8px
+    ),
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 8px);
+}
+
+/* Widgets take input only in the editor. */
+.hud-layer--editor .hud-item {
+  pointer-events: auto;
+  cursor: move;
+}
+
+.editor__toolbar {
+  position: absolute;
+  left: 50%;
+  top: 15px;
+  transform: translateX(-50%);
+}
+
+.editor__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+}

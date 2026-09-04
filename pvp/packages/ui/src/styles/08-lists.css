@@ -1,0 +1,274 @@
+/* ==========================================================================
+   List rows and the cosmetics card — ServerRow, FriendRow, PartyMemberRow,
+   InviteRow, CosmeticCard.
+
+   All four rows share one shell: a full-width (580px) card with `--card-bg`,
+   `--shadow-tile` and `--inset-card`, differing only in height, radius and the
+   size of the leading avatar.
+   ========================================================================== */
+
+.v-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+  text-align: left;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.v-row:hover {
+  border-color: var(--tint-12);
+}
+
+.v-row--selected {
+  border-width: 1.5px;
+  border-color: var(--accent);
+  padding: 0 calc(var(--space-12) - 0.5px);
+}
+
+/** The flexible name / meta column every row carries. */
+.v-row__text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.v-row__name {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-name-tight);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v-row__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v-row__aside {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- ServerRow */
+
+.v-row--server {
+  height: 62px;
+}
+
+.v-row__icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-button);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-md-2);
+  overflow: hidden;
+}
+
+/** The ping group: a 6px dot and the value, coloured by the mod's thresholds. */
+.v-row__ping {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--ok-ink);
+}
+
+.v-row__ping--warn {
+  color: var(--warn-ink);
+}
+
+/* ------------------------------------------------------------- FriendRow */
+
+.v-row--friend {
+  height: 56px;
+}
+
+/** Offline: the avatar dims and the name drops to the secondary ink. */
+.v-row--offline .v-row__name {
+  color: var(--text-secondary);
+}
+
+/* -------------------------------------------------------- PartyMemberRow */
+
+.v-row--member {
+  height: 64px;
+}
+
+.v-row--member .v-row__name {
+  font-size: var(--text-xl-2);
+  letter-spacing: var(--tracking-member);
+}
+
+/** The launcher's party pane uses a lighter, smaller variant of the same row. */
+.v-row--member-compact {
+  height: auto;
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-card-sm);
+  background: var(--party-row-bg);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.v-row--member-compact .v-row__name {
+  font-size: var(--text-lg);
+  letter-spacing: normal;
+}
+
+.v-row--member-compact .v-row__meta {
+  font-size: var(--text-xs-2);
+}
+
+/** `LEADER` / `READY`. */
+.v-row__badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius-badge);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs-2);
+  letter-spacing: var(--tracking-badge);
+  text-transform: uppercase;
+  background: var(--accent-tint);
+  color: var(--accent-ink);
+}
+
+.v-row__badge--ok {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+
+/* ------------------------------------------------------------- InviteRow */
+
+.v-row--invite {
+  height: 54px;
+  border-radius: var(--radius-card-sm);
+}
+
+.v-row--invite .v-row__name {
+  font-size: var(--text-lg-2);
+  font-weight: var(--weight-medium);
+}
+
+.v-row--invite .v-row__meta {
+  font-size: var(--text-sm);
+}
+
+/* ---------------------------------------------------------- CosmeticCard */
+
+.v-cosmetic {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 186px;
+  height: 216px;
+  border-radius: var(--radius-cta);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+  overflow: hidden;
+  text-align: left;
+}
+
+.v-cosmetic--selected {
+  border-width: 1.5px;
+  border-color: var(--accent);
+}
+
+/** The 186 × 140 preview strip. */
+.v-cosmetic__preview {
+  position: relative;
+  height: 140px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--tint-07);
+}
+
+/** The 70 × 8 hanger bar the cape swatch hangs from. */
+.v-cosmetic__hanger {
+  position: absolute;
+  left: 57px;
+  top: 19px;
+  width: 70px;
+  height: 8px;
+  border-radius: var(--radius-hairline);
+  background: var(--tint-20);
+}
+
+/**
+ * The 62 × 98 cape swatch. The coloured glow is a box-shadow, not a filter:
+ * `filter: drop-shadow()` is [risky] in Ultralight, and every other shadow in the
+ * design is already a box-shadow.
+ */
+.v-cosmetic__swatch {
+  position: absolute;
+  left: 61px;
+  top: 23px;
+  width: 62px;
+  height: 98px;
+  border-radius: var(--radius-kbd-sm);
+}
+
+.v-cosmetic__body {
+  padding: 11px 13px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v-cosmetic__title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-name);
+  color: var(--text-primary);
+}
+
+.v-cosmetic__state {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.v-cosmetic__state--equipped {
+  color: var(--accent-ink);
+}
+
+.v-cosmetic__state--owned {
+  color: var(--ok-ink);
+}
+
+/** The `NEW` badge, top-left of the preview strip. */
+.v-cosmetic__badge {
+  position: absolute;
+  left: 9px;
+  top: 9px;
+  z-index: 1;
+}

@@ -1,0 +1,9 @@
+# Everything in here except the scripts, report.md and the five side-by-side sheets is
+# build output: the full-resolution captures, the per-pixel diffs and the score files.
+out/
+
+# The review tools are resolved at run time (see lib.mjs), but nothing stops someone
+# installing them locally.
+node_modules/
+package.json
+package-lock.json

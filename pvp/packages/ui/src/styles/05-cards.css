@@ -1,0 +1,225 @@
+/* ==========================================================================
+   Cards and panes — LoadoutCard, Pane, StatTile.
+   ========================================================================== */
+
+/* ------------------------------------------------------------- LoadoutCard */
+
+.v-loadoutcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 292px;
+  height: 428px;
+  padding: var(--pad-card);
+  border-radius: var(--radius-surface);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+  text-align: left;
+}
+
+.v-loadoutcard--active {
+  border-width: 1.5px;
+  border-color: var(--accent);
+  padding: calc(var(--pad-card) - 0.5px);
+  box-shadow: var(--shadow-card-active);
+}
+
+.v-loadoutcard__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+/* The frame centres the ACTIVE badge on the 44px icon block; the header's
+   flex-start alignment pinned it to the row's top edge, 13px high. */
+.v-loadoutcard__header > .v-badge {
+  align-self: center;
+}
+
+.v-loadoutcard__heading {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.v-loadoutcard__title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-extrabold);
+  font-size: var(--text-5xl);
+  line-height: var(--leading-subtitle);
+  letter-spacing: var(--tracking-subtitle);
+  color: var(--text-primary);
+}
+
+.v-loadoutcard__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v-loadoutcard__includes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+/** One `INCLUDES` chip: a 6px dot plus the mod label. */
+.v-includes-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 5px 9px;
+  border-radius: var(--radius-chip);
+  background: var(--hud-chip-bg);
+  border: 1px solid var(--tint-10);
+  font-size: var(--text-base-2);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  /* The frame stacks the chip rows on a 30px step — a 24px chip over a 6px gap.
+     `normal` leading on 11.5px Outfit makes it 27 and the rows drift. */
+  line-height: 12px;
+}
+
+/* Chips read in --text-primary on the active card and --text-secondary elsewhere. */
+.v-loadoutcard--active .v-includes-chip {
+  color: var(--text-primary);
+}
+
+.v-includes-chip__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.v-loadoutcard--active .v-includes-chip__dot {
+  background: var(--accent);
+}
+
+.v-loadoutcard__more {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.v-loadoutcard__stats {
+  display: flex;
+  gap: var(--space-12);
+}
+
+.v-loadoutcard__stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.v-loadoutcard__stat-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.v-loadoutcard__stat-unit {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------------------------- Pane */
+
+.v-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: var(--pane-w);
+  padding: var(--pad-pane);
+  border-radius: var(--radius-cta);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+}
+
+.v-pane__heading {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-pane);
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- StatTile */
+
+.v-stattile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: var(--radius-field);
+  background: var(--stat-tile-bg);
+}
+
+.v-stattile__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.v-stattile__unit {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------- Sparkline */
+
+/* Built from plain divs, never a canvas: Ultralight exposes no WebGL and its 2D canvas
+   is slow (design/ultralight-notes.md §5). Reuse this pattern for every chart. */
+.v-sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  height: 32px;
+}
+
+.v-sparkline__bar {
+  width: 10px;
+  border-radius: var(--radius-hairline);
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.v-sparkline__bar--current {
+  opacity: 1;
+}
+
+.v-sparkline__bar--outlier {
+  background: var(--warn);
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------ GroupCaption */
+
+.v-groupcaption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 8px 0 4px 12px;
+}
+
+.v-groupcaption__count {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-regular);
+  font-size: var(--text-xs-2);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-muted);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre;
+}

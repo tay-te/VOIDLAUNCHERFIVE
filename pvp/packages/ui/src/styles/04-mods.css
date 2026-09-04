@@ -1,0 +1,383 @@
+/* ==========================================================================
+   Mods — FilterTabs, ModTile, ModGrid, ModSettingsPanel, KeystrokesPreview,
+   EditPositionButton, SettingsGroup.
+   ========================================================================== */
+
+/* ------------------------------------------------------------- FilterTabs */
+
+.v-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.v-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 33px;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-regular);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.v-tab:hover:not(.v-tab--selected) {
+  background: var(--tint-04);
+  color: var(--text-primary);
+}
+
+.v-tab--selected {
+  background: var(--accent-tint);
+  border-color: var(--accent-border);
+  box-shadow: var(--inset-accent-tint);
+  color: var(--accent-ink);
+  font-weight: var(--weight-medium);
+}
+
+.v-tab__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.v-tab--selected .v-tab__count {
+  color: var(--accent-ink);
+}
+
+/** `Requests · 2` is tinted green to read as "needs your attention". */
+.v-tab__count--ok {
+  color: var(--ok-ink);
+}
+
+/* ---------------------------------------------------------------- ModGrid */
+
+/* The 3 × 4 grid is authored as nested flex rows, not CSS Grid: Grid is [risky] in
+   Ultralight and the design never needs it (design/ultralight-notes.md §7). */
+.v-modgrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-10);
+  width: 620px;
+  align-content: flex-start;
+}
+
+/* ---------------------------------------------------------------- ModTile */
+
+.v-modtile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  width: 200px;
+  height: 96px;
+  padding: 0 var(--pad-tile-x);
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+  text-align: left;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.v-modtile:hover {
+  background: var(--surface-1);
+  border-color: var(--tint-12);
+}
+
+/* Selection is carried by the border alone — no fill change. */
+.v-modtile--selected {
+  border-width: 1.5px;
+  border-color: var(--accent);
+  padding: 0 calc(var(--pad-tile-x) - 0.5px);
+}
+
+.v-modtile__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.v-modtile__name {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v-modtile__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* The tile carries two controls, so the select action is a stretched button *behind*
+   the contents rather than a wrapper around them: a button inside a button is invalid
+   HTML and would leave the switch unreachable by keyboard. */
+.v-modtile__select {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: none;
+}
+
+.v-modtile > *:not(.v-modtile__select) {
+  position: relative;
+  z-index: 1;
+}
+
+/* …and the switch must still take its own clicks, so it opts back in. */
+.v-modtile .v-toggle {
+  pointer-events: auto;
+}
+
+.v-modtile__select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+/** Tiles are drag sources — dragging one onto the HUD editor places that widget. */
+.v-modtile[draggable='true'] {
+  cursor: grab;
+}
+
+.v-modtile--dragging {
+  opacity: 0.6;
+}
+
+/* -------------------------------------------------------- ModSettingsPanel */
+
+.v-modsettings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: var(--pane-w-narrow);
+  padding: var(--pad-pane);
+  border-radius: var(--radius-cta);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+}
+
+.v-modsettings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.v-modsettings__title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-pane);
+  color: var(--text-primary);
+}
+
+.v-modsettings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.v-modsettings__label {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------ KeystrokesPreview */
+
+/** 200 × 128, absolutely-placed 28 × 28 keycaps. */
+.v-kspreview {
+  position: relative;
+  width: 200px;
+  height: 128px;
+  border-radius: var(--radius-card-sm);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile);
+}
+
+.v-kspreview__key {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-badge);
+  background: var(--kbd-bg-strong);
+  border: 1px solid var(--tint-12);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm-2);
+  color: var(--text-primary);
+  transition:
+    background-color var(--duration-instant) var(--ease-standard),
+    border-color var(--duration-instant) var(--ease-standard);
+}
+
+.v-kspreview__key--wide {
+  width: 44px;
+}
+
+.v-kspreview__key--pressed {
+  background: var(--accent);
+  border-color: var(--tint-30);
+  color: var(--accent-fg);
+}
+
+/* --------------------------------------------------- EditPositionButton */
+
+.v-editposition {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-10) 0;
+  border-radius: var(--radius-field);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-bold);
+  box-shadow: var(--shadow-cta), var(--inset-accent);
+  transition:
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+.v-editposition:hover:not(:disabled) {
+  box-shadow:
+    0 6px 14px -4px rgba(0, 0, 0, 0.35),
+    0 10px 28px -6px rgba(159, 139, 255, 0.55),
+    var(--inset-accent);
+}
+
+.v-editposition:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* ---------------------------------------------------------- SettingsGroup */
+
+.v-group {
+  display: flex;
+  flex-direction: column;
+  width: 448px;
+  border-radius: var(--radius-cta);
+  background: var(--card-bg);
+  border: 1px solid var(--tint-07);
+  box-shadow: var(--shadow-tile), var(--inset-card);
+  overflow: hidden;
+}
+
+.v-group__cap {
+  padding: 14px var(--pad-row-x) 8px;
+}
+
+.v-group__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 48px;
+  padding: 0 var(--pad-row-x);
+}
+
+.v-group__labels {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.v-group__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.v-group__sub {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  /* The frames space their `·` separators with runs of real spaces; HTML would
+     collapse them to one and the line would read tight. Preserved, not wrapped. */
+  white-space: pre-wrap;
+}
+
+/** The right-aligned 48px value column next to a wide slider. */
+.v-group__value {
+  flex: 0 0 48px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------- Swatches */
+
+.v-swatches {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.v-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-swatch);
+  border: 1px solid var(--tint-14);
+}
+
+.v-swatch--selected {
+  border-width: 2px;
+  border-color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------- Position chips */
+
+.v-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.v-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: var(--radius-chip);
+  background: var(--raised-bg);
+  border: 1px solid var(--border-raised);
+  box-shadow: var(--shadow-raised), var(--inset-raised);
+  font-size: var(--text-base-2);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.v-chip:hover:not(.v-chip--selected) {
+  color: var(--text-primary);
+}
+
+.v-chip--selected {
+  background: var(--accent-tint);
+  border-color: var(--accent-border);
+  box-shadow: var(--inset-accent-tint);
+  color: var(--accent-ink);
+  font-weight: var(--weight-medium);
+}

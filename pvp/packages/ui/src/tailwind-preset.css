@@ -1,0 +1,205 @@
+/* ==========================================================================
+   @void/ui — Tailwind 4 preset
+
+   Maps the VOID design tokens onto Tailwind's theme namespaces, so utilities read in
+   the design's own vocabulary: `bg-shell`, `text-ink-2`, `rounded-panel`, `shadow-cta`,
+   `font-display`, `text-hero`, `tracking-caps`.
+
+   Usage — in the consuming app's entry stylesheet:
+
+       @import 'tailwindcss';
+       @import '@void/ui/tokens.css';
+       @import '@void/ui/fonts.css';
+       @import '@void/ui/tailwind-preset.css';
+       @import '@void/ui/styles.css';
+
+   Every value here is `var(--token)`, never a copied literal, so a token change lands
+   in the utilities too — and, crucially, so the `[data-renderer="ultralight"]` layer
+   still reaches anything built out of these utilities. A Tailwind theme value that
+   baked in a hex would freeze the launcher's colours into the in-game bundle.
+   ========================================================================== */
+
+@theme {
+  /* ------------------------------------------------------------- colours */
+  --color-shell: var(--bg-shell);
+  --color-ground: var(--bg-base);
+  --color-card: var(--surface-1);
+  --color-card-raised: var(--surface-2);
+  --color-pill: var(--surface-3);
+
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-ok: var(--ok);
+  --color-ok-ink: var(--ok-ink);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-fear: var(--danger);
+  --color-sky: var(--sky);
+  --color-teal: var(--teal);
+
+  --color-panel: var(--panel-bg);
+  --color-palette: var(--palette-bg);
+  --color-dock: var(--dock-bg);
+  --color-tile: var(--card-bg);
+  --color-raised: var(--raised-bg);
+  --color-key: var(--key-bg);
+  --color-field: var(--field-bg);
+  --color-kbd: var(--kbd-bg);
+  --color-hud-chip: var(--hud-chip-bg);
+  --color-hud-chip-strong: var(--hud-chip-bg-strong);
+  --color-stat-tile: var(--stat-tile-bg);
+  --color-party-row: var(--party-row-bg);
+
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-tint-weak: var(--accent-tint-weak);
+  --color-accent-tint-icon: var(--accent-tint-icon);
+  --color-accent-tint-strong: var(--accent-tint-strong);
+  --color-accent-tint-faint: var(--accent-tint-faint);
+  --color-ok-tint: var(--ok-tint);
+
+  --color-rim: var(--rim);
+  --color-hairline: var(--hairline);
+  --color-seam: var(--seam);
+  --color-divider: var(--divider);
+  --color-border-panel: var(--border-panel);
+  --color-border-dock: var(--border-dock);
+  --color-border-raised: var(--border-raised);
+  --color-accent-border: var(--accent-border);
+  --color-accent-border-strong: var(--accent-border-strong);
+
+  --color-tint-04: var(--tint-04);
+  --color-tint-05: var(--tint-05);
+  --color-tint-06: var(--tint-06);
+  --color-tint-07: var(--tint-07);
+  --color-tint-08: var(--tint-08);
+  --color-tint-10: var(--tint-10);
+  --color-tint-12: var(--tint-12);
+  --color-tint-14: var(--tint-14);
+  --color-tint-20: var(--tint-20);
+  --color-tint-30: var(--tint-30);
+  --color-tint-35: var(--tint-35);
+
+  /* -------------------------------------------------------------- radius */
+  --radius-hairline: var(--radius-hairline);
+  --radius-xs: var(--radius-xs);
+  --radius-kbd-sm: var(--radius-kbd-sm);
+  --radius-kbd: var(--radius-kbd);
+  --radius-badge: var(--radius-badge);
+  --radius-swatch: var(--radius-swatch);
+  --radius-chip: var(--radius-chip);
+  --radius-control: var(--radius-control);
+  --radius-field: var(--radius-field);
+  --radius-button: var(--radius-button);
+  --radius-card-sm: var(--radius-card-sm);
+  --radius-avatar: var(--radius-avatar);
+  --radius-card: var(--radius-card);
+  --radius-pill: var(--radius-pill);
+  --radius-cta: var(--radius-cta);
+  --radius-surface: var(--radius-surface);
+  --radius-window: var(--radius-window);
+  --radius-panel: var(--radius-panel);
+
+  /* ------------------------------------------------------------ typefaces */
+  --font-display: var(--font-display);
+  --font-ui: var(--font-ui);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-ui);
+
+  /* ---------------------------------------------------------- type sizes */
+  --text-2xs: var(--text-2xs);
+  --text-xs: var(--text-xs);
+  --text-xs2: var(--text-xs-2);
+  --text-sm: var(--text-sm);
+  --text-sm2: var(--text-sm-2);
+  --text-base: var(--text-base);
+  --text-base2: var(--text-base-2);
+  --text-md: var(--text-md);
+  --text-md2: var(--text-md-2);
+  --text-lg: var(--text-lg);
+  --text-lg2: var(--text-lg-2);
+  --text-xl: var(--text-xl);
+  --text-xl2: var(--text-xl-2);
+  --text-2xl: var(--text-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-4xl: var(--text-4xl);
+  --text-5xl: var(--text-5xl);
+  --text-6xl: var(--text-6xl);
+  --text-hero: var(--text-hero);
+
+  /* ----------------------------------------------------------- tracking */
+  --tracking-hero: var(--tracking-hero);
+  --tracking-title: var(--tracking-title);
+  --tracking-subtitle: var(--tracking-subtitle);
+  --tracking-pane: var(--tracking-pane);
+  --tracking-cta: var(--tracking-cta);
+  --tracking-name: var(--tracking-name);
+  --tracking-nav: var(--tracking-nav);
+  --tracking-caps-xl: var(--tracking-caps-xl);
+  --tracking-caps-kbd: var(--tracking-caps-kbd);
+  --tracking-caps-lg: var(--tracking-caps-lg);
+  --tracking-caps: var(--tracking-caps);
+  --tracking-caps-sm: var(--tracking-caps-sm);
+  --tracking-caps-xs: var(--tracking-caps-xs);
+  --tracking-tag: var(--tracking-tag);
+  --tracking-cps: var(--tracking-cps);
+  --tracking-badge: var(--tracking-badge);
+  --tracking-badge-lg: var(--tracking-badge-lg);
+
+  /* ------------------------------------------------------------ leading */
+  --leading-nav: var(--leading-nav);
+  --leading-title: var(--leading-title);
+  --leading-subtitle: var(--leading-subtitle);
+  --leading-kbd: var(--leading-kbd);
+  --leading-hero: var(--leading-hero);
+
+  /* ------------------------------------------------------------ shadows */
+  --shadow-tile: var(--shadow-tile);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-key: var(--shadow-key);
+  --shadow-thumb: var(--shadow-thumb);
+  --shadow-toolbar: var(--shadow-toolbar);
+  --shadow-dock: var(--shadow-dock);
+  --shadow-panel: var(--shadow-panel);
+  --shadow-cta: var(--shadow-cta);
+  --shadow-switch-on: var(--shadow-switch-on);
+  --shadow-key-on: var(--shadow-key-on);
+  --shadow-card-active: var(--shadow-card-active);
+
+  /* The bevels. Tailwind emits these as `inset-shadow-*` utilities. */
+  --inset-shadow-raised: var(--inset-raised);
+  --inset-shadow-raised-soft: var(--inset-raised-soft);
+  --inset-shadow-card: var(--inset-card);
+  --inset-shadow-hud: var(--inset-hud);
+  --inset-shadow-dock: var(--inset-dock);
+  --inset-shadow-field: var(--inset-field);
+  --inset-shadow-field-panel: var(--inset-field-panel);
+  --inset-shadow-accent: var(--inset-accent);
+  --inset-shadow-accent-tint: var(--inset-accent-tint);
+  --inset-shadow-switch: var(--inset-switch);
+  --inset-shadow-key: var(--inset-key);
+  --inset-shadow-kbd: var(--inset-kbd);
+  --inset-shadow-canvas: var(--inset-canvas);
+  --inset-shadow-row-selected: var(--inset-row-selected);
+
+  /* ------------------------------------------------------------- motion */
+  --ease-standard: var(--ease-standard);
+  --ease-out: var(--ease-out);
+  --ease-in: var(--ease-in);
+
+  /* --------------------------------------------------------------- blur
+     Launcher only. In the overlay these resolve to 0 through the ultralight
+     layer, so a `backdrop-blur-panel` utility is inert rather than wrong. */
+  --blur-panel: var(--blur-panel);
+  --blur-dock: var(--blur-dock);
+  --blur-dim: var(--blur-dim);
+}
+
+/* The design's spacing ramp has odd steps (5, 7, 9, 11, 13, 21, 25) that Tailwind's
+   4px scale cannot express. Keep the default 4px --spacing and reach for the token
+   directly — `p-[var(--space-25)]` — where the design is off-grid. */
