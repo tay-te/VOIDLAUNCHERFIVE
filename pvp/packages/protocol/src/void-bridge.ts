@@ -39,6 +39,7 @@
  */
 
 import type {
+  EffectSurface,
   GameplayModId,
   HUDAnchor,
   HUDItem,
@@ -112,7 +113,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The six methods JS may call on `window.void`. Closed set. */
+/** The seven methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -120,9 +121,10 @@ export const VOID_CALLS = [
   'switchLoadout',
   'closeMenu',
   'openKeybindCapture',
+  'setSurfaces',
 ] as const;
 
-/** Name of one of the six calls. */
+/** Name of one of the seven calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
@@ -148,6 +150,7 @@ export interface VoidCallParamsMap {
   switchLoadout: [id: LoadoutId];
   closeMenu: [];
   openKeybindCapture: [modId: ModId];
+  setSurfaces: [surfaces: EffectSurface[]];
 }
 
 /** Return value of each call. `openKeybindCapture` resolves this through a Promise. */
@@ -158,6 +161,7 @@ export interface VoidCallReturnsMap {
   switchLoadout: boolean;
   closeMenu: null;
   openKeybindCapture: Keybind | null;
+  setSurfaces: number;
 }
 
 /** One JS → Java call envelope. */
@@ -235,6 +239,19 @@ export interface VoidBridge {
    * null when the player cancelled with Escape. Never rejects.
    */
   openKeybindCapture(modId: ModId): Promise<Keybind | null>;
+
+  /**
+   * Hand the host the rectangles it should draw effects behind, replacing the previous set.
+   *
+   * The overlay's CSS carries no blurred shadows — a blur is the costliest thing a CPU rasteriser
+   * does, and in game it cost more than everything else combined. The design keeps them anyway by
+   * drawing them in GL underneath the view, where a blur is free. The values sent are the authored
+   * ones (`--shadow-*-gl`, copied verbatim from `design/tokens.css`), so this is the Figma shadow
+   * rather than a stand-in for it.
+   *
+   * Call it when layout changes, not per frame. Returns how many surfaces the host kept.
+   */
+  setSurfaces(surfaces: EffectSurface[]): number;
 }
 
 declare global {
@@ -447,6 +464,10 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
     closeMenu() {
       call('closeMenu', []);
       return null;
+    },
+
+    setSurfaces(surfaces) {
+      return call('setSurfaces', [surfaces]) ?? 0;
     },
 
     openKeybindCapture(modId) {

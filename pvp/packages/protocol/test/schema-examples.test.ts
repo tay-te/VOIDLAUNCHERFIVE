@@ -71,7 +71,7 @@ describe('schema examples', () => {
     expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(20);
   });
 
-  it('covers all seven events and all six calls in the bridge examples', () => {
+  it('covers all seven events and all seven calls in the bridge examples', () => {
     const events = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { e: string }> => 'e' in e).map(
         (e) => e.e,
@@ -98,6 +98,7 @@ describe('schema examples', () => {
       'setGameplay',
       'setHud',
       'setModSetting',
+      'setSurfaces',
       'switchLoadout',
     ]);
   });

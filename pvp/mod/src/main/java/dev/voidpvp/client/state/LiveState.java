@@ -20,10 +20,21 @@ import java.util.Map;
  * the game keeps working and the changes are replayed on reconnect (§6.1).</p>
  *
  * <p>Threading: writes arrive from the WS thread (an {@code init} or
- * {@code loadout} frame) and from the render thread (a bridge call), reads
- * happen on the render and client threads every frame. Every mutation is
- * {@code synchronized}; every field an actuator polls is {@code volatile}, so
- * an actuator never has to take a lock in the frame loop.</p>
+ * {@code loadout} frame) and from the UI thread (a bridge call — Ultralight no
+ * longer shares Minecraft's render thread), reads happen on the game thread
+ * every frame. Every mutation is {@code synchronized}; every field the game
+ * loop polls is {@code volatile}, so it never has to take a lock in the frame
+ * loop.</p>
+ *
+ * <p><b>{@link Loadout} itself is not thread-safe, and does not need to be:
+ * every instance this class holds is read and written only under this monitor.
+ * </b> That is why the accessors that hand a caller something derived from the
+ * active loadout — {@link #loadoutId}, {@link #loadoutJson}, {@link
+ * #libraryJson} — exist at all, and why the two settings the game loop reads
+ * per frame are mirrored into fields below rather than looked up through
+ * {@link #loadout}. A caller that keeps the object {@code loadout()} returns
+ * and reads it after the monitor is released is reading a map another thread
+ * may be writing.</p>
  */
 public final class LiveState {
 
@@ -86,6 +97,16 @@ public final class LiveState {
     /** Optional in-game toggle for the keystrokes overlay; NONE means always on. */
     public volatile int keystrokesToggleCode;
 
+    // -- HUD-mod settings the game loop polls ----------------------------
+    //
+    // These two are drawn by the page, not by Java, so they would normally live only in the
+    // loadout. They are mirrored here because the game loop asks for them on a hot path — the
+    // keystrokes hotkey once a frame, the held-item slot once a tick — and reaching through
+    // loadout() for them means either taking this monitor 20-60 times a second or reading a
+    // Loadout's maps while the UI thread writes them. A volatile boolean is neither.
+    public volatile boolean keystrokesOn = true;
+    public volatile boolean armorShowHeldItem = true;
+
     // -- global settings -------------------------------------------------
     public volatile int menuKeyCode = KeyDefaults.RSHIFT;
     public volatile int cycleLoadoutKeyCode = KeyDefaults.L;
@@ -126,8 +147,31 @@ public final class LiveState {
         return initialised;
     }
 
+    /**
+     * The live active loadout.
+     *
+     * <p><b>The object is mutable and is not guarded once this returns.</b> Use it only for a read
+     * that finishes before another thread could write — in practice, only inside this class and in
+     * tests. Callers on the game thread want {@link #loadoutId}, {@link #loadoutJson} or one of the
+     * mirrored fields above.</p>
+     */
     public synchronized Loadout loadout() {
         return active;
+    }
+
+    /**
+     * The active loadout's id, read under the monitor.
+     *
+     * <p>Safe where {@code loadout().id()} is not: {@code id} is final, but the reference this
+     * dereferences is not, and a switch may replace it between the two calls.</p>
+     */
+    public synchronized String loadoutId() {
+        return active.id();
+    }
+
+    /** The active loadout as the {@code loadout} bridge event carries it. */
+    public synchronized JsonObject loadoutJson() {
+        return active.toJson();
     }
 
     public synchronized GlobalSettings settings() {
@@ -235,6 +279,9 @@ public final class LiveState {
 
         keystrokesToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("keystrokes", "keybind", "NONE"));
+
+        keystrokesOn = l.isOn("keystrokes");
+        armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);
     }
 
     /** {@code #RRGGBB} / {@code #RRGGBBAA} to packed ARGB. */

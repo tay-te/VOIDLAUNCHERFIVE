@@ -35,6 +35,8 @@ class BridgeExamplesTest {
     private static final class Host implements BridgeHost {
         int closes;
         String captured;
+        java.util.List<dev.voidpvp.client.render.EffectSurface> surfaces =
+                java.util.Collections.emptyList();
 
         @Override
         public void closeMenu() {
@@ -44,6 +46,11 @@ class BridgeExamplesTest {
         @Override
         public void beginKeybindCapture(String modId) {
             captured = modId;
+        }
+
+        @Override
+        public void setSurfaces(java.util.List<dev.voidpvp.client.render.EffectSurface> next) {
+            surfaces = next;
         }
     }
 
@@ -254,8 +261,58 @@ class BridgeExamplesTest {
             Schemas.assertContains(expected.get("returns"), answer.get("returns"),
                     name + " returns");
         }
+        // closeMenu touches screens and GL, so it is queued rather than run inside the call —
+        // see the classification block in VoidBridge. The answer is still the documented one.
+        assertEquals(0, host.closes, "closeMenu does not touch the game inside the call");
+        assertEquals(1, bridge.runGameThreadWork(), "it ran at the drain instead");
         assertEquals(1, host.closes, "closeMenu reached the host");
         assertTrue(bridge.errors().isEmpty(), "no dispatch threw: " + bridge.errors());
+    }
+
+    @Test
+    @DisplayName("setSurfaces hands the host the geometry the GL shadow pass draws")
+    void surfacesReachTheHost() {
+        LiveState state = seededState();
+        Host host = new Host();
+        VoidBridge bridge = new VoidBridge(state, host);
+
+        JsonObject call = callExample("setSurfaces", false);
+        JsonObject answer = Json.parseObject(bridge.dispatch(call.toString()));
+        assertEquals("setSurfaces", answer.get("c").getAsString());
+        assertEquals(1, answer.get("returns").getAsInt(), "one surface accepted");
+
+        assertEquals(1, host.surfaces.size());
+        dev.voidpvp.client.render.EffectSurface panel = host.surfaces.get(0);
+        assertEquals("panel", panel.id);
+        assertEquals(1184f, panel.width, 0.001f);
+        // The authored --shadow-panel-gl, carried through from design/tokens.css untouched. This
+        // is the whole point of the channel: the overlay's CSS drops the shadow because a blur
+        // costs the CPU rasteriser more than everything else combined, and the host draws the
+        // Figma value instead of an approximation of it.
+        assertEquals(70f, panel.blur, 0.001f);
+        assertEquals(-20f, panel.spread, 0.001f);
+        assertEquals(0.6f, panel.alpha, 0.001f);
+        assertTrue(panel.visible(), "a sized, non-transparent surface is worth drawing");
+    }
+
+    @Test
+    @DisplayName("a malformed surface is skipped, not thrown")
+    void malformedSurfacesAreSkipped() {
+        LiveState state = seededState();
+        Host host = new Host();
+        VoidBridge bridge = new VoidBridge(state, host);
+
+        // This arrives whenever the page's layout moves, so a bad entry has to cost a missing
+        // shadow and never a broken frame.
+        String call = "{\"c\":\"setSurfaces\",\"params\":[["
+                + "{\"id\":\"no-shadow\",\"x\":0,\"y\":0,\"w\":10,\"h\":10,\"radius\":0},"
+                + "\"not-an-object\","
+                + "{\"id\":\"ok\",\"x\":1,\"y\":2,\"w\":3,\"h\":4,\"radius\":5,"
+                + "\"shadow\":{\"dx\":0,\"dy\":1,\"blur\":2,\"spread\":0,"
+                + "\"color\":[0,0,0,0.5]}}]]}";
+        JsonObject answer = Json.parseObject(bridge.dispatch(call));
+        assertEquals(1, answer.get("returns").getAsInt(), "only the well-formed one survives");
+        assertEquals("ok", host.surfaces.get(0).id);
     }
 
     @Test

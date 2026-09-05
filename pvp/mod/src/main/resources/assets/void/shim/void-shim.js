@@ -39,7 +39,7 @@
 
   var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
-    'openKeybindCapture'];
+    'openKeybindCapture', 'setSurfaces'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -225,6 +225,17 @@
     /** Close the menu screen and give the mouse back to the game. */
     closeMenu: function () {
       return call('closeMenu', []);
+    },
+
+    /**
+     * Hand the host the rectangles it should draw shadows behind, replacing the
+     * previous set. The overlay's CSS has no blurred shadows because a blur is
+     * the most expensive thing the CPU rasteriser does; the host draws them in
+     * GL instead, from the authored Figma values. Call on layout change, not
+     * per frame. Returns how many surfaces the host kept.
+     */
+    setSurfaces: function (surfaces) {
+      return call('setSurfaces', [surfaces]) || 0;
     },
 
     /**

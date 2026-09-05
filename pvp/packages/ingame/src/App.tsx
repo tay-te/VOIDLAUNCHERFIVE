@@ -5,6 +5,7 @@
 
 import { useVoidStore } from '@/store/store';
 import { HudLayer } from '@/hud/HudLayer';
+import { useEffectSurfaces } from '@/effects/surfaces';
 import { MenuLayer } from '@/menu/MenuLayer';
 import { isDebugBridge } from '@/bridge/connect';
 
@@ -20,6 +21,9 @@ export interface AppProps {
 
 export function App({ debugFrame, backdrop }: AppProps) {
   const menuOpen = useVoidStore((s) => s.menuOpen);
+  // The host draws the panel's shadow in GL; tell it where the panel is. Only while the menu is up,
+  // because that is the only time any of the tracked surfaces exist.
+  useEffectSurfaces(menuOpen);
   const editing = useVoidStore((s) => s.route.name === 'hud-editor');
 
   return (

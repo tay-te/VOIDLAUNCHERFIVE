@@ -896,6 +896,37 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
         ]
       }
     ]
+  },
+  {
+    "c": "setSurfaces",
+    "params": [
+      [
+        {
+          "id": "panel",
+          "x": 18,
+          "y": 18,
+          "w": 1184,
+          "h": 654,
+          "radius": 20,
+          "shadow": {
+            "dx": 0,
+            "dy": 30,
+            "blur": 70,
+            "spread": -20,
+            "color": [
+              0,
+              0,
+              0,
+              0.6
+            ]
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "c": "setSurfaces",
+    "returns": 1
   }
 ];
 

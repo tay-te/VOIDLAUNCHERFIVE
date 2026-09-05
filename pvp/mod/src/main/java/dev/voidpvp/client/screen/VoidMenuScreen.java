@@ -29,6 +29,8 @@ public final class VoidMenuScreen extends Screen {
 
     private final VoidClient voidClient;
     private final BlurBackdrop backdrop = new BlurBackdrop();
+    private final dev.voidpvp.client.render.ShadowPass shadows =
+            new dev.voidpvp.client.render.ShadowPass();
 
     public VoidMenuScreen(VoidClient voidClient) {
         // Deliberately not called `client`: Screen already has a field of that
@@ -52,6 +54,7 @@ public final class VoidMenuScreen extends Screen {
     @Override
     public void removed() {
         backdrop.release();
+        shadows.shutdown();
         voidClient.ui().setFocus(false);
         voidClient.onMenuClosed();
     }
@@ -65,6 +68,19 @@ public final class VoidMenuScreen extends Screen {
 
         // 1-3. framebuffer copy, two-pass blur, draw back with the tint
         backdrop.draw(this.width, this.height, fbWidth, fbHeight, TINT);
+
+        // 3b. the shadows the overlay's CSS deliberately does not draw. They go between the
+        // backdrop and the UI so they fall on the blurred game, exactly where a CSS box-shadow
+        // would have landed — but on the GPU, where a blur is free. See ShadowPass for why.
+        //
+        // The page measures in its own CSS pixels; this draws under Minecraft's GUI projection.
+        // Those are two different spaces — the view is sized by a design-fit factor and the GUI by
+        // the player's GUI scale — so convert by the ratio the two actually have, rather than by
+        // the view's device scale, which would land the shadow at the wrong size and offset.
+        int cssWidth = ui.logicalWidth();
+        if (cssWidth > 0) {
+            shadows.draw(voidClient.surfaces(), (double) this.width / cssWidth);
+        }
 
         // 4. the menu layer, from the same view the HUD uses
         voidClient.pumpUi();

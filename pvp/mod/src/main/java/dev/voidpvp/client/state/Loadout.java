@@ -20,6 +20,14 @@ import java.util.Map;
  * both the mods and their settings optional precisely so old loadouts stay
  * valid when a mod is added, and resolving that once here means no caller ever
  * has to remember the "absent means default" rule.</p>
+ *
+ * <p><b>Not thread-safe, deliberately.</b> A loadout is a plain mutable object;
+ * {@link LiveState} owns every instance that is live and touches it only under
+ * its own monitor, which is what makes it safe with a UI thread, a game thread
+ * and the WS thread all writing settings. Adding a second lock down here would
+ * buy nothing and would put a lock in the frame loop. Anything that escapes
+ * {@code LiveState} — {@link #toJson}, {@link #hud} — is a copy for that
+ * reason.</p>
  */
 public final class Loadout {
 
@@ -176,8 +184,14 @@ public final class Loadout {
         return clamped;
     }
 
+    /**
+     * The HUD layout. A copy, not a view: the caller — {@code LiveState.setHud} handing the layout
+     * to the sink — reads it after the monitor that guards every write to this list is released,
+     * and an unmodifiable view would still see those writes. At most twelve immutable
+     * {@link HudItem}s, so the copy is free.
+     */
     public List<HudItem> hud() {
-        return Collections.unmodifiableList(hud);
+        return Collections.unmodifiableList(new ArrayList<HudItem>(hud));
     }
 
     /** Replaces (or appends) the placement of one HUD item, preserving paint order. */

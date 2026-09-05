@@ -423,7 +423,8 @@ export type Call =
   | SetModSettingCall
   | SwitchLoadoutCall
   | CloseMenuCall
-  | OpenKeybindCaptureCall;
+  | OpenKeybindCaptureCall
+  | SetSurfacesCall;
 /**
  * [id, on].
  *
@@ -487,6 +488,13 @@ export type CloseMenuParams = any[];
  */
 export type OpenKeybindCaptureParams = [ModId];
 /**
+ * [surfaces]. Replaces the whole set; an empty array clears it.
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetSurfacesParams = [EffectSurface[]];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -495,7 +503,8 @@ export type CallResult =
   | SetModSettingResult
   | SwitchLoadoutResult
   | CloseMenuResult
-  | OpenKeybindCaptureResult;
+  | OpenKeybindCaptureResult
+  | SetSurfacesResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -516,6 +525,10 @@ export type CloseMenuReturns = null;
  * Two different things travel in this shape, which is why it admits null twice over. The **synchronous** answer of `__void_native` is always null and means "capture armed". The **deferred** envelope, delivered later through `__emit`, carries the captured key — or null again when the player cancelled with Escape. A shim distinguishes them by channel, never by value: the synchronous answer opens a Promise, the `__emit` envelope resolves it.
  */
 export type OpenKeybindCaptureReturns = Keybind | null;
+/**
+ * How many surfaces the host kept, so the page can tell the call arrived.
+ */
+export type SetSurfacesReturns = number;
 
 /**
  * The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
@@ -1314,6 +1327,74 @@ export interface OpenKeybindCaptureCall {
   params: OpenKeybindCaptureParams;
 }
 /**
+ * `void.setSurfaces(surfaces)`. Tells the host where the elements that carry an expensive effect are, so it can draw that effect in GL beneath the view instead. The overlay's CSS sets every `box-shadow` to `none` because a blurred shadow is the costliest thing a CPU rasteriser does; this is how the design keeps them anyway. The page sends the *authored* Figma values (the `--shadow-*-gl` tokens), so what the host draws is the design, not an approximation. Sent on layout change, not per frame.
+ */
+export interface SetSurfacesCall {
+  /**
+   * Call discriminator; always `setSurfaces`.
+   */
+  c: 'setSurfaces';
+  params: SetSurfacesParams;
+}
+/**
+ * One rectangle the host draws a shadow behind. Geometry is in CSS pixels of the view, the same space the page lays out in — the host scales by the device scale it already knows, so the page never has to reason about device pixels or the Retina factor.
+ */
+export interface EffectSurface {
+  /**
+   * Which surface this is, for logging. Not interpreted.
+   */
+  id: string;
+  /**
+   * Left edge in CSS pixels.
+   */
+  x: number;
+  /**
+   * Top edge in CSS pixels.
+   */
+  y: number;
+  /**
+   * Width in CSS pixels.
+   */
+  w: number;
+  /**
+   * Height in CSS pixels.
+   */
+  h: number;
+  /**
+   * Corner radius in CSS pixels.
+   */
+  radius: number;
+  shadow: EffectShadow;
+}
+/**
+ * A CSS `box-shadow` decomposed into numbers, so neither Java nor GLSL has to parse CSS. Taken from the authored `--shadow-*-gl` token, which the token build copies verbatim out of `design/tokens.css` — so this is the Figma value.
+ */
+export interface EffectShadow {
+  /**
+   * Horizontal offset in CSS pixels.
+   */
+  dx: number;
+  /**
+   * Vertical offset in CSS pixels.
+   */
+  dy: number;
+  /**
+   * Blur radius in CSS pixels.
+   */
+  blur: number;
+  /**
+   * Spread in CSS pixels; negative shrinks.
+   */
+  spread: number;
+  /**
+   * Straight-alpha RGBA, each channel 0-1.
+   *
+   * @minItems 4
+   * @maxItems 4
+   */
+  color: number[];
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -1372,4 +1453,14 @@ export interface OpenKeybindCaptureResult {
    */
   c: 'openKeybindCapture';
   returns: OpenKeybindCaptureReturns;
+}
+/**
+ * Envelope for a setSurfaces return value.
+ */
+export interface SetSurfacesResult {
+  /**
+   * Call discriminator; always `setSurfaces`.
+   */
+  c: 'setSurfaces';
+  returns: SetSurfacesReturns;
 }

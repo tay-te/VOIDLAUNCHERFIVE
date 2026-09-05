@@ -62,7 +62,11 @@ final class UltralightWebView implements WebView {
         // -Dvoid.ui.renderer=gpu selects the accelerated view, which renders through our own
         // OpenGL GPUDriver. The CPU renderer is the default: Ultralight rasterises into a surface
         // and owns its own damage tracking, and we upload the dirty rectangle into a texture.
-        boolean accelerated = "gpu".equalsIgnoreCase(System.getProperty("void.ui.renderer", "cpu"));
+        String choice = System.getenv("VOID_UI_RENDERER");
+        if (choice == null) {
+            choice = System.getProperty("void.ui.renderer", "cpu");
+        }
+        boolean accelerated = "gpu".equalsIgnoreCase(choice);
         View view = accelerated
                 ? renderer.createView(Math.max(1, width), Math.max(1, height), true)
                 : renderer.createViewCpu(Math.max(1, width), Math.max(1, height), true);

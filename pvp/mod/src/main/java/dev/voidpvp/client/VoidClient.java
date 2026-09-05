@@ -80,8 +80,18 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private VoidSocket socket;
     private SessionStats stats;
     private Float savedGamma;
-    private String captureModId;
-    private boolean captureActive;
+    /**
+     * Keybind capture, armed from the UI thread and read on the game thread.
+     *
+     * <p>{@code volatile} because {@code beginKeybindCapture} is one of the two bridge calls the
+     * bridge runs inline (see the classification in {@link VoidBridge}): arming has to be visible
+     * to {@code VoidMenuScreen.keyPressed} before the player's next key press, which is sooner
+     * than the next drain. Two independent flags are enough here — {@code captureModId} is only
+     * ever read while {@code captureActive} is true, and a capture is armed and consumed by one
+     * player action at a time.</p>
+     */
+    private volatile String captureModId;
+    private volatile boolean captureActive;
     private long lastFrameNanos;
 
     public static VoidClient get() {
@@ -168,6 +178,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null) {
             return;
         }
+        // Bridge calls that need the game thread run here, first thing. This is the fast drain of
+        // the two: a closeMenu the page made lands within a frame rather than within a tick, so
+        // the menu still shuts on the click that asked for it and not up to 50 ms later. It runs
+        // before pollHotkeys because the page's request is older than this frame's key sample.
+        bridge.runGameThreadWork();
         // Hotkeys are sampled here rather than on the 20 Hz client tick. Edge detection over a
         // polled key can only see presses that straddle a sample, and at 20 Hz that misses a tap
         // shorter than 50 ms outright — which is why Right Shift sometimes did not close the menu
@@ -233,18 +248,91 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     // Client tick: sensors, actuators, hotkeys, telemetry
     // -----------------------------------------------------------------
 
+    private boolean autoWorldDone;
+    private int autoWorldWaited;
+    private boolean autoMenuDone;
+    private int autoMenuWaited;
+
     public void onClientTick() {
         MinecraftClient mc = minecraft();
         if (mc == null || mc.options == null) {
             return;
         }
+        // The second drain point. onRenderOverlay is the fast one but it only runs while
+        // InGameHud renders, i.e. with a world loaded; this is the beat that still runs at the
+        // title screen, so nothing the page posted can sit in the queue indefinitely.
+        bridge.runGameThreadWork();
         // Before anything reads mc.width/height: at the main menu the UI is not pumped, so this
         // is the only beat that runs from the first tick onwards.
         applyRetinaResolution(mc);
+        maybeAutoLoadWorld(mc);
+        maybeAutoOpenMenu(mc);
         refreshKeyBindings(mc);
         applyActuators(mc);
         pushTick(mc);
         pushSession(mc);
+    }
+
+    /**
+     * Test hook, off unless {@code VOID_UI_AUTOWORLD} is set: load the first singleplayer world
+     * and open the menu, so the in-game UI can be profiled without a person at the keyboard.
+     *
+     * <p>This exists because the alternative is synthetic keyboard events at the window-server
+     * level, which go wherever the focus happens to be — during this work a stray one landed in
+     * the operator's terminal. Driving the client's own API cannot miss.</p>
+     */
+    private void maybeAutoLoadWorld(MinecraftClient mc) {
+        if (System.getenv("VOID_UI_AUTOWORLD") == null || autoWorldDone) {
+            return;
+        }
+        // The title screen has to exist first; before that the client is still coming up.
+        if (mc.world != null || mc.currentScreen == null) {
+            return;
+        }
+        if (++autoWorldWaited < 40) {
+            return;
+        }
+        autoWorldDone = true;
+        java.io.File saves = new java.io.File(mc.runDirectory, "saves");
+        java.io.File[] worlds = saves.listFiles();
+        if (worlds == null) {
+            VoidLog.warn("autoworld: no saves directory at " + saves);
+            return;
+        }
+        for (java.io.File world : worlds) {
+            if (!world.isDirectory() || !new java.io.File(world, "level.dat").isFile()) {
+                continue;
+            }
+            VoidLog.info("autoworld: loading " + world.getName());
+            // A null LevelInfo means "open the existing world" — the same call the world list makes.
+            mc.startIntegratedServer(world.getName(), world.getName(), null);
+            return;
+        }
+        VoidLog.warn("autoworld: no world with a level.dat under " + saves);
+    }
+
+    /** Opens the menu once the world is in, completing the unattended path to the thing under test. */
+    private void maybeAutoOpenMenu(MinecraftClient mc) {
+        // Only when something is going to drive the menu. Loading the world without opening it is
+        // the control condition: the game and an idle HUD, nothing else, which is the only way to
+        // tell the UI's share of a slow frame from the game's own.
+        if (System.getenv("VOID_UI_AUTOWORLD") == null
+                || System.getenv("VOID_UI_SELFTEST") == null
+                || autoMenuDone) {
+            return;
+        }
+        // Not "no screen showing": an unfocused window puts 1.8.9 on its pause screen, and a
+        // headless profiling run is never focused. Anything that is not already our menu is fair
+        // game to replace.
+        if (mc.world == null || mc.player == null || mc.currentScreen instanceof VoidMenuScreen) {
+            return;
+        }
+        if (++autoMenuWaited < 40) {
+            return;
+        }
+        autoMenuDone = true;
+        VoidLog.info("autoworld: opening the menu");
+        mc.setScreen(new VoidMenuScreen(this));
     }
 
     private void refreshKeyBindings(MinecraftClient mc) {
@@ -312,7 +400,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         boolean keystrokesDown = keystrokesCode != KeyNames.KEY_NONE && !otherScreenOpen
                 && !menuScreenOpen && isKeyDown(keystrokesCode);
         if (keystrokesKey.pressed(keystrokesDown) && canOpen) {
-            boolean on = state.loadout().isOn("keystrokes");
+            // The mirror, not loadout().isOn(): this is sampled every frame, and the loadout's
+            // maps are written by the UI thread under a monitor this path must not take.
+            boolean on = state.keystrokesOn;
             com.google.gson.JsonElement stored = state.setModSetting("keystrokes", "on",
                     new JsonPrimitive(Boolean.valueOf(!on)));
             if (stored != null) {
@@ -324,7 +414,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     /** L: next loadout in library order, applied locally and told to Rust (§8.2). */
     public void cycleLoadout() {
         String next = state.nextLoadoutId();
-        if (next != null && !next.equals(state.loadout().id())) {
+        if (next != null && !next.equals(state.loadoutId())) {
             if (state.switchLoadout(next)) {
                 emitLoadout();
                 // The launcher's own pointer has to follow, or the tray and the next
@@ -387,7 +477,12 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         List<PotionFx> fx = readEffects(player);
         JsonObject payload = ticks.build(fps, ping, player.x, player.y, player.z,
                 player.yaw, armor, fx);
-        bridge.emit(VoidBridge.EVENT_TICK, payload);
+        // Now that every field is coalesced, a tick where nothing moved carries nothing. Emitting
+        // it anyway would cross the bridge, parse, and run a reducer 20 times a second to conclude
+        // there is no news.
+        if (payload.entrySet().size() > 0) {
+            bridge.emit(VoidBridge.EVENT_TICK, payload);
+        }
         stats.sample(fps);
     }
 
@@ -412,7 +507,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         out.add(slot("chestplate", worn.length > 2 ? worn[2] : null));
         out.add(slot("leggings", worn.length > 1 ? worn[1] : null));
         out.add(slot("boots", worn.length > 0 ? worn[0] : null));
-        if (state.loadout().boolSetting("armor_status", "show_held_item", true)) {
+        if (state.armorShowHeldItem) {
             out.add(slot("held", player.inventory.getMainHandStack()));
         }
         return out;
@@ -465,7 +560,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         long now = System.currentTimeMillis();
         if (stats.shouldReport(now)) {
             socket.sendSession(stats.fpsAverage(), stats.playedMs(now),
-                    server.connected() ? server.host() : null, state.loadout().id());
+                    server.connected() ? server.host() : null, state.loadoutId());
         }
     }
 
@@ -509,6 +604,13 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     // BridgeHost
     // -----------------------------------------------------------------
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Game thread only. {@code setScreen(null)} runs {@code VoidMenuScreen.removed()}, which
+     * deletes the backdrop and shadow textures, so this cannot run from the UI thread — {@link
+     * VoidBridge} queues the bridge's calls and the hotkey poll calls it directly.</p>
+     */
     @Override
     public void closeMenu() {
         MinecraftClient mc = minecraft();
@@ -517,10 +619,53 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Runs on the UI thread, inline. Two volatile writes and nothing else — deliberately no
+     * Minecraft object is touched here, which is the only reason the bridge is allowed to skip the
+     * queue for this call.</p>
+     */
     @Override
     public void beginKeybindCapture(String modId) {
         captureModId = modId;
         captureActive = true;
+    }
+
+    /**
+     * The page's report of where the shadowed surfaces are. Held here rather than pushed straight
+     * at the renderer because it arrives on whatever frame the layout settled, which is not the
+     * frame that draws — {@link dev.voidpvp.client.screen.VoidMenuScreen} reads it when it paints.
+     */
+    private volatile java.util.List<dev.voidpvp.client.render.EffectSurface> surfaces =
+            java.util.Collections.emptyList();
+
+    /** Volatile only so a lost update costs nothing worse than the line being logged twice. */
+    private volatile boolean loggedSurfaces;
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Runs on the UI thread, inline. Copies the list and publishes it through the volatile
+     * field above; {@link dev.voidpvp.client.render.EffectSurface} is immutable, so the game
+     * thread's {@link #surfaces()} either sees the whole previous set or the whole new one and
+     * never a half-written list.</p>
+     */
+    @Override
+    public void setSurfaces(java.util.List<dev.voidpvp.client.render.EffectSurface> next) {
+        if (!loggedSurfaces && next != null && !next.isEmpty()) {
+            loggedSurfaces = true;
+            VoidLog.info("GL shadows: " + next.size() + " surface(s), first " + next.get(0));
+        }
+        surfaces = next == null
+                ? java.util.Collections.<dev.voidpvp.client.render.EffectSurface>emptyList()
+                : java.util.Collections.unmodifiableList(
+                        new java.util.ArrayList<dev.voidpvp.client.render.EffectSurface>(next));
+    }
+
+    /** The surfaces to draw shadows behind, newest report wins. Never null. */
+    public java.util.List<dev.voidpvp.client.render.EffectSurface> surfaces() {
+        return surfaces;
     }
 
     public boolean captureActive() {
@@ -531,7 +676,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         return captureModId;
     }
 
-    /** Ends a capture; {@code null} means the player pressed Escape. */
+    /**
+     * Ends a capture; {@code null} means the player pressed Escape.
+     *
+     * <p>Called on the game thread, from the menu's key and mouse handlers. The result is
+     * <em>queued</em> onto the push channel rather than evaluated here: {@code evaluateScript}
+     * enters JavaScriptCore, which belongs to the UI thread now, so the game thread must not call
+     * it. The envelope rides the next frame's batch like any event — one frame of latency on a key
+     * the player has already pressed.</p>
+     */
     public void finishKeybindCapture(String keyName) {
         if (!captureActive) {
             return;
@@ -539,7 +692,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         captureActive = false;
         captureModId = null;
         String name = keyName == null || !KeyNames.isValidKeybind(keyName) ? null : keyName;
-        ui.evaluate(VoidBridge.keybindScript(name));
+        bridge.emitCallResult("openKeybindCapture",
+                name == null ? null : new JsonPrimitive(name));
     }
 
     // -- menu events -----------------------------------------------------
@@ -553,7 +707,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     }
 
     private void emitLoadout() {
-        bridge.emit(VoidBridge.EVENT_LOADOUT, state.loadout().toJson());
+        // loadoutJson(), not loadout().toJson(): serialising walks every mod's settings map, and
+        // outside the monitor the UI thread may be writing one of them mid-walk.
+        bridge.emit(VoidBridge.EVENT_LOADOUT, state.loadoutJson());
     }
 
     /** The whole library, {@code bridge.json}'s {@code loadouts} event. */
@@ -572,7 +728,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // `loadout` push is the live copy, so the UI store settles on the right one.
         emitLoadouts();
         emitLoadout();
-        VoidLog.info("loadout '" + state.loadout().id() + "' applied from launcher ("
+        VoidLog.info("loadout '" + state.loadoutId() + "' applied from launcher ("
                 + state.library().size() + " in library)");
     }
 
@@ -613,7 +769,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (socket != null) {
             long now = System.currentTimeMillis();
             socket.sendSession(stats.fpsAverage(), stats.playedMs(now),
-                    server.connected() ? server.host() : null, state.loadout().id());
+                    server.connected() ? server.host() : null, state.loadoutId());
             socket.stop();
         }
     }

@@ -558,6 +558,13 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return null;
     },
 
+    setSurfaces(surfaces) {
+      // The harness has no GL pass, so there is nothing to draw — but recording the call keeps
+      // the shape honest for the tests that round-trip every example in bridge.json.
+      record({ c: 'setSurfaces', params: [surfaces] });
+      return surfaces.length;
+    },
+
     openKeybindCapture(modId) {
       record({ c: 'openKeybindCapture', params: [modId] });
       return new Promise<Keybind | null>((resolve) => {
