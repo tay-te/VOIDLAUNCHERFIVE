@@ -170,6 +170,15 @@ pub fn build_arg_template(
 
     args.push(format!("-Xmx{max_memory_mb}M"));
     args.push(format!("-Xms{}M", (max_memory_mb / 4).clamp(256, 1024)));
+    // Note for whoever chases this next: every 1.8.9 launch prints "CodeCache is full. Compiler has
+    // been disabled." a few seconds in, with an absurd summary — `used=13844Kb free=117227Kb`, then
+    // "not enough contiguous free space left". It reads like the JIT dying, and it is not. Raising
+    // the cache to `-XX:InitialCodeCacheSize=64m -XX:ReservedCodeCacheSize=256m` reproduces the
+    // warning verbatim at `used=15830Kb free=246313Kb`, and `jstat -compiler` shows the compiled
+    // count still climbing (8768 -> 9044 over 15 s) well after it prints. UseCodeCacheFlushing
+    // sweeps and compilation resumes; the message is transient and this JDK 8 arm64 build just
+    // reports it badly. The flags were measured against the in-game repaint rate and changed
+    // nothing, so they are deliberately not set.
     args.push(format!("-Djava.library.path={}", natives_dir.display()));
     args.push(format!("-Dorg.lwjgl.librarypath={}", natives_dir.display()));
     args.push(format!("-Dminecraft.launcher.brand={LAUNCHER_BRAND}"));
@@ -209,7 +218,22 @@ pub fn build_arg_template(
     ArgTemplate { profile_hash: profile.hash(), args }
 }
 
-/// Builds the template, reusing `cache/args/<hash>.json` when it is still valid.
+/// Builds the template and records it at `cache/args/<hash>.json`.
+///
+/// §12 calls this a cache "keyed by manifest hash", and it used to be read back as one. It cannot
+/// be: the key covers the profile, the natives directory, the memory setting and the caller's extra
+/// arguments, but the template is mostly arguments this function hardcodes, and *none* of those are
+/// in the key. So every edit to the list above was a no-op on any machine that had already launched
+/// — the launcher went on spawning the JVM with the arguments some earlier build had written. That
+/// cost a full debugging cycle here: `-XX:InitialCodeCacheSize` looked like it did nothing, because
+/// the flag never reached the JVM.
+///
+/// Keying on the launcher version would fix released builds and still mislead during development,
+/// where the version does not move between builds. There is nothing to buy the risk with anyway:
+/// building the template is `Vec<String>` pushes and one path join, with no I/O — the read it
+/// replaced was the only syscall in the function. So it is always built, and the file is kept
+/// purely as a record of what the last launch was given, which is what makes it worth reading when
+/// a user reports a launch that behaved unlike ours.
 pub fn cached_arg_template(
     profile: &LaunchProfile,
     paths: &Paths,
@@ -220,17 +244,6 @@ pub fn cached_arg_template(
 ) -> Result<ArgTemplate> {
     let key = cache_key(profile, natives_dir, max_memory_mb, extra_jvm_args);
     let file = paths.args_cache_dir().join(format!("{key}.json"));
-
-    if let Ok(text) = std::fs::read_to_string(&file) {
-        match serde_json::from_str::<ArgTemplate>(&text) {
-            Ok(cached) if cached.profile_hash == profile.hash() => {
-                tracing::debug!(path = %file.display(), "reusing cached JVM arguments");
-                return Ok(cached);
-            }
-            Ok(_) => tracing::debug!("cached JVM arguments are for another profile"),
-            Err(e) => tracing::warn!(error = %e, "ignoring an unreadable argument cache"),
-        }
-    }
 
     let template =
         build_arg_template(profile, paths, natives_dir, os, max_memory_mb, extra_jvm_args);
@@ -532,7 +545,7 @@ mod tests {
     }
 
     #[test]
-    fn the_argument_cache_hits_for_the_same_profile_and_misses_for_another() {
+    fn the_argument_record_is_written_but_never_read_back() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::at(dir.path());
         paths.ensure().unwrap();
@@ -544,14 +557,25 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(std::fs::read_dir(paths.args_cache_dir()).unwrap().count(), 1);
 
-        // A different heap is a different command line, so a different cache entry.
+        // A different heap is a different command line, so a different record.
         let bigger = cached_arg_template(&profile, &paths, &natives, Os::Linux, 4096, &[]).unwrap();
         assert_ne!(first.args, bigger.args);
         assert_eq!(std::fs::read_dir(paths.args_cache_dir()).unwrap().count(), 2);
 
-        // A changed profile invalidates the entry even at the same key.
-        let mut changed = profile.clone();
-        changed.main_class = "other.Main".into();
-        assert_ne!(changed.hash(), profile.hash());
+        // The regression this function used to have: the key covers the profile, the natives dir,
+        // the heap and the caller's extra arguments, but not the arguments the builder hardcodes.
+        // So a file left by an older launcher sat at exactly the key the current one computes, and
+        // reading it back meant shipping that build's flags forever. Poison the file to prove the
+        // freshly built template wins.
+        let key = cache_key(&profile, &natives, 2048, &[]);
+        let poisoned = ArgTemplate { profile_hash: profile.hash(), args: vec!["-Xstale".into()] };
+        std::fs::write(
+            paths.args_cache_dir().join(format!("{key}.json")),
+            serde_json::to_string(&poisoned).unwrap(),
+        )
+        .unwrap();
+
+        let after = cached_arg_template(&profile, &paths, &natives, Os::Linux, 2048, &[]).unwrap();
+        assert_eq!(after.args, first.args, "a stale record must not become the command line");
     }
 }
