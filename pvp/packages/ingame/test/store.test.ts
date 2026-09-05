@@ -98,6 +98,88 @@ describe('bridge ingestion', () => {
     expect(useVoidStore.getState().armor).toHaveLength(1);
   });
 
+  it('publishes nothing when a repeated tick carries the same values', () => {
+    // The bug this pins: `pos` arrives as a fresh object every tick, so assigning it
+    // unconditionally made the store publish a change 20 times a second while the player stood
+    // still. Every one of those repainted the whole menu panel — measured at ~50 ms each, three
+    // consecutive stalls on byte-identical payloads. Identity is not change.
+    const apply = useVoidStore.getState().applyTick;
+    const tick = {
+      fps: 120,
+      ping: 38,
+      pos: { x: 20.07, y: 64, z: 281.85, yaw: 155.85 },
+      armor: [{ slot: 'helmet' as const, item: 'diamond_helmet', damage: 0, max_damage: 363 }],
+    };
+    apply({ ...tick, pos: { ...tick.pos }, armor: [{ ...tick.armor[0]! }] });
+
+    let published = 0;
+    const stop = useVoidStore.subscribe(() => {
+      published += 1;
+    });
+    // Same values, all-new objects, exactly as the bridge delivers them.
+    for (let i = 0; i < 5; i += 1) {
+      apply({ ...tick, pos: { ...tick.pos }, armor: [{ ...tick.armor[0]! }] });
+    }
+    stop();
+    expect(published).toBe(0);
+  });
+
+  it('still publishes when a tick value actually moves', () => {
+    const apply = useVoidStore.getState().applyTick;
+    apply({ pos: { x: 1, y: 64, z: 1, yaw: 0 } });
+    apply({ pos: { x: 1, y: 64, z: 1, yaw: 0 } });
+    expect(useVoidStore.getState().pos).toEqual({ x: 1, y: 64, z: 1, yaw: 0 });
+    apply({ pos: { x: 2, y: 64, z: 1, yaw: 0 } });
+    expect(useVoidStore.getState().pos?.x).toBe(2);
+    apply({ fps: 60 });
+    expect(useVoidStore.getState().fps).toBe(60);
+  });
+
+  it('ignores a loadout echo that says nothing new', () => {
+    // Java echoes the whole loadout after every change, and toggleMod has already applied it
+    // optimistically. The echo is a freshly parsed object, so it is never reference-equal — and
+    // taking it re-rendered the pane, the grid and the HUD, repainting megapixels at ~50 ms each.
+    const before = useVoidStore.getState().loadout!;
+    expect(before).not.toBeNull();
+
+    // Structurally identical, entirely new references — exactly what the bridge delivers.
+    useVoidStore.getState().applyLoadout(JSON.parse(JSON.stringify(before)));
+    expect(useVoidStore.getState().loadout).toBe(before);
+
+    // A real change still lands.
+    const changed = JSON.parse(JSON.stringify(before));
+    changed.name = `${before.name} edited`;
+    useVoidStore.getState().applyLoadout(changed);
+    expect(useVoidStore.getState().loadout).not.toBe(before);
+    expect(useVoidStore.getState().loadout?.name).toBe(`${before.name} edited`);
+  });
+
+  it('holds live tick values while the menu covers the HUD, in game only', () => {
+    // Ultralight's damage is one bounding rectangle, so an fps chip at the screen edge ticking
+    // behind the panel drags that rectangle across both — ~37 ms a repaint for a number the menu
+    // is covering. The harness and the launcher have no such damage model, and the harness opens
+    // the menu by default, so the hold is conditioned on the renderer.
+    const apply = useVoidStore.getState().applyTick;
+    useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } });
+
+    document.documentElement.setAttribute('data-renderer', 'ultralight');
+    apply({ fps: 123 });
+    expect(useVoidStore.getState().fps).not.toBe(123);
+
+    // The HUD editor is the exception: there the widgets are the subject.
+    useVoidStore.setState({ route: { name: 'hud-editor' } });
+    apply({ fps: 123 });
+    expect(useVoidStore.getState().fps).toBe(123);
+
+    // And in the harness the values flow whatever the menu is doing.
+    useVoidStore.setState({ route: { name: 'mods' }, fps: 0 });
+    document.documentElement.setAttribute('data-renderer', 'webview');
+    apply({ fps: 77 });
+    expect(useVoidStore.getState().fps).toBe(77);
+
+    document.documentElement.removeAttribute('data-renderer');
+  });
+
   it('resets to Mods and closes the palette when the menu opens', () => {
     useVoidStore.setState({ route: { name: 'party' }, paletteOpen: true });
     useVoidStore.getState().applyMenu(true);

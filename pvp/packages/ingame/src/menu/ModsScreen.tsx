@@ -52,10 +52,12 @@ function Tile({ id, selected }: { id: ModId; selected: boolean }) {
       selected={selected}
       draggable
       onSelect={() => selectMod(id)}
-      onToggle={(next) => {
-        selectMod(id);
-        toggleMod(id, next);
-      }}
+      // Toggling deliberately does NOT move the selection. Flipping a switch is direct
+      // manipulation of that mod; selection is navigation, and the tile body still does it.
+      // Coupling them made every toggle repaint three things at once — the outgoing tile, the
+      // incoming tile, and the whole settings pane on the far side of the panel — which the
+      // damage box unions into one ~40 ms repaint. Decoupled, a toggle dirties its own tile.
+      onToggle={(next) => toggleMod(id, next)}
       // Double-click opens the mod's full settings screen (frame 244:834); the
       // pane on the right is the single-click view.
       onDoubleClick={() => setRoute({ name: 'mod-settings', mod: id })}

@@ -60,11 +60,92 @@ const rings: { left: ClickRing; right: ClickRing } = {
 
 /**
  * FPS samples for the `· 1% low 96` reading on the HUD-layout frame. The bridge
- * carries no such field, so it is derived here the same way CPS is — 30 s of the
- * 20 Hz tick, recomputed once a second.
+ * carries no such field, so it is derived here the same way CPS is — 30 s of samples,
+ * recomputed about once a second.
+ *
+ * Sized in samples, not ticks. `TickCoalescer` rate-limits `fps` to 4 Hz because republishing it
+ * 20 times a second cost ~50 ms of repaint each time, so 30 s is 120 samples rather than 600.
  */
-const FPS_WINDOW = 600;
+const FPS_WINDOW = 120;
 const fpsSamples: number[] = [];
+
+/**
+ * Value equality for the object-shaped `tick` fields.
+ *
+ * The store's contract at the top of this file is that a tick only publishes what actually
+ * changed — that is why `fps` and `ping` are flat primitives rather than a nested object. The
+ * three fields that *are* objects had no such guard: the bridge deserialises a new one every
+ * tick, so `patch.pos = tick.pos` was always a new identity and always a re-render, standing
+ * perfectly still. In game that cost ~50 ms of full-panel repaint per tick.
+ *
+ * Shallow and hand-written on purpose: these shapes come from `bridge.json` and are tiny and
+ * fixed, so a generic deep-equal would cost more than the comparison saves and would hide a
+ * schema change behind a recursive walk rather than failing to compile.
+ */
+function samePosition(a: Position | null, b: Position | null | undefined): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  return a.x === b.x && a.y === b.y && a.z === b.z && a.yaw === b.yaw;
+}
+
+function sameArmor(a: ArmorSlot[], b: ArmorSlot[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((slot, i) => {
+    const other = b[i]!;
+    return (
+      slot.slot === other.slot &&
+      slot.item === other.item &&
+      slot.damage === other.damage &&
+      slot.max_damage === other.max_damage &&
+      slot.count === other.count &&
+      slot.enchanted === other.enchanted
+    );
+  });
+}
+
+function sameEffects(a: PotionEffect[], b: PotionEffect[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((fx, i) => {
+    const other = b[i]!;
+    return (
+      fx.id === other.id &&
+      fx.amplifier === other.amplifier &&
+      // Duration counts down every tick, so this is the one field that legitimately changes
+      // constantly. The widget renders it to the second, so compare at that resolution or the
+      // guard never fires and the potion list re-renders 20 times a second for nothing.
+      Math.round(fx.duration_ms / 1000) === Math.round(other.duration_ms / 1000) &&
+      fx.ambient === other.ambient
+    );
+  });
+}
+
+/**
+ * Deep equality for the plain JSON the bridge delivers.
+ *
+ * Narrow on purpose: everything it is used on came out of `JSON.parse`, so there are no cycles,
+ * class instances, dates or functions to worry about, and the objects are a few kilobytes at most.
+ * A change that broke those assumptions would be a change to `bridge.json`.
+ */
+function sameJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, i) => sameJson(item, b[i]));
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every((k) => Object.prototype.hasOwnProperty.call(right, k) && sameJson(left[k], right[k]));
+}
+
+/** Whether the page is the in-game overlay, as `setRenderer` stamped it on `<html>`. */
+function isUltralight(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    document.documentElement?.getAttribute('data-renderer') === 'ultralight'
+  );
+}
 
 function onePercentLow(): number {
   if (fpsSamples.length < 20) return 0;
@@ -173,6 +254,16 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   editorGrid: false,
 
   applyLoadout(loadout) {
+    const current = get().loadout;
+    // Java echoes the whole loadout after every change we make, and `writeSetting` has already
+    // applied that change optimistically — so the echo is almost always the state we are already
+    // in. Taking it anyway swapped in a freshly parsed object where every reference is new, which
+    // re-rendered the settings pane, the grid and the HUD for no new information. Measured in
+    // game, each of those redundant renders repainted 2.5-6.6 MP at ~50 ms.
+    //
+    // Value, not identity: the echo is never reference-equal, that is the whole problem.
+    if (current && sameJson(current, loadout)) return;
+
     const library = get().library;
     const known = library.some((l) => l.id === loadout.id);
     set({
@@ -204,6 +295,12 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const edges = risingEdges(get().keys, next);
     const now = Date.now();
     const patch: Partial<VoidState> = { keys: next };
+    // The click rings are updated below whatever happens — CPS has to stay correct across a spell
+    // in the menu — but the keystrokes widget itself is behind the panel and cannot be seen, and
+    // repainting it drags the damage rectangle across the panel for ~37 ms a time. Same reasoning
+    // and same condition as applyTick.
+    const hidden =
+      get().menuOpen && get().route.name !== 'hud-editor' && isUltralight();
     if (edges.lmb) {
       pushClick(rings.left, now);
       patch.cpsLeft = cps(rings.left, now, windowMs(get().loadout));
@@ -212,24 +309,56 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       pushClick(rings.right, now);
       patch.cpsRight = cps(rings.right, now, windowMs(get().loadout));
     }
+    if (hidden) {
+      return;
+    }
     set(patch as VoidState);
   },
 
   applyTick(tick) {
     const patch: Partial<VoidState> = {};
+    const prev = get();
     if (tick.fps !== undefined) {
-      patch.fps = tick.fps;
       fpsSamples.push(tick.fps);
       if (fpsSamples.length > FPS_WINDOW) fpsSamples.splice(0, fpsSamples.length - FPS_WINDOW);
-      if (fpsSamples.length % 20 === 0) {
+    }
+
+    // Hold the live readouts while the menu covers them.
+    //
+    // Ultralight reports damage as one bounding rectangle, not a region. The HUD chips sit at the
+    // screen edges and the panel sits in the middle, so an fps chip ticking behind the menu drags
+    // that rectangle across both — measured in game at ~37 ms a repaint, several times a second,
+    // for a number the panel is covering. Sampling above still runs, so the 1% low stays honest;
+    // only publishing waits, and it resumes within a tick of the menu closing.
+    //
+    // Ultralight only: the launcher and the `?debug` harness draw through a renderer with no such
+    // damage model, the harness opens the menu by default, and freezing the HUD there would make
+    // HUD work impossible. Same split as the token layer — the constraint belongs to the renderer,
+    // so the condition names the renderer.
+    if (prev.menuOpen && prev.route.name !== 'hud-editor' && isUltralight()) {
+      return;
+    }
+
+    if (tick.fps !== undefined) {
+      if (tick.fps !== prev.fps) patch.fps = tick.fps;
+      if (fpsSamples.length % 4 === 0) {
         const low = onePercentLow();
-        if (low !== get().fpsLow) patch.fpsLow = low;
+        if (low !== prev.fpsLow) patch.fpsLow = low;
       }
     }
-    if (tick.ping !== undefined) patch.ping = tick.ping;
-    if (tick.pos !== undefined) patch.pos = tick.pos;
-    if (tick.armor !== undefined) patch.armor = tick.armor as ArmorSlot[];
-    if (tick.fx !== undefined) patch.fx = tick.fx as PotionEffect[];
+
+    if (tick.ping !== undefined && tick.ping !== prev.ping) patch.ping = tick.ping;
+    // Compare by value, never by identity. The bridge builds a fresh object every tick, so
+    // assigning it unconditionally published a change 20 times a second while standing still —
+    // and every one of those repainted the whole menu panel at ~50 ms. Measured: three
+    // consecutive stalls of 56, 48 and 56 ms on byte-identical payloads.
+    if (tick.pos !== undefined && !samePosition(prev.pos, tick.pos)) patch.pos = tick.pos;
+    if (tick.armor !== undefined && !sameArmor(prev.armor, tick.armor as ArmorSlot[])) {
+      patch.armor = tick.armor as ArmorSlot[];
+    }
+    if (tick.fx !== undefined && !sameEffects(prev.fx, tick.fx as PotionEffect[])) {
+      patch.fx = tick.fx as PotionEffect[];
+    }
 
     // The 20 Hz tick doubles as the CPS clock: without it a counter would sit
     // on its last value until the next click. Only write when it changed.
@@ -371,7 +500,10 @@ function writeSetting(
  * own state. Thin wrapper over `resolveModSettings` that tolerates a null
  * loadout, which is the state before the first `loadout` push arrives.
  */
-export function modSettings(loadout: Loadout | null, id: ModId): Record<string, SettingValue> {
+export function modSettings(
+  loadout: Pick<Loadout, 'mods'> | null,
+  id: ModId,
+): Record<string, SettingValue> {
   const source = loadout ?? { mods: {} };
   return resolveModSettings(source, id) as unknown as Record<string, SettingValue>;
 }
@@ -384,8 +516,16 @@ export function modSettings(loadout: Loadout | null, id: ModId): Record<string, 
  * render and spin. Select the loadout (a stable reference) and merge in a memo.
  */
 export function useModSettings(id: ModId): Record<string, SettingValue> {
-  const loadout = useVoidStore((s) => s.loadout);
-  return useMemo(() => modSettings(loadout, id), [loadout, id]);
+  // Subscribe to this mod's own entry, not the whole loadout. `resolveModSettings` reads exactly
+  // `loadout.mods[id]` and the registry defaults, and `writeSetting` rebuilds only the entry it
+  // touches — so every other mod's entry stays reference-equal and this memo holds across an
+  // unrelated toggle. Selecting the loadout meant one toggle recomputed every mod's settings and
+  // re-rendered the whole settings pane, which in game repainted ~2.5 MP at ~50 ms.
+  const own = useVoidStore((s) => s.loadout?.mods?.[id]);
+  return useMemo(
+    () => modSettings(own === undefined ? null : { mods: { [id]: own } }, id),
+    [own, id],
+  );
 }
 
 /** Whether a mod is enabled in the active loadout. */

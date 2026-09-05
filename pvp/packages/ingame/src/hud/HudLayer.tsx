@@ -9,7 +9,7 @@
  */
 
 import { memo, type ComponentType, type ReactNode } from 'react';
-import { hudItem, isModOn, modSettings, useVoidStore } from '@/store/store';
+import { hudItem, isModOn, useModSettings, useVoidStore } from '@/store/store';
 import { placementStyle } from '@/store/hud-geometry';
 import { HUD_MOD_IDS, type HUDAnchor, type HUDModId } from '@/bridge/protocol';
 import {
@@ -89,37 +89,72 @@ const HudSlot = memo(function HudSlot({
   );
 });
 
+/**
+ * One widget's subscriptions, kept inside the widget.
+ *
+ * `HudLayer` used to select the whole loadout and derive every widget from it, which meant
+ * toggling any mod re-rendered all of them. That is expensive here in a way it would not be in a
+ * browser: the widgets sit in opposite corners, and Ultralight reports damage as a single bounding
+ * rectangle rather than a region — so re-rendering the set drags that rectangle across the whole
+ * 6.6 MP surface for a ~50 ms repaint, and unions with whatever the menu is doing.
+ *
+ * Each entry now subscribes to the three things it actually draws from. All three are stable
+ * across an unrelated change: `on` is a boolean, `hud[]` keeps its reference because
+ * `writeSetting` only rebuilds `mods`, and {@link useModSettings} watches one entry of it.
+ */
+const HudEntry = memo(function HudEntry({
+  id,
+  dimmed,
+  editor,
+  renderItem,
+  live,
+}: {
+  id: HUDModId;
+  dimmed?: boolean;
+  editor?: boolean;
+  renderItem?: (id: HUDModId, node: ReactNode) => ReactNode;
+  live?: LivePlacement;
+}) {
+  const on = useVoidStore((s) => isModOn(s.loadout, id));
+  const item = useVoidStore((s) => hudItem(s.loadout, id));
+  const settings = useModSettings(id);
+
+  if (!on || !item) return null;
+
+  const Widget = WIDGETS[id];
+  // `hud_item.scale` multiplies the mod's own `scale` setting (loadout.json).
+  const scale = (live?.scale ?? item.scale ?? 1) * Number(settings.scale ?? 1);
+  const opacity = Number(settings.opacity ?? 1) * (dimmed ? 0.7 : 1);
+  const node = <Widget variant={editor ? 'editor' : 'compact'} />;
+  return (
+    <HudSlot
+      id={id}
+      anchor={live?.anchor ?? item.anchor}
+      dx={live?.dx ?? item.dx}
+      dy={live?.dy ?? item.dy}
+      scale={scale}
+      opacity={opacity}
+    >
+      {renderItem ? renderItem(id, node) : node}
+    </HudSlot>
+  );
+});
+
 export function HudLayer({ dimmed, editor, renderItem, override }: HudLayerProps) {
-  const loadout = useVoidStore((s) => s.loadout);
   const crosshairOn = useVoidStore((s) => isModOn(s.loadout, 'crosshair'));
 
   return (
     <div className={['hud-layer', editor ? 'hud-layer--editor' : ''].filter(Boolean).join(' ')}>
-      {HUD_MOD_IDS.map((id) => {
-        if (!isModOn(loadout, id)) return null;
-        const item = hudItem(loadout, id);
-        if (!item) return null;
-        const settings = modSettings(loadout, id);
-        const Widget = WIDGETS[id];
-        const live = override?.[id];
-        // `hud_item.scale` multiplies the mod's own `scale` setting (loadout.json).
-        const scale = (live?.scale ?? item.scale ?? 1) * Number(settings.scale ?? 1);
-        const opacity = Number(settings.opacity ?? 1) * (dimmed ? 0.7 : 1);
-        const node = <Widget variant={editor ? 'editor' : 'compact'} />;
-        return (
-          <HudSlot
-            key={id}
-            id={id}
-            anchor={live?.anchor ?? item.anchor}
-            dx={live?.dx ?? item.dx}
-            dy={live?.dy ?? item.dy}
-            scale={scale}
-            opacity={opacity}
-          >
-            {renderItem ? renderItem(id, node) : node}
-          </HudSlot>
-        );
-      })}
+      {HUD_MOD_IDS.map((id) => (
+        <HudEntry
+          key={id}
+          id={id}
+          dimmed={dimmed}
+          editor={editor}
+          renderItem={renderItem}
+          live={override?.[id]}
+        />
+      ))}
       {isDebugBridge() && crosshairOn && (
         <div className="hud-crosshair-slot">
           <DebugCrosshair />
