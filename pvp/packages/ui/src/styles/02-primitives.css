@@ -205,10 +205,11 @@
      is inner-relative. An inset ring moved every child 1px up and left. */
   border: 1px solid var(--border-panel);
   box-shadow: var(--shadow-panel);
-  /* Reading the radius through a token is what makes the ultralight layer able to turn
-     it off: there it resolves to blur(0px). Never branch on @supports. */
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  backdrop-filter: blur(var(--blur-panel));
+  /* The whole value comes from the token, not just the radius: the ultralight layer needs
+     to resolve this to `none`, because blur(0px) still makes the panel a backdrop root and
+     invalidates all of it on any change inside. Never branch on @supports. */
+  -webkit-backdrop-filter: var(--backdrop-panel);
+  backdrop-filter: var(--backdrop-panel);
 }
 
 .v-panel--overlay {

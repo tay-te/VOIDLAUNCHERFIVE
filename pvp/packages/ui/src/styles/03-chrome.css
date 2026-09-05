@@ -160,8 +160,8 @@
   background: var(--dock-bg);
   border: 1px solid var(--border-dock);
   box-shadow: var(--shadow-dock), var(--inset-dock);
-  -webkit-backdrop-filter: blur(var(--blur-dock));
-  backdrop-filter: blur(var(--blur-dock));
+  -webkit-backdrop-filter: var(--backdrop-dock);
+  backdrop-filter: var(--backdrop-dock);
 }
 
 /* ------------------------------------------------------------ PlayerChip */

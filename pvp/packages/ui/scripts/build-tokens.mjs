@@ -53,6 +53,31 @@ const HEADER = `/* =============================================================
 `;
 
 /**
+ * Layer 1b — derived from the authored radii, emitted here rather than in `design/`
+ * because nobody edits `design/` (CONTRACTS.md).
+ *
+ * A component cannot write `backdrop-filter: blur(var(--blur-panel))` and rely on the
+ * ultralight layer zeroing the radius, because `blur(0px)` is still a filter function:
+ * the element stays a backdrop root, WebKit re-samples everything behind it, and it can
+ * no longer scope invalidation to the part that changed. Measured in game, that made a
+ * single mod toggle repaint the whole 2771x1532 panel — and sometimes the whole surface —
+ * holding the menu to 13-26 repaints/s where the same view sustains 74/s on small damage.
+ *
+ * So the *whole property value* is the token. Layer 2 sets these to `none`, which is the
+ * only value that actually removes the backdrop root.
+ */
+const DERIVED_LAYER = `
+
+/* ---- Layer 1b: derived from the authored radii (see scripts/build-tokens.mjs) ---- */
+
+:root {
+  --backdrop-panel: blur(var(--blur-panel));
+  --backdrop-dock: blur(var(--blur-dock));
+  --backdrop-dim: blur(var(--blur-dim));
+}
+`;
+
+/**
  * Layer 2. Every entry traces to a row in design/ultralight-notes.md; the comment
  * names the section it comes from.
  */
@@ -74,11 +99,25 @@ const ULTRALIGHT_LAYER = `
   --dim-palette: rgba(10, 11, 12, 0.62); /* the authored blur(3px) becomes one flat layer */
 
   /* Never branch on @supports (backdrop-filter: …) — Ultralight may claim support and
-     still no-op. Reading the radius through a token means the property resolves to
-     blur(0px) here and is inert even if it is honoured. */
+     still no-op. The radii stay zeroed so anything derived from them is inert. */
   --blur-panel: 0px;
   --blur-dock: 0px;
   --blur-dim: 0px;
+
+  /* …but a zero radius does not switch the effect off, and assuming it did cost the
+     overlay most of its frame rate. blur(0px) is still a filter function, so the element
+     remains a backdrop root: WebKit has to re-sample everything painted behind it and
+     cannot scope invalidation to what actually changed. Measured in game — toggling one
+     mod damaged 2771x1532 device pixels, the entire panel, and some changes damaged the
+     whole 3416x1920 surface. At ~10 ms per damaged megapixel that is a ~12 ms repaint for
+     a switch a few hundred pixels wide, which held the menu to 13-26 repaints/s while the
+     same view sustains 74/s when the damage is small.
+     'none' is the only value that removes the backdrop root, and it costs nothing here:
+     the radius was already 0, so the overlay never had a blur to lose — the game blur is
+     a GL pass in the host, composited underneath (§1 above). */
+  --backdrop-panel: none;
+  --backdrop-dock: none;
+  --backdrop-dim: none;
 
   /* §2 mix-blend-mode [hard] — fallback 1, "bake it": skip the runtime noise entirely
      and nudge the base colours ~1% lighter so surfaces do not read as flat black. */
@@ -95,6 +134,50 @@ const ULTRALIGHT_LAYER = `
   --noise-opacity-accent: 0;
   --noise-opacity-tint: 0;
   --noise-opacity-chrome: 0;
+
+  /* §8 blurred box-shadow [expensive] — split by area, not by radius.
+     A blurred shadow is the costliest primitive a CPU rasteriser has, and it is worse than its
+     area suggests because the shadow extends past its element, so a change dirties a rectangle
+     larger than the element. Measured in game on a mod toggle: 43-80 ms a repaint with the whole
+     authored ramp, 15-25 ms with none of it — more than every other optimisation combined.
+     What costs is blur x area, not the radius on its own:
+         --shadow-panel   70px over 940x588  ~= 0.79 MP of blur
+         --shadow-switch-on 12px over 40x22  ~= 0.005 MP, ~150x cheaper
+     So the large surfaces move to the host's GL pass (layer 2b carries their authored values to
+     it, and setSurfaces tells it where they are) and everything small stays in CSS, where
+     the design keeps its depth for a cost that does not show up in a frame.
+     The split is forced as well as economical: the host draws underneath the view, and the panel
+     is opaque — a GL shadow for anything *inside* the panel would be hidden behind it. Only
+     surfaces that sit over the game can be drawn there. */
+  --shadow-panel: none;
+  --shadow-dock: none;
+  --shadow-toolbar: none;
+
+  /* And the HUD's own, for a second reason: cost is per repaint, and these repaint constantly.
+     The keystrokes widget redraws on every key change — measured at 35 repaints a second while
+     moving, 10-19 ms each with the keycap shadows on. The menu is the opposite: it repaints when
+     you touch it, so a shadow there costs nothing you can feel. The chips sit on the game with
+     nothing behind them to cast onto anyway; --inset-key and the border already give them their
+     edge. */
+  --shadow-key: none;
+  --shadow-key-on: none;
+
+  /* Same reasoning inside the menu. What costs is a blur pass on an element that changes while you
+     are looking at it, and hover is the worst case — the tile under the cursor repaints every frame
+     of a 120 ms transition. --shadow-card-active is a 36px glow on exactly that element, and
+     --shadow-tile is on all twelve of them, so their damage unions across the grid. Both go.
+     The switch glow and the CTA halo stay: they are what the eye reads as "alive", they sit on
+     elements that change once per click rather than per frame, and measured they cost nothing
+     that shows. */
+  --shadow-tile: none;
+  --shadow-card-active: none;
+
+  /* The inset ramp is mostly hard lines, which are free; these three carried a blur and are
+     flattened to their hard equivalent. An inset cannot move to GL at all — it is drawn inside an
+     opaque element, where the pass underneath never reaches. */
+  --inset-canvas: inset 0 -1px 0 0 rgba(255, 255, 255, 0.05), inset 0 1px 0 0 rgba(0, 0, 0, 0.62);
+  --inset-accent: inset 0 -1px 0 0 rgba(0, 0, 0, 0.22), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.32);
+  --inset-kbd: inset 0 1px 0 0 rgba(0, 0, 0, 0.28);
 
   /* §7 border-style: dashed on a rounded box [risky] — dash phase on rounded corners is
      inconsistent, so the HUD-editor selection falls back to a solid edge. The
@@ -125,12 +208,44 @@ const ULTRALIGHT_LAYER = `
 }
 `;
 
+/**
+ * Layer 2b — the authored shadow values, carried through for the host to draw in GL.
+ *
+ * Layer 2 sets every `--shadow-*` to `none` because a blurred shadow is the most expensive thing a
+ * CPU rasteriser does (see §8 there). Dropping the effect is not the same as dropping the *design*:
+ * the host can draw these in GL underneath the view, where a blur costs nothing, and the result is
+ * the Figma value rather than an approximation of it.
+ *
+ * So each authored value is re-emitted as `--shadow-<name>-gl`, read straight out of layer 1 rather
+ * than retyped. `design/tokens.css` stays the single source of truth: change the shadow there and
+ * both the launcher's CSS and the overlay's GL pass follow, with nothing to keep in sync by hand.
+ */
+function glShadowLayer(authoredCss) {
+  const shadows = [...authoredCss.matchAll(/^\s*(--shadow-[a-z0-9-]+)\s*:\s*([^;]+);/gim)];
+  if (shadows.length === 0) return '';
+  const lines = shadows.map(([, name, value]) => `  ${name}-gl: ${value.trim()};`);
+  return `
+
+/* ==========================================================================
+   Layer 2b — [data-renderer="ultralight"], shadows for the GL pass
+   The authored values from layer 1, verbatim, for the host to draw beneath the
+   view. Layer 2 keeps the CSS properties themselves at \`none\`.
+   ========================================================================== */
+
+[data-renderer='ultralight'] {
+${lines.join('\n')}
+}
+`;
+}
+
 writeFileSync(
   path.join(srcDir, 'tokens.css'),
   HEADER +
     '/* ---- Layer 1: pvp/design/tokens.css, verbatim ---- */\n\n' +
     authored +
-    ULTRALIGHT_LAYER,
+    DERIVED_LAYER +
+    ULTRALIGHT_LAYER +
+    glShadowLayer(authored),
   'utf8',
 );
 process.stdout.write('generated src/tokens.css\n');

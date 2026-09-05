@@ -11,9 +11,10 @@
   border: 1px solid var(--border-panel);
   box-shadow: var(--shadow-panel), var(--inset-hud);
   overflow: hidden;
-  /* Read through the token so the ultralight layer can make it inert. */
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  backdrop-filter: blur(var(--blur-panel));
+  /* Read the whole value through the token so the ultralight layer can resolve it to
+     `none`; blur(0px) would still make this a backdrop root. */
+  -webkit-backdrop-filter: var(--backdrop-panel);
+  backdrop-filter: var(--backdrop-panel);
 }
 
 /* ------------------------------------------------------------------ input */

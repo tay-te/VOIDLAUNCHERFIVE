@@ -32,16 +32,22 @@ const OUT_DIR = resolve(root, '../../mod/src/main/resources/assets/void/ui');
 /**
  * Declarations that are allowed through even though they name a banned feature.
  *
- * `@void/ui` writes `backdrop-filter: blur(var(--blur-panel))` and lets the
- * token decide: under `data-renderer="ultralight"` every `--blur-*` resolves to
- * `0px`, so the property is inert even on a build that claims to honour it.
- * That is exactly the discipline ultralight-notes.md §1 asks for — never branch
- * on `@supports`, read the radius through a token — so a token-driven or
- * explicitly-zero blur passes and a hard-coded radius does not.
+ * `@void/ui` writes `backdrop-filter: var(--backdrop-panel)`, which the ultralight
+ * token layer resolves to `none`.
+ *
+ * This used to allow `blur(var(--blur-panel))` on the reasoning that the ultralight
+ * layer zeroes every `--blur-*`, so the property was inert. It is not inert. A zero
+ * radius computes nothing but still makes the element a backdrop root, so WebKit has
+ * to re-sample everything behind it and can no longer scope invalidation to what
+ * changed — measured in game, one mod toggle repainting the entire 2771x1532 panel and
+ * holding the menu to ~20 repaints/s against the 74/s the same view sustains otherwise.
+ * So `blur(0px)` and `blur(var(--blur-*))` are now rejected exactly like a hard-coded
+ * radius: the only spellings that pass are the token, which layer 2 can switch off, and
+ * a literal `none`.
  */
 const ALLOWED = [
-  /backdrop-filter\s*:\s*blur\(\s*var\(--blur-[a-z-]+\)\s*\)/i,
-  /backdrop-filter\s*:\s*(?:none|blur\(\s*0(?:px)?\s*\))/i,
+  /backdrop-filter\s*:\s*var\(--backdrop-[a-z-]+\)/i,
+  /backdrop-filter\s*:\s*none/i,
 ];
 
 /** [regexp, why]. Each pattern must be safe to run over both CSS and JS. */

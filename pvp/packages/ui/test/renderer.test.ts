@@ -95,6 +95,23 @@ describe('the ultralight layer applies the prescribed fallbacks', () => {
     expect(tokenDecls + componentDecls).not.toMatch(/@supports[^{]*backdrop-filter/);
   });
 
+  it('§1 switches backdrop-filter off outright, because a zero radius does not', () => {
+    // blur(0px) is still a filter function, so the element stays a backdrop root and
+    // WebKit invalidates all of it whenever anything inside changes. In game that made
+    // one toggle repaint the entire panel and held the menu to ~20 repaints/s. Only
+    // `none` removes the backdrop root, so the ultralight layer must resolve to it.
+    for (const token of ['--backdrop-panel', '--backdrop-dock', '--backdrop-dim']) {
+      expect(layer).toMatch(new RegExp(`${token}:\\s*none`));
+    }
+    // And no component may spell the property out itself: a literal blur() would not go
+    // through the layer at all, which is how this got shipped the first time.
+    const declarations = componentDecls.match(/backdrop-filter:[^;]+;/g) ?? [];
+    expect(declarations.length).toBeGreaterThan(0);
+    for (const declaration of declarations) {
+      expect(declaration).toMatch(/backdrop-filter:\s*var\(--backdrop-[a-z]+\)/);
+    }
+  });
+
   it('§2 bakes the noise into the base hexes and switches the grain off', () => {
     expect(layer).toMatch(/--surface-1:\s*#1a1d21/);
     expect(layer).toMatch(/--surface-2:\s*#23272c/);
@@ -170,9 +187,12 @@ describe('the component stylesheet stays inside what Ultralight can render', () 
     expect(componentDecls).not.toMatch(/<video|url\([^)]*\.(mp4|webm|gif)/);
   });
 
-  it('§1 only ever reads a blur radius through a token', () => {
+  it('§1 only ever reads backdrop-filter through a token', () => {
+    // This used to require `blur(var(--blur-*))`, which is what made the bug above
+    // unfixable without changing the rule: no radius can express "not a backdrop root".
+    // The whole property value is the token now, so layer 2 can say `none`.
     for (const match of componentDecls.matchAll(/backdrop-filter\s*:\s*([^;]+);/g)) {
-      expect(match[1]).toMatch(/blur\(var\(--blur-/);
+      expect(match[1]).toMatch(/^var\(--backdrop-[a-z]+\)$/);
     }
   });
 
