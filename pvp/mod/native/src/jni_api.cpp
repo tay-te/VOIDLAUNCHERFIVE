@@ -7,9 +7,10 @@
 //
 // Two threads, and the split is not symmetric.
 //
-//   UI thread — every entry point in this file except viewTextureId. It must be ONE thread,
-//   whichever one it is, for the life of the process: whatever calls createRenderer is what must
-//   go on to call rendererUpdate, rendererRefreshDisplay, rendererRender, rendererPurgeMemory,
+//   UI thread — every entry point in this file except viewTextureId and gpuDriverFailed. It must
+//   be ONE thread, whichever one it is, for the life of the process: whatever calls createRenderer
+//   is what must go on to call rendererUpdate, rendererRefreshDisplay, rendererRender,
+//   rendererProbeAccelerated, rendererPurgeMemory,
 //   createView, destroyView, viewLoadUrl/LoadHtml, viewResize, viewSetDeviceScale,
 //   viewSetNeedsPaint, viewIsDirty, viewFireMouse/Key/ScrollEvent, viewEvaluateScript,
 //   viewSetMessageHandler, viewSetFocus, viewHasInputFocus, viewIsLoading, viewWidth/Height,
@@ -81,6 +82,13 @@
 //     If that context cannot be had, the mod falls back to a CPU view rather than running the
 //     driver without one. There is no configuration in which the accelerated path renders from a
 //     thread that does not own a context.
+//
+//     It falls back for the other reason too, which is newer. Having a context is necessary and
+//     not sufficient: the driver's GLSL 1.20 programs have to build on this GPU, and that has been
+//     verified on exactly one machine. rendererProbeAccelerated answers that question on the UI
+//     thread before any view is created, so the host can create a CPU view instead of an
+//     accelerated one that would never paint. gpuDriverFailed answers it again every frame, for a
+//     driver that dies later; it is a plain read of a process-wide flag and belongs to no thread.
 //
 // Two objects cross the threads, and they are protected differently.
 //
@@ -235,7 +243,6 @@ Profile::Clock::time_point g_presents_since;
 
 // Number of live accelerated views. Zero means render() never has to touch GL.
 int g_accelerated_views = 0;
-bool g_gpu_failed = false;
 
 } // namespace
 
@@ -413,7 +420,11 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererRender(JNIE
     return;
   }
 
-  if (g_gpu_failed) return;
+  // The driver is dead: initialize() failed, here or in the probe, or something marked it dead
+  // mid-session. Returning is all this can do about it, and returning is a blank overlay, so the
+  // recovery does not live here — the Java side polls gpuDriverFailed() and rebuilds its view on
+  // the CPU path (UltralightWebView.fallBackToCpu). This is only the gap between the two.
+  if (gpu::failed()) return;
 
   // Accelerated views render through our GL driver, so this whole branch needs a current context —
   // the UI thread's own, sharing Minecraft's (see the threading note at the top of this file).
@@ -424,9 +435,10 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererRender(JNIE
   // protects if a CPU and an accelerated view are ever alive at once.
   gpu::save_gl_state();
   if (!gpu::initialize()) {
-    g_gpu_failed = true;
+    // initialize() has already marked itself failed and said why, loudly. Reached only when the
+    // host created an accelerated view without calling rendererProbeAccelerated first; the mod
+    // does probe, so this is the path for any other caller of the binding.
     gpu::restore_gl_state();
-    log_error("GPU driver unavailable; accelerated views will not paint");
     return;
   }
   {
@@ -437,6 +449,44 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererRender(JNIE
   gpu::restore_gl_state();
   // No flush here. What the game thread samples is not this render target but the copy
   // viewTextureId takes of it, and that is where the flush that publishes it lives.
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_rendererProbeAccelerated(
+    JNIEnv* e, jclass, jlong handle) {
+  // Does the accelerated path work on this machine? Answered before a single accelerated view
+  // exists, which is the whole point: the failure this guards against is a GLSL 1.20 program that
+  // will not build, and until this existed the only way to find that out was to create an
+  // accelerated view, render it, watch initialize() fail, and get a blank overlay for the rest of
+  // the process with no way back to the CPU surface.
+  //
+  // Thread and context: the UI thread that owns the renderer, with its own GL context current
+  // (dev.voidpvp.client.ui.UiGlContext). The driver's first act is glGetString, which segfaults
+  // outright on a thread with no context — so this is not callable before UiGlContext.makeCurrent()
+  // has returned true, exactly like the render it stands in for.
+  //
+  // gpu::probe() brackets the build with the same save/restore rendererRender uses, so nothing it
+  // does is visible to whatever draws next on this context.
+  ULRenderer r = reinterpret_cast<ULRenderer>(handle);
+  if (!r) return JNI_FALSE;
+  bool ok = gpu::probe();
+  if (ok) {
+    const char* forced = gpu::forced_failure_mode();
+    if (forced) {
+      // A mode that fails later (late[:n]) leaves the probe succeeding, which is exactly what it is
+      // for. Say so here, or the run looks like an ordinary one until the driver suddenly dies.
+      log_info("gpu: accelerated renderer probe succeeded, but VOID_UI_GPU_FAIL=%s is armed",
+               forced);
+    } else {
+      log_info("gpu: accelerated renderer probe succeeded");
+    }
+  }
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_gpuDriverFailed(JNIEnv* e, jclass) {
+  // Sticky and one-way. Polled once per UI frame by UltralightWebView so a driver that dies after
+  // the probe still ends up on the CPU surface instead of latching a flag that stops all painting.
+  return gpu::failed() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererPurgeMemory(JNIEnv* e, jclass,

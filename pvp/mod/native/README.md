@@ -299,9 +299,55 @@ flip_y=true   ul(0,0) -> ndc(-1.00, -1.00)   ul(0,50) -> ndc(-1.00, +1.00)
 With `flip_y = true` the page top lands at NDC −1, which is texture row 0, which is `v = 0`. Draw
 the quad with `v = 0` at the top and it is right way up.
 
-The driver is initialised lazily on the first `render()` of an accelerated view, because entry
-points must come from a context that exists — there is none at mod init. If initialisation fails
-it is logged once and accelerated views stop painting rather than crashing the game.
+### Coming up, and failing to
+
+Entry points must come from a context that exists, and there is none at mod init, so the driver
+cannot be built when it is registered. It is built on demand instead — and *who* asks matters.
+
+`Renderer.probeAccelerated()` (`rendererProbeAccelerated`) builds it deliberately, on the UI
+thread, with that thread's context current, **before any view has been created**, and answers
+whether it worked. That is the call the mod makes, and it is what lets a machine this driver cannot
+run on get a CPU view instead of an accelerated one. Until it existed the only way to find out was
+to create an accelerated view and render it, and a failure there was terminal: a process-wide flag
+latched on, every subsequent accelerated render returned without painting, and the player got an
+empty overlay with no visible error — on hardware where the CPU surface would have worked fine.
+`rendererRender` still builds the driver if nobody probed, for callers of the binding that are not
+the mod, and the failure is no longer silent there either.
+
+`Renderer.acceleratedDriverFailed()` (`gpuDriverFailed`) reports the same thing afterwards. It is a
+plain read of a process-wide flag, safe from any thread, and the mod polls it once a frame so a
+driver that dies *after* the probe is rebuilt on the CPU surface rather than latching. It is sticky
+and one-way: a driver that could not link GLSL 1.20 on the first frame will not link it on the
+next, and retrying would mean recompiling two programs 60 times a second on exactly the machine
+that cannot compile them.
+
+Every failure is logged at error level on **stderr, natively**, which is deliberate: Loom's
+generated log4j config is broken on 1.8.9 and silences every Java logger in the process, and
+Minecraft replaces `System.err` with a log4j stream during bootstrap. `fprintf(stderr)` from here is
+the one channel no logging configuration can turn off. The mod's Java-side notice writes to
+`FileDescriptor.err` for the same reason, so both halves of the story land in the same place.
+
+### Making the driver fail on purpose: `VOID_UI_GPU_FAIL`
+
+The fallback above guards a failure that happens on hardware nobody here has. This driver has
+executed on exactly one machine — macOS, Apple's OpenGL 2.1 profile — and never on Windows or
+Linux. A fallback that has never run is a fallback nobody knows works, so the failure is
+reproducible on demand. An **environment variable**, not a `-D` property: the value has to be
+legible to the native library, which cannot see the JVM's properties.
+
+| `VOID_UI_GPU_FAIL=` | Fails at | Stands in for |
+|---|---|---|
+| `init` | before a single GL entry point is resolved | no usable context, missing entry points, a driver that refuses outright. **The only mode that works headless**, which is why `ctest -R accelerated_fallback` uses it |
+| `compile` | `glCompileShader`, for real — invalid GLSL is appended to every fragment shader | "this GPU will not accept our GLSL 1.20". The driver's own error path runs with the driver's own message |
+| `link` | `GL_LINK_STATUS`, for real — `glLinkProgram` is never called | a GPU that compiles both stages and refuses to link them. Distinct from `compile`, and the failure `GL_MAX_VARYING_FLOATS` warns about |
+| `late` or `late:n` | after the driver has already painted `n` command lists (default 24) | a driver that dies mid-session. The only way to reach the mod's in-place rebuild of a live view onto the CPU surface |
+| *(mod only)* `probe` | in Java, without asking the driver | the mod's own fallback wiring, on a build whose natives are whatever they are. Read by `WebViews.forcedProbeFailure()`, not here |
+
+A value that is none of these is reported as an error and ignored, rather than silently doing
+nothing — a typo here means the test everyone thinks is running is not.
+
+`compile`, `link` and `late` need a real GL context and therefore a real game window. `init` and
+`probe` do not, which is the whole reason `init` exists.
 
 ### Why no AppCore
 
@@ -382,9 +428,68 @@ semantics including the "" contracts, the synchronous `window.__void_native` rou
 scroll dispatch, `isDirty()` in both directions, CPU readback with stride repacking, transparency,
 and top-left origin.
 
+`ctest` runs a second headless test, `accelerated_fallback` (`AcceleratedFallbackTest`), under
+`VOID_UI_GPU_FAIL=init`. It is the evidence for the CPU fallback:
+
+```
+  ok   the driver is not marked failed before anything has asked it
+[voidultralight/error] gpu: VOID_UI_GPU_FAIL=init — the GL driver will fail on purpose
+[voidultralight/error] gpu: accelerated rendering is unavailable — VOID_UI_GPU_FAIL=init (forced failure; no GL was touched)
+[voidultralight/error] gpu: falling back to the CPU surface. The interface will still work; it will cost considerably more frame time. …
+  ok   probeAccelerated() reported the accelerated renderer as unusable
+  ok   the failure is visible afterwards through acceleratedDriverFailed()
+  ok   a second probe answers false without retrying (the failure is sticky)
+  ok   the fallback view is a CPU surface
+  ok   the page loaded into the fallback view
+  ok   the page laid out in the fallback view
+  ok   readPixels() returned 800x480 BGRA from the fallback view
+  ok   the fallback view actually rendered content (centre alpha 254)
+  ok   and left the rest of the overlay transparent
+  ok   the fallback filled the card area (155681 of 156000 pixels)
+```
+
+The last four are the point: a machine whose driver will not run gets **pixels**, not a blank
+overlay. It also pins one ordering that would be easy to break — inside `rendererRender` the
+"no accelerated views exist" branch is taken *before* the driver-failed guard, so a dead GPU driver
+must not stop a CPU view from rendering.
+
+### The GL driver, headless (macOS)
+
+`gpu_driver_gl.cpp` opens by calling itself "the half of this binding that cannot be tested off a
+real game". That was true while the only GL context in reach belonged to Minecraft. On macOS it is
+not: **CGL hands out an offscreen context in the same GL 2.1 / GLSL 1.20 profile LWJGL 2 gives the
+game**, with no window, no display and no drawable — enough to compile and link. `ctest` therefore
+also runs `test/gpu_driver_probe.cpp` three times:
+
+| test | env | asserts |
+|---|---|---|
+| `gpu_driver_builds` | — | `probe()` true, `failed()` false, a second probe does not recompile |
+| `gpu_driver_fails_compile` | `VOID_UI_GPU_FAIL=compile` | `probe()` false, `failed()` true, sticky |
+| `gpu_driver_fails_link` | `VOID_UI_GPU_FAIL=link` | same, through the link path |
+
+The first is the one that could not be run at all before: **every build now proves the GLSL 1.20
+port survives a real compiler**, rather than that being a claim resting on one manual in-game run.
+The failing two print the real thing:
+
+```
+[voidultralight/error] shader fill (fragment) failed to compile: ERROR: 0:491: 'this' : Reserved word.
+[voidultralight/error] gpu: accelerated rendering is unavailable — the 'fill' GLSL 1.20 program would not build on this GPU
+[voidultralight/error] gpu: falling back to the CPU surface. …
+```
+
+Limits, plainly. The context is *this* machine's driver, so a pass says nothing about anyone
+else's — that is what the fallback is for, not a gap this closes. It cannot reach
+`VOID_UI_GPU_FAIL=late`, which needs a live view and a real paint. And it is macOS-only: GLX
+pbuffers on Linux and a hidden WGL window on Windows would both work the same way, and that file is
+where the coverage goes the day somebody has the hardware.
+
+So the only thing left needing a game window is `late` — and, of course, whether any of this is true
+on a GPU other than an M1 Max.
+
 ### Verified in game (macOS 26.5, Apple M1 Max, Minecraft 1.8.9)
 
-The driver now runs. `VOID_UI_RENDERER=gpu` on a real client logs:
+The driver now runs, and is now the default (`VOID_UI_RENDERER=cpu` opts out). On a real client it
+logs:
 
 ```
 gl: 2.1 Metal - 90.5 | Apple M1 Max
@@ -415,6 +520,10 @@ So the following are answered, on the context the port was written for:
 
 Still not verified: **Windows and Linux GL** (only macOS arm64 has run), and the whole
 `EXT_framebuffer_object` / `GL_LUMINANCE8` / no-VAO fallback set, which this GPU does not need.
+
+That is why the driver being the default is only defensible with the probe and the CPU fallback in
+front of it. Nothing here says the driver *works* on Windows or Linux. What it now says is that a
+machine where it does not gets a slower interface instead of no interface, and says so in the log.
 
 ---
 

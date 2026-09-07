@@ -242,8 +242,11 @@ public final class Renderer implements AutoCloseable {
   public void update();                                          // once per game tick
   public void refreshDisplay();                                  // once per frame, before render()
   public void render();                                          // paints dirty views
+  public boolean probeAccelerated();        // does the GL driver run here? ask BEFORE createView
+  public boolean acceleratedDriverFailed(); // has it died since? sticky; any thread
   public View createView(int w, int h, boolean transparent);     // GPU, via our GL driver
-  public View createViewCpu(int w, int h, boolean transparent);  // CPU surface — tests only
+  public View createViewCpu(int w, int h, boolean transparent);  // CPU surface — tests, and the
+                                                                 // fallback when the probe says no
   public void purgeMemory();
   public void close();
 }
@@ -289,8 +292,18 @@ Constants on `View`: `MOUSE_MOVED/DOWN/UP` = 0/1/2, `KEY_DOWN/UP/CHAR` = 0/1/2,
 All additive — nothing specified was changed or removed. `version()`, `createViewCpu` and
 `readPixels` were requested; the rest exist because the mod needs them and guessing later is worse:
 
-`Ultralight.webKitVersion/licenceNotice/nativeDirectory`, `Renderer.refreshDisplay/purgeMemory`,
+`Ultralight.webKitVersion/licenceNotice/nativeDirectory`,
+`Renderer.refreshDisplay/purgeMemory/probeAccelerated/acceleratedDriverFailed`,
 `View.loadHtml/textureWidth/textureHeight/uvScaleX/uvScaleY/messageHandler/hasInputFocus/isLoading/width/height/isAccelerated`.
+
+`probeAccelerated`/`acceleratedDriverFailed` exist because "accelerated" is a request the machine
+can refuse. The GL driver's GLSL 1.20 programs are built by whatever driver the player has, and
+that has been verified on one: macOS, Apple's 2.1 profile. `probeAccelerated()` builds the driver on
+the UI thread — context current, no view yet — and answers whether it works, so a machine that
+cannot run it gets `createViewCpu` instead of an accelerated view that would never paint.
+`acceleratedDriverFailed()` answers the same question afterwards, for a driver that dies later; it
+reads a process-wide flag, is safe from any thread, and is sticky. Both log their reasons at error
+level on stderr, natively — the one channel a broken log4j config cannot silence.
 
 `uvScaleX/Y` matter: Ultralight's render target may be larger than the view, and drawing the whole
 texture would show garbage at the edges. `refreshDisplay()` is what advances CSS animations,

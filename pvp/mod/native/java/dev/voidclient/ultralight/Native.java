@@ -31,6 +31,18 @@ final class Native {
 
   static native void rendererRefreshDisplay(long renderer, int displayId);
 
+  /**
+   * Builds the OpenGL driver and reports whether it works, without creating a view. Must run on
+   * the thread that owns the renderer, with a GL context current on it.
+   */
+  static native boolean rendererProbeAccelerated(long renderer);
+
+  /**
+   * Whether the OpenGL driver has failed in this process. Sticky, one-way, and readable from any
+   * thread: it is a plain read of a process-wide flag and enters neither Ultralight nor GL.
+   */
+  static native boolean gpuDriverFailed();
+
   static native void rendererPurgeMemory(long renderer);
 
   static native long createView(long renderer, int width, int height, boolean transparent,

@@ -166,6 +166,32 @@ if(VOIDUL_BUILD_JAVA)
   add_custom_target(voidultralight_api_jar ALL DEPENDS "${CMAKE_BINARY_DIR}/voidultralight-api.jar")
 
   if(VOIDUL_BUILD_TESTS)
+    # The GL driver, against a real GL context, with no window.
+    #
+    # This is the one thing gpu_driver_gl.cpp's own header note said could not be done ("the half
+    # of this binding that cannot be tested off a real game"). It can, on macOS: CGL hands out an
+    # offscreen context in the same GL 2.1 / GLSL 1.20 profile LWJGL 2 gives Minecraft, which is
+    # enough to compile and link. So every build now proves the ported shaders survive a real
+    # compiler, and proves the two forced-failure modes fail the way the CPU fallback expects.
+    #
+    # Compiled from sources rather than linked against voidultralight, because the library exports
+    # only its JNI entry points (CXX_VISIBILITY_PRESET hidden) and gpu::probe is not one.
+    if(APPLE)
+      add_executable(gpu_driver_probe
+        test/gpu_driver_probe.cpp
+        src/gpu_driver_gl.cpp
+        src/gl_loader.cpp
+        src/common.cpp)
+      target_include_directories(gpu_driver_probe PRIVATE ${JNI_INCLUDE_DIRS} src)
+      target_link_libraries(gpu_driver_probe PRIVATE ultralight::sdk "-framework OpenGL")
+      target_compile_options(gpu_driver_probe PRIVATE
+        -Wall -Wextra -Wno-unused-parameter -Wno-deprecated-declarations)
+      target_link_options(gpu_driver_probe PRIVATE "LINKER:-undefined,dynamic_lookup")
+      set_target_properties(gpu_driver_probe PROPERTIES
+        BUILD_WITH_INSTALL_RPATH ON
+        INSTALL_RPATH "${VOIDUL_STAGE_DIR}")
+    endif()
+
     file(GLOB_RECURSE VOIDUL_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/test/java/*.java")
     set(VOIDUL_TEST_CLASSES "${CMAKE_BINARY_DIR}/test-classes")
     add_custom_command(OUTPUT "${VOIDUL_TEST_CLASSES}/.stamp"
@@ -186,6 +212,27 @@ if(VOIDUL_BUILD_JAVA)
               -cp "${VOIDUL_TEST_CLASSES}:${VOIDUL_JAVA_CLASSES}:${CMAKE_BINARY_DIR}:${CMAKE_CURRENT_SOURCE_DIR}/test/resources"
               dev.voidclient.ultralight.test.CpuRenderTest
               "${CMAKE_CURRENT_SOURCE_DIR}/test/expected/out.png")
+
+    # The CPU fallback. VOID_UI_GPU_FAIL=init is the only forced-failure mode that can run without a
+    # display: it fails before a single GL entry point is resolved, so the probe answers "no" rather
+    # than segfaulting inside glGetString on a thread with no context. The modes that fail deeper —
+    # compile, link, late — need a real GL context and therefore a real game window.
+    add_test(NAME accelerated_fallback
+      COMMAND ${Java_JAVA_EXECUTABLE}
+              -cp "${VOIDUL_TEST_CLASSES}:${VOIDUL_JAVA_CLASSES}:${CMAKE_BINARY_DIR}:${CMAKE_CURRENT_SOURCE_DIR}/test/resources"
+              dev.voidclient.ultralight.test.AcceleratedFallbackTest)
+    set_tests_properties(accelerated_fallback PROPERTIES ENVIRONMENT "VOID_UI_GPU_FAIL=init")
+
+    # The driver itself, on an offscreen context. Each forced-failure mode is read once per process
+    # into a function-local static, so each one is its own run rather than a loop.
+    if(APPLE)
+      add_test(NAME gpu_driver_builds COMMAND gpu_driver_probe ok)
+      add_test(NAME gpu_driver_fails_compile COMMAND gpu_driver_probe fail)
+      set_tests_properties(gpu_driver_fails_compile PROPERTIES
+        ENVIRONMENT "VOID_UI_GPU_FAIL=compile")
+      add_test(NAME gpu_driver_fails_link COMMAND gpu_driver_probe fail)
+      set_tests_properties(gpu_driver_fails_link PROPERTIES ENVIRONMENT "VOID_UI_GPU_FAIL=link")
+    endif()
   endif()
 endif()
 

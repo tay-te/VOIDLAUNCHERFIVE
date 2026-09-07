@@ -13,11 +13,56 @@ namespace gpu {
 // Fills in an ULGPUDriver whose callbacks target the process-wide driver.
 ULGPUDriver make_driver();
 
-// Resolves GL entry points, compiles the two programs. Must be called with Minecraft's context
-// current. Returns false (and logs) if the context cannot support the driver.
+// Resolves GL entry points, compiles the two programs. Must be called with a GL context current
+// on the calling thread. Returns false (and logs, loudly, at error level) if the context cannot
+// support the driver.
+//
+// Idempotent, and *sticky in both directions*: once it has succeeded it returns true without
+// touching GL, and once it has failed it returns false without retrying. The failure is what the
+// host wants to know about — it is the signal to build a CPU view instead — and retrying it every
+// frame would mean recompiling two shader programs 60 times a second on exactly the machine that
+// cannot compile them.
 bool initialize();
 
 bool initialized();
+
+// initialize(), bracketed by save_gl_state()/restore_gl_state() so the calling thread's GL state
+// comes back exactly as it was. This is what the host calls to ask "will the accelerated path work
+// on this machine?" before it creates a view, and it is the difference between a graceful CPU
+// fallback and an accelerated view that never paints.
+//
+// It is also where the forced-failure modes that fail before GL is resolved short-circuit, ahead of
+// the save. That is not a detail: save_gl_state() itself has to resolve entry points, and resolving
+// them on a thread with no current context does not fail, it segfaults inside glGetString. Cutting
+// in front of it is what lets VOID_UI_GPU_FAIL=init run headless, which is the only way the
+// fallback gets tested anywhere but in a game window.
+bool probe();
+
+// Whether the driver is unusable in this process.
+//
+// True once initialize() has failed, or once mark_failed() has been called for a driver that had
+// already come up. It never goes back to false: a process that could not link GLSL 1.20 the first
+// time will not link it on the next frame either, and a driver that died mid-session has left GL
+// objects in a state we cannot reason about.
+//
+// This is the flag the Java side polls (Native.gpuDriverFailed) to decide it must rebuild its view
+// on the CPU path. It exists because the alternative — the driver quietly declining to paint —
+// is a blank overlay with no error, which is the whole bug this reporting was added for.
+bool failed();
+
+// Marks the driver dead and logs the reason once, at error level, on stderr.
+//
+// Call it for anything that means "accelerated rendering cannot continue in this process". It does
+// not tear the driver's GL objects down: shutdown() still owns that, and the objects may well be
+// the reason we are here.
+void mark_failed(const char* reason);
+
+// A description of the forced-failure mode VOID_UI_GPU_FAIL selected, or nullptr when it is unset.
+//
+// The whole point of the CPU fallback is that it runs on hardware we do not have, so there has to
+// be a way to make the driver fail on hardware we do. See the note above the implementation for
+// the modes.
+const char* forced_failure_mode();
 
 // Runs the command list Ultralight recorded during ulRender(). Call immediately after ulRender(),
 // with the same context current, between save_gl_state()/restore_gl_state().
