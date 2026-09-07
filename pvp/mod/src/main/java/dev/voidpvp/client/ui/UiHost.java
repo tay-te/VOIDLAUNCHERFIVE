@@ -2,6 +2,7 @@ package dev.voidpvp.client.ui;
 
 import dev.voidpvp.client.VoidLog;
 import dev.voidpvp.client.bridge.VoidBridge;
+import dev.voidpvp.client.input.InputLatency;
 import dev.voidpvp.client.render.GlBlit;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -134,27 +135,6 @@ public final class UiHost {
      */
     private static final double TARGET_DENSITY = 2.0;
     /**
-     * The cap on the integer supersample factor, on the CPU surface.
-     *
-     * <p>2 is enough to reach {@link #TARGET_DENSITY} at every fit scale a HiDPI window produces
-     * (1.17 upwards, where the factor asked for is 2 or 1), so this cap does not currently bind
-     * there. It binds on a client launched without the HiDPI flag, and it stays where it is,
-     * because the CPU rasteriser's cost is quadratic in the factor: measured in game at a fit
-     * scale of 2.28, one step up — a 6672x3740 raster — took the worst UI paint from 44-56 ms to
-     * 123-128 ms and the worst game frame from ~51 ms to ~131 ms.</p>
-     */
-    private static final int MAX_SUPERSAMPLE_CPU = 2;
-    /**
-     * The same cap on the accelerated renderer, where the raster runs on the GPU.
-     *
-     * <p>Higher because the GPU can afford it: the same step that costs the CPU surface an order
-     * of magnitude cost the GL driver 0.4-0.9 ms mean paint against 0.7-1.5 ms, and ~7% of mean
-     * frame rate. It is a ceiling, not a target — {@link #TARGET_DENSITY} still decides, so this
-     * only bites below a fit scale of 0.67, which is where a client launched without the HiDPI
-     * flag sits. There it is the difference between 1.17 and 2.34 dp/css.</p>
-     */
-    private static final int MAX_SUPERSAMPLE_GPU = 4;
-    /**
      * {@code VOID_UI_SUPERSAMPLE} pins the factor outright — past the cap and past
      * {@link #TARGET_DENSITY} — so the cost of each step can be measured without a rebuild. It has
      * to override the target as well as the cap: at the fit scales a HiDPI window produces the
@@ -212,6 +192,8 @@ public final class UiHost {
     private volatile boolean pendingMouseMove;
     private volatile int pendingMouseX;
     private volatile int pendingMouseY;
+    /** Tracing only ({@code VOID_UI_INPUTLOG}): when the newest pending position was handed over. */
+    private volatile long pendingMouseStamp;
     /**
      * The last position actually delivered to the view, so a cursor that has not moved does not
      * keep the page awake.
@@ -248,12 +230,97 @@ public final class UiHost {
     private boolean bridgeReady;
 
     /**
-     * Which renderer this process ended up with, and the supersample cap that goes with it.
-     * Resolved once on the UI thread, because getting the accelerated one means making a GL
-     * context current on that thread and the answer is not known until that has been tried.
+     * Whether the accelerated renderer was <em>asked</em> for and this thread could take a GL
+     * context — resolved once, on the UI thread, because taking the context is what answers it.
+     *
+     * <p><b>This is the request, not the result.</b> The accelerated renderer can still fail
+     * inside {@code WebViews.create}: the GL driver has to build its GLSL programs on the actual
+     * GPU, and if it will not, {@code create} returns a CPU view instead — and it can fail again
+     * later, mid-session, after having worked. So this may be read at exactly one place, the
+     * argument handed to {@code create}, and it is. Nothing is sized from it any more: the first
+     * view used to be, because a supersample factor had to be chosen before there was a view to
+     * ask, and {@link #applySize} no longer chooses one until there is.</p>
      */
-    private boolean accelerated;
-    private int maxSupersample;
+    private boolean acceleratedRequested;
+    private boolean acceleratedProbed;
+
+    /**
+     * Which renderer is actually in use. Not a field, and there is no longer one anywhere.
+     *
+     * <p>Diagnostics only now — the supersample factor, which is what this answer used to be
+     * <em>for</em>, no longer goes through here at all; see {@link #supersample()}. It asks the
+     * live view, which is the object the renderer belongs to, so it cannot be stale.</p>
+     */
+    private boolean accelerated() {
+        return view.isAccelerated();
+    }
+
+    /**
+     * The integer supersample factor this view should be rasterised at, right now.
+     *
+     * <p><b>This is the only expression in the mod that produces a supersample factor, and its
+     * only input is the live view.</b> That is deliberate and it is the third attempt at it. The
+     * cap belongs to the renderer — the CPU rasteriser's cost is quadratic in this number and the
+     * GPU's is nearly free — and the renderer can change mid-session, so every previous shape
+     * stored the answer somewhere and every one of them went stale: a host field set once behind
+     * a {@code maxSupersample == 0} guard, then a host field holding both the request and the
+     * result, then {@code WebViews.acceleratedInUse}, a static written by {@code create} and
+     * never by the mid-session fallback. Each was a correct read of a value that had stopped
+     * being true. {@code design/rendering-invariants.md} names this cap as one of its four
+     * examples of the same failure.</p>
+     *
+     * <p>There is nothing left to keep in sync. {@link WebView#maxSupersample()} is answered off
+     * the same volatile field as {@link WebView#isAccelerated()}, in the same expression, and
+     * {@link #applySize} calls this <em>after</em> the view exists — including on the very frame
+     * the view is created, which is why nothing here has to guess a cap before there is a
+     * renderer to ask.</p>
+     */
+    private int supersample(double scale) {
+        if (SUPERSAMPLE_OVERRIDE > 0) {
+            return SUPERSAMPLE_OVERRIDE;
+        }
+        // An integer factor only: a fractional one puts glyphs on a non-integer grid relative to
+        // the screen and trades one kind of shimmer for another.
+        int wanted = (int) Math.ceil(TARGET_DENSITY / scale);
+        return Math.max(1, Math.min(view.maxSupersample(), wanted));
+    }
+
+    /**
+     * The supersample factor the current view was last sized at.
+     *
+     * <p>Compared against the factor {@link #supersample()} computes now, so a view whose cap has
+     * changed under it — which is exactly what a mid-session fallback does — is resized without
+     * anyone having to remember to invalidate anything. The logical size cannot carry this:
+     * supersampling changes only how densely the page is rasterised, not how large it lays out, so
+     * {@code sizeChanged} is false across exactly the change that matters here.</p>
+     */
+    private int viewSupersample;
+
+    /**
+     * The device scale the view was actually told, i.e. {@link #deviceScale} times
+     * {@link #viewSupersample}.
+     *
+     * <p>Tracked separately from {@link #deviceScale}, which is the logical scale the game thread
+     * reads, because the two move independently and the view only ever hears this one. A
+     * supersample change with no scale change is the case that matters and it is not
+     * hypothetical: it is precisely what a mid-session fallback produces. Ultralight allocates a
+     * render target from size over device scale, so resizing to {@code fb * 2} while the view
+     * still believed in {@code s * 4} would have laid the page out in half the CSS width — every
+     * glyph and every box twice the size it should be. The old condition compared the logical
+     * scale, which does not change across that, so the {@code setDeviceScale} was skipped.</p>
+     */
+    private double appliedViewScale = 1;
+
+    /**
+     * The document this host believes the view is showing.
+     *
+     * <p>Set from the view at the moment this host loads a page into it, and compared against
+     * {@link WebView#documentGeneration()} once a frame. A difference means the view loaded
+     * something the host did not ask for — today that is the reload
+     * {@link UltralightWebView#fallBackToCpu} performs when the GL driver dies, and tomorrow it is
+     * whatever else reloads a page. UI thread only.</p>
+     */
+    private int documentGeneration;
 
     /**
      * The accelerated view's texture and uv extent, read on the UI thread after each paint.
@@ -343,42 +410,38 @@ public final class UiHost {
         if (fbWidth <= 0 || fbHeight <= 0) {
             return;
         }
-        if (maxSupersample == 0) {
-            // First time round, and the first moment this thread may take a GL context: everything
-            // below depends on which renderer we got, and the accelerated one is only available if
-            // the game thread managed to share its context and this thread can make it current.
-            accelerated = WebViews.acceleratedRequested() && UiGlContext.makeCurrent();
-            maxSupersample = accelerated ? MAX_SUPERSAMPLE_GPU : MAX_SUPERSAMPLE_CPU;
+        if (!acceleratedProbed) {
+            // First time round, and the first moment this thread may take a GL context: the
+            // accelerated renderer is only available if the game thread managed to share its
+            // context and this thread can make it current. Whether it then actually starts is
+            // decided inside WebViews.create, and is not this flag's to say — see accelerated().
+            acceleratedRequested = WebViews.acceleratedRequested() && UiGlContext.makeCurrent();
+            acceleratedProbed = true;
         }
         int lw = Math.max(1, (int) Math.ceil(fbWidth / s));
         int lh = Math.max(1, (int) Math.ceil(fbHeight / s));
-        // An integer factor only: a fractional one puts glyphs on a non-integer grid relative to
-        // the screen and trades one kind of shimmer for another.
-        int ss = SUPERSAMPLE_OVERRIDE > 0 ? SUPERSAMPLE_OVERRIDE
-                : Math.max(1, Math.min(maxSupersample, (int) Math.ceil(TARGET_DENSITY / s)));
-        int vw = Math.max(1, fbWidth * ss);
-        int vh = Math.max(1, fbHeight * ss);
-        // The page still lays out in fb / s CSS pixels; only the rasterisation gets denser.
-        double viewScale = s * ss;
 
+        boolean created = false;
         if (!started) {
             started = true;
-            logicalWidth = lw;
-            logicalHeight = lh;
-            framebufferWidth = fbWidth;
-            framebufferHeight = fbHeight;
-            deviceScale = s;
+            // Created at one view pixel per framebuffer pixel — no supersampling — because the
+            // factor is capped by the renderer's cost and which renderer this view runs is not
+            // knowable until it exists. Nothing is guessed here: the sizing below asks the view
+            // that was actually built, and it is reached on this same call, before the first
+            // paint. That is what makes there be exactly one place a supersample factor is ever
+            // computed, and one input to it.
+            //
             // Ultralight sizes a view in DEVICE PIXELS; the CSS viewport it lays out in is that
             // size divided by the device scale. So the framebuffer goes in as-is and `s` does the
             // dividing — passing the already-divided logical size instead would land the page on
             // fb / s^2, i.e. everything drawn `s` times too large.
-            WebView created = WebViews.create(vw, vh, accelerated);
-            if (!created.isAvailable()) {
-                view = created;
+            WebView fresh = WebViews.create(fbWidth, fbHeight, acceleratedRequested);
+            if (!fresh.isAvailable()) {
+                view = fresh;
                 return;
             }
-            created.setDeviceScale(viewScale);
-            created.setMessageHandler(new Function<String, String>() {
+            fresh.setDeviceScale(s);
+            fresh.setMessageHandler(new Function<String, String>() {
                 @Override
                 public String apply(String request) {
                     // window.__void_native(json): JS to Java. This now arrives on the UI thread,
@@ -387,45 +450,75 @@ public final class UiHost {
                     return bridge.dispatch(request);
                 }
             });
-            created.loadUrl(ENTRY_URL);
-            forcedRenders = FORCED_RENDERS;
-            view = created;
-            VoidLog.info("in-game UI started at " + lw + "x" + lh + " (scale " + s
-                    + ", rasterised " + vw + "x" + vh + " at " + viewScale + " dp/css)");
-            return;
-        }
-        if (!view.isAvailable()) {
-            return;
-        }
-        boolean sizeChanged = lw != logicalWidth || lh != logicalHeight;
-        boolean scaleChanged = s != deviceScale;
-        // Scale first, then size. The render target is allocated from logical size x device
-        // scale, so resizing while the old scale is still set sizes the texture for the wrong
-        // number of pixels; the view then draws into a target that does not match it and the
-        // blit samples the wrong fraction of it. A scale change therefore has to re-issue the
-        // resize as well, even when the logical size is unchanged.
-        if (scaleChanged) {
-            deviceScale = s;
-            view.setDeviceScale(viewScale);
-        }
-        if (sizeChanged || scaleChanged) {
+            fresh.loadUrl(ENTRY_URL);
+            // The document this host asked for. Anything else the view goes on to show is a
+            // document it loaded by itself, which is a thing the page has to be told about — see
+            // adoptDocumentIfChanged().
+            documentGeneration = fresh.documentGeneration();
             logicalWidth = lw;
             logicalHeight = lh;
             framebufferWidth = fbWidth;
             framebufferHeight = fbHeight;
+            deviceScale = s;
+            viewSupersample = 1;
+            appliedViewScale = s;
+            forcedRenders = FORCED_RENDERS;
+            view = fresh;
+            created = true;
+        }
+        if (!view.isAvailable()) {
+            return;
+        }
+        // Asked of the view, every time, and never stored. This is the line the whole of
+        // supersample()'s javadoc is about.
+        int ss = supersample(s);
+        int vw = Math.max(1, fbWidth * ss);
+        int vh = Math.max(1, fbHeight * ss);
+        // The page still lays out in fb / s CSS pixels; only the rasterisation gets denser.
+        double viewScale = s * ss;
+
+        boolean sizeChanged = lw != logicalWidth || lh != logicalHeight;
+        // Against the scale the *view* was told, not the logical one. They come apart exactly when
+        // the supersample factor moves on its own, which is what a mid-session fallback does and
+        // what the first sizing of a freshly created view does — see appliedViewScale.
+        boolean scaleChanged = viewScale != appliedViewScale;
+        // The view is created at 1 and a fallback halves the cap under it; this is where either
+        // gets corrected, from the renderer that is actually running. It costs nothing when the
+        // factor is already right.
+        boolean supersampleChanged = ss != viewSupersample;
+        // Scale first, then size. The render target is allocated from logical size x device
+        // scale, so resizing while the old scale is still set sizes the texture for the wrong
+        // number of pixels; the view then draws into a target that does not match it and the
+        // blit samples the wrong fraction of it.
+        if (scaleChanged) {
+            view.setDeviceScale(viewScale);
+            appliedViewScale = viewScale;
+        }
+        if (sizeChanged || scaleChanged || supersampleChanged) {
+            logicalWidth = lw;
+            logicalHeight = lh;
+            framebufferWidth = fbWidth;
+            framebufferHeight = fbHeight;
+            deviceScale = s;
+            viewSupersample = ss;
             view.resize(vw, vh);
             // The render target now holds pixels drawn at the old size. Ultralight repaints only
             // what it believes changed, so without this the untouched areas keep showing them —
             // which is the ghosted, oversized text that survived every resize.
             view.setNeedsPaint();
             forcedRenders = FORCED_RENDERS;
-            // Logged on every resize, not only at creation. The window this starts in is not the
-            // window it ends up in — the Retina fixup alone changes the framebuffer within a
-            // second of launch — so a line printed once is a number that stops being true almost
-            // immediately, which is exactly how the raster density came to be misread.
-            VoidLog.info("in-game UI resized to " + lw + "x" + lh + " (scale " + s
-                    + ", rasterised " + vw + "x" + vh + " at " + viewScale + " dp/css)");
+        } else if (!created) {
+            return;
         }
+        // One line, after the correction rather than before it, so the numbers it prints are the
+        // ones the view ended up with. Logged on every resize and not only at creation: the window
+        // this starts in is not the window it ends up in — the Retina fixup alone changes the
+        // framebuffer within a second of launch — so a line printed once is a number that stops
+        // being true almost immediately, which is exactly how the raster density came to be
+        // misread.
+        VoidLog.info("in-game UI " + (created ? "started at " : "resized to ") + lw + "x" + lh
+                + " (scale " + s + ", rasterised " + vw + "x" + vh + " at " + viewScale
+                + " dp/css)");
     }
 
     /**
@@ -511,9 +604,11 @@ public final class UiHost {
             if (x != sentMouseX || y != sentMouseY) {
                 sentMouseX = x;
                 sentMouseY = y;
+                InputLatency.dispatched("move", pendingMouseStamp);
                 wake();
                 if (view.isAvailable()) {
                     view.fireMouseEvent(0, x, y, 0);
+                    InputLatency.sent("move");
                 }
             }
         }
@@ -524,9 +619,45 @@ public final class UiHost {
         // After the queue, so a notch that arrived this frame is banked before any of it is paid
         // out — a scroll and the click that follows it stay in the order they were made.
         driveScroll();
+        if (InputLatency.ON) {
+            probeInputArrivals();
+        }
         if (SCROLLLOG) {
             traceScroll();
         }
+    }
+
+    /**
+     * Tracing only ({@code VOID_UI_INPUTLOG}): what the page itself saw.
+     *
+     * <p>The listener is installed by script rather than shipped in the bundle, so this measures
+     * the page as it is, and adds nothing to a client that is not being traced. Capture phase and
+     * {@code window}, so it counts an event whether or not anything in the app handles it — the
+     * question here is arrival, not handling.</p>
+     *
+     * <p>Rate-limited hard: {@code evaluateScript} is a full JS entry and this runs inside the
+     * drain, which is on the critical path of every input.</p>
+     */
+    private long lastArrivalProbeNanos;
+
+    private void probeInputArrivals() {
+        if (!bridgeReady || !view.isAvailable()) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (now - lastArrivalProbeNanos < 500_000_000L) {
+            return;
+        }
+        lastArrivalProbeNanos = now;
+        String r = view.evaluateScript(
+                "(function(){var s=window.__voidIn;if(!s){s=window.__voidIn={press:0,release:0,"
+                        + "move:0,keydown:0,keyup:0,wheel:0};"
+                        + "var b=function(t,k){window.addEventListener(t,function(){s[k]++;},true);};"
+                        + "b('mousedown','press');b('mouseup','release');b('mousemove','move');"
+                        + "b('keydown','keydown');b('keyup','keyup');b('wheel','wheel');}"
+                        + "return 'press='+s.press+' release='+s.release+' move='+s.move"
+                        + "+' keydown='+s.keydown+' keyup='+s.keyup+' wheel='+s.wheel;})()");
+        InputLatency.page(r == null ? "?" : r.trim());
     }
 
     /** Scroll tracing: milliseconds since a nanoTime, to one decimal. */
@@ -753,6 +884,62 @@ public final class UiHost {
         startUiThread();
     }
 
+    /**
+     * Notices that the view is showing a page this host did not load, and puts the session back
+     * onto it. UI thread only.
+     *
+     * <p><b>What produces one.</b> The GL driver dying mid-session. {@link UltralightWebView}
+     * rebuilds the view on the CPU surface, and a replacement view is a new view — it has no
+     * document, so the entry URL is loaded again. That is the correct thing for it to do and it
+     * cannot do anything else; there is no way to move a loaded document between views.</p>
+     *
+     * <p><b>Why the host has to do this and the view cannot.</b> Everything the reload destroys
+     * belongs to layers the view knows nothing about: the bridge shim, the loadout, the loadout
+     * library, whether the menu is open, the DOM this class had modified for a profiling switch.
+     * {@link UltralightWebView} re-applies what is genuinely its own — size, device scale, message
+     * handler, focus — and reports the rest by bumping {@link WebView#documentGeneration()}. It
+     * does not reach up into {@link VoidBridge} to fix it, and it should not.</p>
+     *
+     * <p><b>What it looked like without this.</b> The mod went on talking to a page it had lost.
+     * {@code bridgeReady} was still true, so every frame evaluated {@code window.void.__hasFocus()}
+     * against a document with no {@code window.void} and threw; the queued state had already been
+     * drained into the dead document and nothing re-sent it, so the page stayed empty; and the
+     * host kept painting that empty document at full rate — measured at 80 paints/s into a
+     * 3416x1920 surface with a damage bounding box of 0%. Worst of all it was silent and
+     * inescapable: {@code VoidMenuScreen} was still the current screen, so the mouse stayed
+     * ungrabbed and movement stayed dead, with nothing drawn to say why. That is
+     * {@code design/rendering-invariants.md} §9's "blank overlay with no visible error" reached
+     * through the fallback instead of through the latch it was written about.</p>
+     *
+     * <p>The state itself comes from {@link VoidBridge#pushWholeState()}, which is the same method
+     * the first push at start-up and the launcher's {@code init} go through — one definition of
+     * what a fresh page needs, so a channel cannot be remembered in one place and forgotten in
+     * another. The push only queues; the batch is delivered by the ordinary drain above, once the
+     * new page reports its shim is up.</p>
+     */
+    private void adoptDocumentIfChanged() {
+        int generation = view.documentGeneration();
+        if (generation == documentGeneration) {
+            return;
+        }
+        documentGeneration = generation;
+        // Everything below belongs to the document rather than to the view, which is exactly why
+        // the view could not have restored it.
+        bridgeReady = false;
+        nohudApplied = false;
+        clickTargetStale = true;
+        focusedInput = false;
+        // So the first pointer position the new page is given is delivered rather than filtered
+        // out as "the cursor has not moved" — the new document has never been told where it is.
+        sentMouseX = Integer.MIN_VALUE;
+        sentMouseY = Integer.MIN_VALUE;
+        forcedRenders = FORCED_RENDERS;
+        bridge.pushWholeState();
+        wake();
+        VoidLog.info("in-game UI: the view reloaded (document " + generation
+                + "); the session's state has been re-queued for the new page");
+    }
+
     /** The old frame(), now on the thread that owns the view. */
     private void frameOnUiThread() {
         if (!view.isAvailable()) {
@@ -772,6 +959,15 @@ public final class UiHost {
             if (!bridgeReady) {
                 String probe = view.evaluateScript("!!(window.void && window.void.__emit)");
                 bridgeReady = "true".equalsIgnoreCase(probe == null ? "" : probe.trim());
+                if (bridgeReady) {
+                    // The page can receive state from this frame on, and the batch that carries it
+                    // is drained just below. Nothing else would necessarily paint it: on the CPU
+                    // surface the dirty flag only goes true *after* a render, and a HUD-only
+                    // session is not rendering continuously, so a page that has just come up would
+                    // sit there having been told everything and having drawn none of it.
+                    forcedRenders = FORCED_RENDERS;
+                    wake();
+                }
             }
             if (bridgeReady) {
                 String script = bridge.drainScript();
@@ -846,6 +1042,13 @@ public final class UiHost {
             }
             long update0 = PROFILE ? System.nanoTime() : 0L;
             view.update();
+            // Here and nowhere else, because update() is the only call that can change the
+            // document: it is where a dead GL driver is noticed and the view is rebuilt, and a
+            // replacement view reloads the page. Checking it on the next frame instead would be
+            // one frame too late — everything below this line that touches JavaScript would run
+            // against a document that has not installed the shim yet, which is where the
+            // `undefined is not an object (evaluating 'window.void.__hasFocus')` came from.
+            adoptDocumentIfChanged();
             // refreshDisplay() is what advances CSS animations and transitions;
             // it must run every frame, before render(), or the UI is static
             // (CONTRACTS.md, "Rules the mod must follow", rule 3).
@@ -1062,7 +1265,7 @@ public final class UiHost {
         }
         VoidLog.info(String.format("game: %.0f fps, worst frame %.0f ms, %d of %d over 20 ms (%s)",
                 gameFrames / secs, worstGameFrameMs, gameFramesOver20ms, gameFrames,
-                accelerated ? "gpu" : "cpu"));
+                accelerated() ? "gpu" : "cpu"));
         gameWindowNanos = now;
         gameFrames = 0;
         gameFramesOver20ms = 0;
@@ -1243,6 +1446,7 @@ public final class UiHost {
         // means anything. Replaying a trail of stale positions would be worse than skipping them.
         pendingMouseX = x;
         pendingMouseY = y;
+        pendingMouseStamp = InputLatency.stamp();
         pendingMouseMove = true;
         startUiThread();
     }
@@ -1252,9 +1456,11 @@ public final class UiHost {
             clickNanos = System.nanoTime();
             clickGameFrame = gameFrameSeq;
         }
+        final long at = InputLatency.stamp();
         post(new Runnable() {
             @Override
             public void run() {
+                InputLatency.dispatched("press", at);
                 if (PROFILE) {
                     // Set here, not at the call site: this runs inside drainWork, which is ahead
                     // of the render in the same UI iteration, so the flag can only be read by a
@@ -1269,6 +1475,7 @@ public final class UiHost {
                     sentMouseY = y;
                     view.fireMouseEvent(0, x, y, 0);
                     view.fireMouseEvent(1, x, y, mouseButton(button));
+                    InputLatency.sent("press");
                     wake();
                 }
             }
@@ -1276,11 +1483,14 @@ public final class UiHost {
     }
 
     public void mouseUp(final int x, final int y, final int button) {
+        final long at = InputLatency.stamp();
         post(new Runnable() {
             @Override
             public void run() {
+                InputLatency.dispatched("release", at);
                 if (view.isAvailable()) {
                     view.fireMouseEvent(2, x, y, mouseButton(button));
+                    InputLatency.sent("release");
                     wake();
                 }
             }
@@ -1296,9 +1506,12 @@ public final class UiHost {
      */
     public void scroll(final int dx, final int dy) {
         final long at = SCROLLLOG ? System.nanoTime() : 0L;
+        final long inAt = InputLatency.stamp();
         post(new Runnable() {
             @Override
             public void run() {
+                InputLatency.dispatched("wheel", inAt);
+                InputLatency.sent("wheel");
                 if (SCROLLLOG) {
                     if (scrollTraceSettleAt == 0L && scrollPendingY == 0) {
                         scrollTraceStart = at;
@@ -1313,11 +1526,14 @@ public final class UiHost {
     }
 
     public void keyDown(final int virtualKey, final int modifiers) {
+        final long at = InputLatency.stamp();
         post(new Runnable() {
             @Override
             public void run() {
+                InputLatency.dispatched("keydown", at);
                 if (view.isAvailable()) {
                     view.fireKeyEvent(0, virtualKey, modifiers, "");
+                    InputLatency.sent("keydown");
                     wake();
                 }
             }
@@ -1325,11 +1541,14 @@ public final class UiHost {
     }
 
     public void keyUp(final int virtualKey, final int modifiers) {
+        final long at = InputLatency.stamp();
         post(new Runnable() {
             @Override
             public void run() {
+                InputLatency.dispatched("keyup", at);
                 if (view.isAvailable()) {
                     view.fireKeyEvent(1, virtualKey, modifiers, "");
+                    InputLatency.sent("keyup");
                     wake();
                 }
             }

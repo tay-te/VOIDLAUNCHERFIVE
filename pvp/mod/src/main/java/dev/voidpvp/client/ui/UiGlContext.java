@@ -119,6 +119,11 @@ public final class UiGlContext {
     private static void fail(String message) {
         state = FAILED;
         shared = null;
-        VoidLog.warn("in-game UI: " + message + "; falling back to the CPU renderer");
+        // Through WebViews rather than VoidLog directly: this is now on the default path (the
+        // accelerated renderer is what a player gets unless they ask otherwise), so a context that
+        // cannot be shared costs them the frame rate the GL driver was chosen for. That has to be
+        // as visible as every other route to the CPU surface, including on a client whose log4j
+        // config has silenced every Java logger — which is what a runClient is.
+        WebViews.announceDowngrade(message);
     }
 }

@@ -70,6 +70,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *                       (as setGameplay)
  * switchLoadout       LiveState.switchLoadout                            SHARED  inline, synchronized
  *                       library lookup, applyLoadoutInternal, LoadoutDiff SHARED  under the LiveState monitor
+ *                       LiveState.loadoutJson -&gt; emit("loadout")         SHARED  synchronized read, queued push
  * setSurfaces         readSurface (parse) -&gt; EffectSurface               PAGE    inline; immutable values
  *                       BridgeHost.setSurfaces -> VoidClient.surfaces    SHARED  inline; volatile publish
  * closeMenu           BridgeHost.closeMenu -> mc.setScreen(null)         GAME    QUEUED via post()
@@ -144,6 +145,17 @@ public final class VoidBridge {
      * for the length of an {@code add}.</p>
      */
     private final Queue<Runnable> gameThreadWork = new ConcurrentLinkedQueue<Runnable>();
+    /**
+     * The last value sent on the {@code menu} channel.
+     *
+     * <p>The one piece of the page's whole state that has no other home. {@code loadout} and
+     * {@code loadouts} can be re-read from {@link LiveState} at any moment, and {@code tick},
+     * {@code keys} and {@code server} re-arrive from their sensors within a tick — but whether
+     * the menu is open exists only as something that was pushed, so {@link #pushWholeState} would
+     * have nothing to say without this. Written on the game thread by {@link #emitMenu} and read
+     * on the UI thread by {@link #pushWholeState}, hence volatile.</p>
+     */
+    private volatile boolean menuOpen;
 
     public VoidBridge(LiveState state, BridgeHost host) {
         this.state = state;
@@ -220,7 +232,30 @@ public final class VoidBridge {
             if (p.size() < 1) {
                 return new JsonPrimitive(Boolean.FALSE);
             }
-            return new JsonPrimitive(Boolean.valueOf(state.switchLoadout(p.get(0).getAsString())));
+            boolean switched = state.switchLoadout(p.get(0).getAsString());
+            if (switched) {
+                // bridge.json, `call_switchLoadout`: "A `loadout` event follows with the new
+                // loadout, so the caller does not need the returned object" — and
+                // `loadout_payload`: pushed "on every switch, whether the switch came from Rust,
+                // from the tray, from the L key or from `void.switchLoadout`".
+                //
+                // It was not being pushed here, and LoadoutsScreen.tsx says in as many words
+                // that it holds no optimistic state: it renders `store.loadout` and waits for
+                // this event. So picking a card switched every actuator in Java and left the
+                // whole page — the card's own selected state, the mods grid, the properties
+                // panel, the HUD layer — rendering the loadout the player had just left. The
+                // boolean return said `true` the entire time.
+                //
+                // Not `loadouts`: the library's membership has not changed, and the page's
+                // `applyLoadout` already replaces the library's copy of this id. Not
+                // `requestRender` either — every path that reaches this call is inside the open
+                // menu, which UiHost renders continuously (VoidClient.pumpUi's setContinuous).
+                //
+                // `loadoutJson()` rather than the object: serialising walks every mod's settings
+                // map, and this thread is not the one that owns it.
+                emit(EVENT_LOADOUT, state.loadoutJson());
+            }
+            return new JsonPrimitive(Boolean.valueOf(switched));
         }
         if ("closeMenu".equals(call)) {
             // GAME. mc.setScreen(null) runs Screen.removed(), which frees the backdrop and shadow
@@ -469,6 +504,57 @@ public final class VoidBridge {
         envelope.addProperty("c", "openKeybindCapture");
         envelope.add("returns", keyName == null ? JsonNull.INSTANCE : new JsonPrimitive(keyName));
         return "window.void.__emit(" + envelope.toString() + ")";
+    }
+
+    /**
+     * Everything a page that has just loaded needs in order to be showing this session.
+     *
+     * <p><b>This is the only definition of "what a fresh page needs", and it has three callers:
+     * the first push at start-up, the launcher's {@code init}, and a document the host did not
+     * load.</b> The third is the one that was missing. When the GL driver dies mid-session
+     * {@link dev.voidpvp.client.ui.UltralightWebView} rebuilds the view on the CPU surface, and a
+     * replacement view is a new view — the page reloads, and every envelope this bridge had
+     * already delivered went to a document that no longer exists. Nothing re-sent it, so the menu
+     * the player had open simply stopped being drawn, while the mod went on believing it was open
+     * and painting an empty document eighty times a second.</p>
+     *
+     * <p>Keeping the three callers on one method is the point. Two paths that must agree about
+     * what a fresh page needs is how one of them rots — a channel added for start-up and
+     * forgotten here would come back as "the menu loses its X after a fallback", which is exactly
+     * the shape of the bug this fixes.</p>
+     *
+     * <p><b>Read live, not replayed.</b> {@code loadout} and {@code loadouts} are re-serialised
+     * from {@link LiveState} rather than resent from a remembered envelope, because a remembered
+     * one would be stale: {@code setGameplay}, {@code setModSetting} and {@code setHud} all change
+     * the loadout without emitting anything (§6.5 deliberately does not push a change back to the
+     * page that made it), so every toggle the player had flipped this session would be missing
+     * from a snapshot. {@code tick}, {@code keys} and {@code server} are not sent at all: their
+     * sensors push whole state every tick, so the queue refills with current values long before a
+     * freshly loaded page is ready to receive anything.</p>
+     *
+     * <p>Safe from any thread — {@link #emit} takes the monitor on the queue, and both
+     * {@link LiveState} serialisers are synchronized.</p>
+     */
+    public void pushWholeState() {
+        // The library first, then the active loadout: the order onInit uses, so the page's store
+        // settles on the live copy rather than the library's.
+        emit(EVENT_LOADOUTS, state.libraryJson());
+        emit(EVENT_LOADOUT, state.loadoutJson());
+        // Last, so the screen the menu opens onto is drawn against data that is already there.
+        emitMenu(menuOpen);
+    }
+
+    /**
+     * Queues the {@code menu} event, and remembers it.
+     *
+     * <p>Every push on this channel goes through here rather than through {@link #emit} directly,
+     * so that {@link #menuOpen} cannot drift from what the page was last told. A second way to
+     * emit {@code menu} would be a second thing to keep in sync, which is the failure this whole
+     * change is about.</p>
+     */
+    public void emitMenu(boolean open) {
+        menuOpen = open;
+        emit(EVENT_MENU, new JsonPrimitive(Boolean.valueOf(open)));
     }
 
     /** Queues the {@code setting} event for one mod setting Java changed itself. */

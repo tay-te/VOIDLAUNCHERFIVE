@@ -270,6 +270,54 @@ class BridgeExamplesTest {
     }
 
     @Test
+    @DisplayName("switchLoadout pushes the loadout event bridge.json promises")
+    void switchLoadoutPushesTheLoadoutEvent() {
+        LiveState state = seededState();
+        VoidBridge bridge = new VoidBridge(state, new Host());
+        String before = state.loadoutId();
+        String target = state.nextLoadoutId();
+        assertNotNull(target, "the seeded library has more than one loadout");
+        assertTrue(!target.equals(before), "the cycle target is a different loadout");
+
+        JsonObject answer = Json.parseObject(bridge.dispatch(
+                "{\"c\":\"switchLoadout\",\"params\":[\"" + target + "\"]}"));
+        assertTrue(answer.get("returns").getAsBoolean(), "the switch was applied");
+
+        // bridge.json's `call_switchLoadout`: "A `loadout` event follows with the new
+        // loadout, so the caller does not need the returned object" — and LoadoutsScreen
+        // holds no optimistic state, so without this the page keeps rendering the loadout
+        // the player just left while Java runs the new one.
+        JsonObject batch = pushedEnvelope(bridge, VoidBridge.EVENT_LOADOUT);
+        assertNotNull(batch, "a `loadout` event must follow the switch");
+        assertEquals(target, batch.getAsJsonObject("payload").get("id").getAsString());
+
+        // And a switch that names an id the library does not have changes nothing and
+        // pushes nothing, so the page is not told about a switch that did not happen.
+        VoidBridge second = new VoidBridge(state, new Host());
+        JsonObject refused = Json.parseObject(second.dispatch(
+                "{\"c\":\"switchLoadout\",\"params\":[\"not-a-loadout\"]}"));
+        assertTrue(!refused.get("returns").getAsBoolean(), "an unknown id is refused");
+        assertNull(pushedEnvelope(second, VoidBridge.EVENT_LOADOUT), "and pushes nothing");
+    }
+
+    /** The first envelope on {@code event} in the bridge's pending batch, or null. */
+    private static JsonObject pushedEnvelope(VoidBridge bridge, String event) {
+        String script = bridge.drainScript();
+        if (script == null) {
+            return null;
+        }
+        String json = script.substring("window.void.__emit(".length(), script.length() - 1);
+        JsonArray batch = new com.google.gson.JsonParser().parse(json).getAsJsonArray();
+        for (int i = 0; i < batch.size(); i++) {
+            JsonObject envelope = batch.get(i).getAsJsonObject();
+            if (envelope.has("e") && event.equals(envelope.get("e").getAsString())) {
+                return envelope;
+            }
+        }
+        return null;
+    }
+
+    @Test
     @DisplayName("setSurfaces hands the host the geometry the GL shadow pass draws")
     void surfacesReachTheHost() {
         LiveState state = seededState();

@@ -21,8 +21,61 @@ public interface WebView extends AutoCloseable {
     /** False for {@link NullWebView}: nothing will ever be painted. */
     boolean isAvailable();
 
+    /**
+     * Which renderer this view is actually running, as opposed to which one was asked for.
+     *
+     * <p>Asking for the accelerated one does not get it. It needs a GL context on the thread that
+     * owns the engine, and it needs its GLSL 1.20 programs to build on this GPU — which has been
+     * verified on exactly one machine. Either can say no, in which case the view is a CPU surface
+     * and this answers false. It can also change during the process, from true to false and never
+     * back, if the driver dies after the view was created.</p>
+     *
+     * <p>Read it rather than assuming: the supersample cap, the profiling labels and anything else
+     * that is sized to one renderer's cost is wrong if it trusts the request instead of the
+     * result. The three behavioural questions — {@link #needsFullRepaintEachFrame},
+     * {@link #rendersEveryFrame} and {@link #texturePublishedByUiThread} — all follow from this and
+     * must be re-read every frame for the same reason.</p>
+     */
+    boolean isAccelerated();
+
+    /**
+     * The most this view may be supersampled, i.e. the cap on how much denser than the
+     * framebuffer it is allowed to be rasterised.
+     *
+     * <p><b>This lives here because it is a property of the renderer, and the renderer is this
+     * object.</b> It is not a policy the host may hold a copy of. The CPU rasteriser's cost is
+     * quadratic in the factor, the GPU's is nearly free, and {@link #isAccelerated} can go from
+     * true to false <em>mid-session</em> — so any cap stored anywhere else is wrong from that
+     * moment on, and stays wrong silently, because nothing about the picture looks different.</p>
+     *
+     * <p>The supersample cap has now broken this way three times, each time through a different
+     * cache: a field on the host set once behind a {@code maxSupersample == 0} guard, then the
+     * host's own {@code accelerated} field, then a static on {@code WebViews} written only by
+     * {@code create} and never by the mid-session fallback. Every one of those was a correct
+     * value that later stopped being correct. It is answered here, off the same volatile field
+     * that decides {@link #isAccelerated}, so that there is no second place for it to be stored
+     * and therefore nowhere for it to go stale. {@code design/rendering-invariants.md} lists this
+     * cap as one of its four examples of a later change invalidating an earlier one's
+     * precondition.</p>
+     */
+    int maxSupersample();
+
     /** Resolves inside the renderer's resource prefix, e.g. {@code file:///index.html}. */
     void loadUrl(String url);
+
+    /**
+     * Which document this view is showing, counted from zero and bumped by every load.
+     *
+     * <p>The point is not the number, it is the change. A view can load a page the host did not
+     * ask it to: {@link UltralightWebView#isAccelerated} dropping to false mid-session rebuilds
+     * the view, and a replacement view is a new view with no document, so the entry URL is
+     * loaded again. Everything the host had established on the old document — the bridge shim it
+     * probed for, the state it pushed, the DOM it had modified — is gone, and nothing about the
+     * view says so. Comparing this against the generation the host itself loaded is how it finds
+     * out, and it is deliberately a counter rather than a flag so that any number of observers
+     * can each track their own last-seen value without consuming anything.</p>
+     */
+    int documentGeneration();
 
     /**
      * Marks the whole view dirty.

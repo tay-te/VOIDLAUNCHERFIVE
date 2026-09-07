@@ -29,6 +29,24 @@ public abstract class MinecraftClientMixin {
         }
     }
 
+    /**
+     * Head of the game loop, once per rendered frame: drain LWJGL's input queues into the VOID
+     * menu, instead of leaving them to {@code tick}'s own {@code Screen.handleInput} at 20 Hz.
+     *
+     * <p>Here rather than anywhere inside the render pass because this is a few statements ahead
+     * of where 1.8.9 runs {@code handleInput} itself — before the scheduled executables, before the
+     * tick loop, before a framebuffer is bound. Everything these callbacks are allowed to do from
+     * the tick they are therefore still allowed to do: replace the screen, take a screenshot,
+     * toggle full screen. See {@link VoidClient#pumpMenuInput()}.</p>
+     */
+    @Inject(method = "runGameLoop", at = @At("HEAD"))
+    private void void$pumpMenuInput(CallbackInfo ci) {
+        VoidClient client = VoidClient.get();
+        if (client != null) {
+            client.pumpMenuInput();
+        }
+    }
+
     /** The framebuffer changed size; the Ultralight view follows it (§6.2). */
     @Inject(method = "onResolutionChanged", at = @At("TAIL"))
     private void void$onResize(int width, int height, CallbackInfo ci) {

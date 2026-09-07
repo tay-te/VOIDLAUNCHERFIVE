@@ -153,10 +153,28 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     /**
      * Whether the page has been handed a loadout to render.
      *
-     * <p>Only ever set by {@link #maybePushLocalState}, and only in a client with no launcher
-     * behind it. With one, {@link #onInit} is the push and this stays false.</p>
+     * <p>Only ever set by {@link #maybePushLocalState}. With a launcher behind it,
+     * {@link #onInit} is normally the push and this stays false — unless that {@code init} never
+     * arrives, which is what the grace below is for.</p>
      */
     private boolean localStatePushed;
+
+    /** Ticks {@link #maybePushLocalState} has waited for a launcher-attached client's init. */
+    private int initWaited;
+
+    /**
+     * How long a client with a launcher waits for {@code init} before falling back to its own
+     * defaults: 100 ticks, so five seconds at the 20 Hz this is counted on.
+     *
+     * <p>Ticks rather than wall clock deliberately. This is counted while the world loads, which
+     * is exactly when the game stalls and the launcher is merely slow rather than gone; a wall
+     * clock would fire the fallback during that hitch, whereas a tick counter simply stops
+     * counting and waits longer. Erring towards waiting is right — the cost of firing late is a
+     * few more seconds of an unstyled panel, and the cost of firing early is the player's real
+     * loadout being replaced on screen by the factory defaults.</p>
+     */
+    private static final int INIT_GRACE_TICKS = 100;
+
     private SessionStats stats;
     private Float savedGamma;
     /**
@@ -358,6 +376,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         maybePushLocalState();
         maybeAutoLoadWorld(mc);
         maybeAutoOpenMenu(mc);
+        // Tracing scaffolding, off unless VOID_UI_INPUTDRIVE is set. Started from the tick rather
+        // than at init because it needs Display/Mouse/Keyboard to exist; a no-op after the first
+        // successful call. See SyntheticInput for why input has to be driven from inside.
+        dev.voidpvp.client.input.SyntheticInput.start();
         maybeCycleMenu(mc);
         refreshKeyBindings(mc);
         applyActuators(mc);
@@ -379,30 +401,55 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * on the floor and re-rendered the default. It read as "the meter cannot be dragged", and
      * equally as a toggle that will not toggle and a swatch that will not take.</p>
      *
-     * <p>Once, on the first tick, and only with {@code socket == null}: a client that has a
-     * launcher must keep waiting for its {@code init}, or this would race it and briefly show the
-     * factory defaults over the player's real loadout. Emitting this early is safe because
-     * {@link VoidBridge} queues envelopes until the page reports the shim is up — see
-     * {@code UiHost.frameOnUiThread}'s {@code bridgeReady} probe — so the first tick's push is
-     * still delivered to a page that mounts several seconds later.</p>
+     * <p>Once, and never once Rust's {@code init} has landed. A client that has a launcher waits
+     * for that init rather than racing it, or this would briefly show the factory defaults over
+     * the player's real loadout. Emitting early is safe because {@link VoidBridge} queues
+     * envelopes until the page reports the shim is up — see {@code UiHost.frameOnUiThread}'s
+     * {@code bridgeReady} probe — so the first tick's push is still delivered to a page that
+     * mounts several seconds later.</p>
+     *
+     * <p><b>Waits, rather than defers forever.</b> The guard used to be {@code socket != null},
+     * which reads as "someone else will push this" — and is wrong whenever the socket comes up but
+     * the {@code init} does not. Two ways that happens in a shipped client: a protocol-version
+     * mismatch, where {@link #onVersionMismatch} logs and applies nothing while the socket stays
+     * up; and a bridge that dies after connecting. In both the page holds {@code loadout: null}
+     * for the whole session, and the store's writer opens with {@code if (!loadout) return}, so
+     * every control in the properties panel is silently inert — the same failure this method was
+     * written to fix, reached by the other road. The condition is therefore what is actually being
+     * waited for ({@link LiveState#isInitialised()}, set only by {@code applyInit}) plus a bounded
+     * grace, not the mere presence of a socket.</p>
      */
     private void maybePushLocalState() {
-        if (localStatePushed || socket != null) {
+        if (localStatePushed || state.isInitialised()) {
+            return;
+        }
+        boolean attached = socket != null;
+        if (attached && ++initWaited <= INIT_GRACE_TICKS) {
             return;
         }
         localStatePushed = true;
-        // The library first, then the active loadout: the same order onInit uses, for the same
-        // reason — `loadouts` is whole-state and the `loadout` push is the live copy.
+        // One definition of what a page needs, shared with onInit and with the re-push a reloaded
+        // page gets (VoidBridge.pushWholeState) — the library, then the active loadout, then the
+        // menu state.
         //
         // Straight onto the bridge rather than through emitLoadout(), which also calls
         // ui.requestRender(). That request would start the UI thread on the first client tick,
         // i.e. at the title screen, earlier than anything else does — and there is nothing for it
         // to render: the view does not exist yet, and the frames after it is created are forced
         // (UiHost.FORCED_RENDERS) so the first paint carries this state anyway.
-        emitLoadouts();
-        bridge.emit(VoidBridge.EVENT_LOADOUT, state.loadoutJson());
-        VoidLog.info("loadout '" + state.loadoutId()
-                + "' pushed to the page from the mod's own defaults (no launcher link)");
+        bridge.pushWholeState();
+        if (attached) {
+            // Warn, and say which of the two situations this is. A client with no launcher pushing
+            // its own defaults is the ordinary dev path; a client whose launcher answered the
+            // socket and then never sent init is a fault somewhere else, and this line is the only
+            // place it will ever surface.
+            VoidLog.warn("no init from the launcher after " + INIT_GRACE_TICKS
+                    + " ticks, though its socket is up: falling back to the mod's own defaults so"
+                    + " the page has a loadout to write to. Loadout '" + state.loadoutId() + "'.");
+        } else {
+            VoidLog.info("loadout '" + state.loadoutId()
+                    + "' pushed to the page from the mod's own defaults (no launcher link)");
+        }
     }
 
     /**
@@ -551,6 +598,31 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // The mixin rescales these, so pass the point size the resize path would have passed.
         ((dev.voidpvp.client.mixin.MinecraftClientInvoker) mc).void$onResolutionChanged(
                 org.lwjgl.opengl.Display.getWidth(), org.lwjgl.opengl.Display.getHeight());
+    }
+
+    /**
+     * Head of {@code MinecraftClient.runGameLoop}: hand the menu this frame's input.
+     *
+     * <p>1.8.9 drains LWJGL's input queues from {@code MinecraftClient.tick()}, at 20 Hz, and that
+     * is a 50 ms quantisation floor under every click, drag and keystroke the menu receives — on a
+     * client rendering at 110. The queues are refilled by {@code Display.update()} once per
+     * rendered frame, so a per-frame drain is both strictly faster and the fastest this path can
+     * be: any more often and it would find them empty. See
+     * {@link VoidMenuScreen#pumpInput()} for the measurements and for why the head of the game
+     * loop, rather than the screen's own render, is the place to do it.</p>
+     *
+     * <p>Only our own menu. A vanilla screen keeps vanilla's timing, because vanilla's screens
+     * were written against it — {@code lastClicked}, the double-click windows in the world list,
+     * and the tick-counted cursor blink all read the tick as their clock.</p>
+     */
+    public void pumpMenuInput() {
+        MinecraftClient mc = minecraft();
+        if (mc == null) {
+            return;
+        }
+        if (mc.currentScreen instanceof VoidMenuScreen) {
+            ((VoidMenuScreen) mc.currentScreen).pumpInput();
+        }
     }
 
     /** Called by {@code VoidMenuScreen} when the menu key arrives as an event. */
@@ -929,12 +1001,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // Before the emit: the clock this starts is the one the player experiences, which begins
         // when the game decides to open the menu and ends when the pixels change.
         ui.noteMenuOpening();
-        bridge.emit(VoidBridge.EVENT_MENU, new JsonPrimitive(Boolean.TRUE));
+        // emitMenu, not emit(EVENT_MENU, ...): the bridge has to remember this, because it is the
+        // one piece of the page's state that cannot be re-read from anywhere when a reloaded page
+        // has to be told the session over again. See VoidBridge.pushWholeState.
+        bridge.emitMenu(true);
         ui.requestRender();
     }
 
     public void onMenuClosed() {
-        bridge.emit(VoidBridge.EVENT_MENU, new JsonPrimitive(Boolean.FALSE));
+        bridge.emitMenu(false);
         // The page is about to take the menu off screen; make sure the view actually repaints, or
         // the menu stays on screen as a stale frame.
         //
@@ -973,10 +1048,13 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     @Override
     public void onInit(Loadout loadout, List<Loadout> loadouts, GlobalSettings settings) {
         state.applyInit(loadout, loadouts, settings);
-        // The library first, then the active loadout: `loadouts` is whole-state and the
-        // `loadout` push is the live copy, so the UI store settles on the right one.
-        emitLoadouts();
-        emitLoadout();
+        // The same whole-state push a freshly loaded page gets: the library, then the active
+        // loadout, then the menu. Sharing it with the start-up path and the reload path is what
+        // keeps the three from drifting about what the page needs.
+        bridge.pushWholeState();
+        // What pushWholeState deliberately does not do — it is called from the UI thread too, and
+        // the render request belongs to whoever changed the content.
+        ui.requestRender();
         VoidLog.info("loadout '" + state.loadoutId() + "' applied from launcher ("
                 + state.library().size() + " in library)");
     }

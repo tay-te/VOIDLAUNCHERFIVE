@@ -3,6 +3,7 @@ package dev.voidpvp.client.screen;
 import dev.voidpvp.client.HiDpi;
 import dev.voidpvp.client.VoidLog;
 import dev.voidpvp.client.VoidClient;
+import dev.voidpvp.client.input.InputLatency;
 import dev.voidpvp.client.input.KeyNames;
 import dev.voidpvp.client.ui.UiHost;
 import net.minecraft.client.MinecraftClient;
@@ -73,15 +74,6 @@ public final class VoidMenuScreen extends Screen {
         int fbWidth = Math.max(1, mc.width);
         int fbHeight = Math.max(1, mc.height);
 
-        // Before the paint, so travel that arrived this frame is on the UI thread's queue ahead
-        // of the frame that will show it.
-        pollWheel(ui);
-
-        // Profiling only (VOID_UI_CLICKTEST), and first, before the paint: a real click reaches
-        // mouseClicked from runTick, i.e. ahead of this frame's blit, so a synthetic one fired
-        // after the blit would report a game frame of latency that a player never pays.
-        ui.driveClickTest();
-
         // 1-3. framebuffer copy, two-pass blur, draw back with the tint
         backdrop.draw(this.width, this.height, fbWidth, fbHeight, TINT);
 
@@ -117,6 +109,113 @@ public final class VoidMenuScreen extends Screen {
     // Input forwarding (§6.3). Minecraft has released the mouse; every event
     // here belongs to the view unless it is the key that closes the menu.
     // -----------------------------------------------------------------
+
+    /**
+     * Drains LWJGL's input queues into this screen, once per rendered frame.
+     *
+     * <p>Called from the head of {@code MinecraftClient.runGameLoop} ({@code MinecraftClientMixin}
+     * -> {@code VoidClient.pumpMenuInput}), <b>not</b> from {@link #handleInput}, which is where a
+     * screen's input naturally lives and which is the whole problem.</p>
+     *
+     * <p>Every mouse and key event the menu receives arrives through one LWJGL ring buffer. That
+     * buffer is <em>filled</em> by {@code Mouse.poll()}/{@code Keyboard.poll()} inside
+     * {@code Display.update()} — once per rendered frame, so 110 times a second here — and
+     * <em>emptied</em> by {@code Screen.handleInput()}, which 1.8.9 calls from
+     * {@code MinecraftClient.tick()}. The tick runs at 20 Hz. Measured, with nobody at the
+     * keyboard: 20.0 drains a second at 112 fps, 5.6 rendered frames per drain, mean gap 50.0 ms.
+     * So an event that landed in the buffer waited a uniform 0-50 ms for someone to come and get
+     * it — measured at the callback, 27 ms mean and 55 ms worst, for every class of input alike:
+     * press, release, drag, key down, key up. That is the 50 ms quantisation floor, and it was
+     * under a click as much as under a scroll.</p>
+     *
+     * <p>Once per frame is the floor, not a choice: the buffer only receives anything at
+     * {@code Display.update()}, so draining more often than that would find it empty. Frame rate
+     * is therefore as fast as this path can be made to go, and the head of the game loop is where
+     * in the frame it is cheapest — it is a few statements ahead of where the tick would have run
+     * {@code handleInput} anyway, which is what makes every expectation vanilla has of these
+     * callbacks still hold. In particular {@code handleKeyboard} ends in
+     * {@code MinecraftClient.handleKeyInput}, which can take a screenshot or toggle full screen;
+     * doing that from here is doing it exactly where 1.8.9 already does it, and doing it from
+     * inside {@link #render} — the other obvious place to pump from — would have been doing it
+     * with the frame's framebuffer bound.</p>
+     *
+     * <p>{@code handleInput} is deliberately left alone rather than emptied. It still runs on the
+     * tick and still drains, and will find the queues empty except for the sliver of a frame
+     * between this call and the tick. Nothing is delivered twice: a queue read consumes.</p>
+     *
+     * <p>The screen is re-checked on every iteration because an event can close the menu —
+     * Right Shift, Escape, or a keybind capture finishing — and the events behind it then belong
+     * to whatever screen replaced this one, which is what the tick's own drain will do with them.</p>
+     */
+    public void pumpInput() {
+        InputLatency.frame();
+        InputLatency.maybeDump();
+        InputLatency.drain();
+        MinecraftClient mc = voidClient.minecraft();
+        if (mc == null) {
+            return;
+        }
+        if (Mouse.isCreated()) {
+            while (mc.currentScreen == this && Mouse.next()) {
+                handleMouse();
+            }
+        }
+        if (Keyboard.isCreated()) {
+            while (mc.currentScreen == this && Keyboard.next()) {
+                handleKeyboard();
+            }
+        }
+        if (mc.currentScreen != this) {
+            return;
+        }
+        UiHost ui = voidClient.ui();
+        // After the events, so a notch and the click that follows it stay in the order they were
+        // made. Here rather than in render() for the same reason as everything else above: this is
+        // half a frame earlier, and it keeps the menu's whole input path in one place.
+        pollWheel(ui);
+        // Profiling only (VOID_UI_CLICKTEST). Here so that a synthetic click enters mouseDown at
+        // the same point in the frame a real one now does, which is what makes its numbers
+        // comparable to a player's.
+        ui.driveClickTest();
+    }
+
+    /**
+     * Tracing only ({@code VOID_UI_INPUTLOG}): the tick's own drain, which now finds the queues
+     * empty. Left in place — see {@link #pumpInput} for why it is not overridden away.
+     */
+    @Override
+    public void handleInput() {
+        InputLatency.drain();
+        super.handleInput();
+    }
+
+    /**
+     * Tracing only ({@code VOID_UI_INPUTLOG}): every mouse event, timed against LWJGL's own stamp.
+     *
+     * <p>Overridden here rather than measured in the individual callbacks because this is where
+     * every class of mouse input arrives, including the ones that produce no callback at all: a
+     * cursor move with no button held reaches {@code super.handleMouse} and stops there, and a
+     * wheel delta is carried on a move event that {@code Screen} does not read.</p>
+     */
+    @Override
+    public void handleMouse() {
+        if (InputLatency.ON) {
+            int button = Mouse.getEventButton();
+            String kind;
+            if (button != -1) {
+                kind = Mouse.getEventButtonState() ? "press" : "release";
+            } else {
+                // A drag is a move with a button down; LWJGL does not distinguish them, and the
+                // two wait in the same queue for the same drain, so this only names them apart.
+                kind = Mouse.isButtonDown(0) ? "drag" : "move";
+            }
+            InputLatency.source(kind, Mouse.getEventNanoseconds(), false);
+            if (Mouse.getEventDWheel() != 0) {
+                InputLatency.source("wheel", Mouse.getEventNanoseconds(), false);
+            }
+        }
+        super.handleMouse();
+    }
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
@@ -269,6 +368,10 @@ public final class VoidMenuScreen extends Screen {
 
     @Override
     public void handleKeyboard() {
+        if (InputLatency.ON) {
+            InputLatency.source(Keyboard.getEventKeyState() ? "keydown" : "keyup",
+                    Keyboard.getEventNanoseconds(), true);
+        }
         // Minecraft only delivers presses to keyPressed; key-up has to be read
         // from the event itself or the view would never see a key released.
         if (Keyboard.getEventKey() != 0 && !Keyboard.getEventKeyState()) {
