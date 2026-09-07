@@ -163,6 +163,53 @@ class ActuatorsTest {
         assertFalse(KeyNames.isMouse(KeyNames.codeOf("A")));
     }
 
+    /**
+     * The character filter that decides what reaches a focused field.
+     *
+     * <p>Regression: Down arrow used to append a character to the quick palette's query on every
+     * press, because LWJGL 2 on macOS reports the event character for the navigation keys as
+     * AppKit's private-use codepoints ({@code NSDownArrowFunctionKey} is U+F701) and the old test
+     * — "at least 32 and not 127" — waved them through. The key event itself was always correct;
+     * it was the phantom character behind it that reset the selection.</p>
+     */
+    @Test
+    @DisplayName("only real typed text reaches a focused field")
+    void typedText() {
+        for (char c : new char[] {'a', 'Z', '0', ' ', '/', '\u00e9', '\u4e2d', '\u20ac'}) {
+            assertTrue(KeyNames.isTypedText(c), "U+" + Integer.toHexString(c) + " is typed text");
+        }
+        // C0 controls and DEL: Enter, Tab, Backspace and Escape all arrive with one of these,
+        // and every one of them is a command rather than something to insert.
+        for (char c : new char[] {'\0', '\b', '\t', '\n', '\r', '\u001b', '\u007f'}) {
+            assertFalse(KeyNames.isTypedText(c), "U+" + Integer.toHexString(c) + " is not text");
+        }
+        // AppKit's function-key block, and the private-use area it sits in.
+        assertFalse(KeyNames.isTypedText('\uF700'), "NSUpArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uF701'), "NSDownArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uF702'), "NSLeftArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uF703'), "NSRightArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uE000'), "start of the private-use area");
+        assertFalse(KeyNames.isTypedText('\uF8FF'), "end of the private-use area");
+        // The characters either side of the range are ordinary text and must survive.
+        assertTrue(KeyNames.isTypedText('\uDFFF'));
+        assertTrue(KeyNames.isTypedText('\uF900'));
+    }
+
+    /** Ultralight's modifier bits: 1 alt, 2 ctrl, 4 meta, 8 shift. */
+    @Test
+    @DisplayName("a chord is a command, not a character")
+    void commandChords() {
+        assertFalse(KeyNames.isCommandChord(0), "no modifiers");
+        assertFalse(KeyNames.isCommandChord(8), "shift is how capitals are typed");
+        assertFalse(KeyNames.isCommandChord(1), "alt alone types on macOS (Option-e)");
+        assertFalse(KeyNames.isCommandChord(3), "ctrl+alt is AltGr and types");
+        assertFalse(KeyNames.isCommandChord(11), "shift+AltGr types too");
+        assertTrue(KeyNames.isCommandChord(4), "Cmd-K is a command, not a 'k'");
+        assertTrue(KeyNames.isCommandChord(2), "Ctrl-K likewise");
+        assertTrue(KeyNames.isCommandChord(12), "Cmd+Shift");
+        assertTrue(KeyNames.isCommandChord(6), "Cmd+Ctrl");
+    }
+
     @Test
     @DisplayName("keys map to the virtual-key codes Ultralight expects")
     void virtualKeys() {

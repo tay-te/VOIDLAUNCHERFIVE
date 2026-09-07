@@ -453,7 +453,13 @@ public final class VoidMenuScreen extends Screen {
         }
         int mods = modifiers();
         ui.keyDown(KeyNames.virtualKey(keyCode), mods);
-        if (character >= 32 && character != 127) {
+        // Not every key event carries text, and two different things can be wrong with the
+        // character LWJGL hands over. On macOS the navigation keys arrive with an AppKit
+        // private-use character (Down is U+F701), and a chord arrives with the plain character
+        // of the key it was struck with (Cmd-K's is 'k'). Both used to be forwarded as typed
+        // text and land in whatever field had focus: the first reset the palette's selection on
+        // every arrow press, the second put a `k` in the field Cmd-K had just opened.
+        if (KeyNames.isTypedText(character) && !KeyNames.isCommandChord(mods)) {
             ui.keyChar(String.valueOf(character), mods);
         }
     }

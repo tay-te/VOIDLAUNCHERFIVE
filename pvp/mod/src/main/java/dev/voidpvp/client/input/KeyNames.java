@@ -200,6 +200,56 @@ public final class KeyNames {
         return vk == null ? 0 : vk.intValue();
     }
 
+    /**
+     * Whether a character off an LWJGL key event is text a focused field should receive.
+     *
+     * <p>The obvious test — {@code c >= 32 && c != 127} — filters the C0 controls and DEL and
+     * lets everything else through. On macOS that is wrong for every navigation key. LWJGL 2
+     * takes its event character straight from AppKit, and AppKit encodes the function keys as
+     * codepoints in the Basic Multilingual Plane's private-use area: {@code NSUpArrowFunctionKey}
+     * is U+F700, Down U+F701, Left U+F702, Right U+F703, and the block runs to U+F8FF (Home,
+     * End, PageUp, the F-keys, Insert, Delete). All of them are above 32 and none of them is
+     * 127, so all of them were being delivered to the page as typed characters.</p>
+     *
+     * <p><b>What that looked like.</b> In the quick palette, Down arrow moved the selection and
+     * then immediately appended U+F701 to the query — measured in game: the field read
+     * {@code full} then {@code full<notdef>} then {@code full<notdef><notdef>}, the result list
+     * went five rows to two rows to none, and the selection reset to the top on every press
+     * because the query had changed. From the player's side, "hitting down arrow does not cycle
+     * through the results". The key event itself was never the problem; it arrived correctly,
+     * with {@code key === "ArrowDown"}, and the handler ran.</p>
+     *
+     * <p>The whole private-use area is rejected rather than just U+F700-U+F8FF: no keyboard
+     * anywhere produces a private-use codepoint, so nothing legitimate is lost, and a platform
+     * that picks a different corner of it for the same purpose is covered in advance.</p>
+     */
+    public static boolean isTypedText(char character) {
+        if (character < 32 || character == 127) {
+            return false;
+        }
+        return character < '\uE000' || character > '\uF8FF';
+    }
+
+    /**
+     * Whether a key press carrying these modifiers is a command rather than something to type.
+     *
+     * <p>Modifier bits are Ultralight's, as {@code VoidMenuScreen.modifiers()} builds them:
+     * 1 alt, 2 ctrl, 4 meta, 8 shift.</p>
+     *
+     * <p>A chord still arrives with a perfectly ordinary character on it — Cmd-K's character is
+     * {@code 'k'} — and forwarding that as typed text is how "Cmd-K opens the palette" became
+     * "Cmd-K opens the palette with a `k` already in the field", measured in game. Shift is not a
+     * command modifier (it is how capitals are typed) and neither is Alt on its own (Option-e is
+     * a real character on macOS). Ctrl *is*, except in combination with Alt, which is how Windows
+     * spells AltGr and which genuinely produces text.</p>
+     */
+    public static boolean isCommandChord(int modifiers) {
+        if ((modifiers & 4) != 0) {
+            return true;
+        }
+        return (modifiers & 2) != 0 && (modifiers & 1) == 0;
+    }
+
     /** Every name this table knows, for tests and diagnostics. */
     public static Map<String, Integer> names() {
         return Collections.unmodifiableMap(BY_NAME);
