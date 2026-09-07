@@ -44,6 +44,18 @@ final class BlurBackdrop {
     private int uniformTexture;
 
     BlurBackdrop() {
+        // Off by design, not just for profiling.
+        //
+        // `design/quiet-cell-system.md` §1 is explicit: no blur, no shadow, no gradient, anywhere.
+        // The system carries depth with four opaque fill steps instead, so the panel does not need
+        // anything softened behind it — and this was the only per-frame GL work the menu added to
+        // the *game* thread: a full-resolution glCopyTexSubImage2D of the framebuffer plus four
+        // quad passes, every frame. Measured at ~5 fps with the menu open (89.7 -> 94.9), about
+        // three quarters of everything the open menu cost.
+        //
+        // Set VOID_UI_BLUR to put it back; the implementation is kept because §6.4 may want it
+        // again if the design ever stops being flat.
+        disabled = System.getenv("VOID_UI_BLUR") == null;
         boolean core;
         try {
             core = GLContext.getCapabilities().OpenGL30;
@@ -74,7 +86,14 @@ final class BlurBackdrop {
      * @param tintArgb     the {@code rgba(0,0,0,0.45)} of §6.4, packed
      */
     void draw(int screenWidth, int screenHeight, int fbWidth, int fbHeight, int tintArgb) {
-        if (disabled || fbWidth <= 0 || fbHeight <= 0) {
+        if (disabled) {
+            // Nothing at all, not even the flat tint. The page draws its own scrim
+            // (`.menu-layer__dim`), and drawing one here too stacked them: 0.45 under 0.30 is an
+            // effective 0.62, which is why the menu read as hiding the game no matter how far the
+            // page's own scrim came down. One scrim, owned by the design system.
+            return;
+        }
+        if (fbWidth <= 0 || fbHeight <= 0) {
             GlBlit.begin2d(screenWidth, screenHeight);
             try {
                 GlBlit.fill(0, 0, screenWidth, screenHeight, tintArgb);

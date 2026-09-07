@@ -1,6 +1,7 @@
 package dev.voidpvp.client.screen;
 
 import dev.voidpvp.client.HiDpi;
+import dev.voidpvp.client.VoidLog;
 import dev.voidpvp.client.VoidClient;
 import dev.voidpvp.client.input.KeyNames;
 import dev.voidpvp.client.ui.UiHost;
@@ -49,6 +50,12 @@ public final class VoidMenuScreen extends Screen {
         voidClient.onMenuOpened();
         UiHost ui = voidClient.ui();
         ui.setFocus(true);
+        // Drop whatever the wheel accumulated while the menu was shut. Nothing in 1.8.9 reads
+        // Mouse.getDWheel() outside a container screen, so it has been adding up since the last
+        // one was closed — hotbar scrolling included — and the first read here would otherwise
+        // deliver all of it as one jump. See pollWheel.
+        Mouse.getDWheel();
+        wheelRemainder = 0;
     }
 
     @Override
@@ -65,6 +72,15 @@ public final class VoidMenuScreen extends Screen {
         UiHost ui = voidClient.ui();
         int fbWidth = Math.max(1, mc.width);
         int fbHeight = Math.max(1, mc.height);
+
+        // Before the paint, so travel that arrived this frame is on the UI thread's queue ahead
+        // of the frame that will show it.
+        pollWheel(ui);
+
+        // Profiling only (VOID_UI_CLICKTEST), and first, before the paint: a real click reaches
+        // mouseClicked from runTick, i.e. ahead of this frame's blit, so a synthetic one fired
+        // after the blit would report a game frame of latency that a player never pays.
+        ui.driveClickTest();
 
         // 1-3. framebuffer copy, two-pass blur, draw back with the tint
         backdrop.draw(this.width, this.height, fbWidth, fbHeight, TINT);
@@ -124,15 +140,131 @@ public final class VoidMenuScreen extends Screen {
         ui.mouseMoved(viewX(ui), viewY(ui));
     }
 
-    @Override
-    public void handleMouse() {
-        // Read the wheel for the event Minecraft is about to consume.
-        int wheel = Mouse.getEventDWheel();
-        if (wheel != 0) {
-            // LWJGL reports 120 per notch; Ultralight wants pixels.
-            voidClient.ui().scroll(0, wheel / 120 * 48);
+    /** CSS pixels one full wheel detent scrolls. */
+    private static final double WHEEL_NOTCH_PX = 48.0;
+
+    /** LWJGL wheel units in one detent. */
+    private static final double UNITS_PER_NOTCH = 120.0;
+
+    /**
+     * LWJGL wheel units in one point of precise (trackpad) scrolling, on macOS.
+     *
+     * <p>AppKit reports a precise gesture in points on {@code scrollingDeltaY} and mirrors it on
+     * the legacy {@code deltaY} as {@code scrollingDeltaY / 10}; LWJGL 2 then multiplies
+     * {@code deltaY} by 120 to make its integer. So one point of finger travel is twelve units.
+     * Measured against synthetic {@code kCGScrollEventUnitPixel} events of 3, 7, 12, 20, 28, 34,
+     * 38 and 40 points, LWJGL reported 35, 83, 143, 240, 335, 407, 455 and 480 — twelve to the
+     * point, to the rounding.</p>
+     */
+    private static final double UNITS_PER_POINT = 12.0;
+
+    /**
+     * How long one non-detent delta keeps the stream classified as precise.
+     *
+     * <p>Long enough to cover the gaps inside a gesture many times over — the deltas of one
+     * arrive about ten milliseconds apart — and short enough that a wheel used after a trackpad
+     * is read as a wheel again before the next flick. It doubles as the idle gap after which
+     * {@link #pollWheel} drops the banked sub-pixel.</p>
+     */
+    private static final long PRECISE_STREAM_NANOS = 400L * 1_000_000L;
+
+    /** While {@code now < this}, wheel deltas are read as points rather than as detents. */
+    private long preciseUntilNanos;
+
+    /**
+     * Wheel travel under a whole pixel, kept for the next event.
+     *
+     * <p>This used to be {@code wheel / 120 * 48} in integers, which throws away everything
+     * smaller than a notch: LWJGL reports 120 per detent on a mouse but a trackpad or a free
+     * wheel sends a stream of much smaller deltas, and every one of those divided to zero. The
+     * overlay therefore did not scroll at all under a gesture's worth of movement and then
+     * jumped a whole line when the deltas happened to add up to 120 inside one event. Banking
+     * the remainder is what makes a slow gesture move slowly.</p>
+     *
+     * <p>Bounded by construction: whatever is left after the integer part is taken is under one
+     * pixel, so this can never hold back enough to be felt when it is finally paid — which is
+     * what separates it from the payout budget {@code UiHost.driveScroll} used to keep.</p>
+     */
+    private double wheelRemainder;
+
+    /** Scroll tracing only ({@code VOID_UI_SCROLLLOG}): when the previous wheel poll had travel. */
+    private long lastWheelNanos;
+
+    /**
+     * Turns one LWJGL wheel delta into CSS pixels of page travel.
+     *
+     * <p>Two devices come through this one integer and they do not mean the same thing by it. A
+     * mouse detent is a discrete request for "about a line" and is always a whole multiple of 120;
+     * a trackpad is a position report, twelve units to the point, and its gesture is a dense
+     * stream of arbitrary values. Reading a trackpad as detents is what made a flick cover about
+     * 2.6x the distance the fingers did — an ordinary flick measured 2073 CSS pixels of scroll
+     * against the ~800 the same movement would produce in a browser, which on any of the
+     * overlay's short scrollers is indistinguishable from "it jumps to the bottom".</p>
+     *
+     * <p>The tell is the multiple. Detents are exact; a precise stream is not, and one inexact
+     * delta latches the whole stream as precise for {@link #PRECISE_STREAM_NANOS} so the members
+     * of it that happen to land on 120 are not read as a detent mid-gesture. A hi-res wheel that
+     * reports fractions of a detent classifies as precise too, which is the right answer for it
+     * as well.</p>
+     */
+    private double wheelPixels(int wheel, UiHost ui, long now) {
+        if (wheel % (int) UNITS_PER_NOTCH != 0) {
+            preciseUntilNanos = now + PRECISE_STREAM_NANOS;
         }
-        super.handleMouse();
+        double scale = ui.deviceScale();
+        if (now < preciseUntilNanos && scale > 0) {
+            // Points -> framebuffer pixels -> CSS pixels, the same two steps viewX/viewY take, so
+            // a gesture moves the page by as much as it would have moved the cursor.
+            return HiDpi.toPixels(wheel / UNITS_PER_POINT) / scale;
+        }
+        return wheel * (WHEEL_NOTCH_PX / UNITS_PER_NOTCH);
+    }
+
+    /**
+     * Hands the frame's wheel travel to the view. Called from {@link #render}, once per rendered
+     * frame.
+     *
+     * <p><b>Not from {@code handleMouse}</b>, which is where it used to be and where a screen's
+     * input naturally lives. 1.8.9 pumps a screen's input from {@code runTick}, and {@code runTick}
+     * runs at the <em>tick</em> rate — so a trackpad's 120 Hz stream reached the page as one lump
+     * every 50 ms and the overlay scrolled in twenty steps a second while the fingers moved
+     * smoothly. Measured on a steady 660 px/s drag: 33 px, wait 50 ms, 33 px. A rendered frame is
+     * the right clock for something whose only job is to move pixels, and there are five or six of
+     * those per tick.</p>
+     *
+     * <p>{@code getDWheel}, not {@code getEventDWheel}: the accumulator is filled by
+     * {@code Mouse.poll()} inside {@code Display.update()} — i.e. once per rendered frame — and is
+     * a different reading of the same input from the event queue {@code handleMouse} walks, so
+     * taking it here neither steals events from the game nor counts anything twice. It is reset by
+     * the read, so each frame gets exactly the travel since the last one. {@link #init} drains it
+     * once on open; see there for why.</p>
+     */
+    private void pollWheel(UiHost ui) {
+        int wheel = Mouse.getDWheel();
+        if (wheel == 0) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (now >= preciseUntilNanos + PRECISE_STREAM_NANOS) {
+            // A new gesture starts clean. The sub-pixel left over from the last one is under a
+            // pixel and could never be felt, but nothing should survive a pause on the way to the
+            // page: carrying travel across an idle gap is the shape of bug this whole path had.
+            wheelRemainder = 0;
+        }
+        wheelRemainder += wheelPixels(wheel, ui, now);
+        int pixels = (int) wheelRemainder;
+        if (UiHost.SCROLLLOG) {
+            long gap = lastWheelNanos == 0L ? -1L : (now - lastWheelNanos) / 1_000_000L;
+            lastWheelNanos = now;
+            VoidLog.info("wheel: raw=" + wheel
+                    + (now < preciseUntilNanos ? " precise" : " detent") + " -> px=" + pixels
+                    + " rem=" + (Math.round((wheelRemainder - pixels) * 100.0) / 100.0)
+                    + " gap=" + gap + "ms");
+        }
+        if (pixels != 0) {
+            wheelRemainder -= pixels;
+            ui.scroll(0, pixels);
+        }
     }
 
     @Override
@@ -141,9 +273,50 @@ public final class VoidMenuScreen extends Screen {
         // from the event itself or the view would never see a key released.
         if (Keyboard.getEventKey() != 0 && !Keyboard.getEventKeyState()) {
             int code = Keyboard.getEventKey();
+            // Not isMenuKey(): on key-up the state API already reads false, so the sibling
+            // test cannot match. Clear on either half of the pair.
+            int want = voidClient.state().menuKeyCode;
+            if (code == want || code == siblingModifier(want)) {
+                menuKeyHeld = false;
+            }
             voidClient.ui().keyUp(KeyNames.virtualKey(code), modifiers());
         }
         super.handleKeyboard();
+    }
+
+    /**
+     * Whether this key event is the menu key.
+     *
+     * <p>Not just {@code ==}. LWJGL 2 on macOS reports the *event* for either Shift as
+     * {@code LSHIFT} (42) while {@code Keyboard.isKeyDown} still answers correctly for
+     * {@code RSHIFT} (54) — measured: pressing Right Shift logs `code=42` here and
+     * `isKeyDown(54)=true` in the same frame. So a left/right pair is matched by asking the
+     * state API which side is physically down; the sibling only counts when it really is. The
+     * same conflation applies to Control and Alt, so all three pairs are handled.</p>
+     */
+    /** True while the menu key is physically held, so auto-repeat cannot re-latch it. */
+    private boolean menuKeyHeld;
+
+    private boolean isMenuKey(int keyCode) {
+        int want = voidClient.state().menuKeyCode;
+        if (keyCode == want) {
+            return true;
+        }
+        int sibling = siblingModifier(want);
+        return sibling != 0 && keyCode == sibling && Keyboard.isKeyDown(want);
+    }
+
+    /** The other half of a left/right modifier pair, or 0. */
+    private static int siblingModifier(int code) {
+        switch (code) {
+            case 42: return 54;   // LSHIFT   <-> RSHIFT
+            case 54: return 42;
+            case 29: return 157;  // LCONTROL <-> RCONTROL
+            case 157: return 29;
+            case 56: return 184;  // LMENU    <-> RMENU
+            case 184: return 56;
+            default: return 0;
+        }
     }
 
     @Override
@@ -155,9 +328,20 @@ public final class VoidMenuScreen extends Screen {
                     keyCode == KeyNames.KEY_ESCAPE ? null : KeyNames.nameOf(keyCode));
             return;
         }
-        if (keyCode == voidClient.state().menuKeyCode) {
-            // The hotkey poll owns open/close; swallow it here so the view
-            // does not also see it.
+        if (isMenuKey(keyCode)) {
+            // The hotkey poll still owns open/close — closing here would let the poll reopen on
+            // the next frame while the key is still held. But the poll samples once per frame and
+            // cannot see a tap shorter than a frame, which with the menu open is most taps. So
+            // latch the event and let the poll act on it: the decision stays in one place and
+            // stops depending on frame rate. Swallowed either way, so the view never sees it.
+            // Once per physical press. `GuiScreen` turns on key repeat, so holding the key
+            // delivers keyPressed again and again; latching each one toggled the menu every
+            // frame the key was held, which is a flicker, not a close. Cleared on key-up in
+            // handleKeyboard().
+            if (!menuKeyHeld) {
+                menuKeyHeld = true;
+                voidClient.latchMenuKeyTap();
+            }
             return;
         }
         if (keyCode == KeyNames.KEY_ESCAPE && !ui.hasFocusedInput()) {

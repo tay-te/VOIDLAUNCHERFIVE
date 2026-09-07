@@ -36,6 +36,25 @@ public interface WebView extends AutoCloseable {
     void setNeedsPaint();
 
     /**
+     * Clears the dirty flag {@link #setNeedsPaint} sets.
+     *
+     * <p>Only meaningful where {@link #needsFullRepaintEachFrame} is true, and there it is what
+     * keeps the demand-driven gate from latching. On the accelerated path the host sets the flag
+     * before every render so the whole view is repainted; Ultralight clears it again as part of a
+     * paint that <em>draws something</em>, and leaves it alone when the page has nothing new. The
+     * two together are a trap: one render whose content had not changed left the flag set, the
+     * host read that back as "dirty" on the next frame, set it again, and the view rendered every
+     * frame for the rest of the process. Measured with the menu open and the cursor still — 50
+     * paints/s against 0-2 presents/s, all of it publishing nothing.</p>
+     *
+     * <p>The caller may only clear a flag it set itself — a render it forced on a page that
+     * reported itself clean. A flag Ultralight raised means it still wants a paint, and clearing
+     * that would swallow the first paint of a page that is still coming up, which is the "cards
+     * only appear once hovered" failure this whole gate has produced before.</p>
+     */
+    void clearNeedsPaint();
+
+    /**
      * Whether every render has to repaint the whole view.
      *
      * <p>True for the accelerated renderer, where our GPU driver's handling of Ultralight's damage
@@ -76,8 +95,39 @@ public interface WebView extends AutoCloseable {
     /** Paints dirty views into their GL textures; needs MC's GL context current. */
     void render();
 
+    /**
+     * Clears the accelerated view's render target, so the next render starts from nothing.
+     *
+     * <p>Call it immediately before a {@link #render} whose result may be an empty page. Ultralight
+     * never clears a view's own target, and a page with nothing left on it produces no draw
+     * commands at all, so without this the target keeps the last frame that had content — the menu
+     * the player just closed, welded to the screen for the life of the process. It cannot be
+     * inferred inside the renderer: an empty command list also means "nothing changed this frame",
+     * and clearing on that takes a perfectly good menu off the screen the moment it stops
+     * animating. Only the host knows which of the two it is.</p>
+     *
+     * <p>No-op for the CPU renderer, which uploads the whole surface on every paint and cannot
+     * hold a stale frame this way.</p>
+     */
+    void clearTarget();
+
     /** Valid after {@link #render}: RGBA, premultiplied alpha, top-left origin. */
     int glTextureId();
+
+    /**
+     * Which thread {@link #glTextureId} and the two uv scales belong to.
+     *
+     * <p>True for the accelerated renderer: reading the texture enters the engine and races a
+     * resize, the pixels were produced by the UI thread's own GL context, and the call is where
+     * the finished frame gets copied out of Ultralight's render target into the texture the game
+     * thread is allowed to sample. So the UI thread reads all three after each paint and publishes
+     * them, and the game thread's blit uses what was published.</p>
+     *
+     * <p>False for the CPU renderer, where the opposite holds: {@code glTextureId()} <em>is</em>
+     * the upload — it copies the dirty rectangle of the surface into a texture — so it has to run
+     * on the thread holding Minecraft's context, and it is the one engine call that may.</p>
+     */
+    boolean texturePublishedByUiThread();
 
     /**
      * Right edge of the view inside its backing texture, in UV space.

@@ -86,14 +86,29 @@ public final class Loadout {
         return l;
     }
 
-    /** A loadout built from nothing but the registry defaults. */
+    /**
+     * A loadout built from nothing but the registry defaults.
+     *
+     * <p>The {@code mods} object is <em>seeded</em>, one entry per registered mod. It used to be
+     * empty, which made this a loadout that knows about no mods at all — and every write to it
+     * silently did nothing: {@link #putSetting} looks the mod up in {@code mods} first and returns
+     * null when it is absent, so {@code setModSetting} handed the page back null and the value it
+     * had just been asked to change never moved. Invisible with a launcher attached, because the
+     * first {@code loadout} push replaces this object wholesale; the only client that runs on it
+     * is one started without {@code -Dvoid.port}, i.e. every dev client, where it read as "the
+     * sliders don't work".</p>
+     */
     public static Loadout defaults(String id, String name) {
         JsonObject o = new JsonObject();
         o.addProperty("id", id);
         o.addProperty("name", name);
         o.addProperty("icon", "sword");
         o.addProperty("mc", "1.8.9");
-        o.add("mods", new JsonObject());
+        JsonObject mods = new JsonObject();
+        for (String modId : ModRegistry.modIds()) {
+            mods.add(modId, ModRegistry.defaults(modId));
+        }
+        o.add("mods", mods);
         o.add("hud", new JsonArray());
         return fromJson(o);
     }

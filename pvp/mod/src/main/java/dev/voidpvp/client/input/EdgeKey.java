@@ -27,6 +27,17 @@ public final class EdgeKey {
         return edge;
     }
 
+    /**
+     * Treats the key as already down without reporting an edge.
+     *
+     * <p>For a press that arrived as an *event* rather than through this poll: the toggle has
+     * already happened, so the next poll must not fire again while the key is still physically
+     * held.</p>
+     */
+    public void assumeDown() {
+        wasDown = true;
+    }
+
     public boolean isDown() {
         return wasDown;
     }

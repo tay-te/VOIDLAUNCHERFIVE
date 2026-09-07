@@ -34,6 +34,11 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public void clearNeedsPaint() {
+        // no-op
+    }
+
+    @Override
     public void loadUrl(String url) {
     }
 
@@ -58,8 +63,17 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public void clearTarget() {
+    }
+
+    @Override
     public int glTextureId() {
         return 0;
+    }
+
+    @Override
+    public boolean texturePublishedByUiThread() {
+        return false;
     }
 
     @Override

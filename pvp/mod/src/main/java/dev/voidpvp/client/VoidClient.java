@@ -57,6 +57,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * menu panel is a 960 x 600 box centred in it — so the view has to be given at least this
      * many CSS pixels or the panel is clipped by {@code .void-app}'s {@code overflow: hidden}.
      */
+    // The canvas the UI lays out in, in CSS pixels. The menu is a *panel* centred inside it —
+    // 1600 x 980, the source-of-truth frame size — with the game visible around the edges, so the
+    // canvas is the panel plus that margin (1600 / 0.92, 980 / 0.92). The old 1300 x 820 was the
+    // panel-era canvas and left the viewport 1459 CSS wide, which is narrower than the 1594 the
+    // eight-column grid needs: the third column was being clipped behind a scrollbar.
     private static final double DESIGN_WIDTH = 1300;
     private static final double DESIGN_HEIGHT = 820;
 
@@ -74,10 +79,84 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private final ZoomController zoom = new ZoomController();
 
     private final EdgeKey menuKey = new EdgeKey();
+    /**
+     * Set by {@code VoidMenuScreen} when the menu key arrives as a key *event*.
+     *
+     * <p>{@link #pollHotkeys} samples that key once per frame, so its edge detector can only see
+     * a press that straddles two samples — a window as long as one frame. That was fine at a few
+     * hundred fps and is not fine with the menu open, where the frame is long enough to swallow
+     * an ordinary tap whole and Right Shift simply does not close. Minecraft delivers real key
+     * events to the open screen, so the screen latches the tap here and the poll consumes it;
+     * detection stops depending on frame rate. The poll keeps ownership of open/close — the
+     * screen must not close itself, or the still-held key reopens it on the next frame.</p>
+     */
+    private volatile boolean menuKeyTapped;
+    /**
+     * When the menu was last toggled, for the debounce below.
+     *
+     * <p>LWJGL 2 on macOS reports the two Shift keys inconsistently between its event stream
+     * (which said {@code LSHIFT}) and its state API (which said {@code RSHIFT}), and auto-repeat
+     * inside a {@code GuiScreen} multiplies whatever it gets wrong. Two fixes aimed at the key
+     * itself both failed, so this one does not trust the key at all: whatever the platform
+     * reports, the menu cannot toggle twice inside {@link #MENU_TOGGLE_DEBOUNCE_MS}. A person
+     * cannot tap faster than that on purpose; a stuck or repeating key can.</p>
+     */
+    private long lastMenuToggleMs;
+
+    /** Minimum gap between two menu toggles. Below a comfortable double-tap, above any repeat. */
+    private static final long MENU_TOGGLE_DEBOUNCE_MS = 600L;
+
+    /**
+     * Whether the menu key is allowed to toggle again.
+     *
+     * <p>Disarmed by every toggle, re-armed only once the key has read *up* for
+     * {@link #MENU_REARM_FRAMES} consecutive frames. The probe showed a single press producing
+     * a close immediately followed by a re-open a few hundred ms later — outside the debounce
+     * window, with the key still physically held — which is LWJGL 2's macOS modifier state
+     * momentarily reading false and then true again and presenting as a fresh rising edge.
+     * Requiring a *sustained* release means a glitch of a frame or two cannot re-arm it, and a
+     * real release always can.</p>
+     */
+    private boolean menuArmed = true;
+
+    /**
+     * How long the key must read *up*, in milliseconds, before another toggle is allowed.
+     *
+     * <p>Frames were the wrong unit: four frames at 115 fps is 35 ms, far shorter than the
+     * modifier glitch this exists to survive, and the gate re-armed in time for the same press
+     * to reopen the menu. A stack trace proved the reopen came from this poll's own
+     * {@code setScreen}. Wall-clock instead, so the gate does not get weaker as the game gets
+     * faster — the thing it guards against is a hardware/driver artefact measured in
+     * milliseconds, not in frames.</p>
+     */
+    private static final long MENU_REARM_UP_MS = 180L;
+
+    /** When the key was last seen up, or 0 while it is held. */
+    private long menuUpSinceMs;
+
+    /** The other half of a left/right modifier pair, or 0 — LWJGL conflates them on macOS. */
+    private static int siblingModifier(int code) {
+        switch (code) {
+            case 42: return 54;
+            case 54: return 42;
+            case 29: return 157;
+            case 157: return 29;
+            case 56: return 184;
+            case 184: return 56;
+            default: return 0;
+        }
+    }
     private final EdgeKey cycleKey = new EdgeKey();
     private final EdgeKey keystrokesKey = new EdgeKey();
 
     private VoidSocket socket;
+    /**
+     * Whether the page has been handed a loadout to render.
+     *
+     * <p>Only ever set by {@link #maybePushLocalState}, and only in a client with no launcher
+     * behind it. With one, {@link #onInit} is the push and this stays false.</p>
+     */
+    private boolean localStatePushed;
     private SessionStats stats;
     private Float savedGamma;
     /**
@@ -183,6 +262,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // the menu still shuts on the click that asked for it and not up to 50 ms later. It runs
         // before pollHotkeys because the page's request is older than this frame's key sample.
         bridge.runGameThreadWork();
+        // Once per game frame, before anything branches on whether the menu is up: the profiler's
+        // game-frame line has to be the same measurement in every configuration, including the
+        // ones where the UI paints nothing at all.
+        ui.countGameFrame();
         // Hotkeys are sampled here rather than on the 20 Hz client tick. Edge detection over a
         // polled key can only see presses that straddle a sample, and at 20 Hz that misses a tap
         // shorter than 50 ms outright — which is why Right Shift sometimes did not close the menu
@@ -208,6 +291,13 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null) {
             return;
         }
+        // Render every frame while the menu is up. On-demand rendering was tried as a way to
+        // buy frames back and it is the wrong lever: the FPS/CPS readouts dirty the view every
+        // frame anyway, so it saved almost nothing, and it made frame pacing uneven and let the
+        // compositor show a stale surface — visible as flicker. The frames were not the paint
+        // policy's to give: they came from enabling Retina (the raster was being upscaled 2x by
+        // macOS) and from dropping the sub-pixel radii off the 486 cell-art divs. Input still
+        // wakes the view via UiHost.wake(), which is what the HUD path needs.
         ui.setContinuous(mc.currentScreen instanceof VoidMenuScreen);
         int fbWidth = Math.max(1, mc.width);
         int fbHeight = Math.max(1, mc.height);
@@ -265,12 +355,54 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // Before anything reads mc.width/height: at the main menu the UI is not pumped, so this
         // is the only beat that runs from the first tick onwards.
         applyRetinaResolution(mc);
+        maybePushLocalState();
         maybeAutoLoadWorld(mc);
         maybeAutoOpenMenu(mc);
+        maybeCycleMenu(mc);
         refreshKeyBindings(mc);
         applyActuators(mc);
         pushTick(mc);
         pushSession(mc);
+    }
+
+    /**
+     * Gives the page the loadout this client is actually running on, when nothing else will.
+     *
+     * <p>Every other {@code loadout} push comes from the launcher link — {@link #onInit} and
+     * {@link #onLoadout} — or from a loadout switch. A client started without {@code -Dvoid.port}
+     * has none of those, so the page's store held {@code loadout: null} for the whole session
+     * while {@link LiveState} sat on a perfectly good {@code Loadout.defaults}. Nothing looked
+     * broken: the properties panel falls back to the registry's defaults for display, so it drew
+     * the right numbers — but the store's writer bails on a null loadout, so <em>every</em>
+     * control in it was inert. Java stored each change and returned it (measured:
+     * {@code setSetting keystrokes.corner_radius sent=20 applied=20}); the page then dropped it
+     * on the floor and re-rendered the default. It read as "the meter cannot be dragged", and
+     * equally as a toggle that will not toggle and a swatch that will not take.</p>
+     *
+     * <p>Once, on the first tick, and only with {@code socket == null}: a client that has a
+     * launcher must keep waiting for its {@code init}, or this would race it and briefly show the
+     * factory defaults over the player's real loadout. Emitting this early is safe because
+     * {@link VoidBridge} queues envelopes until the page reports the shim is up — see
+     * {@code UiHost.frameOnUiThread}'s {@code bridgeReady} probe — so the first tick's push is
+     * still delivered to a page that mounts several seconds later.</p>
+     */
+    private void maybePushLocalState() {
+        if (localStatePushed || socket != null) {
+            return;
+        }
+        localStatePushed = true;
+        // The library first, then the active loadout: the same order onInit uses, for the same
+        // reason — `loadouts` is whole-state and the `loadout` push is the live copy.
+        //
+        // Straight onto the bridge rather than through emitLoadout(), which also calls
+        // ui.requestRender(). That request would start the UI thread on the first client tick,
+        // i.e. at the title screen, earlier than anything else does — and there is nothing for it
+        // to render: the view does not exist yet, and the frames after it is created are forced
+        // (UiHost.FORCED_RENDERS) so the first paint carries this state anyway.
+        emitLoadouts();
+        bridge.emit(VoidBridge.EVENT_LOADOUT, state.loadoutJson());
+        VoidLog.info("loadout '" + state.loadoutId()
+                + "' pushed to the page from the mod's own defaults (no launcher link)");
     }
 
     /**
@@ -316,8 +448,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // Only when something is going to drive the menu. Loading the world without opening it is
         // the control condition: the game and an idle HUD, nothing else, which is the only way to
         // tell the UI's share of a slow frame from the game's own.
+        // VOID_UI_AUTOMENU is the same hook without the clicking, so "menu open and idle" can be
+        // measured as its own condition rather than only "menu open and being driven".
         if (System.getenv("VOID_UI_AUTOWORLD") == null
-                || System.getenv("VOID_UI_SELFTEST") == null
+                || (System.getenv("VOID_UI_SELFTEST") == null
+                        && System.getenv("VOID_UI_AUTOMENU") == null)
                 || autoMenuDone) {
             return;
         }
@@ -333,6 +468,54 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         autoMenuDone = true;
         VoidLog.info("autoworld: opening the menu");
         mc.setScreen(new VoidMenuScreen(this));
+    }
+
+    /**
+     * Test hook, off unless {@code VOID_UI_MENUCYCLE} is set to a number of milliseconds: open and
+     * close the menu on a timer.
+     *
+     * <p>{@link #maybeAutoOpenMenu} opens it exactly once, which is one sample of the open hitch
+     * per client launch — and the open hitch is the thing that has to be measured before and
+     * after, so one sample is not enough. This gives a run as many as it lasts for. It is
+     * profiling scaffolding of the same kind as {@code VOID_UI_AUTOWORLD}: nothing reads the
+     * variable in a shipped client.</p>
+     */
+    private static final long MENU_CYCLE_MS = menuCyclePeriod();
+    private long menuCycleAtMs;
+
+    private static long menuCyclePeriod() {
+        String raw = System.getenv("VOID_UI_MENUCYCLE");
+        if (raw == null) {
+            return 0L;
+        }
+        try {
+            return Math.max(0L, Long.parseLong(raw.trim()));
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    private void maybeCycleMenu(MinecraftClient mc) {
+        if (MENU_CYCLE_MS <= 0 || mc.world == null || mc.player == null) {
+            return;
+        }
+        long period = MENU_CYCLE_MS;
+        long now = System.currentTimeMillis();
+        if (menuCycleAtMs == 0L) {
+            menuCycleAtMs = now;
+            return;
+        }
+        if (now - menuCycleAtMs < period) {
+            return;
+        }
+        menuCycleAtMs = now;
+        if (mc.currentScreen instanceof VoidMenuScreen) {
+            closeMenu();
+        } else {
+            // Anything that is not our menu is fair game to replace — an unfocused window sits on
+            // the pause screen, and a profiling run is never focused.
+            mc.setScreen(new VoidMenuScreen(this));
+        }
     }
 
     private void refreshKeyBindings(MinecraftClient mc) {
@@ -370,13 +553,52 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 org.lwjgl.opengl.Display.getWidth(), org.lwjgl.opengl.Display.getHeight());
     }
 
+    /** Called by {@code VoidMenuScreen} when the menu key arrives as an event. */
+    public void latchMenuKeyTap() {
+        menuKeyTapped = true;
+    }
+
     private void pollHotkeys(MinecraftClient mc) {
         boolean canOpen = mc.world != null && mc.player != null;
         boolean menuScreenOpen = mc.currentScreen instanceof VoidMenuScreen;
         boolean otherScreenOpen = mc.currentScreen != null && !menuScreenOpen;
 
         boolean menuDown = !otherScreenOpen && isKeyDown(state.menuKeyCode);
-        if (menuKey.pressed(menuDown) && canOpen) {
+        boolean tapped = menuKeyTapped;
+        menuKeyTapped = false;
+        // Re-arm only after a sustained release, counting either half of the pair as held.
+        int sibling = siblingModifier(state.menuKeyCode);
+        boolean physicallyDown = isKeyDown(state.menuKeyCode)
+                || (sibling != 0 && isKeyDown(sibling));
+        long nowMs = System.currentTimeMillis();
+        if (physicallyDown) {
+            menuUpSinceMs = 0L;
+        } else {
+            if (menuUpSinceMs == 0L) {
+                menuUpSinceMs = nowMs;
+            } else if (nowMs - menuUpSinceMs >= MENU_REARM_UP_MS) {
+                menuArmed = true;
+            }
+        }
+
+        boolean edge = menuKey.pressed(menuDown) || tapped;
+        if (tapped) {
+            // AFTER pressed(), not before — and that ordering was the bug. assumeDown() sets
+            // wasDown = true so the polled state cannot later read as a fresh press, but
+            // pressed() overwrites wasDown with this frame's menuDown. The event routinely
+            // arrives a frame before LWJGL's modifier state catches up, so wasDown was being
+            // reset to false and the state turning true next frame looked like a new press —
+            // reopening the menu the same tap had just closed. Primed here, it holds.
+            menuKey.assumeDown();
+        }
+        long now = System.currentTimeMillis();
+        if (edge && (!menuArmed || now - lastMenuToggleMs < MENU_TOGGLE_DEBOUNCE_MS)) {
+            edge = false;
+        }
+        if (edge && canOpen) {
+            lastMenuToggleMs = now;
+            menuArmed = false;
+            menuUpSinceMs = 0L;
             if (menuScreenOpen) {
                 closeMenu();
             } else {
@@ -407,6 +629,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                     new JsonPrimitive(Boolean.valueOf(!on)));
             if (stored != null) {
                 bridge.emitSetting("keystrokes", "on", stored);
+                // This hotkey can take the last thing off the overlay — it hides a HUD widget
+                // with no menu open — and a page with nothing left to draw submits no draw
+                // commands, so the accelerated renderer would go on showing the widget that was
+                // just hidden. Same reason as onMenuClosed; see UiHost.requestRender.
+                ui.requestRender();
             }
         }
     }
@@ -699,17 +926,39 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     // -- menu events -----------------------------------------------------
 
     public void onMenuOpened() {
+        // Before the emit: the clock this starts is the one the player experiences, which begins
+        // when the game decides to open the menu and ends when the pixels change.
+        ui.noteMenuOpening();
         bridge.emit(VoidBridge.EVENT_MENU, new JsonPrimitive(Boolean.TRUE));
+        ui.requestRender();
     }
 
     public void onMenuClosed() {
         bridge.emit(VoidBridge.EVENT_MENU, new JsonPrimitive(Boolean.FALSE));
+        // The page is about to take the menu off screen; make sure the view actually repaints, or
+        // the menu stays on screen as a stale frame.
+        //
+        // One call, not two. This used to arm a clear for right now *and* a second one 180 ms out,
+        // on the reasoning that the frame whose content becomes nothing is the far side of the
+        // fade rather than this one. The reasoning was right and the remedy was wrong: an armed
+        // clear is spent on the next frame that renders whether or not that frame repaints
+        // anything, so the immediate one blanked the whole overlay a frame after the keypress and
+        // the fade then painted the menu back for two frames — the close flicker. The window
+        // {@link UiHost#requestRender} now opens covers the fade and the unmount together and is
+        // only ever spent on a frame the page itself is repainting, so one call says all of it.
+        ui.requestRender();
     }
 
     private void emitLoadout() {
         // loadoutJson(), not loadout().toJson(): serialising walks every mod's settings map, and
         // outside the monitor the UI thread may be writing one of them mid-walk.
         bridge.emit(VoidBridge.EVENT_LOADOUT, state.loadoutJson());
+        // The other way the page's content can empty. Turning the last HUD widget off leaves the
+        // overlay with nothing to draw, and a page with nothing to draw submits no draw commands,
+        // so the accelerated renderer would keep showing the widget that was just switched off.
+        // Every loadout change comes through here, whoever made it — the page, a hotkey, a
+        // loadout cycle — which is why the request goes here rather than at each of those.
+        ui.requestRender();
     }
 
     /** The whole library, {@code bridge.json}'s {@code loadouts} event. */

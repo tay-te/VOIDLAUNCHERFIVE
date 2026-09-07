@@ -166,6 +166,10 @@ processResources {
     // through the renderer's resource prefix, which is assets/void/ui/. The native
     // font loader serves them by family and weight — Ultralight never fetches an
     // @font-face itself, so a face that is not published here renders as Inter.
+    //
+    // The set is Outfit 300/400/500 and nothing else (design/quiet-cell-system.md
+    // §2). It has to match kFaces in native/src/font_loader.cpp exactly; that file
+    // carries the full contract and what goes wrong silently when it drifts.
     from('src/main/resources/assets/void/fonts') {
         into 'assets/void/ui/fonts'
     }

@@ -53,20 +53,16 @@ final class UltralightWebView implements WebView {
      * @throws UnsatisfiedLinkError when the natives are missing or will not load
      * @throws NoClassDefFoundError when the JAR was built without {@code native/java}
      */
-    static UltralightWebView create(int width, int height) {
+    static UltralightWebView create(int width, int height, boolean accelerated) {
         Ultralight.load();
         Renderer renderer = Ultralight.createRenderer(RESOURCE_PREFIX);
         if (renderer == null) {
             throw new UnsatisfiedLinkError("Ultralight.createRenderer returned null");
         }
-        // -Dvoid.ui.renderer=gpu selects the accelerated view, which renders through our own
-        // OpenGL GPUDriver. The CPU renderer is the default: Ultralight rasterises into a surface
-        // and owns its own damage tracking, and we upload the dirty rectangle into a texture.
-        String choice = System.getenv("VOID_UI_RENDERER");
-        if (choice == null) {
-            choice = System.getProperty("void.ui.renderer", "cpu");
-        }
-        boolean accelerated = "gpu".equalsIgnoreCase(choice);
+        // Which renderer to build is decided by the caller, not here: the accelerated view runs
+        // through our own OpenGL GPUDriver and is only legal on a thread that owns a GL context,
+        // so the request (VOID_UI_RENDERER / -Dvoid.ui.renderer) and the context it needs have to
+        // be resolved together. See WebViews.acceleratedRequested and UiGlContext.
         View view = accelerated
                 ? renderer.createView(Math.max(1, width), Math.max(1, height), true)
                 : renderer.createViewCpu(Math.max(1, width), Math.max(1, height), true);
@@ -100,6 +96,11 @@ final class UltralightWebView implements WebView {
     }
 
     @Override
+    public void clearNeedsPaint() {
+        view.setNeedsPaint(false);
+    }
+
+    @Override
     public void loadUrl(String url) {
         view.loadUrl(url);
     }
@@ -130,8 +131,19 @@ final class UltralightWebView implements WebView {
     }
 
     @Override
+    public void clearTarget() {
+        // The binding answers false for a CPU view rather than erroring, so this needs no guard.
+        view.clearTarget();
+    }
+
+    @Override
     public int glTextureId() {
         return view.glTextureId();
+    }
+
+    @Override
+    public boolean texturePublishedByUiThread() {
+        return accelerated;
     }
 
     @Override
