@@ -215,8 +215,13 @@ public final class UiHost {
     private volatile int wantFbWidth;
     private volatile int wantFbHeight;
     private volatile double wantScale = 1;
-    /** Cached on the UI thread so the game thread never has to ask the view a question. */
-    private volatile boolean focusedInput;
+    /**
+     * Cached on the UI thread so the game thread never has to ask the view a question.
+     *
+     * <p>False is the safe answer and is what a page that has not answered yet gets: Escape then
+     * closes the menu, which is the behaviour with no page at all.</p>
+     */
+    private volatile boolean escapeHandledByPage;
 
     // Written by the UI thread, read by the game thread every frame (VoidMenuScreen sizes the GL
     // shadow pass from logicalWidth).
@@ -928,7 +933,7 @@ public final class UiHost {
         bridgeReady = false;
         nohudApplied = false;
         clickTargetStale = true;
-        focusedInput = false;
+        escapeHandledByPage = false;
         // So the first pointer position the new page is given is delivered rather than filtered
         // out as "the cursor has not moved" — the new document has never been told where it is.
         sentMouseX = Integer.MIN_VALUE;
@@ -1145,13 +1150,25 @@ public final class UiHost {
                 publishSeq++;
                 noteUiPaint(menuScript, jsMs, renderMs);
             }
-            // Asked here, once a frame, so the game thread never has to. hasFocusedInput() is a
+            // Asked here, once a frame, so the game thread never has to. keepsEscape() is a
             // synchronous JS call and JS belongs to this thread; letting the render thread ask
             // directly would make it wait on this one, which is the deadlock this whole split
             // exists to avoid. One frame of staleness on an Escape press is not perceptible.
+            //
+            // `__keepsEscape` where the page defines it, `__hasFocus` where it does not. The
+            // question Java has ever actually asked here is "will the page deal with Escape
+            // itself" — a focused text field was simply the only reason there had ever been, and
+            // `__hasFocus` was that reason answering for the question. It is no longer the only
+            // one: Escape now means *up one level*, so a properties page consumes it to go back
+            // to the grid and only the grid lets it close the menu. `__hasFocus` keeps its exact
+            // documented meaning and the fallback keeps an older bundle working; one eval either
+            // way, so the frame costs what it always did.
             if (bridgeReady) {
-                String focus = view.evaluateScript("window.void.__hasFocus()");
-                focusedInput = "true".equalsIgnoreCase(focus == null ? "" : focus.trim());
+                String keeps = view.evaluateScript(
+                        "(function(){var v=window['void'];"
+                        + "return String(!!v&&(v.__keepsEscape?v.__keepsEscape():v.__hasFocus()));"
+                        + "})()");
+                escapeHandledByPage = "true".equalsIgnoreCase(keeps == null ? "" : keeps.trim());
             }
             countUiFrame(renderMs);
         } catch (RuntimeException e) {
@@ -1427,12 +1444,20 @@ public final class UiHost {
      */
     public static final boolean PREMULTIPLIED = true;
 
-    /** {@code window.void.__hasFocus()} — does JS have a text input focused? */
-    public boolean hasFocusedInput() {
+    /**
+     * Will the page deal with Escape itself?
+     *
+     * <p>True when a text field has the keyboard, when the quick palette is up, or when the
+     * overlay is somewhere Escape means "up one level" rather than "close" — see
+     * {@code keepsEscape()} in `packages/ingame/src/bridge/connect.ts`, which is where the answer
+     * is actually decided. False on the grid, and false whenever the bridge is not ready, so a
+     * page that has broken can never trap the player inside the menu.</p>
+     */
+    public boolean keepsEscape() {
         // The answer the UI thread cached on its last frame. Asking the view directly from here
         // would be a renderer call from the wrong thread, and waiting for the UI thread to answer
         // would be the game thread blocking on it.
-        return focusedInput;
+        return escapeHandledByPage;
     }
 
     // -- input forwarding (menu mode only, §6.3) -------------------------

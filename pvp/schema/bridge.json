@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schema.void.dev/pvp/bridge.json",
   "title": "VOID PVP \u2014 window.void bridge surface",
-  "description": "The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md \u00a76.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, \u00a76.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of \u00a79 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary.",
+  "description": "The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md \u00a76.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, \u00a76.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of \u00a79 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary. The channel list below is the whole contract and both shims close over it: `on` returns a no-op subscription for a name it does not know and `__emit` drops an envelope whose channel has no list, so a channel Java pushes and this file does not declare is lost in total silence. That is how `session` went missing between Java and the page the first time, and why it is written down here now.",
   "oneOf": [
     {
       "description": "A Java to JS event push.",
@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The seven channels Java pushes on. Closed set; `void.on` with any other name is a programming error.",
+      "description": "The nine channels Java pushes on. Closed set; `void.on` with any other name is a programming error — and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -29,12 +29,14 @@
         "loadout",
         "loadouts",
         "setting",
-        "menu"
+        "menu",
+        "session",
+        "settings"
       ]
     },
     "call_name": {
       "title": "Call name",
-      "description": "The seven methods JS may call on `window.void`. Closed set.",
+      "description": "The eight methods JS may call on `window.void`. Closed set.",
       "type": "string",
       "enum": [
         "setGameplay",
@@ -43,7 +45,8 @@
         "switchLoadout",
         "closeMenu",
         "openKeybindCapture",
-        "setSurfaces"
+        "setSurfaces",
+        "setGlobal"
       ]
     },
     "event": {
@@ -77,6 +80,14 @@
         {
           "description": "Menu opened or closed.",
           "$ref": "#/definitions/event_menu"
+        },
+        {
+          "description": "Who is playing. Pushed once, on the first paint.",
+          "$ref": "#/definitions/event_session"
+        },
+        {
+          "description": "Global, non-loadout settings.",
+          "$ref": "#/definitions/event_settings"
         }
       ]
     },
@@ -224,6 +235,48 @@
         "payload": {
           "description": "Whether the menu is now open.",
           "$ref": "#/definitions/menu_payload"
+        }
+      }
+    },
+    "event_session": {
+      "title": "session event",
+      "description": "Envelope for the `session` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `session`.",
+          "type": "string",
+          "const": "session"
+        },
+        "payload": {
+          "description": "Who is playing.",
+          "$ref": "#/definitions/session_payload"
+        }
+      }
+    },
+    "event_settings": {
+      "title": "settings event",
+      "description": "Envelope for the `settings` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `settings`.",
+          "type": "string",
+          "const": "settings"
+        },
+        "payload": {
+          "description": "The whole global settings object.",
+          "$ref": "#/definitions/settings_payload"
         }
       }
     },
@@ -498,7 +551,7 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "description": "Which mod changed. Any of the 12.",
+          "description": "Which mod changed. Any of the 13.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
         },
         "key": {
@@ -521,6 +574,44 @@
       "title": "menu payload",
       "description": "True when VoidMenuScreen opened, false when it closed. The React app draws the HUD layer and the menu layer into the same Ultralight view (\u00a76.2); this flag is how it decides which is visible.",
       "type": "boolean"
+    },
+    "session_payload": {
+      "title": "session payload",
+      "description": "Who is playing: the account the launcher signed in with, as Java already knows it from the JVM arguments it was spawned with. Pushed on `pushWholeState()` — first paint, a launcher `init`, and a reloaded document (design/rendering-invariants.md \u00a79a) \u2014 and never again in between: the account cannot change while the game runs. The About screen prints it, and the HUD greets by name.",
+      "type": "object",
+      "required": [
+        "name",
+        "uuid",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "The player's Minecraft name, as the launcher signed in.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "uuid": {
+          "description": "The account uuid. For an offline launch this is the uuid derived from the name, not a Mojang one.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36
+        },
+        "kind": {
+          "description": "`microsoft` for a signed-in Xbox account; `offline` when the uuid is the one an offline launch derives from the name.",
+          "type": "string",
+          "enum": [
+            "offline",
+            "microsoft"
+          ]
+        }
+      }
+    },
+    "settings_payload": {
+      "title": "settings payload",
+      "description": "The global, non-loadout settings of `protocol.json#/definitions/global_settings` \u2014 the whole object, never a delta, exactly as `msg_settings` carries it. Pushed on `pushWholeState()` (first paint, a launcher `init`, and a reloaded document per design/rendering-invariants.md \u00a79a) and again whenever Rust pushes new settings down while the game runs, e.g. the player rebound the menu key in the launcher. It is **not** pushed as an echo of the page's own `setGlobal`: that call already returned what was stored, and re-pushing it would fight the control the player is holding \u2014 the same rule \u00a76.5 sets for `setting` and `setModSetting`.",
+      "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/global_settings"
     },
     "call": {
       "title": "Call",
@@ -552,6 +643,10 @@
         },
         {
           "$ref": "#/definitions/call_setSurfaces"
+        },
+        {
+          "description": "Change one global setting.",
+          "$ref": "#/definitions/call_setGlobal"
         }
       ]
     },
@@ -585,6 +680,10 @@
         },
         {
           "$ref": "#/definitions/result_setSurfaces"
+        },
+        {
+          "description": "Result of setGlobal.",
+          "$ref": "#/definitions/result_setGlobal"
         }
       ]
     },
@@ -778,7 +877,7 @@
       "additionalItems": false,
       "items": [
         {
-          "description": "Which mod to configure. Any of the 12.",
+          "description": "Which mod to configure. Any of the 13.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
         },
         {
@@ -825,6 +924,82 @@
         "returns": {
           "description": "The stored value.",
           "$ref": "#/definitions/setModSetting_returns"
+        }
+      }
+    },
+    "call_setGlobal": {
+      "title": "setGlobal call",
+      "description": "`void.setGlobal(key, value)`. The generic writer behind every control in the in-game Settings pane, and the exact mirror of `setModSetting` one level up: the loadout holds what changes how the game *plays*, and these are the globals of \u00a78.3 that do not (`protocol.json#/definitions/global_settings`). Synchronous, like every call but `openKeybindCapture`, because the bridge is in-process. Java validates and clamps rather than throwing, stores the result, and returns **what it stored**; the control binds to that return value, never to what it sent. Java then reports the change to Rust, which is the store of record between sessions (\u00a76.1) \u2014 the page does not persist anything itself.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setGlobal`.",
+          "type": "string",
+          "const": "setGlobal"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setGlobal_params"
+        }
+      }
+    },
+    "setGlobal_params": {
+      "title": "setGlobal params",
+      "description": "[key, value].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Name of the global to write: a property of `protocol.json#/definitions/global_settings`, i.e. one of `menu_key`, `cycle_loadout_key`, `theme`, `ui_scale`, `hud_editor_grid`. Spelled as a pattern rather than an enum for the same reason `global_settings` is `additionalProperties: true` \u2014 the launcher may add a global without a protocol bump \u2014 and a key this build of Java does not know simply comes back `null`. The two that matter today are `menu_key` and `ui_scale`.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        {
+          "description": "New value for the global. Scalars only; no global is object- or array-valued. `menu_key` and `cycle_loadout_key` take a `keybind` (mods.json validates the same names `openKeybindCapture` produces), `theme` a 1..32-character name, `ui_scale` a number clamped to 0.5..3, `hud_editor_grid` an integer clamped to 0..64.",
+          "type": [
+            "boolean",
+            "number",
+            "string",
+            "null"
+          ]
+        }
+      ]
+    },
+    "setGlobal_returns": {
+      "title": "setGlobal returns",
+      "description": "The value actually stored, after validation and clamping \u2014 `null` when the key is not one Java knows, or when the value cannot be made usable (a `menu_key` that is not a legal key name, say). Null therefore means *nothing was stored*, so a control that gets it should keep showing the value it had. Exactly `setModSetting_returns`, one level up.",
+      "type": [
+        "boolean",
+        "number",
+        "string",
+        "null"
+      ]
+    },
+    "result_setGlobal": {
+      "title": "setGlobal result",
+      "description": "Envelope for a setGlobal return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setGlobal`.",
+          "type": "string",
+          "const": "setGlobal"
+        },
+        "returns": {
+          "description": "The stored value, or null.",
+          "$ref": "#/definitions/setGlobal_returns"
         }
       }
     },
@@ -1468,6 +1643,46 @@
     {
       "c": "setSurfaces",
       "returns": 1
+    },
+    {
+      "e": "session",
+      "payload": {
+        "name": "Notch",
+        "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+        "kind": "microsoft"
+      }
+    },
+    {
+      "e": "settings",
+      "payload": {
+        "menu_key": "RSHIFT",
+        "cycle_loadout_key": "L",
+        "theme": "void-dark",
+        "ui_scale": 1,
+        "hud_editor_grid": 4
+      }
+    },
+    {
+      "c": "setGlobal",
+      "params": [
+        "ui_scale",
+        1.25
+      ]
+    },
+    {
+      "c": "setGlobal",
+      "returns": 1.25
+    },
+    {
+      "c": "setGlobal",
+      "params": [
+        "menu_key",
+        "RSHIFT"
+      ]
+    },
+    {
+      "c": "setGlobal",
+      "returns": "RSHIFT"
     }
   ]
 }

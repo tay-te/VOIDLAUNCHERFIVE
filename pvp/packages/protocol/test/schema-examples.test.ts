@@ -68,10 +68,10 @@ describe('schema examples', () => {
     expect(MODS_EXAMPLES).toHaveLength(1);
     expect(LOADOUT_EXAMPLES).toHaveLength(2);
     expect(PROTOCOL_EXAMPLES.length).toBeGreaterThanOrEqual(8);
-    expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(20);
+    expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(28);
   });
 
-  it('covers all seven events and all seven calls in the bridge examples', () => {
+  it('covers all nine events and all eight calls in the bridge examples', () => {
     const events = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { e: string }> => 'e' in e).map(
         (e) => e.e,
@@ -83,7 +83,9 @@ describe('schema examples', () => {
       'loadouts',
       'menu',
       'server',
+      'session',
       'setting',
+      'settings',
       'tick',
     ]);
 
@@ -96,6 +98,7 @@ describe('schema examples', () => {
       'closeMenu',
       'openKeybindCapture',
       'setGameplay',
+      'setGlobal',
       'setHud',
       'setModSetting',
       'setSurfaces',
@@ -105,7 +108,7 @@ describe('schema examples', () => {
 });
 
 describe('mod registry', () => {
-  it('carries exactly the 12 ids of the mod_id enum', () => {
+  it('carries exactly the 13 ids of the mod_id enum', () => {
     expect(Object.keys(MOD_REGISTRY_DOCUMENT.mods).sort()).toEqual([...MOD_IDS].sort());
   });
 

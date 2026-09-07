@@ -20,6 +20,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::loadout::{Loadout, LoadoutId, LoadoutSummary};
 use crate::settings::GlobalSettings;
@@ -166,7 +167,7 @@ impl Store {
         if !path.exists() {
             return Err(Error::NotFound(id.clone()));
         }
-        let loadout: Loadout = read_json(&path)?;
+        let loadout: Loadout = read_loadout_json(&path)?;
         loadout.validate()?;
         if loadout.id != *id {
             return Err(Error::Invalid(format!(
@@ -323,6 +324,45 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, Error> {
     serde_json::from_str(&text).map_err(|e| Error::Json { path: path.to_path_buf(), source: e })
 }
 
+/// Settings that used to exist and no longer do, as `(mod id, key)`.
+///
+/// Every `*Settings` struct is `deny_unknown_fields`, which mirrors the schema's
+/// `additionalProperties: false` and is worth keeping — an unknown key really is invalid.
+/// But it also means that **deleting a setting orphans every loadout already on disk that
+/// carries it**: the file stops deserialising, `Store::load` returns `Error::Json`, and the
+/// player's loadout is simply gone. That is a worse outcome than the ornamental setting was.
+///
+/// So removal is a two-part change: take the key out of the schema and the types, and add it
+/// here. A stale key is dropped on the way in and never written back, which makes the next
+/// save the migration. Entries can be retired once no on-disk file can plausibly carry them.
+const REMOVED_SETTINGS: &[(&str, &str)] = &[
+    // `toggle_sprint.show_status` — a status line that was never drawn. It is coming back as
+    // its own placeable HUD mod rather than as a setting on a gameplay one.
+    ("toggle_sprint", "show_status"),
+];
+
+/// Reads a loadout, dropping settings that have since been removed from the registry.
+///
+/// Deliberately not a general `read_json` behaviour: this tolerance is for one shape of file
+/// and one class of key. Everything else the store reads keeps failing loudly on a key it does
+/// not recognise, which is what `deny_unknown_fields` is for.
+fn read_loadout_json(path: &Path) -> Result<Loadout, Error> {
+    let text =
+        fs::read_to_string(path).map_err(|e| Error::Io { path: path.to_path_buf(), source: e })?;
+    let mut raw: Value = serde_json::from_str(&text)
+        .map_err(|e| Error::Json { path: path.to_path_buf(), source: e })?;
+
+    if let Some(mods) = raw.get_mut("mods").and_then(Value::as_object_mut) {
+        for (mod_id, key) in REMOVED_SETTINGS {
+            if let Some(settings) = mods.get_mut(*mod_id).and_then(Value::as_object_mut) {
+                settings.remove(*key);
+            }
+        }
+    }
+
+    serde_json::from_value(raw).map_err(|e| Error::Json { path: path.to_path_buf(), source: e })
+}
+
 /// Writes `value` to `path` atomically: temp file in the same directory, fsync, rename.
 ///
 /// Same directory matters — a rename is only atomic within one filesystem.
@@ -394,6 +434,58 @@ mod tests {
         assert_eq!(s.active_id().unwrap(), bedwars);
         assert_eq!(s.next_after(&bedwars).unwrap().as_str(), "uhc");
         assert_eq!(s.next_after(&LoadoutId::new("uhc").unwrap()).unwrap().as_str(), "sword-pvp");
+    }
+
+    #[test]
+    fn a_loadout_written_before_a_setting_was_removed_still_loads() {
+        // The regression this guards is not hypothetical: every `*Settings` struct is
+        // `deny_unknown_fields`, so before `read_loadout_json` existed, deleting a setting
+        // made every loadout already on disk that carried it fail to deserialise — the player
+        // opens the launcher and a loadout they built is simply gone, with a JSON error.
+        let (_d, s) = store();
+        s.init().unwrap();
+
+        let id = LoadoutId::new("sword-pvp").unwrap();
+        let path = s.loadouts_dir().join("sword-pvp.json");
+
+        // Put the removed key back on disk, exactly as an older build would have written it.
+        let mut raw: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        raw["mods"]["toggle_sprint"]
+            .as_object_mut()
+            .unwrap()
+            .insert("show_status".into(), true.into());
+        fs::write(&path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+
+        // It loads, and the stale key is not in the loaded state.
+        let loaded = s.load(&id).expect("a stale removed setting must not orphan the loadout");
+        assert!(
+            !loaded.mods.effective(ModId::ToggleSprint).contains_key("show_status"),
+            "the removed key must be dropped, not carried"
+        );
+
+        // …and the next save is the migration: the key is gone from the file too.
+        s.save(&loaded).unwrap();
+        let after: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(
+            after["mods"]["toggle_sprint"].get("show_status").is_none(),
+            "a save after the migration must not write the removed key back"
+        );
+    }
+
+    #[test]
+    fn an_unknown_setting_that_was_never_ours_still_fails_loudly() {
+        // The tolerance above is for one named list of retired keys, not for junk in general.
+        let (_d, s) = store();
+        s.init().unwrap();
+        let path = s.loadouts_dir().join("sword-pvp.json");
+        let mut raw: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        raw["mods"]["toggle_sprint"]
+            .as_object_mut()
+            .unwrap()
+            .insert("wat".into(), true.into());
+        fs::write(&path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+
+        assert!(s.load(&LoadoutId::new("sword-pvp").unwrap()).is_err());
     }
 
     #[test]

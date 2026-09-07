@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 2,
+    "version": 3,
     "mods": {
       "fps": {
         "id": "fps",
@@ -100,7 +100,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "opacity": 1,
           "decimals": 1,
           "show_direction": true,
-          "layout": "stacked"
+          "layout": "inline"
         }
       },
       "armor_status": {
@@ -137,6 +137,21 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "hide_ambient": false
         }
       },
+      "watermark": {
+        "id": "watermark",
+        "kind": "hud",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Watermark",
+        "description": "The VOID mark, drawn over the game.",
+        "source": "drawn by the overlay; no game field",
+        "defaults": {
+          "on": true,
+          "scale": 1,
+          "opacity": 0.9,
+          "style": "full"
+        }
+      },
       "toggle_sprint": {
         "id": "toggle_sprint",
         "kind": "gameplay",
@@ -148,8 +163,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "defaults": {
           "on": true,
           "mode": "toggle",
-          "sneak_too": false,
-          "show_status": true
+          "sneak_too": false
         }
       },
       "fullbright": {
@@ -266,10 +280,15 @@ export const LOADOUT_EXAMPLES: Loadout[] = [
       "potion_effects": {
         "on": true
       },
+      "watermark": {
+        "on": true,
+        "scale": 1,
+        "opacity": 0.9,
+        "style": "full"
+      },
       "toggle_sprint": {
         "on": true,
-        "mode": "toggle",
-        "show_status": true
+        "mode": "toggle"
       },
       "fullbright": {
         "on": false,
@@ -319,6 +338,13 @@ export const LOADOUT_EXAMPLES: Loadout[] = [
         "anchor": "top-left",
         "dx": 20,
         "dy": 38
+      },
+      {
+        "id": "watermark",
+        "anchor": "top-left",
+        "dx": 20,
+        "dy": 58,
+        "scale": 1
       },
       {
         "id": "armor_status",
@@ -927,6 +953,46 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   {
     "c": "setSurfaces",
     "returns": 1
+  },
+  {
+    "e": "session",
+    "payload": {
+      "name": "Notch",
+      "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+      "kind": "microsoft"
+    }
+  },
+  {
+    "e": "settings",
+    "payload": {
+      "menu_key": "RSHIFT",
+      "cycle_loadout_key": "L",
+      "theme": "void-dark",
+      "ui_scale": 1,
+      "hud_editor_grid": 4
+    }
+  },
+  {
+    "c": "setGlobal",
+    "params": [
+      "ui_scale",
+      1.25
+    ]
+  },
+  {
+    "c": "setGlobal",
+    "returns": 1.25
+  },
+  {
+    "c": "setGlobal",
+    "params": [
+      "menu_key",
+      "RSHIFT"
+    ]
+  },
+  {
+    "c": "setGlobal",
+    "returns": "RSHIFT"
   }
 ];
 

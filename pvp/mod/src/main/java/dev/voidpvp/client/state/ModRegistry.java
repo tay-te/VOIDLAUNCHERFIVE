@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the twelve mods, transcribed from
+ * The closed registry of the thirteen mods, transcribed from
  * {@code schema/mods.json} (registry document {@code examples[0]} plus each
  * mod's settings sub-schema).
  *
@@ -154,9 +154,15 @@ public final class ModRegistry {
                 "on", bool(false),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "decimals", integer(0, 3, 1),
+                // 0-2, not 0-3: `TickCoalescer` rounds the position to 2 dp before it
+                // publishes it, so a third place could only ever print a zero.
+                "decimals", integer(0, 2, 1),
                 "show_direction", bool(true),
-                "layout", enumOf("stacked", "stacked", "inline"));
+                // `inline` is the default because it is what the HUD frame draws. It used to
+                // be `stacked` while the chip could only draw inline — a default that
+                // rendered as its own opposite, and therefore a setting nobody could tell
+                // was inert. Both layouts are real now (`CoordsChip`).
+                "layout", enumOf("inline", "stacked", "inline"));
 
         mod("armor_status", Kind.HUD, Category.HUD, "Armor status",
                 "on", bool(true),
@@ -174,12 +180,30 @@ public final class ModRegistry {
                 "show_amplifier", bool(true),
                 "hide_ambient", bool(false));
 
+        // The thirteenth mod, and the only HUD one with no game field behind it: every other
+        // widget here reads something (fps, ping, the armour slots), and this one is drawn from
+        // nothing but its own settings. Java's whole job for it is that the id exists, that its
+        // settings clamp and that its HUD placement round-trips — the overlay page draws it.
+        //
+        // Deliberately no `color`: the mark is artwork with its own palette, not a readout that
+        // can be tinted, so a colour control would either do nothing or wreck it.
+        mod("watermark", Kind.HUD, Category.VISUAL, "Watermark",
+                "on", bool(true),
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 0.9),
+                "style", enumOf("full", "full", "mark", "word"));
+
         // --- Gameplay mods --------------------------------------------
         mod("toggle_sprint", Kind.GAMEPLAY, Category.PVP, "Toggle sprint",
                 "on", bool(true),
                 "mode", enumOf("toggle", "toggle", "hold"),
-                "sneak_too", bool(false),
-                "show_status", bool(true));
+                // `show_status` was here and is gone. A sprint indicator is still wanted, but
+                // as its own placeable HUD mod: a gameplay mod has no `hud[]` entry, so
+                // anything this drew would have been the only fixed, un-movable thing on the
+                // HUD — the one property the HUD editor exists to remove. Promoting this mod to
+                // `Kind.HUD` for one boolean is a structural change deserving its own decision
+                // (`Kind` and `Category` are already independent, so the machinery supports it).
+                "sneak_too", bool(false));
 
         mod("fullbright", Kind.GAMEPLAY, Category.VISUAL, "Fullbright",
                 "on", bool(false),
@@ -209,7 +233,7 @@ public final class ModRegistry {
                 "dynamic", bool(false));
     }
 
-    /** The twelve mod ids, in registry order. */
+    /** The thirteen mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

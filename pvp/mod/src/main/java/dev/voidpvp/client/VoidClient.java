@@ -25,15 +25,18 @@ import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.Session;
 import net.minecraft.client.util.Window;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.player.ClientPlayerEntity;
 import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The mod. Reads {@code -Dvoid.port} / {@code -Dvoid.token}, starts the WS
@@ -177,6 +180,13 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     private SessionStats stats;
     private Float savedGamma;
+    /** Vanilla's cinematic-camera setting, saved while `zoom.cinematic` overrides it. */
+    private Boolean savedSmoothCamera;
+    /** Last value this mod wrote to the hitbox flag, so F3+B keeps ownership between changes. */
+    private boolean hitboxesApplied;
+    /** Whether the sprint / sneak KeyBinding is currently held down by our latch, not the player. */
+    private final Flag sprintForced = new Flag();
+    private final Flag sneakForced = new Flag();
     /**
      * Keybind capture, armed from the UI thread and read on the game thread.
      *
@@ -190,6 +200,19 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private volatile String captureModId;
     private volatile boolean captureActive;
     private long lastFrameNanos;
+
+    /**
+     * Who is playing, built once and never rebuilt.
+     *
+     * <p>{@code volatile} because {@link #sessionJson()} is called from the UI thread through
+     * {@link VoidBridge#pushWholeState()} while this is written on the game thread, and because a
+     * reloaded document asks for it again long after start-up.</p>
+     *
+     * <p>Built lazily on first ask rather than in {@code onInitializeClient}: the session exists
+     * by then, but reading it from the initializer would mean touching {@code MinecraftClient}
+     * before the game has finished standing up, for a value nothing needs until a page asks.</p>
+     */
+    private volatile JsonObject session;
 
     public static VoidClient get() {
         return instance;
@@ -231,6 +254,66 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     // -----------------------------------------------------------------
     // Accessors used by screen/ and mixin/
     // -----------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Minecraft's own {@code Session}, not the launcher's account: the game knows who is
+     * signed in with or without a bridge, so the chip is right in a dev client. "Offline" is
+     * derived rather than asked for — {@code Session.getAccountType()} answers LEGACY or MOJANG
+     * and knows nothing about Microsoft or about an offline launch, whereas an offline UUID is
+     * exactly {@code UUID.nameUUIDFromBytes("OfflinePlayer:<name>")} by construction, so
+     * comparing against that is the one test that cannot be wrong about which it is.</p>
+     */
+    @Override
+    public JsonObject sessionJson() {
+        JsonObject cached = session;
+        if (cached != null) {
+            return cached;
+        }
+        MinecraftClient mc = minecraft();
+        Session s = mc == null ? null : mc.getSession();
+        if (s == null) {
+            return null;
+        }
+        String name = s.getUsername() == null ? "" : s.getUsername();
+        String uuid = s.getUuid() == null ? "" : s.getUuid();
+        JsonObject o = new JsonObject();
+        o.addProperty("name", name);
+        o.addProperty("uuid", uuid);
+        o.addProperty("kind", isOfflineUuid(name, uuid) ? "offline" : "microsoft");
+        session = o;
+        return o;
+    }
+
+    /**
+     * True unless this is a real signed-in account.
+     *
+     * <p>Two ways to be offline, and the dev client found the second one. The documented case is
+     * the derived uuid — an offline launch uses
+     * {@code UUID.nameUUIDFromBytes("OfflinePlayer:<name>")} by construction, so comparing
+     * against that identifies it exactly. The case that was missed is a session whose uuid is
+     * not a uuid at all: a Loom dev client hands over {@code Session("Player767", "Player767",
+     * "", "legacy")}, and the first version of this reported that as Microsoft because a name is
+     * not equal to a derived uuid either. An id that cannot be parsed as a uuid is not an
+     * account, so it is offline — which is the honest reading and the one a dev client needs.</p>
+     */
+    private static boolean isOfflineUuid(String name, String uuid) {
+        if (name.isEmpty() || uuid.isEmpty()) {
+            return true;
+        }
+        String bare = uuid.replace("-", "");
+        if (bare.length() != 32 || !bare.matches("[0-9a-fA-F]+")) {
+            return true;
+        }
+        try {
+            String offline = UUID.nameUUIDFromBytes(
+                    ("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)).toString();
+            return offline.replace("-", "").equalsIgnoreCase(bare);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
 
     public MinecraftClient minecraft() {
         return MinecraftClient.getInstance();
@@ -376,6 +459,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         maybePushLocalState();
         maybeAutoLoadWorld(mc);
         maybeAutoOpenMenu(mc);
+        maybeAutoWalk(mc);
         // Tracing scaffolding, off unless VOID_UI_INPUTDRIVE is set. Started from the tick rather
         // than at init because it needs Display/Mouse/Keyboard to exist; a no-op after the first
         // successful call. See SyntheticInput for why input has to be driven from inside.
@@ -491,6 +575,39 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     }
 
     /** Opens the menu once the world is in, completing the unattended path to the thing under test. */
+    private int autoWalkTurn;
+
+    /**
+     * Test hook, off unless {@code VOID_UI_AUTOWALK} is set: third person, walking in a slow
+     * circle. Sibling of {@code VOID_UI_AUTOWORLD}, and there for the same reason — driving the
+     * client's own API cannot miss, where synthetic events at the window server go wherever
+     * focus happens to be.
+     *
+     * <p>It exists because two things could not be verified from a still frame of a standing
+     * player. The hitbox renderer's one untestable step is rebasing the entity's box into the
+     * render pass's interpolated camera space, and a box that used the un-interpolated position
+     * would look perfect on a stationary entity and lag a moving one by up to a tick — so the
+     * proof needs an entity that is both close and moving, and in third person the player is
+     * both. And {@code keystrokes.pressed_color} only paints a cap that is <em>down</em>, so a
+     * screenshot with no key held cannot tell a working colour from an ignored one.</p>
+     *
+     * <p>{@code KeyBinding.setKeyPressed} rather than a synthetic event: it is the same call the
+     * toggle-sprint actuator already makes every tick, so this adds no new mechanism, and it
+     * feeds the {@code keys} sensor through {@code KeyBindingMixin} exactly as a real press
+     * would.</p>
+     */
+    private void maybeAutoWalk(MinecraftClient mc) {
+        if (System.getenv("VOID_UI_AUTOWALK") == null || mc.player == null
+                || mc.currentScreen != null) {
+            return;
+        }
+        // Third person, so the player's own entity — the closest one there can be — is in frame.
+        mc.options.perspective = 1;
+        KeyBinding.setKeyPressed(mc.options.forwardKey.getCode(), true);
+        // A slow turn, so the player keeps moving instead of walking into one tree and stopping.
+        mc.player.yaw = (autoWalkTurn++ % 360) * 1.5f;
+    }
+
     private void maybeAutoOpenMenu(MinecraftClient mc) {
         // Only when something is going to drive the menu. Loading the world without opening it is
         // the control condition: the game and an idle HUD, nothing else, which is the only way to
@@ -730,6 +847,18 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
     }
 
+    /**
+     * The player's own brightness, while Fullbright is overriding it; {@code null} when it is not.
+     *
+     * <p>Read by {@code GameOptionsMixin} so the override never reaches {@code options.txt}. It is
+     * the same {@code savedGamma} the actuator restores when the mod is switched off — there is
+     * one right answer to "what was the player's brightness", and two copies of it would drift on
+     * exactly the path that makes this bug invisible.</p>
+     */
+    public Float playerGamma() {
+        return savedGamma;
+    }
+
     private void applyActuators(MinecraftClient mc) {
         // Fullbright: gammaSetting override, restored exactly when turned off.
         if (state.fullbrightOn) {
@@ -743,8 +872,33 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
 
         // Hitboxes: the same flag F3+B sets.
-        if (mc.getEntityRenderManager() != null) {
+        //
+        // Written on the edge, not every tick. Writing it unconditionally 20 times a second
+        // meant the mod owned the flag outright: F3+B would toggle it and the next tick would
+        // put it straight back, so vanilla's own debug key silently stopped working whenever
+        // this mod was installed — including with the mod switched off, which is the case it
+        // has no business touching at all. Now the mod only writes when *its own* setting
+        // moved, and F3+B keeps the flag until it does.
+        if (mc.getEntityRenderManager() != null && state.hitboxesOn != hitboxesApplied) {
             mc.getEntityRenderManager().setRenderHitboxes(state.hitboxesOn);
+            hitboxesApplied = state.hitboxesOn;
+        }
+
+        // Zoom: cinematic camera while the zoom is engaged, saved and restored like gamma.
+        //
+        // `smoothCamera` is the vanilla "Cinematic camera" option, which is what this setting
+        // has always named; the FOV divisor narrows the view and this damps the mouse, which is
+        // the pair that makes a zoom usable at 4x. Keyed off `zoom.isActive()` rather than the
+        // key being down so it stays on through the ease-out and leaves with it.
+        boolean cinematic = state.zoomOn && state.zoomCinematic && zoom.isActive();
+        if (cinematic) {
+            if (savedSmoothCamera == null) {
+                savedSmoothCamera = Boolean.valueOf(mc.options.smoothCameraEnabled);
+            }
+            mc.options.smoothCameraEnabled = true;
+        } else if (savedSmoothCamera != null) {
+            mc.options.smoothCameraEnabled = savedSmoothCamera.booleanValue();
+            savedSmoothCamera = null;
         }
 
         // Toggle sprint: latch the sprint KeyBinding rather than the input.
@@ -752,17 +906,55 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         int sprintCode = mc.options.sprintKey.getCode();
         boolean sprintHeld = sprint.update(state.toggleSprintOn, state.toggleSprintHold,
                 isKeyDown(sprintCode), canMove);
-        if (state.toggleSprintOn && !state.toggleSprintHold && sprintHeld) {
-            KeyBinding.setKeyPressed(sprintCode, true);
-        }
+        applyLatch(sprintCode, sprintHeld, sprintForced);
+        sprintForced.value = latchWrote(state, sprintHeld);
+
         if (state.toggleSprintSneakToo) {
             int sneakCode = mc.options.sneakKey.getCode();
             boolean sneakHeld = sneak.update(state.toggleSprintOn, state.toggleSprintHold,
                     isKeyDown(sneakCode), canMove);
-            if (state.toggleSprintOn && !state.toggleSprintHold && sneakHeld) {
-                KeyBinding.setKeyPressed(sneakCode, true);
-            }
+            applyLatch(sneakCode, sneakHeld, sneakForced);
+            sneakForced.value = latchWrote(state, sneakHeld);
+        } else if (sneakForced.value) {
+            // The setting was turned off while the sneak latch was holding the key down.
+            // Same release as below, by the same argument.
+            KeyBinding.setKeyPressed(mc.options.sneakKey.getCode(), false);
+            sneak.release();
+            sneakForced.value = false;
         }
+    }
+
+    /** Whether the latch wants the key reported as held this tick. */
+    private static boolean latchWrote(LiveState state, boolean held) {
+        return state.toggleSprintOn && !state.toggleSprintHold && held;
+    }
+
+    /**
+     * Applies one latch to one {@code KeyBinding}, and — the half that was missing —
+     * <b>releases it when the latch lets go</b>.
+     *
+     * <p>{@code KeyBinding.pressed} is edge-written: Minecraft sets it on a key event and
+     * nothing else touches it, which is exactly what makes the latch work — force it true and
+     * it stays true with the key physically up. The same property is why dropping the latch is
+     * not enough to stop sprinting. Ceasing to write {@code true} leaves the last {@code true}
+     * standing, so turning the mod off, switching to {@code hold} mode, or switching to a
+     * loadout where it is off all left the player sprinting until they next tapped the key
+     * themselves — a mod that goes on acting after it is switched off.</p>
+     *
+     * <p>The release is conditional on <em>this</em> having been the writer ({@code forced}),
+     * so a key the player is genuinely holding is never yanked out from under them.</p>
+     */
+    private void applyLatch(int code, boolean held, Flag forced) {
+        if (latchWrote(state, held)) {
+            KeyBinding.setKeyPressed(code, true);
+        } else if (forced.value && !isKeyDown(code)) {
+            KeyBinding.setKeyPressed(code, false);
+        }
+    }
+
+    /** A mutable boolean, so {@link #applyLatch} can be shared by the two latches. */
+    private static final class Flag {
+        boolean value;
     }
 
     private void pushTick(MinecraftClient mc) {
@@ -1074,6 +1266,18 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     @Override
     public void onSettings(GlobalSettings settings) {
         state.applySettings(settings);
+        // The page has to be told, or the launcher and the game disagree about the theme and the
+        // UI scale until something else reloads the document. Read back out of LiveState rather
+        // than serialised from the argument, so what the page is told is what was actually
+        // applied — applySettings clamps, and this is the same object pushWholeState would send.
+        //
+        // onInit does not need this: applyInit calls applySettings and then pushWholeState, which
+        // carries this channel. A second emit there would be a second definition of what a page
+        // needs, which is the thing §9a exists to stop.
+        bridge.emit(VoidBridge.EVENT_SETTINGS, state.settings().toJson());
+        // The WS thread changed what the page draws, so it owes the render request — the same
+        // split onInit makes, and the reason pushWholeState does not make one itself.
+        ui.requestRender();
     }
 
     @Override

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,6 +52,12 @@ class BridgeExamplesTest {
         @Override
         public void setSurfaces(java.util.List<dev.voidpvp.client.render.EffectSurface> next) {
             surfaces = next;
+        }
+
+        /** Not exercised here; the bridge only asks for it from pushWholeState. */
+        @Override
+        public com.google.gson.JsonObject sessionJson() {
+            return null;
         }
     }
 
@@ -426,15 +433,32 @@ class BridgeExamplesTest {
     void theSurfaceIsCovered() {
         JsonObject defs = Schemas.load("bridge.json").getAsJsonObject("definitions");
 
+        // Every channel bridge.json declares must be one the mod has a constant for. The
+        // assertion runs this way round — schema is a subset of the mod — rather than as list
+        // equality, because the mod deliberately carries channels the schema does not:
+        // `session` (whose payload comes from the game, not the launcher) and `settings`. A
+        // straight equality here would have to be edited every time one of those is added, which
+        // makes it a chore rather than a guard.
+        java.util.Set<String> ours = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
+                VoidBridge.EVENT_KEYS, VoidBridge.EVENT_TICK, VoidBridge.EVENT_SERVER,
+                VoidBridge.EVENT_LOADOUT, VoidBridge.EVENT_LOADOUTS, VoidBridge.EVENT_SETTING,
+                VoidBridge.EVENT_MENU, VoidBridge.EVENT_SESSION, VoidBridge.EVENT_SETTINGS));
         java.util.List<String> events = new ArrayList<String>();
         for (JsonElement e : defs.getAsJsonObject("event_name").getAsJsonArray("enum")) {
             events.add(e.getAsString());
         }
-        assertEquals(java.util.Arrays.asList(
+        for (String name : events) {
+            assertTrue(ours.contains(name),
+                    "bridge.json declares the channel `" + name + "` and the mod has no constant "
+                            + "for it — see the note on EVENTS in void-shim.js for what that "
+                            + "costs: a channel nothing listens on fails silently");
+        }
+        // And the seven the schema owns are all still there, so nothing can be dropped from
+        // bridge.json and quietly go unnoticed here.
+        assertTrue(events.containsAll(java.util.Arrays.asList(
                 VoidBridge.EVENT_KEYS, VoidBridge.EVENT_TICK, VoidBridge.EVENT_SERVER,
                 VoidBridge.EVENT_LOADOUT, VoidBridge.EVENT_LOADOUTS, VoidBridge.EVENT_SETTING,
-                VoidBridge.EVENT_MENU), events,
-                "the mod's channel constants are exactly bridge.json's event_name enum");
+                VoidBridge.EVENT_MENU)), "bridge.json lost a channel: " + events);
 
         // Every declared call must be dispatchable: an unknown call answers `null`, so a
         // call the mod forgot would silently do nothing in game.
@@ -445,6 +469,41 @@ class BridgeExamplesTest {
                     bridge.dispatch(callExample(name, false).toString()));
             assertEquals(name, answer.get("c").getAsString(), name + " is dispatched");
         }
+        assertTrue(bridge.errors().isEmpty(), "no dispatch threw: " + bridge.errors());
+    }
+
+    @Test
+    @DisplayName("setGlobal answers with the stored value, and null for what it will not store")
+    void setGlobalIsDispatched() {
+        LiveState state = seededState();
+        VoidBridge bridge = new VoidBridge(state, new Host());
+
+        // The page's only way to change a global. Before this call existed LiveState held
+        // menuKeyCode, uiScale and theme, Rust could push them down, and the page could neither
+        // read nor write any of them.
+        assertEquals("{\"c\":\"setGlobal\",\"returns\":2}",
+                bridge.dispatch("{\"c\":\"setGlobal\",\"params\":[\"ui_scale\",2]}"));
+        assertEquals(2.0, state.uiScale, 1e-9, "and the field VoidClient.pumpUi reads has moved");
+
+        // Clamped, and the answer is the clamp's — the page binds to this, not to what it sent.
+        assertEquals("{\"c\":\"setGlobal\",\"returns\":3}",
+                bridge.dispatch("{\"c\":\"setGlobal\",\"params\":[\"ui_scale\",9]}"));
+        assertEquals("{\"c\":\"setGlobal\",\"returns\":\"GRAVE\"}",
+                bridge.dispatch("{\"c\":\"setGlobal\",\"params\":[\"menu_key\",\"grave\"]}"));
+
+        // Null on the same terms setModSetting uses: an unknown key, an unusable value, or a
+        // call that arrived without enough arguments to mean anything.
+        assertEquals("{\"c\":\"setGlobal\",\"returns\":null}",
+                bridge.dispatch("{\"c\":\"setGlobal\",\"params\":[\"java_path\",\"/usr/bin\"]}"));
+        assertEquals("{\"c\":\"setGlobal\",\"returns\":null}",
+                bridge.dispatch("{\"c\":\"setGlobal\",\"params\":[\"ui_scale\",\"huge\"]}"));
+        assertEquals("{\"c\":\"setGlobal\",\"returns\":null}",
+                bridge.dispatch("{\"c\":\"setGlobal\",\"params\":[\"ui_scale\"]}"));
+
+        // §6.5: no echo. The call answered, so pushing the same value back would only fight the
+        // control the player is holding — and the game thread was never involved either.
+        assertNull(bridge.drainScript(), "setGlobal pushes nothing back at the page");
+        assertFalse(bridge.hasGameThreadWork(), "and queues nothing for the game thread");
         assertTrue(bridge.errors().isEmpty(), "no dispatch threw: " + bridge.errors());
     }
 

@@ -26,6 +26,23 @@ public interface BridgeHost {
     void closeMenu();
 
     /**
+     * Who is playing, as {@code {"name": ..., "uuid": ..., "kind": "offline"|"microsoft"}}.
+     *
+     * <p>Read from Minecraft's own {@code Session} and not from the launcher, deliberately: the
+     * game knows who is signed in whether or not a bridge, a socket or a launcher exists, so the
+     * profile chip is correct in a dev client — which is precisely the client somebody is looking
+     * at when it matters. Sourcing it from {@code init} would leave it blank exactly there.</p>
+     *
+     * <p>Immutable for the life of the process, which is why it travels on
+     * {@link VoidBridge#pushWholeState()} rather than on a sensor: nothing will ever push it
+     * again, so a page that missed it would never learn it.</p>
+     *
+     * <p><b>Any thread.</b> The implementation reads a field it captured at start-up; it must not
+     * touch Minecraft here.</p>
+     */
+    com.google.gson.JsonObject sessionJson();
+
+    /**
      * {@code void.openKeybindCapture(modId)} — takes over key input until the
      * next press. Java answers the call immediately with {@code returns: null},
      * which means <em>armed</em>, not <em>cancelled</em>; the captured key

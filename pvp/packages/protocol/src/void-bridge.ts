@@ -41,6 +41,7 @@
 import type {
   EffectSurface,
   GameplayModId,
+  GlobalSettings,
   HUDAnchor,
   HUDItem,
   HUDModId,
@@ -51,15 +52,38 @@ import type {
   LoadoutsPayload,
   ModId,
   ServerPayload,
+  SessionPayload,
   SettingPayload,
   TickPayload,
 } from './generated/schema.js';
+
+/**
+ * Who is playing — the payload of the {@link VoidEventPayloadMap.session} channel.
+ *
+ * Immutable for the life of the page: it arrives on `pushWholeState()` (first paint, a
+ * launcher `init`, and a reloaded document) and nothing pushes it again, because the
+ * account cannot change while the game runs. An alias of the schema type rather than a
+ * second declaration of the same three fields, so it cannot drift from `bridge.json`.
+ */
+export type SessionInfo = SessionPayload;
+
+/** Re-exported so a consumer of the `settings` channel does not reach into `generated/`. */
+export type { GlobalSettings };
 
 /* -------------------------------------------------------------------------- */
 /* Events                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** The seven channels Java pushes on. Closed set; any other name is a programming error. */
+/**
+ * The nine channels Java pushes on.
+ *
+ * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
+ * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
+ * channel has no list. A channel Java pushes and this array does not carry therefore fails
+ * in complete silence — no error, no warning, the page simply never hears it. That is how
+ * `session` was lost the first time it was sent. Keep this in step with `bridge.json`'s
+ * `event_name` and with `void-shim.js`'s `EVENTS`.
+ */
 export const VOID_EVENTS = [
   'keys',
   'tick',
@@ -68,9 +92,11 @@ export const VOID_EVENTS = [
   'loadouts',
   'setting',
   'menu',
+  'session',
+  'settings',
 ] as const;
 
-/** Name of one of the seven push channels. */
+/** Name of one of the nine push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -97,6 +123,21 @@ export interface VoidEventPayloadMap {
   setting: SettingPayload;
   /** True when VoidMenuScreen opened, false when it closed. */
   menu: boolean;
+  /**
+   * Who is playing. Pushed once, on `pushWholeState()` — first paint, a launcher `init`,
+   * and a reloaded document — and never again: the account cannot change mid-session.
+   */
+  session: SessionInfo;
+  /**
+   * The global, non-loadout settings of `protocol.json#/definitions/global_settings`: the
+   * whole object, never a delta. Pushed on `pushWholeState()` and again whenever Rust
+   * pushes new settings down, e.g. the player rebound the menu key in the launcher.
+   *
+   * Never pushed as an echo of this page's own {@link VoidBridge.setGlobal}: that call
+   * already returned what was stored, and a second push would fight the control the
+   * player is holding (§6.5, the same rule as `setting`).
+   */
+  settings: GlobalSettings;
 }
 
 /** Handler signature for a given channel. */
@@ -113,7 +154,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The seven methods JS may call on `window.void`. Closed set. */
+/** The eight methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -122,13 +163,36 @@ export const VOID_CALLS = [
   'closeMenu',
   'openKeybindCapture',
   'setSurfaces',
+  'setGlobal',
 ] as const;
 
-/** Name of one of the seven calls. */
+/** Name of one of the eight calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
 export type ModSettingValue = boolean | number | string | null;
+
+/** Value a global setting may take. Scalars only, exactly like {@link ModSettingValue}. */
+export type GlobalSettingValue = boolean | number | string | null;
+
+/**
+ * The globals {@link VoidBridge.setGlobal} accepts — the properties of `global_settings`.
+ *
+ * Not the *type* of the `key` argument: `global_settings` is `additionalProperties: true`
+ * so the launcher may add a global without a protocol bump, and a key this build of Java
+ * does not know answers `null` rather than being unrepresentable. This is the list a
+ * settings pane iterates.
+ */
+export const GLOBAL_SETTING_KEYS = [
+  'menu_key',
+  'cycle_loadout_key',
+  'theme',
+  'ui_scale',
+  'hud_editor_grid',
+] as const;
+
+/** One of the globals {@link GLOBAL_SETTING_KEYS} names. */
+export type GlobalSettingKey = (typeof GLOBAL_SETTING_KEYS)[number];
 
 /** The placement `setHud` accepts: a {@link HUDItem} minus its `id`. */
 export interface HudPlacement {
@@ -147,6 +211,7 @@ export interface VoidCallParamsMap {
   setGameplay: [id: GameplayModId, on: boolean];
   setHud: [id: HUDModId, placement: HudPlacement];
   setModSetting: [id: ModId, key: string, value: ModSettingValue];
+  setGlobal: [key: string, value: GlobalSettingValue];
   switchLoadout: [id: LoadoutId];
   closeMenu: [];
   openKeybindCapture: [modId: ModId];
@@ -158,6 +223,7 @@ export interface VoidCallReturnsMap {
   setGameplay: boolean;
   setHud: HUDItem;
   setModSetting: ModSettingValue;
+  setGlobal: GlobalSettingValue;
   switchLoadout: boolean;
   closeMenu: null;
   openKeybindCapture: Keybind | null;
@@ -228,6 +294,20 @@ export interface VoidBridge {
   /** Write one setting of one mod. Returns the value actually stored, after clamping. */
   setModSetting(id: ModId, key: string, value: ModSettingValue): ModSettingValue;
 
+  /**
+   * Write one global, non-loadout setting — the exact mirror of {@link VoidBridge.setModSetting}
+   * one level up. Java validates and clamps and returns **what it stored**, so bind the
+   * control to this return value and never to what you sent.
+   *
+   * `null` means nothing was stored: an unknown key, or a value that could not be made
+   * usable (a `menu_key` that is not a legal LWJGL key name, say). A control that gets
+   * null should keep showing the value it had.
+   *
+   * No `settings` event follows: the call already answered, and re-pushing would fight the
+   * control the player is holding (§6.5).
+   */
+  setGlobal(key: string, value: GlobalSettingValue): GlobalSettingValue;
+
   /** Switch the active loadout. Returns false when no loadout has that id. */
   switchLoadout(id: LoadoutId): boolean;
 
@@ -252,6 +332,17 @@ export interface VoidBridge {
    * Call it when layout changes, not per frame. Returns how many surfaces the host kept.
    */
   setSurfaces(surfaces: EffectSurface[]): number;
+
+  /**
+   * Whether the page wants to keep the next Escape for itself, rather than let it close
+   * the menu — a keybind capture is armed, a dropdown is open, a field is being edited.
+   *
+   * Optional: an older host that has never heard of it falls back to
+   * {@link VoidBridge.__hasFocus} and gets the narrower "is a text field eating the
+   * keyboard" answer. The app assigns it onto whichever bridge is underneath after
+   * connecting; it lives here so that no longer needs a cast.
+   */
+  __keepsEscape?: () => boolean;
 }
 
 declare global {
@@ -454,6 +545,14 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
 
     setModSetting(id, key, value) {
       const applied = call('setModSetting', [id, key, value]);
+      return applied === undefined ? value : applied;
+    },
+
+    setGlobal(key, value) {
+      // A host that did not answer at all is not the same as Java answering `null`: null
+      // is a real result meaning "nothing stored", so only `undefined` — no host, or an
+      // undecodable reply — falls back to echoing what was sent.
+      const applied = call('setGlobal', [key, value]);
       return applied === undefined ? value : applied;
     },
 

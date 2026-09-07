@@ -2,13 +2,11 @@ package dev.voidpvp.client.mixin;
 
 import dev.voidpvp.client.VoidClient;
 import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.option.GameOptions;
-import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * The HUD layer (§6.2) and the crosshair actuator (§6.7).
@@ -31,23 +29,26 @@ public abstract class InGameHudMixin {
     /**
      * Suppresses the vanilla crosshair when the crosshair mod replaces it.
      *
-     * <p>1.8.9 draws the crosshair inline in the overlay pass, guarded by
-     * {@code gameSettings.thirdPersonView == 0}; there is no separate method to
-     * cancel. Reporting a non-zero perspective for that one read skips the
-     * vanilla draw and nothing else — {@code perspective} is read exactly once
-     * in this method, which is why the ordinal is pinned to 0. Worth a look in
-     * game if the crosshair ever doubles up.</p>
+     * <p>1.8.9 guards its crosshair with {@code InGameHud.showCrosshair()} and draws it inline,
+     * so answering that question is the whole of the suppression. Returning {@code false} skips
+     * the blend setup and the 16x16 blit and nothing else.</p>
+     *
+     * <p><b>This used to redirect a {@code GameOptions.perspective} field read, and that was
+     * wrong in a way nothing caught.</b> The comment claimed {@code perspective} was read exactly
+     * once in {@code render} and that the read was the crosshair's guard. The first half is true
+     * — there is exactly one, so {@code ordinal = 0} was unambiguous and the injection applied
+     * cleanly, and Mixin's {@code defaultRequire} was satisfied. The second half is false: that
+     * read guards the <em>pumpkin-blur overlay</em>, and the crosshair is guarded by this method.
+     * So for as long as it stood, the mod drew its crosshair <em>on top of</em> the vanilla one
+     * rather than in place of it, and quietly stopped a pumpkin helmet from blurring the screen.
+     * Measured in game: {@code crosshair.style: none} with the mod on was pixel-identical to the
+     * mod being off, when it should have left no crosshair at all.</p>
      */
-    @Redirect(method = "render",
-            at = @At(value = "FIELD",
-                    target = "Lnet/minecraft/client/option/GameOptions;perspective:I",
-                    opcode = Opcodes.GETFIELD,
-                    ordinal = 0))
-    private int void$hideVanillaCrosshair(GameOptions options) {
+    @Inject(method = "showCrosshair", at = @At("RETURN"), cancellable = true)
+    private void void$hideVanillaCrosshair(CallbackInfoReturnable<Boolean> cir) {
         VoidClient client = VoidClient.get();
         if (client != null && client.suppressesVanillaCrosshair()) {
-            return 1;
+            cir.setReturnValue(Boolean.FALSE);
         }
-        return options.perspective;
     }
 }

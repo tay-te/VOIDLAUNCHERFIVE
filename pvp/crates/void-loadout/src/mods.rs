@@ -1,4 +1,4 @@
-//! The closed registry of the 12 mods — `schema/mods.json`.
+//! The closed registry of the 13 mods — `schema/mods.json`.
 //!
 //! `mods.json` is a JSON Schema *document*; the registry VOID actually ships is its
 //! `examples[0]`. That document is compiled into the binary with [`include_str!`] and
@@ -21,7 +21,7 @@ pub const MODS_SCHEMA_JSON: &str = include_str!("../../../schema/mods.json");
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 12 mods of PVP_ARCHITECTURE.md §3.
+/// One of the 13 mods VOID ships: the 12 of PVP_ARCHITECTURE.md §3 plus the watermark.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModId {
@@ -39,6 +39,8 @@ pub enum ModId {
     ArmorStatus,
     /// Active potion effects.
     PotionEffects,
+    /// The VOID mark, drawn over the game.
+    Watermark,
     /// Latching sprint.
     ToggleSprint,
     /// Gamma override.
@@ -53,7 +55,7 @@ pub enum ModId {
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 12] = [
+    pub const ALL: [ModId; 13] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -61,6 +63,7 @@ impl ModId {
         ModId::Coordinates,
         ModId::ArmorStatus,
         ModId::PotionEffects,
+        ModId::Watermark,
         ModId::ToggleSprint,
         ModId::Fullbright,
         ModId::Hitboxes,
@@ -78,6 +81,7 @@ impl ModId {
             ModId::Coordinates => "coordinates",
             ModId::ArmorStatus => "armor_status",
             ModId::PotionEffects => "potion_effects",
+            ModId::Watermark => "watermark",
             ModId::ToggleSprint => "toggle_sprint",
             ModId::Fullbright => "fullbright",
             ModId::Hitboxes => "hitboxes",
@@ -136,11 +140,13 @@ pub enum HudModId {
     ArmorStatus,
     /// Active potion effects.
     PotionEffects,
+    /// The VOID mark, drawn over the game.
+    Watermark,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 7] = [
+    pub const ALL: [HudModId; 8] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -148,6 +154,7 @@ impl HudModId {
         HudModId::Coordinates,
         HudModId::ArmorStatus,
         HudModId::PotionEffects,
+        HudModId::Watermark,
     ];
 
     /// Widens to the full mod id enum.
@@ -160,6 +167,7 @@ impl HudModId {
             HudModId::Coordinates => ModId::Coordinates,
             HudModId::ArmorStatus => ModId::ArmorStatus,
             HudModId::PotionEffects => ModId::PotionEffects,
+            HudModId::Watermark => ModId::Watermark,
         }
     }
 
@@ -537,6 +545,38 @@ pub struct PotionEffectsSettings {
     pub hide_ambient: Option<bool>,
 }
 
+/// Which parts of the VOID mark are drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WatermarkStyle {
+    /// The ring plus the VOID wordmark.
+    Full,
+    /// The ring alone.
+    Mark,
+    /// The wordmark alone.
+    Word,
+}
+
+/// VOID watermark settings.
+///
+/// The one drawn mod with no `color`: `design/quiet-cell-system.md` §1 reserves colour
+/// for a live value or a selected item, and a watermark is neither.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WatermarkSettings {
+    /// Whether the watermark is drawn.
+    pub on: bool,
+    /// Size multiplier of the mark.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+    /// Alpha of the mark.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+    /// Which parts of the mark are drawn.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<WatermarkStyle>,
+}
+
 /// Whether toggle sprint latches or restores vanilla hold-to-sprint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -559,9 +599,8 @@ pub struct ToggleSprintSettings {
     /// Whether the same latching applies to sneak.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sneak_too: Option<bool>,
-    /// Whether the mod draws its own status line.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub show_status: Option<bool>,
+    // `show_status` was here and is gone; see `ModRegistry.java`. A sprint indicator returns
+    // as its own placeable HUD mod, not as a setting on a gameplay one.
 }
 
 /// Fullbright settings.
@@ -706,7 +745,7 @@ pub struct ModInfo<'a> {
     pub source: &'a str,
 }
 
-/// Every mod VOID ships, keyed by id. Closed set of 12.
+/// Every mod VOID ships, keyed by id. Closed set of 13.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[allow(missing_docs)]
@@ -718,6 +757,7 @@ pub struct ModRegistryEntries {
     pub coordinates: ModEntry<CoordinatesSettings>,
     pub armor_status: ModEntry<ArmorStatusSettings>,
     pub potion_effects: ModEntry<PotionEffectsSettings>,
+    pub watermark: ModEntry<WatermarkSettings>,
     pub toggle_sprint: ModEntry<ToggleSprintSettings>,
     pub fullbright: ModEntry<FullbrightSettings>,
     pub hitboxes: ModEntry<HitboxesSettings>,
@@ -731,7 +771,7 @@ pub struct ModRegistryEntries {
 pub struct Registry {
     /// Integer revision, bumped when a mod is added, removed or reclassified.
     pub version: u32,
-    /// The 12 entries.
+    /// The 13 entries.
     pub mods: ModRegistryEntries,
 }
 
@@ -784,6 +824,7 @@ impl Registry {
             ModId::Coordinates => info!(m.coordinates),
             ModId::ArmorStatus => info!(m.armor_status),
             ModId::PotionEffects => info!(m.potion_effects),
+            ModId::Watermark => info!(m.watermark),
             ModId::ToggleSprint => info!(m.toggle_sprint),
             ModId::Fullbright => info!(m.fullbright),
             ModId::Hitboxes => info!(m.hitboxes),
@@ -824,6 +865,7 @@ pub fn defaults_json(id: ModId) -> &'static Map<String, Value> {
             (ModId::Coordinates, obj!(m.coordinates)),
             (ModId::ArmorStatus, obj!(m.armor_status)),
             (ModId::PotionEffects, obj!(m.potion_effects)),
+            (ModId::Watermark, obj!(m.watermark)),
             (ModId::ToggleSprint, obj!(m.toggle_sprint)),
             (ModId::Fullbright, obj!(m.fullbright)),
             (ModId::Hitboxes, obj!(m.hitboxes)),
@@ -859,6 +901,7 @@ pub(crate) fn validate_settings(id: ModId, value: Value) -> Result<Value, Error>
         ModId::Coordinates => check::<CoordinatesSettings>(id, value),
         ModId::ArmorStatus => check::<ArmorStatusSettings>(id, value),
         ModId::PotionEffects => check::<PotionEffectsSettings>(id, value),
+        ModId::Watermark => check::<WatermarkSettings>(id, value),
         ModId::ToggleSprint => check::<ToggleSprintSettings>(id, value),
         ModId::Fullbright => check::<FullbrightSettings>(id, value),
         ModId::Hitboxes => check::<HitboxesSettings>(id, value),
@@ -872,10 +915,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_holds_all_twelve_mods() {
+    fn registry_holds_all_thirteen_mods() {
         let r = registry();
-        assert_eq!(r.version, 2, "mods.json gained category + three keystrokes settings");
-        assert_eq!(r.all_info().len(), 12);
+        assert_eq!(r.version, 3, "mods.json gained the watermark mod");
+        assert_eq!(r.all_info().len(), 13);
         for id in ModId::ALL {
             assert_eq!(r.info(id).id, id, "entry `id` must equal its key");
         }
@@ -912,6 +955,9 @@ mod tests {
         assert_eq!(ModId::Crosshair.category(), Category::Visual);
         assert_eq!(ModId::Zoom.category(), Category::Utility);
         assert_eq!(ModId::Fps.category(), Category::Hud);
+        // The watermark draws, so `kind: hud`, but the Mods panel tabs it under Visual.
+        assert_eq!(ModId::Watermark.kind(), Kind::Hud);
+        assert_eq!(ModId::Watermark.category(), Category::Visual);
     }
 
     #[test]

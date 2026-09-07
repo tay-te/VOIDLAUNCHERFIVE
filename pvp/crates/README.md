@@ -21,7 +21,7 @@ The Rust side of `schema/mods.json` and `schema/loadout.json`, plus the store.
 
 | Module | What it is |
 |---|---|
-| `mods` | The closed registry of 12 mods: `ModId`, `Kind`, `Category`, `HypixelSafe`, the panel `label`, a typed settings struct per mod, and the factory defaults. `schema/mods.json` is compiled in with `include_str!` and its `examples[0]` *is* the shipped registry — there is no second copy to drift. `Category` (`hud`/`pvp`/`visual`/`utility`) is the Mods-panel filter taxonomy and is deliberately independent of `Kind`: Crosshair is `Gameplay` but `Visual`, Zoom is `Gameplay` but `Utility`. |
+| `mods` | The closed registry of 13 mods: `ModId`, `Kind`, `Category`, `HypixelSafe`, the panel `label`, a typed settings struct per mod, and the factory defaults. `schema/mods.json` is compiled in with `include_str!` and its `examples[0]` *is* the shipped registry — there is no second copy to drift. `Category` (`hud`/`pvp`/`visual`/`utility`) is the Mods-panel filter taxonomy and is deliberately independent of `Kind`: Crosshair is `Gameplay` but `Visual`, Zoom is `Gameplay` but `Utility`. |
 | `loadout` | `Loadout`, `ModStates`, `HudItem`/`Anchor` (anchor + `dx`/`dy` + `scale`, never pixels, §8.1), `LoadoutStats`, and `hypixel_ready`. |
 | `settings` | `GlobalSettings` — `protocol.json#/definitions/global_settings`. It lives here because it is persisted as well as sent; unknown keys survive a round trip via `#[serde(flatten)]`, which is the one place the schemas allow extra keys. |
 | `keybind` | `Keybind` and `HexColor`: validating newtypes for the two string formats the schema pins with a regex. |

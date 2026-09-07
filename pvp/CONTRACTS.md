@@ -86,17 +86,31 @@ The bridge object is named exactly **`window.void`**. Defined in `schema/bridge.
 §6.5. Implemented by **mod** (`mod/src/main/java/dev/voidpvp/client/bridge/`) and consumed
 by **ingame**.
 
-- Java → JS is push, on **seven** channels:
-  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu', handler)`.
+- Java → JS is push, on **nine** channels:
+  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu'|'session'|'settings', handler)`.
+  - **The channel list in `void-shim.js` is closed, and a channel missing from it fails
+    silently** — `on` returns a no-op subscription and `__emit` drops the envelope, with no
+    error anywhere. That is how `session` was lost the first time it was sent. Adding a
+    channel means `bridge.json`, `VoidBridge`, the shim's `EVENTS`, `@void/protocol`'s
+    `VOID_EVENTS` and `installVoidShim`, and `createFakeVoid` — all five, or none.
   - `loadouts` carries the whole library, in full, from `init.loadouts`. Without it JS
     would only know the loadouts it happened to watch go past, and the Loadouts frame
     lists all of them.
+  - `session` is who is playing, read off Minecraft's own `Session`. It arrives once, on
+    `pushWholeState()`, and never changes: you cannot switch accounts mid-match.
+  - `settings` is `GlobalSettings` — `menu_key`, `ui_scale`, `theme`. Pushed on
+    `pushWholeState()` and whenever Rust sends new settings down, and **never** as an echo
+    of the page's own `setGlobal`, for the same reason `setting` is not echoed.
   - `setting` carries one `{id, key, value}` Java changed **by itself** — an in-game
     hotkey, or a launcher echo. It is *not* pushed for a change the page made through
     `setModSetting`, which already returned the stored value; re-pushing that would fight
     the control the player is holding.
-- JS → Java is a call, still exactly six: `setGameplay`, `setHud`, `setModSetting`,
-  `switchLoadout`, `closeMenu`, `openKeybindCapture`.
+- JS → Java is a call, and there are now eight: `setGameplay`, `setHud`, `setModSetting`,
+  `switchLoadout`, `closeMenu`, `openKeybindCapture`, `setSurfaces`, `setGlobal`. The shim's
+  `CALLS` list is closed the same way `EVENTS` is.
+  - `setGlobal(key, value)` mirrors `setModSetting` exactly: synchronous, Java clamps and
+    returns **what it stored**, `null` for a key it does not know or a value it cannot use,
+    and the page binds to the return rather than to what it sent.
 - Ultralight runs **inside the JVM**, so calls are synchronous and return the state
   actually applied. No ack, no request id, no optimistic UI.
 - **`openKeybindCapture` is the one asynchronous call, and the one easy thing to get

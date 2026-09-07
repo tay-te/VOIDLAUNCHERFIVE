@@ -1,6 +1,6 @@
 /**
  * The fake bridge is what every UI surface develops against, so it has to behave like
- * the real one: emit the seven channels with on-model payloads, answer the six calls
+ * the real one: emit the nine channels with on-model payloads, answer the eight calls
  * with the value actually applied, and be reproducible under a seed.
  */
 
@@ -486,5 +486,101 @@ describe('installVoidShim', () => {
         .sort();
     // Every method of the real shim must exist on the fake, or the harness diverges.
     for (const key of surface(shim)) expect(surface(fake)).toContain(key);
+  });
+});
+
+describe('the session and settings channels', () => {
+  it('emitInitialState pushes session and settings with the rest of the world', () => {
+    const fake = createFakeVoid({ seed: 11, attachKeyboard: false });
+    const sessions: unknown[] = [];
+    const settings: unknown[] = [];
+    fake.on('session', (p) => sessions.push(p));
+    fake.on('settings', (p) => settings.push(p));
+
+    expect(sessions).toEqual([]);
+    fake.emitInitialState();
+
+    // One push each, and both are whole state: neither is a delta.
+    expect(sessions).toEqual([{ ...fake.getSession() }]);
+    expect(settings).toEqual([{ ...fake.getSettings() }]);
+    expect(fake.getSession().kind).toBe('offline');
+    expect(fake.getSettings().menu_key).toBe('RSHIFT');
+  });
+
+  it('every channel it pushes on first paint is a legal bridge.json envelope', () => {
+    const fake = createFakeVoid({ seed: 11, attachKeyboard: false });
+    const seen: string[] = [];
+    for (const event of ['loadouts', 'loadout', 'server', 'session', 'settings', 'menu'] as const) {
+      fake.on(event, (payload) => {
+        seen.push(event);
+        expectValidEnvelope({ e: event, payload } as VoidEnvelope);
+      });
+    }
+    fake.emitInitialState();
+    expect(seen).toEqual(['loadouts', 'loadout', 'server', 'session', 'settings', 'menu']);
+  });
+
+  it('setGlobal clamps, stores, and answers with what was stored', () => {
+    const fake = createFakeVoid({ seed: 11, attachKeyboard: false });
+    expect(fake.setGlobal('ui_scale', 9)).toBe(3);        // clamped to the 0.5..3 range
+    expect(fake.setGlobal('ui_scale', 0.1)).toBe(0.5);
+    expect(fake.setGlobal('menu_key', 'RCONTROL')).toBe('RCONTROL');
+    expect(fake.setGlobal('hud_editor_grid', 7.6)).toBe(8); // integer-valued
+    expect(fake.getSettings()).toMatchObject({
+      ui_scale: 0.5,
+      menu_key: 'RCONTROL',
+      hud_editor_grid: 8,
+    });
+  });
+
+  it('setGlobal answers null, and stores nothing, for an unusable write', () => {
+    const fake = createFakeVoid({ seed: 11, attachKeyboard: false });
+    const before = fake.getSettings();
+    // Not a key this build knows...
+    expect(fake.setGlobal('chat_opacity', 0.5)).toBeNull();
+    // ...and not a legal LWJGL key name.
+    expect(fake.setGlobal('menu_key', 'Right Shift')).toBeNull();
+    expect(fake.getSettings()).toEqual(before);
+  });
+
+  it('setGlobal pushes no settings event — the call already answered', () => {
+    const fake = createFakeVoid({ seed: 11, attachKeyboard: false });
+    const pushes: unknown[] = [];
+    fake.on('settings', (p) => pushes.push(p));
+    fake.setGlobal('ui_scale', 1.5);
+    expect(pushes).toEqual([]);
+    // …but Rust changing them mid-session does, and carries the whole object.
+    fake.applySettings({ ...fake.getSettings(), theme: 'void-light' });
+    expect(pushes).toEqual([{ ...fake.getSettings() }]);
+  });
+
+  it('records setGlobal as a bridge.json call envelope', () => {
+    const fake = createFakeVoid({ seed: 11, attachKeyboard: false });
+    fake.setGlobal('ui_scale', 1.25);
+    for (const call of fake.getCalls()) expectValidEnvelope(call);
+    expect(fake.getCalls()).toEqual([{ c: 'setGlobal', params: ['ui_scale', 1.25] }]);
+  });
+
+  it('the reference shim routes session and settings, and calls setGlobal', () => {
+    const seen: unknown[] = [];
+    const native = (json: string): string => {
+      const envelope = JSON.parse(json) as { c: string; params: unknown[] };
+      seen.push(envelope);
+      // The host clamps; the page binds to what comes back, not to what it sent.
+      return JSON.stringify({ c: envelope.c, returns: 3 });
+    };
+    const bridge = installVoidShim({ native, target: null });
+
+    const sessions: unknown[] = [];
+    const settings: unknown[] = [];
+    bridge.on('session', (p) => sessions.push(p));
+    bridge.on('settings', (p) => settings.push(p));
+    bridge.__emit({ e: 'session', payload: { name: 'Player', uuid: 'u', kind: 'offline' } });
+    bridge.__emit({ e: 'settings', payload: { ui_scale: 1 } });
+
+    expect(sessions).toEqual([{ name: 'Player', uuid: 'u', kind: 'offline' }]);
+    expect(settings).toEqual([{ ui_scale: 1 }]);
+    expect(bridge.setGlobal('ui_scale', 9)).toBe(3);
+    expect(seen).toEqual([{ c: 'setGlobal', params: ['ui_scale', 9] }]);
   });
 });

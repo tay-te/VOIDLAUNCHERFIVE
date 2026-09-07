@@ -68,6 +68,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *                       Sink.hud -> VoidSocket                           PAGE    both thread-safe
  * setModSetting       LiveState.setModSetting                            SHARED  inline, synchronized
  *                       (as setGameplay)
+ * setGlobal           LiveState.setGlobal                                SHARED  inline, synchronized
+ *                       LiveState.applySettings                          SHARED  volatile writes
+ *                       (ui_scale) VoidClient.pumpUi -&gt; UiHost.ensure     SHARED  read next game frame
  * switchLoadout       LiveState.switchLoadout                            SHARED  inline, synchronized
  *                       library lookup, applyLoadoutInternal, LoadoutDiff SHARED  under the LiveState monitor
  *                       LiveState.loadoutJson -&gt; emit("loadout")         SHARED  synchronized read, queued push
@@ -82,10 +85,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * <h3>Why nothing blocks for a return value</h3>
  *
- * <p>Three calls answer with a value the page uses: {@code setGameplay} a
+ * <p>Four calls answer with a value the page uses: {@code setGameplay} a
  * boolean, {@code setModSetting} the stored element, {@code setHud} the clamped
- * item. None of them is a round trip, because <em>none of them needs the game
- * thread to compute its answer</em>: they are writes to {@link LiveState},
+ * item, {@code setGlobal} the stored global. None of them is a round trip, because <em>none of
+ * them needs the game thread to compute its answer</em>: they are writes to {@link LiveState},
  * which is guarded by its own monitor and reachable from any thread, and the
  * answer is what the clamp produced. Making them optimistic would be strictly
  * worse — the page would then have to be told the real value on the
@@ -101,7 +104,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class VoidBridge {
 
-    /** The seven channels of {@code bridge.json#/definitions/event_name}. */
+    /**
+     * The seven channels of {@code bridge.json#/definitions/event_name}, plus {@code session}
+     * and {@code settings}.
+     */
     public static final String EVENT_KEYS = "keys";
     public static final String EVENT_TICK = "tick";
     public static final String EVENT_SERVER = "server";
@@ -111,6 +117,39 @@ public final class VoidBridge {
     /** One mod setting changed outside a UI call — an in-game hotkey. */
     public static final String EVENT_SETTING = "setting";
     public static final String EVENT_MENU = "menu";
+    /**
+     * Who is playing — name, uuid, and whether the account is offline or Microsoft.
+     *
+     * <p>The eighth channel, and the only one that carries something immutable. It exists because
+     * the page has to be <em>told</em>: it has no network (Ultralight runs off the classpath) and
+     * no other channel is about the player rather than the world. {@code server} was the obvious
+     * host and is the wrong one — it is edge-triggered from {@code onWorldChanged}, so in a
+     * single-player dev client it never fires at all, and the chip would be blank in exactly the
+     * client somebody is debugging.</p>
+     *
+     * <p>Pushed only from {@link #pushWholeState()}, which is the one definition of what a fresh
+     * page needs (§9a): a reloaded document gets it again, and nothing else has to remember to.</p>
+     */
+    public static final String EVENT_SESSION = "session";
+
+    /**
+     * The global settings, whole, as {@code protocol.json#/definitions/global_settings}.
+     *
+     * <p>The ninth channel. {@link dev.voidpvp.client.state.LiveState} has held
+     * {@code menuKeyCode}, {@code uiScale} and {@code theme} since the beginning and Rust could
+     * push them down, but the page could neither read nor write any of it: there was no channel
+     * carrying them and no call to change them. This is the read half; {@code setGlobal} is the
+     * write half.</p>
+     *
+     * <p>Pushed from {@link #pushWholeState()}, so a reloaded document gets it back, and from
+     * {@code VoidClient.onSettings} when the launcher changes them under the game. <b>Not</b>
+     * pushed as an echo of the page's own {@code setGlobal} — §6.5 does not push a change back to
+     * the page that made it, and the call already returned the stored value.</p>
+     *
+     * <p>Whole-state, so {@link #emit} coalesces it: only the newest settings object in a frame
+     * is worth delivering.</p>
+     */
+    public static final String EVENT_SETTINGS = "settings";
 
     /**
      * Most game-thread work to run in one drain.
@@ -226,6 +265,19 @@ public final class VoidBridge {
             }
             JsonElement stored = state.setModSetting(
                     p.get(0).getAsString(), p.get(1).getAsString(), p.get(2));
+            return stored == null ? JsonNull.INSTANCE : stored;
+        }
+        if ("setGlobal".equals(call)) {
+            if (p.size() < 2) {
+                return JsonNull.INSTANCE;
+            }
+            // SHARED, inline. Same shape as setModSetting and for the same reason: the answer is
+            // what the clamp produced, and LiveState is reachable from this thread. ui_scale takes
+            // effect without anything being queued — VoidClient.pumpUi re-reads state.uiScale on
+            // every game frame and hands it to UiHost.ensure, whose UI-thread applySize() sees the
+            // device scale move and resizes the view. Posting a resize from here would be both a
+            // second path to the same place and a renderer call from the wrong thread.
+            JsonElement stored = state.setGlobal(p.get(0).getAsString(), p.get(1));
             return stored == null ? JsonNull.INSTANCE : stored;
         }
         if ("switchLoadout".equals(call)) {
@@ -418,11 +470,11 @@ public final class VoidBridge {
         env.addProperty("e", event);
         env.add("payload", payload == null ? JsonNull.INSTANCE : payload);
         synchronized (pending) {
-            // `tick`, `keys`, `menu` and `server` carry whole state, so an
+            // `tick`, `keys`, `menu`, `loadouts` and `settings` carry whole state, so an
             // older envelope on the same channel is dead weight. `loadout` is
             // whole-state too but a switch is rare enough to keep in order.
             if (EVENT_TICK.equals(event) || EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
-                    || EVENT_LOADOUTS.equals(event)) {
+                    || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)) {
                 dropChannel(event);
             }
             pending.addLast(env);
@@ -523,19 +575,40 @@ public final class VoidBridge {
      * forgotten here would come back as "the menu loses its X after a fallback", which is exactly
      * the shape of the bug this fixes.</p>
      *
-     * <p><b>Read live, not replayed.</b> {@code loadout} and {@code loadouts} are re-serialised
+     * <p><b>Read live, not replayed.</b> {@code loadout}, {@code loadouts} and {@code settings}
+     * are re-serialised
      * from {@link LiveState} rather than resent from a remembered envelope, because a remembered
-     * one would be stale: {@code setGameplay}, {@code setModSetting} and {@code setHud} all change
+     * one would be stale: {@code setGameplay}, {@code setModSetting}, {@code setHud} and
+     * {@code setGlobal} all change
      * the loadout without emitting anything (§6.5 deliberately does not push a change back to the
      * page that made it), so every toggle the player had flipped this session would be missing
      * from a snapshot. {@code tick}, {@code keys} and {@code server} are not sent at all: their
      * sensors push whole state every tick, so the queue refills with current values long before a
      * freshly loaded page is ready to receive anything.</p>
      *
+     * <p>{@code session} is the exception that proves that rule and is sent first. It is immutable
+     * and has no sensor behind it, so "the queue refills" is false for it: whatever misses it
+     * never learns it. See {@link #EVENT_SESSION}.</p>
+     *
      * <p>Safe from any thread — {@link #emit} takes the monitor on the queue, and both
      * {@link LiveState} serialisers are synchronized.</p>
      */
     public void pushWholeState() {
+        // First, because it is the one thing here that will never be pushed again: no sensor
+        // produces it and no change can. A page that missed it would carry a blank profile chip
+        // for the life of the process.
+        if (host != null) {
+            JsonObject session = host.sessionJson();
+            if (session != null) {
+                emit(EVENT_SESSION, session);
+            }
+        }
+        // Second, and for the same reason as session: the globals are the page's chrome — the
+        // theme it paints in and the scale it lays out at — so they want to be in hand before the
+        // content arrives. Re-serialised from LiveState, never replayed: `setGlobal` writes the
+        // record without emitting anything (§6.5), so a remembered envelope would hand a reloaded
+        // page the scale the launcher sent at start-up rather than the one in force.
+        emit(EVENT_SETTINGS, state.settings().toJson());
         // The library first, then the active loadout: the order onInit uses, so the page's store
         // settles on the live copy rather than the library's.
         emit(EVENT_LOADOUTS, state.libraryJson());

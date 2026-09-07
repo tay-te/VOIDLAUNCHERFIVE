@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 2,
+  "version": 3,
   "mods": {
     "fps": {
       "id": "fps",
@@ -102,7 +102,7 @@ export const MOD_REGISTRY_DOCUMENT = {
         "opacity": 1,
         "decimals": 1,
         "show_direction": true,
-        "layout": "stacked"
+        "layout": "inline"
       }
     },
     "armor_status": {
@@ -139,6 +139,21 @@ export const MOD_REGISTRY_DOCUMENT = {
         "hide_ambient": false
       }
     },
+    "watermark": {
+      "id": "watermark",
+      "kind": "hud",
+      "category": "visual",
+      "hypixel_safe": "safe",
+      "label": "Watermark",
+      "description": "The VOID mark, drawn over the game.",
+      "source": "drawn by the overlay; no game field",
+      "defaults": {
+        "on": true,
+        "scale": 1,
+        "opacity": 0.9,
+        "style": "full"
+      }
+    },
     "toggle_sprint": {
       "id": "toggle_sprint",
       "kind": "gameplay",
@@ -150,8 +165,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "defaults": {
         "on": true,
         "mode": "toggle",
-        "sneak_too": false,
-        "show_status": true
+        "sneak_too": false
       }
     },
     "fullbright": {

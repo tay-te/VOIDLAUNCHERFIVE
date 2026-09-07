@@ -15,7 +15,7 @@ import java.util.Map;
  * on, their settings and the HUD layout (§8).
  *
  * <p>Mod state is <em>materialised</em> on construction: every one of the
- * twelve mods gets every one of its settings, taken from the loadout where it
+ * thirteen mods gets every one of its settings, taken from the loadout where it
  * is present and from {@link ModRegistry} where it is not. The schema makes
  * both the mods and their settings optional precisely so old loadouts stay
  * valid when a mod is added, and resolving that once here means no caller ever
@@ -97,6 +97,16 @@ public final class Loadout {
      * first {@code loadout} push replaces this object wholesale; the only client that runs on it
      * is one started without {@code -Dvoid.port}, i.e. every dev client, where it read as "the
      * sliders don't work".</p>
+     *
+     * <p><b>{@code hud} is seeded too, and for the same reason.</b> It used to be an empty array,
+     * which is the exact analogue of the empty {@code mods} object one paragraph up: the overlay's
+     * {@code HudEntry} draws a widget only when its mod is on <em>and</em> the loadout places it
+     * ({@code HudLayer.tsx}), so a loadout that places nothing draws nothing — all seven HUD mods
+     * invisible, whatever their {@code on} says and whatever their settings are changed to. Again
+     * invisible with a launcher attached, because Rust's {@code default_library()} seeds
+     * placements and the first {@code loadout} push replaces this object wholesale; again the only
+     * client that runs on it is the dev client, where it read as "the HUD mods don't do
+     * anything".</p>
      */
     public static Loadout defaults(String id, String name) {
         JsonObject o = new JsonObject();
@@ -109,9 +119,52 @@ public final class Loadout {
             mods.add(modId, ModRegistry.defaults(modId));
         }
         o.add("mods", mods);
-        o.add("hud", new JsonArray());
+        JsonArray hud = new JsonArray();
+        for (Object[] place : DEFAULT_HUD) {
+            JsonObject item = new JsonObject();
+            item.addProperty("id", (String) place[0]);
+            item.addProperty("anchor", (String) place[1]);
+            item.addProperty("dx", (Number) place[2]);
+            item.addProperty("dy", (Number) place[3]);
+            item.addProperty("scale", Integer.valueOf(1));
+            hud.add(item);
+        }
+        o.add("hud", hud);
         return fromJson(o);
     }
+
+    /**
+     * The factory HUD layout, in the overlay's own design-canvas pixels.
+     *
+     * <p>Transcribed from {@code packages/ingame/src/menu/HudEditorScreen.tsx}'s
+     * {@code DEFAULT_HUD}, which is the layout drawn on Figma frame 244:1722 and the one the HUD
+     * editor's <em>Reset</em> button restores. Those are the coordinates the page actually lays
+     * out in — {@code VoidClient.pumpUi} fits the view to a 1300 x 820 canvas — so they are the
+     * ones to copy, rather than the tighter offsets in {@code crates/void-loadout}'s default
+     * library, whose 18 px vertical spacing overlaps chips that are taller than that.</p>
+     *
+     * <p>Mods that ship off ({@code coordinates}) are placed too: a placement is where a widget
+     * would go, not whether it is drawn — the {@code on} switch decides that, in one place, in
+     * the page.</p>
+     *
+     * <p><b>{@code watermark} is placed here, and its number is not the schema's.</b>
+     * {@code loadout.json}'s factory layout puts it at {@code top-left 20,58}, under an fps at
+     * {@code dy 20} and a ping at {@code dy 38} — an 18-20 px rhythm. This table's rhythm is
+     * 38-42 px, for the reason the paragraph above gives, and 58 here would land the mark on top
+     * of the ping chip at 65 rather than under it. So it takes the next row of <em>this</em>
+     * column instead: 103 + 38. Same intent — third in the top-left stack — expressed in the
+     * space the page actually lays out in. Change both numbers together or neither.</p>
+     */
+    private static final Object[][] DEFAULT_HUD = {
+        {"fps", "top-left", Integer.valueOf(23), Integer.valueOf(23)},
+        {"ping", "top-left", Integer.valueOf(23), Integer.valueOf(65)},
+        {"coordinates", "top-left", Integer.valueOf(23), Integer.valueOf(103)},
+        {"watermark", "top-left", Integer.valueOf(23), Integer.valueOf(141)},
+        {"potion_effects", "top-right", Integer.valueOf(-25), Integer.valueOf(23)},
+        {"armor_status", "top-right", Integer.valueOf(-25), Integer.valueOf(299)},
+        {"keystrokes", "bottom-left", Integer.valueOf(31), Integer.valueOf(-109)},
+        {"cps", "bottom-left", Integer.valueOf(175), Integer.valueOf(-108)},
+    };
 
     public String id() {
         return id;
@@ -202,8 +255,8 @@ public final class Loadout {
     /**
      * The HUD layout. A copy, not a view: the caller — {@code LiveState.setHud} handing the layout
      * to the sink — reads it after the monitor that guards every write to this list is released,
-     * and an unmodifiable view would still see those writes. At most twelve immutable
-     * {@link HudItem}s, so the copy is free.
+     * and an unmodifiable view would still see those writes. At most one immutable
+     * {@link HudItem} per HUD mod, so the copy is free.
      */
     public List<HudItem> hud() {
         return Collections.unmodifiableList(new ArrayList<HudItem>(hud));

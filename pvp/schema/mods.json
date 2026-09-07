@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schema.void.dev/pvp/mods.json",
   "title": "VOID PVP — Mod registry",
-  "description": "The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
+  "description": "The closed registry of the 13 mods VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3 plus the VOID watermark — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
   "type": "object",
   "required": ["version", "mods"],
   "additionalProperties": false,
@@ -15,11 +15,11 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 12 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects",
-        "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
+        "watermark", "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
       ],
       "additionalProperties": false,
       "properties": {
@@ -30,6 +30,7 @@
         "coordinates": { "description": "Coordinates registry entry.", "$ref": "#/definitions/coordinates_entry" },
         "armor_status": { "description": "Armor status registry entry.", "$ref": "#/definitions/armor_status_entry" },
         "potion_effects": { "description": "Potion effects registry entry.", "$ref": "#/definitions/potion_effects_entry" },
+        "watermark": { "description": "VOID watermark registry entry.", "$ref": "#/definitions/watermark_entry" },
         "toggle_sprint": { "description": "Toggle sprint registry entry.", "$ref": "#/definitions/toggle_sprint_entry" },
         "fullbright": { "description": "Fullbright registry entry.", "$ref": "#/definitions/fullbright_entry" },
         "hitboxes": { "description": "Hitboxes registry entry.", "$ref": "#/definitions/hitboxes_entry" },
@@ -42,18 +43,18 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 12 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 13 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects",
-        "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
+        "watermark", "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the eight mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
-      "enum": ["fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects"]
+      "enum": ["fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects", "watermark"]
     },
     "gameplay_mod_id": {
       "title": "Gameplay mod id",
@@ -215,9 +216,9 @@
         "on": { "description": "Whether the coordinates display is enabled.", "$ref": "#/definitions/on" },
         "scale": { "description": "Size multiplier of the coordinates tile.", "$ref": "#/definitions/scale" },
         "opacity": { "description": "Alpha of the coordinates tile.", "$ref": "#/definitions/opacity" },
-        "decimals": { "description": "Number of decimal places printed for X, Y and Z.", "type": "integer", "minimum": 0, "maximum": 3, "default": 1 },
+        "decimals": { "description": "Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one — 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.", "type": "integer", "minimum": 0, "maximum": 2, "default": 1 },
         "show_direction": { "description": "Whether to append the cardinal direction derived from yaw.", "type": "boolean", "default": true },
-        "layout": { "description": "Whether X, Y and Z are stacked on three lines or printed on one.", "type": "string", "enum": ["stacked", "inline"], "default": "stacked" }
+        "layout": { "description": "Whether X, Y and Z are stacked on three lines or printed on one. Defaults to `inline`, which is what the HUD frame draws; `stacked` holds the three numbers against one left edge, which is easier to read while moving.", "type": "string", "enum": ["stacked", "inline"], "default": "inline" }
       }
     },
     "armor_status_settings": {
@@ -250,6 +251,19 @@
         "hide_ambient": { "description": "Whether to omit ambient effects such as a beacon aura from the list.", "type": "boolean", "default": false }
       }
     },
+    "watermark_settings": {
+      "title": "VOID watermark settings",
+      "description": "Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` §1 reserves colour for a live value or a selected item, and a watermark is neither.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the watermark is drawn.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the mark.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the mark. Lower than the other HUD mods by default, so it sits behind the readouts the player is actually reading.", "$ref": "#/definitions/opacity", "default": 0.9 },
+        "style": { "description": "Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark, `mark` is the ring alone, `word` is the wordmark alone.", "type": "string", "enum": ["full", "mark", "word"], "default": "full" }
+      }
+    },
     "toggle_sprint_settings": {
       "title": "Toggle sprint settings",
       "description": "Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`.",
@@ -259,8 +273,7 @@
       "properties": {
         "on": { "description": "Whether toggle sprint is enabled.", "$ref": "#/definitions/on" },
         "mode": { "description": "`toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint but keeps the status readout.", "type": "string", "enum": ["toggle", "hold"], "default": "toggle" },
-        "sneak_too": { "description": "Whether the same latching behaviour is applied to sneak.", "type": "boolean", "default": false },
-        "show_status": { "description": "Whether the mod draws its own [Sprinting] status line above the hotbar.", "type": "boolean", "default": true }
+        "sneak_too": { "description": "Whether the same latching behaviour is applied to sneak.", "type": "boolean", "default": false }
       }
     },
     "fullbright_settings": {
@@ -303,7 +316,7 @@
     },
     "crosshair_settings": {
       "title": "Crosshair settings",
-      "description": "Settings for the Crosshair mod. Uniquely among the 12 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
+      "description": "Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
       "type": "object",
       "required": ["on"],
       "additionalProperties": false,
@@ -431,6 +444,22 @@
         }
       ]
     },
+    "watermark_entry": {
+      "title": "VOID watermark entry",
+      "description": "Registry entry for the VOID watermark, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `watermark`.", "const": "watermark" },
+            "kind": { "description": "Always `hud`; it draws and reads nothing.", "const": "hud" },
+            "category": { "description": "Always `visual`; it changes how the game looks rather than adding a readout, so the Mods panel tabs it under Visual (frame 244:538).", "const": "visual" },
+            "hypixel_safe": { "description": "Always `safe`; §11 does not list it, and a mark drawn over the game cannot affect play.", "const": "safe" },
+            "defaults": { "description": "Factory watermark settings.", "$ref": "#/definitions/watermark_settings" }
+          }
+        }
+      ]
+    },
     "toggle_sprint_entry": {
       "title": "Toggle sprint entry",
       "description": "Registry entry for Toggle sprint, narrowed to its constant classification.",
@@ -515,7 +544,7 @@
 
   "examples": [
     {
-      "version": 2,
+      "version": 3,
       "mods": {
         "fps": {
           "id": "fps",
@@ -565,7 +594,7 @@
           "label": "Coordinates",
           "description": "Player position and facing direction.",
           "source": "EntityPlayerSP pos/yaw",
-          "defaults": { "on": false, "scale": 1, "opacity": 1, "decimals": 1, "show_direction": true, "layout": "stacked" }
+          "defaults": { "on": false, "scale": 1, "opacity": 1, "decimals": 1, "show_direction": true, "layout": "inline" }
         },
         "armor_status": {
           "id": "armor_status",
@@ -587,6 +616,16 @@
           "source": "getActivePotionEffects",
           "defaults": { "on": true, "scale": 1, "opacity": 1, "show_duration": true, "show_amplifier": true, "hide_ambient": false }
         },
+        "watermark": {
+          "id": "watermark",
+          "kind": "hud",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Watermark",
+          "description": "The VOID mark, drawn over the game.",
+          "source": "drawn by the overlay; no game field",
+          "defaults": { "on": true, "scale": 1, "opacity": 0.9, "style": "full" }
+        },
         "toggle_sprint": {
           "id": "toggle_sprint",
           "kind": "gameplay",
@@ -595,7 +634,7 @@
           "label": "Toggle sprint",
           "description": "Latches sprint instead of holding the key.",
           "source": "KeyBinding override in onLivingUpdate",
-          "defaults": { "on": true, "mode": "toggle", "sneak_too": false, "show_status": true }
+          "defaults": { "on": true, "mode": "toggle", "sneak_too": false }
         },
         "fullbright": {
           "id": "fullbright",

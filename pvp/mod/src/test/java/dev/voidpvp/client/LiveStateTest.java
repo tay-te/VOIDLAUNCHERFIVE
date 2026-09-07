@@ -251,6 +251,112 @@ class LiveStateTest {
     }
 
     @Test
+    @DisplayName("watermark is a HUD mod, so it places and round-trips like one")
+    void watermarkPlacesLikeAnyHudMod() {
+        HudItem stored = state.setHud("watermark", "top-left", 21, 59, Double.valueOf(1));
+        assertNotNull(stored, "setHud takes every HUD mod, and this is one");
+        assertEquals("watermark", stored.id);
+        assertEquals(20.0, stored.dx, 1e-9, "snapped to the 4px grid from init.settings");
+        assertEquals(60.0, stored.dy, 1e-9);
+
+        // …and it survives the trip out to the page and back in, which is all Java owes it:
+        // nothing here draws the mark.
+        Loadout round = Loadout.fromJson(state.loadout().toJson());
+        assertEquals(stored, round.hudItem("watermark"));
+    }
+
+    @Test
+    @DisplayName("the factory loadout places the watermark, so a launcher-less client draws it")
+    void theFactoryLoadoutPlacesTheWatermark() {
+        // This is the loadout a bare `runClient` runs on: no -Dvoid.port, so no init ever lands
+        // and LiveState keeps the one it was constructed with. The page's HudEntry bails on
+        // `!on || !item`, so an unplaced mod is invisible however its settings read — which makes
+        // this the difference between the feature working and it looking broken.
+        Loadout factory = Loadout.defaults("default", "Default");
+        HudItem mark = factory.hudItem("watermark");
+        assertNotNull(mark, "the factory layout must place the watermark or nothing draws it");
+        assertEquals("top-left", mark.anchor);
+        assertTrue(factory.isOn("watermark"), "and it ships on");
+
+        // It sits under the rest of the top-left column rather than on top of it. The number is
+        // this table's, not loadout.json's — see the note on Loadout.DEFAULT_HUD.
+        assertTrue(mark.dy > factory.hudItem("ping").dy,
+                "the mark goes under ping, not over it");
+        assertTrue(mark.dy > factory.hudItem("coordinates").dy,
+                "and under coordinates, which is placed whether or not it is on");
+    }
+
+    @Test
+    @DisplayName("setGlobal clamps, and returns what it stored")
+    void setGlobalClamps() {
+        // The same contract as setModSetting: clamp rather than refuse, and hand back the stored
+        // value so a slider that was dragged to 7 snaps to 3 rather than lying about it.
+        assertEquals(1.5, state.setGlobal("ui_scale", new JsonPrimitive(1.5)).getAsDouble(), 1e-9);
+        assertEquals(1.5, state.uiScale, 1e-9, "the field the frame loop reads is written");
+        assertEquals(3.0, state.setGlobal("ui_scale", new JsonPrimitive(7)).getAsDouble(), 1e-9);
+        assertEquals(0.5, state.setGlobal("ui_scale", new JsonPrimitive(0.1)).getAsDouble(), 1e-9);
+        assertEquals(0.5, state.uiScale, 1e-9);
+
+        assertEquals(64, state.setGlobal("hud_editor_grid", new JsonPrimitive(999)).getAsInt());
+        assertEquals(0, state.setGlobal("hud_editor_grid", new JsonPrimitive(-4)).getAsInt());
+
+        // The record a later `settings` push serialises must move with the mirrored fields, or
+        // a reloaded page would be told the scale the launcher sent rather than the live one.
+        assertEquals(0.5, state.settings().uiScale, 1e-9);
+        assertEquals(0, state.settings().hudEditorGrid);
+    }
+
+    @Test
+    @DisplayName("setGlobal moves the menu key live, and refuses to unbind it")
+    void setGlobalMovesTheMenuKey() {
+        assertEquals(new JsonPrimitive("GRAVE"),
+                state.setGlobal("menu_key", new JsonPrimitive("grave")),
+                "a keybind is upper-cased, exactly as setModSetting does it");
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("GRAVE"), state.menuKeyCode,
+                "pollHotkeys reads this field every frame, so the key has already moved");
+        assertEquals("GRAVE", state.settings().menuKey);
+
+        // NONE is a legal keybind everywhere else, and is refused here on purpose: isKeyDown
+        // answers false for it forever, so storing it would leave the player with no way to open
+        // the menu again and no way to change it back.
+        assertNull(state.setGlobal("menu_key", new JsonPrimitive("NONE")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("GRAVE"), state.menuKeyCode,
+                "a refused write leaves the key where it was");
+
+        // The cycle key may be unbound: that only turns the L-key cycle off, which is a thing to
+        // want rather than a way to get stuck.
+        assertEquals(new JsonPrimitive("NONE"),
+                state.setGlobal("cycle_loadout_key", new JsonPrimitive("none")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.cycleLoadoutKeyCode);
+    }
+
+    @Test
+    @DisplayName("setGlobal answers null for an unknown key or an unusable value")
+    void setGlobalRefusesWhatItCannotStore() {
+        // Null, not a throw and not a silent success — the page binds to the return, and null is
+        // how it learns nothing moved.
+        assertNull(state.setGlobal("no_such_global", new JsonPrimitive(1)));
+        assertNull(state.setGlobal(null, new JsonPrimitive(1)));
+        assertNull(state.setGlobal("ui_scale", new JsonPrimitive("big")), "a number, not a string");
+        assertNull(state.setGlobal("ui_scale", com.google.gson.JsonNull.INSTANCE));
+        assertNull(state.setGlobal("ui_scale", new JsonObject()), "an object is not a scalar");
+        assertNull(state.setGlobal("ui_scale", new JsonPrimitive(Double.NaN)));
+        assertNull(state.setGlobal("menu_key", new JsonPrimitive("NOT_A_KEY")));
+        assertNull(state.setGlobal("theme", new JsonPrimitive("")), "minLength 1");
+
+        // Java's own account of the globals is untouched by every one of those.
+        assertEquals(1.0, state.uiScale, 1e-9);
+        assertEquals("void-dark", state.settings().theme);
+
+        // theme is the one global Java stores without reading: the page applies it, and gets it
+        // back from this return and from the `settings` channel after a reload.
+        assertEquals(new JsonPrimitive("void-light"),
+                state.setGlobal("theme", new JsonPrimitive("void-light")));
+        assertEquals("void-light", state.theme);
+        assertEquals("void-light", state.settings().theme);
+    }
+
+    @Test
     @DisplayName("colours parse to packed ARGB")
     void colours() {
         assertEquals(0xFFFFFFFF, LiveState.parseColor("#FFFFFF", 0));

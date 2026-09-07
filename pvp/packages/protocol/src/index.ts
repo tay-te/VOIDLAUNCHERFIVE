@@ -10,7 +10,7 @@
  * - **{@link installVoidShim}** — the reference implementation of `void-shim.js`, the
  *   shim that builds `window.void` on top of the Java-installed `window.__void_native`.
  * - **{@link createFakeVoid}** — an in-memory `window.void` for browser development.
- * - **{@link MOD_REGISTRY}** and friends — the closed registry of the 12 mods.
+ * - **{@link MOD_REGISTRY}** and friends — the closed registry of the 13 mods.
  */
 
 export type * from './generated/schema.js';

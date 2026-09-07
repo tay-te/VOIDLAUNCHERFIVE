@@ -68,6 +68,12 @@ class BridgeThreadingTest {
             surfaces = next;
             surfacedOn.set(Thread.currentThread());
         }
+
+        /** Not exercised here; the bridge only asks for it from pushWholeState. */
+        @Override
+        public com.google.gson.JsonObject sessionJson() {
+            return null;
+        }
     }
 
     /** The library from {@code protocol.json}'s init example, so switchLoadout has somewhere to go. */

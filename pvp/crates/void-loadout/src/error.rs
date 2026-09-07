@@ -47,8 +47,8 @@ pub enum Error {
     #[error("hud layout has more than one entry for `{0}`")]
     DuplicateHudItem(HudModId),
 
-    /// A `state` patch path named something outside the closed set of 12 mods.
-    #[error("`{0}` is not one of the 12 mod ids")]
+    /// A `state` patch path named something outside the closed set of 13 mods.
+    #[error("`{0}` is not one of the 13 mod ids")]
     UnknownMod(String),
 
     /// A `state` patch path was not of the form `mods.<mod_id>.<setting>`.

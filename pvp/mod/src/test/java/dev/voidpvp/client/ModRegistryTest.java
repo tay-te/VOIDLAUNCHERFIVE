@@ -13,6 +13,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -27,15 +28,61 @@ class ModRegistryTest {
     }
 
     @Test
-    @DisplayName("the twelve mod ids match mods.json")
+    @DisplayName("the thirteen mod ids match mods.json")
     void idsMatch() {
         Set<String> schemaIds = new LinkedHashSet<String>();
         for (Map.Entry<String, JsonElement> e : registry().entrySet()) {
             schemaIds.add(e.getKey());
         }
         List<String> ours = ModRegistry.modIds();
-        assertEquals(12, ours.size());
+        assertEquals(13, ours.size());
         assertEquals(schemaIds, new LinkedHashSet<String>(ours));
+    }
+
+    @Test
+    @DisplayName("watermark is a HUD mod with no colour to set")
+    void watermarkIsTranscribed() {
+        // The registry row itself is covered by idsMatch/kindsMatch/defaultsMatch above, which
+        // read mods.json. What those cannot see is the shape of the thing, so it is pinned here:
+        // a HUD mod (so setHud and loadout.hud accept it) filed under the Visual tab, and drawn
+        // entirely by the page.
+        assertEquals(ModRegistry.Kind.HUD, ModRegistry.kind("watermark"));
+        assertEquals(ModRegistry.Category.VISUAL, ModRegistry.category("watermark"));
+        assertTrue(ModRegistry.isHud("watermark"));
+
+        // No `color`, deliberately: the mark is artwork with its own palette, not a tintable
+        // readout. A colour control would either do nothing or wreck it, so the key must not
+        // quietly appear — clamp answering null is what keeps a stray write out of the loadout.
+        assertEquals(new LinkedHashSet<String>(java.util.Arrays.asList(
+                "on", "scale", "opacity", "style")),
+                new LinkedHashSet<String>(ModRegistry.settingKeys("watermark")));
+        assertNull(ModRegistry.clamp("watermark", "color",
+                new com.google.gson.JsonPrimitive("#FF0000")));
+    }
+
+    @Test
+    @DisplayName("watermark's settings clamp to their schema ranges")
+    void watermarkClamps() {
+        assertEquals(4.0, ModRegistry.clamp("watermark", "scale",
+                new com.google.gson.JsonPrimitive(Integer.valueOf(99))).getAsDouble(), 1e-9);
+        assertEquals(0.25, ModRegistry.clamp("watermark", "scale",
+                new com.google.gson.JsonPrimitive(Integer.valueOf(0))).getAsDouble(), 1e-9);
+        assertEquals(1.0, ModRegistry.clamp("watermark", "opacity",
+                new com.google.gson.JsonPrimitive(Integer.valueOf(7))).getAsDouble(), 1e-9);
+        assertEquals(0.0, ModRegistry.clamp("watermark", "opacity",
+                new com.google.gson.JsonPrimitive(Integer.valueOf(-1))).getAsDouble(), 1e-9);
+        assertEquals(0.9, ModRegistry.defaultOf("watermark", "opacity").getAsDouble(), 1e-9);
+
+        // The enum takes its three members and nothing else; an unusable value is null, so the
+        // caller keeps what it had rather than storing a style the page cannot draw.
+        for (String style : new String[] {"full", "mark", "word"}) {
+            assertEquals(style, ModRegistry.clamp("watermark", "style",
+                    new com.google.gson.JsonPrimitive(style)).getAsString());
+        }
+        assertNull(ModRegistry.clamp("watermark", "style",
+                new com.google.gson.JsonPrimitive("wordmark")));
+        assertNull(ModRegistry.clamp("watermark", "on",
+                new com.google.gson.JsonPrimitive("yes")), "a bool is not a string");
     }
 
     @Test
@@ -117,7 +164,7 @@ class ModRegistryTest {
     @Test
     @DisplayName("category is not a restatement of kind")
     void categoryIsNotKind() {
-        // If these ever agreed for all 12, `category` would be dead weight and the panel
+        // If these ever agreed for all 13, `category` would be dead weight and the panel
         // could filter on `kind`. Crosshair and Zoom are the two that prove they differ.
         assertEquals(ModRegistry.Kind.GAMEPLAY, ModRegistry.kind("crosshair"));
         assertEquals(ModRegistry.Category.VISUAL, ModRegistry.category("crosshair"));

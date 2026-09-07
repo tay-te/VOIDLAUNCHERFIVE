@@ -447,7 +447,16 @@ public final class VoidMenuScreen extends Screen {
             }
             return;
         }
-        if (keyCode == KeyNames.KEY_ESCAPE && !ui.hasFocusedInput()) {
+        // Escape means **up one level**, and the page owns every level but the last one: a
+        // focused field gives up focus, the quick palette closes, a mod's properties page returns
+        // to the grid, and only from the grid does Escape close the menu. So the question here is
+        // not "is a field focused" but "will the page handle this", which is what `keepsEscape`
+        // answers — and it is false whenever the bridge is not ready, so a page that has broken
+        // can never trap the player inside an open screen.
+        //
+        // The keybind capture above still wins over all of it, deliberately: Escape while binding
+        // a key cancels the capture, and that branch returns before this one is reached.
+        if (keyCode == KeyNames.KEY_ESCAPE && !ui.keepsEscape()) {
             voidClient.closeMenu();
             return;
         }

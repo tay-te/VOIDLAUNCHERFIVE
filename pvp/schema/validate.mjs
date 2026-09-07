@@ -68,7 +68,7 @@ const check = (name, cond, detail = "") => {
   else { failures++; console.log(`FAIL  cross-check  ${name}  ${detail}`); }
 };
 
-check("registry has all 12 mod_id values", ids.length === 12 && enumIds.every((i) => ids.includes(i)));
+check("registry has all 13 mod_id values", ids.length === 13 && enumIds.every((i) => ids.includes(i)));
 check("every entry.id equals its key", ids.every((k) => registry[k].id === k));
 check("hud_mod_id == entries with kind hud", JSON.stringify(ids.filter((k) => registry[k].kind === "hud")) === JSON.stringify(hudEnum));
 check("gameplay_mod_id == entries with kind gameplay", JSON.stringify(ids.filter((k) => registry[k].kind === "gameplay")) === JSON.stringify(gpEnum));
