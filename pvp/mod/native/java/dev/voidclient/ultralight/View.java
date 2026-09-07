@@ -128,6 +128,24 @@ public final class View implements AutoCloseable {
   }
 
   /** Marks every pixel dirty, so the next render repaints the whole view. */
+  /**
+   * Clears an accelerated view's render target to transparent, and counts it as a frame worth
+   * presenting.
+   *
+   * <p>Only useful immediately before a {@code render()} whose result may be <em>nothing</em>.
+   * Ultralight never clears a view's own target — incremental painting assumes what is drawn
+   * covers what was there — and it submits no draw commands at all for a page with nothing on it,
+   * so a view whose content has just gone away keeps showing the last frame that had any. The
+   * caller is the only layer that knows that is about to happen; the binding cannot infer it from
+   * an empty command list, because an empty list also means "nothing changed".</p>
+   *
+   * <p>No-op, returning false, for a CPU view (whose surface is uploaded whole every paint) or
+   * when the GL driver is not running.</p>
+   */
+  public boolean clearTarget() {
+    return Native.viewClearTarget(handle);
+  }
+
   public void setNeedsPaint(boolean needsPaint) {
     Native.viewSetNeedsPaint(handle, needsPaint);
   }

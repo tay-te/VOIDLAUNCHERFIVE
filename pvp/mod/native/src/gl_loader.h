@@ -70,6 +70,7 @@ enum : GLenum {
   GL_LINEAR = 0x2601,
   GL_NEAREST = 0x2600,
   GL_CLAMP_TO_EDGE = 0x812F,
+  GL_REPEAT = 0x2901,
   GL_UNPACK_ALIGNMENT = 0x0CF5,
   GL_UNPACK_ROW_LENGTH = 0x0CF2,
   GL_UNPACK_SKIP_ROWS = 0x0CF3,
@@ -136,6 +137,10 @@ struct Api {
   void (*Scissor)(GLint, GLint, GLsizei, GLsizei) = nullptr;
   void (*ClearColor)(GLclampf, GLclampf, GLclampf, GLclampf) = nullptr;
   void (*Clear)(GLbitfield) = nullptr;
+  // Publishes this context's writes to the other contexts in its share group. Nothing else in the
+  // driver needs it; the UI thread's paint does, because the game thread samples the result from a
+  // different context. See jni_api.cpp's rendererRender.
+  void (*Flush)() = nullptr;
   void (*DrawElements)(GLenum, GLsizei, GLenum, const void*) = nullptr;
   void (*GenTextures)(GLsizei, GLuint*) = nullptr;
   void (*DeleteTextures)(GLsizei, const GLuint*) = nullptr;
@@ -144,6 +149,8 @@ struct Api {
                      const void*) = nullptr;
   void (*TexSubImage2D)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum,
                         const void*) = nullptr;
+  void (*CopyTexSubImage2D)(GLenum, GLint, GLint, GLint, GLint, GLint, GLsizei,
+                            GLsizei) = nullptr;
   void (*TexParameteri)(GLenum, GLenum, GLint) = nullptr;
   void (*PixelStorei)(GLenum, GLint) = nullptr;
   void (*ColorMask)(GLboolean, GLboolean, GLboolean, GLboolean) = nullptr;
@@ -202,7 +209,12 @@ struct Api {
 
   // capability flags, filled by load()
   bool has_vao = false;
-  bool has_texture_rg = false; // GL_R8/GL_RED available (else GL_LUMINANCE8 for A8 masks)
+  bool has_texture_rg = false;
+  // Non-power-of-two textures with the full set of wrap and filter modes. Reported rather than
+  // used: the driver clamps everything (gpu_driver_gl.cpp, set_texture_params) and Ultralight's
+  // shaders tile in the fragment shader, so nothing here depends on it. It is logged because it
+  // is the first thing to check if a tiled background ever comes out wrong.
+  bool has_npot = false; // GL_R8/GL_RED available (else GL_LUMINANCE8 for A8 masks)
   bool has_fbo = false;
   bool loaded = false;
   int version_major = 0;

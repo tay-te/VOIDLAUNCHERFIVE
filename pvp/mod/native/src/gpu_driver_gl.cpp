@@ -114,6 +114,13 @@ struct Driver {
   GLuint default_fbo = 0; // whatever MC had bound when we entered
   bool ready = false;
   float time_seconds = 0.0f;
+  // Bumped once per render, not once per command list. Those are not the same thing and the
+  // difference is a bug that reached a user: a page with nothing left to draw makes Ultralight
+  // emit no commands at all, so a counter tied to the command list freezes exactly when the
+  // overlay needs to be cleared, and the last frame — the menu the player just closed — stays on
+  // screen forever. The gate this feeds is still worth having; it just has to be fed by the
+  // render.
+  unsigned long long serial = 0;
 };
 
 Driver& d() {
@@ -205,6 +212,10 @@ bool link_program(Program* p, const std::string& vs_src, const std::string& fs_s
 void set_texture_params() {
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // CLAMP_TO_EDGE, which is what Ultralight's own reference driver uses: the shader tiles patterns
+  // itself with fract() (shaders_glsl120.h, fillPatternImage) rather than relying on the sampler.
+  // GL_REPEAT was tried here against the missing dotted rule described in README "Known risks" and
+  // changed nothing, so it is not that.
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   // No mipmaps: everything Ultralight draws is 1:1 or scaled by the device scale, and
@@ -562,7 +573,16 @@ ULGPUDriver make_driver() {
 
 void draw_command_list() {
   Driver& dr = d();
-  if (!dr.ready || dr.commands.empty()) return;
+  if (!dr.ready) return;
+
+  // An empty command list means Ultralight submitted nothing this frame. That is NOT the same as
+  // "the page is blank": it is also the ordinary case for a page whose content did not change,
+  // where the render target legitimately still holds the last good frame and Ultralight's
+  // incremental model depends on it being left alone. Clearing here — which was tried — takes the
+  // menu off the screen the first frame it has nothing new to draw. The driver cannot tell the two
+  // apart from the command list, so it does not try; clear_render_buffer() below is how the host,
+  // which does know, says so.
+  if (dr.commands.empty()) return;
 
   // Clear the view's own render buffer first.
   //
@@ -625,6 +645,83 @@ void draw_command_list() {
   }
   dr.commands.clear();
   dr.time_seconds += 1.0f / 60.0f;
+  // This frame changed the view's target, so it is a frame to present.
+  ++dr.serial;
+}
+
+unsigned long long render_serial() { return d().serial; }
+
+bool clear_render_buffer(unsigned int render_buffer_id) {
+  Driver& dr = d();
+  if (!dr.ready || render_buffer_id == 0) return false;
+  auto it = dr.render_buffers.find(render_buffer_id);
+  if (it == dr.render_buffers.end() || it->second.fbo == 0) return false;
+
+  // Called outside the save/restore that brackets a paint, so put back what it touches.
+  GLint prev_fbo = 0;
+  G.GetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+  G.BindFramebuffer(GL_FRAMEBUFFER, it->second.fbo);
+  G.Disable(GL_SCISSOR_TEST);
+  G.ColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  G.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  G.Clear(GL_COLOR_BUFFER_BIT);
+  G.BindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prev_fbo));
+
+  // The target changed, so this is a frame to present — including the case the whole call exists
+  // for, where the render that follows draws nothing at all and would otherwise bump nothing.
+  ++dr.serial;
+  return true;
+}
+
+bool copy_render_buffer(unsigned int render_buffer_id, unsigned int width, unsigned int height,
+                        unsigned int* texture, unsigned int* texture_width,
+                        unsigned int* texture_height) {
+  Driver& dr = d();
+  if (!dr.ready || !texture || width == 0 || height == 0) return false;
+  auto rb = dr.render_buffers.find(render_buffer_id);
+  if (rb == dr.render_buffers.end() || rb->second.fbo == 0) return false;
+
+  // Everything touched here is restored, because this runs outside the save/restore that brackets
+  // a paint — it is called from viewTextureId, after the command list has already been replayed.
+  GLint prev_fbo = 0, prev_tex = 0, prev_unit = 0;
+  G.GetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+  G.GetIntegerv(GL_ACTIVE_TEXTURE, &prev_unit);
+  G.ActiveTexture(GL_TEXTURE0);
+  G.GetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex);
+
+  bool allocate = *texture == 0 || *texture_width != width || *texture_height != height;
+  if (*texture == 0) G.GenTextures(1, texture);
+  G.BindTexture(GL_TEXTURE_2D, *texture);
+  if (allocate) {
+    set_texture_params();
+    // No pixels: the copy below fills it. RGBA8 to match the render target Ultralight drew into.
+    G.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, static_cast<GLsizei>(width),
+                 static_cast<GLsizei>(height), 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+    *texture_width = width;
+    *texture_height = height;
+  }
+
+  // glCopyTexSubImage2D reads the bound framebuffer's read buffer, which for a single-attachment
+  // FBO is COLOR_ATTACHMENT0 by default. Core 1.1, so no extension to feature-detect: the FBO
+  // itself is the only thing here that needed one.
+  G.BindFramebuffer(GL_FRAMEBUFFER, rb->second.fbo);
+  G.CopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, static_cast<GLsizei>(width),
+                      static_cast<GLsizei>(height));
+
+  G.BindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prev_fbo));
+  G.BindTexture(GL_TEXTURE_2D, static_cast<GLuint>(prev_tex));
+  G.ActiveTexture(static_cast<GLenum>(prev_unit));
+  return true;
+}
+
+void delete_texture(unsigned int* texture) {
+  if (!texture || *texture == 0 || !G.loaded) return;
+  G.DeleteTextures(1, texture);
+  *texture = 0;
+}
+
+void flush() {
+  if (G.Flush) G.Flush();
 }
 
 void save_gl_state() {
