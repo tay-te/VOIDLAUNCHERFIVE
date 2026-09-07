@@ -3,17 +3,22 @@
 Tauri 2 + Rust + React 19. One frameless window, a tray, and thin `#[tauri::command]`
 wrappers over `void-core`, `void-bridge` and `void-loadout`.
 
-Figma frames `244:3` → `244:431` (Play · Mods · Cosmetics · Servers · Friends), design
-reference in [`../../design/README.md`](../../design/README.md).
+The shell and everything on it follow
+[`../../design/quiet-cell-system.md`](../../design/quiet-cell-system.md) — the settled
+contract. §7 gives the launcher its geometry: 1600 × 980 radius 20, a navbar with search
+and the profile chip, **one** content panel inset 32,80 at 1536 × 768 radius 18, and a
+dock band under it holding the loadout selector, the version selector, the enabled
+readout and Launch. Every screen uses that identical shell. Flat: no blur, no shadow, no
+gradient, Outfit only. Where that file and anything below disagree, that file wins.
 
 ```
 apps/desktop/
 ├── src/                    the launcher React entry
 │   ├── features/           TopNav · Dock · Menu · CommandPalette · LogDrawer
-│   ├── screens/            Play · Mods · Cosmetics · Servers · Friends · Settings
+│   ├── screens/            Play · Mods · ModSetup · Cosmetics · Servers · Friends · Settings
 │   ├── stores/             Zustand: session · loadouts · launch · servers · ui
-│   ├── local/              the seam: typed invoke/listen, registry, keys, glyphs, CSS
-│   ├── dev/backdrops.ts    preview-only canvas art, aliased away in a Tauri build
+│   ├── local/              the seam: typed invoke/listen, registry, presets, controls, CSS
+│   ├── dev/backdrops.ts    preview-only canvas art — unused since the shell went flat
 │   └── mocks/tauri.ts      a mock @tauri-apps/api, so every screen runs in a browser
 ├── visual-qa/              the Chromium + pixelmatch pass against design/screens
 └── src-tauri/              the Rust half
@@ -78,20 +83,14 @@ a shipped bundle. A banner on the canvas says when you are looking at the previe
 Other scripts: `pnpm typecheck`, `pnpm test`, `pnpm build` (typecheck + Vite), and
 inside `src-tauri/`, `cargo test` and `cargo check --no-default-features`.
 
-### The canvas backdrop
+### The canvas backdrop — gone
 
-Figma `244:58` is a rendered Minecraft still behind the recessed canvas. There is no
-licenced render in this repository and `design/` is read-only reference material, so the
-app draws a gradient in the same key — `.canvas__art` in `local/app.css`, carrying the
-`TODO(art)` that says what replaces it.
-
-`pnpm dev:web` shows the frame's own canvas rectangle instead, so a review pass is not
-looking at a placeholder where the design has art. That rides the same alias that swaps
-in the mocked `@tauri-apps/api`: `vite.config.ts` resolves `@dev/backdrops` to
-[`src/dev/backdrops.ts`](src/dev/backdrops.ts) when `TAURI_ENV_PLATFORM` is unset and to
-`backdrops.none.ts` when it is set, so an installer contains none of it — checked with
-`TAURI_ENV_PLATFORM=linux pnpm exec vite build`, which emits zero `Launcher-*.png`
-assets. Append `?no-backdrop` to the preview URL to see the placeholder the app ships.
+The earlier shell put a rendered Minecraft still behind a recessed canvas, with a
+gradient placeholder standing in for art the repository does not have. The quiet cell
+system has no canvas art and no gradient anywhere (§0), so `App` draws neither and
+nothing imports `@dev/backdrops` today. The alias in `vite.config.ts` and the two
+`src/dev/backdrops*.ts` files are left in place for the visual-QA pass; delete them
+together with the alias if that pass is ever re-baselined against the new frames.
 
 ## Components
 
@@ -130,12 +129,23 @@ radii and the `.v-noise` grain the in-game bundle has to drop
 
 ### What is still local, and why
 
-**`local/app.css`** — four regions the package has no reason to own, because the overlay
-has no window: the shell and its frameless window controls; the recessed canvas, its
-backdrop and where the dock sits on it; the Play hero (104 px display type over that
-canvas); and the surfaces no frame draws at all — the loadout/version dropdown, the JVM
-log drawer, the launch banners and the Settings modal. Nothing in it restates a design
-value that a token already carries.
+**`local/app.css`** — the shell of §7 and the surfaces the overlay has no reason to
+carry, because the overlay has no window: the three bands (navbar, content panel, dock
+band) and the frameless window's own controls; the profile chip; Play, Mods and the mod
+setup page; and the surfaces no frame draws at all — the loadout/version dropdown, the
+JVM log drawer, the launch banners and the Settings modal. Every value in it is either a
+token the contract names or a literal the contract prints; there is no launcher-side
+spacing or radius scale, because the contract does not define one.
+
+**`local/controls.tsx`** — the cell-system controls, temporarily. §4 fixes a toggle at
+30 × 17 / 40 × 22 / 46 × 26 and the slider as N discrete cells 12 px on a 17 px step with
+the current cell in the hue; `@void/ui` still ships the previous system's `Toggle` and
+`Slider`. Nothing in this file is launcher-shaped, only launcher-*timed* — it folds back
+into that package once its controls are on the cell system.
+
+**`local/presets.ts`** — Default / Compact / Tournament, derived from each mod's registry
+defaults rather than transcribed. A preset is a UI convenience over values the registry
+already owns, so there is no preset in the schema and there should not be one.
 
 **`local/glyphs.tsx`** — six SVG glyphs, and not a second icon set. Minimise, maximise
 and window-close exist because a frameless Tauri window draws its own buttons; `terminal`
@@ -165,8 +175,10 @@ whole of it, and no design value is duplicated.
 
 ## Visual QA
 
-[`visual-qa/`](visual-qa/) drives `pnpm dev:web` in a real Chromium at the frames' own
-1300 × 820 and diffs the result against `design/screens/Launcher-*.png` with `pixelmatch`.
+[`visual-qa/`](visual-qa/) drives `pnpm dev:web` in a real Chromium and diffs the result
+against `design/screens/Launcher-*.png` with `pixelmatch`. **The baseline is stale**: it
+was taken against the pre-contract frames at 1300 × 820, and the shell is now 1600 × 980
+on the quiet cell system, so the numbers below describe the shell that was replaced.
 [`visual-qa/report.md`](visual-qa/report.md) has the numbers, the side-by-side sheets and
 a measured account of every difference that is left.
 
@@ -233,7 +245,8 @@ Verified on this Linux container (Rust 1.94, Node 22, pnpm 9.12.3, webkit2gtk 2.
   command layer.
 - `cargo test` — 44 tests over the command layer, the launch orchestration, the progress
   translation and the SLP pinger.
-- `pnpm typecheck`, `pnpm test` (32 store/mock tests), `pnpm build`.
+- `pnpm typecheck`, `pnpm test` (41 tests: stores/mocks, plus §8's property
+  structure and the mod-setup route), `pnpm build`.
 - **The screens.** All five, plus Settings, the ⌘K palette and the dock mid-launch, are
   rendered in a real headless Chromium at 1300 × 820 and diffed against the frames — see
   *Visual QA* above and [`visual-qa/report.md`](visual-qa/report.md).
@@ -267,17 +280,16 @@ Verified on this Linux container (Rust 1.94, Node 22, pnpm 9.12.3, webkit2gtk 2.
   `[workspace]` table. Tauri needs webkit2gtk to resolve its build scripts on Linux, and
   keeping this package out means `cargo check` at the repo root still compiles the three
   core crates on a bare runner. The core crates are consumed as path dependencies.
-- **The launcher is the rich renderer.** `design/ultralight-notes.md` §1–2: the launcher
-  runs in a real system webview, so `backdrop-filter` and the noise blend are allowed
-  *here* and forbidden in the in-game bundle. `index.html` carries
-  `data-renderer="webview"`, and every effect the overlay cannot have is scoped under
-  that attribute so one stylesheet can serve both bundles.
-- **Two findings that belong to `packages/ui`, not here.** Its reset makes every button
-  in the package paint transparent (see *What is still local* above), and its bundled
-  Bricolage Grotesque is pinned at `opsz 14`, which renders the 104 px hero title 12 %
-  wider than the frame — 26 px titles agree exactly, so it only shows on Play. Both are
-  measured in [`visual-qa/report.md`](visual-qa/report.md). The launcher works around the
-  first and lives with the second rather than distorting type to chase a diff.
+- **The launcher no longer needs to be the rich renderer.** It used to spend the system
+  webview's `backdrop-filter` and noise blend on effects the overlay could not have. The
+  quiet cell system forbids blur, shadow and gradient in *both* bundles (§0), so the two
+  renderers now differ only where they must. `index.html` still carries
+  `data-renderer="webview"`, which selects the launcher's token layer.
+- **One finding that belongs to `packages/ui`, not here.** Its reset makes every button
+  in the package paint transparent (see *What is still local* above), measured in
+  [`visual-qa/report.md`](visual-qa/report.md); the launcher works around it. The second
+  finding in that report — Bricolage Grotesque pinned at `opsz 14`, which widened the
+  104 px hero title — is gone with the display face: §2 is Outfit only.
 - **`local/protocol.ts` re-exports, it does not transcribe.** Everything the schemas
   define comes from `@void/protocol` — including the three `JavaToRust` messages the
   bridge forwarder republishes to the window, which are aliased there rather than

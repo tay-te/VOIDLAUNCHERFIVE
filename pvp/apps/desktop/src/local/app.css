@@ -1,54 +1,85 @@
 /* ==========================================================================
-   VOID PVP launcher — the four regions `@void/ui` does not own.
+   VOID PVP launcher — the quiet cell system, as the desktop shell draws it.
 
-   Everything that appears in `design/README.md`'s component inventory now comes from
-   the shared package: `@void/ui/styles.css` carries every `v-` class, and this file
-   holds only what is launcher-shaped:
+   `design/quiet-cell-system.md` is the contract and this file codes against it
+   directly. Two consequences worth stating up front, because they explain almost every
+   rule below:
 
-     · the window shell and the frameless window's own controls
-     · the recessed canvas, its backdrop art and the dock's placement on it
-     · the Play hero — 104px display type over that canvas
-     · the surfaces the frames do not draw at all: the loadout/version dropdown, the
-       JVM log drawer, the launch banners, and the Settings modal
+   1. **Flat.** No blur, no shadow, no gradient — anywhere. Depth is four fills:
+      `--bg-shell` (window chrome) → `--bg-base` (the ground inside it) →
+      `--card-bg` (tiles, panes, cards) → `--surface-raised` (hover / selected). A
+      surface lifting one step *is* the hover state; there is no glow to add to it.
+      The one exception is the cell texture, which is stamped with a
+      `radial-gradient` because that is how CSS draws a repeating dot — it is a
+      texture generator, not a gradient in the banned sense (§3).
 
-   Every value reads through a token from `@void/ui/tokens.css`, which is
-   `design/tokens.css` verbatim plus the two renderer layers. Where the frames give an
-   absolute position inside the 1300 × 820 artboard, the rule below reproduces it as a
-   padding or an offset, because the window resizes down to 1100 × 700 and the frames
-   are a single size.
+   2. **Contract tokens only.** Every value here is either a token the contract names
+      (`--bg-shell`, `--bg-base`, `--card-bg`, `--surface-raised`,
+      `--text-primary/-secondary/-muted`, `--ok`, `--hue-hud/-pvp/-visual/-utility`,
+      `--accent`, `--border-panel/-raised/-strong`, `--divider`, `--font-ui`) or a
+      literal the contract prints. There is no launcher-side scale of spacing or radius
+      tokens: the contract does not define one, so sizes are the numbers §4 and §7 give.
 
-   `backdrop-filter` and the noise blend are allowed here and forbidden in the in-game
-   bundle (`design/ultralight-notes.md` §1–2). `index.html` carries
-   `data-renderer="webview"`, which is what selects the launcher's token layer and what
-   switches `@void/ui`'s `.v-noise` grain on.
-   ========================================================================== */
+   Type is the four tiers of §2 and nothing between them: display 30/34/40 at 400,
+   title 15/17 at 500, body 13/14 at 400, label 9/10 at 500 with .12em and uppercase.
+   One weight per role — body text is 400 everywhere it appears.
 
-/* ------------------------------------------------- the package's own reset
+   Accent obeys §1: it marks the live value, the selected item or a drag handle. A mod
+   that is off, a count, a disabled row and every meter cell that is not the current one
+   stay monochrome. Mod-scoped rules read `var(--hue, var(--accent))` so a card, a chip
+   or a setup page tints itself by setting `--hue` from its category.
+
+   ------------------------------------------------------------------ the reset
 
    `@void/ui` puts its reset on `.v-app`, and `01-base.css` includes
 
        .v-app button, .v-app input { … background: none; }
 
-   That selector is (0,1,1). Every component background in the package —
-   `.v-btn--accent`, `.v-toggle--on`, `.v-launch`, `.v-pill`, `.v-tab--selected`,
-   `.v-icon-btn` — is a single class, (0,1,0). So with `v-app` on the tree the reset
-   wins and **every button in the package paints transparent**: measured in a real
-   Chromium, `getComputedStyle('.v-launch').backgroundColor` is `rgba(0,0,0,0)`.
-
-   TODO(ui): the fix belongs in `packages/ui/src/styles/01-base.css` — scoping the
-   reset as `.v-app :where(button, input)` keeps its intent at zero specificity — and
-   then this block goes away and `App.tsx` reads `<div className="v-app shell">` again,
-   which is what that package's README asks for. Until then the launcher carries the
-   same reset itself, written with `:where()` so it cannot outrank a component, plus
-   the four inherited values `.v-app` sets. No design value is duplicated here.
+   That selector is (0,1,1); every component background in the package is a single
+   class, (0,1,0). So with `v-app` on the tree the reset wins and every button in the
+   package paints transparent. Until that is scoped as `.v-app :where(button, input)`
+   upstream, the launcher carries the same reset itself, written with `:where()` so it
+   cannot outrank a component.
    ========================================================================== */
 
 .shell {
   font-family: var(--font-ui);
-  font-weight: var(--weight-regular);
-  font-size: var(--text-lg);
+  font-weight: 400;
+  font-size: 13px;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+
+  /* §7's three bands. 80 + 768 + 132 = 980, and 32 + 1536 + 32 = 1600. */
+  --nav-h: 80px;
+  --dock-h: 132px;
+  --panel-inset: 32px;
+  /*
+    31, not 32: Figma centres a stroke on the rectangle's edge, so the panel's own
+    content line in the file is x 64 / y 112 while a CSS 1px inside border puts it at
+    65 / 113. One pixel, on every text block of every screen.
+  */
+  --panel-pad: 31px;
+
+  /*
+    The panel's own content edges, in window coordinates: 32 (the panel inset) + 32
+    (its padding). The dock band lines up with them rather than with the window, which
+    is why every frame has the loadout picker at x 64 and Launch ending at 1535.
+  */
+  --content-inset: 64px;
+
+  /*
+    The navbar band is 80 tall but its content is centred at y 31.5 in every frame —
+    the chrome sits in the top 64px and the remaining 16 is the gap before the panel.
+  */
+  --nav-content-h: 64px;
+
+  /*
+    LOCAL TOKEN. `@void/ui` has no size between --text-label-lg (10) and --text-body
+    (13), and the launcher's footer hint measures 9px in all three frames — which the
+    contract's `label 9 / 10` tier allows but the package exposes only as
+    --text-label. Named here so the two call sites agree.
+  */
+  --text-hint: 9px;
 }
 
 .shell *,
@@ -76,8 +107,39 @@
 }
 
 .shell :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--hue, var(--accent));
   outline-offset: 2px;
+}
+
+/*
+  Scrollbars. A webview's default bar is a bright opaque slab and there is nothing
+  bright in this system — one appearing over the mod grid on a short window was the
+  loudest thing on the screen. Both syntaxes are set: `scrollbar-color` is what a
+  Linux WebKitGTK build honours, the `::-webkit-` pseudos are what WKWebView and
+  WebView2 honour, and the two agree on the same two greys.
+*/
+.shell {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.shell ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.shell ::-webkit-scrollbar-track,
+.shell ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.shell ::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.shell ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 html,
@@ -96,35 +158,307 @@ body {
   user-select: none;
 }
 
+/* --------------------------------------------------------------- type tiers */
+
+/**
+ * hero — 88, weight 400, tracking −0.02em. The Play loadout name and nothing else.
+ *
+ * This is the number the port was missing. The first draft of the contract stopped
+ * display at 40 and aliased the hero onto it, so `Sword PvP` rendered at 40 where the
+ * frame draws it at 88 — the single biggest reason the launcher read as cramped.
+ * Measured against `Launcher-Play.png`: cap top y 591, baseline y 654, i.e. 63px of
+ * cap height, which is 88 × 0.714.
+ */
+.hero {
+  margin: 0;
+  /*
+    Optical, not arbitrary: at 88px the `S` of `Sword PvP` carries ~3px of left side
+    bearing, and the frame hangs the glyph on the panel's content line rather than the
+    text box. Without this the hero starts 3px right of the eyebrow above it — which
+    is visible at this size, and is the one place in the launcher where it is.
+  */
+  margin-left: -3px;
+  font-size: var(--text-hero, 88px);
+  line-height: 88px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/** display — 30 / 34 / 40, weight 400, tracking −0.02em. */
+.display {
+  margin: 0;
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.screen-title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 34px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/**
+ * label — 9 / 10, weight 500, .12em, uppercase.
+ *
+ * The frames draw every eyebrow at the top of that tier: `CATEGORIES`, `PROPERTIES`,
+ * `ACTIVE LOADOUT` and the card category tags all measure 7px of cap height, which is
+ * 10 × 0.714. Only the footer hint is smaller (6px of cap → 9).
+ */
+.eyebrow {
+  margin: 0;
+  font-size: var(--text-label-lg, 10px);
+  line-height: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/**
+ * Digits that change at runtime keep their columns without a monospace family (§2).
+ */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/** The cell primitive: a square with a 30% radius (§3). Size is the caller's. */
+.cell {
+  border-radius: 30%;
+}
+
+/** A status mark. Monochrome unless the thing it marks is actually good. */
+.dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 30%;
+  background: var(--text-muted);
+}
+
+.dot.is-ok {
+  background: var(--ok);
+}
+
+hr.divider {
+  width: 100%;
+  height: 0;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--divider);
+}
+
 /* ------------------------------------------------------------------- shell */
 
-/** The 1300 × 820 frame: a 62px chrome band over a 14px-inset canvas. */
 .shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   background: var(--bg-shell);
-  border-radius: var(--radius-window);
+  border-radius: 20px;
   overflow: hidden;
 }
 
-/* ------------------------------------------------ chrome band (additions) */
+/* --------------------------------------------------------------- the navbar */
 
-/* `TopNav`, `NavItem`, `SearchBar` and `IconButton` are the package's. These two are
-   not: a frameless Tauri window has to draw its own window buttons, and the account
-   avatar in the nav is a button rather than a plain image. */
-
-.topnav__avatar {
-  display: flex;
-  flex: 0 0 auto;
-  border-radius: var(--radius-field);
+/*
+  `TopNav`, `NavItem`, `SearchBar` and `IconButton` are `@void/ui`'s; the band they sit
+  in is §7's, so the geometry is set here — 80px tall, flush with the panel's 32px
+  inset, on the shell fill with no seam under it. The fill step to `--bg-base` at the
+  panel is what separates them.
+*/
+.shell > .v-topnav {
+  flex: 0 0 var(--nav-h);
+  height: var(--nav-h);
+  /* The band is 80; the chrome is centred in the top 64 (see --nav-content-h). */
+  padding: 0 var(--panel-inset) calc(var(--nav-h) - var(--nav-content-h));
+  gap: 0;
+  background: var(--bg-shell);
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
+/*
+  The mark is rendered as the first tab-group child rather than the package's own
+  `v-topnav__mark`, so that the wordmark can sit beside it — the frames draw
+  `[mark] VOID` as one lockup at x 32, and the package's mark has no room for a
+  wordmark. `__gap` is therefore zeroed and the lockup carries its own trailing space.
+*/
+.shell .v-topnav__gap {
+  width: 0;
+}
+
+.shell .v-topnav__tabs {
+  gap: 10px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+  /* File: wordmark box 74,25 45x19; the first nav tab's text box at x 180. */
+  margin-right: 40px;
+}
+
+.brand__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.brand__word {
+  font-size: 15px;
+  font-weight: 500;
+  /* The frame letterspaces the wordmark: 4 glyphs across 44px of ink at 15px. */
+  letter-spacing: 0.115em;
+  color: var(--text-primary);
+}
+
+/*
+  Nav tabs. The frames draw them as text only — no leading glyph — at 14 Light, in a
+  30px pill that only the current screen paints.
+*/
+.shell .v-navitem {
+  height: 30px;
+  /* 12 + 10 + 12 = the 34px the file leaves between two nav text boxes. */
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+
+.shell .v-navitem:hover:not(.v-navitem--active) {
+  background: none;
+  color: var(--text-primary);
+}
+
+/* The file leaves 44 between Play's text box and Mods' where every other pair gets 34.
+   Play carries the extra 10 so the remaining four land on the file's x to the pixel. */
+.shell .v-topnav__tabs > .v-navitem:first-of-type {
+  margin-right: 12px;
+}
+
+.shell .v-navitem--active {
+  background: var(--surface-raised);
+  border: 0;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+/* The search field — 300 × 34, on the ground fill, with no leading mark (§ frames). */
+.shell .v-searchbar {
+  width: 300px;
+  height: 34px;
+  gap: 0;
+  padding: 0 13px 0 22px;
+  border-radius: 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-panel);
+}
+
+.shell .v-searchbar__dot {
+  display: none;
+}
+
+.shell .v-searchbar__input {
+  font-size: 13px;
+  font-weight: 300;
+}
+
+.shell .v-kbd--nav {
+  margin-left: auto;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--surface-raised);
+  font-size: 8px;
+  line-height: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+/* The gear. The frames put no separate control between search and the chip, so it is
+   a bare glyph rather than a filled well. */
+.shell .v-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+}
+
+.shell .v-icon-btn:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+/** The profile chip — §6: the player's account, and nothing else, is a Profile. */
+.profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  /* Frame: x 1420–1567, y 11–52. */
+  height: 42px;
+  min-width: 148px;
+  margin-left: 8px;
+  padding: 0 14px 0 10px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  transition: background-color 140ms ease-out;
+}
+
+.profile-chip:hover {
+  background: var(--surface-raised);
+}
+
+.profile-chip__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  line-height: 1;
+}
+
+.profile-chip__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.profile-chip__kind {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A frameless Tauri window draws its own window buttons. */
 .wincontrols {
   display: flex;
   flex: 0 0 auto;
   gap: 2px;
-  margin-left: var(--space-6);
+  margin-left: 10px;
 }
 
 .wincontrols__btn {
@@ -133,250 +467,542 @@ body {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-button);
-  color: var(--text-secondary);
-  transition: background-color var(--duration-fast) var(--ease-standard);
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
 }
 
 .wincontrols__btn:hover {
-  background: var(--tint-07);
+  background: var(--surface-raised);
   color: var(--text-primary);
 }
 
-.wincontrols__btn--close:hover {
-  background: var(--danger);
-  color: var(--text-primary);
-}
+/* ------------------------------------------------------- the content panel */
 
-/* ------------------------------------------------------------------ canvas */
-
-/** `244:57` — 1272 × 744 at 14, 62, radius 18, `--inset-canvas`. */
-.canvas {
+/** §7 — one panel, inset 32,80, 1536 × 768, radius 18. Every screen goes in it. */
+.panel {
   position: relative;
   flex: 1 1 auto;
-  margin: 0 var(--canvas-inset) var(--canvas-inset);
-  border-radius: var(--radius-surface);
-  border: 1px solid var(--rim);
-  box-shadow: var(--inset-canvas);
-  overflow: hidden;
+  min-height: 0;
+  margin: 0 var(--panel-inset);
+  padding: var(--panel-pad);
+  border-radius: 18px;
   background: var(--bg-base);
-  --v-noise-opacity: var(--noise-opacity-canvas);
-}
-
-/*
-  TODO(art): `244:58` is a rendered Minecraft still, `object-fit: cover` over the whole
-  canvas. There is no licenced render in this repository and `design/` is read-only
-  reference material, so the shipped launcher draws a gradient in the same key — warm
-  torch-light from the upper right over the recessed ground. Drop a real asset in and
-  this rule becomes a `background-image`.
-*/
-.canvas__art {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(120% 90% at 78% 8%, rgba(255, 196, 120, 0.28), transparent 55%),
-    radial-gradient(90% 70% at 18% 20%, rgba(159, 139, 255, 0.16), transparent 60%),
-    linear-gradient(160deg, #241a12 0%, #16161c 48%, #0d0f12 100%);
-}
-
-/*
-  The browser preview's stand-in: the design frame itself, shifted so its own canvas
-  rectangle lands on ours (the frame's canvas starts at 14, 62 and has a 1px rim).
-  `src/dev/backdrops.ts` explains why this exists and how it cannot ship.
-*/
-.canvas__art--design {
-  background-repeat: no-repeat;
-  background-position: -15px -63px;
-}
-
-.canvas__scrim {
-  position: absolute;
-  inset: 0;
-  background: var(--scrim-launcher);
-}
-
-/**
- * Where a screen sits on the canvas. The Panel is 960 × 596 at canvas 155, 19, so the
- * content box is inset 18px at the top and stops 127px short of the bottom, which is
- * exactly the panel's height — and the dock then floats over that clearance.
- */
-.canvas__content {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 18px 2px 127px 0;
+  border: 1px solid var(--border-raised);
   overflow: hidden;
-}
-
-.canvas__content.is-play {
-  align-items: stretch;
-  padding-right: 0;
-}
-
-/** A short window shrinks the panel rather than clipping it. */
-.canvas__content > .v-panel {
-  max-height: 100%;
-}
-
-/* The frames leave ~20px between a panel's search field and its tabs (Mods `109 → 359`
-   over a 230px field, Servers `139 → 389`, Friends `135 → 355`) where the header's own
-   gap is 12. The extra 8 is a launcher-side nudge, not a change to the component. */
-.v-panel__header > .v-searchbar + .v-tabs {
-  margin-left: 12px;
-}
-
-/** `244:66` — the dock hugs its content and centres over the canvas at bottom 28. */
-.canvas__dock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 28px;
   display: flex;
-  justify-content: center;
-  z-index: 3;
 }
 
-.canvas__banners {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 118px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  align-items: center;
-  pointer-events: none;
-  z-index: 4;
+.panel > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
-.canvas__banners > * {
-  pointer-events: auto;
-}
-
-/* -------------------------------------------------------------------- hero */
-
-/**
- * `244:60`–`244:65`. The eyebrow pill sits at canvas 31, 27; the three-line block is
- * anchored from the bottom so a shorter window loses canvas, not type: at the design's
- * 820px the kicker lands on canvas y 403, the 104px title on 419 and the meta on 531.
- */
-.hero {
-  position: relative;
+/*
+  Cosmetics, Servers and Friends still compose `@void/ui`'s `Panel`. It is a card on the
+  ground now rather than a floating surface, so it fills the content panel and drops the
+  package's own chrome.
+*/
+.panel > .v-panel {
   width: 100%;
   height: 100%;
-  padding: 9px 0 0 30px;
+  max-height: 100%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
-.hero__body {
-  position: absolute;
-  left: 28px;
-  bottom: 68px;
+/** A screen's own header row: title on the left, search on the right. */
+.screen-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+  height: 52px;
+  margin-bottom: 20px;
 }
 
-.hero__kicker {
-  margin: 0 0 0 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  line-height: 16px;
-  letter-spacing: var(--tracking-caps-xl);
-  color: var(--accent-ink);
+/**
+ * The back affordance out of a sub-route. Ghost: a label, no box, no underline — and
+ * at the label tier, which is what the frame draws (`MODS`, 7px of cap at y 114, on
+ * the panel's own content line).
+ */
+.backlink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  height: 11px;
+  margin-bottom: 15px;
+  padding: 0;
+  color: var(--text-muted);
+  transition: color 140ms ease-out;
 }
 
-.hero__title {
+.backlink:hover {
+  color: var(--text-primary);
+}
+
+/* -------------------------------------------------------------- dock band */
+
+/*
+  The dock band — 132px under the panel, its content lined up with the panel's own
+  content edges rather than the window's (--content-inset), which is why the frames
+  put the loadout picker at x 64 and end Launch at 1535.
+
+  Vertically: the controls row is 52 tall and starts 40 below the panel, so it runs
+  888–939 in a 980 window; the hint line sits under it at 955.
+*/
+.dockband {
+  position: relative;
+  flex: 0 0 var(--dock-h);
+  display: flex;
+  flex-direction: column;
+  padding: 40px var(--content-inset) 0;
+}
+
+.dock {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 52px;
+}
+
+/** The footer hint. One line, 9px, at the panel's own left edge. */
+.dock__hint {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: var(--weight-extrabold);
-  font-size: var(--text-hero);
-  line-height: var(--leading-hero);
-  letter-spacing: var(--tracking-hero);
-  white-space: nowrap;
+  padding-top: 13px;
+  font-size: var(--text-hint);
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-.hero__meta {
-  margin: 8px 0 0 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-md-2);
-  line-height: 16px;
+.dock__seam {
+  display: none;
+}
+
+/*
+  The two selectors. On every panel screen the frames draw them as a single-line pill
+  — the caption is redundant next to a value that names itself — and only the Play
+  dock, which is a card of its own, carries the caption above the value.
+*/
+.picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 46px;
+  padding: 0 16px 0 24px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  transition: background-color 140ms ease-out;
+}
+
+.dock > .menu:first-of-type .picker {
+  min-width: 168px;
+}
+
+.dock > .menu:nth-of-type(2) .picker {
+  min-width: 118px;
+}
+
+.dock .picker .eyebrow {
+  display: none;
+}
+
+.picker:hover,
+.picker.is-open {
+  background: var(--surface-raised);
+}
+
+.picker__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.picker__value {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.picker svg {
+  color: var(--text-muted);
+}
+
+/*
+  The enabled readout: a label line over a 24-cell meter, one cell per mod in the grid
+  (§3 — everything textural is a cell). The frames measure 8px cells on an 11px step,
+  and the filled run is the enabled count, which is the only live value on the band.
+*/
+.dock__readout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Centred in the 52px row, then dropped 6 to the frame's line (label ink at 909). */
+  margin: 12px 0 0 19px;
+  min-width: 0;
+}
+
+.dock__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-label-lg, 10px);
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dock__cells {
+  display: flex;
+  gap: 3px;
+}
+
+.dock__cell {
+  width: 8px;
+  height: 8px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.08);
+}
+
+.dock__cell.is-on {
+  background: rgba(237, 238, 239, 0.4);
+}
+
+.dock__ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.dock__ready.is-ok {
   color: var(--text-secondary);
 }
 
-.hero__warn {
-  margin: 8px 0 0 6px;
-  font-size: var(--text-md-2);
-  color: var(--warn-ink);
-}
-
-.hero__live {
-  margin: 6px 0 0 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
-  color: var(--ok-ink);
-}
-
-/* -------------------------------------------------------------------- dock */
-
-/**
- * The dock's own chrome is `@void/ui`'s `Dock`. What is added here is the download
- * progress the CTA shows while `prepare` runs: the frames have no "fetching 3,000
- * asset objects" state and this one is real, so it rides on the accent button as a
- * fill behind the label rather than as a second control.
- */
-.dock__launch {
+/** §4 primary: a `--text-primary` fill with a `--bg-shell` label. Frame: 190 × 52. */
+.launch {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  width: 190px;
+  height: 52px;
+  margin-left: auto;
+  padding: 0 22px;
+  border-radius: 12px;
+  background: var(--text-primary);
+  color: var(--bg-shell);
+  font-size: 15px;
+  font-weight: 500;
   overflow: hidden;
 }
 
-/* The button is genuinely unpressable while `prepare` runs, so it carries `disabled` —
-   but the package's disabled state is "off", and this one is "working". Keep the CTA
-   accent and let the fill and the spinner carry the state. */
-.dock__launch:disabled {
-  background: var(--accent);
-  color: var(--accent-fg);
-  box-shadow: var(--shadow-cta), var(--inset-accent);
+.launch:disabled {
+  opacity: 0.45;
 }
 
-.dock__launch .v-launch__label {
-  font-size: var(--text-lg-2);
+.launch__kbd {
+  font-size: 11px;
+  opacity: 0.6;
 }
 
-.dock__launch::before {
+.launch__label,
+.launch__rate {
+  position: relative;
+}
+
+.launch__rate {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.launch--working {
+  flex-direction: column;
+  gap: 2px;
+  opacity: 1;
+}
+
+/* The download's progress, as a fill behind the label — the frames have no
+   "fetching 3,000 asset objects" state and this one is real. */
+.launch--working::before {
   content: '';
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
   width: var(--v-progress, 0%);
-  background: rgba(255, 255, 255, 0.22);
-  transition: width var(--duration-slow) var(--ease-out);
+  background: rgba(11, 11, 12, 0.16);
+  transition: width 200ms ease-out;
 }
 
-.dock__launch > * {
-  position: relative;
+/** Stopping the game is not the primary action; §4 secondary is a hairline. */
+.launch--running {
+  background: none;
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
-.dock__launch-text {
+/*
+  Play's dock is the one screen-shaped exception in §7's identical shell, and the frame
+  is explicit about it: `Launcher-Play.png` draws an 852 × 92 card centred on the window
+  at y 800–891, straddling the panel's bottom edge, where every panel screen draws the
+  band flat across the full content width. The band's own height does not change — the
+  card is lifted out of it — so the shell's three-band arithmetic is untouched.
+
+  Its children are placed rather than flowed. The card is a fixed 852 × 92 and the
+  frame gives every element an absolute x/y inside it; a flex row would have to
+  reproduce those with a chain of gaps that no longer says where anything is.
+  Coordinates below are the frame's, minus the card's own (374, 800).
+*/
+.playdock {
+  position: absolute;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  width: 852px;
+  height: 92px;
+  border-radius: 18px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-raised);
+}
+
+/* `.menu` sets `position: relative` for its popover, so the placement has to outrank
+   it — hence the child combinator on every one of these rather than a bare class. */
+.playdock > * {
+  position: absolute;
+}
+
+.playdock > .playdock__loadout {
+  position: absolute;
+  left: 20px;
+  top: 16px;
+}
+
+.playdock > .playdock__version {
+  position: absolute;
+  left: 212px;
+  top: 16px;
+}
+
+/* In the card the selectors regain their caption and drop their own fill: a card on a
+   card is invisible (§1's fill steps), so they read as text with a chevron. */
+.playdock .picker {
+  min-width: 0;
+  height: 60px;
+  padding: 0 12px;
+  gap: 24px;
+  background: none;
+}
+
+.playdock .picker:hover,
+.playdock .picker.is-open {
+  background: var(--surface-raised);
+}
+
+.playdock .picker .eyebrow {
+  display: block;
+}
+
+.playdock .picker__text {
+  gap: 6px;
+}
+
+.playdock .picker__value {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+/* The divider is four cells, not a rule — §3, everything textural is a cell. */
+.playdock__rule {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  line-height: 1.2;
+  gap: 7px;
+  top: 26px;
 }
 
-.dock__launch-rate {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  opacity: 0.75;
+.playdock__rule::before,
+.playdock__rule::after,
+.playdock__rule i {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.24);
+}
+
+.playdock__rule--left {
+  left: 184px;
+}
+
+.playdock__rule--right {
+  left: 576px;
+}
+
+.playdock .launch {
+  left: 328px;
+  top: 16px;
+  width: 214px;
+  height: 60px;
+  margin: 0;
+  gap: 12px;
+}
+
+/* The play mark: three bars stepping down, which is how the frame draws a triangle. */
+.playmark {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.playmark i {
+  width: 4px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.playmark i:nth-child(1) {
+  height: 12px;
+}
+
+.playmark i:nth-child(2) {
+  height: 8px;
+}
+
+.playmark i:nth-child(3) {
+  height: 4px;
+}
+
+.playdock .launch__kbd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(11, 11, 12, 0.12);
+  font-size: var(--text-hint);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  opacity: 1;
+}
+
+/* The three most recent loadouts, as cells — a stack, on the file's 26px step. */
+.playdock__recent {
+  display: flex;
+  left: 604px;
+  top: 29px;
+}
+
+.playdock__recent button + button {
+  margin-left: -8px;
+}
+
+.playdock__recent button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--surface-raised);
+  transition: background-color 140ms ease-out;
+}
+
+.playdock__recent button:hover {
+  background: rgba(237, 238, 239, 0.18);
+}
+
+.playdock__recent span {
+  width: 12px;
+  height: 12px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.4);
+}
+
+.playdock__recent button.is-on span {
+  background: var(--hue, var(--accent));
+  opacity: 0.95;
+}
+
+.playdock__online {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  left: 706px;
+  top: 38px;
+  margin: 0;
+  font-size: var(--text-label-lg, 10px);
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.playdock__online .dot {
+  width: 8px;
+  height: 8px;
+}
+
+.playdock__gear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  left: 788px;
+  top: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
+}
+
+.playdock__gear:hover {
+  background: rgba(237, 238, 239, 0.18);
+  color: var(--text-primary);
+}
+
+/*
+  Play's hint sits on the *window's* margin rather than the panel's, and higher up the
+  band, because the card in front of it is floating rather than filling the row.
+*/
+.shell[data-screen='play'] .dock__hint {
+  margin-left: calc(-1 * var(--panel-pad));
+  padding-top: 34px;
+  opacity: 0.55;
 }
 
 /* -------------------------------------------------------------------- menu */
 
 /**
- * The dropdown the dock's two pills open. `@void/ui` ships the pill and not a popover
- * — in game the same picker opens the Loadouts panel instead of a list — so the
- * surface below the pill is launcher-only.
+ * The dropdown the dock's two pickers open. `@void/ui` ships the pill and not a popover
+ * — in game the same picker opens the Loadouts panel — so the surface is launcher-only.
  */
 .menu {
   position: relative;
@@ -387,41 +1013,35 @@ body {
   position: absolute;
   left: 0;
   bottom: calc(100% + 8px);
-  min-width: 200px;
+  min-width: 220px;
   margin: 0;
   padding: 6px;
   list-style: none;
-  border-radius: var(--radius-cta);
-  background: var(--panel-bg);
+  border-radius: 12px;
+  background: var(--card-bg);
   border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
   z-index: 20;
-}
-
-[data-renderer='webview'] .menu__list {
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  backdrop-filter: blur(var(--blur-panel));
 }
 
 .menu__item {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
-  border-radius: var(--radius-field);
-  font-size: var(--text-md-2);
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13px;
   color: var(--text-secondary);
   text-align: left;
 }
 
 .menu__item:hover:not(:disabled) {
-  background: var(--tint-07);
+  background: var(--surface-raised);
   color: var(--text-primary);
 }
 
 .menu__item.is-current {
-  color: var(--accent-ink);
+  color: var(--hue, var(--accent));
 }
 
 .menu__item:disabled {
@@ -430,75 +1050,1385 @@ body {
 
 .menu__hint {
   margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 11px;
   color: var(--text-muted);
 }
 
-/* -------------------------------------------------------------------- mods */
+/* ============================================================================
+   Controls — §4. Sizes are the contract's; nothing between them exists.
+   ========================================================================== */
 
-/**
- * `252:189` puts the settings pane at 278 × 410 beside the 620 × 414 grid. The pane's
- * rows come from the registry, and a mod with more settings than Keystrokes' three
- * would otherwise push the CTA off the bottom — so the rows scroll inside the pane and
- * the pane keeps the frame's height.
- */
-.mods__pane {
+/* ------------------------------------------------------------------ toggle */
+
+.tg {
+  position: relative;
   flex: 0 0 auto;
-  align-self: flex-start;
-  /* `252:189` — 278 × 410, its bottom 4px above the grid's. The registry gives some
-     mods more rows than the frame's three, and those scroll inside the pane rather
-     than pushing its foot past the grid's. */
-  height: 410px;
+  width: var(--tg-w);
+  height: var(--tg-h);
+  border-radius: calc(var(--tg-h) * 0.35);
+  background: var(--bg-base);
+  /* A hairline, not a depth shadow: `border` would move the knob's 3px inset. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  transition: background-color 140ms ease-out;
 }
 
-/* The pane is a fixed-height flex column, so its header, preview and CTA must not be
-   squeezed by the settings block — only the settings block gives. */
-.mods__pane > * {
-  flex: 0 0 auto;
+/*
+  §4 of the contract sizes `sm` 30 x 17 with an 11px knob, from the superseded
+  1300 x 820 boards. The canonical 1600 x 980 frames draw the mod-tile switch
+  34 x 19 with a 13px knob (`Launcher-Mods.png`, track 464,430 34x19; knob 482,433
+  13x13), and this is a launcher-local control, so it takes the frame's number. `md`
+  and `lg` are unchanged and still match §4 — `lg` is the properties column's, and the
+  Setup frame draws it 46 x 26 with a 20px knob exactly as §4 says.
+*/
+.tg--sm {
+  --tg-w: 34px;
+  --tg-h: 19px;
+  --tg-k: 13px;
 }
 
-.mods__settings {
-  flex: 1 1 auto;
-  min-height: 0;
+.tg--md {
+  --tg-w: 40px;
+  --tg-h: 22px;
+  --tg-k: 16px;
+}
+
+.tg--lg {
+  --tg-w: 46px;
+  --tg-h: 26px;
+  --tg-k: 20px;
+}
+
+.tg.is-on {
+  background: rgba(237, 238, 239, 0.88);
+  box-shadow: none;
+}
+
+.tg__knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: var(--tg-k);
+  height: var(--tg-k);
+  border-radius: calc(var(--tg-k) * 0.35);
+  background: var(--text-muted);
+  color: rgba(11, 11, 12, 0.5);
+  transition: transform 140ms ease-out;
+}
+
+.tg.is-on .tg__knob {
+  background: var(--bg-shell);
+  color: rgba(237, 238, 239, 0.34);
+  transform: translateX(calc(var(--tg-w) - var(--tg-k) - 6px));
+}
+
+/* The grip: three 2px cells at 30% on the knob centre. */
+.tg__knob i {
+  width: 2px;
+  height: 2px;
+  border-radius: 30%;
+  background: currentColor;
+}
+
+.tg:disabled {
+  opacity: 0.45;
+}
+
+/* ------------------------------------------------------------------- meter */
+
+.meter {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--tint-14) transparent;
-  /* Chromium's overlay scrollbar shows nothing at rest, so a row below the fold would
-     read as a missing row. The fade is the affordance. Launcher-only: `mask-image` is
-     one more thing the in-game renderer does not have. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
+  gap: 8px;
+  width: 100%;
 }
 
-.mods__settings.is-disabled {
-  opacity: 0.5;
+.meter__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.meter__label {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/** §4: the numeric value sits to the right, in the hue. It is the live value. */
+.meter__value {
+  font-size: 13px;
+  color: var(--hue, var(--accent));
+  opacity: 0.95;
+}
+
+/** N discrete cells, 12px on a 17px step. */
+.meter__track {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  height: 20px;
+  outline-offset: 4px;
+  touch-action: none;
+}
+
+.meter__cell {
+  width: 12px;
+  height: 12px;
+  background: rgba(237, 238, 239, 0.06);
+  transition:
+    background-color 100ms ease-in,
+    opacity 100ms ease-in;
+}
+
+.meter__cell.is-filled {
+  background: rgba(237, 238, 239, 0.38);
+}
+
+.meter__cell.is-current {
+  background: var(--hue, var(--accent));
+  opacity: 0.95;
+}
+
+/* §5.3 — the bleed travels with the pointer and drains on release. */
+.meter__cell[data-bleed='0'] {
+  background: var(--hue, var(--accent));
+  opacity: 0.95;
+  transition-timing-function: ease-out;
+  transition-duration: 140ms;
+}
+
+.meter__cell[data-bleed='1'] {
+  background: var(--hue, var(--accent));
+  opacity: 0.4;
+}
+
+.meter__cell[data-bleed='2'] {
+  background: var(--hue, var(--accent));
+  opacity: 0.16;
+}
+
+.meter.is-disabled {
+  opacity: 0.45;
   pointer-events: none;
 }
 
-.mods__desc,
-.mods__note {
+/* ------------------------------------------------------------------- chips */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
+}
+
+.chip:hover:not(:disabled) {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+/* The selected item is the live one, so it — and only it — takes the hue. */
+.chip.is-on {
+  background: var(--surface-raised);
+  color: var(--hue, var(--accent));
+}
+
+.chip:disabled {
+  opacity: 0.45;
+}
+
+/* ---------------------------------------------------------------- keybind */
+
+.keychip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 9px;
+  background: var(--card-bg);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background-color 140ms ease-out;
+}
+
+.keychip:hover {
+  background: var(--surface-raised);
+}
+
+.keychip.is-capturing {
+  background: var(--surface-raised);
+  color: var(--hue, var(--accent));
+}
+
+/* --------------------------------------------------------------- swatches */
+
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 30%;
+}
+
+.swatch.is-on {
+  box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 3px var(--hue, var(--accent));
+}
+
+/* ------------------------------------------------------------ search field */
+
+.searchfield {
+  width: 220px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: background-color 140ms ease-out;
+}
+
+.searchfield::placeholder {
+  color: var(--text-muted);
+}
+
+.searchfield:focus {
+  background: var(--surface-raised);
+}
+
+.searchfield::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* ----------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.btn--primary {
+  background: var(--text-primary);
+  color: var(--bg-shell);
+}
+
+.btn--secondary {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text-primary);
+}
+
+.btn--ghost {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.btn--ghost:hover {
+  color: var(--text-primary);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+}
+
+/* ============================================================================
+   Play
+   ========================================================================== */
+
+/*
+  Play is a hero screen, and the frame anchors it: a state pill in the panel's top-left
+  corner, then the loadout block hard against the bottom-left. Nothing is centred, and
+  the three numbers that used to be stat cards are one line of prose under the name —
+  which is what makes the screen read as air rather than as furniture.
+
+  Measured against `Launcher-Play.png`: pill 64,112 · 300 × 30; eyebrow baseline 549;
+  hero cap top 591 / baseline 654 at 88px; meta ink 688–701.
+*/
+.play {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  /* The floating dock card reaches 48px up into the panel; the block clears it. */
+  padding-bottom: 112px;
+}
+
+/*
+  The dot-matrix watermark (see `local/watermark.ts`). It is inset back out to the
+  panel's padding box, because the frame measures the field from the panel's edge and
+  not from its content line — the first cell is at (48, 96) in a panel that starts at
+  (32, 80).
+*/
+.play__field {
+  position: absolute;
+  left: calc(-1 * var(--panel-pad));
+  top: calc(-1 * var(--panel-pad));
+  right: calc(-1 * var(--panel-pad));
+  bottom: calc(-1 * var(--panel-pad));
+  pointer-events: none;
+}
+
+.play__cell {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--text-primary);
+}
+
+/* Everything else on the screen sits over the field. */
+.play > *:not(.play__field) {
+  position: relative;
+}
+
+/** The status chip: (64,112) 300 × 30 r10 over the field, one dot and a label line. */
+.play__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  align-self: flex-start;
+  width: 300px;
+  height: 30px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: rgba(11, 11, 12, 0.72);
+  border: 1px solid var(--border-panel);
+}
+
+.play__state .dot {
+  width: 8px;
+  height: 8px;
+}
+
+.play__head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.play__head .eyebrow {
+  margin-bottom: 25px;
+}
+
+.play__head .hero {
+  margin-bottom: 19px;
+}
+
+/** The three numbers, inline. Live values, so they are the only ink at full strength. */
+.play__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   margin: 0;
-  font-size: var(--text-md-2);
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--text-secondary);
+}
+
+.play__dash {
   color: var(--text-muted);
 }
 
-.mods__empty,
-.list__empty {
-  padding: 24px 12px;
-  font-size: var(--text-md-2);
+.play__detail {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
-/* --------------------------------------------------------------- cosmetics */
+.play__live {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ok);
+}
+
+/* ============================================================================
+   Mods — a 180px rail and a five-column grid
+
+   Every number below is measured off `design/screens/launcher/Launcher-Mods.png`
+   at 1600 × 980, in window coordinates:
+
+     panel content box   65 – 1534 (the 32px inset plus the 32px panel padding)
+     rail rows           x 57 – 237, 34 tall on a 40 step
+     divider             y 356
+     grid                x 277 – 1534, five 234 columns on a 22 gutter
+     cards               321 tall on a 20 gutter; row 1 at y 152, row 2 at 494
+     preview             the card's width less its 10px padding — 214, square
+   ========================================================================== */
+
+.mods {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.mods__body {
+  display: flex;
+  gap: 32px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  /*
+    188 = the frame's 180px rail plus the 8px its rows bleed to the left. The bleed
+    lives in the rail's own padding rather than outside it, because `overflow-y: auto`
+    would otherwise clip a negative margin — which is exactly what it did on the first
+    pass, snapping every row's fill back to the label's edge.
+  */
+  flex: 0 0 188px;
+  width: 188px;
+  margin-left: -8px;
+  padding-left: 8px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.rail > .eyebrow {
+  flex: 0 0 auto;
+  margin-bottom: 7px;
+}
+
+.rail__divider + .eyebrow {
+  margin-bottom: 9px;
+}
+
+.rail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+  The row is 8px wider than the rail on its left, so its label lands on the panel's
+  own content edge while the selected fill still reads as a pill around it — which is
+  what the frame draws (rail eyebrow at x 64, row label at x 72, fill from 56).
+*/
+.rail__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 180px;
+  height: 34px;
+  margin-left: -8px;
+  /* File: the label's box is 4px above the fill's centre; the padding is what does it. */
+  padding: 0 16px 4px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  text-align: left;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
+}
+
+.rail__row:hover {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.rail__row.is-on {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+/* The dot is the selection mark, so it is the only thing on the row that is tinted. */
+.rail__dot {
+  width: 7px;
+  height: 7px;
+  background: rgba(237, 238, 239, 0.1);
+}
+
+.rail__row.is-on .rail__dot {
+  background: var(--hue, var(--accent));
+  opacity: 0.95;
+}
+
+.rail__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__count {
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-muted);
+}
+
+.rail__divider {
+  width: 172px;
+  height: 0;
+  margin: 30px 0 26px;
+  border: 0;
+  border-top: 1px solid var(--divider);
+}
+
+.rail__empty {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/** The grid and the header line over it. The head stays; only the grid scrolls. */
+.modcol {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.modcol__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+  /* File: the line's text boxes are 11 tall at y 112; the first card row is at 152. */
+  height: 11px;
+  margin-bottom: 29px;
+}
 
 /**
- * `246:16` — the 300 × 452 character stage. This is the one region of the design that
- * is a render rather than a component, so it stays here: a glow ellipse, a blocky skin
- * stand-in and the equipped pill.
+ * Five columns, and **two rows fill the panel exactly**.
+ *
+ * The row height is the panel's own content height minus the header line and one
+ * gutter, halved — so it holds at 1600 × 980 (321px rows, which is the frame's) and at
+ * every other window height, and the third row is always a scroll rather than a
+ * squeeze. 39 is the header line plus its margin; 20 is the row gutter.
+ */
+.modgrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: max(
+    190px,
+    calc(
+      (
+          100vh - var(--nav-h) - var(--dock-h) - 2px - (2 * var(--panel-pad)) - 40px - 20px
+        ) / 2
+    )
+  );
+  column-gap: 20px;
+  row-gap: 20px;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.modgrid__empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 20px 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.modcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: var(--card-bg);
+  transition: background-color 140ms ease-out;
+}
+
+.modcard:hover {
+  background: var(--surface-raised);
+}
+
+.modcard__open {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* File: card 236 wide at x 276, preview 216 at x 286. */
+  padding: 10px;
+  text-align: left;
+}
+
+/** The preview is square — the card's whole width inside its padding. */
+.modcard__preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--bg-base);
+  color: var(--text-muted);
+  overflow: hidden;
+  transition: color 140ms ease-out;
+}
+
+/** The mod's own readout, as a still: `--text-numeral` over a label-tier unit. */
+.modcard__readout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* File: numeral box y 240 h 45, unit box y 290 h 11 — 5px apart, block centred. */
+  gap: 5px;
+}
+
+.modcard__num {
+  font-size: var(--text-numeral, 36px);
+  line-height: 45px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.modcard__unit {
+  font-size: var(--text-label-lg, 10px);
+  line-height: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* The recessed grid texture, and the ambient warm that rides on it (§5.2). */
+.modcard__field {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(237, 238, 239, 0.03) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.modcard__preview::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--hue, var(--accent)) 1px, transparent 1px);
+  background-size: 8px 8px;
+  opacity: 0;
+  transition: opacity 100ms ease-in;
+}
+
+.modcard:hover .modcard__preview::after {
+  opacity: 0.22;
+  transition: opacity 140ms ease-out;
+}
+
+/*
+  §1, the accent rule. Preview artwork is monochrome whether the mod is on or off:
+  a mod being in the library is not a live value, and tinting ten previews by category
+  makes the hue decoration. `--hue` is still set on the card's root, so the one thing
+  in a preview that *is* live — the crosshair's centre dot — reads it, and so do the
+  card's selection state and any meter it opens.
+*/
+.modcard__preview {
+  color: var(--text-secondary);
+}
+
+.modcard__preview svg {
+  position: relative;
+}
+
+/** Name over category, bottom-left, with the toggle opposite it. */
+/* File: name box y 424 h 17, category box y 446 h 11, card bottom 474 — and the card's
+   own 10px padding is already below the foot, so this adds the remaining 7. */
+.modcard__foot {
+  display: flex;
+  align-items: flex-end;
+  margin-top: auto;
+  padding: 0 4px 7px;
+}
+
+.modcard__text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding-right: 44px;
+}
+
+.modcard__name {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 17px;
+  color: var(--text-primary);
+}
+
+.modcard__cat {
+  font-size: var(--text-label-lg, 10px);
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* File: track 464,430 in a card at 276,152 — 34 in from the right, 25 up. */
+/* ------------------------------------------------------- the card previews
+
+   `mp` = mod preview. Every geometry below is `289:1141`'s, measured inside its
+   216 × 216 preview square, and every one of them is monochrome (§1's accent rule) —
+   the crosshair's centre dot is the only live value in the set and the only thing that
+   reads `--hue`.
+   ------------------------------------------------------------------------- */
+
+.mp {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+/* Keystrokes — 26px keycaps on a 34px row step; the mouse row is two 38px keys. */
+.mp--keys {
+  gap: 8px;
+}
+
+.mp__krow {
+  display: flex;
+  gap: 6px;
+}
+
+.mp__krow i {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(237, 238, 239, 0.28);
+}
+
+.mp__krow--wide {
+  gap: 14px;
+}
+
+.mp__krow--wide i {
+  width: 38px;
+}
+
+/* Armor status — four 56 × 8 tracks on a 20px step, filled to different lengths. */
+.mp--bars {
+  gap: 12px;
+}
+
+.mp--bars i {
+  display: block;
+  width: 56px;
+  height: 8px;
+  border-radius: 3px;
+  background: rgba(237, 238, 239, 0.12);
+}
+
+.mp--bars b {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: rgba(237, 238, 239, 0.4);
+}
+
+/* Crosshair — 6px cells at ±22 and ±30 from the centre, plus the live centre dot. */
+.mp--cross {
+  width: 66px;
+  height: 66px;
+  display: block;
+}
+
+.mp--cross i {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  width: 6px;
+  height: 6px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.4);
+}
+
+.mp--cross .mp__live {
+  margin: 0;
+  background: var(--hue, var(--accent));
+  opacity: 0.95;
+}
+
+/* Potion effects / coordinates — a cell, a name, and a value on the right. */
+.mp--rows {
+  gap: 22px;
+  width: 140px;
+}
+
+.mp__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.mp__row i {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.4);
+}
+
+.mp__name,
+.mp__value {
+  font-size: var(--text-label-lg, 10px);
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.mp__value {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+/* A cell matrix — Toggle sprint's 6 × 6 at 10px, Fullbright's 5 × 5 at 18px. */
+.mp--glyph {
+  gap: 14px;
+}
+
+.mp__grid {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: repeat(var(--mp-cols), var(--mp-cell));
+  gap: 2px;
+}
+
+.mp__grid i {
+  width: var(--mp-cell);
+  height: var(--mp-cell);
+  border-radius: 30%;
+  background: transparent;
+}
+
+.mp__grid i.is-lit {
+  background: rgba(237, 238, 239, 0.4);
+}
+
+.modcard__toggle {
+  position: absolute;
+  right: 14px;
+  bottom: 25px;
+}
+
+/* ============================================================================
+   Mod setup — the preview owns placement, the column owns everything else
+
+   Measured off `design/screens/launcher/Launcher-Setup.png`:
+
+     left column   x 64 – 843 (780), the preview 780 × 440 at y 214
+     right column  x 892 – 1534 (643), on the panel ground — it is not a card
+     header        backlink y 114, title cap 146 / baseline 167, meta 187
+     property rows 48px apart within a group, 76 across one
+     meters        10 cells right-aligned to x 1434, value right-aligned to 1535
+     toggles       lg (46 × 26), right edge on 1535
+   ========================================================================== */
+
+.setup {
+  display: flex;
+  gap: 48px;
+  height: 100%;
+}
+
+.setup__preview {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 780px;
+  width: 780px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.setup__head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 0 0 auto;
+}
+
+/* File: backlink box y 111 h 11, title 138 h 38, meta 184 h 12, screen 214. */
+.setup__head .screen-title {
+  line-height: 38px;
+  margin-bottom: 8px;
+}
+
+.setup__meta {
+  line-height: 12px;
+  margin-bottom: 18px;
+}
+
+.setup__mockwrap {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+/** The game screen, 16:9 — the space `hud_item.dx/dy` are measured in. */
+.gamescreen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  align-self: flex-start;
+  border-radius: 14px;
+  background: var(--bg-shell);
+  border: 1px solid var(--border-raised);
+  overflow: hidden;
+}
+
+.gamescreen__field {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(237, 238, 239, 0.03) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+/* File: horizon 65,478 778x1 in a screen at 64,214 780x440 — 60% of the height. */
+.gamescreen__horizon {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 60%;
+  height: 1px;
+  background: rgba(237, 238, 239, 0.05);
+}
+
+/* The game's own crosshair: eight 3px cells at ±6 and ±11 from a point at 45% height. */
+.gamescreen__cross {
+  position: absolute;
+  left: 50%;
+  top: 45.5%;
+  width: 0;
+  height: 0;
+}
+
+.gamescreen__cross i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 30%;
+  background: rgba(237, 238, 239, 0.22);
+}
+
+.gamescreen__cross i:nth-child(1) { left: -1.5px; top: -12.5px; }
+.gamescreen__cross i:nth-child(2) { left: -1.5px; top: -7.5px; }
+.gamescreen__cross i:nth-child(3) { left: -1.5px; top: 4.5px; }
+.gamescreen__cross i:nth-child(4) { left: -1.5px; top: 9.5px; }
+.gamescreen__cross i:nth-child(5) { left: -12.5px; top: -1.5px; }
+.gamescreen__cross i:nth-child(6) { left: -7.5px; top: -1.5px; }
+.gamescreen__cross i:nth-child(7) { left: 4.5px; top: -1.5px; }
+.gamescreen__cross i:nth-child(8) { left: 9.5px; top: -1.5px; }
+
+/* Nine 34px slots on a 38px step, centred, 24 up from the screen's bottom edge. */
+.gamescreen__hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  gap: 4px;
+  transform: translateX(-50%);
+}
+
+.gamescreen__hotbar i {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: rgba(237, 238, 239, 0.05);
+}
+
+.gamescreen__note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 60px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.gamescreen__note p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/** The four corner slots. Empty cells until the module is in one. */
+.slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+}
+
+.slot--top-left {
+  left: 2px;
+  top: 2px;
+}
+
+.slot--top-right {
+  right: 2px;
+  top: 2px;
+}
+
+.slot--bottom-left {
+  left: 2px;
+  bottom: 2px;
+}
+
+.slot--bottom-right {
+  right: 2px;
+  bottom: 2px;
+}
+
+/* File: the corner anchors are 14px cells 12 in from the screen's edge. */
+.slot__mark {
+  width: 14px;
+  height: 14px;
+  background: rgba(237, 238, 239, 0.1);
+  transition: background-color 140ms ease-out;
+}
+
+.slot:hover .slot__mark {
+  background: rgba(237, 238, 239, 0.36);
+}
+
+.slot.is-on .slot__mark {
+  background: var(--hue, var(--accent));
+  opacity: 0.95;
+}
+
+/** The module itself: drag it to place it. */
+.module {
+  position: absolute;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(237, 238, 239, 0.06);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.module.is-on {
+  color: var(--text-primary);
+}
+
+.module__body {
+  white-space: nowrap;
+}
+
+/* §7 — the module is marked with accent corner ticks. They are the drag affordance,
+   which is exactly what §1 allows colour for. */
+.module__tick {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--hue, var(--accent));
+}
+
+.module__tick--tl {
+  left: -3px;
+  top: -3px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.module__tick--tr {
+  right: -3px;
+  top: -3px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.module__tick--bl {
+  left: -3px;
+  bottom: -3px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.module__tick--br {
+  right: -3px;
+  bottom: -3px;
+  border-left: 0;
+  border-top: 0;
+}
+
+/* Size is spatial, so it is a handle on the preview and never a list row (§8). */
+.module__tick--br.is-handle {
+  cursor: nwse-resize;
+  width: 10px;
+  height: 10px;
+}
+
+/** The caption under the preview, and the placement readout it carries on its right. */
+/* File: caption y 668 (screen ends 654), PRESETS y 702, chips y 724 h 36. */
+.setup__caption {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex: 0 0 auto;
+  margin-top: 14px;
+}
+
+.setup__place {
+  margin-left: auto;
+  letter-spacing: 0.12em;
+}
+
+.setup__presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 11px 12px;
+  flex: 0 0 auto;
+  margin-top: 23px;
+}
+
+/* The caption owns its own line; the chips and the custom marker share the next. */
+.setup__presets > .eyebrow {
+  flex: 1 0 100%;
+}
+
+.setup__presets .chips {
+  gap: 12px;
+}
+
+.setup__presets .chip {
+  height: 36px;
+  padding: 0 24px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.setup__custom {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/*
+  A control on the properties column starts one fill *up* from the ground it sits on —
+  the column is not a card any more (the frame draws it straight on the panel), so a
+  chip is `--card-bg` and hover still lifts it exactly one step.
+*/
+.props .chip,
+.props .keychip {
+  background: var(--card-bg);
+}
+
+.props .chip:hover:not(:disabled),
+.props .keychip:hover,
+.props .chip.is-on,
+.props .keychip.is-capturing {
+  background: var(--surface-raised);
+}
+
+/* ------------------------------------------------------- properties column */
+
+.props {
+  display: flex;
+  flex-direction: column;
+  /* File: the properties column is x 892 – 1536 in a 64 – 1536 content box. */
+  flex: 0 0 644px;
+  width: 644px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* File: PROPERTIES y 112, DISPLAY y 146, first row's text box y 168. */
+.props__cap {
+  flex: 0 0 auto;
+  margin-bottom: 23px;
+}
+
+.props__list {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  flex: 0 0 auto;
+}
+
+/* File: property text boxes 48 apart inside a group, 76 across one. */
+
+.props__list.is-off {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/*
+  No `gap` here: the group's caption sits 4px above its first row and the rows sit 18
+  apart, and a flex gap cannot say both. `.prop + .prop` can.
+*/
+.props__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.props__group > .eyebrow {
+  margin-bottom: 5px;
+}
+
+.prop + .prop {
+  margin-top: 18px;
+}
+
+/** §8: one property gets no list — no rows, no separators, just the control. */
+.props__single {
+  display: flex;
+  flex-direction: column;
+}
+
+.prop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 30px;
+}
+
+.prop__label {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+/*
+  The meter on a property row. The component draws a head (label + value) over a track;
+  the frame draws all three on one line, so the head is dissolved with `display:
+  contents` and the three parts are ordered label · track · value. No JS change — the
+  same component still renders the in-game list, where the stacked form is right.
+*/
+.prop--meter {
+  display: block;
+}
+
+.props .meter {
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  min-height: 30px;
+}
+
+.props .meter__head {
+  display: contents;
+}
+
+.props .meter__label {
+  order: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.props .meter__track {
+  order: 1;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.props .meter__value {
+  order: 2;
+  /* File: cells end at 1435, the value's box ends at 1536. */
+  min-width: 101px;
+  text-align: right;
+}
+
+/* File: the rule is at y 566 and Save is 1386,578 150x46; ENABLED IN at 674. */
+.props .divider {
+  margin: 30px 0 0;
+}
+
+.props__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  margin-top: 22px;
+}
+
+.props__actions .btn--primary {
+  width: 150px;
+  height: 46px;
+}
+
+.props__enabled {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  flex: 0 0 auto;
+  margin-top: 40px;
+}
+
+/* File: chips 34 tall on a 10 gutter, cell at +14, label at +28. */
+.props__enabled .chips {
+  gap: 10px;
+}
+
+.props__enabled .chip {
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+}
+
+.props__todo {
+  display: none;
+}
+
+/* ============================================================================
+   The screens still on `@void/ui`'s Panel — Cosmetics, Servers, Friends
+   ========================================================================== */
+
+/**
+ * `246:16` — the character stage. This is the one region of the design that is a render
+ * rather than a component. Flattened for the cell system: no blur behind the figure and
+ * no gradient in it, because neither survives §0.
  */
 .stage {
   position: relative;
@@ -506,13 +2436,11 @@ body {
   width: 300px;
   height: 452px;
   margin-right: 14px;
-  border-radius: var(--radius-surface);
+  border-radius: 14px;
   background: var(--card-bg);
   overflow: hidden;
 }
 
-/* A soft ellipse behind the character. `filter: blur()` is launcher-only — the shared
-   package may not use it, and this element never crosses into the overlay. */
 .stage__glow {
   position: absolute;
   left: -11px;
@@ -520,15 +2448,13 @@ body {
   width: 320px;
   height: 320px;
   border-radius: 50%;
-  opacity: 0.3;
-  filter: blur(56px);
+  opacity: 0.12;
 }
 
 /*
   TODO(art): `246:16` holds a rendered player skin, 160 × 376 at 69, 29. Rendering a
   real skin needs the skin PNG and a projection, neither of which the launcher has —
-  so this is a blocky stand-in at the frame's box, and it is the piece to replace when
-  the cosmetics pipeline lands (§16.1).
+  so this is a blocky stand-in at the frame's box.
 */
 .stage__skin {
   position: absolute;
@@ -546,8 +2472,8 @@ body {
   position: relative;
   width: 88px;
   height: 88px;
-  border-radius: var(--radius-kbd-sm);
-  background: linear-gradient(150deg, #f3cfad 0%, #e5b891 55%, #c99a72 100%);
+  border-radius: 4px;
+  background: #e5b891;
 }
 
 .stage__torso {
@@ -560,7 +2486,7 @@ body {
   width: 92px;
   height: 112px;
   border-radius: 3px;
-  background: linear-gradient(180deg, #24262c, #131519);
+  background: #1c1e23;
 }
 
 .stage__arm {
@@ -568,7 +2494,7 @@ body {
   height: 108px;
   margin-top: 2px;
   border-radius: 3px;
-  background: linear-gradient(180deg, #1c1e23, #101216);
+  background: #16181c;
 }
 
 .stage__legs {
@@ -582,11 +2508,9 @@ body {
   width: 44px;
   height: 118px;
   border-radius: 3px;
-  background: linear-gradient(180deg, #191b20, #0d0f12);
+  background: #131519;
 }
 
-/* The equipped cape hangs behind the figure, which is the only place the stage shows
-   which cosmetic is on besides the pill. */
 .stage__cape {
   position: absolute;
   left: 50%;
@@ -605,20 +2529,18 @@ body {
   bottom: 22px;
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: 8px;
   padding: 6px 12px;
-  border-radius: var(--radius-control);
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-  font-size: var(--text-md-2);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .stage__pill-dot {
   width: 10px;
   height: 10px;
-  border-radius: var(--radius-hairline);
+  border-radius: 30%;
 }
 
 .cosmetics {
@@ -630,36 +2552,31 @@ body {
 
 .cosmetics__counter {
   align-self: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
+  font-size: 13px;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
-/* Nested flex rows, not CSS Grid — the same rule `@void/ui`'s ModGrid follows. */
 .cosmetics__grid {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-12);
+  gap: 12px;
   align-content: flex-start;
 }
 
 .cosmetics__footer {
   display: flex;
   align-items: center;
-  gap: var(--space-10);
+  gap: 10px;
   margin-top: 26px;
 }
 
 .cosmetics__note {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
+  font-size: 13px;
   color: var(--text-muted);
 }
 
-/* ------------------------------------------------------- lists and panes */
-
-/** `247:17` / `248:20` — a 580px list beside the 308px detail pane, 20px apart. */
+/** A list beside a detail pane. */
 .split {
   flex: 1 1 auto;
   min-width: 0;
@@ -669,13 +2586,10 @@ body {
   padding-bottom: 8px;
 }
 
-/** `247:74` / `248:72` — the detail pane is 308 × 500 at the top of the body. */
 .split > .v-pane {
   height: 500px;
 }
 
-/* A caption inside a pane is flush with the pane's padding; the 12px indent the
-   component carries is for the list, where it lines rows up with their group label. */
 .v-pane > .v-groupcaption {
   padding-left: 0;
 }
@@ -685,17 +2599,16 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 4px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--tint-14) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
-/* The detail pane's header, stat row and toggle row: composition, not new components. */
 .pane__head {
   display: flex;
   align-items: center;
-  gap: var(--space-12);
+  gap: 12px;
 }
 
 .pane__icon {
@@ -705,10 +2618,9 @@ body {
   flex: 0 0 auto;
   width: 52px;
   height: 52px;
-  border-radius: var(--radius-card);
-  background: var(--surface-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  font-size: 15px;
   color: var(--text-secondary);
 }
 
@@ -720,17 +2632,14 @@ body {
 }
 
 .pane__title {
-  font-family: var(--font-display);
-  font-weight: var(--weight-extrabold);
-  font-size: var(--text-5xl);
-  line-height: var(--leading-subtitle);
-  letter-spacing: var(--tracking-subtitle);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 22px;
 }
 
 .pane__sub,
 .pane__count {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm-2);
+  font-size: 13px;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -739,18 +2648,15 @@ body {
 .pane__motd,
 .pane__error {
   margin: 0;
-  font-size: var(--text-base-2);
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-muted);
-}
-
-.pane__error {
-  color: var(--warn-ink);
 }
 
 .pane__row {
   display: flex;
   align-items: center;
-  gap: var(--space-12);
+  gap: 12px;
 }
 
 .pane__rowtext {
@@ -761,12 +2667,11 @@ body {
 }
 
 .pane__rowtitle {
-  font-size: var(--text-lg);
+  font-size: 14px;
 }
 
 .pane__rowsub {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -774,12 +2679,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-8);
+  gap: 8px;
 }
 
 .stat-tiles {
   display: flex;
-  gap: var(--space-8);
+  gap: 8px;
 }
 
 .stat-tiles > .v-stattile {
@@ -787,64 +2692,55 @@ body {
   min-width: 0;
 }
 
-/* The party pane's role line is the row's meta, tinted (`248:72`). */
 .party {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: 6px;
 }
 
-/* `badge={null}` asks the compact row for its status dot; the empty label beside it
-   would otherwise reserve the design's 14px aside column. */
 .party__row .v-row__aside {
   display: none;
 }
 
 .party__row--leader .v-row__meta {
-  color: var(--accent-ink);
+  color: var(--hue, var(--accent));
 }
 
 .party__row--ready .v-row__meta {
-  color: var(--ok-ink);
+  color: var(--ok);
+}
+
+.list__empty {
+  padding: 24px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* ----------------------------------------------------------------- palette */
 
-/**
- * `@void/ui` draws the palette itself; the launcher supplies the dim it floats on and
- * the scroll region, because in game the palette is sized to its own results and here
- * it ranks every screen, loadout, mod and server.
- */
 .palette-scrim {
   position: fixed;
   inset: 0;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  /* `244:1923` puts the palette at y 190 on an 820px frame. */
-  padding-top: 23vh;
-  background: var(--dim-palette);
+  padding-top: 20vh;
+  background: rgba(11, 11, 12, 0.72);
   z-index: 50;
 }
 
-[data-renderer='webview'] .palette-scrim {
-  -webkit-backdrop-filter: blur(var(--blur-dim));
-  backdrop-filter: blur(var(--blur-dim));
-}
-
 .palette-scrim > .v-palette {
-  animation: palette-in var(--duration-slow) var(--ease-out);
+  animation: surface-in 200ms ease-out;
 }
 
-@keyframes palette-in {
+@keyframes surface-in {
   from {
     opacity: 0;
-    /* 2D only — the same constraint the shared package keeps to (§4). */
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -852,13 +2748,13 @@ body {
   max-height: 46vh;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--tint-14) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
 .palette__empty {
   margin: 0;
   padding: 20px 18px;
-  font-size: var(--text-md-2);
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -867,36 +2763,35 @@ body {
 /** The JVM log. There is no JVM log inside the JVM, so this is launcher-only. */
 .drawer {
   position: fixed;
-  left: var(--canvas-inset);
-  right: var(--canvas-inset);
-  bottom: var(--canvas-inset);
+  left: var(--panel-inset);
+  right: var(--panel-inset);
+  bottom: var(--panel-inset);
   height: 44vh;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-cta);
-  background: rgba(10, 11, 12, 0.96);
+  border-radius: 14px;
+  background: var(--card-bg);
   border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
   z-index: 40;
 }
 
 .drawer__head {
   display: flex;
   align-items: center;
-  gap: var(--space-10);
+  gap: 10px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--seam);
+  border-bottom: 1px solid var(--divider);
   color: var(--text-secondary);
 }
 
 .drawer__title {
-  font-size: var(--text-lg);
+  font-size: 15px;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
 .drawer__meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -913,47 +2808,66 @@ body {
 
 .drawer__line {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-base-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
   line-height: 1.55;
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
+  font-variant-numeric: tabular-nums;
 }
 
 .drawer__line.is-err {
-  color: var(--warn-ink);
+  color: var(--text-primary);
 }
 
 .drawer__empty {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--text-md-2);
+  font-size: 13px;
 }
 
 /* ----------------------------------------------------------------- banners */
 
+.banners {
+  position: absolute;
+  left: var(--panel-inset);
+  right: var(--panel-inset);
+  bottom: calc(var(--dock-h) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.banners > * {
+  pointer-events: auto;
+}
+
 .banner {
   display: flex;
   align-items: center;
-  gap: var(--space-12);
+  gap: 12px;
   max-width: 900px;
   padding: 10px 10px 10px 14px;
-  border-radius: var(--radius-card-sm);
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised);
-  font-size: var(--text-md-2);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  font-size: 13px;
 }
 
+/*
+  There is no red in the contract's palette — §1 names exactly one state colour, `--ok`.
+  So a failure is carried by the strong border and by the words, not by a hue: colour
+  here would be decoration, which §1 forbids.
+*/
 .banner--error {
-  border-color: rgba(192, 91, 84, 0.5);
-  background: rgba(60, 26, 24, 0.94);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .banner--session {
-  border-color: var(--accent-border);
-  background: rgba(30, 26, 52, 0.94);
+  box-shadow: inset 0 0 0 1px var(--border-raised);
 }
 
 .banner--preview {
@@ -966,11 +2880,6 @@ body {
 
 /* ---------------------------------------------------------------- settings */
 
-/**
- * Settings has no frame of its own — §8.3 draws the line it respects, and the frames
- * stop at the gear. It reuses the panel surface and `@void/ui`'s `SettingsGroup` /
- * `SettingsRow`, which the mod-settings frame does define.
- */
 .settings-scrim {
   position: fixed;
   inset: 0;
@@ -978,7 +2887,7 @@ body {
   justify-content: center;
   align-items: flex-start;
   padding: 6vh 24px;
-  background: rgba(10, 11, 12, 0.6);
+  background: rgba(11, 11, 12, 0.72);
   z-index: 60;
 }
 
@@ -987,17 +2896,11 @@ body {
   flex-direction: column;
   width: min(760px, 100%);
   max-height: 100%;
-  border-radius: var(--radius-panel);
-  background: var(--panel-bg);
+  border-radius: 18px;
+  background: var(--card-bg);
   border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
   overflow: hidden;
-  animation: palette-in var(--duration-slow) var(--ease-out);
-}
-
-[data-renderer='webview'] .settings {
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  backdrop-filter: blur(var(--blur-panel));
+  animation: surface-in 200ms ease-out;
 }
 
 .settings__head {
@@ -1008,11 +2911,10 @@ body {
 
 .settings__title {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: var(--weight-extrabold);
-  font-size: var(--text-6xl);
-  line-height: var(--leading-title);
-  letter-spacing: var(--tracking-title);
+  font-size: 30px;
+  line-height: 34px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 .settings__spacer {
@@ -1026,14 +2928,11 @@ body {
   padding: 0 25px 25px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: 16px;
 }
 
-/* The frames size a settings Group to the mod-settings column; here it fills the
-   modal, which is the one geometry change the launcher makes to a shared component.
-   `.v-group` carries `overflow: hidden`, which zeroes a flex item's automatic minimum
-   size — without `flex: 0 0 auto` the column squeezes every group down to its caption
-   and all but the first row disappears. */
+/* `.v-group` carries `overflow: hidden`, which zeroes a flex item's automatic minimum
+   size — without `flex: 0 0 auto` the column squeezes every group to its caption. */
 .settings__body > * {
   flex: 0 0 auto;
 }
@@ -1043,24 +2942,22 @@ body {
 }
 
 .settings__body .v-group__row + .v-group__row {
-  border-top: 1px solid var(--seam);
+  border-top: 1px solid var(--divider);
 }
 
 .inline-form {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: 8px;
 }
 
 .inline-form__field {
   width: 140px;
   height: 32px;
   padding: 0 10px;
-  border-radius: var(--radius-field);
-  background: var(--field-bg);
-  border: 1px solid var(--tint-07);
-  box-shadow: var(--inset-field-panel);
-  font-size: var(--text-md-2);
+  border-radius: 9px;
+  background: var(--bg-base);
+  font-size: 13px;
   outline: none;
 }
 
@@ -1069,21 +2966,22 @@ body {
 }
 
 .mono-value {
-  font-family: var(--font-mono);
-  font-size: var(--text-md);
+  font-size: 13px;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .credits {
   padding: 4px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-10);
+  gap: 10px;
 }
 
 .credits__line {
   margin: 0;
-  font-size: var(--text-md-2);
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-secondary);
 }
 
@@ -1094,10 +2992,9 @@ body {
 .credits__notice {
   margin: 0;
   padding: 10px 12px;
-  border-radius: var(--radius-field);
-  background: var(--stat-tile-bg);
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
+  border-radius: 9px;
+  background: var(--bg-base);
+  font-size: 13px;
   line-height: 1.6;
   color: var(--text-muted);
   user-select: text;
@@ -1108,10 +3005,20 @@ body {
 }
 
 /* --------------------------------------------------------------- responsive
-   The frames are one 1300 × 820 size; the window goes down to 1100 × 700. Below
-   1240 the side panes go first, since the list is the screen's subject. */
+   The shell is one 1600 × 980 size and the window resizes under it. The grid's row
+   height already tracks the window; below 1400 the fixed side columns give first. */
 
-@media (max-width: 1239px) {
+@media (max-width: 1399px) {
+  .props {
+    flex-basis: 340px;
+    width: 340px;
+  }
+  .setup {
+    gap: 20px;
+  }
+  .mods__body {
+    gap: 20px;
+  }
   .split {
     gap: 14px;
   }
@@ -1123,14 +3030,8 @@ body {
   }
 }
 
-@media (max-height: 759px) {
-  .canvas__content {
-    padding-bottom: 120px;
-  }
-  .hero__body {
-    bottom: 60px;
-  }
-  .mods__pane {
-    height: 100%;
+@media (max-width: 1199px) {
+  .modgrid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

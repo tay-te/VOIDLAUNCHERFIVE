@@ -33,9 +33,11 @@ export interface MenuProps {
   current?: string;
   /** Called with the picked row's id. */
   onSelect: (id: string) => void;
+  /** Extra class on the wrapper — the Play dock places its two selectors by hand. */
+  className?: string;
 }
 
-export function Menu({ trigger, items, current, onSelect }: MenuProps): ReactElement {
+export function Menu({ trigger, items, current, onSelect, className }: MenuProps): ReactElement {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -56,7 +58,7 @@ export function Menu({ trigger, items, current, onSelect }: MenuProps): ReactEle
   }, [open]);
 
   return (
-    <div className="menu" ref={ref}>
+    <div className={className ? `menu ${className}` : 'menu'} ref={ref}>
       {trigger(open, () => setOpen((o) => !o))}
       {open ? (
         <ul className="menu__list" role="listbox">

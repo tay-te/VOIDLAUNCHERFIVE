@@ -1,272 +1,359 @@
 /**
- * Mods — `244:110`.
+ * Mods — the library.
  *
- * Every part of this screen is `@void/ui`'s: `Panel`, `SearchBar`, `FilterTabs`,
- * `ModGrid`, `ModTile`, `ModSettingsPanel`, `KeystrokesPreview`, `Slider`,
- * `KeybindChip`, `Swatches`, `PositionChips`, `EditPositionButton`. What is local is
- * the *wiring*: which control a given setting gets (`local/registry`) and where a
- * change goes. Here it goes to `loadouts_update`, which is why the footer says
- * **"Changes apply on next launch"** — in game the same edit is instant, because Java
- * is authoritative for live state (§6.1) and the launcher is not.
+ * The frame (`design/screens/launcher/Launcher-Mods.png`) is a 180px rail of categories
+ * over the profile list, and a five-column grid of 234 × 321 cards whose square preview
+ * is the card's own width. Two rows fill the content panel exactly at 1600 × 980 — the
+ * row height is derived from the shell's bands in `local/app.css`, so a third row is
+ * always a scroll away rather than a squeeze.
+ *
+ * Two things the earlier pass carried are gone because the frame does not have them:
+ * the 30px `Mods` title and the in-panel search field. The panel's header line is the
+ * library's own count on the left and the sort on the right, and searching a mod by
+ * name is the ⌘K palette's job — it already opens a mod's setup page and toggles it by
+ * name (`features/CommandPalette`). Losing the field bought the grid 60px of height,
+ * which is most of what made the port read as cramped next to the frame.
+ *
+ * Two rules from the contract shape the card:
+ *
+ *  - §1 "Category hues" — the card sets `--hue` from its mod's category, and every
+ *    accent underneath (the preview mark when the mod is on, the toggle's live track,
+ *    the hover lift's warm field) reads `var(--hue, var(--accent))`. Nothing here names
+ *    `--accent` directly.
+ *  - §1 "the accent rule" — a mod that is **off** is monochrome. Colour on this screen
+ *    means "this is on" or "this is selected", never "this is a mod".
+ *
+ * A card opens that mod's setup page (`screens/ModSetup`); the size-sm toggle on it is
+ * the only thing that writes straight through to the loadout, because on/off is not a
+ * property, it is the mod.
  */
 
-import {
-  EditPositionButton,
-  FilterTabs,
-  KeybindChip,
-  KeystrokesPreview,
-  ModGrid,
-  ModSettingsPanel,
-  ModSettingsRow,
-  ModTile,
-  MOD_ICONS,
-  Panel,
-  PositionChips,
-  SearchBar,
-  Slider,
-  Swatches,
-  Toggle,
-} from '@void/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 
-import { captureKey, prettyKey } from '../local/keys';
-import type { Loadout, ModId } from '../local/protocol';
+import { Toggle } from '../local/controls';
+import type { ModId } from '../local/protocol';
 import {
   FILTER_TABS,
   MOD_GRID_ORDER,
   MOD_REGISTRY,
   type FilterTab,
-  type SettingSpec,
   categoryOf,
   effectiveState,
-  formatSetting,
+  enabledCount,
+  hueOf,
   matchesTab,
-  settingsFor,
 } from '../local/registry';
 import { useLoadouts } from '../stores/loadouts';
 import { useUi } from '../stores/ui';
 
-/** The frames' pressed keys — `W`, `D` and `LMB` — as a still, not a live capture. */
-const PREVIEW_KEYS = { w: true, d: true, lmb: true };
+/* -------------------------------------------------------------------------- */
+/* Card previews                                                              */
+/* -------------------------------------------------------------------------- */
 
-/** The colour row of the mod-settings frame, as ids the schema round-trips. */
-const COLOURS = [
-  { id: '#FFFFFFFF', color: '#FFFFFF', label: 'White' },
-  { id: '#9F8BFFFF', color: '#9F8BFF', label: 'Accent' },
-  { id: '#3DD68CFF', color: '#3DD68C', label: 'Green' },
-  { id: '#D9A93AFF', color: '#D9A93A', label: 'Amber' },
-  { id: '#C05B54FF', color: '#C05B54', label: 'Red' },
-  { id: '#4D87CDFF', color: '#4D87CD', label: 'Blue' },
-];
+/**
+ * What a card's preview shows: **what the mod draws in game**, in miniature.
+ *
+ * Not an icon. The Figma (`289:1141`) gives every card a small picture of the mod's own
+ * output — the FPS counter's numeral over its unit, the keystroke cluster's six keycaps,
+ * the armour row's four durability bars, the crosshair's nine cells — and a grid of ten
+ * line-art glyphs reads flat and samey where that grid reads like a library of things
+ * that do something. The geometry below is the file's, cell for cell.
+ *
+ * Every one of them is **monochrome**, which is §1's accent rule: a mod sitting in the
+ * library is not a live value, so tinting ten previews by category would make the hue
+ * decoration. The single exception is the crosshair's centre dot — that dot *is* the
+ * mod's live value, and it takes `var(--hue)`.
+ *
+ * They are stills. The launcher has no game to read from, and a number that pretended to
+ * be state would be the one dishonest thing on the screen.
+ */
 
-function SettingControl({
-  spec,
-  value,
-  onChange,
-}: {
-  spec: SettingSpec;
-  value: unknown;
-  onChange: (next: unknown) => void;
-}) {
-  switch (spec.control) {
-    case 'switch':
+/** `142` over `FPS` — the file's 36px numeral in a 45px box over an 11px unit. */
+function Numeral({ value, unit }: { value: string; unit: string }) {
+  return (
+    <span className="modcard__readout">
+      <span className="modcard__num">{value}</span>
+      <span className="modcard__unit">{unit}</span>
+    </span>
+  );
+}
+
+/** The keystroke cluster: W over A S D over two wide mouse keys (file: 26px keys). */
+function Keycaps() {
+  return (
+    <span className="mp mp--keys" aria-hidden="true">
+      <span className="mp__krow">
+        <i />
+      </span>
+      <span className="mp__krow">
+        <i />
+        <i />
+        <i />
+      </span>
+      <span className="mp__krow mp__krow--wide">
+        <i />
+        <i />
+      </span>
+    </span>
+  );
+}
+
+/** Four durability bars, 56 × 8 on a 20 step, filled 40 / 52 / 28 / 16 (file). */
+function Bars() {
+  return (
+    <span className="mp mp--bars" aria-hidden="true">
+      {[40, 52, 28, 16].map((fill) => (
+        <i key={fill}>
+          <b style={{ width: fill }} />
+        </i>
+      ))}
+    </span>
+  );
+}
+
+/** The crosshair: four cells per arm at ±22 and ±30, and a live centre dot. */
+function Crosshair() {
+  return (
+    <span className="mp mp--cross" aria-hidden="true">
+      {[
+        [0, -30],
+        [0, -22],
+        [0, 22],
+        [0, 30],
+        [-30, 0],
+        [-22, 0],
+        [22, 0],
+        [30, 0],
+      ].map(([x, y]) => (
+        <i key={`${x}:${y}`} style={{ marginLeft: x, marginTop: y }} />
+      ))}
+      {/* The centre is the mod's live value, so it — and nothing else here — is hue. */}
+      <i className="mp__live" />
+    </span>
+  );
+}
+
+/** Two effect rows: a cell, a name and a countdown (file: 30px apart, 8px cell). */
+function Effects({ rows }: { rows: readonly [string, string][] }) {
+  return (
+    <span className="mp mp--rows" aria-hidden="true">
+      {rows.map(([name, value]) => (
+        <span key={name} className="mp__row">
+          <i />
+          <span className="mp__name">{name}</span>
+          <span className="mp__value tnum">{value}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** A 6 × 6 cell matrix over a caption — the file's sprint glyph. */
+const SPRINT_GLYPH = ['001100', '011110', '111111', '001100', '001100', '010010'];
+
+function CellGlyph({ rows, caption, size }: { rows: readonly string[]; caption?: string; size: number }) {
+  return (
+    <span className="mp mp--glyph" aria-hidden="true">
+      <span
+        className="mp__grid"
+        style={{ '--mp-cell': `${size}px`, '--mp-cols': rows[0]?.length ?? 0 } as CSSProperties}
+      >
+        {rows.map((row, y) =>
+          [...row].map((bit, x) => (
+            <i key={`${x}:${y}`} className={bit === '1' ? 'is-lit' : undefined} />
+          )),
+        )}
+      </span>
+      {caption ? <span className="modcard__unit">{caption}</span> : null}
+    </span>
+  );
+}
+
+/** A 5 × 5 of 18px cells, all lit — Fullbright's preview in the file. */
+const FULL_GLYPH = ['11111', '11111', '11111', '11111', '11111'];
+
+/** Every card's preview, by mod. */
+function Preview({ id }: { id: ModId }): ReactElement {
+  switch (id) {
+    case 'fps':
+      return <Numeral value="142" unit="fps" />;
+    case 'cps':
+      return <Numeral value="6.2" unit="cps" />;
+    case 'zoom':
+      return <Numeral value="2.0×" unit="zoom" />;
+    case 'hitboxes':
+      return <Numeral value="3.2" unit="blocks" />;
+    case 'ping':
+      return <Numeral value="42" unit="ms" />;
+    case 'keystrokes':
+      return <Keycaps />;
+    case 'armor_status':
+      return <Bars />;
+    case 'crosshair':
+      return <Crosshair />;
+    case 'potion_effects':
       return (
-        <Toggle
-          size="m"
-          checked={value === true}
-          onChange={onChange}
-          label={spec.label}
+        <Effects
+          rows={[
+            ['Speed II', '1:24'],
+            ['Strength', '0:42'],
+          ]}
         />
       );
-    case 'select':
+    case 'coordinates':
       return (
-        <PositionChips
-          aria-label={spec.label}
-          value={String(value ?? spec.options?.[0] ?? '')}
-          options={(spec.options ?? []).map((option) => ({
-            id: option,
-            label: option.replace(/_/g, ' '),
-          }))}
-          onChange={onChange}
+        <Effects
+          rows={[
+            ['X', '118'],
+            ['Z', '−402'],
+          ]}
         />
       );
-    case 'keybind':
-      return (
-        <KeybindChip
-          aria-label={spec.label}
-          value={prettyKey(String(value ?? 'NONE'))}
-          onCapture={captureKey}
-          onChange={onChange}
-        />
-      );
-    case 'color':
-      return (
-        <Swatches
-          aria-label={spec.label}
-          swatches={COLOURS}
-          value={String(value ?? '#FFFFFFFF').toUpperCase()}
-          onChange={onChange}
-        />
-      );
-    case 'slider':
-      return null; // sliders carry their own label row; see ModSettings below
+    case 'toggle_sprint':
+      return <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />;
+    case 'fullbright':
+    default:
+      return <CellGlyph rows={FULL_GLYPH} size={18} />;
   }
 }
 
-/**
- * The 278px pane beside the grid.
- *
- * `ModSettingsPanel` is a shell — the registry decides which rows a mod has, which is
- * the split `@void/ui`'s docs ask for: the package owns the chrome, `@void/protocol`
- * owns what a mod is.
- */
-function ModSettings({
+/** How many mods sit under each filter tab — the count the rail prints. */
+function countFor(tab: FilterTab): number {
+  return MOD_GRID_ORDER.filter((id) => matchesTab(id, tab)).length;
+}
+
+/** A tab's hue. `All` has no category of its own, so it keeps the default accent. */
+function tabHue(tab: FilterTab): string | undefined {
+  const match = MOD_GRID_ORDER.find((id) => tab !== 'All' && matchesTab(id, tab));
+  return match ? hueOf(match) : undefined;
+}
+
+function ModCard({
   id,
-  loadout,
-  onChange,
-  onEditPosition,
+  on,
+  onOpen,
+  onToggle,
 }: {
   id: ModId;
-  loadout: Pick<Loadout, 'mods'>;
-  onChange: (next: Record<string, unknown>) => void;
-  onEditPosition?: () => void;
+  on: boolean;
+  onOpen: () => void;
+  onToggle: (next: boolean) => void;
 }) {
   const entry = MOD_REGISTRY[id];
-  const state = effectiveState(loadout, id);
-  const on = state.on === true;
-
   return (
-    <ModSettingsPanel
-      className="mods__pane"
-      title={entry.label}
-      on={on}
-      onToggle={(next) => onChange({ on: next })}
+    <article
+      className={`modcard${on ? ' is-on' : ''}`}
+      style={{ '--hue': hueOf(id) } as CSSProperties}
     >
-      {id === 'keystrokes' ? (
-        <KeystrokesPreview keys={PREVIEW_KEYS} />
-      ) : (
-        <p className="mods__desc">{entry.description}</p>
-      )}
-
-      <div className={`mods__settings${on ? '' : ' is-disabled'}`}>
-        {settingsFor(id).map((spec) =>
-          spec.control === 'slider' ? (
-            <Slider
-              key={spec.key}
-              label={spec.label}
-              readout={formatSetting(spec, state[spec.key])}
-              value={Number(state[spec.key] ?? spec.min ?? 0)}
-              min={spec.min ?? 0}
-              max={spec.max ?? 1}
-              step={spec.step ?? 0.01}
-              onChange={(next) => onChange({ [spec.key]: next })}
-            />
-          ) : (
-            <ModSettingsRow key={spec.key} label={spec.label}>
-              <SettingControl
-                spec={spec}
-                value={state[spec.key]}
-                onChange={(next) => onChange({ [spec.key]: next })}
-              />
-            </ModSettingsRow>
-          ),
-        )}
-      </div>
-
-      {entry.kind === 'hud' ? (
-        <EditPositionButton onClick={onEditPosition} disabled={!onEditPosition} />
-      ) : (
-        <p className="mods__note">
-          {entry.hypixel_safe === 'grey'
-            ? 'Not Hypixel-safe — turn it off before joining ranked.'
-            : 'Applies to the whole loadout.'}
-        </p>
-      )}
-    </ModSettingsPanel>
+      <button type="button" className="modcard__open" onClick={onOpen}>
+        <span className="modcard__preview">
+          <span className="modcard__field" aria-hidden="true" />
+          <Preview id={id} />
+        </span>
+        <span className="modcard__foot">
+          <span className="modcard__text">
+            <span className="modcard__name">{entry.label}</span>
+            <span className="modcard__cat">{categoryOf(id)}</span>
+          </span>
+        </span>
+      </button>
+      <Toggle
+        size="sm"
+        className="modcard__toggle"
+        checked={on}
+        onChange={onToggle}
+        label={`${entry.label} — ${on ? 'on' : 'off'}`}
+      />
+    </article>
   );
 }
 
 export function ModsScreen() {
   const active = useLoadouts((s) => s.active);
+  const library = useLoadouts((s) => s.library);
+  const switchTo = useLoadouts((s) => s.switchTo);
   const setMod = useLoadouts((s) => s.setMod);
-  const selectedMod = useUi((s) => s.selectedMod) as ModId;
-  const selectMod = useUi((s) => s.selectMod);
+  const openModSetup = useUi((s) => s.openModSetup);
 
   const [tab, setTab] = useState<FilterTab>('All');
-  const [query, setQuery] = useState('');
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return MOD_GRID_ORDER.filter((id) => {
-      if (!matchesTab(id, tab)) return false;
-      if (!q) return true;
-      const entry = MOD_REGISTRY[id];
-      return (
-        entry.label.toLowerCase().includes(q) ||
-        entry.description.toLowerCase().includes(q) ||
-        categoryOf(id).toLowerCase().includes(q)
-      );
-    });
-  }, [tab, query]);
-
-  if (!active) return <Panel title="Mods">{null}</Panel>;
+  const visible = useMemo(() => MOD_GRID_ORDER.filter((id) => matchesTab(id, tab)), [tab]);
+  const on = active ? enabledCount(active) : 0;
 
   return (
-    <Panel
-      title="Mods"
-      headerRight={
-        <>
-          <SearchBar
-            variant="panel"
-            placeholder="Search"
-            value={query}
-            onChange={setQuery}
-          />
-          <FilterTabs
-            label="Mod category"
-            tabs={FILTER_TABS.map((id) => ({ id, label: id }))}
-            value={tab}
-            onChange={(id) => setTab(id as FilterTab)}
-          />
-        </>
-      }
-      footer={
-        <>
-          Changes apply on next launch &nbsp;·&nbsp; drag any tile onto the HUD editor to place it
-          &nbsp;·&nbsp; ⌘K search
-        </>
-      }
-    >
-      <ModGrid>
-        {visible.map((id) => {
-          const entry = MOD_REGISTRY[id];
-          return (
-            <ModTile
-              key={id}
-              name={entry.label}
-              category={categoryOf(id)}
-              icon={MOD_ICONS[id]}
-              on={effectiveState(active, id).on === true}
-              selected={id === selectedMod}
-              onSelect={() => selectMod(id)}
-              onToggle={(next) => void setMod(id, { on: next })}
-              // The footer promises "drag any tile onto the HUD editor to place it".
-              // The editor is in game, so what travels is the mod id.
-              draggable={entry.kind === 'hud'}
-              onDragStart={(event) =>
-                event.dataTransfer.setData('application/x-void-mod', id)
-              }
-            />
-          );
-        })}
-        {visible.length === 0 ? <p className="mods__empty">No mod matches “{query}”.</p> : null}
-      </ModGrid>
+    <div className="mods">
+      <div className="mods__body">
+        <nav className="rail" aria-label="Mod categories and loadouts">
+          <p className="eyebrow">Categories</p>
+          <ul className="rail__list">
+            {FILTER_TABS.map((id) => (
+              <li key={id}>
+                <button
+                  type="button"
+                  className={`rail__row${id === tab ? ' is-on' : ''}`}
+                  style={{ '--hue': tabHue(id) } as CSSProperties}
+                  aria-current={id === tab}
+                  onClick={() => setTab(id)}
+                >
+                  <span className="rail__label">{id}</span>
+                  <span className="rail__count tnum">{countFor(id)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
 
-      <ModSettings
-        id={selectedMod}
-        loadout={active}
-        onChange={(next) => void setMod(selectedMod, next)}
-      />
-    </Panel>
+          <hr className="rail__divider" />
+
+          {/* §6: a bundle of mods is a **Loadout**. The frame says PROFILES because it
+              predates that decision; the word here is the contract's, not the frame's. */}
+          <p className="eyebrow">Loadouts</p>
+          <ul className="rail__list">
+            {library.map((loadout) => (
+              <li key={loadout.id}>
+                <button
+                  type="button"
+                  className={`rail__row${loadout.id === active?.id ? ' is-on' : ''}`}
+                  aria-current={loadout.id === active?.id}
+                  onClick={() => void switchTo(loadout.id)}
+                >
+                  <span className="rail__dot cell" aria-hidden="true" />
+                  <span className="rail__label">{loadout.name}</span>
+                </button>
+              </li>
+            ))}
+            {library.length === 0 ? <li className="rail__empty">No loadouts yet</li> : null}
+          </ul>
+        </nav>
+
+        <div className="modcol">
+          {/* The frame's header line, which belongs to the grid column rather than to
+              the panel: the count on the left, the sort on the right. It stays put
+              while the grid under it scrolls. */}
+          <header className="modcol__head">
+            <p className="eyebrow tnum">
+              {MOD_GRID_ORDER.length} mods · {on} enabled
+            </p>
+            <p className="eyebrow">Recently used</p>
+          </header>
+
+          <div className="modgrid">
+            {active
+            ? visible.map((id) => (
+                <ModCard
+                  key={id}
+                  id={id}
+                  on={effectiveState(active, id).on === true}
+                  onOpen={() => openModSetup(id)}
+                  onToggle={(next) => void setMod(id, { on: next })}
+                />
+              ))
+            : null}
+            {active && visible.length === 0 ? (
+              <p className="modgrid__empty">Nothing under {tab}.</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

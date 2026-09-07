@@ -15,17 +15,17 @@
       {
         "label": "main",
         "title": "VOID PVP",
-        "width": 1300,
-        "height": 820,
-        "minWidth": 1100,
-        "minHeight": 700,
+        "width": 1600,
+        "height": 980,
+        "minWidth": 1280,
+        "minHeight": 800,
         "resizable": true,
         "center": true,
         "decorations": false,
         "transparent": false,
         "shadow": true,
         "dragDropEnabled": false,
-        "backgroundColor": "#0a0b0c"
+        "backgroundColor": "#0B0B0C"
       }
     ],
     "security": {

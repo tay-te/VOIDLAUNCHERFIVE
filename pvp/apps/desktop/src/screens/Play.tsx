@@ -1,29 +1,107 @@
 /**
- * Play — `244:3`.
+ * Play — the shell's content panel with the active loadout in it.
  *
- * Hero states which loadout is active; the eyebrow pill is a live readout, not a
- * decoration; the stats row is the three numbers the frame prints, each from a real
- * source where one exists:
+ * The frame (`design/screens/launcher/Launcher-Play.png`, 1600 × 980) is a *stage*, and
+ * its composition is the point of the screen. Four things, and nothing else:
+ *
+ *   1. the dot-matrix field over the whole stage (`local/watermark`), which is what
+ *      keeps 1536 × 768 of `--bg-base` from reading as an empty box;
+ *   2. a 300 × 30 status chip in the top-left corner at (64, 112);
+ *   3. the loadout block hard against the bottom-left — `ACTIVE LOADOUT`, the name at
+ *      **88px**, and one line carrying the three numbers;
+ *   4. the floating dock card, which belongs to the shell and lives in `features/Dock`.
+ *
+ * That 88 is the whole screen. The previous pass drew it at 40 — the contract's first
+ * draft aliased `--text-hero` onto `--text-display-lg` — and the port read as cramped
+ * because of it.
+ *
+ * Two things an earlier pass carried are gone, because neither is in the frame and
+ * both sat in the middle of the stage's air: the three stat cards (MODS ON / AVERAGE
+ * FPS / PING) and the "IN THIS LOADOUT" chip row. Nothing was lost with them — the
+ * numbers are the meta line now, and the mods are the Mods screen, which the ⌘K palette
+ * also reaches by name.
+ *
+ * The numbers are real where a source exists:
  *
  *   `N mods on`      — counted from the active loadout against the registry defaults
  *   `fps avg`        — the loadout's accumulated `stats.fps_avg` (from `session`)
  *   `ms to Hypixel`  — a live `server_ping` SLP round trip
  *
- * The pill is `@void/ui`'s `StatusPill`; the hero type ramp is launcher-only — 104px
- * display over a recessed canvas is a thing only this bundle has.
+ * Colour follows the accent rule (§1): the readiness dot is `--ok` only when the
+ * loadout *is* ready. Nothing else on the screen is tinted.
  */
 
-import { StatusPill } from '@void/ui';
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 
 import { hypixelReady } from '../local/hypixelReady';
 import { enabledCount } from '../local/registry';
+import {
+  WM_ALPHA,
+  WM_CELL,
+  WM_MARK_CELL,
+  WM_MARK_GAIN,
+  WM_MARK_ROWS,
+  WM_ORIGIN,
+  WM_ROWS,
+  WM_STEP,
+} from '../local/watermark';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
 import { useServers } from '../stores/servers';
 
 /** The server the Play screen quotes a ping for: the active loadout's, else Hypixel. */
 const FALLBACK_HOST = 'mc.hypixel.net';
+
+/**
+ * The stage's field, built once at module scope.
+ *
+ * Two layers: the 536-cell scatter at 10px, and the 37-cell VOID ring at 28px over it.
+ * That is more DOM than a background would be, but the alpha ramps per column and both
+ * patterns are sparse, so neither a repeating gradient nor a tiled image can draw them —
+ * a gradient cannot skip cells and a tile cannot ramp. They are inert `<i>` elements
+ * under `pointer-events: none`, built once at module scope and never re-rendered, so a
+ * ping landing does not touch them.
+ */
+/** The alpha a cell in column `x` is drawn at — the field ramps left to right. */
+const alphaAt = (x: number, columns: number): number =>
+  WM_ALPHA.from + (WM_ALPHA.to - WM_ALPHA.from) * (x / (columns - 1));
+
+function layer(rows: readonly string[], size: number, gain: number, radius: number) {
+  return rows.flatMap((row, y) =>
+    [...row].flatMap((bit, x) =>
+      bit === '1'
+        ? [
+            {
+              key: `${size}:${x}:${y}`,
+              style: {
+                left: WM_ORIGIN.x + x * WM_STEP - (size - WM_CELL) / 2,
+                top: WM_ORIGIN.y + y * WM_STEP - (size - WM_CELL) / 2,
+                width: size,
+                height: size,
+                borderRadius: radius,
+                opacity: alphaAt(x, row.length) * gain,
+              } as CSSProperties,
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
+const FIELD = [
+  ...layer(WM_ROWS, WM_CELL, 1, 3),
+  ...layer(WM_MARK_ROWS, WM_MARK_CELL, WM_MARK_GAIN, 8),
+];
+
+function StageField() {
+  return (
+    <div className="play__field" aria-hidden="true">
+      {FIELD.map((cell) => (
+        <i key={cell.key} className="play__cell" style={cell.style} />
+      ))}
+    </div>
+  );
+}
 
 export function PlayScreen() {
   const active = useLoadouts((s) => s.active);
@@ -48,8 +126,9 @@ export function PlayScreen() {
 
   if (!active) {
     return (
-      <div className="hero">
-        <p className="hero__meta">Loading your library…</p>
+      <div className="play">
+        <StageField />
+        <p className="play__detail">Loading your library…</p>
       </div>
     );
   }
@@ -57,32 +136,39 @@ export function PlayScreen() {
   const readiness = hypixelReady(active);
   const mods = enabledCount(active);
   const fpsAvg = active.stats?.fps_avg ?? 0;
-  const fps = fpsAvg > 0 ? `${Math.round(fpsAvg)} fps avg` : 'no sessions yet';
   const pingState = pings[host];
-  const pingText =
-    pingState?.status === 'ok' && pingState.result
-      ? `${pingState.result.latency_ms} ms to ${label}`
-      : pingState?.status === 'error'
-        ? `${label} unreachable`
-        : `pinging ${label}…`;
+  const pingValue =
+    pingState?.status === 'ok' && pingState.result ? `${pingState.result.latency_ms}` : null;
 
   return (
-    <div className="hero">
-      <StatusPill tone={readiness.ready ? 'ok' : 'warn'}>
-        VOID PVP &nbsp;·&nbsp; {active.mc} &nbsp;·&nbsp; {readiness.label}
-      </StatusPill>
+    <div className="play">
+      <StageField />
 
-      <div className="hero__body">
-        <p className="hero__kicker">ACTIVE LOADOUT</p>
-        <h1 className="hero__title">{active.name}</h1>
-        <p className="hero__meta">
-          {mods} mods on &nbsp;·&nbsp; {fps} &nbsp;·&nbsp; {pingText}
+      {/* The status chip. Its dot is the one accent on the stage, and only when ready. */}
+      <p className="play__state eyebrow">
+        <span className={`dot cell${readiness.ready ? ' is-ok' : ''}`} aria-hidden="true" />
+        VOID PVP · {active.mc} · {readiness.ready ? 'Hypixel-ready' : 'Review mods'}
+      </p>
+
+      <header className="play__head">
+        <p className="eyebrow">Active loadout</p>
+        <h1 className="hero">{active.name}</h1>
+        <p className="play__meta">
+          <span className="tnum">{mods} mods on</span>
+          <span className="play__dash">·</span>
+          <span className="tnum">{fpsAvg > 0 ? `${Math.round(fpsAvg)} fps avg` : 'no sessions yet'}</span>
+          <span className="play__dash">·</span>
+          <span className="tnum">
+            {pingValue ? `${pingValue} ms to ${label}` : `pinging ${label}`}
+          </span>
+          {liveServer?.connected ? (
+            <>
+              <span className="play__dash">·</span>
+              <span className="play__live">in game on {liveServer.host}</span>
+            </>
+          ) : null}
         </p>
-        {!readiness.ready ? <p className="hero__warn">{readiness.detail}</p> : null}
-        {liveServer?.connected ? (
-          <p className="hero__live">In game on {liveServer.host}</p>
-        ) : null}
-      </div>
+      </header>
     </div>
   );
 }

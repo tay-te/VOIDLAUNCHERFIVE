@@ -219,8 +219,8 @@ export function ServersScreen() {
               <span className="pane__rowtext">
                 <span className="pane__rowtitle">Auto-switch loadout</span>
                 <span className="pane__rowsub">
-                  {/* TODO(integrate): needs a server-profile schema (§16.3). */}
-                  Not wired yet — needs a server profile schema (§16.3)
+                  {/* TODO(integrate): needs a per-server default loadout (§16.3). */}
+                  Not wired yet — needs a per-server default loadout (§16.3)
                 </span>
               </span>
               <Toggle size="m" checked={false} label="Auto-switch loadout" disabled />

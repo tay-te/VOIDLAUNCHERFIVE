@@ -5,7 +5,7 @@
  * same number from the same place: `server_ping`, a real Minecraft SLP handshake.
  *
  * TODO(integrate): the favourites list is persisted in `localStorage` rather than by
- * Rust. `schema/loadout.json` has a `server` slug but there is no server-profile
+ * Rust. `schema/loadout.json` has a `server` slug but there is no per-server
  * schema yet (open question §16.3 — "Rust-side ping; server-bound default loadouts?").
  * When one lands, move this to `servers_list` / `servers_add` / `servers_remove`
  * commands and delete the storage code; the store's shape does not change.

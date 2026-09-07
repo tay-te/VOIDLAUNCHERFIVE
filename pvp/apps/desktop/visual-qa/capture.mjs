@@ -1,5 +1,5 @@
 /**
- * Drive `pnpm dev:web` in a real Chromium and take the eight review shots.
+ * Drive `pnpm dev:web` in a real Chromium and take the review shots.
  *
  * The browser preview is the whole point of the mocked `@tauri-apps/api`: every screen,
  * every launch phase and every error state renders with fixture data, so a designer's
@@ -15,12 +15,11 @@ const URL_BASE = process.env.VQA_URL ?? 'http://127.0.0.1:5183/';
 const TAG = process.argv[2] ?? 'after'; // `before` for the baseline pass
 
 /**
- * `--no-backdrop` runs the preview with the dev-only design crop switched off, so the
- * canvas shows the gradient placeholder the shipped launcher draws. That is the pass
- * to compare against an older baseline; the default pass is the one that isolates the
- * components from the art the repository does not have.
+ * There is no backdrop switch any more. The canonical frames are flat (§0 of
+ * `design/quiet-cell-system.md` removed the hero still), so the launcher and the frame
+ * draw the same empty panel and the pass needs no "art supplied" variant.
  */
-const PAGE = URL_BASE + (process.argv.includes('--no-backdrop') ? '?no-backdrop' : '');
+const PAGE = URL_BASE;
 
 const { chromium } = await need('playwright');
 
@@ -44,7 +43,9 @@ await page.waitForTimeout(400);
 
 /** The preview starts signed out; the frames are all drawn signed in as Searge. */
 async function signIn() {
-  await page.getByRole('button', { name: 'Settings', exact: true }).first().click();
+  // The profile chip is the way into Settings — all three frames put exactly two
+  // controls on the right of the nav bar, so the launcher carries no separate gear.
+  await page.locator('.profile-chip').click();
   const field = page.getByLabel('Offline account name');
   await field.waitFor();
   await field.fill('Searge');
@@ -60,7 +61,7 @@ async function go(screen) {
 }
 
 const shot = async (id) => {
-  // Every frame is one 1300 × 820 window, so a viewport shot is the comparable unit.
+  // Every frame is one 1600 × 980 window, so a viewport shot is the comparable unit.
   await page.screenshot({ path: path.join(OUT, TAG, `${id}.png`), animations: 'disabled' });
   process.stdout.write(`  ${id}\n`);
 };
@@ -74,6 +75,13 @@ await shot('play');
 await go('Mods');
 await shot('mods');
 
+// The mod setup sub-route. `Launcher-Setup.png` is Keystrokes, so open that card.
+await page.getByRole('button', { name: /^Keystrokes/ }).first().click();
+await page.waitForTimeout(450);
+await shot('setup');
+await page.locator('.backlink').click();
+await page.waitForTimeout(300);
+
 await go('Cosmetics');
 await shot('cosmetics');
 
@@ -84,9 +92,9 @@ await shot('servers');
 await go('Friends');
 await shot('friends');
 
-// Settings — the gear, over whichever screen is up. Play, to match the frames.
+// Settings — the profile chip, over whichever screen is up. Play, to match the frames.
 await go('Play');
-await page.getByRole('button', { name: 'Settings', exact: true }).first().click();
+await page.locator('.profile-chip').click();
 await page.waitForTimeout(500);
 await shot('settings');
 await page.keyboard.press('Escape');
@@ -104,7 +112,7 @@ await page.waitForTimeout(300);
 // The dock mid-launch. `prepare` in the mock walks the same steps the real one does,
 // so wait for the CTA to actually enter its progress state rather than guessing.
 await page.getByRole('button', { name: /^Launch/ }).click();
-await page.locator('.dock__launch').waitFor({ state: 'attached', timeout: 10_000 });
+await page.locator('.launch--working').waitFor({ state: 'attached', timeout: 10_000 });
 await page.waitForTimeout(700);
 await shot('launching');
 

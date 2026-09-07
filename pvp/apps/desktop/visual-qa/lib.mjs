@@ -21,7 +21,7 @@ export const DESIGN = path.resolve(APP, '../../design/screens');
 export const OUT = path.join(HERE, 'out');
 
 /** The one viewport every frame in `design/` is drawn at. */
-export const VIEWPORT = { width: 1300, height: 820 };
+export const VIEWPORT = { width: 1600, height: 980 };
 
 let globalRoot = null;
 function globalNodeModules() {
@@ -83,43 +83,48 @@ async function load(name) {
 /**
  * The regions of a frame that carry UI, per screen.
  *
- * The launcher has no hero raster to ship (`src/dev/backdrops.ts`), so on a shot taken
- * with the gradient placeholder the canvas backdrop is 40–60 % of the frame and differs
- * for a reason no component can fix. Scoring those rectangles alone is what makes a
- * "before" pass and an "after" pass comparable: both run on the same placeholder, and
- * the number then moves only when the components move.
+ * The canonical frames (`design/screens/launcher/`, 1600 x 980) are flat: there is no
+ * photographic hero behind the content panel any more, only the shell fill and the
+ * recessed panel, so a straight full-frame diff is meaningful and the "art supplied"
+ * pass that the 1300 x 820 baseline needed is gone.
  *
- * Boxes are the Figma's, plus a few pixels of bleed for shadows and the 1.5px selected
- * borders: the chrome band, the dock, and the panel. Play has no panel and its hero
- * type sits directly on the missing raster, so its regions stop at the eyebrow pill —
- * the hero's own geometry is checked by measuring glyph ink bounds instead, which
- * `report.md` records.
+ * The regions are still scored separately because they say *where* a difference is:
+ *
+ *   chrome  the 80px navbar band                     0,0    1600 x 80
+ *   panel   the content panel, inset 32,80 (§7)      32,80  1536 x 768
+ *   dock    the band under it                        0,848  1600 x 132
+ *
+ * Together they are the whole frame, so `ui only` and `frame` differ only by the
+ * rounded corners of the 20px window radius.
  */
-const CHROME = [0, 0, 1300, 62];
-const DOCK = [216, 690, 868, 94];
-const PANEL = [162, 74, 976, 612];
+const CHROME = [0, 0, 1600, 80];
+const PANEL = [32, 80, 1536, 768];
+const DOCK = [0, 848, 1600, 132];
 
 export const UI_REGIONS = {
-  play: [CHROME, DOCK, [42, 86, 360, 34]],
-  mods: [CHROME, DOCK, PANEL],
-  cosmetics: [CHROME, DOCK, PANEL],
-  servers: [CHROME, DOCK, PANEL],
-  friends: [CHROME, DOCK, PANEL],
+  play: [CHROME, PANEL, DOCK],
+  mods: [CHROME, PANEL, DOCK],
+  setup: [CHROME, PANEL, DOCK],
 };
 
 /**
- * The eight shots the pass takes. `design` names the frame to diff against; the three
- * with no `design` entry have no Figma frame of their own (Settings is a launcher
- * addition, the palette's frame is the in-game one, and the progress dock is a state
- * rather than a screen) so they are captured for review but never scored.
+ * The shots the pass takes. `design` names the frame to diff against, relative to
+ * `design/screens`.
+ *
+ * Only three frames were re-cut at the shipped 1600 x 980 window size, and they are the
+ * three the launcher is scored on. Cosmetics, Servers and Friends still have only the
+ * superseded 1300 x 820 boards in `design/screens/`, which cannot be diffed against a
+ * 1600 x 980 capture at all — they are captured for review and left unscored rather
+ * than compared against a frame that is the wrong size and the wrong system.
  */
 export const SHOTS = [
-  { id: 'play', label: 'Play', design: 'Launcher-Play.png' },
-  { id: 'mods', label: 'Mods', design: 'Launcher-Mods.png' },
-  { id: 'cosmetics', label: 'Cosmetics', design: 'Launcher-Cosmetics.png' },
-  { id: 'servers', label: 'Servers', design: 'Launcher-Servers.png' },
-  { id: 'friends', label: 'Friends', design: 'Launcher-Friends.png' },
+  { id: 'play', label: 'Play', design: 'launcher/Launcher-Play.png' },
+  { id: 'mods', label: 'Mods', design: 'launcher/Launcher-Mods.png' },
+  { id: 'setup', label: 'Mod setup', design: 'launcher/Launcher-Setup.png' },
+  { id: 'cosmetics', label: 'Cosmetics', design: null },
+  { id: 'servers', label: 'Servers', design: null },
+  { id: 'friends', label: 'Friends', design: null },
   { id: 'settings', label: 'Settings', design: null },
-  { id: 'palette', label: 'Command palette (⌘K)', design: null },
-  { id: 'launching', label: 'Dock — launching / progress', design: null },
+  { id: 'palette', label: 'Command palette (Cmd-K)', design: null },
+  { id: 'launching', label: 'Dock - launching / progress', design: null },
 ];

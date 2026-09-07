@@ -17,6 +17,7 @@ import {
   MOD_IDS,
   MOD_REGISTRY,
   enabledMods,
+  getModDefaults,
   getModEntry,
   getModLabel,
   isModEnabled,
@@ -24,7 +25,15 @@ import {
 } from '@void/protocol';
 import type { Loadout, ModId } from './protocol';
 
-export { MOD_IDS, MOD_REGISTRY, getModEntry, getModLabel, isModEnabled, enabledMods };
+export {
+  MOD_IDS,
+  MOD_REGISTRY,
+  getModDefaults,
+  getModEntry,
+  getModLabel,
+  isModEnabled,
+  enabledMods,
+};
 
 /** Which FilterTab a mod sits under. The tab set is `All/HUD/PvP/Visual/Utility`. */
 export type ModCategory = 'HUD' | 'PVP' | 'VISUAL' | 'UTILITY';
@@ -44,6 +53,25 @@ const CATEGORY_OVERRIDES: Partial<Record<ModId, ModCategory>> = {
 
 export function categoryOf(id: ModId): ModCategory {
   return CATEGORY_OVERRIDES[id] ?? 'HUD';
+}
+
+/**
+ * A category's hue (quiet-cell-system §1).
+ *
+ * A mod's accent is its category's hue, exposed as `--hue` on the mod's root element so
+ * that every accent-consuming rule underneath can read `var(--hue, var(--accent))`.
+ * Nothing mod-scoped hard-codes `--accent`.
+ */
+export const CATEGORY_HUE: Readonly<Record<ModCategory, string>> = {
+  HUD: 'var(--hue-hud)',
+  PVP: 'var(--hue-pvp)',
+  VISUAL: 'var(--hue-visual)',
+  UTILITY: 'var(--hue-utility)',
+};
+
+/** The `--hue` value to put on a mod's root element. */
+export function hueOf(id: ModId): string {
+  return CATEGORY_HUE[categoryOf(id)];
 }
 
 export interface SettingSpec {
@@ -161,18 +189,23 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
  * Reading order of the Mods grid, taken from the Figma rather than from registry order:
  * the frame leads with the mods that are on by default and trails with the ones that
  * are off, which is what makes the grid read at a glance.
+ *
+ * The order below is `design/screens/launcher/Launcher-Mods.png` cell for cell — FPS
+ * display, Keystrokes, CPS counter, Armor status, Crosshair on the first row; Potion
+ * effects, Zoom, Toggle sprint, Reach display, Fullbright on the second — with the two
+ * mods the frame's library does not carry trailing it.
  */
 export const MOD_GRID_ORDER: readonly ModId[] = [
   'fps',
   'keystrokes',
   'cps',
-  'toggle_sprint',
-  'crosshair',
-  'zoom',
-  'fullbright',
-  'hitboxes',
   'armor_status',
+  'crosshair',
   'potion_effects',
+  'zoom',
+  'toggle_sprint',
+  'hitboxes',
+  'fullbright',
   'ping',
   'coordinates',
 ];
@@ -196,6 +229,15 @@ export function effectiveState(
   return resolveModSettings(loadout, id) as unknown as Record<string, unknown>;
 }
 
+/**
+ * A mod's factory defaults, as an open bag — what "Reset to default" restores and what
+ * every preset is derived from. Same cast as `effectiveState`, for the same reason: the
+ * generated per-mod shapes are closed, and the UI reads them by key.
+ */
+export function defaultsFor(id: ModId): Record<string, unknown> {
+  return { ...(getModDefaults(id) as unknown as Record<string, unknown>) };
+}
+
 export function isOn(loadout: Pick<Loadout, 'mods'>, id: ModId): boolean {
   return isModEnabled(loadout, id);
 }
@@ -206,6 +248,30 @@ export function enabledCount(loadout: Pick<Loadout, 'mods'>): number {
 
 export function settingsFor(id: ModId): readonly SettingSpec[] {
   return SETTING_SPECS[id];
+}
+
+/**
+ * Settings that are *spatial* — position, size, placement.
+ *
+ * §8: those never appear as list rows. They live on the setup page's preview as drag
+ * handles, so `propertiesFor` is what decides the shape of the properties column
+ * (1 → no list, 2–4 → flat, 5+ → two groups) and `scale` is not part of that count.
+ */
+const SPATIAL_KEYS: ReadonlySet<string> = new Set(['scale']);
+
+/** The settings that get a row in the properties column. */
+export function propertiesFor(id: ModId): readonly SettingSpec[] {
+  return SETTING_SPECS[id].filter((spec) => !SPATIAL_KEYS.has(spec.key));
+}
+
+/** The spatial settings, which the preview owns. */
+export function spatialFor(id: ModId): readonly SettingSpec[] {
+  return SETTING_SPECS[id].filter((spec) => SPATIAL_KEYS.has(spec.key));
+}
+
+/** Every mod in a category, in grid order. */
+export function modsInCategory(category: ModCategory): readonly ModId[] {
+  return MOD_GRID_ORDER.filter((id) => categoryOf(id) === category);
 }
 
 /** Format a setting value the way the settings pane prints it next to its label. */
