@@ -45,6 +45,14 @@ const LOG_CAPACITY: usize = 2000;
 /// on a button that is already asking "are you sure".
 const KILL_POLL: Duration = Duration::from_millis(200);
 
+/// How long the mod gets to call back before the log says it never did.
+///
+/// The mod connects from `onInitializeClient`, which Fabric runs early in `startGame` —
+/// before the window, let alone a world. So this is not a race with a slow machine; it is
+/// generous enough for a cold JVM plus Mixin plus a spinning disk and still far short of
+/// the point where a player would have concluded the launcher is broken.
+const BRIDGE_HANDSHAKE_GRACE: Duration = Duration::from_secs(45);
+
 #[derive(Default)]
 pub struct GameState {
     pub running: Arc<AtomicBool>,
@@ -144,6 +152,11 @@ pub async fn launch(
     // 3. The UI's own subscription to the same bus.
     spawn_bridge_forwarder(bridge.subscribe(), emitter.clone(), game.clone());
 
+    // Cloned before the server moves into `GameState`, for the handshake watchdog below.
+    // Cheap: `BridgeServer` is an `Arc` inside, and the clone is dropped when that task
+    // ends, well before the session does.
+    let bridge_watch = bridge.clone();
+
     // 4. The JVM.
     let mut process = launch::launch(
         &req.profile,
@@ -183,6 +196,35 @@ pub async fn launch(
         GAME_STARTED,
         &serde_json::json!({ "pid": pid, "loadout": loadout_id, "bridge_port": port }),
     );
+
+    // The one failure on this path that has no other symptom. If no mod ever calls back —
+    // because `mods/` holds no `void-client` JAR, or an old one, or one whose natives are
+    // for another platform — every other signal still says healthy: `game:started` fired,
+    // the process is alive, the log scrolls, Minecraft comes up. The game is simply
+    // vanilla, and the launcher's own loadouts, HUD and menu do nothing. Nothing in the
+    // launcher says so today, so say it here, in the log the drawer already shows.
+    {
+        let log = log.clone();
+        let emitter = emitter.clone();
+        let running = running.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(BRIDGE_HANDSHAKE_GRACE).await;
+            if running.load(Ordering::SeqCst) && bridge_watch.client_count() == 0 {
+                push(
+                    &log,
+                    emitter.as_ref(),
+                    "stderr",
+                    format!(
+                        "[void] nothing has connected to the bridge on 127.0.0.1:{port} after \
+                         {}s — the game is running without the VOID client. Check that a \
+                         void-client JAR for this platform is in the mods directory; the \
+                         launcher only installs one when `mod_jar` is set in config.json.",
+                        BRIDGE_HANDSHAKE_GRACE.as_secs()
+                    ),
+                );
+            }
+        });
+    }
 
     // Drain the game's output on its own task. Taking the receiver out of the process
     // leaves the process free to be `wait`ed and `kill`ed below without a split borrow.
@@ -267,6 +309,20 @@ fn spawn_bridge_forwarder(
     tokio::spawn(async move {
         loop {
             match bus.recv().await {
+                // Not a `bridge:*` event — the store owns `hello` (see below) — but the one
+                // line that says the link came up at all, next to the "[void] bridge on
+                // ws://..." line the spawn already wrote. Without it the log shows the
+                // launcher offering a socket and never says whether anything took it.
+                Ok(JavaToRust::Hello { ref mc, ref mod_version, .. }) => {
+                    if let Ok(log) = game.lock().map(|g| g.log.clone()) {
+                        push(
+                            &log,
+                            emitter.as_ref(),
+                            "stdout",
+                            format!("[void] mod connected: Minecraft {mc}, void-client {mod_version}"),
+                        );
+                    }
+                }
                 Ok(JavaToRust::State { loadout, patch }) => emit(
                     emitter.as_ref(),
                     BRIDGE_STATE,
@@ -292,8 +348,9 @@ fn spawn_bridge_forwarder(
                         "t": "server", "host": host, "connected": connected, "port": port
                     }),
                 ),
-                // `hello`, `hud` and unknown tags are the store's business, not the
-                // launcher UI's — `sync::pump` has its own subscription for those.
+                // `hud` and unknown tags are the store's business, not the launcher UI's —
+                // `sync::pump` has its own subscription for those. So is `hello`; the arm
+                // above writes a log line and deliberately emits no `bridge:*` event.
                 Ok(_) => {}
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                     tracing::warn!(dropped = n, "bridge forwarder fell behind");
@@ -396,7 +453,7 @@ mod tests {
         .unwrap();
 
         for _ in 0..50 {
-            if rec.names().len() >= 2 {
+            if rec.names().len() >= 3 {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -405,8 +462,20 @@ mod tests {
         let names = rec.names();
         assert!(names.contains(&BRIDGE_SERVER.to_string()));
         assert!(names.contains(&BRIDGE_SESSION.to_string()));
-        // `hello` is the store's business, not the UI's.
-        assert_eq!(names.len(), 2, "{names:?}");
+        // `hello` is the store's business, not the UI's: no `bridge:*` event comes of it.
+        // It does write one line into the game log, which is how the drawer shows that
+        // something actually took the socket the launcher opened.
+        let bridge_events = names.iter().filter(|n| n.starts_with("bridge:")).count();
+        assert_eq!(bridge_events, 2, "{names:?}");
+        assert_eq!(names.iter().filter(|n| *n == GAME_LOG).count(), 1, "{names:?}");
+        assert!(
+            game.lock()
+                .unwrap()
+                .tail(1)
+                .first()
+                .is_some_and(|l| l.contains("mod connected") && l.contains("0.1.0")),
+            "the handshake should be visible in the log drawer"
+        );
 
         // The session summary is remembered for `game:closed`.
         let slot = game.lock().unwrap().last_session.clone();

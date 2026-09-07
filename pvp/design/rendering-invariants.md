@@ -133,20 +133,90 @@ call from the UI thread. The thread split had left GL work on the game thread on
 the reasoning that "the game thread keeps only the GL work, which is where its
 context is" — true, and exactly why the other thread needs one of its own.
 
-## 9. GPU failure must degrade, not latch — **[measured, being fixed]**
+## 9. GPU failure must degrade, not latch — **[measured]**
 
-`g_gpu_failed` is process-wide, set on `gpu::initialize()` failure, never
-retried, and every subsequent accelerated render early-returns. On a machine
-where the GLSL 1.20 shaders will not link the user gets a **blank overlay with
+`g_gpu_failed` used to be process-wide, set on `gpu::initialize()` failure, never
+retried, with every subsequent accelerated render early-returning. On a machine
+where the GLSL 1.20 shaders will not link the user got a **blank overlay with
 no visible error**, on hardware where the CPU surface would have worked.
 
-This is the sole reason GPU is not the default, and the cost of that default is
-real: the CPU path was measured rasterising 3456×1926 — 6.7 megapixels — up to
-99 times a second, which is what "really really laggy" was.
+The GL driver is now probed before any view exists and polled once a frame
+afterwards, and either answer rebuilds the view on the CPU surface. That fallback
+is the entire justification for the accelerated renderer being the default, so
+what it costs is worth stating exactly: the CPU path was measured rasterising
+3456×1926 — 6.7 megapixels — up to 99 times a second, which is what "really
+really laggy" was.
 
 *Do not silently downgrade either.* There is precedent: natives were once
 excluded from the jar, `Ultralight.load()` threw, the code fell back to
 `NullWebView`, and it was invisible because Loom's log4j config kills all logging.
+
+## 9a. A rebuilt view is a reloaded page, and the session must be re-sent — **[measured]**
+
+*Symptom when violated:* worse than the latch it replaced. `VOID_UI_GPU_FAIL=late`
+with the menu open: the driver dies, the view is rebuilt on the CPU surface, and
+the entry URL is loaded again because a replacement view has no document. The menu
+**vanished and never came back** — mean luma of the menu region 22.5 while up, 51.5
+(bare world) from the failure frame onward, flat forever. Nothing re-emitted the
+mod's state, so the new page had no loadout, no library and no `menu: true`, while
+`bridgeReady` stayed latched and every frame threw
+`TypeError: undefined is not an object (evaluating 'window.void.__hasFocus')`.
+And because `VoidMenuScreen` was still the current screen, the player sat inside an
+open screen that drew nothing: mouse ungrabbed, movement dead, no error. That is
+§9's blank overlay reached through the fallback instead of through the latch.
+
+The view reports the reload — `WebView.documentGeneration()`, bumped by every load
+— and `UiHost` compares it against the document it loaded itself, immediately after
+`view.update()`, which is the only call that can swap a view. On a change it drops
+every per-document assumption (`bridgeReady`, the NOHUD/CLICKTEST latches, the last
+pointer position) and calls `VoidBridge.pushWholeState()`.
+
+Two rules make that hold up:
+
+- **One definition of what a fresh page needs.** `pushWholeState()` has three
+  callers — the first push at start-up, the launcher's `init`, and a reloaded
+  document. Two paths that must agree about this is how one of them rots.
+- **Read live, never replay.** It re-serialises `loadout` and `loadouts` from
+  `LiveState` rather than resending remembered envelopes, because `setGameplay`,
+  `setModSetting` and `setHud` change the loadout *without emitting anything* (§6.5
+  deliberately does not push a change back to the page that made it). A snapshot
+  would silently drop every toggle the player flipped this session. `tick`, `keys`
+  and `server` are not sent at all: their sensors push whole state every tick, so
+  the queue refills before a reloading page can receive anything. `menu` is the one
+  value with no other home, so the bridge remembers it — through `emitMenu`, which
+  is the only way that channel may be written.
+
+## 9b. The supersample cap belongs to the view, and nowhere else — **[measured]**
+
+*Symptom when violated:* the machine that just lost its GPU is handed the single
+most expensive configuration available. `UiHost.accelerated()` read
+`WebViews.acceleratedInUse()`, a static written only inside `WebViews.create()` and
+never by the mid-session fallback, so `maxSupersample()` kept returning the GPU's
+cap of 4 for a software rasteriser. Measured without the HiDPI flag, where the caps
+differ: started at `3416×1920 at 2.341 dp/css`, fell back, and stayed at
+`3416×1920` — 6.6 megapixels rasterised in software where the cap is 2, with no
+`in-game UI resized` line ever appearing.
+
+**This is the third cache of that fact to go stale**, and the cap is one of the
+four historical examples this file opens with. The first was a `UiHost` field set
+once behind a `maxSupersample == 0` guard; the second was a `UiHost` field holding
+both the request and the result; the third was the `WebViews` static — each a
+correct read of a value that had stopped being true.
+
+So it is no longer a read at all. `WebView.maxSupersample()` is answered off the
+same volatile field as `WebView.isAccelerated()`, in the same expression, and
+`WebViews.acceleratedInUse` **has been deleted**. There is exactly one expression
+in the mod that produces a supersample factor and its only input is the live view;
+`applySize` creates the first view at 1× and asks it, on the same call, before the
+first paint, so nothing anywhere guesses a cap before there is a renderer to ask.
+The wrong answer is not stored anywhere, so it cannot be read.
+
+*The trap next to it.* Correcting the factor is not enough on its own — the device
+scale has to be re-applied with it. `scaleChanged` compared the **logical** scale,
+which does not move across a supersample change, so the corrected view would have
+been resized to `fb × 2` while still believing in `s × 4`: the page lays out in half
+the CSS width, every glyph and box twice the size it should be. The condition now
+compares the scale the *view* was told (`appliedViewScale`).
 
 ---
 
@@ -221,6 +291,8 @@ lands where the cursor was.
 | invariant | baseline | how |
 |---|---|---|
 | idle open menu, GL driver | 0 paints/s, 0 presents/s | `ui:` profile line |
+| menu region after a mid-session fallback | luma unchanged (22.5 → 21.7, not 51.5) | full-frame capture |
+| supersample after a mid-session fallback | `resized to … 1708×960 at 1.171 dp/css` | `in-game UI resized` line |
 | click → pixel | ~1.11 game frames, ~14.7 ms mean | per-frame probe |
 | close | monotonic fade, no blank frame, no flash | back-buffer strip |
 | ghost, 20 s after close | none, incl. on a genuinely empty page | full-frame capture |
@@ -239,8 +311,12 @@ everything in this file is enforced only by whoever remembers to read it.
 
 Three flags, each of which fails silently when omitted:
 
-- `VOID_UI_RENDERER=gpu` — the default is the CPU surface. An agent lost an hour
-  to lag that was simply the software rasteriser.
+- ~~`VOID_UI_RENDERER=gpu`~~ — no longer needed: the GL driver is now the default,
+  and `VOID_UI_RENDERER=cpu` is the opt-out. An agent lost an hour to lag that was
+  simply the software rasteriser, and that is why the default moved. A machine
+  whose driver cannot run the GLSL 1.20 programs falls back to the CPU surface by
+  itself and says so on stderr; `VOID_UI_GPU_FAIL` (see `mod/native/README.md`)
+  is how that fallback is forced on a machine where the driver works.
 - `-Dvoid.ultralight.nativeDir=…` — without it `Ultralight.load()` throws and
   you get `NullWebView`, invisibly.
 - `-x generateLog4jConfig` — without it Loom's `LoggerNamePatternSelector` kills
