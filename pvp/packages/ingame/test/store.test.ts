@@ -187,6 +187,7 @@ describe('bridge ingestion', () => {
     expect(useVoidStore.getState().paletteOpen).toBe(false);
     expect(useVoidStore.getState().menuOpen).toBe(true);
   });
+
 });
 
 describe('CPS derivation through the store', () => {
@@ -253,6 +254,61 @@ describe('bridge calls', () => {
     useVoidStore.getState().resetMod('keystrokes');
     expect(modSettings(useVoidStore.getState().loadout, 'keystrokes').opacity).toBe(0.85);
     expect(isModOn(useVoidStore.getState().loadout, 'keystrokes')).toBe(before);
+  });
+});
+
+describe('layout and inspector — the two independent controls of §7', () => {
+  beforeEach(() => {
+    useVoidStore.setState({ layout: 'grid', inspector: 'open', selectedMod: 'keystrokes' });
+  });
+
+  it('is two controls and not one mode, so all four states exist', () => {
+    const store = useVoidStore.getState;
+    const states: string[] = [];
+    for (const layout of ['grid', 'list'] as const) {
+      for (const inspector of ['open', 'closed'] as const) {
+        store().setLayout(layout);
+        store().setInspector(inspector);
+        states.push(`${store().layout}/${store().inspector}`);
+      }
+    }
+    expect(states).toEqual(['grid/open', 'grid/closed', 'list/open', 'list/closed']);
+  });
+
+  it('setting one never moves the other', () => {
+    useVoidStore.getState().setInspector('closed');
+    useVoidStore.getState().setLayout('list');
+    expect(useVoidStore.getState().inspector).toBe('closed');
+    useVoidStore.getState().setInspector('open');
+    expect(useVoidStore.getState().layout).toBe('list');
+  });
+
+  it('toggleInspector flips only the inspector', () => {
+    useVoidStore.getState().setLayout('list');
+    useVoidStore.getState().toggleInspector();
+    expect(useVoidStore.getState().inspector).toBe('closed');
+    useVoidStore.getState().toggleInspector();
+    expect(useVoidStore.getState().inspector).toBe('open');
+    expect(useVoidStore.getState().layout).toBe('list');
+  });
+
+  it('selecting a mod opens the inspector — it never navigates', () => {
+    useVoidStore.getState().setInspector('closed');
+    useVoidStore.getState().selectMod('fullbright');
+    expect(useVoidStore.getState().selectedMod).toBe('fullbright');
+    expect(useVoidStore.getState().inspector).toBe('open');
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+  });
+
+  it('both survive closing and reopening the menu', () => {
+    useVoidStore.getState().setLayout('list');
+    useVoidStore.getState().setInspector('closed');
+    useVoidStore.getState().applyMenu(false);
+    useVoidStore.getState().applyMenu(true);
+    // Opening always lands on Mods, but how the player likes to read it is theirs.
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().layout).toBe('list');
+    expect(useVoidStore.getState().inspector).toBe('closed');
   });
 });
 

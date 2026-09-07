@@ -7,9 +7,12 @@ One HTML entry, one JS chunk, one CSS file. It is built into
 `mod/src/main/resources/assets/void/ui/`, loaded off the JAR classpath as
 `assets/void/ui/index.html`, and it never touches the network.
 
-Owner: **ingame** (CONTRACTS.md). Design source: `pvp/design/README.md` frames `244:538`
-(Mods), `244:834` (Mod settings), `244:1130` (Loadouts), `244:1426` (Party), `244:1722`
-(HUD layout) and `244:1900` (Quick palette). Renderer limits: `pvp/design/ultralight-notes.md`.
+Owner: **ingame** (CONTRACTS.md). Design contract: `pvp/design/quiet-cell-system.md` —
+where it and the frames disagree, it wins, and §7 has since folded the Mod-settings frame
+`244:834` into the Mods screen's inspector. The frames behind the rest: `244:538` (Mods),
+`244:1130` (Loadouts), `244:1426` (Party), `244:1722` (HUD layout), `244:1900` (Quick
+palette). Renderer limits: `pvp/design/ultralight-notes.md`, enforced by
+`scripts/check-ultralight.mjs`.
 
 ---
 
@@ -27,9 +30,87 @@ window.__void_native  ──void-shim.js──▶  window.void          ──�
                                     ▼                                                 ▼
                           src/hud/HudLayer.tsx                            src/menu/MenuLayer.tsx
                        always mounted · no input                     mounted while `menu` is true
-                       7 widgets, placed by hud[]                  Mods · Mod settings · Loadouts
-                                                                   Party · HUD editor · ⌘K palette
+                       7 widgets, placed by hud[]                     Mods · Loadouts · Party
+                                                                     HUD editor · ⌘K palette
 ```
+
+### The Mods screen is two controls, not three modes
+
+`design/quiet-cell-system.md` §7 is the contract for this screen, and it is the one place
+this package deliberately disagrees with the Figma frames it was first built from. There
+is no Mod-settings *screen* any more:
+
+```
+layout     grid | list      how items lay out
+inspector  open | closed    whether properties show beside
+```
+
+Four states, in any combination. Selecting a mod opens the inspector beside the items; it
+never navigates, because the overlay interrupts a live match and every step back costs a
+round. The grid is a row of fixed-width columns filled **top to bottom**, so contracting it
+takes columns off the right rather than re-flowing every tile: column 1 holds the same mods
+whether three columns are showing or six.
+
+### The panel is fixed; the grid fills it
+
+`.overlay` used to be `min(1600px, 92%) x min(980px, 92%)` — a fraction of the window, drawn
+for the frames' twenty-four mods. The registry has twelve, and a grid declared as three rows
+laid them out four across, filling 674 of 1277 with half the panel empty. Both numbers are now
+derived the other way round:
+
+| | |
+|---|---|
+| panel | `min(1278px, 100% - 48px)` x `rows x (tile + gap) - gap + chrome`, centred |
+| rows | fewest that keep the registry inside eight columns — **2** at twelve mods, 3 at 24 |
+| columns | `ceil(mods / rows)` — **6** at twelve |
+| tile | `(content - (cols - 1) x gap) / cols` — **195 x 231**, a square preview plus the foot |
+
+So the grid fills the panel whatever the registry holds, and twenty-four mods come out as the
+three rows of eight the frames actually draw.
+
+**Seeing it at another count — `VOID_UI_FAKEMODS`.** The registry is generated and crosses into
+Java, so it is not something to edit for a look. `src/dev/fake-mods.ts` pads the *page's* view of
+it instead, with synthetic mods that carry a real category, a borrowed preview and a settings
+shape that varies across §8's three structures:
+
+```sh
+VOID_UI_FAKEMODS=24 pnpm --filter @void/ingame build   # in game: 12 real + 12 synthetic
+pnpm dev  # then http://localhost:5184/?debug&fake=24
+```
+
+The number is the **total**, not the number of fakes; anything ≤ 12 is a no-op. Every id is
+`fake_*`, and the page shows a `fake ×n` badge so no screenshot is ambiguous. It is off and
+tree-shaken out of any build that does not ask for it — no fixture string reaches `index.html`.
+
+Measured with it (in game, 1459 x 820 CSS):
+
+| mods | rows x cols | tile | panel | fits the 820 canvas? |
+|---|---|---|---|---|
+| 12 | 2 x 6 | 195 x 247 | 1278 x 635 | yes, exactly — no scrollbar |
+| 24 | 3 x 8 | 143 x 195 | 1278 x 739 | yes — no scrollbar |
+| 17 | 3 x 6 | 195 x 247 | 1278 x **796, clamped from 894** | **no** — the grid scrolls, and its scrollbar takes 6 px off the last column |
+
+**17–21 is the gap.** `--panel-h` is `rows x (tile + gap) - gap + chrome`, and the tile is sized
+from the *column* count, so a count that needs three rows but not eight columns gets three rows
+of a tall tile: 894 px at 17–18, 805 at 19–21, against a `max-height` of `100% - 24px` = 796.
+22–24 fit because eight columns make the tile short enough. Nothing is broken below that —
+13–16 stay on two rows — and nothing is wrong with the arithmetic; the panel simply has no rule
+that says "if three rows will not fit, use more columns".
+
+**Opening the properties contracts the grid.** `.mods-view` narrows from the full content width
+to three columns while `.inspector` translates in from outside the panel's right edge — same
+duration and curve (`--menu-move-in` / `--ease-out-menu`), so it reads as one movement rather
+than two. Contract §7's no-reflow rule is deliberately withdrawn; what it was protecting is
+kept by `useSelectedColumnInView`, which scrolls the selected mod's column into the three that
+survive so the tile you clicked is never the one that disappears.
+
+| File | What it owns |
+|---|---|
+| `src/menu/ModsScreen.tsx` | The two controls, the column-major grid, the contraction and the scroll that keeps the selected mod in it |
+| `src/menu/ModList.tsx` | The list layout — description, keybind, position, scale, em-dashes |
+| `src/menu/ModPane.tsx` | The inspector shell: which mod, whether it is on, the two actions |
+| `src/menu/ModSettingsScreen.tsx` | The property model and §8's count → structure rule |
+| `src/menu/CellMeter.tsx` | §4's meter: N cells, and only the current one takes the hue — as one marker that *travels* (§5), with the fill staggered behind it and the ±1/±2 bleed of §5.3 |
 
 | Path | What lives there |
 |---|---|
@@ -39,7 +120,7 @@ window.__void_native  ──void-shim.js──▶  window.void          ──�
 | `src/store/cps.ts` | Clicks-per-second from the rising edges of `keys.lmb` / `keys.rmb`. Pure |
 | `src/store/hud-geometry.ts` | `anchor + dx/dy + scale` ⇄ pixels, snap, clamp, anchor re-pick. Pure |
 | `src/hud/` | The seven HUD mods, bound to the store; `HudLayer` places them |
-| `src/menu/` | The five overlay screens |
+| `src/menu/` | The four overlay screens, plus the Mods screen's inspector and property model |
 | `src/palette/` | ⌘K: the command set, the fuzzy ranker, and the selection / key routing over `@void/ui`'s palette shell |
 | `src/registry.ts` | The overlay's view of the registry: category tags and filter tabs **derived from `mods.json`**, plus the one thing the schema does not carry — the tile grid order |
 | `src/styles/overlay.css` | Layer composition and screen layout. Every *component* style is `@void/ui`'s |
@@ -313,6 +394,7 @@ pnpm --filter @void/ingame check    # typecheck + Ultralight guard + tests
 |---|---|
 | `test/cps.test.ts` | Edge triggering, the half-open window, purity, the bounded ring |
 | `test/hud-geometry.test.ts` | anchor → transform, the screen ⇄ placement round-trip through all nine anchors, snap, clamp, anchor re-pick, and that no transform is ever 3D |
+| `test/meter.test.tsx` | the numbers `overlay.css` animates the meter by — the marker's `--live` index, the fill's `--d` stagger and the §5.3 `--bleed` strengths. A transition cannot be asserted in jsdom; getting one of these wrong is silent |
 | `test/fuzzy.test.ts` | Palette ranking, including the frame's own `fullb` ordering |
 | `test/store.test.ts` | Reducers against the real `createFakeVoid()`: CPS through the store, clamped writes, `setHud` round-trip, `__hasFocus` |
 | `test/screens.test.tsx` | A render smoke test per screen, asserting the frames' verbatim copy — footer hints included |

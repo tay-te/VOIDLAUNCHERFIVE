@@ -7,7 +7,7 @@
  * is part of the design contract.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 /**
@@ -26,8 +26,16 @@ function set(mutate: () => void) {
 import { connectBridge } from '@/bridge/connect';
 import { resetDerivedState, useVoidStore } from '@/store/store';
 import { App } from '@/App';
-import { MODS_FOOTER } from '@/menu/ModsScreen';
-import { MOD_SETTINGS_FOOTER } from '@/menu/ModSettingsScreen';
+import {
+  GRID_ROWS,
+  MODS_HINT_GRID,
+  MODS_HINT_OPEN,
+  OPEN_COLUMNS,
+  PANEL_COLUMNS,
+  firstVisibleColumn,
+  gridColumns,
+} from '@/menu/ModsScreen';
+import { anchorShortLabel, modProperties, propertyStructure } from '@/menu/ModSettingsScreen';
 import { LOADOUTS_FOOTER } from '@/menu/LoadoutsScreen';
 import { PARTY_FOOTER } from '@/menu/PartyScreen';
 import { EDITOR_HINT } from '@/menu/HudEditorScreen';
@@ -44,6 +52,8 @@ beforeEach(() => {
     paletteOpen: false,
     modSearch: '',
     modFilter: 'all',
+    layout: 'grid',
+    inspector: 'open',
     editorTarget: 'keystrokes',
     editorSnap: true,
     editorGrid: false,
@@ -61,9 +71,70 @@ describe('HUD layer', () => {
     set(() => useVoidStore.getState().applyMenu(false));
     set(() => useVoidStore.getState().applyTick({ fps: 142, ping: 42 }));
     const { container } = render(<App />);
-    expect(container.querySelector('.hud-layer')).not.toBeNull();
-    expect(screen.getByText('142')).toBeTruthy();
-    expect(screen.getByText('fps')).toBeTruthy();
+    const hud = container.querySelector('.hud-layer');
+    expect(hud).not.toBeNull();
+    // Scoped to the HUD. The menu layer is mounted hidden during the warm-up (App.tsx), and the
+    // FPS mod's tile preview shows the same live number, so an unscoped query matches twice.
+    expect(within(hud as HTMLElement).getByText('142')).toBeTruthy();
+    expect(within(hud as HTMLElement).getByText('fps')).toBeTruthy();
+  });
+
+  it('warms the menu up hidden, so the first open is not the engine’s first look at it', () => {
+    set(() => useVoidStore.getState().applyMenu(false));
+    const { container } = render(<App />);
+    const menu = container.querySelector('.menu-layer');
+    expect(menu).not.toBeNull();
+    expect(menu!.className).toContain('menu-layer--hidden');
+    expect(menu!.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('ends the warm-up on a timer even when no loadout ever arrives', () => {
+    vi.useFakeTimers();
+    try {
+      set(() => useVoidStore.getState().applyMenu(false));
+      // A client with no launcher attached: `onInit` is the only thing that pushes a loadout,
+      // so this stays null for the life of the process. The warm-up used to wait for it before
+      // starting its clock, which meant the hidden layer never came down — and the one frame it
+      // painted stayed welded over the game for as long as the client ran.
+      set(() => useVoidStore.setState({ loadout: null }));
+      const { container } = render(<App />);
+      expect(container.querySelector('.menu-layer')!.className).toContain('menu-layer--hidden');
+
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(container.querySelector('.menu-layer')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fades the menu in on open and out on close, and then lets the tree go', () => {
+    vi.useFakeTimers();
+    try {
+      set(() => useVoidStore.getState().applyMenu(true));
+      const { container } = render(<App />);
+      const layer = () => container.querySelector('.menu-layer');
+      expect(layer()!.className).toContain('menu-layer--entering');
+      expect(layer()!.className).not.toContain('menu-layer--hidden');
+
+      set(() => useVoidStore.getState().applyMenu(false));
+      // Still mounted and still drawn: the close animation needs a tree to run on, and a layer
+      // that vanished on the frame it was told to would leave the last painted frame holding a
+      // menu the host has already stopped compositing over.
+      expect(layer()).not.toBeNull();
+      expect(layer()!.className).toContain('menu-layer--exiting');
+      expect(layer()!.getAttribute('aria-hidden')).toBe('true');
+
+      // …and then it goes. Not `visibility: hidden` forever — that is what welded the
+      // properties pane over the game (App.tsx, useMenuWarmup).
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(container.querySelector('.menu-layer')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('is not the editor layer, so its widgets stay inert — §6.3', () => {
@@ -84,94 +155,351 @@ describe('HUD layer', () => {
   });
 });
 
-describe('Mods screen — frame 244:538', () => {
+describe('Mods screen — layout × inspector', () => {
   beforeEach(() => {
     set(() => useVoidStore.getState().applyMenu(true));
   });
 
-  it('renders the title, the tab set and the footer hint verbatim', () => {
-    render(<App />);
-    expect(screen.getByRole('heading', { name: 'Mods' })).toBeTruthy();
+  it('is the full-bleed shell: mark, centred tabs, tools, hint — no title, no search', () => {
+    const { container } = render(<App />);
+    // The menu *is* the window. No panel, and nothing wrapping it in one.
+    expect(container.querySelector('.overlay')).not.toBeNull();
+    expect(container.querySelector('.v-panel')).toBeNull();
+    expect(container.querySelector('.panel-wrap')).toBeNull();
+    // The two elements the design work removed by name: "Remove the mods header
+    // … Remove the search bar." ⌘K is the search.
+    expect(screen.queryByRole('heading', { name: 'Mods' })).toBeNull();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(container.querySelector('.v-searchbar')).toBeNull();
+    // What the frame does have.
+    expect(screen.getByText('VOID')).toBeTruthy();
     for (const label of ['All', 'HUD', 'PvP', 'Visual', 'Utility']) {
       expect(screen.getByRole('tab', { name: label })).toBeTruthy();
     }
-    expect(screen.getByText(MODS_FOOTER, verbatim)).toBeTruthy();
+    expect(screen.getByLabelText('Close')).toBeTruthy();
+    expect(screen.getByText(MODS_HINT_OPEN, verbatim)).toBeTruthy();
+    set(() => useVoidStore.getState().setInspector('closed'));
+    expect(screen.getByText(MODS_HINT_GRID, verbatim)).toBeTruthy();
   });
 
-  it('draws all twelve tiles with their category tags', () => {
+  it('gives every tile a data preview rather than an icon', () => {
+    const { container } = render(<App />);
+    // Frame `289:1611`: `142 / FPS`, the keycap cluster, `6.2 / CPS`, `X Y Z`.
+    for (const id of ['fps', 'keystrokes', 'cps', 'coordinates']) {
+      const tile = container.querySelector(`.modcell[data-mod-id="${id}"]`)!;
+      expect(tile.querySelector('.modcell__preview')).not.toBeNull();
+      expect(tile.querySelector('.modcell__preview')!.childElementCount).toBeGreaterThan(0);
+    }
+    // Scoped to the tiles: the HUD layer behind draws its own `FPS` / `CPS` chips.
+    const unit = (id: string) =>
+      container.querySelector(`.modcell[data-mod-id="${id}"] .tart__unit`)!.textContent;
+    expect(unit('fps')).toBe('FPS');
+    expect(unit('cps')).toBe('CPS');
+    // The keybind is chipped into the preview only for a mod that has one bound.
+    // Zoom is on `C` in the fixture; FPS display takes no keybind at all, and
+    // Keystrokes takes one but has none set — neither gets a chip, because the
+    // absence is the information (§1).
+    expect(
+      container.querySelector('.modcell[data-mod-id="zoom"] .modcell__kbd')!.textContent,
+    ).toBe('C');
+    expect(container.querySelector('.modcell[data-mod-id="fps"] .modcell__kbd')).toBeNull();
+  });
+
+  it('offers the two controls as two independent controls, not one mode switcher', () => {
+    render(<App />);
+    // Two radios for `layout`, one pressed button for `inspector`. A mode switcher
+    // would be a single group of three.
+    expect(screen.getByRole('radio', { name: 'Grid' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'List' })).toBeTruthy();
+    const properties = screen.getByRole('button', { name: 'Properties' });
+    expect(properties.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('reaches all four states, and the two controls never move each other', () => {
+    render(<App />);
+    const store = () => useVoidStore.getState();
+    const seen = new Set<string>();
+    for (const layout of ['grid', 'list'] as const) {
+      for (const inspector of ['open', 'closed'] as const) {
+        set(() => store().setLayout(layout));
+        set(() => store().setInspector(inspector));
+        expect(store().layout).toBe(layout);
+        expect(store().inspector).toBe(inspector);
+        seen.add(`${layout}/${inspector}`);
+      }
+    }
+    expect(seen.size).toBe(4);
+  });
+
+  it('draws all twelve tiles, in the shape that fills the panel', () => {
     const { container } = render(<App />);
     expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(12);
     expect(screen.getByText('FPS display')).toBeTruthy();
     expect(screen.getByText('Toggle sprint')).toBeTruthy();
+    // Twelve mods, eight columns allowed: two rows of six, not three rows of four inside a
+    // panel wide enough for eight.
+    expect(GRID_ROWS).toBe(2);
+    const columns = [...container.querySelectorAll('.mods-col')];
+    expect(columns).toHaveLength(6);
+    for (const column of columns) {
+      expect(column.querySelectorAll('[data-mod-id]').length).toBeLessThanOrEqual(GRID_ROWS);
+    }
   });
 
-  it('filters the grid by tab', () => {
+  it('contracts by clipping, not by re-flowing: same tiles, same columns, same order', () => {
+    const { container } = render(<App />);
+    const shape = () =>
+      [...container.querySelectorAll('.mods-col')].map((column) =>
+        [...column.querySelectorAll('[data-mod-id]')].map((el) => el.getAttribute('data-mod-id')),
+      );
+    const before = shape();
+    set(() => useVoidStore.getState().setInspector('closed'));
+    // §7's no-reflow rule is withdrawn and the grid does now contract — but it contracts by
+    // narrowing the box that clips it. The twelve tiles stay mounted in the same six columns
+    // in the same order, so the three that survive keep the positions they already had, and
+    // the movement is one width transition rather than twelve tiles finding new homes.
+    expect(shape()).toEqual(before);
+    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(12);
+    expect(OPEN_COLUMNS).toBe(3);
+  });
+
+  it('shapes the grid from the registry, never from the filter', () => {
+    const { container } = render(<App />);
+    const overlay = () => container.querySelector('.overlay') as HTMLElement;
+    expect(overlay().className).toContain('overlay--grid');
+    expect(overlay().className).toContain('overlay--open');
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe(`${PANEL_COLUMNS}`);
+    expect(overlay().style.getPropertyValue('--panel-rows')).toBe(`${GRID_ROWS}`);
+    // Twelve mods: six across, two down — the shape that fills a fixed, wide panel.
+    expect(PANEL_COLUMNS).toBe(6);
+
+    set(() => useVoidStore.getState().setInspector('closed'));
+    expect(overlay().className).toContain('overlay--closed');
+    expect(overlay().className).not.toContain('overlay--open');
+
+    set(() => useVoidStore.getState().setLayout('list'));
+    expect(overlay().className).toContain('overlay--list');
+
+    // A filter matching two mods must not resize the tiles in the window it is filtering.
+    set(() => useVoidStore.getState().setLayout('grid'));
+    set(() => useVoidStore.getState().setModFilter('VISUAL'));
+    expect(container.querySelectorAll('.mods-col')).toHaveLength(1);
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe(`${PANEL_COLUMNS}`);
+  });
+
+  it('slides the grid only when the mod picked is not already among the surviving three', () => {
+    const { container } = render(<App />);
+    const first = () =>
+      (container.querySelector('.overlay') as HTMLElement).style.getPropertyValue('--grid-first');
+    // `fps` is column 1 and `ping` is column 6 of 6. The rule §7 used to give for free: the
+    // grid does not move for a mod already on screen, moves the least it can for one that is
+    // not, and goes back to the left when the panel shuts.
+    set(() => useVoidStore.getState().selectMod('fps'));
+    expect(first()).toBe('0');
+    set(() => useVoidStore.getState().selectMod('ping'));
+    expect(first()).toBe('3');
+    set(() => useVoidStore.getState().setInspector('closed'));
+    expect(first()).toBe('0');
+  });
+
+  it('firstVisibleColumn brings a column in as the last of three, and never overshoots', () => {
+    // Six columns, three showing.
+    expect(firstVisibleColumn(6, 0, true)).toBe(0);
+    expect(firstVisibleColumn(6, 2, true)).toBe(0);
+    expect(firstVisibleColumn(6, 3, true)).toBe(1);
+    expect(firstVisibleColumn(6, 5, true)).toBe(3);
+    // Never past the end, never at all with the panel shut, and safe with no selection.
+    expect(firstVisibleColumn(3, 2, true)).toBe(0);
+    expect(firstVisibleColumn(6, 5, false)).toBe(0);
+    expect(firstVisibleColumn(6, -1, true)).toBe(0);
+  });
+
+  it('filters by tab and by search in either layout', () => {
     const { container } = render(<App />);
     set(() => useVoidStore.getState().setModFilter('VISUAL'));
     const ids = [...container.querySelectorAll('[data-mod-id]')].map((el) =>
       el.getAttribute('data-mod-id'),
     );
     expect(ids.sort()).toEqual(['crosshair', 'fullbright']);
-  });
 
-  it('filters the grid by search', () => {
-    const { container } = render(<App />);
+    set(() => useVoidStore.getState().setModFilter('all'));
+    set(() => useVoidStore.getState().setLayout('list'));
     set(() => useVoidStore.getState().setModSearch('keystro'));
     expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(1);
   });
 
-  it('shows the settings pane for the selected tile', () => {
+  it('gives the list a description column, and an em-dash where one does not apply', () => {
     const { container } = render(<App />);
-    set(() => useVoidStore.getState().selectMod('keystrokes'));
-    const pane = container.querySelector('.v-modsettings') as HTMLElement;
-    expect(within(pane).getByText('Keystrokes')).toBeTruthy();
-    expect(within(pane).getByText('Edit position')).toBeTruthy();
+    set(() => useVoidStore.getState().setLayout('list'));
+    // Scoped to the column header: the inspector is open beside the list and it has
+    // a `Keybind` of its own, which is exactly the duplication the list is for.
+    const head = container.querySelector('.modlist__head') as HTMLElement;
+    for (const column of ['Name', 'Description', 'Category', 'Keybind', 'Position', 'Scale']) {
+      expect(within(head).getByText(column)).toBeTruthy();
+    }
+
+    const rows = (id: string) =>
+      container.querySelector(`.modrow[data-mod-id="${id}"]`) as HTMLElement;
+    // Fullbright is a gameplay mod: no keybind, no place on the HUD, no scale.
+    const fullbright = rows('fullbright');
+    expect(fullbright.querySelectorAll('.modrow__empty')).toHaveLength(3);
+    expect(
+      within(fullbright).getByText('Raises gamma so caves and shadows are fully lit.'),
+    ).toBeTruthy();
+    // Keystrokes has all four, so nothing is missing from its row.
+    expect(rows('keystrokes').querySelectorAll('.modrow__empty')).toHaveLength(0);
+  });
+
+  it('prints the placement as the frames\u2019 two-letter tag, not the sentence form', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().setLayout('list'));
+    const cell = (id: string) =>
+      container
+        .querySelector(`.modrow[data-mod-id="${id}"] .modrow__pos`)!
+        .textContent!.trim();
+    // The column is 61px at this frame's proportions: `Bottom left` wraps out of a
+    // row whose height is fixed, and `BL` is what the frame prints anyway.
+    expect(cell('keystrokes')).toBe('BL');
+    expect(cell('fps')).toBe('TL');
+    // The long form survives where it is read rather than scanned.
+    expect(anchorShortLabel('bottom-right')).toBe('BR');
+    expect(anchorShortLabel('center')).toBe('C');
+  });
+
+  it('selecting a mod opens the inspector rather than navigating', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().setInspector('closed'));
+    fireEvent.click(screen.getByRole('button', { name: 'Fullbright' }));
+    expect(useVoidStore.getState().inspector).toBe('open');
+    expect(useVoidStore.getState().selectedMod).toBe('fullbright');
+    // Still the Mods screen: nothing routed anywhere.
+    expect(useVoidStore.getState().route.name).toBe('mods');
+    expect(container.querySelector('.inspector--open')).not.toBeNull();
   });
 });
 
-describe('Mod settings screen — frame 244:834', () => {
-  it('renders the back button, the groups and the footer hint', () => {
+describe('Properties panel — contract §8', () => {
+  beforeEach(() => {
     set(() => useVoidStore.getState().applyMenu(true));
-    set(() => useVoidStore.getState().setRoute({ name: 'mod-settings', mod: 'keystrokes' }));
-    render(<App />);
-    expect(screen.getByRole('button', { name: /Mods/ })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Keystrokes' })).toBeTruthy();
-    expect(screen.getByText('Enabled')).toBeTruthy();
-    expect(screen.getByText('Live preview')).toBeTruthy();
-    expect(screen.getByText('Appearance')).toBeTruthy();
-    expect(screen.getByText('Behaviour')).toBeTruthy();
-    expect(screen.getByText('Edit position')).toBeTruthy();
-    expect(screen.getByText('Reset')).toBeTruthy();
-    expect(screen.getByText(MOD_SETTINGS_FOOTER, verbatim)).toBeTruthy();
   });
 
-  it('draws the frame’s Appearance rows for Keystrokes', () => {
-    set(() => useVoidStore.getState().applyMenu(true));
-    set(() => useVoidStore.getState().setRoute({ name: 'mod-settings', mod: 'keystrokes' }));
+  it('never lists a spatial property — placement and size are on the preview', () => {
     render(<App />);
-    expect(screen.getByText('Scale')).toBeTruthy();
-    expect(screen.getByText('Opacity')).toBeTruthy();
-    expect(screen.getByText('Key colour')).toBeTruthy();
-    expect(screen.getByText('Background of an unpressed key')).toBeTruthy();
+    set(() => useVoidStore.getState().selectMod('keystrokes'));
+    // Frame `289:5523` captions the preview with what the two things on it do.
+    expect(screen.getByText(/Click a slot to place/)).toBeTruthy();
+    // `Scale` is the size property, so it is the drag handle, not a row.
+    expect(screen.getByRole('button', { name: 'Scale' })).toBeTruthy();
+    // …and placement is four labelled corner slots, printing the frame's own tags.
+    const slot = screen.getByRole('button', { name: 'Bottom left' });
+    expect(slot.textContent).toBe('BL');
+    for (const property of modProperties('keystrokes', { scale: 1, opacity: 1, on: true })) {
+      expect(property.key).not.toBe('scale');
+    }
   });
 
-  it('draws the frame’s Behaviour rows', () => {
-    set(() => useVoidStore.getState().applyMenu(true));
-    set(() => useVoidStore.getState().setRoute({ name: 'mod-settings', mod: 'keystrokes' }));
-    render(<App />);
+  it('gives 5+ properties two light groups, and 2–4 a flat list with no labels', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().selectMod('keystrokes'));
+    expect(container.querySelector('[data-structure="grouped"]')).not.toBeNull();
+    // Two groups (§8), drawn as the frame's two columns. No section labels: at this
+    // width the column is the grouping, and `289:3024` carries no caption over it.
+    expect(container.querySelectorAll('.mprops__group')).toHaveLength(2);
+    expect(container.querySelector('.mprops__cap')).toBeNull();
     expect(screen.getByText('Show mouse buttons')).toBeTruthy();
     expect(screen.getByText('LMB and RMB under the arrows')).toBeTruthy();
-    expect(screen.getByText('Show CPS')).toBeTruthy();
-    expect(screen.getByText('Position')).toBeTruthy();
+
+    set(() => useVoidStore.getState().selectMod('cps'));
+    expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
+    expect(container.querySelectorAll('.mprops__group')).toHaveLength(0);
   });
 
-  it('renders for a gameplay mod too, with no HUD-only controls', () => {
-    set(() => useVoidStore.getState().applyMenu(true));
-    set(() => useVoidStore.getState().setRoute({ name: 'mod-settings', mod: 'fullbright' }));
-    render(<App />);
-    expect(screen.getByRole('heading', { name: 'Fullbright' })).toBeTruthy();
-    expect(screen.getByText('Gamma')).toBeTruthy();
+  it('gives a single property no list at all — a sentence and a bigger preview', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().selectMod('fullbright'));
+    expect(container.querySelector('[data-structure="sentence"]')).not.toBeNull();
+    expect(container.querySelector('.preview--large')).not.toBeNull();
+    expect(container.querySelector('.mprop')).toBeNull();
+    expect(screen.getByText(/Gamma sits at/)).toBeTruthy();
+  });
+
+  it('never offers tabs', () => {
+    const { container } = render(<App />);
+    for (const id of ['keystrokes', 'cps', 'fullbright', 'crosshair'] as const) {
+      set(() => useVoidStore.getState().selectMod(id));
+      expect(container.querySelector('.inspector [role="tablist"]')).toBeNull();
+    }
+  });
+
+  it('maps a count to §8’s table', () => {
+    expect(propertyStructure(0)).toBe('sentence');
+    expect(propertyStructure(1)).toBe('sentence');
+    expect(propertyStructure(2)).toBe('flat');
+    expect(propertyStructure(4)).toBe('flat');
+    expect(propertyStructure(5)).toBe('grouped');
+  });
+
+  it('paints a mod’s live value in its own category hue, not the accent', () => {
+    const { container } = render(<App />);
+    // Fullbright is Visual, so ice — never the default violet.
+    set(() => useVoidStore.getState().selectMod('fullbright'));
+    const panel = container.querySelector('.mprops') as HTMLElement;
+    expect(panel.style.getPropertyValue('--hue')).toBe('var(--hue-visual)');
+    // …and a PvP mod is coral, off the same one declaration.
+    set(() => useVoidStore.getState().selectMod('toggle_sprint'));
+    expect((container.querySelector('.mprops') as HTMLElement).style.getPropertyValue('--hue')).toBe(
+      'var(--hue-pvp)',
+    );
+    // Every tile carries its own, so the grid is hued too.
+    const tile = container.querySelector('.modcell[data-mod-id="crosshair"]') as HTMLElement;
+    expect(tile.style.getPropertyValue('--hue')).toBe('var(--hue-visual)');
+  });
+
+  it('heads the panel the way the frame does, and foots it with Reset / Done', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().selectMod('keystrokes'));
+    expect(screen.getByText('Selected mod')).toBeTruthy();
+    expect(container.querySelector('.inspector__title')!.textContent).toBe('Keystrokes');
+    // `HUD  ·  ENABLED  ·  R-SHIFT`, the frame's meta line.
+    expect(container.querySelector('.inspector__meta')!.textContent).toMatch(/^HUD {3}·/);
+    // Enablement is the head switch, not a property row — frame `289:5523`, §8.
+    // (The tile carries one too, which is why this is scoped to the panel head.)
+    expect(
+      container.querySelector('.inspector__head [aria-label="Keystrokes enabled"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('.inspector .mprop__label')!.textContent).not.toBe('Enabled');
+    expect(screen.getByText('Reset to default')).toBeTruthy();
+    expect(screen.getByText('Done')).toBeTruthy();
+    // The old `Edit position` button is gone: placement is on the preview now.
     expect(screen.queryByText('Edit position')).toBeNull();
+
+    set(() => useVoidStore.getState().selectMod('fullbright'));
+    // A gameplay mod has no placement, so it gets no corner slots at all.
+    expect(container.querySelector('.preview__slot')).toBeNull();
+  });
+});
+
+describe('gridColumns', () => {
+  it('fills top to bottom, so a column holds the same mods whatever else shows', () => {
+    const ids = Array.from({ length: 12 }, (_, i) => `m${i}`) as never as Parameters<
+      typeof gridColumns
+    >[0];
+    const columns = gridColumns(ids);
+    expect(columns).toHaveLength(6);
+    expect(columns[0]).toEqual(['m0', 'm1']);
+    expect(columns[5]).toEqual(['m10', 'm11']);
+  });
+
+  it('caps at eight columns', () => {
+    const ids = Array.from({ length: 40 }, (_, i) => `m${i}`) as never as Parameters<
+      typeof gridColumns
+    >[0];
+    expect(gridColumns(ids)).toHaveLength(8);
+  });
+
+  it('is shaped by the registry: twelve mods are six across and two down', () => {
+    expect(GRID_ROWS).toBe(2);
+    expect(PANEL_COLUMNS).toBe(6);
   });
 });
 

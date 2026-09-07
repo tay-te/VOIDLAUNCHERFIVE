@@ -4,6 +4,7 @@
  */
 
 import { isModOn, modsOnCount, type VoidState } from '@/store/store';
+import type { ModId } from '@/bridge/protocol';
 import { MOD_CATEGORY, MOD_ORDER, modLabel } from '@/registry';
 import { MOD_ICONS, type IconName } from '@/ui';
 import type { Rankable } from './fuzzy';
@@ -45,17 +46,17 @@ export function buildCommands(store: VoidState): Command[] {
       section: 'actions',
       weight: 6,
       run: (s) => s.toggleMod(id, !isModOn(s.loadout, id)),
-      settings: (s) => s.setRoute({ name: 'mod-settings', mod: id }),
+      settings: (s) => openProperties(s, id),
     });
     commands.push({
       id: `settings:${id}`,
       title: `${modLabel(id)} settings`,
-      sub: 'Open in the mod menu',
+      sub: 'Open the properties panel',
       icon: 'settings',
       kbd: ['⌘', '↵'],
       section: 'actions',
       weight: 2,
-      run: (s) => s.setRoute({ name: 'mod-settings', mod: id }),
+      run: (s) => openProperties(s, id),
     });
   }
 
@@ -142,6 +143,18 @@ export function buildCommands(store: VoidState): Command[] {
   );
 
   return commands;
+}
+
+/**
+ * Show a mod's properties.
+ *
+ * Contract §7: there is no separate mod-settings screen to route to any more.
+ * Selecting the mod on the Mods screen opens the inspector beside it, so the
+ * palette does exactly what a click would — one step, and the grid stays put.
+ */
+function openProperties(store: VoidState, id: ModId): void {
+  store.setRoute({ name: 'mods' });
+  store.selectMod(id);
 }
 
 function label(category: string): string {

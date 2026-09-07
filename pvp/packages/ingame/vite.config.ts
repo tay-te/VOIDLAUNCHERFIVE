@@ -223,6 +223,22 @@ export default defineConfig(({ command }) => ({
     strictPort: false,
     open: false,
   },
+  /**
+   * DEV ONLY — `VOID_UI_FAKEMODS=<n>` pads the Mods panel to `n` tiles with synthetic mods,
+   * so the layout can be looked at at a count the registry does not ship (`src/dev/fake-mods.ts`).
+   *
+   * A `define` rather than an `envPrefix`, for two reasons. The in-game page is loaded off the
+   * JAR classpath on a `file:///` URL with no query string and no environment, so a build-time
+   * substitution is the only channel it has — and naming the one variable keeps every other
+   * `VOID_UI_*` the mod reads (renderer, profile, blur) out of the client bundle, which a
+   * prefix would have swept in.
+   *
+   * Absent, it substitutes `''`, `planFakeMods` returns nothing and the whole feature costs an
+   * empty Set and a dead branch.
+   */
+  define: {
+    __VOID_UI_FAKEMODS__: JSON.stringify(process.env.VOID_UI_FAKEMODS ?? ''),
+  },
   build: {
     target: 'es2022',
     outDir: command === 'build' ? OUT_DIR : resolve(here, 'dist'),

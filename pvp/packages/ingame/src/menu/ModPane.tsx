@@ -1,101 +1,103 @@
 /**
- * ModSettingsPanel — the 278 × 414 pane on the right of the Mods frame
- * (244:784): header row with the M switch, live preview, Scale / Opacity
- * sliders, the Keybind row, a spacer and `Edit position`.
+ * The inspector — the properties panel beside the items on the Mods screen.
  *
- * `@void/ui` supplies the shell and the controls; what this file owns is which
- * settings a given mod exposes, which is the registry's business, not the
- * component library's.
+ * `inspector` is one of the two independent controls of contract §7: `open` or
+ * `closed` regardless of whether `layout` is `grid` or `list`, which is four states
+ * and not three modes. Selecting a mod opens it; the bar toggle closes and reopens
+ * it. It never navigates anywhere — the overlay interrupts a live match, and a
+ * screen you have to come back from costs a round.
+ *
+ * The head is the frames' own three lines (`289:3024`, `289:5523`): a `SELECTED MOD`
+ * eyebrow, the mod name at display size, and a meta line reading
+ * `HUD · ENABLED · R-SHIFT`. Enablement is the `ENABLED` switch beside them — the one
+ * control that is in the same place whatever mod is selected — and it is *not* a
+ * property row, which is what frame `289:5523` settles and what §8 already said.
+ *
+ * The foot is `Reset to default` as a bare label on the left and the one filled
+ * button in the whole overlay, `Done`, on the right. There is no `Edit position`
+ * button any more: §8 puts placement on the preview, which is where the panel now
+ * draws it. The standalone HUD editor is still one ⌘K away (`Edit HUD layout`).
+ *
+ * What goes *inside* — the preview, the spatial handles and §8's property structure
+ * — is `ModSettingsScreen.tsx`, because that is where the registry knowledge lives.
  */
 
-import {
-  EditPositionButton,
-  KeybindChip,
-  KeystrokesPreview,
-  ModSettingsPanel,
-  ModSettingsRow,
-  Slider,
-} from '@/ui';
-import { HUD_MOD_IDS, MOD_REGISTRY, type HUDModId, type ModId } from '@/bridge/protocol';
-import { SETTING_RANGES, modLabel } from '@/registry';
-import { useModSettings, useVoidStore } from '@/store/store';
-import { formatSetting, keybindLabel, settingLabel } from './settings-format';
+import { Toggle } from '@/ui';
+import { type ModId } from '@/bridge/protocol';
+import { MOD_CATEGORY, hueStyle, modLabel } from '@/registry';
+import { isModOn, useModSettings, useVoidStore } from '@/store/store';
+import { CloseGlyph } from './cell-art';
+import { ModProperties } from './ModSettingsScreen';
+import { keybindLabel } from './settings-format';
 
-/** Sliders the pane shows, in the order the frame lists them. */
-const PANE_SLIDERS = ['scale', 'opacity'] as const;
+export interface ModInspectorProps {
+  id: ModId;
+  /** Whether the panel is showing. Always mounted, so the slide can transition. */
+  open: boolean;
+}
 
-export function ModPane({ id }: { id: ModId }) {
+/** `HUD  ·  ENABLED  ·  R-SHIFT` — the frames' spaced separator, preserved in CSS. */
+function metaLine(id: ModId, on: boolean, keybind: string | null): string {
+  const parts = [MOD_CATEGORY[id], on ? 'ENABLED' : 'DISABLED'];
+  parts.push(keybind === null || keybind === 'None' ? 'NO KEYBIND' : keybind.toUpperCase());
+  return parts.join('   ·   ');
+}
+
+export function ModInspector({ id, open }: ModInspectorProps): React.ReactElement {
   const settings = useModSettings(id);
-  const keys = useVoidStore((s) => s.keys);
-  const setSetting = useVoidStore((s) => s.setSetting);
+  const on = useVoidStore((s) => isModOn(s.loadout, id));
   const toggleMod = useVoidStore((s) => s.toggleMod);
-  const setRoute = useVoidStore((s) => s.setRoute);
-  const setEditorTarget = useVoidStore((s) => s.setEditorTarget);
-  const captureKeybind = useVoidStore((s) => s.captureKeybind);
+  const resetMod = useVoidStore((s) => s.resetMod);
+  const setInspector = useVoidStore((s) => s.setInspector);
 
-  const isHud = (HUD_MOD_IDS as readonly string[]).includes(id);
   const keybindKey = 'keybind' in settings ? 'keybind' : 'key' in settings ? 'key' : null;
+  const keybind = keybindKey ? keybindLabel(settings[keybindKey] ?? null) : null;
 
   return (
-    <ModSettingsPanel
-      title={modLabel(id)}
-      on={settings.on === true}
-      onToggle={(next) => toggleMod(id, next)}
+    <div
+      className={`inspector${open ? ' inspector--open' : ''}`}
+      style={hueStyle(id)}
+      aria-hidden={open ? undefined : true}
     >
-      {id === 'keystrokes' ? (
-        <KeystrokesPreview
-          keys={{
-            w: keys.w === 1,
-            a: keys.a === 1,
-            s: keys.s === 1,
-            d: keys.d === 1,
-            lmb: keys.lmb === 1,
-            rmb: keys.rmb === 1,
-          }}
-        />
-      ) : (
-        <div className="mod-pane-blurb">{MOD_REGISTRY[id].description}</div>
-      )}
-
-      {PANE_SLIDERS.filter((key) => key in settings).map((key) => {
-        const range = SETTING_RANGES[key]!;
-        const value = Number(settings[key] ?? range.min);
-        return (
-          <Slider
-            key={key}
-            variant="compact"
-            label={settingLabel(key)}
-            readout={formatSetting(key, value)}
-            value={value}
-            min={range.min}
-            max={range.max}
-            step={range.step}
-            onChange={(next) => setSetting(id, key, next)}
+      <div className="inspector__head">
+        <span className="inspector__ident">
+          <span className="inspector__eyebrow">Selected mod</span>
+          <span className="inspector__title">{modLabel(id)}</span>
+          <span className="inspector__meta">{metaLine(id, on, keybind)}</span>
+        </span>
+        <span className="inspector__state">
+          <span className="inspector__statelabel">Enabled</span>
+          <Toggle
+            checked={on}
+            size="l"
+            label={`${modLabel(id)} enabled`}
+            onChange={(next) => toggleMod(id, next)}
           />
-        );
-      })}
+        </span>
+        <button
+          type="button"
+          className="inspector__close"
+          aria-label="Close properties"
+          onClick={() => setInspector('closed')}
+        >
+          <CloseGlyph />
+        </button>
+      </div>
 
-      {keybindKey && (
-        <ModSettingsRow label={settingLabel(keybindKey)}>
-          <KeybindChip
-            value={keybindLabel(settings[keybindKey] ?? null)}
-            onCapture={() => captureKeybind(id)}
-            // bridge.json: the capture call does not store the key — the UI does.
-            onChange={(key) => setSetting(id, keybindKey, key)}
-          />
-        </ModSettingsRow>
-      )}
+      <ModProperties id={id} />
 
-      <span className="v-spacer" />
-
-      {isHud && (
-        <EditPositionButton
-          onClick={() => {
-            setEditorTarget(id as HUDModId);
-            setRoute({ name: 'hud-editor' });
-          }}
-        />
-      )}
-    </ModSettingsPanel>
+      <div className="inspector__actions">
+        <button type="button" className="inspector__reset" onClick={() => resetMod(id)}>
+          Reset to default
+        </button>
+        <button
+          type="button"
+          className="inspector__done"
+          onClick={() => setInspector('closed')}
+        >
+          Done
+        </button>
+      </div>
+    </div>
   );
 }

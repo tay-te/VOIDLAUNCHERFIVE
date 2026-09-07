@@ -2,6 +2,10 @@
  *
  * `@void/ui` draws the palette itself (`.v-palette*`); what is left here is
  * where it sits over the game, and the flat dim behind it.
+ *
+ * Same quiet-cell rules as overlay.css: Outfit only, flat only, and the type
+ * sizes come off the contract's four-tier ramp rather than sitting between two
+ * of them.
  */
 
 .palette-layer {
@@ -29,9 +33,14 @@
   max-height: calc(100% - 220px);
 }
 
-/* The tail of a result's subtitle that previews the change: `→ on`. */
+/* The tail of a result's subtitle that previews the change: `→ on`.
+   Coloured because it is the value the row is about to set — the one thing §1
+   allows colour for. `--hue` is unset here (the palette is not scoped to a mod),
+   so this resolves to the default accent, and would follow a mod's own hue if a
+   caller ever scoped it. */
 .palette-sub-accent {
-  color: var(--accent-ink);
+  color: var(--hue, var(--accent));
+  opacity: 0.95;
 }
 
 .palette-spacer {
@@ -41,6 +50,7 @@
 
 .palette-empty {
   padding: 18px;
-  font-size: var(--text-md-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
   color: var(--text-muted);
 }

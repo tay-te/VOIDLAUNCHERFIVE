@@ -36,6 +36,9 @@ import {
   type TickPayload,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
+// DEV ONLY. `isFakeMod` is a constant `false` in every build that did not ask for the padding
+// (`src/dev/fake-mods.ts`); the two guards below are the only seam it needs in the store.
+import { isFakeMod } from '@/dev/fake-mods';
 import { type ClickRing, cps, createClickRing, pushClick, risingEdges, trimRing } from './cps';
 import { clampOffset, clampScale } from './hud-geometry';
 
@@ -45,12 +48,31 @@ export type SettingValue = boolean | number | string | null;
 /** Which overlay screen the menu layer is showing. */
 export type Route =
   | { name: 'mods' }
-  | { name: 'mod-settings'; mod: ModId }
   | { name: 'loadouts' }
   | { name: 'party' }
   | { name: 'hud-editor' };
 
+/**
+ * How the Mods screen arranges its items. One of the **two independent controls**
+ * of the quiet-cell contract §7 — see {@link Inspector}.
+ */
+export type ModsLayout = 'grid' | 'list';
+
+/**
+ * Whether the properties panel shows beside the items. The other of the two
+ * independent controls (contract §7).
+ *
+ * These are deliberately two booleans and not one three-valued `mode`. A mode
+ * switcher forces "list" and "properties" to be alternatives, so a player who
+ * wants the description column has to give up the panel and then find their way
+ * back — four states, reachable in any order, is the whole point. Selecting a mod
+ * opens the inspector; nothing ever navigates to a separate screen, because the
+ * overlay interrupts a live match and every step back costs time.
+ */
+export type Inspector = 'open' | 'closed';
+
 const EMPTY_KEYS: KeysPayload = { w: 0, a: 0, s: 0, d: 0, lmb: 0, rmb: 0, space: 0, shift: 0 };
+
 
 /** Click rings live outside the store: they are scratch, never rendered. */
 const rings: { left: ClickRing; right: ClickRing } = {
@@ -185,11 +207,16 @@ export interface VoidState {
   cpsLeft: number;
   cpsRight: number;
 
+
   /* -------------------------------------------------------------- UI state */
   menuOpen: boolean;
   route: Route;
-  /** Tile highlighted in the Mods grid; drives the right-hand settings pane. */
+  /** Tile highlighted in the Mods grid; drives the properties panel. */
   selectedMod: ModId;
+  /** `grid` or `list`. Independent of {@link VoidState.inspector}. */
+  layout: ModsLayout;
+  /** `open` or `closed`. Independent of {@link VoidState.layout}. */
+  inspector: Inspector;
   paletteOpen: boolean;
   modSearch: string;
   modFilter: string;
@@ -211,6 +238,9 @@ export interface VoidState {
   /* -------------------------------------------------------------- UI actions */
   setRoute(route: Route): void;
   selectMod(id: ModId): void;
+  setLayout(layout: ModsLayout): void;
+  setInspector(inspector: Inspector): void;
+  toggleInspector(): void;
   setPaletteOpen(open: boolean): void;
   setModSearch(value: string): void;
   setModFilter(value: string): void;
@@ -245,6 +275,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   menuOpen: false,
   route: { name: 'mods' },
   selectedMod: 'keystrokes',
+  layout: 'grid',
+  inspector: 'open',
   paletteOpen: false,
   modSearch: '',
   modFilter: 'all',
@@ -389,7 +421,19 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ route });
   },
   selectMod(id) {
-    set({ selectedMod: id });
+    // Contract §7: selecting a mod opens the inspector. It is the only thing that
+    // opens it implicitly — the toggle button is how it is closed and reopened by
+    // hand, and the two stay independent of `layout` either way.
+    set({ selectedMod: id, inspector: 'open' });
+  },
+  setLayout(layout) {
+    set({ layout });
+  },
+  setInspector(inspector) {
+    set({ inspector });
+  },
+  toggleInspector() {
+    set({ inspector: get().inspector === 'open' ? 'closed' : 'open' });
   },
   setPaletteOpen(paletteOpen) {
     set({ paletteOpen });
@@ -411,6 +455,13 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   },
 
   toggleMod(id, on) {
+    // A synthetic mod is not a mod Java knows: `LiveState.setModSetting` returns null for an id
+    // outside `ModRegistry`, and this store binds to what Java returns, so the switch would
+    // flip back under the cursor. Written locally instead, which is all a fixture needs.
+    if (isFakeMod(id)) {
+      writeSetting(set, get, id, 'on', on);
+      return;
+    }
     const bridge = getVoid();
     // §6.5: gameplay mods go through setGameplay, which writes the actuator
     // field the Mixin reads every frame. HUD mods have no actuator, so their
@@ -423,6 +474,11 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   },
 
   setSetting(id, key, value) {
+    // Same reason as `toggleMod`, and this is the one that carries `resetMod` too.
+    if (isFakeMod(id)) {
+      writeSetting(set, get, id, key, value);
+      return;
+    }
     // Synchronous and authoritative: bind to what Java stored, not what we sent.
     const applied = getVoid().setModSetting(id, key, value);
     writeSetting(set, get, id, key, applied);
