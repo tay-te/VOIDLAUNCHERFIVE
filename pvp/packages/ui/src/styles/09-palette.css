@@ -39,6 +39,21 @@
   overflow: hidden;
   font-size: var(--text-3xl);
   color: var(--text-primary);
+  /* The column's height must not depend on what is in the field.
+     Its only in-flow child is the ghost, which renders `value` — so an empty query
+     gave it a zero-height line box, the column collapsed to 0, and `overflow: hidden`
+     right above clipped away everything the absolutely-positioned input draws:
+     the placeholder *and* the engine's caret. Measured in game on an open palette:
+     ten frames over 1.8s with an empty field, no caret and no placeholder in any of
+     them; one space typed and both appear on the next frame.
+
+     `.v-palette__caret` is 22px tall and in flow, so while the kit's decorative bar
+     was on it held this box open by accident, and turning the bar off is what took
+     the real caret with it. Stating the height here is what makes the two
+     independent: neither caret is load-bearing for the layout any more. 22px is the
+     frame's caret height, and it is >= the 17px line box, so nothing moves when
+     something is typed. */
+  min-height: 22px;
 }
 
 /* The field covers the whole query column and draws the text; the ghost beside

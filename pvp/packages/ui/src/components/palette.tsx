@@ -7,10 +7,11 @@ import { cx } from '../lib/cx.js';
 /**
  * The quick palette — the ⌘K command surface over the game (`244:1900`).
  *
- * `↑↓` moves the selection, `↵` runs the highlighted action, `⌘↵` opens that action's
- * settings instead of running it, `esc` closes. The selected result previews the state
- * change inline (`currently off  →  on`), and the footer's right-hand side always shows
- * the active loadout.
+ * `↑↓` moves the selection, `↵` takes the highlighted result's primary action, `⌘↵`
+ * its secondary, `esc` closes. What those two mean is the consumer's business — in game
+ * `↵` opens the mod and `⌘↵` toggles it — so this file only guarantees that the
+ * modified key reaches the consumer. The footer's right-hand side always shows the
+ * active loadout.
  *
  * Selection and key handling belong to the consumer: the palette does not know what its
  * results mean, and the in-game menu already owns the key routing.
@@ -32,7 +33,15 @@ export interface PaletteInputProps
   value?: string;
   /** Called with the new query. */
   onChange?: (value: string) => void;
-  /** Draw the blinking accent caret after the query. */
+  /**
+   * Draw the kit's decorative blinking accent bar after the query.
+   *
+   * On for a still — a gallery preview has no focused field, so nothing else would
+   * draw a caret. Off wherever the `<input>` is live: the engine draws its own caret
+   * there and two bars on two clocks is what "two of the flashing cursor things" was.
+   * Either way it is decoration; `.v-palette__query` states its own height so the
+   * layout never depends on this bar being present.
+   */
   showCaret?: boolean;
   /** The trailing chip. Defaults to `esc`. */
   hint?: ReactNode;
@@ -110,12 +119,9 @@ export function PaletteSection({
 /** Props for {@link PaletteResult}. */
 export interface PaletteResultProps
   extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect' | 'title'> {
-  /** The action's name, e.g. `Toggle Fullbright`. */
+  /** What the result names, e.g. a mod (`Fullbright`) or an action (`Switch to Bedwars`). */
   title: ReactNode;
-  /**
-   * The line under it. On the selected row the design previews the state change
-   * inline — `Visual  ·  currently off  →  on` — in the accent ink.
-   */
+  /** The line under it, e.g. `Visual  ·  currently off`. */
   sub?: ReactNode;
   /** The 16px glyph in the 30px icon well. */
   icon?: IconName;
@@ -146,7 +152,12 @@ export function PaletteResult({
       className={cx('v-palette__row', selected && 'v-palette__row--selected', className)}
       onClick={onSelect}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+        // A *modified* Enter is not an activation of this row: the consumer gives
+        // the palette a second verb on the same key (in game, Cmd/Ctrl-Enter toggles
+        // the mod rather than opening it), and `onSelect` carries no modifier, so
+        // running it here would silently turn the secondary into the primary. Let it
+        // bubble to whoever owns the two meanings.
+        if ((event.key === 'Enter' || event.key === ' ') && !event.metaKey && !event.ctrlKey) {
           event.preventDefault();
           onSelect?.();
         }
