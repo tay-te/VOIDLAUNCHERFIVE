@@ -33,14 +33,133 @@
   max-height: calc(100% - 220px);
 }
 
-/* The tail of a result's subtitle that previews the change: `→ on`.
-   Coloured because it is the value the row is about to set — the one thing §1
-   allows colour for. `--hue` is unset here (the palette is not scoped to a mod),
-   so this resolves to the default accent, and would follow a mod's own hue if a
-   caller ever scoped it. */
+/* ------------------------------------------------------------------ accents
+
+   §1's accent rule, applied to the palette. Colour marks **a live value, the
+   selected item or a drag handle**. A search result is none of those: it is a
+   thing that has not happened yet, in a list of things that have not happened
+   yet. The palette was leaking the hue in five places and every one of them was
+   decoration —
+
+     · `.v-palette__caret`               the kit's blinking bar (off in the markup:
+                                         `showCaret={false}`, and held off below)
+     · `.palette-sub-accent`             the value tail below
+     · `.v-palette__row--selected`       an accent *border* around the row
+     · `.v-palette__row--selected .v-palette__sub`   accent ink
+     · `.v-palette__row--selected .v-icon-well--on`  an accent glyph
+
+   The overlay settled this argument twice already — `.obar__nav .v-tab--selected`
+   and `.viewseg__seg--on` in overlay.css, and `.modcell--selected` — and it
+   settled it the same way each time: **selection is the raised surface step and
+   the primary ink** (§5.1), not a tint and not an outline. These four rules say
+   that here. They are overrides rather than edits to `@void/ui`, which draws the
+   same component for the desktop client and for the gallery stills, where a
+   palette *is* the focused surface and the accent is right.
+
+   The one place the hue is still allowed in this layer is a mod's own — nothing
+   in the palette is scoped to a mod, so nothing here claims it. */
+
+/* The tail of a result's subtitle: the mod's live value, `currently ` + `on`.
+   It used to be the *preview* of a change Enter was about to make (`currently off →
+   on`); Enter no longer makes that change, so it is now a readout — which is a live
+   value, the one thing §1 allows to be marked at all. Marked by emphasis rather than
+   by colour, though: one step up the ink ramp against the muted line it ends, which is
+   how every other "this is the part that matters" reads in the overlay. */
 .palette-sub-accent {
-  color: var(--hue, var(--accent));
-  opacity: 0.95;
+  color: var(--text-primary);
+}
+
+/* The highlighted row. `--accent-tint-weak` is already a white alpha in the
+   contract's tokens, but `--accent-border` resolves to the hue itself, so the
+   selected row was drawing a violet outline — the same defect, in the same shape,
+   as the violet outline that had to come off the selected filter tab. */
+.palette-layer .v-palette__row--selected {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+}
+
+/* `.v-palette__sub` on the selected row goes to `--accent-ink`, which is
+   `var(--hue, var(--accent))` — the coloured subtitle. Secondary ink instead: the
+   row is already raised, and the ramp says which row is selected. */
+.palette-layer .v-palette__row--selected .v-palette__sub {
+  color: var(--text-secondary);
+}
+
+/* `.v-icon-well--on` fills the 30px well with `--accent-tint-icon` (a white alpha,
+   fine) and draws the glyph in `--accent-ink` (the hue, not fine). Coloured mod
+   icons are on the list of things this system has already decided against. */
+.palette-layer .v-palette__row--selected .v-icon-well--on {
+  background: var(--tint-08);
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- entrance
+
+   `.v-panel--enter` animates `transform: translateY(8px) scale(0.98)` to
+   `scale(1)`, with `both` fill. Both halves of that are wrong in this engine.
+
+   `scale()` renders glyphs at roughly the *device* scale — measured at ~2.3x on a
+   2.35 dp/css view (rendering-invariants.md §10). That measurement was taken on a
+   press state, because a press is where it was caught; nothing about it is
+   specific to `:active`, so an entrance that scales is the same defect with a
+   duration. Not re-measured here — the rule is "no `scale()`", and this is a
+   `scale()`. And `both` leaves the `to` frame standing, so a `transform` is left
+   on the element for as long as it lives, which is what keeps a surface on its own
+   composited layer — the thing App.tsx drops `.menu-layer--entering` to avoid.
+
+   Same duration, same curve, same fill; opacity only. Overriding the name rather
+   than the shorthand keeps all three in one place, `@void/ui`'s. */
+.palette-layer .v-palette.v-panel--enter {
+  animation-name: palette-in;
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ caret
+
+   Exactly one caret in the query row, and it is the engine's own.
+
+   `showCaret={false}` in the markup is what turns the kit's decorative bar off;
+   this is the same statement made where a prop cannot get at it. The element has
+   now been got wrong twice — once drawn beside the engine's caret (two bars, two
+   clocks) and once removed in a way that took the engine's with it — so the rule
+   that matters is written down rather than left as the default of a boolean:
+
+     in game, the caret belongs to the `<input>`, and nothing else may draw one.
+
+   `display: none` rather than `visibility: hidden`: §12 of rendering-invariants —
+   visibility is inherited *and* overridable, and this is a leaf whose only job is
+   to not exist. */
+.palette-layer .v-palette__caret {
+  display: none;
+}
+
+/* -------------------------------------------------------------------- hint
+
+   The overlay explains its keys in one muted sentence at the label tier — see
+   `.ohint` in overlay.css and `MODS_HINT_GRID`. The palette gets the same line for
+   the same reason: its two Enter verbs are not guessable from four-letter chips.
+   Same 9px / 11px / .12em / uppercase as `.ohint`; the padding is the palette's
+   own 18px gutter rather than the window's `--edge`. */
+.palette-hint {
+  flex: 0 0 auto;
+  padding: 0 var(--space-18) 10px;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  /* Stated, not `normal`: same reason `.ohint` and `.v-palette__caption` state theirs. */
+  line-height: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: pre;
 }
 
 .palette-spacer {

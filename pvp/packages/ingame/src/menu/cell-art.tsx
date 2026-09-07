@@ -92,6 +92,27 @@ export function CloseGlyph(): React.ReactElement {
   return <CellArt rows={CROSS} size={2} />;
 }
 
+/** The magnifier: a 5 × 5 ring, and a handle running off its bottom-right corner. */
+const LENS = ['.###..', '#...#.', '#...#.', '#...#.', '.###..', '....#.', '.....#'];
+
+/**
+ * The search button's magnifier.
+ *
+ * 2px cells, so it is 12 × 14 inside the same 24px button the close and the
+ * inspector toggle use — the close's X is 14 × 14, and the two read as the same
+ * weight because they are drawn out of the same atom at the same size.
+ *
+ * Cell art rather than an icon, for the reason at the top of this file: `@void/ui`
+ * has a perfectly good `search` glyph and it is a stroked SVG path, which is the
+ * class of thing ultralight-notes.md §7 lists as the usual casualty. The palette's
+ * own query row does use that icon, and it is fine there — but the bar's other
+ * three marks are cells, and one icon among them would be the odd one out
+ * whether or not the engine drew it.
+ */
+export function SearchGlyph(): React.ReactElement {
+  return <CellArt rows={LENS} size={2} />;
+}
+
 /** Grid view: a 2 × 2 block of cells. 2px for the same reason as {@link CloseGlyph}. */
 export function GridGlyph(): React.ReactElement {
   return <CellArt rows={['##.##', '##.##', '.....', '##.##', '##.##']} size={2} />;

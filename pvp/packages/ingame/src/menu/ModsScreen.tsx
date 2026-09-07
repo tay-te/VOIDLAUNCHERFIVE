@@ -70,7 +70,7 @@ import { isModOn, modsOnCount, useModSettings, useVoidStore } from '@/store/stor
 import { FILTER_TABS, MOD_CATEGORY, MOD_ORDER, hueStyle, modLabel } from '@/registry';
 import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
 import { FilterTabs, Toggle, cx } from '@/ui';
-import { CloseGlyph, GridGlyph, InspectorGlyph, ListGlyph, VoidMark } from './cell-art';
+import { CloseGlyph, GridGlyph, InspectorGlyph, ListGlyph, SearchGlyph, VoidMark } from './cell-art';
 import { TilePreview } from './TilePreview';
 import { ModInspector } from './ModPane';
 import { ModList } from './ModList';
@@ -102,8 +102,16 @@ export const GEOMETRY = {
   gap: 12,
   /** The tile's foot under its square preview well: `--tile-h` is `--tile-w` plus this. */
   foot: 52,
-  /** Bar 46 + rule 1 + body inset 16 + status 36 + hint 29.5, rounded up. `--chrome-h`. */
-  chrome: 129,
+  /**
+   * Bar 46 + rule 1 + body inset 16 + status 24 + hint 23. `--chrome-h`.
+   *
+   * Every pixel taken off the chrome is one the rows may have, and the solve spends it: at
+   * seventeen mods a 129 chrome left 667 for the rows, seven columns of a 165.4 tile needed
+   * 676.3, and the shape fell through to eight columns of 143.25. At 110 the budget is 686 and
+   * the seven-column solve fits, so the same seventeen mods lay out three rows of a bigger tile.
+   * That is the intent, not a side effect — `solveGrid` picks the *largest* tile that fits.
+   */
+  chrome: 110,
   /** The widest the panel ever is. Six columns of 195 plus the insets. */
   maxPanelW: 1278,
   /** Left over each side of the panel: `max-width: calc(100% - 48px)`. */
@@ -455,6 +463,35 @@ function LayoutControl() {
   );
 }
 
+/**
+ * The magnifier: first of the tools on the right of the bar.
+ *
+ * It opens the quick palette — the same surface ⌘K opens, and the same call
+ * `MenuLayer`'s shortcut makes. The hint line under the grid has advertised
+ * `⌘K search` all along; this is that shortcut with a face on it, for a player
+ * who has never read the hint line.
+ *
+ * Opens rather than toggles, which is not a shortcut taken: the palette's own dim
+ * covers the whole layer, so the button cannot be clicked while it is up, and
+ * there is no reachable state where "toggle" and "open" differ. Nothing marks it
+ * as on for the same reason — a pressed state nobody can ever see is a lie about
+ * the control.
+ */
+function SearchControl() {
+  const setPaletteOpen = useVoidStore((s) => s.setPaletteOpen);
+  return (
+    <button
+      type="button"
+      className="obtn"
+      aria-label="Search"
+      aria-keyshortcuts="Meta+K"
+      onClick={() => setPaletteOpen(true)}
+    >
+      <SearchGlyph />
+    </button>
+  );
+}
+
 function InspectorControl() {
   const inspector = useVoidStore((s) => s.inspector);
   const toggleInspector = useVoidStore((s) => s.toggleInspector);
@@ -676,6 +713,7 @@ export function ModsScreen() {
           label="Mod filter"
         />
         <div className="obar__tools">
+          <SearchControl />
           <LayoutControl />
           <InspectorControl />
           <button type="button" className="obtn obtn--close" aria-label="Close" onClick={closeMenu}>

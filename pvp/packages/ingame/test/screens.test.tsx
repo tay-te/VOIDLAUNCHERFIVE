@@ -24,7 +24,7 @@ function set(mutate: () => void) {
   });
 }
 import { connectBridge } from '@/bridge/connect';
-import { resetDerivedState, useVoidStore } from '@/store/store';
+import { isModOn, resetDerivedState, useVoidStore } from '@/store/store';
 import { App } from '@/App';
 import {
   MODS_HINT_GRID,
@@ -39,6 +39,7 @@ import { anchorShortLabel, modProperties, propertyStructure } from '@/menu/ModSe
 import { LOADOUTS_FOOTER } from '@/menu/LoadoutsScreen';
 import { PARTY_FOOTER } from '@/menu/PartyScreen';
 import { EDITOR_HINT } from '@/menu/HudEditorScreen';
+import { PALETTE_HINT } from '@/palette/QuickPalette';
 
 let dispose: () => void;
 
@@ -636,19 +637,247 @@ describe('Quick palette — frame 244:1900', () => {
     render(<App />);
     expect(screen.getByRole('dialog', { name: 'Quick palette' })).toBeTruthy();
     expect(screen.getByText('Actions')).toBeTruthy();
-    for (const word of ['move', 'run', 'settings', 'close']) {
+    for (const word of ['move', 'open', 'toggle', 'close']) {
       expect(screen.getByText(word)).toBeTruthy();
     }
   });
 
-  it('reproduces the frame’s result order for `fullb`', () => {
+  /** The two Enter verbs are not guessable from the chips, so they are also written out. */
+  it('spells out what ↵ and ⌘↵ do', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const hint = container.querySelector('.palette-hint');
+    expect(hint?.textContent).toBe(PALETTE_HINT);
+    expect(PALETTE_HINT).toContain('↵ opens');
+    expect(PALETTE_HINT).toContain('⌘↵ toggles');
+    expect(PALETTE_HINT).toContain('without closing');
+  });
+
+  /**
+   * `fullb` answers with Fullbright, once.
+   *
+   * It used to answer with `Toggle Fullbright` and `Fullbright settings` — two rows whose
+   * Enter now does exactly the same thing, so the second one is gone and the title is the
+   * mod's own name.
+   */
+  it('answers `fullb` with the mod itself, once', () => {
     set(() => useVoidStore.getState().applyMenu(true));
     set(() => useVoidStore.getState().setPaletteOpen(true));
     const { container } = render(<App />);
     const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'fullb' } });
     const titles = [...container.querySelectorAll('.v-palette__title')].map((el) => el.textContent);
-    expect(titles[0]).toBe('Toggle Fullbright');
-    expect(titles[1]).toBe('Fullbright settings');
+    expect(titles[0]).toBe('Fullbright');
+    expect(titles.filter((t) => t?.includes('Fullbright') && !t.includes('Turn on'))).toHaveLength(
+      1,
+    );
+  });
+
+  /**
+   * ↑↓ moves the selection, and the moved-to row is the one that is marked.
+   *
+   * This passed in jsdom while being completely dead in game, which is the only reason it is
+   * worth spelling out here: the handler was right, and Java was appending U+F701 — AppKit's
+   * `NSDownArrowFunctionKey` — to the query on every press as if it were typed text, so the
+   * query changed, `useEffect([query])` reset the cursor, and the selection never moved.
+   * `KeyNames.isTypedText` is the fix and `ActuatorsTest` is where it is guarded; this only
+   * holds up the page's half.
+   */
+  it('moves the selection with the arrow keys', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const layer = container.querySelector('.palette-layer') as HTMLElement;
+    const selected = () =>
+      [...container.querySelectorAll('.v-palette__row')].findIndex((row) =>
+        row.classList.contains('v-palette__row--selected'),
+      );
+    expect(selected()).toBe(0);
+    fireEvent.keyDown(layer, { key: 'ArrowDown' });
+    expect(selected()).toBe(1);
+    fireEvent.keyDown(layer, { key: 'ArrowDown' });
+    expect(selected()).toBe(2);
+    fireEvent.keyDown(layer, { key: 'ArrowUp' });
+    expect(selected()).toBe(1);
+    // Clamped at both ends rather than wrapping.
+    for (let i = 0; i < 10; i += 1) fireEvent.keyDown(layer, { key: 'ArrowUp' });
+    expect(selected()).toBe(0);
+    const rows = container.querySelectorAll('.v-palette__row').length;
+    for (let i = 0; i < rows + 5; i += 1) fireEvent.keyDown(layer, { key: 'ArrowDown' });
+    expect(selected()).toBe(rows - 1);
+  });
+
+  /**
+   * The query row draws one caret, and it is the engine's.
+   *
+   * `@void/ui`'s `PaletteInput` renders a blinking accent bar next to the real `<input>` and
+   * defaults it on — right for a still, two cursors for a live field. Measured in game:
+   * Ultralight paints and blinks a caret in a focused input by itself, at the real text
+   * position, so the engine's is the one that can be right. What jsdom cannot check is the
+   * other half of that fix — the decorative bar was 22px tall and in flow, so it was holding
+   * `.v-palette__query` open, and removing it collapsed the column and clipped the engine's
+   * caret and the placeholder away. That lives in `09-palette.css` as a stated `min-height`.
+   */
+  it('draws no decorative caret beside the real field', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    expect(container.querySelectorAll('.v-palette__query input')).toHaveLength(1);
+    expect(container.querySelectorAll('.v-palette__caret')).toHaveLength(0);
+  });
+
+  /**
+   * The primary action navigates and changes nothing.
+   *
+   * "Clicking on an entry when searching doesn't actually take me anywhere" was not the click
+   * being lost — it reached `run()` in game, measured. It was that the top of the list was all
+   * toggles, and a toggle flipped a switch on one of seventeen tiles and closed the palette
+   * over it. The answer is not "toggle *and* navigate", which leaves the player unable to tell
+   * which of the two Enter meant: a mod's result now opens the mod, exactly as clicking its
+   * tile does (§7), and the loadout is left alone.
+   */
+  it.each([
+    ['a click on the row', (row: HTMLElement) => fireEvent.click(row)],
+    // Enter with the row focused: `PaletteResult` runs it, and the palette's own Enter must not
+    // run it a second time.
+    ['Enter on the row', (row: HTMLElement) => fireEvent.keyDown(row, { key: 'Enter' })],
+    // Enter with the field focused, which is where the keyboard actually is.
+    [
+      'Enter in the query',
+      (row: HTMLElement) =>
+        fireEvent.keyDown(row.closest('.palette-layer')!.querySelector('input')!, { key: 'Enter' }),
+    ],
+  ])('the top result with %s opens the mod and changes nothing', (_name, activate) => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'party' }));
+    set(() => useVoidStore.getState().selectMod('zoom'));
+    set(() => useVoidStore.getState().setInspector('closed'));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'fullb' } });
+    const row = container.querySelector('.v-palette__row') as HTMLElement;
+    expect(row.textContent).toContain('Fullbright');
+    const before = isModOn(useVoidStore.getState().loadout, 'fullbright');
+    set(() => activate(row));
+    const after = useVoidStore.getState();
+    expect(after.paletteOpen).toBe(false);
+    expect(after.route.name).toBe('mods');
+    expect(after.selectedMod).toBe('fullbright');
+    expect(after.inspector).toBe('open');
+    expect(isModOn(after.loadout, 'fullbright')).toBe(before);
+  });
+
+  /**
+   * ⌘↵ / Ctrl-↵ is the toggle, and it leaves the palette up.
+   *
+   * Staying open is the point, not an implementation detail: it is the only way the change is
+   * ever seen — the row below the cursor rewrites its own `currently off` to `currently on` on
+   * the next frame — and it is what makes flipping three things in a row possible.
+   */
+  it.each([
+    ['⌘', { metaKey: true }],
+    ['Ctrl', { ctrlKey: true }],
+  ])('%s+Enter toggles in place, without closing or navigating', (_name, modifier) => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'party' }));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'fullb' } });
+    const before = isModOn(useVoidStore.getState().loadout, 'fullbright');
+    set(() => fireEvent.keyDown(input, { key: 'Enter', ...modifier }));
+    let after = useVoidStore.getState();
+    expect(isModOn(after.loadout, 'fullbright')).toBe(!before);
+    expect(after.paletteOpen).toBe(true);
+    expect(after.route.name).toBe('party');
+    // The row it happened on says so, and a second press flips it back.
+    expect(container.querySelector('.v-palette__row')?.textContent).toContain(
+      before ? 'currently off' : 'currently on',
+    );
+    set(() => fireEvent.keyDown(input, { key: 'Enter', ...modifier }));
+    after = useVoidStore.getState();
+    expect(isModOn(after.loadout, 'fullbright')).toBe(before);
+    expect(after.paletteOpen).toBe(true);
+  });
+
+  /**
+   * A modified Enter reaches the palette even from a focused row.
+   *
+   * `PaletteResult` handles Enter itself and calls `onSelect`, which carries no modifier — so
+   * without the modifier test in `@void/ui` the secondary would silently become the primary on
+   * the one path where a row, not the field, has the keyboard.
+   */
+  it('gives ⌘+Enter on a focused row the secondary, not the primary', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'party' }));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'fullb' } });
+    const row = container.querySelector('.v-palette__row') as HTMLElement;
+    const before = isModOn(useVoidStore.getState().loadout, 'fullbright');
+    set(() => fireEvent.keyDown(row, { key: 'Enter', metaKey: true }));
+    const after = useVoidStore.getState();
+    expect(isModOn(after.loadout, 'fullbright')).toBe(!before);
+    expect(after.paletteOpen).toBe(true);
+    expect(after.route.name).toBe('party');
+  });
+
+  /** A row with nothing to toggle does nothing at all on ⌘↵ — it does not fall back to the primary. */
+  it('leaves a result with no secondary alone on ⌘+Enter', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'party' }));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'edit hud layout' } });
+    expect(container.querySelector('.v-palette__title')?.textContent).toBe('Edit HUD layout');
+    set(() => fireEvent.keyDown(input, { key: 'Enter', metaKey: true }));
+    const after = useVoidStore.getState();
+    expect(after.paletteOpen).toBe(true);
+    expect(after.route.name).toBe('party');
+  });
+
+  /**
+   * No two rows may read the same.
+   *
+   * `load` used to answer with four rows of `Turn on in UHC loadout`, one per mod that happened
+   * to be off in it — same title, same score, and the mod only in a subtitle.
+   */
+  it('never shows the same title twice', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
+    for (const query of ['', 'load', 'loadout', 'turn', 'on', 'in', 'set', 'e']) {
+      fireEvent.change(input, { target: { value: query } });
+      const titles = [...container.querySelectorAll('.v-palette__title')].map((el) =>
+        el.textContent,
+      );
+      expect(new Set(titles).size, `duplicate row title for “${query}”`).toBe(titles.length);
+    }
+  });
+
+  /** Escape closes the palette and leaves the menu up; §6.3 gives the second one to the menu. */
+  it('closes on Escape without closing the menu', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    const { container } = render(<App />);
+    const layer = container.querySelector('.palette-layer') as HTMLElement;
+    fireEvent.keyDown(layer, { key: 'Escape' });
+    expect(useVoidStore.getState().paletteOpen).toBe(false);
+    expect(useVoidStore.getState().menuOpen).toBe(true);
+  });
+
+  /** The magnifier in the bar is the shortcut with a face on it. */
+  it('opens from the search button in the top bar', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    const { container } = render(<App />);
+    expect(container.querySelector('.palette-layer')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(useVoidStore.getState().paletteOpen).toBe(true);
+    expect(container.querySelector('.palette-layer')).not.toBeNull();
   });
 });

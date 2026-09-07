@@ -394,9 +394,20 @@ body {
   --tile-art: calc(var(--tile-w) - 20px);
   --tile-h: calc(var(--tile-w) + 52px);
 
-  /* bar 46 + rule 1 + body inset 16 + status 36 + hint 29.5, rounded up.
-     `GEOMETRY.chrome` in ModsScreen.tsx is the same number, and subtracts it. */
-  --chrome-h: 129px;
+  /* bar 46 + rule 1 + body inset 16 + status 24 + hint 23.
+     `GEOMETRY.chrome` in ModsScreen.tsx is the same number, and subtracts it.
+
+     Was 129: a 36-tall status band and a hint with 18px under it on `normal`
+     leading. The footer block was 65.5 of that and is 47 now, which is the whole
+     of the change — the type did not move. It could not: both lines are already
+     on §2's label tier, 10 and 9, and the tier below it is nothing. So the height
+     came out of the leading and the padding, which is where it was — a 10px line
+     centred in a 36px band is thirteen pixels of air above and below it, for a
+     row whose tallest content is an 8px cell.
+
+     The 19 pixels that buys are not left over; `solveGrid` spends them on the
+     rows. See `GEOMETRY.chrome`. */
+  --chrome-h: 110px;
   /* The width the grid actually occupies — everything but the gutter. Stated once because
      `.mods-view` and `.ostatus--grid` both have to agree with it. */
   --grid-w: calc(
@@ -1475,7 +1486,10 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  height: 36px;
+  /* 24, not 36. See `--chrome-h`. The band's tallest content is the 8px strip of
+     enabled-cells, which still has 8px of clearance top and bottom; the 10px line
+     beside it has about 5.5. */
+  height: 24px;
   margin: 0 var(--edge);
   font-family: var(--font-ui);
   font-size: 10px;
@@ -1525,9 +1539,14 @@ body {
 /* The keyboard hint, bottom left of the window. */
 .ohint {
   flex: 0 0 auto;
-  padding: 0 var(--edge) 18px;
+  padding: 0 var(--edge) 12px;
   font-family: var(--font-ui);
   font-size: 9px;
+  /* Stated rather than left at `normal`, for the same reason `.v-palette__caption`
+     states its own: `normal` on 9px Outfit is 11.34, and a chrome height that has
+     to agree with the CSS to the pixel cannot be built on a number the font
+     decides. 11 is that value, rounded to where it can be checked. */
+  line-height: 11px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;

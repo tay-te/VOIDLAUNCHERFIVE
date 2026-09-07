@@ -98,43 +98,67 @@ describe('solveGrid — the grid fills the panel it is given', () => {
 });
 
 describe('solveGrid — the counts that used to break', () => {
-  /** cols, rows, tile width, panel height — the shape the fix produces. */
-  const expected: Record<number, [number, number, number, number]> = {
-    12: [6, 2, 195, 635],
-    13: [7, 2, 1158 / 7, 2 * (1158 / 7 + 52) + 12 + 129],
-    16: [8, 2, 143.25, 531.5],
-    // 17 to 21 are the bug. Every one of them is now eight columns of the same 143.25-wide tile
-    // as twenty-four — three rows that fit, instead of three rows of a 195 tile that did not.
-    17: [8, 3, 143.25, 738.75],
-    18: [8, 3, 143.25, 738.75],
-    19: [8, 3, 143.25, 738.75],
-    20: [8, 3, 143.25, 738.75],
-    21: [8, 3, 143.25, 738.75],
-    24: [8, 3, 143.25, 738.75],
+  /**
+   * The three tiles the 1278-wide panel can produce, to the fraction. Written out because the
+   * table below is only readable if the numbers in it have names.
+   */
+  const TILE = { six: 195, seven: 1158 / 7, eight: 143.25 };
+
+  /** Rows of `tileH`, plus the 12px gaps between them. */
+  const gridH = (rows: number, tileW: number) => rows * (tileW + GEOMETRY.foot) + (rows - 1) * 12;
+
+  /**
+   * The chrome is asserted, not read past.
+   *
+   * `panelH` below is derived from `GEOMETRY.chrome` so that shortening the footer does not
+   * invalidate the *shapes*, which are what this file is actually guarding. But the budget the
+   * shapes come out of **is** the chrome, so a change to it has to be a deliberate edit here
+   * too: at 129 the seven-column solve did not fit at seventeen mods and the answer was eight
+   * columns; at 110 it does, and the answer is seven columns of a bigger tile.
+   */
+  it('is built on the stated chrome height', () => {
+    expect(GEOMETRY.chrome).toBe(110);
+  });
+
+  /** cols, rows, tile width — the shape the fix produces. */
+  const expected: Record<number, [number, number, number]> = {
+    12: [6, 2, TILE.six],
+    13: [7, 2, TILE.seven],
+    16: [7, 3, TILE.seven],
+    // 17 to 21 are the bug: they used to ask for three rows of a 195 tile, which did not fit,
+    // and got clipped. They fit three rows of the 165.4 tile, and have since the solve started
+    // checking. (They were eight columns of 143.25 while the chrome was 129 — the seven-column
+    // grid missed the budget by nine pixels, which is exactly what the shorter footer freed.)
+    17: [7, 3, TILE.seven],
+    18: [7, 3, TILE.seven],
+    19: [7, 3, TILE.seven],
+    20: [7, 3, TILE.seven],
+    21: [7, 3, TILE.seven],
+    24: [8, 3, TILE.eight],
   };
 
-  for (const [count, [columns, rows, tileW, panelH]] of Object.entries(expected)) {
+  for (const [count, [columns, rows, tileW]] of Object.entries(expected)) {
     it(`lays ${count} mods out as ${columns} x ${rows}`, () => {
       const shape = solveGrid(Number(count), VIEW.w, VIEW.h);
       expect(shape.columns).toBe(columns);
       expect(shape.rows).toBe(rows);
       expect(shape.tileW).toBeCloseTo(tileW, 4);
-      expect(shape.panelH).toBeCloseTo(panelH, 4);
+      expect(shape.panelH).toBeCloseTo(gridH(rows, tileW) + GEOMETRY.chrome, 4);
       expect(shape.scrolls).toBe(false);
       expect(shape.gutter).toBe(0);
     });
   }
 
   it('is unchanged at the counts that already worked', () => {
-    // The whole point of the regression range: 12 and 22-24 were fine and must stay identical,
+    // The whole point of the regression range: 12 and 22-24 were fine and must stay that way,
     // or the fix has traded one set of broken counts for another.
     for (const count of [12, 13, 14, 15, 16, 22, 23, 24]) {
       const shape = solveGrid(count, VIEW.w, VIEW.h);
       expect(shape.scrolls).toBe(false);
       expect(shape.panelH).toBeLessThanOrEqual(maxPanelH(VIEW.h));
     }
-    expect(solveGrid(12, VIEW.w, VIEW.h).panelH).toBe(635);
-    expect(solveGrid(24, VIEW.w, VIEW.h).panelH).toBe(738.75);
+    expect(solveGrid(12, VIEW.w, VIEW.h).panelH).toBe(506 + GEOMETRY.chrome);
+    expect(solveGrid(24, VIEW.w, VIEW.h).panelH).toBe(609.75 + GEOMETRY.chrome);
   });
 
   it('never gives more mods a bigger tile or fewer columns', () => {
