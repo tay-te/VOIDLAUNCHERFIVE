@@ -22,7 +22,6 @@ export function settingLabel(key: string): string {
     show_durability: 'Show durability',
     show_held_item: 'Show held item',
     show_direction: 'Show direction',
-    show_status: 'Show status',
     show_eye_line: 'Show eye line',
     sneak_too: 'Sneak too',
     window_ms: 'Window',

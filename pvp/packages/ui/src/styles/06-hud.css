@@ -76,6 +76,22 @@
   color: var(--text-primary);
 }
 
+/**
+ * `coordinates.layout: stacked` — one axis per line.
+ *
+ * `align-items: flex-start` so the three axes share a left edge: the whole point of
+ * reading coordinates stacked is that a digit changing is a digit you can see change,
+ * and centred lines move under each other. `white-space` goes back to normal because
+ * the inline layout's runs of real spaces are a horizontal device and there is nothing
+ * left to space out.
+ */
+.v-coordschip--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  white-space: normal;
+}
+
 /* ---------------------------------------------------------------- CpsChip */
 
 .v-cpschip__left {
@@ -146,18 +162,40 @@
 
 /* --------------------------------------------------------------- ArmorList */
 
+/**
+ * The armour panel.
+ *
+ * `orientation` names the direction the **pieces** run in, and both directions are real
+ * rules now. The base carries only what the two share; neither direction is the base,
+ * because a base that is one of the two options is how `horizontal` came to draw a
+ * vertical list for as long as it did.
+ */
 .v-armorlist {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  width: 170px;
   padding: var(--space-8) var(--space-10);
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
   border: 1px solid var(--border-dock);
 }
 
+/** Pieces stacked top to bottom: one full row each, label left, value right, bar under. */
 .v-armorlist--vertical {
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 170px;
+}
+
+/**
+ * Pieces side by side: one narrow cell each, short label over a bar.
+ *
+ * `width: auto` and a fixed cell width rather than a fixed panel width — five pieces and
+ * two pieces are different widths, and a panel sized for five leaves a bar stretched
+ * across nothing when the player is wearing one.
+ */
+.v-armorlist--horizontal {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-8);
   width: auto;
 }
 
@@ -165,6 +203,43 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
+}
+
+/** In a strip each piece is its own small column: icon, then label over bar. */
+.v-armorlist--horizontal .v-armorlist__row {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: 54px;
+}
+
+.v-armorlist--horizontal .v-armorlist__labels {
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.v-armorlist--horizontal .v-armorlist__label,
+.v-armorlist--horizontal .v-armorlist__value {
+  font-size: var(--text-sm-2);
+}
+
+/** The cell is already the width; the body must fill it rather than size it. */
+.v-armorlist--horizontal .v-armorlist__body {
+  width: 100%;
+}
+
+/**
+ * `show_durability: false` — the bar and the figure are not rendered at all (the
+ * component omits both nodes), so what is left is an icon and a label. Centre the label
+ * under the icon in the strip and let the row shrink: with nothing to size it, 170px of
+ * panel around five words is a box that says the setting broke something.
+ */
+.v-armorlist--nodurability.v-armorlist--vertical {
+  width: auto;
+}
+
+.v-armorlist--nodurability .v-armorlist__labels {
+  justify-content: flex-start;
 }
 
 .v-armorlist__icon {
@@ -288,8 +363,16 @@
   width: 118px;
 }
 
+/**
+ * A pressed keycap.
+ *
+ * The fill is `--key-pressed-bg`, which `keystrokes.pressed_color` sets on the widget
+ * root (`keystrokesColorStyle`); the fallback is the mod hue, which is what this rule
+ * used to name directly. Unpressed caps read `--key-bg` the same way, and that token
+ * already existed — which is why `key_color` needed no new one.
+ */
 .v-keystrokes__key--pressed {
-  background: var(--hue, var(--accent));
+  background: var(--key-pressed-bg, var(--hue, var(--accent)));
   border-color: var(--tint-35);
   color: var(--accent-fg);
 }

@@ -28,6 +28,7 @@ import { SETTING_RANGES } from '@/registry';
 import { useModSettings, useVoidStore } from '@/store/store';
 import { potionMeta } from '@/hud/format';
 import { fakeArtSource } from '@/dev/fake-mods';
+import { Watermark } from '@/hud/watermark';
 import { CellArt } from './cell-art';
 
 /* -------------------------------------------------------------------------- */
@@ -56,6 +57,18 @@ const PIP = ['##.', '.##', '##.'];
 /* Pieces                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A cell edge at the caller's scale, in whole pixels.
+ *
+ * The cell is a square with a 30% radius drawn as a `<span>` of a stated width, so it is the
+ * one thing here that cannot be scaled from CSS — hence a number rather than a class. Rounded
+ * because a fractional edge is a fractional *step*: rows of cells are flex rows of squares, and
+ * at 22.5px the engine lands successive rows half a pixel apart and the bitmap shears.
+ */
+function cells(size: number, scale: number): number {
+  return Math.max(1, Math.round(size * scale));
+}
+
 function Readout({ value, unit }: { value: string; unit: string }): React.ReactElement {
   return (
     <span className="tart tart--stack">
@@ -65,10 +78,18 @@ function Readout({ value, unit }: { value: string; unit: string }): React.ReactE
   );
 }
 
-function Glyph({ rows, caption }: { rows: readonly string[]; caption: string }): React.ReactElement {
+function Glyph({
+  rows,
+  caption,
+  scale,
+}: {
+  rows: readonly string[];
+  caption: string;
+  scale: number;
+}): React.ReactElement {
   return (
     <span className="tart tart--stack">
-      <CellArt rows={rows} size={9} />
+      <CellArt rows={rows} size={cells(9, scale)} />
       <span className="tart__unit tart__unit--wide">{caption}</span>
     </span>
   );
@@ -95,7 +116,7 @@ function Keycaps(): React.ReactElement {
   );
 }
 
-function Armour(): React.ReactElement {
+function Armour({ scale }: { scale: number }): React.ReactElement {
   const armor = useVoidStore((s) => s.armor);
   // Four pieces whatever the payload says: the preview is the *shape* of the
   // widget, and a row that changes length as gear breaks would make the grid jump.
@@ -104,8 +125,8 @@ function Armour(): React.ReactElement {
     <span className="tart tart--armour">
       {[0, 1, 2, 3].map((i) => (
         <span className="tart__piece" key={i}>
-          <CellArt rows={ARMOUR} size={7} tone={i < worn ? 'on' : 'dim'} />
-          <CellArt rows={['#####']} size={3} tone={i < worn ? 'dim' : 'off'} />
+          <CellArt rows={ARMOUR} size={cells(7, scale)} tone={i < worn ? 'on' : 'dim'} />
+          <CellArt rows={['#####']} size={cells(3, scale)} tone={i < worn ? 'dim' : 'off'} />
         </span>
       ))}
     </span>
@@ -118,7 +139,7 @@ const FALLBACK_FX: Array<[string, string]> = [
   ['Strength', '0:42'],
 ];
 
-function Potions(): React.ReactElement {
+function Potions({ scale }: { scale: number }): React.ReactElement {
   const fx = useVoidStore((s) => s.fx);
   const rows: Array<[string, string]> =
     fx.length > 0
@@ -132,7 +153,7 @@ function Potions(): React.ReactElement {
     <span className="tart tart--rows">
       {rows.map(([label, time]) => (
         <span className="tart__line" key={label}>
-          <CellArt rows={PIP} size={4} tone="dim" />
+          <CellArt rows={PIP} size={cells(4, scale)} tone="dim" />
           <span className="tart__lname">{label}</span>
           <span className="tart__ltime tnum">{time}</span>
         </span>
@@ -181,6 +202,16 @@ function Zoom({ id }: { id: ModId }): React.ReactElement {
 /** Props for {@link TilePreview}. */
 export interface TilePreviewProps {
   id: ModId;
+  /**
+   * Multiplier on every cell edge. 1 is the tile; the mod page draws the same art at 2.6.
+   *
+   * The type around the art scales in CSS (`.modpage .preview__stage`), because font sizes are
+   * exactly what CSS is for — but a cell's edge is an inline length and has to come from here.
+   * Two mechanisms for one enlargement is not ideal; the alternative is a second set of art
+   * for the page, which is worse: the grid and the page would then be able to disagree about
+   * what a mod looks like.
+   */
+  scale?: number;
 }
 
 /**
@@ -190,7 +221,7 @@ export interface TilePreviewProps {
  * initial as a caption, so a mod added to `mods.json` still draws something rather
  * than an empty recess.
  */
-export function TilePreview({ id }: TilePreviewProps): React.ReactElement {
+export function TilePreview({ id, scale = 1 }: TilePreviewProps): React.ReactElement {
   const fps = useVoidStore((s) => s.fps);
   const ping = useVoidStore((s) => s.ping);
   const cpsLeft = useVoidStore((s) => s.cpsLeft);
@@ -208,28 +239,38 @@ export function TilePreview({ id }: TilePreviewProps): React.ReactElement {
     case 'keystrokes':
       return <Keycaps />;
     case 'armor_status':
-      return <Armour />;
+      return <Armour scale={scale} />;
     case 'potion_effects':
-      return <Potions />;
+      return <Potions scale={scale} />;
     case 'coordinates':
       return <Coords />;
     case 'zoom':
       return <Zoom id={id} />;
     case 'crosshair':
-      return <Glyph rows={CROSSHAIR} caption="" />;
+      return <Glyph rows={CROSSHAIR} caption="" scale={scale} />;
     case 'fullbright':
-      return <Glyph rows={SUN} caption="BRIGHT" />;
+      return <Glyph rows={SUN} caption="BRIGHT" scale={scale} />;
     case 'hitboxes':
-      return <Glyph rows={BOX} caption="HITBOX" />;
+      return <Glyph rows={BOX} caption="HITBOX" scale={scale} />;
     case 'toggle_sprint':
-      return <Glyph rows={SPRINT} caption="SPRINT" />;
+      return <Glyph rows={SPRINT} caption="SPRINT" scale={scale} />;
+    // The one preview that is literally the widget. Every other case here is a *picture* of what
+    // the mod draws, redrawn at tile size; the watermark is small enough that the real thing
+    // fits, and drawing an impression of a mark instead of the mark would be absurd. It reads
+    // the same `style` setting the HUD does, so switching to `word` changes this tile too.
+    case 'watermark':
+      return (
+        <span className="tart tart--stack">
+          <Watermark cell={cells(3, scale)} className="tart__mark" />
+        </span>
+      );
     default: {
       // DEV ONLY: a synthetic mod (`src/dev/fake-mods.ts`) borrows one of the real
       // previews rather than getting art of its own. Drawn by rendering this component
       // again, so the borrowed art keeps its own hooks and its own live data, and no
       // new vocabulary is invented for a fixture. Null for every real id.
       const borrowed = fakeArtSource(id);
-      if (borrowed !== null) return <TilePreview id={borrowed} />;
+      if (borrowed !== null) return <TilePreview id={borrowed} scale={scale} />;
       // Every id in the registry has a case above, so this is unreachable today —
       // it exists so a mod added to `mods.json` draws a caption rather than an
       // empty recess while its art is being written.

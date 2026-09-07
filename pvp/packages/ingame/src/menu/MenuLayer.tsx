@@ -6,9 +6,30 @@
  * ever true.
  *
  * Keyboard, per §6.3:
- *   · Escape closes the menu — unless a text field has focus, in which case it
- *     leaves the field first. Java asks `window.void.__hasFocus()` before it
- *     acts on Escape itself, so the two agree.
+ *   · **Escape means "up one level"**, and this handler owns every level but the last:
+ *
+ *     ```
+ *     a focused text field   gives up focus, menu stays
+ *     the quick palette      closes, menu stays          (QuickPalette's own handler)
+ *     a mod's page           back to the grid
+ *     the settings page      back to the grid
+ *     the HUD editor         back to the grid
+ *     the grid               closes the menu
+ *     ```
+ *
+ *     The order of the branches below **is** that table, and it is not free to change: a field
+ *     focused inside a mod page must give up focus before the page gives up the route.
+ *
+ *     Java has to agree with it a frame ahead. `VoidMenuScreen.keyPressed` swallows Escape and
+ *     closes the menu unless `UiHost.keepsEscape()` says the page will handle it, and that is
+ *     `keepsEscape()` in `bridge/connect.ts` — the same table, expressed as one predicate. If
+ *     the two ever disagree the symptom is loud and one-directional: Escape closes the whole
+ *     menu from a page. The `esc` key cap the bar draws on the control Escape actually drives
+ *     (`ModsScreen`) is the third copy, and the only one the player sees.
+ *
+ *     A **keybind capture beats all of it**: `VoidMenuScreen` consumes Escape for the capture
+ *     before it asks anything, so Escape while binding a key cancels the capture and changes no
+ *     route.
  *   · ⌘K / Ctrl-K opens the quick palette over whatever is up.
  *   · Right Shift is **not** bound here. It is a Java `KeyBinding`, and in HUD
  *     mode Ultralight receives no input at all.
@@ -16,6 +37,7 @@
 
 import { useEffect } from 'react';
 import { cx } from '@/ui';
+import { isEscape } from '@/menu/keys';
 import { useDirectWheel } from '@/menu/wheel';
 import { useVoidStore } from '@/store/store';
 import { hasTextFocus } from '@/bridge/connect';
@@ -68,16 +90,21 @@ export function MenuLayer({
         setPaletteOpen(!useVoidStore.getState().paletteOpen);
         return;
       }
-      if (e.key !== 'Escape') return;
+      // Not `e.key === 'Escape'`: in game it arrives as `Unidentified` with `which` 27.
+      // See `keys.ts`, which is where that measurement lives.
+      if (!isEscape(e)) return;
       if (useVoidStore.getState().paletteOpen) return; // the palette handles its own Escape
       if (hasTextFocus()) {
-        // Give the field up first; a second Escape then closes the menu.
+        // Give the field up first; a second Escape then takes the level above it.
         (document.activeElement as HTMLElement | null)?.blur();
         e.preventDefault();
         return;
       }
       e.preventDefault();
-      if (useVoidStore.getState().route.name === 'hud-editor') {
+      const route = useVoidStore.getState().route;
+      if (route.name === 'hud-editor' || route.name === 'mod' || route.name === 'settings') {
+        // Up one level. Both of these are places you went *from* the grid, so the grid is what
+        // is above them; neither is a place Escape should close the whole menu out of.
         setRoute({ name: 'mods' });
         return;
       }
@@ -117,7 +144,12 @@ export function MenuLayer({
     >
       {/* The HUD editor supplies its own lighter scrim. */}
       {!editing && <div className="menu-layer__dim" />}
-      {route.name === 'mods' && <ModsScreen />}
+      {/* One screen, two routes: the mods shell owns the panel box and draws either the items
+          or one mod's page inside it (`ModsScreen`). Splitting them here would mean two
+          components solving the same geometry, and the box moving when they disagreed. */}
+      {(route.name === 'mods' || route.name === 'mod' || route.name === 'settings') && (
+        <ModsScreen />
+      )}
       {route.name === 'loadouts' && <LoadoutsScreen />}
       {route.name === 'party' && <PartyScreen />}
       {editing && <HudEditorScreen />}

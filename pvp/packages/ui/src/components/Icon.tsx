@@ -187,7 +187,7 @@ export function Icon(props: IconProps): React.ReactElement | null {
   );
 }
 
-/** The icon each of the 12 mods shows in its tile and its settings pane. */
+/** The icon each of the 13 mods shows in its row, its palette result and its page head. */
 export const MOD_ICONS = {
   fps: 'gauge',
   keystrokes: 'keyboard',
@@ -201,6 +201,10 @@ export const MOD_ICONS = {
   hitboxes: 'cube',
   zoom: 'zoom',
   crosshair: 'crosshair',
+  // The VOID mark itself is cell art, not an icon — the tile preview draws the real widget
+  // (`ingame/src/menu/TilePreview.tsx`). What this names is the icon for the *rows*, where
+  // every other mod has one and a hole would read as a missing asset.
+  watermark: 'sparkle',
 } as const satisfies Record<string, IconName>;
 
 /**

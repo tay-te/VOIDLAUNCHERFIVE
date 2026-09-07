@@ -33,16 +33,16 @@ describe('?fake= padding, end to end', () => {
     const { gridRows, solveGrid, visibleMods } = await import('@/menu/ModsScreen');
     const { IN_GAME_VIEW } = await import('./setup');
 
-    expect(FAKE_MOD_COUNT).toBe(12);
+    expect(FAKE_MOD_COUNT).toBe(11);
     expect(MOD_ORDER).toHaveLength(24);
     expect(MOD_IDS).toHaveLength(24);
 
-    // The registry's own twelve are untouched and still first, so the frames' reading order
+    // The registry's own thirteen are untouched and still first, so the frames' reading order
     // survives the padding.
-    expect(MOD_ORDER.slice(0, 12).every((id) => !isFakeMod(id))).toBe(true);
-    expect(MOD_ORDER.slice(12).every((id) => isFakeMod(id))).toBe(true);
+    expect(MOD_ORDER.slice(0, 13).every((id) => !isFakeMod(id))).toBe(true);
+    expect(MOD_ORDER.slice(13).every((id) => isFakeMod(id))).toBe(true);
 
-    for (const id of MOD_ORDER.slice(12)) {
+    for (const id of MOD_ORDER.slice(13)) {
       expect(MOD_REGISTRY[id]).toBeDefined();
       expect(modLabel(id)).toBeTruthy();
       // The category has to be one of the four, or the tag, the tab and the hue all miss.
@@ -82,7 +82,7 @@ describe('?fake= padding, end to end', () => {
 
     const bridge = connectBridge({ forceFake: true, runFakeClock: false });
     act(() => {
-      useVoidStore.setState({ menuOpen: true, route: { name: 'mods' }, inspector: 'closed' });
+      useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } });
     });
     const { container } = render(<App />);
 

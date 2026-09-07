@@ -1,5 +1,5 @@
 /**
- * Overlay — Mods. The full-bleed in-game menu.
+ * Overlay — Mods. The full-bleed in-game menu, and the shell the mod page lives in.
  *
  * ## The shell
  *
@@ -11,49 +11,62 @@
  * keyboard hint at the bottom left.
  *
  * That matters beyond looks. The panel is **one wide, centred box** and does not resize
- * between the two states; what changes is how the space inside it is divided. The frames
- * hold twenty-four mods in eight columns and the registry holds twelve, so a grid
- * declared as three rows left four columns filling 674 of 1277 and half the panel
- * empty. The grid is shaped by the registry instead — two rows of six, tiles
- * sized from the panel — and it fills the panel edge to edge. See {@link solveGrid},
- * which now owns every length in it.
+ * between its states; what changes is what is inside it. The frames hold twenty-four mods in
+ * eight columns and the registry holds thirteen, so a grid declared as three rows left five
+ * columns filling most of 1277 and a third of the panel empty. The grid is shaped by the
+ * registry instead — two rows of seven, tiles sized from the panel — and it fills the panel
+ * edge to edge.
+ * See {@link solveGrid}, which owns every length in it.
  *
  * There is no screen title and no search field. Both were removed in the design
  * work ("Remove the mods header. Center the navbar over the top of the window.
  * Remove the search bar."): the tabs say where you are, and ⌘K already searches —
- * a second, always-visible field for twelve items was chrome for its own sake.
+ * a second, always-visible field for thirteen items was chrome for its own sake.
  * `modSearch` survives in the store because the palette writes it.
  *
- * ## The two controls
+ * ## One control, and a page
  *
  * ```
  * layout     grid | list      how items lay out
- * inspector  open | closed    whether properties show beside
  * ```
  *
- * Four states, not three modes (contract §7). **§7's no-reflow rule is withdrawn:**
- * it said closing the inspector must not lay the first three columns out again, and
- * the layout that honoured it is the one that left half the panel empty. Selecting a
- * mod now contracts the grid from six columns to three while the properties come out
- * of the panel's right edge into the width it gave up — one movement, same duration
- * and curve for both halves (`--menu-move-*` in overlay.css).
+ * There used to be a second — `inspector: open | closed`, whether the properties showed beside
+ * the items — and selecting a mod contracted the grid from six columns to three while they
+ * came out of the right edge. **That is gone, and it is a removal rather than a new mode
+ * bolted beside the old one.** The reason is the card: it carries the mod's switch, so the
+ * grid is the working surface and most interactions never need the properties at all.
+ * Contracting the grid to keep a panel visible optimised the rare case at the cost of the
+ * common one. So:
  *
- * What §7 was *protecting* is kept by other means. Its point was that the thing you
- * clicked must not move out from under you, and with six columns collapsing to three
- * it easily could — so {@link firstVisibleColumn} slides the grid, on the same
- * curve and in the same movement, until the selected mod's column is one of the
- * three that survive. Only which three you are looking at can change, and only when
- * the mod you picked is not already among them.
+ *   · the grid is always full-panel and never contracts — the form it already had with the
+ *     inspector shut, which is why this removes a state rather than inventing one;
+ *   · selecting a mod goes to {@link ModPage}, the whole panel, one mod;
+ *   · going back returns to the grid, unchanged.
+ *
+ * Gone with it: `OPEN_COLUMNS`, `firstVisibleColumn` (which slid the grid so the tile you
+ * clicked survived the contraction), `visibleWhenContracted` (which corrected the status line
+ * for the tiles the panel was standing on), `.mods-view`'s width transition and the clip it
+ * depended on, and the bar's properties toggle — there is no panel to toggle, which also
+ * relieves a bar that was carrying too much.
+ *
+ * **The panel box is the same on both routes.** `solveGrid` still sizes it from the registry
+ * and the window, and the page is laid out inside whatever that comes to, so navigating
+ * changes no length on this element. That is the property the contraction was reaching for
+ * ("the thing you clicked must not move") and could only half keep.
  *
  * ## At any mod count
  *
- * The registry is twelve and generated from the schema, so this lays out for twelve — but
- * nothing here is written as twelve, and the dev fixture (`src/dev/fake-mods.ts`) reaches
+ * The registry is thirteen and generated from the schema, so this lays out for thirteen — but
+ * nothing here is written as thirteen, and the dev fixture (`src/dev/fake-mods.ts`) reaches
  * sixty-four. {@link solveGrid} takes the count and the window and answers with the fewest
- * columns whose rows still fit: twelve give **two rows of six** at 195 wide, twenty-four give
- * **three rows of eight** at 143 — exactly what the frames draw — and the panel is as tall as
- * whatever that comes to. Nothing else changes with the count: the grid fills the panel, and
- * opening the properties contracts it to three columns.
+ * columns whose rows still fit: thirteen give **two rows of seven** at 165 wide (the last row
+ * short, which row-major fill allows), twenty-four give **three rows of eight** at 143 —
+ * exactly what the frames draw — and the panel is as tall as whatever that comes to.
+ *
+ * The watermark is what took it from twelve to thirteen, and therefore from six columns to
+ * seven and the tile from 195 to 165. That is the solve working, not a layout to re-tune: the
+ * one length that had to move with it is the label, because `VOID watermark` no longer fitted
+ * a 165 tile and the registry now says `Watermark`.
  *
  * Between seventeen and twenty-one it did not. The old derivation took the rows first and the
  * columns from them, which at seventeen mods meant **six** columns and three rows — larger
@@ -70,9 +83,18 @@ import { isModOn, modsOnCount, useModSettings, useVoidStore } from '@/store/stor
 import { FILTER_TABS, MOD_CATEGORY, MOD_ORDER, hueStyle, modLabel } from '@/registry';
 import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
 import { FilterTabs, Toggle, cx } from '@/ui';
-import { CloseGlyph, GridGlyph, InspectorGlyph, ListGlyph, SearchGlyph, VoidMark } from './cell-art';
+import {
+  BackGlyph,
+  CloseGlyph,
+  GridGlyph,
+  ListGlyph,
+  SearchGlyph,
+  SettingsGlyph,
+  VoidMark,
+} from './cell-art';
 import { TilePreview } from './TilePreview';
-import { ModInspector } from './ModPane';
+import { SETTINGS_HINT, SettingsScreen } from './SettingsScreen';
+import { ModPage } from './ModPage';
 import { ModList } from './ModList';
 import { keybindLabel } from './settings-format';
 
@@ -143,9 +165,6 @@ export const GEOMETRY = {
  * smaller than this. Used only as the fallback when there is no window to measure.
  */
 export const DESIGN_CANVAS = { width: 1300, height: 820 } as const;
-
-/** Columns that stay visible while the properties are open. */
-export const OPEN_COLUMNS = 3;
 
 /** What {@link solveGrid} works out: the panel, the tile, and the shape of the grid inside it. */
 export interface GridShape {
@@ -314,12 +333,19 @@ function useHostBox(): [
 /** guess → measured → settled. See {@link useHostBox}; `settled` is when transitions resume. */
 type Phase = 'guess' | 'measured' | 'settled';
 
-/** Bottom-left hint, inspector closed — frame `289:1611`. */
+/** Bottom-left hint on the grid and the list — frame `289:1611`. */
 export const MODS_HINT_GRID = 'R-Shift closes   ·   click a tile to edit it   ·   ⌘K search';
-/** Bottom-left hint, inspector open — frames `289:3024` and `289:2445`. */
-export const MODS_HINT_OPEN =
-  'Close the panel to return to the full grid   ·   R-Shift closes';
-/** @deprecated Kept as the closed-state name; the frames give the hint two states. */
+/**
+ * Bottom-left hint on a mod's page.
+ *
+ * It names the way back rather than describing the state, because the state is now obvious —
+ * you are looking at one mod — and the question the hint can actually answer is "how do I get
+ * out". Both routes out are named; Escape is not, because in game it never reaches the page
+ * (see the note in `ModPage.tsx`) and it closes the whole menu, which R-Shift already covers.
+ */
+export const MODS_HINT_PAGE =
+  'Done or ‹ Mods returns to the grid   ·   R-Shift closes';
+/** @deprecated Kept as the grid-state name. */
 export const MODS_FOOTER = MODS_HINT_GRID;
 
 /** Tiles matching the current filter tab and search query, in reading order. */
@@ -347,13 +373,6 @@ export function visibleMods(filter: string, query: string): ModId[] {
  * 796. Row-major lets {@link solveGrid} pick the column count outright and take the row count
  * from it, which is the whole fix; see that function.
  *
- * The contraction is unaffected, which is what made this safe to change. The grid narrows to
- * three columns by *clipping* — `.mods-view` transitions its width, the tiles never move — and
- * a box that clips the first three columns of a row of eight clips them just as well as it
- * clipped three whole columns. What changes is only which mods survive it: the first three of
- * every row rather than the first three columns, so the contracted grid shows a slice across
- * the whole registry instead of its opening run.
- *
  * The reading order is the frames' own, too — `MOD_ORDER` is documented as left to right, top
  * to bottom (`registry.ts`), which is what this now draws and column-major did not.
  */
@@ -364,28 +383,31 @@ export function gridRows(ids: ModId[], columns: number): ModId[][] {
   return rows;
 }
 
-/**
- * How many tiles are actually on screen with the properties beside the grid.
- *
- * The contracted grid shows columns `[first, first + OPEN_COLUMNS)` of every row, and the last
- * row is usually short, so this is not `OPEN_COLUMNS * rows`. The status line says what the
- * grid is showing, and a line that says nine when six are visible is worse than no line.
- */
-export function visibleWhenContracted(rows: ModId[][], first: number): number {
-  return rows.reduce(
-    (total, row) => total + Math.max(0, Math.min(row.length, first + OPEN_COLUMNS) - first),
-    0,
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* The tile                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * One tile.
+ *
+ * **The card body and the card's switch do different things, and the structure is what makes
+ * that true rather than a guard in a handler.** `.modcell__select` is an absolutely positioned
+ * `<button>` stretched behind the contents; the switch is a *sibling* of it, lifted above it by
+ * `.modcell__foot`'s stacking level. So a click on the switch lands on the switch and there is
+ * no ancestor for it to bubble to — the tile is not a button wrapping its own controls, which
+ * is the shape that would make the toggle navigate.
+ *
+ * This has been wrong in both directions. It was first written with the selector over the
+ * *whole* tile, switch included, and mods could not be toggled at all. Making the body open a
+ * page is the mirror-image risk: the failure would now be a click on the switch that flips the
+ * mod and then leaves the grid. Neither is visible in jsdom, where every click dispatches
+ * cleanly to whatever element the test names — both were found in game, and both are checked
+ * there.
+ */
 function Tile({ id, selected }: { id: ModId; selected: boolean }) {
   const settings = useModSettings(id);
   const on = useVoidStore((s) => isModOn(s.loadout, id));
-  const selectMod = useVoidStore((s) => s.selectMod);
+  const openMod = useVoidStore((s) => s.openMod);
   const toggleMod = useVoidStore((s) => s.toggleMod);
 
   const keybindKey = 'keybind' in settings ? 'keybind' : 'key' in settings ? 'key' : null;
@@ -405,7 +427,7 @@ function Tile({ id, selected }: { id: ModId; selected: boolean }) {
         className="modcell__select"
         aria-pressed={selected}
         aria-label={modLabel(id)}
-        onClick={() => selectMod(id)}
+        onClick={() => openMod(id)}
       />
       <span className="modcell__preview">
         {/* The frames chip the keybind into the preview's top-left corner, and only
@@ -422,10 +444,11 @@ function Tile({ id, selected }: { id: ModId; selected: boolean }) {
           <span className="modcell__name">{modLabel(id)}</span>
           <span className="modcell__cat">{MOD_CATEGORY[id]}</span>
         </span>
-        {/* Toggling deliberately does NOT move the selection. Flipping a switch is
-            direct manipulation of that mod; selection is navigation, and the tile
-            body still does it. Coupled, one toggle repainted the outgoing tile, the
-            incoming tile and the whole properties panel as one damage rectangle. */}
+        {/* Toggling deliberately does NOT navigate, and does not move the selection either.
+            Flipping a switch is direct manipulation of that mod and it belongs on the grid,
+            where you can flip the next one; going to the page is a different intention and the
+            tile body is what carries it. This is the whole reason the grid is the working
+            surface, and therefore the reason the grid gets the panel to itself. */}
         <Toggle
           checked={on}
           size="s"
@@ -492,18 +515,82 @@ function SearchControl() {
   );
 }
 
-function InspectorControl() {
-  const inspector = useVoidStore((s) => s.inspector);
-  const toggleInspector = useVoidStore((s) => s.toggleInspector);
+/**
+ * `‹ Mods` — the way back out of a mod's page.
+ *
+ * It replaces the properties toggle in the bar, which is a straight trade: that button existed
+ * to show and hide a panel that no longer exists, and this one exists because a page needs a
+ * visible way back. The bar therefore carries no more than it did, and on the page it carries
+ * considerably less.
+ *
+ * **Labelled, not just a chevron.** It is the only affordance in the overlay whose meaning
+ * depends on where you came from, and "Mods" is where it goes — a bare arrow beside a VOID
+ * mark reads as decoration. It is also the reason the bar's centre is empty on the page rather
+ * than repeating the mod's name: the name is already the largest thing on the screen, an inch
+ * below.
+ */
+function BackControl() {
+  const closeMod = useVoidStore((s) => s.closeMod);
+  return (
+    <button type="button" className="obar__back" aria-keyshortcuts="Escape" onClick={closeMod}>
+      <BackGlyph />
+      <span>Mods</span>
+      {/* The cap sits on the control Escape drives, and Escape from a page goes *back*. */}
+      <EscCap />
+    </button>
+  );
+}
+
+/**
+ * The `esc` key cap.
+ *
+ * **It marks whatever Escape does from where you are**, which is the whole reason it can be
+ * drawn at all. Escape means "up one level" (`bridge/connect.ts`, `keepsEscape`), so on the grid
+ * it sits on the close button — the level above the grid is the game — and on a mod's page it
+ * sits on `‹ Mods`, because that is the level above a page. One cap, never two, and never on a
+ * control the key does not actually press.
+ *
+ * A cap and not a word: `esc` is a key, and the overlay already draws keys this way — the
+ * keybind chipped into a tile's preview (`.modcell__kbd`) and the palette's own footer are the
+ * same object. Same geometry either side, so the two placements read as one thing moving.
+ */
+function EscCap(): React.ReactElement {
+  return (
+    <span className="okbd" aria-hidden="true">
+      esc
+    </span>
+  );
+}
+
+/**
+ * The gear — Settings.
+ *
+ * **It is what the profile chip was.** The chip carried an avatar, a name and an account kind:
+ * the widest object in a bar the user has called crowded three times, spending that width on
+ * identity the player already has and cannot change from inside a match. In the launcher the
+ * same chip earns its slot because it is the way into Settings; here it led to a Dashboard that
+ * was mostly regions with no data behind them.
+ *
+ * A gear leads somewhere with something in it — the menu key, the UI scale, the watermark and
+ * the HUD layout, four controls that all do something — and it is 24px wide instead of 116.
+ *
+ * Left of the search deliberately: the right-hand cluster now reads **settings, search, close**,
+ * and search sits directly beside close because that is where the user asked for it. Which puts
+ * the three in ascending order of consequence, left to right, which is the order they should be
+ * in anyway.
+ */
+function SettingsControl() {
+  const setRoute = useVoidStore((s) => s.setRoute);
+  const open = useVoidStore((s) => s.route.name === 'settings');
   return (
     <button
       type="button"
-      className={cx('obtn', inspector === 'open' && 'obtn--on')}
-      aria-label="Properties"
-      aria-pressed={inspector === 'open'}
-      onClick={toggleInspector}
+      className={cx('obtn', open && 'obtn--on')}
+      aria-label="Settings"
+      aria-pressed={open}
+      onClick={() => setRoute(open ? { name: 'mods' } : { name: 'settings' })}
     >
-      <InspectorGlyph />
+      <SettingsGlyph />
     </button>
   );
 }
@@ -514,22 +601,14 @@ function InspectorControl() {
 
 function StatusLine({
   shown,
-  visible,
   total,
   enabled,
   layout,
-  open,
-  hidden,
 }: {
   shown: number;
-  /** Tiles the contracted grid actually has on screen. Only read when {@link hidden}. */
-  visible: number;
   total: number;
   enabled: number;
   layout: 'grid' | 'list';
-  open: boolean;
-  /** Whether the panel is covering columns the grid would otherwise show. */
-  hidden: boolean;
 }): React.ReactElement {
   if (layout === 'list') {
     return (
@@ -548,18 +627,10 @@ function StatusLine({
       </div>
     );
   }
-  if (open && hidden) {
-    // Clipped to the grid column: with the panel beside it, the line belongs to the grid and
-    // says what the grid is actually showing. It used to say "scroll for more", which was true
-    // of the frame's twenty-four mods in a 980-tall board and false here — the panel is now
-    // sized so three rows fit exactly, and what the player cannot see is the column the
-    // properties are standing on, not something below the fold.
-    return (
-      <div className="ostatus ostatus--grid">
-        <span className="ostatus__left">{`Showing ${Math.min(shown, visible)} of ${total}`}</span>
-      </div>
-    );
-  }
+  // No third form. There used to be one — the line clipped to the grid's own column, counting
+  // only the tiles the properties panel was not standing on — and it went with the panel. The
+  // grid always shows everything the filter matched now, so the count has nothing to correct
+  // for. `shown` still differs from `total` under a filter, which is what the list form says.
   return (
     <div className="ostatus">
       <span className="ostatus__left">{`${enabled} of ${total} enabled`}</span>
@@ -571,35 +642,14 @@ function StatusLine({
 /* -------------------------------------------------------------------------- */
 
 /**
- * Which column the contracted grid starts at, so the mod you just clicked is one of the three
- * still on screen.
+ * The shell, and whichever of its two bodies the route asks for.
  *
- * §7 used to forbid the grid reflowing at all, which made this unnecessary and the layout
- * half-empty. Now the grid contracts from six columns to three, and without this, selecting a
- * mod in column five would hide the tile you had just clicked behind the panel that opened
- * because you clicked it. It moves by the least it can: a selection already inside the first
- * three does not move the grid at all, and anything further right is brought in as the *last*
- * of the three rather than centred, so the movement is small and always in one direction.
- *
- * Returned as a column index rather than applied as a scroll, for two reasons. A scroller
- * cannot be scrolled before there is room — `scrollLeft` is clamped to `scrollWidth -
- * clientWidth`, which is zero until the contraction has actually narrowed the box, so setting
- * it on selection lands on nothing and setting it on a timer is a second movement bolted to the
- * end of the first. As a `margin-left` in the same units as the columns it slides with the
- * contraction, on the same curve, and there is nothing to measure. A transform would do it too
- * and is the thing not to reach for: it hands the engine a composited layer full of text, which
- * is exactly the defect the nav tabs demonstrated.
+ * One component owns both because the panel box is one box: `solveGrid` sizes it from the
+ * registry and the window, and the mod page is laid out inside whatever that comes to. A
+ * separate top-level screen would have to solve the same geometry a second time and could
+ * disagree with it — and the moment it did, navigating would resize the window under the
+ * pointer, which is the thing the old contraction was trying not to do.
  */
-export function firstVisibleColumn(
-  columnCount: number,
-  selectedColumn: number,
-  open: boolean,
-): number {
-  if (!open || selectedColumn < 0) return 0;
-  const last = Math.max(0, columnCount - OPEN_COLUMNS);
-  return Math.min(Math.max(0, selectedColumn - (OPEN_COLUMNS - 1)), last);
-}
-
 export function ModsScreen() {
   const search = useVoidStore((s) => s.modSearch);
   const filter = useVoidStore((s) => s.modFilter);
@@ -609,12 +659,21 @@ export function ModsScreen() {
   const toggleMod = useVoidStore((s) => s.toggleMod);
   const closeMenu = useVoidStore((s) => s.closeMenu);
   const layout = useVoidStore((s) => s.layout);
-  const inspector = useVoidStore((s) => s.inspector);
   const enabled = useVoidStore((s) => modsOnCount(s.loadout));
+  // The route, not `selectedMod`: what is on screen is decided by one value, and the id the
+  // page draws travels with it (`store.ts`, {@link Route}).
+  const page = useVoidStore((s) => (s.route.name === 'mod' ? s.route.id : null));
+  const settings = useVoidStore((s) => s.route.name === 'settings');
+  // Every route but the grid is a place you went *from* the grid, so every one of them wears the
+  // context bar and offers the same way back. One shape, not one per destination.
+  const inner = page !== null || settings;
 
   // The grid is shaped by the *registry's* count and the window, never by the filter: `Visual`
   // matches two mods, and tiles that grew to a third of the window and back every time a tab
   // was clicked would be unusable. A filter leaves space in the grid rather than resizing it.
+  //
+  // It is solved on the page too, and deliberately: these are the panel's lengths, not the
+  // grid's, and holding them still across the navigation is what keeps the box from moving.
   const [host, panelRef] = useHostBox();
   const shape = useMemo(
     () => solveGrid(MOD_ORDER.length, host.width, host.height),
@@ -626,12 +685,6 @@ export function ModsScreen() {
     () => (layout === 'grid' ? gridRows(ids, shape.columns) : []),
     [ids, layout, shape.columns],
   );
-  const selectedColumn = useMemo(() => {
-    const at = ids.indexOf(selected);
-    return at < 0 ? -1 : at % shape.columns;
-  }, [ids, selected, shape.columns]);
-  const filledColumns = rows.length > 0 ? Math.max(...rows.map((row) => row.length)) : 0;
-  const shift = firstVisibleColumn(filledColumns, selectedColumn, inspector === 'open');
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -657,6 +710,11 @@ export function ModsScreen() {
         selectMod(ids[next]!);
         return;
       }
+      // Enter still toggles rather than opening, and it is worth saying why now that the
+      // arrows no longer open anything either. The keyboard's job on the grid is the grid's
+      // job — walk the tiles, flip the ones you came for — and the page is one click away for
+      // the one you want to tune. Making Enter navigate would leave the keyboard with no way
+      // to toggle at all without tabbing into a switch.
       if (e.key === 'Enter' && ids.includes(selected)) {
         e.preventDefault();
         toggleMod(selected, !isModOn(useVoidStore.getState().loadout, selected));
@@ -665,19 +723,15 @@ export function ModsScreen() {
     [ids, selected, selectMod, toggleMod, shape.columns],
   );
 
-  const open = inspector === 'open';
-
   return (
     // The panel's whole geometry is solved here and handed to `overlay.css` as lengths (see
-    // `solveGrid`); nothing below re-derives it. The state classes stay on the shell because
-    // the status line and the grid clip both read them, but they do not change the panel's box:
-    // opening the properties divides the space inside it, it does not resize it.
+    // `solveGrid`); nothing below re-derives it, and nothing about it changes with the route.
     <div
       ref={panelRef}
       className={cx(
         'overlay',
         `overlay--${layout}`,
-        open ? 'overlay--open' : 'overlay--closed',
+        inner && 'overlay--page',
         shape.scrolls && 'overlay--scrolls',
         // Until the panel's own box has been measured the shape is a guess from the window,
         // and correcting a guess is not a movement anyone asked to see. See `.overlay--sizing`.
@@ -693,79 +747,156 @@ export function ModsScreen() {
           // Zero unless the rows are taller than the panel can be. Held back on the right so
           // the scrollbar cannot eat the last column, which the grid clips and cannot scroll.
           ['--grid-gutter' as string]: `${shape.gutter}px`,
-          // Which column the contracted grid starts at; the slide itself is CSS, in the same
-          // units and on the same curve as the contraction. See `firstVisibleColumn`.
-          ['--grid-first' as string]: `${shift}`,
         } as React.CSSProperties
       }
       onKeyDown={onKeyDown}
     >
-      <div className="obar">
-        <VoidMark />
-        {/* Centred on the window, not between its neighbours: the mark and the
-            controls are different widths and a nav that drifts with them is not
-            centred, it is merely between things. */}
-        <FilterTabs
-          className="obar__nav"
-          tabs={FILTER_TABS}
-          value={filter}
-          onChange={setFilter}
-          label="Mod filter"
-        />
-        <div className="obar__tools">
-          <SearchControl />
-          <LayoutControl />
-          <InspectorControl />
-          <button type="button" className="obtn obtn--close" aria-label="Close" onClick={closeMenu}>
-            <CloseGlyph />
-          </button>
+      {/* Two bars, one shell. Inside a mod the filter tabs and the layout switcher are
+          controls for a grid that is not on screen — a tab press would silently re-filter the
+          thing you are about to come back to — so the bar becomes a context bar: where you
+          came from, and the two things that are true everywhere (search, close). It is also
+          the calmest this bar has ever been, which is worth something on its own. */}
+      {!inner ? (
+        <div className="obar">
+          <VoidMark />
+          {/* One centred group: which mods, and how they are drawn. Both answer a question
+              about the same thing, so they travel together — see `.obar__view`, which is also
+              where the note on why the bar was re-grouped rather than re-sized lives. */}
+          <div className="obar__view">
+            <FilterTabs
+              className="obar__nav"
+              tabs={FILTER_TABS}
+              value={filter}
+              onChange={setFilter}
+              label="Mod filter"
+            />
+            <LayoutControl />
+          </div>
+          {/* Settings, search, close — and search is beside close because the user asked for
+              it there. Nothing else is in this cluster: what used to make it four was a profile
+              chip, and it is gone (see `SettingsControl`). */}
+          <div className="obar__tools">
+            <SettingsControl />
+            <SearchControl />
+            {/* From the grid, Escape closes the menu — so the cap belongs here, and only here. */}
+            <button
+              type="button"
+              className="obtn obtn--close obtn--esc"
+              aria-label="Close"
+              aria-keyshortcuts="Escape"
+              onClick={closeMenu}
+            >
+              <CloseGlyph />
+              <EscCap />
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="obar obar--page">
+          <VoidMark />
+          <BackControl />
+          {/* The same three, in the same order, on every inner page. `SettingsControl` marks
+              itself as on when the Settings page is the one you are looking at, and pressing it
+              there goes back to the grid — a control that points at the page you are on is a
+              control that does nothing, and this is the cheapest way for it not to be that. */}
+          <div className="obar__tools">
+            <SettingsControl />
+            <SearchControl />
+            {/* No cap: from a page Escape goes back, and the cap is on `‹ Mods` where it does. */}
+            <button
+              type="button"
+              className="obtn obtn--close"
+              aria-label="Close"
+              onClick={closeMenu}
+            >
+              <CloseGlyph />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* The dotted cell rule under the bar, full content width. */}
       <div className="orule" aria-hidden="true" />
 
-      <div
-        className={cx(
-          'mods-body',
-          `mods-body--${layout}`,
-          open ? 'mods-body--open' : 'mods-body--closed',
+      <div className={cx('mods-body', inner ? 'mods-body--page' : `mods-body--${layout}`)}>
+        {settings ? (
+          <SettingsScreen />
+        ) : page !== null ? (
+          <ModPage id={page} />
+        ) : (
+          <ModsView ids={ids} rows={rows} layout={layout} selected={selected} search={search} />
         )}
-      >
-        <div className="mods-view">
-          {ids.length === 0 ? (
-            <div className="mods-empty">No mod matches “{search}”.</div>
-          ) : layout === 'grid' ? (
-            <div className="mods-grid">
-              {rows.map((row, index) => (
-                <div key={index} className="mods-row" data-row={index}>
-                  {row.map((id) => (
-                    <Tile key={id} id={id} selected={id === selected} />
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <ModList ids={ids} selected={selected} />
-          )}
-        </div>
-
-        {/* Always mounted: the panel slides out rather than disappearing, and a
-            component that unmounts has nothing to transition. */}
-        <ModInspector id={selected} open={open} />
       </div>
 
-      <StatusLine
-        shown={ids.length}
-        visible={visibleWhenContracted(rows, shift)}
-        total={MOD_ORDER.length}
-        enabled={enabled}
-        layout={layout}
-        open={open}
-        hidden={layout === 'grid' && filledColumns > OPEN_COLUMNS}
-      />
+      {/* The mod page carries its own foot — `Reset to default` and `Done` — where the grid
+          carries a status line, so only one of the two is ever mounted. */}
+      {!inner ? (
+        <StatusLine
+          shown={ids.length}
+          total={MOD_ORDER.length}
+          enabled={enabled}
+          layout={layout}
+        />
+      ) : null}
 
-      <div className="ohint">{open ? MODS_HINT_OPEN : MODS_HINT_GRID}</div>
+      <div className="ohint">
+        {settings ? SETTINGS_HINT : page !== null ? MODS_HINT_PAGE : MODS_HINT_GRID}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The items — the grid or the list — and the half of the navigation that belongs to them.
+ *
+ * Its own component so that it **unmounts** when a mod's page takes the panel, and mounts fresh
+ * when you come back. Keeping it mounted underneath was the other option and it is the one this
+ * codebase has learnt not to take: a hidden subtree that still paints is exactly the warm-up
+ * ghost (`overlay.css`, `.menu-layer--hidden`), and a grid of thirteen tiles left laid out
+ * behind a page is thirteen tiles the engine can be asked to repaint for nothing.
+ *
+ * The remount is also what makes the entrance work without a timer: `--enter` is on from the
+ * first frame and comes off on the animation's own `animationend`, so the class is never
+ * standing on an element that is not animating.
+ */
+function ModsView({
+  ids,
+  rows,
+  layout,
+  selected,
+  search,
+}: {
+  ids: ModId[];
+  rows: ModId[][];
+  layout: 'grid' | 'list';
+  selected: ModId;
+  search: string;
+}): React.ReactElement {
+  const [entering, setEntering] = useState(true);
+  return (
+    <div
+      className={cx('mods-view', entering && 'mods-view--enter')}
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget && event.animationName === 'void-page-in') {
+          setEntering(false);
+        }
+      }}
+    >
+      {ids.length === 0 ? (
+        <div className="mods-empty">No mod matches “{search}”.</div>
+      ) : layout === 'grid' ? (
+        <div className="mods-grid">
+          {rows.map((row, index) => (
+            <div key={index} className="mods-row" data-row={index}>
+              {row.map((id) => (
+                <Tile key={id} id={id} selected={id === selected} />
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <ModList ids={ids} selected={selected} />
+      )}
     </div>
   );
 }

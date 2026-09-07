@@ -32,6 +32,7 @@ import {
   type PotionEffect,
   type Position,
   type ServerPayload,
+  type SessionInfo,
   type SettingPayload,
   type TickPayload,
 } from '@/bridge/protocol';
@@ -45,33 +46,91 @@ import { clampOffset, clampScale } from './hud-geometry';
 /** A scalar a mod setting may hold. */
 export type SettingValue = boolean | number | string | null;
 
-/** Which overlay screen the menu layer is showing. */
+/**
+ * Which overlay screen the menu layer is showing.
+ *
+ * `mod` is a **page**, not a panel: one mod, the whole width of the shell. It carries the id
+ * rather than reading `selectedMod`, so "which mod am I looking at" is answered by the route
+ * — the thing that decides what is drawn — and cannot drift from it.
+ */
 export type Route =
   | { name: 'mods' }
+  | { name: 'mod'; id: ModId }
+  | { name: 'settings' }
   | { name: 'loadouts' }
   | { name: 'party' }
   | { name: 'hud-editor' };
 
 /**
- * How the Mods screen arranges its items. One of the **two independent controls**
- * of the quiet-cell contract §7 — see {@link Inspector}.
+ * How the Mods screen arranges its items.
+ *
+ * The **one** control on the mods shell now. It used to be one of two — the other being an
+ * `inspector: open | closed` that decided whether the properties showed beside the grid — and
+ * that pairing is gone with the properties panel itself: the toggle is on the card, so the grid
+ * is the working surface and most interactions never need the properties at all. Contracting
+ * the grid to three columns to keep a panel visible optimised the rare case at the cost of the
+ * common one. The grid is now always full-panel and selecting a mod opens {@link Route} `mod`.
  */
 export type ModsLayout = 'grid' | 'list';
 
-/**
- * Whether the properties panel shows beside the items. The other of the two
- * independent controls (contract §7).
- *
- * These are deliberately two booleans and not one three-valued `mode`. A mode
- * switcher forces "list" and "properties" to be alternatives, so a player who
- * wants the description column has to give up the panel and then find their way
- * back — four states, reachable in any order, is the whole point. Selecting a mod
- * opens the inspector; nothing ever navigates to a separate screen, because the
- * overlay interrupts a live match and every step back costs time.
- */
-export type Inspector = 'open' | 'closed';
-
 const EMPTY_KEYS: KeysPayload = { w: 0, a: 0, s: 0, d: 0, lmb: 0, rmb: 0, space: 0, shift: 0 };
+
+/**
+ * Who is playing, as the mod reads it off Minecraft's own `Session`.
+ *
+ * **Not the launcher's account.** The game knows who is signed in whether or not a launcher, a
+ * socket or a bridge exists, so it is right in a dev client — which is exactly the client
+ * somebody is looking at when it is wrong. Immutable for the life of the process: it arrives
+ * once, on `VoidBridge.pushWholeState()`, and nothing ever pushes it again.
+ *
+ * **It has graduated.** This was declared here, in a comment saying it belonged in
+ * `@void/protocol` and had not got there yet; `schema/bridge.json` now carries the `session`
+ * channel and its payload, and this is a re-export of the generated type so the page and the
+ * contract cannot drift. Kept as a named re-export rather than deleted because everything in
+ * the overlay imports it from the store.
+ */
+export type { SessionInfo };
+
+/**
+ * The client's global settings — the things that are true of the client rather than of a mod.
+ *
+ * `bridge.json`'s `settings` channel, camel-cased at the boundary the way the rest of this file
+ * treats its payloads. Java owns them (`LiveState`, from `GlobalSettings`), Rust persists them,
+ * and until now the page could neither read nor write any of it: `menuKey` and `uiScale` were
+ * live values on the other side of a wall. The Settings page is what needed them.
+ *
+ * **Only the three the page has a use for.** `GlobalSettings` also carries `cycleLoadoutKey` and
+ * `hudEditorGrid`; they are not lifted here because nothing in the overlay reads them, and a
+ * field mirrored into the store for completeness is a field that goes stale unnoticed.
+ */
+export interface GlobalsView {
+  /** Key that opens and closes the menu, as a `KeyNames` name — `RSHIFT` by default. */
+  menuKey: string;
+  /**
+   * Extra multiplier on the whole in-game UI, on top of the fit scale. 0.5 .. 3.
+   *
+   * **Read here, written only by the launcher.** Nothing in game writes it any more — the
+   * Settings page carried a meter for it for about an hour and it was removed on purpose, and
+   * `SettingsScreen.tsx` has the measurement: a control that resizes the surface it lives on is
+   * a feedback loop in this engine, because the relayout moves the control under a stationary
+   * pointer and `MouseEvent.buttons` is 0 for an entire drag (rendering-invariants §13). It ran
+   * away to the 3.0 clamp in fourteen seconds.
+   *
+   * It is emphatically **not dead**: `setGlobal('ui_scale', …)` still stores it in `LiveState`,
+   * and `VoidClient.pumpUi` multiplies it into the view scale on every frame. The value here is
+   * the current one so the page can *show* it if it ever needs to; the writer is the launcher,
+   * over the WS bridge.
+   */
+  uiScale: number;
+  /** Stored and, as of today, read by nothing. Kept so a push round-trips unchanged. */
+  theme: string;
+}
+
+/** What the page believes before the first `settings` push. Matches `GlobalSettings::factory()`. */
+export const FACTORY_GLOBALS: GlobalsView = { menuKey: 'RSHIFT', uiScale: 1, theme: 'void-dark' };
+
+/** Which global settings the page may write. The rest of `GlobalSettings` is Rust's business. */
+export type GlobalKey = 'menu_key' | 'ui_scale';
 
 
 /** Click rings live outside the store: they are scratch, never rendered. */
@@ -206,17 +265,25 @@ export interface VoidState {
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
+  /** Who is playing. Null until the first `session` push, and after that never changes. */
+  session: SessionInfo | null;
+  /** The client's globals. Factory values until the first `settings` push replaces them. */
+  globals: GlobalsView;
 
 
   /* -------------------------------------------------------------- UI state */
   menuOpen: boolean;
   route: Route;
-  /** Tile highlighted in the Mods grid; drives the properties panel. */
+  /**
+   * Tile highlighted in the Mods grid.
+   *
+   * Selection is **navigation state, not a route**: it says which tile the arrow keys are on
+   * and which one is marked when you come back from a mod's page. Opening a mod sets it too,
+   * so returning from the page lands on the tile you left from.
+   */
   selectedMod: ModId;
-  /** `grid` or `list`. Independent of {@link VoidState.inspector}. */
+  /** `grid` or `list`. */
   layout: ModsLayout;
-  /** `open` or `closed`. Independent of {@link VoidState.layout}. */
-  inspector: Inspector;
   paletteOpen: boolean;
   modSearch: string;
   modFilter: string;
@@ -233,14 +300,16 @@ export interface VoidState {
   applyKeys(keys: KeysPayload): void;
   applyTick(tick: TickPayload): void;
   applyServer(server: ServerPayload): void;
+  applySession(session: SessionInfo): void;
+  applyGlobals(payload: unknown): void;
   applyMenu(open: boolean): void;
 
   /* -------------------------------------------------------------- UI actions */
   setRoute(route: Route): void;
   selectMod(id: ModId): void;
+  openMod(id: ModId): void;
+  closeMod(): void;
   setLayout(layout: ModsLayout): void;
-  setInspector(inspector: Inspector): void;
-  toggleInspector(): void;
   setPaletteOpen(open: boolean): void;
   setModSearch(value: string): void;
   setModFilter(value: string): void;
@@ -253,8 +322,10 @@ export interface VoidState {
   setSetting(id: ModId, key: string, value: SettingValue): void;
   commitHud(id: HUDModId, anchor: HUDAnchor, dx: number, dy: number, scale: number): void;
   switchLoadout(id: LoadoutId): void;
+  setGlobal(key: GlobalKey, value: string | number): void;
   closeMenu(): void;
   captureKeybind(id: ModId): Promise<Keybind | null>;
+  captureMenuKey(): Promise<string | null>;
   resetMod(id: ModId): void;
 }
 
@@ -271,12 +342,13 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
+  session: null,
+  globals: FACTORY_GLOBALS,
 
   menuOpen: false,
   route: { name: 'mods' },
   selectedMod: 'keystrokes',
   layout: 'grid',
-  inspector: 'open',
   paletteOpen: false,
   modSearch: '',
   modFilter: 'all',
@@ -408,8 +480,38 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ server });
   },
 
+  applySession(session) {
+    // Value, not identity: a reloaded document is re-sent the same session (§9a), and taking a
+    // fresh object for identical data would re-render the bar for nothing.
+    const current = get().session;
+    if (current && sameJson(current, session)) return;
+    set({ session });
+  },
+
+  applyGlobals(payload) {
+    // Snake_case on the wire (`protocol.json`, `global_settings`), camel in the store. Only the
+    // three keys the page uses are lifted; an unknown or absent key leaves the current value
+    // alone, so a host that pushes a partial object cannot blank a setting.
+    if (payload === null || typeof payload !== 'object') return;
+    const raw = payload as Record<string, unknown>;
+    const current = get().globals;
+    const next: GlobalsView = {
+      menuKey: typeof raw.menu_key === 'string' ? raw.menu_key : current.menuKey,
+      uiScale: typeof raw.ui_scale === 'number' ? raw.ui_scale : current.uiScale,
+      theme: typeof raw.theme === 'string' ? raw.theme : current.theme,
+    };
+    // Value, not identity — same reason as `applySession`. A reloaded document is sent the same
+    // settings again (rendering-invariants §9a), and taking a fresh object for identical data
+    // would re-render the Settings page for nothing.
+    if (sameJson(current, next)) return;
+    set({ globals: next });
+  },
+
   applyMenu(open) {
-    // Opening always lands on Mods; the editor is left only through Done or Esc.
+    // Opening always lands on the grid — never on the mod page you happened to be inside when
+    // you last closed. Reopening is a fresh look at the loadout, and a page you did not ask for
+    // is a step to undo before you can do anything. It is also the only reset a mod page needs:
+    // R-Shift and Escape both close the whole menu, so "close from a page" is covered here.
     set(
       open
         ? { menuOpen: true, route: { name: 'mods' }, paletteOpen: false }
@@ -421,19 +523,25 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ route });
   },
   selectMod(id) {
-    // Contract §7: selecting a mod opens the inspector. It is the only thing that
-    // opens it implicitly — the toggle button is how it is closed and reopened by
-    // hand, and the two stay independent of `layout` either way.
-    set({ selectedMod: id, inspector: 'open' });
+    // Selection **only**. It used to open the properties panel as a side effect, which is what
+    // made the arrow keys unusable as navigation: every step opened something. Moving the
+    // highlight and going somewhere are two different intentions and are now two calls — the
+    // arrows select, the tile body and the palette {@link VoidState.openMod}.
+    set({ selectedMod: id });
+  },
+  openMod(id) {
+    // Both, and in one write: the page is what you are looking at, and the grid you come back
+    // to has that tile marked. Two `set`s would render the grid once with a moved selection
+    // before replacing it, which in game is a repaint of twelve tiles nobody sees.
+    set({ selectedMod: id, route: { name: 'mod', id } });
+  },
+  closeMod() {
+    // Back to the grid, unchanged. `selectedMod` is deliberately left alone: it is what marks
+    // the tile you were just inside.
+    set({ route: { name: 'mods' } });
   },
   setLayout(layout) {
     set({ layout });
-  },
-  setInspector(inspector) {
-    set({ inspector });
-  },
-  toggleInspector() {
-    set({ inspector: get().inspector === 'open' ? 'closed' : 'open' });
   },
   setPaletteOpen(paletteOpen) {
     set({ paletteOpen });
@@ -503,6 +611,21 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     getVoid().switchLoadout(id);
   },
 
+  setGlobal(key, value) {
+    // Synchronous and authoritative, exactly as `setSetting` is: Java clamps `ui_scale` to
+    // 0.5..3 and validates `menu_key` against `KeyNames`, and the store binds to what came
+    // back rather than to what was sent. `null` means Java refused it, and the page then
+    // shows the value it still has instead of one that was never stored.
+    const applied = getVoid().setGlobal(key, value);
+    if (applied === null || applied === undefined) return;
+    const current = get().globals;
+    if (key === 'ui_scale' && typeof applied === 'number') {
+      set({ globals: { ...current, uiScale: applied } });
+    } else if (key === 'menu_key' && typeof applied === 'string') {
+      set({ globals: { ...current, menuKey: applied } });
+    }
+  },
+
   closeMenu() {
     getVoid().closeMenu();
   },
@@ -510,6 +633,18 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   async captureKeybind(id) {
     // bridge.json: the capture call does not store the key — the UI does.
     return getVoid().openKeybindCapture(id);
+  },
+
+  async captureMenuKey() {
+    // `openKeybindCapture` is typed over mod ids because until today every keybind belonged to a
+    // mod. The argument is only a label for the arming, though: Java stores it in `captureModId`
+    // and never reads it, and `finishKeybindCapture` answers with the key name alone. So a
+    // non-mod capture works, and this is the one — the key that opens the menu, which is a
+    // property of the client rather than of anything in the registry.
+    const capture = getVoid().openKeybindCapture as unknown as (
+      id: string,
+    ) => Promise<string | null>;
+    return capture('menu');
   },
 
   resetMod(id) {

@@ -29,7 +29,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { GEOMETRY, OPEN_COLUMNS, solveGrid, gridRows, visibleWhenContracted } from '@/menu/ModsScreen';
+import { GEOMETRY, solveGrid, gridRows } from '@/menu/ModsScreen';
 import type { ModId } from '@/bridge/protocol';
 
 /** The view the in-game overlay gets on a 16:9 client, measured. See `test/setup.ts`. */
@@ -232,14 +232,26 @@ describe('gridRows — the fill order', () => {
   });
 });
 
-describe('visibleWhenContracted', () => {
-  it('counts the cells the three surviving columns actually hold', () => {
-    // 17 mods in 8 columns is 8 / 8 / 1: the first three columns hold 3, 3 and 1, not nine.
-    expect(visibleWhenContracted(gridRows(ids(17), 8), 0)).toBe(7);
-    // Slid to the right, the short last row contributes nothing.
-    expect(visibleWhenContracted(gridRows(ids(17), 8), 5)).toBe(6);
-    // Twelve in six columns: two full rows, three each.
-    expect(visibleWhenContracted(gridRows(ids(12), 6), 0)).toBe(2 * OPEN_COLUMNS);
-    expect(visibleWhenContracted([], 0)).toBe(0);
+/**
+ * The grid shows everything the filter matched — there is no second, smaller number.
+ *
+ * `visibleWhenContracted` used to exist because with the properties open the grid was clipped
+ * to three columns, so "showing 12 of 12" was a lie and the status line had to count the cells
+ * the panel was not standing on (which is not `3 × rows`: the last row is usually short). The
+ * grid is never clipped now, so the two numbers that mattered are the ones `solveGrid` already
+ * produces — every mod is laid out, and every laid-out mod is inside the box.
+ */
+describe('every mod the filter matched is on screen', () => {
+  it('lays out every id, and the rows are exactly as wide as the box that holds them', () => {
+    for (const count of [12, 17, 24, 25, 64]) {
+      const shape = solveGrid(count, VIEW.w, VIEW.h);
+      const rows = gridRows(ids(count), shape.columns);
+      expect(rows.flat()).toHaveLength(count);
+      // The widest row is the column count, and the box is that many tiles plus their gaps —
+      // which is `gridW`. Nothing is clipped horizontally at any count.
+      const widest = Math.max(...rows.map((row) => row.length));
+      const needed = widest * shape.tileW + (widest - 1) * GEOMETRY.gap;
+      expect(needed).toBeLessThanOrEqual(shape.gridW + 0.001);
+    }
   });
 });

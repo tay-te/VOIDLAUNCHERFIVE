@@ -23,19 +23,14 @@ function set(mutate: () => void) {
     mutate();
   });
 }
-import { connectBridge } from '@/bridge/connect';
+import { connectBridge, keepsEscape } from '@/bridge/connect';
 import { isModOn, resetDerivedState, useVoidStore } from '@/store/store';
 import { App } from '@/App';
-import {
-  MODS_HINT_GRID,
-  MODS_HINT_OPEN,
-  OPEN_COLUMNS,
-  firstVisibleColumn,
-  gridRows,
-  solveGrid,
-} from '@/menu/ModsScreen';
+import { MODS_HINT_GRID, MODS_HINT_PAGE, gridRows, solveGrid } from '@/menu/ModsScreen';
+import { MOD_ORDER } from '@/registry';
 import { IN_GAME_VIEW } from './setup';
 import { anchorShortLabel, modProperties, propertyStructure } from '@/menu/ModSettingsScreen';
+import { isEscape } from '@/menu/keys';
 import { LOADOUTS_FOOTER } from '@/menu/LoadoutsScreen';
 import { PARTY_FOOTER } from '@/menu/PartyScreen';
 import { EDITOR_HINT } from '@/menu/HudEditorScreen';
@@ -54,7 +49,7 @@ beforeEach(() => {
     modSearch: '',
     modFilter: 'all',
     layout: 'grid',
-    inspector: 'open',
+    session: null,
     editorTarget: 'keystrokes',
     editorSnap: true,
     editorGrid: false,
@@ -156,7 +151,7 @@ describe('HUD layer', () => {
   });
 });
 
-describe('Mods screen — layout × inspector', () => {
+describe('Mods screen — the grid, and the page one click away', () => {
   beforeEach(() => {
     set(() => useVoidStore.getState().applyMenu(true));
   });
@@ -173,13 +168,13 @@ describe('Mods screen — layout × inspector', () => {
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(container.querySelector('.v-searchbar')).toBeNull();
     // What the frame does have.
-    expect(screen.getByText('VOID')).toBeTruthy();
+    // Scoped to the bar's own wordmark: the watermark mod draws the same four letters on
+    // the HUD behind the panel, which is the mark doing its job rather than a duplicate.
+    expect(container.querySelector('.vmark__word')!.textContent).toBe('VOID');
     for (const label of ['All', 'HUD', 'PvP', 'Visual', 'Utility']) {
       expect(screen.getByRole('tab', { name: label })).toBeTruthy();
     }
     expect(screen.getByLabelText('Close')).toBeTruthy();
-    expect(screen.getByText(MODS_HINT_OPEN, verbatim)).toBeTruthy();
-    set(() => useVoidStore.getState().setInspector('closed'));
     expect(screen.getByText(MODS_HINT_GRID, verbatim)).toBeTruthy();
   });
 
@@ -206,85 +201,82 @@ describe('Mods screen — layout × inspector', () => {
     expect(container.querySelector('.modcell[data-mod-id="fps"] .modcell__kbd')).toBeNull();
   });
 
-  it('offers the two controls as two independent controls, not one mode switcher', () => {
+  it('keeps the grid/list switcher and has no properties toggle left to offer', () => {
     render(<App />);
-    // Two radios for `layout`, one pressed button for `inspector`. A mode switcher
-    // would be a single group of three.
+    // The layout control survives untouched: how you like to read the list is still yours.
     expect(screen.getByRole('radio', { name: 'Grid' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'List' })).toBeTruthy();
-    const properties = screen.getByRole('button', { name: 'Properties' });
-    expect(properties.getAttribute('aria-pressed')).toBe('true');
+    // The inspector toggle is gone with the inspector. A button that shows and hides a panel
+    // that does not exist is the "new mode bolted beside the old" failure this change is
+    // specifically not allowed to be.
+    expect(screen.queryByRole('button', { name: 'Properties' })).toBeNull();
   });
 
-  it('reaches all four states, and the two controls never move each other', () => {
-    render(<App />);
-    const store = () => useVoidStore.getState();
-    const seen = new Set<string>();
-    for (const layout of ['grid', 'list'] as const) {
-      for (const inspector of ['open', 'closed'] as const) {
-        set(() => store().setLayout(layout));
-        set(() => store().setInspector(inspector));
-        expect(store().layout).toBe(layout);
-        expect(store().inspector).toBe(inspector);
-        seen.add(`${layout}/${inspector}`);
-      }
-    }
-    expect(seen.size).toBe(4);
-  });
-
-  it('draws all twelve tiles, in the shape that fills the panel', () => {
+  it('draws all thirteen tiles, in the shape that fills the panel', () => {
     const { container } = render(<App />);
-    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(12);
+    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(13);
     expect(screen.getByText('FPS display')).toBeTruthy();
     expect(screen.getByText('Toggle sprint')).toBeTruthy();
-    // Twelve mods, eight columns allowed: two rows of six, not three rows of four inside a
-    // panel wide enough for eight.
+    // Thirteen mods, eight columns allowed: two rows of seven, the fewest columns whose rows
+    // still fit — not three rows of five inside a panel wide enough for eight. The last row is
+    // short, which row-major fill allows and column-major could not (see `solveGrid`).
     const rows = [...container.querySelectorAll('.mods-row')];
     expect(rows).toHaveLength(2);
-    for (const row of rows) {
-      expect(row.querySelectorAll('[data-mod-id]')).toHaveLength(6);
-    }
+    expect(rows[0]!.querySelectorAll('[data-mod-id]')).toHaveLength(7);
+    expect(rows[1]!.querySelectorAll('[data-mod-id]')).toHaveLength(6);
   });
 
-  it('contracts by clipping, not by re-flowing: same tiles, same rows, same order', () => {
+  it('comes back from a page as the same grid: same tiles, same rows, same order', () => {
     const { container } = render(<App />);
     const shape = () =>
       [...container.querySelectorAll('.mods-row')].map((row) =>
         [...row.querySelectorAll('[data-mod-id]')].map((el) => el.getAttribute('data-mod-id')),
       );
     const before = shape();
-    set(() => useVoidStore.getState().setInspector('closed'));
-    // §7's no-reflow rule is withdrawn and the grid does now contract — but it contracts by
-    // narrowing the box that clips it. The twelve tiles stay mounted in the same two rows in
-    // the same order, so the three columns that survive keep the positions they already had,
-    // and the movement is one width transition rather than twelve tiles finding new homes.
+    // What the old contraction test was protecting: the grid must not rearrange itself around
+    // the properties. It used to keep that by clipping rather than reflowing, at the price of
+    // showing three columns of six. Now the grid simply never changes — it unmounts while a
+    // page has the panel and comes back identical, laid out from the same solve.
+    set(() => useVoidStore.getState().openMod('ping'));
+    expect(container.querySelector('.mods-grid')).toBeNull();
+    set(() => useVoidStore.getState().closeMod());
     expect(shape()).toEqual(before);
-    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(12);
-    expect(OPEN_COLUMNS).toBe(3);
+    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(13);
   });
 
   it('shapes the grid from the registry, never from the filter', () => {
     const { container } = render(<App />);
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
-    expect(overlay().className).toContain('overlay--open');
-    // Twelve mods: six across, two down — the shape that fills the panel, solved from the
-    // registry's count and the window and handed to the CSS as lengths.
-    const twelve = solveGrid(12, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
-    expect(twelve.columns).toBe(6);
+    // Thirteen mods: seven across, two down — the shape that fills the panel, solved from the
+    // registry's count and the window and handed to the CSS as lengths. It was six across at
+    // twelve; adding the watermark is what moved it, which is `solveGrid` doing its job rather
+    // than a layout that had to be re-guessed.
+    const twelve = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
+    expect(twelve.columns).toBe(7);
     expect(twelve.rows).toBe(2);
-    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('6');
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
     expect(overlay().style.getPropertyValue('--panel-rows')).toBe('2');
     expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${twelve.panelW}px`);
     expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${twelve.panelH}px`);
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${twelve.tileW}px`);
-    // Nothing to scroll at twelve, so nothing is held back from the tiles for a scrollbar.
+    // Nothing to scroll at thirteen, so nothing is held back from the tiles for a scrollbar.
     expect(overlay().style.getPropertyValue('--grid-gutter')).toBe('0px');
     expect(overlay().className).not.toContain('overlay--scrolls');
 
-    set(() => useVoidStore.getState().setInspector('closed'));
-    expect(overlay().className).toContain('overlay--closed');
-    expect(overlay().className).not.toContain('overlay--open');
+    // The panel's box is the *panel's*, not the grid's: it is solved the same way and written
+    // to the same custom properties on a mod's page, so navigating moves no length on the
+    // shell. This is what the old contraction was reaching for and could only half keep.
+    const lengths = () =>
+      ['--panel-w', '--panel-h', '--tile-w', '--panel-cols'].map((name) =>
+        overlay().style.getPropertyValue(name),
+      );
+    const before = lengths();
+    set(() => useVoidStore.getState().openMod('crosshair'));
+    expect(overlay().className).toContain('overlay--page');
+    expect(lengths()).toEqual(before);
+    set(() => useVoidStore.getState().closeMod());
+    expect(overlay().className).not.toContain('overlay--page');
 
     set(() => useVoidStore.getState().setLayout('list'));
     expect(overlay().className).toContain('overlay--list');
@@ -293,14 +285,14 @@ describe('Mods screen — layout × inspector', () => {
     set(() => useVoidStore.getState().setLayout('grid'));
     set(() => useVoidStore.getState().setModFilter('VISUAL'));
     expect(container.querySelectorAll('.mods-row')).toHaveLength(1);
-    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('6');
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${twelve.tileW}px`);
   });
 
   it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
-    // Row-major, so the arrow keys had to change with the fill order. Twelve mods are six
-    // across: `fps` is index 0, `zoom` index 5 (end of row one), `fullbright` index 6 (start of
-    // row two), `coordinates` index 11 (the last).
+    // Row-major, so the arrow keys had to change with the fill order. Thirteen mods are seven
+    // across: `fps` is index 0, `fullbright` index 6 (end of row one), `hitboxes` index 7
+    // (start of row two), `watermark` index 12 (the last).
     const { container } = render(<App />);
     const overlay = container.querySelector('.overlay') as HTMLElement;
     const at = () => useVoidStore.getState().selectedMod;
@@ -310,14 +302,14 @@ describe('Mods screen — layout × inspector', () => {
     press('ArrowRight');
     expect(at()).toBe('keystrokes');
     press('ArrowDown');
-    expect(at()).toBe('hitboxes'); // index 1 + 6
+    expect(at()).toBe('armor_status'); // index 1 + 7
     press('ArrowUp');
     expect(at()).toBe('keystrokes');
 
     // A row boundary is a step, not a wall: the grid is one sequence laid out in rows.
-    set(() => useVoidStore.getState().selectMod('zoom'));
+    set(() => useVoidStore.getState().selectMod('fullbright'));
     press('ArrowRight');
-    expect(at()).toBe('fullbright');
+    expect(at()).toBe('hitboxes');
 
     // Both ends clamp rather than wrapping.
     set(() => useVoidStore.getState().selectMod('fps'));
@@ -325,11 +317,11 @@ describe('Mods screen — layout × inspector', () => {
     expect(at()).toBe('fps');
     press('ArrowUp');
     expect(at()).toBe('fps');
-    set(() => useVoidStore.getState().selectMod('coordinates'));
+    set(() => useVoidStore.getState().selectMod('watermark'));
     press('ArrowRight');
-    expect(at()).toBe('coordinates');
+    expect(at()).toBe('watermark');
     press('ArrowDown');
-    expect(at()).toBe('coordinates');
+    expect(at()).toBe('watermark');
 
     // The list is one column of rows: Down is the next mod, and Left/Right have nowhere to go.
     set(() => useVoidStore.getState().setLayout('list'));
@@ -342,34 +334,29 @@ describe('Mods screen — layout × inspector', () => {
     expect(at()).toBe('fps');
   });
 
-  it('slides the grid only when the mod picked is not already among the surviving three', () => {
+  /**
+   * The grid does not move, at all, for any selection.
+   *
+   * Two tests used to live here: one that the grid slid so the tile you clicked survived the
+   * contraction, and one for `firstVisibleColumn`'s arithmetic. Both existed only because
+   * selecting a mod narrowed the grid to three columns. Nothing narrows, so the property they
+   * were protecting — the thing you clicked does not move out from under you — is now
+   * structural, and this is what it looks like as an assertion.
+   */
+  it('never moves a tile in response to a selection', () => {
     const { container } = render(<App />);
-    const first = () =>
-      (container.querySelector('.overlay') as HTMLElement).style.getPropertyValue('--grid-first');
-    // Row-major in six columns: `fps` is index 0 so column 1, `ping` is index 10 so column 5,
-    // `coordinates` is index 11 so column 6 of 6. The rule §7 used to give for free: the grid
-    // does not move for a mod already on screen, moves the least it can for one that is not,
-    // and goes back to the left when the panel shuts.
-    set(() => useVoidStore.getState().selectMod('fps'));
-    expect(first()).toBe('0');
-    set(() => useVoidStore.getState().selectMod('ping'));
-    expect(first()).toBe('2');
-    set(() => useVoidStore.getState().selectMod('coordinates'));
-    expect(first()).toBe('3');
-    set(() => useVoidStore.getState().setInspector('closed'));
-    expect(first()).toBe('0');
-  });
-
-  it('firstVisibleColumn brings a column in as the last of three, and never overshoots', () => {
-    // Six columns, three showing.
-    expect(firstVisibleColumn(6, 0, true)).toBe(0);
-    expect(firstVisibleColumn(6, 2, true)).toBe(0);
-    expect(firstVisibleColumn(6, 3, true)).toBe(1);
-    expect(firstVisibleColumn(6, 5, true)).toBe(3);
-    // Never past the end, never at all with the panel shut, and safe with no selection.
-    expect(firstVisibleColumn(3, 2, true)).toBe(0);
-    expect(firstVisibleColumn(6, 5, false)).toBe(0);
-    expect(firstVisibleColumn(6, -1, true)).toBe(0);
+    const overlay = container.querySelector('.overlay') as HTMLElement;
+    const order = () =>
+      [...container.querySelectorAll('[data-mod-id]')].map((el) => el.getAttribute('data-mod-id'));
+    const before = order();
+    // `ping` is index 10 and `coordinates` index 11 — the far right of the grid, which is
+    // exactly where the contraction used to have to slide from.
+    for (const id of ['ping', 'coordinates', 'fps'] as const) {
+      set(() => useVoidStore.getState().selectMod(id));
+      expect(order()).toEqual(before);
+    }
+    // And no offset is written to the shell for the CSS to slide on.
+    expect(overlay.style.getPropertyValue('--grid-first')).toBe('');
   });
 
   it('filters by tab and by search in either layout', () => {
@@ -378,7 +365,8 @@ describe('Mods screen — layout × inspector', () => {
     const ids = [...container.querySelectorAll('[data-mod-id]')].map((el) =>
       el.getAttribute('data-mod-id'),
     );
-    expect(ids.sort()).toEqual(['crosshair', 'fullbright']);
+    // The watermark is Visual too — it is a mark drawn over the game, not a readout.
+    expect(ids.sort()).toEqual(['crosshair', 'fullbright', 'watermark']);
 
     set(() => useVoidStore.getState().setModFilter('all'));
     set(() => useVoidStore.getState().setLayout('list'));
@@ -389,8 +377,10 @@ describe('Mods screen — layout × inspector', () => {
   it('gives the list a description column, and an em-dash where one does not apply', () => {
     const { container } = render(<App />);
     set(() => useVoidStore.getState().setLayout('list'));
-    // Scoped to the column header: the inspector is open beside the list and it has
-    // a `Keybind` of its own, which is exactly the duplication the list is for.
+    // Scoped to the column header, which is also where the row's own cells repeat these
+    // words. The list now keeps every column it was drawn with: `Position`, `Scale` and
+    // `Category` used to be dropped whenever the properties panel was open beside it, and
+    // nothing is beside it any more.
     const head = container.querySelector('.modlist__head') as HTMLElement;
     for (const column of ['Name', 'Description', 'Category', 'Keybind', 'Position', 'Scale']) {
       expect(within(head).getByText(column)).toBeTruthy();
@@ -424,26 +414,293 @@ describe('Mods screen — layout × inspector', () => {
     expect(anchorShortLabel('center')).toBe('C');
   });
 
-  it('selecting a mod opens the inspector rather than navigating', () => {
+  /**
+   * The card's body and the card's switch do different things.
+   *
+   * jsdom can only check that the two handlers are wired to different acts — it dispatches to
+   * whatever element the test names, so it can never see the failure that actually happens
+   * here, which is one element sitting over another and swallowing its clicks. That has gone
+   * wrong in both directions (`.modcell__select` used to cover the switch, so nothing could be
+   * toggled at all) and it is checked in game. What this pins is the intent.
+   */
+  it('opens the mod from the card body, and only toggles from the card switch', () => {
     const { container } = render(<App />);
-    set(() => useVoidStore.getState().setInspector('closed'));
+    const store = () => useVoidStore.getState();
+
+    const before = isModOn(store().loadout, 'fullbright');
+    fireEvent.click(screen.getByLabelText('Fullbright enabled'));
+    // Flipped, and still on the grid.
+    expect(isModOn(store().loadout, 'fullbright')).toBe(!before);
+    expect(store().route).toEqual({ name: 'mods' });
+    expect(container.querySelector('.mods-grid')).not.toBeNull();
+
+    // The body navigates, and changes nothing.
+    const flipped = isModOn(store().loadout, 'fullbright');
     fireEvent.click(screen.getByRole('button', { name: 'Fullbright' }));
-    expect(useVoidStore.getState().inspector).toBe('open');
-    expect(useVoidStore.getState().selectedMod).toBe('fullbright');
-    // Still the Mods screen: nothing routed anywhere.
-    expect(useVoidStore.getState().route.name).toBe('mods');
-    expect(container.querySelector('.inspector--open')).not.toBeNull();
+    expect(store().route).toEqual({ name: 'mod', id: 'fullbright' });
+    expect(store().selectedMod).toBe('fullbright');
+    expect(isModOn(store().loadout, 'fullbright')).toBe(flipped);
+    expect(container.querySelector('.modpage')).not.toBeNull();
+    expect(container.querySelector('.mods-grid')).toBeNull();
+  });
+
+  it('gives the page a context bar and two ways back, and no way to filter a grid it is not showing', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().openMod('keystrokes'));
+
+    // The nav tabs and the layout switcher are controls for a grid that is not on screen: a
+    // tab press here would silently re-filter what you are about to come back to.
+    expect(screen.queryByRole('tab', { name: 'Visual' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'List' })).toBeNull();
+    // What is true on every screen stays.
+    // Scoped to the bar's own wordmark: the watermark mod draws the same four letters on
+    // the HUD behind the panel, which is the mark doing its job rather than a duplicate.
+    expect(container.querySelector('.vmark__word')!.textContent).toBe('VOID');
+    expect(screen.getByLabelText('Close')).toBeTruthy();
+    expect(screen.getByLabelText('Search')).toBeTruthy();
+    expect(screen.getByText(MODS_HINT_PAGE, verbatim)).toBeTruthy();
+
+    // Two visible affordances, both of which land back on the grid unchanged. (Escape is
+    // deliberately not a third — see `ModPage.tsx`: in game the page never receives it.)
+    fireEvent.click(screen.getByRole('button', { name: /Mods/ }));
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(container.querySelector('.mods-grid')).not.toBeNull();
+
+    set(() => useVoidStore.getState().openMod('keystrokes'));
+    fireEvent.click(screen.getByText('Done'));
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(container.querySelector('.modpage')).toBeNull();
+  });
+
+  /**
+   * Escape means "up one level", and three copies of that table have to agree.
+   *
+   * `keepsEscape()` is the copy Java polls (it decides whether the key is forwarded to the page
+   * at all); `MenuLayer`'s handler is the copy that acts; the `esc` cap in the bar is the copy
+   * the player reads. This checks the first two against each other at every level, because the
+   * failure when they drift is silent in one direction and catastrophic in the other — Escape
+   * closing the whole menu out of a properties page.
+   */
+  it('walks Escape up one level, and says so to the host', () => {
+    const { container } = render(<App />);
+    const layer = container.querySelector('.menu-layer') as HTMLElement;
+    // `keyCode`, and no `key` at all — the shape the in-game engine actually delivers. Measured:
+    // Escape arrives as `key: "Unidentified", code: "", which: 27`, so a handler that matched on
+    // `key` alone was dead in the product while passing every test here. See `menu/keys.ts`.
+    const esc = () => fireEvent.keyDown(window, { keyCode: 27 });
+
+    // The grid: the page does not want it, so Java closes the menu. Nothing here to assert on
+    // the page side beyond the answer it gives the host — the close is Java's.
+    expect(keepsEscape()).toBe(false);
+
+    // A mod's page: the page wants it, and it goes back to the grid rather than closing.
+    set(() => useVoidStore.getState().openMod('zoom'));
+    expect(keepsEscape()).toBe(true);
+    set(() => esc());
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().menuOpen).toBe(true);
+
+    // The HUD editor: same rule, same level above.
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    expect(keepsEscape()).toBe(true);
+    set(() => esc());
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+
+    // The palette: it wants Escape too — its query field owns the keyboard, so the answer is
+    // already true before the route is consulted — and it closes itself on its own handler,
+    // which stops the event before this one sees it. The route is untouched either way.
+    set(() => useVoidStore.getState().setPaletteOpen(true));
+    expect(keepsEscape()).toBe(true);
+    const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
+    set(() => fireEvent.keyDown(input, { keyCode: 27 }));
+    expect(useVoidStore.getState().paletteOpen).toBe(false);
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().menuOpen).toBe(true);
+    expect(layer).not.toBeNull();
+  });
+
+  it('puts the esc cap on the control Escape actually presses, and never on two', () => {
+    const { container } = render(<App />);
+    const caps = () => [...container.querySelectorAll('.okbd')].map((el) => el.textContent);
+
+    // On the grid Escape closes, so the cap is on the close button.
+    expect(caps()).toEqual(['esc']);
+    expect(container.querySelector('.obtn--close .okbd')).not.toBeNull();
+    expect(screen.getByLabelText('Close').getAttribute('aria-keyshortcuts')).toBe('Escape');
+
+    // On a page Escape goes back, so the cap moves to `‹ Mods` — and the close, which Escape no
+    // longer presses, loses both the cap and the shortcut it would have been claiming.
+    set(() => useVoidStore.getState().openMod('zoom'));
+    expect(caps()).toEqual(['esc']);
+    expect(container.querySelector('.obar__back .okbd')).not.toBeNull();
+    expect(container.querySelector('.obtn--close .okbd')).toBeNull();
+    expect(screen.getByLabelText('Close').getAttribute('aria-keyshortcuts')).toBeNull();
+  });
+
+  /**
+   * The bar's right-hand cluster, after the profile chip was removed.
+   *
+   * Two things are asserted because two things were asked for. The chip is **gone** — it was the
+   * widest object in a bar the user has called crowded three times, and what it spent that width
+   * on was identity that cannot be changed from inside a match. And search now sits **directly
+   * beside close**, which is where the user put it.
+   */
+  it('leaves settings, search and close in the bar, in that order', () => {
+    const { container } = render(<App />);
+    // Even with a session pushed there is no chip anywhere: it is not conditional, it is gone.
+    set(() =>
+      useVoidStore.setState({
+        session: { name: 'Notch', uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5', kind: 'microsoft' },
+      }),
+    );
+    expect(container.querySelector('.oprofile')).toBeNull();
+
+    const tools = container.querySelector('.obar__tools') as HTMLElement;
+    const order = [...tools.children].map((el) => el.getAttribute('aria-label'));
+    expect(order).toEqual(['Settings', 'Search', 'Close']);
+
+    // The same three, in the same order, on an inner page — where the chip used to be
+    // conditionally dropped, which was a fourth arrangement of the same corner.
+    set(() => useVoidStore.getState().openMod('cps'));
+    const pageTools = container.querySelector('.obar--page .obar__tools') as HTMLElement;
+    expect([...pageTools.children].map((el) => el.getAttribute('aria-label'))).toEqual([
+      'Settings',
+      'Search',
+      'Close',
+    ]);
+  });
+
+  /**
+   * The gear, and the page it opens.
+   *
+   * The chip's objection was that it did nothing; the answer is not a quieter chip but a control
+   * with a destination, and every row of that destination writes something real.
+   */
+  it('opens Settings from the gear, and closes it from the same button', () => {
+    const { container } = render(<App />);
+    fireEvent.click(screen.getByLabelText('Settings'));
+    expect(useVoidStore.getState().route).toEqual({ name: 'settings' });
+    expect(container.querySelector('.oset')).not.toBeNull();
+
+    // Marked as on while you are on it, and pressing it again is the way back — a control that
+    // points at the page you are already on would be the chip's defect again.
+    const gear = () => screen.getByLabelText('Settings');
+    expect(gear().className).toContain('obtn--on');
+    fireEvent.click(gear());
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+  });
+
+  it('gives Settings the account the chip used to carry, read-only', () => {
+    const { container } = render(<App />);
+    set(() =>
+      useVoidStore.setState({
+        session: { name: 'Notch', uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5', kind: 'microsoft' },
+      }),
+    );
+    set(() => useVoidStore.getState().setRoute({ name: 'settings' }));
+
+    expect(container.querySelector('.oset__name')!.textContent).toBe('Notch');
+    expect(container.querySelector('.oset__kind')!.textContent).toBe('Microsoft account');
+    // Monochrome, per §1: no hue is derived from the uuid.
+    expect(container.querySelector('.oset__initial')!.textContent).toBe('N');
+    expect(container.querySelector('.oset__initial')!.getAttribute('style')).toBeNull();
+    // Read, never pressed. The account is settled for the life of the process.
+    expect(container.querySelector('.oset__player')!.querySelector('button')).toBeNull();
+  });
+
+  /**
+   * Every row on the page writes something, which is the whole reason the gear replaced a chip.
+   *
+   * `ui_scale` and `menu_key` are the two that needed a contract change to be true at all — they
+   * live in `LiveState`, and until `bridge.json` gained the `settings` channel and the
+   * `setGlobal` call the page could neither read nor write either.
+   */
+  it('writes the globals it shows', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().setRoute({ name: 'settings' }));
+
+    // The head prints the live menu key, so a write that did not land is visible in the copy.
+    expect(container.querySelector('.oset__meta')!.textContent).toContain('R-SHIFT OPENS');
+
+    // A push from Java replaces the globals wholesale.
+    set(() => useVoidStore.getState().applyGlobals({ menu_key: 'F1', ui_scale: 2 }));
+    expect(useVoidStore.getState().globals).toEqual({
+      menuKey: 'F1',
+      uiScale: 2,
+      theme: 'void-dark',
+    });
+    expect(container.querySelector('.oset__meta')!.textContent).toContain('F1 OPENS');
+  });
+
+  /**
+   * `ui_scale` is plumbed and deliberately not offered.
+   *
+   * The store still tracks it and `setGlobal` still writes it, because the launcher does. What
+   * must not come back is a *control* for it on this page: it resizes the surface it lives on,
+   * and in game that ran away to the 3.0 clamp in fourteen seconds — see `SettingsScreen.tsx`.
+   */
+  it('offers no UI-scale control, while keeping the value live', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().setRoute({ name: 'settings' }));
+    expect(container.querySelector('.oset')!.textContent).not.toMatch(/scale/i);
+    expect(container.querySelectorAll('.oset .meter')).toHaveLength(0);
+
+    // …but the path is intact, so the launcher's write still lands.
+    set(() => useVoidStore.getState().applyGlobals({ ui_scale: 1.5 }));
+    expect(useVoidStore.getState().globals.uiScale).toBe(1.5);
+  });
+
+  it('carries the watermark switch and the way to the layout editor', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.getState().setRoute({ name: 'settings' }));
+
+    // The mod's own switch, not a second flag beside it.
+    const before = isModOn(useVoidStore.getState().loadout, 'watermark');
+    fireEvent.click(screen.getByLabelText('VOID watermark enabled'));
+    expect(isModOn(useVoidStore.getState().loadout, 'watermark')).toBe(!before);
+    // The preview says which of the two states it is in rather than disappearing.
+    expect(container.querySelector('.oset__mark')!.className).toContain(
+      before ? 'oset__mark--off' : 'oset__mark',
+    );
+
+    // The HUD editor has been reachable only from the quick palette, i.e. only by someone who
+    // already knew it was there.
+    fireEvent.click(screen.getByText('Open the layout editor'));
+    expect(useVoidStore.getState().route).toEqual({ name: 'hud-editor' });
+  });
+
+  /** Escape from Settings is one level up, not out — the same rule every inner page follows. */
+  it('treats Settings as one level above the grid', () => {
+    render(<App />);
+    set(() => useVoidStore.getState().setRoute({ name: 'settings' }));
+    // Java asks this a frame ahead to decide whether to forward the key at all.
+    expect(keepsEscape()).toBe(true);
+    fireEvent.keyDown(window, { key: 'Unidentified', which: 27, keyCode: 27 });
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    expect(useVoidStore.getState().menuOpen).toBe(true);
+  });
+
+  it('does not close the whole menu on the way back', () => {
+    render(<App />);
+    set(() => useVoidStore.getState().openMod('zoom'));
+    fireEvent.click(screen.getByText('Done'));
+    // The overlay interrupts a live match; a step back must cost one step, not a reopen.
+    expect(useVoidStore.getState().menuOpen).toBe(true);
   });
 });
 
-describe('Properties panel — contract §8', () => {
+describe('The mod page — contract §8', () => {
   beforeEach(() => {
     set(() => useVoidStore.getState().applyMenu(true));
   });
 
+  /** Every case here is one click into a mod, which is the only way the properties exist now. */
+  const open = (id: Parameters<ReturnType<typeof useVoidStore.getState>['openMod']>[0]) =>
+    set(() => useVoidStore.getState().openMod(id));
+
   it('never lists a spatial property — placement and size are on the preview', () => {
     render(<App />);
-    set(() => useVoidStore.getState().selectMod('keystrokes'));
+    open('keystrokes');
     // Frame `289:5523` captions the preview with what the two things on it do.
     expect(screen.getByText(/Click a slot to place/)).toBeTruthy();
     // `Scale` is the size property, so it is the drag handle, not a row.
@@ -456,36 +713,69 @@ describe('Properties panel — contract §8', () => {
     }
   });
 
-  it('gives 5+ properties two light groups, and 2–4 a flat list with no labels', () => {
+  it('gives 5+ properties two captioned groups, and 2–4 a flat list with no labels', () => {
     const { container } = render(<App />);
-    set(() => useVoidStore.getState().selectMod('keystrokes'));
+    open('keystrokes');
     expect(container.querySelector('[data-structure="grouped"]')).not.toBeNull();
-    // Two groups (§8), drawn as the frame's two columns. No section labels: at this
-    // width the column is the grouping, and `289:3024` carries no caption over it.
+    // Two groups (§8), side by side beside the preview. They are captioned now, which the
+    // inspector's two columns were not: `289:3024`'s argument for bare columns — the column is
+    // the grouping — stops holding once the columns stand next to a page-sized preview, and
+    // `289:5523`'s narrow panels caption theirs for exactly that reason.
     expect(container.querySelectorAll('.mprops__group')).toHaveLength(2);
-    expect(container.querySelector('.mprops__cap')).toBeNull();
+    expect([...container.querySelectorAll('.mprops__cap')].map((el) => el.textContent)).toEqual([
+      'Appearance',
+      'Behaviour',
+    ]);
     expect(screen.getByText('Show mouse buttons')).toBeTruthy();
     expect(screen.getByText('LMB and RMB under the arrows')).toBeTruthy();
 
-    set(() => useVoidStore.getState().selectMod('cps'));
+    // 2–4 is one column and no caption: a group of one is the section label the flat
+    // structure exists to avoid.
+    open('cps');
     expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
     expect(container.querySelectorAll('.mprops__group')).toHaveLength(0);
+    expect(container.querySelector('.mprops__cap')).toBeNull();
   });
 
-  it('gives a single property no list at all — a sentence and a bigger preview', () => {
+  it('gives a single property no list at all — a sentence, and the preview takes the room', () => {
     const { container } = render(<App />);
-    set(() => useVoidStore.getState().selectMod('fullbright'));
+    open('fullbright');
     expect(container.querySelector('[data-structure="sentence"]')).not.toBeNull();
-    expect(container.querySelector('.preview--large')).not.toBeNull();
     expect(container.querySelector('.mprop')).toBeNull();
     expect(screen.getByText(/Gamma sits at/)).toBeTruthy();
+    // The preview no longer carries a size of its own — it takes the height the properties
+    // leave, which for one property is nearly all of it. `preview--large` was that height as a
+    // hard-coded 208px, and it went with the fixed-height panel it was measured against.
+    expect(container.querySelector('.preview--large')).toBeNull();
+    expect(container.querySelector('.mprops--sentence .preview')).not.toBeNull();
+  });
+
+  it('draws the tile’s own art at page size, not a paragraph in an empty box', () => {
+    const { container } = render(<App />);
+    // The inspector showed the mod's description centred in the preview for every mod but
+    // Keystrokes. At page size that is a caption pretending to be a picture; the page draws
+    // `TilePreview` — the same art the tile draws — with its cells scaled up.
+    open('crosshair');
+    const stage = container.querySelector('.preview__stage') as HTMLElement;
+    expect(stage.querySelector('.tart')).not.toBeNull();
+    expect(stage.querySelector('.preview__blurb')).toBeNull();
+    // 9px cells in the tile, 2.6x on the page.
+    const tileCell = container.querySelector(
+      '.modcell[data-mod-id="crosshair"] .cart__cell',
+    ) as HTMLElement | null;
+    expect(tileCell).toBeNull(); // the grid is not mounted while a page is
+    expect((stage.querySelector('.cart__cell') as HTMLElement).style.width).toBe('23px');
+
+    // Keystrokes is the exception and stays the live widget: its art is a *state*.
+    open('keystrokes');
+    expect(container.querySelector('.preview__stage .v-keystrokes')).not.toBeNull();
   });
 
   it('never offers tabs', () => {
     const { container } = render(<App />);
     for (const id of ['keystrokes', 'cps', 'fullbright', 'crosshair'] as const) {
-      set(() => useVoidStore.getState().selectMod(id));
-      expect(container.querySelector('.inspector [role="tablist"]')).toBeNull();
+      open(id);
+      expect(container.querySelector('.modpage [role="tablist"]')).toBeNull();
     }
   });
 
@@ -500,40 +790,73 @@ describe('Properties panel — contract §8', () => {
   it('paints a mod’s live value in its own category hue, not the accent', () => {
     const { container } = render(<App />);
     // Fullbright is Visual, so ice — never the default violet.
-    set(() => useVoidStore.getState().selectMod('fullbright'));
-    const panel = container.querySelector('.mprops') as HTMLElement;
-    expect(panel.style.getPropertyValue('--hue')).toBe('var(--hue-visual)');
-    // …and a PvP mod is coral, off the same one declaration.
-    set(() => useVoidStore.getState().selectMod('toggle_sprint'));
+    open('fullbright');
+    const page = container.querySelector('.modpage') as HTMLElement;
+    expect(page.style.getPropertyValue('--hue')).toBe('var(--hue-visual)');
     expect((container.querySelector('.mprops') as HTMLElement).style.getPropertyValue('--hue')).toBe(
-      'var(--hue-pvp)',
+      'var(--hue-visual)',
     );
+    // …and a PvP mod is coral, off the same one declaration.
+    open('toggle_sprint');
+    expect(
+      (container.querySelector('.modpage') as HTMLElement).style.getPropertyValue('--hue'),
+    ).toBe('var(--hue-pvp)');
     // Every tile carries its own, so the grid is hued too.
+    set(() => useVoidStore.getState().closeMod());
     const tile = container.querySelector('.modcell[data-mod-id="crosshair"]') as HTMLElement;
     expect(tile.style.getPropertyValue('--hue')).toBe('var(--hue-visual)');
   });
 
-  it('heads the panel the way the frame does, and foots it with Reset / Done', () => {
+  it('heads the page with the mod and foots it with Reset / Done', () => {
     const { container } = render(<App />);
-    set(() => useVoidStore.getState().selectMod('keystrokes'));
-    expect(screen.getByText('Selected mod')).toBeTruthy();
-    expect(container.querySelector('.inspector__title')!.textContent).toBe('Keystrokes');
+    open('keystrokes');
+    expect(container.querySelector('.modpage__title')!.textContent).toBe('Keystrokes');
     // `HUD  ·  ENABLED  ·  R-SHIFT`, the frame's meta line.
-    expect(container.querySelector('.inspector__meta')!.textContent).toMatch(/^HUD {3}·/);
-    // Enablement is the head switch, not a property row — frame `289:5523`, §8.
-    // (The tile carries one too, which is why this is scoped to the panel head.)
+    expect(container.querySelector('.modpage__meta')!.textContent).toMatch(/^HUD {3}·/);
+    // The mod's own sentence, which until now only the list layout could show.
+    expect(container.querySelector('.modpage__desc')!.textContent).toBeTruthy();
+    // `SELECTED MOD` was an eyebrow for a panel standing beside a grid. On a page whose whole
+    // subject is this mod it labels nothing the title does not already say.
+    expect(screen.queryByText('Selected mod')).toBeNull();
+    // Enablement is the head switch, not a property row — frame `289:5523`, §8. There is
+    // exactly one on the page, because the grid it used to duplicate is not mounted.
     expect(
-      container.querySelector('.inspector__head [aria-label="Keystrokes enabled"]'),
+      container.querySelector('.modpage__head [aria-label="Keystrokes enabled"]'),
     ).not.toBeNull();
-    expect(container.querySelector('.inspector .mprop__label')!.textContent).not.toBe('Enabled');
+    expect(container.querySelectorAll('[aria-label="Keystrokes enabled"]')).toHaveLength(1);
+    expect(container.querySelector('.modpage .mprop__label')!.textContent).not.toBe('Enabled');
     expect(screen.getByText('Reset to default')).toBeTruthy();
     expect(screen.getByText('Done')).toBeTruthy();
     // The old `Edit position` button is gone: placement is on the preview now.
     expect(screen.queryByText('Edit position')).toBeNull();
 
-    set(() => useVoidStore.getState().selectMod('fullbright'));
+    open('fullbright');
     // A gameplay mod has no placement, so it gets no corner slots at all.
     expect(container.querySelector('.preview__slot')).toBeNull();
+  });
+});
+
+/**
+ * `isEscape` — the reason a key match here cannot be `e.key === 'Escape'`.
+ *
+ * The in-game engine derives `KeyboardEvent.key` from the character the host sends, and Escape
+ * has none: measured in game it arrives as `key: "Unidentified", code: "", which: 27`. Every
+ * shape below is one this bundle really sees — the browser's, jsdom's, and the engine's.
+ */
+describe('isEscape', () => {
+  it('accepts the name, the code and the legacy `which`', () => {
+    expect(isEscape({ key: 'Escape' })).toBe(true);
+    expect(isEscape({ key: 'Escape', keyCode: 27 })).toBe(true);
+    // The one that matters: no usable name, only the number.
+    expect(isEscape({ key: 'Unidentified', which: 27 })).toBe(true);
+    expect(isEscape({ key: 'Unidentified', keyCode: 27 })).toBe(true);
+  });
+
+  it('is not fooled by anything else', () => {
+    expect(isEscape({ key: 'Enter', keyCode: 13 })).toBe(false);
+    expect(isEscape({ key: 'ArrowDown', keyCode: 40 })).toBe(false);
+    expect(isEscape({ key: 'Unidentified' })).toBe(false);
+    expect(isEscape({ key: 'e' })).toBe(false);
   });
 });
 
@@ -752,7 +1075,6 @@ describe('Quick palette — frame 244:1900', () => {
     set(() => useVoidStore.getState().applyMenu(true));
     set(() => useVoidStore.getState().setRoute({ name: 'party' }));
     set(() => useVoidStore.getState().selectMod('zoom'));
-    set(() => useVoidStore.getState().setInspector('closed'));
     set(() => useVoidStore.getState().setPaletteOpen(true));
     const { container } = render(<App />);
     const input = container.querySelector('.v-palette__query input') as HTMLInputElement;
@@ -763,9 +1085,10 @@ describe('Quick palette — frame 244:1900', () => {
     set(() => activate(row));
     const after = useVoidStore.getState();
     expect(after.paletteOpen).toBe(false);
-    expect(after.route.name).toBe('mods');
+    // Search now navigates to the mod's page — the same place its tile goes, which is the
+    // whole reason the palette's primary is "open" and not "toggle".
+    expect(after.route).toEqual({ name: 'mod', id: 'fullbright' });
     expect(after.selectedMod).toBe('fullbright');
-    expect(after.inspector).toBe('open');
     expect(isModOn(after.loadout, 'fullbright')).toBe(before);
   });
 
@@ -879,5 +1202,82 @@ describe('Quick palette — frame 244:1900', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(useVoidStore.getState().paletteOpen).toBe(true);
     expect(container.querySelector('.palette-layer')).not.toBeNull();
+  });
+});
+
+/**
+ * The VOID watermark — the thirteenth mod, and the one that is a *mark* rather than a readout.
+ *
+ * The whole argument for making it a mod is that it then gets `on`, `scale`, `opacity` and a
+ * draggable placement without any of them being written for it. These assert the two halves of
+ * that: it goes through `HudLayer`'s ordinary path like every other HUD mod, and its one
+ * bespoke setting — `style` — actually changes what is drawn.
+ */
+describe('the VOID watermark', () => {
+  beforeEach(() => {
+    useVoidStore.setState({ menuOpen: false, route: { name: 'mods' } });
+  });
+
+  it('draws on the HUD like any other HUD mod, and stops when switched off', () => {
+    const { container } = render(<App />);
+    const mark = () => container.querySelector('.hud-layer [data-hud-id="watermark"] .wmark');
+    expect(mark()).not.toBeNull();
+
+    // Off is the mod's own switch, not a flag beside it.
+    set(() => useVoidStore.getState().toggleMod('watermark', false));
+    expect(container.querySelector('[data-hud-id="watermark"]')).toBeNull();
+    set(() => useVoidStore.getState().toggleMod('watermark', true));
+    expect(mark()).not.toBeNull();
+  });
+
+  it('takes its placement, scale and opacity from the loadout, like every other widget', () => {
+    const { container } = render(<App />);
+    const slot = () => container.querySelector('[data-hud-id="watermark"]') as HTMLElement;
+    // `HudLayer` folds the mod's own `opacity` into the slot and its `scale` into the placement
+    // transform. The widget reads neither — doing it in both places would apply them twice.
+    set(() => useVoidStore.getState().setSetting('watermark', 'opacity', 0.5));
+    // Dimmed by the menu is a separate multiplier; the menu is shut here.
+    expect(slot().style.opacity).toBe('0.5');
+    set(() => useVoidStore.getState().commitHud('watermark', 'bottom-right', -30, -30, 2));
+    expect(slot().style.transform).toContain('scale(2)');
+    expect(slot().style.right).toBe('0px');
+  });
+
+  it('changes what it draws with `style`, which is the only setting written for it', () => {
+    const { container } = render(<App />);
+    const mark = () => container.querySelector('.hud-layer .wmark') as HTMLElement;
+    const word = () => container.querySelector('.hud-layer .wmark__word');
+    const ring = () => container.querySelector('.hud-layer .wmark .cart');
+
+    // `full` is the ring and the wordmark — the same object the bar draws, at HUD size.
+    set(() => useVoidStore.getState().setSetting('watermark', 'style', 'full'));
+    expect(mark().className).toContain('wmark--full');
+    expect(ring()).not.toBeNull();
+    expect(word()).not.toBeNull();
+
+    set(() => useVoidStore.getState().setSetting('watermark', 'style', 'mark'));
+    expect(ring()).not.toBeNull();
+    expect(word()).toBeNull();
+
+    set(() => useVoidStore.getState().setSetting('watermark', 'style', 'word'));
+    expect(ring()).toBeNull();
+    expect(word()!.textContent).toBe('VOID');
+
+    // An unknown value from a host with a newer schema falls back rather than drawing nothing —
+    // an absence is the failure mode this codebase keeps shipping by accident.
+    set(() => useVoidStore.getState().setSetting('watermark', 'style', 'nonsense'));
+    expect(mark().className).toContain('wmark--full');
+  });
+
+  it('is a mod in the grid too, with the mark itself as its tile preview', () => {
+    const { container } = render(<App />);
+    set(() => useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } }));
+    const tile = container.querySelector('[data-mod-id="watermark"]') as HTMLElement;
+    expect(tile).not.toBeNull();
+    // Not an icon: the tile draws what the mod draws, which for this one is the real widget.
+    expect(tile.querySelector('.tart .wmark')).not.toBeNull();
+    // The label had to be shortened when thirteen mods took the grid to seven columns — at 165px
+    // `VOID watermark` truncated to `VOID waterm…`, which is worse than a shorter true name.
+    expect(tile.querySelector('.modcell__name')!.textContent).toBe('Watermark');
   });
 });

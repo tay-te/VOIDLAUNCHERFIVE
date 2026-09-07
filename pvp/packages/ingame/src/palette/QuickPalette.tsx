@@ -20,6 +20,7 @@ import {
   PaletteSeam,
   PaletteSection,
 } from '@/ui';
+import { isEscape } from '@/menu/keys';
 import { useVoidStore } from '@/store/store';
 import { buildCommands, type Command } from './commands';
 import { rank } from './fuzzy';
@@ -149,7 +150,8 @@ export function QuickPalette() {
       if (command) run(command, alt);
       return;
     }
-    if (e.key === 'Escape') {
+    // `isEscape`, not `e.key`: the engine hands Escape over as `Unidentified` (keys.ts).
+    if (isEscape(e)) {
       // Stop it reaching MenuLayer, which would close the whole screen.
       e.preventDefault();
       e.stopPropagation();

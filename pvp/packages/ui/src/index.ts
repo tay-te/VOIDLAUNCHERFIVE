@@ -206,6 +206,9 @@ export {
   Hotbar,
   formatPotionTime,
   formatAmplifier,
+  keystrokesColorStyle,
+  KEYCAP_COLORS,
+  KEYCAP_PRESSED_COLORS,
 } from './components/hud.js';
 export type {
   HudVariant,

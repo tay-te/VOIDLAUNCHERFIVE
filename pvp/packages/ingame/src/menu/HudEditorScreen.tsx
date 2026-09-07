@@ -40,6 +40,11 @@ export const DEFAULT_HUD: Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: 
   armor_status: { anchor: 'top-right', dx: -25, dy: 299 },
   keystrokes: { anchor: 'bottom-left', dx: 31, dy: -109 },
   cps: { anchor: 'bottom-left', dx: 175, dy: -108 },
+  // Next row of the left column, after coordinates at 103. It is **the same placement Java's
+  // own factory loadout uses** (`Loadout.DEFAULT_HUD`), and that is the point of stating it
+  // here at all: `Reset layout` has to put every chip back where the client started, and a
+  // second table that disagreed would make reset a move rather than an undo.
+  watermark: { anchor: 'top-left', dx: 23, dy: 141 },
 };
 
 interface DragState {

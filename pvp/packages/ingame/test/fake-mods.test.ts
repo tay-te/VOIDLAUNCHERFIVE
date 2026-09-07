@@ -17,7 +17,7 @@ import { FAKE_MOD_COUNT, planFakeMods } from '@/dev/fake-mods';
 import { modProperties, propertyStructure } from '@/menu/ModSettingsScreen';
 import type { SettingValue } from '@/store/store';
 
-const REAL = 12;
+const REAL = 13;
 const CATEGORIES: readonly ModCategory[] = ['hud', 'pvp', 'visual', 'utility'];
 
 describe('the fake-mod padding', () => {
@@ -28,10 +28,10 @@ describe('the fake-mod padding', () => {
   });
 
   it('pads up to a total rather than adding a count', () => {
-    expect(planFakeMods(24, REAL)).toHaveLength(12);
-    expect(planFakeMods(17, REAL)).toHaveLength(5);
+    expect(planFakeMods(24, REAL)).toHaveLength(11);
+    expect(planFakeMods(17, REAL)).toHaveLength(4);
     // Never removes a real mod, and never trips over nonsense.
-    expect(planFakeMods(12, REAL)).toHaveLength(0);
+    expect(planFakeMods(13, REAL)).toHaveLength(0);
     expect(planFakeMods(3, REAL)).toHaveLength(0);
     expect(planFakeMods(Number.NaN, REAL)).toHaveLength(0);
     // Capped, so a stray zero cannot ask for a thousand tiles.

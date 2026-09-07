@@ -286,6 +286,83 @@ lands where the cursor was.
 
 # Verification
 
+## 14. Removing a registry setting eats saved loadouts — **[measured]**
+
+Not a render invariant, but it lives here because it is the same species as the
+rest of this file: it does not announce itself, nothing in the change looks
+dangerous, and the tests stay green.
+
+Every `*Settings` struct in `crates/void-loadout/src/mods.rs` is
+`#[serde(deny_unknown_fields)]`, mirroring the schema's `additionalProperties:
+false`. That is correct — an unknown key really is invalid — and it means
+**deleting a setting makes every loadout already on disk that carries it stop
+deserialising**. `Store::load` returns `Error::Json`, and the player's loadout
+does not degrade to defaults. It disappears.
+
+*Symptom when violated:* a player who had built loadouts opens the launcher
+after an update and one of them is gone, with a JSON parse error naming a key
+that is no longer in the schema — a key they never typed and cannot remove,
+because the file they would edit is the one that will not load.
+
+**Therefore removing a setting is a two-part change.** Take the key out of
+`schema/mods.json`, the Rust struct, `ModRegistry.java` and the UI *and* add it
+to `REMOVED_SETTINGS` in `crates/void-loadout/src/store.rs`. `read_loadout_json`
+strips listed keys on the way in and never writes them back, so the next save is
+the migration. Entries retire once no file can plausibly still carry them.
+
+The tolerance is deliberately narrow: a key that was **never** ours still fails
+loudly (`an_unknown_setting_that_was_never_ours_still_fails_loudly`). "Accept
+anything" would trade this bug for a worse one — silently loading loadouts that
+are wrong rather than refusing loadouts that are invalid.
+
+Found while removing `toggle_sprint.show_status`, the first setting ever deleted
+from the registry — which is why nothing had hit it before, and why the next
+person to delete one would have.
+
+## 15. A lookup that misses is silent, four times over — **[measured]**
+
+The single most productive bug shape in this codebase, and the reason this
+section is a list rather than an entry. Four separate failures in one day were
+the same mechanism: **a table is consulted, the key is not there, the fallback
+is nothing, and nothing anywhere says so.**
+
+| the lookup | the miss | what the player saw |
+|---|---|---|
+| `void-shim.js` `EVENTS` | a channel the shim's closed list does not name | `on` returns a no-op subscription, `__emit` drops every envelope — the `session` channel was pushed by Java and consumed by the page for days without arriving |
+| `SETTING_ENUMS[id.key]` | an enum setting with no options table | `PositionChips` over `[]` — a property row with its label and **nothing** where its control should be (`watermark.style`) |
+| the swatch table | a colour the widget never read | the swatches wrote a value nothing drew |
+| `loadout.hud[]` | a HUD mod that is `on` but unplaced | `HudEntry` needs both, so the widget is simply absent, and the editor's Reset cannot rescue it because Reset reads the same table |
+
+Every one of them passed review, and **every one of them passed jsdom** — an
+empty chip row, a dropped envelope and an absent widget all render without a
+warning. So the rule is not "be careful with tables":
+
+**A lookup whose miss produces silence must be gated by a test that enumerates
+the domain, not by a test of the case somebody thought of.** `SETTING_ENUMS` is
+now checked against every enum property `modProperties` can produce over the
+whole registry (`test/registry.test.tsx`), which fails `pnpm check` and names the
+missing key; the shim's channel list is checked against `bridge.json`'s enum; the
+sprite's cell names are checked against every `IconName` the overlay renders. The
+one that walks the domain is the one that catches the *next* mod.
+
+Where the miss cannot be gated away, **degrade to something visible**. The enum
+branch now renders the stored value instead of an empty box: still wrong, but
+wrong in a way a person looking at the screen can see. An absence is the one
+failure mode that survives being looked at.
+
+## A base that is one of the options hides a missing option — **[derived]**
+
+`armor_status.orientation` is `horizontal | vertical`, and for months it changed
+a **width**. The base rule was `flex-direction: column` and the `--vertical`
+modifier only set `width: auto`, so `horizontal` — the default — drew a vertical
+list, and the setting appeared to do something, which is what kept anyone from
+looking. The enum was never wrong; the second layout had simply never been
+written, and the default silently stood in for it.
+
+**When a property has N values, give it N rules and let the base carry only what
+they share.** A base that doubles as one of the values cannot tell you that
+another value is missing, because the missing one still renders.
+
 ## Numbers that must hold
 
 | invariant | baseline | how |

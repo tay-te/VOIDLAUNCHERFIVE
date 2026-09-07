@@ -24,6 +24,7 @@ import {
   PotionList,
   formatAmplifier,
   formatPotionTime,
+  keystrokesColorStyle,
   type HudVariant,
 } from '@/ui';
 import { cardinalFromYaw } from '@/bridge/protocol';
@@ -47,11 +48,19 @@ export const HudFps = memo(function HudFps({ variant }: HudWidgetProps) {
   const fps = useVoidStore((s) => s.fps);
   const low = useVoidStore((s) => s.fpsLow);
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'fps').show_label !== false);
+  // `fps.color` (mods.json), the one HUD readout the registry lets you tint. Selected as a
+  // string so this subscription stays primitive; `#RRGGBB` and `#RRGGBBAA` are both valid CSS
+  // colours, so the clamped value goes straight through with no parsing.
+  const color = useVoidStore((s) => {
+    const value = modSettings(s.loadout, 'fps').color;
+    return typeof value === 'string' ? value : undefined;
+  });
   return (
     <FpsChip
       variant={variant}
       fps={fps}
       showLabel={showLabel}
+      color={color}
       onePercentLow={low > 0 ? low : undefined}
     />
   );
@@ -90,6 +99,7 @@ export const HudCoordinates = memo(function HudCoordinates({ variant }: HudWidge
       y={pos.y}
       z={pos.z}
       decimals={Number(settings.decimals ?? 0)}
+      layout={settings.layout === 'stacked' ? 'stacked' : 'inline'}
       direction={settings.show_direction === false ? undefined : cardinalFromYaw(pos.yaw)}
     />
   );
@@ -132,6 +142,7 @@ export const HudArmorStatus = memo(function HudArmorStatus() {
     <ArmorList
       rows={rows}
       orientation={settings.orientation === 'vertical' ? 'vertical' : 'horizontal'}
+      showDurability={settings.show_durability !== false}
     />
   );
 });
@@ -144,16 +155,23 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
   const cpsLeft = useVoidStore((s) => s.cpsLeft);
   const cpsRight = useVoidStore((s) => s.cpsRight);
   const radius = settings.corner_radius;
+  // `corner_radius`, `key_color` and `pressed_color` are all applied the same way: by
+  // overriding the token the keycap rules already read, rather than by three bespoke style
+  // hooks. `keystrokesColorStyle` owns the name-to-token resolution so the settings swatches
+  // and the widget cannot show different colours for the same choice.
+  const style: React.CSSProperties = {
+    ...keystrokesColorStyle(
+      typeof settings.key_color === 'string' ? settings.key_color : null,
+      typeof settings.pressed_color === 'string' ? settings.pressed_color : null,
+    ),
+    ...(typeof radius === 'number'
+      ? ({ ['--radius-control' as string]: `${radius}px` } as React.CSSProperties)
+      : null),
+  };
   return (
     <KeystrokesWidget
       className={className}
-      // `keystrokes.corner_radius` (mods.json), applied by overriding the token the
-      // keycaps read rather than by a bespoke style hook.
-      style={
-        typeof radius === 'number'
-          ? ({ ['--radius-control' as string]: `${radius}px` } as React.CSSProperties)
-          : undefined
-      }
+      style={style}
       keys={{
         w: keys.w === 1,
         a: keys.a === 1,

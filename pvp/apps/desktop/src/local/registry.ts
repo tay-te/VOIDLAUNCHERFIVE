@@ -132,7 +132,8 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   coordinates: [
     SCALE,
     OPACITY,
-    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 3, step: 1, format: 'plain' },
+    // 0-2, not 0-3: the in-game `tick` sensor rounds the position to 2 dp on the wire.
+    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 2, step: 1, format: 'plain' },
     { key: 'show_direction', label: 'Show direction', control: 'switch' },
     { key: 'layout', label: 'Layout', control: 'select', options: ['stacked', 'inline'] },
   ],
@@ -153,7 +154,6 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   toggle_sprint: [
     { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
     { key: 'sneak_too', label: 'Sneak too', control: 'switch' },
-    { key: 'show_status', label: 'Show status', control: 'switch' },
   ],
   fullbright: [
     { key: 'gamma', label: 'Gamma', control: 'slider', min: 1, max: 15, step: 0.5, format: 'plain' },

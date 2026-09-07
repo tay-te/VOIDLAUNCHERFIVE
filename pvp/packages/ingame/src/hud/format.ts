@@ -60,9 +60,26 @@ const SLOT_LABELS: Record<ArmorSlot['slot'], string> = {
   held: 'Held',
 };
 
+/**
+ * The same five slots at strip width.
+ *
+ * `armor_status.orientation: horizontal` lays the pieces side by side in ~54px cells, and
+ * `Chestplate` does not fit in one. Four characters is what the cell holds, so this is the
+ * form it prints; the long names stay for the stacked layout, which has the row to itself.
+ */
+const SHORT_SLOT_LABELS: Record<ArmorSlot['slot'], string> = {
+  helmet: 'Helm',
+  chestplate: 'Chest',
+  leggings: 'Legs',
+  boots: 'Boots',
+  held: 'Held',
+};
+
 export interface DurabilityRow {
   slot: ArmorSlot['slot'];
   label: string;
+  /** The strip form, e.g. `Chest`. Read by `ArmorList` only when horizontal. */
+  short: string;
   remaining: number;
   max: number;
 }
@@ -77,6 +94,7 @@ export function armorRow(slot: ArmorSlot): DurabilityRow | null {
   return {
     slot: slot.slot,
     label: SLOT_LABELS[slot.slot],
+    short: SHORT_SLOT_LABELS[slot.slot],
     remaining: Math.max(0, max - (slot.damage ?? 0)),
     max,
   };

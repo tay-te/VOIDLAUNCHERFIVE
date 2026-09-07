@@ -1,5 +1,5 @@
 /**
- * Boot: pick a bridge, subscribe the seven channels, report focus.
+ * Boot: pick a bridge, subscribe the nine channels, report focus.
  *
  * §6.5 / bridge.json — Java → JS is push through `void.on(...)`; JS → Java is a
  * synchronous call. There is no fetch, no XHR and no socket in this bundle: the
@@ -41,6 +41,37 @@ export function hasTextFocus(): boolean {
   if (tag !== 'INPUT') return false;
   const type = (el as HTMLInputElement).type;
   return type !== 'checkbox' && type !== 'radio' && type !== 'button' && type !== 'submit';
+}
+
+/**
+ * True when the page will consume the next Escape itself, so the host must not close the menu.
+ *
+ * **Escape means "up one level".** That is the whole model, and it is decided here because Java
+ * has to know the answer before it decides whether to forward the key at all
+ * (`VoidMenuScreen.keyPressed` → `UiHost.keepsEscape()`, polled once a frame):
+ *
+ * ```
+ * a focused text field   gives up focus            (MenuLayer)
+ * the quick palette      closes, menu stays        (QuickPalette)
+ * a mod's page           back to the grid          (MenuLayer)
+ * the settings page      back to the grid          (MenuLayer)
+ * the HUD editor         back to the grid          (MenuLayer)
+ * the grid               closes the menu           (Java)
+ * ```
+ *
+ * A keybind capture is not in the table and must not be: `VoidMenuScreen` consumes Escape for the
+ * capture *before* it asks this, so cancelling a capture beats every row above. That ordering is
+ * the reason this can be a plain predicate rather than a priority list.
+ *
+ * Read straight off the document and the store, never from a render — the answer has to be right
+ * for the frame the key lands on, and both sources are synchronous.
+ */
+export function keepsEscape(): boolean {
+  if (hasTextFocus()) return true;
+  const state = useVoidStore.getState();
+  if (state.paletteOpen) return true;
+  const route = state.route.name;
+  return route === 'mod' || route === 'settings' || route === 'hud-editor';
 }
 
 export interface ConnectResult {
@@ -94,6 +125,12 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
   // app owns this one. Assigning it here keeps `window.void.__hasFocus()`
   // correct for the host no matter which bridge is underneath.
   bridge.__hasFocus = hasTextFocus;
+  // …and the wider question Java actually asks, which `__hasFocus` used to answer by proxy. Still
+  // an optional member of `VoidBridge`, and deliberately: an older host that has never heard of
+  // it falls back to `__hasFocus` and gets the old behaviour, and this page in an older host does
+  // the same. It used to be attached through a cast, with a comment saying it should graduate
+  // into that interface — it has.
+  bridge.__keepsEscape = keepsEscape;
 
   const store = useVoidStore.getState();
 
@@ -107,6 +144,19 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     bridge.on('keys', store.applyKeys),
     bridge.on('tick', store.applyTick),
     bridge.on('server', store.applyServer),
+    // The eighth channel, and the only immutable one: who is playing. No cast any more —
+    // `bridge.json` carries `session` and its payload now, so `@void/protocol`'s event union
+    // knows about it and `SessionInfo` is the generated type.
+    //
+    // **Adding a channel is never only this line.** `void-shim.js`'s `EVENTS` is a closed list:
+    // `on` returns a no-op subscription for a name it does not know and `__emit` drops every
+    // envelope, silently, with no error anywhere. `session` was pushed by Java and read here for
+    // days without arriving, because it was missing from that list. Five files or none —
+    // `bridge.json`, `VoidBridge`, the shim, `VOID_EVENTS`, `createFakeVoid`.
+    bridge.on('session', store.applySession),
+    // The ninth: the client's own settings, which until now lived only in `LiveState` and could
+    // be neither read nor written by the page. The Settings page is what asked for it.
+    bridge.on('settings', store.applyGlobals),
     bridge.on('menu', store.applyMenu),
   ];
 

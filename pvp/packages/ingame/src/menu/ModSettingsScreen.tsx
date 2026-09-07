@@ -1,11 +1,8 @@
 /**
- * The properties model, and the body of the properties panel — contract §8.
+ * The properties model, and the body of the mod page — contract §8.
  *
- * There is no longer a Mod-settings *screen*. The overlay interrupts a live match,
- * so every step back costs time: selecting a mod opens the inspector beside the
- * items and nothing ever navigates away. What used to be a full screen is now the
- * content of that inspector, and this file is where it lives because this is where
- * the "which settings does this mod expose" knowledge already was.
+ * This file owns "which settings does this mod expose, and what shape do they take"; the page
+ * around it (head, enablement, Reset / Done) is `ModPage.tsx`.
  *
  * §8 in full:
  *
@@ -20,11 +17,34 @@
  *
  * The count is derived, not declared, so a mod that gains or loses a setting in
  * `mods.json` changes structure on its own and no one has to remember to move it.
+ *
+ * **§8 only started meaning anything when the properties got the page.** In the inspector all
+ * three structures came out as the same narrow column — the panel was whatever was left after
+ * the grid contracted, so "the preview takes the room" was a 208px strip and "two light groups"
+ * was two columns barely wide enough for a meter. At full width they are three genuinely
+ * different shapes, and the arrangement is stated here as a row and read by the CSS off
+ * `data-structure`:
+ *
+ *     sentence   the preview alone, as large as the page allows, and one line under it
+ *     flat       preview left, one column of rows right
+ *     grouped    preview left, two captioned columns right
+ *
+ * The captions are new and they are the width's doing. `289:3024` runs the two groups as bare
+ * columns because at that width the column *is* the grouping; standing beside a preview at
+ * page width it is not obvious that two columns are two groups rather than one list flowed
+ * into two, so they are named — which is what the narrow panels of `289:5523` already do.
  */
 
 import { useRef } from 'react';
 
-import { KeybindChip, PositionChips, Swatches, Toggle } from '@/ui';
+import {
+  KEYCAP_COLORS,
+  KEYCAP_PRESSED_COLORS,
+  KeybindChip,
+  PositionChips,
+  Swatches,
+  Toggle,
+} from '@/ui';
 import {
   HUD_MOD_IDS,
   MOD_REGISTRY,
@@ -36,6 +56,7 @@ import { SETTING_ENUMS, SETTING_RANGES, hueStyle } from '@/registry';
 import { hudItem, useModSettings, useVoidStore, type SettingValue } from '@/store/store';
 import { HudKeystrokes } from '@/hud/widgets';
 import { CellMeter } from './CellMeter';
+import { TilePreview } from './TilePreview';
 import { SETTING_SUBTITLES, formatSetting, keybindLabel, settingLabel } from './settings-format';
 
 /* -------------------------------------------------------------------------- */
@@ -47,22 +68,21 @@ import { SETTING_SUBTITLES, formatSetting, keybindLabel, settingLabel } from './
  * in mods.json, not hex — a name survives a theme change, a hex would freeze the
  * palette into the bundle. They are deliberately absent from `SETTING_ENUMS`,
  * which drives the generic chip row.
+ *
+ * **Derived, not transcribed.** These two tables used to be written out here, and that is
+ * exactly why the two settings did nothing for as long as they did: the panel resolved the
+ * names and the widget never saw the resolution, so a swatch could be selected, stored and
+ * echoed back with nothing on the other end. `@void/ui` now owns the one resolution
+ * ({@link KEYCAP_COLORS}) and the keycaps paint from it, so a swatch showing a colour the
+ * key does not take is no longer expressible.
+ *
+ * Insertion order is the enum order in `mods.json`, which is the order the row reads in.
  */
-const KEY_COLOURS = [
-  { id: 'shell', color: 'var(--bg-shell)', label: 'Shell' },
-  { id: 'raised', color: 'var(--surface-raised)', label: 'Raised' },
-  { id: 'pill', color: 'var(--card-bg)', label: 'Pill' },
-  { id: 'sky', color: 'var(--hue-visual)', label: 'Ice' },
-  { id: 'teal', color: 'var(--hue-utility)', label: 'Mint' },
-];
+const swatches = (table: Readonly<Record<string, { color: string; label: string }>>) =>
+  Object.entries(table).map(([id, entry]) => ({ id, ...entry }));
 
-const PRESSED_COLOURS = [
-  { id: 'accent', color: 'var(--hue, var(--accent))', label: 'Hue' },
-  { id: 'sky', color: 'var(--hue-visual)', label: 'Ice' },
-  { id: 'warn', color: 'var(--hue-pvp)', label: 'Coral' },
-  { id: 'fear', color: 'var(--hue-pvp)', label: 'Fear' },
-  { id: 'teal', color: 'var(--hue-utility)', label: 'Mint' },
-];
+const KEY_COLOURS = swatches(KEYCAP_COLORS);
+const PRESSED_COLOURS = swatches(KEYCAP_PRESSED_COLORS);
 
 /** `fps.color`, `hitboxes.color`, `crosshair.color` are `hex_color` — #RRGGBB(AA). */
 const HEX_COLOURS = [
@@ -141,7 +161,6 @@ const ORDER = [
   'show_durability',
   'show_held_item',
   'show_direction',
-  'show_status',
   'show_eye_line',
   'sneak_too',
   'outline',
@@ -271,10 +290,24 @@ function PropertyControl({
         />
       );
     }
-    default:
+    default: {
+      const options = SETTING_ENUMS[`${id}.${property.key}`] ?? [];
+      // **An empty table used to render an empty row**: a label on the left and literally
+      // nothing on the right, because `PositionChips` over `[]` draws no chips and throws no
+      // error. It shipped that way on the watermark's `style` for as long as the mod existed,
+      // and jsdom renders it without complaint, so no test saw it and only the game could.
+      //
+      // Two things now stop it. `test/registry.test.tsx` asserts every enum property in the
+      // registry has a table, which fails `pnpm check` — that is the real gate, because it
+      // catches the next mod as well as this one. And this branch degrades to the stored value
+      // rather than to nothing, so a miss that somehow got past the gate is *visible* in game
+      // instead of being an absence nobody can see. See `design/rendering-invariants.md` §14.
+      if (options.length === 0) {
+        return <span className="mprop__raw">{String(value ?? '—')}</span>;
+      }
       return (
         <PositionChips
-          options={(SETTING_ENUMS[`${id}.${property.key}`] ?? []).map((option) => ({
+          options={options.map((option) => ({
             id: option,
             label: option.charAt(0).toUpperCase() + option.slice(1).replace(/_/g, ' '),
           }))}
@@ -282,6 +315,7 @@ function PropertyControl({
           onChange={(next) => write(property.key, next)}
         />
       );
+    }
   }
 }
 
@@ -421,8 +455,6 @@ function SizeHandle({
 /** Props for {@link ModPreview}. */
 export interface ModPreviewProps {
   id: ModId;
-  /** The 1-property case gives the preview the room the list would have taken. */
-  large?: boolean;
 }
 
 /**
@@ -431,8 +463,22 @@ export interface ModPreviewProps {
  * Placement is four corner slots; size is the drag handle at the bottom right. The
  * "game still" behind is a flat fill, never a live blurred capture — Ultralight has
  * no backdrop-filter and the host's GL pass supplies the softness (§1 of the notes).
+ *
+ * **It has no size of its own any more.** It used to be 128px tall, or 208 for the one-property
+ * case, because the inspector was a fixed column and every pixel the preview took was a pixel
+ * the property rows did not get. On the page it is `flex: 1` — it takes whatever height the
+ * properties leave, which for Fullbright's single property is most of the panel. That is §8's
+ * "the preview takes the room", written as layout instead of as a magic number.
+ *
+ * **What it draws is the tile's art, at page size.** Only Keystrokes ever had a real picture
+ * here; everything else got its description sentence centred in an empty box, which at 128px
+ * was merely thin and at page size would be absurd. `TilePreview` is the vocabulary the grid
+ * already uses — "a small picture of what the mod draws" — and it is the same component at a
+ * larger cell size, so a mod that gains art in the grid gains it here for free and the two can
+ * never disagree. The description moved to the page head, where it is a sentence rather than a
+ * placeholder.
  */
-export function ModPreview({ id, large = false }: ModPreviewProps): React.ReactElement {
+export function ModPreview({ id }: ModPreviewProps): React.ReactElement {
   const settings = useModSettings(id);
   const commitHud = useVoidStore((s) => s.commitHud);
   const setSetting = useVoidStore((s) => s.setSetting);
@@ -445,14 +491,26 @@ export function ModPreview({ id, large = false }: ModPreviewProps): React.ReactE
   const sizeKey = 'scale' in settings ? 'scale' : 'size' in settings ? 'size' : null;
   const sizeRange = sizeKey ? SETTING_RANGES[sizeKey] : undefined;
 
+  const meta = [
+    placement ? anchorLabel(placement.anchor) : '—',
+    sizeKey && sizeRange
+      ? formatSetting(sizeKey, Number(settings[sizeKey] ?? sizeRange.min))
+      : '—',
+    'opacity' in settings ? formatSetting('opacity', Number(settings.opacity ?? 1)) : '—',
+  ];
+  const hasMeta = meta.some((part) => part !== '—');
+
   return (
-    <div className={`preview${large ? ' preview--large' : ''}`}>
+    <div className="preview">
       <div className="preview__frame">
         <div className="preview__stage">
+          {/* Keystrokes is the one mod whose preview is the real widget rather than a picture
+              of it: it is the only one whose art is a *state* — which keys are down — and the
+              widget already draws that. Everything else is the grid's own art, scaled up. */}
           {id === 'keystrokes' ? (
             <HudKeystrokes className="v-keystrokes--preview" />
           ) : (
-            <span className="preview__blurb">{MOD_REGISTRY[id].description}</span>
+            <TilePreview id={id} scale={2.6} />
           )}
         </div>
 
@@ -506,15 +564,12 @@ export function ModPreview({ id, large = false }: ModPreviewProps): React.ReactE
               ? 'Drag the handle to resize'
               : 'Live preview'}
         </span>
-        <span className="preview__meta tnum">
-          {[
-            placement ? anchorLabel(placement.anchor) : '—',
-            sizeKey && sizeRange
-              ? formatSetting(sizeKey, Number(settings[sizeKey] ?? sizeRange.min))
-              : '—',
-            'opacity' in settings ? formatSetting('opacity', Number(settings.opacity ?? 1)) : '—',
-          ].join('   ·   ')}
-        </span>
+        {/* Placement, size and opacity, and only the ones the mod has. A gameplay mod with no
+            placement, no size and no opacity used to print `—   ·   —   ·   —`, which is three
+            marks saying nothing three times; the absence is the information (§1), so the line
+            simply is not there. Mods with some of the three still show a dash for the ones they
+            lack, because there the dash contrasts with a value beside it. */}
+        {hasMeta ? <span className="preview__meta tnum">{meta.join('   ·   ')}</span> : null}
       </div>
     </div>
   );
@@ -542,12 +597,20 @@ export interface ModPropertiesProps {
   id: ModId;
 }
 
+/** The caption over a group, once there are enough properties to need two. */
+const GROUP_CAPTION: Record<Property['group'], string> = {
+  appearance: 'Appearance',
+  behaviour: 'Behaviour',
+};
+
 /**
  * The properties of one mod, in whichever of §8's structures its count asks for.
  *
  * The mod's category hue is set here, on the root, so every accent underneath —
  * the live meter cell, the readout, the corner slot, the drag handle — reads
- * `var(--hue, var(--accent))` and a Visual mod's live value comes out ice.
+ * `var(--hue, var(--accent))` and a Visual mod's live value comes out ice. (The page sets it
+ * too, on its own root; stating it here as well keeps the properties correct wherever they are
+ * mounted, and a variable declared twice with the same value costs nothing.)
  */
 export function ModProperties({ id }: ModPropertiesProps): React.ReactElement {
   const settings = useModSettings(id);
@@ -561,26 +624,28 @@ export function ModProperties({ id }: ModPropertiesProps): React.ReactElement {
     const only = properties[0];
     return (
       <div className="mprops mprops--sentence" style={hueStyle(id)} data-structure="sentence">
-        <ModPreview id={id} large />
-        {only ? (
-          <>
-            <p className="mprops__sentence">
-              {(() => {
-                const [head, live, tail] = propertySentence(only, settings[only.key] ?? null);
-                return (
-                  <>
-                    {head}
-                    <span className="mprops__live tnum">{live}</span>
-                    {tail}
-                  </>
-                );
-              })()}
-            </p>
-            <PropertyControl id={id} property={only} settings={settings} write={write} />
-          </>
-        ) : (
-          <p className="mprops__sentence">Nothing to set — this mod is on or it is off.</p>
-        )}
+        <ModPreview id={id} />
+        <div className="mprops__only">
+          {only ? (
+            <>
+              <p className="mprops__sentence">
+                {(() => {
+                  const [head, live, tail] = propertySentence(only, settings[only.key] ?? null);
+                  return (
+                    <>
+                      {head}
+                      <span className="mprops__live tnum">{live}</span>
+                      {tail}
+                    </>
+                  );
+                })()}
+              </p>
+              <PropertyControl id={id} property={only} settings={settings} write={write} />
+            </>
+          ) : (
+            <p className="mprops__sentence">Nothing to set — this mod is on or it is off.</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -589,6 +654,8 @@ export function ModProperties({ id }: ModPropertiesProps): React.ReactElement {
     return (
       <div className="mprops" style={hueStyle(id)} data-structure="flat">
         <ModPreview id={id} />
+        {/* No `.mprops__group` wrapper and no caption: §8's flat list is one list, and a group
+            of one is the section label this structure exists to avoid. */}
         <div className="mprops__list">
           {properties.map((property) => (
             <PropertyRow
@@ -607,20 +674,22 @@ export function ModProperties({ id }: ModPropertiesProps): React.ReactElement {
   const appearance = properties.filter((p) => p.group === 'appearance');
   const behaviour = properties.filter((p) => p.group === 'behaviour');
   // Two groups, always — never three, never tabs (§8). A split that lands empty on
-  // one side is worse than no split, so it falls back to one column.
-  const split =
-    appearance.length > 0 && behaviour.length > 0 ? [appearance, behaviour] : [properties];
+  // one side is worse than no split, so it falls back to one column, and that column is then
+  // not a group and is not captioned.
+  const split: Array<[Property['group'] | null, Property[]]> =
+    appearance.length > 0 && behaviour.length > 0
+      ? [
+          ['appearance', appearance],
+          ['behaviour', behaviour],
+        ]
+      : [[null, properties]];
 
-  // No captions. Frame `289:3024` runs the two groups as two columns of rows with a
-  // dotted cell rule under each row and no section labels: at this width the column
-  // *is* the grouping, and a caption over it would be naming what the eye already
-  // sees. (The narrow panels of `289:5523` do caption their groups — the list
-  // layout, which is that width, gets the same stacked treatment in CSS.)
   return (
     <div className="mprops" style={hueStyle(id)} data-structure="grouped">
       <ModPreview id={id} />
-      {split.map((items, column) => (
-        <div className="mprops__group" key={column}>
+      {split.map(([group, items]) => (
+        <div className="mprops__group" key={group ?? 'all'}>
+          {group ? <div className="mprops__cap">{GROUP_CAPTION[group]}</div> : null}
           <div className="mprops__list">
             {items.map((property) => (
               <PropertyRow

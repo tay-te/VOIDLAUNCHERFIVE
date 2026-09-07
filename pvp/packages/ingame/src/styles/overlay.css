@@ -243,9 +243,14 @@ body {
 
    `visibility` is inherited *and* overridable: a descendant that sets `visible` reappears inside
    a hidden subtree, on its own, with none of its hidden ancestors around it. `.inspector--open`
-   below does exactly that — and the store opens the inspector on `keystrokes` from its very
-   first render (`store.ts`: `selectedMod: 'keystrokes'`, `inspector: 'open'`), so the properties
-   panel was `visibility: visible` for the whole warm-up.
+   did exactly that — the properties panel was parked with `visibility: hidden` and un-hidden by
+   the open state, and the store opened it on `keystrokes` from its very first render, so it was
+   `visibility: visible` for the whole warm-up.
+
+   **That rule no longer exists** — the properties are a page and a page is mounted or it is
+   not — so nothing in the layer currently un-hides itself. This rule stays anyway, and the
+   paragraph below is why: it has to hold against a declaration nobody has written yet, and the
+   one that produced this bug was itself perfectly reasonable in isolation.
 
    That is the ghost. Measured in game on both renderers, the warm-up frame is the *only* frame
    with content a launcher-less client ever paints — the HUD places nothing until a loadout
@@ -255,8 +260,8 @@ body {
    that on screen and nothing ever replaced it.
 
    `!important` and not a more specific selector, because specificity here is a coin toss:
-   `.menu-layer--hidden *` and `.inspector--open` are both one class, so without this the winner
-   would be whichever rule is written later in the file. This has to hold against a rule that has
+   `.menu-layer--hidden *` and a one-class rule like `.inspector--open` was are the same weight,
+   so without this the winner would be whichever is written later in the file. This has to hold against a rule that has
    not been written yet.
 
    It costs the warm-up nothing measurable. A/B/C in game on the GL driver, first `menu:true`
@@ -337,12 +342,11 @@ body {
   --cell-dim: rgba(237, 238, 239, 0.16);
 
   /* ---- the shell, and the tile it sizes ------------------------------------
-     **One wide, centred panel.** It does not resize between the two states — what changes
-     is how the space inside it is divided:
+     **One wide, centred panel.** It is the same box on both routes — what changes is what is
+     inside it:
 
-       inspector shut   the grid fills the panel, edge to edge
-       inspector open   the grid contracts to three columns and the properties come out of
-                        the right side into what it gave up
+       the grid       fills the panel, edge to edge, always
+       a mod's page   the whole panel, one mod (`.modpage`)
 
      It used to be `min(1600px, 92%) x min(980px, 92%)`, which on the in-game canvas
      (1458 x 820 CSS, measured) came out 1341 x 754 — a box drawn for the frames' twenty-four
@@ -432,19 +436,12 @@ body {
   max-width: calc(100% - 48px);
   max-height: calc(100% - 24px);
 
-  /* Where the properties start: exactly where column 4 does, so the three columns that survive
-     the contraction keep the positions they already had. The grid *does* reflow now — that is
-     what the user asked for and what the animation is — but there is no reason to move the
-     columns that stay. */
-  /* Kept in step with `OPEN_COLUMNS` in ModsScreen.tsx, which is what decides *which* three
-     columns survive; this is what decides how wide three of them are. */
-  --open-cols: 3;
-  --insp-left: calc(var(--open-cols) * (var(--tile-w) + var(--tile-gap)));
-  /* The properties take everything from there to the content's right edge — 609 at twelve
-     mods, which is wide enough for §8's two groups to sit side by side with a ten-cell meter
-     and its readout on one line. The list layout hands them a third of that instead, so there
-     the groups stack; see `.mods-body--list .mprops[data-structure='grouped']`. */
-  --insp-w-list: 420px;
+  /* The properties have no geometry here any more. `--open-cols`, `--insp-left` and
+     `--insp-w-list` are gone with the panel they placed: a mod's properties are a page now
+     (`.modpage`), laid out in the whole content box rather than in what the contracted grid
+     left over. The panel's own box is unchanged across that navigation — same `--panel-w`,
+     same `--panel-h` — which is the property the contraction was reaching for and could only
+     half keep. */
 }
 
 /* ---------------------------------------------------------------- the bar */
@@ -464,6 +461,63 @@ body {
   position: relative;
 }
 
+/* The context bar, inside a mod.
+
+   The filter tabs and the layout switcher are not here, and that is the point: they are
+   controls for a grid that is not on screen. A tab press while inside a mod would silently
+   re-filter the thing you are about to come back to, and the grid/list switcher would change a
+   layout you cannot see change. What is left is where you came from and the two things that
+   are true on every screen — search, and close. The bar has been called crowded twice; on this
+   route it carries four elements.
+
+   No centred element. The nav slot is empty rather than repeating the mod's name, because the
+   name is already the largest thing on the panel an inch below, and the bar saying it again in
+   10px would be the same word at two sizes. */
+.obar--page {
+  gap: 18px;
+}
+
+/* `‹ Mods esc`. A labelled button, not a bare chevron: it is the only control in the overlay
+   whose meaning depends on where you came from, and an arrow beside a VOID mark reads as
+   decoration. The label is the destination, which is also what makes it obvious that this is not
+   the same thing as the close — and the cap says which key presses it, because on this route
+   Escape goes back rather than closing. */
+.obar__back .oicon {
+  opacity: 0.7;
+}
+
+.obar__back:hover .oicon {
+  opacity: 1;
+}
+
+.obar__back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 7px 0 9px;
+  border: 1px solid var(--border-raised);
+  border-radius: 8px;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  /* §5.1: hover lifts the surface one step. No glow, no shadow, and no `scale` — a press
+     transform on anything holding text rasterises the glyphs at the device scale (§10). */
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
+}
+
+.obar__back:hover {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
 /* 6, from the frame's 8 at the panel's 0.8 horizontal scale (1278 of 1600). The close
    takes its own, much larger gap — see `.obtn--close`. */
 .obar__tools {
@@ -471,6 +525,82 @@ body {
   align-items: center;
   gap: 6px;
   margin-left: auto;
+}
+
+/* --------------------------------------------------------------- the icons
+
+   One PNG sprite, drawn by `scripts/build-icons.py` and inlined by `icons.css`. Pixels rather
+   than SVG because Ultralight's SVG support is partial and Lucide is entirely strokes
+   (ultralight-notes.md §7); see `cell-art.tsx`.
+
+   **The sheet's width and every offset are generated, not written here.** They were, and the
+   two files then had to agree about how many icons there are: the sheet grew from five cells to
+   twenty-five and a hardcoded `background-size: 80px 16px` would have shown the wrong icon in
+   every slot with no error anywhere. `icons.css` now emits `--icon-sheet-w` and one
+   `.oicon--<name>` rule per cell, so adding an icon is one edit to the script.
+
+   16 CSS px on screen against a 48px cell, so the sprite is 3x — which is a hair over the 2.346
+   dp/css the view actually rasterises at, and deliberately so: rounding up costs 2.8 KB of
+   base64 once and means the icon is never resampled up. `background-size` states the whole
+   sheet in CSS pixels so the offsets below are in the same units.
+
+   White, and the state is opacity. A PNG cannot take `currentColor`, so `.obtn`'s two-step
+   hover — muted, then primary — becomes .55 then 1, which lands on the same two greys against
+   this ground. */
+.oicon {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  background-image: var(--icon-sheet);
+  background-repeat: no-repeat;
+  background-size: var(--icon-sheet-w) 16px;
+}
+
+/* `@void/ui`'s icon well, wherever the overlay uses one — the quick palette's results, the
+   party screen. It sets `color: var(--text-secondary)` and, when selected,
+   `color: var(--accent-ink)`; both were reaching the glyph through `currentColor` on an inline
+   SVG, and neither reaches a white PNG. So they become opacity steps here, exactly as `.obtn`
+   and `.modrow__icon` do.
+
+   The selected row does lose the accent *on its glyph*; it keeps it on the well's fill, which is
+   what marks the selection (§1). One tinted surface says "selected" as clearly as two did, and
+   the alternative — a second, accent-coloured copy of every cell in the sheet — is 21 KB again
+   for a state you see one row at a time.
+
+   Scoped to this bundle, not pushed into `@void/ui`: the launcher still draws the bundled SVGs,
+   where `color` works and is the right mechanism. */
+.v-icon-well .oicon {
+  opacity: 0.62;
+  transition: opacity 140ms ease-out;
+}
+
+.v-icon-well--on .oicon,
+.v-icon-well--solid .oicon {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------- the key cap
+
+   `esc`, drawn as a key rather than written as a word. The overlay already has this object —
+   the keybind chipped into a tile's preview (`.modcell__kbd`) is the same 16-tall, 5-radius,
+   9px small-caps chip — so this is that object reused rather than a new one, which is what keeps
+   the bar from growing a fourth corner idea. */
+.okbd {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-raised);
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 /* The VOID mark — a ring of 4px cells and the wordmark, x 48, y 37. */
@@ -496,11 +626,37 @@ body {
 /* The filter tabs. The frames draw a 40px row with 15px labels and 30px of padding, sized
    for a 1600 x 980 board; in the panel that row is most of the bar's height and the bar is
    height the grid does not get. Scaled down to match the 52px bar. */
-.obar__nav {
+/* The centred group: what you are looking at, and how you are looking at it.
+
+   **The bar is grouped by kind now, not by convenience.** It has been called crowded three
+   times, and each previous pass shrank a control instead of asking what the arrangement was.
+   The arrangement was the problem: the right-hand cluster had come to hold four unrelated
+   things — a view switcher, a search, a properties toggle and the close — while the left held
+   only the mark and the centre only the tabs.
+
+   So the filter tabs and the grid/list switcher are one group, because they answer the same
+   question about the same thing — *which* mods, and *how* drawn — and they now sit together in
+   the centre where the design put the nav. What is left on the right is the set that acts on
+   something other than the view: search, who you are, and leaving. Three, and each of a
+   different kind.
+
+   Absolutely positioned so the group is centred on the **window**, not between its neighbours:
+   the mark and the tools are different widths, and a nav that flexes between them is not
+   centred, it is only between things. That was true of the tabs alone and is still true now
+   that the switcher travels with them. */
+.obar__view {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  /* Wider than the gap inside either half: the two are one group, and the seam between them
+     still has to read as a seam. */
+  gap: 18px;
+}
+
+.obar__nav {
   gap: 8px;
 }
 
@@ -612,6 +768,19 @@ body {
     color 140ms ease-out;
 }
 
+.viewseg__seg .oicon {
+  opacity: 0.5;
+  transition: opacity 140ms ease-out;
+}
+
+.viewseg__seg:hover .oicon {
+  opacity: 0.8;
+}
+
+.viewseg__seg--on .oicon {
+  opacity: 1;
+}
+
 .viewseg__seg:hover {
   color: var(--text-secondary);
 }
@@ -623,7 +792,8 @@ body {
   color: var(--text-primary);
 }
 
-/* The two square buttons to its right: inspector toggle and close. The frame draws them
+/* The square buttons to its right: search and close (and, on a mod page, search and close
+   again — the layout switcher and the properties toggle are not there). The frame draws them
    36 x 36 with a corner radius of about a quarter of the box; two thirds of that is 24 with a
    radius of 8 — the same 0.3 the tabs use on their 28, so the bar has one corner idea rather
    than three. It was 11, which on a 24px box is a hair off a full circle: next to a rounded
@@ -643,11 +813,24 @@ body {
   cursor: pointer;
   transition:
     background-color 140ms ease-out,
-    color 140ms ease-out;
+    color 140ms ease-out,
+    opacity 140ms ease-out;
+}
+
+/* The icon inside is a white PNG, so the resting step is an opacity rather than a colour. Set
+   on the button and not on the icon, so a control that still holds text (the `esc` cap) dims
+   with its glyph rather than beside it. */
+.obtn .oicon {
+  opacity: 0.55;
+  transition: opacity 140ms ease-out;
 }
 
 .obtn:hover {
   color: var(--text-secondary);
+}
+
+.obtn:hover .oicon {
+  opacity: 1;
 }
 
 .obtn--on {
@@ -656,13 +839,27 @@ body {
   color: var(--text-primary);
 }
 
-/* The close sits clear of the pair. The frame puts 60px between the inspector and it, which at
+/* The close sits clear of the rest. The frame puts 60px between the last tool and it, which at
    the panel's 0.8 horizontal scale is 48; with the cluster's own 6px gap already there this
    adds the remaining 42. The 20 it replaces was scaled for a 716-wide panel and never
    re-derived when the panel became 1278, which is why the destructive control had come to sit
    almost against the toggle beside it. */
 .obtn--close {
   margin-left: 42px;
+}
+
+/* The close, with its key cap. Same height, same radius, same border — only the width changes,
+   because a cap is a thing beside the glyph rather than a different button. It is 24 x 24 with a
+   glyph in it everywhere else in the bar, and 24 tall with a glyph and a cap here.
+
+   The cap is on the close **only on the grid**, and that is the whole rule: Escape means up one
+   level, so from the grid it closes and from a mod's page it goes back. `ModsScreen` puts the
+   cap on `‹ Mods` there instead. A key cap that is drawn where the key does something else is
+   worse than no cap at all — it is the same class of lie as a button that goes nowhere. */
+.obtn--esc {
+  width: auto;
+  padding: 0 6px 0 7px;
+  gap: 7px;
 }
 
 /* The dotted cell rule under the bar. A repeating gradient, which is how §3's cell
@@ -694,18 +891,13 @@ body {
   margin: 16px var(--edge) 0;
 }
 
-/* The items and the inspector are both absolutely positioned inside the body, so
-   opening or closing the inspector never lays the items out again — the panel is
-   simply over them or it is not. §7: the pointer target never moves. */
-/* The items, and the half of the open/close movement that belongs to them.
+/* The items: the grid or the list, filling the content box.
 
-   Selecting a mod contracts this box from the full content width to three columns while the
-   properties slide in over the width it gives up. The two are one gesture: same duration, same
-   curve, started by the same class change, so the grid does not finish before the panel
-   arrives. `width` is the property that moves because it is the one that is honest about what
-   is happening — the box really is narrower — and ultralight-notes.md §8 lists size transitions
-   among the things the engine draws reliably. Nothing inside re-lays-out while it runs: the
-   columns are fixed-width and left-anchored, so the box is only clipping less of them. */
+   **It has no width transition any more, and no narrowed form to transition to.** This box
+   used to contract from the full content width to three columns while the properties slid in
+   over what it gave up. That movement is gone with the panel — the grid is always full-panel,
+   and a mod's properties are a page. What is left is the shape the grid already had with the
+   inspector shut, which is why this is one state fewer rather than a new one. */
 .mods-view {
   position: absolute;
   top: 0;
@@ -714,33 +906,13 @@ body {
   right: auto;
   width: 100%;
   overflow: hidden;
-  transition: width var(--menu-move-in) var(--ease-out-menu);
 }
 
-/* Stated in the same terms as the open width rather than as `100%`, so the transition runs
-   between two lengths. It is the same number — the columns, their gaps and the gutter *is* the
-   content width — but a percentage on one end and a length on the other is an interpolation the
-   engine does not have to be given. */
+/* The columns, their gaps and the gutter *is* the content width — stated as the lengths the
+   solve produced rather than as `100%`, so the grid and the box that clips it are derived from
+   the same arithmetic and cannot round apart. */
 .mods-body--grid .mods-view {
   width: calc(var(--grid-w) + var(--grid-gutter));
-}
-
-/* Grid, inspector open: three columns, plus the gutter.
-   The gutter is what a vertical scrollbar takes out of `.mods-grid`'s content box, and it is
-   part of the clip width in both states for the same reason — clipping to exactly three columns
-   cut a sliver off the third whenever the grid scrolled. It is zero whenever the grid fits,
-   which is every count up to twenty-four, so most of the time this is exactly three columns. */
-.mods-body--grid.mods-body--open .mods-view {
-  width: calc(
-    var(--open-cols) * var(--tile-w) + (var(--open-cols) - 1) * var(--tile-gap) +
-      var(--grid-gutter)
-  );
-}
-
-/* List, inspector open: the rows narrow rather than being clipped — a description that cannot
-   be read is worse than a shorter one. */
-.mods-body--list.mods-body--open .mods-view {
-  width: calc(100% - var(--insp-w-list) - 32px);
 }
 
 /* The first render sizes the grid from `window.innerWidth/innerHeight`, because the panel's
@@ -748,20 +920,15 @@ body {
    and re-solves. In game the two agree — `.void-app` is 100% of the view — so nothing changes
    and this never applies. Where they do not agree (the `?debug` harness draws a fixed
    1600 x 980 board inside whatever the browser window is; an engine that reported the view in
-   device pixels would be the other case), the correction would otherwise arrive as a 170ms
-   width animation on a menu that has only just opened. A first layout is not a movement. */
-.overlay--sizing .mods-view,
-.overlay--sizing .mods-grid,
-.overlay--sizing .ostatus--grid {
-  transition: none;
-}
+   device pixels would be the other case), the correction would otherwise arrive as an
+   animation on a menu that has only just opened. A first layout is not a movement.
 
-/* Contracting is quicker than expanding, and for the same reason the fade is: closing is a
-   dismissal and should be over before it is noticed, while opening is the thing you asked for
-   and is allowed to be seen. */
-.mods-body--closed .mods-view {
-  transition-duration: var(--menu-move-out);
-  transition-timing-function: var(--ease-in-menu);
+   Nothing in the grid transitions a length any more, so this now guards only whatever a future
+   change adds. It is kept for that reason and because it costs one declaration; the class it
+   keys off is still written by `ModsScreen` for the same measurement it always was. */
+.overlay--sizing .mods-view,
+.overlay--sizing .mods-grid {
+  transition: none;
 }
 
 .mods-empty {
@@ -784,9 +951,7 @@ body {
    `columns = ceil(count / rows)` — the column count is not a free choice — and that coupling
    is what broke the layout between seventeen and twenty-one mods: no row count gives seventeen
    mods eight columns, so the grid had to take six and tiles 36% wider than at sixteen. See
-   `gridRows` in ModsScreen.tsx. The contraction did not have to change with it: it works by
-   narrowing the box that clips the grid, and a box three columns wide clips the first three
-   cells of a row exactly as well as it clipped three whole columns. */
+   `gridRows` in ModsScreen.tsx. */
 .mods-grid {
   display: flex;
   flex-direction: column;
@@ -799,9 +964,9 @@ body {
      twenty-four mods there is nothing to scroll. Past that the gutter is what keeps the
      scrollbar off the last column. */
   overflow-y: auto;
-  /* The contraction is a horizontal clip and must stay one: with the properties open the rows
-     really are wider than the box, and a horizontal scrollbar under them would be the grid
-     offering to undo the thing that just happened. */
+  /* The rows are exactly as wide as the box now — `solveGrid` derives the tile from the
+     content width — so this clips nothing in practice. It stays because a row that is one
+     subpixel over should disappear rather than grow a horizontal scrollbar under the grid. */
   overflow-x: hidden;
 }
 
@@ -809,33 +974,16 @@ body {
   display: flex;
   flex-direction: row;
   gap: var(--tile-gap);
-  /* Fixed both ways: the row must not compress when the box clips it, or contracting the grid
-     would squeeze eight tiles into three columns' width instead of hiding five of them. */
+  /* Fixed both ways: a row that could compress would shrink its tiles to fit rather than let
+     the box clip it, and the tile size is the solve's answer, not the flexbox's. */
   flex: 0 0 var(--tile-h);
   height: var(--tile-h);
 }
 
-/* The other half of keeping the selected mod on screen. `--grid-first` is the column the
-   contracted grid starts at (`ModsScreen`, `firstVisibleColumn`); the slide is a margin in the
-   same units as the columns, transitioned on the same curve as the contraction, so the grid
-   narrowing and the grid sliding are one movement rather than a jump bolted to the end of one.
-   Zero whenever the panel is shut or the selection is already among the first three, which is
-   most of the time. */
-.mods-grid {
-  margin-left: calc(-1 * var(--grid-first, 0) * (var(--tile-w) + var(--tile-gap)));
-  transition: margin-left var(--menu-move-in) var(--ease-out-menu);
-}
-
-.mods-body--closed .mods-grid {
-  transition-duration: var(--menu-move-out);
-  transition-timing-function: var(--ease-in-menu);
-}
-
-/* No per-column wipe any more. It existed because §7 forbade the grid reflowing, so the
-   columns the properties covered had to be faded out from under a panel that slid over them.
-   The grid now contracts instead — `.mods-view` narrows and the columns beyond the third are
-   clipped left-to-right as it goes, which is the same wipe drawn by the movement itself rather
-   than staged on top of it. One animation, not two. */
+/* The grid no longer slides. `--grid-first` was a margin in column units that kept the tile you
+   had just clicked from disappearing behind the panel that opened because you clicked it —
+   necessary only because selecting contracted the grid. Nothing contracts, so nothing has to be
+   brought back into view, and the tiles are exactly where they were laid out. */
 
 /* ------------------------------------------------------------------ the tile */
 
@@ -1055,29 +1203,9 @@ body {
   background: currentColor;
 }
 
-/* The inspector glyph: a wide pane and a narrow one, the shape of the layout it
-   turns on. */
-.vglyph-panes {
-  display: flex;
-  gap: 1px;
-}
-
-/* 11 + 7 on a 2px gap at the board's 36px button; two thirds of it at this one's 24. */
-.vglyph-panes__wide,
-.vglyph-panes__narrow {
-  height: 11px;
-  border-radius: 2px;
-  border: 1px solid currentColor;
-}
-
-.vglyph-panes__wide {
-  width: 7px;
-}
-
-.vglyph-panes__narrow {
-  width: 5px;
-  background: currentColor;
-}
+/* The two-pane inspector glyph is gone with the toggle it was drawn for. There is no panel to
+   show and hide; the mark in that position on a mod's page is the back chevron, which is cell
+   art like the rest of the bar and needs no CSS of its own. */
 
 /* ==========================================================================
    Tile preview art. Monochrome throughout: `--hue` marks a live value or the
@@ -1358,6 +1486,34 @@ body {
   color: var(--text-primary);
 }
 
+/* The row's icon is a white PNG now, so `color` above no longer reaches the glyph.
+
+   That is not a detail: the two states this well already had — muted at rest, primary when the
+   row is selected — were expressed as `color` on `currentColor` SVG, and the sprite swap made
+   both of them silently do nothing. Every icon in the list came out at full white, including
+   the rows for mods that are switched off. Re-expressed as the opacity steps `.obtn` uses in
+   the bar for exactly the same reason, at the alphas those two tokens come to on this ground:
+   `--text-muted` #626569 over `--bg-base` #131315 is about .36 of white, and `--text-primary`
+   is 1. */
+.modrow__icon .oicon {
+  opacity: 0.42;
+  transition: opacity 140ms ease-out;
+}
+
+.modrow--selected .modrow__icon .oicon {
+  opacity: 1;
+}
+
+.modrow:hover .modrow__icon .oicon {
+  opacity: 0.7;
+}
+
+/* A mod that is off. The name and the description already drop to `--text-muted`; without this
+   the icon was the one thing on a disabled row still at full strength. */
+.modrow--off .modrow__icon .oicon {
+  opacity: 0.24;
+}
+
 .modrow__name {
   flex: 0 0 248px;
   overflow: hidden;
@@ -1454,15 +1610,10 @@ body {
   pointer-events: none;
 }
 
-/* With the inspector open the rows are much narrower, and something has to give. It
-   is `Position` and `Scale`: the inspector shows both, in full and for the mod you
-   are looking at, so keeping them in the row buys a duplicate at the price of the
-   one column nothing else can show. The description survives. */
-.mods-body--list.mods-body--open .modrow__pos,
-.mods-body--list.mods-body--open .modrow__scale,
-.mods-body--list.mods-body--open .modrow__cat {
-  display: none;
-}
+/* `Position`, `Scale` and `Category` used to be dropped from the row whenever the properties
+   panel was open beside the list, because at that width something had to give. Nothing is
+   beside the list any more, so the list keeps every column it was drawn with — which was the
+   whole point of having a list layout. */
 
 .modrow__switch {
   flex: 0 0 46px;
@@ -1504,12 +1655,6 @@ body {
 
 .ostatus--ruled {
   border-top: 1px solid var(--divider);
-}
-
-/* Clipped to the grid column when the properties are beside it, and moving with it. */
-.ostatus--grid {
-  width: calc(var(--open-cols) * var(--tile-w) + (var(--open-cols) - 1) * var(--tile-gap));
-  transition: width var(--menu-move-in) var(--ease-out-menu);
 }
 
 .ostatus__right {
@@ -1698,8 +1843,8 @@ body {
 /* One per cell, holding what that cell's value prints. Zero-height and clipped, so each one
    contributes its full width to the box above and nothing else: no height, no paint, no line
    box. `height: 0; overflow: hidden` and not `visibility: hidden` on purpose — `visibility` is
-   inherited *and* overridable, and `.inspector--open { visibility: visible }` has taken it back
-   from a hidden ancestor here before (see `.menu-layer--hidden`). Clipping cannot be undone
+   inherited *and* overridable, and `.inspector--open { visibility: visible }` took it back from
+   a hidden ancestor here once (see `.menu-layer--hidden`; that rule is gone, the lesson is not). Clipping cannot be undone
    from further down the tree. */
 .meter__readout__sizer {
   display: block;
@@ -1714,105 +1859,104 @@ body {
 }
 
 /* ==========================================================================
-   The inspector — contract §7 (open | closed) and §8 (structure by count).
+   The mod page — one mod, the whole panel. Contract §8 (structure by count).
 
-   Frame `289:3024`: a 940-wide panel occupying exactly columns 4–8, 28px padding,
-   `SELECTED MOD` / name at display size / meta line, a 268-tall live preview, two
-   columns of property rows on a 62px rhythm with a dotted cell rule under each,
-   then `Reset to default` and the one filled button in the overlay, `Done`.
+   Frames `289:5523` (the three property counts) and `289:3024` (the wide head and
+   the two columns of rows) are the source for the type, the rhythm and the order;
+   there is no canonical full-page frame, so the composition is the contract's.
+
+   What it replaces is the inspector: a panel pinned to the right of the content
+   box, `translateX`-ed out past the panel edge when shut, whose width was whatever
+   the contracted grid left. Every length in it was a share of something else. Here
+   the page *is* the content box, and the split inside it follows §8's property
+   count rather than the grid's column count.
    ========================================================================== */
 
-.inspector {
+/* The page fills the body, which is the same box the grid fills — `.mods-body` does not change
+   size across the navigation, so nothing about the panel moves when you open a mod. */
+.modpage {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  left: var(--insp-left);
+  inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 18px;
-  border-radius: 16px;
-  /* No ground of its own. Any fill here — #191A1C as a card, or a white alpha as a tint —
-     reads as a different colour from the panel it sits on, which is the thing that kept looking
-     wrong. The border alone separates it. */
-  background: transparent;
-  border: 1px solid var(--border-panel);
-  /* NOT `auto`. The head and the actions are pinned and `.mprops` is the scroller:
-     a column flex container whose middle child may shrink has no overflow to scroll,
-     which is exactly how the actions came to be drawn over the last property row. */
-  overflow: hidden;
-  /* Closed: parked outside the panel's right edge, and inert.
-
-     `.overlay` clips (`overflow: hidden`), so a translate of its own width plus the inset puts
-     the whole panel past the edge and out of sight — which is what makes it *come out of the
-     right side* rather than fade in where it already was. 2D only: Ultralight has no 3D
-     transforms (ultralight-notes.md §4), and a translate is the one transform that does not
-     re-rasterise the glyphs it moves (a scale does, which is what mangled the nav tabs).
-
-     Timed and eased with `.mods-view`, deliberately: the grid contracting and this arriving
-     are one movement. */
-  opacity: 0;
-  transform: translateX(calc(100% + var(--edge)));
-  pointer-events: none;
-  visibility: hidden;
-  transition:
-    opacity var(--menu-move-out) var(--ease-in-menu),
-    transform var(--menu-move-out) var(--ease-in-menu),
-    visibility 0s linear var(--menu-move-out);
+  gap: 14px;
 }
 
-.mods-body--list .inspector {
-  left: auto;
-  width: var(--insp-w-list);
+/* --------------------------------------------------------------- the entrance */
+
+/* The route change, and the whole of its treatment.
+
+   **Opacity on the big surfaces, a small rise on one small one.** A page change wants some
+   direction to it, and `translateY` is the one transform that is safe on text here — §10 is
+   about `scale()`, which rasterises glyphs at roughly the device scale. But the reason
+   `.menu-layer` fades rather than moves still applies to anything panel-sized: a transformed
+   layer full of glyphs is what the forced whole-view repaint exists to avoid. So the body
+   fades and the *head* — three lines and a switch — is the thing that rises.
+
+   Fast, because the user has twice said the animations are too slow and the menu's own close is
+   now 60ms. 90ms and 140ms, both inside the 350ms render window `UiHost.wake()` opens after
+   input, so every frame of them is painted.
+
+   No exit animation, deliberately. The outgoing view unmounts in the same commit that mounts
+   the incoming one, so there is never a frame with both — and a cross-fade would need both
+   mounted, which is two full layouts of the panel for the length of the animation. */
+@keyframes void-page-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.inspector--open {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-  visibility: visible;
-  transition:
-    opacity var(--menu-move-in) var(--ease-out-menu),
-    transform var(--menu-move-in) var(--ease-out-menu),
-    visibility 0s linear 0s;
+@keyframes void-page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* The chrome is deliberately smaller than the source frames draw it. The frames are a
-   1600 x 980 board with room to spare; in game the panel is what the window leaves, and
-   every pixel the title, the close button and the Done row take is a pixel the property
-   list does not get. Only the chrome shrinks — the controls themselves stay on §4's
-   sizes, because those are hit targets in a live match. */
-.inspector__head {
+/* No `both`: the end state *is* the natural state, so the animation leaves nothing behind, and
+   both components drop the class on `animationend` anyway (`ModPage`, `ModsView`). Between the
+   two, the steady state carries no animation for the engine to keep a composited layer for —
+   the same discipline `.menu-layer--entering` follows. */
+.mods-view--enter,
+.modpage--enter {
+  animation: void-page-in 90ms var(--ease-out-menu);
+}
+
+.modpage--enter .modpage__head {
+  animation: void-page-rise 140ms var(--ease-out-menu);
+}
+
+/* -------------------------------------------------------------------- the head */
+
+.modpage__head {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 24px;
   flex: 0 0 auto;
 }
 
-.inspector__ident {
+.modpage__ident {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.inspector__eyebrow,
-.inspector__meta {
+/* The one display-tier string in the overlay (§2: 30 / 34 / 40, tracking -0.02em). The
+   inspector had to cut it to 22 to fit a panel that was a third of the width; the page can
+   afford the tier as authored, and the title is what tells you a page has replaced a grid. */
+.modpage__title {
   font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  white-space: pre;
-}
-
-/* The one display-tier string in the overlay (§2: 30 / 34 / 40, tracking -0.02em). */
-.inspector__title {
-  font-family: var(--font-ui);
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 400;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -1822,16 +1966,41 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Enablement is the one control in the same place whatever mod is selected. */
-.inspector__state {
+.modpage__meta {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  /* `HUD   ·   ENABLED   ·   R-SHIFT` — the frames space their separators with runs of real
+     spaces, and HTML would collapse them to one. */
+  white-space: pre;
+}
+
+/* The mod's own sentence, which until now only the list layout could show. Capped rather than
+   left to run the full 1230: a line that long is measured in eye movements, not pixels. */
+.modpage__desc {
+  max-width: 62ch;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+/* Enablement is the one control in the same place whatever mod you opened — top right, which
+   is where the card's switch is too, so the grid and the page agree about where on/off lives.
+   §8 and frame `289:5523`: it is not a property row. */
+.modpage__state {
   display: flex;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
-.inspector__statelabel {
+.modpage__statelabel {
   font-family: var(--font-ui);
   font-size: 10px;
   font-weight: 500;
@@ -1840,42 +2009,21 @@ body {
   color: var(--text-muted);
 }
 
-.inspector__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  border: 1px solid var(--border-raised);
-  padding: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition:
-    background-color 140ms ease-out,
-    color 140ms ease-out;
-}
+/* ------------------------------------------------------------------ the actions */
 
-.inspector__close:hover {
-  background: var(--surface-raised);
-  color: var(--text-primary);
-}
-
-/* §4 buttons: `Done` is the primary — a `--text-primary` fill with a `--bg-shell`
-   label — and `Reset to default` is the ghost, a label and nothing else. Neither is
-   tinted: a button is not a live value (§1). */
-.inspector__actions {
+/* §4 buttons: `Done` is the primary — a `--text-primary` fill with a `--bg-shell` label — and
+   `Reset to default` is the ghost, a label and nothing else. Neither is tinted: a button is not
+   a live value (§1). The row sits where the grid's status line sits, so the panel's foot is in
+   the same place on both routes. */
+.modpage__actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: auto;
   flex: 0 0 auto;
 }
 
-.inspector__reset {
+.modpage__reset {
   padding: 0;
   border: 0;
   background: transparent;
@@ -1886,11 +2034,11 @@ body {
   transition: color 140ms ease-out;
 }
 
-.inspector__reset:hover {
+.modpage__reset:hover {
   color: var(--text-primary);
 }
 
-.inspector__done {
+.modpage__done {
   min-width: 104px;
   height: 34px;
   padding: 0 18px;
@@ -1905,43 +2053,86 @@ body {
   transition: opacity 140ms ease-out;
 }
 
-.inspector__done:hover {
+.modpage__done:hover {
   opacity: 0.9;
 }
 
 /* ------------------------------------------------------- the properties body */
 
 /**
- * The scrolling middle of the inspector.
+ * The middle of the page: the preview and the properties, arranged by §8's structure.
  *
- * `overflow-y` is load-bearing, not defensive. `.inspector` is a fixed-height column
- * flex container, so when the properties are taller than the room between the head
- * and the actions this box is *shrunk* to fit — and a shrunk box whose overflow is
- * `visible` still paints its children at full height, straight through whatever the
- * flex layout put underneath. That is how `Reset` came to be drawn across the colour
- * swatches. Owning the overflow keeps head and actions where they belong.
+ * **It is a row now, not a column.** In the inspector this was one narrow column with the
+ * preview stacked on top of the rows, because that was all the width there was; §8's three
+ * structures all came out looking the same. On the page the preview and the properties sit
+ * side by side and the split is what carries the structure — how much of the width the
+ * properties take, and therefore how much is left for the preview.
+ *
+ * The lengths are the counts' own. Twelve mods give a 1278 panel and a 1230 content box, and
+ * every mod in the registry has 1, 3, 4, 6 or 8 properties:
+ *
+ *     sentence  (1)     no column at all              preview ~1230 x 380
+ *     flat      (2–4)   one column of 400             preview ~800
+ *     grouped   (5+)    two columns of 300 + a gap    preview ~570
+ *
+ * A property column is sized for the widest thing that can land in it — a ten-cell meter with
+ * its readout is 209px before the label has had any — rather than for the text, so a row never
+ * has to decide between wrapping and squeezing.
  */
 .mprops {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 28px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  /* A horizontal scrollbar under a properties panel is never the right answer: what
-     does not fit across is laid out differently, not scrolled to. */
-  overflow-x: hidden;
+  /* Not `auto`. The page is a fixed-height column and this is its middle child: a box that may
+     shrink but paints its children at full height draws them straight through whatever the
+     flex layout put underneath, which is how `Reset` once came to be drawn across the colour
+     swatches. Nothing here scrolls — the columns do, below, and only if they must. */
+  overflow: hidden;
 }
 
-/* §8, one property: no list at all, and the preview takes the room. */
+/* The preview takes whatever the properties leave, on both axes. It has no height of its own
+   any more: `flex: 1 1 auto` on the frame is §8's "the preview takes the room" written as
+   layout rather than as a number that had to be re-guessed every time the panel changed. */
+.mprops .preview {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* §8, one property: no list at all. The sentence goes *under* the preview rather than beside
+   it — a column of one line next to a preview is a list of one, which is exactly what this
+   structure exists to avoid — so this is the one structure that is still a column. */
 .mprops--sentence {
+  flex-direction: column;
   gap: 18px;
+}
+
+/* Capped and centred rather than run to the full 1230. A preview four times as wide as it is
+   tall is not a bigger picture of the mod, it is a letterbox with a small mark in the middle —
+   Fullbright's art is a 7 x 7 sun. 860 keeps the frame close to the proportion the other two
+   structures give it, and centring makes the emptiness deliberate: one picture, one line under
+   it, which is what §8 asks a single property to look like. */
+.mprops--sentence .preview,
+.mprops--sentence .mprops__only {
+  align-self: center;
+  width: 100%;
+  max-width: 860px;
+}
+
+.mprops__only {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex: 0 0 auto;
 }
 
 .mprops__sentence {
   margin: 0;
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 300;
   color: var(--text-secondary);
 }
@@ -1952,47 +2143,58 @@ body {
   opacity: 0.95;
 }
 
+/* §8, two to four: one column, no caption. Wider than a group column because it is the only
+   one, and a row here keeps its control on the same line as its label. */
+.mprops[data-structure='flat'] .mprops__list {
+  flex: 0 0 400px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* §8, five or more: two light groups, side by side.
+
+   340 and not 300, measured on the two mods that reach this structure: the widest label in
+   either is `Corner radius` at ~90, and a ten-cell meter with its readout is 209, so 300 put
+   `Opacity` on one line and wrapped `Corner radius` onto two — the same control at two heights
+   in the same column. 340 clears both. */
 .mprops__group {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
+  flex: 0 0 340px;
   min-width: 0;
+  min-height: 0;
 }
 
-/* §8, five or more: two groups. At the panel's width the frame runs them as two
-   columns with no section labels — the column is the grouping, and a caption over it
-   would name what the eye already sees. */
-.mprops[data-structure='grouped'] {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px 20px;
+/* The caption, which the inspector did not have.
+
+   `289:3024` runs the two groups as bare columns, and its reasoning was sound at that width:
+   the column *is* the grouping, so a label over it names what the eye already sees. Standing
+   beside a preview at page width it is not: two columns of rows read just as easily as one
+   list flowed into two, and the reader has no way to tell which. The narrow panels of
+   `289:5523` caption theirs for the same reason, so this is the frames' own treatment applied
+   where it now applies. "Light" is §8's word and it is 10px muted small-caps — the label tier,
+   the quietest type in the overlay. */
+.mprops__cap {
+  flex: 0 0 auto;
+  padding-bottom: 6px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-/* A grouped column is half of a 480 panel, and a ten-cell meter with its readout is 209 of
-   that before the label has had any. So in the grouped structure — and only there — the control
-   drops under its label, exactly as it already does in the list layout's inspector. The flat
-   2–4 list keeps its rows on one line, because at the full inspector width they fit. */
+.mprops__group .mprops__list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* A group column is 300 and a ten-cell meter with its readout is 209 of it, so in the grouped
+   structure — and only there — the control drops under its label. The flat column is 400 and
+   keeps its rows on one line. */
 .mprops[data-structure='grouped'] .mprop {
   flex-wrap: wrap;
-}
-
-.mprops[data-structure='grouped'] .preview {
-  flex: 0 0 100%;
-}
-
-/* The list layout hands the inspector 380px rather than the panel's full width, so
-   the two groups stack instead of sitting side by side. §8 asks for two groups, not
-   for two columns. */
-.mods-body--list .mprops[data-structure='grouped'] {
-  flex-direction: column;
-  flex-wrap: nowrap;
-}
-
-.mods-body--list .mprops[data-structure='grouped'] .preview,
-.mods-body--list .mprops[data-structure='grouped'] .mprops__group {
-  flex: 0 0 auto;
-  width: 100%;
 }
 
 .mprops__list {
@@ -2052,6 +2254,20 @@ body {
   max-width: 100%;
 }
 
+/* The degraded enum: a stored value with no table of options to choose from.
+
+   It should never render — `test/registry.test.tsx` fails the build on a missing table — and it
+   exists so that if one ever does, the row shows the value rather than nothing at all. The
+   failure it replaces was invisible: a label on the left and empty space on the right, which
+   reads as a row that has not loaded yet. Deliberately plain and slightly wrong-looking; it is
+   not a control and must not be mistaken for one. */
+.mprop__raw {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 /* No `transform: scale()` on anything holding text, anywhere in the overlay.
 
    Measured in game on the GL driver, pressing and holding the *already selected* `Mode` chip
@@ -2089,11 +2305,22 @@ body {
   flex-wrap: wrap;
 }
 
-/* At 380px a label and a ten-cell meter do not share a line, and squeezing the label
-   into what is left would put three words on four lines. So here — and only here —
-   the control drops underneath instead. */
-.mods-body--list .mprop {
-  flex-wrap: wrap;
+/* The selected chip takes the **mod's** hue, not the shared accent — §1.
+
+   `@void/ui` fills it with `--accent-tint` / `--accent-border` / `--accent-ink`, which is
+   right in the launcher: there is no per-mod hue there. In the overlay there is, and the
+   result was a Visual mod drawing its selected `Style` chip violet three inches from a meter
+   whose live cell was ice — two different colours marking the same kind of thing in one row.
+   It only became visible at page width, where the chips and the meter finally sit side by side.
+
+   Hued the way the live corner slot already is (`.preview__slot--live`): raised ground, hue on
+   the border, primary label. A tint would need the hue composited at low alpha, which means
+   `color-mix()`, and this engine is not the place to find out whether that resolves. Local to
+   the overlay, like `.obar__nav .v-tab`'s opt-out above — the defect is not in the kit. */
+.mprop__control .v-chip--selected {
+  background: var(--surface-raised);
+  border-color: var(--hue, var(--accent));
+  color: var(--text-primary);
 }
 
 /* ------------------------------------- the preview, and the spatial properties */
@@ -2103,8 +2330,8 @@ body {
 .preview {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  flex: 0 0 auto;
+  gap: 10px;
+  min-height: 0;
 }
 
 /* The caption sits under the frame, as it does in every in-game frame. */
@@ -2132,13 +2359,14 @@ body {
 
 .preview__frame {
   position: relative;
-  /* The frames' 268 in a 748-tall panel, taken down in proportion with the panel: the inspector
-     is now 540 tall and the properties have to clear the actions without scrolling. 128 still
-     holds the four corner slots of §8 (26 tall on a 12px inset) with the art between them, and
-     is what makes the worst case — keystrokes, eight property rows in two groups — fit the
-     panel without a scrollbar. Measured, not guessed: at 140 the properties overflowed by 41
-     and the last swatch row was cut in half. */
-  height: 128px;
+  /* **No height.** It was 128px, and 208 for the one-property case, because the inspector was a
+     narrow fixed column where every pixel the preview took was a pixel the rows did not get —
+     both numbers were arrived at by measuring what the worst mod in the registry overflowed by.
+     On the page it takes what is left of the height after the head, the caption and the
+     actions, which for Fullbright's single property is most of the panel and for Keystrokes'
+     eight is still ~300. The floor is the four corner slots of §8 with art between them. */
+  flex: 1 1 auto;
+  min-height: 150px;
   border-radius: 12px;
   background: var(--bg-base);
   border: 1px solid var(--border-raised);
@@ -2154,17 +2382,6 @@ body {
   background: rgba(237, 238, 239, 0.012);
 }
 
-/* One property, so the preview gets the room the list would have taken. */
-.preview--large .preview__frame {
-  height: 208px;
-}
-
-/* The list layout's inspector is a third of the width; the preview keeps its shape
-   rather than its height. */
-.mods-body--list .preview__frame {
-  height: 128px;
-}
-
 .preview__stage {
   position: absolute;
   inset: 0;
@@ -2176,40 +2393,121 @@ body {
 
 /* Keystrokes is the one preview that is a live HUD widget rather than cell art, and `@void/ui`
    draws its "preview" size for the frames' 268-tall strip: 36px caps, four rows of them, 159
-   tall before the stage's padding. In a 140-tall frame that is not a preview, it is a crop —
-   the LMB/RMB row and the space bar were simply cut off the bottom. Scaled here rather than in
-   `@void/ui`, because it is this panel's height that is the constraint and the launcher's copy
-   of the same widget has the room the shared size assumes. Nothing interactive is touched: the
+   tall before the stage's padding.
+
+   These used to *shrink* it — 25px caps — because the inspector's frame was 128 tall and the
+   widget was a crop rather than a preview in it. The page's frame is ~300 and ~570 wide, so
+   they enlarge it instead: 44px caps put the cluster at 200 tall, which is a picture of the mod
+   at something like the size it draws at in game. Sized here rather than in `@void/ui` for the
+   same reason as before — it is this panel's box that is the constraint, and the launcher's
+   copy of the widget has the room the shared size assumes. Nothing interactive is touched: the
    preview is a picture of the mod, not a control. */
 .preview__frame .v-keystrokes {
-  gap: 3px;
+  gap: 6px;
 }
 
 .preview__frame .v-keystrokes__row {
-  gap: 3px;
+  gap: 6px;
 }
 
 .preview__frame .v-keystrokes--preview .v-keystrokes__key {
-  width: 25px;
-  height: 25px;
-  font-size: 12px;
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  border-radius: 12px;
 }
 
 .preview__frame .v-keystrokes--preview .v-keystrokes__key--wide {
-  width: 39px;
+  width: 68px;
 }
 
 .preview__frame .v-keystrokes--preview .v-keystrokes__key--space {
-  width: 81px;
+  width: 144px;
 }
 
-.preview__blurb {
-  font-family: var(--font-ui);
-  font-size: 14px;
-  font-weight: 300;
-  text-align: center;
-  color: var(--text-secondary);
+/* ---------------------------------------------- the tile's art, at page size
+
+   The other eleven mods draw the grid's own preview art here (`TilePreview`), which is the
+   same component the tile renders — "a small picture of what the mod draws". The cell edges
+   come through as an inline `size` (`TilePreview`'s `scale`, 2.6) because a cell is a `<span>`
+   of a stated width; everything that is type scales here, where type belongs.
+
+   The multiplier is roughly 2.6 on both, so the two halves of the enlargement stay in
+   proportion: 30px readout to 78, 9px unit to 13 (small caps stop reading much below that and
+   there is no tier between), 20px keycap to 52. */
+.preview__stage .tart__big {
+  font-size: 78px;
 }
+
+.preview__stage .tart__unit {
+  font-size: 13px;
+}
+
+.preview__stage .tart--stack {
+  gap: 14px;
+}
+
+.preview__stage .tart--keys {
+  gap: 10px;
+}
+
+.preview__stage .tart__krow {
+  gap: 10px;
+}
+
+.preview__stage .tart__key {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 22px;
+}
+
+.preview__stage .tart__key--wide {
+  width: 78px;
+}
+
+.preview__stage .tart--armour {
+  gap: 20px;
+}
+
+.preview__stage .tart__piece {
+  gap: 10px;
+}
+
+.preview__stage .tart--rows {
+  gap: 18px;
+  width: 360px;
+}
+
+.preview__stage .tart__line {
+  gap: 18px;
+}
+
+.preview__stage .tart__lname {
+  font-size: 16px;
+}
+
+.preview__stage .tart__ltime,
+.preview__stage .tart__value {
+  font-size: 22px;
+}
+
+.preview__stage .tart__axis {
+  flex: 0 0 26px;
+  font-size: 16px;
+}
+
+.preview__stage .tart--frame {
+  width: 250px;
+  height: 176px;
+}
+
+.preview__stage .tart__corner {
+  width: 36px;
+  height: 36px;
+  border-width: 3px;
+}
+
 
 /* §8: placement never appears as a list row. Frame `289:5523` draws it as four
    labelled slots in the corners they stand for — the answer is about a corner, so
@@ -2219,8 +2517,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 26px;
+  /* 48 x 30 against the inspector's 42 x 26. The slot is a hit target in a live match (§4), so
+     it grew with the frame rather than staying the size a 128px strip could spare. */
+  width: 48px;
+  height: 30px;
   border-radius: 8px;
   background: var(--card-bg);
   border: 1px solid var(--border-raised);
@@ -2249,33 +2549,33 @@ body {
 }
 
 .preview__slot--top-left {
-  left: 12px;
-  top: 12px;
+  left: 16px;
+  top: 16px;
 }
 
 .preview__slot--top-right {
-  right: 12px;
-  top: 12px;
+  right: 16px;
+  top: 16px;
 }
 
 .preview__slot--bottom-left {
-  left: 12px;
-  bottom: 12px;
+  left: 16px;
+  bottom: 16px;
 }
 
 .preview__slot--bottom-right {
-  right: 12px;
-  bottom: 12px;
+  right: 16px;
+  bottom: 16px;
 }
 
 /* …and size is a drag handle in the frame's own bottom-right corner, so the slots
    keep the corners they name and the handle keeps the corner it drags. */
 .preview__handle {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 18px;
-  height: 18px;
+  right: 16px;
+  bottom: 16px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2290,7 +2590,7 @@ body {
 /* When both are on the preview the handle steps in beside the slot it shares a
    corner with, rather than under it. */
 .preview__frame .preview__slot--bottom-right ~ .preview__handle {
-  right: 62px;
+  right: 72px;
 }
 
 .preview__handle:hover,
@@ -2301,7 +2601,7 @@ body {
 
 /* Three cells at 30% — the grip of §4, reused. */
 .preview__handle-grip {
-  width: 8px;
+  width: 10px;
   height: 2px;
   border-radius: 30%;
   background: var(--text-primary);
@@ -2568,4 +2868,353 @@ body {
 .modlist__rows::-webkit-scrollbar-thumb:hover,
 .mprops::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.22);
+}
+
+/* ==========================================================================
+   The Settings page — what the gear opens.
+
+   Same shell, same panel box, same `.mods-body` the grid and a mod's page fill;
+   only the contents differ. The head is the mod page's head, one tier for one
+   tier, because a page is a page — a second display treatment would say the two
+   were different kinds of thing when they are the same kind in the same box.
+
+   Two columns: the controls, and the two cards that are read rather than used.
+   §8's "five or more, two light groups" applies to the controls, and this is
+   that structure — `.oset__group` is `.mprops__group` with a fill, because
+   these groups stand on the ground rather than beside a preview.
+
+   It replaces the Dashboard, which was here for an hour. That page's own note
+   said four of its seven regions had no state behind them; its one honest
+   region — who is playing — is the `Account` card below, and the rest went with
+   the profile chip that led to it.
+   ========================================================================== */
+
+.oset {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* The page arrives the way a mod's page does — see `void-page-in`. Dropped on
+   `animationend`, so the steady state carries no animation for the engine to
+   keep a composited layer for. */
+.oset--enter {
+  animation: void-page-in 90ms var(--ease-out-menu);
+}
+
+.oset--enter .oset__head {
+  animation: void-page-rise 140ms var(--ease-out-menu);
+}
+
+/* ------------------------------------------------------------------ the head */
+
+.oset__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* §2's display tier, as `.modpage__title` takes it. One word, because the meta
+   line under it says which client and the description says what the page is. */
+.oset__title {
+  font-family: var(--font-ui);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* `CLIENT   ·   R-SHIFT OPENS   ·   1.00× SCALE`. Two of the three are live
+   values read straight off the globals, so the line is a readout rather than a
+   caption — which is why it is here and not in the description under it. Runs
+   of real spaces, as the frames set their separators; `pre` keeps them. */
+.oset__meta {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: pre;
+}
+
+.oset__desc {
+  max-width: 62ch;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------------ the body */
+
+.oset__body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 24px;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Not `auto`, for the reason `.mprops` states: a box that may shrink but paints
+     its children at full height draws them straight through whatever the flex
+     layout put underneath. */
+  overflow: hidden;
+}
+
+.oset__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+
+/* 360, measured rather than picked: the widest thing the side column has to hold
+   is the account card's `Microsoft account` at 11px small-caps plus a 40px
+   portrait and its gaps, and the mark preview wants to be square-ish at the
+   scale the HUD draws it. */
+.oset__col--side {
+  /* `0 1`, not `0 0`: the panel floors at `GEOMETRY.minPanelW` (480), which leaves 432 of
+     content, and a rigid 360 there would leave 48 for the controls and then overflow. It shrinks
+     with the window instead, down to a width the account card can still set a name in. */
+  flex: 0 1 360px;
+  min-width: 220px;
+}
+
+/* A light group, per §8 — but with a fill, where `.mprops__group` has none.
+   The difference is what they stand on: a properties group sits beside a large
+   preview that gives the column its edge, and these stand on the ground with
+   nothing beside them. One step up (§5.1's card fill) is the least that gives
+   them one. */
+.oset__group,
+.oset__card {
+  flex: 0 0 auto;
+  padding: 12px 16px 4px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-raised);
+}
+
+/* The one card that grows, and it has to come **after** the rule above.
+
+   Four rows do not fill a panel sized for a grid of thirteen tiles, and in game that left a
+   ~145px band of empty ground under the controls — the "page that stops halfway" this whole
+   pass exists to stop shipping. The fix is not more rows: one thing on the page should have a
+   reason to be as tall as the panel, and the mark is it — the only element here that is a
+   *picture* rather than a control. The emptiness then lands inside a card that is meant to be
+   mostly empty, which is what a mark on a ground looks like.
+
+   The ordering is load-bearing and was wrong first: this element carries both `.oset__card` and
+   `.oset__mark`, the two selectors have identical specificity, so whichever is written later
+   wins. With this above `.oset__card` the `flex: 0 0 auto` there won and the card did not grow
+   at all — the fix would have silently done nothing, and in game that is indistinguishable from
+   not having made it. */
+.oset__mark {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The label tier — the quietest type in the overlay, and the same object
+   `.mprops__cap` is. Two children means a caption with a value on the right;
+   one means a plain caption. */
+.oset__cap {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding-bottom: 2px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.oset__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A ghost button (§4: label only, no box, no underline) on the right of a row,
+   where a control would be. It is a destination rather than a value, so it takes
+   no fill and no hue — §1 — and says which way it goes with a chevron drawn as a
+   character rather than as a sixth sprite cell. */
+.oset__link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 140ms ease-out;
+}
+
+.oset__link::after {
+  content: '   \203A';
+  color: var(--text-muted);
+}
+
+.oset__link:hover {
+  color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------- the account */
+
+/* What is left of the profile chip: read once, never pressed. It has no hover
+   step and no pointer, which is the whole difference between this and the chip —
+   the chip looked like a control because it was a bordered box with an avatar in
+   it, and the complaint was that it did nothing. This does nothing and looks
+   like it. */
+.oset__player {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0 12px;
+}
+
+/* §3's cell radius, and monochrome per §1: an avatar is neither a live value nor
+   a selection, so it takes no hue. An initial rather than a skin because the page
+   has no network at all — `check-ultralight.mjs` rejects fetch, XHR and
+   WebSocket — so a real avatar would have to come over the bridge as pixels. */
+.oset__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 30%;
+  background: var(--surface-raised);
+  font-family: var(--font-ui);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.oset__ident {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.oset__name {
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.oset__kind {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------- the mark card */
+
+/* The watermark, at the size and settings it will have over the game, beside the
+   switch that turns it on. Not decoration: it is the answer to "what am I turning
+   on", which a label cannot give. */
+.oset__markwell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 96px;
+  margin: 6px 0 12px;
+  border-radius: 10px;
+  /* One step *down*, not up: the well is a recess the mark sits in, so it reads
+     as something over a surface rather than as another card. */
+  background: var(--bg-base);
+}
+
+/* The word grows with the ring. `--wmark-word` is not a thing: the word is sized here, on the
+   one container that wants it bigger, because a font size is exactly what CSS is for — and the
+   alternative, `transform: scale()`, rasterises glyphs at the device scale (§10). */
+.oset__markwell .wmark__word {
+  font-size: 22px;
+}
+
+.oset__markwell .wmark {
+  gap: 12px;
+}
+
+/* Off is not hidden. A preview that vanishes when the mod is off leaves the card
+   as an empty box and answers nothing; drawn at the .18 the §3 empty cell uses,
+   it still says what the mark is while saying it is not on screen — and the
+   caption on the same line says `Hidden`. */
+.oset__mark--off .oset__markwell {
+  opacity: 0.18;
+}
+
+/* ==========================================================================
+   The VOID watermark — the `watermark` HUD mod (`hud/watermark.tsx`).
+   ========================================================================== */
+
+/* Ink only, no plate. Every other HUD widget sits on a `--card-bg` chip; a mark
+   on a chip is a badge, and a badge in the corner of a match is one more readout
+   competing with the ones that carry numbers.
+
+   No opacity and no transform of its own either — `HudLayer` already folds the
+   mod's `opacity` setting into the slot and its `scale` into the placement
+   transform, for every widget. Doing it here would apply both twice. */
+.wmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  color: var(--text-primary);
+}
+
+/* Brighter than the bar's ring (`.vmark__ring`, .9 on top of the §3 filled
+   cell). There the mark is a heading beside the thing you came for; here it is
+   the thing itself, and it has the whole game world behind it rather than a
+   panel. */
+.wmark__ring {
+  opacity: 1;
+}
+
+/* §2's title tier at the small end, tracked like the wordmark everywhere else.
+   13 against the bar's 15: this sits under the fps and ping chips in the same
+   corner and must not out-rank them. */
+.wmark__word {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+/* The mark alone has no word to space away from. */
+.wmark--mark,
+.wmark--word {
+  gap: 0;
+}
+
+/* The tile preview is the real widget, so it needs no art of its own — only the
+   room the other previews take. */
+.tart__mark {
+  gap: 10px;
 }

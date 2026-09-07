@@ -44,6 +44,13 @@ export interface FpsChipProps extends HudChipProps {
   showLabel?: boolean;
   /** The 1% low, drawn as ` ·  1% low 96` after the label. */
   onePercentLow?: number;
+  /**
+   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The **figure only**, never the `fps` unit or the 1% low aside. Quiet-cell §1: colour marks
+   * a live value, and of the three things on this chip exactly one is a live value.
+   */
+  color?: string;
 }
 
 /** `142 fps  ·  1% low 96`. */
@@ -51,6 +58,7 @@ export function FpsChip({
   fps,
   showLabel = true,
   onePercentLow,
+  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -58,7 +66,9 @@ export function FpsChip({
 }: FpsChipProps): React.ReactElement {
   return (
     <div className={chipClass(variant, dimmed, cx('v-fpschip', className))} {...rest}>
-      <span className="v-hudchip__value">{fps}</span>
+      <span className="v-hudchip__value" style={color ? { color } : undefined}>
+        {fps}
+      </span>
       {showLabel ? <span className="v-hudchip__unit">fps</span> : null}
       {onePercentLow === undefined ? null : (
         <span className="v-hudchip__aside">·&nbsp;&nbsp;1% low {onePercentLow}</span>
@@ -127,29 +137,49 @@ export interface CoordsChipProps extends HudChipProps {
   direction?: string;
   /** Decimal places, per the mod's `decimals` setting. Defaults to 0. */
   decimals?: number;
+  /**
+   * The mod's `layout` setting.
+   *
+   * - `inline` — one line, `X 118   Y 64   Z -212   ·   NE`, as the frame draws it.
+   * - `stacked` — one axis per line, which is what people who read coordinates while
+   *   moving actually want: the three numbers hold the same x-position, so a digit
+   *   changing is a digit you can see change.
+   */
+  layout?: 'inline' | 'stacked';
 }
 
-/** `X 118   Y 64   Z -212   ·   NE`. */
+/** `X 118   Y 64   Z -212   ·   NE`, or the same three axes stacked. */
 export function CoordsChip({
   x,
   y,
   z,
   direction,
   decimals = 0,
+  layout = 'inline',
   variant = 'compact',
   dimmed = false,
   className,
   ...rest
 }: CoordsChipProps): React.ReactElement {
   const format = (value: number): string => value.toFixed(decimals);
+  const stacked = layout === 'stacked';
   return (
-    <div className={chipClass(variant, dimmed, cx('v-coordschip', className))} {...rest}>
+    <div
+      className={chipClass(
+        variant,
+        dimmed,
+        cx('v-coordschip', stacked && 'v-coordschip--stacked', className),
+      )}
+      {...rest}
+    >
       <span className="v-coordschip__axis">X {format(x)}</span>
       <span className="v-coordschip__axis">Y {format(y)}</span>
       <span className="v-coordschip__axis">Z {format(z)}</span>
       {direction ? (
         <>
-          <span className="v-hudchip__aside">·</span>
+          {/* The separator is a horizontal device. Stacked, the line break already
+              separates, and a `·` on a line of its own is a mark that means nothing. */}
+          {stacked ? null : <span className="v-hudchip__aside">·</span>}
           <span className="v-coordschip__axis">{direction}</span>
         </>
       ) : null}
@@ -262,6 +292,14 @@ export function formatAmplifier(amplifier: number): string {
 export interface ArmorRow {
   /** Slot label, e.g. `Helmet`. */
   label: ReactNode;
+  /**
+   * Short slot label, e.g. `Helm`, used by the `horizontal` orientation.
+   *
+   * Laid side by side, five cells have room for four or five characters, not for
+   * `Chestplate`. Falls back to {@link ArmorRow.label} when absent, which is correct
+   * for a caller that has no shorter form rather than a caller that forgot.
+   */
+  short?: ReactNode;
   /** Remaining durability. */
   remaining: number;
   /** Maximum durability. `0` means the item takes no damage. */
@@ -276,21 +314,47 @@ export interface ArmorListProps extends HTMLAttributes<HTMLDivElement> {
   rows: readonly ArmorRow[];
   /** Below this fraction the bar turns amber. Defaults to 0.5. */
   warnBelow?: number;
-  /** Lay the rows out top to bottom (the default) or in one line. */
+  /**
+   * The mod's `orientation` setting, and it names the direction the pieces run in.
+   *
+   * - `horizontal` — the pieces side by side, one narrow cell each: short label over a
+   *   durability bar. The compact strip a PvP HUD wants, and the default.
+   * - `vertical` — the pieces stacked top to bottom, one full row each: label, value and
+   *   a full-width bar. The informative one.
+   *
+   * Both used to render the same column: the base rule is `flex-direction: column` and the
+   * `--vertical` modifier only widened it, so `horizontal` drew a vertical list and the
+   * setting changed a width. The enum was never wrong; the second layout was missing.
+   */
   orientation?: 'horizontal' | 'vertical';
+  /**
+   * The mod's `show_durability` setting.
+   *
+   * Off drops the bar and the `n / max` figure and keeps the icon and the label, which
+   * leaves a plain "what am I wearing" slot indicator — a coherent thing to want, and the
+   * only reading of this setting that leaves anything behind.
+   */
+  showDurability?: boolean;
 }
 
-/** The 170px armour panel: icon, label / value, and a 4px durability bar per row. */
+/** The armour panel: icon, label / value, and a 4px durability bar per piece. */
 export function ArmorList({
   rows,
   warnBelow = 0.5,
   orientation = 'horizontal',
+  showDurability = true,
   className,
   ...rest
 }: ArmorListProps): React.ReactElement {
+  const horizontal = orientation === 'horizontal';
   return (
     <div
-      className={cx('v-armorlist', orientation === 'vertical' && 'v-armorlist--vertical', className)}
+      className={cx(
+        'v-armorlist',
+        horizontal ? 'v-armorlist--horizontal' : 'v-armorlist--vertical',
+        !showDurability && 'v-armorlist--nodurability',
+        className,
+      )}
       {...rest}
     >
       {rows.map((row, index) => {
@@ -303,21 +367,27 @@ export function ArmorList({
             />
             <span className="v-armorlist__body">
               <span className="v-armorlist__labels">
-                <span className="v-armorlist__label">{row.label}</span>
-                <span className="v-armorlist__value">
-                  {row.remaining} / {row.max}
+                <span className="v-armorlist__label">
+                  {horizontal ? (row.short ?? row.label) : row.label}
                 </span>
+                {showDurability ? (
+                  <span className="v-armorlist__value">
+                    {row.remaining} / {row.max}
+                  </span>
+                ) : null}
               </span>
-              <span className="v-armorlist__bar">
-                <span
-                  className={cx(
-                    'v-armorlist__fill',
-                    fraction < warnBelow && 'v-armorlist__fill--warn',
-                    fraction <= 0.1 && 'v-armorlist__fill--empty',
-                  )}
-                  style={{ width: `${fraction * 100}%` }}
-                />
-              </span>
+              {showDurability ? (
+                <span className="v-armorlist__bar">
+                  <span
+                    className={cx(
+                      'v-armorlist__fill',
+                      fraction < warnBelow && 'v-armorlist__fill--warn',
+                      fraction <= 0.1 && 'v-armorlist__fill--empty',
+                    )}
+                    style={{ width: `${fraction * 100}%` }}
+                  />
+                </span>
+              ) : null}
             </span>
           </div>
         );
@@ -340,6 +410,61 @@ export interface KeystrokesState {
   rmb?: boolean;
   space?: boolean;
   shift?: boolean;
+}
+
+/* ------------------------------------------------ keycap colour vocabulary */
+
+/**
+ * `keystrokes.key_color` — the enum of swatch *names* mods.json declares, resolved to the
+ * token each one stands for.
+ *
+ * Names, not hex, because a name survives a theme change and a hex freezes the palette
+ * into the loadout. This table is the **single** resolution of those names: the widget
+ * paints from it and the settings swatches are drawn from it, so a swatch cannot show one
+ * colour while the keycap takes another. It used to exist only in the settings panel,
+ * which is precisely why the widget did not read it at all.
+ */
+export const KEYCAP_COLORS: Readonly<Record<string, { color: string; label: string }>> = {
+  shell: { color: 'var(--bg-shell)', label: 'Shell' },
+  raised: { color: 'var(--surface-raised)', label: 'Raised' },
+  pill: { color: 'var(--card-bg)', label: 'Pill' },
+  sky: { color: 'var(--hue-visual)', label: 'Ice' },
+  teal: { color: 'var(--hue-utility)', label: 'Mint' },
+};
+
+/**
+ * `keystrokes.pressed_color`, resolved the same way.
+ *
+ * `warn` and `fear` used to resolve to the same `--hue-pvp`, which made five options where
+ * four existed — a menu that lies about the choice on offer. They are now the two tokens
+ * whose Figma names they are: `--warn` is zg/warn (amber) and `--danger` is zg/fear (red).
+ */
+export const KEYCAP_PRESSED_COLORS: Readonly<Record<string, { color: string; label: string }>> = {
+  accent: { color: 'var(--hue, var(--accent))', label: 'Hue' },
+  sky: { color: 'var(--hue-visual)', label: 'Ice' },
+  warn: { color: 'var(--warn)', label: 'Amber' },
+  fear: { color: 'var(--danger)', label: 'Fear' },
+  teal: { color: 'var(--hue-utility)', label: 'Mint' },
+};
+
+/**
+ * The inline style that paints a keystrokes widget in the loadout's chosen colours.
+ *
+ * Two custom properties on the root rather than two bespoke style hooks, which is the same
+ * mechanism `keystrokes.corner_radius` already uses for `--radius-control`: the keycap rules
+ * underneath read the token and nothing in them names a colour. An unknown or absent name
+ * writes no property at all, so the CSS fallback stands.
+ */
+export function keystrokesColorStyle(
+  keyColor?: string | null,
+  pressedColor?: string | null,
+): React.CSSProperties {
+  const style: Record<string, string> = {};
+  const key = keyColor ? KEYCAP_COLORS[keyColor] : undefined;
+  const pressed = pressedColor ? KEYCAP_PRESSED_COLORS[pressedColor] : undefined;
+  if (key) style['--key-bg'] = key.color;
+  if (pressed) style['--key-pressed-bg'] = pressed.color;
+  return style as React.CSSProperties;
 }
 
 /** Props for {@link KeystrokesWidget}. */

@@ -257,58 +257,101 @@ describe('bridge calls', () => {
   });
 });
 
-describe('layout and inspector — the two independent controls of §7', () => {
+/**
+ * Layout, selection, and the mod page.
+ *
+ * This replaces a block that asserted the four states of `layout × inspector` and that
+ * selecting a mod "never navigates". Both were true and both described the arrangement that
+ * has just been removed — the properties panel beside the grid. What the old block was really
+ * protecting survives here in a different shape: `layout` is still the player's own and still
+ * survives a close, selecting is still not the same act as toggling, and the way back from a
+ * mod is still exactly one step.
+ */
+describe('layout, selection and the mod page', () => {
   beforeEach(() => {
-    useVoidStore.setState({ layout: 'grid', inspector: 'open', selectedMod: 'keystrokes' });
+    useVoidStore.setState({
+      layout: 'grid',
+      route: { name: 'mods' },
+      selectedMod: 'keystrokes',
+    });
   });
 
-  it('is two controls and not one mode, so all four states exist', () => {
-    const store = useVoidStore.getState;
-    const states: string[] = [];
-    for (const layout of ['grid', 'list'] as const) {
-      for (const inspector of ['open', 'closed'] as const) {
-        store().setLayout(layout);
-        store().setInspector(inspector);
-        states.push(`${store().layout}/${store().inspector}`);
-      }
-    }
-    expect(states).toEqual(['grid/open', 'grid/closed', 'list/open', 'list/closed']);
-  });
-
-  it('setting one never moves the other', () => {
-    useVoidStore.getState().setInspector('closed');
-    useVoidStore.getState().setLayout('list');
-    expect(useVoidStore.getState().inspector).toBe('closed');
-    useVoidStore.getState().setInspector('open');
-    expect(useVoidStore.getState().layout).toBe('list');
-  });
-
-  it('toggleInspector flips only the inspector', () => {
-    useVoidStore.getState().setLayout('list');
-    useVoidStore.getState().toggleInspector();
-    expect(useVoidStore.getState().inspector).toBe('closed');
-    useVoidStore.getState().toggleInspector();
-    expect(useVoidStore.getState().inspector).toBe('open');
-    expect(useVoidStore.getState().layout).toBe('list');
-  });
-
-  it('selecting a mod opens the inspector — it never navigates', () => {
-    useVoidStore.getState().setInspector('closed');
+  it('selecting moves the highlight and goes nowhere', () => {
+    // The arrow keys call this on every step. It used to open the properties panel as a side
+    // effect, which made walking the grid impossible without opening something.
     useVoidStore.getState().selectMod('fullbright');
     expect(useVoidStore.getState().selectedMod).toBe('fullbright');
-    expect(useVoidStore.getState().inspector).toBe('open');
     expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
   });
 
-  it('both survive closing and reopening the menu', () => {
+  it('opening a mod is one write: the page, and the tile you will come back to', () => {
+    useVoidStore.getState().openMod('fullbright');
+    expect(useVoidStore.getState().route).toEqual({ name: 'mod', id: 'fullbright' });
+    expect(useVoidStore.getState().selectedMod).toBe('fullbright');
+  });
+
+  it('going back leaves the grid exactly as it was, selection included', () => {
+    useVoidStore.getState().openMod('zoom');
+    useVoidStore.getState().closeMod();
+    expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    // Not reset: the tile you were just inside is the one that should be marked.
+    expect(useVoidStore.getState().selectedMod).toBe('zoom');
+  });
+
+  it('opening a mod changes no loadout state', () => {
+    const before = isModOn(useVoidStore.getState().loadout, 'fullbright');
+    useVoidStore.getState().openMod('fullbright');
+    expect(isModOn(useVoidStore.getState().loadout, 'fullbright')).toBe(before);
+  });
+
+  it('reopening the menu lands on the grid, never on the page you left from', () => {
     useVoidStore.getState().setLayout('list');
-    useVoidStore.getState().setInspector('closed');
+    useVoidStore.getState().openMod('cps');
     useVoidStore.getState().applyMenu(false);
     useVoidStore.getState().applyMenu(true);
-    // Opening always lands on Mods, but how the player likes to read it is theirs.
     expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
+    // How the player likes to read the grid is theirs, and survives.
     expect(useVoidStore.getState().layout).toBe('list');
-    expect(useVoidStore.getState().inspector).toBe('closed');
+  });
+});
+
+/**
+ * The session — who is playing.
+ *
+ * The one immutable thing on the bridge, and the one that has no sensor behind it: it arrives on
+ * `pushWholeState()` and never again, so a page that dropped it would carry a blank chip for the
+ * life of the process. That is the whole reason the guard below is a *value* comparison — a
+ * reloaded document is sent the identical session again (§9a), and taking the fresh object would
+ * re-render the bar for nothing.
+ */
+describe('session', () => {
+  const notch = {
+    name: 'Notch',
+    uuid: '069a79f4-44e9-4726-a5be-fca90e38aaf5',
+    kind: 'microsoft' as const,
+  };
+
+  it('is null until it is pushed, and then holds', () => {
+    useVoidStore.setState({ session: null });
+    expect(useVoidStore.getState().session).toBeNull();
+    useVoidStore.getState().applySession(notch);
+    expect(useVoidStore.getState().session).toEqual(notch);
+  });
+
+  it('ignores a re-push of the same session by value, not by identity', () => {
+    useVoidStore.setState({ session: null });
+    useVoidStore.getState().applySession(notch);
+    const first = useVoidStore.getState().session;
+    // The shape a reloaded document gets: same data, new object.
+    useVoidStore.getState().applySession({ ...notch });
+    expect(useVoidStore.getState().session).toBe(first);
+  });
+
+  it('takes a genuinely different session', () => {
+    useVoidStore.setState({ session: null });
+    useVoidStore.getState().applySession(notch);
+    useVoidStore.getState().applySession({ ...notch, name: 'Dev', kind: 'offline' });
+    expect(useVoidStore.getState().session?.name).toBe('Dev');
   });
 });
 

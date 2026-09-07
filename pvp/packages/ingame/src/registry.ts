@@ -19,7 +19,7 @@
  * a property of a mod.
  *
  * Icons come from `@void/ui`'s `MOD_ICONS`, which is that package's resolution of the
- * same 12 ids.
+ * same 13 ids.
  */
 
 import type { CSSProperties } from 'react';
@@ -80,6 +80,11 @@ export const MOD_ORDER: ModId[] = [
   'potion_effects',
   'ping',
   'coordinates',
+  // Last, and newest. The mark is not a readout, so it does not belong among the four that end
+  // the order; putting it after them is also the honest reading of a mod added after the grid
+  // was designed. Thirteen mods lay out as seven columns and a row of six — `solveGrid` picks
+  // the fewest columns whose rows still fit, and the tile shrinks from 195 to 165.
+  'watermark',
   ...FAKE_MOD_ORDER,
 ];
 
@@ -123,7 +128,8 @@ export const SETTING_RANGES: Record<
   window_ms: { min: 200, max: 5000, step: 50, unit: 'ms' },
   good_ms: { min: 0, max: 1000, step: 5, unit: 'ms' },
   bad_ms: { min: 0, max: 2000, step: 5, unit: 'ms' },
-  decimals: { min: 0, max: 3, step: 1 },
+  /** 0-2, not 0-3: the `tick` sensor rounds the position to 2 dp on the wire. */
+  decimals: { min: 0, max: 2, step: 1 },
   gamma: { min: 1, max: 15, step: 0.5 },
   line_width: { min: 0.5, max: 5, step: 0.5 },
   fov_divisor: { min: 1.1, max: 10, step: 0.1, unit: '×' },
@@ -143,6 +149,12 @@ export const SETTING_ENUMS: Record<string, readonly string[]> = {
   'armor_status.orientation': ['horizontal', 'vertical'],
   'toggle_sprint.mode': ['toggle', 'hold'],
   'crosshair.style': ['default', 'cross', 'dot', 'circle', 't_shape', 'none'],
+  // Missing this is not a missing *label*, it is a missing **control**: `PropertyControl`'s
+  // default branch draws `PositionChips` over `SETTING_ENUMS[id.key] ?? []`, and an empty array
+  // renders a row with a label and nothing beside it. Seen in game on the watermark's page
+  // before this line existed, which is the only way it can be seen — jsdom renders the same
+  // empty chip row without complaint.
+  'watermark.style': ['full', 'mark', 'word'],
   // `keystrokes.key_color` and `keystrokes.pressed_color` are enums in mods.json too,
   // but deliberately absent here: this table drives the *generic* chip row, and the
   // Mod settings frame draws those two as colour swatches instead. Listing them would

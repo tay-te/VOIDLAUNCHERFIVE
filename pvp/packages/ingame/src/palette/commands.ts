@@ -8,12 +8,11 @@
  * **opens its properties panel — it does not change anything.** Three reasons, in the
  * order they matter:
  *
- *  · *Consistency.* Contract §7: selecting a mod opens the inspector, and that is
- *    exactly what clicking its tile does. Search must not invent a second verb for a
- *    noun the rest of the overlay already has a verb for.
+ *  · *Consistency.* Opening a mod's page is exactly what clicking its tile does. Search must
+ *    not invent a second verb for a noun the rest of the overlay already has a verb for.
  *  · *Feedback.* A result is on screen for a fraction of a second. "Clicking doesn't
  *    take me anywhere" was never a lost click — the toggle fired, on one tile out of
- *    seventeen, possibly behind the properties panel, and the palette closed over it.
+ *    seventeen, and the palette closed over it.
  *    A state change with no visible confirmation is indistinguishable from nothing
  *    happening, and adding the navigation *after* the toggle only made it less clear
  *    which of the two Enter had meant.
@@ -215,15 +214,15 @@ export function buildCommands(store: VoidState): Command[] {
 }
 
 /**
- * Show a mod's properties.
+ * Go to a mod's page.
  *
- * Contract §7: there is no separate mod-settings screen to route to any more.
- * Selecting the mod on the Mods screen opens the inspector beside it, so the
- * palette does exactly what a click would — one step, and the grid stays put.
+ * One call, and the same one the tile body makes: `openMod` writes the route and the grid's
+ * selection together, so the palette cannot land somewhere a click could not. It used to have
+ * to set the route to `mods` first and then select — two writes, and a `setRoute` that was only
+ * there because the destination was a panel on another screen rather than a place of its own.
  */
 function openProperties(store: VoidState, id: ModId): void {
-  store.setRoute({ name: 'mods' });
-  store.selectMod(id);
+  store.openMod(id);
 }
 
 function label(category: string): string {

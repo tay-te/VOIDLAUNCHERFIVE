@@ -66,9 +66,6 @@ export function CellArt({ rows, size = 9, tone = 'on', className }: CellArtProps
 /** The VOID ring: a 7 × 7 bitmap of 4px cells, 28 × 28 in the frame. */
 const RING = ['..###..', '.#...#.', '#.....#', '#.....#', '#.....#', '.#...#.', '..###..'];
 
-/** The close X: a 7 × 7 bitmap. The frame draws 3px cells, 21 × 21 inside a 36px button. */
-const CROSS = ['#.....#', '.#...#.', '..#.#..', '...#...', '..#.#..', '.#...#.', '#.....#'];
-
 /** The VOID mark, top left of every in-game frame. */
 export function VoidMark(): React.ReactElement {
   return (
@@ -79,62 +76,67 @@ export function VoidMark(): React.ReactElement {
   );
 }
 
+
 /**
- * The close button's X.
+ * The bar's icons, drawn from one PNG sprite.
  *
- * 2px cells, not the frame's 3. The buttons in the in-game bar are 24 square against the
- * board's 36 — the bar is 46 tall where the board's is 104 — and the glyphs had been left at
- * the board's size while the boxes around them were shrunk by hand, twice. A 21 x 21 X inside
- * a 24px button leaves 1.5px of air; the frame leaves 7.5. At two thirds it is 14 x 14 with
- * 5px, which is the frame's proportion.
+ * **Cell art lost this argument.** The VOID mark is still a bitmap of §3 cells and always will
+ * be — it is a wordmark built out of the design's own atom, not an icon — but the four controls
+ * beside it were cells too, and at 14px a magnifier made of 2px squares reads as a smudge
+ * rather than as a magnifier. The user asked for "an actual search icon from lucide", and the
+ * shapes here are Lucide's own geometry.
+ *
+ * They are **pixels, not SVG**, and that is not a compromise made to save effort:
+ * `design/ultralight-notes.md` rates inline `<svg>` [risky] — "strokes, `stroke-linejoin` and
+ * non-scaling strokes are the usual casualties" — and every Lucide icon is a stroke. The same
+ * line prescribes exactly this: a sprite sheet at the density in use, with `background-position`
+ * offsets. `scripts/build-icons.py` bakes it, and the geometry lives there in Lucide's own 24×24
+ * units so the sprite can be regenerated rather than being a binary nobody can edit.
+ *
+ * One `<span>` per icon, positioned by class; the size and the offsets are `overlay.css`'s.
  */
-export function CloseGlyph(): React.ReactElement {
-  return <CellArt rows={CROSS} size={2} />;
+function Icon({ name }: { name: 'search' | 'close' | 'grid' | 'list' | 'back' | 'settings' }) {
+  return <span className={`oicon oicon--${name}`} aria-hidden="true" />;
 }
 
-/** The magnifier: a 5 × 5 ring, and a handle running off its bottom-right corner. */
-const LENS = ['.###..', '#...#.', '#...#.', '#...#.', '.###..', '....#.', '.....#'];
-
 /**
- * The search button's magnifier.
+ * The bar's gear — lucide `settings`, simplified to eight teeth (see the script for why the
+ * twelve-tooth path is not transcribed).
  *
- * 2px cells, so it is 12 × 14 inside the same 24px button the close and the
- * inspector toggle use — the close's X is 14 × 14, and the two read as the same
- * weight because they are drawn out of the same atom at the same size.
- *
- * Cell art rather than an icon, for the reason at the top of this file: `@void/ui`
- * has a perfectly good `search` glyph and it is a stroked SVG path, which is the
- * class of thing ultralight-notes.md §7 lists as the usual casualty. The palette's
- * own query row does use that icon, and it is fine there — but the bar's other
- * three marks are cells, and one icon among them would be the odd one out
- * whether or not the engine drew it.
+ * It replaced the profile chip, which is a trade rather than an addition: the chip was the
+ * widest object in the bar and what it spent that width on was identity — which in game is
+ * settled, because you cannot switch accounts mid-match. A gear opens something.
  */
+export function SettingsGlyph(): React.ReactElement {
+  return <Icon name="settings" />;
+}
+
+/** The search button's magnifier — lucide `search`. */
 export function SearchGlyph(): React.ReactElement {
-  return <CellArt rows={LENS} size={2} />;
+  return <Icon name="search" />;
 }
 
-/** Grid view: a 2 × 2 block of cells. 2px for the same reason as {@link CloseGlyph}. */
+/** Grid view — lucide `layout-grid`. */
 export function GridGlyph(): React.ReactElement {
-  return <CellArt rows={['##.##', '##.##', '.....', '##.##', '##.##']} size={2} />;
+  return <Icon name="grid" />;
 }
 
-/** List view: three bars. The frame draws 20 × 4 rules, not cells. */
+/** List view — lucide `menu`. */
 export function ListGlyph(): React.ReactElement {
-  return (
-    <span className="vglyph-bars" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </span>
-  );
+  return <Icon name="list" />;
 }
 
-/** Inspector toggle: the two-pane mark, a wide pane and a narrow one. */
-export function InspectorGlyph(): React.ReactElement {
-  return (
-    <span className="vglyph-panes" aria-hidden="true">
-      <span className="vglyph-panes__wide" />
-      <span className="vglyph-panes__narrow" />
-    </span>
-  );
+/** The close button's X — lucide `x`. */
+export function CloseGlyph(): React.ReactElement {
+  return <Icon name="close" />;
+}
+
+/**
+ * The back mark on the mod page's bar — lucide `chevron-left`.
+ *
+ * There is no glyph for "properties" any more: the two-pane mark went with the inspector toggle
+ * it was drawn for, because a page has nothing to toggle.
+ */
+export function BackGlyph(): React.ReactElement {
+  return <Icon name="back" />;
 }
