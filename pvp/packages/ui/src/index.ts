@@ -13,7 +13,7 @@
  *
  * ```ts
  * import '@void/ui/tokens.css';   // the design tokens + the renderer layers
- * import '@void/ui/fonts.css';    // the three bundled OFL families
+ * import '@void/ui/fonts.css';    // Outfit, the one bundled OFL family
  * import '@void/ui/styles.css';   // the component styles
  * ```
  *
@@ -71,10 +71,13 @@ export type {
 
 /* -------------------------------------------------------------- controls */
 
-export { Toggle, Slider, KeybindChip, FilterTabs } from './components/controls.js';
+export { Toggle, Cell, Meter, Slider, KeybindChip, FilterTabs } from './components/controls.js';
 export type {
   ToggleProps,
   ToggleSize,
+  CellProps,
+  CellState,
+  MeterProps,
   SliderProps,
   KeybindChipProps,
   FilterTabsProps,

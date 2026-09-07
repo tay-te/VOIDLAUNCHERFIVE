@@ -75,15 +75,17 @@ function ultralightLayer(): string {
 describe('the ultralight layer applies the prescribed fallbacks', () => {
   const layer = ultralightLayer();
 
-  it('§1 replaces the blurred panel with a semi-opaque solid', () => {
-    // 0.97 when the host GL blur pass is not running…
-    expect(layer).toMatch(/--panel-bg:\s*rgba\(10, 11, 12, 0\.97\)/);
-    // …0.94 when it is, switched by the host's data-glblur attribute.
+  it('§1 has no blurred panel left to replace — the panel is an opaque CARD fill', () => {
+    // The quiet cell system carries depth in four opaque fill steps, so the panel is
+    // --card-bg in both renderers and the ultralight layer has nothing to substitute.
+    expect(tokenDecls).toMatch(/--panel-bg:\s*var\(--card-bg\)/);
+    // The host's attribute contract still has a target, and still resolves to the CARD
+    // step: there is nothing behind an opaque panel for a GL blur to show through.
     expect(tokenDecls).toMatch(
-      /\[data-renderer='ultralight'\]\[data-glblur='on'\][\s\S]*?--panel-bg:\s*rgba\(10, 11, 12, 0\.94\)/,
+      /\[data-renderer='ultralight'\]\[data-glblur='on'\][\s\S]*?--panel-bg:\s*var\(--card-bg\)/,
     );
-    expect(layer).toMatch(/--palette-bg:\s*rgba\(10, 11, 12, 0\.96\)/);
-    expect(layer).toMatch(/--dim-palette:\s*rgba\(10, 11, 12, 0\.62\)/);
+    // The one dim still doing a blur's job is the palette's, flattened to a solid.
+    expect(layer).toMatch(/--dim-palette:\s*rgba\(11, 11, 12, 0\.62\)/);
   });
 
   it('§1 zeroes every blur radius rather than branching on @supports', () => {
@@ -103,18 +105,24 @@ describe('the ultralight layer applies the prescribed fallbacks', () => {
     for (const token of ['--backdrop-panel', '--backdrop-dock', '--backdrop-dim']) {
       expect(layer).toMatch(new RegExp(`${token}:\\s*none`));
     }
-    // And no component may spell the property out itself: a literal blur() would not go
-    // through the layer at all, which is how this got shipped the first time.
+    // And no component may spell the property out itself. Under the quiet cell system
+    // nothing blurs in either renderer, so the right number of occurrences is zero —
+    // but a component that reintroduces one must still read it through the token.
     const declarations = componentDecls.match(/backdrop-filter:[^;]+;/g) ?? [];
-    expect(declarations.length).toBeGreaterThan(0);
     for (const declaration of declarations) {
       expect(declaration).toMatch(/backdrop-filter:\s*var\(--backdrop-[a-z]+\)/);
+    }
+    // …and the tokens themselves are `none` at :root, not only in the overlay.
+    for (const token of ['--backdrop-panel', '--backdrop-dock', '--backdrop-dim']) {
+      expect(tokenDecls).toMatch(new RegExp(`:root[\\s\\S]*?${token}:\\s*none`));
     }
   });
 
   it('§2 bakes the noise into the base hexes and switches the grain off', () => {
-    expect(layer).toMatch(/--surface-1:\s*#1a1d21/);
-    expect(layer).toMatch(/--surface-2:\s*#23272c/);
+    // The ramp is the quiet cell system's — CARD #191A1C, RAISED #212225 — lifted ~1%
+    // because the grain layer cannot paint here.
+    expect(layer).toMatch(/--card-bg:\s*#1A1B1D/);
+    expect(layer).toMatch(/--surface-raised:\s*#232426/);
     for (const token of [
       '--noise-opacity-frame',
       '--noise-opacity-canvas',
@@ -133,8 +141,11 @@ describe('the ultralight layer applies the prescribed fallbacks', () => {
     expect(tokenDecls).toMatch(
       /\[data-renderer='webview'\][\s\S]*?--selection-border-style:\s*dashed/,
     );
-    // …and the component reads the token rather than hard-coding either value.
-    expect(componentDecls).toMatch(/border:\s*1\.5px var\(--selection-border-style\) var\(--accent\)/);
+    // …and the component reads the token rather than hard-coding either value, and
+    // takes its colour through --hue so a mod's category hue reaches it (§1).
+    expect(componentDecls).toMatch(
+      /border:\s*1\.5px var\(--selection-border-style\) var\(--hue, var\(--accent\)\)/,
+    );
   });
 });
 
@@ -261,7 +272,11 @@ describe('every custom property the stylesheet reads is declared', () => {
     const body = preset.slice(preset.indexOf('@theme'));
     for (const [, value] of body.matchAll(/^\s*--[a-z0-9-]+:\s*([^;]+);/gim)) {
       // A baked hex here would freeze the launcher's colours into the in-game bundle.
-      expect(value!.trim(), 'theme values must be var(--token)').toMatch(/^var\(--[a-z0-9-]+\)$/);
+      // `var(--hue, var(--accent))` is allowed: --hue is deliberately undeclared at
+      // :root so a mod's own category hue can supply it (quiet-cell-system.md §1).
+      expect(value!.trim(), 'theme values must be var(--token)').toMatch(
+        /^var\(--[a-z0-9-]+(, var\(--[a-z0-9-]+\))?\)$/,
+      );
     }
   });
 });
@@ -271,18 +286,34 @@ describe('every custom property the stylesheet reads is declared', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('fonts.css', () => {
-  it('declares the six faces the design uses, all font-display: block', () => {
+  it('declares Outfit and nothing else — §2 settles the type on one family', () => {
     const faces = fontsCss.match(/@font-face\s*\{[^}]*\}/g) ?? [];
-    expect(faces.length).toBeGreaterThanOrEqual(6);
+    // 300 Light, 400 Regular, 500 Medium. Nothing heavier, and no second family.
+    expect(faces).toHaveLength(3);
     for (const face of faces) {
+      expect(face).toMatch(/font-family:\s*'Outfit'/);
       expect(face).toMatch(/font-display:\s*block/);
       expect(face).toMatch(/format\('woff2'\)/);
+    }
+    expect(declarations(fontsCss)).not.toMatch(/Bricolage|DM Mono/);
+    // The two dropped families' files are still on disk — the in-game font bundle is
+    // built out of that directory — so it is the @font-face going that takes them out.
+    expect(fontsCss).toMatch(/font-weight:\s*300/);
+    expect(fontsCss).not.toMatch(/font-weight:\s*[678]00/);
+  });
+
+  it('aliases the display and mono names onto the one family', () => {
+    expect(tokenDecls).toMatch(/--font-display:\s*var\(--font-ui\)/);
+    expect(tokenDecls).toMatch(/--font-mono:\s*var\(--font-ui\)/);
+    // Nothing in the package may name a family directly.
+    for (const [, value] of componentDecls.matchAll(/font-family:\s*([^;]+);/g)) {
+      expect(value!.trim()).toBe('var(--font-ui)');
     }
   });
 
   it('references only bundled, relative font URLs — the in-game bundle has no network', () => {
     const urls = [...fontsCss.matchAll(/url\('([^']+)'\)/g)].map((m) => m[1]!);
-    expect(urls.length).toBeGreaterThanOrEqual(6);
+    expect(urls.length).toBeGreaterThanOrEqual(3);
     for (const url of urls) {
       expect(url.startsWith('./fonts/')).toBe(true);
       expect(url.endsWith('.woff2')).toBe(true);

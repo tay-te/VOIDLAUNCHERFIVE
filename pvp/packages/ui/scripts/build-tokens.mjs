@@ -53,33 +53,332 @@ const HEADER = `/* =============================================================
 `;
 
 /**
- * Layer 1b — derived from the authored radii, emitted here rather than in `design/`
- * because nobody edits `design/` (CONTRACTS.md).
+ * Layer 1a — the quiet cell system (`design/quiet-cell-system.md`).
  *
- * A component cannot write `backdrop-filter: blur(var(--blur-panel))` and rely on the
- * ultralight layer zeroing the radius, because `blur(0px)` is still a filter function:
- * the element stays a backdrop root, WebKit re-samples everything behind it, and it can
- * no longer scope invalidation to the part that changed. Measured in game, that made a
+ * That file is the contract, and where it and the authored `design/tokens.css` disagree
+ * it wins. `design/` is read-only reference material, so layer 1 above is still copied
+ * verbatim — every token *name* it declares survives, which is what keeps the launcher,
+ * the overlay and the gallery compiling — and this layer restates the *values* the
+ * contract settles. Nothing is renamed; a name whose meaning the contract dropped is
+ * aliased onto the value that replaced it.
+ *
+ * The three structural changes, in the contract's own order:
+ *
+ *   §1  Four fill steps carry state — shell -> ground -> card -> raised — so no surface
+ *       needs a shadow, a blur or a gradient to read as raised. Every `--shadow-*`,
+ *       `--inset-*`, `--blur-*` and scrim below is therefore `none`/`0`, and `--card-bg`
+ *       is opaque: a translucent card over a translucent panel was the old way of
+ *       implying depth, and the ramp does that job now.
+ *   §1  Colour marks the live value or the selected item and nothing else, so the accent
+ *       tints become white alphas and the accent *inks* and borders read
+ *       `var(--hue, var(--accent))` — a mod sets `--hue` on its root and the whole
+ *       component tree follows it to that mod's category hue.
+ *   §2  One family, Outfit, at 300/400/500. `--font-display` and `--font-mono` are
+ *       aliases; the size ramp collapses onto four tiers and every old `--text-*` name
+ *       points at its nearest tier.
+ */
+const QUIET_CELL_LAYER = `
+
+/* ==========================================================================
+   Layer 1a — the quiet cell system
+   design/quiet-cell-system.md, which wins wherever it and layer 1 disagree.
+   Values only: every name layer 1 declares still exists.
+   ========================================================================== */
+
+:root {
+  /* ------------------------------------------------------------- §1 colour
+     The ramp. Four steps, all opaque; the step *is* the state. */
+  --bg-shell: #0B0B0C;            /* window chrome, outermost */
+  --bg-base: #131315;             /* recessed canvas inside the shell   (GROUND) */
+  --card-bg: #191A1C;             /* tiles, panes, cards                (CARD)   */
+  --surface-raised: #212225;      /* hover / selected surface           (RAISED) */
+
+  /* The pre-contract surface names, aliased onto the step they now mean. There is no
+     third raised step any more: --surface-3 was the "pill" tint and reads as RAISED. */
+  --surface-1: var(--card-bg);
+  --surface-2: var(--surface-raised);
+  --surface-3: var(--surface-raised);
+  --raised-bg: var(--surface-raised);
+  --key-bg: var(--surface-raised);
+  --panel-bg: var(--card-bg);
+  --palette-bg: var(--card-bg);
+  --dock-bg: var(--card-bg);
+  --field-bg: var(--bg-base);
+  --kbd-bg: var(--bg-base);
+  --kbd-bg-strong: var(--bg-base);
+  --stat-tile-bg: var(--bg-base);
+  --party-row-bg: var(--bg-base);
+
+  /* The only surfaces that stay translucent are the ones drawn over live game, where
+     the thing behind is the match and not another surface of ours. */
+  --hud-chip-bg: rgba(11, 11, 12, 0.72);
+  --hud-chip-bg-strong: rgba(11, 11, 12, 0.82);
+
+  --text-primary: #EDEEEF;
+  --text-secondary: #9A9DA1;
+  --text-muted: #626569;
+
+  --ok: #3DD68C;
+  --ok-ink: var(--ok);            /* one green, not a green and a lighter green */
+
+  /* Borders are white at low alpha, never a colour. Four steps, and every older
+     border name lands on one of them. */
+  --border-panel: rgba(255, 255, 255, 0.10);
+  --border-raised: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --divider: rgba(255, 255, 255, 0.045);
+  --rim: var(--divider);
+  --hairline: var(--border-raised);
+  --border-dock: var(--border-panel);
+  --border-eyebrow: var(--border-raised);
+  --seam: var(--divider);
+
+  /* ------------------------------------------------------- §1 category hues
+     A mod's live value, selection dot and drag handles take its category's hue.
+     \`--hue\` is deliberately NOT declared here: a rule reads
+     \`var(--hue, var(--accent))\`, so it falls back to the default until a mod's root
+     sets \`--hue\`. Declaring it globally would make that fallback unreachable. */
+  --hue-hud: #9F8BFF;
+  --hue-pvp: #FF9E7A;
+  --hue-visual: #7ADFFF;
+  --hue-utility: #7AE0B0;
+
+  --accent: var(--hue-hud);       /* the default hue */
+  --accent-fg: var(--bg-shell);   /* ink ON a hue fill */
+  --accent-ink: var(--hue, var(--accent));   /* hue-coloured *text* */
+
+  /* The accent rule: colour is never decoration, so what used to be an accent *tint*
+     is a white alpha now. Only the borders and inks — which mark the selected item —
+     still carry the hue. */
+  --accent-tint: rgba(255, 255, 255, 0.08);
+  --accent-tint-weak: rgba(255, 255, 255, 0.06);
+  --accent-tint-icon: rgba(255, 255, 255, 0.08);
+  --accent-tint-strong: rgba(255, 255, 255, 0.10);
+  --accent-tint-faint: rgba(255, 255, 255, 0.04);
+  --accent-border: var(--hue, var(--accent));
+  --accent-border-strong: var(--hue, var(--accent));
+  --ok-tint: rgba(255, 255, 255, 0.08);
+
+  --warn-ink: var(--warn);
+
+  /* Scrims stay; the two gradients do not — §1 allows no gradient anywhere. */
+  --dim-overlay: rgba(11, 11, 12, 0.50);
+  --dim-palette: rgba(11, 11, 12, 0.55);
+  --dim-hud-editor: rgba(11, 11, 12, 0.38);
+  --dim-preview: rgba(11, 11, 12, 0.58);
+  --scrim-launcher: none;
+  --scrim-vignette: none;
+
+  /* ------------------------------------------------------ §3 the cell atom
+     Everything textural is a square with a radius of 30% of its size. */
+  --cell-radius: 30%;
+  --cell-on: rgba(237, 238, 239, 0.40);      /* filled / on   — .36-.45 */
+  --cell-off: rgba(237, 238, 239, 0.08);     /* empty / off   — .06-.10 */
+  --cell-live: var(--hue, var(--accent));    /* the live value, drawn at .95 */
+  --cell-live-alpha: 0.95;
+
+  /* grid texture — 2px cells on an 8px step at 3%, for recessed surfaces. */
+  --grid-cell: 2px;
+  --grid-step: 8px;
+  --grid-alpha: 0.03;
+
+  /* dither — four rows at 15 / 10 / 6 / 3.5%, bottom edge of a raised surface. */
+  --dither-row-1: 0.15;
+  --dither-row-2: 0.10;
+  --dither-row-3: 0.06;
+  --dither-row-4: 0.035;
+
+  /* §5 the ambient field: the same cell texture in the hue, ramping 3% -> 22%. */
+  --field-alpha-rest: 0.03;
+  --field-alpha-hover: 0.22;
+
+  /* §4 the meter: N discrete cells, 12px on a 17px step. */
+  --meter-cell: 12px;
+  --meter-step: 17px;
+
+  /* ---------------------------------------------------------------- §2 type
+     Outfit only. No display face, no monospace — both names stay as aliases so
+     no call site breaks, and \`.v-tnum\` restores the digit alignment the mono
+     was carrying. */
+  --font-ui: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono: var(--font-ui);
+
+  /* 300 Light, 400 Regular, 500 Medium. Nothing heavier — the three names above
+     Medium are aliases so \`font-weight: var(--weight-bold)\` still resolves. */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: var(--weight-medium);
+  --weight-bold: var(--weight-medium);
+  --weight-extrabold: var(--weight-medium);
+
+  /* The tiers. Do not invent sizes between them.
+     Measured off the canonical Figma frames (file RShlfbx2TfxrdleKPIry8w, page
+     "Source of truth — Desktop Client"), which use exactly: 8, 8.5, 9, 9.5, 10,
+     12.5, 13, 13.5, 14, 15, 17, 30, 36, 88. The first draft of the contract stopped
+     display at 40 and aliased --text-hero onto it, which crushed the Play hero
+     from 88 to 40 — less than half — and is why the port read as cramped next to
+     the frames. Hero and numeral are their own tiers, not roundings of display. */
+  --text-display: 30px;      /* screen titles: "Keystrokes", "Mods" */
+  --text-display-md: 34px;
+  --text-display-lg: 40px;
+  --text-numeral: 36px;      /* stat numerals in a card preview: 142, 6.2, 2.0x */
+  --text-hero: 88px;         /* the Play hero, and nothing else */
+  --text-title: 15px;        /* pane headings, primary buttons */
+  --text-title-lg: 17px;
+  --text-body: 13px;         /* rows, labels, descriptions */
+  --text-body-lg: 14px;
+  --text-label: 9px;         /* eyebrows, categories, meta */
+  --text-label-lg: 10px;
+
+  /* Every authored size, snapped to its nearest tier. Names kept so the ~200 call
+     sites in this package and the two apps keep resolving. */
+  --text-2xs: var(--text-label);        /*  8.5 -> 9  */
+  --text-xs: var(--text-label);         /*  9         */
+  --text-xs-2: var(--text-label-lg);    /*  9.5 -> 10 */
+  --text-sm: var(--text-label-lg);      /* 10         */
+  --text-sm-2: var(--text-label-lg);    /* 10.5 -> 10 */
+  --text-base: var(--text-label-lg);    /* 11   -> 10 */
+  --text-base-2: var(--text-body);      /* 11.5 -> 13 */
+  --text-md: var(--text-body);          /* 12   -> 13 */
+  --text-md-2: var(--text-body);        /* 12.5 -> 13 */
+  --text-lg: var(--text-body);          /* 13         */
+  --text-lg-2: var(--text-body-lg);     /* 13.5 -> 14 */
+  --text-xl: var(--text-body-lg);       /* 14         */
+  --text-xl-2: var(--text-title);       /* 15         */
+  --text-2xl: var(--text-title-lg);     /* 16   -> 17 */
+  --text-3xl: var(--text-title-lg);     /* 17         */
+  --text-4xl: var(--text-title-lg);     /* 19   -> 17 */
+  --text-5xl: var(--text-title-lg);     /* 22   -> 17 */
+  --text-6xl: var(--text-display);      /* 26   -> 30 */
+  /* --text-hero is declared above as a tier of its own (88px), not an alias. */
+
+  --leading-nav: 16px;        /* on 13 */
+  --leading-title: 34px;      /* on 30 */
+  --leading-subtitle: 22px;   /* on 17 */
+  --leading-kbd: 13px;        /* on 10 */
+  --leading-hero: 44px;       /* on 40 */
+
+  /* Display tracks -0.02em. Body and title track 0. Labels track .12em. */
+  --tracking-display: -0.02em;
+  --tracking-label: 0.12em;
+  --tracking-hero: var(--tracking-display);
+  --tracking-title: var(--tracking-display);
+  --tracking-subtitle: 0;
+  --tracking-pane: 0;
+  --tracking-cta: 0;
+  --tracking-name: 0;
+  --tracking-name-tight: 0;
+  --tracking-member: 0;
+  --tracking-nav: 0;
+  --tracking-cps: 0;
+  --tracking-caps-xl: var(--tracking-label);
+  --tracking-caps-kbd: var(--tracking-label);
+  --tracking-caps-lg: var(--tracking-label);
+  --tracking-caps: var(--tracking-label);
+  --tracking-caps-sm: var(--tracking-label);
+  --tracking-caps-xs: var(--tracking-label);
+  --tracking-tag: var(--tracking-label);
+  --tracking-badge: var(--tracking-label);
+  --tracking-badge-lg: var(--tracking-label);
+
+  /* ------------------------------------------------------------- §1 flatness
+     No blur, no shadow, no gradient, anywhere — in either renderer. The names
+     stay: the ultralight layer and a few call sites still read them, and a
+     downstream package that writes \`box-shadow: var(--shadow-tile)\` should get
+     nothing rather than an invalid declaration. */
+  --blur-panel: 0px;
+  --blur-dock: 0px;
+  --blur-dim: 0px;
+
+  --shadow-tile: none;
+  --shadow-raised: none;
+  --shadow-key: none;
+  --shadow-thumb: none;
+  --shadow-toolbar: none;
+  --shadow-dock: none;
+  --shadow-panel: none;
+  --shadow-cta: none;
+  --shadow-switch-on: none;
+  --shadow-key-on: none;
+  --shadow-card-active: none;
+  --shadow-cape: none;
+
+  --inset-raised: none;
+  --inset-raised-soft: none;
+  --inset-card: none;
+  --inset-hud: none;
+  --inset-dock: none;
+  --inset-field: none;
+  --inset-field-panel: none;
+  --inset-accent: none;
+  --inset-accent-tint: none;
+  --inset-switch: none;
+  --inset-key: none;
+  --inset-kbd: none;
+  --inset-canvas: none;
+  --inset-row-selected: none;
+
+  /* ---------------------------------------------------------- §5 reactivity
+     Monochrome at rest; light and colour appear only where the pointer is.
+     Hover in is 140ms ease-out, leave 100ms ease-in, release drains over 200ms,
+     and the inspector's columns wipe on a 40ms stagger (§7). */
+  --duration-hover-in: 140ms;
+  --duration-hover-out: 100ms;
+  --duration-drain: 200ms;
+  --duration-stagger: 40ms;
+}
+
+/* A mod's root sets its category hue; every accent-consuming rule below reads
+   \`var(--hue, var(--accent))\` and follows. */
+.v-hue--hud { --hue: var(--hue-hud); }
+.v-hue--pvp { --hue: var(--hue-pvp); }
+.v-hue--visual { --hue: var(--hue-visual); }
+.v-hue--utility { --hue: var(--hue-utility); }
+`;
+
+/**
+ * Layer 1b — the backdrop tokens, emitted here rather than in `design/` because nobody
+ * edits `design/` (CONTRACTS.md).
+ *
+ * A component cannot write `backdrop-filter: blur(var(--blur-panel))` and rely on a
+ * layer below zeroing the radius, because `blur(0px)` is still a filter function: the
+ * element stays a backdrop root, WebKit re-samples everything behind it, and it can no
+ * longer scope invalidation to the part that changed. Measured in game, that made a
  * single mod toggle repaint the whole 2771x1532 panel — and sometimes the whole surface —
  * holding the menu to 13-26 repaints/s where the same view sustains 74/s on small damage.
  *
- * So the *whole property value* is the token. Layer 2 sets these to `none`, which is the
- * only value that actually removes the backdrop root.
+ * So the *whole property value* is the token, and under the quiet cell system it is
+ * `none` in **every** renderer: the system is flat, so nothing blurs anywhere and there
+ * is no radius left to express. `none` is also the only value that removes the backdrop
+ * root, so the launcher gets the invalidation win the overlay needed.
  */
 const DERIVED_LAYER = `
 
-/* ---- Layer 1b: derived from the authored radii (see scripts/build-tokens.mjs) ---- */
+/* ---- Layer 1b: the backdrop tokens (see scripts/build-tokens.mjs) ---- */
 
 :root {
-  --backdrop-panel: blur(var(--blur-panel));
-  --backdrop-dock: blur(var(--blur-dock));
-  --backdrop-dim: blur(var(--blur-dim));
+  --backdrop-panel: none;
+  --backdrop-dock: none;
+  --backdrop-dim: none;
 }
 `;
 
 /**
- * Layer 2. Every entry traces to a row in design/ultralight-notes.md; the comment
- * names the section it comes from.
+ * Layer 2 — what is still renderer-specific once the system is flat.
+ *
+ * The quiet cell system removed most of what this layer used to carry. Blur, shadow and
+ * gradient are gone from *both* renderers now (layer 1a), so the fallbacks that existed
+ * to strip them for Ultralight have nothing left to strip; each one is a `none` at
+ * `:root` instead of a `none` here. What remains are the two things that are genuinely
+ * about the renderer and not about the design:
+ *
+ *   §2  mix-blend-mode is unsupported, so the grain layer cannot paint and the base
+ *       hexes carry a ~1% lift in its place;
+ *   §7  dash phase on a rounded corner is inconsistent, so the selection border is solid.
+ *
+ * Every entry still traces to a row in design/ultralight-notes.md.
  */
 const ULTRALIGHT_LAYER = `
 
@@ -90,42 +389,16 @@ const ULTRALIGHT_LAYER = `
    ========================================================================== */
 
 [data-renderer='ultralight'] {
-  /* §1 backdrop-filter [hard] — the overlay never asks the renderer to blur what is
-     behind it. The game blur is a GL pass in the host, composited underneath, so the
-     web layer paints a semi-opaque solid instead. 0.97 is the no-GL-blur value; the
-     host raises it to the 0.94 variant by setting data-glblur="on" (see below). */
-  --panel-bg: rgba(10, 11, 12, 0.97);
-  --palette-bg: rgba(10, 11, 12, 0.96);
-  --dim-palette: rgba(10, 11, 12, 0.62); /* the authored blur(3px) becomes one flat layer */
-
-  /* Never branch on @supports (backdrop-filter: …) — Ultralight may claim support and
-     still no-op. The radii stay zeroed so anything derived from them is inert. */
-  --blur-panel: 0px;
-  --blur-dock: 0px;
-  --blur-dim: 0px;
-
-  /* …but a zero radius does not switch the effect off, and assuming it did cost the
-     overlay most of its frame rate. blur(0px) is still a filter function, so the element
-     remains a backdrop root: WebKit has to re-sample everything painted behind it and
-     cannot scope invalidation to what actually changed. Measured in game — toggling one
-     mod damaged 2771x1532 device pixels, the entire panel, and some changes damaged the
-     whole 3416x1920 surface. At ~10 ms per damaged megapixel that is a ~12 ms repaint for
-     a switch a few hundred pixels wide, which held the menu to 13-26 repaints/s while the
-     same view sustains 74/s when the damage is small.
-     'none' is the only value that removes the backdrop root, and it costs nothing here:
-     the radius was already 0, so the overlay never had a blur to lose — the game blur is
-     a GL pass in the host, composited underneath (§1 above). */
-  --backdrop-panel: none;
-  --backdrop-dock: none;
-  --backdrop-dim: none;
-
   /* §2 mix-blend-mode [hard] — fallback 1, "bake it": skip the runtime noise entirely
-     and nudge the base colours ~1% lighter so surfaces do not read as flat black. */
-  --surface-1: #1a1d21; /* authored #191c20 */
-  --surface-2: #23272c; /* authored #22262b */
-  --card-bg: rgba(26, 29, 33, 0.94); /* surface-1 @94%, re-derived from the baked hex */
-  --raised-bg: rgba(35, 39, 44, 0.97); /* surface-2 @97% */
-  --key-bg: rgba(35, 39, 44, 0.96); /* surface-2 @96% */
+     and nudge the base colours ~1% lighter so surfaces do not read as flat black. The
+     ramp is the quiet cell system's (layer 1a), lifted rather than replaced. */
+  --card-bg: #1A1B1D; /* the system's #191A1C */
+  --surface-raised: #232426; /* the system's #212225 */
+  --surface-1: var(--card-bg);
+  --surface-2: var(--surface-raised);
+  --surface-3: var(--surface-raised);
+  --raised-bg: var(--surface-raised);
+  --key-bg: var(--surface-raised);
 
   --noise-opacity-frame: 0;
   --noise-opacity-canvas: 0;
@@ -135,49 +408,23 @@ const ULTRALIGHT_LAYER = `
   --noise-opacity-tint: 0;
   --noise-opacity-chrome: 0;
 
-  /* §8 blurred box-shadow [expensive] — split by area, not by radius.
-     A blurred shadow is the costliest primitive a CPU rasteriser has, and it is worse than its
-     area suggests because the shadow extends past its element, so a change dirties a rectangle
-     larger than the element. Measured in game on a mod toggle: 43-80 ms a repaint with the whole
-     authored ramp, 15-25 ms with none of it — more than every other optimisation combined.
-     What costs is blur x area, not the radius on its own:
-         --shadow-panel   70px over 940x588  ~= 0.79 MP of blur
-         --shadow-switch-on 12px over 40x22  ~= 0.005 MP, ~150x cheaper
-     So the large surfaces move to the host's GL pass (layer 2b carries their authored values to
-     it, and setSurfaces tells it where they are) and everything small stays in CSS, where
-     the design keeps its depth for a cost that does not show up in a frame.
-     The split is forced as well as economical: the host draws underneath the view, and the panel
-     is opaque — a GL shadow for anything *inside* the panel would be hidden behind it. Only
-     surfaces that sit over the game can be drawn there. */
-  --shadow-panel: none;
-  --shadow-dock: none;
-  --shadow-toolbar: none;
+  /* §1 backdrop-filter [hard] — restated, not because layer 1a leaves anything to fix
+     but because this is the layer the overlay is read against. Never branch on
+     @supports (backdrop-filter: …): Ultralight may claim support and still no-op, and
+     blur(0px) is still a filter function — the element stays a backdrop root and WebKit
+     re-samples everything behind it. Measured in game, that made one mod toggle repaint
+     the whole 2771x1532 panel and held the menu to 13-26 repaints/s where the same view
+     sustains 74/s on small damage. \`none\` is the only value that removes the root. */
+  --blur-panel: 0px;
+  --blur-dock: 0px;
+  --blur-dim: 0px;
+  --backdrop-panel: none;
+  --backdrop-dock: none;
+  --backdrop-dim: none;
 
-  /* And the HUD's own, for a second reason: cost is per repaint, and these repaint constantly.
-     The keystrokes widget redraws on every key change — measured at 35 repaints a second while
-     moving, 10-19 ms each with the keycap shadows on. The menu is the opposite: it repaints when
-     you touch it, so a shadow there costs nothing you can feel. The chips sit on the game with
-     nothing behind them to cast onto anyway; --inset-key and the border already give them their
-     edge. */
-  --shadow-key: none;
-  --shadow-key-on: none;
-
-  /* Same reasoning inside the menu. What costs is a blur pass on an element that changes while you
-     are looking at it, and hover is the worst case — the tile under the cursor repaints every frame
-     of a 120 ms transition. --shadow-card-active is a 36px glow on exactly that element, and
-     --shadow-tile is on all twelve of them, so their damage unions across the grid. Both go.
-     The switch glow and the CTA halo stay: they are what the eye reads as "alive", they sit on
-     elements that change once per click rather than per frame, and measured they cost nothing
-     that shows. */
-  --shadow-tile: none;
-  --shadow-card-active: none;
-
-  /* The inset ramp is mostly hard lines, which are free; these three carried a blur and are
-     flattened to their hard equivalent. An inset cannot move to GL at all — it is drawn inside an
-     opaque element, where the pass underneath never reaches. */
-  --inset-canvas: inset 0 -1px 0 0 rgba(255, 255, 255, 0.05), inset 0 1px 0 0 rgba(0, 0, 0, 0.62);
-  --inset-accent: inset 0 -1px 0 0 rgba(0, 0, 0, 0.22), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.32);
-  --inset-kbd: inset 0 1px 0 0 rgba(0, 0, 0, 0.28);
+  /* The one dim that is still doing a blur's job: the authored blur(3px) behind the
+     quick palette becomes one flat layer, a little heavier than the launcher's. */
+  --dim-palette: rgba(11, 11, 12, 0.62);
 
   /* §7 border-style: dashed on a rounded box [risky] — dash phase on rounded corners is
      inconsistent, so the HUD-editor selection falls back to a solid edge. The
@@ -185,17 +432,19 @@ const ULTRALIGHT_LAYER = `
   --selection-border-style: solid;
 }
 
-/* §1 host contract: when the GL blur pass is running the host sets data-glblur="on"
-   and the panel may sit at the lighter alpha. */
+/* §1 host contract: the host sets data-glblur="on" while its GL blur pass is running.
+   Under the flat system the panel is opaque, so there is nothing behind it to show
+   through and its colour does not change — the selector is kept so the host's
+   attribute contract (setGlBlur) still has a target. */
 [data-renderer='ultralight'][data-glblur='on'] {
-  --panel-bg: rgba(10, 11, 12, 0.94);
+  --panel-bg: var(--card-bg);
 }
 
 /* ==========================================================================
    Layer 3 — [data-renderer="webview"]
    The launcher: Electron/Chromium (and the Tauri system webview), which has none of
-   the limits above. The authored values in layer 1 already are the rich version, so
-   this layer only restates the two tokens layer 2 introduces.
+   the limits above. The values in layers 1 and 1a already are the shipped version, so
+   this layer only restates the one token layer 2 introduces.
    ========================================================================== */
 
 [data-renderer='webview'] {
@@ -209,27 +458,36 @@ const ULTRALIGHT_LAYER = `
 `;
 
 /**
- * Layer 2b — the authored shadow values, carried through for the host to draw in GL.
+ * Layer 2b — the shadow values the host draws in GL, beneath the view.
  *
- * Layer 2 sets every `--shadow-*` to `none` because a blurred shadow is the most expensive thing a
- * CPU rasteriser does (see §8 there). Dropping the effect is not the same as dropping the *design*:
- * the host can draw these in GL underneath the view, where a blur costs nothing, and the result is
- * the Figma value rather than an approximation of it.
+ * `packages/ingame/src/effects/surfaces.ts` reads a `--shadow-<name>-gl` token per tracked
+ * surface and hands it to the host's GL pass, so the overlay could keep an ambient shadow
+ * without paying for a blur in Ultralight's CPU rasteriser.
  *
- * So each authored value is re-emitted as `--shadow-<name>-gl`, read straight out of layer 1 rather
- * than retyped. `design/tokens.css` stays the single source of truth: change the shadow there and
- * both the launcher's CSS and the overlay's GL pass follow, with nothing to keep in sync by hand.
+ * Under the quiet cell system there is no shadow to draw. Fill steps carry state and §1
+ * allows no shadow anywhere, in either renderer — so these resolve to `none`, which
+ * `parseShadow` already reads as "no surface", and the host draws nothing.
+ *
+ * The values are still *read* out of the cascade rather than retyped, so if a shadow ever
+ * comes back — in `design/tokens.css` or in the quiet cell layer — the GL pass follows it
+ * with nothing to keep in sync by hand. Last declaration wins, exactly as in CSS.
  */
-function glShadowLayer(authoredCss) {
-  const shadows = [...authoredCss.matchAll(/^\s*(--shadow-[a-z0-9-]+)\s*:\s*([^;]+);/gim)];
-  if (shadows.length === 0) return '';
-  const lines = shadows.map(([, name, value]) => `  ${name}-gl: ${value.trim()};`);
+function glShadowLayer(...cssLayers) {
+  const effective = new Map();
+  for (const css of cssLayers) {
+    for (const [, name, value] of css.matchAll(/^\s*(--shadow-[a-z0-9-]+)\s*:\s*([^;]+);/gim)) {
+      effective.set(name, value.trim());
+    }
+  }
+  if (effective.size === 0) return '';
+  const lines = [...effective].map(([name, value]) => `  ${name}-gl: ${value};`);
   return `
 
 /* ==========================================================================
    Layer 2b — [data-renderer="ultralight"], shadows for the GL pass
-   The authored values from layer 1, verbatim, for the host to draw beneath the
-   view. Layer 2 keeps the CSS properties themselves at \`none\`.
+   Read out of the cascade above, for the host to draw beneath the view. The
+   quiet cell system is flat, so every one of these is \`none\` and the host
+   draws nothing; the layer stays so a shadow that comes back reaches GL.
    ========================================================================== */
 
 [data-renderer='ultralight'] {
@@ -243,9 +501,10 @@ writeFileSync(
   HEADER +
     '/* ---- Layer 1: pvp/design/tokens.css, verbatim ---- */\n\n' +
     authored +
+    QUIET_CELL_LAYER +
     DERIVED_LAYER +
     ULTRALIGHT_LAYER +
-    glShadowLayer(authored),
+    glShadowLayer(authored, QUIET_CELL_LAYER),
   'utf8',
 );
 process.stdout.write('generated src/tokens.css\n');
@@ -257,9 +516,12 @@ process.stdout.write('generated src/tokens.css\n');
 writeFileSync(path.join(srcDir, 'tokens.json'), authoredJson, 'utf8');
 process.stdout.write('generated src/tokens.json\n');
 
-// Every custom property declared in the authored :root block, for autocomplete and for
-// the gallery's token inspector.
-const names = [...authored.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gim)].map((m) => m[1]);
+// Every custom property the shipped token sheet declares — the authored :root block plus
+// the quiet cell system's own names (--hue-*, --cell-*, the four type tiers) — for
+// autocomplete and for the gallery's token inspector.
+const names = [authored, QUIET_CELL_LAYER]
+  .flatMap((css) => [...css.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gim)])
+  .map((m) => m[1]);
 const unique = [...new Set(names)].sort();
 writeFileSync(
   path.join(srcDir, 'tokens.ts'),

@@ -9,12 +9,9 @@
   border-radius: var(--radius-surface);
   background: var(--palette-bg);
   border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel), var(--inset-hud);
   overflow: hidden;
   /* Read the whole value through the token so the ultralight layer can resolve it to
      `none`; blur(0px) would still make this a backdrop root. */
-  -webkit-backdrop-filter: var(--backdrop-panel);
-  backdrop-filter: var(--backdrop-panel);
 }
 
 /* ------------------------------------------------------------------ input */
@@ -73,7 +70,7 @@
   flex: 0 0 auto;
   width: 2px;
   height: 22px;
-  background: var(--accent);
+  background: var(--hue, var(--accent));
   /* Blinking is an opacity animation, which Ultralight handles. */
   animation: v-caret 1.1s steps(2, jump-none) infinite;
 }
@@ -122,17 +119,18 @@
   border-radius: var(--radius-field);
   border: 1px solid transparent;
   text-align: left;
-  transition: background-color var(--duration-fast) var(--ease-standard);
+  transition: background-color var(--duration-hover-out) var(--ease-in);
 }
 
 .v-palette__row:hover:not(.v-palette__row--selected) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   background: var(--tint-04);
 }
 
 .v-palette__row--selected {
   background: var(--accent-tint-weak);
   border-color: var(--accent-border);
-  box-shadow: var(--inset-row-selected);
 }
 
 .v-palette__text {
@@ -153,7 +151,7 @@
 }
 
 .v-palette__sub {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
   white-space: pre;
@@ -202,7 +200,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }

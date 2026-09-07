@@ -26,14 +26,14 @@ body {
 }
 
 .g-bar__title {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-weight: var(--weight-extrabold);
   font-size: 20px;
   letter-spacing: var(--tracking-title);
 }
 
 .g-bar__note {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
 }
@@ -81,7 +81,7 @@ body {
 
 .g-section > h2 {
   margin: 0 0 4px;
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-weight: var(--weight-extrabold);
   font-size: var(--text-5xl);
   letter-spacing: var(--tracking-subtitle);
@@ -112,13 +112,13 @@ body {
 }
 
 .g-specimen__name {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   color: var(--text-primary);
 }
 
 .g-specimen__state {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -137,7 +137,10 @@ body {
   background: var(--bg-shell);
 }
 
-/* A stand-in for the live game render behind the HUD widgets and the editor. */
+/* A stand-in for the live game render behind the HUD widgets and the editor.
+
+   The one gradient in the package, and deliberately so: it stands in for Minecraft, not
+   for a surface of ours. Nothing the design system draws uses a gradient (§1). */
 .g-game {
   position: relative;
   background:

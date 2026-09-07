@@ -18,7 +18,6 @@
   padding: var(--pad-hud-chip);
   border-radius: var(--radius-chip);
   background: var(--hud-chip-bg);
-  box-shadow: var(--inset-hud);
   white-space: nowrap;
 }
 
@@ -36,7 +35,7 @@
 }
 
 .v-hudchip__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-lg);
   color: var(--text-primary);
 }
@@ -48,7 +47,7 @@
 }
 
 .v-hudchip__aside {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-muted);
   /* The frames space their `·` separators with runs of real spaces; HTML would
@@ -72,7 +71,7 @@
 }
 
 .v-coordschip__axis {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   color: var(--text-primary);
 }
@@ -80,19 +79,19 @@
 /* ---------------------------------------------------------------- CpsChip */
 
 .v-cpschip__left {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-lg);
   color: var(--accent-ink);
 }
 
 .v-cpschip__sep {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   color: var(--text-muted);
 }
 
 .v-cpschip__right {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-lg);
   color: var(--text-primary);
 }
@@ -114,7 +113,6 @@
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
   border: 1px solid var(--border-dock);
-  box-shadow: var(--inset-hud);
 }
 
 .v-potionlist__row {
@@ -141,7 +139,7 @@
 }
 
 .v-potionlist__timer {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   color: var(--text-secondary);
 }
@@ -157,7 +155,6 @@
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
   border: 1px solid var(--border-dock);
-  box-shadow: var(--inset-hud);
 }
 
 .v-armorlist--vertical {
@@ -199,7 +196,7 @@
 }
 
 .v-armorlist__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
 }
@@ -252,7 +249,6 @@
   border-radius: var(--radius-control);
   background: var(--key-bg);
   border: 1px solid var(--tint-10);
-  box-shadow: var(--shadow-key), var(--inset-key);
   font-family: var(--font-ui);
   font-weight: var(--weight-bold);
   font-size: var(--text-lg);
@@ -293,15 +289,14 @@
 }
 
 .v-keystrokes__key--pressed {
-  background: var(--accent);
+  background: var(--hue, var(--accent));
   border-color: var(--tint-35);
   color: var(--accent-fg);
-  box-shadow: var(--shadow-cta), var(--inset-accent);
 }
 
 /** CPS printed inside the mouse keys when `show_cps` is on. */
 .v-keystrokes__cps {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-weight: var(--weight-regular);
   font-size: var(--text-sm);
   opacity: 0.8;
@@ -348,7 +343,6 @@
   padding: var(--space-4);
   border-radius: var(--radius-chip);
   background: var(--hud-chip-bg);
-  box-shadow: var(--inset-hud);
 }
 
 .v-hotbar__slot {
@@ -360,7 +354,6 @@
   border-radius: var(--radius-badge);
   background: var(--key-bg);
   border: 1px solid var(--tint-10);
-  box-shadow: var(--shadow-key), var(--inset-key);
 }
 
 .v-hotbar__item {

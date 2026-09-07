@@ -24,12 +24,14 @@
   color: var(--text-secondary);
   white-space: nowrap;
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-hover-out) var(--ease-in),
+    color var(--duration-hover-out) var(--ease-in),
     transform var(--duration-instant) var(--ease-standard);
 }
 
 .v-tab:hover:not(.v-tab--selected) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   background: var(--tint-04);
   color: var(--text-primary);
 }
@@ -42,13 +44,12 @@
 .v-tab--selected {
   background: var(--accent-tint);
   border-color: var(--accent-border);
-  box-shadow: var(--inset-accent-tint);
   color: var(--accent-ink);
   font-weight: var(--weight-medium);
 }
 
 .v-tab__count {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -87,17 +88,19 @@
   border-radius: var(--radius-card);
   background: var(--card-bg);
   border: 1px solid var(--tint-07);
-  box-shadow: var(--shadow-tile), var(--inset-card);
   text-align: left;
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-hover-out) var(--ease-in),
+    border-color var(--duration-hover-out) var(--ease-in),
     transform var(--duration-instant) var(--ease-standard);
 }
 
+/* §5.1 — hover lifts the surface one step, CARD -> RAISED. No glow. */
 .v-modtile:hover {
-  background: var(--surface-1);
-  border-color: var(--tint-12);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
+  border-color: var(--border-panel);
 }
 
 /* A tile is a big target, so the press reads better as the whole card taking the push
@@ -110,7 +113,7 @@
 /* Selection is carried by the border alone — no fill change. */
 .v-modtile--selected {
   border-width: 1.5px;
-  border-color: var(--accent);
+  border-color: var(--hue, var(--accent));
   padding: 0 calc(var(--pad-tile-x) - 0.5px);
 }
 
@@ -158,7 +161,7 @@
 }
 
 .v-modtile__select:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--hue, var(--accent));
   outline-offset: -3px;
 }
 
@@ -182,7 +185,6 @@
   border-radius: var(--radius-cta);
   background: var(--card-bg);
   border: 1px solid var(--tint-07);
-  box-shadow: var(--shadow-tile), var(--inset-card);
 }
 
 .v-modsettings__header {
@@ -221,7 +223,6 @@
   border-radius: var(--radius-card-sm);
   background: var(--card-bg);
   border: 1px solid var(--tint-07);
-  box-shadow: var(--shadow-tile);
 }
 
 .v-kspreview__key {
@@ -248,7 +249,7 @@
 }
 
 .v-kspreview__key--pressed {
-  background: var(--accent);
+  background: var(--hue, var(--accent));
   border-color: var(--tint-30);
   color: var(--accent-fg);
 }
@@ -263,21 +264,19 @@
   width: 100%;
   padding: var(--space-10) 0;
   border-radius: var(--radius-field);
-  background: var(--accent);
-  color: var(--accent-fg);
+  /* Primary treatment (§4). It opens the HUD editor — an action, so no hue. */
+  background: var(--text-primary);
+  color: var(--bg-shell);
   font-size: var(--text-md-2);
-  font-weight: var(--weight-bold);
-  box-shadow: var(--shadow-cta), var(--inset-accent);
+  font-weight: var(--weight-medium);
   transition:
-    box-shadow var(--duration-fast) var(--ease-standard),
     transform var(--duration-instant) var(--ease-standard);
 }
 
 .v-editposition:hover:not(:disabled) {
-  box-shadow:
-    0 6px 14px -4px rgba(0, 0, 0, 0.35),
-    0 10px 28px -6px rgba(159, 139, 255, 0.55),
-    var(--inset-accent);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--text-secondary);
 }
 
 .v-editposition:active:not(:disabled) {
@@ -293,7 +292,6 @@
   border-radius: var(--radius-cta);
   background: var(--card-bg);
   border: 1px solid var(--tint-07);
-  box-shadow: var(--shadow-tile), var(--inset-card);
   overflow: hidden;
 }
 
@@ -335,7 +333,7 @@
 .v-group__value {
   flex: 0 0 48px;
   text-align: right;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-md);
   color: var(--text-primary);
 }
@@ -375,13 +373,12 @@
   border-radius: var(--radius-chip);
   background: var(--raised-bg);
   border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
   font-size: var(--text-base-2);
   color: var(--text-secondary);
   white-space: nowrap;
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-hover-out) var(--ease-in),
+    color var(--duration-hover-out) var(--ease-in),
     transform var(--duration-instant) var(--ease-standard);
 }
 
@@ -390,13 +387,14 @@
 }
 
 .v-chip:hover:not(.v-chip--selected) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   color: var(--text-primary);
 }
 
 .v-chip--selected {
   background: var(--accent-tint);
   border-color: var(--accent-border);
-  box-shadow: var(--inset-accent-tint);
   color: var(--accent-ink);
   font-weight: var(--weight-medium);
 }

@@ -21,11 +21,13 @@
 
 @theme {
   /* ------------------------------------------------------------- colours */
+  /* The ramp: shell -> ground -> card -> raised (quiet-cell-system.md §1). */
   --color-shell: var(--bg-shell);
   --color-ground: var(--bg-base);
   --color-card: var(--surface-1);
-  --color-card-raised: var(--surface-2);
-  --color-pill: var(--surface-3);
+  --color-card-raised: var(--surface-raised);
+  --color-raised-step: var(--surface-raised);
+  --color-pill: var(--surface-raised);
 
   --color-ink: var(--text-primary);
   --color-ink-2: var(--text-secondary);
@@ -34,6 +36,19 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-fg: var(--accent-fg);
+
+  /* §1 category hues. A `text-hue` / `bg-hue` utility follows whatever --hue the mod's
+     root sets, and falls back to the default accent when it sets none. */
+  --color-hue: var(--hue, var(--accent));
+  --color-hue-hud: var(--hue-hud);
+  --color-hue-pvp: var(--hue-pvp);
+  --color-hue-visual: var(--hue-visual);
+  --color-hue-utility: var(--hue-utility);
+
+  /* §3 cell fills. */
+  --color-cell-on: var(--cell-on);
+  --color-cell-off: var(--cell-off);
+  --color-cell-live: var(--cell-live);
 
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
@@ -70,6 +85,7 @@
   --color-border-panel: var(--border-panel);
   --color-border-dock: var(--border-dock);
   --color-border-raised: var(--border-raised);
+  --color-border-strong: var(--border-strong);
   --color-accent-border: var(--accent-border);
   --color-accent-border-strong: var(--accent-border-strong);
 
@@ -111,7 +127,19 @@
   --font-mono: var(--font-mono);
   --font-sans: var(--font-ui);
 
-  /* ---------------------------------------------------------- type sizes */
+  /* ---------------------------------------------------------- type sizes
+     The four tiers first (§2); everything under them is an old name pointing at its
+     nearest tier, kept so existing utilities keep resolving. */
+  --text-display: var(--text-display);
+  --text-display-md: var(--text-display-md);
+  --text-display-lg: var(--text-display-lg);
+  --text-title: var(--text-title);
+  --text-title-lg: var(--text-title-lg);
+  --text-body: var(--text-body);
+  --text-body-lg: var(--text-body-lg);
+  --text-label: var(--text-label);
+  --text-label-lg: var(--text-label-lg);
+
   --text-2xs: var(--text-2xs);
   --text-xs: var(--text-xs);
   --text-xs2: var(--text-xs-2);
@@ -133,6 +161,8 @@
   --text-hero: var(--text-hero);
 
   /* ----------------------------------------------------------- tracking */
+  --tracking-display: var(--tracking-display);
+  --tracking-label: var(--tracking-label);
   --tracking-hero: var(--tracking-hero);
   --tracking-title: var(--tracking-title);
   --tracking-subtitle: var(--tracking-subtitle);
@@ -158,7 +188,10 @@
   --leading-kbd: var(--leading-kbd);
   --leading-hero: var(--leading-hero);
 
-  /* ------------------------------------------------------------ shadows */
+  /* ------------------------------------------------------------ shadows
+     Every one of these is `none` under the quiet cell system (§1: no shadow anywhere).
+     They are mapped so a `shadow-tile` utility left in an app is inert rather than a
+     build error — not so that new code reaches for one. */
   --shadow-tile: var(--shadow-tile);
   --shadow-raised: var(--shadow-raised);
   --shadow-key: var(--shadow-key);
@@ -187,14 +220,21 @@
   --inset-shadow-canvas: var(--inset-canvas);
   --inset-shadow-row-selected: var(--inset-row-selected);
 
-  /* ------------------------------------------------------------- motion */
+  /* ------------------------------------------------------------- motion
+     §5: hover in 140ms ease-out, leave 100ms ease-in, release drains over 200ms, the
+     inspector's columns wipe on a 40ms stagger. */
   --ease-standard: var(--ease-standard);
   --ease-out: var(--ease-out);
   --ease-in: var(--ease-in);
 
+  --duration-hover-in: var(--duration-hover-in);
+  --duration-hover-out: var(--duration-hover-out);
+  --duration-drain: var(--duration-drain);
+  --duration-stagger: var(--duration-stagger);
+
   /* --------------------------------------------------------------- blur
-     Launcher only. In the overlay these resolve to 0 through the ultralight
-     layer, so a `backdrop-blur-panel` utility is inert rather than wrong. */
+     Zero everywhere: the quiet cell system is flat (§1). Mapped so a `blur-panel`
+     utility left in an app is inert rather than a build error. */
   --blur-panel: var(--blur-panel);
   --blur-dock: var(--blur-dock);
   --blur-dim: var(--blur-dim);

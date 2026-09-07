@@ -1,18 +1,19 @@
 /* ==========================================================================
-   @void/ui — bundled webfaces
+   @void/ui — the bundled webface
 
-   Three OFL families, as **static instances** in woff2. Ultralight loads static faces
-   reliably and variable axes much less so (design/ultralight-notes.md §7), so the two
-   variable sources are instanced at build time by scripts/fetch-fonts.mjs:
+   One family. `design/quiet-cell-system.md` §2 settles the type on **Outfit only**:
+   no display face, no monospace. `--font-display` and `--font-mono` are aliases of
+   `--font-ui` in `tokens.css`, so the call sites that still name them resolve here,
+   and the digit alignment the monospace was carrying is restored where it matters by
+   `.v-tnum` (`font-variant-numeric: tabular-nums`) rather than by a second family.
 
-     Bricolage Grotesque  opsz 14, wdth 100, wght 800   (the display axis pins the
-                                                         design authors on every title)
-     Outfit               wght 400 / 500 / 600
-     DM Mono              400 / 500  (already static upstream)
+   Weights: 300 Light, 400 Regular, 500 Medium. Nothing heavier — `--weight-semibold`,
+   `--weight-bold` and `--weight-extrabold` all alias Medium.
 
-   Because the instances are pinned, **no rule in this package uses
-   font-variation-settings** — the overlay CSS must not, and the launcher does not need
-   to, since these are the exact instances the design specifies.
+   Static instances in woff2. Ultralight loads static faces reliably and variable axes
+   much less so (design/ultralight-notes.md §7), so the variable source is instanced at
+   build time by scripts/fetch-fonts.mjs and **no rule in this package uses
+   font-variation-settings**.
 
    `font-display: block`: the in-game bundle has no network and the faces are local, so
    there is no FOUT to trade against — a swap would just flash the fallback for a frame
@@ -20,14 +21,23 @@
 
    The url()s are relative, so the consumer's bundler resolves and fingerprints them.
    With Vite that is automatic; see README.md, "Consuming the fonts".
+
+   The Bricolage Grotesque and DM Mono files are still in `src/fonts/` (the in-game
+   font bundle is built from that directory and is not this package's to prune), but
+   no rule here loads them: dropping the @font-face is what takes them out of the CSS.
    ========================================================================== */
 
+/* Light. A real `wght 300` instance, cut by the same pipeline as the other faces and
+   subset to the same unicode range — 269 glyphs, `usWeightClass 300`. It has to be a
+   real instance: Outfit has no stem width for a browser to fake a thin from, and the
+   in-game bundle carries the matching `outfit-300.ttf`, so a synthesised Light here
+   would render differently in the launcher than in the game. */
 @font-face {
-  font-family: 'Bricolage Grotesque';
+  font-family: 'Outfit';
   font-style: normal;
-  font-weight: 800;
+  font-weight: 300;
   font-display: block;
-  src: url('./fonts/bricolage-grotesque-800.woff2') format('woff2');
+  src: url('./fonts/outfit-300.woff2') format('woff2');
 }
 
 @font-face {
@@ -44,39 +54,4 @@
   font-weight: 500;
   font-display: block;
   src: url('./fonts/outfit-500.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Outfit';
-  font-style: normal;
-  font-weight: 600;
-  font-display: block;
-  src: url('./fonts/outfit-600.woff2') format('woff2');
-}
-
-/* The design also asks for Outfit Bold on keycap glyphs. The family ships no 700
-   instance here; 600 is the heaviest bundled weight and synthetic bolding is off, so
-   700 resolves to the 600 face rather than a smeared fake. */
-@font-face {
-  font-family: 'Outfit';
-  font-style: normal;
-  font-weight: 700;
-  font-display: block;
-  src: url('./fonts/outfit-600.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'DM Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url('./fonts/dm-mono-400.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'DM Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: block;
-  src: url('./fonts/dm-mono-500.woff2') format('woff2');
 }

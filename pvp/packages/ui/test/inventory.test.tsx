@@ -591,7 +591,7 @@ describe('mods', () => {
       </ModSettingsPanel>,
     );
     expect(screen.getByText('Keystrokes')).toBeInTheDocument();
-    expect(container.querySelector('.v-toggle--m')).not.toBeNull();
+    expect(container.querySelector('.v-toggle--md')).not.toBeNull();
     expect(screen.getByText('Keybind')).toBeInTheDocument();
   });
 
@@ -826,12 +826,15 @@ describe('list rows', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
   });
 
-  it('CosmeticCard draws the glow as a box-shadow, never a filter', () => {
+  it('CosmeticCard draws the cape flat — the quiet cell system has no glow', () => {
+    // design/quiet-cell-system.md §1: no blur, no shadow, no gradient, anywhere. The
+    // `glow` prop is accepted and ignored so callers keep compiling.
     const { container } = render(
       <CosmeticCard name="Void Trail" color="#9f8bff" glow="rgba(115,89,242,0.45)" />,
     );
     const swatch = container.querySelector<HTMLElement>('.v-cosmetic__swatch')!;
-    expect(swatch.style.boxShadow).toContain('rgba(115,89,242,0.45)');
+    expect(swatch.style.background).toBe('rgb(159, 139, 255)');
+    expect(swatch.style.boxShadow).toBe('');
     expect(swatch.style.filter).toBe('');
   });
 });
