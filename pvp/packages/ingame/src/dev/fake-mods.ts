@@ -9,8 +9,8 @@
  * map, the loadout model, `bridge.json`). Adding a mod to see what the grid does at a
  * higher count would mean a schema change plus the matching Java, and would leave test
  * fixtures in a shipping artefact. Everything the layout needs is on *this* side of the
- * bridge — the grid derives its shape from `MOD_ORDER.length` (`ModsScreen`, `GRID_ROWS`
- * / `PANEL_COLUMNS`) — so the padding belongs here, off by default, and removable by deleting
+ * bridge — the grid derives its shape from `MOD_ORDER.length` (`ModsScreen`, `solveGrid`
+ * / `gridRows`) — so the padding belongs here, off by default, and removable by deleting
  * this file, its four call sites (`registry.ts`, `store.ts`, `TilePreview.tsx`, `App.tsx`) and
  * the `define` in `vite.config.ts`.
  *

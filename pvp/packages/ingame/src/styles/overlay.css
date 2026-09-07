@@ -337,7 +337,7 @@ body {
   --cell-dim: rgba(237, 238, 239, 0.16);
 
   /* ---- the shell, and the tile it sizes ------------------------------------
-     **One panel, fixed, wide and centred.** It does not resize between states — what changes
+     **One wide, centred panel.** It does not resize between the two states — what changes
      is how the space inside it is divided:
 
        inspector shut   the grid fills the panel, edge to edge
@@ -355,16 +355,30 @@ body {
 
      The tile's own proportions are the frames' (`289:1611`): a square preview well inset by
      the tile's padding, and a foot deep enough for a 14px name beside §4's `sm` switch. Both
-     fall out of the width, so a different mod count changes the tile's size, not its shape. */
+     fall out of the width, so a different mod count changes the tile's size, not its shape.
+
+     **Where the numbers come from.** `--panel-w`, `--panel-h`, `--tile-w`, `--panel-cols`,
+     `--panel-rows` and `--grid-gutter` are all written on this element by `ModsScreen` from
+     `solveGrid`, which is where the whole derivation now lives. It used to be here, as a chain
+     of `calc()` ending in a `--panel-h` that `max-height` then clamped — and CSS has no way to
+     notice that clamp, so at seventeen mods the grid was laid out for a panel 894 tall inside
+     a box the engine had cut to 796. The third row went under the fold and the scrollbar took
+     eleven pixels off the sixth column, which `overflow-x: hidden` then made unreachable.
+     `solveGrid` reads the window *before* choosing the shape, and is unit-tested at every
+     count. The declarations below are the fallbacks that keep this file readable on its own,
+     at the twelve the registry ships: six across, two down, 195-wide tiles, 1278 x 635. */
   --edge: 24px; /* content inset, left and right */
   --tile-gap: 12px;
-  /* `--panel-cols` / `--panel-rows` are written on the element by `ModsScreen` from the
-     *registry's* size, never the filtered one — a tab matching two mods must not resize the
-     window it is filtering. The fallbacks keep this rule standalone at the twelve the registry
-     ships: six across, two down. */
   --content-w: calc(var(--panel-w) - 2 * var(--edge));
+  --panel-cols: 6;
+  --panel-rows: 2;
+  /* Zero unless the rows are taller than the panel can be. `solveGrid` holds it back out of
+     the tile width so a scrollbar cannot eat the last column; see `GEOMETRY.gutter` for why
+     it is twelve and not the six `::-webkit-scrollbar` asks for. */
+  --grid-gutter: 0px;
   --tile-w: calc(
-    (var(--content-w) - (var(--panel-cols, 6) - 1) * var(--tile-gap)) / var(--panel-cols, 6)
+    (var(--content-w) - var(--grid-gutter) - (var(--panel-cols) - 1) * var(--tile-gap)) /
+      var(--panel-cols)
   );
   /* `--tile-w - 20` is the well inside the tile's 10px padding; 52 is the foot, which is the
      frames' own (`289:1611` leaves 50 under a 150 well in a 223 tile). 195 wide therefore gives
@@ -374,30 +388,36 @@ body {
      rather than taste: the properties panel is exactly as tall as the grid, and the worst mod
      in the registry — keystrokes, eight rows in two groups under a preview — overflowed a
      36-foot panel by 30px and scrolled. 52 puts the panel at 635, which fits it, and puts the
-     tile back on the frames' proportion at the same time. */
+     tile back on the frames' proportion at the same time.
+
+     Kept in step with `GEOMETRY.foot` in ModsScreen.tsx, which is the copy the solve reads. */
   --tile-art: calc(var(--tile-w) - 20px);
   --tile-h: calc(var(--tile-w) + 52px);
 
-  --chrome-h: 129px; /* bar 46 + rule 1 + body inset 16 + status 36 + hint 30 */
-  /* 1278 is six columns of 195 plus the insets.
-
-     **A pure length, deliberately.** A custom property holding a percentage is substituted
-     textually and resolved against whichever element ends up *using* it, so writing this as
-     `min(1278px, calc(100% - 48px))` would make `--tile-w` mean one thing on `.overlay` and
-     another on `.mods-col`, whose containing block is the content box rather than the window —
-     six columns of 179 in a panel built for six of 195, and a 96px hole down the right where
-     the arithmetic disagreed with itself. Everything derived from this is therefore a length
-     all the way down; the window is only consulted by `max-height` / `max-width` below, which
-     are read on this element and nowhere else. */
-  --panel-w: 1278px;
-  --panel-h: calc(
-    var(--panel-rows, 2) * (var(--tile-h) + var(--tile-gap)) - var(--tile-gap) + var(--chrome-h)
+  /* bar 46 + rule 1 + body inset 16 + status 36 + hint 29.5, rounded up.
+     `GEOMETRY.chrome` in ModsScreen.tsx is the same number, and subtracts it. */
+  --chrome-h: 129px;
+  /* The width the grid actually occupies — everything but the gutter. Stated once because
+     `.mods-view` and `.ostatus--grid` both have to agree with it. */
+  --grid-w: calc(
+    var(--panel-cols) * var(--tile-w) + (var(--panel-cols) - 1) * var(--tile-gap)
   );
+  /* **Pure lengths, deliberately.** A custom property holding a percentage is substituted
+     textually and resolved against whichever element ends up *using* it, so writing these as
+     `min(1278px, calc(100% - 48px))` would make `--tile-w` mean one thing on `.overlay` and
+     another on `.mods-row`, whose containing block is the content box rather than the window —
+     six columns of 179 in a panel built for six of 195, and a 96px hole down the right where
+     the arithmetic disagreed with itself. So the window is read in JS, once, and arrives here
+     already resolved. */
+  --panel-w: 1278px;
+  --panel-h: 635px;
   width: var(--panel-w);
   height: var(--panel-h);
-  /* The only two places the window itself is read. A window too small for the panel clips it
-     rather than re-solving the tile — the in-game canvas is 1458 x 820 and the panel is
-     1278 x 603, so this is the fallback for an aspect ratio nobody plays at. */
+  /* Belt and braces, not the mechanism. `solveGrid` has already fitted the panel to the
+     window — including the narrow-aspect canvas, where the in-game view is 1300 CSS wide and
+     1278 + the 48 inset does not fit, which this used to clamp *after* the tile had been sized
+     for 1278 and so cut 26px off the last column. These now never bind; they are here so a
+     window smaller than any solve anticipated clips rather than overflows. */
   max-width: calc(100% - 48px);
   max-height: calc(100% - 24px);
 
@@ -687,27 +707,42 @@ body {
 }
 
 /* Stated in the same terms as the open width rather than as `100%`, so the transition runs
-   between two lengths. It is the same number — six columns and their gaps *is* the content
-   width — but a percentage on one end and a length on the other is an interpolation the engine
-   does not have to be given. */
+   between two lengths. It is the same number — the columns, their gaps and the gutter *is* the
+   content width — but a percentage on one end and a length on the other is an interpolation the
+   engine does not have to be given. */
 .mods-body--grid .mods-view {
-  width: calc(
-    var(--panel-cols, 6) * var(--tile-w) + (var(--panel-cols, 6) - 1) * var(--tile-gap)
-  );
+  width: calc(var(--grid-w) + var(--grid-gutter));
 }
 
-/* Grid, inspector open: three columns, plus the 6px a vertical scrollbar takes out of the
-   content box — clipping to exactly three cut a sliver off the third whenever the grid
-   scrolled. There are 12px before the properties start, so 6 can be spent here and nothing of
-   column four shows. */
+/* Grid, inspector open: three columns, plus the gutter.
+   The gutter is what a vertical scrollbar takes out of `.mods-grid`'s content box, and it is
+   part of the clip width in both states for the same reason — clipping to exactly three columns
+   cut a sliver off the third whenever the grid scrolled. It is zero whenever the grid fits,
+   which is every count up to twenty-four, so most of the time this is exactly three columns. */
 .mods-body--grid.mods-body--open .mods-view {
-  width: calc(var(--open-cols) * var(--tile-w) + (var(--open-cols) - 1) * var(--tile-gap) + 6px);
+  width: calc(
+    var(--open-cols) * var(--tile-w) + (var(--open-cols) - 1) * var(--tile-gap) +
+      var(--grid-gutter)
+  );
 }
 
 /* List, inspector open: the rows narrow rather than being clipped — a description that cannot
    be read is worse than a shorter one. */
 .mods-body--list.mods-body--open .mods-view {
   width: calc(100% - var(--insp-w-list) - 32px);
+}
+
+/* The first render sizes the grid from `window.innerWidth/innerHeight`, because the panel's
+   own containing block cannot be measured until it exists; the layout effect then measures it
+   and re-solves. In game the two agree — `.void-app` is 100% of the view — so nothing changes
+   and this never applies. Where they do not agree (the `?debug` harness draws a fixed
+   1600 x 980 board inside whatever the browser window is; an engine that reported the view in
+   device pixels would be the other case), the correction would otherwise arrive as a 170ms
+   width animation on a menu that has only just opened. A first layout is not a movement. */
+.overlay--sizing .mods-view,
+.overlay--sizing .mods-grid,
+.overlay--sizing .ostatus--grid {
+  transition: none;
 }
 
 /* Contracting is quicker than expanding, and for the same reason the fade is: closing is a
@@ -731,17 +766,42 @@ body {
 
 /* ------------------------------------------------------------ the tile grid */
 
-/* Flex rows of flex columns. CSS Grid is [risky] in Ultralight and this design never
-   needs it (ultralight-notes.md §7). */
+/* A flex column of flex rows. CSS Grid is [risky] in Ultralight and this design never
+   needs it (ultralight-notes.md §7).
+
+   **Row-major, where this used to be a row of columns.** Column-major forces
+   `columns = ceil(count / rows)` — the column count is not a free choice — and that coupling
+   is what broke the layout between seventeen and twenty-one mods: no row count gives seventeen
+   mods eight columns, so the grid had to take six and tiles 36% wider than at sixteen. See
+   `gridRows` in ModsScreen.tsx. The contraction did not have to change with it: it works by
+   narrowing the box that clips the grid, and a box three columns wide clips the first three
+   cells of a row exactly as well as it clipped three whole columns. */
 .mods-grid {
   display: flex;
+  flex-direction: column;
+  /* Cross axis now, so the rows are as wide as their tiles rather than stretching over the
+     gutter. Main axis: the rows stack from the top and never stretch to fill. */
   align-items: flex-start;
   gap: var(--tile-gap);
   height: 100%;
+  /* Zero at every count that fits — `solveGrid` sizes the panel to the rows, so up to
+     twenty-four mods there is nothing to scroll. Past that the gutter is what keeps the
+     scrollbar off the last column. */
   overflow-y: auto;
-  /* Closed the grid fits, so there is nothing to scroll and a scrollbar across the bottom of
-     column one would be noise — `auto` on one axis turns the other one `auto` too. */
+  /* The contraction is a horizontal clip and must stay one: with the properties open the rows
+     really are wider than the box, and a horizontal scrollbar under them would be the grid
+     offering to undo the thing that just happened. */
   overflow-x: hidden;
+}
+
+.mods-row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--tile-gap);
+  /* Fixed both ways: the row must not compress when the box clips it, or contracting the grid
+     would squeeze eight tiles into three columns' width instead of hiding five of them. */
+  flex: 0 0 var(--tile-h);
+  height: var(--tile-h);
 }
 
 /* The other half of keeping the selected mod on screen. `--grid-first` is the column the
@@ -760,14 +820,6 @@ body {
   transition-timing-function: var(--ease-in-menu);
 }
 
-.mods-col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--tile-gap);
-  flex: 0 0 var(--tile-w);
-  width: var(--tile-w);
-}
-
 /* No per-column wipe any more. It existed because §7 forbade the grid reflowing, so the
    columns the properties covered had to be faded out from under a panel that slid over them.
    The grid now contracts instead — `.mods-view` narrows and the columns beyond the third are
@@ -782,7 +834,9 @@ body {
   flex-direction: column;
   width: var(--tile-w);
   height: var(--tile-h);
-  flex: 0 0 var(--tile-h);
+  /* The row is the flex line now, so the basis is the tile's width. Fixed both ways: a tile
+     that shrank would let a clipped row squeeze its eight tiles into three columns' width. */
+  flex: 0 0 var(--tile-w);
   padding: 10px;
   border-radius: 14px;
   background: var(--card-bg);

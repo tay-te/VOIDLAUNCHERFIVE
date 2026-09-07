@@ -27,14 +27,14 @@ import { connectBridge } from '@/bridge/connect';
 import { resetDerivedState, useVoidStore } from '@/store/store';
 import { App } from '@/App';
 import {
-  GRID_ROWS,
   MODS_HINT_GRID,
   MODS_HINT_OPEN,
   OPEN_COLUMNS,
-  PANEL_COLUMNS,
   firstVisibleColumn,
-  gridColumns,
+  gridRows,
+  solveGrid,
 } from '@/menu/ModsScreen';
+import { IN_GAME_VIEW } from './setup';
 import { anchorShortLabel, modProperties, propertyStructure } from '@/menu/ModSettingsScreen';
 import { LOADOUTS_FOOTER } from '@/menu/LoadoutsScreen';
 import { PARTY_FOOTER } from '@/menu/PartyScreen';
@@ -238,26 +238,25 @@ describe('Mods screen — layout × inspector', () => {
     expect(screen.getByText('Toggle sprint')).toBeTruthy();
     // Twelve mods, eight columns allowed: two rows of six, not three rows of four inside a
     // panel wide enough for eight.
-    expect(GRID_ROWS).toBe(2);
-    const columns = [...container.querySelectorAll('.mods-col')];
-    expect(columns).toHaveLength(6);
-    for (const column of columns) {
-      expect(column.querySelectorAll('[data-mod-id]').length).toBeLessThanOrEqual(GRID_ROWS);
+    const rows = [...container.querySelectorAll('.mods-row')];
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.querySelectorAll('[data-mod-id]')).toHaveLength(6);
     }
   });
 
-  it('contracts by clipping, not by re-flowing: same tiles, same columns, same order', () => {
+  it('contracts by clipping, not by re-flowing: same tiles, same rows, same order', () => {
     const { container } = render(<App />);
     const shape = () =>
-      [...container.querySelectorAll('.mods-col')].map((column) =>
-        [...column.querySelectorAll('[data-mod-id]')].map((el) => el.getAttribute('data-mod-id')),
+      [...container.querySelectorAll('.mods-row')].map((row) =>
+        [...row.querySelectorAll('[data-mod-id]')].map((el) => el.getAttribute('data-mod-id')),
       );
     const before = shape();
     set(() => useVoidStore.getState().setInspector('closed'));
     // §7's no-reflow rule is withdrawn and the grid does now contract — but it contracts by
-    // narrowing the box that clips it. The twelve tiles stay mounted in the same six columns
-    // in the same order, so the three that survive keep the positions they already had, and
-    // the movement is one width transition rather than twelve tiles finding new homes.
+    // narrowing the box that clips it. The twelve tiles stay mounted in the same two rows in
+    // the same order, so the three columns that survive keep the positions they already had,
+    // and the movement is one width transition rather than twelve tiles finding new homes.
     expect(shape()).toEqual(before);
     expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(12);
     expect(OPEN_COLUMNS).toBe(3);
@@ -268,10 +267,19 @@ describe('Mods screen — layout × inspector', () => {
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
     expect(overlay().className).toContain('overlay--open');
-    expect(overlay().style.getPropertyValue('--panel-cols')).toBe(`${PANEL_COLUMNS}`);
-    expect(overlay().style.getPropertyValue('--panel-rows')).toBe(`${GRID_ROWS}`);
-    // Twelve mods: six across, two down — the shape that fills a fixed, wide panel.
-    expect(PANEL_COLUMNS).toBe(6);
+    // Twelve mods: six across, two down — the shape that fills the panel, solved from the
+    // registry's count and the window and handed to the CSS as lengths.
+    const twelve = solveGrid(12, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
+    expect(twelve.columns).toBe(6);
+    expect(twelve.rows).toBe(2);
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('6');
+    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('2');
+    expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${twelve.panelW}px`);
+    expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${twelve.panelH}px`);
+    expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${twelve.tileW}px`);
+    // Nothing to scroll at twelve, so nothing is held back from the tiles for a scrollbar.
+    expect(overlay().style.getPropertyValue('--grid-gutter')).toBe('0px');
+    expect(overlay().className).not.toContain('overlay--scrolls');
 
     set(() => useVoidStore.getState().setInspector('closed'));
     expect(overlay().className).toContain('overlay--closed');
@@ -283,20 +291,69 @@ describe('Mods screen — layout × inspector', () => {
     // A filter matching two mods must not resize the tiles in the window it is filtering.
     set(() => useVoidStore.getState().setLayout('grid'));
     set(() => useVoidStore.getState().setModFilter('VISUAL'));
-    expect(container.querySelectorAll('.mods-col')).toHaveLength(1);
-    expect(overlay().style.getPropertyValue('--panel-cols')).toBe(`${PANEL_COLUMNS}`);
+    expect(container.querySelectorAll('.mods-row')).toHaveLength(1);
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('6');
+    expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${twelve.tileW}px`);
+  });
+
+  it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
+    // Row-major, so the arrow keys had to change with the fill order. Twelve mods are six
+    // across: `fps` is index 0, `zoom` index 5 (end of row one), `fullbright` index 6 (start of
+    // row two), `coordinates` index 11 (the last).
+    const { container } = render(<App />);
+    const overlay = container.querySelector('.overlay') as HTMLElement;
+    const at = () => useVoidStore.getState().selectedMod;
+    const press = (key: string) => fireEvent.keyDown(overlay, { key });
+
+    set(() => useVoidStore.getState().selectMod('fps'));
+    press('ArrowRight');
+    expect(at()).toBe('keystrokes');
+    press('ArrowDown');
+    expect(at()).toBe('hitboxes'); // index 1 + 6
+    press('ArrowUp');
+    expect(at()).toBe('keystrokes');
+
+    // A row boundary is a step, not a wall: the grid is one sequence laid out in rows.
+    set(() => useVoidStore.getState().selectMod('zoom'));
+    press('ArrowRight');
+    expect(at()).toBe('fullbright');
+
+    // Both ends clamp rather than wrapping.
+    set(() => useVoidStore.getState().selectMod('fps'));
+    press('ArrowLeft');
+    expect(at()).toBe('fps');
+    press('ArrowUp');
+    expect(at()).toBe('fps');
+    set(() => useVoidStore.getState().selectMod('coordinates'));
+    press('ArrowRight');
+    expect(at()).toBe('coordinates');
+    press('ArrowDown');
+    expect(at()).toBe('coordinates');
+
+    // The list is one column of rows: Down is the next mod, and Left/Right have nowhere to go.
+    set(() => useVoidStore.getState().setLayout('list'));
+    set(() => useVoidStore.getState().selectMod('fps'));
+    press('ArrowDown');
+    expect(at()).toBe('keystrokes');
+    press('ArrowRight');
+    expect(at()).toBe('keystrokes');
+    press('ArrowUp');
+    expect(at()).toBe('fps');
   });
 
   it('slides the grid only when the mod picked is not already among the surviving three', () => {
     const { container } = render(<App />);
     const first = () =>
       (container.querySelector('.overlay') as HTMLElement).style.getPropertyValue('--grid-first');
-    // `fps` is column 1 and `ping` is column 6 of 6. The rule §7 used to give for free: the
-    // grid does not move for a mod already on screen, moves the least it can for one that is
-    // not, and goes back to the left when the panel shuts.
+    // Row-major in six columns: `fps` is index 0 so column 1, `ping` is index 10 so column 5,
+    // `coordinates` is index 11 so column 6 of 6. The rule §7 used to give for free: the grid
+    // does not move for a mod already on screen, moves the least it can for one that is not,
+    // and goes back to the left when the panel shuts.
     set(() => useVoidStore.getState().selectMod('fps'));
     expect(first()).toBe('0');
     set(() => useVoidStore.getState().selectMod('ping'));
+    expect(first()).toBe('2');
+    set(() => useVoidStore.getState().selectMod('coordinates'));
     expect(first()).toBe('3');
     set(() => useVoidStore.getState().setInspector('closed'));
     expect(first()).toBe('0');
@@ -479,27 +536,27 @@ describe('Properties panel — contract §8', () => {
   });
 });
 
-describe('gridColumns', () => {
-  it('fills top to bottom, so a column holds the same mods whatever else shows', () => {
-    const ids = Array.from({ length: 12 }, (_, i) => `m${i}`) as never as Parameters<
-      typeof gridColumns
-    >[0];
-    const columns = gridColumns(ids);
-    expect(columns).toHaveLength(6);
-    expect(columns[0]).toEqual(['m0', 'm1']);
-    expect(columns[5]).toEqual(['m10', 'm11']);
+describe('gridRows', () => {
+  const ids = (n: number) =>
+    Array.from({ length: n }, (_, i) => `m${i}`) as never as Parameters<typeof gridRows>[0];
+
+  it('fills left to right, the order MOD_ORDER is written in', () => {
+    const rows = gridRows(ids(12), 6);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual(['m0', 'm1', 'm2', 'm3', 'm4', 'm5']);
+    expect(rows[1]).toEqual(['m6', 'm7', 'm8', 'm9', 'm10', 'm11']);
   });
 
-  it('caps at eight columns', () => {
-    const ids = Array.from({ length: 40 }, (_, i) => `m${i}`) as never as Parameters<
-      typeof gridColumns
-    >[0];
-    expect(gridColumns(ids)).toHaveLength(8);
+  it('never drops a mod — the old column-major fill capped at eight columns and could', () => {
+    expect(gridRows(ids(40), 8).flat()).toHaveLength(40);
   });
 
-  it('is shaped by the registry: twelve mods are six across and two down', () => {
-    expect(GRID_ROWS).toBe(2);
-    expect(PANEL_COLUMNS).toBe(6);
+  it('is shaped by the registry and the window: twelve mods are six across and two down', () => {
+    // The full sweep, including the 17-21 range that used to break, is in
+    // `test/grid-geometry.test.ts`.
+    const shape = solveGrid(12, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
+    expect(shape.columns).toBe(6);
+    expect(shape.rows).toBe(2);
   });
 });
 

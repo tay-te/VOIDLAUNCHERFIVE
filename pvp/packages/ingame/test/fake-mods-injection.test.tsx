@@ -30,9 +30,8 @@ describe('?fake= padding, end to end', () => {
     const { MOD_REGISTRY, MOD_IDS } = await import('@/bridge/protocol');
     const { MOD_ICONS } = await import('@/ui');
     const { FAKE_MOD_COUNT, isFakeMod, fakeArtSource } = await import('@/dev/fake-mods');
-    const { gridColumns, GRID_ROWS, PANEL_COLUMNS, visibleMods } = await import(
-      '@/menu/ModsScreen'
-    );
+    const { gridRows, solveGrid, visibleMods } = await import('@/menu/ModsScreen');
+    const { IN_GAME_VIEW } = await import('./setup');
 
     expect(FAKE_MOD_COUNT).toBe(12);
     expect(MOD_ORDER).toHaveLength(24);
@@ -57,9 +56,11 @@ describe('?fake= padding, end to end', () => {
     }
 
     // The layout re-solves: 24 mods are the frames' three rows of eight, not twelve's two of six.
-    expect(GRID_ROWS).toBe(3);
-    expect(PANEL_COLUMNS).toBe(8);
-    expect(gridColumns([...MOD_ORDER])).toHaveLength(8);
+    const shape = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
+    expect(shape.rows).toBe(3);
+    expect(shape.columns).toBe(8);
+    expect(shape.scrolls).toBe(false);
+    expect(gridRows([...MOD_ORDER], shape.columns).map((row) => row.length)).toEqual([8, 8, 8]);
 
     // Filtering still works on them, which is what proves the category is real data and not a
     // label: every tab matches at least one synthetic mod.
@@ -86,7 +87,7 @@ describe('?fake= padding, end to end', () => {
     const { container } = render(<App />);
 
     expect(container.querySelectorAll('.modcell')).toHaveLength(24);
-    expect(container.querySelectorAll('.mods-col')).toHaveLength(8);
+    expect(container.querySelectorAll('.mods-row')).toHaveLength(3);
     // Every tile drew art rather than the id-as-caption fallback, which is what a fake with no
     // borrowed preview would have rendered.
     for (const cell of container.querySelectorAll('.modcell')) {

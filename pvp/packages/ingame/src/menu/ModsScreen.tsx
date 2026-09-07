@@ -10,13 +10,13 @@
  * the bar, then content from edge inset to edge inset, then a status line and the
  * keyboard hint at the bottom left.
  *
- * That matters beyond looks. The panel is **one fixed, wide, centred size** and
- * never resizes; what changes is how the space inside it is divided. The frames
+ * That matters beyond looks. The panel is **one wide, centred box** and does not resize
+ * between the two states; what changes is how the space inside it is divided. The frames
  * hold twenty-four mods in eight columns and the registry holds twelve, so a grid
  * declared as three rows left four columns filling 674 of 1277 and half the panel
- * empty. The grid is now shaped by the registry instead — two rows of six, tiles
- * sized from the panel — and it fills the panel edge to edge. See `overlay.css`,
- * "the shell".
+ * empty. The grid is shaped by the registry instead — two rows of six, tiles
+ * sized from the panel — and it fills the panel edge to edge. See {@link solveGrid},
+ * which now owns every length in it.
  *
  * There is no screen title and no search field. Both were removed in the design
  * work ("Remove the mods header. Center the navbar over the top of the window.
@@ -24,7 +24,7 @@
  * a second, always-visible field for twelve items was chrome for its own sake.
  * `modSearch` survives in the store because the palette writes it.
  *
- * ## The two controls, and why the grid fills column-major
+ * ## The two controls
  *
  * ```
  * layout     grid | list      how items lay out
@@ -45,19 +45,27 @@
  * three that survive. Only which three you are looking at can change, and only when
  * the mod you picked is not already among them.
  *
- * ## At twenty-four mods
+ * ## At any mod count
  *
- * The registry is twelve and generated from the schema, so this lays out for twelve
- * — but nothing here is written as twelve. {@link GRID_ROWS} is the fewest rows that
- * keep the registry inside {@link GRID_COLUMNS}, and the tile is sized from the
- * panel and the column count, so twenty-four mods give **three rows of eight** —
- * exactly what the frames draw — with 143-wide tiles in the same 1278-wide panel.
- * The panel gets taller (three rows of a 179-tall tile plus the chrome is 690, still
- * inside the 820 CSS the in-game canvas gives) and nothing else changes: the grid
- * still fills it, and opening the properties still contracts it to three columns.
+ * The registry is twelve and generated from the schema, so this lays out for twelve — but
+ * nothing here is written as twelve, and the dev fixture (`src/dev/fake-mods.ts`) reaches
+ * sixty-four. {@link solveGrid} takes the count and the window and answers with the fewest
+ * columns whose rows still fit: twelve give **two rows of six** at 195 wide, twenty-four give
+ * **three rows of eight** at 143 — exactly what the frames draw — and the panel is as tall as
+ * whatever that comes to. Nothing else changes with the count: the grid fills the panel, and
+ * opening the properties contracts it to three columns.
+ *
+ * Between seventeen and twenty-one it did not. The old derivation took the rows first and the
+ * columns from them, which at seventeen mods meant **six** columns and three rows — larger
+ * tiles than at sixteen, and a panel 894 tall in a window with 796. The engine clamped it, the
+ * third row went under the fold, a scrollbar appeared and ate eleven pixels of the sixth
+ * column, and because the grid clips horizontally there was no way to scroll them back. Twelve
+ * was fine and twenty-four was fine, which is why testing at twenty-four never saw it. The
+ * arithmetic is in {@link solveGrid} now, and in `test/grid-geometry.test.ts`, because a
+ * layout bug that only shows in one range of counts comes back otherwise.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isModOn, modsOnCount, useModSettings, useVoidStore } from '@/store/store';
 import { FILTER_TABS, MOD_CATEGORY, MOD_ORDER, hueStyle, modLabel } from '@/registry';
 import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
@@ -68,35 +76,235 @@ import { ModInspector } from './ModPane';
 import { ModList } from './ModList';
 import { keybindLabel } from './settings-format';
 
-/** The widest the grid ever gets, in columns. The frames draw eight (`289:1611`). */
-export const GRID_COLUMNS = 8;
+/* -------------------------------------------------------------------------- */
+/* The geometry                                                               */
+/* -------------------------------------------------------------------------- */
 
 /**
- * Rows in a grid column — derived, not declared.
+ * Every length the panel is built out of, in CSS pixels, stated once.
  *
- * The panel is a fixed width and the grid has to fill it, so the shape of the grid is decided
- * by how many mods there are: the fewest rows that keep the whole registry inside
- * {@link GRID_COLUMNS}. Twelve mods give two rows of six; twenty-four give three rows of eight,
- * which is exactly what the frames draw. Declaring `3` here is what left the registry's twelve
- * as four columns in a panel wide enough for eight.
+ * These used to live in `overlay.css` as a chain of `calc()`, with only the row and column
+ * counts coming from here. That split is what let the panel ask for a height the window did
+ * not have: CSS could derive `--panel-h` from the tile but had no way to *check* it against
+ * `max-height`, so at seventeen mods it computed 894 into a box the engine then clamped to 796
+ * and cut the third row and eleven pixels of the sixth column off, unrecoverably — the grid
+ * clips horizontally, so nothing could scroll them back.
+ *
+ * So the whole solve is here now (see {@link solveGrid}) and `overlay.css` reads the answers
+ * off the element as custom properties. Two things follow. The arithmetic is unit-testable,
+ * which is the only way a layout that breaks in one range of counts stops coming back. And the
+ * window is consulted, which CSS could only do through `max-*` — after the fact.
  */
-export const GRID_ROWS = Math.max(1, Math.ceil(MOD_ORDER.length / GRID_COLUMNS));
+export const GEOMETRY = {
+  /** Content inset, left and right, inside the panel. `--edge`. */
+  edge: 24,
+  /** Between tiles, on both axes. `--tile-gap`. */
+  gap: 12,
+  /** The tile's foot under its square preview well: `--tile-h` is `--tile-w` plus this. */
+  foot: 52,
+  /** Bar 46 + rule 1 + body inset 16 + status 36 + hint 29.5, rounded up. `--chrome-h`. */
+  chrome: 129,
+  /** The widest the panel ever is. Six columns of 195 plus the insets. */
+  maxPanelW: 1278,
+  /** Left over each side of the panel: `max-width: calc(100% - 48px)`. */
+  insetX: 48,
+  /** Left over above and below: `max-height: calc(100% - 24px)`. */
+  insetY: 24,
+  /** Below this the panel stops shrinking and the window clips it instead. */
+  minPanelW: 480,
+  /**
+   * Held back on the right for a scrollbar, and only when the grid actually scrolls.
+   *
+   * Twelve rather than the six `::-webkit-scrollbar` asks for, because the three engines this
+   * page runs through do not agree: Ultralight honours the `::-webkit-scrollbar` width (6),
+   * Chrome lets the standard `scrollbar-width: thin` win instead and takes 11 — measured — and
+   * macOS overlay scrollbars take none at all. Twelve covers all three. Reserving too much
+   * costs a sliver of tile width in a state only the dev fixture reaches; reserving too little
+   * clips the last column with no way to scroll it back, which is the bug this is here for.
+   */
+  gutter: 12,
+  /** The widest the grid ever gets, in columns. The frames draw eight (`289:1611`). */
+  maxColumns: 8,
+} as const;
+
+/**
+ * The canvas the in-game view is guaranteed at least, in CSS pixels.
+ *
+ * `VoidClient.DESIGN_WIDTH/HEIGHT` are 1300 x 820 and the fit scale is
+ * `min(fbWidth / 1300, fbHeight / 820)`, so whichever axis binds, the logical view is never
+ * smaller than this. Used only as the fallback when there is no window to measure.
+ */
+export const DESIGN_CANVAS = { width: 1300, height: 820 } as const;
 
 /** Columns that stay visible while the properties are open. */
 export const OPEN_COLUMNS = 3;
 
+/** What {@link solveGrid} works out: the panel, the tile, and the shape of the grid inside it. */
+export interface GridShape {
+  /** Columns the grid is built for — never more than `GEOMETRY.maxColumns`. */
+  columns: number;
+  /** Rows those columns need to hold every mod. */
+  rows: number;
+  tileW: number;
+  tileH: number;
+  panelW: number;
+  panelH: number;
+  /** The tiles and their gaps across: what `.mods-view` clips. */
+  gridW: number;
+  /** The height the rows need. Greater than the body's only when {@link scrolls}. */
+  gridH: number;
+  /** Width held back on the right for a scrollbar. Zero unless the grid scrolls. */
+  gutter: number;
+  /** Whether the rows are taller than the panel can be, so the grid has to scroll. */
+  scrolls: boolean;
+}
+
 /**
- * How many columns the grid is built to hold — the registry's own count, not the filtered one.
+ * The shape of the grid at a given mod count in a given window.
  *
- * The tile is sized from the panel and this number (`overlay.css`, "the shell"), so it decides
- * how big a tile is. It deliberately ignores the current filter: `Visual` matches two mods, and
- * tiles that grew to a third of the window and back every time a tab was clicked would be
- * unusable. The grid is laid out for the whole registry and a filter simply leaves space in it.
+ * **The rule: the fewest columns — so the largest tiles — whose rows still fit the height the
+ * window leaves.** Everything else falls out of that. The tile is the content width divided by
+ * the column count, so the grid fills the panel edge to edge by construction; the tile's height
+ * is its width plus the foot, so the rows' height follows from the column count too; and the
+ * panel is exactly as tall as the rows plus the chrome.
+ *
+ * ### Why not the shape it had
+ *
+ * It used to derive rows first — `ceil(count / 8)` — and then take the column count from the
+ * rows, `ceil(count / rows)`. That balances the two axes, and it is why the column count ran
+ * 6, 7, 8, **6**, 7, 8 as the count climbed: at seventeen mods it dropped back to six columns
+ * *and* added a third row, so the tile jumped from 143 wide to 195 and the panel from 531 tall
+ * to 894 — taller than the 796 the in-game canvas has. Twelve was fine and twenty-four was
+ * fine, which is exactly why a night of testing at twenty-four never saw it.
+ *
+ * The balanced split also cannot be rescued, because it is *coupled to the fill order*. Filling
+ * column-major forces `columns = ceil(count / rows)`, and no whole number of rows gives
+ * seventeen mods eight columns: three rows give six, two give nine. Seventeen mods simply
+ * cannot be laid out inside 667px of body height while filling the width column-major. Filling
+ * row-major decouples them — pick eight columns, get three rows of 8/8/1 — which is why
+ * {@link gridRows} replaced the old `gridColumns`.
+ *
+ * ### When nothing fits
+ *
+ * Past twenty-four mods (the fixture goes to sixty-four) no column count fits, and then the
+ * grid takes the *most* columns, since the smallest tile is the one that puts the most on
+ * screen, holds {@link GEOMETRY.gutter} back for the scrollbar and scrolls the rest. That is
+ * the one state where the panel is not the size of its contents, and it is flagged as
+ * {@link GridShape.scrolls} rather than left to be discovered as a clip.
  */
-export const PANEL_COLUMNS = Math.min(
-  GRID_COLUMNS,
-  Math.max(1, Math.ceil(MOD_ORDER.length / GRID_ROWS)),
-);
+export function solveGrid(count: number, viewW: number, viewH: number): GridShape {
+  const g = GEOMETRY;
+  const n = Math.max(1, Math.floor(count));
+
+  const panelW = Math.min(g.maxPanelW, Math.max(g.minPanelW, viewW - g.insetX));
+  const maxPanelH = Math.max(g.chrome + 1, viewH - g.insetY);
+  const contentW = panelW - 2 * g.edge;
+  /** The height the rows may take: the tallest the panel may be, less its chrome. */
+  const budget = maxPanelH - g.chrome;
+
+  /** The shape `columns` columns produce, given how much width is held back for a scrollbar. */
+  const shapeAt = (columns: number, gutter: number) => {
+    const rows = Math.ceil(n / columns);
+    const tileW = (contentW - gutter - (columns - 1) * g.gap) / columns;
+    const tileH = tileW + g.foot;
+    return { columns, rows, tileW, tileH, gridW: contentW - gutter, gridH: rows * tileH + (rows - 1) * g.gap };
+  };
+
+  // Fewest columns first, so the answer is the largest tile that fits rather than merely one
+  // that does. Never more columns than there are mods: a ninth column for eight mods is a hole.
+  const widest = Math.min(g.maxColumns, n);
+  for (let columns = 1; columns <= widest; columns += 1) {
+    const shape = shapeAt(columns, 0);
+    if (shape.gridH <= budget) {
+      return { ...shape, panelW, panelH: shape.gridH + g.chrome, gutter: 0, scrolls: false };
+    }
+  }
+
+  const shape = shapeAt(widest, g.gutter);
+  return { ...shape, panelW, panelH: maxPanelH, gutter: g.gutter, scrolls: true };
+}
+
+/** The view size to solve for before anything has been measured. */
+function windowBox(): { width: number; height: number } {
+  if (typeof window === 'undefined') return { ...DESIGN_CANVAS };
+  return {
+    width: window.innerWidth || DESIGN_CANVAS.width,
+    height: window.innerHeight || DESIGN_CANVAS.height,
+  };
+}
+
+/**
+ * The box the panel is laid out in, re-read when it changes, with a ref to put on the panel.
+ *
+ * **The panel's own containing block, not `window.innerHeight`.** `.overlay` is absolutely
+ * positioned inside `.menu-layer`, so that is what its `max-width: calc(100% - 48px)` and
+ * `max-height: calc(100% - 24px)` resolve against — and a solve that measured something else
+ * could size the grid for one box while the engine clamped it to another, which is a
+ * different spelling of the bug this replaced. Reading the containing block makes the two
+ * agree by construction. It is also the more trustworthy number in Ultralight: `clientHeight`
+ * is the engine reporting a box it has just laid out, where `innerHeight` is a window
+ * property that has to be right about device scale as well.
+ *
+ * In game the two are the same anyway — `.void-app` is `100%` of the view — so the window is a
+ * sound first guess for the render before the ref exists, and the only value jsdom can give
+ * (it lays nothing out, so `clientHeight` is always 0 there).
+ *
+ * Re-measured on `resize`, which in game is `UiHost.ensure` giving the view a new size after a
+ * framebuffer or GUI-scale change; WebCore dispatches it the same way a browser does. If an
+ * engine ever did not, the shape would still be right for the size the view had when the menu
+ * was opened, because `MenuLayer` unmounts on the close fade's own `animationend` (`App.tsx`)
+ * and every open measures again. An event listener, never a poll: §9 bans the frame loop and
+ * an idle menu has to cost zero paints.
+ */
+function useHostBox(): [
+  { width: number; height: number; settled: boolean },
+  React.RefObject<HTMLDivElement | null>,
+] {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [box, setBox] = useState(() => ({ ...windowBox(), phase: 'guess' as Phase }));
+  useLayoutEffect(() => {
+    const measure = () => {
+      const host = ref.current?.parentElement;
+      const next =
+        host && host.clientWidth > 0 && host.clientHeight > 0
+          ? { width: host.clientWidth, height: host.clientHeight }
+          : windowBox();
+      setBox((prev) =>
+        // Same size, same object: a resize that does not change the box must not re-render the
+        // grid, and `resize` fires for plenty that does not. The first measurement always
+        // lands, though, even when it agrees with the guess, because it is also what moves the
+        // panel out of `guess`.
+        prev.phase !== 'guess' && prev.width === next.width && prev.height === next.height
+          ? prev
+          : { ...next, phase: prev.phase === 'guess' ? 'measured' : prev.phase },
+      );
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  // The correction has to land *before* the transitions come back, not with them. A transition
+  // starts when a property's value differs across a style recalc and the after-change style
+  // has a duration, so re-enabling them in the same recalc as the corrected width is exactly
+  // how you get the animation this is here to avoid. Both passes are layout effects, so all of
+  // it happens before the first paint — no timer, and no `requestAnimationFrame`, which §9 bans.
+  useLayoutEffect(() => {
+    if (box.phase !== 'measured') return;
+    // The read is the point, not the value. React commits the corrected width and the class
+    // removal one after the other, and the engine would collapse both into a single style
+    // recalc — at which the transition is back and the width has changed, which is precisely
+    // the animation being avoided. Forcing the recalc here splits them: the engine decides
+    // about the width while transitions are still off, and the class comes away on its own.
+    void ref.current?.offsetWidth;
+    setBox((prev) => ({ ...prev, phase: 'settled' }));
+  }, [box.phase]);
+
+  return [{ width: box.width, height: box.height, settled: box.phase === 'settled' }, ref];
+}
+
+/** guess → measured → settled. See {@link useHostBox}; `settled` is when transitions resume. */
+type Phase = 'guess' | 'measured' | 'settled';
 
 /** Bottom-left hint, inspector closed — frame `289:1611`. */
 export const MODS_HINT_GRID = 'R-Shift closes   ·   click a tile to edit it   ·   ⌘K search';
@@ -121,18 +329,45 @@ export function visibleMods(filter: string, query: string): ModId[] {
 }
 
 /**
- * The ids split into columns, filled top-to-bottom.
+ * The ids split into rows, filled left-to-right.
  *
- * Column-major, so contracting the grid takes columns off the right rather than
- * re-flowing every tile into a new position: column 1 holds the same mods whether
- * three columns are showing or six.
+ * **Row-major, where this used to be column-major**, and the reason is arithmetic rather than
+ * taste. Filling column-major forces `columns = ceil(count / rows)`: the column count is not a
+ * free choice, it is whatever the row count leaves. That is what made the tile size lurch —
+ * seventeen mods can be three rows of six or two rows of nine, never three rows of eight, so
+ * the layout had to take six columns of 195-wide tiles and a panel 894 tall in a window with
+ * 796. Row-major lets {@link solveGrid} pick the column count outright and take the row count
+ * from it, which is the whole fix; see that function.
+ *
+ * The contraction is unaffected, which is what made this safe to change. The grid narrows to
+ * three columns by *clipping* — `.mods-view` transitions its width, the tiles never move — and
+ * a box that clips the first three columns of a row of eight clips them just as well as it
+ * clipped three whole columns. What changes is only which mods survive it: the first three of
+ * every row rather than the first three columns, so the contracted grid shows a slice across
+ * the whole registry instead of its opening run.
+ *
+ * The reading order is the frames' own, too — `MOD_ORDER` is documented as left to right, top
+ * to bottom (`registry.ts`), which is what this now draws and column-major did not.
  */
-export function gridColumns(ids: ModId[]): ModId[][] {
-  const columns: ModId[][] = [];
-  for (let i = 0; i < ids.length && columns.length < GRID_COLUMNS; i += GRID_ROWS) {
-    columns.push(ids.slice(i, i + GRID_ROWS));
-  }
-  return columns;
+export function gridRows(ids: ModId[], columns: number): ModId[][] {
+  const width = Math.max(1, columns);
+  const rows: ModId[][] = [];
+  for (let i = 0; i < ids.length; i += width) rows.push(ids.slice(i, i + width));
+  return rows;
+}
+
+/**
+ * How many tiles are actually on screen with the properties beside the grid.
+ *
+ * The contracted grid shows columns `[first, first + OPEN_COLUMNS)` of every row, and the last
+ * row is usually short, so this is not `OPEN_COLUMNS * rows`. The status line says what the
+ * grid is showing, and a line that says nine when six are visible is worse than no line.
+ */
+export function visibleWhenContracted(rows: ModId[][], first: number): number {
+  return rows.reduce(
+    (total, row) => total + Math.max(0, Math.min(row.length, first + OPEN_COLUMNS) - first),
+    0,
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -242,6 +477,7 @@ function InspectorControl() {
 
 function StatusLine({
   shown,
+  visible,
   total,
   enabled,
   layout,
@@ -249,6 +485,8 @@ function StatusLine({
   hidden,
 }: {
   shown: number;
+  /** Tiles the contracted grid actually has on screen. Only read when {@link hidden}. */
+  visible: number;
   total: number;
   enabled: number;
   layout: 'grid' | 'list';
@@ -281,9 +519,7 @@ function StatusLine({
     // properties are standing on, not something below the fold.
     return (
       <div className="ostatus ostatus--grid">
-        <span className="ostatus__left">
-          {`Showing ${Math.min(shown, OPEN_COLUMNS * GRID_ROWS)} of ${total}`}
-        </span>
+        <span className="ostatus__left">{`Showing ${Math.min(shown, visible)} of ${total}`}</span>
       </div>
     );
   }
@@ -339,28 +575,38 @@ export function ModsScreen() {
   const inspector = useVoidStore((s) => s.inspector);
   const enabled = useVoidStore((s) => modsOnCount(s.loadout));
 
-  const ids = useMemo(() => visibleMods(filter, search), [filter, search]);
-  const columns = useMemo(() => (layout === 'grid' ? gridColumns(ids) : []), [ids, layout]);
-  const shift = useMemo(
-    () =>
-      firstVisibleColumn(
-        columns.length,
-        columns.findIndex((column) => column.includes(selected)),
-        inspector === 'open',
-      ),
-    [columns, selected, inspector],
+  // The grid is shaped by the *registry's* count and the window, never by the filter: `Visual`
+  // matches two mods, and tiles that grew to a third of the window and back every time a tab
+  // was clicked would be unusable. A filter leaves space in the grid rather than resizing it.
+  const [host, panelRef] = useHostBox();
+  const shape = useMemo(
+    () => solveGrid(MOD_ORDER.length, host.width, host.height),
+    [host.width, host.height],
   );
+
+  const ids = useMemo(() => visibleMods(filter, search), [filter, search]);
+  const rows = useMemo(
+    () => (layout === 'grid' ? gridRows(ids, shape.columns) : []),
+    [ids, layout, shape.columns],
+  );
+  const selectedColumn = useMemo(() => {
+    const at = ids.indexOf(selected);
+    return at < 0 ? -1 : at % shape.columns;
+  }, [ids, selected, shape.columns]);
+  const filledColumns = rows.length > 0 ? Math.max(...rows.map((row) => row.length)) : 0;
+  const shift = firstVisibleColumn(filledColumns, selectedColumn, inspector === 'open');
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // The grid reads down a column and then across, so Down/Up walk within a
-      // column and Left/Right jump a whole column. The list is one column of rows.
-      const across = useVoidStore.getState().layout === 'grid' ? GRID_ROWS : 0;
+      // The grid reads across a row and then down, so Left/Right walk within a row and Up/Down
+      // jump a whole row. The list is one column of rows, where a row is one step either way.
+      const down = useVoidStore.getState().layout === 'grid' ? shape.columns : 1;
+      const across = useVoidStore.getState().layout === 'grid' ? 1 : 0;
       const delta =
         e.key === 'ArrowDown'
-          ? 1
+          ? down
           : e.key === 'ArrowUp'
-            ? -1
+            ? -down
             : e.key === 'ArrowRight'
               ? across
               : e.key === 'ArrowLeft'
@@ -379,25 +625,37 @@ export function ModsScreen() {
         toggleMod(selected, !isModOn(useVoidStore.getState().loadout, selected));
       }
     },
-    [ids, selected, selectMod, toggleMod],
+    [ids, selected, selectMod, toggleMod, shape.columns],
   );
 
   const open = inspector === 'open';
 
   return (
-    // The panel is one fixed size; the tile is sized from it and the registry's column count
-    // (overlay.css, "the shell"). The state classes are still on the shell because the status
-    // line and the grid clip both read them, but nothing here changes the panel's own box.
+    // The panel's whole geometry is solved here and handed to `overlay.css` as lengths (see
+    // `solveGrid`); nothing below re-derives it. The state classes stay on the shell because
+    // the status line and the grid clip both read them, but they do not change the panel's box:
+    // opening the properties divides the space inside it, it does not resize it.
     <div
+      ref={panelRef}
       className={cx(
         'overlay',
         `overlay--${layout}`,
         open ? 'overlay--open' : 'overlay--closed',
+        shape.scrolls && 'overlay--scrolls',
+        // Until the panel's own box has been measured the shape is a guess from the window,
+        // and correcting a guess is not a movement anyone asked to see. See `.overlay--sizing`.
+        !host.settled && 'overlay--sizing',
       )}
       style={
         {
-          ['--panel-cols' as string]: `${PANEL_COLUMNS}`,
-          ['--panel-rows' as string]: `${GRID_ROWS}`,
+          ['--panel-cols' as string]: `${shape.columns}`,
+          ['--panel-rows' as string]: `${shape.rows}`,
+          ['--panel-w' as string]: `${shape.panelW}px`,
+          ['--panel-h' as string]: `${shape.panelH}px`,
+          ['--tile-w' as string]: `${shape.tileW}px`,
+          // Zero unless the rows are taller than the panel can be. Held back on the right so
+          // the scrollbar cannot eat the last column, which the grid clips and cannot scroll.
+          ['--grid-gutter' as string]: `${shape.gutter}px`,
           // Which column the contracted grid starts at; the slide itself is CSS, in the same
           // units and on the same curve as the contraction. See `firstVisibleColumn`.
           ['--grid-first' as string]: `${shift}`,
@@ -441,9 +699,9 @@ export function ModsScreen() {
             <div className="mods-empty">No mod matches “{search}”.</div>
           ) : layout === 'grid' ? (
             <div className="mods-grid">
-              {columns.map((column, index) => (
-                <div key={index} className="mods-col" data-column={index}>
-                  {column.map((id) => (
+              {rows.map((row, index) => (
+                <div key={index} className="mods-row" data-row={index}>
+                  {row.map((id) => (
                     <Tile key={id} id={id} selected={id === selected} />
                   ))}
                 </div>
@@ -461,11 +719,12 @@ export function ModsScreen() {
 
       <StatusLine
         shown={ids.length}
+        visible={visibleWhenContracted(rows, shift)}
         total={MOD_ORDER.length}
         enabled={enabled}
         layout={layout}
         open={open}
-        hidden={layout === 'grid' && columns.length > OPEN_COLUMNS}
+        hidden={layout === 'grid' && filledColumns > OPEN_COLUMNS}
       />
 
       <div className="ohint">{open ? MODS_HINT_OPEN : MODS_HINT_GRID}</div>
