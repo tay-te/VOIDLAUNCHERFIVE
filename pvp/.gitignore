@@ -32,7 +32,14 @@ packages/ui/.font-build/
 out/
 *.class
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
+# `**/` matters. A gitignore pattern containing a slash is anchored to the directory
+# holding the .gitignore, so `!gradle/wrapper/gradle-wrapper.jar` only ever exempted
+# `pvp/gradle/wrapper/...` — and the wrapper lives at `pvp/mod/gradle/wrapper/...`.
+# The exemption therefore never matched, `*.jar` swallowed the jar, and CI's `mod` job
+# failed `./gradlew build` in zero seconds on every run since the wrapper was added.
+# The whole point of a wrapper is that a clean checkout can build without Gradle
+# installed, which requires the jar to be in the repo.
+!**/gradle/wrapper/gradle-wrapper.jar
 run/
 
 # ---- CMake / native ---------------------------------------------------------

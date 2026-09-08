@@ -205,7 +205,12 @@ pub fn installed_mod_jars(paths: &Paths) -> Vec<InstalledMod> {
         .collect();
     // Newest first, and `None` last: a jar whose mtime is unreadable is the least
     // trustworthy thing in the list, not the most recent.
-    found.sort_by(|a, b| b.modified.cmp(&a.modified));
+    //
+    // `Reverse` rather than `b.cmp(&a)` because clippy's `unnecessary_sort_by` asks for it,
+    // and the two are exactly equivalent here: `Option`'s `Ord` puts `None` below every
+    // `Some`, so descending order lands `None` at the end either way. Both sorts are stable,
+    // so jars sharing an mtime keep their read order.
+    found.sort_by_key(|a| std::cmp::Reverse(a.modified));
     found
 }
 
