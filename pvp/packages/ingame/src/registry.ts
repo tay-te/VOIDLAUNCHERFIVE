@@ -25,6 +25,8 @@
 import type { CSSProperties } from 'react';
 
 import {
+  SETTING_BOUNDS,
+  SETTING_OPTIONS,
   MOD_CATEGORIES,
   MOD_FILTER_TABS,
   MOD_IDS,
@@ -37,7 +39,7 @@ import {
 // DEV ONLY, and imported first on purpose: the module injects its rows into `MOD_REGISTRY`
 // and `MOD_IDS` as a side effect of being loaded, and `MOD_CATEGORY` below is built from
 // `MOD_IDS`. Empty and inert unless `VOID_UI_FAKEMODS` / `?fake=` asked for tiles.
-import { FAKE_MOD_ORDER, FAKE_SETTING_ENUMS } from '@/dev/fake-mods';
+import { FAKE_SETTING_ENUMS } from '@/dev/fake-mods';
 
 /** The uppercase tag a tile prints, e.g. `HUD`. */
 export type ModCategory = 'HUD' | 'PVP' | 'VISUAL' | 'UTILITY';
@@ -60,33 +62,13 @@ export const MOD_CATEGORY: Record<ModId, ModCategory> = Object.fromEntries(
 ) as Record<ModId, ModCategory>;
 
 /**
- * Reading order of the tile grid on frame 244:538, left to right, top to bottom.
+ * Reading order of the tile grid — re-exported, not defined.
  *
- * This array's **length** is what shapes the grid — `ModsScreen` derives its rows, its column
- * count and therefore the tile size and the panel's height from it — so it is also the one
- * place a dev-only padding has to reach. `FAKE_MOD_ORDER` is empty in every build that did not
- * ask for it (`src/dev/fake-mods.ts`).
+ * It lives in `mods/order.ts` beside the art it orders, so that "add a mod" is one directory
+ * rather than a hunt: `mods/<id>.tsx` for the pictures, `mods/order.ts` for where it reads.
+ * That module also asserts the array is complete over the registry, which this file never did.
  */
-export const MOD_ORDER: ModId[] = [
-  'fps',
-  'keystrokes',
-  'cps',
-  'toggle_sprint',
-  'crosshair',
-  'zoom',
-  'fullbright',
-  'hitboxes',
-  'armor_status',
-  'potion_effects',
-  'ping',
-  'coordinates',
-  // Last, and newest. The mark is not a readout, so it does not belong among the four that end
-  // the order; putting it after them is also the honest reading of a mod added after the grid
-  // was designed. Thirteen mods lay out as seven columns and a row of six — `solveGrid` picks
-  // the fewest columns whose rows still fit, and the tile shrinks from 195 to 165.
-  'watermark',
-  ...FAKE_MOD_ORDER,
-];
+export { MOD_ORDER } from '@/mods/order';
 
 /** The name the Mods panel prints for a mod. Panel copy lives in `mods.json`. */
 export function modLabel(id: ModId): string {
@@ -114,60 +96,80 @@ export function categoryLabel(tag: ModCategory): string {
 }
 
 /**
- * Numeric ranges for the settings controls, transcribed from the `<id>_settings`
- * sub-schemas of mods.json. The controls clamp to these; Java clamps again and
- * returns the value it stored, which is what the control binds to
- * (bridge.json, `setModSetting_returns`).
+ * The **presentation** half of a numeric setting: its step, and the unit it prints in.
+ *
+ * The bounds are not here. They are `SETTING_BOUNDS` in `@void/protocol`, generated from each
+ * `<id>_settings` sub-schema, because a bound is a fact about what Java will clamp to and this
+ * table used to copy all fourteen of them by hand under a comment that said "transcribed from
+ * the `<id>_settings` sub-schemas of mods.json". A copy of a contract drifts from it, and the
+ * drift is silent — a slider clamping to the wrong end looks exactly like a slider.
+ *
+ * What genuinely belongs here is what the schema has no opinion about: how far one nudge moves,
+ * and what glyph the figure is printed with. `warn_below` is read as a percentage and 5% is what
+ * a player thinks in; 0.01 would give the meter 100 cells for a decision with about five useful
+ * answers. That is a UI judgement, and it is the only kind of thing left in this table.
+ */
+const SETTING_STEPS: Record<string, { step: number; unit?: string }> = {
+  scale: { step: 0.05, unit: '×' },
+  opacity: { step: 0.01, unit: '%' },
+  warn_below: { step: 0.05, unit: '%' },
+  window_ms: { step: 50, unit: 'ms' },
+  good_ms: { step: 5, unit: 'ms' },
+  bad_ms: { step: 5, unit: 'ms' },
+  decimals: { step: 1 },
+  gamma: { step: 0.5 },
+  line_width: { step: 0.5 },
+  fov_divisor: { step: 0.1, unit: '×' },
+  size: { step: 1, unit: 'px' },
+  thickness: { step: 1, unit: 'px' },
+  gap: { step: 1, unit: 'px' },
+  corner_radius: { step: 1, unit: 'px' },
+};
+
+/**
+ * Numeric ranges for the settings controls — bounds from the schema, step and unit from above.
+ *
+ * The controls clamp to these; Java clamps again and returns the value it stored, which is what
+ * the control binds to (`bridge.json`, `setModSetting_returns`).
+ *
+ * A property with a bound and no step entry gets a step of 1 rather than being absent, because
+ * absent means *no control* — `kindOf` falls through to the enum branch and draws a chip row
+ * with nothing in it. A new numeric setting should therefore render as a coarse slider until
+ * someone chooses its step, not as an empty row.
  */
 export const SETTING_RANGES: Record<
   string,
   { min: number; max: number; step: number; unit?: string }
-> = {
-  scale: { min: 0.25, max: 4, step: 0.05, unit: '×' },
-  opacity: { min: 0, max: 1, step: 0.01, unit: '%' },
-  /**
-   * `armor_status.warn_below` — the fraction under which a durability bar turns amber.
-   *
-   * A twentieth is the step because the figure is read as a percentage and 5% increments are
-   * what a player thinks in; 0.01 would give the meter 100 cells for a decision with about
-   * five useful answers.
-   */
-  warn_below: { min: 0, max: 1, step: 0.05, unit: '%' },
-  window_ms: { min: 200, max: 5000, step: 50, unit: 'ms' },
-  good_ms: { min: 0, max: 1000, step: 5, unit: 'ms' },
-  bad_ms: { min: 0, max: 2000, step: 5, unit: 'ms' },
-  /** 0-2, not 0-3: the `tick` sensor rounds the position to 2 dp on the wire. */
-  decimals: { min: 0, max: 2, step: 1 },
-  gamma: { min: 1, max: 15, step: 0.5 },
-  line_width: { min: 0.5, max: 5, step: 0.5 },
-  fov_divisor: { min: 1.1, max: 10, step: 0.1, unit: '×' },
-  size: { min: 1, max: 20, step: 1, unit: 'px' },
-  thickness: { min: 1, max: 5, step: 1, unit: 'px' },
-  gap: { min: 0, max: 10, step: 1, unit: 'px' },
-  /** `keystrokes.corner_radius`, 0–20 px in `keystrokes_settings`. */
-  corner_radius: { min: 0, max: 20, step: 1, unit: 'px' },
-};
+> = Object.fromEntries(
+  Object.entries(SETTING_BOUNDS).map(([key, bounds]) => {
+    const shown: { step: number; unit?: string } | undefined = SETTING_STEPS[key];
+    return [key, { ...bounds, step: shown?.step ?? 1, ...(shown?.unit ? { unit: shown.unit } : {}) }];
+  }),
+);
 
-/** Enum options per settings key, transcribed from mods.json. */
+/**
+ * The two enums the Mod settings frame draws as colour **swatches** rather than as the generic
+ * chip row. Listing them in `SETTING_ENUMS` would render each one twice.
+ */
+const SWATCH_ENUMS = new Set(['keystrokes.key_color', 'keystrokes.pressed_color']);
+
+/**
+ * Enum options per `<mod>.<key>` — from the schema, with two deliberate removals.
+ *
+ * Missing an entry is not a missing *label*, it is a missing **control**: `PropertyControl`'s
+ * default branch draws `PositionChips` over `SETTING_ENUMS[id.key] ?? []`, and an empty array
+ * renders a row with a label and nothing beside it. That shipped on `watermark.style`, and it
+ * is only visible in game — jsdom renders the empty chip row exactly as happily as a full one.
+ * Deriving the table from `mods.json` is what makes it unrepresentable rather than tested for.
+ */
 export const SETTING_ENUMS: Record<string, readonly string[]> = {
   // Empty unless the dev padding is on; spread first so a real key always wins.
   ...FAKE_SETTING_ENUMS,
-  'cps.mode': ['left', 'right', 'both'],
-  'coordinates.layout': ['stacked', 'inline'],
-  'armor_status.orientation': ['horizontal', 'vertical'],
-  'toggle_sprint.mode': ['toggle', 'hold'],
-  'crosshair.style': ['default', 'cross', 'dot', 'circle', 't_shape', 'none'],
-  // Missing this is not a missing *label*, it is a missing **control**: `PropertyControl`'s
-  // default branch draws `PositionChips` over `SETTING_ENUMS[id.key] ?? []`, and an empty array
-  // renders a row with a label and nothing beside it. Seen in game on the watermark's page
-  // before this line existed, which is the only way it can be seen — jsdom renders the same
-  // empty chip row without complaint.
-  'watermark.style': ['full', 'mark', 'word'],
-  // `keystrokes.key_color` and `keystrokes.pressed_color` are enums in mods.json too,
-  // but deliberately absent here: this table drives the *generic* chip row, and the
-  // Mod settings frame draws those two as colour swatches instead. Listing them would
-  // render each one twice.
+  ...Object.fromEntries(
+    Object.entries(SETTING_OPTIONS).filter(([key]) => !SWATCH_ENUMS.has(key)),
+  ),
 };
+
 
 /* -------------------------------------------------------------------------- */
 /* Category hues                                                              */

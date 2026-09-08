@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 3,
+    "version": 4,
     "mods": {
       "fps": {
         "id": "fps",
@@ -28,6 +28,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 1,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "color": "#FFFFFF",
           "show_label": true,
           "show_low": true
@@ -45,6 +49,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 0.85,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "keybind": "NONE",
           "show_mouse": true,
           "show_spacebar": true,
@@ -67,6 +75,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 1,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "mode": "left",
           "show_label": true,
           "window_ms": 1000
@@ -84,6 +96,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 1,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "show_label": true,
           "good_ms": 60,
           "bad_ms": 150,
@@ -102,6 +118,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": false,
           "scale": 1,
           "opacity": 1,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "decimals": 1,
           "show_direction": true,
           "layout": "inline"
@@ -119,6 +139,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 1,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "orientation": "horizontal",
           "show_durability": true,
           "show_held_item": true,
@@ -137,6 +161,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 1,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "show_duration": true,
           "show_amplifier": true,
           "hide_ambient": false
@@ -154,6 +182,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "scale": 1,
           "opacity": 0.9,
+          "background": "none",
+          "border": false,
+          "text_shadow": true,
+          "padding": "normal",
           "style": "full"
         }
       },

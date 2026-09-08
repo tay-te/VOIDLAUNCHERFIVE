@@ -157,7 +157,7 @@ export type PingDisplayEntry = RegistryEntry & {
    */
   category?: 'hud';
   /**
-   * Always `safe`; §11 does not list ping explicitly, and a read of the player's own responseTime cannot affect play.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: PingDisplaySettings;
@@ -229,23 +229,23 @@ export type PotionEffectsEntry = RegistryEntry & {
   defaults?: PotionEffectsSettings;
 };
 /**
- * Registry entry for the VOID watermark, narrowed to its constant classification.
+ * Registry entry for the Watermark, narrowed to its constant classification.
  */
-export type VOIDWatermarkEntry = RegistryEntry & {
+export type WatermarkEntry = RegistryEntry & {
   /**
    * Always `watermark`.
    */
   id?: 'watermark';
   /**
-   * Always `hud`; it draws and reads nothing.
+   * Always `hud`.
    */
   kind?: 'hud';
   /**
-   * Always `visual`; it changes how the game looks rather than adding a readout, so the Mods panel tabs it under Visual (frame 244:538).
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
    */
   category?: 'visual';
   /**
-   * Always `safe`; §11 does not list it, and a mark drawn over the game cannot affect play.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: VOIDWatermarkSettings;
@@ -333,7 +333,7 @@ export type ZoomEntry = RegistryEntry & {
    */
   category?: 'utility';
   /**
-   * Always `safe`; §11 does not list zoom explicitly, and an FOV override is the long-standing allowed Optifine behaviour.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: ZoomSettings;
@@ -347,7 +347,7 @@ export type CrosshairEntry = RegistryEntry & {
    */
   id?: 'crosshair';
   /**
-   * Always `gameplay`; §3 marks it Gameplay* because it is drawn in GL rather than HTML, but its data direction is that of an actuator.
+   * Always `gameplay`.
    */
   kind?: 'gameplay';
   /**
@@ -355,7 +355,7 @@ export type CrosshairEntry = RegistryEntry & {
    */
   category?: 'visual';
   /**
-   * Always `safe`; §11 does not list crosshair explicitly, and it is a purely cosmetic replacement of the vanilla crosshair pass.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: CrosshairSettings;
@@ -365,7 +365,7 @@ export type CrosshairEntry = RegistryEntry & {
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the eight mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 8 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -600,7 +600,7 @@ export interface Mods {
   coordinates: CoordinatesEntry;
   armor_status: ArmorStatusEntry;
   potion_effects: PotionEffectsEntry;
-  watermark: VOIDWatermarkEntry;
+  watermark: WatermarkEntry;
   toggle_sprint: ToggleSprintEntry;
   fullbright: FullbrightEntry;
   hitboxes: HitboxesEntry;
@@ -639,6 +639,22 @@ export interface FPSDisplaySettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the FPS tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the FPS tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the FPS tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the FPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   color?: Colour;
   /**
    * Whether to render the trailing "FPS" label after the number.
@@ -656,6 +672,22 @@ export interface KeystrokesSettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the key tiles, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the key tiles, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the key tiles carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the key tiles — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   keybind?: Keybind;
   /**
    * Whether to render the LMB and RMB tiles under the WASD block.
@@ -688,6 +720,22 @@ export interface CPSCounterSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
+   * Ground drawn behind the CPS tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the CPS tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the CPS tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the CPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
    * Which mouse buttons to count: left only, right only, or both shown side by side.
    */
   mode?: 'left' | 'right' | 'both';
@@ -707,6 +755,22 @@ export interface PingDisplaySettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the ping tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the ping tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the ping tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the ping tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   /**
    * Whether to render the trailing "ms" unit after the number.
    */
@@ -732,6 +796,22 @@ export interface CoordinatesSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
+   * Ground drawn behind the coordinates tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the coordinates tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the coordinates tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the coordinates tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
    * Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one — 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.
    */
   decimals?: number;
@@ -751,6 +831,22 @@ export interface ArmorStatusSettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the armor row, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the armor row carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the armor row — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   /**
    * Whether armor pieces are laid out left to right or top to bottom.
    */
@@ -776,6 +872,22 @@ export interface PotionEffectsSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
+   * Ground drawn behind the effect list, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the effect list, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the effect list carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the effect list — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
    * Whether to print the remaining duration next to each effect.
    */
   show_duration?: boolean;
@@ -795,6 +907,22 @@ export interface VOIDWatermarkSettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the mark, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the mark, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Whether glyphs in the mark carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
+   */
+  text_shadow?: boolean;
+  /**
+   * Density of the mark — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   /**
    * Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark, `mark` is the ring alone, `word` is the wordmark alone.
    */

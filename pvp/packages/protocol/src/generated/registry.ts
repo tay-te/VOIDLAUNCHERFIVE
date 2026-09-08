@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 3,
+  "version": 4,
   "mods": {
     "fps": {
       "id": "fps",
@@ -30,6 +30,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 1,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "color": "#FFFFFF",
         "show_label": true,
         "show_low": true
@@ -47,6 +51,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 0.85,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "keybind": "NONE",
         "show_mouse": true,
         "show_spacebar": true,
@@ -69,6 +77,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 1,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "mode": "left",
         "show_label": true,
         "window_ms": 1000
@@ -86,6 +98,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 1,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "show_label": true,
         "good_ms": 60,
         "bad_ms": 150,
@@ -104,6 +120,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": false,
         "scale": 1,
         "opacity": 1,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "decimals": 1,
         "show_direction": true,
         "layout": "inline"
@@ -121,6 +141,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 1,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "orientation": "horizontal",
         "show_durability": true,
         "show_held_item": true,
@@ -139,6 +163,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 1,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "show_duration": true,
         "show_amplifier": true,
         "hide_ambient": false
@@ -156,6 +184,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "scale": 1,
         "opacity": 0.9,
+        "background": "none",
+        "border": false,
+        "text_shadow": true,
+        "padding": "normal",
         "style": "full"
       }
     },

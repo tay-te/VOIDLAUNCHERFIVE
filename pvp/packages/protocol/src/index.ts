@@ -15,6 +15,9 @@
 
 export type * from './generated/schema.js';
 export { MOD_REGISTRY_DOCUMENT } from './generated/registry.js';
+// The bounds and enum tables of every settings property, generated from the `<id>_settings`
+// sub-schemas. The UI used to transcribe both by hand; see `generated/constraints.ts`.
+export { SETTING_BOUNDS, SETTING_OPTIONS } from './generated/constraints.js';
 export {
   BRIDGE_EXAMPLES,
   LOADOUT_EXAMPLES,

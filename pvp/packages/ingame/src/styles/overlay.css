@@ -111,6 +111,75 @@ body {
   pointer-events: none;
 }
 
+/* -------------------------------------------------------------------------- *
+ * The shared HUD chrome block — `hud/chrome.ts`, `schema/mods/_shared.json#/hud`
+ *
+ * Applied by the slot around the widget, exactly where `scale` and `opacity` are applied, so
+ * one set of rules serves all eight HUD mods and the mod page's preview at once.
+ *
+ * Every value here is a token, and that is the point rather than an implementation detail:
+ * `design/quiet-cell-system.md` §1 rules a per-mod background, border or label *colour* out —
+ * colour encodes a value or a state and is never a preference — so what the player chooses is
+ * whether a chip has a ground, not what colour it is. All four settings are steps on scales
+ * this file owns.
+ * -------------------------------------------------------------------------- */
+
+.hud-chrome {
+  border-radius: 8px;
+  /* No transition. A repaint is caused by a setting changing and by nothing else — §4's budget
+     is 0 paints/s on an idle HUD, and an eased background would spend it on every toggle. */
+}
+
+/* `none` is vanilla and the default: the readout sits on the game with nothing behind it. */
+.hud-chrome--bg-none {
+  background: transparent;
+}
+
+/* Enough to hold a chip together over a busy texture without becoming a panel. */
+.hud-chrome--bg-subtle {
+  background: rgba(25, 26, 28, 0.55);
+}
+
+/* The opaque card ground, for a player who wants the HUD to read as a panel. */
+.hud-chrome--bg-solid {
+  background: var(--card-bg, #191a1c);
+}
+
+/* White at low alpha, never a colour — the border rule of §1. */
+.hud-chrome--border {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* The vanilla 1px drop shadow, and the single most load-bearing legibility control on the HUD:
+   it is what makes white text survive a snow biome. On by default because that is what
+   Minecraft itself does and what every player has read text against for a decade. */
+.hud-chrome--shadow {
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Density — §1's own word for it, and what a player means by "make the HUD smaller" once
+   `scale` has already made the text too small to read. Zero at `tight` so the block is a true
+   no-op for a player who wants what the HUD looked like before this existed. */
+.hud-chrome--pad-tight {
+  padding: 0;
+}
+
+.hud-chrome--pad-normal {
+  padding: 2px 4px;
+}
+
+.hud-chrome--pad-roomy {
+  padding: 6px 10px;
+}
+
+/* A ground with no inset reads as a smear against the glyphs, so the two smallest steps get a
+   floor once there is something to sit on. The padding setting still moves; it moves between
+   4 and 10 rather than between 0 and 10. */
+.hud-chrome--bg-subtle.hud-chrome--pad-tight,
+.hud-chrome--bg-solid.hud-chrome--pad-tight {
+  padding: 1px 3px;
+}
+
 /* The scale, as a layout zoom rather than a transform — see `placementStyle`. `inline-block` so
    the outer box shrink-wraps it and therefore measures the widget at its drawn size, which is
    what both the anchor offsets and the HUD editor's selection frame are computed from. */

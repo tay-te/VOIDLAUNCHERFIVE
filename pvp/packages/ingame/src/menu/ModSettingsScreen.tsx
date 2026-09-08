@@ -57,23 +57,11 @@ import { hudItem, useModSettings, useVoidStore, type SettingValue } from '@/stor
 import {
   HudArmorStatus,
   HudCoordinates,
-  HudCps,
-  HudCrosshair,
-  HudFps,
-  HudKeystrokes,
-  HudPing,
-  HudPotionEffects,
   type HudWidgetProps,
 } from '@/hud/widgets';
-import { HudWatermark } from '@/hud/watermark';
-import {
-  FullbrightPreview,
-  HitboxPreview,
-  SprintPreview,
-  ZoomPreview,
-} from './gameplay-previews';
+import { MOD_ART, modArt } from '@/mods';
+import { hudChrome } from '@/hud/chrome';
 import { CellMeter } from './CellMeter';
-import { TilePreview } from './TilePreview';
 import { SETTING_SUBTITLES, formatSetting, keybindLabel, settingLabel } from './settings-format';
 
 /* -------------------------------------------------------------------------- */
@@ -188,6 +176,17 @@ const ORDER = [
   'cinematic',
 ];
 
+/**
+ * Boolean keys that describe **appearance** rather than behaviour.
+ *
+ * The rule is otherwise "a boolean is behaviour", which held while every boolean was a
+ * `show_*`. The shared HUD chrome block broke it: `border` and `text_shadow` are booleans whose
+ * entire subject is what the chip looks like, and left to the default rule they would sit under
+ * Behaviour while `background` and `padding` — the same block, the same decision — sat under
+ * Appearance. Four settings a player thinks of as one thing, split across two captions.
+ */
+const APPEARANCE_KEYS = new Set(['border', 'text_shadow']);
+
 /** Non-boolean keys that still describe behaviour rather than appearance. */
 const BEHAVIOUR_KEYS = new Set([
   'keybind',
@@ -236,7 +235,10 @@ export function modProperties(
       kind,
       label: settingLabel(key),
       sub: SETTING_SUBTITLES[key],
-      group: kind === 'boolean' || BEHAVIOUR_KEYS.has(key) ? 'behaviour' : 'appearance',
+      group:
+        !APPEARANCE_KEYS.has(key) && (kind === 'boolean' || BEHAVIOUR_KEYS.has(key))
+          ? 'behaviour'
+          : 'appearance',
     };
   });
 }
@@ -486,97 +488,28 @@ function SizeHandle({
 /* -------------------------------------------------------------------------- */
 
 /**
- * The mods whose preview is the **real widget**, drawn from the loadout's own settings.
- *
- * This is the whole point of the page, and it is a different thing from what `TilePreview`
- * does. A tile preview is a *picture* of what the mod draws — cell art, hand-shaped, correct
- * about the mod's silhouette and about nothing else. A settings page needs the mod itself: you
- * are here to change `orientation` and see the pieces turn, to drag `thickness` and watch the
- * arms fatten. An approximation cannot do that, and an approximation that *tries* is worse than
- * one that does not, because it will drift from the widget and nobody will see the drift until
- * they compare them in game.
- *
- * So these entries are the same components `HudLayer` places. Not a copy of them, not a
- * preview-shaped variant — the identical component, reading the identical settings through
- * the identical hook, so a change to how a mod draws reaches this page for free and the two
- * cannot disagree.
- *
- * The table is partial on purpose: the mods not in it still draw `TilePreview`, which is
- * honest cell art, and each one moves here as its widget grows the settings to justify it.
- *
- * `sample` is documented on {@link HudWidgetProps} — it lets a widget stand in for live data
- * it has none of rather than rendering nothing, which on this page is the difference between a
- * preview and an empty box.
- */
-const LIVE_WIDGETS: Record<ModId, React.ComponentType<HudWidgetProps>> = {
-  // The nine that draw onto the page. These are the components `HudLayer` places, verbatim.
-  fps: HudFps,
-  keystrokes: HudKeystrokes,
-  cps: HudCps,
-  ping: HudPing,
-  coordinates: HudCoordinates,
-  armor_status: HudArmorStatus,
-  potion_effects: HudPotionEffects,
-  watermark: HudWatermark,
-  crosshair: HudCrosshair,
-  // The four that draw into the **world**, where there is no HTML to reuse and the entry is a
-  // diagram instead. `gameplay-previews.tsx` opens with why that is a different promise and
-  // what it still guarantees — the numbers are the game's own, even though the drawing is not.
-  toggle_sprint: SprintPreview,
-  fullbright: FullbrightPreview,
-  hitboxes: HitboxPreview,
-  zoom: ZoomPreview,
-};
-
-/**
  * Which mods claim a live preview — the domain `test/preview.test.tsx` walks.
  *
- * Exported so the gate reads the table rather than a copy of it: a mod added above has to
- * either prove every one of its settings moves the drawing or write down why one cannot, and
- * a list the test kept for itself could not do that.
+ * All thirteen, and structurally so: `MOD_ART` is proved exhaustive over `ModId`, and `Preview`
+ * is a required field of `ModArt`. A mod cannot exist without one.
  *
- * **All thirteen, now.** `TilePreview` is still the grid's art and still the fallback for a mod
- * added to `mods.json` before its preview is written; it is no longer what any mod page draws.
+ * ## What a preview promises
+ *
+ * For the nine mods that draw onto the page, `ModArt.Preview` is **the component `HudLayer`
+ * places** — not a copy of it, not a preview-shaped variant, the identical component reading
+ * the identical settings through the identical hook. That is the strongest guarantee available
+ * that the preview and the HUD agree: they are the same code, so a change to how a mod draws
+ * reaches this page for free.
+ *
+ * For the four that draw into the *world* there is no HTML to reuse, and the entry is a diagram
+ * instead. `gameplay-previews.tsx` opens with why that is a different promise and what it still
+ * guarantees — the numbers are the game's own, even though the drawing is not.
+ *
+ * This list is exported rather than kept private so the gate reads the table rather than a copy
+ * of it: a mod has to either prove every one of its settings moves the drawing or write down
+ * why one cannot.
  */
-export const LIVE_WIDGET_IDS: readonly ModId[] = Object.keys(LIVE_WIDGETS) as ModId[];
-
-/**
- * How much bigger than life each live preview draws, before the mod's own `scale`.
- *
- * A HUD widget is sized for a 1458-px view seen at arm's length over a match; the preview
- * frame is ~300 px tall and the player is reading it, not glancing at it. One number for all
- * of them would be wrong for all of them — a keycap pad and a five-row armour strip do not
- * start from the same size — so each says what it needs and why.
- *
- * Absent means 1: the crosshair carries its own multiplier (`unit`), because every length in
- * it is arithmetic rather than layout, and multiplying the arithmetic keeps the 1px outline a
- * 1px outline.
- */
-const PREVIEW_ZOOM: Partial<Record<ModId, number>> = {
-  // The chips. A HUD chip is ~24px tall and reads at arm's length over a match; these pages
-  // give the preview 600px of height and a person's full attention, and at 2.2 the chip still
-  // read as a label on a form rather than as the object under discussion. All four are the same
-  // number on purpose — they are the same object, and a set of chips at four different
-  // magnifications would say they were not.
-  fps: 3,
-  cps: 3,
-  ping: 3,
-  coordinates: 3,
-  // The list widgets carry more text per row, so they reach the frame's width sooner.
-  potion_effects: 1.8,
-  // The mark is already drawn at 3px cells to sit under the fps chip without out-ranking it
-  // (`watermark.tsx`); it needs the most enlargement of anything here to be looked *at*.
-  watermark: 3.4,
-  // Four rows of 40px caps is 190 tall at 1x. 1.4 puts it at ~265 in a ~300 frame, with the
-  // mouse row still clear of the corner slots.
-  keystrokes: 1.5,
-  // Set by the **horizontal** strip, which is the wide one: five cells whose natural width is
-  // ~322 in a frame measured at 492. 1.6 put it at 518, and the widget did what a flex row does
-  // when it is 26px too wide — it squeezed the cells until `1159 / 1561` wrapped onto a second
-  // line and pushed the last bar out of the row. Measured in the harness, not guessed. 1.3
-  // leaves ~25px of slack, which is the margin a slightly narrower panel needs.
-  armor_status: 1.3,
-};
+export const LIVE_WIDGET_IDS: readonly ModId[] = Object.keys(MOD_ART) as ModId[];
 
 /**
  * The zoom box.
@@ -601,11 +534,18 @@ function PreviewZoom({
   children: React.ReactNode;
 }): React.ReactElement {
   const settings = useModSettings(id);
-  const base = PREVIEW_ZOOM[id] ?? 1;
+  const base = modArt(id)?.previewZoom ?? 1;
   const scale = base * Number(settings.scale ?? 1);
   const opacity = Number(settings.opacity ?? 1);
+  // The shared chrome block, applied here because `HudSlot` applies it in the same place on the
+  // HUD — around the widget, not by it (`hud/chrome.ts`). Same box, same order, so the preview
+  // is the same drawing rather than a similar one. A gameplay mod has no chrome and `hudChrome`
+  // gives it the factory classes, which resolve to no ground, no border and the design padding.
   return (
-    <div className="preview__zoom" style={{ zoom: scale, opacity } as React.CSSProperties}>
+    <div
+      className={`preview__zoom ${hudChrome(settings)}`}
+      style={{ zoom: scale, opacity } as React.CSSProperties}
+    >
       {children}
     </div>
   );
@@ -649,7 +589,7 @@ export function ModPreview({ id }: ModPreviewProps): React.ReactElement {
   // are answered by dragging the preview rather than by reading a row.
   const sizeKey = 'scale' in settings ? 'scale' : 'size' in settings ? 'size' : null;
   const sizeRange = sizeKey ? SETTING_RANGES[sizeKey] : undefined;
-  const LiveWidget = LIVE_WIDGETS[id];
+  const LiveWidget = modArt(id)?.Preview ?? null;
 
   const meta = [
     placement ? anchorLabel(placement.anchor) : '—',
@@ -667,16 +607,14 @@ export function ModPreview({ id }: ModPreviewProps): React.ReactElement {
             ground: a crosshair's `outline` is black, and black on the frame's near-black is a
             setting whose switch does nothing you can see. Chips bring their own background. */}
         <div className={`preview__stage${LiveWidget ? ` preview__stage--${id}` : ''}`}>
-          {/* The real widget where one exists (`LIVE_WIDGETS`), the grid's cell art otherwise.
-              The split is temporary in one direction only: mods move into the table, never out
-              of it. */}
+          {/* Every registry mod has a `Preview` — `ModArt` requires one and `MOD_ART` is
+              exhaustive — so this is only ever null for a synthetic `?fake=` id, which has no
+              settings page to reach anyway. */}
           {LiveWidget ? (
             <PreviewZoom id={id}>
               <LiveWidget variant="editor" sample />
             </PreviewZoom>
-          ) : (
-            <TilePreview id={id} scale={2.6} />
-          )}
+          ) : null}
         </div>
 
         {/* §8: placement never appears as a list row. Frame `289:5523` draws it as

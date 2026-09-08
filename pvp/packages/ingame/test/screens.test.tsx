@@ -793,7 +793,14 @@ describe('The mod page — contract §8', () => {
 
     // 2–4 is one column and no caption: a group of one is the section label the flat
     // structure exists to avoid.
-    open('cps');
+    //
+    // A **gameplay** mod, and necessarily so now. This was `cps`, which had four; the shared HUD
+    // chrome block gave every `kind: hud` mod four more, so all eight are grouped and the flat
+    // branch belongs to the mods that have no chrome. That is the block working as intended
+    // rather than a regression — §8's rule is "structure follows property count", and the count
+    // genuinely moved — but it does mean this branch now has exactly `toggle_sprint` and
+    // `hitboxes` to cover it.
+    open('toggle_sprint');
     expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
     expect(container.querySelectorAll('.mprops__group')).toHaveLength(0);
     expect(container.querySelector('.mprops__cap')).toBeNull();
