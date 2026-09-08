@@ -38,12 +38,25 @@
  * and the caption was the tell — a picture that needs its own name printed underneath is a
  * picture that is not working.
  *
- * `dense` drops the row labels and the reading and shrinks the cell, and changes nothing else.
- * Both densities read the same settings through the same hooks, so a tile and a page cannot
- * disagree about what a mod looks like, which is the failure this replaces.
+ * `dense` drops the reading, shrinks the cell, and moves each row's label above its cells
+ * instead of beside them. Both densities read the same settings through the same hooks, so a
+ * tile and a page cannot disagree about what a mod looks like, which is the failure this
+ * replaces.
  *
- * **What `dense` may never add**: a caption, a name, or any text that is not a value. The tile's
- * name is printed 20px below it by `ModsScreen`; printing it twice is what the old art did.
+ * **What `dense` may never add**: a caption naming the mod. The tile's name is printed 20px
+ * below it by `ModsScreen`, and printing it twice is what the old art did — `BRIGHT` under a
+ * picture of brightness is the tell that the picture is not working.
+ *
+ * That rule was once written as "no text that is not a value", and it was too broad. A row's
+ * axis label is neither a caption nor a value: `World` and `Seen` are part of the drawing, the
+ * way a chart's axis is part of the chart. Dropping them cost more than it saved — both two-row
+ * diagrams collapsed into the same anonymous grid, and a user asked why they looked like that.
+ *
+ * The general lesson, which is the part worth keeping: **"one drawing, two densities" assumes the
+ * drawing degrades gracefully.** It is the right principle — it is what stops a tile and a page
+ * drifting apart — but a drawing whose legibility lives in text that `dense` removes does not
+ * degrade, it dies. Check the dense form on its own, with no page beside it for context, because
+ * that is how a player meets it.
  */
 
 import { type CSSProperties } from 'react';
@@ -61,7 +74,20 @@ function CellRow({
   label,
   cells,
 }: {
-  /** Omitted at tile density: 58px of eyebrow is a third of the tile's width. */
+  /**
+   * The row's axis label — part of the drawing, not a caption.
+   *
+   * It used to be dropped at tile density, because 58px of eyebrow *beside* a 116px row is a
+   * third of the tile's width. That was the right instinct about width and the wrong conclusion:
+   * these labels are load-bearing. Without them both two-row diagrams degrade to the same
+   * anonymous grid — a user asked "why do toggle sprint and full bright look like that", and the
+   * answer was that neither could be read at all. Fullbright is the sharper case, because the mod
+   * ships off, so its two ramps are identical *by design* and the honest statement that nothing is
+   * happening is indistinguishable from a fault.
+   *
+   * The label now sits **above** the cells at tile density (`.gprev--tile .gprev__row` turns the
+   * column), where width is free and the cost is ~11px of height the tile has to spare.
+   */
   label?: string;
   /** Alpha per cell, 0-1. */
   cells: readonly number[];
@@ -165,8 +191,8 @@ export function FullbrightPreview({ dense = false, className }: DiagramProps = {
   const seen = world.map((base) => litLevel(base, gamma));
   return (
     <div className={root(dense, undefined, className)}>
-      <CellRow label={dense ? undefined : 'World'} cells={world} />
-      <CellRow label={dense ? undefined : 'Seen'} cells={seen} />
+      <CellRow label="World" cells={world} />
+      <CellRow label="Seen" cells={seen} />
       {dense ? null : (
       <Reading>
         {gamma <= 1
@@ -364,8 +390,8 @@ export function SprintPreview({ dense = false, className }: DiagramProps = {}): 
 
   return (
     <div className={root(dense, undefined, className)}>
-      <CellRow label={dense ? undefined : 'Key'} cells={key} />
-      <CellRow label={dense ? undefined : 'Sprint'} cells={state} />
+      <CellRow label="Key" cells={key} />
+      <CellRow label="Sprint" cells={state} />
       {/* Three rows is a block rather than a comparison at tile size, and `sneak_too` is a
           second mod riding along rather than the thing the tile identifies. Page only. */}
       {sneak && !dense ? <CellRow label="Sneak" cells={key} /> : null}

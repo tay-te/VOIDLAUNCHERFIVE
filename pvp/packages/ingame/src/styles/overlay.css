@@ -2810,9 +2810,25 @@ body {
   max-width: none;
 }
 
+/* The label goes *above* the cells here, not beside them.
+
+   Beside is what the page does, and it is why the tile used to drop the label entirely: a 58px
+   eyebrow against a 116px row eats a third of the tile's width. Turning the column spends height
+   instead, which the tile has — two labelled rows come to ~59px in a well of 118 — and it is what
+   makes the drawing readable at all. Without the labels, the gamma ramp and the sprint timeline
+   are both two rows of seven grey cells and neither can be told from the other, or from a fault. */
 .gprev--tile .gprev__row {
-  gap: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   width: auto;
+}
+
+.gprev--tile .gprev__rowlabel {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-align: left;
 }
 
 .gprev--tile .gprev__cells {

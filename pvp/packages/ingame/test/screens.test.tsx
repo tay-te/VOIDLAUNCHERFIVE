@@ -883,9 +883,25 @@ describe('The mod page — contract §8', () => {
       // printed it twice.
       expect(tile.querySelector('.tart__unit--wide'), id).toBeNull();
       expect(tile.querySelector('.modcell__preview .cart'), id).toBeNull();
-      // The page's furniture does not come with it.
+      // The page's *sentence* does not come with it — a tile has no room to be read to.
       expect(tile.querySelector('.gprev__reading'), id).toBeNull();
-      expect(tile.querySelector('.gprev__rowlabel'), id).toBeNull();
+    }
+    // But a row's axis label does come with it, and this is the correction worth pinning.
+    //
+    // The tile used to drop those labels, on a rule that banned "any text that is not a value".
+    // That rule was written to kill `BRIGHT` and `SPRINT` captions and it did, but it was too
+    // broad: `World` / `Seen` and `Key` / `Sprint` are the diagram's own axis, not the mod's name
+    // repeated. Without them the gamma ramp and the sprint timeline are both two rows of seven
+    // grey cells, indistinguishable from each other and from a rendering fault — and fullbright
+    // ships *off*, so its two rows are identical by design, which made the honest "this mod is
+    // doing nothing" look like breakage. A user asked why they looked like that.
+    for (const [id, axis] of [
+      ['fullbright', ['World', 'Seen']],
+      ['toggle_sprint', ['Key', 'Sprint']],
+    ] as const) {
+      const tile = container.querySelector(`.modcell[data-mod-id="${id}"]`) as HTMLElement;
+      const labels = [...tile.querySelectorAll('.gprev__rowlabel')].map((n) => n.textContent);
+      expect(labels, id).toEqual([...axis]);
     }
     // The zoom tile keeps exactly one keycap — the grid draws the mod's keybind itself, so the
     // diagram's own `hold C` cap would be the second one on the same 145px square.
