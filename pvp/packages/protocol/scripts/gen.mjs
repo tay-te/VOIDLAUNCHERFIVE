@@ -176,6 +176,79 @@ export const MOD_REGISTRY_DOCUMENT = ${JSON.stringify(registry, null, 2)} as con
 process.stdout.write('generated src/generated/registry.ts\n');
 
 // ---------------------------------------------------------------------------
+// icons.ts — the glyph each registry entry names, with its literal type intact.
+//
+// `mod_entry.icon` is the last piece of mod *identity* that lived in a hand-maintained
+// table: `MOD_ICONS` in `packages/ui/src/components/Icon.tsx`, thirteen rows transcribed
+// from nowhere. It sat in `@void/ui` rather than beside the art because *two* applications
+// need it — the overlay's Mods list and quick palette, and the launcher's `ModSetup` and
+// command palette — and neither can import the other. That is an argument for a contract,
+// which is what the schema now carries; `packages/ingame/src/mods/types.ts` predicted this
+// change and said so.
+//
+// Why a generated table rather than one line of `Object.fromEntries` over `MOD_REGISTRY` in
+// `@void/ui`: **the literal types**. `MOD_REGISTRY` is typed `ModRegistry`, so its `icon` is
+// `string`, and a table derived from it at module load types every entry `string` too. Its
+// consumers pass `MOD_ICONS[id]` straight to `<Icon name>`, whose `IconName` is a closed
+// union that **throws** on a name it cannot draw, so `string` there would move a compile
+// error to a runtime one — precisely the silent-lookup shape of
+// `design/rendering-invariants.md` §15. Emitting the object literally keeps each value at
+// its own literal type, and `@void/ui` closes the loop with one
+// `satisfies Record<ModId, IconName>`: a schema naming a glyph that has no drawing fails
+// `pnpm typecheck` in the package that owns the drawing, without this package ever learning
+// what an icon looks like.
+//
+// This is deliberately not folded into `registry.ts`, whose job is to be `examples[0]`
+// verbatim, nor exposed as `ModEntry.icon` alone — that field exists and is `string`, which
+// is right for the registry and not enough for the icon table.
+// ---------------------------------------------------------------------------
+{
+  const ICON_RE = /^[a-z][a-z0-9-]*$/;
+  const icons = {};
+  const bad = [];
+  for (const [id, entry] of Object.entries(registry.mods)) {
+    if (typeof entry.icon !== 'string' || !ICON_RE.test(entry.icon)) {
+      bad.push(`${id}: ${JSON.stringify(entry.icon)}`);
+      continue;
+    }
+    icons[id] = entry.icon;
+  }
+  // `icon` is `required` in `mod_entry` and pattern-constrained, so this can only fire on a
+  // registry that never went through `schema/build.mjs`. It fires loudly anyway: the failure
+  // it replaces is a mod whose row draws an empty box, which no test of the schema can see.
+  if (bad.length > 0) {
+    throw new Error(`registry entries with a missing or malformed icon:\n  ${bad.join('\n  ')}`);
+  }
+
+  await writeFile(
+    path.join(outDir, 'icons.ts'),
+    `${BANNER}
+import type { ModId } from './schema.js';
+
+/**
+ * The glyph each mod names — \`mod_entry.icon\`, lifted out of the shipped registry.
+ *
+ * Every value keeps its **literal** type, which is the whole reason this is a generated
+ * table and not a fold over \`MOD_REGISTRY\`: \`@void/ui\` re-exports it as
+ * \`MOD_ICONS\` under a \`satisfies Record<ModId, IconName>\`, so a schema that names a glyph
+ * the icon set cannot draw is a type error there rather than an empty box in game.
+ *
+ * Not to be confused with \`ICON_NAMES\` in \`@void/ui\`, which is the set of glyphs that
+ * *can* be drawn. This is the mapping from mod to one of them, and nothing in this package
+ * knows the difference — by design: \`@void/protocol\` must not depend on \`@void/ui\`.
+ *
+ * Prefer \`@void/ui\`'s \`MOD_ICONS\` in an application. Reach for this only where \`@void/ui\`
+ * is not a dependency, and note it is the *registry's* view: the overlay's \`?fake=\` padding
+ * extends \`MOD_ICONS\`, never this.
+ */
+export const MOD_ICON_NAMES = ${JSON.stringify(icons, null, 2)} as const satisfies Record<ModId, string>;
+`,
+    'utf8',
+  );
+  process.stdout.write('generated src/generated/icons.ts\n');
+}
+
+// ---------------------------------------------------------------------------
 // constraints.ts — the numeric ranges and enum tables of every settings property.
 //
 // These were transcribed by hand into `packages/ingame/src/registry.ts` as
@@ -298,6 +371,7 @@ export type * from './schema.js';
 export * from './registry.js';
 export * from './examples.js';
 export * from './constraints.js';
+export * from './icons.js';
 `,
   'utf8',
 );

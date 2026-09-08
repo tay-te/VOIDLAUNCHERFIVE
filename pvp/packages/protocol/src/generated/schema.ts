@@ -704,10 +704,6 @@ export interface FPSDisplaySettings {
    */
   border?: boolean;
   /**
-   * Whether glyphs in the FPS tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
-  /**
    * Density of the FPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
   padding?: 'tight' | 'normal' | 'roomy';
@@ -736,10 +732,6 @@ export interface KeystrokesSettings {
    * Whether a hairline is drawn around the key tiles, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
   border?: boolean;
-  /**
-   * Whether glyphs in the key tiles carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
   /**
    * Density of the key tiles — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
@@ -784,10 +776,6 @@ export interface CPSCounterSettings {
    */
   border?: boolean;
   /**
-   * Whether glyphs in the CPS tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
-  /**
    * Density of the CPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
   padding?: 'tight' | 'normal' | 'roomy';
@@ -819,10 +807,6 @@ export interface PingDisplaySettings {
    * Whether a hairline is drawn around the ping tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
   border?: boolean;
-  /**
-   * Whether glyphs in the ping tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
   /**
    * Density of the ping tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
@@ -860,10 +844,6 @@ export interface CoordinatesSettings {
    */
   border?: boolean;
   /**
-   * Whether glyphs in the coordinates tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
-  /**
    * Density of the coordinates tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
   padding?: 'tight' | 'normal' | 'roomy';
@@ -895,10 +875,6 @@ export interface ArmorStatusSettings {
    * Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
   border?: boolean;
-  /**
-   * Whether glyphs in the armor row carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
   /**
    * Density of the armor row — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
@@ -936,10 +912,6 @@ export interface PotionEffectsSettings {
    */
   border?: boolean;
   /**
-   * Whether glyphs in the effect list carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
-  /**
    * Density of the effect list — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */
   padding?: 'tight' | 'normal' | 'roomy';
@@ -971,10 +943,6 @@ export interface VOIDWatermarkSettings {
    * Whether a hairline is drawn around the mark, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
   border?: boolean;
-  /**
-   * Whether glyphs in the mark carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.
-   */
-  text_shadow?: boolean;
   /**
    * Density of the mark — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
    */

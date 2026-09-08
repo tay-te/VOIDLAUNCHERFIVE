@@ -72,19 +72,24 @@ export interface ThumbnailProps {
  * copy-pasted module from declaring `id: 'fps'` while living in `cps.tsx`, which is the
  * single most likely mistake when a new mod is written by copying its neighbour.
  *
- * **Not here: the mod's icon.**
+ * **Not here: the mod's icon.** It is in the schema, and there is nothing left to declare.
  *
- * Worth stating, because it is the one thing a reader will look for in this interface and
- * the omission is deliberate. `MOD_ICONS` stays in `@void/ui` because *two* applications
- * need it — the in-game overlay's list layout and quick palette, and the desktop launcher's
- * `ModSetup` and command palette — and the launcher cannot import from `packages/ingame`.
- * Declaring it here as well would make two sources of truth with a test between them, which
- * is the pattern `docs/mod-roster.md` §9 names as the problem rather than the fix.
+ * Worth stating, because it is the one thing a reader will look for in this interface. The
+ * icon is identity rather than art — *two* applications need it, the in-game overlay's list
+ * layout and quick palette and the desktop launcher's `ModSetup` and command palette, and
+ * neither can import the other — so it belongs where the rest of a mod's identity already
+ * lives. `mods/<id>.json` carries `icon`, `@void/protocol` generates `MOD_ICON_NAMES` from
+ * the shipped registry, and `@void/ui` publishes that as `MOD_ICONS` narrowed to its own
+ * `IconName`. A mod adding itself to the schema arrives in both applications' lists with a
+ * mark on it and no edit anywhere near this file.
  *
- * The honest end state is the icon name living in `schema/mods/<id>.json` with `MOD_ICONS`
- * generated from it, the way every other piece of mod identity already works. That is a
- * contract change (`mod_entry` gains a property, and Rust's `ModInfo` parses entries) and it
- * belongs in the Wave 0 pass that also generates `ModRegistry.java`.
+ * This paragraph used to predict that change and call it Wave 0 work; it has landed, and the
+ * argument it made still holds — declaring the icon *here as well* would be two sources of
+ * truth with a test between them, which `docs/mod-roster.md` §9 names as the problem rather
+ * than the fix. The narrowing is the part worth knowing about downstream: the schema
+ * constrains `icon` to a pattern, which cannot know what `@void/ui` can draw, so `Icon.tsx`
+ * closes it with one `satisfies Record<ModId, IconName>` and an undrawable name is a type
+ * error rather than an empty box on thirteen rows.
  */
 export interface ModArt<I extends ModId = ModId> {
   /** The mod's snake_case id; equals the file's own name and the key it is registered under. */

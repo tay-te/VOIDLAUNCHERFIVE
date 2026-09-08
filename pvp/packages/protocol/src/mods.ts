@@ -33,6 +33,16 @@ export interface ModEntry<I extends ModId = ModId> {
   readonly hypixel_safe: HypixelSafetyClass;
   /** Human-readable name, as it appears in the Mods panel. */
   readonly label: string;
+  /**
+   * Name of the glyph the Mods list and the quick palette draw for this mod.
+   *
+   * `string` here on purpose. The registry's own view of an icon is a name; whether that
+   * name can be *drawn* is `@void/ui`'s question, and this package must not import the
+   * answer. Anything rendering an icon should take `MOD_ICON_NAMES` — or, better,
+   * `@void/ui`'s `MOD_ICONS`, which is that table narrowed to `IconName` — where each
+   * value keeps the literal type this field widens away.
+   */
+  readonly icon: string;
   /** One-line explanation shown under the label. */
   readonly description: string;
   /** The 1.8.9 field or injection point the sensor reads / the actuator writes. */

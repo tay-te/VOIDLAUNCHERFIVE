@@ -427,7 +427,9 @@ export function PositionChips({
 /* Convenience                                                                */
 /* -------------------------------------------------------------------------- */
 
-/** The icon each of the 12 mods uses. Re-exported so callers need one import. */
+/**
+ * The icon each mod uses, derived from `mods.json`. Re-exported so callers need one import.
+ */
 export { MOD_ICONS };
 
 /** The switch sizes, re-exported for consumers building their own rows. */

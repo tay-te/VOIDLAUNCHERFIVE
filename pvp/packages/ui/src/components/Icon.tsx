@@ -1,5 +1,7 @@
 import type { SVGProps } from 'react';
 
+import { MOD_ICON_NAMES, type ModId } from '@void/protocol';
+
 /**
  * The shared icon set.
  *
@@ -125,14 +127,21 @@ const PATHS: Record<IconName, string[]> = {
   // of them can clear its neighbour at the sizes this set is drawn: the in-game sprite
   // measured them closing into hollow rings with dots over them at 16px, which is why that
   // sheet had been drawing a double chevron under the name `footprints` for months. The name
-  // and the drawing agree again — see `MOD_ICONS.toggle_sprint` and
-  // `ingame/scripts/build-icons.py`.
+  // and the drawing agree again — see `ingame/scripts/build-icons.py`, and
+  // `schema/mods/toggle_sprint.json`, which is where the name is chosen now.
   bolt: ['M14.8 2.8 6.2 13.2h5.2L9.2 21.2 17.8 10.8h-5.2L14.8 2.8Z'],
   cube: ['M21 8 12 3 3 8v8l9 5 9-5V8Z', 'M3 8l9 5 9-5'],
   sparkle: ['M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5 10.2 7.7 12 3Z', 'M18.5 16l.9 2.2 2.1.8-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.8.9-2.2Z'],
   // Not a Lucide glyph. A mark placed in the corner of a screen, which is what the watermark
-  // mod is; see `MOD_ICONS.watermark` and `ingame/scripts/build-icons.py` for why it is not
-  // `sparkle` any more.
+  // mod is. The mark itself is cell art rather than an icon — the tile preview draws the real
+  // widget (`ingame/src/menu/TilePreview.tsx`) — but the mod still needs a glyph for the
+  // *rows*, where every sibling has one and a hole reads as a missing asset. That glyph was
+  // `sparkle` until the icon pass, and it was wrong twice: `sparkle` means "AI / magic /
+  // enhance" everywhere else in this product — it is the palette's default and the Cosmetics
+  // mark — and it is the one **filled** glyph among twelve stroked mod icons, so the quietest
+  // thing the client draws carried the heaviest mark in the list column.
+  // `ingame/scripts/build-icons.py`, `watermark`, draws the same reasoning at 48px; the name
+  // is chosen in `schema/mods/watermark.json` now.
   watermark: ['M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M7.4 15a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2Z'],
 };
 
@@ -195,31 +204,37 @@ export function Icon(props: IconProps): React.ReactElement | null {
   );
 }
 
-/** The icon each of the 13 mods shows in its row, its palette result and its page head. */
-export const MOD_ICONS = {
-  fps: 'gauge',
-  keystrokes: 'keyboard',
-  cps: 'cursor-click',
-  ping: 'wifi',
-  coordinates: 'compass',
-  armor_status: 'shield',
-  potion_effects: 'flask',
-  toggle_sprint: 'bolt',
-  fullbright: 'sun',
-  hitboxes: 'cube',
-  zoom: 'zoom',
-  crosshair: 'crosshair',
-  // The VOID mark itself is cell art, not an icon — the tile preview draws the real widget
-  // (`ingame/src/menu/TilePreview.tsx`). What this names is the icon for the *rows*, where
-  // every other mod has one and a hole would read as a missing asset.
-  //
-  // It was `sparkle` until the icon pass, and that was wrong twice: `sparkle` means "AI /
-  // magic / enhance" everywhere else in this product — it is the palette's default and the
-  // Cosmetics mark — and it is the one **filled** glyph among twelve stroked mod icons, so the
-  // quietest thing the client draws had the heaviest mark in the list column. See
-  // `ingame/scripts/build-icons.py`, `watermark`.
-  watermark: 'watermark',
-} as const satisfies Record<string, IconName>;
+/**
+ * The icon each of the 13 mods shows in its row, its palette result and its page head.
+ *
+ * **Derived from the schema, not written here.** `mod_entry.icon` in `pvp/schema/mods/<id>.json`
+ * is where a mod names its glyph, `@void/protocol` generates {@link MOD_ICON_NAMES} out of the
+ * shipped registry, and this is that table with one thing added: the promise that every value
+ * is an {@link IconName} this package can actually draw. A mod added to the schema arrives here
+ * on its own — this file used to need a row per mod, and forgetting one was a mod whose list
+ * row and palette result had a hole where every sibling has a mark.
+ *
+ * ## Why the `satisfies` is the point
+ *
+ * `IconName` is a closed union and {@link Icon} indexes `PATHS` with it, so a name with no
+ * drawing is `undefined.map` — a throw in the launcher, and in the overlay a sprite cell that
+ * does not exist. The schema constrains `icon` to a *pattern*, which cannot know what this
+ * package draws, so the check has to happen where both facts are in scope. That is here, and
+ * it is one line: `MOD_ICON_NAMES` carries each value at its literal type, so
+ * `satisfies Record<ModId, IconName>` proves, at `pnpm typecheck`, both that every mod has an
+ * icon and that every icon has a drawing. `design/rendering-invariants.md` §15 asks for the
+ * check that walks the domain rather than the case somebody thought of; a total type is that
+ * check with no test to run.
+ *
+ * ## Why it is a copy
+ *
+ * The spread is not incidental. `packages/ingame/src/dev/fake-mods.ts` pads the page's view of
+ * the registry under `?fake=`/`VOID_UI_FAKEMODS` by writing rows into this object at import
+ * time, so it has to stay an ordinary extensible object — never frozen, and never a getter over
+ * the generated const. Copying also keeps that padding out of `@void/protocol`'s constant,
+ * which is the contract and should read the same in a dev build as in a release one.
+ */
+export const MOD_ICONS = { ...MOD_ICON_NAMES } satisfies Record<ModId, IconName>;
 
 /**
  * Resolve a loadout's `icon` field against the shared icon set. `loadout.json` says the
