@@ -8,7 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -319,13 +318,33 @@ class ModRegistryTest {
     @Test
     @DisplayName("the shared HUD chrome block reaches every HUD mod and no gameplay mod")
     void hudChromeIsUniversal() {
-        // `background`, `border`, `text_shadow` and `padding` are declared once, in
-        // `schema/mods/_shared.json#/hud`, and `schema/build.mjs` merges them into all eight
-        // HUD mods. The point of a shared block is that adding the ninth HUD widget cannot
-        // forget it, so the invariant is worth stating on this side too: a HUD mod that has
-        // lost its chrome draws un-styleable over arbitrary game pixels, which is the exact
-        // problem the block was added to solve.
-        List<String> chrome = Arrays.asList("background", "border", "text_shadow", "padding");
+        // The shared block is declared once, in `schema/mods/_shared.json#/hud`, and
+        // `schema/build.mjs` merges it into all eight HUD mods. The point of a shared block is
+        // that adding the ninth HUD widget cannot forget it, so the invariant is worth stating
+        // on this side too: a HUD mod that has lost its chrome draws un-styleable over
+        // arbitrary game pixels, which is the exact problem the block was added to solve.
+        //
+        // **Read out of the schema, not restated here.** This list was written out by hand as
+        // `background, border, text_shadow, padding` and was wrong within a day: `text_shadow`
+        // came out of the block (Ultralight drops it — `design/ultralight-notes.md` §3) and
+        // this was the one place left asserting it existed. A test that hard-codes the thing
+        // it is checking is the same hand-transcription this whole pass removed, just wearing
+        // a test's clothes — and it fails the *build* rather than failing quietly, which is
+        // the only reason it was caught at all.
+        Set<String> chrome = new LinkedHashSet<String>();
+        for (Map.Entry<String, JsonElement> entry
+                : Schemas.load("mods/_shared.json").getAsJsonObject("hud").entrySet()) {
+            // `$comment` is the block's own prose. `on` is on every mod, HUD or not, so it is
+            // the one shared key this loop cannot assert `hud`-vs-not about; it is checked
+            // below instead.
+            if (entry.getKey().startsWith("$") || "on".equals(entry.getKey())) {
+                continue;
+            }
+            chrome.add(entry.getKey());
+        }
+        // `entrySet` rather than `keySet`: `keySet` arrived in gson 2.8.1 and the mod pins an
+        // older one.
+        assertTrue(chrome.size() >= 4, "the shared HUD block looks empty: " + chrome);
         for (String id : ModRegistry.modIds()) {
             Set<String> settings = new LinkedHashSet<String>(ModRegistry.settingKeys(id));
             boolean hud = ModRegistry.isHud(id);
@@ -334,10 +353,9 @@ class ModRegistryTest {
                         id + (hud ? " is missing chrome key " : " should not carry chrome key ")
                                 + key);
             }
-            // `scale` and `opacity` are the other half of the HUD block; a gameplay mod draws
-            // nothing of its own and has neither.
-            assertEquals(hud, settings.contains("scale"), id + " scale");
-            assertEquals(hud, settings.contains("opacity"), id + " opacity");
+            // `scale` and `opacity` are in `chrome` above and covered by the same loop — a
+            // gameplay mod draws nothing of its own and has neither. `on` is the exception:
+            // every mod carries it, which is why it is excluded from the derived set.
             assertTrue(settings.contains("on"), id + " has no `on`");
         }
     }
