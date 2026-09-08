@@ -48,8 +48,8 @@ export type ModRegistry = { readonly [I in ModId]: ModEntry<I> };
 export const MOD_REGISTRY_VERSION: number = MOD_REGISTRY_DOCUMENT.version;
 
 /**
- * The closed registry of the 12 mods (§3). Keys are stable; iterate {@link MOD_IDS}
- * when you need a deterministic order.
+ * The closed registry of the 13 mods (§3, plus the VOID watermark). Keys are stable;
+ * iterate {@link MOD_IDS} when you need a deterministic order.
  */
 export const MOD_REGISTRY = MOD_REGISTRY_DOCUMENT.mods as unknown as ModRegistry;
 
@@ -62,6 +62,7 @@ export const MOD_IDS = [
   'coordinates',
   'armor_status',
   'potion_effects',
+  'watermark',
   'toggle_sprint',
   'fullbright',
   'hitboxes',
@@ -78,6 +79,7 @@ export const HUD_MOD_IDS = [
   'coordinates',
   'armor_status',
   'potion_effects',
+  'watermark',
 ] as const satisfies readonly HUDModId[];
 
 /** The mods an actuator Mixin reads every frame, in registry order. */
@@ -89,7 +91,7 @@ export const GAMEPLAY_MOD_IDS = [
   'crosshair',
 ] as const satisfies readonly GameplayModId[];
 
-/** True when `id` is one of the 12 mod ids. */
+/** True when `id` is one of the 13 mod ids. */
 export function isModId(id: string): id is ModId {
   return (MOD_IDS as readonly string[]).includes(id);
 }

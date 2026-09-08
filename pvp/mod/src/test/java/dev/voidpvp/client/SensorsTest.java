@@ -73,8 +73,12 @@ class SensorsTest {
         JsonObject second = ticks.build(140, 39, 1, 2, 3, 90f, armor, fx);
         assertFalse(second.has("armor"), "unchanged armor is absent, not null");
         assertFalse(second.has("fx"));
-        assertTrue(second.has("fps") && second.has("ping") && second.has("pos"),
-                "fps, ping and position always ride along");
+        // This used to assert that fps, ping and position "always ride along". They no longer do,
+        // and that assertion was encoding the bug: each one re-rendered a HUD chip, and because
+        // Ultralight reports damage as a single bounding rectangle, a chip in one corner dragged
+        // that rectangle over the whole surface — a 49 ms repaint, 20 times a second.
+        assertFalse(second.has("pos"), "an unmoved player sends no position");
+        assertTrue(second.has("ping"), "ping moved 38 -> 39");
 
         List<ArmorSlot> damaged = new ArrayList<ArmorSlot>(Arrays.asList(
                 new ArmorSlot("helmet", "diamond_helmet", 13, 363, 1, true),
@@ -130,6 +134,52 @@ class SensorsTest {
         JsonObject payload = new TickCoalescer().build(-5, -99, 0, 0, 0, 0f, null, null);
         assertEquals(0, payload.get("fps").getAsInt());
         assertEquals(-1, payload.get("ping").getAsInt(), "-1 is 'unknown', nothing lower");
+    }
+
+    @Test
+    @DisplayName("fps is rate-limited, not sent on every tick")
+    void tickRateLimitsFps() {
+        final long[] now = { 1_000L };
+        TickCoalescer ticks = new TickCoalescer(new TickCoalescer.Clock() {
+            @Override
+            public long millis() {
+                return now[0];
+            }
+        });
+
+        assertTrue(ticks.build(100, 38, 0, 0, 0, 0f, null, null).has("fps"), "the first tick sets it");
+
+        // 20 Hz means a tick every 50 ms. Four of them inside the 250 ms window carry no fps at
+        // all, even though the value changes every time — which is exactly the case that made the
+        // menu stutter, because the live frame rate never repeats.
+        for (int i = 1; i <= 4; i++) {
+            now[0] += 50L;
+            assertFalse(ticks.build(100 + i, 38, 0, 0, 0, 0f, null, null).has("fps"),
+                    "fps inside the rate limit is withheld");
+        }
+
+        now[0] += 50L;
+        assertTrue(ticks.build(120, 38, 0, 0, 0, 0f, null, null).has("fps"),
+                "past the window it rides again");
+
+        // A value that has not moved is withheld regardless of how long it has been.
+        now[0] += 10_000L;
+        assertFalse(ticks.build(120, 38, 0, 0, 0, 0f, null, null).has("fps"),
+                "an unchanged fps is never worth a repaint");
+    }
+
+    @Test
+    @DisplayName("position rides only when the rounded value moves")
+    void tickOmitsUnchangedPosition() {
+        TickCoalescer ticks = new TickCoalescer();
+        assertTrue(ticks.build(60, 20, 1.0, 64.0, 1.0, 0f, null, null).has("pos"));
+        assertFalse(ticks.build(60, 20, 1.0, 64.0, 1.0, 0f, null, null).has("pos"),
+                "standing still sends nothing");
+        // Below the rounding the wire uses, so it is not a move.
+        assertFalse(ticks.build(60, 20, 1.0001, 64.0, 1.0, 0f, null, null).has("pos"),
+                "a movement too small to encode is not a change");
+        assertTrue(ticks.build(60, 20, 2.0, 64.0, 1.0, 0f, null, null).has("pos"),
+                "a real step rides");
     }
 
     @Test

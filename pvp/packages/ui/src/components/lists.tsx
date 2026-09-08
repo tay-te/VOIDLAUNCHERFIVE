@@ -291,8 +291,11 @@ export interface CosmeticCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 
   /** The swatch colour — a flat 62 × 98 approximation of the cape. */
   color: string;
   /**
-   * The coloured drop glow under the swatch, at the design's `0 10px 24px -4px` with
-   * alpha 0.45. Defaults to `color` at that alpha when `color` is an `rgba()`/hex.
+   * @deprecated Accepted and ignored.
+   *
+   * This was the coloured drop glow under the swatch. `design/quiet-cell-system.md` §1
+   * allows no shadow anywhere, so nothing is drawn for it. The prop stays so callers
+   * that still pass it keep compiling; drop it at the call site when convenient.
    */
   glow?: string;
   /** Show the `NEW` badge — items added this week. */
@@ -306,16 +309,17 @@ export interface CosmeticCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 
 /**
  * One 186 × 216 cosmetics card.
  *
- * The cape is a flat swatch with a coloured glow, not a 3D hang: Ultralight supports 2D
- * transforms only, and the design's overlay treatment is already this 2D approximation
- * (§4). The glow is a `box-shadow`, never `filter: drop-shadow()`, which is [risky].
+ * The cape is a flat swatch, not a 3D hang: Ultralight supports 2D transforms only and
+ * the design's overlay treatment is already this 2D approximation (§4). It used to cast
+ * a glow in its own colour; the quiet cell system has no shadow anywhere (§1), and the
+ * cape reads as itself without one.
  */
 export function CosmeticCard({
   name,
   state,
   stateTone = 'price',
   color,
-  glow,
+  glow: _glow,
   isNew = false,
   selected = false,
   onSelect,
@@ -343,13 +347,7 @@ export function CosmeticCard({
           </Badge>
         ) : null}
         <span className="v-cosmetic__hanger" />
-        <span
-          className="v-cosmetic__swatch"
-          style={{
-            background: color,
-            boxShadow: `0 10px 24px -4px ${glow ?? color}`,
-          }}
-        />
+        <span className="v-cosmetic__swatch" style={{ background: color }} />
       </div>
       <div className="v-cosmetic__body">
         <span className="v-cosmetic__title">{name}</span>

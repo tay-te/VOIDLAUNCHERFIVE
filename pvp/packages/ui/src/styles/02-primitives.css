@@ -1,6 +1,279 @@
 /* ==========================================================================
-   Primitives — Button, Card, Panel, Kbd, Tag, Avatar, IconButton, Toggle, Slider.
+   Primitives — the cell atom and the reactive layer first, then Button, Card,
+   Panel, Kbd, Tag, Avatar, IconButton, Toggle, Meter, Slider.
+
+   Flat throughout (design/quiet-cell-system.md §1): no blur, no box-shadow, no
+   gradient in this file or any other in the package.
    ========================================================================== */
+
+/* ==========================================================================
+   §3 — the cell primitive, and the textures built out of it.
+
+   Everything textural in this system is a cell: a square whose corner radius is 30%
+   of its size. The caller sets the size; the cell is always square, so one radius
+   percentage covers every size without a token per step.
+
+       role          fill
+       filled / on   rgba(237,238,239,.36-.45)   --cell-on
+       empty / off   rgba(237,238,239,.06-.10)   --cell-off
+       live value    var(--hue) at .95           --cell-live
+
+   The textures below are built from real elements rather than a repeating gradient
+   because §1 allows no gradient anywhere and §9 allows no background image in the
+   overlay. A few dozen 2px divs cost Ultralight nothing to lay out and, crucially,
+   nothing to *re-*rasterise: §5 animates the layer's opacity, never a per-cell colour.
+   ========================================================================== */
+
+/** The atom. `.cell` is the contract's name; `.v-cell` is the package's. */
+.cell,
+.v-cell {
+  flex: 0 0 auto;
+  display: block;
+  border-radius: var(--cell-radius);
+  background: var(--cell-off);
+}
+
+.cell--on,
+.v-cell--on {
+  background: var(--cell-on);
+}
+
+/** The live value — the current meter cell, the value under the pointer. */
+.cell--live,
+.v-cell--live {
+  background: var(--cell-live);
+  opacity: var(--cell-live-alpha);
+}
+
+/* ---------------------------------------------------------- cell textures */
+
+/**
+ * The shared texture layer: a non-interactive plane of cells over a surface.
+ *
+ * Absolutely positioned and `pointer-events: none`, so it never takes a click from what
+ * it sits on, and `overflow: hidden` so the wrap does not spill past the corner radius.
+ */
+.v-texture {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  border-radius: inherit;
+}
+
+.v-texture__cell {
+  flex: 0 0 auto;
+  width: var(--grid-cell);
+  height: var(--grid-cell);
+  border-radius: var(--cell-radius);
+  background: var(--text-primary);
+  /* 2px cell on an 8px step: the 6px margin is the step minus the cell. */
+  margin: 0 calc(var(--grid-step) - var(--grid-cell)) calc(var(--grid-step) - var(--grid-cell)) 0;
+}
+
+/** grid — 2px cells on an 8px step at 3%. For recessed surfaces. Used sparingly. */
+.v-texture--grid {
+  opacity: var(--grid-alpha);
+}
+
+/**
+ * dither — four rows at 15 / 10 / 6 / 3.5%, along the bottom edge of a raised surface.
+ *
+ * `column-reverse` puts the first row at the bottom, so the rows read strongest-first
+ * in the markup and fade upward on screen, which is the direction the contract lists
+ * them in.
+ */
+.v-dither {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.v-dither__row {
+  display: flex;
+  flex: 0 0 auto;
+  height: var(--grid-cell);
+  margin-bottom: calc(var(--grid-step) - var(--grid-cell));
+}
+
+.v-dither__row .v-cell,
+.v-dither__row .cell {
+  width: var(--grid-cell);
+  height: var(--grid-cell);
+  background: var(--text-primary);
+  margin-right: calc(var(--grid-step) - var(--grid-cell));
+}
+
+.v-dither__row:nth-child(1) {
+  opacity: var(--dither-row-1);
+}
+
+.v-dither__row:nth-child(2) {
+  opacity: var(--dither-row-2);
+}
+
+.v-dither__row:nth-child(3) {
+  opacity: var(--dither-row-3);
+}
+
+.v-dither__row:nth-child(4) {
+  opacity: var(--dither-row-4);
+}
+
+/* ==========================================================================
+   §5 — reactive / ambient
+
+   Monochrome at rest; light and colour appear only where the pointer is.
+
+     1. hover lifts the surface one step, --card-bg -> --surface-raised. No glow.
+     2. the grid texture behind warms — the same cell layer, in the hue, ramping from
+        3% to ~22%. In 140ms ease-out, out 100ms ease-in.
+     3. adjusting bleeds — the cell under the pointer takes the hue at .95, +-1 cell at
+        .40, +-2 at .16. The bleed travels with the pointer.
+     4. release drains in 200ms, leaving the hue only on the value that was set.
+
+   1 and 2 are here. 3 and 4 are per-cell and follow a pointer, so they live in the
+   Meter component, which knows which cell the pointer is over; the classes it sets are
+   `.v-cell--bleed-1` / `--bleed-2` below.
+   ========================================================================== */
+
+/** §5.1 — the lift. Put it on any surface that responds to the pointer. */
+.v-lift {
+  transition: background-color var(--duration-hover-out) var(--ease-in);
+}
+
+.v-lift:hover {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
+}
+
+/**
+ * §5.2 — the ambient field.
+ *
+ * The same cell texture as `.v-texture--grid`, in the hue instead of the ink, with its
+ * *opacity* animated between 3% and 22%. Opacity on one composited layer is the only
+ * thing cheap enough to do this in game: a per-cell colour animation would re-rasterise
+ * the whole plane every frame, and a blur is out of the question (§5, last paragraph).
+ *
+ * Put `.v-field-host` on the element the pointer enters and `.v-field` on the layer.
+ *
+ * The contract's distance falloff — the field being brightest under the pointer and
+ * dimming outward — is not expressible in CSS alone; it needs the pointer position,
+ * which means JavaScript. This is the uniform ramp. The falloff, where it matters, is
+ * the Meter's bleed below, which does know where the pointer is.
+ */
+.v-field {
+  opacity: var(--field-alpha-rest);
+  transition: opacity var(--duration-hover-out) var(--ease-in);
+}
+
+.v-field .v-texture__cell {
+  background: var(--hue, var(--accent));
+}
+
+.v-field-host:hover .v-field {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  opacity: var(--field-alpha-hover);
+}
+
+/** §5.3 — the bleed either side of the cell being adjusted. */
+.v-cell--bleed-1 {
+  background: var(--cell-live);
+  opacity: 0.4;
+}
+
+.v-cell--bleed-2 {
+  background: var(--cell-live);
+  opacity: 0.16;
+}
+
+/* ------------------------------------------------------------------- Meter */
+
+/**
+ * §4 — the meter is the slider.
+ *
+ * N discrete cells, 12px on a 17px step. Filled cells rgba(237,238,239,.38), empty
+ * rgba(237,238,239,.06), and **the current cell in the hue at .95**. The numeric value
+ * sits to the right, in the same hue at the same alpha: it is the same fact twice.
+ *
+ * §5.4 — on release the bleed drains over 200ms and the hue is left only on the value
+ * that was set, which is `.v-meter--draining` below.
+ */
+.v-meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.v-meter__labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.v-meter__label {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+
+.v-meter__value {
+  font-size: var(--text-body);
+  color: var(--hue, var(--accent));
+  opacity: var(--cell-live-alpha);
+}
+
+.v-meter__track {
+  display: flex;
+  align-items: center;
+  /* 12px cell on a 17px step. */
+  gap: calc(var(--meter-step) - var(--meter-cell));
+  cursor: pointer;
+}
+
+.v-meter__cell {
+  width: var(--meter-cell);
+  height: var(--meter-cell);
+  border-radius: var(--cell-radius);
+  background: var(--cell-off);
+  transition:
+    background-color var(--duration-hover-out) var(--ease-in),
+    opacity var(--duration-hover-out) var(--ease-in);
+}
+
+/* Everything below the current value is history, and history is monochrome (§1). */
+.v-meter__cell--filled {
+  background: var(--cell-on);
+}
+
+.v-meter__cell--current {
+  background: var(--cell-live);
+  opacity: var(--cell-live-alpha);
+}
+
+.v-meter--draining .v-meter__cell {
+  transition:
+    background-color var(--duration-drain) var(--ease-out),
+    opacity var(--duration-drain) var(--ease-out);
+}
+
+.v-meter--disabled {
+  opacity: 0.45;
+}
+
+.v-meter--disabled .v-meter__track {
+  cursor: default;
+}
 
 /* ----------------------------------------------------------------- Button */
 
@@ -19,76 +292,97 @@
   color: var(--text-primary);
   white-space: nowrap;
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-hover-out) var(--ease-in),
     transform var(--duration-instant) var(--ease-standard);
 }
 
-/* Accent buttons always carry --shadow-cta + --inset-accent. */
+/* Three variants, and only three (§4).
+
+   The primary action is NOT the accent. Under the accent rule colour marks the live
+   value or the selected item and nothing else, so a button — which is neither — takes
+   the ink itself as its fill. That also makes it the loudest thing on the screen
+   without borrowing the meaning of the hue.
+
+   primary   = --text-primary fill, --bg-shell label
+   secondary = 1px rgba(255,255,255,.14), no fill
+   ghost     = label only, no box, no underline
+
+   `.v-btn--accent` / `--raised` / `--text` are the pre-contract names for the same
+   three; the component emits both so no caller had to change. */
+.v-btn--primary,
 .v-btn--accent {
   padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-button);
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: var(--weight-bold);
-  font-size: var(--text-lg);
-  box-shadow: var(--shadow-cta), var(--inset-accent);
+  background: var(--text-primary);
+  color: var(--bg-shell);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-title);
 }
 
-.v-btn--accent:hover:not(:disabled) {
-  box-shadow:
-    0 6px 14px -4px rgba(0, 0, 0, 0.35),
-    0 10px 28px -6px rgba(159, 139, 255, 0.55),
-    var(--inset-accent);
-}
-
+.v-btn--primary:active:not(:disabled),
 .v-btn--accent:active:not(:disabled) {
-  /* Drop the top highlight and settle 1px — the "pressed" read the frames imply. */
-  box-shadow: var(--shadow-cta), inset 0 -2px 2px 0 rgba(0, 0, 0, 0.22);
+  /* The press is the whole button settling 1px; there is no highlight left to drop. */
   transform: translateY(1px);
 }
 
-/* Raised buttons always carry --shadow-raised + --inset-raised. */
+.v-btn--secondary,
 .v-btn--raised {
   padding: var(--space-7) var(--space-12);
   border-radius: var(--radius-button);
-  background: var(--raised-bg);
-  border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
+  background: none;
+  border: 1px solid var(--border-strong);
 }
 
+/* Hover lifts the surface one step (§5.1). A secondary button has no fill at rest, so
+   the step it lifts to is RAISED. */
+.v-btn--secondary:hover:not(:disabled),
 .v-btn--raised:hover:not(:disabled) {
-  background: var(--surface-3);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
 }
 
+/* Label only: no box, no underline. */
 .v-btn--ghost {
   padding: var(--space-9) var(--space-12);
   border-radius: var(--radius-field);
-  background: var(--tint-07);
-  border: 1px solid var(--tint-10);
+  background: none;
+  border: 0;
   color: var(--text-secondary);
+  text-decoration: none;
 }
 
 .v-btn--ghost:hover:not(:disabled) {
-  background: var(--tint-10);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  color: var(--text-primary);
 }
 
-/** The `Join` / `Invite` chip. */
+/** The `Join` / `Invite` chip — a secondary button at chip size. */
 .v-btn--chip {
   padding: var(--space-6) var(--space-12);
   border-radius: var(--radius-chip);
-  background: var(--tint-08);
-  font-size: var(--text-md);
+  background: none;
+  border: 1px solid var(--border-strong);
+  font-size: var(--text-body);
   font-weight: var(--weight-medium);
 }
 
+.v-btn--chip:hover:not(:disabled) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
+}
+
+.v-btn--chip.v-btn--primary,
 .v-btn--chip.v-btn--accent {
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-weight: var(--weight-bold);
+  background: var(--text-primary);
+  color: var(--bg-shell);
+  border-color: transparent;
+  font-weight: var(--weight-medium);
   border-radius: var(--radius-chip);
   padding: var(--space-6) var(--space-12);
-  font-size: var(--text-md);
+  font-size: var(--text-body);
 }
 
 /** `← Mods` on the Mod settings header band — 71 × 28, r 9 (frame 244:834). */
@@ -99,16 +393,20 @@
   border-radius: var(--radius-control);
 }
 
-/** `Leave party` — a bare text button. */
+/** `Leave party` — ghost with the padding taken off. */
 .v-btn--text {
   padding: 0;
   background: none;
+  border: 0;
   color: var(--text-muted);
-  font-size: var(--text-md);
+  font-size: var(--text-body);
+  text-decoration: none;
 }
 
 .v-btn--text:hover:not(:disabled) {
-  color: var(--text-secondary);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  color: var(--text-primary);
 }
 
 /** Full-width variant used by card CTAs and the pane CTA. */
@@ -121,18 +419,25 @@
   font-size: var(--text-lg-2);
 }
 
-/* A raised block button adds a 1px rim top and bottom; the frames draw it the
-   same height as the accent block button next to it. */
+/* A secondary block button carries a 1px rim top and bottom; the padding comes down
+   by one so it lands the same height as the primary block button beside it. */
+.v-btn--block.v-btn--secondary,
 .v-btn--block.v-btn--raised {
   padding-top: var(--space-10);
   padding-bottom: var(--space-10);
 }
 
 .v-btn:disabled {
-  background: var(--surface-2);
+  background: none;
+  color: var(--text-muted);
+  border-color: var(--border-raised);
+}
+
+.v-btn--primary:disabled,
+.v-btn--accent:disabled {
+  background: var(--surface-raised);
   color: var(--text-muted);
   border-color: transparent;
-  box-shadow: none;
 }
 
 /* ------------------------------------------------------------- IconButton */
@@ -148,10 +453,12 @@
   background: var(--surface-1);
   border: 1px solid var(--hairline);
   color: var(--text-secondary);
-  transition: background-color var(--duration-fast) var(--ease-standard);
+  transition: background-color var(--duration-hover-out) var(--ease-in);
 }
 
 .v-icon-btn:hover:not(:disabled) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   background: var(--surface-2);
   color: var(--text-primary);
 }
@@ -162,7 +469,6 @@
   height: 32px;
   background: var(--raised-bg);
   border-color: var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
 }
 
 /** The 44 × 44 settings button at the right end of the dock. */
@@ -172,7 +478,6 @@
   border-radius: var(--radius-avatar);
   background: var(--raised-bg);
   border-color: var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
 }
 
 /* ------------------------------------------------------------------- Card */
@@ -182,12 +487,24 @@
   border-radius: var(--radius-card);
   background: var(--card-bg);
   border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-tile), var(--inset-card);
 }
 
+/* §5.1 — hover lifts the surface one step, CARD -> RAISED. No glow. */
+.v-card--hoverable {
+  transition: background-color var(--duration-hover-out) var(--ease-in);
+}
+
+.v-card--hoverable:hover {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
+}
+
+/* Selection is the one thing that still takes colour: the border goes to the item's
+   own category hue (§1, the accent rule). */
 .v-card--selected {
   border-width: 1.5px;
-  border-color: var(--accent);
+  border-color: var(--hue, var(--accent));
 }
 
 /* ------------------------------------------------------------------ Panel */
@@ -204,11 +521,9 @@
      lays the panel's children out *after* the 1px stroke, so the README's 25, 21
      is inner-relative. An inset ring moved every child 1px up and left. */
   border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel);
-  /* Reading the radius through a token is what makes the ultralight layer able to turn
-     it off: there it resolves to blur(0px). Never branch on @supports. */
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  backdrop-filter: blur(var(--blur-panel));
+  /* No backdrop-filter, in either renderer. The panel is an opaque CARD fill now (§1), so
+     there is nothing to blur — and `blur(0px)` is not the same as none: it keeps the
+     element a backdrop root, which made one mod toggle repaint the whole panel in game. */
 }
 
 .v-panel--overlay {
@@ -226,7 +541,7 @@
 }
 
 .v-panel__title {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-weight: var(--weight-extrabold);
   font-size: var(--text-6xl);
   line-height: var(--leading-title);
@@ -285,7 +600,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   white-space: nowrap;
 }
 
@@ -301,14 +616,13 @@
   color: var(--text-secondary);
 }
 
-/** on-accent flavour — the `⌘↵` chip inside the Launch button. */
+/** on-fill flavour — the `⌘↵` chip inside the Launch button, over its ink fill. */
 .v-kbd--accent {
   padding: 3px 7px;
   border-radius: var(--radius-badge);
   background: rgba(0, 0, 0, 0.2);
   font-size: var(--text-base);
-  color: rgba(10, 11, 12, 0.85);
-  box-shadow: var(--inset-kbd);
+  color: rgba(11, 11, 12, 0.85);
 }
 
 /** palette / settings flavour. */
@@ -325,7 +639,7 @@
 
 /** ModTile category tag: `HUD` `PVP` `VISUAL` `UTILITY`. */
 .v-tag {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-weight: var(--weight-medium);
   font-size: var(--text-2xs);
   letter-spacing: var(--tracking-tag);
@@ -340,7 +654,7 @@
   align-items: center;
   padding: 3px 7px;
   border-radius: var(--radius-badge);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-badge-lg);
   text-transform: uppercase;
@@ -354,9 +668,11 @@
   color: var(--ok-ink);
 }
 
+/* `NEW` is a fact about a row, not a live value or a selection, so it stays
+   monochrome — the ink fill is what makes it loud (§1, the accent rule). */
 .v-badge--solid {
-  background: var(--accent);
-  color: var(--accent-fg);
+  background: var(--text-primary);
+  color: var(--bg-shell);
   font-size: var(--text-2xs);
   letter-spacing: var(--tracking-tag);
   padding: 2px 6px;
@@ -381,7 +697,7 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-weight: var(--weight-medium);
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -452,38 +768,64 @@
   border-radius: var(--radius-avatar);
 }
 
-/** The loadout-card icon block goes solid accent when the loadout is active. */
+/** The loadout-card icon block fills with the hue when that loadout is the active one. */
 .v-icon-well--solid {
-  background: var(--accent);
+  background: var(--hue, var(--accent));
   color: var(--accent-fg);
 }
 
 /* ----------------------------------------------------------------- Toggle */
 
-/* The off track is a recessed near-black well in the frames — sampling
-   Overlay-Mods at the Fullbright switch gives rgb(11,12,14) over the tile, which
-   is exactly --field-bg over --card-bg. A --tint-12 track reads as a light grey
-   pill instead and is the single loudest difference on the mod grid. */
+/* §4 — semi-rounded, radius 35% of height. Knob inset 3px, knob radius 35% of the
+   knob (so it is a rounded square, not a circle), and the grip is three 2px cells at
+   30% on the knob centre.
+
+   Three sizes and only three:
+
+     size  track    knob  travel  use
+     sm    30 x 17  11    13      mod tile
+     md    40 x 22  16    18      list row
+     lg    46 x 26  20    20      properties panel
+
+   travel = track - knob - 2 x 3px inset.
+
+   ON  = track rgba(237,238,239,.88), knob --bg-shell.
+   OFF = track --bg-base + 1px rgba(255,255,255,.16), knob --text-muted.
+
+   Nothing here is the accent: a switch reports a boolean, not a value, and colour is
+   reserved for the live value and the selected item (§1). */
 .v-toggle {
   position: relative;
   flex: 0 0 auto;
   display: inline-block;
-  width: 36px;
-  height: 20px;
-  border-radius: var(--radius-field);
-  background: var(--field-bg);
-  box-shadow: var(--inset-field);
-  transition: background-color var(--duration-instant) var(--ease-standard);
+  width: 30px;
+  height: 17px;
+  /* 35% of the height, in px: a percentage radius resolves against width and height
+     separately, which on a 30x17 track would draw an ellipse rather than the
+     semi-rounded corner §4 asks for. */
+  border-radius: 6px;
+  background: var(--bg-base);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transition:
+    background-color var(--duration-hover-out) var(--ease-in),
+    border-color var(--duration-hover-out) var(--ease-in);
 }
 
+/* The knob sits 3px inside the track. The offsets are 2px because they resolve against
+   the *padding* box, inside the 1px rim — 2 + 1 is the 3px §4 specifies, and it is what
+   makes the travels below come out at exactly track - knob - 6. */
 .v-toggle__knob {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--text-secondary);
+  top: 2px;
+  left: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 35%;
+  background: var(--text-muted);
   /* The travel is a variable so the interaction states below can add a scale without
      losing it — `transform` is one property, and a press rule that set only a scale
      would silently drop the knob back to the off position. */
@@ -496,71 +838,95 @@
     background-color var(--duration-instant) var(--ease-standard);
 }
 
-.v-toggle--on {
-  background: var(--accent);
-  box-shadow: var(--shadow-switch-on), var(--inset-switch);
+/** The grip: three 2px cells at 30%, centred on the knob. */
+.v-toggle__grip {
+  flex: 0 0 auto;
+  width: 2px;
+  height: 2px;
+  border-radius: var(--cell-radius);
+  background: var(--bg-base);
+  opacity: 0.55;
 }
 
-/* The knob on an accent track is the accent's own foreground — rgb(10,11,12) in
-   the frames — not white. */
+.v-toggle--on {
+  background: rgba(237, 238, 239, 0.88);
+  border-color: transparent;
+}
+
 .v-toggle--on .v-toggle__knob {
-  background: var(--accent-fg);
-  --knob-x: 16px;
+  background: var(--bg-shell);
+  --knob-x: 13px;
   transform-origin: right center;
 }
 
-/* M — 40 × 22, knob 16, x 21 / 3. */
+.v-toggle--on .v-toggle__grip {
+  background: rgba(237, 238, 239, 0.88);
+}
+
+/* md — 40 x 22, knob 16, travel 18. */
+.v-toggle--md,
 .v-toggle--m {
   width: 40px;
   height: 22px;
-  border-radius: var(--radius-button);
+  border-radius: 8px;
 }
 
+.v-toggle--md .v-toggle__knob,
 .v-toggle--m .v-toggle__knob {
   width: 16px;
   height: 16px;
 }
 
+.v-toggle--md.v-toggle--on .v-toggle__knob,
 .v-toggle--m.v-toggle--on .v-toggle__knob {
   --knob-x: 18px;
 }
 
-/* L — 44 × 24, knob 18, x 23 / 3. */
+/* lg — 46 x 26, knob 20, travel 20. */
+.v-toggle--lg,
 .v-toggle--l {
-  width: 44px;
-  height: 24px;
-  border-radius: var(--radius-card-sm);
+  width: 46px;
+  height: 26px;
+  border-radius: 9px;
 }
 
+.v-toggle--lg .v-toggle__knob,
 .v-toggle--l .v-toggle__knob {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
+.v-toggle--lg.v-toggle--on .v-toggle__knob,
 .v-toggle--l.v-toggle--on .v-toggle__knob {
   --knob-x: 20px;
 }
 
-/* Hover and press.
-   Off, the well lightens so the control reads as live before it is clicked. On, the
-   accent glow strengthens instead — the track is already accent, so a tint change there
-   would be invisible. The press stretches the knob toward its direction of travel, which
-   is why `transform-origin` flips with the state: the pill appears to take the push. */
+/* Hover and press. Off, the well lifts one step so the control reads as live before it
+   is clicked; on, the knob is what brightens, because the track is already at .88 and a
+   change there would be invisible. The press stretches the knob toward its direction of
+   travel, which is why `transform-origin` flips with the state: the pill takes the push. */
 .v-toggle:hover:not(:disabled) {
-  background: var(--tint-08);
-}
-
-.v-toggle--on:hover:not(:disabled) {
-  background: var(--accent);
-  box-shadow: var(--shadow-switch-on), var(--shadow-switch-on), var(--inset-switch);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
 }
 
 .v-toggle:hover:not(:disabled) .v-toggle__knob {
-  background: var(--text-primary);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--text-secondary);
+}
+
+.v-toggle--on:hover:not(:disabled) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: rgba(237, 238, 239, 0.88);
 }
 
 .v-toggle--on:hover:not(:disabled) .v-toggle__knob {
-  background: var(--accent-fg);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--bg-shell);
 }
 
 .v-toggle:active:not(:disabled) .v-toggle__knob {
@@ -591,10 +957,12 @@
   color: var(--text-secondary);
 }
 
+/* §4 — the numeric readout sits in the hue at .95, because it *is* the live value. */
 .v-slider__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-base-2);
-  color: var(--text-primary);
+  color: var(--hue, var(--accent));
+  opacity: var(--cell-live-alpha);
 }
 
 /** Compact track — the ModSettingsPanel sliders: 200 × 14, rail 5px at top 4. */
@@ -612,16 +980,19 @@
   top: 4px;
   height: 5px;
   border-radius: var(--radius-xs);
-  background: var(--tint-12);
+  background: var(--cell-off);
 }
 
+/* The fill is everything the value has already passed — history, not the value — so
+   it stays monochrome (§1). The thumb is the live value and is the only part that
+   takes the hue. */
 .v-slider__fill {
   position: absolute;
   left: 0;
   top: 4px;
   height: 5px;
   border-radius: var(--radius-xs);
-  background: var(--accent);
+  background: var(--cell-on);
 }
 
 .v-slider__thumb {
@@ -631,7 +1002,8 @@
   height: 16px;
   margin-left: -5px;
   border-radius: var(--radius-kbd-sm);
-  background: var(--text-primary);
+  background: var(--hue, var(--accent));
+  opacity: var(--cell-live-alpha);
 }
 
 /** Wide track — the settings-row sliders: 180 × 16, rail 6px at top 5. */
@@ -643,7 +1015,7 @@
 .v-slider--wide .v-slider__rail {
   top: 5px;
   height: 6px;
-  background: var(--tint-10);
+  background: var(--cell-off);
 }
 
 .v-slider--wide .v-slider__fill {
@@ -656,7 +1028,6 @@
   width: 10px;
   height: 20px;
   border-radius: var(--radius-kbd);
-  box-shadow: var(--shadow-thumb);
 }
 
 .v-slider--disabled {
@@ -676,23 +1047,25 @@
   border-radius: var(--radius-kbd);
   background: var(--kbd-bg);
   border: 1px solid var(--tint-12);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-secondary);
   white-space: nowrap;
   transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
+    border-color var(--duration-hover-out) var(--ease-in),
+    color var(--duration-hover-out) var(--ease-in);
 }
 
 .v-keybind:hover:not(:disabled) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   color: var(--text-primary);
   border-color: var(--tint-20);
 }
 
-/** While capturing, the chip reads `Press a key…` in the accent. */
+/** While capturing, the chip reads `Press a key…` in the hue — a live state. */
 .v-keybind--capturing {
-  border-color: var(--accent);
+  border-color: var(--hue, var(--accent));
   color: var(--accent-ink);
   background: var(--accent-tint-faint);
 }
@@ -705,10 +1078,9 @@
   gap: var(--space-10);
   padding: var(--space-6) var(--space-12);
   border-radius: var(--radius-control);
-  background: rgba(34, 38, 43, 0.97);
+  background: var(--surface-raised);
   border: 1px solid var(--border-eyebrow);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm-2);
   letter-spacing: var(--tracking-caps-lg);
   text-transform: uppercase;

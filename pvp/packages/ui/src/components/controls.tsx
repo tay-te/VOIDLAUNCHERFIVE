@@ -17,8 +17,24 @@ import { cx } from '../lib/cx.js';
 /* Toggle                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** The three switch sizes of the design. */
-export type ToggleSize = 's' | 'm' | 'l';
+/**
+ * The three switch sizes, and only three (`design/quiet-cell-system.md` §4).
+ *
+ * `sm` / `md` / `lg` are the contract's names. `s` / `m` / `l` are what this package
+ * shipped before it and mean exactly the same three sizes; both are accepted so no
+ * caller had to change, and both resolve to the same class.
+ */
+export type ToggleSize = 'sm' | 'md' | 'lg' | 's' | 'm' | 'l';
+
+/** The pre-contract size letters, mapped onto the sizes they always meant. */
+const TOGGLE_SIZE: Record<ToggleSize, 'sm' | 'md' | 'lg'> = {
+  sm: 'sm',
+  md: 'md',
+  lg: 'lg',
+  s: 'sm',
+  m: 'md',
+  l: 'lg',
+};
 
 /** Props for {@link Toggle}. */
 export interface ToggleProps
@@ -28,9 +44,9 @@ export interface ToggleProps
   /** Called with the requested state. */
   onChange?: (next: boolean) => void;
   /**
-   * - `s` — 36 × 20, on a ModTile.
-   * - `m` — 40 × 22, the ModSettingsPanel header and the Servers auto-switch row.
-   * - `l` — 44 × 24, the mod-settings Behaviour rows.
+   * - `sm` — 30 × 17, knob 11. A mod tile.
+   * - `md` — 40 × 22, knob 16. A list row.
+   * - `lg` — 46 × 26, knob 20. The properties panel.
    */
   size?: ToggleSize;
   /** Accessible name. Required whenever the switch has no visible label beside it. */
@@ -40,14 +56,20 @@ export interface ToggleProps
 /**
  * The pill switch.
  *
- * It is a `role="switch"` button, not a checkbox: the design's knob and glow are
- * box-shadow and a 2D translate, both of which Ultralight renders correctly, whereas a
- * styled native checkbox is not reliably restyleable there.
+ * It is a `role="switch"` button, not a checkbox: a styled native checkbox is not
+ * reliably restyleable in Ultralight, whereas a button plus a 2D translate is.
+ *
+ * §4 in full: semi-rounded at 35% of the height, knob inset 3px with a radius of 35%
+ * of the knob — a rounded square, not a circle — and a grip of three 2px cells at 30%
+ * on the knob centre, which is why the knob has children. ON is a
+ * `rgba(237,238,239,.88)` track with a `--bg-shell` knob; OFF is `--bg-base` with a 1px
+ * `rgba(255,255,255,.16)` rim and a `--text-muted` knob. Nothing here is the hue: a
+ * switch reports a boolean, and colour is reserved for a live *value* (§1).
  */
 export function Toggle({
   checked,
   onChange,
-  size = 's',
+  size = 'sm',
   label,
   className,
   disabled,
@@ -55,6 +77,7 @@ export function Toggle({
   type = 'button',
   ...rest
 }: ToggleProps): React.ReactElement {
+  const resolved = TOGGLE_SIZE[size] ?? 'sm';
   return (
     <button
       type={type}
@@ -64,7 +87,7 @@ export function Toggle({
       disabled={disabled}
       className={cx(
         'v-toggle',
-        size !== 's' && `v-toggle--${size}`,
+        resolved !== 'sm' && `v-toggle--${resolved}`,
         checked && 'v-toggle--on',
         className,
       )}
@@ -74,8 +97,239 @@ export function Toggle({
       }}
       {...rest}
     >
-      <span className="v-toggle__knob" />
+      <span className="v-toggle__knob">
+        <span className="v-toggle__grip" />
+        <span className="v-toggle__grip" />
+        <span className="v-toggle__grip" />
+      </span>
     </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cell                                                                       */
+/* -------------------------------------------------------------------------- */
+
+/** What a cell is reporting (§3). */
+export type CellState = 'empty' | 'filled' | 'live';
+
+/** Props for {@link Cell}. */
+export interface CellProps extends HTMLAttributes<HTMLSpanElement> {
+  /** Edge length in pixels. A cell is always square. */
+  size?: number;
+  /**
+   * - `empty` — off, `rgba(237,238,239,.06-.10)`.
+   * - `filled` — on, `rgba(237,238,239,.36-.45)`.
+   * - `live` — the current value, `var(--hue, var(--accent))` at .95.
+   */
+  state?: CellState;
+}
+
+/**
+ * The atom (§3): a square whose corner radius is 30% of its size.
+ *
+ * Everything textural in the system is built from these — meter cells, the toggle
+ * grip, the grid and dither textures, the mark in the launcher search. The radius is a
+ * percentage rather than a length precisely so one class covers every size.
+ */
+export function Cell({
+  size = 12,
+  state = 'empty',
+  className,
+  style,
+  ...rest
+}: CellProps): React.ReactElement {
+  return (
+    <span
+      className={cx(
+        'v-cell',
+        state === 'filled' && 'v-cell--on',
+        state === 'live' && 'v-cell--live',
+        className,
+      )}
+      style={{ width: size, height: size, ...style }}
+      {...rest}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Meter                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link Meter}. */
+export interface MeterProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
+  /** Current value, in `[min, max]`. Controlled. */
+  value: number;
+  /** Called on every step — a click, a drag across cells, an arrow key. */
+  onChange?: (next: number) => void;
+  /** Called once when a drag or a key press ends — the moment to write through. */
+  onCommit?: (next: number) => void;
+  /** Lower bound. Defaults to 0. */
+  min?: number;
+  /** Upper bound. Defaults to 1. */
+  max?: number;
+  /** How many discrete cells the track is drawn with. */
+  cells?: number;
+  /** The label to the left. */
+  label?: ReactNode;
+  /** The numeric readout, which sits to the right in the hue at .95. */
+  readout?: ReactNode;
+  /** Hide the label row entirely — for a row that supplies its own. */
+  hideLabels?: boolean;
+  /** Accessible name when `label` is not a string. */
+  ariaLabel?: string;
+  /** Disable interaction. */
+  disabled?: boolean;
+}
+
+const clampTo = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+/**
+ * The meter — the quiet cell system's slider (§4).
+ *
+ * N discrete cells, 12px on a 17px step. Cells below the value are filled and
+ * monochrome, because they are history; the cell *at* the value takes the hue at .95,
+ * because it is the value; the readout to the right is the same fact in the same hue.
+ *
+ * §5.3, the bleed: while the pointer is down, the cell under it takes the hue at .95,
+ * its neighbours at .40 and theirs at .16, and the whole thing travels with the
+ * pointer. §5.4: on release it drains over 200ms, leaving the hue on the value that was
+ * set. That is what `dragging` and the `--draining` class are for — the falloff needs
+ * to know where the pointer is, which CSS alone cannot.
+ *
+ * Keyboard: ← / → and ↑ / ↓ step a cell, Home / End jump to the bounds — the standard
+ * `role="slider"` contract, so it is usable without a pointer.
+ */
+export function Meter({
+  value,
+  onChange,
+  onCommit,
+  min = 0,
+  max = 1,
+  cells = 12,
+  label,
+  readout,
+  hideLabels = false,
+  ariaLabel,
+  disabled = false,
+  className,
+  ...rest
+}: MeterProps): React.ReactElement {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [bleed, setBleed] = useState<number | null>(null);
+  const [draining, setDraining] = useState(false);
+  const dragging = useRef(false);
+  const count = Math.max(1, Math.round(cells));
+
+  /** Which cell index a value lands on, and the value at the centre of an index. */
+  const indexOf = (raw: number): number =>
+    max === min ? 0 : Math.round(clampTo((raw - min) / (max - min), 0, 1) * (count - 1));
+  const valueOfIndex = (index: number): number =>
+    min + (clampTo(index, 0, count - 1) / (count - 1 || 1)) * (max - min);
+
+  const current = indexOf(value);
+
+  const indexAt = (clientX: number): number => {
+    const track = trackRef.current;
+    if (!track) return current;
+    const rect = track.getBoundingClientRect();
+    const ratio = rect.width === 0 ? 0 : clampTo((clientX - rect.left) / rect.width, 0, 1);
+    return Math.round(ratio * (count - 1));
+  };
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (disabled) return;
+    dragging.current = true;
+    setDraining(false);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const index = indexAt(event.clientX);
+    setBleed(index);
+    onChange?.(valueOfIndex(index));
+  };
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!dragging.current || disabled) return;
+    const index = indexAt(event.clientX);
+    setBleed(index);
+    onChange?.(valueOfIndex(index));
+  };
+
+  const endDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    // §5.4 — the bleed drains, leaving the hue on the value that was set.
+    setBleed(null);
+    setDraining(true);
+    onCommit?.(valueOfIndex(indexAt(event.clientX)));
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (disabled) return;
+    let next: number | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = current + 1;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next = current - 1;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = count - 1;
+    if (next === null) return;
+    event.preventDefault();
+    const settled = valueOfIndex(next);
+    onChange?.(settled);
+    onCommit?.(settled);
+  };
+
+  return (
+    <div
+      className={cx(
+        'v-meter',
+        draining && 'v-meter--draining',
+        disabled && 'v-meter--disabled',
+        className,
+      )}
+      {...rest}
+    >
+      {hideLabels ? null : (
+        <div className="v-meter__labels">
+          <span className="v-meter__label">{label}</span>
+          <span className="v-meter__value">{readout}</span>
+        </div>
+      )}
+      <div
+        ref={trackRef}
+        role="slider"
+        tabIndex={disabled ? -1 : 0}
+        aria-valuenow={value}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuetext={typeof readout === 'string' ? readout : undefined}
+        aria-label={ariaLabel ?? (typeof label === 'string' ? label : undefined)}
+        aria-disabled={disabled || undefined}
+        className="v-meter__track"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={onKeyDown}
+      >
+        {Array.from({ length: count }, (_unused, index) => {
+          const distance = bleed === null ? null : Math.abs(index - bleed);
+          return (
+            <span
+              key={index}
+              className={cx(
+                'v-meter__cell',
+                index < current && 'v-meter__cell--filled',
+                index === current && 'v-meter__cell--current',
+                distance === 1 && 'v-cell--bleed-1',
+                distance === 2 && 'v-cell--bleed-2',
+              )}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

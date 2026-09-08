@@ -25,23 +25,10 @@ import {
 } from '@void/ui';
 import { useState } from 'react';
 
+import { FRIENDS } from '../local/friends';
+
 const TABS = ['Online', 'All', 'Requests'] as const;
 type Tab = (typeof TABS)[number];
-
-interface Friend {
-  name: string;
-  status: string;
-  action: 'Join' | 'Invite' | 'Message';
-  online: boolean;
-}
-
-const FRIENDS: Friend[] = [
-  { name: 'marrow', status: 'Bedwars · Hypixel · 2h', action: 'Join', online: true },
-  { name: 'pilot_ash', status: 'Sword duels · Minemen · 40m', action: 'Join', online: true },
-  { name: 'nine', status: 'In lobby · Hypixel', action: 'Invite', online: true },
-  { name: 'doorframe', status: 'Last seen 4 hours ago', action: 'Message', online: false },
-  { name: 'kestrel', status: 'Last seen yesterday', action: 'Message', online: false },
-];
 
 const QUEUES = [
   { id: 'bedwars', label: 'Bedwars 4v4' },

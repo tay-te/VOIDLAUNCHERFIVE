@@ -15,6 +15,7 @@
 
 #include "gpu_driver_gl.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <string>
@@ -30,6 +31,78 @@ namespace {
 
 using namespace voidul::gl;
 #define G voidul::gl::api
+
+// ---- forced failure ----------------------------------------------------------------------------
+//
+// VOID_UI_GPU_FAIL makes this driver fail on purpose. It is not scaffolding — it is the only way
+// to test the CPU fallback, because the failure it falls back from happens on hardware nobody
+// here has. The driver has run on exactly one machine (macOS, Apple's OpenGL 2.1 profile) and the
+// thing we are guarding against is a Windows or Linux driver rejecting the GLSL 1.20 programs. A
+// fallback nobody has ever seen execute is a fallback nobody knows works, so:
+//
+//   VOID_UI_GPU_FAIL=init       initialize() fails before touching GL at all. Stands in for "no
+//                               usable context", "the entry points are not there", a driver that
+//                               refuses outright. The earliest possible failure.
+//   VOID_UI_GPU_FAIL=compile    a syntactically invalid line is appended to every fragment shader,
+//                               so glCompileShader fails for real and the driver's own compile
+//                               error path runs with a genuine driver log. This is the closest
+//                               stand-in for "this GPU will not accept our GLSL".
+//   VOID_UI_GPU_FAIL=link       glLinkProgram is not called, so GL_LINK_STATUS reads GL_FALSE from
+//                               the driver and the link error path runs. Separate from `compile`
+//                               because the two fail in different places: a shader can compile on
+//                               a driver that then refuses to link it (too many varyings is the
+//                               realistic one — see the GL_MAX_VARYING_FLOATS check below).
+//   VOID_UI_GPU_FAIL=late       initialize() succeeds and the driver dies afterwards, once it has
+//                               replayed `n` command lists (default 24, override with `late:60`).
+//                               This is the only way to reach the mid-session rebuild in
+//                               UltralightWebView, which no real failure we know of triggers.
+//
+// Read once, from the environment rather than a system property, because it has to be legible to
+// this file: a -D property lives in the JVM and nothing here can see it.
+enum class ForcedFail { kNone, kInit, kCompile, kLink, kLate };
+
+struct ForcedFailConfig {
+  ForcedFail mode = ForcedFail::kNone;
+  unsigned long long late_after = 24;
+  std::string raw;
+};
+
+const ForcedFailConfig& forced_fail() {
+  static const ForcedFailConfig cfg = [] {
+    ForcedFailConfig c;
+    const char* raw = std::getenv("VOID_UI_GPU_FAIL");
+    if (!raw || !*raw) return c;
+    c.raw = raw;
+    std::string value = c.raw;
+    std::string arg;
+    size_t sep = value.find_first_of(":=");
+    if (sep != std::string::npos) {
+      arg = value.substr(sep + 1);
+      value = value.substr(0, sep);
+    }
+    if (value == "init") {
+      c.mode = ForcedFail::kInit;
+    } else if (value == "compile") {
+      c.mode = ForcedFail::kCompile;
+    } else if (value == "link") {
+      c.mode = ForcedFail::kLink;
+    } else if (value == "late") {
+      c.mode = ForcedFail::kLate;
+      if (!arg.empty()) {
+        long long n = strtoll(arg.c_str(), nullptr, 10);
+        if (n > 0) c.late_after = static_cast<unsigned long long>(n);
+      }
+    } else {
+      // Deliberately not silent. A typo here means the test everyone thinks is running is not.
+      log_error("gpu: VOID_UI_GPU_FAIL='%s' is not one of init|compile|link|late[:n]; ignored",
+                c.raw.c_str());
+      return c;
+    }
+    log_error("gpu: VOID_UI_GPU_FAIL=%s — the GL driver will fail on purpose", c.raw.c_str());
+    return c;
+  }();
+  return cfg;
+}
 
 // Ultralight renders views into offscreen FBOs. GL textures are bottom-left origin, Ultralight's
 // coordinate space is top-left, and ulApplyProjection's flip_y flag is what reconciles the two:
@@ -113,7 +186,17 @@ struct Driver {
   SavedState saved;
   GLuint default_fbo = 0; // whatever MC had bound when we entered
   bool ready = false;
+  // Sticky, and never cleared. See gpu::failed() in the header for why it only moves one way.
+  bool dead = false;
+  bool dead_logged = false;
   float time_seconds = 0.0f;
+  // Bumped once per render, not once per command list. Those are not the same thing and the
+  // difference is a bug that reached a user: a page with nothing left to draw makes Ultralight
+  // emit no commands at all, so a counter tied to the command list freezes exactly when the
+  // overlay needs to be cleared, and the last frame — the menu the player just closed — stays on
+  // screen forever. The gate this feeds is still worth having; it just has to be fed by the
+  // render.
+  unsigned long long serial = 0;
 };
 
 Driver& d() {
@@ -124,8 +207,15 @@ Driver& d() {
 // ---- shader compilation ------------------------------------------------------------------------
 GLuint compile(GLenum type, const std::string& src, const char* label) {
   GLuint sh = G.CreateShader(type);
-  const GLchar* ptr = src.c_str();
-  GLint len = static_cast<GLint>(src.size());
+  // VOID_UI_GPU_FAIL=compile: hand the driver something it cannot possibly accept, so the failure
+  // comes back from the real glCompileShader with the real driver's real message, rather than
+  // from a branch in our error handling that a broken machine would never take.
+  std::string text = src;
+  if (forced_fail().mode == ForcedFail::kCompile && type == GL_FRAGMENT_SHADER) {
+    text += "\n// VOID_UI_GPU_FAIL=compile\nvoid void_forced_failure() { this is not glsl }\n";
+  }
+  const GLchar* ptr = text.c_str();
+  GLint len = static_cast<GLint>(text.size());
   G.ShaderSource(sh, 1, &ptr, &len);
   G.CompileShader(sh);
   GLint ok = 0;
@@ -135,7 +225,9 @@ GLuint compile(GLenum type, const std::string& src, const char* label) {
     G.GetShaderiv(sh, GL_INFO_LOG_LENGTH, &log_len);
     std::vector<char> log(log_len > 1 ? log_len : 1, 0);
     G.GetShaderInfoLog(sh, static_cast<GLsizei>(log.size()), nullptr, log.data());
-    log_error("shader %s failed to compile:\n%s", label, log.data());
+    log_error("shader %s (%s) failed to compile: %s", label,
+              type == GL_FRAGMENT_SHADER ? "fragment" : "vertex",
+              log[0] ? log.data() : "(the driver gave no reason)");
     G.DeleteShader(sh);
     return 0;
   }
@@ -172,7 +264,15 @@ bool link_program(Program* p, const std::string& vs_src, const std::string& fs_s
     G.BindAttribLocation(p->id, 10, "in_Data6");
   }
 
-  G.LinkProgram(p->id);
+  // VOID_UI_GPU_FAIL=link: never link it. GL_LINK_STATUS on a program that was never linked is
+  // GL_FALSE, straight from the driver, so everything below runs exactly as it would on a machine
+  // that compiled both stages and then refused to put them together — which is a real failure
+  // mode, distinct from a compile error, and the one GL_MAX_VARYING_FLOATS below warns about.
+  if (forced_fail().mode == ForcedFail::kLink) {
+    log_error("gpu: VOID_UI_GPU_FAIL=link — not linking program %s (forced failure)", label);
+  } else {
+    G.LinkProgram(p->id);
+  }
   G.DeleteShader(vs);
   G.DeleteShader(fs);
 
@@ -183,7 +283,11 @@ bool link_program(Program* p, const std::string& vs_src, const std::string& fs_s
     G.GetProgramiv(p->id, GL_INFO_LOG_LENGTH, &log_len);
     std::vector<char> log(log_len > 1 ? log_len : 1, 0);
     G.GetProgramInfoLog(p->id, static_cast<GLsizei>(log.size()), nullptr, log.data());
-    log_error("program %s failed to link:\n%s", label, log.data());
+    // Say something even when the driver's info log is empty, which it is for a program that was
+    // never linked and which some drivers do anyway. A bare "failed to link:" followed by nothing
+    // reads like a logging bug rather than the answer.
+    log_error("program %s failed to link: %s", label,
+              log[0] ? log.data() : "(the driver gave no reason)");
     G.DeleteProgram(p->id);
     p->id = 0;
     return false;
@@ -205,6 +309,10 @@ bool link_program(Program* p, const std::string& vs_src, const std::string& fs_s
 void set_texture_params() {
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // CLAMP_TO_EDGE, which is what Ultralight's own reference driver uses: the shader tiles patterns
+  // itself with fract() (shaders_glsl120.h, fillPatternImage) rather than relying on the sampler.
+  // GL_REPEAT was tried here against the missing dotted rule described in README "Known risks" and
+  // changed nothing, so it is not that.
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   G.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   // No mipmaps: everything Ultralight draws is 1:1 or scaled by the device scale, and
@@ -500,11 +608,62 @@ void apply_state(const ULGPUState& state, Program* program) {
 // ------------------------------------------------------------------------------------------------
 bool initialized() { return d().ready; }
 
+bool failed() { return d().dead; }
+
+void mark_failed(const char* reason) {
+  Driver& dr = d();
+  dr.dead = true;
+  if (dr.dead_logged) return;
+  dr.dead_logged = true;
+  // Loud, once, and on stderr rather than through the JVM's logger. The precedent this is written
+  // against is the one that cost a day: Ultralight's natives were left out of the jar, load() threw,
+  // the mod fell back to a null view, and nobody saw a word of it because Loom's generated log4j
+  // config silences every Java logger on 1.8.9. A native fprintf(stderr) is the one channel in this
+  // process that no Java logging configuration can turn off, so the fallback says so here as well
+  // as through VoidLog on the Java side.
+  log_error("gpu: accelerated rendering is unavailable — %s", reason);
+  log_error("gpu: falling back to the CPU surface. The interface will still work; it will cost "
+            "considerably more frame time. Set VOID_UI_RENDERER=cpu to skip the attempt entirely, "
+            "and please report the shader or link errors above with your GPU and driver version.");
+}
+
+const char* forced_failure_mode() {
+  const ForcedFailConfig& cfg = forced_fail();
+  return cfg.mode == ForcedFail::kNone ? nullptr : cfg.raw.c_str();
+}
+
+bool probe() {
+  Driver& dr = d();
+  if (dr.ready) return true;
+  if (dr.dead) return false;
+  if (forced_fail().mode == ForcedFail::kInit) {
+    // Ahead of save_gl_state(), which resolves entry points and would segfault on a thread with no
+    // context. See the note in the header.
+    mark_failed("VOID_UI_GPU_FAIL=init (forced failure; no GL was touched)");
+    return false;
+  }
+  save_gl_state();
+  bool ok = initialize();
+  restore_gl_state();
+  return ok;
+}
+
 bool initialize() {
   Driver& dr = d();
   if (dr.ready) return true;
+  // Sticky failure. Retrying would mean recompiling two shader programs every frame on the one
+  // machine that has just proved it cannot compile them.
+  if (dr.dead) return false;
+
+  if (forced_fail().mode == ForcedFail::kInit) {
+    // Before gl::load(), so this stands in for "there is no usable context on this thread" as well
+    // as for a driver that refuses outright.
+    mark_failed("VOID_UI_GPU_FAIL=init (forced failure; no GL was touched)");
+    return false;
+  }
+
   if (!gl::load()) {
-    log_error("gpu: OpenGL entry points unavailable — is a context current on this thread?");
+    mark_failed("OpenGL entry points unavailable — is a context current on this thread?");
     return false;
   }
 
@@ -524,6 +683,7 @@ bool initialize() {
                     std::string(shaders::kFillFragmentHead) + frag_common +
                         shaders::kFillFragmentBody,
                     /*with_data_attribs=*/true, "fill")) {
+    mark_failed("the 'fill' GLSL 1.20 program would not build on this GPU");
     return false;
   }
   if (!link_program(&dr.fill_path, shaders::kPathVertex,
@@ -532,7 +692,21 @@ bool initialize() {
                     /*with_data_attribs=*/false, "fill_path")) {
     G.DeleteProgram(dr.fill.id);
     dr.fill.id = 0;
+    mark_failed("the 'fill_path' GLSL 1.20 program would not build on this GPU");
     return false;
+  }
+
+  // One error check, here and nowhere else. A driver that swallowed both programs and is still in
+  // an error state has something wrong with it that a link status will not show, and this is the
+  // one place to look for it without putting a glGetError — a potential pipeline stall — in the
+  // per-frame path this change is trying to make the default. Reported, not acted on: a stray GL
+  // error is not grounds for downgrading a machine the driver actually works on, and a fallback
+  // that costs a working machine 60 fps is its own bug.
+  GLenum err = G.GetError ? G.GetError() : GL_NO_ERROR;
+  if (err != GL_NO_ERROR) {
+    log_error("gpu: GL error 0x%04X outstanding after building the programs; continuing, but this "
+              "is the first thing to look at if the overlay renders wrongly",
+              static_cast<unsigned>(err));
   }
 
   dr.ready = true;
@@ -562,7 +736,16 @@ ULGPUDriver make_driver() {
 
 void draw_command_list() {
   Driver& dr = d();
-  if (!dr.ready || dr.commands.empty()) return;
+  if (!dr.ready) return;
+
+  // An empty command list means Ultralight submitted nothing this frame. That is NOT the same as
+  // "the page is blank": it is also the ordinary case for a page whose content did not change,
+  // where the render target legitimately still holds the last good frame and Ultralight's
+  // incremental model depends on it being left alone. Clearing here — which was tried — takes the
+  // menu off the screen the first frame it has nothing new to draw. The driver cannot tell the two
+  // apart from the command list, so it does not try; clear_render_buffer() below is how the host,
+  // which does know, says so.
+  if (dr.commands.empty()) return;
 
   // Clear the view's own render buffer first.
   //
@@ -625,6 +808,93 @@ void draw_command_list() {
   }
   dr.commands.clear();
   dr.time_seconds += 1.0f / 60.0f;
+  // This frame changed the view's target, so it is a frame to present.
+  ++dr.serial;
+
+  // VOID_UI_GPU_FAIL=late[:n]: the driver comes up, paints for a while, and then dies. Nothing
+  // real is known to do this, which is exactly why it needs a switch — the mid-session rebuild in
+  // UltralightWebView is otherwise unreachable and therefore untested. Counted in command lists
+  // rather than seconds because that is what `serial` counts and what the presentation gate reads;
+  // a live menu submits one only 4-8 times a second, so the default lands a few seconds in.
+  if (forced_fail().mode == ForcedFail::kLate && !dr.dead &&
+      dr.serial >= forced_fail().late_after) {
+    mark_failed("VOID_UI_GPU_FAIL=late (forced failure after a command list had already painted)");
+  }
+}
+
+unsigned long long render_serial() { return d().serial; }
+
+bool clear_render_buffer(unsigned int render_buffer_id) {
+  Driver& dr = d();
+  if (!dr.ready || render_buffer_id == 0) return false;
+  auto it = dr.render_buffers.find(render_buffer_id);
+  if (it == dr.render_buffers.end() || it->second.fbo == 0) return false;
+
+  // Called outside the save/restore that brackets a paint, so put back what it touches.
+  GLint prev_fbo = 0;
+  G.GetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+  G.BindFramebuffer(GL_FRAMEBUFFER, it->second.fbo);
+  G.Disable(GL_SCISSOR_TEST);
+  G.ColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  G.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  G.Clear(GL_COLOR_BUFFER_BIT);
+  G.BindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prev_fbo));
+
+  // The target changed, so this is a frame to present — including the case the whole call exists
+  // for, where the render that follows draws nothing at all and would otherwise bump nothing.
+  ++dr.serial;
+  return true;
+}
+
+bool copy_render_buffer(unsigned int render_buffer_id, unsigned int width, unsigned int height,
+                        unsigned int* texture, unsigned int* texture_width,
+                        unsigned int* texture_height) {
+  Driver& dr = d();
+  if (!dr.ready || !texture || width == 0 || height == 0) return false;
+  auto rb = dr.render_buffers.find(render_buffer_id);
+  if (rb == dr.render_buffers.end() || rb->second.fbo == 0) return false;
+
+  // Everything touched here is restored, because this runs outside the save/restore that brackets
+  // a paint — it is called from viewTextureId, after the command list has already been replayed.
+  GLint prev_fbo = 0, prev_tex = 0, prev_unit = 0;
+  G.GetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+  G.GetIntegerv(GL_ACTIVE_TEXTURE, &prev_unit);
+  G.ActiveTexture(GL_TEXTURE0);
+  G.GetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex);
+
+  bool allocate = *texture == 0 || *texture_width != width || *texture_height != height;
+  if (*texture == 0) G.GenTextures(1, texture);
+  G.BindTexture(GL_TEXTURE_2D, *texture);
+  if (allocate) {
+    set_texture_params();
+    // No pixels: the copy below fills it. RGBA8 to match the render target Ultralight drew into.
+    G.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, static_cast<GLsizei>(width),
+                 static_cast<GLsizei>(height), 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+    *texture_width = width;
+    *texture_height = height;
+  }
+
+  // glCopyTexSubImage2D reads the bound framebuffer's read buffer, which for a single-attachment
+  // FBO is COLOR_ATTACHMENT0 by default. Core 1.1, so no extension to feature-detect: the FBO
+  // itself is the only thing here that needed one.
+  G.BindFramebuffer(GL_FRAMEBUFFER, rb->second.fbo);
+  G.CopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, static_cast<GLsizei>(width),
+                      static_cast<GLsizei>(height));
+
+  G.BindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prev_fbo));
+  G.BindTexture(GL_TEXTURE_2D, static_cast<GLuint>(prev_tex));
+  G.ActiveTexture(static_cast<GLenum>(prev_unit));
+  return true;
+}
+
+void delete_texture(unsigned int* texture) {
+  if (!texture || *texture == 0 || !G.loaded) return;
+  G.DeleteTextures(1, texture);
+  *texture = 0;
+}
+
+void flush() {
+  if (G.Flush) G.Flush();
 }
 
 void save_gl_state() {

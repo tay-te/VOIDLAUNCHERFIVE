@@ -20,10 +20,21 @@ import java.util.Map;
  * the game keeps working and the changes are replayed on reconnect (§6.1).</p>
  *
  * <p>Threading: writes arrive from the WS thread (an {@code init} or
- * {@code loadout} frame) and from the render thread (a bridge call), reads
- * happen on the render and client threads every frame. Every mutation is
- * {@code synchronized}; every field an actuator polls is {@code volatile}, so
- * an actuator never has to take a lock in the frame loop.</p>
+ * {@code loadout} frame) and from the UI thread (a bridge call — Ultralight no
+ * longer shares Minecraft's render thread), reads happen on the game thread
+ * every frame. Every mutation is {@code synchronized}; every field the game
+ * loop polls is {@code volatile}, so it never has to take a lock in the frame
+ * loop.</p>
+ *
+ * <p><b>{@link Loadout} itself is not thread-safe, and does not need to be:
+ * every instance this class holds is read and written only under this monitor.
+ * </b> That is why the accessors that hand a caller something derived from the
+ * active loadout — {@link #loadoutId}, {@link #loadoutJson}, {@link
+ * #libraryJson} — exist at all, and why the two settings the game loop reads
+ * per frame are mirrored into fields below rather than looked up through
+ * {@link #loadout}. A caller that keeps the object {@code loadout()} returns
+ * and reads it after the monitor is released is reading a map another thread
+ * may be writing.</p>
  */
 public final class LiveState {
 
@@ -34,6 +45,20 @@ public final class LiveState {
 
         /** A whole HUD layout, {@code protocol.json} {@code hud}. */
         void hud(String loadoutId, List<HudItem> items);
+
+        /**
+         * Globals written in game, {@code protocol.json} {@code globals}.
+         *
+         * <p>The non-loadout half of {@link #state}, and the only reason a global written
+         * in game outlives the process: without it {@link #setGlobal} is in-process only
+         * and {@code hud_editor_grid} is back at the factory 4 on the next launch.</p>
+         *
+         * <p>A <b>delta</b>, never the whole object. {@code global_settings} is
+         * {@code additionalProperties: true} so the launcher may add a global without a
+         * protocol bump, and {@link GlobalSettings} here is five fixed fields that cannot
+         * carry one — a whole-object echo would erase it.</p>
+         */
+        void globals(Map<String, JsonElement> patch);
     }
 
     /** A do-nothing sink, used before the socket exists and in tests. */
@@ -44,6 +69,10 @@ public final class LiveState {
 
         @Override
         public void hud(String loadoutId, List<HudItem> items) {
+        }
+
+        @Override
+        public void globals(Map<String, JsonElement> patch) {
         }
     };
 
@@ -58,7 +87,6 @@ public final class LiveState {
     public volatile boolean toggleSprintOn;
     public volatile boolean toggleSprintHold;
     public volatile boolean toggleSprintSneakToo;
-    public volatile boolean toggleSprintShowStatus;
 
     public volatile boolean fullbrightOn;
     public volatile float fullbrightGamma = 10f;
@@ -82,13 +110,39 @@ public final class LiveState {
     public volatile int crosshairColor = 0xFFFFFFFF;
     public volatile boolean crosshairOutline = true;
     public volatile boolean crosshairDynamic;
+    public volatile boolean crosshairCenterDot;
 
     /** Optional in-game toggle for the keystrokes overlay; NONE means always on. */
     public volatile int keystrokesToggleCode;
 
+    // -- HUD-mod settings the game loop polls ----------------------------
+    //
+    // These two are drawn by the page, not by Java, so they would normally live only in the
+    // loadout. They are mirrored here because the game loop asks for them on a hot path — the
+    // keystrokes hotkey once a frame, the held-item slot once a tick — and reaching through
+    // loadout() for them means either taking this monitor 20-60 times a second or reading a
+    // Loadout's maps while the UI thread writes them. A volatile boolean is neither.
+    public volatile boolean keystrokesOn = true;
+    public volatile boolean armorShowHeldItem = true;
+
     // -- global settings -------------------------------------------------
     public volatile int menuKeyCode = KeyDefaults.RSHIFT;
     public volatile int cycleLoadoutKeyCode = KeyDefaults.L;
+    /**
+     * Extra multiplier on the in-game UI, on top of {@code VoidClient.pumpUi}'s fit scale.
+     *
+     * <p><b>Written by the launcher, never by the in-game page.</b> {@code setGlobal} accepts it
+     * from either side and clamps to 0.5-3, but the overlay's Settings page deliberately offers
+     * no control for it: a control that resizes the surface it lives on can feed its own input in
+     * Ultralight, because the relayout moves the control under a stationary pointer, that arrives
+     * as a mouse move, and {@code MouseEvent.buttons} reads 0 for an entire drag there — so a
+     * drag cannot be told apart from a hover by button state. Observed in game before the control
+     * was removed: the scale walked to the 3.0 clamp with 76 resizes in fourteen seconds. Two
+     * clients shared the run directory at the time, so the cause was never isolated.
+     *
+     * <p>So if you are looking for the writer, it is Rust: {@code GlobalSettings} over the WS
+     * link, through {@link #applySettings}. This field is live and read every frame.</p>
+     */
     public volatile double uiScale = 1;
     public volatile int hudEditorGrid = 4;
     public volatile String theme = "void-dark";
@@ -126,8 +180,31 @@ public final class LiveState {
         return initialised;
     }
 
+    /**
+     * The live active loadout.
+     *
+     * <p><b>The object is mutable and is not guarded once this returns.</b> Use it only for a read
+     * that finishes before another thread could write — in practice, only inside this class and in
+     * tests. Callers on the game thread want {@link #loadoutId}, {@link #loadoutJson} or one of the
+     * mirrored fields above.</p>
+     */
     public synchronized Loadout loadout() {
         return active;
+    }
+
+    /**
+     * The active loadout's id, read under the monitor.
+     *
+     * <p>Safe where {@code loadout().id()} is not: {@code id} is final, but the reference this
+     * dereferences is not, and a switch may replace it between the two calls.</p>
+     */
+    public synchronized String loadoutId() {
+        return active.id();
+    }
+
+    /** The active loadout as the {@code loadout} bridge event carries it. */
+    public synchronized JsonObject loadoutJson() {
+        return active.toJson();
     }
 
     public synchronized GlobalSettings settings() {
@@ -207,7 +284,6 @@ public final class LiveState {
         toggleSprintOn = l.isOn("toggle_sprint");
         toggleSprintHold = "hold".equals(l.stringSetting("toggle_sprint", "mode", "toggle"));
         toggleSprintSneakToo = l.boolSetting("toggle_sprint", "sneak_too", false);
-        toggleSprintShowStatus = l.boolSetting("toggle_sprint", "show_status", true);
 
         fullbrightOn = l.isOn("fullbright");
         fullbrightGamma = (float) l.numberSetting("fullbright", "gamma", 10);
@@ -232,9 +308,13 @@ public final class LiveState {
         crosshairColor = parseColor(l.stringSetting("crosshair", "color", "#FFFFFFFF"), 0xFFFFFFFF);
         crosshairOutline = l.boolSetting("crosshair", "outline", true);
         crosshairDynamic = l.boolSetting("crosshair", "dynamic", false);
+        crosshairCenterDot = l.boolSetting("crosshair", "center_dot", false);
 
         keystrokesToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("keystrokes", "keybind", "NONE"));
+
+        keystrokesOn = l.isOn("keystrokes");
+        armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);
     }
 
     /** {@code #RRGGBB} / {@code #RRGGBBAA} to packed ARGB. */
@@ -297,6 +377,128 @@ public final class LiveState {
             sink.state(active.id(), LoadoutDiff.single(modId, key, stored));
         }
         return stored;
+    }
+
+    /**
+     * {@code void.setGlobal(key, value)} — the page's writer for the globals of
+     * {@code protocol.json#/definitions/global_settings}.
+     *
+     * <p>The same contract as {@link #setModSetting}: clamp rather than throw, and
+     * <b>return what was stored</b> — or {@code null} for a key this build does not keep and for
+     * a value it cannot use. The page binds to the return and not to what it sent, which is what
+     * lets a slider snap back to 3 when the player drags it to 7.</p>
+     *
+     * <p>Every accepted key goes through {@link #applySettings}, so the mirrored fields the game
+     * loop polls and the {@link GlobalSettings} record a later {@code settings} push serialises
+     * cannot disagree — there is one write path, not two. <b>Nothing is emitted from here</b>
+     * (§6.5): a change the page made is already known to the page, and pushing it back fights the
+     * control the player is holding.</p>
+     *
+     * <p>Every key is honest — each is read by something:</p>
+     * <ul>
+     *   <li>{@code ui_scale} 0.5..3 — {@code VoidClient.pumpUi} multiplies it into the view
+     *       scale every frame, so the write alone resizes the view; see the note there.</li>
+     *   <li>{@code menu_key} — a keybind name, stored as {@link #menuKeyCode}, which
+     *       {@code pollHotkeys} reads every frame. {@code NONE} is refused: it is a legal
+     *       keybind but it would leave the player with no way to open the menu again, and
+     *       {@code isKeyDown} answers false for it forever.</li>
+     *   <li>{@code cycle_loadout_key} — same machinery, {@link #cycleLoadoutKeyCode}.
+     *       {@code NONE} <em>is</em> allowed here: it disables the L-key cycle, which is a
+     *       thing a player may reasonably want and is not a way to get stuck.</li>
+     *   <li>{@code hud_editor_grid} 0..64 — {@link #setHud} snaps against it on the next drop.</li>
+     *   <li>{@code theme} — the only one Java stores without reading: it is the page's to
+     *       apply, and the page gets it back both from this return and from the {@code settings}
+     *       channel after a reload, which is exactly what storing it is for.</li>
+     * </ul>
+     *
+     * @return the stored value, or {@code null} for an unknown key or an unusable value
+     */
+    public synchronized JsonElement setGlobal(String key, JsonElement value) {
+        if (key == null || value == null || !value.isJsonPrimitive()) {
+            return null;
+        }
+        com.google.gson.JsonPrimitive p = value.getAsJsonPrimitive();
+        GlobalSettings s = settings;
+        String menuKey = s.menuKey;
+        String cycleKey = s.cycleLoadoutKey;
+        String themeName = s.theme;
+        double scale = s.uiScale;
+        int grid = s.hudEditorGrid;
+        JsonElement stored;
+
+        if ("ui_scale".equals(key)) {
+            double d = numberOf(p);
+            if (Double.isNaN(d)) {
+                return null;
+            }
+            scale = Math.max(0.5, Math.min(3, d));
+            stored = Json.number(scale);
+        } else if ("hud_editor_grid".equals(key)) {
+            double d = numberOf(p);
+            if (Double.isNaN(d)) {
+                return null;
+            }
+            grid = (int) Math.round(Math.max(0, Math.min(64, d)));
+            stored = new com.google.gson.JsonPrimitive(Integer.valueOf(grid));
+        } else if ("menu_key".equals(key)) {
+            String name = keybindOf(p);
+            if (name == null || "NONE".equals(name)) {
+                return null;
+            }
+            menuKey = name;
+            stored = new com.google.gson.JsonPrimitive(name);
+        } else if ("cycle_loadout_key".equals(key)) {
+            String name = keybindOf(p);
+            if (name == null) {
+                return null;
+            }
+            cycleKey = name;
+            stored = new com.google.gson.JsonPrimitive(name);
+        } else if ("theme".equals(key)) {
+            if (!p.isString()) {
+                return null;
+            }
+            String name = p.getAsString();
+            // protocol.json: minLength 1, maxLength 32. A theme nothing can name is not a theme.
+            if (name.isEmpty() || name.length() > 32) {
+                return null;
+            }
+            themeName = name;
+            stored = new com.google.gson.JsonPrimitive(name);
+        } else {
+            return null;
+        }
+
+        // The value as it is actually persisted, read before the write. `toJson()` uses
+        // the schema's own property names, which are exactly the keys `setGlobal` takes,
+        // so this compares like with like without a second table to fall out of step.
+        JsonElement before = settings.toJson().get(key);
+        applySettings(new GlobalSettings(menuKey, cycleKey, themeName, scale, grid));
+        // Nothing is pushed back to the *page* (§6.5) — but Rust is not the page. It is
+        // the only thing that can write settings.json, and it is told the same way every
+        // other in-game change is told: after the fact, as a delta.
+        if (!Json.same(before, stored)) {
+            sink.globals(Collections.singletonMap(key, stored));
+        }
+        return stored;
+    }
+
+    /** A finite number from a primitive, or {@code NaN} for anything else. */
+    private static double numberOf(com.google.gson.JsonPrimitive p) {
+        if (!p.isNumber()) {
+            return Double.NaN;
+        }
+        double d = p.getAsDouble();
+        return Double.isInfinite(d) ? Double.NaN : d;
+    }
+
+    /** An upper-cased, schema-valid keybind name, or {@code null}. */
+    private static String keybindOf(com.google.gson.JsonPrimitive p) {
+        if (!p.isString()) {
+            return null;
+        }
+        String name = p.getAsString().toUpperCase(java.util.Locale.ROOT);
+        return dev.voidpvp.client.input.KeyNames.isValidKeybind(name) ? name : null;
     }
 
     /**

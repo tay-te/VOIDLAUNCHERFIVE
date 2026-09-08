@@ -26,7 +26,7 @@ class ProtocolExamplesTest {
     @DisplayName("every protocol.json example round-trips through the codec")
     void roundTripsEveryExample() {
         JsonArray examples = Schemas.examples("protocol.json");
-        assertTrue(examples.size() >= 11, "protocol.json lost examples: " + examples.size());
+        assertTrue(examples.size() >= 13, "protocol.json lost examples: " + examples.size());
         int javaToRust = 0;
         int rustToJava = 0;
 
@@ -61,6 +61,15 @@ class ProtocolExamplesTest {
                 JsonObject rebuilt = Protocol.hud(
                         example.get("loadout").getAsString(), items);
                 Schemas.assertContains(example, rebuilt, where);
+                javaToRust++;
+            } else if ("globals".equals(t)) {
+                Map<String, JsonElement> patch = new LinkedHashMap<String, JsonElement>();
+                for (Map.Entry<String, JsonElement> e
+                        : example.getAsJsonObject("patch").entrySet()) {
+                    patch.put(e.getKey(), e.getValue());
+                }
+                JsonObject rebuilt = Protocol.globals(patch);
+                assertEquals(example, rebuilt, where);
                 javaToRust++;
             } else if ("session".equals(t)) {
                 JsonObject rebuilt = Protocol.session(
@@ -120,7 +129,7 @@ class ProtocolExamplesTest {
                         + "; teach net/Protocol about it");
             }
         }
-        assertEquals(8, javaToRust, "expected eight Java to Rust examples");
+        assertEquals(10, javaToRust, "expected ten Java to Rust examples");
         assertEquals(3, rustToJava, "expected three Rust to Java examples");
     }
 

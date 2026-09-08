@@ -1,6 +1,12 @@
 /**
  * The canvas backdrop art, **for the browser preview only**.
  *
+ * NOTE: nothing imports this today. `design/quiet-cell-system.md` §0 makes the shell
+ * flat — no art behind the content panel, no gradient anywhere — so `App` draws neither
+ * a backdrop nor a scrim. The module and the `@dev/backdrops` alias are kept for the
+ * visual-QA pass, whose baseline is still the pre-contract frames; delete both together
+ * when that pass is re-baselined.
+ *
  * The frames put a rendered Minecraft still behind the recessed canvas. Shipping one is
  * an asset decision the launcher does not own yet (there is no licenced render in the
  * repository, and `design/` is read-only reference material that nothing may import at

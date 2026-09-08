@@ -626,7 +626,7 @@ function Gallery() {
                   'flask',
                   'wifi',
                   'compass',
-                  'footprints',
+                  'bolt',
                   'cube',
                   'sparkle',
                 ] as const

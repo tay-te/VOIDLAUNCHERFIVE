@@ -57,18 +57,43 @@ public final class CrosshairGeometry {
      * @param spread    extra gap from the {@code dynamic} setting, 0 when off
      */
     public static List<Rect> rects(String style, int size, int thickness, int gap, float spread) {
+        return rects(style, size, thickness, gap, spread, false);
+    }
+
+    /**
+     * The rectangles to fill, with the {@code center_dot} setting.
+     *
+     * <p>The dot rides on top of every drawn style, the ring included — a ring is the one
+     * shape with room for it, and a ring with no centre is the hardest crosshair in the game
+     * to aim with. {@code none} still draws nothing: off is off. {@code default} draws nothing
+     * either, because that style is "leave the vanilla pass alone" and there is no VOID draw
+     * to hang a dot on.</p>
+     *
+     * @param centerDot the {@code center_dot} setting
+     */
+    public static List<Rect> rects(String style, int size, int thickness, int gap, float spread,
+            boolean centerDot) {
         List<Rect> out = new ArrayList<Rect>();
         int t = Math.max(1, thickness);
         float half = t / 2f;
         float g = Math.max(0, gap) + Math.max(0f, spread);
         int s = Math.max(1, size);
 
-        if (style == null || "none".equals(style) || "default".equals(style)
-                || "circle".equals(style)) {
+        if ("none".equals(style)) {
+            return out;
+        }
+        if (centerDot && style != null && !"default".equals(style)) {
+            out.add(new Rect(-half, -half, t, t));
+        }
+        if (style == null || "default".equals(style) || "circle".equals(style)) {
             return out;
         }
         if ("dot".equals(style)) {
-            out.add(new Rect(-half, -half, t, t));
+            // With `center_dot` on, the dot is already in the list — adding it again would
+            // fill the same rectangle twice, which the outline pass makes visible.
+            if (!centerDot) {
+                out.add(new Rect(-half, -half, t, t));
+            }
             return out;
         }
         // cross and t_shape share the horizontal bar and the lower arm.

@@ -21,6 +21,7 @@
 
 import {
   BEDWARS,
+  DEFAULT_LOADOUT,
   MOCK_ACCOUNT,
   MOCK_LOG_SCRIPT,
   MOCK_SERVERS,
@@ -68,7 +69,11 @@ interface MockState {
 
 const state: MockState = {
   account: null,
-  loadouts: [structuredClone(SWORD_PVP), structuredClone(BEDWARS)],
+  loadouts: [
+    structuredClone(SWORD_PVP),
+    structuredClone(BEDWARS),
+    structuredClone(DEFAULT_LOADOUT),
+  ],
   settings: structuredClone(MOCK_SETTINGS),
   running: false,
   log: [],
@@ -80,7 +85,11 @@ export function __resetMock(): void {
   state.timers.forEach(clearTimeout);
   state.timers = [];
   state.account = null;
-  state.loadouts = [structuredClone(SWORD_PVP), structuredClone(BEDWARS)];
+  state.loadouts = [
+    structuredClone(SWORD_PVP),
+    structuredClone(BEDWARS),
+    structuredClone(DEFAULT_LOADOUT),
+  ];
   state.settings = structuredClone(MOCK_SETTINGS);
   state.running = false;
   state.log = [];

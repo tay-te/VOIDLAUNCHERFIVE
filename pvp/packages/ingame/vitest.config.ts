@@ -18,6 +18,11 @@ export default defineConfig({
       { find: '@', replacement: resolve(here, 'src') },
     ],
   },
+  // The `VOID_UI_FAKEMODS` switch of `vite.config.ts`, pinned off for tests: the suite asserts
+  // the registry's own twelve, and a stray environment variable must not be able to change that.
+  define: {
+    __VOID_UI_FAKEMODS__: JSON.stringify(''),
+  },
   test: {
     environment: 'jsdom',
     globals: true,

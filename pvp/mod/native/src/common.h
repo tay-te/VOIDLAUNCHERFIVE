@@ -5,6 +5,7 @@
 
 #include <cstdarg>
 #include <cstdint>
+#include <mutex>
 #include <string>
 
 #include <Ultralight/CAPI.h>
@@ -36,10 +37,36 @@ struct Globals {
 
 Globals& g();
 
-// Attaches the calling thread to the JVM as a daemon if it is not attached already. Ultralight
-// may call the FileSystem from its own renderer threads, so this has to be safe off-thread.
-// The attachment is intentionally never torn down: daemon threads do not hold the JVM open.
+// The JNIEnv for the calling thread, attaching it to the JVM as a daemon on first use.
+//
+// Four kinds of thread reach this and they need different treatment. The UI thread that owns the
+// Renderer and Minecraft's render thread are Java threads: already attached, and detaching them
+// would be pulling an attachment out from under the JVM. Ultralight's own renderer threads
+// (Config.num_renderer_threads, auto — 3 on a 4-core box) call the ULFileSystem, and the font
+// loader can run on any of them; those are bare pthreads and have to be attached here.
+//
+// Daemon, because a normal attachment keeps the JVM alive and those threads outlive anything we
+// control. Cached thread_local, because the alternative — attach/detach per call — costs more than
+// the classpath read it wraps. Detached when the thread exits, and only for the threads we
+// attached ourselves: an attached native thread that dies still attached leaves the JVM holding a
+// JNIEnv for a thread that no longer exists, which surfaces later as a crash somewhere unrelated.
 JNIEnv* env();
+
+// ---------------------------------------------------------------------------------------------
+// The surface lock — held whenever Ultralight's pixels are being written or read.
+//
+// Ultralight's CPU renderer rasterises into each View's bitmap surface. With ulRender on a
+// dedicated UI thread and the texture upload still on the thread that owns the GL context, those
+// two touch the same bitmap concurrently. Both halves of that go wrong quietly: an upload that
+// reads mid-render tears (a band of the previous frame inside an otherwise current one), and a
+// ulSurfaceClearDirtyBounds that lands while a render is in flight discards damage that was never
+// uploaded — that region then stops updating entirely until something else happens to dirty it,
+// which reads as a frozen widget rather than as a glitch.
+//
+// One mutex for the whole process rather than one per View, because ulRender paints *every* view
+// in a single call. A per-view lock would have to be acquired as the union of them all before
+// ulRender and released after it, which is this mutex with more bookkeeping.
+std::mutex& surface_lock();
 
 void log_info(const char* fmt, ...);
 void log_error(const char* fmt, ...);

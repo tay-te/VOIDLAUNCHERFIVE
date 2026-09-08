@@ -279,9 +279,11 @@ describe('hypixel readiness (§11)', () => {
     const readiness = hypixelReady(useLoadouts.getState().active!);
     expect(readiness.ready).toBe(false);
     expect(readiness.label).toBe('REVIEW MODS');
-    expect(readiness.greyMods).toEqual(['fullbright', 'hitboxes']);
+    // Grid order, which `Launcher-Mods.png` sets: Hitboxes (Reach display) is the
+    // ninth card and Fullbright the tenth.
+    expect(readiness.greyMods).toEqual(['hitboxes', 'fullbright']);
     expect(readiness.detail).toBe(
-      'Fullbright and Hitboxes are not Hypixel-safe. Turn them off before joining ranked.',
+      'Hitboxes and Fullbright are not Hypixel-safe. Turn them off before joining ranked.',
     );
   });
 

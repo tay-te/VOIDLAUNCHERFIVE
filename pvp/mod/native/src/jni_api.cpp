@@ -1,12 +1,122 @@
 // JNI entry points for dev.voidclient.ultralight.Native.
 //
-// Handles are raw pointers boxed as jlong. There is no locking: everything here must be called
-// from the thread that created the renderer (Minecraft's render thread), which is also the thread
-// Ultralight's JS runs on. That is the whole point — key press to pixel in the same frame.
+// Handles are raw pointers boxed as jlong.
+//
+// -----------------------------------------------------------------------------------------------
+// Thread affinity
+//
+// Two threads, and the split is not symmetric.
+//
+//   UI thread — every entry point in this file except viewTextureId and gpuDriverFailed. It must
+//   be ONE thread, whichever one it is, for the life of the process: whatever calls createRenderer
+//   is what must go on to call rendererUpdate, rendererRefreshDisplay, rendererRender,
+//   rendererProbeAccelerated, rendererPurgeMemory,
+//   createView, destroyView, viewLoadUrl/LoadHtml, viewResize, viewSetDeviceScale,
+//   viewSetNeedsPaint, viewIsDirty, viewFireMouse/Key/ScrollEvent, viewEvaluateScript,
+//   viewSetMessageHandler, viewSetFocus, viewHasInputFocus, viewIsLoading, viewWidth/Height,
+//   viewTextureWidth/Height, viewReadPixels and destroyRenderer.
+//
+//   Not "one at a time" — the same one, and this is the part that is easy to get wrong. WebCore
+//   keeps per-thread globals (ThreadGlobalData: the font cache, the main-thread shared timer) that
+//   are constructed on the thread that first touches them, and JavaScriptCore's VM belongs to the
+//   thread that created it. A second thread entering later does not queue behind the first, it
+//   builds its own copy of that state — a different font cache, a timer nobody services — or
+//   trips an assertion on the way. A mutex around these calls does not make them interchangeable;
+//   only pinning them does.
+//
+//   GL thread — viewTextureId for a CPU view, and nothing else that touches the engine. It may be
+//   a different thread, and for that view it is: Minecraft's render thread, the only one with the
+//   game's context current, because that call *is* the upload of the surface into a texture.
+//   viewUvScaleX and viewUvScaleY may be called from it too, but only because for a CPU view they
+//   answer 1.0f from an immutable flag without entering Ultralight at all — which is what
+//   UiHost.paint() already relies on. For an accelerated view all three read the render target and
+//   belong to the UI thread like everything else; UiHost calls them there once a frame and
+//   publishes the answers.
+//
+//   Everything else that looks harmless is not: viewTextureWidth/Height, viewWidth/Height and
+//   viewIsDirty all read live View state and race a resize or a render. If the blit needs the
+//   surface size, the UI thread should publish it to Java after a resize rather than the GL thread
+//   asking for it here.
+//
+// Why the split exists at all. Measured: ulUpdate -> ulRefreshDisplay -> ulRender costs 6-28 ms on
+// an animation frame, on top of a game frame that is already 11-15 ms, and none of that work
+// touches GL. What does touch GL is only the tail — read the surface's dirty rect,
+// glTexSubImage2D it into a texture, blit — so that is the only thing that has to stay on the
+// thread holding the context. Everything else can run at its own pace on a thread of its own.
+//
+// This replaces the rule this file used to state ("everything here must be called from the thread
+// that created the renderer (Minecraft's render thread)"), which is now half true: the renderer
+// still has exactly one owning thread, but it no longer has to be Minecraft's, and the upload
+// deliberately is not on it.
+//
+// Four consequences that do not follow from reading the code:
+//
+//   * The UI thread must never exit. A thread that has touched WebCore aborts the process on the
+//     way out — README "Known risks" #7, reproduced under gdb: the pthread's TSD destructors run
+//     ~ThreadGlobalData, which re-enters threadGlobalData() from inside its own destructor.
+//     Minecraft's render thread is exposed to this too and gets away with it only because the
+//     process leaves through System.exit(0) from inside it. A dedicated UI thread that returns
+//     from run() takes the game down with it; it has to park until the process ends.
+//
+//   * createRenderer must run on a thread with a Java frame beneath it. It caches
+//     dev.voidclient.ultralight.Resources with FindClass, which resolves through the class loader
+//     of the nearest Java frame — the mod's, which is the one that can see the UI bundle. Called
+//     from a bare native thread attached by common.cpp there is no such frame, FindClass falls
+//     back to the system loader and the lookup fails. A UI thread created in Java is fine; a
+//     std::thread is not.
+//
+//   * Everything Ultralight calls back into Java now arrives on the UI thread rather than the
+//     render thread: the window.__void_native message handler (js_bridge.cpp), console messages,
+//     load failures. Whatever those touch on the Minecraft side has to expect it.
+//
+//   * Accelerated views keep the whole engine on the UI thread, including the GL work.
+//     rendererRender drives our GPU driver itself for them (gpu::initialize / draw_command_list),
+//     and the driver's first act is to resolve entry points through glGetString — which segfaults
+//     outright on a thread with no current context. So the UI thread has to have a context of its
+//     own, in the same share group as Minecraft's: dev.voidpvp.client.ui.UiGlContext builds one
+//     with LWJGL's SharedDrawable on the game thread and makes it current here before the first
+//     view is created. Textures are shared objects, so the texture the UI thread paints into is
+//     the texture the game thread binds. Containers — FBOs, VAOs — are not shared, and nothing
+//     here needs them to be: every one of them is created and used on this thread.
+//
+//     If that context cannot be had, the mod falls back to a CPU view rather than running the
+//     driver without one. There is no configuration in which the accelerated path renders from a
+//     thread that does not own a context.
+//
+//     It falls back for the other reason too, which is newer. Having a context is necessary and
+//     not sufficient: the driver's GLSL 1.20 programs have to build on this GPU, and that has been
+//     verified on exactly one machine. rendererProbeAccelerated answers that question on the UI
+//     thread before any view is created, so the host can create a CPU view instead of an
+//     accelerated one that would never paint. gpuDriverFailed answers it again every frame, for a
+//     driver that dies later; it is a plain read of a process-wide flag and belongs to no thread.
+//
+// Two objects cross the threads, and they are protected differently.
+//
+//   The CPU view's bitmap surface is shared memory, and a torn read of it is a torn frame that
+//   also loses damage. surface_lock() in common.h is what makes that safe, and every use of it
+//   below says what it is covering.
+//
+//   The accelerated view's texture is double buffered instead, and this is not a refinement — it
+//   is the difference between working and not. Handing the game thread Ultralight's own render
+//   target means it samples whatever draw_command_list has replayed so far, and since the game
+//   blits faster than the UI paints it lands mid-list constantly: measured in game, that is not an
+//   occasional seam but continuous flicker. A mutex would fix it and is forbidden — it is the game
+//   thread waiting on a UI-thread paint, the one thing this design exists to prevent. So
+//   viewTextureId copies the finished render target into one of two textures of our own and
+//   publishes that; the buffer being copied into is never the one last published, so a copy in
+//   flight is never the texture being read. The cost is one full-screen GPU-side copy per painted
+//   frame, on the thread that already holds the context, and neither thread ever blocks.
+//
+//   gpu::flush() after that copy is what publishes it: GL does not promise the other context sees
+//   a shared object until the producing one has been flushed, and without it the overlay can sit
+//   on a stale frame indefinitely.
+// -----------------------------------------------------------------------------------------------
 
 #include <jni.h>
 
+#include <chrono>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -24,6 +134,80 @@ ULView view_of(jlong handle) {
 }
 
 ViewState* state_of(jlong handle) { return reinterpret_cast<ViewState*>(handle); }
+
+// -----------------------------------------------------------------------------------------------
+// Frame profiler, off unless VOID_UI_PROFILE is set.
+//
+// Kept in the tree rather than rebuilt each time the overlay "feels slow": the numbers that matter
+// are a stall histogram, not an average, and that took several rebuilds to learn. Wall clock only —
+// an earlier version used clock(), which is CPU time across Ultralight's thread pool and made every
+// rate it printed a fiction.
+//
+// Every field below is now written from two threads — update_ms and the render fields from the UI
+// thread, the paint/upload fields and reset() from the GL thread — so every access to g_profile is
+// made under surface_lock(). It is not atomics: the counters are read together to print one line,
+// and a set of individually-atomic counters sampled at different instants is a line that never
+// described any real frame.
+// -----------------------------------------------------------------------------------------------
+struct Profile {
+  using Clock = std::chrono::steady_clock;
+
+  bool enabled = getenv("VOID_UI_PROFILE") != nullptr;
+  // VOID_UI_PROFILE=rects logs every damaged rectangle, not just the slow ones — the only way to
+  // see which elements animate together, since the damage is a union and the union is the cost.
+  bool all_rects = enabled && strcmp(getenv("VOID_UI_PROFILE"), "rects") == 0;
+  Clock::time_point window_start{};
+  int paints = 0;
+  int uploads = 0;
+  double update_ms = 0;
+  double render_ms = 0;
+  double upload_ms = 0;
+  double peak_render_ms = 0;
+  double dirty_coverage = 0;
+  ULIntRect worst_dirty{0, 0, 0, 0};
+  double worst_area = 0;
+  std::vector<double> slow_frames;
+  // Set when a render stalls (UI thread), read by the upload that follows it (GL thread). With the
+  // two decoupled this is "the last slow render before this upload", which is no longer guaranteed
+  // to be the render that produced the pixels being uploaded. Close enough to point at the
+  // element; not evidence on its own.
+  double pending_slow_ms = 0;
+  // The wall time between one viewTextureId and the next: the game's frame, measured on the GL
+  // thread. It used to include the UI work, because ulRender ran inline on this thread. It no
+  // longer does, and the gap between this and peak_render_ms is exactly what moving the renderer
+  // off the game thread bought. If the two converge again the UI thread is blocking the GL thread
+  // on surface_lock() — i.e. it is rendering faster than the game can upload, and the fix is to
+  // pace the UI loop, not to touch the lock.
+  Clock::time_point last_paint{};
+  double worst_frame_ms = 0;
+  int frames_over_20ms = 0;
+
+  static double ms_since(Clock::time_point t) {
+    return std::chrono::duration<double, std::milli>(Clock::now() - t).count();
+  }
+
+  double due() {
+    if (window_start == Clock::time_point{}) {
+      window_start = Clock::now();
+      return 0;
+    }
+    double elapsed = ms_since(window_start) / 1000.0;
+    return elapsed >= 2.0 ? elapsed : 0;
+  }
+
+  void reset() {
+    window_start = Clock::now();
+    paints = uploads = 0;
+    update_ms = render_ms = upload_ms = peak_render_ms = dirty_coverage = 0;
+    worst_dirty = ULIntRect{0, 0, 0, 0};
+    worst_area = 0;
+    worst_frame_ms = 0;
+    frames_over_20ms = 0;
+    slow_frames.clear();
+  }
+};
+
+Profile g_profile;
 
 // Fires on every navigation: the window object is brand new, so the bridge has to go back on.
 void on_window_object_ready(void* user_data, ULView caller, unsigned long long frame_id,
@@ -51,9 +235,14 @@ void on_fail_loading(void* user_data, ULView caller, unsigned long long frame_id
             ulStringGetData(description), ulStringGetData(error_domain), error_code);
 }
 
+// Presentation counters for the profile line in viewTextureId. UI thread only, like everything
+// else that touches them.
+int g_presents = 0;
+int g_present_asks = 0;
+Profile::Clock::time_point g_presents_since;
+
 // Number of live accelerated views. Zero means render() never has to touch GL.
 int g_accelerated_views = 0;
-bool g_gpu_failed = false;
 
 } // namespace
 
@@ -142,6 +331,14 @@ JNIEXPORT jlong JNICALL Java_dev_voidclient_ultralight_Native_createRenderer(
   // interface being sluggish. If damage-rectangle artefacts reappear, fix the driver's handling
   // of them rather than paying this.
   ulConfigSetForceRepaint(config, false);
+  // The timer knobs are deliberately left at their defaults, and this note exists so the next
+  // person to chase "the menu feels like 20 fps" does not spend the afternoon here as well.
+  // ulConfigSetMaxUpdateTime (default 1/200) and ulConfigSetAnimationTimerDelay (default 1/60)
+  // both look like the culprit and neither is: raised to 1/60 and 1/120 respectively, measured in
+  // game, the repaint rate did not move. The engine was never the limit — with a small damage
+  // region this view sustains 74 repaints/s, and with game state pushes frozen it idles at 114 fps
+  // with a 0.00 ms render. The stalls came from the page being told to re-render 20 times a second
+  // by ticks whose values had not changed; the fix is in packages/ingame's store, not here.
 
   gl.renderer = ulCreateRenderer(config);
   ulDestroyConfig(config);
@@ -169,7 +366,19 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_destroyRenderer(JNI
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererUpdate(JNIEnv* e, jclass,
                                                                            jlong handle) {
   ULRenderer r = reinterpret_cast<ULRenderer>(handle);
-  if (r) ulUpdate(r);
+  if (!r) return;
+  if (!g_profile.enabled) {
+    ulUpdate(r);
+    return;
+  }
+  auto t0 = Profile::Clock::now();
+  ulUpdate(r);
+  double ms = Profile::ms_since(t0);
+  // ulUpdate writes no pixels, so it stays outside surface_lock(); only the counter needs it, and
+  // only when profiling. Taking the lock around ulUpdate itself would stall the game thread's
+  // upload behind timer and JS work that has nothing to do with the surface.
+  std::lock_guard<std::mutex> guard(surface_lock());
+  g_profile.update_ms += ms;
 }
 
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererRefreshDisplay(
@@ -185,22 +394,99 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererRender(JNIE
 
   if (g_accelerated_views == 0) {
     // CPU-only: no GL is touched at all, which is what the headless tests exercise.
+    //
+    // ulRender rasterises into every view's bitmap surface and updates its dirty bounds, which is
+    // precisely what viewTextureId reads on the GL thread. The whole call is inside the lock; a
+    // narrower region does not exist, because ulRender gives no hook between "started writing this
+    // view" and "finished".
+    std::lock_guard<std::mutex> guard(surface_lock());
+    if (!g_profile.enabled) {
+      ulRender(r);
+      return;
+    }
+    auto t0 = Profile::Clock::now();
     ulRender(r);
+    double ms = Profile::ms_since(t0);
+    g_profile.render_ms += ms;
+    if (ms > g_profile.peak_render_ms) g_profile.peak_render_ms = ms;
+    // A full repaint of this surface measures ~49 ms against 2-5 ms incremental. Off the game
+    // thread that is a dropped UI frame rather than a visible freeze, but it is still ~49 ms with
+    // the lock held, so the next upload waits behind it: a stall here shows up on the game thread
+    // as one late blit. The histogram is the signal; the mean hides it completely.
+    if (ms > 10.0) {
+      g_profile.slow_frames.push_back(ms);
+      g_profile.pending_slow_ms = ms;
+    }
     return;
   }
 
-  if (g_gpu_failed) return;
+  // The driver is dead: initialize() failed, here or in the probe, or something marked it dead
+  // mid-session. Returning is all this can do about it, and returning is a blank overlay, so the
+  // recovery does not live here — the Java side polls gpuDriverFailed() and rebuilds its view on
+  // the CPU path (UltralightWebView.fallBackToCpu). This is only the gap between the two.
+  if (gpu::failed()) return;
 
+  // Accelerated views render through our GL driver, so this whole branch needs a current context —
+  // the UI thread's own, sharing Minecraft's (see the threading note at the top of this file).
+  // save/restore is kept even though the state being restored is now this context's rather than
+  // Minecraft's: it costs a handful of glGet calls off the game thread, and it is the only thing
+  // that would keep the driver honest if the paint ever moved back onto the render thread.
+  // The lock is still taken around ulRender so the two paths cannot disagree about what it
+  // protects if a CPU and an accelerated view are ever alive at once.
   gpu::save_gl_state();
   if (!gpu::initialize()) {
-    g_gpu_failed = true;
+    // initialize() has already marked itself failed and said why, loudly. Reached only when the
+    // host created an accelerated view without calling rendererProbeAccelerated first; the mod
+    // does probe, so this is the path for any other caller of the binding.
     gpu::restore_gl_state();
-    log_error("GPU driver unavailable; accelerated views will not paint");
     return;
   }
-  ulRender(r);
+  {
+    std::lock_guard<std::mutex> guard(surface_lock());
+    ulRender(r);
+  }
   gpu::draw_command_list();
   gpu::restore_gl_state();
+  // No flush here. What the game thread samples is not this render target but the copy
+  // viewTextureId takes of it, and that is where the flush that publishes it lives.
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_rendererProbeAccelerated(
+    JNIEnv* e, jclass, jlong handle) {
+  // Does the accelerated path work on this machine? Answered before a single accelerated view
+  // exists, which is the whole point: the failure this guards against is a GLSL 1.20 program that
+  // will not build, and until this existed the only way to find that out was to create an
+  // accelerated view, render it, watch initialize() fail, and get a blank overlay for the rest of
+  // the process with no way back to the CPU surface.
+  //
+  // Thread and context: the UI thread that owns the renderer, with its own GL context current
+  // (dev.voidpvp.client.ui.UiGlContext). The driver's first act is glGetString, which segfaults
+  // outright on a thread with no context — so this is not callable before UiGlContext.makeCurrent()
+  // has returned true, exactly like the render it stands in for.
+  //
+  // gpu::probe() brackets the build with the same save/restore rendererRender uses, so nothing it
+  // does is visible to whatever draws next on this context.
+  ULRenderer r = reinterpret_cast<ULRenderer>(handle);
+  if (!r) return JNI_FALSE;
+  bool ok = gpu::probe();
+  if (ok) {
+    const char* forced = gpu::forced_failure_mode();
+    if (forced) {
+      // A mode that fails later (late[:n]) leaves the probe succeeding, which is exactly what it is
+      // for. Say so here, or the run looks like an ordinary one until the driver suddenly dies.
+      log_info("gpu: accelerated renderer probe succeeded, but VOID_UI_GPU_FAIL=%s is armed",
+               forced);
+    } else {
+      log_info("gpu: accelerated renderer probe succeeded");
+    }
+  }
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_gpuDriverFailed(JNIEnv* e, jclass) {
+  // Sticky and one-way. Polled once per UI frame by UltralightWebView so a driver that dies after
+  // the probe still ends up on the CPU surface instead of latching a flag that stops all painting.
+  return gpu::failed() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_rendererPurgeMemory(JNIEnv* e, jclass,
@@ -260,6 +546,12 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_destroyView(JNIEnv*
   if (!vs) return;
   release_message_bridge(vs);
   if (vs->view) ulDestroyView(vs->view);
+  // The double buffer and the CPU upload texture are ours, not Ultralight's, so destroying the
+  // view does not free them. This runs on the thread that owns the renderer, which is also the
+  // thread whose context those textures live in.
+  gpu::delete_texture(&vs->present_texture[0]);
+  gpu::delete_texture(&vs->present_texture[1]);
+  gpu::delete_texture(&vs->cpu_texture);
   if (vs->accelerated && g_accelerated_views > 0) --g_accelerated_views;
   delete vs;
 }
@@ -304,19 +596,106 @@ JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureId(JNIEn
   if (!v) return 0;
   if (!ulViewIsAccelerated(v)) {
     // CPU path: Ultralight rasterised into a bitmap surface; hand Java a GL texture holding it.
+    //
+    // This branch is the one entry point in the file that may run on a thread other than the one
+    // driving the renderer, so everything from here to ulSurfaceClearDirtyBounds is under the lock: the
+    // dirty-bounds read, the profile counters, the glTexSubImage2D that reads the bitmap, and the
+    // clear. The upload is inside it deliberately — it is the read that must not see a half-drawn
+    // surface — which means a UI-thread ulRender waits for the upload. That is the intended trade:
+    // the upload is bounded by the dirty rectangle and small, the render is not.
+    std::lock_guard<std::mutex> guard(surface_lock());
     ULSurface surface = ulViewGetSurface(v);
     if (!surface) return 0;
     ULBitmap bitmap = ulBitmapSurfaceGetBitmap(surface);
     if (!bitmap) return 0;
     ULIntRect dirty = ulSurfaceGetDirtyBounds(surface);
     bool first = vs->cpu_texture == 0;
-    if (first || !ulIntRectIsEmpty(dirty)) {
+    bool dirty_now = first || !ulIntRectIsEmpty(dirty);
+    if (g_profile.enabled) {
+      unsigned w = ulBitmapGetWidth(bitmap), h = ulBitmapGetHeight(bitmap);
+      ++g_profile.paints;
+      if (g_profile.last_paint != Profile::Clock::time_point{}) {
+        double frame = Profile::ms_since(g_profile.last_paint);
+        if (frame > g_profile.worst_frame_ms) g_profile.worst_frame_ms = frame;
+        if (frame > 20.0) ++g_profile.frames_over_20ms;
+      }
+      g_profile.last_paint = Profile::Clock::now();
+      if (dirty_now) {
+        ++g_profile.uploads;
+        if (g_profile.all_rects) {
+          log_info("  damage %dx%d at (%d,%d)", dirty.right - dirty.left,
+                   dirty.bottom - dirty.top, dirty.left, dirty.top);
+        }
+        if (g_profile.pending_slow_ms > 0) {
+          // The rectangle the stall actually redrew. A small text change has no business
+          // dirtying anything but its own chip; anything panel-sized here is the real bug.
+          log_info("  stall %.0fms redrew %dx%d at (%d,%d)", g_profile.pending_slow_ms,
+                   dirty.right - dirty.left, dirty.bottom - dirty.top, dirty.left, dirty.top);
+          g_profile.pending_slow_ms = 0;
+        }
+        // NB: this is a bounding box, not a region. Two small changes at opposite corners read
+        // as near-full coverage, so treat it as "how far apart the damage is", never as area.
+        double area = double(dirty.right - dirty.left) * double(dirty.bottom - dirty.top);
+        if (w && h) g_profile.dirty_coverage += area / (double(w) * double(h));
+        if (area > g_profile.worst_area) {
+          g_profile.worst_area = area;
+          g_profile.worst_dirty = dirty;
+        }
+      }
+      if (double secs = g_profile.due()) {
+        const Profile& p = g_profile;
+        log_info("surface %ux%u: %.0f paints/s, %.0f uploads/s | update %.2f, render %.2f "
+                 "(peak %.1f), upload %.2f ms/frame | damage bbox %.0f%%",
+                 w, h, p.paints / secs, p.uploads / secs,
+                 p.paints ? p.update_ms / p.paints : 0.0,
+                 p.paints ? p.render_ms / p.paints : 0.0, p.peak_render_ms,
+                 p.paints ? p.upload_ms / p.paints : 0.0,
+                 p.uploads ? 100.0 * p.dirty_coverage / p.uploads : 0.0);
+        log_info("  game frame: worst %.0f ms, %d of %d over 20 ms (%.0f fps mean)",
+                 p.worst_frame_ms, p.frames_over_20ms, p.paints, p.paints / secs);
+        if (!p.slow_frames.empty()) {
+          std::string list;
+          for (size_t i = 0; i < p.slow_frames.size() && i < 14; ++i) {
+            char buf[24];
+            snprintf(buf, sizeof(buf), "%s%.0f", i ? " " : "", p.slow_frames[i]);
+            list += buf;
+          }
+          log_info("  stalls over 10ms: %zu of %d frames [%s]", p.slow_frames.size(), p.paints,
+                   list.c_str());
+        }
+        g_profile.reset();
+      }
+    }
+    if (dirty_now) {
+      auto t0 = Profile::Clock::now();
       vs->cpu_texture = gpu::upload_surface(vs->cpu_texture, vs->cpu_texture_width,
                                             vs->cpu_texture_height, bitmap, dirty);
+      if (g_profile.enabled) g_profile.upload_ms += Profile::ms_since(t0);
       ulSurfaceClearDirtyBounds(surface);
     }
     return static_cast<jint>(vs->cpu_texture);
   }
+  // Accelerated path: UI thread only, and the front half of the double buffer.
+  //
+  // Reading the render target races a resize, and the texture was produced by this thread's
+  // context anyway, so UiHost calls this once per UI frame after the paint and publishes the
+  // answer for the game thread's blit rather than asking from there.
+  //
+  // What it publishes is a *copy*, not Ultralight's render target. Handing over the render target
+  // directly was tried and is wrong in practice: the game thread blits at a higher rate than the
+  // UI thread paints, so it lands inside draw_command_list often, and a partially replayed command
+  // list is a visibly torn frame. At 87 fps that is not an occasional seam, it is constant
+  // flicker. Copying costs one full-screen GPU-side blit per painted frame, on the thread that
+  // already has the context, and leaves the rule the split is built on intact — the game thread
+  // still never waits for a paint.
+  //
+  // The copy is gated on the driver's render serial, and what that serial counts has already been
+  // wrong once in a way that reached a user. Tied to the command list, it stopped moving when the
+  // page had nothing left to draw, so closing the menu left a picture of it on screen for good.
+  // It now counts frames that changed the view's target — including the one that blanks it — and
+  // nothing else, so both halves hold: a blank page publishes its blankness once, and an idle one
+  // publishes nothing. `presents/s` in the profile line below is the number to look at if either
+  // half ever breaks again.
   ULRenderTarget rt = ulViewGetRenderTarget(v);
   if (rt.is_empty) return 0;
   {
@@ -330,8 +709,39 @@ JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureId(JNIEn
                rt.texture_width, rt.texture_height, rt.uv_coords.right, rt.uv_coords.bottom);
     }
   }
-  // rt.texture_id is the driver's own id, not a GL name — Java binds the result directly.
-  return static_cast<jint>(voidul::gpu::gl_texture_for(rt.texture_id));
+  unsigned long long serial = gpu::render_serial();
+  if (serial != vs->presented_serial) {
+    // Into the buffer that is *not* the one the game thread was last told about, so a copy in
+    // progress is never the texture being sampled.
+    unsigned next = vs->present_index ^ 1u;
+    if (gpu::copy_render_buffer(rt.render_buffer_id, rt.texture_width, rt.texture_height,
+                                &vs->present_texture[next], &vs->present_width[next],
+                                &vs->present_height[next])) {
+      // The copy is what the other context reads, so this is the flush that publishes a frame.
+      gpu::flush();
+      vs->present_index = next;
+      vs->presented_serial = serial;
+      ++g_presents;
+    }
+  }
+  if (g_profile.enabled) {
+    // The accelerated answer to the CPU path's "uploads/s". Both questions this gate has to get
+    // right are visible in it: an idle page should read 0, and a page that has just gone blank
+    // should read exactly one present and then stop.
+    ++g_present_asks;
+    auto now = Profile::Clock::now();
+    if (g_presents_since == Profile::Clock::time_point{}) {
+      g_presents_since = now;
+    } else if (Profile::ms_since(g_presents_since) >= 2000.0) {
+      double secs = Profile::ms_since(g_presents_since) / 1000.0;
+      log_info("view %ux%u: %.0f presents/s of %.0f asks/s", rt.width, rt.height,
+               g_presents / secs, g_present_asks / secs);
+      g_presents_since = now;
+      g_presents = 0;
+      g_present_asks = 0;
+    }
+  }
+  return static_cast<jint>(vs->present_texture[vs->present_index]);
 }
 
 JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureWidth(JNIEnv* e, jclass,
@@ -350,11 +760,14 @@ JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewTextureHeight(J
   return static_cast<jint>(ulViewGetRenderTarget(v).texture_height);
 }
 
+// uvScaleX/Y are the exception to "UI thread only" for CPU views: ulViewIsAccelerated reads a flag
+// fixed at creation, so the early return never enters the engine and the GL thread may ask. For an
+// accelerated view they read the render target and belong to the UI thread, which publishes them
+// alongside the texture id.
 JNIEXPORT jfloat JNICALL Java_dev_voidclient_ultralight_Native_viewUvScaleX(JNIEnv* e, jclass,
                                                                            jlong handle) {
   ULView v = view_of(handle);
   if (!v || !ulViewIsAccelerated(v)) return 1.0f;
-  if (!ulViewIsAccelerated(v)) return 1.0f;
   return ulViewGetRenderTarget(v).uv_coords.right;
 }
 
@@ -362,7 +775,6 @@ JNIEXPORT jfloat JNICALL Java_dev_voidclient_ultralight_Native_viewUvScaleY(JNIE
                                                                            jlong handle) {
   ULView v = view_of(handle);
   if (!v || !ulViewIsAccelerated(v)) return 1.0f;
-  if (!ulViewIsAccelerated(v)) return 1.0f;
   return ulViewGetRenderTarget(v).uv_coords.bottom;
 }
 
@@ -378,6 +790,27 @@ JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_viewIsDirty(JNI
   if (!s) return JNI_FALSE;
   ULIntRect r = ulSurfaceGetDirtyBounds(s);
   return (r.right > r.left && r.bottom > r.top) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_voidclient_ultralight_Native_viewClearTarget(JNIEnv* e, jclass,
+                                                                                jlong handle) {
+  // UI thread only, like everything else that touches an accelerated view's render target.
+  //
+  // The host calls this when it knows the page is about to have nothing on it — the menu closing,
+  // the last HUD widget going off. Everything else about that frame is ordinary: the render that
+  // follows repaints whatever the page still has, onto a target that no longer holds what it does
+  // not. What makes it necessary is the case where the page has *nothing* left, where Ultralight
+  // submits no commands, nothing in the driver runs, and the target would keep the last frame
+  // that had content for as long as the process lives.
+  //
+  // The render buffer id comes from the live render target rather than from anything the driver
+  // remembers, so it cannot be a stale id from before a resize — which, missing from the driver's
+  // map, would otherwise resolve to the default framebuffer and clear the game's own window.
+  ULView v = view_of(handle);
+  if (!v || !ulViewIsAccelerated(v)) return JNI_FALSE;
+  ULRenderTarget rt = ulViewGetRenderTarget(v);
+  if (rt.is_empty) return JNI_FALSE;
+  return gpu::clear_render_buffer(rt.render_buffer_id) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_viewSetNeedsPaint(JNIEnv* e, jclass,

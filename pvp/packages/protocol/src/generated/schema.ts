@@ -40,7 +40,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   defaults?: FPSDisplaySettings;
 };
 /**
- * Closed enum of the 12 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 13 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -50,6 +50,7 @@ export type ModId =
   | 'coordinates'
   | 'armor_status'
   | 'potion_effects'
+  | 'watermark'
   | 'toggle_sprint'
   | 'fullbright'
   | 'hitboxes'
@@ -228,6 +229,28 @@ export type PotionEffectsEntry = RegistryEntry & {
   defaults?: PotionEffectsSettings;
 };
 /**
+ * Registry entry for the VOID watermark, narrowed to its constant classification.
+ */
+export type VOIDWatermarkEntry = RegistryEntry & {
+  /**
+   * Always `watermark`.
+   */
+  id?: 'watermark';
+  /**
+   * Always `hud`; it draws and reads nothing.
+   */
+  kind?: 'hud';
+  /**
+   * Always `visual`; it changes how the game looks rather than adding a readout, so the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe`; §11 does not list it, and a mark drawn over the game cannot affect play.
+   */
+  hypixel_safe?: 'safe';
+  defaults?: VOIDWatermarkSettings;
+};
+/**
  * Registry entry for Toggle sprint, narrowed to its constant classification.
  */
 export type ToggleSprintEntry = RegistryEntry & {
@@ -342,10 +365,17 @@ export type CrosshairEntry = RegistryEntry & {
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the eight mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
-  'fps' | 'keystrokes' | 'cps' | 'ping' | 'coordinates' | 'armor_status' | 'potion_effects';
+  | 'fps'
+  | 'keystrokes'
+  | 'cps'
+  | 'ping'
+  | 'coordinates'
+  | 'armor_status'
+  | 'potion_effects'
+  | 'watermark';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -360,9 +390,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 8, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 7
+ * @maxItems 8
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -370,12 +400,13 @@ export type HUDLayout = HUDItem[];
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The six messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The seven messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
   | StateJavaToRust
   | HudJavaToRust
+  | GlobalsJavaToRust
   | SessionJavaToRust
   | ServerJavaToRust
   | HotkeyJavaToRust;
@@ -392,14 +423,22 @@ export type HotkeyId = 'loadout.next' | 'overlay';
  */
 export type RustToJava = InitRustToJava | LoadoutRustToJava | SettingsRustToJava;
 /**
- * The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md §6.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, §6.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of §9 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary.
+ * The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md §6.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, §6.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of §9 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary. The channel list below is the whole contract and both shims close over it: `on` returns a no-op subscription for a name it does not know and `__emit` drops an envelope whose channel has no list, so a channel Java pushes and this file does not declare is lost in total silence. That is how `session` went missing between Java and the page the first time, and why it is written down here now.
  */
 export type BridgeEnvelope = Event | Call | CallResult;
 /**
  * One push from Java to JS, enveloped as {e, payload}. In the real bridge the envelope does not exist on the wire: `payload` is the single argument the `void.on(e, handler)` handler receives.
  */
 export type Event =
-  KeysEvent | TickEvent | ServerEvent | LoadoutEvent | LoadoutsEvent | SettingEvent | MenuEvent;
+  | KeysEvent
+  | TickEvent
+  | ServerEvent
+  | LoadoutEvent
+  | LoadoutsEvent
+  | SettingEvent
+  | MenuEvent
+  | SessionEvent
+  | SettingsEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -423,7 +462,9 @@ export type Call =
   | SetModSettingCall
   | SwitchLoadoutCall
   | CloseMenuCall
-  | OpenKeybindCaptureCall;
+  | OpenKeybindCaptureCall
+  | SetSurfacesCall
+  | SetGlobalCall;
 /**
  * [id, on].
  *
@@ -487,6 +528,20 @@ export type CloseMenuParams = any[];
  */
 export type OpenKeybindCaptureParams = [ModId];
 /**
+ * [surfaces]. Replaces the whole set; an empty array clears it.
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetSurfacesParams = [EffectSurface[]];
+/**
+ * [key, value].
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type SetGlobalParams = [string, boolean | number | string | null];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -495,7 +550,9 @@ export type CallResult =
   | SetModSettingResult
   | SwitchLoadoutResult
   | CloseMenuResult
-  | OpenKeybindCaptureResult;
+  | OpenKeybindCaptureResult
+  | SetSurfacesResult
+  | SetGlobalResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -516,16 +573,24 @@ export type CloseMenuReturns = null;
  * Two different things travel in this shape, which is why it admits null twice over. The **synchronous** answer of `__void_native` is always null and means "capture armed". The **deferred** envelope, delivered later through `__emit`, carries the captured key — or null again when the player cancelled with Escape. A shim distinguishes them by channel, never by value: the synchronous answer opens a Promise, the `__emit` envelope resolves it.
  */
 export type OpenKeybindCaptureReturns = Keybind | null;
+/**
+ * How many surfaces the host kept, so the page can tell the call arrived.
+ */
+export type SetSurfacesReturns = number;
+/**
+ * The value actually stored, after validation and clamping — `null` when the key is not one Java knows, or when the value cannot be made usable (a `menu_key` that is not a legal key name, say). Null therefore means *nothing was stored*, so a control that gets it should keep showing the value it had. Exactly `setModSetting_returns`, one level up.
+ */
+export type SetGlobalReturns = boolean | number | string | null;
 
 /**
- * The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
+ * The closed registry of the 13 mods VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3 plus the VOID watermark — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
  */
 export interface ModRegistryDocument {
   version: RegistryVersion;
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 12 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -535,6 +600,7 @@ export interface Mods {
   coordinates: CoordinatesEntry;
   armor_status: ArmorStatusEntry;
   potion_effects: PotionEffectsEntry;
+  watermark: VOIDWatermarkEntry;
   toggle_sprint: ToggleSprintEntry;
   fullbright: FullbrightEntry;
   hitboxes: HitboxesEntry;
@@ -578,6 +644,10 @@ export interface FPSDisplaySettings {
    * Whether to render the trailing "FPS" label after the number.
    */
   show_label?: boolean;
+  /**
+   * Whether the 1% low is drawn as a trailing aside. It is the figure that says whether a frame rate is actually smooth, and it is also a third number on the chip a player reads mid-match — so it is a switch rather than something that appears whenever a low has been measured.
+   */
+  show_low?: boolean;
 }
 /**
  * Settings for the Keystrokes HUD mod. Fed by the edge-triggered `keys` bridge event (§6.5), never by polling.
@@ -595,6 +665,10 @@ export interface KeystrokesSettings {
    * Whether to render the spacebar tile.
    */
   show_spacebar?: boolean;
+  /**
+   * Whether to render the sneak (shift) tile beside the space bar. The `keys` event has always carried `shift` and the widget has always been handed it; this is the switch that draws it. A sneak key is as much a part of reading a PvP player's inputs as the space bar, which is why the two sit together.
+   */
+  show_sneak?: boolean;
   /**
    * Whether to print the current CPS inside the LMB and RMB tiles.
    */
@@ -617,6 +691,10 @@ export interface CPSCounterSettings {
    * Which mouse buttons to count: left only, right only, or both shown side by side.
    */
   mode?: 'left' | 'right' | 'both';
+  /**
+   * Whether to render the trailing "CPS" unit after the figures. Every other readout on the HUD can drop its unit; this one could not, which left it the widest chip on screen for a player who already knows what the number is.
+   */
+  show_label?: boolean;
   /**
    * Length of the sliding window in milliseconds over which clicks are counted before being scaled to clicks per second.
    */
@@ -641,6 +719,10 @@ export interface PingDisplaySettings {
    * Ping at or above this many milliseconds renders in the bad colour. Must be greater than `good_ms`; not enforced by the schema.
    */
   bad_ms?: number;
+  /**
+   * Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.
+   */
+  show_host?: boolean;
 }
 /**
  * Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.
@@ -650,7 +732,7 @@ export interface CoordinatesSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Number of decimal places printed for X, Y and Z.
+   * Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one — 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.
    */
   decimals?: number;
   /**
@@ -658,7 +740,7 @@ export interface CoordinatesSettings {
    */
   show_direction?: boolean;
   /**
-   * Whether X, Y and Z are stacked on three lines or printed on one.
+   * Whether X, Y and Z are stacked on three lines or printed on one. Defaults to `inline`, which is what the HUD frame draws; `stacked` holds the three numbers against one left edge, which is easier to read while moving.
    */
   layout?: 'stacked' | 'inline';
 }
@@ -681,6 +763,10 @@ export interface ArmorStatusSettings {
    * Whether to include the currently held item as a sixth slot.
    */
   show_held_item?: boolean;
+  /**
+   * Fraction of maximum durability under which a piece's bar turns amber. A threshold on a live value, the same species as `ping.good_ms`: the point at which a player wants to be told their gear is going is a matter of how they play, not a constant. 0 never warns.
+   */
+  warn_below?: number;
 }
 /**
  * Settings for the Potion effects HUD mod. Reads `getActivePotionEffects`, pushed only when the set changes.
@@ -703,6 +789,18 @@ export interface PotionEffectsSettings {
   hide_ambient?: boolean;
 }
 /**
+ * Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` §1 reserves colour for a live value or a selected item, and a watermark is neither.
+ */
+export interface VOIDWatermarkSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark, `mark` is the ring alone, `word` is the wordmark alone.
+   */
+  style?: 'full' | 'mark' | 'word';
+}
+/**
  * Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`.
  */
 export interface ToggleSprintSettings {
@@ -715,10 +813,6 @@ export interface ToggleSprintSettings {
    * Whether the same latching behaviour is applied to sneak.
    */
   sneak_too?: boolean;
-  /**
-   * Whether the mod draws its own [Sprinting] status line above the hotbar.
-   */
-  show_status?: boolean;
 }
 /**
  * Settings for the Fullbright gameplay mod. Overrides `gameSettings.gammaSetting`; client-side only and Watchdog-tolerated (§3), but classified `grey` in §11.
@@ -765,7 +859,7 @@ export interface ZoomSettings {
   cinematic?: boolean;
 }
 /**
- * Settings for the Crosshair mod. Uniquely among the 12 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.
+ * Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.
  */
 export interface CrosshairSettings {
   on: Enabled;
@@ -794,6 +888,10 @@ export interface CrosshairSettings {
    * Whether the gap widens while the attack cooldown is not full and while sprinting.
    */
   dynamic?: boolean;
+  /**
+   * Whether a dot of `thickness` square is drawn on the centre point, under whatever `style` draws around it. `dot` is a style, so without this a player must choose between a cross and a centre reference; every crosshair configurator worth the name lets them have both. Ignored by `none`, and by `default`, which is the vanilla pass.
+   */
+  center_dot?: boolean;
 }
 /**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
@@ -821,7 +919,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 12 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 13 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -831,6 +929,7 @@ export interface ModStates {
   coordinates?: CoordinatesSettings;
   armor_status?: ArmorStatusSettings;
   potion_effects?: PotionEffectsSettings;
+  watermark?: VOIDWatermarkSettings;
   toggle_sprint?: ToggleSprintSettings;
   fullbright?: FullbrightSettings;
   hitboxes?: HitboxesSettings;
@@ -924,6 +1023,28 @@ export interface HudJavaToRust {
   loadout: LoadoutId;
   items: HUDLayout;
   [k: string]: any | undefined;
+}
+/**
+ * Sent by the mod when a global setting is written in game — the in-game Settings page rebinding the menu key, the HUD editor's Snap toggle writing `hud_editor_grid`. The exact counterpart of `state` for the non-loadout half of §8.3: Java is authoritative, has already applied the change, and this tells Rust so it reaches `settings.json` and survives the process. Without it a global written in game lives only in `LiveState` and is gone at the next launch, which is what `hud_editor_grid` did for as long as the Snap toggle existed.
+ *
+ * A **delta, not the whole object**, and that is load-bearing rather than stylistic. `global_settings` is `additionalProperties: true` so the launcher may add a global without a protocol bump, but the mod's `GlobalSettings` is a fixed five-field class that cannot carry one — so a mod that echoed the whole object back would silently erase every global it does not model. Rust merges the named keys into what it already has and leaves the rest alone.
+ */
+export interface GlobalsJavaToRust {
+  /**
+   * Message discriminator; always `globals`.
+   */
+  t: 'globals';
+  patch: GlobalSettingsPatch;
+  [k: string]: any | undefined;
+}
+/**
+ * Flat map of `global_settings` property names to their new values, e.g. `{"hud_editor_grid": 8}`. Keys are the top-level property names of `global_settings`, not dotted paths: globals are flat, so there is nothing to path into. Unlike `state_patch` there is no `null`: `setGlobal` refuses a value it cannot store and returns null to the caller rather than sending one, so a null here would mean nothing a receiver could act on.
+ */
+export interface GlobalSettingsPatch {
+  /**
+   * The new value. Validate against the property's sub-schema in `global_settings` after applying; the mod has already clamped it to the same bounds.
+   */
+  [k: string]: (boolean | number | string) | undefined;
 }
 /**
  * Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time and average-fps numbers on the launcher's Loadouts frame. Values are cumulative for the current game session, not deltas.
@@ -1254,6 +1375,43 @@ export interface MenuEvent {
   payload: MenuPayload;
 }
 /**
+ * Envelope for the `session` event.
+ */
+export interface SessionEvent {
+  /**
+   * Event discriminator; always `session`.
+   */
+  e: 'session';
+  payload: SessionPayload;
+}
+/**
+ * Who is playing: the account the launcher signed in with, as Java already knows it from the JVM arguments it was spawned with. Pushed on `pushWholeState()` — first paint, a launcher `init`, and a reloaded document (design/rendering-invariants.md §9a) — and never again in between: the account cannot change while the game runs. The About screen prints it, and the HUD greets by name.
+ */
+export interface SessionPayload {
+  /**
+   * The player's Minecraft name, as the launcher signed in.
+   */
+  name: string;
+  /**
+   * The account uuid. For an offline launch this is the uuid derived from the name, not a Mojang one.
+   */
+  uuid: string;
+  /**
+   * `microsoft` for a signed-in Xbox account; `offline` when the uuid is the one an offline launch derives from the name.
+   */
+  kind: 'offline' | 'microsoft';
+}
+/**
+ * Envelope for the `settings` event.
+ */
+export interface SettingsEvent {
+  /**
+   * Event discriminator; always `settings`.
+   */
+  e: 'settings';
+  payload: GlobalSettings;
+}
+/**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.
  */
 export interface SetGameplayCall {
@@ -1314,6 +1472,84 @@ export interface OpenKeybindCaptureCall {
   params: OpenKeybindCaptureParams;
 }
 /**
+ * `void.setSurfaces(surfaces)`. Tells the host where the elements that carry an expensive effect are, so it can draw that effect in GL beneath the view instead. The overlay's CSS sets every `box-shadow` to `none` because a blurred shadow is the costliest thing a CPU rasteriser does; this is how the design keeps them anyway. The page sends the *authored* Figma values (the `--shadow-*-gl` tokens), so what the host draws is the design, not an approximation. Sent on layout change, not per frame.
+ */
+export interface SetSurfacesCall {
+  /**
+   * Call discriminator; always `setSurfaces`.
+   */
+  c: 'setSurfaces';
+  params: SetSurfacesParams;
+}
+/**
+ * One rectangle the host draws a shadow behind. Geometry is in CSS pixels of the view, the same space the page lays out in — the host scales by the device scale it already knows, so the page never has to reason about device pixels or the Retina factor.
+ */
+export interface EffectSurface {
+  /**
+   * Which surface this is, for logging. Not interpreted.
+   */
+  id: string;
+  /**
+   * Left edge in CSS pixels.
+   */
+  x: number;
+  /**
+   * Top edge in CSS pixels.
+   */
+  y: number;
+  /**
+   * Width in CSS pixels.
+   */
+  w: number;
+  /**
+   * Height in CSS pixels.
+   */
+  h: number;
+  /**
+   * Corner radius in CSS pixels.
+   */
+  radius: number;
+  shadow: EffectShadow;
+}
+/**
+ * A CSS `box-shadow` decomposed into numbers, so neither Java nor GLSL has to parse CSS. Taken from the authored `--shadow-*-gl` token, which the token build copies verbatim out of `design/tokens.css` — so this is the Figma value.
+ */
+export interface EffectShadow {
+  /**
+   * Horizontal offset in CSS pixels.
+   */
+  dx: number;
+  /**
+   * Vertical offset in CSS pixels.
+   */
+  dy: number;
+  /**
+   * Blur radius in CSS pixels.
+   */
+  blur: number;
+  /**
+   * Spread in CSS pixels; negative shrinks.
+   */
+  spread: number;
+  /**
+   * Straight-alpha RGBA, each channel 0-1.
+   *
+   * @minItems 4
+   * @maxItems 4
+   */
+  color: number[];
+}
+/**
+ * `void.setGlobal(key, value)`. The generic writer behind every control in the in-game Settings pane, and the exact mirror of `setModSetting` one level up: the loadout holds what changes how the game *plays*, and these are the globals of §8.3 that do not (`protocol.json#/definitions/global_settings`). Synchronous, like every call but `openKeybindCapture`, because the bridge is in-process. Java validates and clamps rather than throwing, stores the result, and returns **what it stored**; the control binds to that return value, never to what it sent. Java then reports the change to Rust, which is the store of record between sessions (§6.1) — the page does not persist anything itself.
+ */
+export interface SetGlobalCall {
+  /**
+   * Call discriminator; always `setGlobal`.
+   */
+  c: 'setGlobal';
+  params: SetGlobalParams;
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -1372,4 +1608,24 @@ export interface OpenKeybindCaptureResult {
    */
   c: 'openKeybindCapture';
   returns: OpenKeybindCaptureReturns;
+}
+/**
+ * Envelope for a setSurfaces return value.
+ */
+export interface SetSurfacesResult {
+  /**
+   * Call discriminator; always `setSurfaces`.
+   */
+  c: 'setSurfaces';
+  returns: SetSurfacesReturns;
+}
+/**
+ * Envelope for a setGlobal return value.
+ */
+export interface SetGlobalResult {
+  /**
+   * Call discriminator; always `setGlobal`.
+   */
+  c: 'setGlobal';
+  returns: SetGlobalReturns;
 }

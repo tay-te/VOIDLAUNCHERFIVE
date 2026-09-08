@@ -299,9 +299,55 @@ flip_y=true   ul(0,0) -> ndc(-1.00, -1.00)   ul(0,50) -> ndc(-1.00, +1.00)
 With `flip_y = true` the page top lands at NDC −1, which is texture row 0, which is `v = 0`. Draw
 the quad with `v = 0` at the top and it is right way up.
 
-The driver is initialised lazily on the first `render()` of an accelerated view, because entry
-points must come from a context that exists — there is none at mod init. If initialisation fails
-it is logged once and accelerated views stop painting rather than crashing the game.
+### Coming up, and failing to
+
+Entry points must come from a context that exists, and there is none at mod init, so the driver
+cannot be built when it is registered. It is built on demand instead — and *who* asks matters.
+
+`Renderer.probeAccelerated()` (`rendererProbeAccelerated`) builds it deliberately, on the UI
+thread, with that thread's context current, **before any view has been created**, and answers
+whether it worked. That is the call the mod makes, and it is what lets a machine this driver cannot
+run on get a CPU view instead of an accelerated one. Until it existed the only way to find out was
+to create an accelerated view and render it, and a failure there was terminal: a process-wide flag
+latched on, every subsequent accelerated render returned without painting, and the player got an
+empty overlay with no visible error — on hardware where the CPU surface would have worked fine.
+`rendererRender` still builds the driver if nobody probed, for callers of the binding that are not
+the mod, and the failure is no longer silent there either.
+
+`Renderer.acceleratedDriverFailed()` (`gpuDriverFailed`) reports the same thing afterwards. It is a
+plain read of a process-wide flag, safe from any thread, and the mod polls it once a frame so a
+driver that dies *after* the probe is rebuilt on the CPU surface rather than latching. It is sticky
+and one-way: a driver that could not link GLSL 1.20 on the first frame will not link it on the
+next, and retrying would mean recompiling two programs 60 times a second on exactly the machine
+that cannot compile them.
+
+Every failure is logged at error level on **stderr, natively**, which is deliberate: Loom's
+generated log4j config is broken on 1.8.9 and silences every Java logger in the process, and
+Minecraft replaces `System.err` with a log4j stream during bootstrap. `fprintf(stderr)` from here is
+the one channel no logging configuration can turn off. The mod's Java-side notice writes to
+`FileDescriptor.err` for the same reason, so both halves of the story land in the same place.
+
+### Making the driver fail on purpose: `VOID_UI_GPU_FAIL`
+
+The fallback above guards a failure that happens on hardware nobody here has. This driver has
+executed on exactly one machine — macOS, Apple's OpenGL 2.1 profile — and never on Windows or
+Linux. A fallback that has never run is a fallback nobody knows works, so the failure is
+reproducible on demand. An **environment variable**, not a `-D` property: the value has to be
+legible to the native library, which cannot see the JVM's properties.
+
+| `VOID_UI_GPU_FAIL=` | Fails at | Stands in for |
+|---|---|---|
+| `init` | before a single GL entry point is resolved | no usable context, missing entry points, a driver that refuses outright. **The only mode that works headless**, which is why `ctest -R accelerated_fallback` uses it |
+| `compile` | `glCompileShader`, for real — invalid GLSL is appended to every fragment shader | "this GPU will not accept our GLSL 1.20". The driver's own error path runs with the driver's own message |
+| `link` | `GL_LINK_STATUS`, for real — `glLinkProgram` is never called | a GPU that compiles both stages and refuses to link them. Distinct from `compile`, and the failure `GL_MAX_VARYING_FLOATS` warns about |
+| `late` or `late:n` | after the driver has already painted `n` command lists (default 24) | a driver that dies mid-session. The only way to reach the mod's in-place rebuild of a live view onto the CPU surface |
+| *(mod only)* `probe` | in Java, without asking the driver | the mod's own fallback wiring, on a build whose natives are whatever they are. Read by `WebViews.forcedProbeFailure()`, not here |
+
+A value that is none of these is reported as an error and ignored, rather than silently doing
+nothing — a typo here means the test everyone thinks is running is not.
+
+`compile`, `link` and `late` need a real GL context and therefore a real game window. `init` and
+`probe` do not, which is the whole reason `init` exists.
 
 ### Why no AppCore
 
@@ -323,10 +369,16 @@ platforms. That is what AppCore does internally. The C++ ABI surface this costs 
 (`Platform::instance`, `FontFile::Create`, `String`'s constructor), resolved from the same SDK whose
 headers we compile. If a future SDK exports the C entry point, delete that file.
 
-It hands back one bundled font (Inter) for every family. **Consequence, deliberate:** system fonts
-are not reachable from the page — `font-family: Arial` gets Inter. The UI must declare what it wants
-with `@font-face`, which is served by our `ULFileSystem` from the classpath. That is what we want
-anyway: one design, identical on every machine.
+It resolves every family the page names. Ultralight never fetches an `@font-face` itself — the
+declaration only says *which family* to ask for, and the ask arrives here — so the `kFaces` table in
+that file is what decides the typeface on screen. It carries the design's own faces, published from
+`src/main/resources/assets/void/fonts/` by `build.gradle`: **Outfit at 300, 400 and 500, and nothing
+else** (`design/quiet-cell-system.md` §2). Anything not in the table falls back to Inter.
+
+**Consequence, deliberate:** system fonts are not reachable from the page — `font-family: Arial`
+gets Inter. That is what we want anyway: one design, identical on every machine. **The trap:** a
+family missing from `kFaces` does not error, it silently comes out as Inter, so each served face is
+logged once (`font_load: 'outfit' weight 400 -> …`) and a missing line is the symptom.
 
 ---
 
@@ -376,22 +428,199 @@ semantics including the "" contracts, the synchronous `window.__void_native` rou
 scroll dispatch, `isDirty()` in both directions, CPU readback with stride repacking, transparency,
 and top-left origin.
 
-### NOT verified — this is the M1 gate
+`ctest` runs a second headless test, `accelerated_fallback` (`AcceleratedFallbackTest`), under
+`VOID_UI_GPU_FAIL=init`. It is the evidence for the CPU fallback:
 
-- **The OpenGL driver has never executed.** There is no display in this environment, so not one GL
-  call in `gpu_driver_gl.cpp` has run. It compiles; that is all that is claimed. The GLSL 1.20 port
-  has never been through a driver's compiler.
-- **macOS GL 2.1 specifically.** The whole reason the port exists.
-- **State restoration against MC's renderer.** The save/restore list is derived from what the driver
-  touches, not from watching MC break.
-- **Windows and macOS builds.** Only `linux-x64` has been compiled. MSVC and Xcode toolchain notes
-  above are written from the SDK's own requirements, not from a green build.
-- **Paint cost (§10, ≤ 0.5 ms at 1080p).** Not measurable without a GPU.
+```
+  ok   the driver is not marked failed before anything has asked it
+[voidultralight/error] gpu: VOID_UI_GPU_FAIL=init — the GL driver will fail on purpose
+[voidultralight/error] gpu: accelerated rendering is unavailable — VOID_UI_GPU_FAIL=init (forced failure; no GL was touched)
+[voidultralight/error] gpu: falling back to the CPU surface. The interface will still work; it will cost considerably more frame time. …
+  ok   probeAccelerated() reported the accelerated renderer as unusable
+  ok   the failure is visible afterwards through acceleratedDriverFailed()
+  ok   a second probe answers false without retrying (the failure is sticky)
+  ok   the fallback view is a CPU surface
+  ok   the page loaded into the fallback view
+  ok   the page laid out in the fallback view
+  ok   readPixels() returned 800x480 BGRA from the fallback view
+  ok   the fallback view actually rendered content (centre alpha 254)
+  ok   and left the rest of the overlay transparent
+  ok   the fallback filled the card area (155681 of 156000 pixels)
+```
 
-The first thing to do with a real game is: launch, create one accelerated view, and check the log
-for `gpu: GLSL 1.20 driver ready`. If the shaders fail to compile, the info log is printed verbatim.
+The last four are the point: a machine whose driver will not run gets **pixels**, not a blank
+overlay. It also pins one ordering that would be easy to break — inside `rendererRender` the
+"no accelerated views exist" branch is taken *before* the driver-failed guard, so a dead GPU driver
+must not stop a CPU view from rendering.
+
+### The GL driver, headless (macOS)
+
+`gpu_driver_gl.cpp` opens by calling itself "the half of this binding that cannot be tested off a
+real game". That was true while the only GL context in reach belonged to Minecraft. On macOS it is
+not: **CGL hands out an offscreen context in the same GL 2.1 / GLSL 1.20 profile LWJGL 2 gives the
+game**, with no window, no display and no drawable — enough to compile and link. `ctest` therefore
+also runs `test/gpu_driver_probe.cpp` three times:
+
+| test | env | asserts |
+|---|---|---|
+| `gpu_driver_builds` | — | `probe()` true, `failed()` false, a second probe does not recompile |
+| `gpu_driver_fails_compile` | `VOID_UI_GPU_FAIL=compile` | `probe()` false, `failed()` true, sticky |
+| `gpu_driver_fails_link` | `VOID_UI_GPU_FAIL=link` | same, through the link path |
+
+The first is the one that could not be run at all before: **every build now proves the GLSL 1.20
+port survives a real compiler**, rather than that being a claim resting on one manual in-game run.
+The failing two print the real thing:
+
+```
+[voidultralight/error] shader fill (fragment) failed to compile: ERROR: 0:491: 'this' : Reserved word.
+[voidultralight/error] gpu: accelerated rendering is unavailable — the 'fill' GLSL 1.20 program would not build on this GPU
+[voidultralight/error] gpu: falling back to the CPU surface. …
+```
+
+Limits, plainly. The context is *this* machine's driver, so a pass says nothing about anyone
+else's — that is what the fallback is for, not a gap this closes. It cannot reach
+`VOID_UI_GPU_FAIL=late`, which needs a live view and a real paint. And it is macOS-only: GLX
+pbuffers on Linux and a hidden WGL window on Windows would both work the same way, and that file is
+where the coverage goes the day somebody has the hardware.
+
+So the only thing left needing a game window is `late` — and, of course, whether any of this is true
+on a GPU other than an M1 Max.
+
+### Verified in game (macOS 26.5, Apple M1 Max, Minecraft 1.8.9)
+
+The driver now runs, and is now the default (`VOID_UI_RENDERER=cpu` opts out). On a real client it
+logs:
+
+```
+gl: 2.1 Metal - 90.5 | Apple M1 Max
+gl: fbo=1 vao=1 texture_rg=1 npot=1
+gpu: GLSL 1.20 driver ready (vao=1, texture_rg=1)
+render target: view 3456x1926, texture 3456x1926, uv 1.0000 x 1.0000
+```
+
+So the following are answered, on the context the port was written for:
+
+- **The GLSL 1.20 port compiles and links on Apple's compiler.** Both programs, first try. Risk 1
+  below (`GL_MAX_VARYING_FLOATS` under 36) did not fire.
+- **`ARB_framebuffer_object`, VAOs and `ARB_texture_rg` are all present** on Apple's 2.1 profile
+  here, so none of the fallbacks were exercised — they remain untested.
+- **Texture orientation is right.** `flip_y = true` puts the page the right way up with the blit's
+  `flipV = false`; nothing is upside down.
+- **State restoration holds.** The world renders normally across thousands of paints with the menu
+  open and closed. Note this is now weaker evidence than it looks: with the UI thread on its own
+  context, `save_gl_state`/`restore_gl_state` no longer protect Minecraft from anything (see
+  "The UI thread's context" below).
+- **Paint cost.** 0.3-0.9 ms mean and 6-8 ms worst per paint of a full-screen 3336x1870 view, on
+  the UI thread, against 0.5-1.0 ms mean and 39-42 ms worst for the CPU surface at the same size.
+  In game that shows up as the worst frame: 17-28 ms against 40-47.
+- **No tearing, with the double buffer.** 130 captures of a live menu, ~30 s, diffed pair by pair
+  over a region the page does not animate: zero differing pairs. Without it — publishing
+  Ultralight's render target directly — the same probe showed a differing pair every few captures
+  and the user saw continuous flicker.
+
+Still not verified: **Windows and Linux GL** (only macOS arm64 has run), and the whole
+`EXT_framebuffer_object` / `GL_LUMINANCE8` / no-VAO fallback set, which this GPU does not need.
+
+That is why the driver being the default is only defensible with the probe and the CPU fallback in
+front of it. Nothing here says the driver *works* on Windows or Linux. What it now says is that a
+machine where it does not gets a slower interface instead of no interface, and says so in the log.
 
 ---
+
+## The UI thread's context
+
+The accelerated path runs entirely on the mod's `void-ui` thread — `ulRender` *and* the GL work,
+because our `ULGPUDriver` is called from inside `ulRender` on whatever thread called it. That
+thread therefore has to own a GL context, and it owns one in Minecraft's share group:
+`dev.voidpvp.client.ui.UiGlContext` builds it with LWJGL 2's `SharedDrawable` on the render thread
+and makes it current on the UI thread before the first view exists. Three consequences:
+
+- **Textures cross; containers do not.** The view's render target is a shared object, so the game
+  thread binds the same texture the UI thread painted. FBOs and VAOs are per-context, and every one
+  the driver creates is created and used on the UI thread, so nothing needs them to be shared.
+- **`gpu::flush()` after every paint is load-bearing.** GL only promises a shared object is current
+  in a second context once the producing context has been flushed. Without it the overlay can sit
+  on a stale frame indefinitely.
+- **The texture has no lock, deliberately.** A mutex around it would be the game thread waiting on
+  a UI-thread paint, which is the one thing the split forbids; what it would prevent is not
+  corruption but a blit that samples a half-drawn frame, which looks like a frame boundary. This is
+  the opposite call from the CPU surface, whose bitmap *is* under `surface_lock()` — there a torn
+  read also drops damage, and the region stops updating until something else dirties it.
+- **`save_gl_state`/`restore_gl_state` now guard our own context, not Minecraft's.** They are kept
+  because they cost a few `glGet`s off the game thread and are the only thing that would keep the
+  driver correct if the paint ever moved back to the render thread.
+- **What the presentation copy is gated on has been wrong twice, in opposite directions.** It skips
+  frames that did not change the view's target, because a full-screen copy fifty times a second to
+  republish identical pixels is exactly the cost the double buffer should not add.
+
+  The first version counted replayed command lists. Ultralight emits *no* command list for a page
+  with nothing left to draw, so the counter froze precisely when the overlay had to be cleared: a
+  picture of the menu the player had just closed stayed welded to the screen. It now counts frames
+  that changed the target — which is what "a frame to present" means — and that part is right.
+
+  The second version also had `draw_command_list` clear the target itself whenever the command list
+  came back empty. That is a guess and it is wrong: an empty list means "nothing was submitted this
+  frame", which is the ordinary case for a page whose content did not change and whose target
+  legitimately still holds the last good frame. In game the menu appeared for a fraction of a
+  second and vanished, the first frame it had nothing new to draw. **The driver cannot tell the two
+  cases apart and must not try.**
+
+  The host can, and says so: `View.clearTarget()` clears the target once and counts it as a frame,
+  and `UiHost.requestRender()` opens a window in which the host may spend it. The mod calls that at
+  the two moments the page's content is known to be about to go away — the menu closing
+  (`onMenuClosed`) and any loadout change (`emitLoadout`, which is where the last HUD widget being
+  switched off arrives).
+
+  **A window, and only ever spent on a frame the page itself is repainting.** It used to be a
+  one-shot armed for the next render, on the reasoning that "the clear lands in the same frame as
+  the repaint that follows, so a page that still has content just redraws onto a blank target".
+  That reasoning is wrong, and it is worth being precise about why, because it looks right.
+  `ulViewSetNeedsPaint(true)` is a *request*: Ultralight honours it only if something in the page
+  actually changed, and otherwise submits no command list at all — which `draw_command_list`
+  rightly refuses to interpret. So on a frame where the page has nothing new, the clear lands and
+  the repaint does not, and the blanked target is what `viewTextureId` copies out and publishes.
+  Measured in game with a per-frame probe on the close path: the clear armed as `menu:false` was
+  emitted fired 6 ms later against a page React had not committed to yet (`isDirty()` false), the
+  whole overlay — menu, HUD and all — went blank one frame after the keypress, and ~50 ms later the
+  exit fade finally painted and put the menu back at 40% and then 12% opacity for two frames before
+  it left. The player saw the menu vanish and then flash.
+
+  `UiHost` now spends the clear only on a frame where `isDirty()` is true, which is exactly a frame
+  whose render *will* repaint: with content, the whole view is redrawn over the blank target (and
+  `draw_command_list` would have cleared it anyway, so the clear costs nothing); with its content
+  gone, the render draws nothing and the blank target is the right answer. A window rather than a
+  one shot because the frame that matters is ~130 ms after the close, not the next one.
+
+  Both halves are visible in the `view WxH: N presents/s of M asks/s` line the profiler prints: an
+  idle page reads 0 presents, and a page that has just gone blank reads exactly one.
+
+### The whole-view repaint is not pure cost — it was measured
+
+`UiHost.frameOnUiThread` calls `setNeedsPaint(true)` before every accelerated render, and
+`draw_command_list` clears the view's target before replaying a list. Those are one decision: the
+clear is only safe *because* the whole view is about to be redrawn. It is tempting to read the
+clear as making the force redundant on this path — the driver already blanks the target, so why
+also ask for a full repaint? — and to expect the force to be the reason a click is slow.
+
+Both were measured in game, GPU renderer, the same 40-second self-test driving the same controls,
+with the force and the clear switched off together:
+
+| | forced repaint | incremental |
+|---|---|---|
+| per-click UI paint, mean | 0.6 ms | 0.3 ms |
+| per-click UI paint, median / p90 | 0.1 / 0.2 ms | 0.0 / 0.0 ms |
+| click to pixel, mean | 10.7 ms | 10.9 ms |
+| menu UI paint, mean / peak | 1.52 / 78.4 ms | 1.71 / 77.7 ms |
+
+So it buys 0.3 ms of mean paint on the thread that is not the game's, and nothing at all on the
+number a player feels. Against that: **it is visibly broken.** Thirty seconds after the menu was
+closed, a screenshot showed the properties pane's text, switches and buttons still welded over the
+game with the panel behind them gone — the damage rectangle drawn onto a target the driver had
+just blanked. The forced repaint stays.
+
+The measurement is cheap to repeat if a future Ultralight changes the damage model: make
+`WebView.needsFullRepaintEachFrame()` answer false and delete the clear at the top of
+`draw_command_list`, together. Do not change one without the other.
 
 ## Known risks
 
@@ -418,6 +647,22 @@ the record of what moved.
 **4. `1.4.0b` is a beta.** The dev bucket's `latest` moves. We pin `081c48b` with a SHA-256, so
 nothing changes under us — but there is no stable 1.4 release to move to, and the C API has at least
 one genuine hole in it (`ulPlatformSetFontLoader`), which is the kind of thing a beta has.
+
+**4b. ~~A repeating-gradient background stops after the first tile.~~ No longer reachable, but the
+defect is real.** Found by comparing the two renderers frame for frame in game: the overlay's
+dotted cell rules (`.orule`, a `repeating-linear-gradient` on a 4px-tall element) drew across the
+full width on the CPU surface and exactly two cells at the left edge here, in every frame of every
+run — stable, not a damage artefact; and the 2D grid on `.preview__frame` tiled but read several
+times too bright. It is somewhere in `fillPatternImage` or the pattern uniforms, not in tiling as
+such. **Not the sampler wrap mode** — `GL_REPEAT` was tried (this GPU reports `npot=1`, so it was
+legal) and changed nothing, which is consistent with the shader tiling with `fract()` rather than
+with the sampler.
+
+`packages/ingame` has since removed every `repeating-linear-gradient` — they violated the quiet-cell
+contract's "no gradient, anywhere" as well — and the two renderers are now pixel-comparable across
+the whole menu, `.orule` included. So nothing in the shipped page hits this. It is left written down
+because the driver is still wrong, and the next page that reaches for a tiled background will find
+out the hard way.
 
 **5. Ultralight's own renderer threads call our `ULFileSystem`.** `Config.num_renderer_threads`
 defaults to auto (3 on a 4-core box, per the log above). Those are not Java threads, so the file

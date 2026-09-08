@@ -47,6 +47,24 @@ export function cps(ring: ClickRing, now: number, windowMs = 1000): number {
 }
 
 /**
+ * Clicks per **second** — what the chip actually prints.
+ *
+ * {@link cps} counts clicks inside the window and is named for what the readout is called
+ * rather than for what it returns, which is fine while the window is a second and wrong the
+ * moment it is not. `window_ms` is settable from 200 to 5000, and the store was assigning the
+ * raw count straight to `cpsLeft`: at a 5-second window a player clicking 10 a second saw
+ * **50 CPS**, and at 200 ms they saw 2. The schema has always said what should happen —
+ * "the sliding window ... over which clicks are counted **before being scaled to clicks per
+ * second**" — and nothing was doing the scaling.
+ *
+ * At the default 1000 ms this is the identity, which is exactly why it went unseen.
+ */
+export function clicksPerSecond(ring: ClickRing, now: number, windowMs = 1000): number {
+  const window = Math.max(1, windowMs);
+  return Math.round((cps(ring, now, window) * 1000) / window);
+}
+
+/**
  * Drop samples that can no longer count, so the ring does not grow without
  * bound in a long session. Called from the 20 Hz tick, never from a hot path.
  */

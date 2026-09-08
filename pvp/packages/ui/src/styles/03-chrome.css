@@ -24,7 +24,6 @@
   height: 30px;
   border-radius: var(--radius-control);
   background: var(--surface-2);
-  box-shadow: var(--inset-raised-soft);
 }
 
 .v-topnav__mark::before {
@@ -32,7 +31,7 @@
   width: 12px;
   height: 12px;
   border-radius: 3px;
-  border: 1.5px solid var(--accent);
+  border: 1.5px solid var(--hue, var(--accent));
 }
 
 .v-topnav__gap {
@@ -62,8 +61,8 @@
   font-weight: var(--weight-regular);
   color: var(--text-secondary);
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
+    background-color var(--duration-hover-out) var(--ease-in),
+    color var(--duration-hover-out) var(--ease-in);
 }
 
 .v-navitem__icon {
@@ -73,6 +72,8 @@
 }
 
 .v-navitem:hover:not(.v-navitem--active) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   color: var(--text-primary);
   background: var(--tint-04);
 }
@@ -80,7 +81,6 @@
 .v-navitem--active {
   background: var(--surface-3);
   border-color: var(--hairline);
-  box-shadow: var(--shadow-raised), var(--inset-raised-soft);
   color: var(--text-primary);
   font-weight: var(--weight-medium);
 }
@@ -97,17 +97,18 @@
   border-radius: var(--radius-field);
   background: var(--surface-1);
   border: 1px solid var(--hairline);
-  box-shadow: var(--inset-field);
   cursor: text;
 }
 
-/** The 8 × 8 accent dot that leads the launcher search. */
+/** The 8 × 8 cell that leads the launcher search. */
 .v-searchbar__dot {
   flex: 0 0 auto;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
-  background: var(--accent);
+  /* A cell, at the cell radius (§3) — and monochrome: it is a mark on a field, not a
+     live value, so the accent rule keeps it out of the hue. */
+  border-radius: var(--cell-radius);
+  background: var(--cell-on);
 }
 
 .v-searchbar__icon {
@@ -138,7 +139,6 @@
   gap: var(--space-8);
   background: var(--field-bg);
   border-color: var(--tint-07);
-  box-shadow: var(--inset-field-panel);
 }
 
 .v-searchbar--panel .v-searchbar__input {
@@ -159,9 +159,6 @@
   border-radius: var(--radius-panel);
   background: var(--dock-bg);
   border: 1px solid var(--border-dock);
-  box-shadow: var(--shadow-dock), var(--inset-dock);
-  -webkit-backdrop-filter: blur(var(--blur-dock));
-  backdrop-filter: blur(var(--blur-dock));
 }
 
 /* ------------------------------------------------------------ PlayerChip */
@@ -187,7 +184,7 @@
 }
 
 .v-playerchip__level {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
 }
@@ -203,24 +200,26 @@
   border-radius: var(--radius-pill);
   background: var(--raised-bg);
   border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard);
+    background-color var(--duration-hover-out) var(--ease-in),
+    border-color var(--duration-hover-out) var(--ease-in);
 }
 
 .v-pill:hover:not(:disabled) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   background: var(--surface-3);
 }
 
 .v-pill--open {
-  border-color: var(--accent);
+  border-color: var(--hue, var(--accent));
 }
 
 .v-pill__icon {
   flex: 0 0 auto;
   display: flex;
-  color: var(--accent);
+  /* Monochrome: the pill's icon is a label, and the hue belongs to the value. */
+  color: var(--text-secondary);
 }
 
 .v-pill__text {
@@ -231,7 +230,7 @@
 }
 
 .v-pill__eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-2xs);
   letter-spacing: var(--tracking-caps-xs);
   text-transform: uppercase;
@@ -246,7 +245,7 @@
 
 /** The version pill sets both lines in DM Mono. */
 .v-pill--mono .v-pill__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
 }
 
 .v-pill__chevron {
@@ -269,7 +268,6 @@
   border-radius: var(--radius-field);
   background: var(--tint-06);
   border-color: var(--tint-10);
-  box-shadow: none;
 }
 
 .v-pill--row .v-pill__value {
@@ -286,18 +284,19 @@
   width: 232px;
   height: 56px;
   border-radius: var(--radius-cta);
-  background: var(--accent);
-  color: var(--accent-fg);
-  box-shadow: var(--shadow-cta), var(--inset-accent);
+  /* The primary treatment (§4): --text-primary fill, --bg-shell label. Launch is the
+     loudest thing on the launcher and it still is — but it is an action, not a live
+     value, so it does not get to be the hue. */
+  background: var(--text-primary);
+  color: var(--bg-shell);
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-hover-out) var(--ease-in),
     transform var(--duration-instant) var(--ease-standard);
 }
 
 .v-launch__label {
-  font-size: var(--text-4xl);
-  font-weight: var(--weight-bold);
+  font-size: var(--text-title-lg);
+  font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-cta);
 }
 
@@ -306,15 +305,15 @@
   flex: 0 0 auto;
 }
 
+/* There is no glow to strengthen, so hover is the fill stepping back one notch —
+   the same "the pointer is here" read, in the language the system has. */
 .v-launch:hover:not(:disabled) {
-  box-shadow:
-    0 6px 14px -4px rgba(0, 0, 0, 0.35),
-    0 10px 28px -6px rgba(159, 139, 255, 0.55),
-    var(--inset-accent);
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--text-secondary);
 }
 
 .v-launch:active:not(:disabled) {
-  box-shadow: var(--shadow-cta), inset 0 -2px 2px 0 rgba(0, 0, 0, 0.22);
   transform: translateY(1px);
 }
 
@@ -327,8 +326,8 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(10, 11, 12, 0.25);
-  border-top-color: var(--accent-fg);
+  border: 2px solid rgba(11, 11, 12, 0.25);
+  border-top-color: var(--bg-shell);
   /* 2D rotation only — Ultralight supports 2D transforms and nothing more (§4). */
   animation: v-spin 0.9s linear infinite;
 }
@@ -339,12 +338,15 @@
   }
 }
 
-/** running — the game is up; the CTA becomes a raised, non-accent state. */
+/** running — the game is up; the CTA drops back to the secondary treatment. */
 .v-launch--running {
-  background: var(--raised-bg);
+  background: none;
   color: var(--text-primary);
-  border: 1px solid var(--border-raised);
-  box-shadow: var(--shadow-raised), var(--inset-raised);
+  border: 1px solid var(--border-strong);
+}
+
+.v-launch--running:hover:not(:disabled) {
+  background: var(--surface-raised);
 }
 
 .v-launch--running .v-launch__label {
@@ -356,9 +358,8 @@
 }
 
 .v-launch:disabled {
-  background: var(--surface-2);
+  background: var(--surface-raised);
   color: var(--text-muted);
-  box-shadow: none;
 }
 
 /* ----------------------------------------------------------- FriendsOnline */
@@ -383,8 +384,10 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-field);
-  /* A 2px ring in the shell colour is what separates the overlapping heads. */
-  box-shadow: 0 0 0 2px #0a0b0c;
+  /* A 2px ring in the shell colour is what separates the overlapping heads. It was a
+     spread-only box-shadow; §1 allows no box-shadow, so it is a real border now — the
+     reset puts every box on `border-box`, so the head is still 32px. */
+  border: 2px solid var(--bg-shell);
 }
 
 .v-friends__label {

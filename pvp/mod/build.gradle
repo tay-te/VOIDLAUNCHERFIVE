@@ -64,17 +64,39 @@ gradle.projectsEvaluated {
 // per platform: the classes are identical across platforms, only the natives
 // differ, so a second remap would cost minutes to produce the same bytes.
 // ---------------------------------------------------------------------------
-def nativeStages = [
-    'windows-x64': file("$projectDir/native/build-win/natives/windows-x64"),
-    'macos-x64'  : file("$projectDir/native/build-macx64/natives/macos-x64"),
-    'macos-arm64': file("$projectDir/native/build-macarm64/natives/macos-arm64"),
-]
-
-// A local host build lands in native/build/natives/<key>/ instead. It fills in any key
-// whose canonical build-* tree is absent — putIfAbsent would not, because every key is
-// already present above, just pointing at a directory that need not exist.
-file("$projectDir/native/build/natives").listFiles()?.each { d ->
-    if (d.directory && !nativeStages[d.name]?.directory) nativeStages[d.name] = d
+// Discovered, not enumerated, and the newest tree per platform wins.
+//
+// This used to be a fixed map of three paths — `build-win`, `build-macx64`, `build-macarm64`
+// — plus a fallback to `build/natives/`. None of those three is what
+// `native/scripts/build.sh --arch x86_64` writes: it writes `build-x86_64/natives/macos-x64`.
+// So `build-macx64` was a **hand-made copy**, nothing kept it in step with the script, and it
+// silently went four days stale. The jar it fed loaded, `Ultralight.load()` succeeded, and the
+// failure surfaced only as an UnsatisfiedLinkError naming one JNI method the older dylib did
+// not export — `in-game UI disabled`, in a log nobody reads, with a HUD that simply was not
+// there. A build directory the build script never writes is a cache with no invalidation.
+//
+// So: every `native/build*/natives/<key>/` is a candidate, and the one with the newest
+// `voidultralight.dylib` — the only library in the tree we actually compile — is the one that
+// ships. A rebuild for any arch, in any of the script's directories, is picked up by the next
+// `platformJars` with nothing to remember.
+def nativeStages = [:]
+file("$projectDir/native").listFiles()?.findAll {
+    it.directory && it.name.startsWith('build')
+}?.each { buildDir ->
+    file("$buildDir/natives").listFiles()?.findAll { it.directory }?.each { stage ->
+        def ours = file("$stage/voidultralight.dylib")
+        if (!ours.file) ours = file("$stage/voidultralight.dll")
+        if (!ours.file) ours = file("$stage/libvoidultralight.so")
+        if (!ours.file) return
+        def best = nativeStages[stage.name]
+        if (best == null || ours.lastModified() > best.stamp) {
+            nativeStages[stage.name] = [dir: stage, stamp: ours.lastModified()]
+        }
+    }
+}
+nativeStages = nativeStages.collectEntries { key, v -> [key, v.dir] }
+nativeStages.each { key, dir ->
+    logger.info("void-client: $key natives from ${dir}")
 }
 
 def platformJars = nativeStages.findAll { it.value.directory }.collect { key, dir ->
@@ -108,6 +130,25 @@ tasks.register('platformJars') {
         }
     }
 }
+
+// `build` produces the JARs the launcher installs, not just the base one.
+//
+// It did not, and that is one of the three things that made `Play` run a three-day-old
+// client. `platformJar*` are the only tasks that emit the classifier JARs `void-core`
+// copies into `mods/`, and nothing depended on them — so `./gradlew build` refreshed
+// `void-client-<version>.jar` while `void-client-<version>-macos-arm64.jar` sat beside it
+// unchanged, with the same version in its name and no way to tell them apart. Rebuilding
+// the mod and then launching it ran the old code, silently, and every measurement taken
+// that way was of the wrong binary.
+//
+// The cost is one repackage per staged platform, ~29 MB each, and it is paid only when
+// something actually changed: these are `Jar` tasks with proper inputs, so an unchanged
+// rebuild is UP-TO-DATE and free. The fast inner loop is unaffected — `runClient` builds
+// classes, not JARs, and never pulled `build` in.
+//
+// `assemble` is deliberately not the hook. It is what `runClient` and IDE sync reach for,
+// and 60 MB of zip on a `classes` refresh is exactly the tax this must not levy.
+tasks.named('build') { dependsOn 'platformJars' }
 
 repositories {
     maven {
@@ -166,6 +207,10 @@ processResources {
     // through the renderer's resource prefix, which is assets/void/ui/. The native
     // font loader serves them by family and weight — Ultralight never fetches an
     // @font-face itself, so a face that is not published here renders as Inter.
+    //
+    // The set is Outfit 300/400/500 and nothing else (design/quiet-cell-system.md
+    // §2). It has to match kFaces in native/src/font_loader.cpp exactly; that file
+    // carries the full contract and what goes wrong silently when it drifts.
     from('src/main/resources/assets/void/fonts') {
         into 'assets/void/ui/fonts'
     }

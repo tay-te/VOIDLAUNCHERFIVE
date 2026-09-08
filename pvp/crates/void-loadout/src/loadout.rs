@@ -9,7 +9,7 @@ use crate::mods::{
     defaults_json, validate_settings, ArmorStatusSettings, CoordinatesSettings, CpsSettings,
     CrosshairSettings, FpsSettings, FullbrightSettings, HitboxesSettings, HudModId,
     HypixelSafe, KeystrokesSettings, ModId, PingSettings, PotionEffectsSettings,
-    ToggleSprintSettings, ZoomSettings,
+    ToggleSprintSettings, WatermarkSettings, ZoomSettings,
 };
 use crate::Error;
 
@@ -187,6 +187,8 @@ pub struct ModStates {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub potion_effects: Option<PotionEffectsSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub watermark: Option<WatermarkSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toggle_sprint: Option<ToggleSprintSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fullbright: Option<FullbrightSettings>,
@@ -331,8 +333,11 @@ impl Loadout {
         if self.server.as_ref().is_some_and(|s| s.chars().count() > 32) {
             return Err(Error::Invalid("`server` must be at most 32 characters".into()));
         }
-        if self.hud.len() > 7 {
-            return Err(Error::Invalid("`hud` holds at most one item per HUD mod (7)".into()));
+        if self.hud.len() > HudModId::ALL.len() {
+            return Err(Error::Invalid(format!(
+                "`hud` holds at most one item per HUD mod ({})",
+                HudModId::ALL.len()
+            )));
         }
         let mut seen: Vec<HudModId> = Vec::with_capacity(self.hud.len());
         for item in &self.hud {

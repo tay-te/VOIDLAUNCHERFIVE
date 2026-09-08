@@ -34,8 +34,14 @@ under "Contract changes" in `schema/README.md` arrived exactly that way.
 propose it, don't just land it, and append it to the changelog in `schema/README.md`.
 
 `design/` pre-dates this scaffold: Figma screen exports plus `tokens.css` / `tokens.json`.
-It is **reference material, read-only for everyone**. **ui** ports the tokens into
-`packages/ui`; nobody edits `design/` and nothing imports from it at build time.
+Those exports stay **reference material, read-only for everyone** — **ui** ports the tokens
+into `packages/ui`, and nothing imports from `design/` at build time.
+
+It also now holds the two **living design authorities**, written and revised rather than
+exported: `quiet-cell-system.md`, the implementation contract every surface is built
+against, and `rendering-invariants.md`, the engine behaviours that must stay true with the
+symptom each violation produced. Where the contract and a Figma frame disagree, the
+contract wins. Product and planning documents go in `docs/`, not here.
 
 Root files not listed above (`package.json`, `pnpm-workspace.yaml`, `.gitignore`, this
 file) are shared. Touch them only to register your own package or ignore your own build
@@ -86,17 +92,31 @@ The bridge object is named exactly **`window.void`**. Defined in `schema/bridge.
 §6.5. Implemented by **mod** (`mod/src/main/java/dev/voidpvp/client/bridge/`) and consumed
 by **ingame**.
 
-- Java → JS is push, on **seven** channels:
-  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu', handler)`.
+- Java → JS is push, on **nine** channels:
+  `void.on('keys'|'tick'|'server'|'loadout'|'loadouts'|'setting'|'menu'|'session'|'settings', handler)`.
+  - **The channel list in `void-shim.js` is closed, and a channel missing from it fails
+    silently** — `on` returns a no-op subscription and `__emit` drops the envelope, with no
+    error anywhere. That is how `session` was lost the first time it was sent. Adding a
+    channel means `bridge.json`, `VoidBridge`, the shim's `EVENTS`, `@void/protocol`'s
+    `VOID_EVENTS` and `installVoidShim`, and `createFakeVoid` — all five, or none.
   - `loadouts` carries the whole library, in full, from `init.loadouts`. Without it JS
     would only know the loadouts it happened to watch go past, and the Loadouts frame
     lists all of them.
+  - `session` is who is playing, read off Minecraft's own `Session`. It arrives once, on
+    `pushWholeState()`, and never changes: you cannot switch accounts mid-match.
+  - `settings` is `GlobalSettings` — `menu_key`, `ui_scale`, `theme`. Pushed on
+    `pushWholeState()` and whenever Rust sends new settings down, and **never** as an echo
+    of the page's own `setGlobal`, for the same reason `setting` is not echoed.
   - `setting` carries one `{id, key, value}` Java changed **by itself** — an in-game
     hotkey, or a launcher echo. It is *not* pushed for a change the page made through
     `setModSetting`, which already returned the stored value; re-pushing that would fight
     the control the player is holding.
-- JS → Java is a call, still exactly six: `setGameplay`, `setHud`, `setModSetting`,
-  `switchLoadout`, `closeMenu`, `openKeybindCapture`.
+- JS → Java is a call, and there are now eight: `setGameplay`, `setHud`, `setModSetting`,
+  `switchLoadout`, `closeMenu`, `openKeybindCapture`, `setSurfaces`, `setGlobal`. The shim's
+  `CALLS` list is closed the same way `EVENTS` is.
+  - `setGlobal(key, value)` mirrors `setModSetting` exactly: synchronous, Java clamps and
+    returns **what it stored**, `null` for a key it does not know or a value it cannot use,
+    and the page binds to the return rather than to what it sent.
 - Ultralight runs **inside the JVM**, so calls are synchronous and return the state
   actually applied. No ack, no request id, no optimistic UI.
 - **`openKeybindCapture` is the one asynchronous call, and the one easy thing to get
@@ -150,7 +170,7 @@ the JVM as the system properties **`-Dvoid.port`** and **`-Dvoid.token`**. **mod
 them in `net/`, connects, and sends `hello` carrying the token; the server closes the
 socket if it does not match.
 
-Messages are defined in `schema/protocol.json`, §7 — **six** Java→Rust, three Rust→Java.
+Messages are defined in `schema/protocol.json`, §7 — **seven** Java→Rust, three Rust→Java.
 The link carries **state, never frames**. `v` is the protocol version, **`2`** — bumped
 from 1 by the integration pass, for `init.loadouts` carrying whole loadouts rather than
 summaries (`schema/README.md`, and `void_bridge::PROTOCOL_VERSION`) — present on `hello`
@@ -172,6 +192,57 @@ Two things about it are worth stating here because both were seams:
   the tray and the next launch agree with the running game. It is dropped rather than
   queued when the link is down: the state the key press produced travels in its own
   `state` message, which *is* queued, so replaying the keystroke would double-count.
+- **`globals` is `state` for the non-loadout half of §8.3, and it is a delta on purpose.**
+  `{"t":"globals","patch":{"hud_editor_grid":8}}` says a global was written *in game* — the
+  Settings page rebinding the menu key, the HUD editor's Snap toggle — and Rust merges it
+  into `~/.void-pvp/settings.json`. It is a delta and not the whole object because
+  `global_settings` is `additionalProperties: true` while the mod's own `GlobalSettings` is
+  a fixed five-field class: a mod that echoed the whole object back would erase every global
+  the launcher had added that the mod does not model. It queues and coalesces per key like
+  `state` does, which also collapses the HUD editor's `Reset layout` — that stands the snap
+  grid down and puts it straight back — into nothing.
+
+  It exists because it did not, and the absence was total: `LiveState.Sink` had `state` and
+  `hud` and no globals channel at all, so `setGlobal` was in-process only and every global
+  written in game died with the JVM. The Snap toggle came back at the factory 4 on every
+  launch, and nothing said why.
+
+## What persists, and who is allowed to write it
+
+**The launcher is the only writer of persisted state. The mod keeps no files of its own,
+and that is a deliberate choice rather than an omission** — `msg_init` states it: "The mod
+keeps no config files of its own (§6.1); everything it knows arrives here."
+
+| what | where | written by | reaches disk via |
+|---|---|---|---|
+| HUD layout | `~/.void-pvp/loadouts/<id>.json` | the in-game HUD editor | `hud` → `sync::pump` |
+| mod settings | the same file | the in-game Mods screen, the launcher | `state` → `sync::pump` |
+| active loadout | `~/.void-pvp/active.json` | the L-key cycle, the launcher | `hotkey` → `sync::pump` |
+| globals | `~/.void-pvp/settings.json` | the in-game Settings page and HUD editor | `globals` → `sync::pump` |
+| play time, mean fps | the loadout file | the mod, every 60 s | `session` → `sync::pump` |
+
+**A client launched without a launcher therefore forgets everything, and should.** A
+`runClient` gets no `-Dvoid.port`, so `LiveState` holds the whole world in memory and the
+process ends; the log says so in as many words — `loadout 'default' pushed to the page from
+the mod's own defaults (no launcher link)`.
+
+A local fallback file in the mod would fix that and would be a mistake, for three reasons:
+
+- **It would be a second writer of the same state with no merge rule.** A dev client writes
+  its file, then a launcher launches with its own copy of the same loadout id, and now the
+  id has two histories. Whichever wins, someone's work is silently gone. That is the failure
+  class this repo keeps writing invariants about, bought for a convenience.
+- **It would make dev clients start from wherever the last one finished.** The one property
+  `runClient` should have is a known starting state. `Loadout.defaults(...)` is reproducible
+  and inspectable; a file is not, and a HUD-editor test would begin to pass because the
+  previous run left the widget in the right place.
+- **The cost of forgetting is small and lands only on developers**, who can attach a real
+  launcher — or the fifty-line listen-only one — whenever they need the state to survive.
+
+What was actually wrong was never the forgetting. It was that the forgetting is *legible
+only to someone already reading the log for it*. So the rule is: **a launcher-less client
+forgets, on purpose, and says so** — and nothing may be built that quietly makes it
+remember instead.
 
 ### `packages/ingame` → `mod/src/main/resources/assets/void/ui/`
 
@@ -242,8 +313,11 @@ public final class Renderer implements AutoCloseable {
   public void update();                                          // once per game tick
   public void refreshDisplay();                                  // once per frame, before render()
   public void render();                                          // paints dirty views
+  public boolean probeAccelerated();        // does the GL driver run here? ask BEFORE createView
+  public boolean acceleratedDriverFailed(); // has it died since? sticky; any thread
   public View createView(int w, int h, boolean transparent);     // GPU, via our GL driver
-  public View createViewCpu(int w, int h, boolean transparent);  // CPU surface — tests only
+  public View createViewCpu(int w, int h, boolean transparent);  // CPU surface — tests, and the
+                                                                 // fallback when the probe says no
   public void purgeMemory();
   public void close();
 }
@@ -289,8 +363,18 @@ Constants on `View`: `MOUSE_MOVED/DOWN/UP` = 0/1/2, `KEY_DOWN/UP/CHAR` = 0/1/2,
 All additive — nothing specified was changed or removed. `version()`, `createViewCpu` and
 `readPixels` were requested; the rest exist because the mod needs them and guessing later is worse:
 
-`Ultralight.webKitVersion/licenceNotice/nativeDirectory`, `Renderer.refreshDisplay/purgeMemory`,
+`Ultralight.webKitVersion/licenceNotice/nativeDirectory`,
+`Renderer.refreshDisplay/purgeMemory/probeAccelerated/acceleratedDriverFailed`,
 `View.loadHtml/textureWidth/textureHeight/uvScaleX/uvScaleY/messageHandler/hasInputFocus/isLoading/width/height/isAccelerated`.
+
+`probeAccelerated`/`acceleratedDriverFailed` exist because "accelerated" is a request the machine
+can refuse. The GL driver's GLSL 1.20 programs are built by whatever driver the player has, and
+that has been verified on one: macOS, Apple's 2.1 profile. `probeAccelerated()` builds the driver on
+the UI thread — context current, no view yet — and answers whether it works, so a machine that
+cannot run it gets `createViewCpu` instead of an accelerated view that would never paint.
+`acceleratedDriverFailed()` answers the same question afterwards, for a driver that dies later; it
+reads a process-wide flag, is safe from any thread, and is sticky. Both log their reasons at error
+level on stderr, natively — the one channel a broken log4j config cannot silence.
 
 `uvScaleX/Y` matter: Ultralight's render target may be larger than the view, and drawing the whole
 texture would show garbage at the edges. `refreshDisplay()` is what advances CSS animations,
@@ -343,11 +427,43 @@ JAR-deflated bytes, measured. §13 budgeted ~25 MB for all of it and has been co
 already-remapped JAR once per staged `mod/native/build*/natives/<os>-<arch>/` tree into
 `void-client-<version>-<os>-<arch>.jar`. It is a repackage, not a second Loom remap: the classes are
 byte-identical across platforms and only the natives differ, so remapping again would cost minutes to
-produce the same bytes. The base `void-client-<version>.jar` carries **no** natives (324 KB), which
-is what keeps `./gradlew build` and the test loop fast; `./gradlew platformJars` is the CI step, and
-it says so plainly when no natives are staged instead of shipping a JAR that dies at
-`Ultralight.load()`.
+produce the same bytes. The base `void-client-<version>.jar` carries **no** natives (324 KB); the
+per-OS JARs are ~29-32 MB each.
+
+**`./gradlew build` produces them.** It used to produce only the base JAR, and that is how the
+launcher came to run a three-day-old client: `platformJar*` were the only tasks that emit the JARs
+`void-core` installs into `mods/`, nothing depended on them, so a rebuild refreshed
+`void-client-<version>.jar` while `void-client-<version>-macos-arm64.jar` sat beside it unchanged,
+carrying the same version in its name. The cost is one repackage per staged platform and it is paid
+only when something changed — these are `Jar` tasks with real inputs, so an unchanged rebuild is
+UP-TO-DATE. **`assemble` is deliberately not the hook**: that is what `runClient` and IDE sync reach
+for, and `runClient` builds classes, not JARs. The fast inner loop is untouched.
+
+**The staged natives are discovered, not enumerated, and the newest tree per platform wins.**
+`nativeStages` used to be a fixed map naming `build-win`, `build-macx64` and `build-macarm64`. None of
+those is what `native/scripts/build.sh --arch x86_64` writes — it writes
+`native/build-x86_64/natives/macos-x64` — so `build-macx64` was a **hand-made copy** that nothing kept
+in step, and it went four days stale. That JAR loaded, `Ultralight.load()` succeeded, and the only
+symptom was an `UnsatisfiedLinkError` naming one JNI method the older dylib did not export
+(`rendererProbeAccelerated`), logged once as `in-game UI disabled`, with a HUD that simply was not
+there. A build directory the build script never writes is a cache with no invalidation. Every
+`native/build*/natives/<key>/` is now a candidate and the one with the newest `voidultralight.dylib`
+— the only library in the tree we compile — ships.
 
 `void-core` selects one at prepare time: `install::ModPlatform`, derived from the OS the **JVM** will
 run as — on Apple Silicon the game runs x64 under Rosetta, so an arm64 Mac takes the `macos-x64` JAR
 (§13). `void-pvp prepare --platform <os>-<arch>` overrides it for cross-preparing another machine.
+
+**That Rosetta rule binds the JVM too, and detection did not know it.** `java::detect_java8` walked
+`/Library/Java/JavaVirtualMachines` in `read_dir` order and took the first Java 8 it found. On a Mac
+with an arm64 Java 8 installed — which Apple Silicon has had since 8u302 — that is an arm64 JVM, and
+LWJGL 2 has no arm64 natives, so 1.8.9 launched into a window that never composited: 0x0,
+`BackgroundOnly`, no error anywhere. `adoptium_arch` already knew to *fetch* x64; detection now knows
+to *prefer* it (`JavaInstall::runs_lwjgl2`), and falls back to an unusable one only when it is the
+only Java 8 on the machine, with a warning that says what will happen.
+
+**Which jar is actually loaded is now reported at every launch.** `launch::installed_mod_jars` lists
+what is in `mods/` and the launcher writes one line naming the JAR and its age into the log drawer —
+`stderr` when `mod_jar` is unset, because then nothing was installed this run and Fabric will load
+whatever an earlier run left. A stale client answers `hello` and behaves normally, so the 45-second
+handshake watchdog never fires for it; naming the file is the only defence.

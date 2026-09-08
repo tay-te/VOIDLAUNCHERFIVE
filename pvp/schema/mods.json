@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schema.void.dev/pvp/mods.json",
   "title": "VOID PVP — Mod registry",
-  "description": "The closed registry of the 12 mods defined in PVP_ARCHITECTURE.md §3, together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
+  "description": "The closed registry of the 13 mods VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3 plus the VOID watermark — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
   "type": "object",
   "required": ["version", "mods"],
   "additionalProperties": false,
@@ -15,11 +15,11 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 12 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects",
-        "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
+        "watermark", "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
       ],
       "additionalProperties": false,
       "properties": {
@@ -30,6 +30,7 @@
         "coordinates": { "description": "Coordinates registry entry.", "$ref": "#/definitions/coordinates_entry" },
         "armor_status": { "description": "Armor status registry entry.", "$ref": "#/definitions/armor_status_entry" },
         "potion_effects": { "description": "Potion effects registry entry.", "$ref": "#/definitions/potion_effects_entry" },
+        "watermark": { "description": "VOID watermark registry entry.", "$ref": "#/definitions/watermark_entry" },
         "toggle_sprint": { "description": "Toggle sprint registry entry.", "$ref": "#/definitions/toggle_sprint_entry" },
         "fullbright": { "description": "Fullbright registry entry.", "$ref": "#/definitions/fullbright_entry" },
         "hitboxes": { "description": "Hitboxes registry entry.", "$ref": "#/definitions/hitboxes_entry" },
@@ -42,18 +43,18 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 12 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 13 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects",
-        "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
+        "watermark", "toggle_sprint", "fullbright", "hitboxes", "zoom", "crosshair"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the eight mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
-      "enum": ["fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects"]
+      "enum": ["fps", "keystrokes", "cps", "ping", "coordinates", "armor_status", "potion_effects", "watermark"]
     },
     "gameplay_mod_id": {
       "title": "Gameplay mod id",
@@ -154,7 +155,8 @@
         "scale": { "description": "Size multiplier of the FPS tile.", "$ref": "#/definitions/scale" },
         "opacity": { "description": "Alpha of the FPS tile.", "$ref": "#/definitions/opacity" },
         "color": { "description": "Text colour of the FPS readout.", "$ref": "#/definitions/hex_color" },
-        "show_label": { "description": "Whether to render the trailing \"FPS\" label after the number.", "type": "boolean", "default": true }
+        "show_label": { "description": "Whether to render the trailing \"FPS\" label after the number.", "type": "boolean", "default": true },
+        "show_low": { "description": "Whether the 1% low is drawn as a trailing aside. It is the figure that says whether a frame rate is actually smooth, and it is also a third number on the chip a player reads mid-match — so it is a switch rather than something that appears whenever a low has been measured.", "type": "boolean", "default": true }
       }
     },
     "keystrokes_settings": {
@@ -170,6 +172,7 @@
         "keybind": { "description": "Optional key that toggles the keystrokes overlay on and off in game without opening the menu. NONE leaves it always visible while the mod is on.", "$ref": "#/definitions/keybind", "default": "NONE" },
         "show_mouse": { "description": "Whether to render the LMB and RMB tiles under the WASD block.", "type": "boolean", "default": true },
         "show_spacebar": { "description": "Whether to render the spacebar tile.", "type": "boolean", "default": true },
+        "show_sneak": { "description": "Whether to render the sneak (shift) tile beside the space bar. The `keys` event has always carried `shift` and the widget has always been handed it; this is the switch that draws it. A sneak key is as much a part of reading a PvP player's inputs as the space bar, which is why the two sit together.", "type": "boolean", "default": false },
         "show_cps": { "description": "Whether to print the current CPS inside the LMB and RMB tiles.", "type": "boolean", "default": false },
         "corner_radius": { "description": "Corner radius of a key tile in unscaled GUI pixels, drawn as the `Corner radius` slider on the Mod settings frame (Figma 244:834). 0 is a square tile.", "type": "integer", "minimum": 0, "maximum": 20, "default": 8 },
         "key_color": { "description": "Background of an unpressed key tile, as one of the five named swatches the Mod settings frame offers. A token name rather than a hex value, so the tile keeps following the theme when the theme changes.", "$ref": "#/definitions/key_swatch", "default": "shell" },
@@ -187,6 +190,7 @@
         "scale": { "description": "Size multiplier of the CPS tile.", "$ref": "#/definitions/scale" },
         "opacity": { "description": "Alpha of the CPS tile.", "$ref": "#/definitions/opacity" },
         "mode": { "description": "Which mouse buttons to count: left only, right only, or both shown side by side.", "type": "string", "enum": ["left", "right", "both"], "default": "left" },
+        "show_label": { "description": "Whether to render the trailing \"CPS\" unit after the figures. Every other readout on the HUD can drop its unit; this one could not, which left it the widest chip on screen for a player who already knows what the number is.", "type": "boolean", "default": true },
         "window_ms": { "description": "Length of the sliding window in milliseconds over which clicks are counted before being scaled to clicks per second.", "type": "integer", "minimum": 200, "maximum": 5000, "default": 1000 }
       }
     },
@@ -202,7 +206,8 @@
         "opacity": { "description": "Alpha of the ping tile.", "$ref": "#/definitions/opacity" },
         "show_label": { "description": "Whether to render the trailing \"ms\" unit after the number.", "type": "boolean", "default": true },
         "good_ms": { "description": "Ping at or below this many milliseconds renders in the good colour.", "type": "integer", "minimum": 0, "maximum": 1000, "default": 60 },
-        "bad_ms": { "description": "Ping at or above this many milliseconds renders in the bad colour. Must be greater than `good_ms`; not enforced by the schema.", "type": "integer", "minimum": 0, "maximum": 2000, "default": 150 }
+        "bad_ms": { "description": "Ping at or above this many milliseconds renders in the bad colour. Must be greater than `good_ms`; not enforced by the schema.", "type": "integer", "minimum": 0, "maximum": 2000, "default": 150 },
+        "show_host": { "description": "Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.", "type": "boolean", "default": true }
       }
     },
     "coordinates_settings": {
@@ -215,9 +220,9 @@
         "on": { "description": "Whether the coordinates display is enabled.", "$ref": "#/definitions/on" },
         "scale": { "description": "Size multiplier of the coordinates tile.", "$ref": "#/definitions/scale" },
         "opacity": { "description": "Alpha of the coordinates tile.", "$ref": "#/definitions/opacity" },
-        "decimals": { "description": "Number of decimal places printed for X, Y and Z.", "type": "integer", "minimum": 0, "maximum": 3, "default": 1 },
+        "decimals": { "description": "Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one — 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.", "type": "integer", "minimum": 0, "maximum": 2, "default": 1 },
         "show_direction": { "description": "Whether to append the cardinal direction derived from yaw.", "type": "boolean", "default": true },
-        "layout": { "description": "Whether X, Y and Z are stacked on three lines or printed on one.", "type": "string", "enum": ["stacked", "inline"], "default": "stacked" }
+        "layout": { "description": "Whether X, Y and Z are stacked on three lines or printed on one. Defaults to `inline`, which is what the HUD frame draws; `stacked` holds the three numbers against one left edge, which is easier to read while moving.", "type": "string", "enum": ["stacked", "inline"], "default": "inline" }
       }
     },
     "armor_status_settings": {
@@ -232,7 +237,8 @@
         "opacity": { "description": "Alpha of the armor row.", "$ref": "#/definitions/opacity" },
         "orientation": { "description": "Whether armor pieces are laid out left to right or top to bottom.", "type": "string", "enum": ["horizontal", "vertical"], "default": "horizontal" },
         "show_durability": { "description": "Whether to print remaining durability as a number under each piece.", "type": "boolean", "default": true },
-        "show_held_item": { "description": "Whether to include the currently held item as a sixth slot.", "type": "boolean", "default": true }
+        "show_held_item": { "description": "Whether to include the currently held item as a sixth slot.", "type": "boolean", "default": true },
+        "warn_below": { "description": "Fraction of maximum durability under which a piece's bar turns amber. A threshold on a live value, the same species as `ping.good_ms`: the point at which a player wants to be told their gear is going is a matter of how they play, not a constant. 0 never warns.", "type": "number", "minimum": 0, "maximum": 1, "default": 0.5 }
       }
     },
     "potion_effects_settings": {
@@ -250,6 +256,19 @@
         "hide_ambient": { "description": "Whether to omit ambient effects such as a beacon aura from the list.", "type": "boolean", "default": false }
       }
     },
+    "watermark_settings": {
+      "title": "VOID watermark settings",
+      "description": "Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` §1 reserves colour for a live value or a selected item, and a watermark is neither.",
+      "type": "object",
+      "required": ["on"],
+      "additionalProperties": false,
+      "properties": {
+        "on": { "description": "Whether the watermark is drawn.", "$ref": "#/definitions/on" },
+        "scale": { "description": "Size multiplier of the mark.", "$ref": "#/definitions/scale" },
+        "opacity": { "description": "Alpha of the mark. Lower than the other HUD mods by default, so it sits behind the readouts the player is actually reading.", "$ref": "#/definitions/opacity", "default": 0.9 },
+        "style": { "description": "Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark, `mark` is the ring alone, `word` is the wordmark alone.", "type": "string", "enum": ["full", "mark", "word"], "default": "full" }
+      }
+    },
     "toggle_sprint_settings": {
       "title": "Toggle sprint settings",
       "description": "Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`.",
@@ -259,8 +278,7 @@
       "properties": {
         "on": { "description": "Whether toggle sprint is enabled.", "$ref": "#/definitions/on" },
         "mode": { "description": "`toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint but keeps the status readout.", "type": "string", "enum": ["toggle", "hold"], "default": "toggle" },
-        "sneak_too": { "description": "Whether the same latching behaviour is applied to sneak.", "type": "boolean", "default": false },
-        "show_status": { "description": "Whether the mod draws its own [Sprinting] status line above the hotbar.", "type": "boolean", "default": true }
+        "sneak_too": { "description": "Whether the same latching behaviour is applied to sneak.", "type": "boolean", "default": false }
       }
     },
     "fullbright_settings": {
@@ -303,7 +321,7 @@
     },
     "crosshair_settings": {
       "title": "Crosshair settings",
-      "description": "Settings for the Crosshair mod. Uniquely among the 12 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
+      "description": "Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
       "type": "object",
       "required": ["on"],
       "additionalProperties": false,
@@ -315,7 +333,8 @@
         "gap": { "description": "Empty gap in pixels between the centre point and the start of each arm.", "type": "integer", "minimum": 0, "maximum": 10, "default": 2 },
         "color": { "description": "Colour of the crosshair.", "$ref": "#/definitions/hex_color" },
         "outline": { "description": "Whether a one-pixel black outline is drawn around the shape for contrast.", "type": "boolean", "default": true },
-        "dynamic": { "description": "Whether the gap widens while the attack cooldown is not full and while sprinting.", "type": "boolean", "default": false }
+        "dynamic": { "description": "Whether the gap widens while the attack cooldown is not full and while sprinting.", "type": "boolean", "default": false },
+        "center_dot": { "description": "Whether a dot of `thickness` square is drawn on the centre point, under whatever `style` draws around it. `dot` is a style, so without this a player must choose between a cross and a centre reference; every crosshair configurator worth the name lets them have both. Ignored by `none`, and by `default`, which is the vanilla pass.", "type": "boolean", "default": false }
       }
     },
 
@@ -431,6 +450,22 @@
         }
       ]
     },
+    "watermark_entry": {
+      "title": "VOID watermark entry",
+      "description": "Registry entry for the VOID watermark, narrowed to its constant classification.",
+      "allOf": [
+        { "$ref": "#/definitions/mod_entry" },
+        {
+          "properties": {
+            "id": { "description": "Always `watermark`.", "const": "watermark" },
+            "kind": { "description": "Always `hud`; it draws and reads nothing.", "const": "hud" },
+            "category": { "description": "Always `visual`; it changes how the game looks rather than adding a readout, so the Mods panel tabs it under Visual (frame 244:538).", "const": "visual" },
+            "hypixel_safe": { "description": "Always `safe`; §11 does not list it, and a mark drawn over the game cannot affect play.", "const": "safe" },
+            "defaults": { "description": "Factory watermark settings.", "$ref": "#/definitions/watermark_settings" }
+          }
+        }
+      ]
+    },
     "toggle_sprint_entry": {
       "title": "Toggle sprint entry",
       "description": "Registry entry for Toggle sprint, narrowed to its constant classification.",
@@ -515,7 +550,7 @@
 
   "examples": [
     {
-      "version": 2,
+      "version": 3,
       "mods": {
         "fps": {
           "id": "fps",
@@ -525,7 +560,7 @@
           "label": "FPS display",
           "description": "Frames per second, updated once per tick.",
           "source": "Minecraft.debugFPS",
-          "defaults": { "on": true, "scale": 1, "opacity": 1, "color": "#FFFFFF", "show_label": true }
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "color": "#FFFFFF", "show_label": true, "show_low": true }
         },
         "keystrokes": {
           "id": "keystrokes",
@@ -535,7 +570,7 @@
           "label": "Keystrokes",
           "description": "WASD, mouse and spacebar tiles that light up as you press them.",
           "source": "KeyBinding.setKeyBindState, edge-triggered",
-          "defaults": { "on": true, "scale": 1, "opacity": 0.85, "keybind": "NONE", "show_mouse": true, "show_spacebar": true, "show_cps": false, "corner_radius": 8, "key_color": "shell", "pressed_color": "accent" }
+          "defaults": { "on": true, "scale": 1, "opacity": 0.85, "keybind": "NONE", "show_mouse": true, "show_spacebar": true, "show_sneak": false, "show_cps": false, "corner_radius": 8, "key_color": "shell", "pressed_color": "accent" }
         },
         "cps": {
           "id": "cps",
@@ -545,7 +580,7 @@
           "label": "CPS counter",
           "description": "Clicks per second over a sliding window.",
           "source": "derived from clicks in JS",
-          "defaults": { "on": true, "scale": 1, "opacity": 1, "mode": "left", "window_ms": 1000 }
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "mode": "left", "show_label": true, "window_ms": 1000 }
         },
         "ping": {
           "id": "ping",
@@ -555,7 +590,7 @@
           "label": "Ping display",
           "description": "Round-trip time to the current server.",
           "source": "own NetworkPlayerInfo.responseTime",
-          "defaults": { "on": true, "scale": 1, "opacity": 1, "show_label": true, "good_ms": 60, "bad_ms": 150 }
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "show_label": true, "good_ms": 60, "bad_ms": 150, "show_host": true }
         },
         "coordinates": {
           "id": "coordinates",
@@ -565,7 +600,7 @@
           "label": "Coordinates",
           "description": "Player position and facing direction.",
           "source": "EntityPlayerSP pos/yaw",
-          "defaults": { "on": false, "scale": 1, "opacity": 1, "decimals": 1, "show_direction": true, "layout": "stacked" }
+          "defaults": { "on": false, "scale": 1, "opacity": 1, "decimals": 1, "show_direction": true, "layout": "inline" }
         },
         "armor_status": {
           "id": "armor_status",
@@ -575,7 +610,7 @@
           "label": "Armor status",
           "description": "Worn armor and held item with remaining durability.",
           "source": "InventoryPlayer.armorInventory durability",
-          "defaults": { "on": true, "scale": 1, "opacity": 1, "orientation": "horizontal", "show_durability": true, "show_held_item": true }
+          "defaults": { "on": true, "scale": 1, "opacity": 1, "orientation": "horizontal", "show_durability": true, "show_held_item": true, "warn_below": 0.5 }
         },
         "potion_effects": {
           "id": "potion_effects",
@@ -587,6 +622,16 @@
           "source": "getActivePotionEffects",
           "defaults": { "on": true, "scale": 1, "opacity": 1, "show_duration": true, "show_amplifier": true, "hide_ambient": false }
         },
+        "watermark": {
+          "id": "watermark",
+          "kind": "hud",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Watermark",
+          "description": "The VOID mark, drawn over the game.",
+          "source": "drawn by the overlay; no game field",
+          "defaults": { "on": true, "scale": 1, "opacity": 0.9, "style": "full" }
+        },
         "toggle_sprint": {
           "id": "toggle_sprint",
           "kind": "gameplay",
@@ -595,7 +640,7 @@
           "label": "Toggle sprint",
           "description": "Latches sprint instead of holding the key.",
           "source": "KeyBinding override in onLivingUpdate",
-          "defaults": { "on": true, "mode": "toggle", "sneak_too": false, "show_status": true }
+          "defaults": { "on": true, "mode": "toggle", "sneak_too": false }
         },
         "fullbright": {
           "id": "fullbright",
@@ -635,7 +680,7 @@
           "label": "Crosshair",
           "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",
           "source": "replaces vanilla crosshair pass; drawn in GL at exact center",
-          "defaults": { "on": false, "style": "cross", "size": 5, "thickness": 1, "gap": 2, "color": "#FFFFFFFF", "outline": true, "dynamic": false }
+          "defaults": { "on": false, "style": "cross", "size": 5, "thickness": 1, "gap": 2, "color": "#FFFFFFFF", "outline": true, "dynamic": false, "center_dot": false }
         }
       }
     }

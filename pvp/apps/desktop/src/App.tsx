@@ -1,24 +1,29 @@
 /**
- * The shell: chrome band, recessed canvas, the screen, the dock.
+ * The shell — §7 of `design/quiet-cell-system.md`, and nothing else.
  *
- * The frame geometry is the Figma's — 62 px chrome, a 14 px inset canvas with the
- * hero art behind a scrim, panels floating on the canvas and the dock at the bottom —
- * but expressed as a flex layout rather than absolute pixels, because the window is
- * resizable down to 1100 × 700 and the frames are a single 1300 × 820 size.
+ *   1600 × 980, radius 20. A navbar (Play · Mods · Cosmetics · Servers · Friends) with
+ *   search and the profile chip, then **one** content panel inset 32,80 sized
+ *   1536 × 768 radius 18, then a dock band below it holding the loadout selector, the
+ *   version selector, the enabled readout and Launch. Every launcher screen uses that
+ *   identical shell.
  *
- * Everything inside the shell is either a component from `@void/ui` or one of the four
- * launcher-only regions this file arranges — chrome band, canvas, hero, dock.
+ * So this file arranges exactly three bands and puts the screen in the middle one. The
+ * hero art, the scrim and the recessed-canvas inset the earlier pass carried are gone:
+ * the system is flat, and the fill steps (shell → ground → card → raised) carry the
+ * depth that the gradient and the shadow used to.
  *
- * The root would normally carry `v-app`, which is where that package's reset and type
- * ramp live. It does not, for one reason spelled out at the top of `local/app.css`:
+ * Mods has one sub-route — a mod's setup page. There is no router; a screen is a value
+ * in `stores/ui`, and the sub-route is one more value beside it, so the swap happens
+ * here rather than inside `ModsScreen`.
+ *
+ * The root would normally carry `v-app`, which is where `@void/ui`'s reset and type
+ * ramp live. It does not, for the reason spelled out at the top of `local/app.css`:
  * the `.v-app button` half of that reset outranks the package's own component
- * backgrounds, so `v-app` makes every button in it transparent. `local/app.css`
- * carries the same reset at zero specificity until that is fixed upstream.
+ * backgrounds. `local/app.css` carries the same reset at zero specificity until that is
+ * fixed upstream.
  */
 
 import { useEffect } from 'react';
-
-import { BACKDROPS } from '@dev/backdrops';
 
 import { Dock } from './features/Dock';
 import { CommandPalette } from './features/CommandPalette';
@@ -27,6 +32,7 @@ import { TopNav } from './features/TopNav';
 import { IS_TAURI } from './local/tauri';
 import { CosmeticsScreen } from './screens/Cosmetics';
 import { FriendsScreen } from './screens/Friends';
+import { ModSetupScreen } from './screens/ModSetup';
 import { ModsScreen } from './screens/Mods';
 import { PlayScreen } from './screens/Play';
 import { ServersScreen } from './screens/Servers';
@@ -46,6 +52,7 @@ const SCREEN_COMPONENTS = {
 
 export function App() {
   const screen = useUi((s) => s.screen);
+  const modSetup = useUi((s) => s.modSetup);
   const hydrateSession = useSession((s) => s.hydrate);
   const hydrateLoadouts = useLoadouts((s) => s.hydrate);
   const phase = useLaunch((s) => s.phase);
@@ -64,47 +71,32 @@ export function App() {
     };
   }, []);
 
-  const Screen = SCREEN_COMPONENTS[screen];
-  const isPlay = screen === 'play';
-
-  // In the browser preview the canvas shows the design frame itself, cropped to the
-  // canvas rectangle; the frames are composites, so their scrim is already baked in and
-  // ours would double-darken. A real build gets an empty map — see src/dev/backdrops.ts.
-  const backdrop = BACKDROPS[screen];
+  const Screen = screen === 'mods' && modSetup ? ModSetupScreen : SCREEN_COMPONENTS[screen];
 
   return (
-    <div className="shell" data-phase={phase}>
+    <div className="shell" data-phase={phase} data-screen={screen}>
       <TopNav />
 
-      <main className="canvas v-noise">
-        <div
-          className={`canvas__art${backdrop ? ' canvas__art--design' : ''}`}
-          style={backdrop ? { backgroundImage: `url(${backdrop})` } : undefined}
-          aria-hidden="true"
-        />
-        {backdrop ? null : <div className="canvas__scrim" aria-hidden="true" />}
-
-        <div className={`canvas__content${isPlay ? ' is-play' : ''}`}>
-          <Screen />
-        </div>
-
-        <div className="canvas__dock">
-          <Dock />
-        </div>
-
-        <div className="canvas__banners">
-          <LaunchError />
-          <SessionSummary />
-          {!IS_TAURI ? (
-            <div className="banner banner--preview" role="status">
-              <span className="banner__text">
-                Browser preview — `@tauri-apps/api` is mocked, so pings, launches and sign-in are
-                fixtures. Run `pnpm tauri dev` for the real backend.
-              </span>
-            </div>
-          ) : null}
-        </div>
+      <main className="panel" data-screen={screen}>
+        <Screen />
       </main>
+
+      <div className="dockband">
+        <Dock />
+      </div>
+
+      <div className="banners">
+        <LaunchError />
+        <SessionSummary />
+        {!IS_TAURI ? (
+          <div className="banner banner--preview" role="status">
+            <span className="banner__text">
+              Browser preview — `@tauri-apps/api` is mocked, so pings, launches and sign-in are
+              fixtures. Run `pnpm tauri dev` for the real backend.
+            </span>
+          </div>
+        ) : null}
+      </div>
 
       <LogDrawer />
       <CommandPalette />

@@ -13,6 +13,9 @@
  * - **cosmetics / servers** — the two launcher nav marks. `@void/ui` carries the nav
  *   items the overlay shares (`play`, `layers`, `users`); the overlay has no
  *   Cosmetics or Servers screen, so those two marks never reached the package.
+ * - **mark** — the VOID lockup's glyph. `@void/ui` draws its own mark as a CSS square
+ *   inside `.v-topnav__mark`; the launcher frames draw a dotted ring, and the launcher
+ *   is the only shell with a wordmark beside it.
  *
  * They follow the same drawing contract as `@void/ui`'s set — one 24 × 24 grid,
  * uniform 1.6px stroke, round caps, no gradients or masks — so they are swappable for
@@ -31,6 +34,7 @@ export interface GlyphProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
 
 /** Every launcher-only glyph. */
 export const GLYPH_NAMES = [
+  'mark',
   'terminal',
   'trash',
   'minimise',
@@ -44,6 +48,17 @@ export const GLYPH_NAMES = [
 export type GlyphName = (typeof GLYPH_NAMES)[number];
 
 const PATHS: Record<GlyphName, string[]> = {
+  // The lockup glyph: a ring of eight cells. Drawn as dots, like `servers`.
+  mark: [
+    'M12 4h.01',
+    'M17.7 6.3h.01',
+    'M20 12h.01',
+    'M17.7 17.7h.01',
+    'M12 20h.01',
+    'M6.3 17.7h.01',
+    'M4 12h.01',
+    'M6.3 6.3h.01',
+  ],
   terminal: ['M5 7l5 5-5 5', 'M13 17h6'],
   trash: ['M4 7h16', 'M9 7V5h6v2', 'M6 7l1 13h10l1-13', 'M10 11v6', 'M14 11v6'],
   minimise: ['M5 12h14'],
@@ -61,7 +76,7 @@ const PATHS: Record<GlyphName, string[]> = {
 };
 
 /** Which glyphs draw as dots rather than strokes — round caps at a wider width. */
-const DOTTED = new Set<GlyphName>(['servers']);
+const DOTTED = new Set<GlyphName>(['servers', 'mark']);
 
 function make(name: GlyphName) {
   return function Glyph({ size = 16, strokeWidth, ...rest }: GlyphProps): React.ReactElement {
@@ -86,6 +101,7 @@ function make(name: GlyphName) {
   };
 }
 
+export const MarkGlyph = make('mark');
 export const TerminalGlyph = make('terminal');
 export const TrashGlyph = make('trash');
 export const MinimiseGlyph = make('minimise');

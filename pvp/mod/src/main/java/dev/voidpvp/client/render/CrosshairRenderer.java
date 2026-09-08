@@ -31,27 +31,36 @@ public final class CrosshairRenderer {
 
         GlBlit.begin2d(width, height);
         try {
+            List<CrosshairGeometry.Rect> rects = CrosshairGeometry.rects(
+                    style, state.crosshairSize, state.crosshairThickness,
+                    state.crosshairGap, spread, state.crosshairCenterDot);
             if (CrosshairGeometry.isRing(style)) {
                 if (state.crosshairOutline) {
                     ring(cx, cy, state.crosshairSize + 1f, state.crosshairThickness + 2f,
                             0xFF000000);
                 }
                 ring(cx, cy, state.crosshairSize, state.crosshairThickness, color);
+                // The ring is the one style that draws through GL lines rather than rects, so
+                // its centre dot — the only rect `rects` returns for it — is filled here.
+                fill(cx, cy, rects, state.crosshairOutline, color);
                 return;
             }
-            List<CrosshairGeometry.Rect> rects = CrosshairGeometry.rects(
-                    style, state.crosshairSize, state.crosshairThickness,
-                    state.crosshairGap, spread);
-            if (state.crosshairOutline) {
-                for (CrosshairGeometry.Rect r : rects) {
-                    GlBlit.fill(cx + r.x - 1, cy + r.y - 1, r.w + 2, r.h + 2, 0xFF000000);
-                }
-            }
-            for (CrosshairGeometry.Rect r : rects) {
-                GlBlit.fill(cx + r.x, cy + r.y, r.w, r.h, color);
-            }
+            fill(cx, cy, rects, state.crosshairOutline, color);
         } finally {
             GlBlit.end2d();
+        }
+    }
+
+    /** The outline pass and then the ink pass, in that order, for one set of rectangles. */
+    private static void fill(float cx, float cy, List<CrosshairGeometry.Rect> rects,
+            boolean outline, int color) {
+        if (outline) {
+            for (CrosshairGeometry.Rect r : rects) {
+                GlBlit.fill(cx + r.x - 1, cy + r.y - 1, r.w + 2, r.h + 2, 0xFF000000);
+            }
+        }
+        for (CrosshairGeometry.Rect r : rects) {
+            GlBlit.fill(cx + r.x, cy + r.y, r.w, r.h, color);
         }
     }
 

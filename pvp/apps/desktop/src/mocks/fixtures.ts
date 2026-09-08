@@ -39,7 +39,7 @@ export const SWORD_PVP: Loadout = {
     coordinates: { on: false },
     armor_status: { on: true, orientation: 'horizontal', show_durability: true, show_held_item: true },
     potion_effects: { on: true },
-    toggle_sprint: { on: true, mode: 'toggle', show_status: true },
+    toggle_sprint: { on: true, mode: 'toggle' },
     fullbright: { on: false, gamma: 10 },
     hitboxes: { on: false },
     zoom: { on: true, key: 'C', fov_divisor: 4, smooth: true },
@@ -73,6 +73,23 @@ export const BEDWARS: Loadout = {
     { id: 'cps', anchor: 'bottom', dx: 0, dy: -60, scale: 0.75 },
   ],
   stats: { played_ms: 4_200_000, fps_avg: 138 },
+};
+
+/**
+ * The profile a fresh install starts on: everything at its registry default, nothing
+ * turned on. Every launcher frame lists three profiles in the Mods rail and three chips
+ * under `ENABLED IN`, and this is the third — the one a player copies rather than
+ * edits.
+ */
+export const DEFAULT_LOADOUT: Loadout = {
+  id: 'default',
+  name: 'Default',
+  icon: 'layers',
+  server: null,
+  mc: '1.8.9',
+  mods: {},
+  hud: [],
+  stats: { played_ms: 0, fps_avg: 0 },
 };
 
 export const MOCK_SETTINGS: Settings = {

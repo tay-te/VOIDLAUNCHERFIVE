@@ -4,7 +4,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cps, createClickRing, pushClick, risingEdges, trimRing } from '@/store/cps';
+import {
+  clicksPerSecond,
+  cps,
+  createClickRing,
+  pushClick,
+  risingEdges,
+  trimRing,
+} from '@/store/cps';
 
 describe('risingEdges', () => {
   it('counts nothing on the first payload — there is no previous state to compare', () => {
@@ -66,6 +73,18 @@ describe('cps', () => {
     for (const at of [100, 600, 1100, 1600]) pushClick(ring, at);
     expect(cps(ring, 2000, 500)).toBe(1);
     expect(cps(ring, 2000, 5000)).toBe(4);
+  });
+
+  it('scales to clicks per SECOND, which is what the chip prints', () => {
+    // `cps` counts inside the window; `clicksPerSecond` is the rate. They agree at the default
+    // 1000ms window, which is exactly why the store assigning the raw count went unnoticed —
+    // a player on a 5s window saw five times their real rate, and one on 200ms saw a fifth.
+    const ring = createClickRing();
+    for (const at of [100, 300, 500, 700, 900]) pushClick(ring, at);
+    expect(clicksPerSecond(ring, 1000, 1000)).toBe(5);
+    expect(clicksPerSecond(ring, 1000, 500)).toBe(4); // 2 clicks in 500ms
+    expect(clicksPerSecond(ring, 1000, 5000)).toBe(1); // 5 clicks over 5s
+    expect(clicksPerSecond(createClickRing(), 1000, 200)).toBe(0);
   });
 
   it('stays bounded under a click storm', () => {

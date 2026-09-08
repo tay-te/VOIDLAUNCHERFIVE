@@ -9,11 +9,9 @@
   border-radius: var(--radius-surface);
   background: var(--palette-bg);
   border: 1px solid var(--border-panel);
-  box-shadow: var(--shadow-panel), var(--inset-hud);
   overflow: hidden;
-  /* Read through the token so the ultralight layer can make it inert. */
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  backdrop-filter: blur(var(--blur-panel));
+  /* Read the whole value through the token so the ultralight layer can resolve it to
+     `none`; blur(0px) would still make this a backdrop root. */
 }
 
 /* ------------------------------------------------------------------ input */
@@ -41,6 +39,21 @@
   overflow: hidden;
   font-size: var(--text-3xl);
   color: var(--text-primary);
+  /* The column's height must not depend on what is in the field.
+     Its only in-flow child is the ghost, which renders `value` — so an empty query
+     gave it a zero-height line box, the column collapsed to 0, and `overflow: hidden`
+     right above clipped away everything the absolutely-positioned input draws:
+     the placeholder *and* the engine's caret. Measured in game on an open palette:
+     ten frames over 1.8s with an empty field, no caret and no placeholder in any of
+     them; one space typed and both appear on the next frame.
+
+     `.v-palette__caret` is 22px tall and in flow, so while the kit's decorative bar
+     was on it held this box open by accident, and turning the bar off is what took
+     the real caret with it. Stating the height here is what makes the two
+     independent: neither caret is load-bearing for the layout any more. 22px is the
+     frame's caret height, and it is >= the 17px line box, so nothing moves when
+     something is typed. */
+  min-height: 22px;
 }
 
 /* The field covers the whole query column and draws the text; the ghost beside
@@ -72,7 +85,7 @@
   flex: 0 0 auto;
   width: 2px;
   height: 22px;
-  background: var(--accent);
+  background: var(--hue, var(--accent));
   /* Blinking is an opacity animation, which Ultralight handles. */
   animation: v-caret 1.1s steps(2, jump-none) infinite;
 }
@@ -121,17 +134,18 @@
   border-radius: var(--radius-field);
   border: 1px solid transparent;
   text-align: left;
-  transition: background-color var(--duration-fast) var(--ease-standard);
+  transition: background-color var(--duration-hover-out) var(--ease-in);
 }
 
 .v-palette__row:hover:not(.v-palette__row--selected) {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
   background: var(--tint-04);
 }
 
 .v-palette__row--selected {
   background: var(--accent-tint-weak);
   border-color: var(--accent-border);
-  box-shadow: var(--inset-row-selected);
 }
 
 .v-palette__text {
@@ -152,7 +166,7 @@
 }
 
 .v-palette__sub {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm-2);
   color: var(--text-muted);
   white-space: pre;
@@ -201,7 +215,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }

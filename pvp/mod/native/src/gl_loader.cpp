@@ -141,12 +141,14 @@ bool load() {
   bind(api.Scissor, "glScissor", true, &ok);
   bind(api.ClearColor, "glClearColor", true, &ok);
   bind(api.Clear, "glClear", true, &ok);
+  bind(api.Flush, "glFlush", true, &ok);
   bind(api.DrawElements, "glDrawElements", true, &ok);
   bind(api.GenTextures, "glGenTextures", true, &ok);
   bind(api.DeleteTextures, "glDeleteTextures", true, &ok);
   bind(api.BindTexture, "glBindTexture", true, &ok);
   bind(api.TexImage2D, "glTexImage2D", true, &ok);
   bind(api.TexSubImage2D, "glTexSubImage2D", true, &ok);
+  bind(api.CopyTexSubImage2D, "glCopyTexSubImage2D", true, &ok);
   bind(api.TexParameteri, "glTexParameteri", true, &ok);
   bind(api.PixelStorei, "glPixelStorei", true, &ok);
   bind(api.ColorMask, "glColorMask", true, &ok);
@@ -219,6 +221,7 @@ bool load() {
   // GL_RED/GL_R8 is 3.0 / ARB_texture_rg. Without it, A8 glyph masks go in as GL_LUMINANCE8 so
   // that the shader's `.r` swizzle still reads the coverage value.
   api.has_texture_rg = has_extension("GL_ARB_texture_rg");
+  api.has_npot = has_extension("GL_ARB_texture_non_power_of_two");
 
   if (api.GetString) {
     const unsigned char* ver = api.GetString(GL_VERSION);
@@ -227,10 +230,13 @@ bool load() {
       log_info("gl: %s | %s", reinterpret_cast<const char*>(ver),
                reinterpret_cast<const char*>(api.GetString(GL_RENDERER)));
     }
-    if (api.version_major >= 3) api.has_texture_rg = true;
+    if (api.version_major >= 3) {
+      api.has_texture_rg = true;
+      api.has_npot = true;
+    }
   }
-  log_info("gl: fbo=%d vao=%d texture_rg=%d", int(api.has_fbo), int(api.has_vao),
-           int(api.has_texture_rg));
+  log_info("gl: fbo=%d vao=%d texture_rg=%d npot=%d", int(api.has_fbo), int(api.has_vao),
+           int(api.has_texture_rg), int(api.has_npot));
 
   api.loaded = ok;
   return ok;

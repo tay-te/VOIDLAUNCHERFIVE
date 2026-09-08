@@ -6,13 +6,15 @@ cross-directory need is expressed by reading a schema here.
 
 | File | Defines | Written by | Read by |
 |---|---|---|---|
-| `mods.json` | The closed registry of the 12 mods (§3): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
+| `mods.json` | The closed registry of the 13 mods (§3, plus the VOID watermark): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
 | `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 6 Java→Rust, 3 Rust→Java | `core` | `core`, `mod` |
-| `bridge.json` | The `window.void` surface (§6.5): 7 events Java→JS, 6 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
+| `bridge.json` | The `window.void` surface (§6.5): 9 events Java→JS, 8 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
 
 `mods.json` is the root: `loadout.json` `$ref`s its mod ids and settings, and both
-`protocol.json` and `bridge.json` `$ref` `loadout.json`. **A mod is added in exactly one
+`protocol.json` and `bridge.json` `$ref` `loadout.json`. `bridge.json` also `$ref`s
+`protocol.json#/definitions/global_settings`, so the `settings` channel and the wire
+message carry one type rather than two. **A mod is added in exactly one
 place.** Refs are absolute (`https://schema.void.dev/pvp/<file>.json#/definitions/...`)
 so any resolver works as long as all four documents are registered; the URL is an
 identifier, not a location, and nothing fetches it.
@@ -26,7 +28,7 @@ node validate.mjs        # compiles all four, checks every `examples` entry, plu
 ```
 
 `validate.mjs` also asserts the things JSON Schema cannot: that the registry contains
-exactly the 12 ids in the `mod_id` enum, that `hud_mod_id`/`gameplay_mod_id` agree with
+exactly the 13 ids in the `mod_id` enum, that `hud_mod_id`/`gameplay_mod_id` agree with
 each entry's `kind`, that every entry carries a `category` from the enum and that each
 `<id>_entry` narrows it to the same value, that labels are unique, that every registry
 `defaults` object satisfies its own mod's settings sub-schema, and that `init.loadouts`
@@ -46,10 +48,17 @@ Either way:
 - **Unknown `t` and unknown fields are ignored, never an error** (§7). Do not use
   `#[serde(deny_unknown_fields)]` on protocol types; the schema sets
   `additionalProperties: true` for the same reason.
-- `v` appears on `hello` and `init` only, `const 1`. A mismatch is fatal: the launcher
+- `v` appears on `hello` and `init` only, `const 2`. A mismatch is fatal: the launcher
   refuses to launch and prompts for an update (§7).
 - `loadout.json` is `void-loadout`'s on-disk format. Its `state_patch` paths
   (`mods.<mod>.<setting>`) are the diff unit.
+- `global_patch` is the same idea for `settings.json`, carried by `globals`, and its keys
+  are bare `global_settings` property names rather than dotted paths — globals are flat, so
+  there is nothing to path into. Apply it with `GlobalSettings::apply_patch`, which merges
+  through JSON so that `extra` survives: `global_settings` is `additionalProperties: true`,
+  the mod's own class is five fixed fields, and a whole-object echo from the game would
+  erase every global the mod does not model. That is the entire reason the message is a
+  delta.
 
 ### Java — `mod/src/main/java/dev/voidpvp/client/{net,bridge}`
 
@@ -100,6 +109,80 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-07 — the watermark, and global settings reach the page
+
+Two contract changes, landed together. `mods.json` registry `version` `2 → 3`;
+`protocol.json` `v` is **unchanged at 2**, and deliberately so — see below.
+
+**`mods.json` — a thirteenth mod, `watermark`**
+
+- **`watermark`** (`kind: hud`, `category: visual`, `hypixel_safe: safe`, label
+  `VOID watermark`). VOID drew its own mark over the game and had nowhere to say so, so
+  the overlay was about to hard-code a thirteenth tile that the registry did not know
+  about — exactly the re-declaration `mods.json` exists to stop. Its `source` is
+  `drawn by the overlay; no game field`: it is the first mod with no sensor at all, which
+  is why the column is prose rather than a 1.8.9 field.
+- `watermark_settings` is modelled on `fps_settings` / `crosshair_settings`: `on`
+  (default true), `scale` (0.25–4), `opacity` (0–1, default **0.9** rather than 1 — the
+  mark sits behind the readouts the player is actually reading) and `style`
+  (`full` | `mark` | `word`, default `full`).
+- **No `color` key**, unlike every other drawn mod. `design/quiet-cell-system.md` §1 says
+  accent marks the live value or the selected item and nothing else; a watermark is
+  neither, so a colour control here would be a licence to break the system.
+- The closed set is spelled out in six places and all six moved: `mods.required`,
+  `mods.properties`, the `mod_id` enum, the `hud_mod_id` enum (**8** HUD mods now, not 7),
+  `loadout.json`'s `mod_states.properties`, and the shipped registry in `examples[0]`.
+  `hud_layout.maxItems` went `7 → 8` with it — the bound is one item per HUD mod, so it
+  tracks `hud_mod_id` rather than being a number of its own.
+- Default placement is `top-left` at `dx 20, dy 58`, under the existing fps (`dy 20`) and
+  ping (`dy 38`) entries in `loadout.json`'s Sword PvP example, which is where every PvP
+  client puts its mark. The Bedwars example is deliberately partial — it is what
+  `omitted_mods_fall_back_to_the_registry` reads — and was left alone, as were the
+  partial loadouts in `protocol.json` and `bridge.json`.
+- Consumers: `void_loadout::ModId::Watermark` / `HudModId::Watermark` /
+  `WatermarkSettings` / `WatermarkStyle`, and the `hud.len()` bound in
+  `Loadout::validate`; `@void/protocol`'s `MOD_IDS` and `HUD_MOD_IDS`; the Java
+  `ModRegistry` transcription.
+
+**`bridge.json` — `settings`, `session`, and `setGlobal`**
+
+`GlobalSettings` existed in `protocol.json`, in Rust and in Java's `LiveState`, and the
+in-game page had **no way to read or write any of it**. The menu key and the UI scale are
+in-game settings that only the in-game UI can sensibly change, and the one surface that
+could change them did not have them. Three additions close that:
+
+- **`settings` event** — the whole `global_settings` object, `$ref`'d from `protocol.json`
+  so the channel and the wire message cannot drift into two shapes. Pushed on
+  `pushWholeState()` — first paint, launcher `init`, and a reloaded document per
+  `design/rendering-invariants.md` §9a — and again whenever Rust pushes new settings down.
+  Explicitly **not** pushed as an echo of the page's own `setGlobal`, for the reason §6.5
+  already gives for `setting`: the call returned the stored value, and a second push would
+  fight the control the player is holding.
+- **`setGlobal(key, value) -> value | null` call** — the exact mirror of `setModSetting`
+  one level up. Synchronous, Java validates and clamps and returns *what it stored*, and
+  the page binds to the return rather than to what it sent. `null` means nothing was
+  stored: an unknown key, or a value that could not be made usable. `key` is a pattern
+  string rather than an enum, matching `global_settings`' `additionalProperties: true` —
+  a launcher may add a global without a protocol bump, and a key this Java does not know
+  simply answers `null`.
+- **`session` event** — *added, not invented*. Java was already pushing it and the page
+  was already consuming it (`packages/ingame`'s store, via a cast); it was missing from
+  this file, so `@void/protocol`'s `VoidBridge` did not know the channel and the reference
+  shim's channel list did not carry it. Both shim channel lists are **closed** — `on`
+  hands back a no-op subscription for an unknown name and `__emit` drops an envelope whose
+  channel has no list — so an undeclared channel fails in total silence. That is how
+  `session` was lost the first time, and the note is now in `event_name`'s own description.
+
+No `v` bump: `bridge.json` does not cross a process boundary. The mod JAR embeds the UI
+bundle, so the two ship as one binary and the surface is deliberately not
+forward-compatible (see "How each side consumes them" above). Nothing on the Rust ⇄ Java
+wire changed.
+
+Consumers: `@void/protocol`'s `VOID_EVENTS`, `VOID_CALLS`, `VoidEventPayloadMap`,
+`VoidBridge` (which also finally absorbed the optional `__keepsEscape`, and now exports
+`SessionInfo`), `installVoidShim` and `createFakeVoid`; `void-shim.js`'s `EVENTS` and
+`CALLS`; Java's bridge and `LiveState`.
 
 ### 2026-09-03 — the integration pass
 

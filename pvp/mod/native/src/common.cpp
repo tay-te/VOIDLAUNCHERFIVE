@@ -12,23 +12,66 @@ Globals& g() {
   return instance;
 }
 
-JNIEnv* env() {
-  Globals& gl = g();
-  if (!gl.vm) return nullptr;
-  JNIEnv* e = nullptr;
-  jint rc = gl.vm->GetEnv(reinterpret_cast<void**>(&e), JNI_VERSION_1_6);
-  if (rc == JNI_EDETACHED) {
-    // Ultralight's renderer threads are not Java threads; attach as daemon so the JVM can still
-    // exit, and leave them attached (attach/detach per call would cost more than the read).
-#ifdef __ANDROID__
-    if (gl.vm->AttachCurrentThreadAsDaemon(&e, nullptr) != JNI_OK) return nullptr;
-#else
-    if (gl.vm->AttachCurrentThreadAsDaemon(reinterpret_cast<void**>(&e), nullptr) != JNI_OK)
-      return nullptr;
-#endif
-  } else if (rc != JNI_OK) {
-    return nullptr;
+std::mutex& surface_lock() {
+  static std::mutex m;
+  return m;
+}
+
+namespace {
+
+// The per-thread JNIEnv, and the detach that has to happen when the thread ends.
+//
+// `owner` is the "we attached this one" flag as well as the VM handle: it is left null for a Java
+// thread, whose attachment belongs to the JVM for the thread's whole life, and set only when this
+// code called AttachCurrentThreadAsDaemon itself. Holding the JavaVM* here rather than reaching
+// for g() in the destructor keeps the teardown independent of static destruction order — a
+// renderer thread can outlive Globals.
+struct ThreadEnv {
+  JNIEnv* env = nullptr;
+  JavaVM* owner = nullptr;
+
+  ~ThreadEnv() {
+    if (!owner) return;
+    JavaVM* vm = owner;
+    // Cleared before the detach, not after: if anything reaches env() again while the thread is
+    // being torn down (Ultralight's own thread-local destructors run in an order we do not
+    // control), it must see "not attached" rather than a JNIEnv for a thread that is half gone.
+    owner = nullptr;
+    env = nullptr;
+    vm->DetachCurrentThread();
   }
+};
+
+thread_local ThreadEnv t_env;
+
+} // namespace
+
+JNIEnv* env() {
+  if (t_env.env) return t_env.env;
+
+  JavaVM* vm = g().vm;
+  if (!vm) return nullptr;
+
+  JNIEnv* e = nullptr;
+  jint rc = vm->GetEnv(reinterpret_cast<void**>(&e), JNI_VERSION_1_6);
+  if (rc == JNI_OK) {
+    // A Java thread — the UI thread that drives the Renderer, or Minecraft's render thread. It is
+    // attached for as long as it lives, so cache it and never detach it.
+    t_env.env = e;
+    return e;
+  }
+  if (rc != JNI_EDETACHED) return nullptr;
+
+  // A bare pthread: one of Ultralight's renderer threads reaching the ULFileSystem or the font
+  // loader. Daemon, so the attachment cannot stop the JVM exiting.
+#ifdef __ANDROID__
+  if (vm->AttachCurrentThreadAsDaemon(&e, nullptr) != JNI_OK) return nullptr;
+#else
+  if (vm->AttachCurrentThreadAsDaemon(reinterpret_cast<void**>(&e), nullptr) != JNI_OK)
+    return nullptr;
+#endif
+  t_env.env = e;
+  t_env.owner = vm;
   return e;
 }
 

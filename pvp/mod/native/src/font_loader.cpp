@@ -17,11 +17,12 @@
 // String's constructor — all resolved from the same SDK we compile the headers from. If a future
 // SDK exports the C entry point, delete this file and go back to ulPlatformSetFontLoader.
 //
-// WHAT IT DOES: hands back one bundled font for every family. The in-game UI is a fixed design
-// that has to look identical on every machine, so it declares its typefaces with @font-face, which
-// is served by our ULFileSystem, not by this. This only has to guarantee that *something* renders
-// for an unknown family — including the CJK fallback, where a font missing the glyph still beats a
-// failed load.
+// WHAT IT DOES: resolves every family the page names. Ultralight never fetches an @font-face
+// itself — the declaration only tells it *which family* to ask for, and the ask lands here — so
+// this table is the whole reason the UI is drawn in its own typefaces rather than in Inter. See
+// kFaces below for the families that must be present. Anything the design does not ship gets the
+// fallback, which also covers the CJK path, where a font missing the glyph still beats a failed
+// load.
 //
 // Deliberate consequence: system fonts are not reachable from the page. `font-family: Arial` gets
 // Inter. The UI must bundle what it wants to use.
@@ -46,6 +47,39 @@ const char kFontRelPath[] = "resources/fonts/Inter-Variable.ttf";
 // reachable under the renderer's classpath prefix. They are static instances on purpose: the
 // fallback is a *variable* font, and serving it for every family is why nothing in the UI was
 // ever bold — the weight axis is never set, so every run came out at 400.
+//
+// ── THE FAMILIES THAT MUST BE PRESENT ──────────────────────────────────────────────────────
+// design/quiet-cell-system.md §2 settles the type as **Outfit only**, at three weights:
+//
+//     "outfit"  300 Light · 400 Regular · 500 Medium        — and nothing else, ever
+//
+// `--font-display` and `--font-mono` are aliases of `--font-ui` in the token build, so the page
+// resolves to that one family name whatever a rule spells; there is no display face and no
+// monospace to serve. Bricolage Grotesque and DM Mono went out with the system they belonged to
+// and are no longer bundled — do not re-add either name here without re-adding its file.
+//
+// Three things have to agree, and nothing checks them for you:
+//   1. this table,
+//   2. the .ttf files in mod/src/main/resources/assets/void/fonts/ (build.gradle republishes that
+//      directory into assets/void/ui/fonts/, which is where `file` is resolved from), and
+//   3. the family names the page's CSS asks for.
+//
+// When they drift, **nothing fails**. A family absent from this table is not an error: Load()
+// falls straight through to Inter and the overlay renders in the wrong typeface with nothing in
+// the log to say so. That silence is why every served face is announced once in Load() — a
+// healthy run prints one line per weight the design uses,
+//
+//     font_load: 'outfit' weight 300 -> fonts/outfit-300.ttf (36728 bytes)
+//     font_load: 'outfit' weight 400 -> fonts/outfit-400.ttf (36696 bytes)
+//     font_load: 'outfit' weight 500 -> fonts/outfit-500.ttf (36664 bytes)
+//
+// and a missing line is the bug. (New faces are cut the way the existing ones were: instance the
+// google/fonts variable source at the weight, subset it to the same unicode range as
+// packages/ui/scripts/fetch-fonts.mjs, and save as TTF rather than woff2 — FreeType reads TTF.)
+//
+// Weights match by *nearest*, not exactly, so a page still asking for 600/700 gets the 500
+// instance rather than dropping to the fallback. That is deliberate: §2 stops at 500, and a face
+// one step light is a far smaller wrong than a different typeface.
 struct Face {
   const char* family;  // lower-case, as compared
   int weight;
@@ -53,12 +87,9 @@ struct Face {
 };
 
 const Face kFaces[] = {
-    {"bricolage grotesque", 800, "fonts/bricolage-grotesque-800.ttf"},
+    {"outfit", 300, "fonts/outfit-300.ttf"},
     {"outfit", 400, "fonts/outfit-400.ttf"},
     {"outfit", 500, "fonts/outfit-500.ttf"},
-    {"outfit", 600, "fonts/outfit-600.ttf"},
-    {"dm mono", 400, "fonts/dm-mono-400.ttf"},
-    {"dm mono", 500, "fonts/dm-mono-500.ttf"},
 };
 
 std::string lower(const ultralight::String& s) {

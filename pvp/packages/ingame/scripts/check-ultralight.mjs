@@ -32,16 +32,22 @@ const OUT_DIR = resolve(root, '../../mod/src/main/resources/assets/void/ui');
 /**
  * Declarations that are allowed through even though they name a banned feature.
  *
- * `@void/ui` writes `backdrop-filter: blur(var(--blur-panel))` and lets the
- * token decide: under `data-renderer="ultralight"` every `--blur-*` resolves to
- * `0px`, so the property is inert even on a build that claims to honour it.
- * That is exactly the discipline ultralight-notes.md §1 asks for — never branch
- * on `@supports`, read the radius through a token — so a token-driven or
- * explicitly-zero blur passes and a hard-coded radius does not.
+ * `@void/ui` writes `backdrop-filter: var(--backdrop-panel)`, which the ultralight
+ * token layer resolves to `none`.
+ *
+ * This used to allow `blur(var(--blur-panel))` on the reasoning that the ultralight
+ * layer zeroes every `--blur-*`, so the property was inert. It is not inert. A zero
+ * radius computes nothing but still makes the element a backdrop root, so WebKit has
+ * to re-sample everything behind it and can no longer scope invalidation to what
+ * changed — measured in game, one mod toggle repainting the entire 2771x1532 panel and
+ * holding the menu to ~20 repaints/s against the 74/s the same view sustains otherwise.
+ * So `blur(0px)` and `blur(var(--blur-*))` are now rejected exactly like a hard-coded
+ * radius: the only spellings that pass are the token, which layer 2 can switch off, and
+ * a literal `none`.
  */
 const ALLOWED = [
-  /backdrop-filter\s*:\s*blur\(\s*var\(--blur-[a-z-]+\)\s*\)/i,
-  /backdrop-filter\s*:\s*(?:none|blur\(\s*0(?:px)?\s*\))/i,
+  /backdrop-filter\s*:\s*var\(--backdrop-[a-z-]+\)/i,
+  /backdrop-filter\s*:\s*none/i,
 ];
 
 /** [regexp, why]. Each pattern must be safe to run over both CSS and JS. */
@@ -129,6 +135,51 @@ for (const file of files) {
         text: declaration.slice(0, 140),
       });
     }
+  }
+}
+
+/**
+ * The emitted page's own JavaScript has to parse.
+ *
+ * A rule about the renderer this is not; it lives here because this is the one script that
+ * already reads the built bundle, and because the failure it catches is otherwise invisible.
+ * The inliner folds the bundle into `index.html` with `String.replace`, whose *replacement*
+ * string treats `$&`, `` $` ``, `$'` and `$$` as substitution patterns — and the thing being
+ * inlined is minified JS in which esbuild may name a variable `$`. The day it did,
+ * `"returns" in $ && $.c === j` was written out as `"returns"in </body>&$.c===j`: the page never
+ * executed a line, the whole overlay was gone — no HUD, no menu — and the entire diagnostic was
+ * one `SyntaxError: Unexpected token '<'` on stderr, blamed on an unrelated change that had
+ * merely shifted which variable got the name `$`.
+ *
+ * `vite.config.ts` now inserts through a replacer function and asserts the insert landed
+ * verbatim. This is the second line: whatever else ever rewrites this file, the page it produces
+ * is checked as *code* before anyone launches a client.
+ */
+const builtHtml = resolve(OUT_DIR, 'index.html');
+if (existsSync(builtHtml)) {
+  const html = readFileSync(builtHtml, 'utf8');
+  let at = 0;
+  let block = 0;
+  for (;;) {
+    const open = html.indexOf('<script', at);
+    if (open < 0) break;
+    const bodyStart = html.indexOf('>', open) + 1;
+    const close = html.indexOf('</script>', bodyStart);
+    if (bodyStart <= 0 || close < 0) break;
+    block += 1;
+    const code = html.slice(bodyStart, close);
+    try {
+      // Parse only — never run. `new Function` compiles the body and throws on bad syntax.
+      new Function(code);
+    } catch (error) {
+      failures.push({
+        file: relative(root, builtHtml),
+        line: html.slice(0, bodyStart).split('\n').length,
+        why: `inline <script> #${block} does not parse — the emitted page would not run at all`,
+        text: `${error.message} (see the note above this check in check-ultralight.mjs)`,
+      });
+    }
+    at = close + 9;
   }
 }
 

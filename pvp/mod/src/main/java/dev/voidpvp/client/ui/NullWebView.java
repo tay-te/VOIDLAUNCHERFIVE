@@ -20,6 +20,11 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public boolean isAccelerated() {
+        return false;
+    }
+
+    @Override
     public boolean needsFullRepaintEachFrame() {
         return false;
     }
@@ -34,7 +39,24 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public void clearNeedsPaint() {
+        // no-op
+    }
+
+    /** Nothing is ever rasterised, so the cheapest answer is the only honest one. */
+    @Override
+    public int maxSupersample() {
+        return 1;
+    }
+
+    @Override
     public void loadUrl(String url) {
+    }
+
+    /** No document is ever loaded, so this never changes and nothing ever has to be re-sent. */
+    @Override
+    public int documentGeneration() {
+        return 0;
     }
 
     @Override
@@ -58,8 +80,17 @@ public final class NullWebView implements WebView {
     }
 
     @Override
+    public void clearTarget() {
+    }
+
+    @Override
     public int glTextureId() {
         return 0;
+    }
+
+    @Override
+    public boolean texturePublishedByUiThread() {
+        return false;
     }
 
     @Override

@@ -8,7 +8,14 @@
 
 import { create } from 'zustand';
 
-import type { Loadout, LoadoutSummary, ModId, Settings, SettingsPatch } from '../local/protocol';
+import type {
+  HUDItem,
+  Loadout,
+  LoadoutSummary,
+  ModId,
+  Settings,
+  SettingsPatch,
+} from '../local/protocol';
 import { errorText, invoke, listen } from '../local/tauri';
 import { effectiveState } from '../local/registry';
 
@@ -31,6 +38,14 @@ interface LoadoutState {
    * moment a setting gains a clamp.
    */
   setMod: (id: ModId, next: Record<string, unknown>) => Promise<void>;
+  /**
+   * Place one HUD item — the mod setup page's drag handle writes through here.
+   *
+   * The whole layout is sent because `hud` is an ordered array and paint order is part
+   * of it; replacing one entry in place keeps that order, and dropping an item is
+   * expressed as `null`.
+   */
+  setHudItem: (id: ModId, item: HUDItem | null) => Promise<void>;
   saveSettings: (patch: SettingsPatch) => Promise<void>;
   /** Apply a `bridge:state` patch from a running game (§6.1: Java is authoritative). */
   applyStatePatch: (loadoutId: string, patch: Record<string, unknown>) => void;
@@ -101,6 +116,19 @@ export const useLoadouts = create<LoadoutState>((set, get) => ({
         id: active.id,
         patch: { mods: { [id]: next } },
       });
+      set({ active: updated, error: null });
+    } catch (e) {
+      set({ error: errorText(e) });
+    }
+  },
+
+  setHudItem: async (id, item) => {
+    const active = get().active;
+    if (!active) return;
+    const rest = active.hud.filter((entry) => entry.id !== id);
+    const hud = item ? [...rest, item] : rest;
+    try {
+      const updated = await invoke('loadouts_update', { id: active.id, patch: { hud } });
       set({ active: updated, error: null });
     } catch (e) {
       set({ error: errorText(e) });

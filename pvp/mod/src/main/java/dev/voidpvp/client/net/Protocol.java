@@ -73,6 +73,29 @@ public final class Protocol {
         return o;
     }
 
+    /**
+     * {@code globals}: a global setting written in game, as a delta.
+     *
+     * <p>A delta and not the whole object on purpose. {@code global_settings} is
+     * {@code additionalProperties: true} so the launcher may add a global without a
+     * protocol bump, and {@link GlobalSettings} here is a fixed five-field class that
+     * cannot carry one — so echoing the whole object back would silently erase every
+     * global this build does not model. Rust merges the named keys and leaves the rest
+     * of {@code settings.json} alone.</p>
+     */
+    public static JsonObject globals(Map<String, JsonElement> patch) {
+        JsonObject p = new JsonObject();
+        for (Map.Entry<String, JsonElement> e : patch.entrySet()) {
+            if (e.getValue() != null && !e.getValue().isJsonNull()) {
+                p.add(e.getKey(), e.getValue());
+            }
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "globals");
+        o.add("patch", p);
+        return o;
+    }
+
     public static JsonObject session(double fpsAvg, long playedMs, String server,
                                      String loadoutId) {
         JsonObject o = new JsonObject();

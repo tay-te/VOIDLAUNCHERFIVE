@@ -99,6 +99,28 @@ class ActuatorsTest {
     }
 
     @Test
+    @DisplayName("center_dot adds one rectangle to every style that draws, and none to those that do not")
+    void crosshairCenterDot() {
+        // The dot rides on top of whatever the style draws around it.
+        assertEquals(5, CrosshairGeometry.rects("cross", 5, 1, 2, 0, true).size());
+        assertEquals(4, CrosshairGeometry.rects("t_shape", 5, 1, 2, 0, true).size());
+        // A ring draws no rectangles of its own, so the dot is the only one it has.
+        assertEquals(1, CrosshairGeometry.rects("circle", 5, 1, 2, 0, true).size());
+        // Already a dot: drawing it twice would run the outline pass over one rectangle twice.
+        assertEquals(1, CrosshairGeometry.rects("dot", 5, 1, 2, 0, true).size());
+        // Off is off, and `default` is the vanilla pass — neither gains a dot.
+        assertEquals(0, CrosshairGeometry.rects("none", 5, 1, 2, 0, true).size());
+        assertEquals(0, CrosshairGeometry.rects("default", 5, 1, 2, 0, true).size());
+
+        // On the centre point, whatever the gap is.
+        CrosshairGeometry.Rect dot = CrosshairGeometry.rects("cross", 5, 3, 7, 0, true).get(0);
+        assertEquals(-1.5f, dot.x, 1e-6);
+        assertEquals(-1.5f, dot.y, 1e-6);
+        assertEquals(3f, dot.w, 1e-6);
+        assertEquals(3f, dot.h, 1e-6);
+    }
+
+    @Test
     @DisplayName("the crosshair is symmetric about the exact centre")
     void crosshairIsCentred() {
         List<CrosshairGeometry.Rect> rects = CrosshairGeometry.rects("cross", 5, 1, 2, 0);
@@ -161,6 +183,53 @@ class ActuatorsTest {
         assertEquals("MOUSE3", KeyNames.nameOf(KeyNames.MOUSE_BASE + 3));
         assertTrue(KeyNames.isMouse(KeyNames.codeOf("MOUSE1")));
         assertFalse(KeyNames.isMouse(KeyNames.codeOf("A")));
+    }
+
+    /**
+     * The character filter that decides what reaches a focused field.
+     *
+     * <p>Regression: Down arrow used to append a character to the quick palette's query on every
+     * press, because LWJGL 2 on macOS reports the event character for the navigation keys as
+     * AppKit's private-use codepoints ({@code NSDownArrowFunctionKey} is U+F701) and the old test
+     * — "at least 32 and not 127" — waved them through. The key event itself was always correct;
+     * it was the phantom character behind it that reset the selection.</p>
+     */
+    @Test
+    @DisplayName("only real typed text reaches a focused field")
+    void typedText() {
+        for (char c : new char[] {'a', 'Z', '0', ' ', '/', '\u00e9', '\u4e2d', '\u20ac'}) {
+            assertTrue(KeyNames.isTypedText(c), "U+" + Integer.toHexString(c) + " is typed text");
+        }
+        // C0 controls and DEL: Enter, Tab, Backspace and Escape all arrive with one of these,
+        // and every one of them is a command rather than something to insert.
+        for (char c : new char[] {'\0', '\b', '\t', '\n', '\r', '\u001b', '\u007f'}) {
+            assertFalse(KeyNames.isTypedText(c), "U+" + Integer.toHexString(c) + " is not text");
+        }
+        // AppKit's function-key block, and the private-use area it sits in.
+        assertFalse(KeyNames.isTypedText('\uF700'), "NSUpArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uF701'), "NSDownArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uF702'), "NSLeftArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uF703'), "NSRightArrowFunctionKey");
+        assertFalse(KeyNames.isTypedText('\uE000'), "start of the private-use area");
+        assertFalse(KeyNames.isTypedText('\uF8FF'), "end of the private-use area");
+        // The characters either side of the range are ordinary text and must survive.
+        assertTrue(KeyNames.isTypedText('\uDFFF'));
+        assertTrue(KeyNames.isTypedText('\uF900'));
+    }
+
+    /** Ultralight's modifier bits: 1 alt, 2 ctrl, 4 meta, 8 shift. */
+    @Test
+    @DisplayName("a chord is a command, not a character")
+    void commandChords() {
+        assertFalse(KeyNames.isCommandChord(0), "no modifiers");
+        assertFalse(KeyNames.isCommandChord(8), "shift is how capitals are typed");
+        assertFalse(KeyNames.isCommandChord(1), "alt alone types on macOS (Option-e)");
+        assertFalse(KeyNames.isCommandChord(3), "ctrl+alt is AltGr and types");
+        assertFalse(KeyNames.isCommandChord(11), "shift+AltGr types too");
+        assertTrue(KeyNames.isCommandChord(4), "Cmd-K is a command, not a 'k'");
+        assertTrue(KeyNames.isCommandChord(2), "Ctrl-K likewise");
+        assertTrue(KeyNames.isCommandChord(12), "Cmd+Shift");
+        assertTrue(KeyNames.isCommandChord(6), "Cmd+Ctrl");
     }
 
     @Test

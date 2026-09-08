@@ -66,7 +66,7 @@ class LoadoutDiffTest {
         Loadout after = loadout("{\"id\":\"b\",\"name\":\"B\",\"icon\":\"s\",\"mc\":\"1.8.9\","
                 + "\"mods\":{},\"hud\":[]}");
         Map<String, JsonElement> patch = LoadoutDiff.diff(null, after);
-        assertTrue(patch.size() > 40, "every setting of all twelve mods: " + patch.size());
+        assertTrue(patch.size() > 40, "every setting of all thirteen mods: " + patch.size());
         for (String path : patch.keySet()) {
             assertTrue(path.matches("^mods\\.[a-z_]+\\.[a-z_]+$"),
                     path + " does not match the state_patch path pattern");

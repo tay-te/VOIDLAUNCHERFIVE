@@ -145,6 +145,70 @@ pub fn install_mod_jar(paths: &Paths, jar: &Path) -> Result<PathBuf> {
     Ok(dest)
 }
 
+/// A `void-client` JAR sitting in the game's `mods/` directory.
+///
+/// Fabric loads whatever is in that directory, so this — not `config.mod_jar` — is what
+/// the game will actually run. The two are the same thing only when the install step ran
+/// this launch, which it does not when `mod_jar` is unset.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstalledMod {
+    /// Full path to the jar.
+    pub path: PathBuf,
+    /// Size in bytes.
+    pub len: u64,
+    /// Last-modified time, or `None` if the filesystem would not say.
+    pub modified: Option<std::time::SystemTime>,
+}
+
+impl InstalledMod {
+    /// The file name, for a log line that does not need the whole path.
+    pub fn name(&self) -> std::borrow::Cow<'_, str> {
+        self.path.file_name().unwrap_or_default().to_string_lossy()
+    }
+
+    /// How long ago the jar was written, or `None` if it is not knowable.
+    pub fn age(&self) -> Option<std::time::Duration> {
+        self.modified.and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
+    }
+}
+
+/// Every `void-client-*.jar` currently in `mods/`, newest first.
+///
+/// Exists so the launcher can say **which jar it is about to run** rather than assuming
+/// it is the one it was configured with. A stale jar in `mods/` is completely silent: it
+/// connects to the bridge, answers `hello`, and behaves like a healthy client while
+/// running code from days ago — so the handshake watchdog never fires and every test run
+/// against it is measuring the wrong binary. Reporting is the only defence, because
+/// nothing here can know what the jar *should* have contained.
+pub fn installed_mod_jars(paths: &Paths) -> Vec<InstalledMod> {
+    let mods = paths.mods_dir();
+    let Ok(entries) = std::fs::read_dir(&mods) else {
+        return Vec::new();
+    };
+    let mut found: Vec<InstalledMod> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.extension().is_some_and(|e| e == "jar")
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("void-client-"))
+        })
+        .map(|path| {
+            let meta = std::fs::metadata(&path).ok();
+            InstalledMod {
+                len: meta.as_ref().map(|m| m.len()).unwrap_or(0),
+                modified: meta.and_then(|m| m.modified().ok()),
+                path,
+            }
+        })
+        .collect();
+    // Newest first, and `None` last: a jar whose mtime is unreadable is the least
+    // trustworthy thing in the list, not the most recent.
+    found.sort_by(|a, b| b.modified.cmp(&a.modified));
+    found
+}
+
 /// The argument list with `${...}` placeholders still in it.
 ///
 /// Cached on disk, because building it means walking the whole library list and the
@@ -170,6 +234,15 @@ pub fn build_arg_template(
 
     args.push(format!("-Xmx{max_memory_mb}M"));
     args.push(format!("-Xms{}M", (max_memory_mb / 4).clamp(256, 1024)));
+    // Note for whoever chases this next: every 1.8.9 launch prints "CodeCache is full. Compiler has
+    // been disabled." a few seconds in, with an absurd summary — `used=13844Kb free=117227Kb`, then
+    // "not enough contiguous free space left". It reads like the JIT dying, and it is not. Raising
+    // the cache to `-XX:InitialCodeCacheSize=64m -XX:ReservedCodeCacheSize=256m` reproduces the
+    // warning verbatim at `used=15830Kb free=246313Kb`, and `jstat -compiler` shows the compiled
+    // count still climbing (8768 -> 9044 over 15 s) well after it prints. UseCodeCacheFlushing
+    // sweeps and compilation resumes; the message is transient and this JDK 8 arm64 build just
+    // reports it badly. The flags were measured against the in-game repaint rate and changed
+    // nothing, so they are deliberately not set.
     args.push(format!("-Djava.library.path={}", natives_dir.display()));
     args.push(format!("-Dorg.lwjgl.librarypath={}", natives_dir.display()));
     args.push(format!("-Dminecraft.launcher.brand={LAUNCHER_BRAND}"));
@@ -209,7 +282,22 @@ pub fn build_arg_template(
     ArgTemplate { profile_hash: profile.hash(), args }
 }
 
-/// Builds the template, reusing `cache/args/<hash>.json` when it is still valid.
+/// Builds the template and records it at `cache/args/<hash>.json`.
+///
+/// §12 calls this a cache "keyed by manifest hash", and it used to be read back as one. It cannot
+/// be: the key covers the profile, the natives directory, the memory setting and the caller's extra
+/// arguments, but the template is mostly arguments this function hardcodes, and *none* of those are
+/// in the key. So every edit to the list above was a no-op on any machine that had already launched
+/// — the launcher went on spawning the JVM with the arguments some earlier build had written. That
+/// cost a full debugging cycle here: `-XX:InitialCodeCacheSize` looked like it did nothing, because
+/// the flag never reached the JVM.
+///
+/// Keying on the launcher version would fix released builds and still mislead during development,
+/// where the version does not move between builds. There is nothing to buy the risk with anyway:
+/// building the template is `Vec<String>` pushes and one path join, with no I/O — the read it
+/// replaced was the only syscall in the function. So it is always built, and the file is kept
+/// purely as a record of what the last launch was given, which is what makes it worth reading when
+/// a user reports a launch that behaved unlike ours.
 pub fn cached_arg_template(
     profile: &LaunchProfile,
     paths: &Paths,
@@ -220,17 +308,6 @@ pub fn cached_arg_template(
 ) -> Result<ArgTemplate> {
     let key = cache_key(profile, natives_dir, max_memory_mb, extra_jvm_args);
     let file = paths.args_cache_dir().join(format!("{key}.json"));
-
-    if let Ok(text) = std::fs::read_to_string(&file) {
-        match serde_json::from_str::<ArgTemplate>(&text) {
-            Ok(cached) if cached.profile_hash == profile.hash() => {
-                tracing::debug!(path = %file.display(), "reusing cached JVM arguments");
-                return Ok(cached);
-            }
-            Ok(_) => tracing::debug!("cached JVM arguments are for another profile"),
-            Err(e) => tracing::warn!(error = %e, "ignoring an unreadable argument cache"),
-        }
-    }
 
     let template =
         build_arg_template(profile, paths, natives_dir, os, max_memory_mb, extra_jvm_args);
@@ -342,9 +419,27 @@ pub async fn launch(
 ) -> Result<GameProcess> {
     paths.ensure()?;
     let natives = extract_natives(profile, paths)?;
-    if let Some(jar) = &options.mod_jar {
-        let installed = install_mod_jar(paths, jar)?;
-        tracing::info!(path = %installed.display(), "installed the void-client mod");
+    match &options.mod_jar {
+        Some(jar) => {
+            let installed = install_mod_jar(paths, jar)?;
+            tracing::info!(path = %installed.display(), "installed the void-client mod");
+        }
+        // Not an error, and deliberately not silent. Skipping the install leaves whatever
+        // is already in `mods/` in charge, which is how a three-day-old jar kept answering
+        // the bridge as if it were current. The caller with a log drawer says so; this
+        // says it for the CLI and the tests.
+        None => match installed_mod_jars(paths).first() {
+            Some(found) => tracing::warn!(
+                path = %found.path.display(),
+                age_secs = found.age().map(|d| d.as_secs()),
+                "config.mod_jar is unset, so nothing was installed; the game will run the \
+                 void-client jar already in mods/, whatever version that is"
+            ),
+            None => tracing::warn!(
+                "config.mod_jar is unset and mods/ holds no void-client jar; the game will \
+                 run vanilla"
+            ),
+        },
     }
 
     let template = cached_arg_template(
@@ -532,7 +627,7 @@ mod tests {
     }
 
     #[test]
-    fn the_argument_cache_hits_for_the_same_profile_and_misses_for_another() {
+    fn the_argument_record_is_written_but_never_read_back() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::at(dir.path());
         paths.ensure().unwrap();
@@ -544,14 +639,25 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(std::fs::read_dir(paths.args_cache_dir()).unwrap().count(), 1);
 
-        // A different heap is a different command line, so a different cache entry.
+        // A different heap is a different command line, so a different record.
         let bigger = cached_arg_template(&profile, &paths, &natives, Os::Linux, 4096, &[]).unwrap();
         assert_ne!(first.args, bigger.args);
         assert_eq!(std::fs::read_dir(paths.args_cache_dir()).unwrap().count(), 2);
 
-        // A changed profile invalidates the entry even at the same key.
-        let mut changed = profile.clone();
-        changed.main_class = "other.Main".into();
-        assert_ne!(changed.hash(), profile.hash());
+        // The regression this function used to have: the key covers the profile, the natives dir,
+        // the heap and the caller's extra arguments, but not the arguments the builder hardcodes.
+        // So a file left by an older launcher sat at exactly the key the current one computes, and
+        // reading it back meant shipping that build's flags forever. Poison the file to prove the
+        // freshly built template wins.
+        let key = cache_key(&profile, &natives, 2048, &[]);
+        let poisoned = ArgTemplate { profile_hash: profile.hash(), args: vec!["-Xstale".into()] };
+        std::fs::write(
+            paths.args_cache_dir().join(format!("{key}.json")),
+            serde_json::to_string(&poisoned).unwrap(),
+        )
+        .unwrap();
+
+        let after = cached_arg_template(&profile, &paths, &natives, Os::Linux, 2048, &[]).unwrap();
+        assert_eq!(after.args, first.args, "a stale record must not become the command line");
     }
 }

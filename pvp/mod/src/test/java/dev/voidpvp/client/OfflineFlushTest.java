@@ -51,6 +51,30 @@ class OfflineFlushTest {
     }
 
     @Test
+    @DisplayName("globals coalesce per key, so a reset's transient never reaches disk")
+    void globalsCoalesce() {
+        OutboundQueue queue = new OutboundQueue();
+        assertTrue(queue.isEmpty());
+        // Exactly what the HUD editor's `Reset layout` does: stand the snap grid down for
+        // the restore and put it straight back. Replaying both would write the transient 0
+        // to settings.json and then correct it.
+        queue.addGlobals(patch("hud_editor_grid", new JsonPrimitive(0)));
+        queue.addGlobals(patch("hud_editor_grid", new JsonPrimitive(8)));
+        queue.addGlobals(patch("menu_key", new JsonPrimitive("GRAVE")));
+        assertFalse(queue.isEmpty());
+
+        List<JsonObject> drained = queue.drain();
+        assertEquals(1, drained.size(), "one globals message for everything owed");
+        JsonObject out = drained.get(0);
+        assertEquals("globals", out.get("t").getAsString());
+        JsonObject p = out.getAsJsonObject("patch");
+        assertEquals(2, p.entrySet().size());
+        assertEquals(8, p.get("hud_editor_grid").getAsInt(), "the last write wins");
+        assertEquals("GRAVE", p.get("menu_key").getAsString());
+        assertTrue(queue.isEmpty(), "draining empties it");
+    }
+
+    @Test
     @DisplayName("each loadout gets its own state message")
     void patchesAreGroupedByLoadout() {
         OutboundQueue queue = new OutboundQueue();

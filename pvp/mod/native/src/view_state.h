@@ -14,6 +14,24 @@ struct ViewState {
   ULView view = nullptr;
   bool accelerated = true;
 
+  // Accelerated path only: the double buffer. Ultralight paints into its own render target on the
+  // UI thread while the game thread samples one of these, so the game never sees a frame that is
+  // half drawn and never waits for one to finish — the two textures alternate, so the one being
+  // copied into is never the one that was last published. A mutex would have been the other way to
+  // do it and is the one thing the threading split forbids: it would stop the game thread dead
+  // inside a UI-thread paint.
+  unsigned int present_texture[2] = {0, 0};
+  unsigned int present_index = 0;
+  // Per texture, not shared. Sharing one size record leaves the buffer that is not copied into on
+  // the frame a resize lands still allocated at the old size: the copy then fills its top-left
+  // corner and the blit, which samples the whole texture, shows that frame very slightly scaled.
+  // Alternating with a correct one, that is a subtle constant flicker — the exact symptom this
+  // double buffer exists to remove.
+  unsigned int present_width[2] = {0, 0};
+  unsigned int present_height[2] = {0, 0};
+  // Which command list the published texture holds, so a still menu copies nothing.
+  unsigned long long presented_serial = 0;
+
   // CPU path only: the GL texture the view's surface is uploaded into, owned by the binding so
   // that glTextureId() means the same thing to Java whichever renderer is in use.
   unsigned int cpu_texture = 0;

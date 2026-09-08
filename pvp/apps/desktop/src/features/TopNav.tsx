@@ -1,8 +1,9 @@
 /**
- * The 1300 × 62 chrome of every frame: mark, five nav tabs, "Ask VOID anything ⌘K",
- * settings, avatar — plus the window controls a frameless window needs.
+ * The navbar of §7: mark, five nav tabs, search, settings and the profile chip — plus
+ * the window controls a frameless window needs. 80px tall, sitting on `--bg-shell`,
+ * with the content panel inset below it.
  *
- * `TopNav`, `NavItem`, `SearchBar`, `IconButton`, `Kbd` and `Avatar` are `@void/ui`'s;
+ * `TopNav`, `NavItem`, `SearchBar` and `Avatar` are `@void/ui`'s;
  * the only things added here are the two nav marks the shared set has no reason to
  * carry (`local/glyphs`) and the Tauri window buttons, which exist because this bundle
  * runs in a window and the in-game one does not.
@@ -12,14 +13,12 @@
  * can be `decorations: false` without becoming unmovable.
  */
 
-import { Avatar, Icon, IconButton, NavItem, SearchBar, TopNav as TopNavBar } from '@void/ui';
-import type { ReactElement } from 'react';
+import { Avatar, NavItem, SearchBar, TopNav as TopNavBar } from '@void/ui';
 
 import {
-  CosmeticsGlyph,
+  MarkGlyph,
   MaximiseGlyph,
   MinimiseGlyph,
-  ServersGlyph,
   TerminalGlyph,
   WindowCloseGlyph,
 } from '../local/glyphs';
@@ -27,18 +26,6 @@ import { invoke, IS_TAURI } from '../local/tauri';
 import { useLaunch } from '../stores/launch';
 import { useSession } from '../stores/session';
 import { SCREENS, SCREEN_LABELS, useUi, type Screen } from '../stores/ui';
-
-/**
- * The nav marks. Three come from the shared set; Cosmetics and Servers are local
- * because the overlay has neither screen — see `local/glyphs.tsx`.
- */
-const NAV_ICONS: Record<Screen, ReactElement> = {
-  play: <Icon name="play" size={14} />,
-  mods: <Icon name="layers" size={14} />,
-  cosmetics: <CosmeticsGlyph size={14} />,
-  servers: <ServersGlyph size={14} />,
-  friends: <Icon name="users" size={14} />,
-};
 
 export function TopNav() {
   const screen = useUi((s) => s.screen);
@@ -51,13 +38,15 @@ export function TopNav() {
 
   return (
     <TopNavBar
+      hideMark
       data-tauri-drag-region
       right={
         <>
           <SearchBar
-            placeholder="Ask VOID anything"
+            placeholder="Search VOID"
             value=""
-            aria-label="Ask VOID anything"
+            hint={<span className="v-kbd v-kbd--nav">⌘K</span>}
+            aria-label="Search VOID"
             onMouseDown={(event) => {
               event.preventDefault();
               openPalette();
@@ -82,15 +71,28 @@ export function TopNav() {
             </button>
           ) : null}
 
-          <IconButton icon="settings" label="Settings" onClick={openSettings} />
+          {/* The profile chip. §6 settles the word: "Profile" is the player's account
+              and nothing else — a bundle of mods is a Loadout, and the dock band below
+              is where that lives.
 
+              It is also the way into Settings, which is why there is no gear beside it:
+              all three frames put exactly two controls on the right of the bar, the
+              300px search and this chip, and a separate gear pushed the search 30px off
+              the frame's x. ⌘, and the ⌘K palette reach Settings too. */}
           <button
             type="button"
-            className="topnav__avatar"
+            className="profile-chip"
             onClick={openSettings}
-            aria-label="Account"
+            title="Settings"
+            aria-label={account ? `Settings — signed in as ${account.name}` : 'Sign in'}
           >
-            <Avatar name={account?.name ?? 'VOID'} src={account?.skin_url ?? undefined} size={32} />
+            <Avatar name={account?.name ?? 'VOID'} src={account?.skin_url ?? undefined} size={28} />
+            <span className="profile-chip__text">
+              <span className="profile-chip__name">{account?.name ?? 'Sign in'}</span>
+              <span className="profile-chip__kind">
+                {account ? (account.kind === 'offline' ? 'Offline' : 'Microsoft') : 'Signed out'}
+              </span>
+            </span>
           </button>
 
           {IS_TAURI ? (
@@ -124,9 +126,19 @@ export function TopNav() {
         </>
       }
     >
+      {/* The lockup. It rides in the tab group rather than the package's own
+          `v-topnav__mark`, which has no room beside it for the wordmark the frames
+          draw — see `.brand` in `local/app.css`. */}
+      <span className="brand" aria-hidden="true">
+        <span className="brand__mark">
+          <MarkGlyph size={16} />
+        </span>
+        <span className="brand__word">VOID</span>
+      </span>
+
+      {/* Text only. The frames carry no glyph on a nav tab. */}
       {SCREENS.map((id: Screen) => (
         <NavItem key={id} active={screen === id} onClick={() => go(id)}>
-          <span className="v-navitem__icon">{NAV_ICONS[id]}</span>
           {SCREEN_LABELS[id]}
         </NavItem>
       ))}

@@ -50,7 +50,7 @@
 
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 12 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 13 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -61,6 +61,7 @@
         "coordinates": { "description": "Coordinates state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/coordinates_settings" },
         "armor_status": { "description": "Armor status state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/armor_status_settings" },
         "potion_effects": { "description": "Potion effects state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/potion_effects_settings" },
+        "watermark": { "description": "VOID watermark state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/watermark_settings" },
         "toggle_sprint": { "description": "Toggle sprint state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/toggle_sprint_settings" },
         "fullbright": { "description": "Fullbright state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/fullbright_settings" },
         "hitboxes": { "description": "Hitboxes state and settings.", "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/hitboxes_settings" },
@@ -93,9 +94,9 @@
 
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 8, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 7,
+      "maxItems": 8,
       "items": { "description": "One HUD item placement.", "$ref": "#/definitions/hud_item" }
     },
 
@@ -126,7 +127,8 @@
         "coordinates": { "on": false },
         "armor_status": { "on": true, "orientation": "horizontal", "show_durability": true, "show_held_item": true },
         "potion_effects": { "on": true },
-        "toggle_sprint": { "on": true, "mode": "toggle", "show_status": true },
+        "watermark": { "on": true, "scale": 1, "opacity": 0.9, "style": "full" },
+        "toggle_sprint": { "on": true, "mode": "toggle" },
         "fullbright": { "on": false, "gamma": 10 },
         "hitboxes": { "on": false },
         "zoom": { "on": true, "key": "C", "fov_divisor": 4, "smooth": true },
@@ -137,6 +139,7 @@
         { "id": "cps", "anchor": "bottom-left", "dx": 32, "dy": -8, "scale": 1 },
         { "id": "fps", "anchor": "top-left", "dx": 20, "dy": 20 },
         { "id": "ping", "anchor": "top-left", "dx": 20, "dy": 38 },
+        { "id": "watermark", "anchor": "top-left", "dx": 20, "dy": 58, "scale": 1 },
         { "id": "armor_status", "anchor": "right", "dx": -20, "dy": 0 },
         { "id": "potion_effects", "anchor": "top-right", "dx": -20, "dy": 20 }
       ],

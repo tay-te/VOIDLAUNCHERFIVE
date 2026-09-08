@@ -12,7 +12,7 @@
 //!    refuses to launch.
 
 use serde::{Deserialize, Serialize};
-use void_loadout::{GlobalSettings, HudItem, Loadout, LoadoutId, StatePatch};
+use void_loadout::{GlobalPatch, GlobalSettings, HudItem, Loadout, LoadoutId, StatePatch};
 
 /// The protocol version carried on `hello` and `init`. Bumped on any breaking change.
 ///
@@ -53,6 +53,21 @@ pub enum JavaToRust {
         loadout: LoadoutId,
         /// The complete new layout.
         items: Vec<HudItem>,
+    },
+
+    /// A global setting written in game; a delta, never the whole object.
+    ///
+    /// The counterpart of [`JavaToRust::State`] for the non-loadout half of §8.3, and the
+    /// reason a global written in game survives the process at all: without it `setGlobal`
+    /// is in-process only and `hud_editor_grid` reverts at every launch.
+    ///
+    /// A delta because the mod's own `GlobalSettings` is a fixed five-field class, so a
+    /// whole-object echo would erase every global the launcher had added that the mod
+    /// does not model. `GlobalSettings::apply_patch` merges the named keys and leaves
+    /// `extra` intact.
+    Globals {
+        /// The globals that changed, and only those.
+        patch: GlobalPatch,
     },
 
     /// Periodic session telemetry summary; cumulative, not a delta.
@@ -125,6 +140,7 @@ impl JavaToRust {
             JavaToRust::Hello { .. } => "hello",
             JavaToRust::State { .. } => "state",
             JavaToRust::Hud { .. } => "hud",
+            JavaToRust::Globals { .. } => "globals",
             JavaToRust::Session { .. } => "session",
             JavaToRust::Server { .. } => "server",
             JavaToRust::Hotkey { .. } => "hotkey",

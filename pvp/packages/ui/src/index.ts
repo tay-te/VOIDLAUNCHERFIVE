@@ -13,7 +13,7 @@
  *
  * ```ts
  * import '@void/ui/tokens.css';   // the design tokens + the renderer layers
- * import '@void/ui/fonts.css';    // the three bundled OFL families
+ * import '@void/ui/fonts.css';    // Outfit, the one bundled OFL family
  * import '@void/ui/styles.css';   // the component styles
  * ```
  *
@@ -71,10 +71,13 @@ export type {
 
 /* -------------------------------------------------------------- controls */
 
-export { Toggle, Slider, KeybindChip, FilterTabs } from './components/controls.js';
+export { Toggle, Cell, Meter, Slider, KeybindChip, FilterTabs } from './components/controls.js';
 export type {
   ToggleProps,
   ToggleSize,
+  CellProps,
+  CellState,
+  MeterProps,
   SliderProps,
   KeybindChipProps,
   FilterTabsProps,
@@ -203,7 +206,23 @@ export {
   Hotbar,
   formatPotionTime,
   formatAmplifier,
+  keystrokesColorStyle,
+  KEYCAP_COLORS,
+  KEYCAP_PRESSED_COLORS,
 } from './components/hud.js';
+/* The crosshair's geometry, transcribed from `CrosshairGeometry.java` — the crosshair is
+   the one mod this page does not draw in game, so the settings page has to draw it itself
+   and must not draw a different one. */
+export {
+  CROSSHAIR_STYLES,
+  CROSSHAIR_UNIT_PREVIEW,
+  asCrosshairStyle,
+  crosshairRects,
+  dynamicSpread,
+  isRing,
+  keepsVanilla,
+} from './lib/crosshair.js';
+export type { CrosshairStyle, CrosshairRect } from './lib/crosshair.js';
 export type {
   HudVariant,
   HudChipProps,
@@ -217,6 +236,7 @@ export type {
   ArmorRow,
   KeystrokesWidgetProps,
   KeystrokesState,
+  CrosshairProps,
   HotbarProps,
 } from './components/hud.js';
 

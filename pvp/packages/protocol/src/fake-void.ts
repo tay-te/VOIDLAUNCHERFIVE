@@ -3,8 +3,9 @@
  *
  * There are no devtools in game (§9), so the in-game bundle must also run in a normal
  * browser against a fake bridge. This is that fake: it emits realistic `tick`, `keys`,
- * `server`, `loadout` and `menu` pushes, answers all six calls with the same clamping
- * the Java side applies, and holds a small loadout library.
+ * `server`, `session`, `settings`, `loadout` and `menu` pushes, answers all eight calls
+ * with the same clamping the Java side applies, and holds a small loadout library and a
+ * set of globals.
  *
  * It is **deterministic**: give it a `seed` and drive it with {@link FakeVoid.advance}
  * and every number it produces is reproducible, which is what makes it usable in tests.
@@ -14,6 +15,7 @@
 import { LOADOUT_EXAMPLES } from './generated/examples.js';
 import type {
   ArmorSlot,
+  GlobalSettings,
   HUDItem,
   Keybind,
   KeysPayload,
@@ -26,8 +28,10 @@ import type {
 } from './generated/schema.js';
 import { getModDefaults, isModId } from './mods.js';
 import type {
+  GlobalSettingValue,
   HudPlacement,
   ModSettingValue,
+  SessionInfo,
   VoidBridge,
   VoidCallEnvelope,
   VoidEnvelope,
@@ -78,12 +82,16 @@ const UHC_LOADOUT: Loadout = {
     ping: { on: true },
     keystrokes: { on: false },
     cps: { on: false },
+    watermark: { on: true, scale: 1, opacity: 0.9, style: 'full' },
   },
   hud: [
     { id: 'armor_status', anchor: 'right', dx: -20, dy: 0 },
     { id: 'potion_effects', anchor: 'top-right', dx: -20, dy: 20 },
     { id: 'coordinates', anchor: 'top-left', dx: 20, dy: 56 },
     { id: 'fps', anchor: 'top-left', dx: 20, dy: 20 },
+    // Under the top-left stack, where every PvP client puts its mark. The two schema
+    // examples carry it already; this one is hand-written here, so it needs saying.
+    { id: 'watermark', anchor: 'top-left', dx: 20, dy: 74 },
   ],
   stats: { played_ms: 2880000, fps_avg: 0 },
 };
@@ -103,7 +111,16 @@ function structuredCloneish<T>(value: T): T {
 /* Clamping                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Numeric ranges from `mods.json`. Java clamps rather than throws; so do we. */
+/**
+ * Numeric ranges from `mods.json`. Java clamps rather than throws; so do we.
+ *
+ * This is the **fourth** transcription of those bounds — the schema, `mods.rs`, `ModRegistry.java`
+ * and this — and nothing walks the four against each other, so two of them had drifted: `decimals`
+ * said `[0, 3]` where every other copy says `[0, 2]`, and `corner_radius` was missing outright, so
+ * the browser harness stored values the real client clamps. Both are fixed below. Anything added
+ * here has to match `schema/mods.json`; the harness is where UI work is done, and a harness that
+ * accepts what the game rejects is a harness that teaches you the wrong thing.
+ */
 const SETTING_RANGES: Record<string, readonly [number, number]> = {
   scale: [0.25, 4],
   opacity: [0, 1],
@@ -115,11 +132,24 @@ const SETTING_RANGES: Record<string, readonly [number, number]> = {
   gap: [0, 10],
   good_ms: [0, 1000],
   bad_ms: [0, 2000],
-  decimals: [0, 3],
+  // 0-2: `TickCoalescer` rounds the position to 2 dp before it publishes it, so a third place
+  // could only ever print a zero.
+  decimals: [0, 2],
   line_width: [0.5, 5],
+  corner_radius: [0, 20],
+  warn_below: [0, 1],
 };
 
-const INTEGER_SETTINGS = new Set(['window_ms', 'size', 'thickness', 'gap', 'good_ms', 'bad_ms', 'decimals']);
+const INTEGER_SETTINGS = new Set([
+  'window_ms',
+  'size',
+  'thickness',
+  'gap',
+  'good_ms',
+  'bad_ms',
+  'decimals',
+  'corner_radius',
+]);
 
 function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
   const range = SETTING_RANGES[key];
@@ -130,6 +160,46 @@ function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
+
+/** The factory globals: every default `protocol.json#/definitions/global_settings` states. */
+export const FAKE_GLOBAL_SETTINGS: GlobalSettings = Object.freeze({
+  menu_key: 'RSHIFT',
+  cycle_loadout_key: 'L',
+  theme: 'void-dark',
+  ui_scale: 1,
+  hud_editor_grid: 4,
+});
+
+/** `mods.json#/definitions/keybind`, as an anchored regex. `openKeybindCapture` produces these. */
+const KEYBIND_RE =
+  /^(?:NONE|[A-Z0-9]|F[1-9]|F1[0-2]|NUMPAD[0-9]|MOUSE[0-7]|SPACE|TAB|ESCAPE|RETURN|BACK|DELETE|INSERT|HOME|END|PRIOR|NEXT|UP|DOWN|LEFT|RIGHT|LSHIFT|RSHIFT|LCONTROL|RCONTROL|LMENU|RMENU|CAPITAL|LBRACKET|RBRACKET|SEMICOLON|APOSTROPHE|COMMA|PERIOD|SLASH|BACKSLASH|MINUS|EQUALS|GRAVE)$/;
+
+/**
+ * Validate and clamp one global the way Java does, or return null for "nothing stored".
+ *
+ * Null is a real answer here, not an error channel: `setGlobal` returns what was stored,
+ * and an unknown key or an unusable value stores nothing. The page keeps the value it had.
+ */
+function clampGlobal(key: string, value: GlobalSettingValue): GlobalSettingValue {
+  switch (key) {
+    case 'menu_key':
+    case 'cycle_loadout_key':
+      return typeof value === 'string' && KEYBIND_RE.test(value) ? value : null;
+    case 'theme':
+      return typeof value === 'string' && value.length >= 1 && value.length <= 32
+        ? value
+        : null;
+    case 'ui_scale':
+      return typeof value === 'number' && !Number.isNaN(value) ? clamp(value, 0.5, 3) : null;
+    case 'hud_editor_grid':
+      return typeof value === 'number' && !Number.isNaN(value)
+        ? Math.round(clamp(value, 0, 64))
+        : null;
+    default:
+      // A key this build does not know. Java answers null rather than inventing storage.
+      return null;
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /* Options and surface                                                        */
@@ -145,6 +215,10 @@ export interface FakeVoidOptions {
   activeLoadoutId?: LoadoutId;
   /** Initial server presence. Defaults to `mc.hypixel.net`, connected. */
   server?: ServerPayload;
+  /** Who is playing. Defaults to an offline `Player`. */
+  session?: SessionInfo;
+  /** Initial globals. Defaults to {@link FAKE_GLOBAL_SETTINGS}. */
+  settings?: GlobalSettings;
   /** Whether the menu layer starts open. Defaults to false. */
   menuOpen?: boolean;
   /** Tick rate in Hz. Defaults to 20, the game's tick rate. */
@@ -178,8 +252,8 @@ export interface FakeVoid extends VoidBridge {
   /** Emit exactly one tick's worth of pushes. */
   tickOnce(): void;
   /**
-   * Push the opening world of state — `loadouts`, `loadout`, `server`, then `menu` —
-   * the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
+   * Push the opening world of state — `loadouts`, `loadout`, `server`, `session`,
+   * `settings`, then `menu` — the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
    * yourself when you drive the fake with {@link FakeVoid.advance} instead.
    */
   emitInitialState(): void;
@@ -193,6 +267,16 @@ export interface FakeVoid extends VoidBridge {
   getKeys(): KeysPayload;
   /** Set server presence, emitting `server`. */
   setServer(server: ServerPayload): void;
+  /** Who is playing. Immutable, like the real one. */
+  getSession(): SessionInfo;
+  /** The globals as currently stored (a copy). */
+  getSettings(): GlobalSettings;
+  /**
+   * Replace the globals the way Rust does when the launcher changes them mid-session,
+   * emitting `settings`. Distinct from `setGlobal`, which is the *page* asking and pushes
+   * nothing back.
+   */
+  applySettings(settings: GlobalSettings): void;
   /**
    * Change one mod setting the way Java does on its own — an in-game hotkey toggling a
    * mod — clamping it and emitting the `setting` event. Returns the value stored.
@@ -307,7 +391,15 @@ export function cardinalFromYaw(yaw: number): (typeof CARDINALS)[number] {
 export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   const tickHz = options.tickHz ?? 20;
   const stepMs = 1000 / tickHz;
-  const snapGrid = options.snapGrid ?? 4;
+  /**
+   * The live snap grid, not a construction-time constant.
+   *
+   * Java reads `LiveState.hudEditorGrid` on every `setHud` and the in-game editor's `Snap`
+   * toggle writes it through `setGlobal('hud_editor_grid', …)`, so a fake that snapped against
+   * whatever it was built with would answer differently from the mod for the one control whose
+   * whole job is to change this number. `options.snapGrid` is the starting value.
+   */
+  let snapGrid = options.snapGrid ?? 4;
   const menuKey = options.menuKey ?? 'ShiftRight';
   const random = mulberry32(options.seed ?? 0x5eed);
 
@@ -322,6 +414,12 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
 
   let menuOpen = options.menuOpen ?? false;
   let server: ServerPayload = options.server ?? { host: 'mc.hypixel.net', connected: true };
+  const session: SessionInfo = options.session ?? {
+    name: 'Player',
+    uuid: '00000000-0000-0000-0000-000000000000',
+    kind: 'offline',
+  };
+  let settings: GlobalSettings = { ...FAKE_GLOBAL_SETTINGS, ...(options.settings ?? {}) };
   let timer: ReturnType<typeof setInterval> | null = null;
   let detachKeyboard: (() => void) | null = null;
   let clockMs = 0;
@@ -543,6 +641,18 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return applied;
     },
 
+    setGlobal(key, value) {
+      record({ c: 'setGlobal', params: [key, value] });
+      const applied = clampGlobal(key, value);
+      // Null means nothing was stored, so nothing is written — and, exactly as §6.5 has
+      // it for `setModSetting`, no `settings` event follows even when something was:
+      // the caller already has the answer, and a push would fight the live control.
+      if (applied !== null) settings = { ...settings, [key]: applied };
+      // …and this one is not just stored, it is *used*, by `setHud` below. Same as Java.
+      if (key === 'hud_editor_grid' && typeof applied === 'number') snapGrid = applied;
+      return applied;
+    },
+
     switchLoadout(id) {
       record({ c: 'switchLoadout', params: [id] });
       const found = library.find((l) => l.id === id);
@@ -556,6 +666,13 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       record({ c: 'closeMenu', params: [] });
       if (menuOpen) emit({ e: 'menu', payload: false });
       return null;
+    },
+
+    setSurfaces(surfaces) {
+      // The harness has no GL pass, so there is nothing to draw — but recording the call keeps
+      // the shape honest for the tests that round-trip every example in bridge.json.
+      record({ c: 'setSurfaces', params: [surfaces] });
+      return surfaces.length;
     },
 
     openKeybindCapture(modId) {
@@ -574,6 +691,10 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       emit({ e: 'loadouts', payload: library.map(structuredCloneish) });
       emit({ e: 'loadout', payload: structuredCloneish(active) });
       emit({ e: 'server', payload: { ...server } });
+      // `session` and `settings` ride the same whole-state push Java makes: both are
+      // world state the page cannot ask for, only be told.
+      emit({ e: 'session', payload: { ...session } });
+      emit({ e: 'settings', payload: { ...settings } });
       emit({ e: 'menu', payload: menuOpen });
     },
 
@@ -631,6 +752,19 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     setServer(next) {
       server = { ...next };
       emit({ e: 'server', payload: { ...server } });
+    },
+
+    getSession() {
+      return { ...session };
+    },
+
+    getSettings() {
+      return { ...settings };
+    },
+
+    applySettings(next) {
+      settings = { ...next };
+      emit({ e: 'settings', payload: { ...settings } });
     },
 
     applyModSetting(id, key, value) {

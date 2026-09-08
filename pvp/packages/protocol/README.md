@@ -10,7 +10,7 @@ shim**, one **fake bridge** and the **mod registry** — shared by `apps/desktop
 import {
   createFakeVoid,   // an in-memory window.void for browser development
   installVoidShim,  // the reference implementation of void-shim.js
-  MOD_REGISTRY,     // the closed registry of the 12 mods
+  MOD_REGISTRY,     // the closed registry of the 13 mods
   hypixelReady,     // the rule behind the HYPIXEL-READY badge
   type Loadout,     // …and every generated type
   type VoidBridge,
@@ -42,7 +42,7 @@ Because `examples.ts` annotates each array with its generated type, a drift betw
 schema and the generated types fails `pnpm typecheck` before any test runs.
 `test/schema-examples.test.ts` then validates every example against its own schema with
 Ajv, and asserts the cross-checks JSON Schema cannot state — that the registry contains
-exactly the 12 ids in the `mod_id` enum, that `hud_mod_id`/`gameplay_mod_id` agree with
+exactly the 13 ids in the `mod_id` enum, that `hud_mod_id`/`gameplay_mod_id` agree with
 each entry's `kind`, and that every `defaults` object satisfies its own settings
 sub-schema.
 
@@ -63,20 +63,32 @@ interface VoidBridge {
   setGameplay(id: GameplayModId, on: boolean): boolean;
   setHud(id: HUDModId, placement: HudPlacement): HUDItem;
   setModSetting(id: ModId, key: string, value: ModSettingValue): ModSettingValue;
+  setGlobal(key: string, value: GlobalSettingValue): GlobalSettingValue;
   switchLoadout(id: LoadoutId): boolean;
   closeMenu(): null;
   openKeybindCapture(modId: ModId): Promise<Keybind | null>;
 }
 ```
 
-Seven push channels — `keys`, `tick`, `server`, `loadout`, `loadouts`, `setting`, `menu`
-— and six calls. The bridge is in-process (Ultralight lives inside the JVM), so calls are
-**synchronous and authoritative**: they return the state actually applied. Bind your
-control to the return value, never to what you sent.
+Nine push channels — `keys`, `tick`, `server`, `loadout`, `loadouts`, `setting`, `menu`,
+`session`, `settings` — and eight calls. The bridge is in-process (Ultralight lives inside
+the JVM), so calls are **synchronous and authoritative**: they return the state actually
+applied. Bind your control to the return value, never to what you sent.
 
 `loadouts` carries the whole library, in full, from `init.loadouts`; `setting` carries one
-`{id, key, value}` Java changed by itself, such as an in-game hotkey. Neither is pushed for
-anything the page did through a call — those already returned their applied value.
+`{id, key, value}` Java changed by itself, such as an in-game hotkey; `settings` carries
+the whole `global_settings` object. None of the three is pushed for anything the page did
+through a call — those already returned their applied value.
+
+`session` is the one immutable channel: who is playing, pushed once on the first paint.
+`setGlobal` is `setModSetting` one level up — the globals of §8.3 rather than a mod's
+settings — and answers `null` when nothing was stored, meaning the control should keep
+the value it had.
+
+**The channel list is closed on both sides.** `on` hands back a no-op subscription for a
+name it does not know and `__emit` drops an envelope whose channel has no list, so a
+channel Java pushes that `VOID_EVENTS` does not carry is lost in silence rather than
+erroring. That is how `session` went missing the first time it was sent.
 
 ### How it is assembled at runtime
 
@@ -129,13 +141,15 @@ fake.start();            // 20 Hz pushes on a real timer
 ```
 
 On `emitInitialState()` it pushes `loadouts` — the whole library — then `loadout`,
-`server` and `menu`, in the order Java does after `init`. It emits a realistic `tick` at
+`server`, `session`, `settings` and `menu`, in the order Java does after `init`. It emits a realistic `tick` at
 20 Hz — fps wandering in 130–160, ping in 40–50,
 coordinates drifting as the player walks, armour durability ticking down while LMB is
 held, and two potion effects (`Speed II` and `Strength`) counting down — plus random,
 **edge-triggered** `keys`: a push happens only when a key actually changes. It answers
-all six calls with the same clamping Java applies (`setHud` snaps to the 4px grid and
-clamps scale to 0.25–4; `setModSetting` clamps to each setting's range in `mods.json`),
+all eight calls with the same clamping Java applies (`setHud` snaps to the 4px grid and
+clamps scale to 0.25–4; `setModSetting` clamps to each setting's range in `mods.json`;
+`setGlobal` clamps `ui_scale` to 0.5–3 and answers null for a key or value it cannot
+store),
 holds three loadouts (`loadout.json`'s two examples plus a UHC card matching the
 Loadouts frame), and toggles `menu` on Right Shift keydown.
 
@@ -166,7 +180,7 @@ needs:
 
 | Export | What it answers |
 |---|---|
-| `MOD_REGISTRY`, `MOD_REGISTRY_VERSION` | the 12 rows, keyed by id |
+| `MOD_REGISTRY`, `MOD_REGISTRY_VERSION` | the 13 rows, keyed by id |
 | `getModCategory`, `MOD_CATEGORIES`, `MOD_FILTER_TABS`, `getCategoryLabel`, `isModCategory`, `modsInCategory` | the Mods panel's filter taxonomy — `hud`/`pvp`/`visual`/`utility`, straight out of `mods.json`'s `category`, never derived from `kind` |
 | `MOD_IDS`, `HUD_MOD_IDS`, `GAMEPLAY_MOD_IDS` | deterministic iteration order |
 | `isModId`, `isHudMod`, `isGameplayMod` | type guards — `isGameplayMod` gates `setGameplay`, `isHudMod` gates `setHud` |

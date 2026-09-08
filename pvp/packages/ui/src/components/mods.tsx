@@ -91,7 +91,7 @@ export function ModTile({
             checked={on}
             onChange={onToggle}
             disabled={disabled}
-            size="s"
+            size="sm"
             label={`${label} enabled`}
           />
           <Tag>{category}</Tag>
@@ -242,7 +242,7 @@ export function ModSettingsPanel({
           <Toggle
             checked={on}
             onChange={onToggle}
-            size="m"
+            size="md"
             label={typeof title === 'string' ? `${title} enabled` : 'Enabled'}
           />
         )}

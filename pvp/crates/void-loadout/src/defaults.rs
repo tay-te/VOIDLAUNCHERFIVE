@@ -2,9 +2,13 @@
 //!
 //! These are the cards on the Figma **Loadouts** frame (`244:1130`,
 //! `design/screens/Overlay-Loadouts.png`): Sword PvP on Hypixel, Bedwars on Hypixel and
-//! UHC on Minemen. Every one of the 12 mods is written explicitly rather than left to
+//! UHC on Minemen. Every one of the 13 mods is written explicitly rather than left to
 //! fall back to the registry, so "off" really means off — the registry turns most HUD
 //! mods on by default, and an omitted key would silently re-enable them.
+//!
+//! The watermark is the one mod every loadout turns on: it is VOID's own mark, its
+//! registry default is `on`, and `states()` forces `on` from the list below — so leaving
+//! it out would switch it off everywhere while the registry still said otherwise.
 
 use serde_json::Value;
 
@@ -35,7 +39,7 @@ fn hud(items: &[(HudModId, Anchor, f64, f64)]) -> Vec<HudItem> {
 /// **Sword PvP** — every HUD mod on, plus toggle sprint, zoom and the custom crosshair.
 ///
 /// The Figma's "24 mods on" is the marketing count across the whole client; in this
-/// registry the equivalent is all 7 HUD mods plus the 3 safe gameplay mods, with the two
+/// registry the equivalent is all 8 HUD mods plus the 3 safe gameplay mods, with the two
 /// `grey` mods (fullbright, hitboxes) off — which is what makes this loadout
 /// HYPIXEL-READY.
 pub fn sword_pvp() -> Loadout {
@@ -54,6 +58,7 @@ pub fn sword_pvp() -> Loadout {
                 ModId::Coordinates,
                 ModId::ArmorStatus,
                 ModId::PotionEffects,
+                ModId::Watermark,
                 ModId::ToggleSprint,
                 ModId::Zoom,
                 ModId::Crosshair,
@@ -70,6 +75,7 @@ pub fn sword_pvp() -> Loadout {
             (HudModId::Fps, Anchor::TopLeft, 20.0, 20.0),
             (HudModId::Ping, Anchor::TopLeft, 20.0, 38.0),
             (HudModId::Coordinates, Anchor::TopLeft, 20.0, 56.0),
+            (HudModId::Watermark, Anchor::TopLeft, 20.0, 74.0),
             (HudModId::PotionEffects, Anchor::TopRight, -20.0, 20.0),
             (HudModId::ArmorStatus, Anchor::Right, -20.0, 0.0),
             (HudModId::Keystrokes, Anchor::BottomLeft, 32.0, -40.0),
@@ -95,6 +101,7 @@ pub fn bedwars() -> Loadout {
                 ModId::Keystrokes,
                 ModId::ArmorStatus,
                 ModId::PotionEffects,
+                ModId::Watermark,
                 ModId::Fullbright,
                 ModId::Ping,
             ],
@@ -105,6 +112,7 @@ pub fn bedwars() -> Loadout {
         ),
         hud: hud(&[
             (HudModId::Ping, Anchor::TopLeft, 20.0, 20.0),
+            (HudModId::Watermark, Anchor::TopLeft, 20.0, 38.0),
             (HudModId::PotionEffects, Anchor::TopRight, -20.0, 20.0),
             (HudModId::ArmorStatus, Anchor::Right, -20.0, 0.0),
             (HudModId::Keystrokes, Anchor::BottomLeft, 24.0, -24.0),
@@ -129,6 +137,7 @@ pub fn uhc() -> Loadout {
                 ModId::ArmorStatus,
                 ModId::PotionEffects,
                 ModId::Coordinates,
+                ModId::Watermark,
                 ModId::Hitboxes,
                 ModId::Zoom,
             ],
@@ -141,6 +150,7 @@ pub fn uhc() -> Loadout {
         ),
         hud: hud(&[
             (HudModId::Coordinates, Anchor::TopLeft, 20.0, 20.0),
+            (HudModId::Watermark, Anchor::TopLeft, 20.0, 38.0),
             (HudModId::PotionEffects, Anchor::TopRight, -20.0, 20.0),
             (HudModId::ArmorStatus, Anchor::Right, -20.0, 0.0),
         ]),
@@ -200,6 +210,7 @@ mod tests {
                 ModId::Coordinates,
                 ModId::ArmorStatus,
                 ModId::PotionEffects,
+                ModId::Watermark,
                 ModId::ToggleSprint,
                 ModId::Zoom,
                 ModId::Crosshair,
@@ -212,6 +223,7 @@ mod tests {
                 ModId::Ping,
                 ModId::ArmorStatus,
                 ModId::PotionEffects,
+                ModId::Watermark,
                 ModId::Fullbright,
             ]
         );
@@ -221,6 +233,7 @@ mod tests {
                 ModId::Coordinates,
                 ModId::ArmorStatus,
                 ModId::PotionEffects,
+                ModId::Watermark,
                 ModId::Hitboxes,
                 ModId::Zoom,
             ]

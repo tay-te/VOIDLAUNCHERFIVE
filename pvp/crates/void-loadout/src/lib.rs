@@ -5,7 +5,7 @@
 //!
 //! This crate is the Rust side of three of the four schemas in `schema/`:
 //!
-//! - [`mods`] is `schema/mods.json`: the closed set of 12 mod ids, each mod's [`Kind`]
+//! - [`mods`] is `schema/mods.json`: the closed set of 13 mod ids, each mod's [`Kind`]
 //!   and [`HypixelSafe`] class, its typed settings and its factory defaults. The schema
 //!   document itself is compiled in with `include_str!`, so the registry cannot drift
 //!   from the contract without a test failing.
@@ -63,5 +63,5 @@ pub use mods::{
     defaults_json, registry, Category, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo,
     Registry,
 };
-pub use settings::GlobalSettings;
+pub use settings::{GlobalPatch, GlobalSettings};
 pub use store::Store;

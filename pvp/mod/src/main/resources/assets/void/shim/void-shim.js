@@ -37,9 +37,15 @@
     return;
   }
 
-  var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu'];
+  // The channel list is **closed**, and that is load-bearing rather than incidental: `on` looks
+  // the name up in `handlers` and returns a no-op subscription for anything it does not know,
+  // and `__emit` drops an envelope whose channel has no list. So a channel added on the Java
+  // side and not added here fails completely silently — no error, no warning, the page simply
+  // never hears it. That is exactly how `session` was lost the first time it was sent.
+  var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu', 'session',
+    'settings'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
-    'openKeybindCapture'];
+    'openKeybindCapture', 'setSurfaces', 'setGlobal'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -78,16 +84,22 @@
   var bridge = {
     __isVoidBridge: true,
 
-    /** The six calls of bridge.json, for a host that wants to enumerate them. */
+    /**
+     * The calls this host answers: bridge.json's seven, plus `setGlobal`. For a host that wants
+     * to enumerate them.
+     */
     __calls: CALLS,
 
-    /** The seven push channels of bridge.json. */
+    /** The push channels: bridge.json's seven, plus `session` and `settings`. */
     __events: EVENTS,
 
     /**
-     * Subscribe to one of the seven Java -> JS channels. Returns an
-     * unsubscribe function, which is what @void/protocol's VoidBridge.on
-     * promises and what the app's teardown calls.
+     * Subscribe to one of the Java -> JS channels. Returns an unsubscribe function, which is
+     * what @void/protocol's VoidBridge.on promises and what the app's teardown calls.
+     *
+     * An unknown channel gets a no-op subscription rather than a throw — a page must not die
+     * because it asked for something this host does not have — which is safe but silent, so see
+     * the note on EVENTS before adding a channel.
      */
     on: function (event, handler) {
       var list = handlers[event];
@@ -200,7 +212,7 @@
       resolveCapture(key);
     },
 
-    // -- the six calls of bridge.json --------------------------------------
+    // -- the calls: bridge.json's seven, plus setGlobal ---------------------
 
     /** Toggle a gameplay mod; returns the state actually applied. */
     setGameplay: function (id, on) {
@@ -217,6 +229,20 @@
       return call('setModSetting', [id, key, value]);
     },
 
+    /**
+     * Change one global setting — `ui_scale`, `menu_key`, `cycle_loadout_key`, `hud_editor_grid`
+     * or `theme`, the keys of protocol.json's global_settings. Returns the value stored, after
+     * clamping, or null for a key this host does not keep and for a value it cannot use.
+     *
+     * Bind to the return, never to what you sent: `ui_scale` clamps to 0.5..3, `menu_key` is
+     * upper-cased and rejected if it is not a real key, and a null means nothing moved. Java does
+     * not push `settings` back for a change made here — the answer below is the notification —
+     * but a reloaded page is re-sent the whole object on that channel.
+     */
+    setGlobal: function (key, value) {
+      return call('setGlobal', [key, value]);
+    },
+
     /** Switch the active loadout; returns whether the switch happened. */
     switchLoadout: function (id) {
       return call('switchLoadout', [id]);
@@ -225,6 +251,17 @@
     /** Close the menu screen and give the mouse back to the game. */
     closeMenu: function () {
       return call('closeMenu', []);
+    },
+
+    /**
+     * Hand the host the rectangles it should draw shadows behind, replacing the
+     * previous set. The overlay's CSS has no blurred shadows because a blur is
+     * the most expensive thing the CPU rasteriser does; the host draws them in
+     * GL instead, from the authored Figma values. Call on layout change, not
+     * per frame. Returns how many surfaces the host kept.
+     */
+    setSurfaces: function (surfaces) {
+      return call('setSurfaces', [surfaces]) || 0;
     },
 
     /**

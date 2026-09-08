@@ -7,18 +7,55 @@ import { cx } from '../lib/cx.js';
 /* Button                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** The button variants of the design's variant table. */
-export type ButtonVariant = 'accent' | 'raised' | 'ghost' | 'chip' | 'chip-accent' | 'text';
+/**
+ * The button variants (`design/quiet-cell-system.md` §4).
+ *
+ * Three treatments, and only three:
+ *
+ * - `primary` — `--text-primary` fill, `--bg-shell` label.
+ * - `secondary` — 1px `rgba(255,255,255,.14)`, no fill.
+ * - `ghost` — label only, no box, no underline.
+ *
+ * Note that the primary action is *not* the accent. Colour marks the live value or the
+ * selected item and nothing else (§1), so a button — which is neither — takes the ink
+ * itself as its fill.
+ *
+ * `accent`, `raised` and `text` are the pre-contract names for the same three and are
+ * still accepted; `chip` and `chip-accent` are those treatments at chip size, which is
+ * a size and not a fourth treatment.
+ */
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'chip'
+  | 'chip-accent'
+  | 'accent'
+  | 'raised'
+  | 'text';
+
+/**
+ * Which classes each variant emits.
+ *
+ * Both names are emitted for the aliased variants — `v-btn--primary v-btn--accent` —
+ * so a stylesheet or a test that still selects on the old name keeps working while the
+ * rules themselves are written against the contract's.
+ */
+const BUTTON_CLASS: Record<ButtonVariant, string> = {
+  primary: 'v-btn--primary v-btn--accent',
+  accent: 'v-btn--primary v-btn--accent',
+  secondary: 'v-btn--secondary v-btn--raised',
+  raised: 'v-btn--secondary v-btn--raised',
+  ghost: 'v-btn--ghost',
+  text: 'v-btn--ghost v-btn--text',
+  chip: 'v-btn--chip',
+  'chip-accent': 'v-btn--chip v-btn--primary v-btn--accent',
+};
 
 /** Props for {@link Button}. */
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /**
-   * Which row of the variant table this is.
-   * - `accent` — the primary action. Always carries `--shadow-cta` + `--inset-accent`.
-   * - `raised` — a secondary action. `--shadow-raised` + `--inset-raised`.
-   * - `ghost` — a tertiary action on `--tint-07`.
-   * - `chip` / `chip-accent` — the small `Join` / `Invite` buttons in list rows.
-   * - `text` — a bare label, e.g. `Leave party`.
+   * Which of the three treatments this is. See {@link ButtonVariant}.
    */
   variant?: ButtonVariant;
   /** Stretch to the container's width, as card and pane CTAs do. */
@@ -34,7 +71,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  * ({@link LaunchButton}, {@link EditPositionButton}, {@link IconButton}).
  */
 export function Button({
-  variant = 'raised',
+  variant = 'secondary',
   block = false,
   icon,
   kbd,
@@ -46,12 +83,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={cx(
-        'v-btn',
-        variant === 'chip-accent' ? 'v-btn--chip v-btn--accent' : `v-btn--${variant}`,
-        block && 'v-btn--block',
-        className,
-      )}
+      className={cx('v-btn', BUTTON_CLASS[variant] ?? BUTTON_CLASS.secondary, block && 'v-btn--block', className)}
       {...rest}
     >
       {icon ? <Icon name={icon} size={14} /> : null}
@@ -113,13 +145,29 @@ export function IconButton({
 
 /** Props for {@link Card}. */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  /** Draw the 1.5px accent border that marks a selected card. */
+  /** Draw the 1.5px border, in this item's hue, that marks a selected card. */
   selected?: boolean;
+  /** Lift one fill step on hover (§5.1). For a card the pointer can act on. */
+  hoverable?: boolean;
 }
 
-/** The generic tile/pane/card surface: `--card-bg`, `--shadow-tile`, `--inset-card`. */
-export function Card({ selected, className, ...rest }: CardProps): React.ReactElement {
-  return <div className={cx('v-card', selected && 'v-card--selected', className)} {...rest} />;
+/**
+ * The generic tile / pane / card surface — the CARD step of the ramp (§1), opaque, with
+ * a 1px white-alpha rim and no shadow. Pass `hoverable` for §5.1's lift: hovering takes
+ * it one step up the ramp, to RAISED. Never a glow.
+ */
+export function Card({ selected, hoverable, className, ...rest }: CardProps): React.ReactElement {
+  return (
+    <div
+      className={cx(
+        'v-card',
+        hoverable && 'v-card--hoverable',
+        selected && 'v-card--selected',
+        className,
+      )}
+      {...rest}
+    />
+  );
 }
 
 /** Props for {@link Panel}. */
@@ -193,7 +241,7 @@ export function Panel({
 export interface KbdProps extends HTMLAttributes<HTMLElement> {
   /**
    * - `nav` — `--surface-2`, uppercase; the `⌘K` badge in the launcher search.
-   * - `accent` — on a `--accent` ground; the `⌘↵` chip inside the Launch button.
+   * - `accent` — on an ink fill; the `⌘↵` chip inside the Launch button.
    * - `palette` — `--tint-07`; the trailing hints in the quick palette and footers.
    */
   flavour?: 'nav' | 'accent' | 'palette';
@@ -225,9 +273,11 @@ export function Tag({ className, children, ...rest }: HTMLAttributes<HTMLSpanEle
 /** Props for {@link Badge}. */
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   /**
-   * - `accent` — `ACTIVE`, `LEADER`.
+   * - `accent` — `ACTIVE`, `LEADER`: a white-alpha ground with the hue as the ink,
+   *   because both mark the selected item.
    * - `ok` — `READY`.
-   * - `solid` — `NEW`, on a filled accent ground.
+   * - `solid` — `NEW`, on an ink fill. Monochrome: a fact about a row is not a live
+   *   value, and colour is reserved for one (§1).
    */
   tone?: 'accent' | 'ok' | 'solid';
 }
@@ -323,9 +373,9 @@ export interface IconWellProps extends HTMLAttributes<HTMLSpanElement> {
   icon: IconName;
   /** One of the design's four well sizes. */
   size?: 24 | 30 | 34 | 44;
-  /** Tint the well with `--accent-tint-icon` — how an *enabled* mod reads. */
+  /** Tint the well and take the hue ink — how an *enabled* mod reads. */
   on?: boolean;
-  /** Fill the well with solid `--accent` — how an *active* loadout card reads. */
+  /** Fill the well with `var(--hue, var(--accent))` — how an *active* loadout card reads. */
   solid?: boolean;
 }
 
@@ -366,8 +416,15 @@ export function Divider({
 
 /** Props for {@link StatusDot}. */
 export interface StatusDotProps extends HTMLAttributes<HTMLSpanElement> {
-  /** `ok` online/ready, `warn` degraded, `muted` offline, `accent` selected. */
-  tone?: 'ok' | 'warn' | 'muted' | 'accent';
+  /**
+   * `ok` online/ready, `warn` degraded, `bad` failing, `muted` offline, `accent` selected.
+   *
+   * `bad` was added for `PingChip`, which had three thresholds and two tones: with a valid
+   * config `bad_ms` is always above `good_ms`, so "at or above bad" and "above good" both came
+   * out amber and the `bad_ms` setting could not change a pixel. A third tone is what makes it
+   * a setting rather than a stored number.
+   */
+  tone?: 'ok' | 'warn' | 'bad' | 'muted' | 'accent';
   /** Diameter in pixels. The design uses 6 to 11. */
   size?: number;
 }
@@ -386,6 +443,7 @@ export function StatusDot({
         'v-dot',
         tone === 'ok' && 'v-dot--ok',
         tone === 'warn' && 'v-dot--warn',
+        tone === 'bad' && 'v-dot--bad',
         tone === 'accent' && 'v-dot--accent',
         className,
       )}

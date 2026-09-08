@@ -2,14 +2,15 @@
 /**
  * Fetch and build the bundled webfonts in `src/fonts/`.
  *
- * Sources are the OFL originals in the `google/fonts` repository. Two of the three
- * families ship as variable fonts; `ultralight-notes.md` §7 says Ultralight loads
- * **static instances** reliably and variable axes much less so, so each weight we use
- * is instanced to a fixed axis location before it is compressed to woff2. The design
- * pins Bricolage Grotesque at `opsz 14, wdth 100, wght 800`, which is exactly the
- * instance produced here — the overlay CSS never needs `font-variation-settings`.
- * A second Bricolage instance is cut at the top of the optical-size axis for display
- * sizes; see the `bricolage-grotesque-800-display` entry for the measurements.
+ * The source is the OFL original in the `google/fonts` repository. Outfit ships as a
+ * variable font; `ultralight-notes.md` §7 says Ultralight loads **static instances**
+ * reliably and variable axes much less so, so each weight is instanced to a fixed axis
+ * location before it is compressed to woff2 — which is why no rule in this package
+ * needs `font-variation-settings`.
+ *
+ * One family only. `design/quiet-cell-system.md` §2 drops the Bricolage Grotesque
+ * display face and the DM Mono face; the digit alignment the monospace used to buy is
+ * now `font-variant-numeric: tabular-nums` on live-updating numbers.
  *
  * The output is committed; this script only needs to run when a family is added or a
  * font is updated. Requires python3 with `fonttools` and `brotli`:
@@ -36,45 +37,28 @@ const UNICODES =
 
 /** family dir, source file, output name, axis pins (empty for an already-static face). */
 const FACES = [
-  {
-    dir: 'ofl/outfit',
-    src: 'Outfit[wght].ttf',
-    out: 'outfit-400.woff2',
-    axes: { wght: 400 },
-  },
+  /**
+   * Outfit at 300 / 400 / 500, and nothing else.
+   *
+   * `design/quiet-cell-system.md` §2 settles the system on a single family: the
+   * Bricolage Grotesque display face and the DM Mono face are both dropped, so their
+   * entries are gone from this table. Do not add a weight above 500 — the contract
+   * says "nothing heavier", and `--weight-semibold/-bold/-extrabold` all alias onto
+   * Medium, so a heavier file would never be asked for.
+   *
+   * These must stay in step with the in-game bundle. `mod/src/main/resources/assets/
+   * void/fonts/` carries the same three weights as `.ttf` (Ultralight cannot read
+   * woff2), and `mod/native/src/font_loader.cpp` maps family+weight to those files by
+   * hand. A weight that exists in one renderer and not the other is a silent
+   * divergence: the launcher would synthesise it and the game would fall back to
+   * Inter, both without an error.
+   */
+  { dir: 'ofl/outfit', src: 'Outfit[wght].ttf', out: 'outfit-300.woff2', axes: { wght: 300 } },
+  { dir: 'ofl/outfit', src: 'Outfit[wght].ttf', out: 'outfit-400.woff2', axes: { wght: 400 } },
   { dir: 'ofl/outfit', src: 'Outfit[wght].ttf', out: 'outfit-500.woff2', axes: { wght: 500 } },
-  { dir: 'ofl/outfit', src: 'Outfit[wght].ttf', out: 'outfit-600.woff2', axes: { wght: 600 } },
-  { dir: 'ofl/dmmono', src: 'DMMono-Regular.ttf', out: 'dm-mono-400.woff2', axes: {} },
-  { dir: 'ofl/dmmono', src: 'DMMono-Medium.ttf', out: 'dm-mono-500.woff2', axes: {} },
-  {
-    dir: 'ofl/bricolagegrotesque',
-    src: 'BricolageGrotesque[opsz,wdth,wght].ttf',
-    out: 'bricolage-grotesque-800.woff2',
-    // The design pins `opsz 14, wdth 100` on every display title.
-    axes: { opsz: 14, wdth: 100, wght: 800 },
-  },
-  {
-    dir: 'ofl/bricolagegrotesque',
-    src: 'BricolageGrotesque[opsz,wdth,wght].ttf',
-    out: 'bricolage-grotesque-800-display.woff2',
-    /**
-     * The same face at the top of the optical-size axis, for type set at display
-     * sizes. Figma resolves `opsz` from the font size, so the frames' 26px panel
-     * titles are drawn near `opsz 14` but the 104px launcher hero is drawn at the
-     * axis maximum. Measuring the ink of `Sword PvP` in Launcher-Play.png against
-     * instances of this file (design 462px wide at 104/-4.16):
-     *
-     *     opsz 14 -> 517.3  (+11.9%)      opsz 96 -> 465.4  (+0.7%)
-     *
-     * and at 26px, where the frames' titles live, the ordering reverses:
-     * `Mods` is 66px in the frame, 67.8 at opsz 14 and 61.5 at opsz 96. Both
-     * instances are real; neither one covers the whole ramp.
-     */
-    axes: { opsz: 96, wdth: 100, wght: 800 },
-  },
 ];
 
-const LICENSES = ['ofl/outfit', 'ofl/dmmono', 'ofl/bricolagegrotesque'];
+const LICENSES = ['ofl/outfit'];
 
 mkdirSync(fontsDir, { recursive: true });
 mkdirSync(workDir, { recursive: true });

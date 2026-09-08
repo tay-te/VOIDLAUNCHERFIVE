@@ -45,6 +45,14 @@ const LOG_CAPACITY: usize = 2000;
 /// on a button that is already asking "are you sure".
 const KILL_POLL: Duration = Duration::from_millis(200);
 
+/// How long the mod gets to call back before the log says it never did.
+///
+/// The mod connects from `onInitializeClient`, which Fabric runs early in `startGame` —
+/// before the window, let alone a world. So this is not a race with a slow machine; it is
+/// generous enough for a cold JVM plus Mixin plus a spinning disk and still far short of
+/// the point where a player would have concluded the launcher is broken.
+const BRIDGE_HANDSHAKE_GRACE: Duration = Duration::from_secs(45);
+
 #[derive(Default)]
 pub struct GameState {
     pub running: Arc<AtomicBool>,
@@ -144,6 +152,15 @@ pub async fn launch(
     // 3. The UI's own subscription to the same bus.
     spawn_bridge_forwarder(bridge.subscribe(), emitter.clone(), game.clone());
 
+    // Cloned before the server moves into `GameState`, for the handshake watchdog below.
+    // Cheap: `BridgeServer` is an `Arc` inside, and the clone is dropped when that task
+    // ends, well before the session does.
+    let bridge_watch = bridge.clone();
+
+    // Kept because `mod_jar` moves into `LaunchOptions` below, and the log line that
+    // reports which jar the game is running has to say whether one was installed.
+    let configured_jar = req.options.mod_jar.clone();
+
     // 4. The JVM.
     let mut process = launch::launch(
         &req.profile,
@@ -176,6 +193,9 @@ pub async fn launch(
     };
 
     push(&log, emitter.as_ref(), "stdout", format!("[void] bridge on ws://127.0.0.1:{port}"));
+    for line in mod_jar_report(&req.paths, configured_jar.as_deref()) {
+        push(&log, emitter.as_ref(), line.stream, line.text);
+    }
     push(&log, emitter.as_ref(), "stdout", format!("[void] {}", args.join(" ")));
 
     emit(
@@ -183,6 +203,35 @@ pub async fn launch(
         GAME_STARTED,
         &serde_json::json!({ "pid": pid, "loadout": loadout_id, "bridge_port": port }),
     );
+
+    // The one failure on this path that has no other symptom. If no mod ever calls back —
+    // because `mods/` holds no `void-client` JAR, or an old one, or one whose natives are
+    // for another platform — every other signal still says healthy: `game:started` fired,
+    // the process is alive, the log scrolls, Minecraft comes up. The game is simply
+    // vanilla, and the launcher's own loadouts, HUD and menu do nothing. Nothing in the
+    // launcher says so today, so say it here, in the log the drawer already shows.
+    {
+        let log = log.clone();
+        let emitter = emitter.clone();
+        let running = running.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(BRIDGE_HANDSHAKE_GRACE).await;
+            if running.load(Ordering::SeqCst) && bridge_watch.client_count() == 0 {
+                push(
+                    &log,
+                    emitter.as_ref(),
+                    "stderr",
+                    format!(
+                        "[void] nothing has connected to the bridge on 127.0.0.1:{port} after \
+                         {}s — the game is running without the VOID client. Check that a \
+                         void-client JAR for this platform is in the mods directory; the \
+                         launcher only installs one when `mod_jar` is set in config.json.",
+                        BRIDGE_HANDSHAKE_GRACE.as_secs()
+                    ),
+                );
+            }
+        });
+    }
 
     // Drain the game's output on its own task. Taking the receiver out of the process
     // leaves the process free to be `wait`ed and `kill`ed below without a split borrow.
@@ -267,6 +316,20 @@ fn spawn_bridge_forwarder(
     tokio::spawn(async move {
         loop {
             match bus.recv().await {
+                // Not a `bridge:*` event — the store owns `hello` (see below) — but the one
+                // line that says the link came up at all, next to the "[void] bridge on
+                // ws://..." line the spawn already wrote. Without it the log shows the
+                // launcher offering a socket and never says whether anything took it.
+                Ok(JavaToRust::Hello { ref mc, ref mod_version, .. }) => {
+                    if let Ok(log) = game.lock().map(|g| g.log.clone()) {
+                        push(
+                            &log,
+                            emitter.as_ref(),
+                            "stdout",
+                            format!("[void] mod connected: Minecraft {mc}, void-client {mod_version}"),
+                        );
+                    }
+                }
                 Ok(JavaToRust::State { loadout, patch }) => emit(
                     emitter.as_ref(),
                     BRIDGE_STATE,
@@ -292,8 +355,9 @@ fn spawn_bridge_forwarder(
                         "t": "server", "host": host, "connected": connected, "port": port
                     }),
                 ),
-                // `hello`, `hud` and unknown tags are the store's business, not the
-                // launcher UI's — `sync::pump` has its own subscription for those.
+                // `hud` and unknown tags are the store's business, not the launcher UI's —
+                // `sync::pump` has its own subscription for those. So is `hello`; the arm
+                // above writes a log line and deliberately emits no `bridge:*` event.
                 Ok(_) => {}
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                     tracing::warn!(dropped = n, "bridge forwarder fell behind");
@@ -302,6 +366,99 @@ fn spawn_bridge_forwarder(
             }
         }
     });
+}
+
+/// One line of the mod-jar report, with the stream it belongs on.
+struct ReportLine {
+    stream: &'static str,
+    text: String,
+}
+
+/// What the game is actually about to run, said out loud at every launch.
+///
+/// The failure this exists for has no other symptom. A `void-client` jar left in `mods/`
+/// by an earlier run connects to the bridge, answers `hello` and behaves like a healthy
+/// client while executing code from days ago — so `game:started` fires, the process is
+/// alive, the handshake watchdog stays quiet, and every measurement taken against it is
+/// of the wrong binary. The launcher cannot tell what the jar *should* contain, so the
+/// only defence is to name the file and its age and let a person notice.
+///
+/// Three cases, and the middle one is the bug that produced this function:
+///
+/// - `mod_jar` set: the install step ran and overwrote `mods/`, so the jar is current by
+///   construction. One `stdout` line, for the record.
+/// - `mod_jar` unset, a jar present: nothing was installed. **stderr**, because the jar
+///   is of unknown provenance and unknown age, and it will run anyway.
+/// - `mod_jar` unset, nothing present: the game will be vanilla. The 45-second watchdog
+///   below would eventually say so; this says it immediately and explains why.
+fn mod_jar_report(paths: &Paths, configured: Option<&std::path::Path>) -> Vec<ReportLine> {
+    let found = launch::installed_mod_jars(paths);
+    let mut out = Vec::new();
+    match (configured, found.first()) {
+        (Some(source), Some(jar)) => out.push(ReportLine {
+            stream: "stdout",
+            text: format!(
+                "[void] mod jar: {} ({}), installed this launch from {}",
+                jar.name(),
+                describe_age(jar.age()),
+                source.display()
+            ),
+        }),
+        // Installed, then vanished — a jar removed between the copy and this read. Odd
+        // enough to be worth a line rather than an empty report.
+        (Some(source), None) => out.push(ReportLine {
+            stream: "stderr",
+            text: format!(
+                "[void] mod jar: installed {} but mods/ now holds no void-client jar",
+                source.display()
+            ),
+        }),
+        (None, Some(jar)) => out.push(ReportLine {
+            stream: "stderr",
+            text: format!(
+                "[void] mod jar: `mod_jar` is not set, so nothing was installed this launch. \
+                 The game will run {} ({}), left in mods/ by an earlier run — it may be older \
+                 than the launcher. Set the client jar in Settings to keep the two in step.",
+                jar.name(),
+                describe_age(jar.age())
+            ),
+        }),
+        (None, None) => out.push(ReportLine {
+            stream: "stderr",
+            text: "[void] mod jar: `mod_jar` is not set and mods/ holds no void-client jar. \
+                   The game will run vanilla: no loadouts, no HUD, no menu."
+                .into(),
+        }),
+    }
+    // More than one is the state `install_mod_jar` sweeps away, so seeing it here means
+    // the sweep did not run — which is exactly the `mod_jar`-unset case. Fabric picks one
+    // of them and does not say which.
+    if found.len() > 1 {
+        out.push(ReportLine {
+            stream: "stderr",
+            text: format!(
+                "[void] mods/ holds {} void-client jars ({}); Fabric will load one of them \
+                 and will not say which",
+                found.len(),
+                found.iter().map(|j| j.name().into_owned()).collect::<Vec<_>>().join(", ")
+            ),
+        });
+    }
+    out
+}
+
+/// A jar's age in the coarsest unit that is still informative.
+fn describe_age(age: Option<Duration>) -> String {
+    let Some(age) = age else {
+        return "age unknown".into();
+    };
+    let secs = age.as_secs();
+    match secs {
+        0..=90 => "just built".into(),
+        91..=5399 => format!("{} min old", secs / 60),
+        5400..=86_399 => format!("{} h old", secs / 3600),
+        _ => format!("{} days old", secs / 86_400),
+    }
 }
 
 fn push(log: &Arc<Mutex<VecDeque<LogLine>>>, emitter: &dyn Emitter, stream: &'static str, line: String) {
@@ -340,6 +497,71 @@ mod tests {
         assert_eq!(state.log.lock().unwrap().len(), LOG_CAPACITY);
         assert_eq!(state.tail(1), vec![format!("line {}", LOG_CAPACITY + 49)]);
         assert_eq!(state.tail(3).len(), 3);
+    }
+
+    /// A `Paths` rooted at a scratch directory holding the named jars.
+    fn paths_with(names: &[&str]) -> (std::path::PathBuf, Paths) {
+        let root = std::env::temp_dir()
+            .join(format!("void-modjar-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let paths = Paths::at(&root);
+        let mods = paths.mods_dir();
+        std::fs::create_dir_all(&mods).unwrap();
+        for n in names {
+            std::fs::write(mods.join(n), b"x").unwrap();
+        }
+        (root, paths)
+    }
+
+    #[test]
+    fn the_launch_report_names_the_jar_the_game_will_actually_run() {
+        let (root, paths) = paths_with(&["void-client-0.1.0-macos-x64.jar"]);
+        let source = std::path::PathBuf::from("/build/libs/void-client-0.1.0-macos-x64.jar");
+
+        let installed = mod_jar_report(&paths, Some(&source));
+        assert_eq!(installed.len(), 1);
+        assert_eq!(installed[0].stream, "stdout", "an installed jar is not a warning");
+        assert!(installed[0].text.contains("void-client-0.1.0-macos-x64.jar"));
+        assert!(installed[0].text.contains("installed this launch"));
+
+        // The case that ran a three-day-old client for three days. Nothing was installed,
+        // Fabric loads what is already there, and every other signal says healthy — so this
+        // line is the only thing that says which binary is running.
+        let skipped = mod_jar_report(&paths, None);
+        assert_eq!(skipped[0].stream, "stderr", "an uninstalled jar of unknown age is a warning");
+        assert!(skipped[0].text.contains("`mod_jar` is not set"));
+        assert!(skipped[0].text.contains("void-client-0.1.0-macos-x64.jar"));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_launch_report_says_when_the_game_will_be_vanilla_or_ambiguous() {
+        let (root, paths) = paths_with(&[]);
+        let none = mod_jar_report(&paths, None);
+        assert_eq!(none[0].stream, "stderr");
+        assert!(none[0].text.contains("run vanilla"));
+        let _ = std::fs::remove_dir_all(&root);
+
+        // Two jars is the state `install_mod_jar`'s sweep exists to prevent, so seeing it
+        // means the sweep did not run — and Fabric does not say which one it picked.
+        let (root2, paths2) = paths_with(&[
+            "void-client-0.1.0-macos-x64.jar",
+            "void-client-0.1.0-macos-arm64.jar",
+        ]);
+        let two = mod_jar_report(&paths2, None);
+        assert_eq!(two.len(), 2, "the ambiguity gets a line of its own");
+        assert!(two[1].text.contains("2 void-client jars"));
+        let _ = std::fs::remove_dir_all(&root2);
+    }
+
+    #[test]
+    fn an_age_is_described_in_the_coarsest_useful_unit() {
+        assert_eq!(describe_age(None), "age unknown");
+        assert_eq!(describe_age(Some(Duration::from_secs(3))), "just built");
+        assert_eq!(describe_age(Some(Duration::from_secs(600))), "10 min old");
+        assert_eq!(describe_age(Some(Duration::from_secs(7200))), "2 h old");
+        assert_eq!(describe_age(Some(Duration::from_secs(3 * 86_400))), "3 days old");
     }
 
     #[test]
@@ -396,7 +618,7 @@ mod tests {
         .unwrap();
 
         for _ in 0..50 {
-            if rec.names().len() >= 2 {
+            if rec.names().len() >= 3 {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -405,8 +627,20 @@ mod tests {
         let names = rec.names();
         assert!(names.contains(&BRIDGE_SERVER.to_string()));
         assert!(names.contains(&BRIDGE_SESSION.to_string()));
-        // `hello` is the store's business, not the UI's.
-        assert_eq!(names.len(), 2, "{names:?}");
+        // `hello` is the store's business, not the UI's: no `bridge:*` event comes of it.
+        // It does write one line into the game log, which is how the drawer shows that
+        // something actually took the socket the launcher opened.
+        let bridge_events = names.iter().filter(|n| n.starts_with("bridge:")).count();
+        assert_eq!(bridge_events, 2, "{names:?}");
+        assert_eq!(names.iter().filter(|n| *n == GAME_LOG).count(), 1, "{names:?}");
+        assert!(
+            game.lock()
+                .unwrap()
+                .tail(1)
+                .first()
+                .is_some_and(|l| l.contains("mod connected") && l.contains("0.1.0")),
+            "the handshake should be visible in the log drawer"
+        );
 
         // The session summary is remembered for `game:closed`.
         let slot = game.lock().unwrap().last_session.clone();

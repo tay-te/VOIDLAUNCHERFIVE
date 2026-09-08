@@ -62,12 +62,28 @@ across platforms and only the natives differ. With nothing staged it says so and
 nothing, rather than shipping a JAR that dies at `Ultralight.load()`. `void-core` picks the
 right one at prepare time (`install::ModPlatform`).
 
+**`build` runs `platformJars`**, so the JARs the launcher installs are never older than the
+one you just built. They were not wired together, and that is how `Play` came to run a
+three-day-old client: `build` refreshed `void-client-<version>.jar` while
+`void-client-<version>-macos-arm64.jar` sat beside it unchanged, with the same version in
+its name and nothing to tell them apart. The repackage is up-to-date-checked, so an
+unchanged rebuild costs nothing; `assemble` is deliberately *not* the hook, because that is
+what `runClient` reaches for and `runClient` needs classes, not JARs.
+
+**Which natives tree feeds which JAR is discovered, not configured.** Every
+`native/build*/natives/<key>/` is a candidate and the newest `voidultralight.dylib` wins. It
+used to be a fixed map naming `build-macx64`, which is not a directory
+`native/scripts/build.sh --arch x86_64` ever writes (it writes `build-x86_64/`) — so that
+tree was a hand-made copy, nothing kept it in step, and it went four days stale. The JAR
+still loaded; the failure was one `UnsatisfiedLinkError` naming a JNI method the old dylib
+did not export, and a HUD that was simply not there.
+
 Useful targets:
 
 | Command | Does |
 |---|---|
-| `./gradlew build` | compile, test, remap, JAR — **no natives**, 324 KB |
-| `./gradlew platformJars` | one `void-client-<version>-<os>-<arch>.jar` per staged natives tree |
+| `./gradlew build` | compile, test, remap, base JAR **and** every per-OS JAR with staged natives |
+| `./gradlew platformJars` | the per-OS JARs alone |
 | `./gradlew test` | the JUnit suite only (no Minecraft needed) |
 | `./gradlew clean build` | from scratch |
 | `./gradlew vscode` / `eclipse` / `idea` | IDE run configs from Loom |
@@ -105,8 +121,25 @@ To try it in a dev instance, Loom's `runClient` launches Minecraft with the mod 
 ./gradlew runClient
 ```
 
-That runs it *without* the launcher, on the registry defaults. To point a dev instance at
-a running `void-bridge`, pass the two properties as JVM arguments of the run — add them to
+That runs it *without* the launcher, on the registry defaults — **and it forgets everything
+when it exits, on purpose.** The launcher is the only writer of persisted state
+(`CONTRACTS.md`, "What persists"); with no `-Dvoid.port` there is nothing on the other end
+of the sink, so `LiveState` holds the loadout, the HUD layout and the globals in memory and
+the process ends. The log says which case you are in, in as many words:
+
+```
+[void] loadout 'sword-pvp' applied from launcher (3 in library)     <- persisted
+[void] loadout 'default' pushed to the page from the mod's own defaults (no launcher link)
+```
+
+Do not add a local fallback file to make a dev client remember. It would be a second writer
+of the same state with no merge rule, and it would make every `runClient` start from
+wherever the last one finished — so a HUD-editor check would begin to pass because the
+previous run left the widget in the right place. Attach a launcher when you need the state
+to survive; the fifty-line listen-only fake in `design/rendering-invariants.md` is enough to
+see what the mod sends.
+
+To point a dev instance at a running `void-bridge`, pass the two properties as JVM arguments of the run — add them to
 the run configuration your IDE generated (`./gradlew vscode` / `eclipse` / `idea`), or
 declare them in `build.gradle`:
 

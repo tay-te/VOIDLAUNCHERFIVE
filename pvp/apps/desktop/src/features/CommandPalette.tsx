@@ -78,7 +78,7 @@ export function CommandPalette() {
   const togglePalette = useUi((s) => s.togglePalette);
   const go = useUi((s) => s.go);
   const openSettings = useUi((s) => s.openSettings);
-  const selectMod = useUi((s) => s.selectMod);
+  const openModSetup = useUi((s) => s.openModSetup);
   const toggleLog = useUi((s) => s.toggleLog);
 
   const { library, active, switchTo, setMod } = useLoadouts();
@@ -142,12 +142,9 @@ export function CommandPalette() {
         id: `mod:${id}`,
         group: 'MODS',
         title: entry.label,
-        sub: on ? 'On · open settings' : 'Off · turn on',
+        sub: on ? 'On · open setup' : 'Off · open setup',
         icon: MOD_ICONS[id] ?? 'layers',
-        run: () => {
-          selectMod(id);
-          go('mods');
-        },
+        run: () => openModSetup(id),
       });
       all.push({
         id: `mod-toggle:${id}`,
@@ -213,7 +210,7 @@ export function CommandPalette() {
     // this the list reads `MODS · ACTIONS · MODS`.
     const order = [...new Set(ranked.map((r) => r.group))];
     return order.flatMap((group) => ranked.filter((r) => r.group === group));
-  }, [query, library, active, servers, phase, go, switchTo, selectMod, setMod, selectServer, start, toggleLog, openSettings]);
+  }, [query, library, active, servers, phase, go, switchTo, openModSetup, setMod, selectServer, start, toggleLog, openSettings]);
 
   if (!open) return null;
 

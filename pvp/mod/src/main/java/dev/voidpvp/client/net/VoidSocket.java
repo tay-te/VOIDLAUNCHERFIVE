@@ -206,6 +206,18 @@ public final class VoidSocket implements LiveState.Sink {
         }
     }
 
+    @Override
+    public void globals(Map<String, JsonElement> patch) {
+        if (patch == null || patch.isEmpty()) {
+            return;
+        }
+        if (isUp()) {
+            send(Protocol.globals(patch));
+        } else {
+            queue.addGlobals(patch);
+        }
+    }
+
     public void sendServer(String host, boolean connected, int serverPort) {
         JsonObject message = Protocol.server(host, connected, serverPort);
         if (isUp()) {
