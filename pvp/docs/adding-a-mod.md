@@ -9,7 +9,8 @@ Read this in order. Steps 1 and 2 are mandatory and enforced. Step 3 is only nee
 mod wants a glyph nobody has drawn yet. Step 4 is the actual game code, and is the only part
 that is still genuinely per-mod work.
 
-Java and Rust are **generated**. You do not write either.
+Java and Rust are **generated**. You do not write either. Neither is the factory HUD
+placement: it is `default_placement` in step 1, and both `DEFAULT_HUD` tables come from it.
 
 ---
 
@@ -31,6 +32,16 @@ One file. Everything else in `mods.json` and `loadout.json` is derived from it.
   "description": "Consecutive hits landed without being hit back.",
   "source": "LivingEntity#hurtTime, via the tick sensor",
   "enabled": true,            // the factory `on`
+  // Where the chip starts on a fresh install. REQUIRED on a `kind: hud` mod and FORBIDDEN on
+  // a gameplay one — the schema enforces both, and `build.mjs` refuses either mistake by name.
+  // These are the overlay's design-canvas pixels on a 38-42px column rhythm, NOT the tighter
+  // 18-20px offsets in `crates/void-loadout`'s curated loadouts; `_base.json`'s
+  // `hud_placement` description has the argument. `note` is optional prose, printed above the
+  // row in both generated tables — use it when the number needs defending, not to restate it.
+  "default_placement": {
+    "note": "Under Coordinates, the mod players confuse it with.",
+    "anchor": "top-left", "dx": 23, "dy": 217
+  },
   "defaults": { "reset_ms": 3000 },
   "settings": {
     "reset_ms": {
@@ -163,6 +174,8 @@ Worth listing, because the habit is to go looking for these:
 | `ModSettingsScreen.tsx`: `LIVE_WIDGETS`, `PREVIEW_ZOOM` | `mods/<id>.tsx` |
 | `registry.ts`: `SETTING_RANGES`, `SETTING_ENUMS` | generated into `@void/protocol` from the sub-schemas |
 | `registry.ts`: `MOD_ORDER` | moved to `mods/order.ts`, and now asserts completeness |
+| `hud-geometry.ts` + `Loadout.java`: the two `DEFAULT_HUD` tables | generated from `default_placement` |
+| `apps/desktop`: the mod-card preview `switch` | `Record<ModId, …>` — a compile error, not a `default` arm |
 | `@void/protocol`: `MOD_IDS`, `HUD_MOD_IDS`, types | already generated |
 | `@void/ui`: `MOD_ICONS` | generated from the entry's `icon` |
 | `ModRegistry.java`: the whole registry table | generated (`gen-java-registry.mjs`) |

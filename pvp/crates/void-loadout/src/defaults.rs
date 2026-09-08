@@ -36,12 +36,24 @@ fn hud(items: &[(HudModId, Anchor, f64, f64)]) -> Vec<HudItem> {
     items.iter().map(|(id, a, dx, dy)| HudItem::new(*id, *a, *dx, *dy)).collect()
 }
 
-/// **Sword PvP** — every HUD mod on, plus toggle sprint, zoom and the custom crosshair.
+/// **Sword PvP** — the eight original HUD mods, plus toggle sprint, zoom and the custom
+/// crosshair.
 ///
 /// The Figma's "24 mods on" is the marketing count across the whole client; in this
-/// registry the equivalent is all 8 HUD mods plus the 3 safe gameplay mods, with the two
+/// registry the equivalent is those eight plus the 3 safe gameplay mods, with the two
 /// `grey` mods (fullbright, hitboxes) off — which is what makes this loadout
 /// HYPIXEL-READY.
+///
+/// It used to say "every HUD mod on", and that stopped being true at the ninth: `direction`
+/// ships disabled and is not in the list below. Deliberately left that way rather than
+/// quietly added — **which mods a curated loadout turns on is a product decision, not a
+/// consequence of the registry growing.** The three loadouts here are the ones a new player
+/// meets, so a mod joins them because somebody chose it, and the honest way to keep that
+/// choice visible is a comment that stops claiming the set is automatic.
+///
+/// The corollary, worth stating because it is easy to get wrong: a mod absent from this list
+/// is *off*, so it needs no `hud` placement here either. That is why the layout below is
+/// eight rows and not nine, and why nothing broke when the fourteenth mod shipped.
 pub fn sword_pvp() -> Loadout {
     Loadout {
         id: LoadoutId::new("sword-pvp").expect("valid slug"),

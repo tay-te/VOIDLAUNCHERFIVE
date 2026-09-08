@@ -370,6 +370,29 @@ The real gaps are four:
 > were *correct*. The tax was never that they were wrong today — it is that keeping twenty more
 > of them correct is the actual project, and that every way of getting one wrong was silent.
 >
+> **The audit, 2026-09-08.** Rather than assert the tax was gone, every file mentioning eight
+> or more mod ids was classified by *how it fails* when somebody forgets it:
+>
+> | Failure mode | Files | What happens |
+> |---|---|---|
+> | Generated + `--check` gated | 11 | Cannot drift; CI refuses a stale one |
+> | `Record<ModId, …>` or exhaustive | 6 | **Compile error** |
+> | Test | 7 | Red build; several are explicit lists *by design* |
+> | Runtime assertion | 1 | `MOD_ORDER` throws at import, in every build |
+> | **Silent** | **2** | Both were already wrong — see below |
+>
+> The two silent ones were the point of doing this. `apps/desktop`'s mod-card preview was a
+> `switch` ending `case 'fullbright': default:`, so every unnamed mod drew Fullbright's art —
+> `watermark` had been wrong since it became a mod, and `direction` walked into it on day one.
+> `@void/ui`'s gallery listed its tiles by hand. Both are now derived or total. `packages/ingame`
+> had the identical `switch` and it was fixed earlier the same day; the launcher's copy survived
+> because it lives in the other application, which is worth remembering next time.
+>
+> Two hand-written lists remain and both fail quietly: `scripts/verify-mods.mjs` and
+> `apps/desktop/src/mocks/fixtures.ts`. Neither ships. A gap there costs a hole in a dev tool,
+> not a wrong drawing in front of a player — and being able to say which is which is what the
+> audit bought.
+>
 > The list below is kept as written, because it is the record of what the tax *was*.
 
 Adding one mod id to this repo today touches **~25 files across five packages**:
