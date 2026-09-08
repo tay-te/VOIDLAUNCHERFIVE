@@ -191,6 +191,7 @@ export type {
   PaletteFooterProps,
   PaletteHint,
 } from './components/palette.js';
+export type { DirectionChipProps, DirectionStyle } from './components/hud.js';
 
 /* ------------------------------------------------------------ HUD widgets */
 
@@ -198,6 +199,8 @@ export {
   FpsChip,
   PingChip,
   CoordsChip,
+  DirectionChip,
+  yawIndex,
   CpsChip,
   PotionList,
   ArmorList,

@@ -1,0 +1,33 @@
+{
+  "id": "direction",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Direction",
+  "icon": "compass",
+  "the": false,
+  "noun": "the direction chip",
+  "on_description": "the direction display is enabled",
+  "description": "Which way you are facing, as its own placeable readout.",
+  "settings_title": "Direction settings",
+  "settings_description": "Settings for the Direction HUD mod. Reads the same `pos.yaw` the tick sensor already sends for Coordinates, so it needs no sensor of its own — which is the whole reason it is cheap to ship. `coordinates.show_direction` is deliberately kept: that is the inline form, a suffix on the coordinate rows, and this is the standalone one a player places on its own and reads at a glance. Both are wanted, they are not duplicates of each other, and neither reads the other's settings.",
+  "source": "`pos.yaw` on the `tick` payload; no new sensor",
+  "enabled": false,
+  "defaults": {
+    "style": "letter",
+    "show_degrees": false
+  },
+  "settings": {
+    "style": {
+      "description": "How the facing is written. `letter` is the compass abbreviation the Coordinates mod already prints (`N`, `NE`, `SW`) and is what fits a small chip. `word` spells it out (`North`), which is what a player reading at a glance across a screen actually parses. `axis` prints the Minecraft world axis instead (`+X`, `-Z`) — not a compass reading at all, and the one a player wants while running a nether tunnel or lining up a build, because it is the notation coordinates themselves are in.",
+      "type": "string",
+      "enum": ["letter", "word", "axis"],
+      "default": "letter"
+    },
+    "show_degrees": {
+      "description": "Whether the raw yaw angle is printed after the facing. Off by default: it is a second number on a chip whose whole job is to be read without reading, and it is only wanted by players aligning something precisely.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

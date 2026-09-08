@@ -46,6 +46,10 @@ export const DEFAULT_HUD: Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: 
   // land the mark on top of the ping chip at 65 rather than under it. Same intent — third in the
   // top-left stack — expressed in the space the page actually lays out in.
   watermark: { anchor: 'top-left', dx: 23, dy: 141 },
+  // Next row of the same column, on this table's 38 px rhythm. Under Coordinates on purpose:
+  // it is the mod a player confuses with Coordinates, and stacking them makes the difference
+  // — a position, versus a facing — visible at a glance rather than argued about.
+  direction: { anchor: 'top-left', dx: 23, dy: 179 },
   potion_effects: { anchor: 'top-right', dx: -25, dy: 23 },
   armor_status: { anchor: 'top-right', dx: -25, dy: 299 },
   keystrokes: { anchor: 'bottom-left', dx: 31, dy: -109 },

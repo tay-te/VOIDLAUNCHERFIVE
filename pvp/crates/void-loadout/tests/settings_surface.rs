@@ -148,6 +148,36 @@ fn enum_settings_accept_exactly_the_schema_values() {
             checked += 1;
         }
     }
-    // 8 hud mods x (background, padding) + keystrokes' two swatches + 6 inline per-mod enums.
-    assert_eq!(checked, 24, "an enum setting stopped being checked");
+    // The guard this line is for is real — a walk that silently checks nothing passes — but the
+    // number was not: `24` was "8 hud mods x 2 shared enums + 2 swatches + 6 inline ones", which
+    // is arithmetic over the registry and had to be redone by the next mod. Counted from the
+    // schema instead, so it still catches a walk that stopped walking and no longer catches
+    // somebody shipping a mod.
+    let want_checked = enum_settings_in_schema();
+    assert!(want_checked > 0, "the schema declares no enum settings at all");
+    assert_eq!(checked, want_checked, "an enum setting stopped being checked");
+}
+
+/// How many `<id>_settings` properties in `schema/mods.json` carry an `enum`, resolving `$ref`
+/// the same way the walk above does. The expected size of that walk, read from the same file it
+/// reads rather than restated as a total.
+fn enum_settings_in_schema() -> usize {
+    let doc = schema();
+    let defs = doc["definitions"].as_object().expect("definitions");
+    let mut n = 0;
+    for id in ModId::ALL {
+        let props = defs[&format!("{id}_settings")]["properties"]
+            .as_object()
+            .expect("settings properties");
+        for value in props.values() {
+            let resolved = match value["$ref"].as_str() {
+                Some(r) => &defs[r.trim_start_matches("#/definitions/")],
+                None => value,
+            };
+            if resolved["enum"].is_array() {
+                n += 1;
+            }
+        }
+    }
+    n
 }

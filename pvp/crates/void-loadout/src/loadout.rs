@@ -5,12 +5,7 @@ use std::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use crate::mods::{
-    defaults_json, validate_settings, ArmorStatusSettings, CoordinatesSettings, CpsSettings,
-    CrosshairSettings, FpsSettings, FullbrightSettings, HitboxesSettings, HudModId,
-    HypixelSafe, KeystrokesSettings, ModId, PingSettings, PotionEffectsSettings,
-    ToggleSprintSettings, WatermarkSettings, ZoomSettings,
-};
+use crate::mods::{HudModId, HypixelSafe, ModId, defaults_json, validate_settings};
 use crate::Error;
 
 /// The default Minecraft version of a loadout. Only 1.8.9 exists today (§15).
@@ -165,40 +160,10 @@ impl LoadoutStats {
     }
 }
 
-/// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls
-/// back to its registry `defaults`, which is what keeps old loadouts valid as mods are
-/// added.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[allow(missing_docs)]
-pub struct ModStates {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fps: Option<FpsSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keystrokes: Option<KeystrokesSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cps: Option<CpsSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ping: Option<PingSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub coordinates: Option<CoordinatesSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub armor_status: Option<ArmorStatusSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub potion_effects: Option<PotionEffectsSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub watermark: Option<WatermarkSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub toggle_sprint: Option<ToggleSprintSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fullbright: Option<FullbrightSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hitboxes: Option<HitboxesSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub zoom: Option<ZoomSettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub crosshair: Option<CrosshairSettings>,
-}
+// `ModStates` is generated — `mods/generated.rs`, from `schema/mods.json`. Only its field
+// list is per-mod; the impl below is generic over a string id and has no per-mod arm, which
+// is why the two live apart.
+pub use crate::mods::ModStates;
 
 impl ModStates {
     fn as_object(&self) -> Map<String, Value> {

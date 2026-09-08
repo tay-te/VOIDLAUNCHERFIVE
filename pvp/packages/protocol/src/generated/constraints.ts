@@ -209,5 +209,20 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "circle",
     "t_shape",
     "none"
+  ],
+  "direction.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "direction.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "direction.style": [
+    "letter",
+    "word",
+    "axis"
   ]
 } as const;

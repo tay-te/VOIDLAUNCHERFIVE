@@ -33,16 +33,22 @@ describe('?fake= padding, end to end', () => {
     const { gridRows, solveGrid, visibleMods } = await import('@/menu/ModsScreen');
     const { IN_GAME_VIEW } = await import('./setup');
 
-    expect(FAKE_MOD_COUNT).toBe(11);
+    // `?fake=24` asks for a *total* of 24 tiles, so how many are synthetic depends on how many
+    // are real — which changes every time a mod ships. Derived, therefore, rather than the
+    // literal 11/13 this held when the registry had thirteen mods: those numbers stopped being
+    // true at the fourteenth, and one of them would have kept passing while measuring the wrong
+    // slice.
+    const REAL = 24 - FAKE_MOD_COUNT;
+    expect(FAKE_MOD_COUNT).toBeGreaterThan(0);
     expect(MOD_ORDER).toHaveLength(24);
     expect(MOD_IDS).toHaveLength(24);
 
-    // The registry's own thirteen are untouched and still first, so the frames' reading order
+    // The registry's own mods are untouched and still first, so the frames' reading order
     // survives the padding.
-    expect(MOD_ORDER.slice(0, 13).every((id) => !isFakeMod(id))).toBe(true);
-    expect(MOD_ORDER.slice(13).every((id) => isFakeMod(id))).toBe(true);
+    expect(MOD_ORDER.slice(0, REAL).every((id) => !isFakeMod(id))).toBe(true);
+    expect(MOD_ORDER.slice(REAL).every((id) => isFakeMod(id))).toBe(true);
 
-    for (const id of MOD_ORDER.slice(13)) {
+    for (const id of MOD_ORDER.slice(REAL)) {
       expect(MOD_REGISTRY[id]).toBeDefined();
       expect(modLabel(id)).toBeTruthy();
       // The category has to be one of the four, or the tag, the tab and the hue all miss.
@@ -52,7 +58,7 @@ describe('?fake= padding, end to end', () => {
       expect(MOD_ICONS[id]).toBeTruthy();
       // The preview is a real one, borrowed.
       expect(fakeArtSource(id)).not.toBeNull();
-      expect(MOD_ORDER.slice(0, 12)).toContain(fakeArtSource(id));
+      expect(MOD_ORDER.slice(0, REAL)).toContain(fakeArtSource(id));
     }
 
     // The layout re-solves: 24 mods are the frames' three rows of eight, not twelve's two of six.

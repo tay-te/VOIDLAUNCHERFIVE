@@ -33,6 +33,7 @@ import type { ModArt } from './types';
 import armor_status from './armor_status';
 import coordinates from './coordinates';
 import cps from './cps';
+import direction from './direction';
 import crosshair from './crosshair';
 import fps from './fps';
 import fullbright from './fullbright';
@@ -56,6 +57,7 @@ const ART = {
   cps,
   ping,
   coordinates,
+  direction,
   armor_status,
   potion_effects,
   watermark,

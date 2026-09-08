@@ -59,6 +59,8 @@ const MODS_DIR = join(HERE, 'mods');
 const ORDER = [
   'fps', 'keystrokes', 'cps', 'ping', 'coordinates', 'armor_status', 'potion_effects',
   'watermark', 'toggle_sprint', 'fullbright', 'hitboxes', 'zoom', 'crosshair',
+  // Wave 2 (docs/mod-roster.md §7). Appended, never inserted.
+  'direction',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

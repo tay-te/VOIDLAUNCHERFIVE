@@ -105,7 +105,20 @@ const OPACITY: SettingSpec = {
   format: 'percent',
 };
 
-/** Bounds and control kinds, transcribed from each mod's settings sub-schema. */
+/**
+ * Bounds and control kinds, transcribed from each mod's settings sub-schema.
+ *
+ * Still hand-written, and safely so: the type is `Record<ModId, …>`, so a mod added to the
+ * schema fails `pnpm typecheck` here until it has a row. That is the whole difference between
+ * this table and the ones the codegen pass removed — those were `Partial`, or a `switch` with a
+ * default, or an array under a `satisfies` that only checked its elements. This one cannot be
+ * forgotten, only filled in wrong, and filling it in wrong is visible on the screen it draws.
+ *
+ * The launcher deliberately does not share the overlay's control layer: `packages/ingame` reads
+ * `SETTING_BOUNDS` out of `@void/protocol`, but that carries bounds, not which control draws
+ * them, and the two applications genuinely differ there — the launcher has no HUD to preview
+ * against, so it draws a plain form.
+ */
 export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   fps: [SCALE, OPACITY, { key: 'show_label', label: 'Show label', control: 'switch' }],
   keystrokes: [
@@ -144,6 +157,12 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 2, step: 1, format: 'plain' },
     { key: 'show_direction', label: 'Show direction', control: 'switch' },
     { key: 'layout', label: 'Layout', control: 'select', options: ['stacked', 'inline'] },
+  ],
+  direction: [
+    SCALE,
+    OPACITY,
+    { key: 'style', label: 'Style', control: 'select', options: ['letter', 'word', 'axis'] },
+    { key: 'show_degrees', label: 'Show degrees', control: 'switch' },
   ],
   armor_status: [
     SCALE,

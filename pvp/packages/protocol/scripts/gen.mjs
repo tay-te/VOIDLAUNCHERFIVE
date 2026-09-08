@@ -332,6 +332,48 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
 }
 
 // ---------------------------------------------------------------------------
+// ids.ts — MOD_IDS / HUD_MOD_IDS / GAMEPLAY_MOD_IDS as literal tuples.
+//
+// These were hand-written arrays in `src/mods.ts` under `satisfies readonly ModId[]`,
+// which sounds like a completeness check and is not one: `satisfies` proves every
+// element IS a ModId, never that every ModId is an element. So a mod added to the
+// schema stayed absent from the arrays with nothing failing to compile — and MOD_IDS
+// is what `enabledMods`, `modsInCategory`, `hypixelReady`, `enabledModCount` and the
+// overlay's own MOD_ORDER assertion all iterate. The mod would simply not exist to any
+// of them.
+//
+// Found by adding the fourteenth mod and watching three tests fail on the count. Loud,
+// but only because someone had written those tests; the types said nothing.
+//
+// Emitted as `as const` tuples rather than derived at runtime so that consumers keep the
+// literal element types they had — `MOD_IDS[0]` is `'fps'`, not `string`.
+// ---------------------------------------------------------------------------
+{
+  const reg = source.mods.examples[0].mods;
+  const ids = Object.keys(reg);
+  const of = (kind) => ids.filter((id) => reg[id].kind === kind);
+  const tuple = (list) => `[\n${list.map((id) => `  '${id}',`).join('\n')}\n]`;
+
+  await writeFile(
+    path.join(outDir, 'ids.ts'),
+    `${BANNER}
+import type { GameplayModId, HUDModId, ModId } from './schema.js';
+
+/** Every mod id, in registry order. */
+export const MOD_IDS = ${tuple(ids)} as const satisfies readonly ModId[];
+
+/** The mods that own a draggable HUD item, in registry order. */
+export const HUD_MOD_IDS = ${tuple(of('hud'))} as const satisfies readonly HUDModId[];
+
+/** The mods an actuator Mixin reads every frame, in registry order. */
+export const GAMEPLAY_MOD_IDS = ${tuple(of('gameplay'))} as const satisfies readonly GameplayModId[];
+`,
+    'utf8',
+  );
+  process.stdout.write('generated src/generated/ids.ts\n');
+}
+
+// ---------------------------------------------------------------------------
 // examples.ts — every `examples` entry of every document, for tests and fixtures.
 // ---------------------------------------------------------------------------
 const ex = (doc) => JSON.stringify(source[doc].examples ?? [], null, 2);
@@ -371,6 +413,7 @@ export type * from './schema.js';
 export * from './registry.js';
 export * from './examples.js';
 export * from './constraints.js';
+export * from './ids.js';
 export * from './icons.js';
 `,
   'utf8',

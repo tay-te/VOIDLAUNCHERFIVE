@@ -44,7 +44,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   defaults?: FPSDisplaySettings;
 };
 /**
- * Closed enum of the 13 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 14 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -59,7 +59,8 @@ export type ModId =
   | 'fullbright'
   | 'hitboxes'
   | 'zoom'
-  | 'crosshair';
+  | 'crosshair'
+  | 'direction';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -413,11 +414,37 @@ export type CrosshairEntry = RegistryEntry & {
   defaults?: CrosshairSettings;
 };
 /**
+ * Registry entry for Direction, narrowed to its constant classification.
+ */
+export type DirectionEntry = RegistryEntry & {
+  /**
+   * Always `direction`.
+   */
+  id?: 'direction';
+  /**
+   * Always `compass`.
+   */
+  icon?: 'compass';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: DirectionSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 8 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 9 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -427,7 +454,8 @@ export type HUDModId =
   | 'coordinates'
   | 'armor_status'
   | 'potion_effects'
-  | 'watermark';
+  | 'watermark'
+  | 'direction';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -442,9 +470,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 8, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 9, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 8
+ * @maxItems 9
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -642,7 +670,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 14 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -658,6 +686,7 @@ export interface Mods {
   hitboxes: HitboxesEntry;
   zoom: ZoomEntry;
   crosshair: CrosshairEntry;
+  direction: DirectionEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.
@@ -1046,6 +1075,34 @@ export interface CrosshairSettings {
   center_dot?: boolean;
 }
 /**
+ * Settings for the Direction HUD mod. Reads the same `pos.yaw` the tick sensor already sends for Coordinates, so it needs no sensor of its own — which is the whole reason it is cheap to ship. `coordinates.show_direction` is deliberately kept: that is the inline form, a suffix on the coordinate rows, and this is the standalone one a player places on its own and reads at a glance. Both are wanted, they are not duplicates of each other, and neither reads the other's settings.
+ */
+export interface DirectionSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the direction chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the direction chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the direction chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * How the facing is written. `letter` is the compass abbreviation the Coordinates mod already prints (`N`, `NE`, `SW`) and is what fits a small chip. `word` spells it out (`North`), which is what a player reading at a glance across a screen actually parses. `axis` prints the Minecraft world axis instead (`+X`, `-Z`) — not a compass reading at all, and the one a player wants while running a nether tunnel or lining up a build, because it is the notation coordinates themselves are in.
+   */
+  style?: 'letter' | 'word' | 'axis';
+  /**
+   * Whether the raw yaw angle is printed after the facing. Off by default: it is a second number on a chip whose whole job is to be read without reading, and it is only wanted by players aligning something precisely.
+   */
+  show_degrees?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -1071,7 +1128,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 13 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 14 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -1087,6 +1144,7 @@ export interface ModStates {
   hitboxes?: HitboxesSettings;
   zoom?: ZoomSettings;
   crosshair?: CrosshairSettings;
+  direction?: DirectionSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

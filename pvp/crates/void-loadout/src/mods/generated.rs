@@ -26,7 +26,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 13 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 14 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -59,11 +59,13 @@ pub enum ModId {
     Zoom,
     /// Replaces the vanilla crosshair with a configurable one at the exact screen centre.
     Crosshair,
+    /// Which way you are facing, as its own placeable readout.
+    Direction,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 13] = [
+    pub const ALL: [ModId; 14] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -77,6 +79,7 @@ impl ModId {
         ModId::Hitboxes,
         ModId::Zoom,
         ModId::Crosshair,
+        ModId::Direction,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -95,11 +98,12 @@ impl ModId {
             ModId::Hitboxes => "hitboxes",
             ModId::Zoom => "zoom",
             ModId::Crosshair => "crosshair",
+            ModId::Direction => "direction",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 8 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 9 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -121,11 +125,13 @@ pub enum HudModId {
     PotionEffects,
     /// The VOID mark, drawn over the game.
     Watermark,
+    /// Which way you are facing, as its own placeable readout.
+    Direction,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 8] = [
+    pub const ALL: [HudModId; 9] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -134,6 +140,7 @@ impl HudModId {
         HudModId::ArmorStatus,
         HudModId::PotionEffects,
         HudModId::Watermark,
+        HudModId::Direction,
     ];
 
     /// Widens to the full mod id enum.
@@ -147,6 +154,7 @@ impl HudModId {
             HudModId::ArmorStatus => ModId::ArmorStatus,
             HudModId::PotionEffects => ModId::PotionEffects,
             HudModId::Watermark => ModId::Watermark,
+            HudModId::Direction => ModId::Direction,
         }
     }
 
@@ -379,6 +387,26 @@ pub enum CrosshairStyle {
     TShape,
     /// `none`.
     None,
+}
+
+/// How the facing is written. `letter` is the compass abbreviation the Coordinates mod already
+/// prints (`N`, `NE`, `SW`) and is what fits a small chip. `word` spells it out (`North`),
+/// which is what a player reading at a glance across a screen actually parses. `axis` prints
+/// the Minecraft world axis instead (`+X`, `-Z`) — not a compass reading at all, and the one a
+/// player wants while running a nether tunnel or lining up a build, because it is the notation
+/// coordinates themselves are in.
+///
+/// `mods.json#/definitions/direction_settings/properties/style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectionStyle {
+    /// `letter` is the compass abbreviation the Coordinates mod already prints (`N`.
+    Letter,
+    /// `word` spells it out (`North`), which is what a player reading at a glance across a
+    /// screen actually parses.
+    Word,
+    /// `axis` prints the Minecraft world axis instead (`+X`.
+    Axis,
 }
 
 // ---------------------------------------------------------------------------
@@ -1003,11 +1031,72 @@ pub struct CrosshairSettings {
     pub center_dot: Option<bool>,
 }
 
+/// Direction settings.
+///
+/// Settings for the Direction HUD mod. Reads the same `pos.yaw` the tick sensor already sends
+/// for Coordinates, so it needs no sensor of its own — which is the whole reason it is cheap to
+/// ship. `coordinates.show_direction` is deliberately kept: that is the inline form, a suffix
+/// on the coordinate rows, and this is the standalone one a player places on its own and reads
+/// at a glance. Both are wanted, they are not duplicates of each other, and neither reads the
+/// other's settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectionSettings {
+    /// Whether the direction display is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the direction chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the direction chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the direction chip, as a step on the system's own scale rather than
+    /// a colour. `none` is the vanilla treatment and the default — the readout sits on the
+    /// game. `subtle` is the card ground at low alpha, which is enough to hold a chip together
+    /// over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD
+    /// to read as a panel. A step rather than a hex value because a per-mod background colour
+    /// is what §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the direction chip, at the system's own
+    /// `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as
+    /// `background`: the edge either separates the chip from the game or it does not, and the
+    /// one useful answer is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the direction chip — the inset between its content and its edge, as one of
+    /// three steps. `density` is named in §1 as legitimate customisation, and it is what a
+    /// player actually means by 'make the HUD smaller' when `scale` has already made the text
+    /// too small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// How the facing is written. `letter` is the compass abbreviation the Coordinates mod
+    /// already prints (`N`, `NE`, `SW`) and is what fits a small chip. `word` spells it out
+    /// (`North`), which is what a player reading at a glance across a screen actually parses.
+    /// `axis` prints the Minecraft world axis instead (`+X`, `-Z`) — not a compass reading at
+    /// all, and the one a player wants while running a nether tunnel or lining up a build,
+    /// because it is the notation coordinates themselves are in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<DirectionStyle>,
+
+    /// Whether the raw yaw angle is printed after the facing. Off by default: it is a second
+    /// number on a chip whose whole job is to be read without reading, and it is only wanted by
+    /// players aligning something precisely.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_degrees: Option<bool>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 13.
+/// Every mod VOID ships, keyed by id. Closed set of 14.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -1053,6 +1142,48 @@ pub struct ModRegistryEntries {
     /// Crosshair — Replaces the vanilla crosshair with a configurable one at the exact screen
     /// centre.
     pub crosshair: ModEntry<CrosshairSettings>,
+
+    /// Direction — Which way you are facing, as its own placeable readout.
+    pub direction: ModEntry<DirectionSettings>,
+}
+
+/// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
+/// to its registry `defaults`, which is what keeps old loadouts valid as mods are added.
+///
+/// `deny_unknown_fields` makes a mod the schema has and this struct does not a loud failure at
+/// the first `set`, rather than a setting that silently will not store.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(missing_docs)]
+pub struct ModStates {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fps: Option<FpsSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keystrokes: Option<KeystrokesSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cps: Option<CpsSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ping: Option<PingSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordinates: Option<CoordinatesSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub armor_status: Option<ArmorStatusSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub potion_effects: Option<PotionEffectsSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub watermark: Option<WatermarkSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toggle_sprint: Option<ToggleSprintSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fullbright: Option<FullbrightSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hitboxes: Option<HitboxesSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zoom: Option<ZoomSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crosshair: Option<CrosshairSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction: Option<DirectionSettings>,
 }
 
 impl Registry {
@@ -1072,6 +1203,7 @@ impl Registry {
             ModId::Hitboxes => self.mods.hitboxes.info(),
             ModId::Zoom => self.mods.zoom.info(),
             ModId::Crosshair => self.mods.crosshair.info(),
+            ModId::Direction => self.mods.direction.info(),
         }
     }
 
@@ -1093,6 +1225,7 @@ impl Registry {
             ModId::Hitboxes => self.mods.hitboxes.defaults_object(),
             ModId::Zoom => self.mods.zoom.defaults_object(),
             ModId::Crosshair => self.mods.crosshair.defaults_object(),
+            ModId::Direction => self.mods.direction.defaults_object(),
         }
     }
 }
@@ -1115,6 +1248,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::Hitboxes => super::check::<HitboxesSettings>(id, value),
         ModId::Zoom => super::check::<ZoomSettings>(id, value),
         ModId::Crosshair => super::check::<CrosshairSettings>(id, value),
+        ModId::Direction => super::check::<DirectionSettings>(id, value),
     }
 }
 

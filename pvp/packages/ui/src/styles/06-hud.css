@@ -61,6 +61,15 @@
   font-size: var(--text-xl-2);
 }
 
+/* ------------------------------------------------------------ DirectionChip */
+
+/* The facing is the live value and takes the same size the FPS figure does — this chip has one
+   thing on it and that thing is the point of the mod. `word` and `axis` make it wider rather
+   than taller, which is why nothing here constrains width. */
+.v-dirchip .v-hudchip__value {
+  font-size: var(--text-xl-2);
+}
+
 /* --------------------------------------------------------------- CoordsChip */
 
 .v-coordschip {

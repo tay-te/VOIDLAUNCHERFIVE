@@ -571,6 +571,37 @@ mods.forEach((m, i) => {
 });
 push('}');
 
+/* ---------------------------------------------------------------------------
+ * ModStates — the same per-mod field list, one struct further out.
+ *
+ * It lived hand-written in `loadout.rs` and was missed by the first codegen pass, which
+ * covered `mods.rs` only. That gap surfaced the way this kind always does: the fourteenth
+ * mod's registry defaults failed to store with `unknown field \`direction\`, expected one
+ * of …`, because `ModStates` is `deny_unknown_fields` too and had thirteen fields.
+ *
+ * Only the fields move here. `impl ModStates` stays in `loadout.rs` and is entirely generic
+ * — `get`, `set` and `apply_patch` all go through `as_object()` and a string id, with no
+ * per-mod arm anywhere — which is exactly why the struct was safe to generate and the impl
+ * was never the tax.
+ * ------------------------------------------------------------------------- */
+
+push('');
+push(
+  doc([
+    'Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back to its registry `defaults`, which is what keeps old loadouts valid as mods are added.',
+    '`deny_unknown_fields` makes a mod the schema has and this struct does not a loud failure at the first `set`, rather than a setting that silently will not store.',
+  ]),
+  '#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]',
+  '#[serde(deny_unknown_fields)]',
+  '#[allow(missing_docs)]',
+  'pub struct ModStates {',
+);
+mods.forEach((m) => {
+  push('    #[serde(default, skip_serializing_if = "Option::is_none")]');
+  push(`    pub ${m.id}: Option<${pascal(m.id)}Settings>,`);
+});
+push('}');
+
 push(
   '',
   'impl Registry {',

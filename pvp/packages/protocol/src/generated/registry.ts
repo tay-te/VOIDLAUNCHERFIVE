@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 4,
+  "version": 5,
   "mods": {
     "fps": {
       "id": "fps",
@@ -272,6 +272,26 @@ export const MOD_REGISTRY_DOCUMENT = {
         "outline": true,
         "dynamic": false,
         "center_dot": false
+      }
+    },
+    "direction": {
+      "id": "direction",
+      "kind": "hud",
+      "category": "hud",
+      "hypixel_safe": "safe",
+      "label": "Direction",
+      "icon": "compass",
+      "description": "Which way you are facing, as its own placeable readout.",
+      "source": "`pos.yaw` on the `tick` payload; no new sensor",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "style": "letter",
+        "show_degrees": false
       }
     }
   }

@@ -63,43 +63,22 @@ export const MOD_REGISTRY_VERSION: number = MOD_REGISTRY_DOCUMENT.version;
  */
 export const MOD_REGISTRY = MOD_REGISTRY_DOCUMENT.mods as unknown as ModRegistry;
 
-/** Every mod id, in registry order. */
-export const MOD_IDS = [
-  'fps',
-  'keystrokes',
-  'cps',
-  'ping',
-  'coordinates',
-  'armor_status',
-  'potion_effects',
-  'watermark',
-  'toggle_sprint',
-  'fullbright',
-  'hitboxes',
-  'zoom',
-  'crosshair',
-] as const satisfies readonly ModId[];
+/**
+ * The three id lists — generated, not written.
+ *
+ * They were hand-written arrays here, each closed with `satisfies readonly ModId[]`, which
+ * reads like a completeness check and is not one: `satisfies` proves every element is a valid
+ * id, never that every id is an element. A mod added to the schema stayed missing from these
+ * with nothing failing to compile, and `MOD_IDS` is what {@link enabledMods},
+ * {@link modsInCategory}, {@link hypixelReady} and the overlay's grid-order assertion all
+ * iterate — so the mod would not have existed to any of them.
+ *
+ * `generated/ids.ts` emits them as `as const` tuples off the shipped registry, so the literal
+ * element types survive and the drift cannot.
+ */
+import { GAMEPLAY_MOD_IDS, HUD_MOD_IDS, MOD_IDS } from './generated/ids.js';
 
-/** The mods that own a draggable HUD item, in registry order. */
-export const HUD_MOD_IDS = [
-  'fps',
-  'keystrokes',
-  'cps',
-  'ping',
-  'coordinates',
-  'armor_status',
-  'potion_effects',
-  'watermark',
-] as const satisfies readonly HUDModId[];
-
-/** The mods an actuator Mixin reads every frame, in registry order. */
-export const GAMEPLAY_MOD_IDS = [
-  'toggle_sprint',
-  'fullbright',
-  'hitboxes',
-  'zoom',
-  'crosshair',
-] as const satisfies readonly GameplayModId[];
+export { MOD_IDS, HUD_MOD_IDS, GAMEPLAY_MOD_IDS };
 
 /** True when `id` is one of the 13 mod ids. */
 export function isModId(id: string): id is ModId {

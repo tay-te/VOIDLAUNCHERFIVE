@@ -35,6 +35,9 @@ export const MOD_ORDER: ModId[] = [
   'potion_effects',
   'ping',
   'coordinates',
+  // Beside Coordinates, which is the mod a player confuses it with — the two are next to each
+  // other so the difference (a position, versus a facing) is visible rather than argued.
+  'direction',
   // Last, and newest. The mark is not a readout, so it does not belong among the four that end
   // the order; putting it after them is also the honest reading of a mod added after the grid
   // was designed.

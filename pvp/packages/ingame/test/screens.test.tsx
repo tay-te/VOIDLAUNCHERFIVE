@@ -244,18 +244,29 @@ describe('Mods screen — the grid, and the page one click away', () => {
     expect(screen.queryByRole('button', { name: 'Properties' })).toBeNull();
   });
 
-  it('draws all thirteen tiles, in the shape that fills the panel', () => {
+  it('draws a tile per mod, in the shape that fills the panel', () => {
     const { container } = render(<App />);
-    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(13);
+    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(MOD_ORDER.length);
     expect(screen.getByText('FPS display')).toBeTruthy();
     expect(screen.getByText('Toggle sprint')).toBeTruthy();
-    // Thirteen mods, eight columns allowed: two rows of seven, the fewest columns whose rows
-    // still fit — not three rows of five inside a panel wide enough for eight. The last row is
-    // short, which row-major fill allows and column-major could not (see `solveGrid`).
+
+    // The shape is solved from the registry's count, so the assertion is the *rule* rather than
+    // the numbers it happened to produce. It read `2 rows of 7 and 6` at thirteen mods and had
+    // to be rewritten at fourteen — a restatement of `solveGrid`'s output, which is the thing
+    // under test, so it could only ever be a second copy of it.
+    //
+    // What actually has to hold: the fewest columns whose rows still fit, filled row-major, so
+    // every row is full except possibly the last. A short last row is what row-major allows and
+    // column-major could not (see `solveGrid`).
+    const solved = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
     const rows = [...container.querySelectorAll('.mods-row')];
-    expect(rows).toHaveLength(2);
-    expect(rows[0]!.querySelectorAll('[data-mod-id]')).toHaveLength(7);
-    expect(rows[1]!.querySelectorAll('[data-mod-id]')).toHaveLength(6);
+    expect(rows).toHaveLength(solved.rows);
+    expect(rows.map((row) => row.querySelectorAll('[data-mod-id]').length)).toEqual(
+      gridRows([...MOD_ORDER], solved.columns).map((row) => row.length),
+    );
+    for (const row of rows.slice(0, -1)) {
+      expect(row.querySelectorAll('[data-mod-id]')).toHaveLength(solved.columns);
+    }
   });
 
   it('comes back from a page as the same grid: same tiles, same rows, same order', () => {
@@ -273,7 +284,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     expect(container.querySelector('.mods-grid')).toBeNull();
     set(() => useVoidStore.getState().closeMod());
     expect(shape()).toEqual(before);
-    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(13);
+    expect(container.querySelectorAll('[data-mod-id]')).toHaveLength(MOD_ORDER.length);
   });
 
   it('shapes the grid from the registry, never from the filter', () => {

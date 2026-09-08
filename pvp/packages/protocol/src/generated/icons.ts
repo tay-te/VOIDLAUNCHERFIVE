@@ -40,5 +40,6 @@ export const MOD_ICON_NAMES = {
   "fullbright": "sun",
   "hitboxes": "cube",
   "zoom": "zoom",
-  "crosshair": "crosshair"
+  "crosshair": "crosshair",
+  "direction": "compass"
 } as const satisfies Record<ModId, string>;

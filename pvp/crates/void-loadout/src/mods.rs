@@ -313,10 +313,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_holds_all_thirteen_mods() {
+    fn registry_holds_every_mod_id() {
         let r = registry();
-        assert_eq!(r.version, 4, "mods.json gained the shared HUD chrome block");
-        assert_eq!(r.all_info().len(), 13);
+        // No literal count and no literal version. Both were here — `13` and `version == 4` —
+        // and both had to be edited by the next mod and the one after that, which is a test
+        // that measures how recently it was updated rather than whether the code is right.
+        // `version` is a human decision about loadout compatibility and nothing here can check
+        // it; what IS checkable is that the parsed registry covers `ModId` exactly.
+        assert!(r.version >= 1, "registry document carries no version");
+        assert_eq!(r.all_info().len(), ModId::ALL.len());
         for id in ModId::ALL {
             assert_eq!(r.info(id).id, id, "entry `id` must equal its key");
         }

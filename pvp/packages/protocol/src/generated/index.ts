@@ -13,4 +13,5 @@ export type * from './schema.js';
 export * from './registry.js';
 export * from './examples.js';
 export * from './constraints.js';
+export * from './ids.js';
 export * from './icons.js';

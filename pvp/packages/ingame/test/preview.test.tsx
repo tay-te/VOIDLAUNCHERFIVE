@@ -56,6 +56,7 @@ const LIVE: readonly ModId[] = [
   'cps',
   'ping',
   'coordinates',
+  'direction',
   'armor_status',
   'potion_effects',
   'watermark',

@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the thirteen mods.
+ * The closed registry of the fourteen mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -141,7 +141,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (8) — they read game state and draw --------------------------------------
+        // --- HUD mods (9) — they read game state and draw --------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -446,13 +446,41 @@ public final class ModRegistry {
                 // configurator worth the name lets them have both. Ignored by `none`, and by
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
+
+        // --- HUD mods (9) — they read game state and draw --------------------------------------
+
+        // Direction — kind hud, hud tab, §11 safe.
+        // Which way you are facing, as its own placeable readout.
+        // Source: `pos.yaw` on the `tick` payload; no new sensor.
+        mod("direction", Kind.HUD, Category.HUD, "Direction",
+                // Whether the direction display is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // How the facing is written. `letter` is the compass abbreviation the Coordinates
+                // mod already prints (`N`, `NE`, `SW`) and is what fits a small chip. `word`
+                // spells it out (`North`), which is what a player reading at a glance across a
+                // screen actually parses. `axis` prints the Minecraft world axis instead (`+X`,
+                // `-Z`) — not a compass reading at all, and the one a player wants while running
+                // a nether tunnel or lining up a build, because it is the notation coordinates
+                // themselves are in.
+                "style", enumOf("letter", "letter", "word", "axis"),
+                // Whether the raw yaw angle is printed after the facing. Off by default: it is a
+                // second number on a chip whose whole job is to be read without reading, and it
+                // is only wanted by players aligning something precisely.
+                "show_degrees", bool(false));
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The thirteen mod ids, in registry order. */
+    /** The fourteen mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

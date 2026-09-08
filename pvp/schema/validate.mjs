@@ -68,7 +68,17 @@ const check = (name, cond, detail = "") => {
   else { failures++; console.log(`FAIL  cross-check  ${name}  ${detail}`); }
 };
 
-check("registry has all 13 mod_id values", ids.length === 13 && enumIds.every((i) => ids.includes(i)));
+// The count is derived, not typed in. It was `ids.length === 13` and the fourteenth mod
+// tripped it — a hard-coded total in the gate that exists to catch hard-coded totals. What
+// this check is actually for is that the registry and the `mod_id` enum agree *both ways*,
+// which is a set comparison and has no number in it at all.
+check(
+  `registry and mod_id enum agree (${ids.length} mods)`,
+  ids.length === enumIds.length &&
+    enumIds.every((i) => ids.includes(i)) &&
+    ids.every((i) => enumIds.includes(i)),
+  `registry [${ids}] vs enum [${enumIds}]`,
+);
 check("every entry.id equals its key", ids.every((k) => registry[k].id === k));
 check("hud_mod_id == entries with kind hud", JSON.stringify(ids.filter((k) => registry[k].kind === "hud")) === JSON.stringify(hudEnum));
 check("gameplay_mod_id == entries with kind gameplay", JSON.stringify(ids.filter((k) => registry[k].kind === "gameplay")) === JSON.stringify(gpEnum));

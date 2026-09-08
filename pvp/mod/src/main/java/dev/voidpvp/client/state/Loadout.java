@@ -160,6 +160,7 @@ public final class Loadout {
         {"ping", "top-left", Integer.valueOf(23), Integer.valueOf(65)},
         {"coordinates", "top-left", Integer.valueOf(23), Integer.valueOf(103)},
         {"watermark", "top-left", Integer.valueOf(23), Integer.valueOf(141)},
+        {"direction", "top-left", Integer.valueOf(23), Integer.valueOf(179)},
         {"potion_effects", "top-right", Integer.valueOf(-25), Integer.valueOf(23)},
         {"armor_status", "top-right", Integer.valueOf(-25), Integer.valueOf(299)},
         {"keystrokes", "bottom-left", Integer.valueOf(31), Integer.valueOf(-109)},
