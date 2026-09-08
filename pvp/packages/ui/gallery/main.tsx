@@ -83,7 +83,14 @@ import {
   type Renderer,
 } from '@void/ui';
 import { MOD_ICONS } from '@void/ui';
-import { createFakeVoid, MOD_REGISTRY, type FakeVoid, type KeysPayload } from '@void/protocol';
+import {
+  createFakeVoid,
+  getCategoryLabel,
+  MOD_IDS,
+  MOD_REGISTRY,
+  type FakeVoid,
+  type KeysPayload,
+} from '@void/protocol';
 
 import '../src/tokens.css';
 import '../src/fonts.css';
@@ -207,20 +214,23 @@ function useFakeVoid(): { keys: KeysPayload; fps: number; ping: number } {
 /* Gallery                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const TILES = [
-  ['fps', 'FPS display', 'HUD', true],
-  ['keystrokes', 'Keystrokes', 'HUD', true],
-  ['cps', 'CPS counter', 'HUD', true],
-  ['toggle_sprint', 'Toggle sprint', 'PVP', true],
-  ['crosshair', 'Crosshair', 'VISUAL', true],
-  ['zoom', 'Zoom', 'UTILITY', true],
-  ['fullbright', 'Fullbright', 'VISUAL', false],
-  ['hitboxes', 'Hitboxes', 'PVP', false],
-  ['armor_status', 'Armor status', 'HUD', true],
-  ['potion_effects', 'Potion effects', 'HUD', true],
-  ['ping', 'Ping display', 'HUD', false],
-  ['coordinates', 'Coordinates', 'HUD', false],
-] as const;
+/**
+ * The mod tiles the gallery draws — derived from the registry, not listed.
+ *
+ * This was a hand-written table of `[id, label, category, on]`, which duplicated two things
+ * `mods.json` already carries and silently omitted any mod added after it was written. It is a
+ * dev tool, so the stakes were low — but a gallery whose job is showing what the components look
+ * like across the whole mod set, while quietly missing part of that set, is misleading in the
+ * one way a gallery must not be.
+ *
+ * `on` is the only column that was ever local: it is the gallery's own "some on, some off" so
+ * both toggle states are visible on screen, not the registry's factory state. Derived from the
+ * mod's index so it alternates rather than being asserted mod by mod.
+ */
+const TILES = MOD_IDS.map((id, i) => {
+  const entry = MOD_REGISTRY[id];
+  return [id, entry.label, getCategoryLabel(entry.category).toUpperCase(), i % 3 !== 2] as const;
+});
 
 function Gallery() {
   const [renderer, setRendererState] = useState<Renderer>('webview');
