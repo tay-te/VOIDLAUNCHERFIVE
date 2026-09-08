@@ -4,6 +4,7 @@
   "category": "hud",
   "hypixel_safe": "safe",
   "label": "Armor status",
+  "icon": "shield",
   "the": false,
   "noun": "the armor row",
   "on_description": "the armor status display is enabled",

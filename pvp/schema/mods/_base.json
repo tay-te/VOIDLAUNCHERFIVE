@@ -115,6 +115,7 @@
         "category",
         "hypixel_safe",
         "label",
+        "icon",
         "description",
         "source",
         "defaults"
@@ -141,6 +142,11 @@
           "description": "Human-readable name as it appears in the Mods panel of the Figma.",
           "type": "string",
           "minLength": 1
+        },
+        "icon": {
+          "description": "Name of the glyph the Mods list and the quick palette draw for this mod, from `@void/ui`'s icon sheet. Carried here rather than in a table per application: the in-game overlay and the desktop launcher both need it and neither can import the other, so before this it was one hand-maintained `MOD_ICONS` object that no schema knew about. Not consumed by the game \u2014 the mod draws no icons \u2014 but the registry is where mod *identity* lives, and an icon is identity.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
         },
         "description": {
           "description": "One-line explanation shown under the label in the Mods panel.",

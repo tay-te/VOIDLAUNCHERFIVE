@@ -4,6 +4,7 @@
   "category": "pvp",
   "hypixel_safe": "safe",
   "label": "Toggle sprint",
+  "icon": "bolt",
   "the": false,
   "on_description": "toggle sprint is enabled",
   "description": "Latches sprint instead of holding the key.",

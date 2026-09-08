@@ -26,6 +26,10 @@ export type FPSDisplayEntry = RegistryEntry & {
    */
   id?: 'fps';
   /**
+   * Always `gauge`.
+   */
+  icon?: 'gauge';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -93,6 +97,10 @@ export type KeystrokesEntry = RegistryEntry & {
    */
   id?: 'keystrokes';
   /**
+   * Always `keyboard`.
+   */
+  icon?: 'keyboard';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -127,6 +135,10 @@ export type CPSCounterEntry = RegistryEntry & {
    */
   id?: 'cps';
   /**
+   * Always `cursor-click`.
+   */
+  icon?: 'cursor-click';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -148,6 +160,10 @@ export type PingDisplayEntry = RegistryEntry & {
    * Always `ping`.
    */
   id?: 'ping';
+  /**
+   * Always `wifi`.
+   */
+  icon?: 'wifi';
   /**
    * Always `hud`.
    */
@@ -171,6 +187,10 @@ export type CoordinatesEntry = RegistryEntry & {
    */
   id?: 'coordinates';
   /**
+   * Always `compass`.
+   */
+  icon?: 'compass';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -192,6 +212,10 @@ export type ArmorStatusEntry = RegistryEntry & {
    * Always `armor_status`.
    */
   id?: 'armor_status';
+  /**
+   * Always `shield`.
+   */
+  icon?: 'shield';
   /**
    * Always `hud`.
    */
@@ -215,6 +239,10 @@ export type PotionEffectsEntry = RegistryEntry & {
    */
   id?: 'potion_effects';
   /**
+   * Always `flask`.
+   */
+  icon?: 'flask';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -236,6 +264,10 @@ export type WatermarkEntry = RegistryEntry & {
    * Always `watermark`.
    */
   id?: 'watermark';
+  /**
+   * Always `watermark`.
+   */
+  icon?: 'watermark';
   /**
    * Always `hud`.
    */
@@ -259,6 +291,10 @@ export type ToggleSprintEntry = RegistryEntry & {
    */
   id?: 'toggle_sprint';
   /**
+   * Always `bolt`.
+   */
+  icon?: 'bolt';
+  /**
    * Always `gameplay`.
    */
   kind?: 'gameplay';
@@ -280,6 +316,10 @@ export type FullbrightEntry = RegistryEntry & {
    * Always `fullbright`.
    */
   id?: 'fullbright';
+  /**
+   * Always `sun`.
+   */
+  icon?: 'sun';
   /**
    * Always `gameplay`.
    */
@@ -303,6 +343,10 @@ export type HitboxesEntry = RegistryEntry & {
    */
   id?: 'hitboxes';
   /**
+   * Always `cube`.
+   */
+  icon?: 'cube';
+  /**
    * Always `gameplay`.
    */
   kind?: 'gameplay';
@@ -325,6 +369,10 @@ export type ZoomEntry = RegistryEntry & {
    */
   id?: 'zoom';
   /**
+   * Always `zoom`.
+   */
+  icon?: 'zoom';
+  /**
    * Always `gameplay`.
    */
   kind?: 'gameplay';
@@ -346,6 +394,10 @@ export type CrosshairEntry = RegistryEntry & {
    * Always `crosshair`.
    */
   id?: 'crosshair';
+  /**
+   * Always `crosshair`.
+   */
+  icon?: 'crosshair';
   /**
    * Always `gameplay`.
    */
@@ -619,6 +671,10 @@ export interface RegistryEntry {
    * Human-readable name as it appears in the Mods panel of the Figma.
    */
   label: string;
+  /**
+   * Name of the glyph the Mods list and the quick palette draw for this mod, from `@void/ui`'s icon sheet. Carried here rather than in a table per application: the in-game overlay and the desktop launcher both need it and neither can import the other, so before this it was one hand-maintained `MOD_ICONS` object that no schema knew about. Not consumed by the game — the mod draws no icons — but the registry is where mod *identity* lives, and an icon is identity.
+   */
+  icon: string;
   /**
    * One-line explanation shown under the label in the Mods panel.
    */

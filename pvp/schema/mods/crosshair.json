@@ -4,11 +4,12 @@
   "category": "visual",
   "hypixel_safe": "safe",
   "label": "Crosshair",
+  "icon": "crosshair",
   "the": false,
   "on_description": "the vanilla crosshair pass is replaced",
   "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",
   "settings_title": "Crosshair settings",
-  "settings_description": "Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
+  "settings_description": "Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (\u00a73 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
   "source": "replaces vanilla crosshair pass; drawn in GL at exact center",
   "enabled": false,
   "defaults": {

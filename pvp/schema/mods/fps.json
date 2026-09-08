@@ -4,6 +4,7 @@
   "category": "hud",
   "hypixel_safe": "safe",
   "label": "FPS display",
+  "icon": "gauge",
   "the": true,
   "noun": "the FPS tile",
   "on_description": "the FPS display is enabled",
@@ -28,7 +29,7 @@
       "default": true
     },
     "show_low": {
-      "description": "Whether the 1% low is drawn as a trailing aside. It is the figure that says whether a frame rate is actually smooth, and it is also a third number on the chip a player reads mid-match — so it is a switch rather than something that appears whenever a low has been measured.",
+      "description": "Whether the 1% low is drawn as a trailing aside. It is the figure that says whether a frame rate is actually smooth, and it is also a third number on the chip a player reads mid-match \u2014 so it is a switch rather than something that appears whenever a low has been measured.",
       "type": "boolean",
       "default": true
     }

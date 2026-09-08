@@ -24,6 +24,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "FPS display",
+      "icon": "gauge",
       "description": "Frames per second, updated once per tick.",
       "source": "Minecraft.debugFPS",
       "defaults": {
@@ -45,6 +46,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "Keystrokes",
+      "icon": "keyboard",
       "description": "WASD, mouse and spacebar tiles that light up as you press them.",
       "source": "KeyBinding.setKeyBindState, edge-triggered",
       "defaults": {
@@ -71,6 +73,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "CPS counter",
+      "icon": "cursor-click",
       "description": "Clicks per second over a sliding window.",
       "source": "derived from clicks in JS",
       "defaults": {
@@ -92,6 +95,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "Ping display",
+      "icon": "wifi",
       "description": "Round-trip time to the current server.",
       "source": "own NetworkPlayerInfo.responseTime",
       "defaults": {
@@ -114,6 +118,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "Coordinates",
+      "icon": "compass",
       "description": "Player position and facing direction.",
       "source": "EntityPlayerSP pos/yaw",
       "defaults": {
@@ -135,6 +140,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "Armor status",
+      "icon": "shield",
       "description": "Worn armor and held item with remaining durability.",
       "source": "InventoryPlayer.armorInventory durability",
       "defaults": {
@@ -157,6 +163,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "hud",
       "hypixel_safe": "safe",
       "label": "Potion effects",
+      "icon": "flask",
       "description": "Active potion effects with amplifier and remaining duration.",
       "source": "getActivePotionEffects",
       "defaults": {
@@ -178,6 +185,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "visual",
       "hypixel_safe": "safe",
       "label": "Watermark",
+      "icon": "watermark",
       "description": "The VOID mark, drawn over the game.",
       "source": "drawn by the overlay; no game field",
       "defaults": {
@@ -197,6 +205,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "pvp",
       "hypixel_safe": "safe",
       "label": "Toggle sprint",
+      "icon": "bolt",
       "description": "Latches sprint instead of holding the key.",
       "source": "KeyBinding override in onLivingUpdate",
       "defaults": {
@@ -211,6 +220,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "visual",
       "hypixel_safe": "grey",
       "label": "Fullbright",
+      "icon": "sun",
       "description": "Raises gamma so caves and shadows are fully lit.",
       "source": "gammaSetting override (client-side, Watchdog-tolerated)",
       "defaults": {
@@ -224,6 +234,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "pvp",
       "hypixel_safe": "grey",
       "label": "Hitboxes",
+      "icon": "cube",
       "description": "Draws entity bounding boxes.",
       "source": "RenderManager.debugBoundingBox",
       "defaults": {
@@ -239,6 +250,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "utility",
       "hypixel_safe": "safe",
       "label": "Zoom",
+      "icon": "zoom",
       "description": "Narrows FOV while the zoom key is held.",
       "source": "FOV override while key held",
       "defaults": {
@@ -255,6 +267,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       "category": "visual",
       "hypixel_safe": "safe",
       "label": "Crosshair",
+      "icon": "crosshair",
       "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",
       "source": "replaces vanilla crosshair pass; drawn in GL at exact center",
       "defaults": {

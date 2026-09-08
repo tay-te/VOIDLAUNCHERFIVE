@@ -866,6 +866,12 @@ pub struct ModEntry<S> {
     pub hypixel_safe: HypixelSafe,
     /// Human-readable name as it appears in the Mods panel.
     pub label: String,
+    /// Glyph the Mods list and the quick palette draw for this mod.
+    ///
+    /// Not used by the launcher — Rust draws nothing — but the field has to exist because
+    /// `ModEntry` is `deny_unknown_fields`, and it is carried on the entry rather than in a
+    /// per-application table because two applications need it and neither can import the other.
+    pub icon: String,
     /// One-line explanation shown under the label.
     pub description: String,
     /// The 1.8.9 field, method or injection point the mod reads or writes.
@@ -889,6 +895,8 @@ pub struct ModInfo<'a> {
     pub hypixel_safe: HypixelSafe,
     /// Human-readable name.
     pub label: &'a str,
+    /// Glyph the Mods list and the quick palette draw for this mod.
+    pub icon: &'a str,
     /// One-line explanation.
     pub description: &'a str,
     /// The injection point or field.
@@ -960,6 +968,7 @@ impl Registry {
                     category: $e.category,
                     hypixel_safe: $e.hypixel_safe,
                     label: $e.label.as_str(),
+                    icon: $e.icon.as_str(),
                     description: $e.description.as_str(),
                     source: $e.source.as_str(),
                 }

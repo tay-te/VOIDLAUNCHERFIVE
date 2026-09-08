@@ -4,6 +4,7 @@
   "category": "hud",
   "hypixel_safe": "safe",
   "label": "Keystrokes",
+  "icon": "keyboard",
   "the": false,
   "noun": "the key tiles",
   "on_description": "the keystrokes overlay is enabled",

@@ -4,6 +4,7 @@
   "category": "utility",
   "hypixel_safe": "safe",
   "label": "Zoom",
+  "icon": "zoom",
   "the": false,
   "on_description": "zoom is enabled",
   "description": "Narrows FOV while the zoom key is held.",

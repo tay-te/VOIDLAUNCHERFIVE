@@ -4,6 +4,7 @@
   "category": "hud",
   "hypixel_safe": "safe",
   "label": "Coordinates",
+  "icon": "compass",
   "the": false,
   "noun": "the coordinates tile",
   "on_description": "the coordinates display is enabled",
@@ -19,7 +20,7 @@
   },
   "settings": {
     "decimals": {
-      "description": "Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one — 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.",
+      "description": "Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one \u2014 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.",
       "type": "integer",
       "minimum": 0,
       "maximum": 2,

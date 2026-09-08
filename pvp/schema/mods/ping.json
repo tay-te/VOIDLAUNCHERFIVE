@@ -4,6 +4,7 @@
   "category": "hud",
   "hypixel_safe": "safe",
   "label": "Ping display",
+  "icon": "wifi",
   "the": true,
   "noun": "the ping tile",
   "on_description": "the ping display is enabled",

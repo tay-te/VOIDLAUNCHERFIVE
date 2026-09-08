@@ -157,6 +157,7 @@ function entrySchema(mod) {
       {
         properties: {
           id: { description: `Always \`${mod.id}\`.`, const: mod.id },
+          icon: { description: `Always \`${mod.icon}\`.`, const: mod.icon },
           kind: { description: `Always \`${mod.kind}\`.`, const: mod.kind },
           category: {
             description: `Always \`${mod.category}\`; ${CATEGORY_NOTE[mod.category]}.`,
@@ -210,6 +211,7 @@ function registryRow(mod) {
     category: mod.category,
     hypixel_safe: mod.hypixel_safe,
     label: mod.label,
+    icon: mod.icon,
     description: mod.description,
     source: mod.source,
     defaults: { ...defaults, ...mod.defaults },

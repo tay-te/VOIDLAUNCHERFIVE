@@ -4,11 +4,12 @@
   "category": "pvp",
   "hypixel_safe": "grey",
   "label": "Hitboxes",
+  "icon": "cube",
   "the": false,
   "on_description": "entity hitboxes are drawn",
   "description": "Draws entity bounding boxes.",
   "settings_title": "Hitboxes settings",
-  "settings_description": "Settings for the Hitboxes gameplay mod. Forces `RenderManager.debugBoundingBox`. Classified `grey` in §11.",
+  "settings_description": "Settings for the Hitboxes gameplay mod. Forces `RenderManager.debugBoundingBox`. Classified `grey` in \u00a711.",
   "source": "RenderManager.debugBoundingBox",
   "enabled": false,
   "defaults": {

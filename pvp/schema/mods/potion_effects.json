@@ -4,6 +4,7 @@
   "category": "hud",
   "hypixel_safe": "safe",
   "label": "Potion effects",
+  "icon": "flask",
   "the": false,
   "noun": "the effect list",
   "on_description": "the potion effects display is enabled",
