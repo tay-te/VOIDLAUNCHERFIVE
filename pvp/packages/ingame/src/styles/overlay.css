@@ -2645,9 +2645,54 @@ body {
 
 .gprev__fovinner {
   /* Sized inline from `zoomFraction`, which is the camera's own trigonometry rather than 1/d. */
+  position: absolute;
   border: 2px solid var(--text-secondary);
   border-radius: 4px;
   background: rgba(237, 238, 239, 0.06);
+}
+
+/* The sizes a smooth zoom passes through on its way in. Same ghost convention as the
+   crosshair's `dynamic` spread: an outline in the same ink, faint. */
+.gprev__fovstep {
+  position: absolute;
+  border: 1px solid var(--text-muted);
+  border-radius: 3px;
+  opacity: 0.3;
+}
+
+/* `hold C` — the first half of the sentence the diagram makes. */
+.gprev__fovkey {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gprev__kbd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-raised);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.gprev__fovhold {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .gprev__fovlabel {

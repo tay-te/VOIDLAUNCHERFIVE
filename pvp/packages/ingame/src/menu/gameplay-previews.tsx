@@ -33,6 +33,7 @@ import { type CSSProperties } from 'react';
 
 import { useModSettings } from '@/store/store';
 import { SETTING_RANGES } from '@/registry';
+import { keybindLabel } from './settings-format';
 
 /* -------------------------------------------------------------------------- */
 /* Shared pieces                                                              */
@@ -151,20 +152,37 @@ export function ZoomPreview(): React.ReactElement {
   const range = SETTING_RANGES.fov_divisor!;
   const divisor = Number(settings.fov_divisor ?? 4);
   const fraction = zoomFraction(divisor);
-  const inner: CSSProperties = {
-    width: `${(fraction * 100).toFixed(2)}%`,
-    height: `${(fraction * 100).toFixed(2)}%`,
-  };
+  const smooth = settings.smooth !== false;
+  const frame = (f: number): CSSProperties => ({
+    width: `${(f * 100).toFixed(2)}%`,
+    height: `${(f * 100).toFixed(2)}%`,
+  });
+  // `smooth` eases the view in rather than snapping to it, and a still frame cannot animate —
+  // but it can draw the sizes the view passes *through*. Three ghost frames on the way in when
+  // it is on, nothing between the two when it is off, which is what a snap looks like. The same
+  // ghost vocabulary the crosshair's `dynamic` uses: faint means "a state this reaches".
+  const steps = smooth ? [0.72, 0.48, 0.3].map((t) => 1 - (1 - fraction) * (1 - t)) : [];
   return (
     <div className="gprev gprev--zoom">
       <div className="gprev__fov">
-        <span className="gprev__fovinner" style={inner} />
+        {steps.map((f, i) => (
+          <span key={i} className="gprev__fovstep" style={frame(f)} />
+        ))}
+        <span className="gprev__fovinner" style={frame(fraction)} />
+        {/* The key is part of the sentence this diagram is making — you hold *this* to get
+            *that*. It is printed in the page's meta line too, but there it is a fact about the
+            mod; here it is the first half of the interaction. */}
+        <span className="gprev__fovkey">
+          <span className="gprev__kbd">{keybindLabel(settings.key ?? null)}</span>
+          <span className="gprev__fovhold">hold</span>
+        </span>
         <span className="gprev__fovlabel tnum">{divisor.toFixed(1)}×</span>
       </div>
       <Reading>
         {`${BASE_FOV}° becomes ${(BASE_FOV / Math.max(1, divisor)).toFixed(1)}° — ` +
           `${Math.round(fraction * 100)}% of the width, filling the screen.`}
         {divisor <= range.min ? ' Barely a zoom at all.' : ''}
+        {smooth ? ' It eases in through the steps behind it.' : ' It snaps straight there.'}
       </Reading>
     </div>
   );

@@ -41,7 +41,14 @@ import { getVoid } from '@/bridge/connect';
 // DEV ONLY. `isFakeMod` is a constant `false` in every build that did not ask for the padding
 // (`src/dev/fake-mods.ts`); the two guards below are the only seam it needs in the store.
 import { isFakeMod } from '@/dev/fake-mods';
-import { type ClickRing, cps, createClickRing, pushClick, risingEdges, trimRing } from './cps';
+import {
+  type ClickRing,
+  clicksPerSecond,
+  createClickRing,
+  pushClick,
+  risingEdges,
+  trimRing,
+} from './cps';
 import { DEFAULT_HUD, GRID, clampOffset, clampScale } from './hud-geometry';
 
 /** A scalar a mod setting may hold. */
@@ -437,11 +444,11 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       get().menuOpen && route.name !== 'hud-editor' && !previewingKeys && isUltralight();
     if (edges.lmb) {
       pushClick(rings.left, now);
-      patch.cpsLeft = cps(rings.left, now, windowMs(get().loadout));
+      patch.cpsLeft = clicksPerSecond(rings.left, now, windowMs(get().loadout));
     }
     if (edges.rmb) {
       pushClick(rings.right, now);
-      patch.cpsRight = cps(rings.right, now, windowMs(get().loadout));
+      patch.cpsRight = clicksPerSecond(rings.right, now, windowMs(get().loadout));
     }
     if (hidden) {
       return;
@@ -498,8 +505,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // on its last value until the next click. Only write when it changed.
     const now = Date.now();
     const w = windowMs(get().loadout);
-    const left = cps(trimRing(rings.left, now, w), now, w);
-    const right = cps(trimRing(rings.right, now, w), now, w);
+    const left = clicksPerSecond(trimRing(rings.left, now, w), now, w);
+    const right = clicksPerSecond(trimRing(rings.right, now, w), now, w);
     if (left !== get().cpsLeft) patch.cpsLeft = left;
     if (right !== get().cpsRight) patch.cpsRight = right;
 

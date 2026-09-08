@@ -31,6 +31,7 @@ import {
 } from '@/ui';
 import { cardinalFromYaw, type ArmorSlot } from '@/bridge/protocol';
 import { modSettings, useModSettings, useVoidStore } from '@/store/store';
+import { clicksPerSecond, createClickRing, pushClick } from '@/store/cps';
 import { armorRow, potionMeta, shortHost } from './format';
 
 export interface HudWidgetProps {
@@ -278,15 +279,43 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
 
 /* -------------------------------------------------------------------- CPS */
 
+/**
+ * A plausible burst of clicks, as ages in ms before "now".
+ *
+ * **Bursty on purpose, and that is the whole point.** A uniform click stream reads the same at
+ * every window length — correctly, because the window changes how the rate is *measured*, not
+ * what it is — so a tidy fixture would have left `window_ms` looking dead in the preview when
+ * it is not. People do not click uniformly: they burst during a fight and drift between them,
+ * and the setting is precisely the choice between tracking the burst and averaging it away.
+ *
+ * Over 200 ms this reads ~15 CPS, over a second ~8, over five seconds ~2. That spread is the
+ * trade the player is actually making, and it is visible the moment the meter moves.
+ */
+const SAMPLE_CLICKS_LEFT = [30, 90, 150, 210, 280, 350, 620, 900, 1400, 2100, 3000, 4200];
+const SAMPLE_CLICKS_RIGHT = [120, 400, 1300, 2600, 4100];
+
+/** A fixed instant, so the fixture never depends on the clock and never repaints on a timer. */
+const SAMPLE_NOW = 100_000;
+
+function sampleRate(ages: readonly number[], windowMs: number): number {
+  const ring = createClickRing();
+  for (const age of [...ages].reverse()) pushClick(ring, SAMPLE_NOW - age);
+  return clicksPerSecond(ring, SAMPLE_NOW, windowMs);
+}
+
 export const HudCps = memo(function HudCps({ variant, sample }: HudWidgetProps) {
   const liveLeft = useVoidStore((s) => s.cpsLeft);
   const liveRight = useVoidStore((s) => s.cpsRight);
   const mode = useVoidStore((s) => String(modSettings(s.loadout, 'cps').mode ?? 'left'));
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'cps').show_label !== false);
-  // Nobody is clicking while the settings page is open, so both rings read zero and `mode`
-  // switches between three zeroes. Two different figures are what make the setting visible.
-  const left = liveLeft > 0 || liveRight > 0 || !sample ? liveLeft : 12;
-  const right = liveLeft > 0 || liveRight > 0 || !sample ? liveRight : 4;
+  const window = useVoidStore((s) => Number(modSettings(s.loadout, 'cps').window_ms ?? 1000));
+  // Nobody is clicking while the settings page is open, so both rings read zero: `mode` would
+  // switch between three zeroes and `window_ms` would have nothing to measure. The fixture is
+  // run through the real `clicksPerSecond`, so what the preview shows is what that click
+  // pattern would actually produce at this window — not an illustration of it.
+  const idle = liveLeft === 0 && liveRight === 0;
+  const left = idle && sample ? sampleRate(SAMPLE_CLICKS_LEFT, window) : liveLeft;
+  const right = idle && sample ? sampleRate(SAMPLE_CLICKS_RIGHT, window) : liveRight;
   return (
     <CpsChip
       variant={variant}

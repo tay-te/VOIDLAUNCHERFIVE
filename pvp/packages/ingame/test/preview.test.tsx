@@ -69,22 +69,37 @@ const LIVE: readonly ModId[] = [
 /**
  * Settings a live preview provably cannot show, and why.
  *
- * Short on purpose. Every entry is a small admission that a control on the page does nothing
- * you can see, so each one has to justify itself; "it was hard" is not a reason that belongs
- * here. Both of these are keys whose whole effect is outside the panel.
+ * **This list is the one place this gate can quietly erode**, so the bar for an entry is that
+ * the setting is *structurally* undrawable in a still frame — not that drawing it was hard, and
+ * not that nobody had thought of a way. It started at five and three of them did not survive
+ * being asked that question properly:
+ *
+ *   · `zoom.key` — "a keybind has no drawn form" was simply wrong. It has an obvious one, and
+ *     the key is half of what the zoom diagram is saying: hold *this*, see *that*. It is drawn.
+ *   · `zoom.smooth` — "a transition, and this preview does not animate" confused *animating* a
+ *     transition with *depicting* one. A still frame can draw the sizes the view passes
+ *     through, which is what the ghost frames now do.
+ *   · `cps.window_ms` — "nothing is clicking on a settings page" was true and beside the point.
+ *     A fixture can click, and once the fixture bursts the way people actually click, the
+ *     window changes the figure exactly as it does in game.
+ *
+ * Two remain, and both are about the *shape* of the thing rather than the effort:
  */
 const NOT_IN_THE_PREVIEW: Record<string, string> = {
-  // A hotkey has no appearance. The chip beside it *is* its feedback.
-  'keystrokes.keybind': 'a keybind has no drawn form',
-  'zoom.key': 'a keybind has no drawn form',
-  // Both are temporal: `smooth` eases the transition into the zoom, `cinematic` damps the
-  // camera while it is held. A preview that does not animate cannot show either, and one that
-  // did would spend the §4 budget (0 paints/s on an idle open menu) to say "this is smooth".
-  'zoom.smooth': 'a transition, and this preview does not animate',
-  'zoom.cinematic': 'camera damping, and this preview does not animate',
-  // The window over which clicks are averaged. It changes how fast the figure responds, not
-  // what the figure is, and the preview's clicks are a fixture rather than a stream.
-  'cps.window_ms': 'a response time, not a value — nothing is clicking on a settings page',
+  // This key toggles the widget's **visibility**, and it is not one of the keys the widget
+  // draws. The only faithful picture of it firing is the widget not being there, and a preview
+  // whose content is an empty box is the §15 failure the rest of this file exists to prevent.
+  // The `KeybindChip` in the row is the feedback, and the page's meta line prints it again.
+  'keystrokes.keybind': 'it makes the widget absent, and an absent widget is not a preview',
+  // Camera damping: the mouse moves and the view follows late. The whole content of the
+  // setting is the lag between two things, and a still frame has one instant in it.
+  //
+  // Worth stating plainly, because the cheap way out was available and is the erosion this
+  // list guards against: the diagram already prints a sentence, and making that sentence
+  // mention `cinematic` would have satisfied this gate without drawing anything. A caption is
+  // not a preview, and passing by editing text would have made the gate worth less than the
+  // exemption it replaced.
+  'zoom.cinematic': 'the lag between two motions, and a still frame holds one instant',
 };
 
 /** A legal value for `key` that differs from `current`. */
@@ -96,6 +111,9 @@ function otherValue(id: ModId, key: string, current: SettingValue): SettingValue
   if (range && typeof current === 'number') return current === range.max ? range.min : range.max;
   // `hex_color`, and the two keycap swatch enums, which are deliberately outside
   // `SETTING_ENUMS` because the page draws them as swatches rather than as chips.
+  // A keybind's domain is key names, which no table here carries. `zoom.key` is drawn on the
+  // FOV diagram, so it has to be exercised like anything else.
+  if (key === 'key' || key === 'keybind') return current === 'V' ? 'C' : 'V';
   if (key === 'color') return current === '#FF9E7A' ? '#7ADFFF' : '#FF9E7A';
   if (key === 'key_color') return current === 'sky' ? 'teal' : 'sky';
   if (key === 'pressed_color') return current === 'sky' ? 'warn' : 'sky';
