@@ -322,11 +322,6 @@
           "type": "boolean",
           "default": false
         },
-        "text_shadow": {
-          "description": "Whether glyphs in the FPS tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
-        },
         "padding": {
           "description": "Density of the FPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
           "type": "string",
@@ -389,11 +384,6 @@
           "description": "Whether a hairline is drawn around the key tiles, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
           "type": "boolean",
           "default": false
-        },
-        "text_shadow": {
-          "description": "Whether glyphs in the key tiles carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
         },
         "padding": {
           "description": "Density of the key tiles — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
@@ -485,11 +475,6 @@
           "type": "boolean",
           "default": false
         },
-        "text_shadow": {
-          "description": "Whether glyphs in the CPS tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
-        },
         "padding": {
           "description": "Density of the CPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
           "type": "string",
@@ -559,11 +544,6 @@
           "description": "Whether a hairline is drawn around the ping tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
           "type": "boolean",
           "default": false
-        },
-        "text_shadow": {
-          "description": "Whether glyphs in the ping tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
         },
         "padding": {
           "description": "Density of the ping tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
@@ -637,11 +617,6 @@
           "type": "boolean",
           "default": false
         },
-        "text_shadow": {
-          "description": "Whether glyphs in the coordinates tile carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
-        },
         "padding": {
           "description": "Density of the coordinates tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
           "type": "string",
@@ -710,11 +685,6 @@
           "description": "Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
           "type": "boolean",
           "default": false
-        },
-        "text_shadow": {
-          "description": "Whether glyphs in the armor row carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
         },
         "padding": {
           "description": "Density of the armor row — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
@@ -790,11 +760,6 @@
           "type": "boolean",
           "default": false
         },
-        "text_shadow": {
-          "description": "Whether glyphs in the effect list carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
-        },
         "padding": {
           "description": "Density of the effect list — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
           "type": "string",
@@ -858,11 +823,6 @@
           "description": "Whether a hairline is drawn around the mark, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
           "type": "boolean",
           "default": false
-        },
-        "text_shadow": {
-          "description": "Whether glyphs in the mark carry the vanilla 1px drop shadow. This is the single most load-bearing legibility control on the HUD — it is what makes white text survive a snow biome — and it is on by default because that is what Minecraft itself does and what every player has read text against for a decade.",
-          "type": "boolean",
-          "default": true
         },
         "padding": {
           "description": "Density of the mark — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
@@ -1574,7 +1534,6 @@
             "opacity": 1,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "color": "#FFFFFF",
             "show_label": true,
@@ -1596,7 +1555,6 @@
             "opacity": 0.85,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "keybind": "NONE",
             "show_mouse": true,
@@ -1623,7 +1581,6 @@
             "opacity": 1,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "mode": "left",
             "show_label": true,
@@ -1645,7 +1602,6 @@
             "opacity": 1,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "show_label": true,
             "good_ms": 60,
@@ -1668,7 +1624,6 @@
             "opacity": 1,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "decimals": 1,
             "show_direction": true,
@@ -1690,7 +1645,6 @@
             "opacity": 1,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "orientation": "horizontal",
             "show_durability": true,
@@ -1713,7 +1667,6 @@
             "opacity": 1,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "show_duration": true,
             "show_amplifier": true,
@@ -1735,7 +1688,6 @@
             "opacity": 0.9,
             "background": "none",
             "border": false,
-            "text_shadow": true,
             "padding": "normal",
             "style": "full"
           }

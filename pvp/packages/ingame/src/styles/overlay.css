@@ -150,12 +150,11 @@ body {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-/* The vanilla 1px drop shadow, and the single most load-bearing legibility control on the HUD:
-   it is what makes white text survive a snow biome. On by default because that is what
-   Minecraft itself does and what every player has read text against for a decade. */
-.hud-chrome--shadow {
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
-}
+/* There is no `.hud-chrome--shadow`. A `text-shadow` rule stood here for one commit and
+   `scripts/check-ultralight.mjs` rejected it, correctly: ultralight-notes §3 rates the property
+   [risky] — the rasteriser drops it, or it smears the glyph atlas — so the switch above it would
+   have moved on the settings page and drawn nothing in game. §3's own answer is that legibility
+   is solved by giving text a chip, which is what `--bg-subtle` and `--bg-solid` are. */
 
 /* Density — §1's own word for it, and what a player means by "make the HUD smaller" once
    `scale` has already made the text too small to read. Zero at `tight` so the block is a true

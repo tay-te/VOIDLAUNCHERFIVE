@@ -1,6 +1,22 @@
 /**
  * The shared HUD chrome block, resolved into what the DOM needs.
  *
+ * ## The control that is not here
+ *
+ * `text_shadow` was in this block for exactly one commit, and what removed it is worth keeping
+ * written down. `design/ultralight-notes.md` §3 rates `text-shadow` **[risky]** — Ultralight's
+ * text rasteriser drops it, and on some builds it smears the glyph atlas — so the switch would
+ * have rendered *nothing*, in game, for every player, while the settings page showed it moving.
+ * That is `design/rendering-invariants.md` §15's silent failure, shipped by the same pass that
+ * was written to remove silent failures. It was caught by `scripts/check-ultralight.mjs`, which
+ * is why that guard exists.
+ *
+ * §3 also answers the question the setting was reaching for. HUD legibility is already solved
+ * *structurally* — every readout sits on its own chip — and §3 says in as many words that the
+ * decision "must be preserved rather than 'improved' later". `background` below is that chip,
+ * exposed to the player. It is the answer, and there is not a second one: do not re-add
+ * `text-shadow`, and do not reach for `-webkit-text-stroke` (also unreliable here).
+ *
  * ## What it is for
  *
  * A HUD readout is drawn over *arbitrary game pixels*. A chip that is legible on a stone wall
@@ -55,18 +71,14 @@ export function hudChrome(settings: Readonly<Record<string, SettingValue>>): str
   const padding = typeof settings.padding === 'string' && PADDINGS.has(settings.padding)
     ? settings.padding
     : 'normal';
-  // Both booleans default the way the schema does: no border, shadow on. `text_shadow` is on by
-  // default because that is what Minecraft itself does, and it is the single most load-bearing
-  // legibility control here — it is what makes white text survive a snow biome.
+  // Defaults the way the schema does: no border.
   const border = settings.border === true;
-  const shadow = settings.text_shadow !== false;
 
   return [
     'hud-chrome',
     `hud-chrome--bg-${background}`,
     `hud-chrome--pad-${padding}`,
     border ? 'hud-chrome--border' : null,
-    shadow ? 'hud-chrome--shadow' : null,
   ]
     .filter(Boolean)
     .join(' ');
