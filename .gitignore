@@ -5,3 +5,8 @@ dist/
 .env
 *.log
 .claude/settings.local.json
+
+# Agent worktrees. `Agent(isolation: "worktree")` checks the whole repository out under here,
+# so committing it would nest a copy of the tree inside itself. They are scratch: the work is
+# merged back through git, never through this directory.
+.claude/worktrees/
