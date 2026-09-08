@@ -22,8 +22,8 @@
  * A HUD readout is drawn over *arbitrary game pixels*. A chip that is legible on a stone wall
  * can be unreadable on snow or against a nether ceiling, and until this block existed the only
  * answers a player had were `scale` and `opacity` — neither of which is about contrast. So
- * every `kind: hud` mod now carries `background`, `border`, `text_shadow` and `padding`,
- * declared once in `schema/mods/_shared.json#/hud` rather than nine times.
+ * every `kind: hud` mod now carries `background`, `border` and `padding`, declared once in
+ * `schema/mods/_shared.json#/hud` rather than eight times.
  *
  * ## Why none of it is a colour
  *

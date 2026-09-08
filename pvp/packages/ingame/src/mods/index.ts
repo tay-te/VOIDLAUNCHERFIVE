@@ -17,10 +17,10 @@
  *
  * ## Adding a mod
  *
- * 1. `schema/mods/<id>.json`, then `node schema/build.mjs` — see `schema/README.md`.
+ * 1. `schema/mods/<id>.json`, then `node schema/build.mjs` — see `docs/adding-a-mod.md`,
+ *    which is the whole procedure. The icon is declared there too, not here.
  * 2. `packages/ingame/src/mods/<id>.tsx` — one {@link ModArt}.
  * 3. Add it to {@link MOD_ORDER} where it should read in the grid.
- * 4. Add its icon cell in `scripts/build-icons.py` if the name is new.
  *
  * Step 2 is not optional and step 3 is checked at runtime by {@link MOD_ORDER}'s own assertion,
  * because a mod missing from a *layout* array is the one thing a type cannot catch — the array
