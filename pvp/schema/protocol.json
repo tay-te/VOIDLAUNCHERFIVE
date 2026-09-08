@@ -19,11 +19,12 @@
 
     "java_to_rust": {
       "title": "Java to Rust",
-      "description": "The six messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
+      "description": "The seven messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
       "oneOf": [
         { "description": "Handshake sent immediately on connect.", "$ref": "#/definitions/msg_hello" },
         { "description": "Live loadout state delta.", "$ref": "#/definitions/msg_state" },
         { "description": "HUD layout after a drag in the HUD editor.", "$ref": "#/definitions/msg_hud" },
+        { "description": "Global settings delta written in game.", "$ref": "#/definitions/msg_globals" },
         { "description": "Periodic session telemetry summary.", "$ref": "#/definitions/msg_session" },
         { "description": "Server connect/disconnect notification.", "$ref": "#/definitions/msg_server" },
         { "description": "A global hotkey the player pressed in game.", "$ref": "#/definitions/msg_hotkey" }
@@ -93,6 +94,33 @@
         "t": { "description": "Message discriminator; always `hud`.", "type": "string", "const": "hud" },
         "loadout": { "description": "Id of the loadout whose HUD layout this replaces.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" },
         "items": { "description": "The complete new HUD layout, replacing whatever Rust had stored for this loadout.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/hud_layout" }
+      }
+    },
+
+    "msg_globals": {
+      "title": "globals (Java to Rust)",
+      "description": "Sent by the mod when a global setting is written in game — the in-game Settings page rebinding the menu key, the HUD editor's Snap toggle writing `hud_editor_grid`. The exact counterpart of `state` for the non-loadout half of §8.3: Java is authoritative, has already applied the change, and this tells Rust so it reaches `settings.json` and survives the process. Without it a global written in game lives only in `LiveState` and is gone at the next launch, which is what `hud_editor_grid` did for as long as the Snap toggle existed.\n\nA **delta, not the whole object**, and that is load-bearing rather than stylistic. `global_settings` is `additionalProperties: true` so the launcher may add a global without a protocol bump, but the mod's `GlobalSettings` is a fixed five-field class that cannot carry one — so a mod that echoed the whole object back would silently erase every global it does not model. Rust merges the named keys into what it already has and leaves the rest alone.",
+      "type": "object",
+      "required": ["t", "patch"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `globals`.", "type": "string", "const": "globals" },
+        "patch": { "description": "The globals that changed, and only those.", "$ref": "#/definitions/global_patch" }
+      }
+    },
+
+    "global_patch": {
+      "title": "Global settings patch",
+      "description": "Flat map of `global_settings` property names to their new values, e.g. `{\"hud_editor_grid\": 8}`. Keys are the top-level property names of `global_settings`, not dotted paths: globals are flat, so there is nothing to path into. Unlike `state_patch` there is no `null`: `setGlobal` refuses a value it cannot store and returns null to the caller rather than sending one, so a null here would mean nothing a receiver could act on.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "description": "A `global_settings` property name.",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "description": "The new value. Validate against the property's sub-schema in `global_settings` after applying; the mod has already clamped it to the same bounds.",
+        "type": ["boolean", "number", "string"]
       }
     },
 
@@ -211,6 +239,8 @@
         { "id": "armor_status", "anchor": "right", "dx": -20, "dy": 0 }
       ]
     },
+    { "t": "globals", "patch": { "hud_editor_grid": 8 } },
+    { "t": "globals", "patch": { "menu_key": "F1", "theme": "void-light" } },
     { "t": "session", "fps_avg": 142, "played_ms": 812000, "server": "mc.hypixel.net" },
     { "t": "server", "host": "mc.hypixel.net", "connected": true },
     { "t": "hotkey", "id": "loadout.next" },

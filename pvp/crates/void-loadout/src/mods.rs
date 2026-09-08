@@ -329,6 +329,9 @@ pub struct FpsSettings {
     /// Whether to render the trailing "FPS" label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_label: Option<bool>,
+    /// Whether the 1% low is drawn as a trailing aside.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_low: Option<bool>,
 }
 
 /// Keystrokes settings.
@@ -352,6 +355,9 @@ pub struct KeystrokesSettings {
     /// Whether to render the spacebar tile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_spacebar: Option<bool>,
+    /// Whether to render the sneak (shift) tile beside the space bar.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_sneak: Option<bool>,
     /// Whether to print CPS inside the mouse tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_cps: Option<bool>,
@@ -428,6 +434,9 @@ pub struct CpsSettings {
     /// Which buttons to count.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<CpsMode>,
+    /// Whether to render the trailing "CPS" unit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
     /// Sliding-window length in milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window_ms: Option<i64>,
@@ -454,6 +463,9 @@ pub struct PingSettings {
     /// Ping at or above this renders in the bad colour.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bad_ms: Option<i64>,
+    /// Whether the shortened server name is drawn after the figure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_host: Option<bool>,
 }
 
 /// Whether coordinates are stacked on three lines or printed on one.
@@ -520,6 +532,9 @@ pub struct ArmorStatusSettings {
     /// Whether to include the held item as a sixth slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_held_item: Option<bool>,
+    /// Fraction of maximum durability under which a piece's bar turns amber.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warn_below: Option<f64>,
 }
 
 /// Potion effects settings.
@@ -696,6 +711,9 @@ pub struct CrosshairSettings {
     /// Whether the gap widens with the attack cooldown and while sprinting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dynamic: Option<bool>,
+    /// Whether a dot of `thickness` square is drawn on the centre point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_dot: Option<bool>,
 }
 
 // ---------------------------------------------------------------------------

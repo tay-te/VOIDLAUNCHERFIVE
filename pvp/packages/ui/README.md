@@ -237,7 +237,7 @@ setIconRenderer(({ name, size = 16 }) => (
 ));
 ```
 
-`MOD_ICONS` maps each of the 12 mod ids to its glyph. `resolveLoadoutIcon(name)` resolves
+`MOD_ICONS` maps each of the 13 mod ids to its glyph. `resolveLoadoutIcon(name)` resolves
 a loadout's `icon` field — `loadout.json` says that value names an icon in this package,
 not a file path — and falls back to `box`.
 
@@ -275,6 +275,7 @@ Every entry in the design README's component inventory.
 | **Cards & panes** | `LoadoutCard`, `Pane`, `StatTile`, `Sparkline`, `GroupCaption`, `BackButton` |
 | **List rows** | `ServerRow`, `FriendRow`, `PartyMemberRow`, `InviteRow`, `CosmeticCard` |
 | **HUD widgets** | `FpsChip`, `PingChip`, `CoordsChip`, `CpsChip`, `PotionList`, `ArmorList`, `KeystrokesWidget`, `Crosshair`, `Hotbar` |
+| **Crosshair geometry** | `crosshairRects`, `dynamicSpread`, `isRing`, `keepsVanilla`, `asCrosshairStyle`, `CROSSHAIR_STYLES`, `CROSSHAIR_UNIT_PREVIEW` — `lib/crosshair.ts`, the TypeScript twin of `CrosshairGeometry.java`. The crosshair is the one mod drawn in GL rather than by the page, so the settings preview has to draw it here and must not draw a *different* one. |
 | **HUD editor** | `EditorToolbar`, `Tool`, `SelectionFrame`, `HintBar` |
 | **Quick palette** | `Palette`, `PaletteInput`, `PaletteSeam`, `PaletteSection`, `PaletteResult`, `PaletteFooter` |
 

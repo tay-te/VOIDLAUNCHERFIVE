@@ -56,6 +56,7 @@ export const ICON_NAMES = [
   'footprints',
   'cube',
   'sparkle',
+  'watermark',
 ] as const;
 
 /** One icon name. */
@@ -126,10 +127,14 @@ const PATHS: Record<IconName, string[]> = {
   ],
   cube: ['M21 8 12 3 3 8v8l9 5 9-5V8Z', 'M3 8l9 5 9-5'],
   sparkle: ['M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5 10.2 7.7 12 3Z', 'M18.5 16l.9 2.2 2.1.8-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.8.9-2.2Z'],
+  // Not a Lucide glyph. A mark placed in the corner of a screen, which is what the watermark
+  // mod is; see `MOD_ICONS.watermark` and `ingame/scripts/build-icons.py` for why it is not
+  // `sparkle` any more.
+  watermark: ['M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M7.4 15a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2Z'],
 };
 
 /** Icons drawn as a solid shape rather than a stroke. */
-const FILLED = new Set<IconName>(['play', 'heart', 'star', 'shield', 'sparkle']);
+const FILLED = new Set<IconName>(['play', 'heart', 'star', 'shield', 'sparkle', 'watermark']);
 
 /** Props for {@link Icon}. */
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name' | 'width' | 'height'> {
@@ -204,7 +209,13 @@ export const MOD_ICONS = {
   // The VOID mark itself is cell art, not an icon — the tile preview draws the real widget
   // (`ingame/src/menu/TilePreview.tsx`). What this names is the icon for the *rows*, where
   // every other mod has one and a hole would read as a missing asset.
-  watermark: 'sparkle',
+  //
+  // It was `sparkle` until the icon pass, and that was wrong twice: `sparkle` means "AI /
+  // magic / enhance" everywhere else in this product — it is the palette's default and the
+  // Cosmetics mark — and it is the one **filled** glyph among twelve stroked mod icons, so the
+  // quietest thing the client draws had the heaviest mark in the list column. See
+  // `ingame/scripts/build-icons.py`, `watermark`.
+  watermark: 'watermark',
 } as const satisfies Record<string, IconName>;
 
 /**

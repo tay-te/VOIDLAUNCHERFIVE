@@ -49,6 +49,46 @@ Expose it as `--hue` set on the mod's root element; every accent-consuming rule 
 the current value of a control, the selected item, or a drag handle. Historical data,
 counts, disabled rows and every meter cell that is not the current one stay monochrome.
 
+### Where the accent rule stops — the chrome / world split
+
+The rule above was written about **the client's own surface**: the menu, the panels, the
+controls, the tiles. That is where colour competing with content is the failure it prevents,
+and there it is absolute.
+
+**The HUD is not that surface.** A crosshair, a hitbox outline and an fps readout are drawn
+over arbitrary game pixels, where colour is the only channel available at a glance and
+legibility against an unknown background is a real problem rather than a stylistic one. The
+system already relied on this without saying so: `ping` turns its dot amber past a threshold,
+a durability bar turns amber under one, a pressed keycap takes a chosen fill, and a potion
+swatch takes the effect's own colour. None of those was ever thought to violate §1.
+
+So the line, stated so it is decidable rather than a matter of taste:
+
+> **Colour encodes a value or a state. It is never a preference.**
+
+Both halves do work. "Encodes a value or a state" is what lets `fps.color` tint the figure —
+the figure is the live value, which is exactly why the chip's `fps` unit and its `1% low` aside
+stay monochrome on the same chip — and what lets `ping.good_ms`, `armor_status.warn_below` and
+`crosshair.color` exist. "Never a preference" is what keeps the door shut.
+
+**What is on the far side of the line, and stays there.** Naming it is the only thing that
+makes the boundary useful:
+
+- a chip background, border or label colour per mod
+- a per-widget theme, or an accent the player picks for the client
+- a colour on anything that is not itself the live value — a unit, a caption, a count, a
+  disabled row, a meter cell that is not the current one
+- **any colour on the menu's own surface**, the mod tiles included. A tile is chrome: its job
+  is identification, the page's job is configuration, and thirteen tiles each carrying their
+  own configured ink is the "colour becomes decoration" failure in its purest form. It would
+  also compete with the only two things a tile's colour is for, which are the category hue and
+  the selected state. The crosshair's tile draws its real shape and its real size and stays
+  monochrome, exactly like the other twelve.
+
+**What customisation is, then.** Position, anchor and offset, scale, opacity, density, what is
+shown, format, thresholds on a live value, and the category hue where a hue belongs. That is a
+large surface — it is most of what a player reaches for — and none of it costs the system.
+
 ## 2. Type — Outfit only
 
 ```

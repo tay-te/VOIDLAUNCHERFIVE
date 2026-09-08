@@ -31,7 +31,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "scale": 1,
         "opacity": 1,
         "color": "#FFFFFF",
-        "show_label": true
+        "show_label": true,
+        "show_low": true
       }
     },
     "keystrokes": {
@@ -49,6 +50,7 @@ export const MOD_REGISTRY_DOCUMENT = {
         "keybind": "NONE",
         "show_mouse": true,
         "show_spacebar": true,
+        "show_sneak": false,
         "show_cps": false,
         "corner_radius": 8,
         "key_color": "shell",
@@ -68,6 +70,7 @@ export const MOD_REGISTRY_DOCUMENT = {
         "scale": 1,
         "opacity": 1,
         "mode": "left",
+        "show_label": true,
         "window_ms": 1000
       }
     },
@@ -85,7 +88,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "opacity": 1,
         "show_label": true,
         "good_ms": 60,
-        "bad_ms": 150
+        "bad_ms": 150,
+        "show_host": true
       }
     },
     "coordinates": {
@@ -119,7 +123,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "opacity": 1,
         "orientation": "horizontal",
         "show_durability": true,
-        "show_held_item": true
+        "show_held_item": true,
+        "warn_below": 0.5
       }
     },
     "potion_effects": {
@@ -228,7 +233,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "gap": 2,
         "color": "#FFFFFFFF",
         "outline": true,
-        "dynamic": false
+        "dynamic": false,
+        "center_dot": false
       }
     }
   }

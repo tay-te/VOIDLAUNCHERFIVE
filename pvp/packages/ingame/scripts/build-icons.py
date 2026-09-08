@@ -63,6 +63,8 @@ ICONS = [
     # the rest of `@void/ui`'s ICON_NAMES, so the sprite covers it exactly and the
     # renderer's name map can be asserted total rather than kept as a list of exceptions
     'check', 'plus', 'star', 'heart', 'eye', 'play', 'reset', 'chevron-right', 'bed',
+    # appended, never inserted — see the module docstring
+    'watermark',
 ]
 
 
@@ -167,8 +169,21 @@ def draw(name, d):
             a = k * 45
             polyline(d, [polar(12, 12, 6.9, a), polar(12, 12, 10.3, a)], 2.4)
 
-    elif name == 'fps':           # lucide `activity`
-        polyline(d, [(22, 12), (18, 12), (15, 21), (9, 3), (6, 12), (2, 12)], s)
+    elif name == 'fps':           # lucide `gauge`
+        # WAS lucide `activity`, the ECG pulse. Two things were wrong with it and only one was
+        # about meaning: a pulse line says "activity", which is what the icon is called, and not
+        # "how many frames a second" — but it was also the **lightest mark on the sheet**, one
+        # thin unenclosed polyline in a set of shields, flasks and rounded cases, so the fps row
+        # read fainter than its neighbours for no reason a player could name.
+        #
+        # A speedometer answers both: it is a rate, and it is a closed form with the same optical
+        # weight as `armor_status` and `cps` beside it. Lucide's own geometry — a 240-degree arc
+        # of r 10 about (12,14), opening at the bottom, plus the needle from the hub.
+        #
+        # Drawn WITHOUT Lucide's hub dot: at 16px the dot and the needle's root merge into a blob
+        # that closes the dial's centre. Measured, not assumed.
+        arc(d, 12, 14, 9, 150, 390, s)
+        line(d, 12, 14, 16.0, 9.4, s)
 
     elif name == 'keystrokes':
         # lucide `keyboard`, simplified: its ten 1-unit key dots are sub-pixel at 16px and
@@ -186,7 +201,20 @@ def draw(name, d):
         rrect(d, 5, 2, 14, 20, 7, s)
         line(d, 12, 6, 12, 12, s)
 
-    elif name == 'toggle_sprint':  # lucide `chevrons-right`
+    elif name == 'toggle_sprint':
+        # DELIBERATE SUBSTITUTION, and the one place this sheet and `@void/ui`'s `MOD_ICONS`
+        # still disagree: the name is `footprints` and the drawing is `chevrons-right`.
+        #
+        # Lucide's `footprints` is two soles, each a rounded body with a toe pad above it. At
+        # 16px, stroked, the two bodies close into hollow rings and the pads into dots — it reads
+        # as two lowercase o-with-a-dot, not as feet; filled, it reads as four blobs. Both were
+        # rendered and looked at before this comment was written.
+        #
+        # So the mark is speed rather than feet. It is the weakest icon in the mod set — a double
+        # chevron is "fast forward" in every other product a player uses — and it is kept because
+        # the alternative measured worse, not because it measured well. `MOD_ICONS.toggle_sprint`
+        # still says `footprints`, which is what the launcher's SVG draws at a size where it
+        # survives; the divergence is here so that it is not a surprise.
         polyline(d, [(6, 17), (11, 12), (6, 7)], s)
         polyline(d, [(13, 17), (18, 12), (13, 7)], s)
 
@@ -215,8 +243,14 @@ def draw(name, d):
         # Lucide's brackets turn each corner with a 2-unit radius. At 48px that radius is 4px
         # and the 2.2 stroke fills it, so the corners are mitred instead — a clean angle reads
         # better than a blob, and the round caps soften the outside anyway.
+        #
+        # Arms of 6.6 units rather than Lucide's 4.5. At 4.5 the four brackets leave a 15-unit
+        # hole in the middle of a 24-unit box and the cell is by some way the airiest on the
+        # sheet — beside a filled shield and a solid keyboard case it reads as four stray ticks
+        # rather than as one shape. At 6.6 the gaps are 4.8 units and the eye closes them into a
+        # box, which is what a hitbox is. The meaning did not change; the weight did.
         for (cx, cy, dx, dy) in ((3, 3, 1, 1), (21, 3, -1, 1), (21, 21, -1, -1), (3, 21, 1, -1)):
-            polyline(d, [(cx, cy + 4.5 * dy), (cx, cy), (cx + 4.5 * dx, cy)], s)
+            polyline(d, [(cx, cy + 6.6 * dy), (cx, cy), (cx + 6.6 * dx, cy)], s)
 
     elif name == 'armor_status':  # lucide `shield`
         # The crest, as a polyline sampled off Lucide's bezier: flat-ish shoulders, straight
@@ -361,6 +395,22 @@ def draw(name, d):
 
     elif name == 'chevron-right':  # lucide `chevron-right` — the mirror of `back`
         polyline(d, [(9, 6), (15, 12), (9, 18)], s)
+
+    elif name == 'watermark':
+        # NOT a Lucide name. The watermark mod used `sparkle` — Lucide's four-point star — and
+        # that was wrong twice over. `sparkle` means "AI / magic / enhance" everywhere else in
+        # this product and in every other one; and it is **filled**, so among twelve stroked mod
+        # icons the watermark's row carried the heaviest mark in the column for the mod that
+        # draws the quietest thing on screen. (`sparkle` keeps its own job: the palette's default
+        # icon and Cosmetics, where the meaning is right.)
+        #
+        # This is what the mod actually does — a mark placed in the corner of the screen. A
+        # rounded case for the screen and a disc low-left for the mark. It shares the case shape
+        # with `keystrokes`, and stays apart from it because that one is dense with key marks
+        # where this one is empty but for the dot; they are also nowhere near each other in the
+        # grid order.
+        rrect(d, 2.6, 5.0, 18.8, 14.0, 2.6, s)
+        disc(d, 7.4, 15.0, 2.1)
 
     elif name == 'bed':
         # `@void/ui`'s `PATHS.bed`. Its two 1- and 2-unit corner radii are 2 and 4 device px

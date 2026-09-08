@@ -76,6 +76,14 @@ export interface EditorToolbarProps extends HTMLAttributes<HTMLDivElement> {
   onReset?: () => void;
   /** Leave the editor — the `Done` button and the Esc key both do this. */
   onDone?: () => void;
+  /**
+   * A key cap to sit inside `Done`, naming the key that presses it.
+   *
+   * A slot rather than a built-in `esc`, because which key leaves the editor is the host's
+   * business: the in-game overlay binds Escape and passes its own cap, and a host that binds
+   * something else — or nothing — passes nothing and gets a bare button.
+   */
+  doneKbd?: ReactNode;
   /** Replace the tool row entirely. */
   children?: ReactNode;
 }
@@ -94,6 +102,7 @@ export function EditorToolbar({
   onGridChange,
   onReset,
   onDone,
+  doneKbd,
   className,
   children,
   ...rest
@@ -121,6 +130,7 @@ export function EditorToolbar({
           </Tool>
           <Tool kind="primary" hideIcon onClick={onDone}>
             Done
+            {doneKbd}
           </Tool>
         </>
       )}

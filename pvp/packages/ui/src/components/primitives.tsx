@@ -416,8 +416,15 @@ export function Divider({
 
 /** Props for {@link StatusDot}. */
 export interface StatusDotProps extends HTMLAttributes<HTMLSpanElement> {
-  /** `ok` online/ready, `warn` degraded, `muted` offline, `accent` selected. */
-  tone?: 'ok' | 'warn' | 'muted' | 'accent';
+  /**
+   * `ok` online/ready, `warn` degraded, `bad` failing, `muted` offline, `accent` selected.
+   *
+   * `bad` was added for `PingChip`, which had three thresholds and two tones: with a valid
+   * config `bad_ms` is always above `good_ms`, so "at or above bad" and "above good" both came
+   * out amber and the `bad_ms` setting could not change a pixel. A third tone is what makes it
+   * a setting rather than a stored number.
+   */
+  tone?: 'ok' | 'warn' | 'bad' | 'muted' | 'accent';
   /** Diameter in pixels. The design uses 6 to 11. */
   size?: number;
 }
@@ -436,6 +443,7 @@ export function StatusDot({
         'v-dot',
         tone === 'ok' && 'v-dot--ok',
         tone === 'warn' && 'v-dot--warn',
+        tone === 'bad' && 'v-dot--bad',
         tone === 'accent' && 'v-dot--accent',
         className,
       )}

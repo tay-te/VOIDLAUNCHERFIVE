@@ -121,7 +121,10 @@ public final class ModRegistry {
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
                 "color", color("#FFFFFF"),
-                "show_label", bool(true));
+                "show_label", bool(true),
+                // The 1% low is the figure that says whether a frame rate is smooth. It is
+                // also a third number on a chip read mid-match, so it is a switch.
+                "show_low", bool(true));
 
         mod("keystrokes", Kind.HUD, Category.HUD, "Keystrokes",
                 "on", bool(true),
@@ -130,6 +133,10 @@ public final class ModRegistry {
                 "keybind", keybind("NONE"),
                 "show_mouse", bool(true),
                 "show_spacebar", bool(true),
+                // The `keys` event has carried `shift` since it was written and the widget
+                // has always been handed it; this is the switch that draws the cap. Off by
+                // default because the frames' keystrokes block is WASD + mouse + space.
+                "show_sneak", bool(false),
                 "show_cps", bool(false),
                 "corner_radius", integer(0, 20, 8),
                 "key_color", enumOf("shell", "shell", "raised", "pill", "sky", "teal"),
@@ -140,6 +147,7 @@ public final class ModRegistry {
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
                 "mode", enumOf("left", "left", "right", "both"),
+                "show_label", bool(true),
                 "window_ms", integer(200, 5000, 1000));
 
         mod("ping", Kind.HUD, Category.HUD, "Ping display",
@@ -148,7 +156,10 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "show_label", bool(true),
                 "good_ms", integer(0, 1000, 60),
-                "bad_ms", integer(0, 2000, 150));
+                "bad_ms", integer(0, 2000, 150),
+                // A player who only ever plays one server is being told something they
+                // already know, on the chip they look at most often.
+                "show_host", bool(true));
 
         mod("coordinates", Kind.HUD, Category.HUD, "Coordinates",
                 "on", bool(false),
@@ -170,7 +181,10 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "orientation", enumOf("horizontal", "horizontal", "vertical"),
                 "show_durability", bool(true),
-                "show_held_item", bool(true));
+                "show_held_item", bool(true),
+                // A threshold on a live value, the same species as ping's good/bad — where
+                // a player wants to be warned about their gear is a matter of how they play.
+                "warn_below", number(0, 1, 0.5));
 
         mod("potion_effects", Kind.HUD, Category.HUD, "Potion effects",
                 "on", bool(true),
@@ -230,7 +244,10 @@ public final class ModRegistry {
                 "gap", integer(0, 10, 2),
                 "color", color("#FFFFFFFF"),
                 "outline", bool(true),
-                "dynamic", bool(false));
+                "dynamic", bool(false),
+                // `dot` is a *style*, so without this the choice is a cross or a centre
+                // reference, never both. Drawn under whatever style draws around it.
+                "center_dot", bool(false));
     }
 
     /** The thirteen mod ids, in registry order. */

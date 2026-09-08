@@ -99,6 +99,28 @@ class ActuatorsTest {
     }
 
     @Test
+    @DisplayName("center_dot adds one rectangle to every style that draws, and none to those that do not")
+    void crosshairCenterDot() {
+        // The dot rides on top of whatever the style draws around it.
+        assertEquals(5, CrosshairGeometry.rects("cross", 5, 1, 2, 0, true).size());
+        assertEquals(4, CrosshairGeometry.rects("t_shape", 5, 1, 2, 0, true).size());
+        // A ring draws no rectangles of its own, so the dot is the only one it has.
+        assertEquals(1, CrosshairGeometry.rects("circle", 5, 1, 2, 0, true).size());
+        // Already a dot: drawing it twice would run the outline pass over one rectangle twice.
+        assertEquals(1, CrosshairGeometry.rects("dot", 5, 1, 2, 0, true).size());
+        // Off is off, and `default` is the vanilla pass — neither gains a dot.
+        assertEquals(0, CrosshairGeometry.rects("none", 5, 1, 2, 0, true).size());
+        assertEquals(0, CrosshairGeometry.rects("default", 5, 1, 2, 0, true).size());
+
+        // On the centre point, whatever the gap is.
+        CrosshairGeometry.Rect dot = CrosshairGeometry.rects("cross", 5, 3, 7, 0, true).get(0);
+        assertEquals(-1.5f, dot.x, 1e-6);
+        assertEquals(-1.5f, dot.y, 1e-6);
+        assertEquals(3f, dot.w, 1e-6);
+        assertEquals(3f, dot.h, 1e-6);
+    }
+
+    @Test
     @DisplayName("the crosshair is symmetric about the exact centre")
     void crosshairIsCentred() {
         List<CrosshairGeometry.Rect> rects = CrosshairGeometry.rects("cross", 5, 1, 2, 0);

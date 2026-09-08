@@ -1,6 +1,6 @@
 # Rendering invariants — what the in-game overlay must keep true
 
-Scope: the in-game overlay's render and present path — `UiHost`, the GL driver,
+Scope: the in-game overlay's render, present and **input** path — `UiHost`, the GL driver,
 the presentation gate, and the CSS that depends on how Ultralight actually
 behaves. Its sibling `ultralight-notes.md` covers what the engine **cannot
 render**; this file covers how the engine **behaves**, which is a different
@@ -240,6 +240,65 @@ for this. **Do not add a scale press-state anywhere.** Note the static checker
 catches `scale3d` and `translateZ` but not 2D `scale()`, which is legitimate
 elsewhere — this is a rule about press states only.
 
+## 10a. …and `transform: scale()` corrupts text **permanently**, not only under a press — **[measured]**
+
+§10 was written about `:active` states and reads as a rule about press transforms. It is not.
+Any scaled text is corrupt here, for as long as it is on screen, and the HUD had been shipping
+that since `placementStyle()` was written: `hud_item.scale` and every mod's own `scale` setting
+went out as `translate(...) scale(s)`.
+
+Measured on the keystrokes pad, at `1.3×`:
+
+```
+W  A  S  D     clean            <- one glyph per cap
+LMB -> "LNB"   RMB -> "RNB"     <- three glyphs, drawn at the scaled size
+                                   over advances computed at the unscaled one
+```
+
+At `2.8×` every cap was unreadable. Single glyphs survive because a run of one cannot collide
+with itself, which is exactly why this was invisible for so long — the widgets that scale
+visibly are mostly numbers.
+
+**The fix is `zoom`, on a box of its own.** `zoom` is a *layout* scale, so the engine lays the
+text out at its final size and the metrics are the right ones; the same pad at the same `1.3×`
+renders `LMB` and `RMB` correctly, and still does at `2.4×`.
+
+Two boxes, and the split is load-bearing. `.hud-item` keeps the placement — `position`, the edge
+offsets, `translate(dx, dy)`, `transform-origin` — in an **unzoomed** coordinate system, and
+`.hud-item__zoom` inside it carries `zoom: s`. Zooming the outer box instead would scale its own
+`translate()` too, quietly redefining every `dx`/`dy` Java has stored; and because `zoom` is
+layout, the outer box shrink-wraps to the widget's *drawn* size, which is what both the anchor
+arithmetic and the HUD editor's selection frame measure.
+
+*Symptom when violated:* nobody reports it. Garbled small text on a HUD chip reads as a small
+HUD chip.
+
+## 10b. jsdom does not serialise `zoom`, so the test for §10a cannot see it — **[measured]**
+
+§10a makes `zoom` the only legal way to scale a widget, and this is the reason the gate on it
+nearly did not work.
+
+jsdom implements `zoom` on the CSSOM but not in the style **attribute**. Given
+`<div style={{ zoom: 2, opacity: .5 }} />` it produces
+
+```
+outerHTML   <div style="opacity: 0.5;"></div>
+style.zoom  "2"
+cssText     "opacity: 0.5;"
+```
+
+So any test that compares rendered markup — `innerHTML`, `outerHTML`, a DOM snapshot — is
+**blind to the one property the invariant above requires**. `test/preview.test.tsx` compares
+the mod page's drawing before and after each setting is changed; with an `innerHTML` comparison
+`scale` came back inert on every live preview, and the obvious reading of that result is "the
+preview ignores `scale`", not "the test cannot see `scale`".
+
+**Read `zoom` off `el.style`, never out of serialised markup.** `drawing()` in that file appends
+every descendant's `style.zoom` to the snapshot for exactly this reason.
+
+*Symptom when violated:* a green suite over a preview that does not scale, or an afternoon
+spent fixing a scale that was never broken.
+
 ## 11. Tabular figures are inert — **[measured]**
 
 `font-variant-numeric: tabular-nums` and `font-feature-settings: 'tnum' 1` have
@@ -271,6 +330,58 @@ showing the only thing the page had ever drawn.
 Force the whole subtree, and prefer `height: 0; overflow: hidden` where the goal
 is to measure something without showing it.
 
+## 12a. `display: contents` is supported, and it has no box — **[measured]**
+
+Which makes it a perfect place to lose a drag. The HUD editor hung its pointer handlers on a
+`<div style={{display:'contents'}}>` wrapped around each widget and measured the gesture from
+`e.currentTarget.getBoundingClientRect()`:
+
+```
+hud-item[keystrokes] rect = 31.0,536.0  130.0x175.0     <- the widget
+wrapper <div> computedDisplay="contents"
+                      rect =  0.0,  0.0    0.0x0.0
+                      clientRects=0  offsetParent=no
+```
+
+Every gesture therefore began from a widget the editor believed was at the layer origin with no
+size. Grabbing a chip **teleported** it — dragged by (+502, -306) it landed at anchor `top`
+`dx -227` instead of `bottom-left dx 533 dy 230` — the zero size meant `clampToViewport` never
+clamped, and `anchorForPosition` picked the anchor from a corner rather than a centre. The user's
+report was "the HUD editor doesn't work", and the editor's code was entirely reasonable.
+
+**Handlers belong on the element that has the geometry.** `HudLayer` takes `slotProps` and puts
+them on `.hud-item`; there is no wrapper.
+
+*Why review and the suite both missed it:* jsdom has no layout, so **every** rect there is
+`0,0 0x0` and the broken code and the fixed code behave identically. The regression gate is
+therefore structural — no box in the editor may be `display: contents`, and a `pointerdown` on
+`.hud-item` must select the widget — rather than a measurement (`test/screens.test.tsx`).
+
+## 12b. Pointer events **do** fire, and capture works — **[measured]**
+
+Recorded because it was suspected for a day and is wrong, and because the next person will
+suspect it again. Driven through the real host path (`UiHost.mouseDown` → `View::FireMouseEvent`
+→ WebCore), a single drag produced:
+
+```
+pointerdown  #1  id=1 type=mouse primary=true   target=button.modcell__select
+  setPointerCapture ok -> hasPointerCapture=true
+gotpointercapture #1
+pointermove  #7 #13 #19 #25 …                   target=button.modcell__select  (500px away)
+pointerup    #1
+lostpointercapture #1
+click        #1                                 target=div.mods-grid
+```
+
+25 moves for 24 posted, one per game frame. `setPointerCapture` succeeds, `gotpointercapture`
+fires, and **capture retargets correctly**: every move kept `target` on the captured element
+after the pointer had left it entirely. `pointerdown` arrives *before* `mousedown` — the pointer
+events are primary and the mouse events are the compatibility pair, so `preventDefault()` on
+`pointerdown` suppresses the mouse ones.
+
+So both event families work. `CellMeter` uses mouse events, the HUD editor uses pointer events,
+and neither is wrong.
+
 ## 13. `MouseEvent.buttons` is 0 for an entire drag — **[measured]**
 
 The host fires moves as `kMouseButton_None`, so `buttons` reads 0 throughout.
@@ -281,6 +392,26 @@ Mouse moves are **coalesced, not queued**: they arrive once per game frame and
 only the newest position means anything, so replaying a stale trail would be
 worse than skipping it. Clicks re-send their own position first, so a click
 lands where the cursor was.
+
+## 13a. A mouse event carries **no modifier state at all** — **[derived, and measured]**
+
+`WebView.fireMouseEvent(type, x, y, button)` has no modifier parameter, and neither does
+`ULMouseEvent`. There is nowhere for one to travel, so `altKey`, `shiftKey`, `ctrlKey` and
+`metaKey` are `false` on every mouse and pointer event the page will ever see — confirmed on
+every event of a real drag.
+
+*Symptom when violated:* the HUD editor's frame printed `⌥ drag to scale` and the code read
+`e.altKey`, which is a compile-time constant here. Not a bug that fails: a gesture that is simply
+never entered, and a hint that sends the player looking for a fault in their own hands. Scaling
+is on the selection frame's corner grips now.
+
+**A modifier chord on the keyboard is a separate and still-open question.** `keyDown` *does*
+carry a mask (`VoidMenuScreen.modifiers()` → `ulCreateKeyEvent`), and a bare Shift or Alt press
+arrives with its own flag set. Whether `Shift+Arrow` or `⌘K` arrive with the modifier attached
+could not be settled by synthesised input — CGEvent flags do not reach LWJGL's `isKeyDown`, and a
+posted modifier key-down was swallowed before `keyPressed` — so **⌘K's in-game behaviour is
+unverified**, and nothing new should be built on a keyboard chord until a human has pressed one.
+The HUD editor's nudge is therefore unmodified arrows only.
 
 ---
 
@@ -318,6 +449,51 @@ are wrong rather than refusing loadouts that are invalid.
 Found while removing `toggle_sprint.show_status`, the first setting ever deleted
 from the registry — which is why nothing had hit it before, and why the next
 person to delete one would have.
+
+## 14a. The bundle is inlined with `String.replace`, whose replacement is a pattern — **[measured]**
+
+Same species as §14 and §15: silent, invisible in review, tests green, and it blamed the wrong
+change.
+
+`vite.config.ts` folds the emitted JS into `index.html` with `html.replace(marker, code)`. A
+two-argument `String.prototype.replace` treats `$&`, `` $` ``, `$'`, `$$` and `$<name>` **in the
+replacement string** as substitution patterns — and the replacement here is a minified bundle, in
+which esbuild is free to name a variable `$`. The day it did, the shim's
+
+```js
+if (typeof $ === 'object' && $ !== null && 'returns' in $ && $.c === j)
+```
+
+was written into the page as
+
+```js
+if(typeof $=="object"&&$!==null&&"returns"in </body>&$.c===j)
+```
+
+— `$&` replaced by the text it had matched.
+
+*Symptom:* the page never executed a line. No HUD, no menu, no ghost, nothing at all on screen,
+and the entire diagnostic was one line on stderr:
+
+```
+[voidultralight/console/error] SyntaxError: Unexpected token '<' (file:///index.html:346)
+```
+
+`window.addEventListener('error')` never fires — there is no script to run it — so no in-page
+instrumentation can see this. Worse, **nothing near that code had changed**: an unrelated edit
+elsewhere had merely shifted esbuild's name allocation so that `$` landed on a variable followed
+by `&&`. It will therefore always look like it was caused by whatever was committed that day.
+
+Two guards, because one of them is a rule someone has to remember:
+
+- `insert()` in `vite.config.ts` replaces through a **function**, which is never scanned for
+  patterns, and asserts afterwards that the replacement landed verbatim.
+- `check-ultralight.mjs` parses every inline `<script>` in the built `index.html` with
+  `new Function` and fails the build naming the block. That check takes a second and would have
+  replaced an afternoon; it is the reason a corrupt page can no longer reach a client.
+
+*If you see `Unexpected token '<'` from the console and a blank overlay,* run
+`pnpm --filter @void/ingame lint:ultralight` before suspecting anything you wrote.
 
 ## 15. A lookup that misses is silent, four times over — **[measured]**
 
@@ -363,6 +539,47 @@ written, and the default silently stood in for it.
 they share.** A base that doubles as one of the values cannot tell you that
 another value is missing, because the missing one still renders.
 
+## 16. A build artifact nothing rebuilds is a cache with no invalidation — **[measured]**
+
+The same species as §14 and §15 — silent, invisible in review, tests green — and the most
+expensive one yet, because it does not corrupt a result, it corrupts **every** result: for
+three days, anything measured through the launcher was measured against code that had
+already been replaced.
+
+`Play` ran a jar from Sep 4. Four separate causes, none of which announces itself, and each
+sufficient on its own:
+
+| the artifact | why it was stale | what it looked like |
+|---|---|---|
+| `mods/void-client-*.jar` | `config.mod_jar` was unset, so `launch()`'s `if let Some(jar)` skipped the install *and* the stale-jar sweep inside it, with no `else` | the game launched, the mod connected, `hello` was answered — a healthy session running old code |
+| `build/libs/*-<os>-<arch>.jar` | `platformJar*` were registered but nothing depended on them, so `./gradlew build` refreshed only the base jar | two jars with the same version in their names, hours apart |
+| `native/build-macx64/natives/` | a **hand-made copy** of a directory `scripts/build.sh --arch x86_64` never writes (it writes `build-x86_64/`) | `UnsatisfiedLinkError: …Native.rendererProbeAccelerated(J)Z`, one line, `in-game UI disabled`, and a HUD that simply was not there |
+| the JVM itself | `detect_java8` took the first Java 8 `read_dir` returned, which on this Mac is **arm64** — and LWJGL 2 has no arm64 natives | the recorded M1-gate symptom: the window never composites, 0x0, `BackgroundOnly`, no error anywhere |
+
+**The unifying shape: a healthy-looking success is the failure.** A stale jar answers the
+handshake, so the launcher's 45-second "nothing connected" watchdog never fires for it. A
+mismatched JVM starts, prints a normal log and runs a game loop. A four-day-old dylib loads
+and exports every symbol but one. Not one of these reaches a person as an error.
+
+*The rules that came out of it:*
+
+- **Wire the artifact to the thing that builds it.** `build` now depends on `platformJars`;
+  `assemble` deliberately does not, because that is `runClient`'s path and it needs classes.
+- **Discover inputs, do not enumerate them.** `nativeStages` walks every
+  `native/build*/natives/<key>/` and takes the newest `voidultralight.dylib`. A path written
+  into a build script by hand is a path that will not be there next time.
+- **Say which binary is running, every time.** `launch::installed_mod_jars` lists what is in
+  `mods/` and the launcher writes the file name and its age into the log drawer — on
+  `stderr` when `mod_jar` is unset, because then nothing was installed this run.
+- **A constraint that governs a download governs detection too.** `adoptium_arch` had known
+  since it was written that macOS must be x64; `detect_java8` did not, and they never met.
+  `JavaInstall::runs_lwjgl2` is now the one expression, and an unusable JVM is returned only
+  when it is the only one, with a warning that names the consequence.
+
+*How to know it has come back:* the launch log's first three lines. The jar's name and age,
+`found Java 8 … arch="x86_64"`, and — in the game log — `loadout '<id>' applied from
+launcher`, not `pushed to the page from the mod's own defaults`.
+
 ## Numbers that must hold
 
 | invariant | baseline | how |
@@ -375,6 +592,12 @@ another value is missing, because the missing one still renders.
 | ghost, 20 s after close | none, incl. on a genuinely empty page | full-frame capture |
 | readout width across a value change | constant to the pixel column | back-buffer crop |
 | glyph overflow on press | background-only in the top band | luminance detector |
+| a scaled HUD widget's text | `LMB` reads `LMB`, at 1.3x and at 2.4x | window crop |
+| a HUD-editor drag | the widget lands where it was dropped, frame on it | window crop + readout |
+| a HUD-editor gesture | exactly one `hud` protocol frame, on the drop | fake launcher, `-Dvoid.port` |
+| a HUD drag, across a restart | the widget is where it was dropped, in the next session | real Tauri `Play`, twice |
+| a global written in game | `settings.json` follows, and the next session reads it | real Tauri `Play`, twice |
+| the jar the game runs | named, with its age, in the launch log | log drawer, first lines |
 
 ## What does not exist yet
 
@@ -383,6 +606,22 @@ used once and deleted; per-frame back-buffer readback has been rebuilt from
 scratch at least three times by three different agents. Until these are
 runnable on demand, this table is documentation rather than defence, and
 everything in this file is enforced only by whoever remembers to read it.
+
+**The input probe is the fourth thing to be rebuilt and thrown away.** §12b, §13a and the
+`display: contents` measurement in §12a all came from one temporary module that logged every
+mouse, pointer and key event as it arrived, with the console going to stderr through
+`on_console_message`. It cost twenty minutes to write and it answered a question that had been
+open for a day. Its two non-obvious requirements, for whoever writes the fifth one: the host's
+console callback keeps **only the first argument**, so every line must already be one string; and
+synthesised input needs the app activated (`NSRunningApplication.activateWithOptions_`) in a
+retry loop, because a single call loses the race with the terminal that made it.
+
+**A listen-only fake launcher is the way to see what the mod sends.** `scripts/verify-mods.mjs`
+pushes loadouts *in*; a fifty-line variant that answers `hello` with a bare `init` and prints
+every inbound frame is what proved one drag produces exactly one `hud` message carrying the whole
+layout. Run the client with `-Dvoid.port=… -Dvoid.token=…` against it. Note what it also shows:
+`LiveState.Sink` has `state` and `hud` and **nothing for globals**, so `setGlobal` is in-process
+only and no global survives a restart unless a real launcher wrote it.
 
 ## Running a client at all
 
@@ -402,6 +641,20 @@ Three flags, each of which fails silently when omitted:
   from points, renders at 1×, and macOS upscales. This was the "blurry menu" bug.
   HiDPI measured **+7 fps**, because the compositor's upscale costs more than the
   extra pixels do.
+
+**Through the launcher there are two more**, and they are §16's, not Loom's:
+
+- `~/.void-pvp/config.json` must name a **current** `mod_jar` for **this JVM's** arch —
+  `macos-x64` on any Mac, Rosetta included. It is settable from Settings → Data & updates
+  now; when it is unset the launcher installs nothing and the log says so on stderr.
+- the Java 8 it picks must be **x64**. It now prefers one that can load LWJGL 2, and prints
+  `found Java 8 … arch="x86_64"`. If that line says `aarch64`, the window will not appear.
+
+Verified end to end on 2026-09-07 through the real Tauri `Play` path: a HUD drag in game
+reached `~/.void-pvp/loadouts/sword-pvp.json` (`keystrokes left dx 40` → `right dx -224`),
+the Snap toggle reached `~/.void-pvp/settings.json` (`hud_editor_grid` 4 → 0 → 8), and after
+restarting **both** the launcher and the client the widget came back on the right and the
+Snap toggle came back in the state it was left in.
 
 Two `runClient` invocations collide on the run directory and the Gradle lock.
 One client at a time.

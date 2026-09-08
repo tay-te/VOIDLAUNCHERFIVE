@@ -55,6 +55,10 @@ pub enum Error {
     #[error("`{0}` is not a `mods.<mod_id>.<setting>` path")]
     BadPatchPath(String),
 
+    /// A `globals` patch carried a value `global_settings` cannot hold.
+    #[error("invalid global settings patch: {0}")]
+    InvalidGlobal(String),
+
     /// No loadout with that id is in the library.
     #[error("no loadout `{0}` in the library")]
     NotFound(LoadoutId),

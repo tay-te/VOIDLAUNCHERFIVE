@@ -33,8 +33,40 @@ import { anchorShortLabel, modProperties, propertyStructure } from '@/menu/ModSe
 import { isEscape } from '@/menu/keys';
 import { LOADOUTS_FOOTER } from '@/menu/LoadoutsScreen';
 import { PARTY_FOOTER } from '@/menu/PartyScreen';
-import { EDITOR_HINT } from '@/menu/HudEditorScreen';
+import { EDITOR_HINT, editorHint } from '@/menu/HudEditorScreen';
+import { DEFAULT_HUD } from '@/store/hud-geometry';
+import { HUD_MOD_IDS } from '@void/protocol';
 import { PALETTE_HINT } from '@/palette/QuickPalette';
+
+/**
+ * A pointer event jsdom will actually carry coordinates on.
+ *
+ * jsdom has no `PointerEvent`, and testing-library's `fireEvent.pointerDown` falls back to a
+ * bare `Event` — which silently drops `clientX`/`clientY`, so a drag test written the obvious way
+ * measures a gesture from `undefined` and asserts `NaN`. A `MouseEvent` with the pointer event's
+ * type is what React's synthetic system listens for anyway, and it carries the coordinates.
+ */
+function pointer(type: 'pointerdown' | 'pointermove' | 'pointerup', x: number, y: number) {
+  return new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 });
+}
+
+/** A fixed `getBoundingClientRect`, for the geometry jsdom has no layout to produce. */
+function stubRect(el: HTMLElement, left: number, top: number, width: number, height: number) {
+  vi.spyOn(el, 'getBoundingClientRect').mockImplementation(
+    () =>
+      ({
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        x: left,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect,
+  );
+}
 
 let dispose: () => void;
 
@@ -628,6 +660,9 @@ describe('Mods screen — the grid, and the page one click away', () => {
       menuKey: 'F1',
       uiScale: 2,
       theme: 'void-dark',
+      // Absent from the push, so it keeps the factory value — a partial push must not blank a
+      // setting, which is what the `?? current` in `applyGlobals` is for.
+      hudEditorGrid: 4,
     });
     expect(container.querySelector('.oset__meta')!.textContent).toContain('F1 OPENS');
   });
@@ -648,6 +683,33 @@ describe('Mods screen — the grid, and the page one click away', () => {
     // …but the path is intact, so the launcher's write still lands.
     set(() => useVoidStore.getState().applyGlobals({ ui_scale: 1.5 }));
     expect(useVoidStore.getState().globals.uiScale).toBe(1.5);
+  });
+
+  /**
+   * The bar's own way in.
+   *
+   * "We need a HUD editor" was a discoverability bug, not a missing feature: the editor already
+   * existed and was reachable only from a row inside Settings and from the quick palette, which
+   * is to say only by someone who already knew it was there. It is on the grid's bar now — the
+   * screen every open lands on — and on the **left**, where this bar already puts places, rather
+   * than as a fourth icon in a right-hand cluster of three that has been called crowded.
+   */
+  it('the mods bar carries a way straight into the HUD editor', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    const { container } = render(<App />);
+    const dest = container.querySelector('.obar__dest') as HTMLElement;
+    expect(dest).not.toBeNull();
+    expect(dest.textContent).toContain('HUD layout');
+    // From the sprite sheet, never inline SVG — ultralight-notes.md §7.
+    expect(dest.querySelector('.oicon--move')).not.toBeNull();
+
+    // Not in the tool cluster: that group is `settings · search · close` and stays three.
+    const tools = container.querySelector('.obar__tools') as HTMLElement;
+    expect(tools.querySelectorAll('button')).toHaveLength(3);
+    expect(tools.querySelector('.obar__dest')).toBeNull();
+
+    fireEvent.click(dest);
+    expect(useVoidStore.getState().route).toEqual({ name: 'hud-editor' });
   });
 
   it('carries the watermark switch and the way to the layout editor', () => {
@@ -750,25 +812,47 @@ describe('The mod page — contract §8', () => {
     expect(container.querySelector('.mprops--sentence .preview')).not.toBeNull();
   });
 
-  it('draws the tile’s own art at page size, not a paragraph in an empty box', () => {
+  it('draws the mod itself on every page, never a paragraph in an empty box', () => {
     const { container } = render(<App />);
     // The inspector showed the mod's description centred in the preview for every mod but
-    // Keystrokes. At page size that is a caption pretending to be a picture; the page draws
-    // `TilePreview` — the same art the tile draws — with its cells scaled up.
-    open('crosshair');
-    const stage = container.querySelector('.preview__stage') as HTMLElement;
-    expect(stage.querySelector('.tart')).not.toBeNull();
-    expect(stage.querySelector('.preview__blurb')).toBeNull();
-    // 9px cells in the tile, 2.6x on the page.
-    const tileCell = container.querySelector(
-      '.modcell[data-mod-id="crosshair"] .cart__cell',
-    ) as HTMLElement | null;
-    expect(tileCell).toBeNull(); // the grid is not mounted while a page is
-    expect((stage.querySelector('.cart__cell') as HTMLElement).style.width).toBe('23px');
+    // Keystrokes — at page size, a caption pretending to be a picture. Every page now draws
+    // either the real HUD component or, for the four mods that draw into the world, a diagram
+    // fed by the game's own numbers (`gameplay-previews.tsx`). Cell art stayed behind on the
+    // grid tile, where "a small picture of what the mod draws" is the right object.
+    //
+    // `test/preview.test.tsx` is the gate that every setting of every one of them moves the
+    // drawing; this case is the shape check.
+    for (const [id, selector] of [
+      ['fps', '.v-hudchip'],
+      ['keystrokes', '.v-keystrokes'],
+      ['cps', '.v-hudchip'],
+      ['ping', '.v-pingband'],
+      ['coordinates', '.v-coordschip'],
+      ['armor_status', '.v-armorlist'],
+      ['potion_effects', '.v-potionlist'],
+      ['watermark', '.wmark'],
+      ['crosshair', '.v-crosshair'],
+      ['toggle_sprint', '.gprev'],
+      ['fullbright', '.gprev'],
+      ['hitboxes', '.gprev'],
+      ['zoom', '.gprev'],
+    ] as const) {
+      open(id);
+      const stage = container.querySelector('.preview__stage') as HTMLElement;
+      expect(stage.querySelector('.preview__zoom'), id).not.toBeNull();
+      expect(stage.querySelector(selector), id).not.toBeNull();
+      expect(stage.querySelector('.preview__blurb'), id).toBeNull();
+      // Cell art and the live preview are alternatives, never both.
+      expect(stage.querySelector('.tart'), id).toBeNull();
+    }
+  });
 
-    // Keystrokes is the exception and stays the live widget: its art is a *state*.
-    open('keystrokes');
-    expect(container.querySelector('.preview__stage .v-keystrokes')).not.toBeNull();
+  it('keeps the tile’s cell art on the grid, where a small picture is the right object', () => {
+    const { container } = render(<App />);
+    const tile = container.querySelector('.modcell[data-mod-id="fullbright"]') as HTMLElement;
+    expect(tile.querySelector('.tart')).not.toBeNull();
+    // 9px cells at tile scale.
+    expect((tile.querySelector('.cart__cell') as HTMLElement).style.width).toBe('9px');
   });
 
   it('never offers tabs', () => {
@@ -934,7 +1018,9 @@ describe('HUD layout editor — frame 244:1722', () => {
     expect(screen.getByRole('button', { name: 'Grid' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reset' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
-    expect(screen.getByText(EDITOR_HINT, verbatim)).toBeTruthy();
+    // `toStartWith`, not equality: the hint gains a tail naming the widgets whose mods are off,
+    // and the fixture has some. `editorHint` is what that tail is tested through, below.
+    expect(container.querySelector('.editor__hint')!.textContent).toContain(EDITOR_HINT);
     expect(container.querySelector('.v-panel')).toBeNull();
   });
 
@@ -950,6 +1036,260 @@ describe('HUD layout editor — frame 244:1722', () => {
     set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
     render(<App />);
     expect(screen.getByRole('button', { name: 'Snap' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  /**
+   * The structural regression gate for the bug that made the editor useless.
+   *
+   * The drag handlers used to hang off a `<div style={{display:'contents'}}>` wrapped around each
+   * widget, and the gesture measured `e.currentTarget.getBoundingClientRect()` — which for a
+   * `display: contents` element is `0,0 0x0`, in this engine as in every other. Every drag
+   * therefore started from a widget the editor believed was at the layer origin with no size, and
+   * grabbing a chip teleported it.
+   *
+   * jsdom cannot catch that by measuring — it has no layout, so **every** rect there is zero,
+   * which is exactly why this shipped. So the assertion is structural instead: the handler is on
+   * the element that carries the placement, and no box in the editor is `display: contents`.
+   */
+  it('hangs the drag off the box that has geometry, not a display:contents wrapper', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    const { container } = render(<App />);
+    const layer = container.querySelector('.hud-layer--editor') as HTMLElement;
+
+    for (const el of layer.querySelectorAll<HTMLElement>('*')) {
+      expect(el.style.display, `${el.className} must not be display:contents`).not.toBe('contents');
+    }
+
+    // The handler is on `.hud-item` itself: a pointerdown there selects the widget.
+    set(() => useVoidStore.getState().setEditorTarget('fps'));
+    const cps = layer.querySelector('[data-hud-id="cps"]') as HTMLElement;
+    expect(cps).not.toBeNull();
+    fireEvent(cps, pointer('pointerdown', 10, 10));
+    expect(useVoidStore.getState().editorTarget).toBe('cps');
+  });
+
+  /**
+   * The gesture's arithmetic, with the geometry jsdom cannot supply stubbed in.
+   *
+   * Numbers chosen so every stage is visible in the result: the drop is snapped to the 8px grid,
+   * lands in the middle third of both axes so the anchor is re-picked as `center`, and the offsets
+   * are measured from the widget's *centre* because that is what a `center` anchor means.
+   */
+  it('a drag moves the widget to where it was dropped, and stores it against a fresh anchor', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    const { container } = render(<App />);
+    const root = container.querySelector('.editor') as HTMLElement;
+    const item = container.querySelector('[data-hud-id="keystrokes"]') as HTMLElement;
+    stubRect(root, 0, 0, 1458, 820);
+    stubRect(item, 31, 536, 130, 175);
+
+    fireEvent(item, pointer('pointerdown', 95, 601));
+    act(() => void window.dispatchEvent(pointer('pointermove', 595, 300)));
+    act(() => void window.dispatchEvent(pointer('pointerup', 595, 300)));
+
+    const stored = useVoidStore.getState().loadout!.hud.find((h) => h.id === 'keystrokes')!;
+    // Grabbed 64 in from the widget's left and 65 down from its top; dropped at (595, 300), so
+    // the box's top-left wants (531, 235) and the 8px grid takes it to (528, 232). Its centre
+    // (593, 319.5) is the middle third of a 1458x820 viewport on both axes, so the anchor is
+    // re-picked as `center` and the offsets are measured from there. `dy` is -90 before the
+    // bridge's own 4px snap and -88 after it, which is the point of binding to the return value.
+    expect(stored.anchor).toBe('center');
+    expect(stored.dx).toBe(-136);
+    expect(stored.dy).toBe(-88);
+  });
+
+  /** A gesture is one `setHud`, not one per move — §9, and the idle-paint budget of §4. */
+  it('writes the placement once per gesture, on the drop', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    const { container } = render(<App />);
+    const root = container.querySelector('.editor') as HTMLElement;
+    const item = container.querySelector('[data-hud-id="keystrokes"]') as HTMLElement;
+    stubRect(root, 0, 0, 1458, 820);
+    stubRect(item, 31, 536, 130, 175);
+
+    const commits = vi.spyOn(useVoidStore.getState(), 'commitHud');
+    fireEvent(item, pointer('pointerdown', 95, 601));
+    for (const x of [200, 300, 400, 500, 595]) {
+      act(() => void window.dispatchEvent(pointer('pointermove', x, 300)));
+    }
+    expect(commits).not.toHaveBeenCalled();
+    act(() => void window.dispatchEvent(pointer('pointerup', 595, 300)));
+    expect(commits).toHaveBeenCalledTimes(1);
+    commits.mockRestore();
+  });
+
+  /**
+   * `Reset layout` is an **undo**, which means landing on the factory numbers exactly.
+   *
+   * `setHud` snaps every drop against `hud_editor_grid`, and the factory placements are not on
+   * that grid — `keystrokes` is `31, -109`, which at the default grid of 4 comes back as
+   * `32, -108`. Restoring a layout is not a placement gesture, so `resetHud` stands the grid down
+   * for the duration; without that, the button that claims to restore the layout moves it.
+   */
+  it('Reset restores every widget to the factory placement, to the pixel', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    render(<App />);
+    set(() => useVoidStore.getState().commitHud('fps', 'bottom-right', -200, -200, 2));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    const hud = useVoidStore.getState().loadout!.hud;
+    for (const id of HUD_MOD_IDS) {
+      const item = hud.find((h) => h.id === id);
+      expect(item, `${id} was not placed by Reset`).toBeDefined();
+      expect({ anchor: item!.anchor, dx: item!.dx, dy: item!.dy }, id).toEqual(DEFAULT_HUD[id]);
+      expect(item!.scale, id).toBe(1);
+    }
+  });
+
+  /**
+   * `Snap` is a control for `hud_editor_grid`, not a second opinion about it.
+   *
+   * Java re-snaps every drop against that global (`LiveState.setHud`), so a toggle that only
+   * changed the page was overruled on every commit: `Snap: off` still quantised to 4px, and the
+   * control looked like it did something and did not.
+   */
+  it('Snap writes the grid Java actually snaps against', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Snap' }));
+    expect(useVoidStore.getState().editorSnap).toBe(false);
+    expect(useVoidStore.getState().globals.hudEditorGrid).toBe(0);
+    // With the grid down, an odd offset survives the round trip unchanged.
+    set(() => useVoidStore.getState().commitHud('fps', 'top-left', 37, 41, 1));
+    expect(useVoidStore.getState().loadout!.hud.find((h) => h.id === 'fps')).toMatchObject({
+      dx: 37,
+      dy: 41,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Snap' }));
+    expect(useVoidStore.getState().globals.hudEditorGrid).toBe(8);
+    set(() => useVoidStore.getState().commitHud('fps', 'top-left', 37, 41, 1));
+    expect(useVoidStore.getState().loadout!.hud.find((h) => h.id === 'fps')).toMatchObject({
+      dx: 40,
+      dy: 40,
+    });
+  });
+
+  /**
+   * An enabled mod the loadout has forgotten to place draws nothing on the HUD and says nothing
+   * about it — the fourth row of rendering-invariants §15's table. In the editor that absence is
+   * fatal rather than cosmetic: the one screen whose job is placing widgets would be the one
+   * screen that could not reach this one.
+   */
+  it('draws an enabled-but-unplaced widget at its factory position, so it can be rescued', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    const loadout = useVoidStore.getState().loadout!;
+    set(() =>
+      useVoidStore.setState({
+        loadout: { ...loadout, hud: loadout.hud.filter((h) => h.id !== 'fps') },
+      }),
+    );
+    // Gone from the HUD proper, exactly as it is today…
+    const plain = render(<App />);
+    expect(plain.container.querySelector('.hud-layer [data-hud-id="fps"]')).toBeNull();
+    cleanup();
+
+    // …and present in the editor, where it can be dragged and thereby given a real entry.
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    const { container } = render(<App />);
+    expect(container.querySelector('.hud-layer--editor [data-hud-id="fps"]')).not.toBeNull();
+  });
+
+  /** The hint names what is not on screen, rather than letting it be a silent absence. */
+  it('says how many widgets are switched off', () => {
+    expect(editorHint(0)).toBe(EDITOR_HINT);
+    expect(editorHint(1)).toContain('1 more is switched off');
+    expect(editorHint(3)).toContain('3 more are switched off');
+  });
+
+  /**
+   * A corner grip scales, because the modifier the frame printed cannot exist here.
+   *
+   * `SelectionFrame` has always drawn four grips and always offered `onHandlePointerDown`; the
+   * editor never used either, and asked for `⌥`+drag instead. The grips are the affordance that
+   * survives an engine with no modifier state on a mouse event — and the better one anyway,
+   * because they are visible and they are where a person reaches.
+   */
+  it('a corner grip scales the widget about its anchor', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    set(() => useVoidStore.getState().setEditorTarget('keystrokes'));
+    const { container } = render(<App />);
+    const root = container.querySelector('.editor') as HTMLElement;
+    const item = container.querySelector('[data-hud-id="keystrokes"]') as HTMLElement;
+    stubRect(root, 0, 0, 1458, 820);
+    stubRect(item, 31, 536, 130, 175);
+
+    const before = useVoidStore.getState().loadout!.hud.find((h) => h.id === 'keystrokes')!;
+    const grip = container.querySelector('.v-selection__handle--se') as HTMLElement;
+    expect(grip).not.toBeNull();
+
+    // Pull the south-east grip out along both axes: `reach` is the widget's mean dimension
+    // (152.5), so 152 of diagonal travel is very nearly one whole doubling.
+    fireEvent(grip, pointer('pointerdown', 200, 700));
+    act(() => void window.dispatchEvent(pointer('pointermove', 276, 776)));
+    act(() => void window.dispatchEvent(pointer('pointerup', 276, 776)));
+
+    const after = useVoidStore.getState().loadout!.hud.find((h) => h.id === 'keystrokes')!;
+    expect(after.scale).toBeGreaterThan(1.5);
+    expect(after.scale).toBeLessThanOrEqual(4);
+    // Scaling is not a move: the placement it is anchored by does not change.
+    expect(after.anchor).toBe(before.anchor);
+    expect(after.dx).toBe(before.dx);
+    expect(after.dy).toBe(before.dy);
+  });
+
+  /**
+   * Arrows nudge — the only way to place a widget on a chosen pixel.
+   *
+   * Input reaches the page coalesced at the game's frame rate, so a pointer cannot reliably land
+   * on one. There is deliberately no modifier variant: chorded modifiers are not something this
+   * host has been shown to deliver, and `Snap` already switches the step between 1px and a whole
+   * grid cell with a control that is on screen.
+   */
+  it('arrow keys nudge the selected widget by the grid, or by a pixel with Snap off', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.getState().setRoute({ name: 'hud-editor' }));
+    set(() => useVoidStore.getState().setEditorTarget('fps'));
+    const { container } = render(<App />);
+    const item = () => useVoidStore.getState().loadout!.hud.find((h) => h.id === 'fps')!;
+    const before = item();
+    stubRect(container.querySelector('.editor') as HTMLElement, 0, 0, 1458, 820);
+    // Stubbed where the loadout actually puts it — a nudge works off where the widget *is*,
+    // measured, exactly as a drag does, so the two cannot disagree about the same widget.
+    stubRect(
+      container.querySelector('[data-hud-id="fps"]') as HTMLElement,
+      before.dx,
+      before.dy,
+      100,
+      40,
+    );
+
+    // Snap on: a press is a whole grid cell.
+    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' })));
+    expect(item().dx).toBe(before.dx + 8);
+    expect(item().dy).toBe(before.dy);
+  });
+
+  /**
+   * The frame prints `⌥ drag to scale`, and it was never possible.
+   *
+   * `WebView.fireMouseEvent(type, x, y, button)` has no modifier parameter, so `altKey` on a
+   * pointer event in game is a compile-time false — measured, on every event of a real drag. The
+   * hint must not promise it, because a hint naming a gesture the engine cannot deliver sends the
+   * player looking for a fault in their own hands.
+   */
+  it('promises no modifier gesture the host cannot deliver', () => {
+    expect(EDITOR_HINT).not.toContain('⌥');
+    expect(EDITOR_HINT).not.toMatch(/alt|shift/i);
+    expect(EDITOR_HINT).toContain('Corners scale');
   });
 });
 
@@ -1233,13 +1573,16 @@ describe('the VOID watermark', () => {
   it('takes its placement, scale and opacity from the loadout, like every other widget', () => {
     const { container } = render(<App />);
     const slot = () => container.querySelector('[data-hud-id="watermark"]') as HTMLElement;
-    // `HudLayer` folds the mod's own `opacity` into the slot and its `scale` into the placement
-    // transform. The widget reads neither — doing it in both places would apply them twice.
+    // `HudLayer` folds the mod's own `opacity` into the slot and its `scale` into the inner zoom
+    // box. The widget reads neither — doing it in both places would apply them twice.
     set(() => useVoidStore.getState().setSetting('watermark', 'opacity', 0.5));
     // Dimmed by the menu is a separate multiplier; the menu is shut here.
     expect(slot().style.opacity).toBe('0.5');
     set(() => useVoidStore.getState().commitHud('watermark', 'bottom-right', -30, -30, 2));
-    expect(slot().style.transform).toContain('scale(2)');
+    // `zoom` on the inner box, never `scale()` in the transform: scaled text is corrupt in this
+    // engine, measured (see `placementStyle`).
+    expect(slot().style.transform).not.toContain('scale');
+    expect((slot().querySelector('.hud-item__zoom') as HTMLElement).style.zoom).toBe('2');
     expect(slot().style.right).toBe('0px');
   });
 

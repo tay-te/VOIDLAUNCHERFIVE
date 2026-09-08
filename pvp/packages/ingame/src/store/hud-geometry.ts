@@ -16,9 +16,41 @@
  */
 
 import type { CSSProperties } from 'react';
-import type { HUDAnchor } from '@/bridge/protocol';
+import type { HUDAnchor, HUDModId } from '@/bridge/protocol';
 
 export type Axis = 'start' | 'center' | 'end';
+
+/**
+ * The factory HUD layout, matching the placements drawn on frame `244:1722`.
+ *
+ * **There is a second copy of this table, in Java** — `Loadout.DEFAULT_HUD`, which seeds a new
+ * loadout. They must agree entry for entry, because `Reset layout` has to put every chip back
+ * where the client started and a second table that disagreed would make reset a *move* rather
+ * than an undo. `test/hud-defaults.test.ts` reads the Java file and fails naming any row that
+ * has drifted, which is the only thing that keeps two hand-maintained tables in step.
+ *
+ * It lives here rather than in `HudEditorScreen` because two other things need it and neither
+ * should have to import a screen for data: `HudLayer` uses it as the placement of last resort
+ * for a mod that is on but has no `hud[]` entry (rendering-invariants §15 — an absence is the
+ * one failure mode that survives being looked at), and the test above reads it.
+ *
+ * Mods that ship off (`coordinates`) are placed too: a placement is where a widget *would* go,
+ * not whether it is drawn.
+ */
+export const DEFAULT_HUD: Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }> = {
+  fps: { anchor: 'top-left', dx: 23, dy: 23 },
+  ping: { anchor: 'top-left', dx: 23, dy: 65 },
+  coordinates: { anchor: 'top-left', dx: 23, dy: 103 },
+  // Next row of the left column, after coordinates at 103. `loadout.json`'s own factory layout
+  // says `top-left 20,58`, on an 18-20px rhythm; this table's rhythm is 38-42, so 58 here would
+  // land the mark on top of the ping chip at 65 rather than under it. Same intent — third in the
+  // top-left stack — expressed in the space the page actually lays out in.
+  watermark: { anchor: 'top-left', dx: 23, dy: 141 },
+  potion_effects: { anchor: 'top-right', dx: -25, dy: 23 },
+  armor_status: { anchor: 'top-right', dx: -25, dy: 299 },
+  keystrokes: { anchor: 'bottom-left', dx: 31, dy: -109 },
+  cps: { anchor: 'bottom-left', dx: 175, dy: -108 },
+};
 
 /** Decompose an anchor into its horizontal and vertical halves. */
 export function anchorAxes(anchor: HUDAnchor): { x: Axis; y: Axis } {
@@ -55,17 +87,30 @@ export function axesToAnchor(x: Axis, y: Axis): HUDAnchor {
 }
 
 /**
- * Inline style that places a widget at `anchor + dx/dy` and scales it about the
- * anchor. Only `position`, one or two edge offsets, `transform` and
- * `transform-origin` — 2D transforms only (ultralight-notes.md §4), no `calc()`
- * inside the transform, no 3D.
+ * Inline style that places a widget at `anchor + dx/dy`. Only `position`, one or two edge
+ * offsets, `transform` and `transform-origin` — 2D transforms only (ultralight-notes.md §4), no
+ * `calc()` inside the transform, no 3D.
+ *
+ * **The scale is not here, and that is the whole of a bug fix.** It used to be, as
+ * `translate(...) scale(s)` — and `transform: scale()` corrupts text in this engine. Measured on
+ * the keystrokes pad at `1.3×`: the single-letter caps `W A S D` were clean and the two
+ * three-letter ones came out as `LNB` and `RNB`, the glyphs drawn at the scaled size over
+ * advances computed at the unscaled one, so every multi-glyph run collides with itself. At `2.8×`
+ * every cap was unreadable. This is rendering-invariants §10 — "a label under `scale()` renders
+ * at roughly the device scale" — which was written about `:active` press states and is in fact
+ * true of any scaled text, permanently, not just for the frames of a press.
+ *
+ * The scale is {@link zoomStyle} on an inner box instead. `zoom` is a **layout** scale, so the
+ * engine lays the text out at its final size and the metrics are the right ones: the same pad at
+ * the same `1.3×` renders `LMB` and `RMB` correctly.
+ *
+ * Two boxes rather than one, and the split is load-bearing. The outer box keeps its unzoomed
+ * coordinate system, so `dx`/`dy` still mean what `loadout.json` and `screenPosition()` say they
+ * mean, and `getBoundingClientRect()` on it still reports the box the player sees — a zoom on
+ * *this* element would scale its own `translate()` too, quietly redefining every offset Java has
+ * stored.
  */
-export function placementStyle(
-  anchor: HUDAnchor,
-  dx: number,
-  dy: number,
-  scale = 1,
-): CSSProperties {
+export function placementStyle(anchor: HUDAnchor, dx: number, dy: number): CSSProperties {
   const { x, y } = anchorAxes(anchor);
   const style: CSSProperties = { position: 'absolute' };
   const pre: string[] = [];
@@ -88,8 +133,20 @@ export function placementStyle(
   const oy = y === 'start' ? '0%' : y === 'end' ? '100%' : '50%';
 
   style.transformOrigin = `${ox} ${oy}`;
-  style.transform = `${pre.join(' ')} translate(${dx}px, ${dy}px) scale(${scale})`.trim();
+  style.transform = `${pre.join(' ')} translate(${dx}px, ${dy}px)`.trim();
   return style;
+}
+
+/**
+ * The widget's own size multiplier, for the box **inside** {@link placementStyle}'s.
+ *
+ * `zoom` rather than `transform: scale()`, because scaled text is corrupt in this engine — see
+ * the note on `placementStyle`. Being a layout scale it also means the outer box measures the
+ * widget at its drawn size, which is exactly what the HUD editor's geometry needs.
+ */
+export function zoomStyle(scale: number): CSSProperties {
+  // `zoom` is not in React's CSSProperties in every version, and it is a real CSS property here.
+  return { zoom: scale } as CSSProperties;
 }
 
 export interface Size {

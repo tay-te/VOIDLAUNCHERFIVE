@@ -210,6 +210,19 @@ export {
   KEYCAP_COLORS,
   KEYCAP_PRESSED_COLORS,
 } from './components/hud.js';
+/* The crosshair's geometry, transcribed from `CrosshairGeometry.java` — the crosshair is
+   the one mod this page does not draw in game, so the settings page has to draw it itself
+   and must not draw a different one. */
+export {
+  CROSSHAIR_STYLES,
+  CROSSHAIR_UNIT_PREVIEW,
+  asCrosshairStyle,
+  crosshairRects,
+  dynamicSpread,
+  isRing,
+  keepsVanilla,
+} from './lib/crosshair.js';
+export type { CrosshairStyle, CrosshairRect } from './lib/crosshair.js';
 export type {
   HudVariant,
   HudChipProps,
@@ -223,6 +236,7 @@ export type {
   ArmorRow,
   KeystrokesWidgetProps,
   KeystrokesState,
+  CrosshairProps,
   HotbarProps,
 } from './components/hud.js';
 

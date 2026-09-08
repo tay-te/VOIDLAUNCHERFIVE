@@ -257,6 +257,10 @@
   background: var(--warn);
 }
 
+.v-dot--bad {
+  background: var(--danger);
+}
+
 .v-dot--accent {
   background: var(--hue, var(--accent));
 }

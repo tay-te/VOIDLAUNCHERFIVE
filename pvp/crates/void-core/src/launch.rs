@@ -145,6 +145,70 @@ pub fn install_mod_jar(paths: &Paths, jar: &Path) -> Result<PathBuf> {
     Ok(dest)
 }
 
+/// A `void-client` JAR sitting in the game's `mods/` directory.
+///
+/// Fabric loads whatever is in that directory, so this — not `config.mod_jar` — is what
+/// the game will actually run. The two are the same thing only when the install step ran
+/// this launch, which it does not when `mod_jar` is unset.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstalledMod {
+    /// Full path to the jar.
+    pub path: PathBuf,
+    /// Size in bytes.
+    pub len: u64,
+    /// Last-modified time, or `None` if the filesystem would not say.
+    pub modified: Option<std::time::SystemTime>,
+}
+
+impl InstalledMod {
+    /// The file name, for a log line that does not need the whole path.
+    pub fn name(&self) -> std::borrow::Cow<'_, str> {
+        self.path.file_name().unwrap_or_default().to_string_lossy()
+    }
+
+    /// How long ago the jar was written, or `None` if it is not knowable.
+    pub fn age(&self) -> Option<std::time::Duration> {
+        self.modified.and_then(|m| std::time::SystemTime::now().duration_since(m).ok())
+    }
+}
+
+/// Every `void-client-*.jar` currently in `mods/`, newest first.
+///
+/// Exists so the launcher can say **which jar it is about to run** rather than assuming
+/// it is the one it was configured with. A stale jar in `mods/` is completely silent: it
+/// connects to the bridge, answers `hello`, and behaves like a healthy client while
+/// running code from days ago — so the handshake watchdog never fires and every test run
+/// against it is measuring the wrong binary. Reporting is the only defence, because
+/// nothing here can know what the jar *should* have contained.
+pub fn installed_mod_jars(paths: &Paths) -> Vec<InstalledMod> {
+    let mods = paths.mods_dir();
+    let Ok(entries) = std::fs::read_dir(&mods) else {
+        return Vec::new();
+    };
+    let mut found: Vec<InstalledMod> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.extension().is_some_and(|e| e == "jar")
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("void-client-"))
+        })
+        .map(|path| {
+            let meta = std::fs::metadata(&path).ok();
+            InstalledMod {
+                len: meta.as_ref().map(|m| m.len()).unwrap_or(0),
+                modified: meta.and_then(|m| m.modified().ok()),
+                path,
+            }
+        })
+        .collect();
+    // Newest first, and `None` last: a jar whose mtime is unreadable is the least
+    // trustworthy thing in the list, not the most recent.
+    found.sort_by(|a, b| b.modified.cmp(&a.modified));
+    found
+}
+
 /// The argument list with `${...}` placeholders still in it.
 ///
 /// Cached on disk, because building it means walking the whole library list and the
@@ -355,9 +419,27 @@ pub async fn launch(
 ) -> Result<GameProcess> {
     paths.ensure()?;
     let natives = extract_natives(profile, paths)?;
-    if let Some(jar) = &options.mod_jar {
-        let installed = install_mod_jar(paths, jar)?;
-        tracing::info!(path = %installed.display(), "installed the void-client mod");
+    match &options.mod_jar {
+        Some(jar) => {
+            let installed = install_mod_jar(paths, jar)?;
+            tracing::info!(path = %installed.display(), "installed the void-client mod");
+        }
+        // Not an error, and deliberately not silent. Skipping the install leaves whatever
+        // is already in `mods/` in charge, which is how a three-day-old jar kept answering
+        // the bridge as if it were current. The caller with a log drawer says so; this
+        // says it for the CLI and the tests.
+        None => match installed_mod_jars(paths).first() {
+            Some(found) => tracing::warn!(
+                path = %found.path.display(),
+                age_secs = found.age().map(|d| d.as_secs()),
+                "config.mod_jar is unset, so nothing was installed; the game will run the \
+                 void-client jar already in mods/, whatever version that is"
+            ),
+            None => tracing::warn!(
+                "config.mod_jar is unset and mods/ holds no void-client jar; the game will \
+                 run vanilla"
+            ),
+        },
     }
 
     let template = cached_arg_template(

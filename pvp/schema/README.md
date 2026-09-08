@@ -52,6 +52,13 @@ Either way:
   refuses to launch and prompts for an update (§7).
 - `loadout.json` is `void-loadout`'s on-disk format. Its `state_patch` paths
   (`mods.<mod>.<setting>`) are the diff unit.
+- `global_patch` is the same idea for `settings.json`, carried by `globals`, and its keys
+  are bare `global_settings` property names rather than dotted paths — globals are flat, so
+  there is nothing to path into. Apply it with `GlobalSettings::apply_patch`, which merges
+  through JSON so that `extra` survives: `global_settings` is `additionalProperties: true`,
+  the mod's own class is five fixed fields, and a whole-object echo from the game would
+  erase every global the mod does not model. That is the entire reason the message is a
+  delta.
 
 ### Java — `mod/src/main/java/dev/voidpvp/client/{net,bridge}`
 

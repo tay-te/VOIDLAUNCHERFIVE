@@ -138,6 +138,51 @@ for (const file of files) {
   }
 }
 
+/**
+ * The emitted page's own JavaScript has to parse.
+ *
+ * A rule about the renderer this is not; it lives here because this is the one script that
+ * already reads the built bundle, and because the failure it catches is otherwise invisible.
+ * The inliner folds the bundle into `index.html` with `String.replace`, whose *replacement*
+ * string treats `$&`, `` $` ``, `$'` and `$$` as substitution patterns — and the thing being
+ * inlined is minified JS in which esbuild may name a variable `$`. The day it did,
+ * `"returns" in $ && $.c === j` was written out as `"returns"in </body>&$.c===j`: the page never
+ * executed a line, the whole overlay was gone — no HUD, no menu — and the entire diagnostic was
+ * one `SyntaxError: Unexpected token '<'` on stderr, blamed on an unrelated change that had
+ * merely shifted which variable got the name `$`.
+ *
+ * `vite.config.ts` now inserts through a replacer function and asserts the insert landed
+ * verbatim. This is the second line: whatever else ever rewrites this file, the page it produces
+ * is checked as *code* before anyone launches a client.
+ */
+const builtHtml = resolve(OUT_DIR, 'index.html');
+if (existsSync(builtHtml)) {
+  const html = readFileSync(builtHtml, 'utf8');
+  let at = 0;
+  let block = 0;
+  for (;;) {
+    const open = html.indexOf('<script', at);
+    if (open < 0) break;
+    const bodyStart = html.indexOf('>', open) + 1;
+    const close = html.indexOf('</script>', bodyStart);
+    if (bodyStart <= 0 || close < 0) break;
+    block += 1;
+    const code = html.slice(bodyStart, close);
+    try {
+      // Parse only — never run. `new Function` compiles the body and throws on bad syntax.
+      new Function(code);
+    } catch (error) {
+      failures.push({
+        file: relative(root, builtHtml),
+        line: html.slice(0, bodyStart).split('\n').length,
+        why: `inline <script> #${block} does not parse — the emitted page would not run at all`,
+        text: `${error.message} (see the note above this check in check-ultralight.mjs)`,
+      });
+    }
+    at = close + 9;
+  }
+}
+
 if (failures.length > 0) {
   console.error('\nUltralight constraint check FAILED\n');
   for (const failure of failures) {

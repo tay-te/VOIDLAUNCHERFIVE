@@ -400,12 +400,13 @@ export type HUDLayout = HUDItem[];
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The six messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The seven messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
   | StateJavaToRust
   | HudJavaToRust
+  | GlobalsJavaToRust
   | SessionJavaToRust
   | ServerJavaToRust
   | HotkeyJavaToRust;
@@ -643,6 +644,10 @@ export interface FPSDisplaySettings {
    * Whether to render the trailing "FPS" label after the number.
    */
   show_label?: boolean;
+  /**
+   * Whether the 1% low is drawn as a trailing aside. It is the figure that says whether a frame rate is actually smooth, and it is also a third number on the chip a player reads mid-match — so it is a switch rather than something that appears whenever a low has been measured.
+   */
+  show_low?: boolean;
 }
 /**
  * Settings for the Keystrokes HUD mod. Fed by the edge-triggered `keys` bridge event (§6.5), never by polling.
@@ -660,6 +665,10 @@ export interface KeystrokesSettings {
    * Whether to render the spacebar tile.
    */
   show_spacebar?: boolean;
+  /**
+   * Whether to render the sneak (shift) tile beside the space bar. The `keys` event has always carried `shift` and the widget has always been handed it; this is the switch that draws it. A sneak key is as much a part of reading a PvP player's inputs as the space bar, which is why the two sit together.
+   */
+  show_sneak?: boolean;
   /**
    * Whether to print the current CPS inside the LMB and RMB tiles.
    */
@@ -682,6 +691,10 @@ export interface CPSCounterSettings {
    * Which mouse buttons to count: left only, right only, or both shown side by side.
    */
   mode?: 'left' | 'right' | 'both';
+  /**
+   * Whether to render the trailing "CPS" unit after the figures. Every other readout on the HUD can drop its unit; this one could not, which left it the widest chip on screen for a player who already knows what the number is.
+   */
+  show_label?: boolean;
   /**
    * Length of the sliding window in milliseconds over which clicks are counted before being scaled to clicks per second.
    */
@@ -706,6 +719,10 @@ export interface PingDisplaySettings {
    * Ping at or above this many milliseconds renders in the bad colour. Must be greater than `good_ms`; not enforced by the schema.
    */
   bad_ms?: number;
+  /**
+   * Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.
+   */
+  show_host?: boolean;
 }
 /**
  * Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.
@@ -746,6 +763,10 @@ export interface ArmorStatusSettings {
    * Whether to include the currently held item as a sixth slot.
    */
   show_held_item?: boolean;
+  /**
+   * Fraction of maximum durability under which a piece's bar turns amber. A threshold on a live value, the same species as `ping.good_ms`: the point at which a player wants to be told their gear is going is a matter of how they play, not a constant. 0 never warns.
+   */
+  warn_below?: number;
 }
 /**
  * Settings for the Potion effects HUD mod. Reads `getActivePotionEffects`, pushed only when the set changes.
@@ -867,6 +888,10 @@ export interface CrosshairSettings {
    * Whether the gap widens while the attack cooldown is not full and while sprinting.
    */
   dynamic?: boolean;
+  /**
+   * Whether a dot of `thickness` square is drawn on the centre point, under whatever `style` draws around it. `dot` is a style, so without this a player must choose between a cross and a centre reference; every crosshair configurator worth the name lets them have both. Ignored by `none`, and by `default`, which is the vanilla pass.
+   */
+  center_dot?: boolean;
 }
 /**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
@@ -998,6 +1023,28 @@ export interface HudJavaToRust {
   loadout: LoadoutId;
   items: HUDLayout;
   [k: string]: any | undefined;
+}
+/**
+ * Sent by the mod when a global setting is written in game — the in-game Settings page rebinding the menu key, the HUD editor's Snap toggle writing `hud_editor_grid`. The exact counterpart of `state` for the non-loadout half of §8.3: Java is authoritative, has already applied the change, and this tells Rust so it reaches `settings.json` and survives the process. Without it a global written in game lives only in `LiveState` and is gone at the next launch, which is what `hud_editor_grid` did for as long as the Snap toggle existed.
+ *
+ * A **delta, not the whole object**, and that is load-bearing rather than stylistic. `global_settings` is `additionalProperties: true` so the launcher may add a global without a protocol bump, but the mod's `GlobalSettings` is a fixed five-field class that cannot carry one — so a mod that echoed the whole object back would silently erase every global it does not model. Rust merges the named keys into what it already has and leaves the rest alone.
+ */
+export interface GlobalsJavaToRust {
+  /**
+   * Message discriminator; always `globals`.
+   */
+  t: 'globals';
+  patch: GlobalSettingsPatch;
+  [k: string]: any | undefined;
+}
+/**
+ * Flat map of `global_settings` property names to their new values, e.g. `{"hud_editor_grid": 8}`. Keys are the top-level property names of `global_settings`, not dotted paths: globals are flat, so there is nothing to path into. Unlike `state_patch` there is no `null`: `setGlobal` refuses a value it cannot store and returns null to the caller rather than sending one, so a null here would mean nothing a receiver could act on.
+ */
+export interface GlobalSettingsPatch {
+  /**
+   * The new value. Validate against the property's sub-schema in `global_settings` after applying; the mod has already clamped it to the same bounds.
+   */
+  [k: string]: (boolean | number | string) | undefined;
 }
 /**
  * Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time and average-fps numbers on the launcher's Loadouts frame. Values are cumulative for the current game session, not deltas.

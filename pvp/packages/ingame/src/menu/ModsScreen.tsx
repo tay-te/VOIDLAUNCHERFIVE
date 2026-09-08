@@ -88,6 +88,7 @@ import {
   CloseGlyph,
   GridGlyph,
   ListGlyph,
+  MoveGlyph,
   SearchGlyph,
   SettingsGlyph,
   VoidMark,
@@ -563,6 +564,44 @@ function EscCap(): React.ReactElement {
 }
 
 /**
+ * `HUD LAYOUT` — the way into the layout editor, on the bar.
+ *
+ * **This is the fix for "we need a HUD editor", which is a discoverability bug rather than a
+ * missing feature.** The editor already existed and already did everything asked of it, and the
+ * user still asked for one to be built: it was reachable only from a row inside Settings and from
+ * ⌘K, and neither is somewhere you find a thing you do not already know about.
+ *
+ * **On the left, not in the tool cluster.** The bar's right-hand group is `settings · search ·
+ * close` — things that *act on this window*, in ascending order of consequence — and it has been
+ * called crowded three times; a fourth icon in it is the mistake that has already been made once
+ * here. The editor is not a tool, it is a **place**, and this bar already says that places live
+ * on the left: `‹ MODS` sits there on every inner page. So it takes the empty third between the
+ * mark and the centred filter tabs — about 350 px that has never held anything — and it is
+ * labelled rather than an icon alone, for the same reason `‹ Mods` is: a bare glyph beside a VOID
+ * wordmark reads as decoration.
+ *
+ * Only on the grid bar. Inside a mod's page the left is the way back out, which is one meaning
+ * per side; the grid is where every open lands (`applyMenu` resets the route), so this is on
+ * screen every single time the menu is opened.
+ *
+ * The Settings row and the ⌘K command both stay. They cost nothing, and someone who learned one
+ * of them should not lose it.
+ */
+function HudLayoutControl() {
+  const setRoute = useVoidStore((s) => s.setRoute);
+  return (
+    <button
+      type="button"
+      className="obar__dest"
+      onClick={() => setRoute({ name: 'hud-editor' })}
+    >
+      <MoveGlyph />
+      <span>HUD layout</span>
+    </button>
+  );
+}
+
+/**
  * The gear — Settings.
  *
  * **It is what the profile chip was.** The chip carried an avatar, a name and an account kind:
@@ -759,6 +798,9 @@ export function ModsScreen() {
       {!inner ? (
         <div className="obar">
           <VoidMark />
+          {/* The one destination this bar offers besides the grid itself. Left of the centred
+              nav and nowhere near the tool cluster — see `HudLayoutControl`. */}
+          <HudLayoutControl />
           {/* One centred group: which mods, and how they are drawn. Both answer a question
               about the same thing, so they travel together — see `.obar__view`, which is also
               where the note on why the bar was re-grouped rather than re-sized lives. */}

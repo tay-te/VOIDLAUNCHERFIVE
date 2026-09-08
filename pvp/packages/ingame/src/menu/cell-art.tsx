@@ -95,8 +95,21 @@ export function VoidMark(): React.ReactElement {
  *
  * One `<span>` per icon, positioned by class; the size and the offsets are `overlay.css`'s.
  */
-function Icon({ name }: { name: 'search' | 'close' | 'grid' | 'list' | 'back' | 'settings' }) {
+function Icon({
+  name,
+}: {
+  name: 'search' | 'close' | 'grid' | 'list' | 'back' | 'settings' | 'move';
+}) {
   return <span className={`oicon oicon--${name}`} aria-hidden="true" />;
+}
+
+/**
+ * The four-way arrow — lucide `move`, and the HUD layout editor's mark everywhere it appears:
+ * the bar's way in, the editor toolbar's own mode label, and the quick palette's row. One glyph
+ * for one destination, so the three read as the same place rather than three features.
+ */
+export function MoveGlyph(): React.ReactElement {
+  return <Icon name="move" />;
 }
 
 /**

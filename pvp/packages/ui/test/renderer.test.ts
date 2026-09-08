@@ -249,6 +249,10 @@ describe('every custom property the stylesheet reads is declared', () => {
     '--v-noise-opacity', // per-surface override, always used with a fallback
     '--knob-x', // toggle: travel, kept separate so a press can add a scale to it
     '--knob-scale-x', // toggle: press stretch
+    // keystrokes: `keystrokesColorStyle` writes these two on the widget root from the mod's
+    // `key_color` / `pressed_color`, so there is no stylesheet declaration to find. Both are
+    // read with a fallback, which is what makes an unset one correct rather than blank.
+    '--key-pressed-bg',
   ]);
 
   const declared = new Set<string>([

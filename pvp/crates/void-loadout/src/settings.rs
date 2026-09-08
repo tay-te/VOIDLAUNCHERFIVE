@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::keybind::Keybind;
+use crate::Error;
 
 /// Default menu key (§6.3).
 pub const DEFAULT_MENU_KEY: &str = "RSHIFT";
@@ -84,6 +85,78 @@ impl GlobalSettings {
     pub fn hud_editor_grid(&self) -> i64 {
         self.hud_editor_grid.unwrap_or(4)
     }
+
+    /// Folds a [`GlobalPatch`] from the game into these settings.
+    ///
+    /// The merge is done through JSON rather than field by field, and that is what makes
+    /// [`GlobalSettings::extra`] survive: a key this build does not model lands in `extra`
+    /// on the way back in, exactly as it would from disk. A field-by-field `match` would
+    /// have to name every key and would therefore drop the ones it does not name — the
+    /// same hole `msg_globals` is a delta to avoid.
+    ///
+    /// Types are checked here, not trusted: the mod has already clamped the value, but a
+    /// frame is a frame. A patch that will not deserialize leaves `self` untouched and
+    /// returns [`Error::InvalidGlobal`], so a bad key cannot half-apply.
+    pub fn apply_patch(&mut self, patch: &GlobalPatch) -> Result<(), Error> {
+        if patch.is_empty() {
+            return Ok(());
+        }
+        let mut merged = match serde_json::to_value(&*self) {
+            Ok(Value::Object(map)) => map,
+            _ => return Err(Error::InvalidGlobal("settings are not a JSON object".into())),
+        };
+        for (key, value) in patch.entries() {
+            merged.insert(key.clone(), value.clone());
+        }
+        let next: GlobalSettings = serde_json::from_value(Value::Object(merged))
+            .map_err(|e| Error::InvalidGlobal(e.to_string()))?;
+        *self = next;
+        Ok(())
+    }
+}
+
+/// The globals that changed, `protocol.json#/definitions/global_patch`.
+///
+/// A delta and not the whole object, because the mod's own `GlobalSettings` is a fixed
+/// five-field class: a mod that echoed the whole object back would erase every global the
+/// launcher had added that the mod does not model. See [`GlobalSettings::apply_patch`].
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct GlobalPatch(Map<String, Value>);
+
+impl GlobalPatch {
+    /// An empty patch.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Records `key = value`.
+    pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) -> &mut Self {
+        self.0.insert(key.into(), value.into());
+        self
+    }
+
+    /// The raw key/value pairs.
+    pub fn entries(&self) -> &Map<String, Value> {
+        &self.0
+    }
+
+    /// Number of keys in the patch.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Whether the patch carries nothing. `globals` requires at least one key, so a
+    /// caller must not send an empty patch.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl FromIterator<(String, Value)> for GlobalPatch {
+    fn from_iter<I: IntoIterator<Item = (String, Value)>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
 }
 
 #[cfg(test)]
@@ -97,6 +170,60 @@ mod tests {
         assert_eq!(s.extra.get("chat_opacity"), Some(&Value::from(0.5)));
         let back = serde_json::to_value(&s).unwrap();
         assert_eq!(back, serde_json::from_str::<Value>(json).unwrap());
+    }
+
+    #[test]
+    fn a_patch_writes_the_named_key_and_leaves_the_rest_alone() {
+        let mut s = GlobalSettings::factory();
+        let mut patch = GlobalPatch::new();
+        patch.insert("hud_editor_grid", 8);
+
+        s.apply_patch(&patch).unwrap();
+        assert_eq!(s.hud_editor_grid(), 8);
+        assert_eq!(s.menu_key().as_str(), "RSHIFT", "an untouched global must not move");
+        assert_eq!(s.ui_scale(), 1.0);
+    }
+
+    #[test]
+    fn a_patch_does_not_erase_a_global_the_mod_cannot_model() {
+        // The whole reason `globals` is a delta: the mod's GlobalSettings is five fields,
+        // so a whole-object echo would drop `chat_opacity` on the first in-game toggle.
+        let mut s: GlobalSettings =
+            serde_json::from_str(r#"{"menu_key":"RSHIFT","chat_opacity":0.5}"#).unwrap();
+        let mut patch = GlobalPatch::new();
+        patch.insert("hud_editor_grid", 0);
+
+        s.apply_patch(&patch).unwrap();
+        assert_eq!(s.hud_editor_grid(), 0);
+        assert_eq!(s.extra.get("chat_opacity"), Some(&Value::from(0.5)));
+    }
+
+    #[test]
+    fn a_patch_of_the_wrong_type_is_refused_whole() {
+        let mut s = GlobalSettings::factory();
+        let before = s.clone();
+        let mut patch = GlobalPatch::new();
+        patch.insert("theme", "void-light");
+        patch.insert("hud_editor_grid", "eight");
+
+        assert!(s.apply_patch(&patch).is_err());
+        assert_eq!(s, before, "a bad key must not half-apply the good ones");
+    }
+
+    #[test]
+    fn an_empty_patch_is_a_no_op_rather_than_an_error() {
+        let mut s = GlobalSettings::factory();
+        let before = s.clone();
+        s.apply_patch(&GlobalPatch::new()).unwrap();
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn a_patch_is_a_bare_object_on_the_wire() {
+        // `#[serde(transparent)]`: the schema says `patch` is the map itself, not a wrapper.
+        let mut patch = GlobalPatch::new();
+        patch.insert("hud_editor_grid", 8);
+        assert_eq!(serde_json::to_value(&patch).unwrap(), serde_json::json!({"hud_editor_grid": 8}));
     }
 
     #[test]

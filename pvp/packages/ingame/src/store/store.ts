@@ -22,6 +22,7 @@ import {
   resolveModSettings,
   type ArmorSlot,
   type GameplayModId,
+  HUD_MOD_IDS,
   type HUDAnchor,
   type HUDModId,
   type Keybind,
@@ -41,7 +42,7 @@ import { getVoid } from '@/bridge/connect';
 // (`src/dev/fake-mods.ts`); the two guards below are the only seam it needs in the store.
 import { isFakeMod } from '@/dev/fake-mods';
 import { type ClickRing, cps, createClickRing, pushClick, risingEdges, trimRing } from './cps';
-import { clampOffset, clampScale } from './hud-geometry';
+import { DEFAULT_HUD, GRID, clampOffset, clampScale } from './hud-geometry';
 
 /** A scalar a mod setting may hold. */
 export type SettingValue = boolean | number | string | null;
@@ -99,9 +100,10 @@ export type { SessionInfo };
  * and until now the page could neither read nor write any of it: `menuKey` and `uiScale` were
  * live values on the other side of a wall. The Settings page is what needed them.
  *
- * **Only the three the page has a use for.** `GlobalSettings` also carries `cycleLoadoutKey` and
- * `hudEditorGrid`; they are not lifted here because nothing in the overlay reads them, and a
- * field mirrored into the store for completeness is a field that goes stale unnoticed.
+ * **Only the ones the page has a use for.** `GlobalSettings` also carries `cycleLoadoutKey`; it
+ * is not lifted here because nothing in the overlay reads it, and a field mirrored into the store
+ * for completeness is a field that goes stale unnoticed. `hudEditorGrid` used to be in that
+ * sentence and has earned its way out — the HUD editor's `Snap` toggle is now a control for it.
  */
 export interface GlobalsView {
   /** Key that opens and closes the menu, as a `KeyNames` name — `RSHIFT` by default. */
@@ -124,13 +126,28 @@ export interface GlobalsView {
   uiScale: number;
   /** Stored and, as of today, read by nothing. Kept so a push round-trips unchanged. */
   theme: string;
+  /**
+   * The HUD editor's snap grid, in unscaled GUI pixels. 0 disables snapping.
+   *
+   * **This is the `Snap` toggle**, and lifting it here is what made that toggle real.
+   * `LiveState.setHud` re-snaps every drop against this value on the Java side, so with the
+   * global left at its factory 4 the page's `Snap: off` still produced 4 px quantisation — the
+   * control looked like it did something and did not. The toggle now writes the global (`GRID`
+   * on, 0 off) and reads back from it, so one number decides the snap and both sides use it.
+   */
+  hudEditorGrid: number;
 }
 
 /** What the page believes before the first `settings` push. Matches `GlobalSettings::factory()`. */
-export const FACTORY_GLOBALS: GlobalsView = { menuKey: 'RSHIFT', uiScale: 1, theme: 'void-dark' };
+export const FACTORY_GLOBALS: GlobalsView = {
+  menuKey: 'RSHIFT',
+  uiScale: 1,
+  theme: 'void-dark',
+  hudEditorGrid: 4,
+};
 
 /** Which global settings the page may write. The rest of `GlobalSettings` is Rust's business. */
-export type GlobalKey = 'menu_key' | 'ui_scale';
+export type GlobalKey = 'menu_key' | 'ui_scale' | 'hud_editor_grid';
 
 
 /** Click rings live outside the store: they are scratch, never rendered. */
@@ -321,6 +338,7 @@ export interface VoidState {
   toggleMod(id: ModId, on: boolean): void;
   setSetting(id: ModId, key: string, value: SettingValue): void;
   commitHud(id: HUDModId, anchor: HUDAnchor, dx: number, dy: number, scale: number): void;
+  resetHud(): void;
   switchLoadout(id: LoadoutId): void;
   setGlobal(key: GlobalKey, value: string | number): void;
   closeMenu(): void;
@@ -402,9 +420,21 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // The click rings are updated below whatever happens — CPS has to stay correct across a spell
     // in the menu — but the keystrokes widget itself is behind the panel and cannot be seen, and
     // repainting it drags the damage rectangle across the panel for ~37 ms a time. Same reasoning
-    // and same condition as applyTick.
+    // and same condition as applyTick, with one more screen exempted.
+    //
+    // **The keystrokes mod page draws the real widget**, at the centre of the panel, as the
+    // whole subject of the page (`ModSettingsScreen`, `LIVE_WIDGETS`). Holding `keys` there
+    // made that preview a dead pad: it showed whichever keys happened to be down when the menu
+    // opened — none — and no key the player pressed while looking straight at it ever lit. The
+    // suppression is about widgets *behind* the panel; this one is in front of it.
+    //
+    // It does not cost the §4 budget either. That invariant is "an **idle** open menu paints
+    // nothing", and a key going down is not idle: the repaint is caused by an input, which is
+    // the one thing a repaint is always allowed to be caused by. Nothing here runs on a timer.
+    const route = get().route;
+    const previewingKeys = route.name === 'mod' && route.id === 'keystrokes';
     const hidden =
-      get().menuOpen && get().route.name !== 'hud-editor' && isUltralight();
+      get().menuOpen && route.name !== 'hud-editor' && !previewingKeys && isUltralight();
     if (edges.lmb) {
       pushClick(rings.left, now);
       patch.cpsLeft = cps(rings.left, now, windowMs(get().loadout));
@@ -499,12 +529,16 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       menuKey: typeof raw.menu_key === 'string' ? raw.menu_key : current.menuKey,
       uiScale: typeof raw.ui_scale === 'number' ? raw.ui_scale : current.uiScale,
       theme: typeof raw.theme === 'string' ? raw.theme : current.theme,
+      hudEditorGrid:
+        typeof raw.hud_editor_grid === 'number' ? raw.hud_editor_grid : current.hudEditorGrid,
     };
     // Value, not identity — same reason as `applySession`. A reloaded document is sent the same
     // settings again (rendering-invariants §9a), and taking a fresh object for identical data
     // would re-render the Settings page for nothing.
     if (sameJson(current, next)) return;
-    set({ globals: next });
+    // The `Snap` toggle is a view of `hud_editor_grid`, not a second opinion about it: taking it
+    // from the push is what stops the editor opening with `Snap` lit while Java is not snapping.
+    set({ globals: next, editorSnap: next.hudEditorGrid > 0 });
   },
 
   applyMenu(open) {
@@ -556,7 +590,11 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ editorTarget });
   },
   setEditorSnap(editorSnap) {
+    // Optimistic, then authoritative — `setGlobal` binds the store to what Java stored. Writing
+    // the global is the whole point: Java re-snaps every drop against it (`LiveState.setHud`), so
+    // a toggle that only changed the page would be overruled on every commit.
     set({ editorSnap });
+    get().setGlobal('hud_editor_grid', editorSnap ? GRID : 0);
   },
   setEditorGrid(editorGrid) {
     set({ editorGrid });
@@ -607,6 +645,36 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ loadout: { ...loadout, hud } });
   },
 
+  /**
+   * Put every HUD widget back where the client started — the editor's `Reset layout`.
+   *
+   * **Every id, not every entry in `loadout.hud`.** A mod the loadout has forgotten is exactly
+   * the one Reset has to be able to rescue, and reading the broken table to repair it could not
+   * (rendering-invariants §15). `DEFAULT_HUD` is a total `Record<HUDModId, …>`, so this cannot
+   * miss one.
+   *
+   * **The snap grid is stood down for the duration**, and that is the difference between Reset
+   * being an undo and Reset being a move. `LiveState.setHud` normalises every drop against
+   * `hud_editor_grid`, and the factory placements are not on that grid — `keystrokes` is
+   * `31, -109`, which at the factory grid of 4 comes back as `32, -108` and at the editor's own
+   * 8 as `32, -112`. Restoring a layout is not a placement gesture and must not be quantised
+   * like one. Both calls are synchronous in-process (bridge.json), so there is no window in
+   * which another write could see the grid at 0.
+   */
+  resetHud() {
+    const bridge = getVoid();
+    const grid = get().globals.hudEditorGrid;
+    if (grid > 0) bridge.setGlobal('hud_editor_grid', 0);
+    try {
+      for (const id of HUD_MOD_IDS) {
+        const home = DEFAULT_HUD[id];
+        get().commitHud(id, home.anchor, home.dx, home.dy, 1);
+      }
+    } finally {
+      if (grid > 0) bridge.setGlobal('hud_editor_grid', grid);
+    }
+  },
+
   switchLoadout(id) {
     getVoid().switchLoadout(id);
   },
@@ -623,6 +691,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       set({ globals: { ...current, uiScale: applied } });
     } else if (key === 'menu_key' && typeof applied === 'string') {
       set({ globals: { ...current, menuKey: applied } });
+    } else if (key === 'hud_editor_grid' && typeof applied === 'number') {
+      set({ globals: { ...current, hudEditorGrid: applied }, editorSnap: applied > 0 });
     }
   },
 

@@ -1,6 +1,15 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
 import { StatusDot } from './primitives.js';
+import {
+  VANILLA,
+  crosshairRects,
+  dynamicSpread,
+  isRing,
+  keepsVanilla,
+  type CrosshairRect,
+  type CrosshairStyle,
+} from '../lib/crosshair.js';
 import { cx } from '../lib/cx.js';
 
 /**
@@ -108,7 +117,13 @@ export function PingChip({
   ...rest
 }: PingChipProps): React.ReactElement {
   const unknown = ping < 0;
-  const tone = unknown ? 'muted' : ping >= badMs ? 'warn' : ping <= goodMs ? 'ok' : 'warn';
+  // Three bands, three tones. It used to be `>= bad ? 'warn' : <= good ? 'ok' : 'warn'`, and
+  // with any valid config — `bad_ms` above `good_ms`, which the schema asks for — the first and
+  // last arms are the same colour, so `bad_ms` could not change a pixel however it was dragged.
+  // A setting that is stored, clamped, echoed and drawn by nothing is the exact shape of the
+  // audit that produced `design/rendering-invariants.md` §15; this one had simply hidden inside
+  // a ternary rather than inside a missing read.
+  const tone = unknown ? 'muted' : ping >= badMs ? 'bad' : ping <= goodMs ? 'ok' : 'warn';
   return (
     <div className={chipClass(variant, dimmed, className)} {...rest}>
       <StatusDot tone={tone} size={7} />
@@ -199,6 +214,13 @@ export interface CpsChipProps extends HudChipProps {
   right?: number;
   /** Which buttons the mod counts. Matches the mod's `mode` setting. */
   mode?: 'left' | 'right' | 'both';
+  /**
+   * Whether to draw the trailing `CPS` unit — the mod's `show_label` setting.
+   *
+   * The other three readouts have had this since they were written; this one had not, which
+   * made it the widest chip on screen for a player who knows perfectly well what the number is.
+   */
+  showLabel?: boolean;
 }
 
 /** `12 | 9 CPS` — the left figure in the accent ink, the right in the primary. */
@@ -206,6 +228,7 @@ export function CpsChip({
   left,
   right,
   mode = 'both',
+  showLabel = true,
   variant = 'compact',
   dimmed = false,
   className,
@@ -224,7 +247,7 @@ export function CpsChip({
           <span className="v-cpschip__right">{right ?? 0}</span>
         </>
       ) : null}
-      <span className="v-cpschip__unit">CPS</span>
+      {showLabel ? <span className="v-cpschip__unit">CPS</span> : null}
     </div>
   );
 }
@@ -478,6 +501,13 @@ export interface KeystrokesWidgetProps extends HTMLAttributes<HTMLDivElement> {
   showMouse?: boolean;
   /** Draw the wide space bar under the block — the mod's `show_spacebar` setting. */
   showSpacebar?: boolean;
+  /**
+   * Draw the sneak cap beside the space bar — the mod's `show_sneak` setting.
+   *
+   * {@link KeystrokesState.shift} has been carried by the `keys` event and handed to this
+   * component since it was written, and no cap has ever drawn it. This is that cap.
+   */
+  showSneak?: boolean;
   /** Print CPS inside the mouse keys — the mod's `show_cps` setting. */
   cps?: { left: number; right: number };
 }
@@ -496,6 +526,7 @@ export function KeystrokesWidget({
   keys = {},
   showMouse = true,
   showSpacebar = false,
+  showSneak = false,
   cps,
   className,
   ...rest
@@ -538,8 +569,24 @@ export function KeystrokesWidget({
           )}
         </div>
       ) : null}
-      {showSpacebar ? (
-        <div className="v-keystrokes__row">{key('␣', keys.space, 'v-keystrokes__key--space')}</div>
+      {/* One row for both, because they are the two keys a foot is on: the space bar keeps the
+          width it had when it was alone, and the sneak cap takes the square beside it. A row of
+          its own for sneak would make the widget taller than the frames draw it for a cap that
+          is off by default. */}
+      {showSpacebar || showSneak ? (
+        <div className="v-keystrokes__row">
+          {showSpacebar
+            ? key(
+                '␣',
+                keys.space,
+                cx(
+                  'v-keystrokes__key--space',
+                  showSneak && 'v-keystrokes__key--space-narrow',
+                ),
+              )
+            : null}
+          {showSneak ? key('⇧', keys.shift, 'v-keystrokes__key--sneak') : null}
+        </div>
       ) : null}
     </div>
   );
@@ -549,14 +596,150 @@ export function KeystrokesWidget({
 /* Crosshair, Hotbar                                                          */
 /* -------------------------------------------------------------------------- */
 
+/** Props for {@link Crosshair}. */
+export interface CrosshairProps extends Omit<HTMLAttributes<HTMLDivElement>, 'color'> {
+  /**
+   * The mod's `style` setting.
+   *
+   * Named `shape` because `style` is React's own prop on every element, and a component that
+   * shadows it cannot be given a `style` either.
+   */
+  shape?: CrosshairStyle;
+  /** The mod's `size` — half-length of each arm, in crosshair units. */
+  size?: number;
+  /** The mod's `thickness`. */
+  thickness?: number;
+  /** The mod's `gap`. */
+  gap?: number;
+  /** The mod's `color`, `#RRGGBB` or `#RRGGBBAA`. */
+  color?: string;
+  /** The mod's `outline` — a one-unit black edge, exactly as `CrosshairRenderer` fills it. */
+  outline?: boolean;
+  /** The mod's `dynamic`. */
+  dynamic?: boolean;
+  /** The mod's `center_dot`. */
+  centerDot?: boolean;
+  /** Whether the player is sprinting, which is what `dynamic` widens the gap for. */
+  sprinting?: boolean;
+  /**
+   * Draw where `dynamic` will put the arms, as a low-alpha ghost behind the live ones.
+   *
+   * A **preview affordance, and only that** — the game never draws two crosshairs. `dynamic`
+   * is otherwise a setting whose whole effect happens during the one activity that takes the
+   * player out of the settings panel, so a page without this has a switch that does nothing
+   * visible when you flip it. The ghost is the same ink at .22, so it stays monochrome where
+   * the crosshair is monochrome and takes the crosshair's own colour where it is tinted —
+   * it is the same live value, drawn twice.
+   *
+   * It appears only where the setting bites: `dot`, `circle`, `default` and `none` ignore the
+   * gap, so nothing ghosts on them, which is the honest answer rather than a decoration.
+   */
+  showSpread?: boolean;
+  /**
+   * Pixels per crosshair unit. 1 is the game's own scale; `CROSSHAIR_UNIT_PREVIEW`
+   * (`lib/crosshair.ts`) is what the mod page draws at.
+   *
+   * A multiplier on the arithmetic, never a `transform` — see the note on that constant.
+   */
+  unit?: number;
+}
+
 /**
- * The 18 × 18 crosshair.
+ * The crosshair, drawn from {@link crosshairRects} — the same arithmetic
+ * `CrosshairGeometry.java` fills in GL.
  *
- * In production the crosshair is drawn in GL, not HTML, because it must sit at the
- * exact pixel centre (§3). This is the stand-in the HUD editor and the gallery draw.
+ * In production the mod is GL, not HTML, because it must sit on the exact pixel centre (§3).
+ * This is what the `?debug` harness, the HUD editor and the mod page's live preview draw, and
+ * until now it was a bare 18 × 18 plus that took **no props at all** — so seven settings that
+ * are live in game could not be seen anywhere the player was actually setting them.
  */
-export function Crosshair({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx('v-crosshair', className)} aria-hidden="true" {...rest} />;
+export function Crosshair({
+  shape = 'cross',
+  size = 5,
+  thickness = 1,
+  gap = 2,
+  color,
+  outline = true,
+  dynamic = false,
+  centerDot = false,
+  sprinting = false,
+  showSpread = false,
+  unit = 1,
+  className,
+  style,
+  ...rest
+}: CrosshairProps): React.ReactElement {
+  // `default` means "the vanilla pass draws it" — which is true in game and useless in a
+  // preview, where an empty box on the mod's own default value reads as a broken mod. Drawing
+  // vanilla's own proportions is what is actually on screen.
+  const vanilla = keepsVanilla(shape);
+  const drawn = vanilla ? 'cross' : shape;
+  const s = vanilla ? VANILLA.size : size;
+  const t = vanilla ? VANILLA.thickness : thickness;
+  const g = vanilla ? VANILLA.gap : gap;
+  const dot = vanilla ? false : centerDot;
+
+  const spread = dynamicSpread(dynamic, sprinting);
+  const live = crosshairRects(drawn, s, t, g, spread, dot);
+  const ghost =
+    showSpread && dynamic && !sprinting ? crosshairRects(drawn, s, t, g, 2, dot) : [];
+
+  // The box is the widest the shape can reach, so the mark is centred on the box centre and
+  // the caller can place the box rather than the arms.
+  const reach = (isRing(drawn) ? s + t : s + g + t) * unit;
+  const ink = color ?? 'var(--text-primary)';
+  // The ghost is drawn as an **outline**, not as a fill, and the reason is geometric rather
+  // than aesthetic: `dynamic` moves an arm out by 2 while the arm is `size` long, so wherever
+  // `spread < size` the two positions overlap. Two translucent fills over one another read as
+  // one dirty arm with a smear on the end — it looks like a rendering fault, not like a second
+  // position. An outline stays legible through the overlap: you can see the arm, and you can
+  // see the box it will move into.
+  const edge = Math.max(1, Math.round(unit / 3));
+  const rect = (r: CrosshairRect, index: number, faint: boolean) => (
+    <span
+      key={`${faint ? 'g' : 'r'}${index}`}
+      className={cx('v-crosshair__rect', faint && 'v-crosshair__rect--ghost')}
+      style={{
+        left: reach + r.x * unit,
+        top: reach + r.y * unit,
+        width: r.w * unit,
+        height: r.h * unit,
+        background: faint ? 'transparent' : ink,
+        border: faint ? `${edge}px solid ${ink}` : undefined,
+        // The outline is `CrosshairRenderer`'s own: it fills a black rectangle one pixel out
+        // on every side before it fills the ink. A spread box-shadow is that rectangle.
+        boxShadow: !faint && outline ? `0 0 0 ${unit}px #000` : undefined,
+      }}
+    />
+  );
+
+  return (
+    <div
+      className={cx('v-crosshair', className)}
+      aria-hidden="true"
+      style={{ width: reach * 2, height: reach * 2, ...style }}
+      {...rest}
+    >
+      {ghost.map((r, i) => rect(r, i, true))}
+      {isRing(drawn) ? (
+        <span
+          className="v-crosshair__ring"
+          style={{
+            left: reach - s * unit,
+            top: reach - s * unit,
+            width: s * 2 * unit,
+            height: s * 2 * unit,
+            borderWidth: t * unit,
+            borderColor: ink,
+            boxShadow: outline
+              ? `0 0 0 ${unit}px #000, inset 0 0 0 ${unit}px #000`
+              : undefined,
+          }}
+        />
+      ) : null}
+      {live.map((r, i) => rect(r, i, false))}
+    </div>
+  );
 }
 
 /** Props for {@link Hotbar}. */

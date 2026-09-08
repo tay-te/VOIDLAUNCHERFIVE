@@ -267,6 +267,28 @@ export function SettingsPanel() {
 
           {/* --------------------------------------------------------- system */}
           <SettingsGroup caption="DATA & UPDATES">
+            {/*
+              The client JAR the launcher installs into `mods/` before every launch.
+              Until this row existed the field was reachable only by hand-editing
+              `~/.void-pvp/config.json`, so in practice it was never set — and an unset
+              `mod_jar` does not fail, it silently skips the install and lets Fabric load
+              whatever JAR an earlier run left behind. A client from days ago answers the
+              bridge and behaves normally, so nothing anywhere says the code being run is
+              not the code that was built. The launch log now names the JAR and its age;
+              this is where you point it at the right one.
+            */}
+            <SettingsRow
+              title="Client JAR"
+              sub="Installed into the game's mods folder at every launch. Leave empty and the launcher installs nothing, running whatever is already there."
+            >
+              <input
+                className="inline-form__field inline-form__field--wide"
+                value={settings.mod_jar ?? ''}
+                placeholder="…/mod/build/libs/void-client-0.1.0-macos-x64.jar"
+                aria-label="Client JAR"
+                onChange={(e) => void saveSettings({ mod_jar: e.target.value || null })}
+              />
+            </SettingsRow>
             <SettingsRow
               title="Data folder"
               sub={

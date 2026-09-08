@@ -92,6 +92,7 @@ export const SHEET_ORDER: readonly string[] = [
   'reset',
   'chevron-right',
   'bed',
+  'watermark',
 ];
 
 /** How many cells the sheet holds. The width at size *s* is this many *s*. */
@@ -173,6 +174,7 @@ export const SPRITE: Record<IconName, string> = {
   cube: 'hitboxes',
   zoom: 'zoom',
   crosshair: 'crosshair',
+  watermark: 'watermark',
   // The rest, by identity. `play`, `reset` and `chevron-right` are launcher-only today; they are
   // in the sheet so the mapping is total, which is what makes the miss testable rather than
   // guessable, at about 3 KB.

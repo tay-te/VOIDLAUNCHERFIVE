@@ -15,6 +15,7 @@
 import { memo } from 'react';
 import {
   ArmorList,
+  CROSSHAIR_UNIT_PREVIEW,
   CoordsChip,
   CpsChip,
   Crosshair,
@@ -24,16 +25,31 @@ import {
   PotionList,
   formatAmplifier,
   formatPotionTime,
+  asCrosshairStyle,
   keystrokesColorStyle,
   type HudVariant,
 } from '@/ui';
-import { cardinalFromYaw } from '@/bridge/protocol';
+import { cardinalFromYaw, type ArmorSlot } from '@/bridge/protocol';
 import { modSettings, useModSettings, useVoidStore } from '@/store/store';
 import { armorRow, potionMeta, shortHost } from './format';
 
 export interface HudWidgetProps {
   /** `compact` in game, `editor` on the HUD-layout frame. */
   variant?: HudVariant;
+  /**
+   * Stand in for live data the widget has none of, rather than rendering nothing.
+   *
+   * **Only the mod page's preview passes this.** Three widgets draw a list off the `tick`
+   * payload and return `null` when it is empty — no armour worn, no effects applied, no
+   * position yet — which on the HUD is right (a widget with nothing to say says nothing) and
+   * on a settings page is the §15 failure: an empty box where the mod should be, on a page
+   * whose entire job is showing you the mod. Worse, the page is reachable from a lobby, so the
+   * empty case is the *common* one there.
+   *
+   * The fixture is only ever a fallback. Real armour, real effects and a real position all win,
+   * so a player standing in a match sees their own gear while they set the mod up.
+   */
+  sample?: boolean;
   /**
    * Extra class on the widget root. `HudLayer` types every widget as
    * `ComponentType<HudWidgetProps>` and places them all through one table, so a widget
@@ -44,53 +60,93 @@ export interface HudWidgetProps {
 
 /* -------------------------------------------------------------------- FPS */
 
-export const HudFps = memo(function HudFps({ variant }: HudWidgetProps) {
-  const fps = useVoidStore((s) => s.fps);
+/** The frames' own figure, and `TilePreview`'s. A preview with `0 fps` on it is not a preview. */
+const SAMPLE_FPS = 142;
+
+export const HudFps = memo(function HudFps({ variant, sample }: HudWidgetProps) {
+  const live = useVoidStore((s) => s.fps);
   const low = useVoidStore((s) => s.fpsLow);
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'fps').show_label !== false);
   // `fps.color` (mods.json), the one HUD readout the registry lets you tint. Selected as a
   // string so this subscription stays primitive; `#RRGGBB` and `#RRGGBBAA` are both valid CSS
   // colours, so the clamped value goes straight through with no parsing.
+  const showLow = useVoidStore((s) => modSettings(s.loadout, 'fps').show_low !== false);
   const color = useVoidStore((s) => {
     const value = modSettings(s.loadout, 'fps').color;
     return typeof value === 'string' ? value : undefined;
   });
+  // The chip reads `0 fps` until the first `tick` lands, and in game `applyTick` is held while
+  // the menu is up — so a page opened before the HUD has ever drawn shows a zero, and `colour`
+  // and `show_label` are being demonstrated on a figure that is not a figure.
+  const fps = live > 0 || !sample ? live : SAMPLE_FPS;
+  // Same for the aside: the 1% low window fills over several seconds of play and this page is
+  // reachable from a lobby, so without a stand-in `show_low` would be a switch with nothing to
+  // switch. Two thirds of the figure is roughly what a real 1% low sits at.
+  const lowFigure = low > 0 ? low : sample ? Math.max(1, Math.round(fps * 0.68)) : 0;
   return (
     <FpsChip
       variant={variant}
       fps={fps}
       showLabel={showLabel}
       color={color}
-      onePercentLow={low > 0 ? low : undefined}
+      onePercentLow={showLow && lowFigure > 0 ? lowFigure : undefined}
     />
   );
 });
 
 /* ------------------------------------------------------------------- ping */
 
-export const HudPing = memo(function HudPing({ variant }: HudWidgetProps) {
-  const ping = useVoidStore((s) => s.ping);
-  const host = useVoidStore((s) => s.server.host);
+export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps) {
+  const live = useVoidStore((s) => s.ping);
+  const liveHost = useVoidStore((s) => s.server.host);
+  const showHost = useVoidStore((s) => modSettings(s.loadout, 'ping').show_host !== false);
   const good = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').good_ms ?? 60));
   const bad = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').bad_ms ?? 150));
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'ping').show_label !== false);
-  return (
+  const host = liveHost ?? (sample ? 'mc.hypixel.net' : null);
+  const chip = (value: number, key?: number) => (
     <PingChip
+      key={key}
       variant={variant}
-      ping={ping}
+      ping={value}
       goodMs={good}
       badMs={bad}
       showLabel={showLabel}
-      host={host ? shortHost(host) : undefined}
+      host={showHost && host ? shortHost(host) : undefined}
     />
   );
+
+  // **The preview draws the chip three times, and that is not a licence — it is the only
+  // honest picture of a threshold.** `good_ms` and `bad_ms` decide where one figure changes
+  // colour, and a single figure cannot show you where: at 42 ms the chip is green and stays
+  // green however far you drag "Good under", so both controls read as dead. Three pings taken
+  // *from the thresholds themselves* — just inside good, halfway between, just past bad — put
+  // one chip in each band, so dragging either control visibly moves the boundary it owns.
+  //
+  // The same argument as `SAMPLE_ARMOR`'s four different durabilities, and the same shape: the
+  // fixture is chosen so the setting has something to bite on. In game exactly one chip is ever
+  // drawn, and it is this component.
+  if (sample) {
+    const band = [
+      Math.max(1, good - 12),
+      Math.max(good + 1, Math.round((good + bad) / 2)),
+      Math.min(9999, bad + 45),
+    ];
+    return <div className="v-pingband">{band.map((value, i) => chip(value, i))}</div>;
+  }
+  // The bridge sends -1 for "no server", which is not a ping and draws as an em-dash.
+  return chip(live);
 });
 
 /* ----------------------------------------------------------------- coords */
 
-export const HudCoordinates = memo(function HudCoordinates({ variant }: HudWidgetProps) {
-  const pos = useVoidStore((s) => s.pos);
+/** Somewhere in a world, for a preview opened before the first `tick` lands. */
+const SAMPLE_POS = { x: 128.4, y: 64, z: -302.7, yaw: 45 };
+
+export const HudCoordinates = memo(function HudCoordinates({ variant, sample }: HudWidgetProps) {
+  const live = useVoidStore((s) => s.pos);
   const settings = useModSettings('coordinates');
+  const pos = live ?? (sample ? SAMPLE_POS : null);
   if (!pos) return null;
   return (
     <CoordsChip
@@ -107,9 +163,22 @@ export const HudCoordinates = memo(function HudCoordinates({ variant }: HudWidge
 
 /* ---------------------------------------------------------------- potions */
 
-export const HudPotionEffects = memo(function HudPotionEffects() {
-  const fx = useVoidStore((s) => s.fx);
+/**
+ * Two effects, for a preview opened with none applied.
+ *
+ * One of them is `ambient`, which is the only way `hide_ambient` can be seen to do anything:
+ * a fixture of two non-ambient rows would leave that switch inert on the page for exactly the
+ * reason the real data does.
+ */
+const SAMPLE_FX = [
+  { id: 1, amplifier: 1, duration_ms: 84_000, ambient: false, name: 'potion.moveSpeed' },
+  { id: 5, amplifier: 0, duration_ms: 42_000, ambient: true, name: 'potion.damageBoost' },
+];
+
+export const HudPotionEffects = memo(function HudPotionEffects({ sample }: HudWidgetProps) {
+  const live = useVoidStore((s) => s.fx);
   const settings = useModSettings('potion_effects');
+  const fx = live.length > 0 || !sample ? live : (SAMPLE_FX as unknown as typeof live);
   const visible = settings.hide_ambient ? fx.filter((f) => !f.ambient) : fx;
   if (visible.length === 0) return null;
   return (
@@ -130,10 +199,26 @@ export const HudPotionEffects = memo(function HudPotionEffects() {
 
 /* ------------------------------------------------------------------ armor */
 
-export const HudArmorStatus = memo(function HudArmorStatus() {
-  const armor = useVoidStore((s) => s.armor);
+/**
+ * A full set plus a held item, for a preview opened by a player wearing nothing.
+ *
+ * Damaged rather than pristine on purpose: `warn_below` moves the amber threshold, and against
+ * four full bars nothing about that setting is visible. These four sit at 96%, 61%, 43% and 12%
+ * of their maxima, so dragging the threshold across the range lights each bar in turn.
+ */
+const SAMPLE_ARMOR: ArmorSlot[] = [
+  { slot: 'helmet', item: 'diamond_helmet', damage: 14, max_damage: 363 },
+  { slot: 'chestplate', item: 'diamond_chestplate', damage: 205, max_damage: 528 },
+  { slot: 'leggings', item: 'diamond_leggings', damage: 282, max_damage: 495 },
+  { slot: 'boots', item: 'diamond_boots', damage: 377, max_damage: 429 },
+  { slot: 'held', item: 'diamond_sword', damage: 402, max_damage: 1561 },
+];
+
+export const HudArmorStatus = memo(function HudArmorStatus({ sample }: HudWidgetProps) {
+  const live = useVoidStore((s) => s.armor);
   const settings = useModSettings('armor_status');
-  const rows = armor
+  const worn = live.some((slot) => slot.item !== null) || !sample ? live : SAMPLE_ARMOR;
+  const rows = worn
     .filter((slot) => settings.show_held_item !== false || slot.slot !== 'held')
     .map(armorRow)
     .filter((row): row is NonNullable<typeof row> => row !== null);
@@ -143,6 +228,7 @@ export const HudArmorStatus = memo(function HudArmorStatus() {
       rows={rows}
       orientation={settings.orientation === 'vertical' ? 'vertical' : 'horizontal'}
       showDurability={settings.show_durability !== false}
+      warnBelow={Number(settings.warn_below ?? 0.5)}
     />
   );
 });
@@ -184,6 +270,7 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
       }}
       showMouse={settings.show_mouse !== false}
       showSpacebar={settings.show_spacebar === true}
+      showSneak={settings.show_sneak === true}
       cps={settings.show_cps === true ? { left: cpsLeft, right: cpsRight } : undefined}
     />
   );
@@ -191,15 +278,21 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
 
 /* -------------------------------------------------------------------- CPS */
 
-export const HudCps = memo(function HudCps({ variant }: HudWidgetProps) {
-  const left = useVoidStore((s) => s.cpsLeft);
-  const right = useVoidStore((s) => s.cpsRight);
+export const HudCps = memo(function HudCps({ variant, sample }: HudWidgetProps) {
+  const liveLeft = useVoidStore((s) => s.cpsLeft);
+  const liveRight = useVoidStore((s) => s.cpsRight);
   const mode = useVoidStore((s) => String(modSettings(s.loadout, 'cps').mode ?? 'left'));
+  const showLabel = useVoidStore((s) => modSettings(s.loadout, 'cps').show_label !== false);
+  // Nobody is clicking while the settings page is open, so both rings read zero and `mode`
+  // switches between three zeroes. Two different figures are what make the setting visible.
+  const left = liveLeft > 0 || liveRight > 0 || !sample ? liveLeft : 12;
+  const right = liveLeft > 0 || liveRight > 0 || !sample ? liveRight : 4;
   return (
     <CpsChip
       variant={variant}
       left={left}
       right={right}
+      showLabel={showLabel}
       mode={mode === 'right' ? 'right' : mode === 'both' ? 'both' : 'left'}
     />
   );
@@ -208,8 +301,34 @@ export const HudCps = memo(function HudCps({ variant }: HudWidgetProps) {
 /* ------------------------------------------------------------- crosshair */
 
 /**
- * The crosshair is GL, not HTML (§3 — it must sit at the exact pixel centre and
- * is 20 lines of code). This is the harness stand-in so the `?debug` view
- * matches the frames; it never renders when the real bridge is attached.
+ * The crosshair is GL, not HTML (§3 — it must sit at the exact pixel centre and is 20 lines of
+ * code). This is the stand-in: the `?debug` view draws it so the harness matches the frames,
+ * and the mod page draws it because a GL mark is a mark the settings panel cannot otherwise
+ * show you.
+ *
+ * It reads all eight settings. It used to read none — `Crosshair` took no props at all — so the
+ * harness and the HUD editor drew one fixed plus whatever the loadout said, and the page that
+ * configures it drew a bitmap of a plus that was not even the same shape. Every setting was
+ * live in GL and none of them was visible anywhere a player could see it while changing it.
  */
-export { Crosshair as DebugCrosshair };
+export const HudCrosshair = memo(function HudCrosshair({ sample }: HudWidgetProps) {
+  const settings = useModSettings('crosshair');
+  const color = typeof settings.color === 'string' ? settings.color : undefined;
+  return (
+    <Crosshair
+      shape={asCrosshairStyle(settings.style)}
+      size={Number(settings.size ?? 5)}
+      thickness={Number(settings.thickness ?? 1)}
+      gap={Number(settings.gap ?? 2)}
+      color={color}
+      outline={settings.outline !== false}
+      dynamic={settings.dynamic === true}
+      centerDot={settings.center_dot === true}
+      // `sample` is the preview, and the preview is the one place `dynamic` can be seen at
+      // all: it only bites while sprinting, which is not something you do from a settings page.
+      showSpread={sample === true}
+      unit={sample ? CROSSHAIR_UNIT_PREVIEW : 1}
+    />
+  );
+});
+

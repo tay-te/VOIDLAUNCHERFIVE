@@ -118,20 +118,23 @@ const HUD = [
 /** Every mod on, at its registry default, so a step only has to state its own difference. */
 function baseMods() {
   return {
-    fps: { on: true, scale: 1, opacity: 1, color: '#FFFFFF', show_label: true },
+    fps: { on: true, scale: 1, opacity: 1, color: '#FFFFFF', show_label: true, show_low: true },
     keystrokes: {
       on: true, scale: 1, opacity: 0.85, keybind: 'NONE', show_mouse: true,
-      show_spacebar: true, show_cps: true, corner_radius: 8,
+      show_spacebar: true, show_sneak: true, show_cps: true, corner_radius: 8,
       key_color: 'shell', pressed_color: 'accent',
     },
-    cps: { on: true, scale: 1, opacity: 1, mode: 'both', window_ms: 1000 },
-    ping: { on: true, scale: 1, opacity: 1, show_label: true, good_ms: 60, bad_ms: 150 },
+    cps: { on: true, scale: 1, opacity: 1, mode: 'both', show_label: true, window_ms: 1000 },
+    ping: {
+      on: true, scale: 1, opacity: 1, show_label: true, good_ms: 60, bad_ms: 150,
+      show_host: true,
+    },
     coordinates: {
       on: true, scale: 1, opacity: 1, decimals: 1, show_direction: true, layout: 'inline',
     },
     armor_status: {
       on: true, scale: 1, opacity: 1, orientation: 'horizontal',
-      show_durability: true, show_held_item: true,
+      show_durability: true, show_held_item: true, warn_below: 0.5,
     },
     potion_effects: {
       on: true, scale: 1, opacity: 1, show_duration: true, show_amplifier: true,
@@ -144,7 +147,7 @@ function baseMods() {
     zoom: { on: true, key: 'C', fov_divisor: 4, smooth: true, cinematic: false },
     crosshair: {
       on: false, style: 'cross', size: 5, thickness: 1, gap: 2,
-      color: '#FFFFFFFF', outline: true, dynamic: false,
+      color: '#FFFFFFFF', outline: true, dynamic: false, center_dot: false,
     },
   };
 }
@@ -211,6 +214,24 @@ export const STEPS = [
   { name: 'crosshair-t-shape', why: 'crosshair.style t_shape', state: loadout({ crosshair: { on: true, style: 't_shape' } }) },
   { name: 'crosshair-none', why: 'crosshair.style none draws nothing at all', state: loadout({ crosshair: { on: true, style: 'none' } }) },
   { name: 'crosshair-default', why: 'crosshair.style default hands back the vanilla one', state: loadout({ crosshair: { on: true, style: 'default' } }) },
+  { name: 'ping-bad-band', why: 'ping.bad_ms now has a tone of its own — the dot goes red past it, where it used to stay amber',
+    state: loadout({ ping: { good_ms: 5, bad_ms: 10 } }) },
+  { name: 'fps-no-low', why: 'fps.show_low drops the 1% low aside and keeps the figure',
+    state: loadout({ fps: { show_low: false } }) },
+  { name: 'cps-no-label', why: 'cps.show_label drops the trailing CPS unit',
+    state: loadout({ cps: { show_label: false } }) },
+  { name: 'ping-no-host', why: 'ping.show_host drops the server name after the figure',
+    state: loadout({ ping: { show_host: false } }) },
+  { name: 'crosshair-center-dot', why: 'center_dot rides on top of the cross, one dot on the centre point',
+    state: loadout({ crosshair: { on: true, style: 'cross', gap: 4, size: 7, center_dot: true } }) },
+  { name: 'crosshair-ring-dot', why: 'center_dot is the one rectangle a ring draws',
+    state: loadout({ crosshair: { on: true, style: 'circle', size: 8, center_dot: true } }) },
+  { name: 'keys-sneak', why: 'keystrokes.show_sneak draws the shift cap beside the space bar',
+    state: loadout({ keystrokes: { show_sneak: true, show_spacebar: true } }) },
+  { name: 'armor-warn-high', why: 'armor_status.warn_below at 90% — every damaged bar goes amber',
+    state: loadout({ armor_status: { warn_below: 0.9 } }) },
+  { name: 'armor-warn-never', why: 'armor_status.warn_below at 0 — no bar ever warns',
+    state: loadout({ armor_status: { warn_below: 0 } }) },
   { name: 'crosshair-big-coral', why: 'size, thickness, gap and colour together',
     state: loadout({ crosshair: { on: true, style: 'cross', size: 14, thickness: 4, gap: 8, color: '#FF9E7A' } }) },
 

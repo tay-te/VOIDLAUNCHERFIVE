@@ -5,19 +5,20 @@
  * its `hud[]` entry through `placementStyle()` — `anchor` picks the edge
  * offsets, `dx`/`dy` + `scale` become one 2D `transform` (§8.1, and
  * ultralight-notes.md §4, which rules out anything 3D). A widget draws only when
- * its mod is on *and* the loadout gives it a place.
+ * its mod is on *and* the loadout gives it a place — except in the editor, where an
+ * enabled-but-unplaced mod falls back to its factory placement rather than vanishing.
  */
 
-import { memo, type ComponentType, type ReactNode } from 'react';
+import { memo, type ComponentType, type HTMLAttributes, type ReactNode } from 'react';
 import { hudItem, isModOn, useModSettings, useVoidStore } from '@/store/store';
-import { placementStyle } from '@/store/hud-geometry';
+import { DEFAULT_HUD, placementStyle, zoomStyle } from '@/store/hud-geometry';
 import { HUD_MOD_IDS, type HUDAnchor, type HUDModId } from '@/bridge/protocol';
 import { HudWatermark } from './watermark';
 import {
-  DebugCrosshair,
   HudArmorStatus,
   HudCoordinates,
   HudCps,
+  HudCrosshair,
   HudFps,
   HudKeystrokes,
   HudPing,
@@ -50,10 +51,27 @@ export interface LivePlacement {
 export interface HudLayerProps {
   /** Chips drop to opacity 0.7 while an overlay panel is up. */
   dimmed?: boolean;
-  /** The HUD editor renders the same widgets with the denser chip treatment. */
+  /**
+   * The HUD editor renders the same widgets with the denser chip treatment — and, because a
+   * widget you cannot see is a widget you cannot place, it also draws every enabled HUD mod
+   * the loadout has forgotten to place, at its factory position (rendering-invariants §15).
+   */
   editor?: boolean;
-  /** The editor wraps each widget to attach its drag handlers. */
-  renderItem?: (id: HUDModId, node: ReactNode) => ReactNode;
+  /**
+   * Props for the positioned box itself — how the editor attaches its drag handlers.
+   *
+   * **On the `.hud-item` box, not on a wrapper inside it.** It used to be a `renderItem`
+   * that wrapped the widget in a `display: contents` div, and that div is where the whole
+   * editor came apart: `display: contents` is supported in this engine, so the wrapper has
+   * no principal box and `getBoundingClientRect()` on it measured `0,0 0x0` — while the
+   * `.hud-item` beside it measured `31,536 130x175`. Every drag therefore started from a
+   * widget the editor believed was at the layer origin with no size, so grabbing a chip
+   * teleported it. Handlers belong on the box that has the geometry.
+   *
+   * Called during render, so give it a stable identity (`useCallback`) or every widget
+   * re-renders on every keystroke elsewhere in the page.
+   */
+  slotProps?: (id: HUDModId) => HTMLAttributes<HTMLDivElement>;
   /**
    * Live placement override, used by the HUD editor while a widget is being
    * dragged. The loadout is not touched until the drop, when `setHud` runs.
@@ -72,6 +90,7 @@ const HudSlot = memo(function HudSlot({
   dy,
   scale,
   opacity,
+  slotProps,
   children,
 }: {
   id: HUDModId;
@@ -80,15 +99,22 @@ const HudSlot = memo(function HudSlot({
   dy: number;
   scale: number;
   opacity: number;
+  slotProps?: (id: HUDModId) => HTMLAttributes<HTMLDivElement>;
   children: ReactNode;
 }) {
   return (
     <div
       className="hud-item"
       data-hud-id={id}
-      style={{ ...placementStyle(anchor, dx, dy, scale), opacity }}
+      style={{ ...placementStyle(anchor, dx, dy), opacity }}
+      {...slotProps?.(id)}
     >
-      {children}
+      {/* The size lives on its own box — `zoom`, not `transform: scale()`, which garbles text
+          in this engine (`placementStyle`). Always present, even at 1×, so nothing about the
+          widget's box model changes when it is scaled. */}
+      <div className="hud-item__zoom" style={zoomStyle(scale)}>
+        {children}
+      </div>
     </div>
   );
 });
@@ -110,41 +136,48 @@ const HudEntry = memo(function HudEntry({
   id,
   dimmed,
   editor,
-  renderItem,
+  slotProps,
   live,
 }: {
   id: HUDModId;
   dimmed?: boolean;
   editor?: boolean;
-  renderItem?: (id: HUDModId, node: ReactNode) => ReactNode;
+  slotProps?: (id: HUDModId) => HTMLAttributes<HTMLDivElement>;
   live?: LivePlacement;
 }) {
   const on = useVoidStore((s) => isModOn(s.loadout, id));
   const item = useVoidStore((s) => hudItem(s.loadout, id));
   const settings = useModSettings(id);
 
-  if (!on || !item) return null;
+  if (!on) return null;
+  // On the HUD proper a mod that is on but unplaced draws nothing, and nothing says so — the
+  // fourth row of rendering-invariants §15's table. In the **editor** that absence is fatal
+  // rather than cosmetic: the one screen whose whole job is placing widgets would be the one
+  // screen that cannot reach this one. So the editor falls back to the factory placement, which
+  // is a position the player can then see, drag and thereby give the loadout a real entry.
+  const place = item ?? (editor ? { id, ...DEFAULT_HUD[id], scale: 1 } : null);
+  if (!place) return null;
 
   const Widget = WIDGETS[id];
   // `hud_item.scale` multiplies the mod's own `scale` setting (loadout.json).
-  const scale = (live?.scale ?? item.scale ?? 1) * Number(settings.scale ?? 1);
+  const scale = (live?.scale ?? place.scale ?? 1) * Number(settings.scale ?? 1);
   const opacity = Number(settings.opacity ?? 1) * (dimmed ? 0.7 : 1);
-  const node = <Widget variant={editor ? 'editor' : 'compact'} />;
   return (
     <HudSlot
       id={id}
-      anchor={live?.anchor ?? item.anchor}
-      dx={live?.dx ?? item.dx}
-      dy={live?.dy ?? item.dy}
+      anchor={live?.anchor ?? place.anchor}
+      dx={live?.dx ?? place.dx}
+      dy={live?.dy ?? place.dy}
       scale={scale}
       opacity={opacity}
+      slotProps={slotProps}
     >
-      {renderItem ? renderItem(id, node) : node}
+      <Widget variant={editor ? 'editor' : 'compact'} />
     </HudSlot>
   );
 });
 
-export function HudLayer({ dimmed, editor, renderItem, override }: HudLayerProps) {
+export function HudLayer({ dimmed, editor, slotProps, override }: HudLayerProps) {
   const crosshairOn = useVoidStore((s) => isModOn(s.loadout, 'crosshair'));
 
   return (
@@ -155,13 +188,16 @@ export function HudLayer({ dimmed, editor, renderItem, override }: HudLayerProps
           id={id}
           dimmed={dimmed}
           editor={editor}
-          renderItem={renderItem}
+          slotProps={slotProps}
           live={override?.[id]}
         />
       ))}
+      {/* The crosshair has no `hud[]` entry — it is always dead centre — so it is placed by a
+          slot of its own rather than by `HudEntry`. Harness only: in game GL draws it at the
+          exact pixel centre, and drawing a second one in HTML would double it. */}
       {isDebugBridge() && crosshairOn && (
         <div className="hud-crosshair-slot">
-          <DebugCrosshair />
+          <HudCrosshair />
         </div>
       )}
     </div>

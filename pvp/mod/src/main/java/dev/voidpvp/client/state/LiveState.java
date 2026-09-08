@@ -45,6 +45,20 @@ public final class LiveState {
 
         /** A whole HUD layout, {@code protocol.json} {@code hud}. */
         void hud(String loadoutId, List<HudItem> items);
+
+        /**
+         * Globals written in game, {@code protocol.json} {@code globals}.
+         *
+         * <p>The non-loadout half of {@link #state}, and the only reason a global written
+         * in game outlives the process: without it {@link #setGlobal} is in-process only
+         * and {@code hud_editor_grid} is back at the factory 4 on the next launch.</p>
+         *
+         * <p>A <b>delta</b>, never the whole object. {@code global_settings} is
+         * {@code additionalProperties: true} so the launcher may add a global without a
+         * protocol bump, and {@link GlobalSettings} here is five fixed fields that cannot
+         * carry one — a whole-object echo would erase it.</p>
+         */
+        void globals(Map<String, JsonElement> patch);
     }
 
     /** A do-nothing sink, used before the socket exists and in tests. */
@@ -55,6 +69,10 @@ public final class LiveState {
 
         @Override
         public void hud(String loadoutId, List<HudItem> items) {
+        }
+
+        @Override
+        public void globals(Map<String, JsonElement> patch) {
         }
     };
 
@@ -92,6 +110,7 @@ public final class LiveState {
     public volatile int crosshairColor = 0xFFFFFFFF;
     public volatile boolean crosshairOutline = true;
     public volatile boolean crosshairDynamic;
+    public volatile boolean crosshairCenterDot;
 
     /** Optional in-game toggle for the keystrokes overlay; NONE means always on. */
     public volatile int keystrokesToggleCode;
@@ -289,6 +308,7 @@ public final class LiveState {
         crosshairColor = parseColor(l.stringSetting("crosshair", "color", "#FFFFFFFF"), 0xFFFFFFFF);
         crosshairOutline = l.boolSetting("crosshair", "outline", true);
         crosshairDynamic = l.boolSetting("crosshair", "dynamic", false);
+        crosshairCenterDot = l.boolSetting("crosshair", "center_dot", false);
 
         keystrokesToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("keystrokes", "keybind", "NONE"));
@@ -449,7 +469,17 @@ public final class LiveState {
             return null;
         }
 
+        // The value as it is actually persisted, read before the write. `toJson()` uses
+        // the schema's own property names, which are exactly the keys `setGlobal` takes,
+        // so this compares like with like without a second table to fall out of step.
+        JsonElement before = settings.toJson().get(key);
         applySettings(new GlobalSettings(menuKey, cycleKey, themeName, scale, grid));
+        // Nothing is pushed back to the *page* (§6.5) — but Rust is not the page. It is
+        // the only thing that can write settings.json, and it is told the same way every
+        // other in-game change is told: after the fact, as a delta.
+        if (!Json.same(before, stored)) {
+            sink.globals(Collections.singletonMap(key, stored));
+        }
         return stored;
     }
 

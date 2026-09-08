@@ -15,6 +15,7 @@ import {
   clampToViewport,
   placementFromScreen,
   placementStyle,
+  zoomStyle,
   screenPosition,
   snapTo,
 } from '@/store/hud-geometry';
@@ -44,40 +45,53 @@ describe('anchor decomposition', () => {
 
 describe('placementStyle', () => {
   it('pins a top-left item to the top-left edges and scales from that corner', () => {
-    const style = placementStyle('top-left', 23, 23, 1);
+    const style = placementStyle('top-left', 23, 23);
     expect(style.left).toBe(0);
     expect(style.top).toBe(0);
     expect(style.transformOrigin).toBe('0% 0%');
-    expect(style.transform).toBe('translate(23px, 23px) scale(1)');
+    expect(style.transform).toBe('translate(23px, 23px)');
   });
 
   it('pins a bottom-left item to the bottom edge, where dy is negative', () => {
-    const style = placementStyle('bottom-left', 31, -109, 1);
+    const style = placementStyle('bottom-left', 31, -109);
     expect(style.left).toBe(0);
     expect(style.bottom).toBe(0);
     expect(style.transformOrigin).toBe('0% 100%');
-    expect(style.transform).toBe('translate(31px, -109px) scale(1)');
+    expect(style.transform).toBe('translate(31px, -109px)');
   });
 
   it('centres a top-anchored item with a percentage pre-translate', () => {
-    const style = placementStyle('top', 0, 20, 1);
+    const style = placementStyle('top', 0, 20);
     expect(style.left).toBe('50%');
-    expect(style.transform).toBe('translateX(-50%) translate(0px, 20px) scale(1)');
+    expect(style.transform).toBe('translateX(-50%) translate(0px, 20px)');
   });
 
   it('centres on both axes for the `center` anchor', () => {
-    const style = placementStyle('center', 0, 0, 1.5);
-    expect(style.transform).toBe(
-      'translateX(-50%) translateY(-50%) translate(0px, 0px) scale(1.5)',
-    );
+    const style = placementStyle('center', 0, 0);
+    expect(style.transform).toBe('translateX(-50%) translateY(-50%) translate(0px, 0px)');
     expect(style.transformOrigin).toBe('50% 50%');
   });
 
   it('never emits a 3D transform or a calc() — ultralight-notes.md §4', () => {
     for (const anchor of ANCHORS) {
-      const transform = String(placementStyle(anchor, 10, -10, 2).transform);
+      const transform = String(placementStyle(anchor, 10, -10).transform);
       expect(transform).not.toMatch(/3d|translateZ|perspective|calc\(/i);
     }
+  });
+
+  /**
+   * The scale is a `zoom` on a separate box, and it must never come back to the transform.
+   *
+   * `transform: scale()` garbles text in this engine — measured on the keystrokes pad, whose
+   * three-letter caps came out as `LNB` and `RNB` at 1.3x. That is not a press-state quirk
+   * (rendering-invariants §10) but a permanent property of scaled text here, so the placement
+   * transform must stay scale-free at every anchor.
+   */
+  it('never scales in the transform — scaled text is corrupt in this engine', () => {
+    for (const anchor of ANCHORS) {
+      expect(String(placementStyle(anchor, 10, -10).transform)).not.toMatch(/scale/);
+    }
+    expect(zoomStyle(1.5)).toEqual({ zoom: 1.5 });
   });
 });
 

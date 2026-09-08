@@ -27,6 +27,7 @@ export function settingLabel(key: string): string {
     window_ms: 'Window',
     good_ms: 'Good under',
     bad_ms: 'Bad over',
+    warn_below: 'Warn under',
     fov_divisor: 'FOV divisor',
     line_width: 'Line width',
     decimals: 'Decimals',
@@ -42,6 +43,7 @@ export function settingLabel(key: string): string {
     gap: 'Gap',
     outline: 'Outline',
     dynamic: 'Dynamic',
+    center_dot: 'Centre dot',
     smooth: 'Smooth',
     cinematic: 'Cinematic',
     color: 'Colour',
@@ -56,6 +58,10 @@ export const SETTING_SUBTITLES: Record<string, string> = {
   show_mouse: 'LMB and RMB under the arrows',
   show_cps: 'Clicks per second for both buttons',
   show_spacebar: 'A wide key under the block',
+  show_sneak: 'A shift key beside the space bar',
+  center_dot: 'A dot on the centre, under the arms',
+  dynamic: 'The gap widens while sprinting',
+  warn_below: 'Where a durability bar turns amber',
 };
 
 /** The value printed to the right of a slider. */
@@ -64,6 +70,11 @@ export function formatSetting(key: string, value: SettingValue): string {
   switch (key) {
     case 'scale':
       return `${value.toFixed(1)}×`;
+    // Both are 0-1 fractions read as percentages. `warn_below` prints `Never` at 0 rather
+    // than `0%`, because a threshold of zero is not a small threshold — it is the setting off,
+    // and `0%` reads as "warn me when the bar is empty", which is the opposite.
+    case 'warn_below':
+      return value <= 0 ? 'Never' : `${Math.round(value * 100)}%`;
     case 'opacity':
       return `${Math.round(value * 100)}%`;
     case 'fov_divisor':

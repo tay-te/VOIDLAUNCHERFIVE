@@ -158,9 +158,12 @@ back with `setModSetting(id, 'key', captured)`.
   that moves the ping does not re-render the FPS chip.
 * **`keys` is edge-triggered**, and a key change repaints one keycap's class — React
   reconciles a single `className` attribute, nothing else in the widget moves.
-* **Placement is one 2D `transform`.** `placementStyle()` turns `anchor + dx/dy + scale`
-  into edge offsets plus a `translate(...) scale(...)`, memoised so a keypress never
-  re-runs the geometry.
+* **Placement is one 2D `transform`, and the scale is not in it.** `placementStyle()` turns
+  `anchor + dx/dy` into edge offsets plus a `translate(...)`, memoised so a keypress never
+  re-runs the geometry; the size is `zoomStyle()` — a `zoom` — on a box inside it. Scaled text
+  is corrupt in this engine (rendering-invariants §10a: `LMB` rendered as `LNB` at 1.3x), and
+  `zoom` being a layout scale is what makes the metrics right. Keeping the outer box unzoomed is
+  what keeps `dx`/`dy` meaning what Java stores.
 * `armor` and `fx` are replaced only on the ticks that carry them — `bridge.json` says an
   absent field means unchanged.
 
@@ -178,8 +181,9 @@ A focused checkbox or button is **not** text focus, so Escape still closes.
 |---|---|
 | **Right Shift** | Opens / closes the screen. Handled in Java as a `KeyBinding`; this package **never binds it** (the fake bridge does, because in the harness it plays Java) |
 | `Esc` | Leaves a focused text field, else exits the HUD editor, else closes the menu |
-| `⌘K` / `Ctrl-K` | Toggles the quick palette over whatever screen is up |
-| `← ↑ → ↓` | Walks the mod grid (3 columns); in the palette, moves the selection |
+| `⌘K` / `Ctrl-K` | Toggles the quick palette over whatever screen is up. **Unverified in game** — a mouse event here carries no modifier state at all, and whether a keyboard chord does could not be settled with synthesised input (rendering-invariants §13a) |
+| `← ↑ → ↓` | Walks the mod grid (3 columns); in the palette, moves the selection; in the HUD editor, nudges the selected widget by the grid, or a pixel with `Snap` off |
+| `Tab` | In the HUD editor, cycles the selection through the widgets that are on |
 | `Enter` | Toggles the highlighted mod; in the palette, runs the highlighted action |
 | `⌘↵` / `Ctrl-↵` | In the palette, opens the action's settings instead of running it |
 | `L` | Cycles loadouts. Java's key, not ours |
@@ -188,6 +192,14 @@ Screens other than Mods are reached from the palette (`Loadouts`, `Party`,
 `Edit HUD layout`), from a tile's settings pane (`Edit position` → HUD editor), or by
 double-clicking a tile (→ that mod's settings screen). The frames draw no screen
 switcher, so none was invented.
+
+**The HUD editor is the exception, and it earned it.** It has a labelled `HUD layout` button on
+the mods bar, left of the centred filter tabs. It was reachable only from a row inside Settings
+and from ⌘K, which is to say only by someone who already knew it existed — and the user's report
+was "we need a HUD editor", for an editor that had been shipping for weeks. It is on the left
+because that is where this bar already puts places (`‹ Mods` sits there on every inner page), and
+not in the right-hand `settings · search · close` cluster, which is things that act on this window
+and has been called crowded three times. The Settings row and the palette command both stay.
 
 ---
 

@@ -8,6 +8,18 @@
  * launcher row with a symbol on it, and that is the whole reason the grid reads as
  * a mod list for *this* game rather than for any application.
  *
+ * ## This is the grid's art, and only the grid's
+ *
+ * The mod **page** no longer draws any of it. Every page now draws either the real HUD
+ * component or, for the four mods that draw into the world, a diagram fed by the game's own
+ * numbers (`ModSettingsScreen.tsx`, `LIVE_WIDGETS`) — because a page whose job is configuring a
+ * mod has to move when a setting moves, and cell art cannot. What is left here is the job cell
+ * art is genuinely better at: thirteen small, uniform, instantly recognisable pictures sitting
+ * side by side, where the question is "which mod is this" rather than "what will it look like".
+ *
+ * It is still the fallback for a mod added to `mods.json` before its preview is written, and it
+ * is still what `?fake=` borrows for a synthetic tile.
+ *
  * Two rules the frames imply and this file keeps:
  *
  *  - **Monochrome.** `--hue` marks a live value or the selected item and nothing
@@ -24,6 +36,7 @@
  */
 
 import { type ModId } from '@/bridge/protocol';
+import { Crosshair, asCrosshairStyle } from '@/ui';
 import { SETTING_RANGES } from '@/registry';
 import { useModSettings, useVoidStore } from '@/store/store';
 import { potionMeta } from '@/hud/format';
@@ -34,9 +47,6 @@ import { CellArt } from './cell-art';
 /* -------------------------------------------------------------------------- */
 /* Glyphs                                                                     */
 /* -------------------------------------------------------------------------- */
-
-/** The crosshair's plus, with the centre gap the mod actually draws. */
-const CROSSHAIR = ['...#...', '...#...', '.......', '##...##', '.......', '...#...', '...#...'];
 
 /** Fullbright: a lit block throwing rays. */
 const SUN = ['...#...', '.#...#.', '..###..', '#.###.#', '..###..', '.#...#.', '...#...'];
@@ -222,6 +232,7 @@ export interface TilePreviewProps {
  * than an empty recess.
  */
 export function TilePreview({ id, scale = 1 }: TilePreviewProps): React.ReactElement {
+  const settings = useModSettings(id);
   const fps = useVoidStore((s) => s.fps);
   const ping = useVoidStore((s) => s.ping);
   const cpsLeft = useVoidStore((s) => s.cpsLeft);
@@ -246,8 +257,29 @@ export function TilePreview({ id, scale = 1 }: TilePreviewProps): React.ReactEle
       return <Coords />;
     case 'zoom':
       return <Zoom id={id} />;
+    // The second preview that is the real widget rather than a picture of one, and for the same
+    // reason as the watermark: the crosshair is small enough that the real thing fits, and its
+    // whole identity is a shape the settings change. It used to be a fixed 7 x 7 bitmap of a
+    // plus, so a player who had chosen `circle` or `t_shape` saw a cross on the tile.
+    //
+    // **Monochrome, like the other eleven.** `crosshair.color` is not passed: the tile's rule
+    // is that no art here takes a colour (see the header), and every other tile keeps it —
+    // the FPS tile does not show `fps.color` and the potion tile does not show effect colours.
+    // The page, which is where the colour is chosen, does show it.
     case 'crosshair':
-      return <Glyph rows={CROSSHAIR} caption="" scale={scale} />;
+      return (
+        <span className="tart tart--stack">
+          <Crosshair
+            shape={asCrosshairStyle(settings.style)}
+            size={Number(settings.size ?? 5)}
+            thickness={Number(settings.thickness ?? 1)}
+            gap={Number(settings.gap ?? 2)}
+            outline={false}
+            centerDot={settings.center_dot === true}
+            unit={Math.max(2, Math.round(3 * scale))}
+          />
+        </span>
+      );
     case 'fullbright':
       return <Glyph rows={SUN} caption="BRIGHT" scale={scale} />;
     case 'hitboxes':

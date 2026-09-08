@@ -93,6 +93,39 @@ function injectVoidShim(): Plugin {
  *
  * Build only — the browser harness at `pnpm dev` serves over HTTP, where none of this applies.
  */
+/**
+ * `String.replace` with a replacement that is **data**, not a pattern.
+ *
+ * This exists because of a bug that cost an afternoon and produced one line of diagnostic.
+ * A two-argument `String.prototype.replace` treats `$&`, `` $` ``, `$'`, `$$` and `$<name>` in
+ * the *replacement string* as substitution patterns — and the thing being substituted in here is
+ * a minified JavaScript bundle, in which esbuild is free to name a variable `$`. The day it did,
+ * `"returns" in $ && $.c === j` came out of the inliner as
+ *
+ * ```
+ * "returns"in </body>&$.c===j
+ * ```
+ *
+ * — `$&` replaced by the matched text — and the whole overlay was dead: one
+ * `SyntaxError: Unexpected token '<'` on stderr, a page that never executed a line, and no HUD,
+ * no menu and no error anywhere else. Nothing in the source had changed near that code; an
+ * unrelated edit had merely shifted which variable esbuild called `$`, so it would have appeared
+ * to be caused by whatever was committed that day.
+ *
+ * A replacer **function** is never scanned for patterns, and the assertion after it turns the
+ * next variant of this into a failed build instead of a silent one.
+ */
+function insert(html: string, marker: string, replacement: string): string {
+  const out = html.replace(marker, () => replacement);
+  if (!out.includes(replacement)) {
+    throw new Error(
+      `inlineForUltralight: inserting at ${JSON.stringify(marker)} did not land verbatim — ` +
+        'the replacement was rewritten on its way in.',
+    );
+  }
+  return out;
+}
+
 function inlineForUltralight(outDir: string): Plugin {
   return {
     name: 'void-inline-for-ultralight',
@@ -124,7 +157,7 @@ function inlineForUltralight(outDir: string): Plugin {
         },
       );
       for (const code of deferred) {
-        html = html.replace('</body>', `  <script>${code}</script>\n  </body>`);
+        html = insert(html, '</body>', `  <script>${code}</script>\n  </body>`);
       }
 
       html = html.replace(
@@ -156,7 +189,8 @@ function inlineForUltralight(outDir: string): Plugin {
       // at build time it is still only at its source path.
       const shim = resolve(here, '../../mod/src/main/resources/assets/void/shim/void-shim.js');
       if (existsSync(shim)) {
-        html = html.replace(
+        html = insert(
+          html,
           '<script src="./void-shim.js"></script>',
           `<script>${readFileSync(shim, 'utf8')}</script>`,
         );

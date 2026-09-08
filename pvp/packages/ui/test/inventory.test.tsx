@@ -171,6 +171,13 @@ const PUBLIC_API = [
   'ArmorList',
   'KeystrokesWidget',
   'Crosshair',
+  'CROSSHAIR_STYLES',
+  'CROSSHAIR_UNIT_PREVIEW',
+  'asCrosshairStyle',
+  'crosshairRects',
+  'dynamicSpread',
+  'isRing',
+  'keepsVanilla',
   'Hotbar',
   'formatPotionTime',
   'formatAmplifier',
@@ -482,11 +489,13 @@ describe('Icon', () => {
     expect(svg?.querySelectorAll('path').length).toBeGreaterThan(0);
   });
 
-  it('has an icon for every one of the 12 mods', () => {
+  it('has an icon for every one of the 13 mods', () => {
     for (const [mod, icon] of Object.entries(MOD_ICONS)) {
       expect(ICON_NAMES, `${mod} -> ${icon}`).toContain(icon);
     }
-    expect(Object.keys(MOD_ICONS)).toHaveLength(12);
+    // Thirteen since the watermark became a mod rather than a flag
+    // (`ingame/src/hud/watermark.tsx` opens with why).
+    expect(Object.keys(MOD_ICONS)).toHaveLength(13);
   });
 
   it('is hidden from assistive tech — every icon has a labelled parent', () => {

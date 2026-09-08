@@ -26,12 +26,40 @@ pub struct JavaInstall {
     pub version: String,
     /// The major version: `8` for `1.8.0_402`, `21` for `21.0.2`.
     pub major: u32,
+    /// The JVM's own `os.arch`, e.g. `x86_64` or `aarch64`, when it would say.
+    ///
+    /// The JVM's architecture, not the host's: an x64 JVM under Rosetta on an arm64 Mac
+    /// reports `x86_64`, which is exactly the distinction that matters here.
+    pub arch: Option<String>,
 }
 
 impl JavaInstall {
     /// Whether this is the Java 8 that 1.8.9 needs.
     pub fn is_java8(&self) -> bool {
         self.major == 8
+    }
+
+    /// Whether this JVM can load LWJGL 2's natives.
+    ///
+    /// **On macOS this is a real filter, not a formality.** LWJGL 2 ships no arm64 natives
+    /// (§13), and a JVM that does not match the natives cannot load them — so an arm64
+    /// Java 8, which Apple Silicon has had since 8u302 and which is what a developer's own
+    /// `/Library/Java/JavaVirtualMachines` is most likely to hold, launches 1.8.9 into a
+    /// window that never composites: 0x0, `BackgroundOnly`, no error. The process runs, the
+    /// log scrolls, and there is nothing on screen. [`adoptium_arch`] already knew this and
+    /// fetched x64 accordingly; detection did not, and picked whichever Java 8 `read_dir`
+    /// happened to return first.
+    ///
+    /// Unknown arch is treated as usable: this must not reject a working JVM because it
+    /// declined to print a property.
+    pub fn runs_lwjgl2(&self) -> bool {
+        if !cfg!(target_os = "macos") {
+            return true;
+        }
+        match self.arch.as_deref() {
+            Some(arch) => matches!(arch, "x86_64" | "amd64" | "x64"),
+            None => true,
+        }
     }
 }
 
@@ -47,28 +75,51 @@ fn java_exe() -> &'static str {
 /// Parses the `java -version` banner, which goes to **stderr**, not stdout.
 ///
 /// Java 8 prints `java version "1.8.0_402"`; Java 9+ prints `openjdk version "21.0.2"`.
+///
+/// **The quotes are load-bearing, not decoration.** [`probe`] asks for
+/// `-XshowSettings:properties` in the same run, and that dump opens with a dozen
+/// unquoted lines that contain the word "version" — `java.class.version = 52.0` is the
+/// first of them. Matching on "version" alone finds that line, comes away with no
+/// quoted token, and answers `None` for a JVM that is perfectly fine. Every probe on the
+/// machine then fails, detection finds no Java 8 at all, and the launcher quietly starts
+/// downloading one it already has.
 pub fn parse_version(banner: &str) -> Option<(String, u32)> {
-    let line = banner.lines().find(|l| l.contains("version"))?;
-    let quoted = line.split('"').nth(1)?;
-    let major = if let Some(rest) = quoted.strip_prefix("1.") {
-        rest.split(['.', '_']).next()?.parse().ok()?
-    } else {
-        quoted.split(['.', '_', '-']).next()?.parse().ok()?
-    };
-    Some((quoted.to_string(), major))
+    banner
+        .lines()
+        .filter(|l| l.contains("version"))
+        .find_map(|l| {
+            let quoted = l.split('"').nth(1)?;
+            let major = if let Some(rest) = quoted.strip_prefix("1.") {
+                rest.split(['.', '_']).next()?.parse().ok()?
+            } else {
+                quoted.split(['.', '_', '-']).next()?.parse().ok()?
+            };
+            Some((quoted.to_string(), major))
+        })
 }
 
-/// Runs `java -version` and reports what it is, or `None` if it will not run.
+/// Reads `os.arch` out of a `-XshowSettings:properties` dump.
+pub fn parse_arch(banner: &str) -> Option<String> {
+    banner
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("os.arch"))
+        .and_then(|rest| rest.split('=').nth(1))
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// Runs the JVM once and reports what it is, or `None` if it will not run.
+///
+/// `-XshowSettings:properties` rides along with `-version` so the architecture costs no
+/// extra process. Both streams are read because the two have swapped between JDK
+/// versions before, and a probe that reads the wrong one silently learns nothing.
 pub fn probe(java: &Path) -> Option<JavaInstall> {
-    let output = Command::new(java).arg("-version").output().ok()?;
-    let banner = String::from_utf8_lossy(&output.stderr);
-    let banner = if banner.trim().is_empty() {
-        String::from_utf8_lossy(&output.stdout).to_string()
-    } else {
-        banner.to_string()
-    };
+    let output = Command::new(java).args(["-XshowSettings:properties", "-version"]).output().ok()?;
+    let mut banner = String::from_utf8_lossy(&output.stderr).into_owned();
+    banner.push('\n');
+    banner.push_str(&String::from_utf8_lossy(&output.stdout));
     let (version, major) = parse_version(&banner)?;
-    Some(JavaInstall { path: java.to_path_buf(), version, major })
+    Some(JavaInstall { path: java.to_path_buf(), version, major, arch: parse_arch(&banner) })
 }
 
 /// Every place worth looking for a JVM on this host, in preference order.
@@ -127,21 +178,65 @@ fn java_binary_in(root: &Path) -> Option<PathBuf> {
 }
 
 /// Looks for a Java 8 runtime without touching the network.
+///
+/// **Two passes, and the second one is a last resort that warns.** A Java 8 that cannot
+/// load LWJGL 2's natives ([`JavaInstall::runs_lwjgl2`]) launches the game into an
+/// invisible window with no error anywhere, so it must never be preferred over one that
+/// can — and `read_dir` order is not a preference. It is still returned if it is the only
+/// Java 8 on the machine, because refusing to launch at all is worse than launching into
+/// a failure the log now names.
 pub fn detect_java8(paths: &Paths) -> Option<JavaInstall> {
+    let mut fallback: Option<JavaInstall> = None;
+
+    let consider = |install: JavaInstall, fallback: &mut Option<JavaInstall>| {
+        if !install.is_java8() {
+            tracing::debug!(path = %install.path.display(), version = %install.version, "not Java 8");
+            return None;
+        }
+        if install.runs_lwjgl2() {
+            tracing::info!(
+                path = %install.path.display(),
+                version = %install.version,
+                arch = install.arch.as_deref().unwrap_or("unknown"),
+                "found Java 8"
+            );
+            return Some(install);
+        }
+        tracing::debug!(
+            path = %install.path.display(),
+            arch = install.arch.as_deref().unwrap_or("unknown"),
+            "Java 8, but the wrong architecture for LWJGL 2; keeping looking"
+        );
+        fallback.get_or_insert(install);
+        None
+    };
+
     for root in candidate_roots(paths) {
         if let Some(binary) = java_binary_in(&root) {
             if let Some(install) = probe(&binary) {
-                if install.is_java8() {
-                    tracing::info!(path = %install.path.display(), version = %install.version, "found Java 8");
-                    return Some(install);
+                if let Some(found) = consider(install, &mut fallback) {
+                    return Some(found);
                 }
-                tracing::debug!(path = %binary.display(), version = %install.version, "not Java 8");
             }
         }
     }
     // Last resort: whatever `java` is on PATH.
-    let on_path = probe(Path::new(java_exe()))?;
-    on_path.is_java8().then_some(on_path)
+    if let Some(install) = probe(Path::new(java_exe())) {
+        if let Some(found) = consider(install, &mut fallback) {
+            return Some(found);
+        }
+    }
+
+    if let Some(only) = &fallback {
+        tracing::warn!(
+            path = %only.path.display(),
+            arch = only.arch.as_deref().unwrap_or("unknown"),
+            "the only Java 8 on this machine cannot load LWJGL 2's natives; 1.8.9 will \
+             launch into a window that never appears. Install an x64 Java 8, or let the \
+             launcher fetch one"
+        );
+    }
+    fallback
 }
 
 /// The Adoptium API URL for a Temurin 8 JRE for this host.
@@ -262,6 +357,54 @@ mod tests {
         assert_eq!(parse_version(oracle), Some(("1.8.0_202".into(), 8)));
 
         assert_eq!(parse_version("command not found"), None);
+    }
+
+    /// A real `-XshowSettings:properties -version` dump, trimmed to the lines that matter.
+    ///
+    /// The order is the JVM's, not ours: every unquoted `*.version` property comes before
+    /// the quoted banner, which is exactly what broke `parse_version`.
+    const PROPERTIES_DUMP: &str = concat!(
+        "Property settings:\n",
+        "    java.class.version = 52.0\n",
+        "    java.runtime.version = 1.8.0_202-b08\n",
+        "    java.specification.version = 1.8\n",
+        "    java.version = 1.8.0_202\n",
+        "    os.arch = x86_64\n",
+        "    os.name = Mac OS X\n",
+        "\n",
+        "java version \"1.8.0_202\"\n",
+        "Java(TM) SE Runtime Environment (build 1.8.0_202-b08)\n",
+    );
+
+    #[test]
+    fn the_properties_dump_does_not_hide_the_version_banner() {
+        // `java.class.version = 52.0` is the first line containing "version" and carries no
+        // quotes. Stopping there answers None, every probe on the machine fails, and the
+        // launcher downloads a JVM it already has — which is what it did.
+        assert_eq!(parse_version(PROPERTIES_DUMP), Some(("1.8.0_202".into(), 8)));
+    }
+
+    #[test]
+    fn the_arch_comes_out_of_the_same_dump() {
+        assert_eq!(parse_arch(PROPERTIES_DUMP).as_deref(), Some("x86_64"));
+        assert_eq!(parse_arch("java version \"1.8.0_202\""), None, "a bare banner says nothing");
+    }
+
+    #[test]
+    fn only_an_x64_jvm_can_run_lwjgl2_on_macos() {
+        let at = |arch: Option<&str>| JavaInstall {
+            path: PathBuf::from("java"),
+            version: "1.8.0_202".into(),
+            major: 8,
+            arch: arch.map(str::to_string),
+        };
+        // The whole reason this exists: an arm64 Java 8 launches 1.8.9 into a window that
+        // never composites, with no error anywhere.
+        assert_eq!(at(Some("aarch64")).runs_lwjgl2(), !cfg!(target_os = "macos"));
+        assert!(at(Some("x86_64")).runs_lwjgl2());
+        assert!(at(Some("amd64")).runs_lwjgl2());
+        // A JVM that would not say must not be rejected for it.
+        assert!(at(None).runs_lwjgl2());
     }
 
     #[test]

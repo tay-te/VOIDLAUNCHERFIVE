@@ -35,6 +35,8 @@ class LiveStateTest {
                 new ArrayList<Map<String, JsonElement>>();
         final List<String> patchLoadouts = new ArrayList<String>();
         final List<List<HudItem>> layouts = new ArrayList<List<HudItem>>();
+        final List<Map<String, JsonElement>> globalPatches =
+                new ArrayList<Map<String, JsonElement>>();
 
         @Override
         public void state(String loadoutId, Map<String, JsonElement> patch) {
@@ -45,6 +47,11 @@ class LiveStateTest {
         @Override
         public void hud(String loadoutId, List<HudItem> items) {
             layouts.add(new ArrayList<HudItem>(items));
+        }
+
+        @Override
+        public void globals(Map<String, JsonElement> patch) {
+            globalPatches.add(new LinkedHashMap<String, JsonElement>(patch));
         }
 
         Map<String, JsonElement> lastPatch() {
@@ -328,6 +335,49 @@ class LiveStateTest {
         assertEquals(new JsonPrimitive("NONE"),
                 state.setGlobal("cycle_loadout_key", new JsonPrimitive("none")));
         assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.cycleLoadoutKeyCode);
+    }
+
+    @Test
+    @DisplayName("setGlobal tells Rust, which is the only thing that can persist a global")
+    void setGlobalReachesTheSink() {
+        // Without this the write lives in LiveState and dies with the process: the Snap
+        // toggle came back at the factory 4 on every launch for as long as `Sink` had no
+        // globals channel at all.
+        assertEquals(8, state.setGlobal("hud_editor_grid", new JsonPrimitive(8)).getAsInt());
+        assertEquals(1, sink.globalPatches.size(), "one frame per accepted change");
+        assertEquals(new JsonPrimitive(8),
+                sink.globalPatches.get(0).get("hud_editor_grid"));
+        assertEquals(1, sink.globalPatches.get(0).size(),
+                "a delta: only the key that moved, or a global the mod cannot model is erased");
+
+        // §6.5 is about the *page*, which already knows — Rust is a different audience and
+        // is told about every one of these.
+        state.setGlobal("menu_key", new JsonPrimitive("grave"));
+        state.setGlobal("theme", new JsonPrimitive("void-light"));
+        state.setGlobal("ui_scale", new JsonPrimitive(1.5));
+        assertEquals(4, sink.globalPatches.size());
+        assertEquals(new JsonPrimitive("GRAVE"), sink.globalPatches.get(1).get("menu_key"),
+                "what was stored, not what was sent");
+    }
+
+    @Test
+    @DisplayName("setGlobal stays quiet when nothing moved, or when it refused")
+    void setGlobalDoesNotReportANonChange() {
+        // A clamp that lands on the value already stored is not a change, and neither is a
+        // refusal. Reporting either would write settings.json for nothing — and `resetHud`
+        // writes hud_editor_grid twice per reset, so this is a live path, not a hypothetical.
+        state.setGlobal("hud_editor_grid", new JsonPrimitive(8));
+        sink.globalPatches.clear();
+
+        assertEquals(8, state.setGlobal("hud_editor_grid", new JsonPrimitive(8)).getAsInt());
+        assertEquals(64, state.setGlobal("hud_editor_grid", new JsonPrimitive(999)).getAsInt());
+        assertEquals(64, state.setGlobal("hud_editor_grid", new JsonPrimitive(128)).getAsInt(),
+                "clamped to the same 64 as the write before it");
+        assertNull(state.setGlobal("menu_key", new JsonPrimitive("NOT_A_KEY")));
+        assertNull(state.setGlobal("no_such_global", new JsonPrimitive(1)));
+
+        assertEquals(1, sink.globalPatches.size(), "only the 8 -> 64 move is a change");
+        assertEquals(new JsonPrimitive(64), sink.globalPatches.get(0).get("hud_editor_grid"));
     }
 
     @Test

@@ -122,6 +122,14 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'mode', label: 'Buttons', control: 'select', options: ['left', 'right', 'both'] },
     { key: 'window_ms', label: 'Window', control: 'slider', min: 200, max: 5000, step: 50, format: 'ms' },
   ],
+  // Added when the watermark landed as the thirteenth mod. This table is
+  // `Record<ModId, …>`, so a missing entry is a type error rather than a property
+  // pane that quietly renders nothing — which is the only reason it was caught.
+  watermark: [
+    SCALE,
+    OPACITY,
+    { key: 'style', label: 'Style', control: 'select', options: ['full', 'mark', 'word'] },
+  ],
   ping: [
     SCALE,
     OPACITY,

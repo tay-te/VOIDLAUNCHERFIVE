@@ -49,7 +49,9 @@ pub use server::{BridgeServer, Rejection};
 
 // The wire types below are owned by `void-loadout` but are part of this crate's public
 // surface, so they are re-exported: a consumer never needs both crates in its manifest.
-pub use void_loadout::{GlobalSettings, HudItem, Loadout, LoadoutId, LoadoutSummary, StatePatch};
+pub use void_loadout::{
+    GlobalPatch, GlobalSettings, HudItem, Loadout, LoadoutId, LoadoutSummary, StatePatch,
+};
 
 /// Anything that can go wrong in `void-bridge`.
 #[derive(Debug, thiserror::Error)]

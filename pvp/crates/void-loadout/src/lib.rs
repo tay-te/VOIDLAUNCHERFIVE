@@ -63,5 +63,5 @@ pub use mods::{
     defaults_json, registry, Category, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo,
     Registry,
 };
-pub use settings::GlobalSettings;
+pub use settings::{GlobalPatch, GlobalSettings};
 pub use store::Store;

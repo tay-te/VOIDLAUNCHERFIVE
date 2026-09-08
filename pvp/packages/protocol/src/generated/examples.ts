@@ -29,7 +29,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "scale": 1,
           "opacity": 1,
           "color": "#FFFFFF",
-          "show_label": true
+          "show_label": true,
+          "show_low": true
         }
       },
       "keystrokes": {
@@ -47,6 +48,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "keybind": "NONE",
           "show_mouse": true,
           "show_spacebar": true,
+          "show_sneak": false,
           "show_cps": false,
           "corner_radius": 8,
           "key_color": "shell",
@@ -66,6 +68,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "scale": 1,
           "opacity": 1,
           "mode": "left",
+          "show_label": true,
           "window_ms": 1000
         }
       },
@@ -83,7 +86,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "opacity": 1,
           "show_label": true,
           "good_ms": 60,
-          "bad_ms": 150
+          "bad_ms": 150,
+          "show_host": true
         }
       },
       "coordinates": {
@@ -117,7 +121,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "opacity": 1,
           "orientation": "horizontal",
           "show_durability": true,
-          "show_held_item": true
+          "show_held_item": true,
+          "warn_below": 0.5
         }
       },
       "potion_effects": {
@@ -226,7 +231,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "gap": 2,
           "color": "#FFFFFFFF",
           "outline": true,
-          "dynamic": false
+          "dynamic": false,
+          "center_dot": false
         }
       }
     }
@@ -452,6 +458,19 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
         "dy": 0
       }
     ]
+  },
+  {
+    "t": "globals",
+    "patch": {
+      "hud_editor_grid": 8
+    }
+  },
+  {
+    "t": "globals",
+    "patch": {
+      "menu_key": "F1",
+      "theme": "void-light"
+    }
   },
   {
     "t": "session",

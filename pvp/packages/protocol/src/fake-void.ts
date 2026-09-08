@@ -111,7 +111,16 @@ function structuredCloneish<T>(value: T): T {
 /* Clamping                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Numeric ranges from `mods.json`. Java clamps rather than throws; so do we. */
+/**
+ * Numeric ranges from `mods.json`. Java clamps rather than throws; so do we.
+ *
+ * This is the **fourth** transcription of those bounds — the schema, `mods.rs`, `ModRegistry.java`
+ * and this — and nothing walks the four against each other, so two of them had drifted: `decimals`
+ * said `[0, 3]` where every other copy says `[0, 2]`, and `corner_radius` was missing outright, so
+ * the browser harness stored values the real client clamps. Both are fixed below. Anything added
+ * here has to match `schema/mods.json`; the harness is where UI work is done, and a harness that
+ * accepts what the game rejects is a harness that teaches you the wrong thing.
+ */
 const SETTING_RANGES: Record<string, readonly [number, number]> = {
   scale: [0.25, 4],
   opacity: [0, 1],
@@ -123,11 +132,24 @@ const SETTING_RANGES: Record<string, readonly [number, number]> = {
   gap: [0, 10],
   good_ms: [0, 1000],
   bad_ms: [0, 2000],
-  decimals: [0, 3],
+  // 0-2: `TickCoalescer` rounds the position to 2 dp before it publishes it, so a third place
+  // could only ever print a zero.
+  decimals: [0, 2],
   line_width: [0.5, 5],
+  corner_radius: [0, 20],
+  warn_below: [0, 1],
 };
 
-const INTEGER_SETTINGS = new Set(['window_ms', 'size', 'thickness', 'gap', 'good_ms', 'bad_ms', 'decimals']);
+const INTEGER_SETTINGS = new Set([
+  'window_ms',
+  'size',
+  'thickness',
+  'gap',
+  'good_ms',
+  'bad_ms',
+  'decimals',
+  'corner_radius',
+]);
 
 function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
   const range = SETTING_RANGES[key];
@@ -369,7 +391,15 @@ export function cardinalFromYaw(yaw: number): (typeof CARDINALS)[number] {
 export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   const tickHz = options.tickHz ?? 20;
   const stepMs = 1000 / tickHz;
-  const snapGrid = options.snapGrid ?? 4;
+  /**
+   * The live snap grid, not a construction-time constant.
+   *
+   * Java reads `LiveState.hudEditorGrid` on every `setHud` and the in-game editor's `Snap`
+   * toggle writes it through `setGlobal('hud_editor_grid', …)`, so a fake that snapped against
+   * whatever it was built with would answer differently from the mod for the one control whose
+   * whole job is to change this number. `options.snapGrid` is the starting value.
+   */
+  let snapGrid = options.snapGrid ?? 4;
   const menuKey = options.menuKey ?? 'ShiftRight';
   const random = mulberry32(options.seed ?? 0x5eed);
 
@@ -618,6 +648,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       // it for `setModSetting`, no `settings` event follows even when something was:
       // the caller already has the answer, and a push would fight the live control.
       if (applied !== null) settings = { ...settings, [key]: applied };
+      // …and this one is not just stored, it is *used*, by `setHud` below. Same as Java.
+      if (key === 'hud_editor_grid' && typeof applied === 'number') snapGrid = applied;
       return applied;
     },
 

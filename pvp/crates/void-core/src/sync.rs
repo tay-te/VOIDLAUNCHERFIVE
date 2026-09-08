@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use void_bridge::{BridgeServer, HotkeyId, InitPayload, InitSource, JavaToRust};
-use void_loadout::{GlobalSettings, LoadoutId, Store};
+use void_loadout::{GlobalPatch, GlobalSettings, LoadoutId, Store};
 
 /// Answers `init` from the on-disk library, freshly read on every connect.
 ///
@@ -85,6 +85,12 @@ pub async fn pump(server: BridgeServer, store: Store) {
                 }
             }
 
+            JavaToRust::Globals { patch } => {
+                if let Err(e) = apply_globals(&store, &patch) {
+                    tracing::error!(error = %e, "could not apply a global settings patch");
+                }
+            }
+
             JavaToRust::Session { fps_avg, played_ms, loadout, .. } => {
                 let delta = played_ms.saturating_sub(reported_ms);
                 reported_ms = played_ms;
@@ -146,6 +152,27 @@ fn apply_state(
     Ok(())
 }
 
+/// Folds a `globals` patch into `settings.json`.
+///
+/// Read-modify-write rather than overwrite, for the same reason the message is a delta:
+/// the file may hold globals the mod knows nothing about, and this must not be the thing
+/// that eats them. `apply_patch` refuses a bad patch whole, so a rejected frame leaves
+/// the file exactly as it was.
+fn apply_globals(store: &Store, patch: &GlobalPatch) -> Result<(), void_loadout::Error> {
+    if patch.is_empty() {
+        return Ok(());
+    }
+    let mut settings = store.settings()?;
+    let before = settings.clone();
+    settings.apply_patch(patch)?;
+    if settings == before {
+        return Ok(());
+    }
+    store.save_settings(&settings)?;
+    tracing::info!(keys = patch.len(), "global settings updated from the game");
+    Ok(())
+}
+
 fn apply_hud(
     store: &Store,
     id: &LoadoutId,
@@ -163,7 +190,7 @@ fn apply_hud(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use void_loadout::{Anchor, HudItem, HudModId, ModId, StatePatch};
+    use void_loadout::{Anchor, GlobalPatch, HudItem, HudModId, ModId, StatePatch};
 
     fn store() -> (tempfile::TempDir, Store) {
         let dir = tempfile::tempdir().unwrap();
@@ -220,6 +247,47 @@ mod tests {
 
         apply_state(&store, &id, &patch).unwrap();
         assert!(store.load(&id).unwrap().mods.is_on(ModId::Fullbright));
+    }
+
+    #[test]
+    fn a_global_written_in_game_lands_on_disk() {
+        let (_d, store) = store();
+        let mut patch = GlobalPatch::new();
+        patch.insert("hud_editor_grid", 8);
+
+        apply_globals(&store, &patch).unwrap();
+        assert_eq!(store.settings().unwrap().hud_editor_grid(), 8);
+    }
+
+    #[test]
+    fn a_global_patch_leaves_the_globals_it_does_not_name_alone() {
+        // The whole point of the delta: `settings.json` may hold a global the mod's
+        // five-field GlobalSettings cannot model, and an in-game toggle must not eat it.
+        let (_d, store) = store();
+        let mut seeded = store.settings().unwrap();
+        seeded.extra.insert("chat_opacity".into(), serde_json::json!(0.5));
+        seeded.theme = Some("void-light".into());
+        store.save_settings(&seeded).unwrap();
+
+        let mut patch = GlobalPatch::new();
+        patch.insert("hud_editor_grid", 0);
+        apply_globals(&store, &patch).unwrap();
+
+        let after = store.settings().unwrap();
+        assert_eq!(after.hud_editor_grid(), 0);
+        assert_eq!(after.theme(), "void-light");
+        assert_eq!(after.extra.get("chat_opacity"), Some(&serde_json::json!(0.5)));
+    }
+
+    #[test]
+    fn a_bad_global_patch_leaves_the_file_untouched() {
+        let (_d, store) = store();
+        let before = store.settings().unwrap();
+        let mut patch = GlobalPatch::new();
+        patch.insert("hud_editor_grid", "eight");
+
+        assert!(apply_globals(&store, &patch).is_err());
+        assert_eq!(store.settings().unwrap(), before);
     }
 
     #[test]

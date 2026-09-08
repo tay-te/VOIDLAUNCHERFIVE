@@ -111,6 +111,13 @@ body {
   pointer-events: none;
 }
 
+/* The scale, as a layout zoom rather than a transform — see `placementStyle`. `inline-block` so
+   the outer box shrink-wraps it and therefore measures the widget at its drawn size, which is
+   what both the anchor offsets and the HUD editor's selection frame are computed from. */
+.hud-item__zoom {
+  display: inline-block;
+}
+
 .hud-crosshair-slot {
   position: absolute;
   left: 50%;
@@ -516,6 +523,50 @@ body {
 .obar__back:hover {
   background: var(--surface-raised);
   color: var(--text-primary);
+}
+
+/* `HUD layout` — the bar's one destination, in the empty third between the mark and the centred
+   nav. Geometry shared with `.obar__back` on purpose: they are the same object in the same place
+   doing the same job (this bar's left hand is where you go somewhere), so they must not read as
+   two different kinds of control. It sits 18px off the mark, the gap `.obar--page` already puts
+   between the mark and `‹ Mods`. */
+.obar__dest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  margin-left: 18px;
+  padding: 0 9px;
+  border: 1px solid var(--border-raised);
+  border-radius: 8px;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  cursor: pointer;
+  /* §5.1 again: the surface lifts one step, and nothing scales — a press transform on anything
+     holding text rasterises the glyphs at the device scale (rendering-invariants §10). */
+  transition:
+    background-color var(--duration-hover-out) var(--ease-in),
+    color var(--duration-hover-out) var(--ease-in);
+}
+
+.obar__dest .oicon {
+  opacity: 0.7;
+}
+
+.obar__dest:hover {
+  transition-duration: var(--duration-hover-in);
+  transition-timing-function: var(--ease-out);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.obar__dest:hover .oicon {
+  opacity: 1;
 }
 
 /* 6, from the frame's 8 at the panel's 0.8 horizontal scale (1278 of 1600). The close
@@ -2391,38 +2442,31 @@ body {
   padding: 8px;
 }
 
-/* Keystrokes is the one preview that is a live HUD widget rather than cell art, and `@void/ui`
-   draws its "preview" size for the frames' 268-tall strip: 36px caps, four rows of them, 159
-   tall before the stage's padding.
+/* ------------------------------------------------ the live widget, enlarged
 
-   These used to *shrink* it — 25px caps — because the inspector's frame was 128 tall and the
-   widget was a crop rather than a preview in it. The page's frame is ~300 and ~570 wide, so
-   they enlarge it instead: 44px caps put the cluster at 200 tall, which is a picture of the mod
-   at something like the size it draws at in game. Sized here rather than in `@void/ui` for the
-   same reason as before — it is this panel's box that is the constraint, and the launcher's
-   copy of the widget has the room the shared size assumes. Nothing interactive is touched: the
-   preview is a picture of the mod, not a control. */
-.preview__frame .v-keystrokes {
-  gap: 6px;
-}
+   The mods in `LIVE_WIDGETS` (`ModSettingsScreen.tsx`) draw the **real** HUD widget here, so
+   this box does exactly what `.hud-item` / `.hud-item__zoom` do on the HUD and in the same
+   order: the mod's `scale` and `opacity` are applied by the box *around* the widget, never by
+   the widget. Two boxes there, one here, because a preview has no placement to keep in an
+   unzoomed coordinate system — but the reason for the zoom is identical and it is
+   `design/rendering-invariants.md` §10a: `transform: scale()` draws a run of glyphs at the
+   scaled size over advances computed at the unscaled one, so `LMB` renders as `LNB`. This
+   preview draws `LMB`, `Helm` and `Chest` at up to 6.4x.
 
-.preview__frame .v-keystrokes__row {
-  gap: 6px;
-}
+   The multiplier itself is `PREVIEW_ZOOM`, per mod, in the TSX — it is a number about how big
+   a particular widget is, not a rule about this box.
 
-.preview__frame .v-keystrokes--preview .v-keystrokes__key {
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
-  border-radius: 12px;
-}
-
-.preview__frame .v-keystrokes--preview .v-keystrokes__key--wide {
-  width: 68px;
-}
-
-.preview__frame .v-keystrokes--preview .v-keystrokes__key--space {
-  width: 144px;
+   These rules used to size the keystrokes pad by hand (44px caps against the widget's 40). They
+   are gone: hand-sizing one widget is how the preview and the HUD start to disagree about what
+   a mod looks like, which is the entire failure this page exists to prevent. */
+.preview__zoom {
+  /* `zoom` is a layout scale, so this box shrink-wraps to the widget's drawn size and the
+     stage's flex centring lands it on the centre at any scale. Overflow past the frame is
+     clipped by `.preview__frame`, and that is the honest answer: a 4x HUD widget really is
+     bigger than the panel. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ---------------------------------------------- the tile's art, at page size
@@ -2508,6 +2552,161 @@ body {
   border-width: 3px;
 }
 
+
+/* ------------------------------------------------- the gameplay diagrams
+
+   Four mods draw into the world, not onto the page, so their previews are diagrams rather than
+   widgets (`menu/gameplay-previews.tsx` opens with the distinction and what it still promises).
+   Everything here is the §3 cell — a square with a 30% radius — because that is what everything
+   textural in this client is made of, and because a ramp and a timeline are both rows of cells.
+
+   Monochrome throughout. A diagram sits on the menu's own surface, which is the territory §1's
+   accent rule still governs absolutely; the one colour on any of them is the hitbox's own
+   `color`, which is the ink of a mark drawn over the game world (`quiet-cell-system.md`, "where
+   the accent rule stops"). */
+.gprev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  /* The frame these sit in is ~800 x 600 for a one- or two-property mod (§8 gives the preview
+     whatever the properties leave). 560 is what a 12-step ramp needs to read as a scale rather
+     than as a row of chips, and still leaves the reading under it a comfortable measure. */
+  max-width: 560px;
+}
+
+.gprev__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.gprev__rowlabel {
+  flex: 0 0 58px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.gprev__cells {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+/* **Square, and fixed.** §3's cell is "a square with `border-radius` 30% of its size", and a
+   `flex: 1 1 0` cell is whatever width is left over — at 560px across twelve of them came out
+   44 x 34, which is a rounded rectangle and not this system's atom. A stated edge also makes
+   the row's width a consequence of the cell rather than the other way round. */
+.gprev__cell {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 30%;
+}
+
+/* The one line under a diagram that says what the current value means. `--text-secondary` and
+   not the hue: a sentence is not a live value. */
+.gprev__reading {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 380px;
+}
+
+/* Zoom: the field of view, as what you see now and what fills the screen when the key is held.
+   Both are plain outlines — nothing here is a live value, so nothing here is tinted. */
+.gprev--zoom {
+  gap: 18px;
+}
+
+.gprev__fov {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 440px;
+  height: 248px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(237, 238, 239, 0.03);
+}
+
+.gprev__fovinner {
+  /* Sized inline from `zoomFraction`, which is the camera's own trigonometry rather than 1/d. */
+  border: 2px solid var(--text-secondary);
+  border-radius: 4px;
+  background: rgba(237, 238, 239, 0.06);
+}
+
+.gprev__fovlabel {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Hitboxes: one entity's box, head-on, at the mod's own stroke and ink. 0.6 by 1.8 blocks. */
+.gprev--hitbox {
+  gap: 18px;
+}
+
+.gprev__box {
+  position: relative;
+  width: 76px;
+  height: 228px;
+  border-style: solid;
+  /* Width and colour are inline — they are the two settings this diagram exists to show. */
+}
+
+/* The eye line leaves at 1.62 of 1.8, which is 10% down from the top, and runs out to the side
+   the entity is facing. */
+.gprev__eye {
+  position: absolute;
+  top: 10%;
+  left: 100%;
+  width: 62px;
+}
+
+/* The crosshair's plate — which is the screen, and is drawn as one.
+
+   Two problems it solves at once. The crosshair's `outline` is black, and black against the
+   frame's own near-black is a switch that does nothing you can see; and the crosshair is a mark
+   whose entire subject is *where it is*, which is the exact centre of the screen. A small mark
+   floating in a large empty frame said neither. A plate inset inside the frame says both: it is
+   a lighter ground the outline reads against, and it is a screen with the crosshair dead centre
+   in it, which is the same sentence the four corner slots say for the HUD mods.
+
+   Filling the frame rather than shrink-wrapping the mark is the point. §8 gives this preview all
+   the height the properties do not need, and a mark that grows inside a fixed screen is the
+   honest picture of what `size` does; a plate that grows with the mark would show nothing
+   changing at all.
+
+   A flat fill, never a game capture and never a blur: Ultralight has no backdrop-filter and the
+   host's GL pass supplies softness (ultralight-notes.md §1). */
+.preview__stage--crosshair .preview__zoom {
+  position: absolute;
+  inset: 34px;
+  border-radius: 14px;
+  background: rgba(237, 238, 239, 0.1);
+  /* Clipped rather than overflowing: a crosshair wider than the screen is a crosshair wider
+     than the screen, and showing it spilling over the panel would be a lie about the game. */
+  overflow: hidden;
+}
 
 /* §8: placement never appears as a list row. Frame `289:5523` draws it as four
    labelled slots in the corners they stand for — the answer is about a corner, so

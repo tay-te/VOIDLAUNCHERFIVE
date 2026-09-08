@@ -125,6 +125,14 @@ export const SETTING_RANGES: Record<
 > = {
   scale: { min: 0.25, max: 4, step: 0.05, unit: '×' },
   opacity: { min: 0, max: 1, step: 0.01, unit: '%' },
+  /**
+   * `armor_status.warn_below` — the fraction under which a durability bar turns amber.
+   *
+   * A twentieth is the step because the figure is read as a percentage and 5% increments are
+   * what a player thinks in; 0.01 would give the meter 100 cells for a decision with about
+   * five useful answers.
+   */
+  warn_below: { min: 0, max: 1, step: 0.05, unit: '%' },
   window_ms: { min: 200, max: 5000, step: 50, unit: 'ms' },
   good_ms: { min: 0, max: 1000, step: 5, unit: 'ms' },
   bad_ms: { min: 0, max: 2000, step: 5, unit: 'ms' },

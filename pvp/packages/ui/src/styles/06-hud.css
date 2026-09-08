@@ -206,16 +206,34 @@
 }
 
 /** In a strip each piece is its own small column: icon, then label over bar. */
+/* 60px, not the frame's 54.
+ *
+ * The cell has to hold the widest fraction the game can produce, and in 1.8.9 that is the
+ * diamond sword's `1159 / 1561` — eleven characters, ~58px at this tier. At 54 that one cell
+ * broke onto a second line and dropped its bar below the other four, so the strip's rhythm was
+ * lost to the slot most likely to be in it. Six pixels is cheaper than a ragged row. */
 .v-armorlist--horizontal .v-armorlist__row {
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  width: 54px;
+  width: 60px;
 }
 
+/* Label **over** value, not beside it.
+ *
+ * The horizontal cell is 54px and `Helm 349 / 363` is not 54px wide. Side by side the figure
+ * broke mid-fraction — `349 /` on one line and `363` on the next — which pushed that cell's bar
+ * below the others and made the strip a ragged two-row block. Stacked, both lines fit the cell
+ * and every bar stays on one baseline, which is the whole point of the compact orientation.
+ *
+ * Found by the mod page, not in game: the page draws the real `ArmorList` now instead of a
+ * bitmap of four arches, so a layout the HUD had always got wrong finally had somewhere to
+ * show itself. That is the argument for the preview being the widget, in one bug. */
 .v-armorlist--horizontal .v-armorlist__labels {
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: 1px;
 }
 
 .v-armorlist--horizontal .v-armorlist__label,
@@ -343,6 +361,17 @@
   width: 130px;
 }
 
+/* With the sneak cap beside it the space bar gives up the cap's width and the gap, so the
+   row still measures exactly the WASD block above it. 130 - 40 - 6. */
+.v-keystrokes__key--space-narrow {
+  width: 84px;
+}
+
+/* A square cap, like W / A / S / D — the sneak key is one key, not a bar. */
+.v-keystrokes__key--sneak {
+  width: 40px;
+}
+
 /**
  * The Mod settings LIVE PREVIEW strip draws the widget one step down from HUD
  * size: 36px caps, 56.5px mouse keys, 12px labels (frame 244:834). At full HUD
@@ -361,6 +390,14 @@
 
 .v-keystrokes--preview .v-keystrokes__key--space {
   width: 118px;
+}
+
+.v-keystrokes--preview .v-keystrokes__key--space-narrow {
+  width: 76px;
+}
+
+.v-keystrokes--preview .v-keystrokes__key--sneak {
+  width: 36px;
 }
 
 /**
@@ -390,32 +427,46 @@
 
 /* The only unbacked mark over live game, and a solid shape rather than text.
    In production the crosshair is drawn in GL at the exact pixel centre (§3); this is
-   the HTML stand-in the editor and the gallery draw. */
+   the HTML stand-in the editor, the gallery and the mod page's live preview draw.
+
+   Every length is an inline style, because every length is arithmetic the component does
+   from `size`, `thickness`, `gap` and `unit` (`lib/crosshair.ts`) — the same arithmetic
+   `CrosshairGeometry.java` does. What is left for CSS is the box model and the ghost's
+   alpha. The `::before` / `::after` plus that used to be here drew one fixed 18x18 shape
+   whatever the seven settings said. */
 .v-crosshair {
   position: relative;
-  width: 18px;
-  height: 18px;
+  /* Sized inline: the reach of the widest arm, doubled. */
+  flex: none;
 }
 
-.v-crosshair::before,
-.v-crosshair::after {
-  content: '';
+.v-crosshair__rect {
   position: absolute;
-  background: var(--text-primary);
+  /* The ghost's border must not grow its box: its box IS the arm's sprinting position, and a
+     border outside it would report the wrong one. */
+  box-sizing: border-box;
 }
 
-.v-crosshair::before {
-  left: 8px;
-  top: 0;
-  width: 2px;
-  height: 18px;
+/* Where `dynamic` will put the arms while sprinting — an outline, in the same ink, at .38.
+   The same live value drawn twice, not a second colour (§1). */
+.v-crosshair__rect--ghost {
+  opacity: 0.38;
 }
 
-.v-crosshair::after {
-  left: 0;
-  top: 8px;
-  width: 18px;
-  height: 2px;
+.v-crosshair__ring {
+  position: absolute;
+  border-style: solid;
+  border-radius: 50%;
+}
+
+/* The mod page's ping band: the same chip at three pings, one per threshold band. Preview
+   only — the HUD draws one chip, and `HudPing` renders this shape only when it is asked for a
+   sample (`ingame/src/hud/widgets.tsx`, which carries the argument). */
+.v-pingband {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-5);
 }
 
 /* ----------------------------------------------------------------- Hotbar */
