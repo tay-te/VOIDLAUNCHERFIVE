@@ -60,10 +60,29 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # No dependencies — build.mjs is plain node, on purpose.
+      # No dependencies — every generator here is plain node, on purpose.
+      #
+      # Order matters: build.mjs produces schema/mods.json, and the other two
+      # consume it. Running them in dependency order means a stale-schema
+      # failure names the schema rather than surfacing as two confusing
+      # downstream failures.
       - name: mods.json matches schema/mods/
         working-directory: pvp/schema
         run: node build.mjs --check
+
+      # ModRegistry.java and void-loadout's mods/generated.rs are generated and
+      # committed for the same reason mods.json is: Gradle and Cargo cannot run
+      # a Node script, and neither build may require one. Committed therefore
+      # has to mean checked — the whole point of the codegen pass is that the
+      # Java and Rust registries can no longer drift from the schema, and an
+      # unchecked generated file drifts exactly as freely as a transcribed one.
+      - name: ModRegistry.java matches the schema
+        working-directory: pvp
+        run: node scripts/gen-java-registry.mjs --check
+
+      - name: void-loadout's generated types match the schema
+        working-directory: pvp
+        run: node scripts/gen-rust-mods.mjs --check
 
       # validate.mjs needs exactly one dependency, and schema/ is not a
       # workspace package — `pvp/schema/README.md` documents this line.

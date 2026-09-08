@@ -7,7 +7,7 @@ cross-directory need is expressed by reading a schema here.
 
 | File | Defines | Written by | Read by |
 |---|---|---|---|
-| `mods.json` | The closed registry of the 13 mods (§3, plus the VOID watermark): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
+| `mods.json` | **Generated** (`build.mjs`). The closed registry of the 13 mods (§3, plus the VOID watermark): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
 | `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 6 Java→Rust, 3 Rust→Java | `core` | `core`, `mod` |
 | `bridge.json` | The `window.void` surface (§6.5): 9 events Java→JS, 8 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
@@ -134,6 +134,32 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-08 (later) — `icon` on the entry, and Java/Rust stop being transcribed
+
+`mods.json` registry `version` `4` throughout; `protocol.json` `v` unchanged.
+
+**`mod_entry` gains a required `icon`.** The glyph the Mods list and quick palette draw was a
+hand-maintained `MOD_ICONS` table in `@void/ui` — the last piece of mod *identity* no schema
+knew about. It lived there because two applications need it and neither can import the other,
+which is an argument for the contract rather than for a table per app. The game draws no icons,
+so Rust and Java carry the field without using it; Rust had to, since `ModEntry` is
+`deny_unknown_fields`.
+
+**`text_shadow` removed from the HUD chrome block, same day it was added.**
+`design/ultralight-notes.md` §3 rates `text-shadow` [risky] — the rasteriser drops it, or it
+smears the glyph atlas — so the setting would have moved on the settings page and drawn nothing
+in game. §3 also says HUD legibility is already solved structurally and the decision "must be
+preserved rather than 'improved' later". `background` is that chip, exposed. The block is
+`background` / `border` / `padding`, and `_shared.json`'s `$comment` carries the argument so
+nobody re-adds it. Version was not bumped again: the block had not shipped.
+
+**`ModRegistry.java` and `void-loadout`'s type surface are now generated**, by
+`scripts/gen-java-registry.mjs` and `scripts/gen-rust-mods.mjs`, both `--check`-gated in CI
+beside `build.mjs --check`. §9 of `docs/mod-roster.md` called the Java transcription "a test
+compensating for hand-transcription"; that is now a generator with the test guarding staleness
+instead. Both semantic diffs came back identical — the transcriptions were correct — so the
+change buys the future, not a bug fix.
 
 ### 2026-09-08 — one file per mod, and the shared HUD chrome block
 

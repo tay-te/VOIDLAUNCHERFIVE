@@ -360,11 +360,15 @@ The real gaps are four:
 > settings sub-schemas. The shared HUD property set was settled — as a *structural* chrome
 > block, not Lunar's colours; `schema/README.md` has the reasoning.
 >
-> **What is left of the tax**, and it is the largest single piece: `ModRegistry.java` is still
-> hand-transcribed, with `ModRegistryTest` compensating. Generating it is Wave 0's remaining
-> half. Rust is close to right already but its `ModId` enum and settings structs are still
-> written out, and `deny_unknown_fields` makes a forgotten field a runtime parse failure of the
-> whole registry.
+> **Wave 0 is now done.** `ModRegistry.java` and `void-loadout`'s `ModId`, enums and thirteen
+> settings structs are generated too, by `scripts/gen-java-registry.mjs` and
+> `scripts/gen-rust-mods.mjs`, both `--check`-gated in CI. `MOD_ICONS` is generated from the
+> entry's `icon`. Adding a mod is **four files**: the schema entry, its art, the game code, and
+> a glyph only if the one you named does not exist.
+>
+> Both semantic diffs came back identical, which is worth recording: the hand transcriptions
+> were *correct*. The tax was never that they were wrong today — it is that keeping twenty more
+> of them correct is the actual project, and that every way of getting one wrong was silent.
 >
 > The list below is kept as written, because it is the record of what the tax *was*.
 
