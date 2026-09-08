@@ -35,9 +35,20 @@ env:
 jobs:
   # -------------------------------------------------------------------------
   # schema/ is the contract every other job compiles against, so it goes first
-  # and is cheap. validate.mjs asserts what JSON Schema cannot: the 12-mod
-  # registry against the id enums, category vs kind, unique labels, and that
-  # init.loadouts and the `loadouts` bridge event carry the same thing.
+  # and is cheap. Two gates, in order:
+  #
+  #   build.mjs --check  proves the committed mods.json and loadout.json still
+  #                      match schema/mods/*.json. They are generated *and*
+  #                      committed — void-loadout include_str!s mods.json,
+  #                      @void/protocol generates from it and ModRegistry.java
+  #                      transcribes it, and none of those can run a Node
+  #                      script — so "generated" has to mean "checked", or the
+  #                      contract and its sources drift with nothing saying so.
+  #
+  #   validate.mjs       asserts what JSON Schema cannot: the registry against
+  #                      the id enums, category vs kind, unique labels, and that
+  #                      init.loadouts and the `loadouts` bridge event carry the
+  #                      same thing.
   # -------------------------------------------------------------------------
   schemas:
     name: schemas
@@ -48,6 +59,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      # No dependencies — build.mjs is plain node, on purpose.
+      - name: mods.json matches schema/mods/
+        working-directory: pvp/schema
+        run: node build.mjs --check
 
       # validate.mjs needs exactly one dependency, and schema/ is not a
       # workspace package — `pvp/schema/README.md` documents this line.

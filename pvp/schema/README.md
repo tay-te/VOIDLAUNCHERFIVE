@@ -1,6 +1,7 @@
 # `schema/` — the contracts
 
-Four JSON Schema (draft-07) files. They are the **only** thing the six parallel owners in
+Four JSON Schema (draft-07) files. **`mods.json` and the derived half of `loadout.json` are
+generated** — see "Adding a mod" below and `docs/adding-a-mod.md`. They are the **only** thing the six parallel owners in
 [`../CONTRACTS.md`](../CONTRACTS.md) share. Nobody edits another owner's code; a
 cross-directory need is expressed by reading a schema here.
 
@@ -18,6 +19,30 @@ message carry one type rather than two. **A mod is added in exactly one
 place.** Refs are absolute (`https://schema.void.dev/pvp/<file>.json#/definitions/...`)
 so any resolver works as long as all four documents are registered; the URL is an
 identifier, not a location, and nothing fetches it.
+
+## Adding a mod
+
+**Write `mods/<id>.json`, add the id to `ORDER` in `build.mjs`, and run it.** A mod used to be
+spelled out in nine mechanical places — seven in this file, two in `loadout.json` — and all
+nine were silent when wrong: a mod missing from `hud_mod_id` is not a schema error, it is a mod
+that cannot be placed on the HUD, and you find out in game.
+
+```sh
+cd schema
+node build.mjs           # regenerate mods.json, patch loadout.json
+node build.mjs --check   # the CI gate: is the committed output still its sources?
+```
+
+`mods.json` stays **generated and committed**, because it is the contract: `void-loadout`
+`include_str!`s it, `@void/protocol` generates from it and `ModRegistry.java` transcribes it,
+and none of those can run a Node script. So "generated" has to also mean "checked".
+
+`mods/_shared.json` holds the properties every mod of a `kind` carries. A property added there
+reaches all eight HUD mods at once, which is the point — `docs/mod-roster.md` §9's advice was
+to settle the shared HUD property set once rather than retrofit it into twenty settings pages.
+
+`mods/_base.json` holds the static half of the schema and the registry `version`, which is
+bumped by hand: "did this change break a stored loadout" is not something a diff can answer.
 
 ## Validate
 
@@ -109,6 +134,47 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-08 — one file per mod, and the shared HUD chrome block
+
+`mods.json` registry `version` `3 → 4`; `protocol.json` `v` unchanged at 2 — nothing on the
+Rust ⇄ Java wire changed shape, only the settings each mod carries.
+
+**`mods.json` and `loadout.json` are now generated from `schema/mods/`**
+
+Not a contract change so much as a change to how the contract is written. A mod id appeared in
+seven places in this file and two in `loadout.json`; every one was mechanical and every one
+failed quietly. `build.mjs` derives all nine from `mods/<id>.json`, and `--check` is a CI gate
+ahead of `validate.mjs`. The round-trip was verified structurally against the previous
+`mods.json` before anything was added — enums, per-mod settings, entry narrowing and all
+thirteen `defaults` identical. It caught one real drop (`keystrokes` ships `opacity` 0.85,
+not 1), which is now a stated `shared_overrides` rather than an accident waiting to be noticed.
+
+**The HUD chrome block — `background`, `border`, `text_shadow`, `padding`**
+
+Every `kind: hud` mod, declared once in `mods/_shared.json#/hud`. Settled now rather than after
+the ninth HUD widget, which is what `docs/mod-roster.md` §9 asks for: "decide whether VOID
+matches that depth as a shared HUD-item property set before you write the ninth HUD widget, or
+you will retrofit it into twenty settings pages later."
+
+The answer is **not** Lunar's depth, and the difference is the whole design decision. Lunar
+gives every HUD mod a background colour, a border colour and per-element text colours;
+`design/quiet-cell-system.md` §1 names exactly that as the far side of its line — "a chip
+background, border or label colour per mod" — because colour in this system encodes a value or
+a state and is never a preference. So all four are *structural*: `background` is a step on a
+token scale (`none` | `subtle` | `solid`), `border` and `text_shadow` are booleans, `padding`
+is `density` under its own name, which §1 lists as legitimate customisation. The player chooses
+whether a chip has a ground, never what colour that ground is.
+
+`text_shadow` defaults **on**: it is what Minecraft itself does, and it is the one control that
+makes white text survive a snow biome. Everything else defaults to the vanilla treatment, so
+the block is a no-op for a player who liked the HUD as it was.
+
+Consumers: Rust's eight HUD settings structs (mandatory — every one is `deny_unknown_fields`,
+so the new keys would have failed registry parsing) plus `HudBackground` / `HudPadding`;
+Java's `ModRegistry` transcription; `packages/ingame`'s `hud/chrome.ts`, applied by `HudSlot`
+and by the mod page's `PreviewZoom` — the same box, in the same place `scale` and `opacity`
+already apply, so the preview stays the same drawing rather than a similar one.
 
 ### 2026-09-07 — the watermark, and global settings reach the page
 
