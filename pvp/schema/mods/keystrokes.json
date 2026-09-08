@@ -1,0 +1,75 @@
+{
+  "id": "keystrokes",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Keystrokes",
+  "the": false,
+  "noun": "the key tiles",
+  "on_description": "the keystrokes overlay is enabled",
+  "description": "WASD, mouse and spacebar tiles that light up as you press them.",
+  "settings_title": "Keystrokes settings",
+  "settings_description": "Settings for the Keystrokes HUD mod. Fed by the edge-triggered `keys` bridge event (\u00a76.5), never by polling.",
+  "source": "KeyBinding.setKeyBindState, edge-triggered",
+  "enabled": true,
+  "shared_overrides": {
+    "opacity": {
+      "default": 0.85,
+      "description": "Alpha of the key tiles when a key is not pressed."
+    }
+  },
+  "defaults": {
+    "keybind": "NONE",
+    "show_mouse": true,
+    "show_spacebar": true,
+    "show_sneak": false,
+    "show_cps": false,
+    "corner_radius": 8,
+    "key_color": "shell",
+    "pressed_color": "accent"
+  },
+  "settings": {
+    "keybind": {
+      "description": "Optional key that toggles the keystrokes overlay on and off in game without opening the menu. NONE leaves it always visible while the mod is on.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
+    },
+    "show_mouse": {
+      "description": "Whether to render the LMB and RMB tiles under the WASD block.",
+      "type": "boolean",
+      "default": true
+    },
+    "show_spacebar": {
+      "description": "Whether to render the spacebar tile.",
+      "type": "boolean",
+      "default": true
+    },
+    "show_sneak": {
+      "description": "Whether to render the sneak (shift) tile beside the space bar. The `keys` event has always carried `shift` and the widget has always been handed it; this is the switch that draws it. A sneak key is as much a part of reading a PvP player's inputs as the space bar, which is why the two sit together.",
+      "type": "boolean",
+      "default": false
+    },
+    "show_cps": {
+      "description": "Whether to print the current CPS inside the LMB and RMB tiles.",
+      "type": "boolean",
+      "default": false
+    },
+    "corner_radius": {
+      "description": "Corner radius of a key tile in unscaled GUI pixels, drawn as the `Corner radius` slider on the Mod settings frame (Figma 244:834). 0 is a square tile.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20,
+      "default": 8
+    },
+    "key_color": {
+      "description": "Background of an unpressed key tile, as one of the five named swatches the Mod settings frame offers. A token name rather than a hex value, so the tile keeps following the theme when the theme changes.",
+      "$ref": "#/definitions/key_swatch",
+      "default": "shell"
+    },
+    "pressed_color": {
+      "description": "Fill of a pressed key tile, as one of the five named swatches the Mod settings frame offers. `accent` follows the loadout accent, which is the frame's default.",
+      "$ref": "#/definitions/pressed_swatch",
+      "default": "accent"
+    }
+  }
+}

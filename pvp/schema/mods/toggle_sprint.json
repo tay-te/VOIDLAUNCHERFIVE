@@ -1,0 +1,34 @@
+{
+  "id": "toggle_sprint",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Toggle sprint",
+  "the": false,
+  "on_description": "toggle sprint is enabled",
+  "description": "Latches sprint instead of holding the key.",
+  "settings_title": "Toggle sprint settings",
+  "settings_description": "Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`.",
+  "source": "KeyBinding override in onLivingUpdate",
+  "enabled": true,
+  "defaults": {
+    "mode": "toggle",
+    "sneak_too": false
+  },
+  "settings": {
+    "mode": {
+      "description": "`toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint but keeps the status readout.",
+      "type": "string",
+      "enum": [
+        "toggle",
+        "hold"
+      ],
+      "default": "toggle"
+    },
+    "sneak_too": {
+      "description": "Whether the same latching behaviour is applied to sneak.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

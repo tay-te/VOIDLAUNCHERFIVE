@@ -311,6 +311,42 @@ pub enum HypixelSafe {
 // per-mod settings
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// the HUD chrome block
+// ---------------------------------------------------------------------------
+
+/// Ground drawn behind a HUD item, `mods.json` `_shared.json#/hud/background`.
+///
+/// A step on the system's own scale rather than a colour, because
+/// `design/quiet-cell-system.md` §1 puts "a chip background, border or label colour per mod" on
+/// the far side of its line: colour here encodes a value or a state and is never a preference.
+/// The player chooses whether a chip has a ground; the ground's ink is the system's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HudBackground {
+    /// No ground — the readout sits on the game. Vanilla, and the default.
+    None,
+    /// The card ground at low alpha; enough to hold a chip together over a busy texture.
+    Subtle,
+    /// The opaque card ground, for a HUD that should read as a panel.
+    Solid,
+}
+
+/// Density of a HUD item — the inset between its content and its edge.
+///
+/// §1 names `density` as legitimate customisation, and this is what a player means by "make the
+/// HUD smaller" once `scale` has already made the text too small to read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HudPadding {
+    /// Minimum inset.
+    Tight,
+    /// The design size, and the default.
+    Normal,
+    /// A wider inset, for a HUD read at a distance.
+    Roomy,
+}
+
 /// FPS display settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -323,6 +359,18 @@ pub struct FpsSettings {
     /// Alpha of the FPS tile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Text colour of the readout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<HexColor>,
@@ -346,6 +394,18 @@ pub struct KeystrokesSettings {
     /// Alpha of the key tiles when a key is not pressed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Optional in-game toggle key; `NONE` leaves the overlay always visible.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keybind: Option<Keybind>,
@@ -431,6 +491,18 @@ pub struct CpsSettings {
     /// Alpha of the CPS tile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Which buttons to count.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<CpsMode>,
@@ -454,6 +526,18 @@ pub struct PingSettings {
     /// Alpha of the ping tile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Whether to render the trailing "ms" unit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_label: Option<bool>,
@@ -490,6 +574,18 @@ pub struct CoordinatesSettings {
     /// Alpha of the coordinates tile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Decimal places printed for X, Y and Z.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decimals: Option<i64>,
@@ -523,6 +619,18 @@ pub struct ArmorStatusSettings {
     /// Alpha of the armor row.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Row or column layout.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orientation: Option<Orientation>,
@@ -549,6 +657,18 @@ pub struct PotionEffectsSettings {
     /// Alpha of the effect list.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Whether to print the remaining duration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_duration: Option<bool>,
@@ -587,6 +707,18 @@ pub struct WatermarkSettings {
     /// Alpha of the mark.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
+    /// Ground drawn behind the item — a step on the system's own scale, never a colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+    /// Whether a hairline is drawn around the item, at `--border-panel`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+    /// Whether glyphs carry the vanilla 1px drop shadow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<bool>,
+    /// Density of the item — the inset between its content and its edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
     /// Which parts of the mark are drawn.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<WatermarkStyle>,
@@ -935,7 +1067,7 @@ mod tests {
     #[test]
     fn registry_holds_all_thirteen_mods() {
         let r = registry();
-        assert_eq!(r.version, 3, "mods.json gained the watermark mod");
+        assert_eq!(r.version, 4, "mods.json gained the shared HUD chrome block");
         assert_eq!(r.all_info().len(), 13);
         for id in ModId::ALL {
             assert_eq!(r.info(id).id, id, "entry `id` must equal its key");

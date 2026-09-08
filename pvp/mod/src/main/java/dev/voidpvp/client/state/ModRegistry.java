@@ -116,10 +116,19 @@ public final class ModRegistry {
 
     static {
         // --- HUD mods -------------------------------------------------
+        // `background` / `border` / `text_shadow` / `padding` are the shared HUD chrome block
+        // (`schema/mods/_shared.json#/hud`), repeated on all eight HUD mods because this table
+        // is a flat transcription rather than a composition. They are structural, never
+        // colours: `design/quiet-cell-system.md` §1 rules a per-mod background or border
+        // *colour* out, so what a player chooses is whether a chip has a ground, not its ink.
         mod("fps", Kind.HUD, Category.HUD, "FPS display",
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "color", color("#FFFFFF"),
                 "show_label", bool(true),
                 // The 1% low is the figure that says whether a frame rate is smooth. It is
@@ -130,6 +139,10 @@ public final class ModRegistry {
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 0.85),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "keybind", keybind("NONE"),
                 "show_mouse", bool(true),
                 "show_spacebar", bool(true),
@@ -146,6 +159,10 @@ public final class ModRegistry {
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "mode", enumOf("left", "left", "right", "both"),
                 "show_label", bool(true),
                 "window_ms", integer(200, 5000, 1000));
@@ -154,6 +171,10 @@ public final class ModRegistry {
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "show_label", bool(true),
                 "good_ms", integer(0, 1000, 60),
                 "bad_ms", integer(0, 2000, 150),
@@ -165,6 +186,10 @@ public final class ModRegistry {
                 "on", bool(false),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 // 0-2, not 0-3: `TickCoalescer` rounds the position to 2 dp before it
                 // publishes it, so a third place could only ever print a zero.
                 "decimals", integer(0, 2, 1),
@@ -179,6 +204,10 @@ public final class ModRegistry {
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "orientation", enumOf("horizontal", "horizontal", "vertical"),
                 "show_durability", bool(true),
                 "show_held_item", bool(true),
@@ -190,6 +219,10 @@ public final class ModRegistry {
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "show_duration", bool(true),
                 "show_amplifier", bool(true),
                 "hide_ambient", bool(false));
@@ -205,6 +238,10 @@ public final class ModRegistry {
                 "on", bool(true),
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 0.9),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "text_shadow", bool(true),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
                 "style", enumOf("full", "full", "mark", "word"));
 
         // --- Gameplay mods --------------------------------------------

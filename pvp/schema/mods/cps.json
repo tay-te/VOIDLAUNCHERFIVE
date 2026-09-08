@@ -1,0 +1,44 @@
+{
+  "id": "cps",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "CPS counter",
+  "the": true,
+  "noun": "the CPS tile",
+  "on_description": "the CPS counter is enabled",
+  "description": "Clicks per second over a sliding window.",
+  "settings_title": "CPS counter settings",
+  "settings_description": "Settings for the CPS counter HUD mod. Derived entirely in JS from mouse edges on the `keys` event (§3), so no Java sensor exists for it.",
+  "source": "derived from clicks in JS",
+  "enabled": true,
+  "defaults": {
+    "mode": "left",
+    "show_label": true,
+    "window_ms": 1000
+  },
+  "settings": {
+    "mode": {
+      "description": "Which mouse buttons to count: left only, right only, or both shown side by side.",
+      "type": "string",
+      "enum": [
+        "left",
+        "right",
+        "both"
+      ],
+      "default": "left"
+    },
+    "show_label": {
+      "description": "Whether to render the trailing \"CPS\" unit after the figures. Every other readout on the HUD can drop its unit; this one could not, which left it the widest chip on screen for a player who already knows what the number is.",
+      "type": "boolean",
+      "default": true
+    },
+    "window_ms": {
+      "description": "Length of the sliding window in milliseconds over which clicks are counted before being scaled to clicks per second.",
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 5000,
+      "default": 1000
+    }
+  }
+}

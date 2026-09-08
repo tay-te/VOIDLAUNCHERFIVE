@@ -1,0 +1,36 @@
+{
+  "id": "watermark",
+  "kind": "hud",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Watermark",
+  "the": true,
+  "noun": "the mark",
+  "on_description": "the watermark is drawn",
+  "description": "The VOID mark, drawn over the game.",
+  "settings_title": "VOID watermark settings",
+  "settings_description": "Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` §1 reserves colour for a live value or a selected item, and a watermark is neither.",
+  "source": "drawn by the overlay; no game field",
+  "enabled": true,
+  "defaults": {
+    "style": "full"
+  },
+  "settings": {
+    "style": {
+      "description": "Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark, `mark` is the ring alone, `word` is the wordmark alone.",
+      "type": "string",
+      "enum": [
+        "full",
+        "mark",
+        "word"
+      ],
+      "default": "full"
+    }
+  },
+  "shared_overrides": {
+    "opacity": {
+      "default": 0.9,
+      "description": "Alpha of the mark. Lower than the other HUD mods by default, so it sits behind the readouts the player is actually reading."
+    }
+  }
+}

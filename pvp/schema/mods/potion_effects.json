@@ -1,0 +1,37 @@
+{
+  "id": "potion_effects",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Potion effects",
+  "the": false,
+  "noun": "the effect list",
+  "on_description": "the potion effects display is enabled",
+  "description": "Active potion effects with amplifier and remaining duration.",
+  "settings_title": "Potion effects settings",
+  "settings_description": "Settings for the Potion effects HUD mod. Reads `getActivePotionEffects`, pushed only when the set changes.",
+  "source": "getActivePotionEffects",
+  "enabled": true,
+  "defaults": {
+    "show_duration": true,
+    "show_amplifier": true,
+    "hide_ambient": false
+  },
+  "settings": {
+    "show_duration": {
+      "description": "Whether to print the remaining duration next to each effect.",
+      "type": "boolean",
+      "default": true
+    },
+    "show_amplifier": {
+      "description": "Whether to print the roman-numeral amplifier next to each effect name.",
+      "type": "boolean",
+      "default": true
+    },
+    "hide_ambient": {
+      "description": "Whether to omit ambient effects such as a beacon aura from the list.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

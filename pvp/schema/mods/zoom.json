@@ -1,0 +1,44 @@
+{
+  "id": "zoom",
+  "kind": "gameplay",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Zoom",
+  "the": false,
+  "on_description": "zoom is enabled",
+  "description": "Narrows FOV while the zoom key is held.",
+  "settings_title": "Zoom settings",
+  "settings_description": "Settings for the Zoom gameplay mod. Overrides FOV while `key` is held.",
+  "source": "FOV override while key held",
+  "enabled": true,
+  "defaults": {
+    "key": "C",
+    "fov_divisor": 4,
+    "smooth": true,
+    "cinematic": false
+  },
+  "settings": {
+    "key": {
+      "description": "Key held to zoom. Captured through `void.openKeybindCapture('zoom')`.",
+      "$ref": "#/definitions/keybind",
+      "default": "C"
+    },
+    "fov_divisor": {
+      "description": "The player's FOV is divided by this factor while zoomed. 4 approximates the familiar Optifine zoom.",
+      "type": "number",
+      "minimum": 1.1,
+      "maximum": 10,
+      "default": 4
+    },
+    "smooth": {
+      "description": "Whether the FOV change is eased over a few frames rather than snapping.",
+      "type": "boolean",
+      "default": true
+    },
+    "cinematic": {
+      "description": "Whether smooth-camera mouse damping is applied while zoomed.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

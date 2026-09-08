@@ -1,0 +1,79 @@
+{
+  "id": "crosshair",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Crosshair",
+  "the": false,
+  "on_description": "the vanilla crosshair pass is replaced",
+  "description": "Replaces the vanilla crosshair with a configurable one at the exact screen centre.",
+  "settings_title": "Crosshair settings",
+  "settings_description": "Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.",
+  "source": "replaces vanilla crosshair pass; drawn in GL at exact center",
+  "enabled": false,
+  "defaults": {
+    "style": "cross",
+    "size": 5,
+    "thickness": 1,
+    "gap": 2,
+    "color": "#FFFFFFFF",
+    "outline": true,
+    "dynamic": false,
+    "center_dot": false
+  },
+  "settings": {
+    "style": {
+      "description": "Shape drawn at the screen centre.",
+      "type": "string",
+      "enum": [
+        "default",
+        "cross",
+        "dot",
+        "circle",
+        "t_shape",
+        "none"
+      ],
+      "default": "cross"
+    },
+    "size": {
+      "description": "Half-length in pixels of each crosshair arm, before GUI scale.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5
+    },
+    "thickness": {
+      "description": "Stroke thickness in pixels, before GUI scale.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 1
+    },
+    "gap": {
+      "description": "Empty gap in pixels between the centre point and the start of each arm.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "default": 2
+    },
+    "color": {
+      "description": "Colour of the crosshair.",
+      "$ref": "#/definitions/hex_color"
+    },
+    "outline": {
+      "description": "Whether a one-pixel black outline is drawn around the shape for contrast.",
+      "type": "boolean",
+      "default": true
+    },
+    "dynamic": {
+      "description": "Whether the gap widens while the attack cooldown is not full and while sprinting.",
+      "type": "boolean",
+      "default": false
+    },
+    "center_dot": {
+      "description": "Whether a dot of `thickness` square is drawn on the centre point, under whatever `style` draws around it. `dot` is a style, so without this a player must choose between a cross and a centre reference; every crosshair configurator worth the name lets them have both. Ignored by `none`, and by `default`, which is the vanilla pass.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
