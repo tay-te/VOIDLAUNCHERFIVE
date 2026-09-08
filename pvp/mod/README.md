@@ -100,6 +100,35 @@ too.
 
 `legacy-fabric-api` is deliberately **not** a dependency. Everything is done with Mixin.
 
+## One generated source file
+
+`state/ModRegistry.java` is **generated and committed**. Its table — the thirteen ids, their
+`kind` and `category`, the panel labels, the factory defaults and the clamp descriptor of
+every setting — comes from `schema/mods.json`, which is itself generated from
+`schema/mods/<id>.json`. So a mod is declared in one file and reaches this side by running
+two scripts:
+
+```sh
+cd pvp
+node schema/build.mjs              # schema/mods/<id>.json  ->  schema/mods.json
+node scripts/gen-java-registry.mjs # schema/mods.json       ->  state/ModRegistry.java
+node scripts/gen-java-registry.mjs --check   # the CI gate: is the committed file current?
+```
+
+**Gradle does not run either of them, on purpose.** There is no Node on the build path and
+this build has no business acquiring one; more to the point, `ModRegistry` is a contract with
+`schema/`, and a contract that only exists after a build step is not a contract. So the
+generated file is checked in, is meant to be read (every setting carries its schema
+`description` as a comment, which is where the reasoning for a bound or an enum lives), and
+`--check` is what proves the committed copy still matches its source. It belongs in CI beside
+`node schema/build.mjs --check`.
+
+Only the `static { … }` block is generated. `Setting`, `Type`, `clamp` and the accessors are
+hand-written Java and live in the `JAVA` template inside `scripts/gen-java-registry.mjs` —
+that is where to edit them. Edit `ModRegistry.java` itself and the next run of the generator
+throws it away; `--check` and `ModRegistryTest` both fail in the meantime, which is the
+intended outcome rather than a nuisance.
+
 ## Running it
 
 The launcher builds the command line; there is nothing to install by hand.
@@ -267,9 +296,11 @@ by value. `__emitKeybind(key)` remains as a shorthand for the same envelope.
 - **GL work saves and restores state.** Minecraft's `GlStateManager` caches GL state;
   everything in `render/` and `screen/` brackets its work with
   `glPushAttrib`/`glPopAttrib` so that cache stays honest.
-- **`schema/` is the contract, not a suggestion.** The mod re-implements `mods.json`'s
-  registry in `state/ModRegistry` because it cannot read the schema at runtime, and
-  `ModRegistryTest` diffs the two on every build — ids, `kind`, `category`, `label` and
-  every factory default. `state/ModRegistry` carries `category` and `label` even though
-  the game never filters or prints them, precisely so that test can prove the
-  transcription the UI depends on.
+- **`schema/` is the contract, not a suggestion.** The mod carries `mods.json`'s registry in
+  `state/ModRegistry` because it cannot read the schema at runtime — *generated* from it now,
+  not transcribed (see "One generated source file"). `ModRegistryTest` still diffs the two on
+  every build, because a generated file that is committed can still be **stale**: ids, `kind`,
+  `category`, `label`, every setting key and every clamp bound, enum and pattern are checked
+  against the schema's meaning, since `--check`'s byte-exact comparison needs Node and Gradle
+  has none. `state/ModRegistry` carries `category` and `label` even though the game never
+  filters or prints them, precisely so that test can prove the table the UI depends on.
