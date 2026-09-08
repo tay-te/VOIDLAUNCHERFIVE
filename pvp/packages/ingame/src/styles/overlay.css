@@ -2662,6 +2662,29 @@ body {
   gap: 4px;
 }
 
+/* One bar, not a row of marks — for a row describing something with no gaps in it.
+
+   The gap is the only thing distinguishing an *event* from a *state* here, and without that
+   distinction a gamma ramp and a sprint timeline are the same picture: two rows of identical
+   separated squares. Joined, the ends keep §3's 30% radius and the seams inside go square, so the
+   run reads as one continuous thing rather than as several. Still cells, still flat, no gradient
+   anywhere — this only removes air that was claiming a discontinuity the value does not have. */
+.gprev__cells--joined {
+  gap: 0;
+}
+
+.gprev__cells--joined .gprev__cell {
+  border-radius: 0;
+}
+
+.gprev__cells--joined .gprev__cell:first-child {
+  border-radius: 30% 0 0 30%;
+}
+
+.gprev__cells--joined .gprev__cell:last-child {
+  border-radius: 0 30% 30% 0;
+}
+
 /* **Square, and fixed.** §3's cell is "a square with `border-radius` 30% of its size", and a
    `flex: 1 1 0` cell is whatever width is left over — at 560px across twelve of them came out
    44 x 34, which is a rounded rectangle and not this system's atom. A stated edge also makes

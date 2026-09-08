@@ -73,6 +73,7 @@ import { keybindLabel } from './settings-format';
 function CellRow({
   label,
   cells,
+  joined = false,
 }: {
   /**
    * The row's axis label — part of the drawing, not a caption.
@@ -91,11 +92,28 @@ function CellRow({
   label?: string;
   /** Alpha per cell, 0-1. */
   cells: readonly number[];
+  /**
+   * Draw the cells edge to edge as one bar, rather than as separate marks.
+   *
+   * **The gap is what says whether the thing is continuous**, and that is the whole reason these
+   * two diagrams were unreadable even after they got their labels back. A ramp and a timeline are
+   * opposite ideas, and both were drawn as a row of identical separated squares — so a user asked
+   * why they were "just squares", which was the right question.
+   *
+   * A tap is an *event* and stays discrete. A sprint is a *state* that runs on, and a brightness
+   * ramp is a *scale*; both of those are continuous and are drawn joined. Now the shape carries
+   * the meaning and the two mods cannot be confused: toggle sprint is one mark above an unbroken
+   * bar, fullbright is two unbroken bars.
+   *
+   * This stays inside §3 — the cell is still the atom and nothing gradients — it only stops
+   * putting air between cells that are describing something with no gaps in it.
+   */
+  joined?: boolean;
 }): React.ReactElement {
   return (
     <div className="gprev__row">
       {label === undefined ? null : <span className="gprev__rowlabel">{label}</span>}
-      <span className="gprev__cells">
+      <span className={joined ? 'gprev__cells gprev__cells--joined' : 'gprev__cells'}>
         {cells.map((alpha, i) => (
           <span
             key={i}
@@ -191,8 +209,8 @@ export function FullbrightPreview({ dense = false, className }: DiagramProps = {
   const seen = world.map((base) => litLevel(base, gamma));
   return (
     <div className={root(dense, undefined, className)}>
-      <CellRow label="World" cells={world} />
-      <CellRow label="Seen" cells={seen} />
+      <CellRow label="World" cells={world} joined />
+      <CellRow label="Seen" cells={seen} joined />
       {dense ? null : (
       <Reading>
         {gamma <= 1
@@ -391,7 +409,7 @@ export function SprintPreview({ dense = false, className }: DiagramProps = {}): 
   return (
     <div className={root(dense, undefined, className)}>
       <CellRow label="Key" cells={key} />
-      <CellRow label="Sprint" cells={state} />
+      <CellRow label="Sprint" cells={state} joined />
       {/* Three rows is a block rather than a comparison at tile size, and `sneak_too` is a
           second mod riding along rather than the thing the tile identifies. Page only. */}
       {sneak && !dense ? <CellRow label="Sneak" cells={key} /> : null}
