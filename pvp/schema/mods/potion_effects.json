@@ -13,6 +13,11 @@
   "settings_description": "Settings for the Potion effects HUD mod. Reads `getActivePotionEffects`, pushed only when the set changes.",
   "source": "getActivePotionEffects",
   "enabled": true,
+  "default_placement": {
+    "anchor": "top-right",
+    "dx": -25,
+    "dy": 23
+  },
   "defaults": {
     "show_duration": true,
     "show_amplifier": true,

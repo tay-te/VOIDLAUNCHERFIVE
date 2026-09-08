@@ -42,6 +42,7 @@ export type FPSDisplayEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: FPSDisplaySettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Closed enum of the 14 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
@@ -114,6 +115,7 @@ export type KeystrokesEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: KeystrokesSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * An LWJGL 2 key name in upper case as used by Minecraft 1.8.9 `Keyboard.getKeyName`, a mouse button as MOUSE0..MOUSE7, or NONE for unbound. Produced by `void.openKeybindCapture`.
@@ -152,6 +154,7 @@ export type CPSCounterEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: CPSCounterSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for the Ping display, narrowed to its constant classification.
@@ -178,6 +181,7 @@ export type PingDisplayEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: PingDisplaySettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Coordinates, narrowed to its constant classification.
@@ -204,6 +208,7 @@ export type CoordinatesEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: CoordinatesSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Armor status, narrowed to its constant classification.
@@ -230,6 +235,7 @@ export type ArmorStatusEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: ArmorStatusSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Potion effects, narrowed to its constant classification.
@@ -256,6 +262,7 @@ export type PotionEffectsEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: PotionEffectsSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for the Watermark, narrowed to its constant classification.
@@ -282,6 +289,7 @@ export type WatermarkEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: VOIDWatermarkSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Toggle sprint, narrowed to its constant classification.
@@ -438,6 +446,7 @@ export type DirectionEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: DirectionSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
@@ -689,7 +698,7 @@ export interface Mods {
   direction: DirectionEntry;
 }
 /**
- * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.
+ * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
  */
 export interface RegistryEntry {
   id: ModId;
@@ -716,6 +725,33 @@ export interface RegistryEntry {
    * Factory settings for this mod, used when a loadout omits it. Validates against the mod's own settings sub-schema.
    */
   defaults: {};
+  default_placement?: FactoryHUDPlacement;
+}
+/**
+ * Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset layout` restores. Anchor plus `dx`/`dy`, exactly as `loadout.json#/definitions/hud_item`, minus the `id` (it is the entry's own) and the per-item `scale` (a factory layout is always 1). The numbers are in the **overlay's own design-canvas pixels** — `VoidClient.pumpUi` fits the view to a 1300 x 820 canvas — because that is the space the page actually lays out in, and they are on a **38-42 px vertical rhythm**, which is what it takes to stack chips that are taller than that without overlapping. They are therefore NOT the tighter offsets in `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`, whose 18-20 px rhythm belongs to hand-authored product loadouts rather than to the factory layout. Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a widget *would* go, not whether it is drawn — the `on` setting decides that. Required on every `kind: hud` mod and forbidden on every `kind: gameplay` mod; the per-mod `<id>_entry` definitions are where that is enforced, so a HUD mod with no placement, or a gameplay mod with one, is a schema error rather than a silent default.
+ */
+export interface FactoryHUDPlacement {
+  /**
+   * Screen anchor the offsets are measured from. The anchor names a point on the viewport *and* the matching point on the widget box, which is why `dx` is negative on right-hand anchors and `dy` negative on bottom ones.
+   */
+  anchor:
+    | 'top-left'
+    | 'top'
+    | 'top-right'
+    | 'left'
+    | 'center'
+    | 'right'
+    | 'bottom-left'
+    | 'bottom'
+    | 'bottom-right';
+  /**
+   * Horizontal offset in design-canvas pixels from the anchor. Positive is right.
+   */
+  dx: number;
+  /**
+   * Vertical offset in design-canvas pixels from the anchor. Positive is down.
+   */
+  dy: number;
 }
 /**
  * Settings for the FPS display HUD mod. Reads `Minecraft.debugFPS` once per tick.

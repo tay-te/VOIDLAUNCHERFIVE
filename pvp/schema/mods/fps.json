@@ -13,6 +13,11 @@
   "settings_description": "Settings for the FPS display HUD mod. Reads `Minecraft.debugFPS` once per tick.",
   "source": "Minecraft.debugFPS",
   "enabled": true,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 23
+  },
   "defaults": {
     "color": "#FFFFFF",
     "show_label": true,

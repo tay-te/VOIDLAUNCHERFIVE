@@ -234,9 +234,50 @@
       "description": "Whether the mod is enabled. Present in every mod state inside a loadout, and in the registry `defaults` as the factory enabled state.",
       "type": "boolean"
     },
+    "hud_placement": {
+      "$comment": "`properties.anchor.enum` is NOT written here. `schema/build.mjs` copies it from `loadout.json#/definitions/anchor`, which is where the anchor set is defined and where `hud_item` reads it. A second hand-written copy of nine strings is the same duplication this field exists to remove, and a cross-document `$ref` the other way would make `mods.json` depend on `loadout.json` — the registry is the root, and `loadout.json` refs it, not the reverse.",
+      "title": "Factory HUD placement",
+      "description": "Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset layout` restores. Anchor plus `dx`/`dy`, exactly as `loadout.json#/definitions/hud_item`, minus the `id` (it is the entry's own) and the per-item `scale` (a factory layout is always 1). The numbers are in the **overlay's own design-canvas pixels** — `VoidClient.pumpUi` fits the view to a 1300 x 820 canvas — because that is the space the page actually lays out in, and they are on a **38-42 px vertical rhythm**, which is what it takes to stack chips that are taller than that without overlapping. They are therefore NOT the tighter offsets in `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`, whose 18-20 px rhythm belongs to hand-authored product loadouts rather than to the factory layout. Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a widget *would* go, not whether it is drawn — the `on` setting decides that. Required on every `kind: hud` mod and forbidden on every `kind: gameplay` mod; the per-mod `<id>_entry` definitions are where that is enforced, so a HUD mod with no placement, or a gameplay mod with one, is a schema error rather than a silent default.",
+      "type": "object",
+      "required": [
+        "anchor",
+        "dx",
+        "dy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "description": "Screen anchor the offsets are measured from. The anchor names a point on the viewport *and* the matching point on the widget box, which is why `dx` is negative on right-hand anchors and `dy` negative on bottom ones.",
+          "type": "string",
+          "enum": [
+            "top-left",
+            "top",
+            "top-right",
+            "left",
+            "center",
+            "right",
+            "bottom-left",
+            "bottom",
+            "bottom-right"
+          ]
+        },
+        "dx": {
+          "description": "Horizontal offset in design-canvas pixels from the anchor. Positive is right.",
+          "type": "number",
+          "minimum": -4096,
+          "maximum": 4096
+        },
+        "dy": {
+          "description": "Vertical offset in design-canvas pixels from the anchor. Positive is down.",
+          "type": "number",
+          "minimum": -4096,
+          "maximum": 4096
+        }
+      }
+    },
     "mod_entry": {
       "title": "Registry entry",
-      "description": "One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.",
+      "description": "One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.",
       "type": "object",
       "required": [
         "id",
@@ -290,6 +331,10 @@
         "defaults": {
           "description": "Factory settings for this mod, used when a loadout omits it. Validates against the mod's own settings sub-schema.",
           "type": "object"
+        },
+        "default_placement": {
+          "description": "Where this mod's widget sits on an untouched HUD. Listed here so `additionalProperties: false` permits it, and left out of `required` because it is per-`kind`: each `<id>_entry` requires it on a HUD mod and forbids it on a gameplay one. A gameplay mod draws nothing and therefore has nowhere to be.",
+          "$ref": "#/definitions/hud_placement"
         }
       }
     },
@@ -1135,8 +1180,15 @@
             "defaults": {
               "description": "Factory FPS display settings.",
               "$ref": "#/definitions/fps_settings"
+            },
+            "default_placement": {
+              "description": "Where the FPS display starts on an untouched HUD. Required, because the FPS display is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1172,8 +1224,15 @@
             "defaults": {
               "description": "Factory Keystrokes settings.",
               "$ref": "#/definitions/keystrokes_settings"
+            },
+            "default_placement": {
+              "description": "Where Keystrokes starts on an untouched HUD. Required, because Keystrokes is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1209,8 +1268,15 @@
             "defaults": {
               "description": "Factory CPS counter settings.",
               "$ref": "#/definitions/cps_settings"
+            },
+            "default_placement": {
+              "description": "Where the CPS counter starts on an untouched HUD. Required, because the CPS counter is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1246,8 +1312,15 @@
             "defaults": {
               "description": "Factory Ping display settings.",
               "$ref": "#/definitions/ping_settings"
+            },
+            "default_placement": {
+              "description": "Where the Ping display starts on an untouched HUD. Required, because the Ping display is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1283,8 +1356,15 @@
             "defaults": {
               "description": "Factory Coordinates settings.",
               "$ref": "#/definitions/coordinates_settings"
+            },
+            "default_placement": {
+              "description": "Where Coordinates starts on an untouched HUD. Required, because Coordinates is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1320,8 +1400,15 @@
             "defaults": {
               "description": "Factory Armor status settings.",
               "$ref": "#/definitions/armor_status_settings"
+            },
+            "default_placement": {
+              "description": "Where Armor status starts on an untouched HUD. Required, because Armor status is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1357,8 +1444,15 @@
             "defaults": {
               "description": "Factory Potion effects settings.",
               "$ref": "#/definitions/potion_effects_settings"
+            },
+            "default_placement": {
+              "description": "Where Potion effects starts on an untouched HUD. Required, because Potion effects is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1394,8 +1488,16 @@
             "defaults": {
               "description": "Factory Watermark settings.",
               "$ref": "#/definitions/watermark_settings"
+            },
+            "default_placement": {
+              "$comment": "The next row of the left column, under Coordinates at 103. **This number is deliberately not `loadout.json`'s.** The Sword PvP example there places the mark at `top-left 20,58`, under an fps at `dy 20` and a ping at `dy 38` — an 18-20 px rhythm, which is a hand-authored product loadout rather than the factory layout. This table's rhythm is 38-42 px, and 58 here would land the mark on top of the ping chip at 65 rather than under it. Same intent — third in the top-left stack, which is where every PvP client puts its mark — expressed in the space the page actually lays out in.",
+              "description": "Where the Watermark starts on an untouched HUD. Required, because the Watermark is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     },
@@ -1432,6 +1534,12 @@
               "description": "Factory Toggle sprint settings.",
               "$ref": "#/definitions/toggle_sprint_settings"
             }
+          },
+          "not": {
+            "$comment": "Toggle sprint is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
           }
         }
       ]
@@ -1469,6 +1577,12 @@
               "description": "Factory Fullbright settings.",
               "$ref": "#/definitions/fullbright_settings"
             }
+          },
+          "not": {
+            "$comment": "Fullbright is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
           }
         }
       ]
@@ -1506,6 +1620,12 @@
               "description": "Factory Hitboxes settings.",
               "$ref": "#/definitions/hitboxes_settings"
             }
+          },
+          "not": {
+            "$comment": "Hitboxes is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
           }
         }
       ]
@@ -1543,6 +1663,12 @@
               "description": "Factory Zoom settings.",
               "$ref": "#/definitions/zoom_settings"
             }
+          },
+          "not": {
+            "$comment": "Zoom is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
           }
         }
       ]
@@ -1580,6 +1706,12 @@
               "description": "Factory Crosshair settings.",
               "$ref": "#/definitions/crosshair_settings"
             }
+          },
+          "not": {
+            "$comment": "Crosshair is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
           }
         }
       ]
@@ -1616,15 +1748,23 @@
             "defaults": {
               "description": "Factory Direction settings.",
               "$ref": "#/definitions/direction_settings"
+            },
+            "default_placement": {
+              "$comment": "The next row of the same column, on this table's 38 px rhythm. Under Coordinates on purpose: it is the mod a player confuses with Coordinates, and stacking them makes the difference — a position, versus a facing — visible at a glance rather than argued about.",
+              "description": "Where Direction starts on an untouched HUD. Required, because Direction is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
             }
-          }
+          },
+          "required": [
+            "default_placement"
+          ]
         }
       ]
     }
   },
   "examples": [
     {
-      "version": 5,
+      "version": 6,
       "mods": {
         "fps": {
           "id": "fps",
@@ -1645,6 +1785,11 @@
             "color": "#FFFFFF",
             "show_label": true,
             "show_low": true
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 23
           }
         },
         "keystrokes": {
@@ -1671,6 +1816,11 @@
             "corner_radius": 8,
             "key_color": "shell",
             "pressed_color": "accent"
+          },
+          "default_placement": {
+            "anchor": "bottom-left",
+            "dx": 31,
+            "dy": -109
           }
         },
         "cps": {
@@ -1692,6 +1842,11 @@
             "mode": "left",
             "show_label": true,
             "window_ms": 1000
+          },
+          "default_placement": {
+            "anchor": "bottom-left",
+            "dx": 175,
+            "dy": -108
           }
         },
         "ping": {
@@ -1714,6 +1869,11 @@
             "good_ms": 60,
             "bad_ms": 150,
             "show_host": true
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 65
           }
         },
         "coordinates": {
@@ -1735,6 +1895,11 @@
             "decimals": 1,
             "show_direction": true,
             "layout": "inline"
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 103
           }
         },
         "armor_status": {
@@ -1757,6 +1922,11 @@
             "show_durability": true,
             "show_held_item": true,
             "warn_below": 0.5
+          },
+          "default_placement": {
+            "anchor": "top-right",
+            "dx": -25,
+            "dy": 299
           }
         },
         "potion_effects": {
@@ -1778,6 +1948,11 @@
             "show_duration": true,
             "show_amplifier": true,
             "hide_ambient": false
+          },
+          "default_placement": {
+            "anchor": "top-right",
+            "dx": -25,
+            "dy": 23
           }
         },
         "watermark": {
@@ -1797,6 +1972,11 @@
             "border": false,
             "padding": "normal",
             "style": "full"
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 141
           }
         },
         "toggle_sprint": {
@@ -1900,6 +2080,11 @@
             "padding": "normal",
             "style": "letter",
             "show_degrees": false
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 179
           }
         }
       }

@@ -23,6 +23,10 @@ export { SETTING_BOUNDS, SETTING_OPTIONS } from './generated/constraints.js';
 // `satisfies`. Applications should use `@void/ui`'s `MOD_ICONS`; this is the contract
 // underneath it. See `generated/icons.ts`.
 export { MOD_ICON_NAMES } from './generated/icons.js';
+// The factory HUD layout, generated from `mod_entry.default_placement`. It was two
+// hand-maintained tables, one here and one in Java, and a disagreement between them made the
+// HUD editor's `Reset layout` a move rather than an undo. See `generated/placements.ts`.
+export { DEFAULT_HUD_PLACEMENTS } from './generated/placements.js';
 export {
   BRIDGE_EXAMPLES,
   LOADOUT_EXAMPLES,

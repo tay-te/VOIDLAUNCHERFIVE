@@ -13,6 +13,11 @@
   "settings_description": "Settings for the Keystrokes HUD mod. Fed by the edge-triggered `keys` bridge event (\u00a76.5), never by polling.",
   "source": "KeyBinding.setKeyBindState, edge-triggered",
   "enabled": true,
+  "default_placement": {
+    "anchor": "bottom-left",
+    "dx": 31,
+    "dy": -109
+  },
   "shared_overrides": {
     "opacity": {
       "default": 0.85,

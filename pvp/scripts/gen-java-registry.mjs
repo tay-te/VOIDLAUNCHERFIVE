@@ -2,7 +2,8 @@
 /**
  * Generates `mod/src/main/java/dev/voidpvp/client/state/ModRegistry.java` from
  * `schema/mods.json` — the id set, the `kind` and `category` splits, the panel labels, the
- * factory defaults and the clamp descriptor of every setting of every mod.
+ * factory defaults, the clamp descriptor of every setting of every mod, and the factory HUD
+ * layout (`mod_entry.default_placement`).
  *
  * ## Why this exists
  *
@@ -36,9 +37,10 @@
  *
  * ## What is generated, and what is emphatically not
  *
- * **Only the data** — the `static { ... }` block that fills `KINDS`, `CATEGORIES`, `LABELS`
- * and `SETTINGS`. The machinery around it (`Setting`, `Type`, `bool`/`number`/`enumOf`, the
- * `clamp` state machine, the public accessors) is hand-written Java, and it lives in the
+ * **Only the data** — the `static { ... }` block that fills `KINDS`, `CATEGORIES`, `LABELS`,
+ * `SETTINGS` and `PLACEMENTS`. The machinery around it (`Setting`, `Type`, `Placement`,
+ * `bool`/`number`/`enumOf`, the `clamp` state machine, the public accessors) is hand-written
+ * Java, and it lives in the
  * `JAVA` template at the bottom of this file. Edit Java behaviour there and re-run; edit mod
  * data in `schema/mods/<id>.json` and re-run `schema/build.mjs` first.
  *
@@ -359,6 +361,44 @@ function modBlock(id) {
 const hudIds = ids.filter((id) => REGISTRY[id].kind === 'hud');
 const gameplayIds = ids.filter((id) => REGISTRY[id].kind === 'gameplay');
 
+/**
+ * The factory HUD layout — one `place(...)` per HUD mod, from `mod_entry.default_placement`.
+ *
+ * This table existed twice, by hand: `Loadout.DEFAULT_HUD` here and `DEFAULT_HUD` in
+ * `packages/ingame/src/store/hud-geometry.ts`, kept in step by a test that read *this* Java
+ * source and diffed it. That is the shape `docs/mod-roster.md` §9 names as the problem rather
+ * than the fix — a test compensating for hand-transcription — and adding the fourteenth mod
+ * meant editing both tables by hand, which is how it got flagged. Both are now generated from
+ * the one place a mod is declared.
+ *
+ * Emitted as its own block rather than folded into each mod's, because it is a *layout*: the
+ * rows are read against each other (the left column's 38-42 px rhythm is only visible if the
+ * rows are adjacent), and that is exactly what the two tables it replaces looked like.
+ */
+function placementBlock() {
+  const placement = DEFS.hud_placement;
+  const out = [];
+  out.push(...comment(placement.description, I));
+  out.push(
+    `${I}// Anchors: ${placement.properties.anchor.enum.join(' | ')}.`,
+    `${I}// Read by Loadout.defaults(), which seeds a new loadout's hud[] from it.`,
+  );
+  for (const id of hudIds) {
+    const place = REGISTRY[id].default_placement;
+    if (!place) throw new Error(`${id} is kind hud with no default_placement — run schema/build.mjs`);
+    // The per-mod argument, on the rows that have one. It is the `$comment` of the
+    // `<id>_entry` narrowing's `default_placement` — prose about the schema rather than data
+    // the game reads, so it never enters the registry row. Rows without one print nothing:
+    // the block's own paragraph above already says what a placement is.
+    const note = DEFS[`${id}_entry`]?.allOf?.[1]?.properties?.default_placement?.$comment;
+    if (note) {
+      out.push('', ...comment(`${REGISTRY[id].label}: ${note}`, I));
+    }
+    out.push(`${I}place(${str(id)}, ${str(place.anchor)}, ${num(place.dx)}, ${num(place.dy)});`);
+  }
+  return out.join('\n');
+}
+
 const blocks = [];
 let lastKind = null;
 for (const id of ids) {
@@ -372,6 +412,11 @@ for (const id of ids) {
     lastKind = kind;
   }
   blocks.push(modBlock(id));
+}
+{
+  const heading = `The factory HUD layout (${hudIds.length}) — where each widget starts`;
+  blocks.push(`${I}// --- ${heading} ${'-'.repeat(Math.max(3, 82 - heading.length))}`);
+  blocks.push(placementBlock());
 }
 const DATA = blocks.join('\n\n');
 
@@ -417,7 +462,8 @@ import java.util.regex.Pattern;
  *
  * <p>The mod ships no config files (PVP_ARCHITECTURE.md §6.1) and cannot read {@code schema/}
  * at runtime, so the parts of the registry the game actually needs — the id set, the
- * {@code kind} split, the factory defaults and the clamp ranges — have to be in the JAR.
+ * {@code kind} split, the factory defaults, the clamp ranges and the factory HUD layout —
+ * have to be in the JAR.
  * They are checked in rather than produced by the Gradle build because there is no Node on
  * the build path, and a contract that only exists after a build step is not a contract.
  * {@code node scripts/gen-java-registry.mjs --check} is the CI gate that this committed copy
@@ -475,11 +521,36 @@ public final class ModRegistry {
         }
     }
 
+    /**
+     * Where one HUD mod's widget starts, {@code mods.json#/definitions/hud_placement}.
+     *
+     * <p>Anchor plus offsets, never absolute pixels (PVP_ARCHITECTURE.md §8.1). Immutable and
+     * public: {@link Loadout#defaults} copies it straight into a new loadout's {@code hud[]},
+     * and the overlay's {@code Reset layout} restores the same numbers from its own generated
+     * copy of this table.</p>
+     */
+    public static final class Placement {
+        /** Screen anchor the offsets are measured from. */
+        public final String anchor;
+        /** Horizontal offset from the anchor, in the overlay's design-canvas pixels. */
+        public final double dx;
+        /** Vertical offset from the anchor, in the overlay's design-canvas pixels. */
+        public final double dy;
+
+        Placement(String anchor, double dx, double dy) {
+            this.anchor = anchor;
+            this.dx = dx;
+            this.dy = dy;
+        }
+    }
+
     private static final Map<String, Kind> KINDS = new LinkedHashMap<String, Kind>();
     private static final Map<String, Category> CATEGORIES = new LinkedHashMap<String, Category>();
     private static final Map<String, String> LABELS = new LinkedHashMap<String, String>();
     private static final Map<String, Map<String, Setting>> SETTINGS =
             new LinkedHashMap<String, Map<String, Setting>>();
+    private static final Map<String, Placement> PLACEMENTS =
+            new LinkedHashMap<String, Placement>();
 
     private static final Pattern COLOR = Pattern.compile("^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
 
@@ -519,6 +590,10 @@ public final class ModRegistry {
         LABELS.put(id, label);
         SETTINGS.put(id, Collections.unmodifiableMap(map));
         return map;
+    }
+
+    private static void place(String id, String anchor, double dx, double dy) {
+        PLACEMENTS.put(id, new Placement(anchor, dx, dy));
     }
 
     // =================================================================
@@ -567,6 +642,24 @@ ${data}
     /** Panel copy for a mod, e.g. {@code FPS display}; {@code null} for an unknown id. */
     public static String label(String id) {
         return LABELS.get(id);
+    }
+
+    /**
+     * The factory HUD layout: every HUD mod's starting placement, in registry order.
+     *
+     * <p>The order is paint order for the {@code hud[]} array {@link Loadout#defaults} builds
+     * from it, so it is the registry's and not a set's.</p>
+     *
+     * <p>Mods that ship off are in here too — a placement is where a widget <em>would</em> go,
+     * not whether it is drawn. {@code on} decides that, in the page, in one place.</p>
+     */
+    public static Map<String, Placement> defaultHud() {
+        return Collections.unmodifiableMap(PLACEMENTS);
+    }
+
+    /** Factory placement of one HUD mod, or {@code null} for a gameplay mod or unknown id. */
+    public static Placement defaultPlacement(String id) {
+        return PLACEMENTS.get(id);
     }
 
     /** Setting keys of a mod, in schema order. */

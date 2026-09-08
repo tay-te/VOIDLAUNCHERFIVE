@@ -407,6 +407,7 @@ push(
   'use serde_json::{Map, Value};',
   '',
   'use crate::keybind::{HexColor, Keybind};',
+  'use crate::loadout::Anchor;',
   'use crate::Error;',
   '',
   'use super::{ModEntry, ModInfo, Registry};',
@@ -493,6 +494,65 @@ narrowed('GameplayModId', gameplayIds, [
   `The subset of [\`ModId\`] whose \`kind\` is \`gameplay\`: the ${gameplayIds.length} mods an actuator Mixin reads every frame.`,
   'These are the only ids accepted by `void.setGameplay`.',
 ]);
+
+/* --------------------------- factory placement --------------------------- */
+
+/*
+ * `mod_entry.default_placement` — the factory HUD layout, one entry per HUD mod.
+ *
+ * The *values* are not generated: they arrive with the rest of the registry, because
+ * `mods.rs` already `include_str!`s `schema/mods.json` and parses `examples[0]`. What has to
+ * be generated is the **type**, for the reason the header gives — `ModEntry` is
+ * `deny_unknown_fields`, so a field the schema has and Rust does not is a runtime parse
+ * failure of the entire registry, for every mod at once, the moment `registry()` is first
+ * touched. Adding `default_placement` to the schema without this struct is exactly that.
+ *
+ * `Anchor` is `crate::loadout::Anchor` rather than a tenth generated enum: a factory
+ * placement is a `hud_item` without its `id` and `scale`, and it must be the same anchor a
+ * stored one is, or a layout could not round-trip through `Loadout`.
+ */
+rule('the factory HUD layout');
+
+{
+  const placement = defs.hud_placement;
+  if (!placement) {
+    throw new Error('mods.json has no hud_placement definition — run `node schema/build.mjs`');
+  }
+  push(
+    doc([
+      prose(placement.description),
+      'The values come from the compiled-in registry, not from this file; what is generated here is the type the entry needs in order to parse at all.',
+    ]),
+    '#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]',
+    '#[serde(deny_unknown_fields)]',
+    'pub struct HudPlacement {',
+    doc(prose(placement.properties.anchor.description), '    '),
+    '    pub anchor: Anchor,',
+    '',
+    doc(prose(placement.properties.dx.description), '    '),
+    '    pub dx: f64,',
+    '',
+    doc(prose(placement.properties.dy.description), '    '),
+    '    pub dy: f64,',
+    '}',
+    '',
+    'impl Registry {',
+    doc(
+      [
+        "One HUD mod's factory placement — where its widget starts on a HUD nobody has touched.",
+        'Infallible over [`HudModId`]: the schema `required`s `default_placement` on every `kind: hud` entry and forbids it on every gameplay one, so the `Option` on [`ModEntry`] can only be `None` for a mod this method cannot be called with.',
+      ],
+      '    ',
+    ),
+    '    pub fn default_placement(&self, id: HudModId) -> HudPlacement {',
+    '        let entry = match id {',
+    ...hudIds.map((id) => `            HudModId::${pascal(id)} => self.mods.${id}.default_placement,`),
+    '        };',
+    '        entry.expect("schema/mods.json requires default_placement on every kind: hud entry")',
+    '    }',
+    '}',
+  );
+}
 
 /* --------------------------- settings enums ----------------------------- */
 

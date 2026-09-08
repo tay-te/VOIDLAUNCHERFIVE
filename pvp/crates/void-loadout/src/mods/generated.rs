@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::keybind::{HexColor, Keybind};
+use crate::loadout::Anchor;
 use crate::Error;
 
 use super::{ModEntry, ModInfo, Registry};
@@ -217,6 +218,65 @@ impl GameplayModId {
     /// The snake_case id.
     pub fn as_str(self) -> &'static str {
         self.as_mod_id().as_str()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// the factory HUD layout
+// ---------------------------------------------------------------------------
+
+/// Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
+/// 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
+/// layout` restores. Anchor plus `dx`/`dy`, exactly as `loadout.json#/definitions/hud_item`,
+/// minus the `id` (it is the entry's own) and the per-item `scale` (a factory layout is always
+/// 1). The numbers are in the **overlay's own design-canvas pixels** — `VoidClient.pumpUi` fits
+/// the view to a 1300 x 820 canvas — because that is the space the page actually lays out in,
+/// and they are on a **38-42 px vertical rhythm**, which is what it takes to stack chips that
+/// are taller than that without overlapping. They are therefore NOT the tighter offsets in
+/// `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`, whose
+/// 18-20 px rhythm belongs to hand-authored product loadouts rather than to the factory layout.
+/// Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a
+/// widget *would* go, not whether it is drawn — the `on` setting decides that. Required on
+/// every `kind: hud` mod and forbidden on every `kind: gameplay` mod; the per-mod `<id>_entry`
+/// definitions are where that is enforced, so a HUD mod with no placement, or a gameplay mod
+/// with one, is a schema error rather than a silent default.
+///
+/// The values come from the compiled-in registry, not from this file; what is generated here is
+/// the type the entry needs in order to parse at all.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HudPlacement {
+    /// Screen anchor the offsets are measured from. The anchor names a point on the viewport
+    /// *and* the matching point on the widget box, which is why `dx` is negative on right-hand
+    /// anchors and `dy` negative on bottom ones.
+    pub anchor: Anchor,
+
+    /// Horizontal offset in design-canvas pixels from the anchor. Positive is right.
+    pub dx: f64,
+
+    /// Vertical offset in design-canvas pixels from the anchor. Positive is down.
+    pub dy: f64,
+}
+
+impl Registry {
+    /// One HUD mod's factory placement — where its widget starts on a HUD nobody has touched.
+    ///
+    /// Infallible over [`HudModId`]: the schema `required`s `default_placement` on every `kind:
+    /// hud` entry and forbids it on every gameplay one, so the `Option` on [`ModEntry`] can
+    /// only be `None` for a mod this method cannot be called with.
+    pub fn default_placement(&self, id: HudModId) -> HudPlacement {
+        let entry = match id {
+            HudModId::Fps => self.mods.fps.default_placement,
+            HudModId::Keystrokes => self.mods.keystrokes.default_placement,
+            HudModId::Cps => self.mods.cps.default_placement,
+            HudModId::Ping => self.mods.ping.default_placement,
+            HudModId::Coordinates => self.mods.coordinates.default_placement,
+            HudModId::ArmorStatus => self.mods.armor_status.default_placement,
+            HudModId::PotionEffects => self.mods.potion_effects.default_placement,
+            HudModId::Watermark => self.mods.watermark.default_placement,
+            HudModId::Direction => self.mods.direction.default_placement,
+        };
+        entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
 }
 

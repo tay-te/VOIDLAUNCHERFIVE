@@ -13,6 +13,11 @@
   "settings_description": "Settings for the Armor status HUD mod. Reads `InventoryPlayer.armorInventory` durability, pushed only when it changes.",
   "source": "InventoryPlayer.armorInventory durability",
   "enabled": true,
+  "default_placement": {
+    "anchor": "top-right",
+    "dx": -25,
+    "dy": 299
+  },
   "defaults": {
     "orientation": "horizontal",
     "show_durability": true,

@@ -13,6 +13,11 @@
   "settings_description": "Settings for the CPS counter HUD mod. Derived entirely in JS from mouse edges on the `keys` event (\u00a73), so no Java sensor exists for it.",
   "source": "derived from clicks in JS",
   "enabled": true,
+  "default_placement": {
+    "anchor": "bottom-left",
+    "dx": 175,
+    "dy": -108
+  },
   "defaults": {
     "mode": "left",
     "show_label": true,

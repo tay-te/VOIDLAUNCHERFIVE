@@ -37,6 +37,11 @@ node build.mjs --check   # the CI gate: is the committed output still its source
 `include_str!`s it, `@void/protocol` generates from it and `ModRegistry.java` transcribes it,
 and none of those can run a Node script. So "generated" has to also mean "checked".
 
+A `kind: hud` mod must also carry a `default_placement` (`anchor` + `dx`/`dy`, and an optional
+`note` saying why those numbers) — that is the factory HUD layout, and both the Java registry's
+copy and `@void/protocol`'s are generated from it. `build.mjs` refuses a HUD mod without one and
+a gameplay mod with one, and so does the emitted schema.
+
 `mods/_shared.json` holds the properties every mod of a `kind` carries. A property added there
 reaches all eight HUD mods at once, which is the point — `docs/mod-roster.md` §9's advice was
 to settle the shared HUD property set once rather than retrofit it into twenty settings pages.
@@ -134,6 +139,54 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-08 (later still) — `default_placement`, and the last hand-maintained table
+
+`mods.json` registry `version` `5 → 6`; `protocol.json` `v` unchanged.
+
+**`mod_entry` gains `default_placement`, on `kind: hud` mods only.** The factory HUD layout —
+what a new loadout is seeded with and what the HUD editor's `Reset layout` restores — was the
+one per-mod table left written out by hand, and it was written out *twice*: `DEFAULT_HUD` in
+`packages/ingame/src/store/hud-geometry.ts` and `Loadout.DEFAULT_HUD` in Java. They were kept
+level by a vitest that read the Java *source* and diffed it, which is precisely the shape
+`docs/mod-roster.md` §9 names as the problem rather than the fix. Adding the fourteenth mod
+meant editing both by hand, which is how it got flagged.
+
+What the duplication risked is worse than a stale table: two tables that disagree make **`Reset
+layout` a move rather than an undo** — the client starts in one layout and the button that
+claims to restore it silently puts every widget somewhere else, for everyone.
+
+- **The constraint is per-`kind`, and the schema says so.** `mod_entry` lists the property so
+  `additionalProperties: false` permits it, and leaves it out of `required`; each `<id>_entry`
+  then `required`s it on a HUD mod and forbids it on a gameplay one with
+  `not: {required: [default_placement]}`. A gameplay mod draws nothing, so it has nowhere to
+  be, and a HUD mod with no placement is a widget every consumer would have to guess at. Both
+  are now schema errors rather than silent defaults, and `validate.mjs` walks all fourteen to
+  prove the narrowings themselves were generated for the right kind.
+- **The anchor set is not restated.** `build.mjs` copies
+  `loadout.json#/definitions/anchor` into `hud_placement`; a second hand-written copy of nine
+  strings would be the same duplication this field removes, and a `$ref` the other way would
+  invert the documents' dependency — the registry is the root.
+- **The reasoning moved with the numbers**, because it was the argument for them: the
+  38-42 px rhythm and the design-canvas pixels are `hud_placement`'s own `description`, and the
+  per-number arguments (the watermark's `dy 141` rather than `loadout.json`'s 58, which would
+  collide with the ping chip at 65; direction taking the row under Coordinates) are the
+  `$comment` on that mod's `<id>_entry`. Every generator reproduces them next to the row, so
+  the argument is still readable where the number is.
+- **Values unchanged.** Both pre-change tables were diffed against everything generated from
+  the schema, row for row; nine placements, no differences. A silent change here moves every
+  player's HUD on their next launch.
+- Consumers: `ModRegistry`'s generated `place(...)` table plus a hand-written `Placement` and
+  `defaultHud()`, which `Loadout.defaults` now seeds from (its own `DEFAULT_HUD` is gone);
+  `void_loadout::HudPlacement` and `Registry::default_placement` — mandatory, since `ModEntry`
+  is `deny_unknown_fields` and a field the schema has and Rust does not is a runtime parse
+  failure of the whole registry; `@void/protocol`'s generated `DEFAULT_HUD_PLACEMENTS`, which
+  `hud-geometry.ts` re-exports as `DEFAULT_HUD`.
+
+`packages/ingame/test/hud-defaults.test.ts` survives with a different job: it no longer diffs
+two hand tables against each other, it checks the schema against both generated tables — the
+page's and the *committed bytes* of `ModRegistry.java`. Both generated files are committed
+because neither Gradle nor Vite may run Node, and committed means they can be stale.
 
 ### 2026-09-08 (later) — `icon` on the entry, and Java/Rust stop being transcribed
 

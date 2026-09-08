@@ -107,6 +107,18 @@ public final class Loadout {
      * placements and the first {@code loadout} push replaces this object wholesale; again the only
      * client that runs on it is the dev client, where it read as "the HUD mods don't do
      * anything".</p>
+     *
+     * <p><b>The placements are {@link ModRegistry#defaultHud()}, not a table here.</b> They used
+     * to be a {@code DEFAULT_HUD} array in this class, transcribed from the overlay's own
+     * {@code DEFAULT_HUD} and kept level with it by a test that read <em>this file's source</em>
+     * and diffed the two — which is the "test compensating for hand-transcription" shape
+     * {@code docs/mod-roster.md} §9 names as the problem rather than the fix, and adding the
+     * fourteenth mod meant editing both by hand. The layout is now {@code default_placement} on
+     * each {@code kind: hud} entry of {@code schema/mods.json}, and both tables are generated
+     * from it. The reasoning that lived in this javadoc — why these are design-canvas pixels on a
+     * 38-42 px rhythm, and why the watermark's number is not {@code loadout.json}'s — moved with
+     * it, to {@code mods.json#/definitions/hud_placement} and to the watermark's own entry, and
+     * is reproduced in {@code ModRegistry}'s generated table.</p>
      */
     public static Loadout defaults(String id, String name) {
         JsonObject o = new JsonObject();
@@ -120,52 +132,19 @@ public final class Loadout {
         }
         o.add("mods", mods);
         JsonArray hud = new JsonArray();
-        for (Object[] place : DEFAULT_HUD) {
+        for (Map.Entry<String, ModRegistry.Placement> e : ModRegistry.defaultHud().entrySet()) {
+            ModRegistry.Placement place = e.getValue();
             JsonObject item = new JsonObject();
-            item.addProperty("id", (String) place[0]);
-            item.addProperty("anchor", (String) place[1]);
-            item.addProperty("dx", (Number) place[2]);
-            item.addProperty("dy", (Number) place[3]);
+            item.addProperty("id", e.getKey());
+            item.addProperty("anchor", place.anchor);
+            item.add("dx", Json.number(place.dx));
+            item.add("dy", Json.number(place.dy));
             item.addProperty("scale", Integer.valueOf(1));
             hud.add(item);
         }
         o.add("hud", hud);
         return fromJson(o);
     }
-
-    /**
-     * The factory HUD layout, in the overlay's own design-canvas pixels.
-     *
-     * <p>Transcribed from {@code packages/ingame/src/menu/HudEditorScreen.tsx}'s
-     * {@code DEFAULT_HUD}, which is the layout drawn on Figma frame 244:1722 and the one the HUD
-     * editor's <em>Reset</em> button restores. Those are the coordinates the page actually lays
-     * out in — {@code VoidClient.pumpUi} fits the view to a 1300 x 820 canvas — so they are the
-     * ones to copy, rather than the tighter offsets in {@code crates/void-loadout}'s default
-     * library, whose 18 px vertical spacing overlaps chips that are taller than that.</p>
-     *
-     * <p>Mods that ship off ({@code coordinates}) are placed too: a placement is where a widget
-     * would go, not whether it is drawn — the {@code on} switch decides that, in one place, in
-     * the page.</p>
-     *
-     * <p><b>{@code watermark} is placed here, and its number is not the schema's.</b>
-     * {@code loadout.json}'s factory layout puts it at {@code top-left 20,58}, under an fps at
-     * {@code dy 20} and a ping at {@code dy 38} — an 18-20 px rhythm. This table's rhythm is
-     * 38-42 px, for the reason the paragraph above gives, and 58 here would land the mark on top
-     * of the ping chip at 65 rather than under it. So it takes the next row of <em>this</em>
-     * column instead: 103 + 38. Same intent — third in the top-left stack — expressed in the
-     * space the page actually lays out in. Change both numbers together or neither.</p>
-     */
-    private static final Object[][] DEFAULT_HUD = {
-        {"fps", "top-left", Integer.valueOf(23), Integer.valueOf(23)},
-        {"ping", "top-left", Integer.valueOf(23), Integer.valueOf(65)},
-        {"coordinates", "top-left", Integer.valueOf(23), Integer.valueOf(103)},
-        {"watermark", "top-left", Integer.valueOf(23), Integer.valueOf(141)},
-        {"direction", "top-left", Integer.valueOf(23), Integer.valueOf(179)},
-        {"potion_effects", "top-right", Integer.valueOf(-25), Integer.valueOf(23)},
-        {"armor_status", "top-right", Integer.valueOf(-25), Integer.valueOf(299)},
-        {"keystrokes", "bottom-left", Integer.valueOf(31), Integer.valueOf(-109)},
-        {"cps", "bottom-left", Integer.valueOf(175), Integer.valueOf(-108)},
-    };
 
     public String id() {
         return id;
