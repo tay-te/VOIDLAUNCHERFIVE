@@ -547,6 +547,40 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       lastFxSecond = second;
       payload.fx = fx.map((effect) => ({ ...effect }));
     }
+    // ---------------------------------------------------------- the Wave 2 readings
+    //
+    // The fake has to produce these or every mod page that reads one previews an empty box, and
+    // `design/rendering-invariants.md` §15 is exactly about the failure that survives being
+    // looked at. They MOVE, too: a preview whose number never changes cannot show a reader that
+    // the mod is live, and `test/preview.test.tsx` asserts that a setting changes the drawing,
+    // not that the drawing exists.
+    //
+    // Deliberately not coalesced the way the real sensor coalesces. The sensor omits a field to
+    // save an Ultralight repaint, which is a constraint of the engine and not of the contract;
+    // a fake that also withheld fields would make every consumer's absent-handling depend on
+    // the fake's timing. `armor` and `fx` above are the exception because their *signature*
+    // logic is what a consumer is being tested against.
+    payload.saturation = Math.round((10 + 8 * Math.sin(clockMs / 7000)) * 10) / 10;
+    payload.speed = Math.round(Math.abs(5.6 * Math.sin(clockMs / 2200)) * 100) / 100;
+    payload.memory = {
+      used_mb: 900 + Math.round(180 * Math.abs(Math.sin(clockMs / 9000))),
+      max_mb: 4096,
+    };
+
+    // A hand that empties and refills, so a consumer meets the absent case rather than only the
+    // happy one — an empty hand is what `held_count` omits, and that branch needs exercising.
+    const heldPhase = Math.floor(clockMs / 4000) % 4;
+    if (heldPhase !== 3) {
+      payload.held_count = 1 + ((Math.floor(clockMs / 900) * 7) % 64);
+    }
+
+    // Monotonic, like the real thing. A hit roughly every 700 ms and a hit taken every ~5 s, so
+    // a combo builds and then breaks — which is the whole behaviour the combo mod draws, and it
+    // would be invisible in a fake that only ever incremented one counter.
+    payload.hits = {
+      dealt: Math.floor(clockMs / 700),
+      taken: Math.floor(clockMs / 5000),
+    };
     return payload;
   }
 

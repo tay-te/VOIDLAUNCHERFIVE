@@ -39,6 +39,20 @@ public final class TickCoalescer {
      */
     static final long FPS_INTERVAL_MS = 250L;
 
+    /**
+     * How often speed may be republished. The same 250 ms as FPS and for the same reason — it
+     * changes every tick while moving — but it is a separate constant because the two are
+     * separate decisions, and tying them together would mean tuning one to fix the other.
+     */
+    static final long SPEED_INTERVAL_MS = 250L;
+
+    /**
+     * How often heap may be republished. A second, four times looser than the others: memory is
+     * the least urgent number on the HUD and the most restless, so it is the one field where the
+     * limit is doing most of the work.
+     */
+    static final long MEMORY_INTERVAL_MS = 1000L;
+
     /** The clock the rate limit reads, so a test can drive it without sleeping. */
     public interface Clock {
         long millis();
@@ -52,6 +66,14 @@ public final class TickCoalescer {
     private long lastFpsAt = Long.MIN_VALUE;
     private int lastPing = Integer.MIN_VALUE;
     private boolean posSent;
+    private double lastSaturation = Double.NaN;
+    private int lastHeldCount = Integer.MIN_VALUE;
+    private double lastSpeed = Double.NaN;
+    private long lastSpeedAt = Long.MIN_VALUE;
+    private int lastMemUsed = Integer.MIN_VALUE;
+    private long lastMemAt = Long.MIN_VALUE;
+    private int lastHitsDealt = Integer.MIN_VALUE;
+    private int lastHitsTaken = Integer.MIN_VALUE;
     private double lastX;
     private double lastY;
     private double lastZ;
@@ -73,13 +95,23 @@ public final class TickCoalescer {
     /**
      * Builds the payload for one tick.
      *
-     * @param fps    {@code Minecraft.currentFps}
-     * @param ping   own {@code PlayerListEntry.getLatency}, or -1 when unknown
-     * @param armor  worn armor plus, when enabled, the held item; null to omit
-     * @param fx     active potion effects; null to omit
+     * <p>Takes a {@link TickInput} rather than a parameter list; that file says why. Every block
+     * below decides for itself when its field may be sent, and the rules genuinely differ —
+     * which is why this is explicit repetition rather than a generic "emit if changed" helper.
+     * A helper would hide exactly the distinction the class header spends four paragraphs on:
+     * FPS is rate-limited <em>because no value check can suppress it</em>, position is rounded
+     * <em>before</em> comparison so a sub-representable movement sends nothing, and armor and fx
+     * are compared by content. Three different answers to "has this changed".</p>
      */
-    public JsonObject build(int fps, int ping, double x, double y, double z, float yaw,
-                            List<ArmorSlot> armor, List<PotionFx> fx) {
+    public JsonObject build(TickInput in) {
+        int fps = in.fps;
+        int ping = in.ping;
+        double x = in.x;
+        double y = in.y;
+        double z = in.z;
+        float yaw = in.yaw;
+        List<ArmorSlot> armor = in.armor;
+        List<PotionFx> fx = in.fx;
         JsonObject o = new JsonObject();
 
         int clampedFps = clamp(fps, 0, 100000);
@@ -132,11 +164,82 @@ public final class TickCoalescer {
             }
             o.add("fx", arr);
         }
+
+        // Saturation moves when you eat and when you exert yourself, not on a clock, so a value
+        // check is the whole rule. Rounded to 1 dp first for the same reason position is rounded
+        // before comparison: the wire carries the rounded figure, so comparing the raw double
+        // would republish for a change too small to be representable.
+        if (in.saturation != null) {
+            double sat = Math.round(in.saturation.doubleValue() * 10.0) / 10.0;
+            if (Double.isNaN(lastSaturation) || sat != lastSaturation) {
+                lastSaturation = sat;
+                o.add("saturation", Json.number(sat));
+            }
+        }
+
+        // A stack size changes on use. An empty hand omits the field rather than sending 0 —
+        // `bridge.json` says so, and the widget draws nothing rather than a zero.
+        if (in.heldCount != null && in.heldCount.intValue() != lastHeldCount) {
+            lastHeldCount = in.heldCount.intValue();
+            o.addProperty("held_count", in.heldCount);
+        }
+
+        // Speed changes every tick while moving, so a value check alone would republish 20 Hz
+        // and cost the full-surface repaint this class exists to avoid. Rate-limited like FPS,
+        // and for the same reason: a number moving 20 times a second is unreadable anyway.
+        if (in.speed != null) {
+            double speed = Math.round(in.speed.doubleValue() * 100.0) / 100.0;
+            if ((Double.isNaN(lastSpeed) || speed != lastSpeed)
+                    && (lastSpeedAt == Long.MIN_VALUE || now - lastSpeedAt >= SPEED_INTERVAL_MS)) {
+                lastSpeed = speed;
+                lastSpeedAt = now;
+                o.add("speed", Json.number(speed));
+            }
+        }
+
+        // Heap moves constantly and is the field most able to undo the coalescing, so its limit
+        // is the loosest here by an order of magnitude. `max_mb` is a constant for the process
+        // and rides along with `used_mb` rather than being tracked separately — the object is
+        // one field on the wire and splitting it would send half a reading.
+        if (in.memoryUsedMb != null && in.memoryMaxMb != null) {
+            int used = in.memoryUsedMb.intValue();
+            if (used != lastMemUsed
+                    && (lastMemAt == Long.MIN_VALUE || now - lastMemAt >= MEMORY_INTERVAL_MS)) {
+                lastMemUsed = used;
+                lastMemAt = now;
+                JsonObject mem = new JsonObject();
+                mem.addProperty("used_mb", Integer.valueOf(used));
+                mem.addProperty("max_mb", in.memoryMaxMb);
+                o.add("memory", mem);
+            }
+        }
+
+        // Hit counters move only on a hit, so a value check is exact and no limit is wanted: a
+        // rate limit here would merge two hits into one and the combo would under-count. This is
+        // the one new field where dropping an update is a *wrong answer* rather than a stale one.
+        if (in.hitsDealt != null && in.hitsTaken != null
+                && (in.hitsDealt.intValue() != lastHitsDealt
+                    || in.hitsTaken.intValue() != lastHitsTaken)) {
+            lastHitsDealt = in.hitsDealt.intValue();
+            lastHitsTaken = in.hitsTaken.intValue();
+            JsonObject hits = new JsonObject();
+            hits.addProperty("dealt", in.hitsDealt);
+            hits.addProperty("taken", in.hitsTaken);
+            o.add("hits", hits);
+        }
         return o;
     }
 
     /** Forgets what was last reported, so the next tick carries everything. */
     public void reset() {
+        lastSaturation = Double.NaN;
+        lastHeldCount = Integer.MIN_VALUE;
+        lastSpeed = Double.NaN;
+        lastSpeedAt = Long.MIN_VALUE;
+        lastMemUsed = Integer.MIN_VALUE;
+        lastMemAt = Long.MIN_VALUE;
+        lastHitsDealt = Integer.MIN_VALUE;
+        lastHitsTaken = Integer.MIN_VALUE;
         lastArmor = null;
         lastFx = null;
         lastFps = Integer.MIN_VALUE;

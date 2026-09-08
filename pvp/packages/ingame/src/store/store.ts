@@ -175,6 +175,15 @@ const FPS_WINDOW = 120;
 const fpsSamples: number[] = [];
 
 /**
+ * The last `hits` pair seen, or null before the first one.
+ *
+ * Module-level like `fpsSamples`, and reset by `resetDerivedState()` for the same reason: it is
+ * derivation scratch, not state anybody renders, and a test that left it set would carry a
+ * baseline into the next test and count the wrong number of hits.
+ */
+let lastHits: { dealt: number; taken: number } | null = null;
+
+/**
  * Value equality for the object-shaped `tick` fields.
  *
  * The store's contract at the top of this file is that a tick only publishes what actually
@@ -263,6 +272,7 @@ export function resetDerivedState(): void {
   rings.left = createClickRing();
   rings.right = createClickRing();
   fpsSamples.length = 0;
+  lastHits = null;
 }
 
 export interface VoidState {
@@ -286,6 +296,31 @@ export interface VoidState {
   pos: Position | null;
   armor: ArmorSlot[];
   fx: PotionEffect[];
+
+  /* ------------------------------------------------------- the Wave 2 readings */
+  /* Each is `null` until the sensor sends one, and null means "no reading" rather than
+     zero — a saturation of 0 and an unread saturation are different states, and only one
+     of them should draw a number. See `bridge.json`'s `tick_payload`. */
+
+  /** Food saturation, 0-20. */
+  saturation: number | null;
+  /** Stack size of the held item; null for an empty hand, which is not a count of zero. */
+  heldCount: number | null;
+  /** Horizontal ground speed, blocks/sec. */
+  speed: number | null;
+  /** JVM heap, mebibytes. */
+  memory: { usedMb: number; maxMb: number } | null;
+  /**
+   * Consecutive hits landed without being hit back.
+   *
+   * Derived here from the monotonic counters the sensor sends, not sent by it: `bridge.json`'s
+   * `hits` records why. What lives here is the *count*, which is a fact. The **timeout** —
+   * `combo.reset_ms` — is policy and stays in the widget, so this number never silently expires
+   * underneath a reader that has its own opinion about when it should.
+   */
+  combo: number;
+  /** When the combo last advanced, ms. The widget compares this against its own `reset_ms`. */
+  comboAt: number;
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
@@ -364,6 +399,12 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   pos: null,
   armor: [],
   fx: [],
+  saturation: null,
+  heldCount: null,
+  speed: null,
+  memory: null,
+  combo: 0,
+  comboAt: 0,
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
@@ -509,6 +550,53 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const right = clicksPerSecond(trimRing(rings.right, now, w), now, w);
     if (left !== get().cpsLeft) patch.cpsLeft = left;
     if (right !== get().cpsRight) patch.cpsRight = right;
+
+    // ---------------------------------------------------------- the Wave 2 readings
+    //
+    // Same discipline as everything above: compare by value and patch only on a real change.
+    // The sensor already coalesces, so most ticks carry none of these — but `undefined` means
+    // "unchanged" and must not be written, or a coalesced-away field would blank the chip.
+    if (tick.saturation !== undefined && tick.saturation !== prev.saturation) {
+      patch.saturation = tick.saturation;
+    }
+    // An absent `held_count` is an empty hand, which IS news — the chip has to stop showing the
+    // last stack. That makes it the one field here where `undefined` is a value rather than a
+    // non-answer, and it is why the sensor is careful to omit it rather than send 0.
+    const held = tick.held_count ?? null;
+    if (held !== prev.heldCount) patch.heldCount = held;
+
+    if (tick.speed !== undefined && tick.speed !== prev.speed) patch.speed = tick.speed;
+    if (
+      tick.memory !== undefined &&
+      (prev.memory === null ||
+        tick.memory.used_mb !== prev.memory.usedMb ||
+        tick.memory.max_mb !== prev.memory.maxMb)
+    ) {
+      patch.memory = { usedMb: tick.memory.used_mb, maxMb: tick.memory.max_mb };
+    }
+
+    // The combo, derived from the two monotonic counters.
+    //
+    // First sight of the pair establishes a baseline and counts nothing: the counters are
+    // session-monotonic, so a page reload mid-match would otherwise report every hit of the
+    // match at once. After that a rise in `taken` breaks the combo and a rise in `dealt`
+    // advances it by however much it moved — by the delta, not by one, so a tick that carried
+    // two hits is still exactly right. That robustness is the reason the wire sends counters
+    // rather than events (`bridge.json`, `hits`).
+    if (tick.hits !== undefined) {
+      const seen = lastHits;
+      lastHits = { dealt: tick.hits.dealt, taken: tick.hits.taken };
+      if (seen !== null) {
+        let combo = prev.combo;
+        if (tick.hits.taken > seen.taken) combo = 0;
+        const landed = tick.hits.dealt - seen.dealt;
+        if (landed > 0) {
+          combo += landed;
+          patch.comboAt = Date.now();
+        }
+        if (combo !== prev.combo) patch.combo = combo;
+      }
+    }
 
     if (Object.keys(patch).length > 0) set(patch as VoidState);
   },

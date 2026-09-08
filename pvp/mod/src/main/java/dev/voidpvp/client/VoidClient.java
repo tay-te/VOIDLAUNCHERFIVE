@@ -17,6 +17,7 @@ import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ServerWatcher;
 import dev.voidpvp.client.sensor.TickCoalescer;
+import dev.voidpvp.client.sensor.TickInput;
 import dev.voidpvp.client.state.GlobalSettings;
 import dev.voidpvp.client.state.LiveState;
 import dev.voidpvp.client.state.Loadout;
@@ -76,6 +77,24 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     private final KeyStateTracker keys = new KeyStateTracker();
     private final TickCoalescer ticks = new TickCoalescer();
+
+    /** Refilled every tick and never retained — see {@link TickInput}'s note on reuse. */
+    private final TickInput tickIn = new TickInput();
+
+    /**
+     * Hit counters for the combo mod, monotonic for the session.
+     *
+     * Counted here rather than derived on the client from health, because health moves for
+     * reasons that are not hits (regeneration, poison, a golden apple) and a combo that broke on
+     * a poison tick would be wrong in exactly the situation it is being watched. The client owns
+     * the *policy* — `combo.reset_ms` — and this owns only the fact that something landed.
+     */
+    private int hitsDealt;
+    private int hitsTaken;
+
+    /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
+    private int lastAttackCooldownSeen;
+    private int lastHurtTime;
     private final ServerWatcher server = new ServerWatcher();
     private final SprintLatch sprint = new SprintLatch();
     private final SprintLatch sneak = new SprintLatch();
@@ -962,12 +981,17 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (player == null) {
             return;
         }
-        int fps = dev.voidpvp.client.mixin.MinecraftClientAccessor.void$currentFps();
-        int ping = latency(mc, player);
-        List<ArmorSlot> armor = readArmor(player);
-        List<PotionFx> fx = readEffects(player);
-        JsonObject payload = ticks.build(fps, ping, player.x, player.y, player.z,
-                player.yaw, armor, fx);
+        tickIn.clearOptional();
+        tickIn.fps = dev.voidpvp.client.mixin.MinecraftClientAccessor.void$currentFps();
+        tickIn.ping = latency(mc, player);
+        tickIn.x = player.x;
+        tickIn.y = player.y;
+        tickIn.z = player.z;
+        tickIn.yaw = player.yaw;
+        tickIn.armor = readArmor(player);
+        tickIn.fx = readEffects(player);
+        readWave2(player);
+        JsonObject payload = ticks.build(tickIn);
         // Now that every field is coalesced, a tick where nothing moved carries nothing. Emitting
         // it anyway would cross the bridge, parse, and run a reducer 20 times a second to conclude
         // there is no news.
@@ -988,6 +1012,80 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         } catch (RuntimeException e) {
             return -1;
         }
+    }
+
+    /**
+     * The five readings Wave 2's mods need, all from state the player entity already has.
+     *
+     * <p>Every one is wrapped: a sensor that throws must cost its own field, not the whole tick.
+     * These read 1.8.9 fields through Loom's mappings and a mapping that moves under us would
+     * otherwise take the FPS chip down with it — the payload is shared, so an exception here
+     * would abort {@code pushTick} before {@code bridge.emit} and silently stop the entire
+     * HUD. That is a §15 failure with a very wide blast radius, and it is cheap to prevent.</p>
+     *
+     * <p>Left unset on failure rather than defaulted, because {@link TickInput} treats null as
+     * "no reading" and the coalescer then omits the field — which the widget draws as nothing.
+     * A zero would draw as a real, wrong number.</p>
+     */
+    private void readWave2(ClientPlayerEntity player) {
+        try {
+            tickIn.saturation = Double.valueOf(player.getHungerManager().getSaturationLevel());
+        } catch (Throwable ignored) {
+            // Left null: the chip shows nothing rather than a saturation of zero, which is a
+            // meaningful and alarming reading in a game where zero means you stop regenerating.
+        }
+        try {
+            ItemStack held = player.inventory.getMainHandStack();
+            // An empty hand is not a stack of zero. `bridge.json` says the field goes absent.
+            if (held != null && held.getCount() > 0) {
+                tickIn.heldCount = Integer.valueOf(held.getCount());
+            }
+        } catch (Throwable ignored) {
+            // Same reasoning as above.
+        }
+        try {
+            // Horizontal only: falling is not momentum the player is steering, and including the
+            // vertical component would spike the readout on every drop. x20 because velocity is
+            // per tick and the readout is per second, which is the unit a player thinks in.
+            double vx = player.velocityX;
+            double vz = player.velocityZ;
+            tickIn.speed = Double.valueOf(Math.sqrt(vx * vx + vz * vz) * 20.0);
+        } catch (Throwable ignored) {
+            // Same reasoning as above.
+        }
+        try {
+            Runtime rt = Runtime.getRuntime();
+            long used = rt.totalMemory() - rt.freeMemory();
+            tickIn.memoryUsedMb = Integer.valueOf((int) (used / 1048576L));
+            tickIn.memoryMaxMb = Integer.valueOf((int) (rt.maxMemory() / 1048576L));
+        } catch (Throwable ignored) {
+            // Same reasoning as above.
+        }
+        try {
+            // `hurtTime` is set to a fixed value on damage and counts down, so it is a level and
+            // not an edge: counting it directly would count one hit once per tick it stays up.
+            // The rising edge is the hit.
+            int hurt = player.hurtTime;
+            if (hurt > lastHurtTime) {
+                hitsTaken++;
+            }
+            lastHurtTime = hurt;
+            tickIn.hitsDealt = Integer.valueOf(hitsDealt);
+            tickIn.hitsTaken = Integer.valueOf(hitsTaken);
+        } catch (Throwable ignored) {
+            // Same reasoning as above.
+        }
+    }
+
+    /**
+     * Called by the attack mixin when the player lands a hit.
+     *
+     * <p>Separate from {@link #readWave2} because a landed hit is an *event* and there is no
+     * per-tick field that reports one: the player's own state says nothing about whether their
+     * swing connected. The counter it increments is read on the next tick like everything else.</p>
+     */
+    public void onAttackLanded() {
+        hitsDealt++;
     }
 
     private List<ArmorSlot> readArmor(ClientPlayerEntity player) {

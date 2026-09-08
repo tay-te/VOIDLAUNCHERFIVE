@@ -1443,7 +1443,7 @@ export interface TickEvent {
   payload: TickPayload;
 }
 /**
- * All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (§6.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged.
+ * All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (§6.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged. Every field is optional and absent means unchanged; the sensor coalesces, because an uncoalesced field costs a full-surface Ultralight repaint (`TickCoalescer`'s header has the measurements).
  */
 export interface TickPayload {
   /**
@@ -1467,6 +1467,44 @@ export interface TickPayload {
    * @maxItems 32
    */
   fx?: PotionEffect[];
+  /**
+   * Food saturation, the hidden half of the hunger bar. Vanilla never draws it and it is what decides whether you regenerate, which is why every competing client ships a readout for it. Value-checked only, not rate-limited: it moves on eating and on exertion, not every tick.
+   */
+  saturation?: number;
+  /**
+   * Stack size of the held item, for the item counter. Absent when the hand is empty — a count of 0 and an empty hand are different states, and the widget draws nothing rather than a zero. Value-checked; a stack size changes on use, not on a clock.
+   */
+  held_count?: number;
+  /**
+   * Horizontal ground speed in blocks per second, for the momentum readout. Horizontal on purpose: falling is not momentum a player is steering, and including it would make the number spike on every drop. Rounded to 2 dp at the sensor and rate-limited, because it changes every tick while moving and an uncoalesced field costs a full-surface repaint (see `TickCoalescer`'s header).
+   */
+  speed?: number;
+  /**
+   * JVM heap, for the memory readout. Rate-limited hard: it changes constantly, nobody reads it twenty times a second, and it is the field most able to undo the coalescing this payload exists for.
+   */
+  memory?: {
+    /**
+     * Heap in use, mebibytes.
+     */
+    used_mb: number;
+    /**
+     * Heap ceiling, mebibytes — `Runtime.maxMemory`.
+     */
+    max_mb: number;
+  };
+  /**
+   * Monotonic hit counters, and the raw material for the combo counter. NOT the combo itself: a combo is a count with a *timeout policy* on it, and the timeout is a mod setting, so deriving it here would put a UI policy in the sensor. `cps` already sets that precedent — `mods.json` records that it is derived entirely in JS from click edges and has no Java sensor. Counters rather than hit *events* because an event lost to a dropped tick leaves the combo wrong forever, whereas a counter that jumps by two is still exactly right.
+   */
+  hits?: {
+    /**
+     * Attacks the player has landed since the session began. Monotonic; never reset on the wire.
+     */
+    dealt: number;
+    /**
+     * Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.
+     */
+    taken: number;
+  };
 }
 /**
  * Player position and yaw from `EntityPlayerSP`, read once per tick. Pitch is deliberately absent: no mod in §3 uses it.
