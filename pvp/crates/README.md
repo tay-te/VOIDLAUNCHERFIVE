@@ -21,7 +21,7 @@ The Rust side of `schema/mods.json` and `schema/loadout.json`, plus the store.
 
 | Module | What it is |
 |---|---|
-| `mods` | The closed registry of 13 mods: `ModId`, `Kind`, `Category`, `HypixelSafe`, the panel `label`, a typed settings struct per mod, and the factory defaults. `schema/mods.json` is compiled in with `include_str!` and its `examples[0]` *is* the shipped registry — there is no second copy to drift. `Category` (`hud`/`pvp`/`visual`/`utility`) is the Mods-panel filter taxonomy and is deliberately independent of `Kind`: Crosshair is `Gameplay` but `Visual`, Zoom is `Gameplay` but `Utility`. |
+| `mods` | The closed registry of 13 mods: `ModId`, `Kind`, `Category`, `HypixelSafe`, the panel `label`, a typed settings struct per mod, and the factory defaults. `schema/mods.json` is compiled in with `include_str!` and its `examples[0]` *is* the shipped registry — there is no second copy to drift. The **types** around it are generated from the same file; see [Generated code](#generated-code) below. `Category` (`hud`/`pvp`/`visual`/`utility`) is the Mods-panel filter taxonomy and is deliberately independent of `Kind`: Crosshair is `Gameplay` but `Visual`, Zoom is `Gameplay` but `Utility`. |
 | `loadout` | `Loadout`, `ModStates`, `HudItem`/`Anchor` (anchor + `dx`/`dy` + `scale`, never pixels, §8.1), `LoadoutStats`, and `hypixel_ready`. |
 | `settings` | `GlobalSettings` — `protocol.json#/definitions/global_settings`. It lives here because it is persisted as well as sent; unknown keys survive a round trip via `#[serde(flatten)]`, which is the one place the schemas allow extra keys. |
 | `keybind` | `Keybind` and `HexColor`: validating newtypes for the two string formats the schema pins with a regex. |
@@ -32,6 +32,40 @@ The Rust side of `schema/mods.json` and `schema/loadout.json`, plus the store.
 An omitted mod falls back to its registry defaults, which is what keeps an old loadout
 valid when a mod is added. `diff` compares *effective* settings, so "explicitly set to the
 default" and "omitted" are the same thing.
+
+### Generated code
+
+`crates/void-loadout/src/mods/generated.rs` is written by `scripts/gen-rust-mods.mjs` from
+`schema/mods.json`, and **committed**:
+
+```sh
+node schema/build.mjs                  # first: mods.json from schema/mods/<id>.json
+node scripts/gen-rust-mods.mjs         # then: the Rust types from mods.json
+node scripts/gen-rust-mods.mjs --check # the CI gate — exit 1 if the committed file is stale
+```
+
+It holds the mechanical half of the module: `ModId` / `HudModId` / `GameplayModId` with their
+`ALL` arrays and `as_str`, one `#[serde(deny_unknown_fields)]` settings struct per mod, a Rust
+enum per `enum`-typed setting, `ModRegistryEntries`, and the three per-mod dispatches behind
+`Registry::info`, `defaults_json` and `validate_settings`. `mods.rs` next to it is
+hand-written and keeps everything that carries a decision.
+
+Two things to know:
+
+- **Committed, not `build.rs`.** Same reasoning as `schema/mods.json` and
+  `packages/protocol/src/generated/` — the two other generated-and-committed artefacts in
+  this repo — plus one specific to here: a Rust build must not need Node. `cargo test -p
+  void-loadout` works on a clean checkout with no `pnpm install`. The generator's header
+  argues it at length.
+- **Why it is generated at all.** Every settings struct is `deny_unknown_fields`, so a field
+  that is in the schema and *not* in the struct is not a warning — it is a runtime parse
+  failure of the whole compiled-in registry, every mod at once. That is a quiet edit with a
+  loud failure, which is exactly the class `schema/build.mjs` removes one level up.
+
+`tests/settings_surface.rs` is the belt to that braces: it asks serde what each type accepts
+(via the `expected one of …` in its own error messages) and compares it to the schema's
+property and `enum` lists, so the *compiled* types are checked against the contract even if
+someone edits the generated file by hand.
 
 ## `void-bridge`
 
@@ -182,6 +216,7 @@ put its id here. `--offline` needs none of this.
 cargo test --workspace                                  # everything below
 cargo test -p void-core --test network -- --ignored     # the network-dependent ones
 cargo clippy --workspace --all-targets -- -D warnings
+node ../scripts/gen-rust-mods.mjs --check               # the generated types are not stale
 ```
 
 Schema conformance is a test, not a convention: every `examples` entry in
@@ -195,6 +230,9 @@ the registry — the Rust equivalent of `schema/validate.mjs`, which belongs in 
 - [x] Round trip of every `examples` entry in all three schemas; registry ↔ enum cross-checks,
       including that every mod carries a `category` and that `category` is not a restatement
       of `kind`.
+- [x] Every settings struct accepts exactly its sub-schema's properties and every settings
+      enum exactly its schema `enum` values — asked of serde itself, so it holds for the
+      compiled types rather than for the generator's idea of them.
 - [x] The profile cache is written where it is read (the regression above), and several
       loader versions share one version directory.
 - [x] `ModPlatform`: key round-trips, JAR naming, and that an arm64 Mac takes the x64 JAR.
