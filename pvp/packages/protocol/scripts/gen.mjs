@@ -374,6 +374,81 @@ export const GAMEPLAY_MOD_IDS = ${tuple(of('gameplay'))} as const satisfies read
 }
 
 // ---------------------------------------------------------------------------
+// placements.ts — the factory HUD layout, from `mod_entry.default_placement`.
+//
+// This table existed twice, by hand, in two languages: `DEFAULT_HUD` in
+// `packages/ingame/src/store/hud-geometry.ts` and `Loadout.DEFAULT_HUD` in Java, kept level
+// only by a vitest that read the Java *source* and diffed it. `docs/mod-roster.md` §9 names
+// exactly that shape — a test compensating for hand-transcription — as the per-mod tax worth
+// removing, and adding the fourteenth mod meant editing both tables by hand, which is how it
+// got noticed. Both are now generated from the one file a mod is declared in.
+//
+// What the duplication risked is worse than a stale table: if the two disagree, **`Reset
+// layout` stops being an undo and becomes a move**. The client starts in one layout and the
+// button that claims to restore it puts every widget somewhere else, silently, for everyone.
+//
+// Emitted here rather than folded over `MOD_REGISTRY` at runtime for the same reason as
+// `icons.ts`: the literal types. `MOD_REGISTRY` is typed `ModRegistryDocument`, whose entries
+// type `anchor` as the whole nine-member union and `dx`/`dy` as `number`; a table derived from
+// it would too. Written out, each anchor keeps its own literal type, and the
+// `satisfies Record<HUDModId, ...>` below is what makes a HUD mod nobody placed a compile
+// error in the package that owns the drawing.
+//
+// The per-mod `$comment` on each `<id>_entry`'s `default_placement` becomes the row's doc
+// comment — the argument for a number, next to the number. Rows without one get nothing;
+// restating the field's own description nine times is how a generated table stops being read.
+// ---------------------------------------------------------------------------
+{
+  const modsDefs = source.mods.definitions;
+  const placementDoc = modsDefs.hud_placement?.description;
+  if (!placementDoc) throw new Error('mods.json has no hud_placement definition — run schema/build.mjs');
+
+  const wrap = (text, indent) => {
+    const out = [];
+    let line = '';
+    for (const w of String(text).split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${w}` : w;
+      if (line && indent.length + 3 + next.length > 96) {
+        out.push(line);
+        line = w;
+      } else line = next;
+    }
+    if (line) out.push(line);
+    return out.map((l) => `${indent} * ${l}`).join('\n');
+  };
+
+  const rows = [];
+  for (const [id, entry] of Object.entries(registry.mods)) {
+    if (entry.kind !== 'hud') continue;
+    const place = entry.default_placement;
+    if (!place) {
+      throw new Error(`${id} is kind hud with no default_placement — run \`node schema/build.mjs\``);
+    }
+    const note = modsDefs[`${id}_entry`]?.allOf?.[1]?.properties?.default_placement?.$comment;
+    if (note) rows.push(`  /**\n${wrap(note, '  ')}\n   */`);
+    rows.push(
+      `  ${id}: { anchor: '${place.anchor}', dx: ${place.dx}, dy: ${place.dy} },`,
+    );
+  }
+
+  await writeFile(
+    path.join(outDir, 'placements.ts'),
+    `${BANNER}
+import type { HUDAnchor, HUDModId } from './schema.js';
+
+/**
+${wrap(placementDoc, '')}
+ */
+export const DEFAULT_HUD_PLACEMENTS = {
+${rows.join('\n')}
+} as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;
+`,
+    'utf8',
+  );
+  process.stdout.write('generated src/generated/placements.ts\n');
+}
+
+// ---------------------------------------------------------------------------
 // examples.ts — every `examples` entry of every document, for tests and fixtures.
 // ---------------------------------------------------------------------------
 const ex = (doc) => JSON.stringify(source[doc].examples ?? [], null, 2);
@@ -415,6 +490,7 @@ export * from './examples.js';
 export * from './constraints.js';
 export * from './ids.js';
 export * from './icons.js';
+export * from './placements.js';
 `,
   'utf8',
 );

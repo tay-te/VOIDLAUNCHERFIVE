@@ -9,7 +9,7 @@
     "mods"
   ],
   "additionalProperties": false,
-  "registry_version": 5,
+  "registry_version": 6,
   "mods_title": "Mods",
   "mods_description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.",
   "version": {
@@ -105,9 +105,39 @@
       "description": "Whether the mod is enabled. Present in every mod state inside a loadout, and in the registry `defaults` as the factory enabled state.",
       "type": "boolean"
     },
+    "hud_placement": {
+      "$comment": "`properties.anchor.enum` is NOT written here. `schema/build.mjs` copies it from `loadout.json#/definitions/anchor`, which is where the anchor set is defined and where `hud_item` reads it. A second hand-written copy of nine strings is the same duplication this field exists to remove, and a cross-document `$ref` the other way would make `mods.json` depend on `loadout.json` \u2014 the registry is the root, and `loadout.json` refs it, not the reverse.",
+      "title": "Factory HUD placement",
+      "description": "Where this mod's widget sits on a HUD nobody has touched \u2014 the layout of Figma frame 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset layout` restores. Anchor plus `dx`/`dy`, exactly as `loadout.json#/definitions/hud_item`, minus the `id` (it is the entry's own) and the per-item `scale` (a factory layout is always 1). The numbers are in the **overlay's own design-canvas pixels** \u2014 `VoidClient.pumpUi` fits the view to a 1300 x 820 canvas \u2014 because that is the space the page actually lays out in, and they are on a **38-42 px vertical rhythm**, which is what it takes to stack chips that are taller than that without overlapping. They are therefore NOT the tighter offsets in `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`, whose 18-20 px rhythm belongs to hand-authored product loadouts rather than to the factory layout. Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a widget *would* go, not whether it is drawn \u2014 the `on` setting decides that. Required on every `kind: hud` mod and forbidden on every `kind: gameplay` mod; the per-mod `<id>_entry` definitions are where that is enforced, so a HUD mod with no placement, or a gameplay mod with one, is a schema error rather than a silent default.",
+      "type": "object",
+      "required": [
+        "anchor",
+        "dx",
+        "dy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "description": "Screen anchor the offsets are measured from. The anchor names a point on the viewport *and* the matching point on the widget box, which is why `dx` is negative on right-hand anchors and `dy` negative on bottom ones.",
+          "type": "string"
+        },
+        "dx": {
+          "description": "Horizontal offset in design-canvas pixels from the anchor. Positive is right.",
+          "type": "number",
+          "minimum": -4096,
+          "maximum": 4096
+        },
+        "dy": {
+          "description": "Vertical offset in design-canvas pixels from the anchor. Positive is down.",
+          "type": "number",
+          "minimum": -4096,
+          "maximum": 4096
+        }
+      }
+    },
     "mod_entry": {
       "title": "Registry entry",
-      "description": "One row of the \u00a73 table plus its \u00a711 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.",
+      "description": "One row of the \u00a73 table plus its \u00a711 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.",
       "type": "object",
       "required": [
         "id",
@@ -161,6 +191,10 @@
         "defaults": {
           "description": "Factory settings for this mod, used when a loadout omits it. Validates against the mod's own settings sub-schema.",
           "type": "object"
+        },
+        "default_placement": {
+          "description": "Where this mod's widget sits on an untouched HUD. Listed here so `additionalProperties: false` permits it, and left out of `required` because it is per-`kind`: each `<id>_entry` requires it on a HUD mod and forbids it on a gameplay one. A gameplay mod draws nothing and therefore has nowhere to be.",
+          "$ref": "#/definitions/hud_placement"
         }
       }
     }

@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
  *
  * <p>The mod ships no config files (PVP_ARCHITECTURE.md §6.1) and cannot read {@code schema/}
  * at runtime, so the parts of the registry the game actually needs — the id set, the
- * {@code kind} split, the factory defaults and the clamp ranges — have to be in the JAR.
+ * {@code kind} split, the factory defaults, the clamp ranges and the factory HUD layout —
+ * have to be in the JAR.
  * They are checked in rather than produced by the Gradle build because there is no Node on
  * the build path, and a contract that only exists after a build step is not a contract.
  * {@code node scripts/gen-java-registry.mjs --check} is the CI gate that this committed copy
@@ -85,11 +86,36 @@ public final class ModRegistry {
         }
     }
 
+    /**
+     * Where one HUD mod's widget starts, {@code mods.json#/definitions/hud_placement}.
+     *
+     * <p>Anchor plus offsets, never absolute pixels (PVP_ARCHITECTURE.md §8.1). Immutable and
+     * public: {@link Loadout#defaults} copies it straight into a new loadout's {@code hud[]},
+     * and the overlay's {@code Reset layout} restores the same numbers from its own generated
+     * copy of this table.</p>
+     */
+    public static final class Placement {
+        /** Screen anchor the offsets are measured from. */
+        public final String anchor;
+        /** Horizontal offset from the anchor, in the overlay's design-canvas pixels. */
+        public final double dx;
+        /** Vertical offset from the anchor, in the overlay's design-canvas pixels. */
+        public final double dy;
+
+        Placement(String anchor, double dx, double dy) {
+            this.anchor = anchor;
+            this.dx = dx;
+            this.dy = dy;
+        }
+    }
+
     private static final Map<String, Kind> KINDS = new LinkedHashMap<String, Kind>();
     private static final Map<String, Category> CATEGORIES = new LinkedHashMap<String, Category>();
     private static final Map<String, String> LABELS = new LinkedHashMap<String, String>();
     private static final Map<String, Map<String, Setting>> SETTINGS =
             new LinkedHashMap<String, Map<String, Setting>>();
+    private static final Map<String, Placement> PLACEMENTS =
+            new LinkedHashMap<String, Placement>();
 
     private static final Pattern COLOR = Pattern.compile("^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
 
@@ -129,6 +155,10 @@ public final class ModRegistry {
         LABELS.put(id, label);
         SETTINGS.put(id, Collections.unmodifiableMap(map));
         return map;
+    }
+
+    private static void place(String id, String anchor, double dx, double dy) {
+        PLACEMENTS.put(id, new Placement(anchor, dx, dy));
     }
 
     // =================================================================
@@ -474,6 +504,50 @@ public final class ModRegistry {
                 // second number on a chip whose whole job is to be read without reading, and it
                 // is only wanted by players aligning something precisely.
                 "show_degrees", bool(false));
+
+        // --- The factory HUD layout (9) — where each widget starts -----------------------------
+
+        // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
+        // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
+        // layout` restores. Anchor plus `dx`/`dy`, exactly as
+        // `loadout.json#/definitions/hud_item`, minus the `id` (it is the entry's own) and the
+        // per-item `scale` (a factory layout is always 1). The numbers are in the **overlay's own
+        // design-canvas pixels** — `VoidClient.pumpUi` fits the view to a 1300 x 820 canvas —
+        // because that is the space the page actually lays out in, and they are on a **38-42 px
+        // vertical rhythm**, which is what it takes to stack chips that are taller than that
+        // without overlapping. They are therefore NOT the tighter offsets in
+        // `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`,
+        // whose 18-20 px rhythm belongs to hand-authored product loadouts rather than to the
+        // factory layout. Mods that ship off (`coordinates`, `direction`) are placed too: a
+        // placement is where a widget *would* go, not whether it is drawn — the `on` setting
+        // decides that. Required on every `kind: hud` mod and forbidden on every `kind: gameplay`
+        // mod; the per-mod `<id>_entry` definitions are where that is enforced, so a HUD mod with
+        // no placement, or a gameplay mod with one, is a schema error rather than a silent
+        // default.
+        // Anchors: top-left | top | top-right | left | center | right | bottom-left | bottom | bottom-right.
+        // Read by Loadout.defaults(), which seeds a new loadout's hud[] from it.
+        place("fps", "top-left", 23, 23);
+        place("keystrokes", "bottom-left", 31, -109);
+        place("cps", "bottom-left", 175, -108);
+        place("ping", "top-left", 23, 65);
+        place("coordinates", "top-left", 23, 103);
+        place("armor_status", "top-right", -25, 299);
+        place("potion_effects", "top-right", -25, 23);
+
+        // Watermark: The next row of the left column, under Coordinates at 103. **This number is
+        // deliberately not `loadout.json`'s.** The Sword PvP example there places the mark at
+        // `top-left 20,58`, under an fps at `dy 20` and a ping at `dy 38` — an 18-20 px rhythm,
+        // which is a hand-authored product loadout rather than the factory layout. This table's
+        // rhythm is 38-42 px, and 58 here would land the mark on top of the ping chip at 65
+        // rather than under it. Same intent — third in the top-left stack, which is where every
+        // PvP client puts its mark — expressed in the space the page actually lays out in.
+        place("watermark", "top-left", 23, 141);
+
+        // Direction: The next row of the same column, on this table's 38 px rhythm. Under
+        // Coordinates on purpose: it is the mod a player confuses with Coordinates, and stacking
+        // them makes the difference — a position, versus a facing — visible at a glance rather
+        // than argued about.
+        place("direction", "top-left", 23, 179);
     }
 
     // =================================================================
@@ -509,6 +583,24 @@ public final class ModRegistry {
     /** Panel copy for a mod, e.g. {@code FPS display}; {@code null} for an unknown id. */
     public static String label(String id) {
         return LABELS.get(id);
+    }
+
+    /**
+     * The factory HUD layout: every HUD mod's starting placement, in registry order.
+     *
+     * <p>The order is paint order for the {@code hud[]} array {@link Loadout#defaults} builds
+     * from it, so it is the registry's and not a set's.</p>
+     *
+     * <p>Mods that ship off are in here too — a placement is where a widget <em>would</em> go,
+     * not whether it is drawn. {@code on} decides that, in the page, in one place.</p>
+     */
+    public static Map<String, Placement> defaultHud() {
+        return Collections.unmodifiableMap(PLACEMENTS);
+    }
+
+    /** Factory placement of one HUD mod, or {@code null} for a gameplay mod or unknown id. */
+    public static Placement defaultPlacement(String id) {
+        return PLACEMENTS.get(id);
     }
 
     /** Setting keys of a mod, in schema order. */

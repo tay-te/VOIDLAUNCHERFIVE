@@ -3,6 +3,8 @@ package dev.voidpvp.client;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import dev.voidpvp.client.state.HudItem;
+import dev.voidpvp.client.state.Loadout;
 import dev.voidpvp.client.state.ModRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -313,6 +315,69 @@ class ModRegistryTest {
         for (JsonElement id : definitions.getAsJsonObject("mod_id").getAsJsonArray("enum")) {
             assertTrue(ModRegistry.isMod(id.getAsString()), id + " should be a known mod");
         }
+    }
+
+    @Test
+    @DisplayName("the factory HUD layout is the schema's, and places every HUD mod exactly once")
+    void defaultHudMatchesTheSchema() {
+        // `default_placement` on each `kind: hud` entry, which used to be a `DEFAULT_HUD` array
+        // in `Loadout` transcribed from the overlay's own table and kept level with it by a
+        // vitest that read this repo's Java source. Both tables are generated from the schema
+        // now; what is left to go wrong is staleness, and staleness here is expensive: if the
+        // JAR's layout and the page's disagree, the HUD editor's `Reset layout` stops being an
+        // undo and becomes a move — the client starts in one layout and the button that claims
+        // to restore it silently puts every widget somewhere else.
+        //
+        // Walks every mod rather than the nine that are placed: the presence rule is per-`kind`
+        // and is what makes `Loadout.defaults` able to seed a complete HUD.
+        Map<String, ModRegistry.Placement> ours = ModRegistry.defaultHud();
+        List<String> placed = new ArrayList<String>();
+        for (Map.Entry<String, JsonElement> e : registry().entrySet()) {
+            String id = e.getKey();
+            JsonObject row = e.getValue().getAsJsonObject();
+            boolean hud = ModRegistry.isHud(id);
+            assertEquals(hud, row.has("default_placement"),
+                    hud ? id + " is a HUD mod with no default_placement in mods.json"
+                            : id + " is a gameplay mod and draws nothing, so it cannot be placed");
+            assertEquals(hud, ours.containsKey(id),
+                    hud ? id + " is missing from the generated placement table"
+                            : id + " should not be placed");
+            if (!hud) {
+                continue;
+            }
+            placed.add(id);
+            JsonObject want = row.getAsJsonObject("default_placement");
+            ModRegistry.Placement got = ours.get(id);
+            assertEquals(want.get("anchor").getAsString(), got.anchor, id + " anchor");
+            assertEquals(want.get("dx").getAsDouble(), got.dx, 1e-9, id + " dx");
+            assertEquals(want.get("dy").getAsDouble(), got.dy, 1e-9, id + " dy");
+            assertTrue(HudItem.ANCHORS.contains(got.anchor),
+                    id + " is anchored to " + got.anchor + ", which loadout.json does not define");
+        }
+        // Order too: it is the paint order of the `hud[]` array `Loadout.defaults` builds, and
+        // the registry's order is a stated decision rather than whatever a map iterated.
+        assertEquals(placed, new ArrayList<String>(ours.keySet()),
+                "the placement table is not in registry order");
+    }
+
+    @Test
+    @DisplayName("a fresh loadout is seeded from that layout, so a launcher-less client draws")
+    void factoryLoadoutUsesTheGeneratedPlacements() {
+        // The consumer, checked end to end. `Loadout.defaults` is what a client started without
+        // `-Dvoid.port` runs on — every dev client — and the page's `HudEntry` draws a widget
+        // only when its mod is on *and* the loadout places it, so a seeding bug reads as "the
+        // HUD mods don't do anything" rather than as an error.
+        Loadout factory = Loadout.defaults("default", "Default");
+        for (Map.Entry<String, ModRegistry.Placement> e : ModRegistry.defaultHud().entrySet()) {
+            HudItem item = factory.hudItem(e.getKey());
+            assertNotNull(item, e.getKey() + " is not placed in the factory loadout");
+            assertEquals(e.getValue().anchor, item.anchor, e.getKey() + " anchor");
+            assertEquals(e.getValue().dx, item.dx, 1e-9, e.getKey() + " dx");
+            assertEquals(e.getValue().dy, item.dy, 1e-9, e.getKey() + " dy");
+            assertEquals(1.0, item.scale, 1e-9, e.getKey() + " ships at scale 1");
+        }
+        assertEquals(ModRegistry.defaultHud().size(), factory.hud().size(),
+                "the factory loadout places exactly the HUD mods and nothing else");
     }
 
     @Test

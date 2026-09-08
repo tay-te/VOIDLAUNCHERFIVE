@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 5,
+    "version": 6,
     "mods": {
       "fps": {
         "id": "fps",
@@ -35,6 +35,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "color": "#FFFFFF",
           "show_label": true,
           "show_low": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 23
         }
       },
       "keystrokes": {
@@ -61,6 +66,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "corner_radius": 8,
           "key_color": "shell",
           "pressed_color": "accent"
+        },
+        "default_placement": {
+          "anchor": "bottom-left",
+          "dx": 31,
+          "dy": -109
         }
       },
       "cps": {
@@ -82,6 +92,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "mode": "left",
           "show_label": true,
           "window_ms": 1000
+        },
+        "default_placement": {
+          "anchor": "bottom-left",
+          "dx": 175,
+          "dy": -108
         }
       },
       "ping": {
@@ -104,6 +119,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "good_ms": 60,
           "bad_ms": 150,
           "show_host": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 65
         }
       },
       "coordinates": {
@@ -125,6 +145,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "decimals": 1,
           "show_direction": true,
           "layout": "inline"
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 103
         }
       },
       "armor_status": {
@@ -147,6 +172,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_durability": true,
           "show_held_item": true,
           "warn_below": 0.5
+        },
+        "default_placement": {
+          "anchor": "top-right",
+          "dx": -25,
+          "dy": 299
         }
       },
       "potion_effects": {
@@ -168,6 +198,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_duration": true,
           "show_amplifier": true,
           "hide_ambient": false
+        },
+        "default_placement": {
+          "anchor": "top-right",
+          "dx": -25,
+          "dy": 23
         }
       },
       "watermark": {
@@ -187,6 +222,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "border": false,
           "padding": "normal",
           "style": "full"
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 141
         }
       },
       "toggle_sprint": {
@@ -290,6 +330,11 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "padding": "normal",
           "style": "letter",
           "show_degrees": false
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 179
         }
       }
     }

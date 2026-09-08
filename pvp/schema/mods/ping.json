@@ -13,6 +13,11 @@
   "settings_description": "Settings for the Ping display HUD mod. Reads the player's own `NetworkPlayerInfo.responseTime`.",
   "source": "own NetworkPlayerInfo.responseTime",
   "enabled": true,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 65
+  },
   "defaults": {
     "show_label": true,
     "good_ms": 60,

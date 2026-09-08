@@ -13,6 +13,11 @@
   "settings_description": "Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.",
   "source": "EntityPlayerSP pos/yaw",
   "enabled": false,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 103
+  },
   "defaults": {
     "decimals": 1,
     "show_direction": true,

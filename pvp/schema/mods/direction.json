@@ -13,6 +13,12 @@
   "settings_description": "Settings for the Direction HUD mod. Reads the same `pos.yaw` the tick sensor already sends for Coordinates, so it needs no sensor of its own — which is the whole reason it is cheap to ship. `coordinates.show_direction` is deliberately kept: that is the inline form, a suffix on the coordinate rows, and this is the standalone one a player places on its own and reads at a glance. Both are wanted, they are not duplicates of each other, and neither reads the other's settings.",
   "source": "`pos.yaw` on the `tick` payload; no new sensor",
   "enabled": false,
+  "default_placement": {
+    "note": "The next row of the same column, on this table's 38 px rhythm. Under Coordinates on purpose: it is the mod a player confuses with Coordinates, and stacking them makes the difference — a position, versus a facing — visible at a glance rather than argued about.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 179
+  },
   "defaults": {
     "style": "letter",
     "show_degrees": false

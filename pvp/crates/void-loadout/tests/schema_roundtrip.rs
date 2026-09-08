@@ -110,3 +110,33 @@ fn omitted_mods_fall_back_to_the_registry() {
     assert!(bedwars.mods.is_on(ModId::Fps));
     assert_eq!(bedwars.mods.effective(ModId::Fps)["show_label"], Value::Bool(true));
 }
+
+/// `default_placement` is per-`kind`, and the whole domain is walked rather than the nine
+/// rows anyone thought to write down.
+///
+/// It matters here twice over. `ModEntry` is `deny_unknown_fields`, so a field the schema has
+/// and the struct does not is a parse failure of the *entire* registry — that is what the
+/// round-trip test above catches. What this one adds is the other direction: the field is
+/// `Option`, because one entry struct serves both kinds, so a HUD mod whose placement went
+/// missing would deserialize perfectly and simply have nowhere to be. The schema forbids that
+/// (each `<id>_entry` `required`s it on a HUD mod and `not`s it on a gameplay one); this
+/// asserts the compiled-in registry really satisfies it, which is what makes
+/// `Registry::default_placement` total over `HudModId`.
+#[test]
+fn every_hud_mod_is_placed_and_no_gameplay_mod_is() {
+    let doc: Value = serde_json::from_str(MODS_SCHEMA).expect("schema parses");
+    for id in ModId::ALL {
+        let placed = doc["examples"][0]["mods"][id.as_str()].get("default_placement").is_some();
+        assert_eq!(
+            placed,
+            id.kind() == void_loadout::Kind::Hud,
+            "{id}: default_placement must be present iff the mod is kind hud",
+        );
+    }
+    // Total over the narrowed enum: this is the call site that would panic if it were not.
+    let registry = void_loadout::mods::registry();
+    for id in HudModId::ALL {
+        let place = registry.default_placement(id);
+        assert!(place.dx.abs() <= 4096.0 && place.dy.abs() <= 4096.0, "{id} is off-screen");
+    }
+}

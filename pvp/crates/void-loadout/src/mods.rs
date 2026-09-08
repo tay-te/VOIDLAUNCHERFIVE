@@ -176,6 +176,22 @@ pub struct ModEntry<S> {
     pub source: String,
     /// Factory settings, used when a loadout omits this mod.
     pub defaults: S,
+    /// Where this mod's widget starts on a HUD nobody has touched, for a `kind: hud` mod.
+    ///
+    /// `Option` because one entry struct serves both kinds and a gameplay mod draws nothing,
+    /// so it has nowhere to be. The two halves of that are enforced by the schema rather than
+    /// by this type — each `<id>_entry` `required`s the field on a HUD mod and forbids it on a
+    /// gameplay one — so `None` here means gameplay and never "a HUD mod nobody placed".
+    /// [`Registry::default_placement`] is the total accessor over [`HudModId`], and it is what
+    /// callers should use.
+    ///
+    /// Not read by the launcher: Rust seeds its three shipped loadouts from `defaults.rs`,
+    /// which are hand-authored product layouts rather than the factory one. The field exists
+    /// because `ModEntry` is `deny_unknown_fields` and the registry now carries it, and
+    /// because this is the one place the layout is written down for the two halves that do
+    /// draw it — `ModRegistry.java`'s generated table and `@void/protocol`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_placement: Option<HudPlacement>,
 }
 
 impl<S> ModEntry<S> {

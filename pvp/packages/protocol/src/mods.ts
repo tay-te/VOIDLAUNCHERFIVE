@@ -8,6 +8,7 @@
 
 import { MOD_REGISTRY_DOCUMENT } from './generated/registry.js';
 import type {
+  FactoryHUDPlacement,
   GameplayModId,
   HUDModId,
   HypixelSafetyClass,
@@ -49,6 +50,16 @@ export interface ModEntry<I extends ModId = ModId> {
   readonly source: string;
   /** Factory settings, used when a loadout omits this mod. */
   readonly defaults: ModSettingsFor<I>;
+  /**
+   * Where this mod's widget starts on an untouched HUD, for a `kind: hud` mod.
+   *
+   * Optional here because one row type serves both kinds and a gameplay mod draws nothing, so
+   * it has nowhere to be. The schema is stricter than this type can be — each `<id>_entry`
+   * `required`s the field on a HUD mod and forbids it on a gameplay one — so `undefined` means
+   * gameplay and never "a HUD mod nobody placed". Prefer `DEFAULT_HUD_PLACEMENTS`, which is
+   * that guarantee expressed as a total `Record<HUDModId, …>` with the literal types intact.
+   */
+  readonly default_placement?: FactoryHUDPlacement;
 }
 
 /** The whole registry, keyed by mod id. */

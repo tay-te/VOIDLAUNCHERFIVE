@@ -16,45 +16,39 @@
  */
 
 import type { CSSProperties } from 'react';
-import type { HUDAnchor, HUDModId } from '@/bridge/protocol';
+import { DEFAULT_HUD_PLACEMENTS, type HUDAnchor, type HUDModId } from '@/bridge/protocol';
 
 export type Axis = 'start' | 'center' | 'end';
 
 /**
  * The factory HUD layout, matching the placements drawn on frame `244:1722`.
  *
- * **There is a second copy of this table, in Java** — `Loadout.DEFAULT_HUD`, which seeds a new
- * loadout. They must agree entry for entry, because `Reset layout` has to put every chip back
- * where the client started and a second table that disagreed would make reset a *move* rather
- * than an undo. `test/hud-defaults.test.ts` reads the Java file and fails naming any row that
- * has drifted, which is the only thing that keeps two hand-maintained tables in step.
+ * **Generated, not written here.** The numbers are `default_placement` on each `kind: hud`
+ * entry of `schema/mods.json`, and `@void/protocol`'s `DEFAULT_HUD_PLACEMENTS` is the table
+ * emitted from them; the reasoning for a number — the 38-42 px rhythm this column is on, and
+ * why the watermark's `dy` is not `loadout.json`'s — travels with it, as the doc comments on
+ * that generated file. `mod/.../ModRegistry.java` gets the same table from the same field, and
+ * `Loadout.defaults` seeds a new loadout from it.
  *
- * It lives here rather than in `HudEditorScreen` because two other things need it and neither
- * should have to import a screen for data: `HudLayer` uses it as the placement of last resort
- * for a mod that is on but has no `hud[]` entry (rendering-invariants §15 — an absence is the
- * one failure mode that survives being looked at), and the test above reads it.
+ * It used to be written out twice, once here and once in Java, kept level by a test that read
+ * the Java *source* and diffed it. That is what `docs/mod-roster.md` §9 calls a test
+ * compensating for hand-transcription, and the stake is higher than staleness: if the two
+ * disagree, **`Reset layout` stops being an undo and becomes a move** — the client starts in
+ * one layout and the button that claims to restore it silently puts every chip somewhere else.
+ * `test/hud-defaults.test.ts` still runs, and now checks this table against the schema and
+ * against the committed Java rather than one hand table against another.
  *
- * Mods that ship off (`coordinates`) are placed too: a placement is where a widget *would* go,
- * not whether it is drawn.
+ * Re-exported from here rather than imported directly by its consumers because this module is
+ * where HUD *geometry* lives, and a placement is the input to every function below it:
+ * `HudLayer` uses it as the placement of last resort for a mod that is on but has no `hud[]`
+ * entry (rendering-invariants §15 — an absence is the one failure mode that survives being
+ * looked at), the editor's `Reset layout` writes it, and `store.ts` reads it per mod.
+ *
+ * Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a widget
+ * *would* go, not whether it is drawn.
  */
-export const DEFAULT_HUD: Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }> = {
-  fps: { anchor: 'top-left', dx: 23, dy: 23 },
-  ping: { anchor: 'top-left', dx: 23, dy: 65 },
-  coordinates: { anchor: 'top-left', dx: 23, dy: 103 },
-  // Next row of the left column, after coordinates at 103. `loadout.json`'s own factory layout
-  // says `top-left 20,58`, on an 18-20px rhythm; this table's rhythm is 38-42, so 58 here would
-  // land the mark on top of the ping chip at 65 rather than under it. Same intent — third in the
-  // top-left stack — expressed in the space the page actually lays out in.
-  watermark: { anchor: 'top-left', dx: 23, dy: 141 },
-  // Next row of the same column, on this table's 38 px rhythm. Under Coordinates on purpose:
-  // it is the mod a player confuses with Coordinates, and stacking them makes the difference
-  // — a position, versus a facing — visible at a glance rather than argued about.
-  direction: { anchor: 'top-left', dx: 23, dy: 179 },
-  potion_effects: { anchor: 'top-right', dx: -25, dy: 23 },
-  armor_status: { anchor: 'top-right', dx: -25, dy: 299 },
-  keystrokes: { anchor: 'bottom-left', dx: 31, dy: -109 },
-  cps: { anchor: 'bottom-left', dx: 175, dy: -108 },
-};
+export const DEFAULT_HUD: Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }> =
+  DEFAULT_HUD_PLACEMENTS;
 
 /** Decompose an anchor into its horizontal and vertical halves. */
 export function anchorAxes(anchor: HUDAnchor): { x: Axis; y: Axis } {

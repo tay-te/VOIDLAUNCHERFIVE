@@ -13,6 +13,12 @@
   "settings_description": "Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` \u00a71 reserves colour for a live value or a selected item, and a watermark is neither.",
   "source": "drawn by the overlay; no game field",
   "enabled": true,
+  "default_placement": {
+    "note": "The next row of the left column, under Coordinates at 103. **This number is deliberately not `loadout.json`'s.** The Sword PvP example there places the mark at `top-left 20,58`, under an fps at `dy 20` and a ping at `dy 38` — an 18-20 px rhythm, which is a hand-authored product loadout rather than the factory layout. This table's rhythm is 38-42 px, and 58 here would land the mark on top of the ping chip at 65 rather than under it. Same intent — third in the top-left stack, which is where every PvP client puts its mark — expressed in the space the page actually lays out in.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 141
+  },
   "defaults": {
     "style": "full"
   },
