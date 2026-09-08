@@ -53,7 +53,7 @@ export const ICON_NAMES = [
   'flask',
   'wifi',
   'compass',
-  'footprints',
+  'bolt',
   'cube',
   'sparkle',
   'watermark',
@@ -121,10 +121,13 @@ const PATHS: Record<IconName, string[]> = {
   flask: ['M9 3h6', 'M10 3v6L4.5 18A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3', 'M7 15h10'],
   wifi: ['M5 12.5a10 10 0 0 1 14 0', 'M8.5 16a5 5 0 0 1 7 0', 'M12 19.5h.01', 'M1.5 9a15 15 0 0 1 21 0'],
   compass: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5Z'],
-  footprints: [
-    'M5 16c0-2 .8-3 .8-4.5C5.8 9.6 5 9 5 7a2 2 0 0 1 4 0c0 2-.8 2.6-.8 4.5C8.2 13 9 14 9 16a2 2 0 0 1-4 0Z',
-    'M15 20c0-2 .8-3 .8-4.5 0-1.9-.8-2.5-.8-4.5a2 2 0 0 1 4 0c0 2-.8 2.6-.8 4.5 0 1.5.8 2.5.8 4.5a2 2 0 0 1-4 0Z',
-  ],
+  // Not Lucide's `footprints`, which this was. Two soles are four marks in 24 units and none
+  // of them can clear its neighbour at the sizes this set is drawn: the in-game sprite
+  // measured them closing into hollow rings with dots over them at 16px, which is why that
+  // sheet had been drawing a double chevron under the name `footprints` for months. The name
+  // and the drawing agree again — see `MOD_ICONS.toggle_sprint` and
+  // `ingame/scripts/build-icons.py`.
+  bolt: ['M14.8 2.8 6.2 13.2h5.2L9.2 21.2 17.8 10.8h-5.2L14.8 2.8Z'],
   cube: ['M21 8 12 3 3 8v8l9 5 9-5V8Z', 'M3 8l9 5 9-5'],
   sparkle: ['M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5 10.2 7.7 12 3Z', 'M18.5 16l.9 2.2 2.1.8-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.8.9-2.2Z'],
   // Not a Lucide glyph. A mark placed in the corner of a screen, which is what the watermark
@@ -201,7 +204,7 @@ export const MOD_ICONS = {
   coordinates: 'compass',
   armor_status: 'shield',
   potion_effects: 'flask',
-  toggle_sprint: 'footprints',
+  toggle_sprint: 'bolt',
   fullbright: 'sun',
   hitboxes: 'cube',
   zoom: 'zoom',

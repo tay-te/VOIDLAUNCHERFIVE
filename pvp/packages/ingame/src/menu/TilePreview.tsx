@@ -31,8 +31,13 @@
  *    is suppressed while the menu is up (store.ts, `applyTick`), so these are the
  *    last live values and they do not repaint behind the panel.
  *
- * Everything textural is {@link CellArt} — a bitmap of §3 cells. See `cell-art.tsx`
- * for why that rather than an icon font or an inline SVG.
+ * Everything textural is §3's cell — a square at a 30% radius. Nothing here is a bitmap of
+ * them any more: the last three, `SUN` / `BOX` / `SPRINT`, were 7 x 7 pixel-art glyphs with
+ * `BRIGHT`, `HITBOX` and `SPRINT` captioned underneath, and they are the mod page's own
+ * diagrams now (`gameplay-previews.tsx`, `dense`). Armour's four arches and the potion swatch
+ * went the same way, to the shapes the widgets themselves draw. See `cell-art.tsx` for why the
+ * primitive is cells at all rather than an icon font or an inline SVG — that argument still
+ * holds; what changed is that a tile is no longer drawn *as a bitmap*.
  */
 
 import { type ModId } from '@/bridge/protocol';
@@ -40,28 +45,19 @@ import { Crosshair, asCrosshairStyle } from '@/ui';
 import { SETTING_RANGES } from '@/registry';
 import { useModSettings, useVoidStore } from '@/store/store';
 import { potionMeta } from '@/hud/format';
+import { cx } from '@/ui';
 import { fakeArtSource } from '@/dev/fake-mods';
 import { Watermark } from '@/hud/watermark';
-import { CellArt } from './cell-art';
+import {
+  FullbrightPreview,
+  HitboxPreview,
+  SprintPreview,
+  ZoomPreview,
+} from './gameplay-previews';
 
 /* -------------------------------------------------------------------------- */
 /* Glyphs                                                                     */
 /* -------------------------------------------------------------------------- */
-
-/** Fullbright: a lit block throwing rays. */
-const SUN = ['...#...', '.#...#.', '..###..', '#.###.#', '..###..', '.#...#.', '...#...'];
-
-/** Hitboxes: the bounding box, drawn as its own outline. */
-const BOX = ['#######', '#.....#', '#.....#', '#.....#', '#.....#', '#.....#', '#######'];
-
-/** Toggle sprint: a held arrow with its speed lines behind it. */
-const SPRINT = ['...#...', '...##..', '##.###.', '##.####', '##.###.', '...##..', '...#...'];
-
-/** One armour piece — four of these are the Armor status preview. */
-const ARMOUR = ['.###.', '#...#', '#...#', '#...#'];
-
-/** A potion effect's swatch, the 3 × 3 cell the frame puts before the name. */
-const PIP = ['##.', '.##', '##.'];
 
 /* -------------------------------------------------------------------------- */
 /* Pieces                                                                     */
@@ -88,23 +84,6 @@ function Readout({ value, unit }: { value: string; unit: string }): React.ReactE
   );
 }
 
-function Glyph({
-  rows,
-  caption,
-  scale,
-}: {
-  rows: readonly string[];
-  caption: string;
-  scale: number;
-}): React.ReactElement {
-  return (
-    <span className="tart tart--stack">
-      <CellArt rows={rows} size={cells(9, scale)} />
-      <span className="tart__unit tart__unit--wide">{caption}</span>
-    </span>
-  );
-}
-
 /** A static keycap block. Deliberately not the live HUD widget: a pressed key is
  *  drawn in `--hue`, and §1 keeps the accent off preview art. */
 function Keycaps(): React.ReactElement {
@@ -126,19 +105,47 @@ function Keycaps(): React.ReactElement {
   );
 }
 
-function Armour({ scale }: { scale: number }): React.ReactElement {
+/**
+ * Four armour slots, each a swatch over its durability.
+ *
+ * WAS a 5 x 4 bitmap of an arch per slot with a 5 x 1 rule under it — pixel art of a helmet,
+ * which at 7px cells came out as four blocky grey blobs and was, once the three world mods
+ * stopped being bitmaps, the crudest thing on the grid.
+ *
+ * This is the widget's own structure instead: `ArmorList` draws a swatch, a label and a
+ * durability bar per row, and the two of those three that survive at 145px are the swatch and
+ * the bar. The swatch is §3's cell, which is what `v-armorlist__icon` is; the bar is the same
+ * two fill steps the meter uses.
+ *
+ * **And it is live.** The old art counted how many slots were occupied and nothing else, so a
+ * player one hit from losing a chestplate saw exactly what a player in fresh diamond saw. The
+ * bar is `1 - damage / max_damage` off the real payload — the same fraction `ArmorList`
+ * fills — so the tile carries the reading the HUD does. Monochrome: `armor_status.warn_below`
+ * turns the HUD's bar amber over the game world, and §1 keeps that off the menu's own surface.
+ */
+function Armour(): React.ReactElement {
   const armor = useVoidStore((s) => s.armor);
-  // Four pieces whatever the payload says: the preview is the *shape* of the
-  // widget, and a row that changes length as gear breaks would make the grid jump.
-  const worn = Math.max(1, Math.min(4, armor.filter((slot) => slot.item !== null).length || 4));
+  // The four worn slots, in the order the widget lists them. `held` is a fifth row on the HUD
+  // and is left off here: four columns is what 123px holds, and armour is what the mod is
+  // named for. Always four, even with nothing equipped — a row that changed length as gear
+  // broke would make the tile's art jump inside a grid that never moves.
+  const slots = ['helmet', 'chestplate', 'leggings', 'boots'] as const;
   return (
     <span className="tart tart--armour">
-      {[0, 1, 2, 3].map((i) => (
-        <span className="tart__piece" key={i}>
-          <CellArt rows={ARMOUR} size={cells(7, scale)} tone={i < worn ? 'on' : 'dim'} />
-          <CellArt rows={['#####']} size={cells(3, scale)} tone={i < worn ? 'dim' : 'off'} />
-        </span>
-      ))}
+      {slots.map((slot) => {
+        const worn = armor.find((piece) => piece.slot === slot && piece.item !== null) ?? null;
+        const max = worn?.max_damage ?? 0;
+        // `damage` counts wear *up* from 0, so what is left is the complement.
+        const left = worn && max > 0 ? Math.max(0, Math.min(1, 1 - (worn.damage ?? 0) / max)) : 0;
+        return (
+          <span className="tart__piece" key={slot}>
+            <span className={cx('tart__slot', worn === null && 'tart__slot--empty')} />
+            <span className="tart__wear">
+              <span className="tart__wearfill" style={{ width: `${(left * 100).toFixed(1)}%` }} />
+            </span>
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -149,7 +156,7 @@ const FALLBACK_FX: Array<[string, string]> = [
   ['Strength', '0:42'],
 ];
 
-function Potions({ scale }: { scale: number }): React.ReactElement {
+function Potions(): React.ReactElement {
   const fx = useVoidStore((s) => s.fx);
   const rows: Array<[string, string]> =
     fx.length > 0
@@ -163,7 +170,10 @@ function Potions({ scale }: { scale: number }): React.ReactElement {
     <span className="tart tart--rows">
       {rows.map(([label, time]) => (
         <span className="tart__line" key={label}>
-          <CellArt rows={PIP} size={cells(4, scale)} tone="dim" />
+          {/* `PotionList` puts a swatch before the name and so does this — one §3 cell, not the
+              3 x 3 checkerboard bitmap it was, which at 4px read as grit. Monochrome: the
+              effect's own colour is the HUD's, over the game world (§1). */}
+          <span className="tart__pip" />
           <span className="tart__lname">{label}</span>
           <span className="tart__ltime tnum">{time}</span>
         </span>
@@ -187,22 +197,6 @@ function Coords(): React.ReactElement {
           <span className="tart__value tnum">{value}</span>
         </span>
       ))}
-    </span>
-  );
-}
-
-/** Zoom: the field-of-view brackets with the divisor in the middle. */
-function Zoom({ id }: { id: ModId }): React.ReactElement {
-  const settings = useModSettings(id);
-  const range = SETTING_RANGES.fov_divisor;
-  const divisor = Number(settings.fov_divisor ?? range?.min ?? 2);
-  return (
-    <span className="tart tart--frame">
-      <span className="tart__corner tart__corner--tl" />
-      <span className="tart__corner tart__corner--tr" />
-      <span className="tart__corner tart__corner--bl" />
-      <span className="tart__corner tart__corner--br" />
-      <span className="tart__big tnum">{divisor.toFixed(1)}×</span>
     </span>
   );
 }
@@ -250,13 +244,22 @@ export function TilePreview({ id, scale = 1 }: TilePreviewProps): React.ReactEle
     case 'keystrokes':
       return <Keycaps />;
     case 'armor_status':
-      return <Armour scale={scale} />;
+      return <Armour />;
     case 'potion_effects':
-      return <Potions scale={scale} />;
+      return <Potions />;
     case 'coordinates':
       return <Coords />;
+    // The four world mods. Same components the mod page draws, at tile density — see
+    // `gameplay-previews.tsx`, "One drawing, two densities", for why the grid stopped having
+    // art of its own for them.
     case 'zoom':
-      return <Zoom id={id} />;
+      return <ZoomPreview dense className="tart" />;
+    case 'fullbright':
+      return <FullbrightPreview dense className="tart" />;
+    case 'hitboxes':
+      return <HitboxPreview dense className="tart" />;
+    case 'toggle_sprint':
+      return <SprintPreview dense className="tart" />;
     // The second preview that is the real widget rather than a picture of one, and for the same
     // reason as the watermark: the crosshair is small enough that the real thing fits, and its
     // whole identity is a shape the settings change. It used to be a fixed 7 x 7 bitmap of a
@@ -280,12 +283,6 @@ export function TilePreview({ id, scale = 1 }: TilePreviewProps): React.ReactEle
           />
         </span>
       );
-    case 'fullbright':
-      return <Glyph rows={SUN} caption="BRIGHT" scale={scale} />;
-    case 'hitboxes':
-      return <Glyph rows={BOX} caption="HITBOX" scale={scale} />;
-    case 'toggle_sprint':
-      return <Glyph rows={SPRINT} caption="SPRINT" scale={scale} />;
     // The one preview that is literally the widget. Every other case here is a *picture* of what
     // the mod draws, redrawn at tile size; the watermark is small enough that the real thing
     // fits, and drawing an impression of a mark instead of the mark would be absurd. It reads

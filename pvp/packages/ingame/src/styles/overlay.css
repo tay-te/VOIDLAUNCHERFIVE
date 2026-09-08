@@ -608,6 +608,15 @@ body {
   background-size: var(--icon-sheet-w) 16px;
 }
 
+/* An `IconName` with no cell. `icons.tsx` promises "a transparent box of the right size" and
+   the class it sets had no rule, so the box inherited `.oicon`'s sheet at offset 0 and drew
+   **`search`** — a plausible-looking wrong icon, which is the one failure worse than a gap
+   (§15, `design/rendering-invariants.md`). Unreachable while `SPRITE` is total, which is what
+   `test/registry.test.tsx` exists to keep true; this is the guard for the moment it is not. */
+.oicon--unmapped {
+  background-image: none;
+}
+
 /* `@void/ui`'s icon well, wherever the overlay uses one — the quick palette's results, the
    party screen. It sets `color: var(--text-secondary)` and, when selected,
    `color: var(--accent-ink)`; both were reaching the glyph through `currentColor` on an inline
@@ -1326,9 +1335,15 @@ body {
   width: 30px;
 }
 
-/* Four armour pieces with their durability rule under each. */
+/* Four armour slots: a swatch over its durability, which is the two parts of an `ArmorList`
+   row that survive at 145px. Four 18px columns on a 12px gap is 108, inside the 123 the
+   narrowest tile the grid can solve leaves (`ModsScreen.GEOMETRY`).
+
+   This replaces a 5 x 4 pixel-art arch per slot. The bitmap primitive is still right for a
+   *mark* — see `cell-art.tsx` — but a widget with structure is better drawn as that structure,
+   and this one has exactly two pieces of it. */
 .tart--armour {
-  gap: 8px;
+  gap: 10px;
   align-items: flex-end;
 }
 
@@ -1336,7 +1351,53 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+}
+
+/* The swatch. §3's cell at the fill step a worn piece takes; an empty slot drops to the
+   `off` step rather than disappearing, so the row is always four wide and the tile's art
+   never changes size as gear breaks. */
+.tart__slot {
+  width: 20px;
+  height: 20px;
+  border-radius: 30%;
+  background: var(--cell-on);
+}
+
+.tart__slot--empty {
+  background: var(--cell-off);
+}
+
+/* Durability, at the meter's own two steps. Monochrome — `warn_below` turns the HUD's bar
+   amber over the game world, and §1 keeps colour off the menu's own surface (the tile
+   included), exactly as the crosshair tile does not draw `crosshair.color`. */
+.tart__wear {
+  position: relative;
+  width: 20px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--cell-off);
+  overflow: hidden;
+}
+
+/* Brighter than the swatch above it, and deliberately: the mod is Armor *status*, so the
+   reading is the subject and the slot it belongs to is the label. `--text-primary` at .62 is
+   one step above `--cell-on`, which is what makes four part-full bars read as four different
+   numbers from across the panel rather than as a rule under each square. */
+.tart__wearfill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: rgba(237, 238, 239, 0.62);
+}
+
+/* A potion effect's swatch: one cell, where `PotionList` puts the effect's colour. */
+.tart__pip {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 30%;
+  background: var(--cell-dim);
 }
 
 /* Potion rows and coordinate rows: a label column and a value column. */
@@ -2725,6 +2786,90 @@ body {
   top: 10%;
   left: 100%;
   width: 62px;
+}
+
+/* ------------------------------------------------- the diagrams at tile density
+
+   The same four components draw the grid's tiles for the four world mods (`dense`), because the
+   grid used to have art of its own for them — a 7 x 7 bitmap of a sun, a square and an arrow,
+   captioned `BRIGHT`, `HITBOX` and `SPRINT` — and a tile and a page showing different pictures
+   of the same mod is drift by construction.
+
+   **Everything here is a size.** No rule in this block adds, removes or recolours anything the
+   page does not have; the two densities differ in what the TSX omits (labels, the reading, the
+   zoom keycap) and in the numbers below, and in nothing else. That is the property that keeps
+   them from diverging again.
+
+   The well is `--tile-w - 20`, which the grid solves per mod count: 145px at seven columns,
+   and as little as 123 at eight (`ModsScreen.GEOMETRY`). Every width here fits **123**, not 145
+   — the art does not scale with the tile, so it has to fit the narrowest tile the grid can
+   produce or it will clip the day a mod is added. Seven 14px cells on a 3px gap is 116. */
+.gprev--tile {
+  gap: 9px;
+  width: auto;
+  max-width: none;
+}
+
+.gprev--tile .gprev__row {
+  gap: 0;
+  width: auto;
+}
+
+.gprev--tile .gprev__cells {
+  gap: 3px;
+}
+
+.gprev--tile .gprev__cell {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+
+/* Zoom. 118 x 68 is the box the bracket art it replaces occupied, so the tile's optical weight
+   is unchanged — what changed is that the frame inside it is now the real `zoomFraction`, and
+   the ghost steps behind it are the real `smooth`. The old brackets drew the same four corners
+   at every divisor. */
+.gprev--tile.gprev--zoom {
+  gap: 9px;
+}
+
+.gprev--tile .gprev__fov {
+  width: 118px;
+  height: 70px;
+  border-radius: 6px;
+}
+
+.gprev--tile .gprev__fovinner {
+  border-width: 1px;
+  border-radius: 2px;
+}
+
+/* The divisor, under the frame rather than inside it — see `ZoomPreview`. It is the same object
+   as the `FPS` / `MS` / `CPS` line under a readout: a value beneath the picture it belongs to,
+   which is a shape this grid already has. Not `.tart__unit`, because that tier is 9px caps for a
+   *unit*, and `4.0x` is the reading itself. */
+.gprev--tile .gprev__fovunder {
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+/* Hitboxes. 40 x 120 keeps 0.6 : 1.8 exactly, and 120 of the well's 145 is a mark that fills
+   its tile the way the keycap cluster does — the square-bitmap-plus-caption it replaces was
+   63px in a 145px well and read as a placeholder because it was one. */
+.gprev--tile.gprev--hitbox {
+  gap: 0;
+}
+
+.gprev--tile .gprev__box {
+  width: 40px;
+  height: 120px;
+}
+
+.gprev--tile .gprev__eye {
+  width: 22px;
 }
 
 /* The crosshair's plate — which is the screen, and is drawn as one.

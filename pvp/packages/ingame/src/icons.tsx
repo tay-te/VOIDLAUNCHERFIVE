@@ -169,7 +169,7 @@ export const SPRITE: Record<IconName, string> = {
   compass: 'coordinates',
   shield: 'armor_status',
   flask: 'potion_effects',
-  footprints: 'toggle_sprint',
+  bolt: 'toggle_sprint',
   sun: 'fullbright',
   cube: 'hitboxes',
   zoom: 'zoom',

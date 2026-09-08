@@ -847,12 +847,72 @@ describe('The mod page — contract §8', () => {
     }
   });
 
-  it('keeps the tile’s cell art on the grid, where a small picture is the right object', () => {
+  it('draws the four world mods with the page’s own diagram on the tile too', () => {
+    // Two slots worn to different fractions, so a durability bar that ignored `damage` comes
+    // back as four identical widths and this case says so.
+    act(() => {
+      useVoidStore.setState({
+        armor: [
+          { slot: 'helmet', item: 'diamond_helmet', damage: 132, max_damage: 363, count: 1 },
+          { slot: 'boots', item: 'diamond_boots', damage: 88, max_damage: 429, count: 1 },
+        ],
+      });
+    });
     const { container } = render(<App />);
-    const tile = container.querySelector('.modcell[data-mod-id="fullbright"]') as HTMLElement;
-    expect(tile.querySelector('.tart')).not.toBeNull();
-    // 9px cells at tile scale.
-    expect((tile.querySelector('.cart__cell') as HTMLElement).style.width).toBe('9px');
+    // WAS: "keeps the tile's cell art on the grid", pinning a 9px `.cart__cell` on the
+    // Fullbright tile. That was a real invariant for the nine mods whose tile is a small
+    // picture of a widget — and the wrong one for these four, which had no widget and so got a
+    // 7 x 7 bitmap of a sun, a square and an arrow with `BRIGHT`, `HITBOX` and `SPRINT`
+    // captioned underneath. Nine tiles showed what the mod draws and three showed an idea of
+    // it, and the caption was the tell: a picture that needs its own name printed under it is
+    // not working.
+    //
+    // The property that replaced it is stronger, because it is the one that stops the drift
+    // coming back: the tile and the page draw **the same component**, at two densities
+    // (`gameplay-previews.tsx`, `dense`). A tile and a page cannot disagree about what a mod
+    // looks like if there is only one drawing.
+    for (const id of ['fullbright', 'hitboxes', 'toggle_sprint', 'zoom'] as const) {
+      const tile = container.querySelector(`.modcell[data-mod-id="${id}"]`) as HTMLElement;
+      const art = tile.querySelector('.modcell__preview .gprev');
+      expect(art, id).not.toBeNull();
+      expect(art!.classList.contains('gprev--tile'), id).toBe(true);
+      // Still `.tart`: the grid's own contract is that every tile root carries it
+      // (`fake-mods-injection.test.tsx`), and a diagram at tile density is tile art.
+      expect(art!.classList.contains('tart'), id).toBe(true);
+      // No caption. The tile's name is printed 20px below by `ModsScreen`, and the old art
+      // printed it twice.
+      expect(tile.querySelector('.tart__unit--wide'), id).toBeNull();
+      expect(tile.querySelector('.modcell__preview .cart'), id).toBeNull();
+      // The page's furniture does not come with it.
+      expect(tile.querySelector('.gprev__reading'), id).toBeNull();
+      expect(tile.querySelector('.gprev__rowlabel'), id).toBeNull();
+    }
+    // The zoom tile keeps exactly one keycap — the grid draws the mod's keybind itself, so the
+    // diagram's own `hold C` cap would be the second one on the same 145px square.
+    const zoom = container.querySelector('.modcell[data-mod-id="zoom"]') as HTMLElement;
+    expect(zoom.querySelectorAll('.modcell__kbd')).toHaveLength(1);
+    expect(zoom.querySelector('.gprev__kbd')).toBeNull();
+    // The armour tile draws the two parts of an `ArmorList` row that survive at tile size — a
+    // swatch per slot and its durability — off the real payload, rather than the pixel-art arch
+    // it was. Four slots always, and the fill is the fraction the widget fills.
+    const armour = container.querySelector('.modcell[data-mod-id="armor_status"]') as HTMLElement;
+    expect(armour.querySelectorAll('.tart__slot')).toHaveLength(4);
+    expect(armour.querySelector('.cart')).toBeNull();
+    const wear = [...armour.querySelectorAll<HTMLElement>('.tart__wearfill')].map(
+      (el) => el.style.width,
+    );
+    expect(wear).toHaveLength(4);
+    // Not all four the same: the fixture is deliberately worn unevenly, and a bar that ignored
+    // `damage` would come back as four identical widths — which is what the old art did.
+    expect(new Set(wear).size).toBeGreaterThan(1);
+    // No tile is *drawn as a bitmap* any more. The one `.cart` left on the grid is the
+    // watermark's, and it is not an exception: that tile draws the real `Watermark`, whose
+    // ring genuinely is a 7 x 7 cell mark in the game as well. `CellArt` stays the right
+    // primitive for a mark; it stopped being how a preview is made.
+    const bitmapped = [...container.querySelectorAll('.modcell')].filter(
+      (tile) => tile.querySelector('.modcell__preview .cart') !== null,
+    );
+    expect(bitmapped.map((tile) => tile.getAttribute('data-mod-id'))).toEqual(['watermark']);
   });
 
   it('never offers tabs', () => {

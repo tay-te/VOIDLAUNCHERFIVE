@@ -34,8 +34,14 @@ under "Contract changes" in `schema/README.md` arrived exactly that way.
 propose it, don't just land it, and append it to the changelog in `schema/README.md`.
 
 `design/` pre-dates this scaffold: Figma screen exports plus `tokens.css` / `tokens.json`.
-It is **reference material, read-only for everyone**. **ui** ports the tokens into
-`packages/ui`; nobody edits `design/` and nothing imports from it at build time.
+Those exports stay **reference material, read-only for everyone** — **ui** ports the tokens
+into `packages/ui`, and nothing imports from `design/` at build time.
+
+It also now holds the two **living design authorities**, written and revised rather than
+exported: `quiet-cell-system.md`, the implementation contract every surface is built
+against, and `rendering-invariants.md`, the engine behaviours that must stay true with the
+symptom each violation produced. Where the contract and a Figma frame disagree, the
+contract wins. Product and planning documents go in `docs/`, not here.
 
 Root files not listed above (`package.json`, `pnpm-workspace.yaml`, `.gitignore`, this
 file) are shared. Touch them only to register your own package or ignore your own build
