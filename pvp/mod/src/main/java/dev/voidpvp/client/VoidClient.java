@@ -998,7 +998,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (payload.entrySet().size() > 0) {
             bridge.emit(VoidBridge.EVENT_TICK, payload);
         }
-        stats.sample(fps);
+        stats.sample(tickIn.fps);
     }
 
     private static int latency(MinecraftClient mc, ClientPlayerEntity player) {
@@ -1037,8 +1037,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         try {
             ItemStack held = player.inventory.getMainHandStack();
             // An empty hand is not a stack of zero. `bridge.json` says the field goes absent.
-            if (held != null && held.getCount() > 0) {
-                tickIn.heldCount = Integer.valueOf(held.getCount());
+            // `stack.count`, not `getCount()`: 1.8.9 exposes it as a public field, and
+            // `readArmor` below has read it that way since it was written. The modern accessor
+            // does not exist in these mappings.
+            if (held != null && held.count > 0) {
+                tickIn.heldCount = Integer.valueOf(held.count);
             }
         } catch (Throwable ignored) {
             // Same reasoning as above.
