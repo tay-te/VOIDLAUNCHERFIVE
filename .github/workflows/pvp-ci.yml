@@ -161,6 +161,18 @@ jobs:
         working-directory: pvp
         run: pnpm install --frozen-lockfile
 
+      # `src/generated/` is committed, and until now nothing proved it was still
+      # its sources. The failure is silent in the worst way: stale generated
+      # TypeScript still compiles and still passes every test — it is simply
+      # describing a schema that no longer exists. Re-run the generator and
+      # require a clean tree.
+      - name: 'Generated types are current (@void/protocol)'
+        working-directory: pvp
+        run: |
+          pnpm --filter @void/protocol gen
+          git diff --exit-code -- packages/protocol/src/generated \
+            || { echo "::error::packages/protocol/src/generated is stale — run \`pnpm --filter @void/protocol gen\`"; exit 1; }
+
       - name: Build @void/protocol
         working-directory: pvp
         run: pnpm --filter @void/protocol build
