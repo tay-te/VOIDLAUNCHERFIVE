@@ -449,7 +449,7 @@ body {
   --edge: 24px; /* content inset, left and right */
   --tile-gap: 12px;
   --content-w: calc(var(--panel-w) - 2 * var(--edge));
-  --panel-cols: 6;
+  --panel-cols: 7;
   --panel-rows: 2;
   /* Zero unless the rows are taller than the panel can be. `solveGrid` holds it back out of
      the tile width so a scrollbar cannot eat the last column; see `GEOMETRY.gutter` for why
@@ -500,7 +500,13 @@ body {
      the arithmetic disagreed with itself. So the window is read in JS, once, and arrives here
      already resolved. */
   --panel-w: 1278px;
-  --panel-h: 635px;
+  /* Fixed, and the same at every mod count — `GEOMETRY.maxPanelH`. This used to be the height
+     the rows happened to come to (635, at the twelve the registry shipped then), which made the
+     menu's size a function of the roster: the fifteenth mod would have flipped the grid to
+     three rows and grown the panel by 229px. Width was never allowed to do that, and now
+     neither is height. See `GEOMETRY.maxPanelH` for why it is 796 rather than the 786 three
+     rows strictly need. */
+  --panel-h: 796px;
   width: var(--panel-w);
   height: var(--panel-h);
   /* Belt and braces, not the mechanism. `solveGrid` has already fitted the panel to the
@@ -1088,14 +1094,30 @@ body {
   align-items: flex-start;
   gap: var(--tile-gap);
   height: 100%;
-  /* Zero at every count that fits — `solveGrid` sizes the panel to the rows, so up to
-     twenty-four mods there is nothing to scroll. Past that the gutter is what keeps the
-     scrollbar off the last column. */
+  /* Zero at every count through twenty-four, which is three rows of eight and the most the
+     fixed panel holds. Past that the gutter is what keeps the scrollbar off the last column. */
   overflow-y: auto;
   /* The rows are exactly as wide as the box now — `solveGrid` derives the tile from the
      content width — so this clips nothing in practice. It stays because a row that is one
      subpixel over should disappear rather than grow a horizontal scrollbar under the grid. */
   overflow-x: hidden;
+}
+
+/* Centred down the body, but only while the rows fit it.
+
+   The panel is a fixed height now (`GEOMETRY.maxPanelH`) and the grid is not: fourteen mods
+   are two rows of 447 in a 686 body, so 239px is slack. Left at `flex-start` all of it pools
+   under the last row and the grid reads as having been cut off; split above and below, the
+   same two rows read as deliberately airy. At three rows the slack is zero and this does
+   nothing, which is the count the panel is sized for.
+
+   Gated on `:not(.overlay--scrolls)` rather than written unconditionally because a centred
+   flex column whose content overflows pushes the first row *above* the scroll origin, and it
+   cannot be scrolled back — the overflow is unreachable in exactly the direction nobody looks.
+   `safe center` is the one-word fix for that and Ultralight does not implement it, so the
+   class the solve already writes does the same job. */
+.overlay:not(.overlay--scrolls) .mods-grid {
+  justify-content: center;
 }
 
 .mods-row {

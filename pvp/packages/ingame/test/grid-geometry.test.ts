@@ -84,15 +84,34 @@ describe('solveGrid — the grid fills the panel it is given', () => {
     expect(shape.tileH).toBeCloseTo(shape.tileW + GEOMETRY.foot, 6);
   });
 
-  it.each(ALL_COUNTS)('at %i mods the panel is exactly the rows plus the chrome', (count) => {
+  /**
+   * The property the whole panel is now built on, and the reason this replaced an assertion
+   * that the panel was *exactly its contents*.
+   *
+   * A content-derived height made the menu's size a function of the registry: fourteen mods
+   * gave a 557-tall panel and the fifteenth would have grown it to 786, so shipping a mod
+   * resized five screens that have nothing to do with the grid. It is one box now, and the
+   * count only moves what is drawn inside it.
+   *
+   * Asserted across the fixture's whole range rather than at a count or two, because "the
+   * panel is the same at every count" is precisely the kind of claim that is true at the two
+   * counts anybody runs and false in between — which is the defect this file was opened for.
+   */
+  it.each(ALL_COUNTS)('at %i mods the panel is the same fixed box', (count) => {
     const shape = solveGrid(count, VIEW.w, VIEW.h);
-    if (shape.scrolls) {
-      // The one state where it is not: nothing fits, so the panel takes the whole window and
-      // the rows scroll inside it.
-      expect(shape.panelH).toBe(maxPanelH(VIEW.h));
-      expect(shape.gridH).toBeGreaterThan(shape.panelH - GEOMETRY.chrome);
-    } else {
-      expect(shape.panelH).toBeCloseTo(shape.gridH + GEOMETRY.chrome, 6);
+    expect(shape.panelH).toBe(GEOMETRY.maxPanelH);
+    expect(shape.panelW).toBe(maxPanelW(VIEW.w));
+  });
+
+  it('scrolls exactly when the rows outgrow the fixed panel, and never clips instead', () => {
+    for (const count of ALL_COUNTS) {
+      const shape = solveGrid(count, VIEW.w, VIEW.h);
+      const budget = GEOMETRY.maxPanelH - GEOMETRY.chrome;
+      // The two have to agree in both directions: a grid taller than the body that does not
+      // say so is the original bug (rows under the fold, unreachable), and one that says so
+      // when it fits is a scrollbar eating a column for nothing.
+      expect(shape.scrolls).toBe(shape.gridH > budget);
+      expect(shape.gutter).toBe(shape.scrolls ? GEOMETRY.gutter : 0);
     }
   });
 });
@@ -143,7 +162,9 @@ describe('solveGrid — the counts that used to break', () => {
       expect(shape.columns).toBe(columns);
       expect(shape.rows).toBe(rows);
       expect(shape.tileW).toBeCloseTo(tileW, 4);
-      expect(shape.panelH).toBeCloseTo(gridH(rows, tileW) + GEOMETRY.chrome, 4);
+      // The rows fit the fixed body; the panel itself is the same box either way, so what is
+      // worth asserting here is the fit, not the height.
+      expect(gridH(rows, tileW)).toBeLessThanOrEqual(GEOMETRY.maxPanelH - GEOMETRY.chrome);
       expect(shape.scrolls).toBe(false);
       expect(shape.gutter).toBe(0);
     });
@@ -157,8 +178,10 @@ describe('solveGrid — the counts that used to break', () => {
       expect(shape.scrolls).toBe(false);
       expect(shape.panelH).toBeLessThanOrEqual(maxPanelH(VIEW.h));
     }
-    expect(solveGrid(12, VIEW.w, VIEW.h).panelH).toBe(506 + GEOMETRY.chrome);
-    expect(solveGrid(24, VIEW.w, VIEW.h).panelH).toBe(609.75 + GEOMETRY.chrome);
+    // The grids these counts produce, which is what "unchanged" means now that the panel
+    // holding them is a constant.
+    expect(solveGrid(12, VIEW.w, VIEW.h).gridH).toBe(506);
+    expect(solveGrid(24, VIEW.w, VIEW.h).gridH).toBe(609.75);
   });
 
   it('never gives more mods a bigger tile or fewer columns', () => {
@@ -193,7 +216,7 @@ describe('solveGrid — past what the window can hold', () => {
     const shape = solveGrid(64, VIEW.w, VIEW.h);
     expect(shape.columns).toBe(8);
     expect(shape.rows).toBe(8);
-    expect(shape.panelH).toBe(maxPanelH(VIEW.h));
+    expect(shape.panelH).toBe(GEOMETRY.maxPanelH);
     expect(shape.scrolls).toBe(true);
   });
 
@@ -202,6 +225,62 @@ describe('solveGrid — past what the window can hold', () => {
     expect(shape.panelW).toBeLessThanOrEqual(900 - GEOMETRY.insetX);
     expect(shape.panelH).toBeLessThanOrEqual(400 - GEOMETRY.insetY);
     expect(shape.tileW).toBeGreaterThan(0);
+  });
+});
+
+describe('solveGrid — the panel is a fixed box', () => {
+  /**
+   * The change that motivated the pin, stated as the two counts either side of it.
+   *
+   * Fourteen mods lay out two rows and fifteen lay out three. Under the old solve that was
+   * also a 229px change in the height of the menu — and of Settings, Loadouts, Party and the
+   * HUD editor, which share the box and have no rows at all.
+   */
+  it('does not change height when the row count changes', () => {
+    const two = solveGrid(14, VIEW.w, VIEW.h);
+    const three = solveGrid(15, VIEW.w, VIEW.h);
+    expect(two.rows).toBe(2);
+    expect(three.rows).toBe(3);
+    expect(two.panelH).toBe(three.panelH);
+    expect(two.panelW).toBe(three.panelW);
+  });
+
+  /**
+   * The clamp that used to be CSS's, done before the arithmetic instead of after it.
+   *
+   * The `?debug` harness draws a fixed 1600 x 980 board, which is taller than the in-game
+   * canvas. Solving the grid against the *window* there would size three rows of 195 tiles
+   * (765px) for a panel that is only 796 tall — 686 of body — and CSS would clamp the box
+   * afterwards with no way to tell the grid. That is the original defect's exact shape, in
+   * the one window where it can still be reached, so the budget comes from the panel.
+   */
+  it('solves against the panel, not against a window taller than it', () => {
+    const tall = solveGrid(14, 1600, 980);
+    const game = solveGrid(14, VIEW.w, VIEW.h);
+    expect(tall.panelH).toBe(GEOMETRY.maxPanelH);
+    expect(tall.rows).toBe(game.rows);
+    expect(tall.columns).toBe(game.columns);
+    expect(tall.gridH).toBeLessThanOrEqual(GEOMETRY.maxPanelH - GEOMETRY.chrome);
+  });
+
+  /** A window shorter than the panel still wins: the clamp binds downwards, as the CSS says. */
+  it('gives up the fixed height rather than overflow a short window', () => {
+    const shape = solveGrid(14, VIEW.w, 600);
+    expect(shape.panelH).toBe(600 - GEOMETRY.insetY);
+    expect(shape.panelH).toBeLessThan(GEOMETRY.maxPanelH);
+  });
+
+  /**
+   * 796 is the whole in-game canvas, and picking it rather than the 786 three rows strictly
+   * need is what keeps this change invisible to the column solve. Three rows of seven come to
+   * 676.29 against a 686 budget; at 786 the budget would be 676 and fifteen through twenty-one
+   * mods would fall through to eight columns over a third of a pixel.
+   */
+  it('leaves the three-row solve room it does not have at 786', () => {
+    expect(GEOMETRY.maxPanelH).toBe(796);
+    expect(solveGrid(15, VIEW.w, VIEW.h).gridH).toBeGreaterThan(786 - GEOMETRY.chrome);
+    expect(solveGrid(15, VIEW.w, VIEW.h).gridH).toBeLessThanOrEqual(796 - GEOMETRY.chrome);
+    expect(solveGrid(15, VIEW.w, VIEW.h).columns).toBe(7);
   });
 });
 
