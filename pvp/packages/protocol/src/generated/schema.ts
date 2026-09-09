@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 35 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 36 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -82,7 +82,8 @@ export type ModId =
   | 'cps_graph'
   | 'scoreboard'
   | 'reach'
-  | 'potion_counter';
+  | 'potion_counter'
+  | 'block_outline';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -1032,6 +1033,32 @@ export type PotionCounterEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Block outline, narrowed to its constant classification.
+ */
+export type BlockOutlineEntry = RegistryEntry & {
+  /**
+   * Always `block_outline`.
+   */
+  id?: 'block_outline';
+  /**
+   * Always `cube`.
+   */
+  icon?: 'cube';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: BlockOutlineSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
@@ -1174,7 +1201,8 @@ export type GameplayModId =
   | 'damage_tint'
   | 'old_animations'
   | 'old_input'
-  | 'scoreboard';
+  | 'scoreboard'
+  | 'block_outline';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1289,7 +1317,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 35 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 36 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1327,6 +1355,7 @@ export interface Mods {
   scoreboard: ScoreboardEntry;
   reach: ReachDisplayEntry;
   potion_counter: PotionCounterEntry;
+  block_outline: BlockOutlineEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2543,6 +2572,29 @@ export interface PotionCounterSettings {
   show_label?: boolean;
 }
 /**
+ * Settings for the Block outline gameplay mod. It draws nothing of its own: every line is vanilla's `WorldRenderer.drawBlockOutline`, and these change whether it runs and what two of its instructions are handed.
+ *
+ * Why it is worth a mod — `docs/mod-roster.md` §3.3 #3 calls it table stakes on both competing clients. In practice it is a Bedwars and a build-fight setting: black at 40% over a dark block is a box you cannot see, and the same box in white or at three pixels is the difference between placing where you meant to and placing one block over.
+ *
+ * Vanilla's own values are the defaults, so a loadout that has never touched this draws exactly what the game draws.
+ */
+export interface BlockOutlineSettings {
+  on: Enabled;
+  /**
+   * Whether the outline is drawn at all. Off by default. On, the method is skipped entirely rather than drawn transparent — a fully transparent line is still a line the GPU rasterises, and there is no reason to pay for one nobody can see.
+   */
+  hide?: boolean;
+  color?: Colour;
+  /**
+   * Width of the outline in GL line units. 2 is vanilla's.
+   *
+   * The range is `hitboxes.line_width`'s exactly, and it is shared rather than chosen: `SETTING_BOUNDS` is keyed by the bare setting name and the generator refuses two mods that disagree about one. That rule is right here — this is the same quantity passed to the same `glLineWidth`, and a client where a line width of 3 means one thickness on a hitbox and another on an outline would be a client with two ideas of what a pixel is.
+   *
+   * The ceiling is 5 because `glLineWidth` above about that is not portable: drivers clamp it, and a value the player sets and the driver ignores is a setting that does nothing on their machine and works on yours. The floor is 0.5 for the same reason from the other end.
+   */
+  line_width?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2568,7 +2620,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 35 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 36 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2606,6 +2658,7 @@ export interface ModStates {
   scoreboard?: ScoreboardSettings;
   reach?: ReachSettings;
   potion_counter?: PotionCounterSettings;
+  block_outline?: BlockOutlineSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

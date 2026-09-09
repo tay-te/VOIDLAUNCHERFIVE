@@ -250,6 +250,9 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   reach: () => <Numeral value="3.14" unit="blocks" />,
   // The mod's own default effect, and the word a player says rather than the effect's name.
   potion_counter: () => <Numeral value="6" unit="heals" />,
+  // Vanilla's own width, which is this mod's default — a card states the number a player will
+  // reach for the slider to change.
+  block_outline: () => <Numeral value="2" unit="px" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

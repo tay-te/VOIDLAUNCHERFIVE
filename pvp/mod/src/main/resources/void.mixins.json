@@ -23,7 +23,8 @@
     "MinecraftClientInvoker",
     "MinecraftClientMixin",
     "ScreenMixin",
-    "StuckArrowsFeatureRendererMixin"
+    "StuckArrowsFeatureRendererMixin",
+    "WorldRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -105,6 +105,10 @@ const ORDER = [
   // sensor it needed. `item_counter`'s new `source` is the other half of #5's "same engine as
   // #4 — do them together". Appended, never inserted.
   'potion_counter',
+  // Wave 9, third: §4's ninth table-stakes row. Vanilla already draws the outline, so every
+  // setting is one instruction in `WorldRenderer.drawBlockOutline` — the roster's M estimate was
+  // for drawing one rather than for redirecting the one that exists. Appended, never inserted.
+  'block_outline',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

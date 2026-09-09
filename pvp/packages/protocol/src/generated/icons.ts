@@ -62,5 +62,6 @@ export const MOD_ICON_NAMES = {
   "cps_graph": "cursor-click",
   "scoreboard": "users",
   "reach": "sword",
-  "potion_counter": "flask"
+  "potion_counter": "flask",
+  "block_outline": "cube"
 } as const satisfies Record<ModId, string>;

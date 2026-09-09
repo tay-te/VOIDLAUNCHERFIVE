@@ -66,6 +66,10 @@ export const MOD_ORDER: ModId[] = [
   'fullbright',
   // Beside Fullbright, the other mod whose subject is what the game stops you seeing.
   'overlay',
+  // Beside Hitboxes, the other mod whose whole subject is a wireframe drawn in the world — the
+  // two share a `cube` glyph for that reason, and the grid keeps them together so the shared mark
+  // reads as a pair rather than as a collision.
+  'block_outline',
   'hitboxes',
   // Beside Hitboxes, the other mod whose subject is reading a fight off the entity in front of
   // you rather than off the HUD.

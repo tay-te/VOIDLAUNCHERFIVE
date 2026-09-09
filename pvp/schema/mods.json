@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 35 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 36 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -56,7 +56,8 @@
         "cps_graph",
         "scoreboard",
         "reach",
-        "potion_counter"
+        "potion_counter",
+        "block_outline"
       ],
       "additionalProperties": false,
       "properties": {
@@ -199,6 +200,10 @@
         "potion_counter": {
           "description": "Potion counter registry entry.",
           "$ref": "#/definitions/potion_counter_entry"
+        },
+        "block_outline": {
+          "description": "Block outline registry entry.",
+          "$ref": "#/definitions/block_outline_entry"
         }
       }
     }
@@ -206,7 +211,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 35 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 36 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -243,7 +248,8 @@
         "cps_graph",
         "scoreboard",
         "reach",
-        "potion_counter"
+        "potion_counter",
+        "block_outline"
       ]
     },
     "hud_mod_id": {
@@ -292,7 +298,8 @@
         "damage_tint",
         "old_animations",
         "old_input",
-        "scoreboard"
+        "scoreboard",
+        "block_outline"
       ]
     },
     "kind": {
@@ -2498,6 +2505,37 @@
         }
       }
     },
+    "block_outline_settings": {
+      "title": "Block outline settings",
+      "description": "Settings for the Block outline gameplay mod. It draws nothing of its own: every line is vanilla's `WorldRenderer.drawBlockOutline`, and these change whether it runs and what two of its instructions are handed.\n\nWhy it is worth a mod — `docs/mod-roster.md` §3.3 #3 calls it table stakes on both competing clients. In practice it is a Bedwars and a build-fight setting: black at 40% over a dark block is a box you cannot see, and the same box in white or at three pixels is the difference between placing where you meant to and placing one block over.\n\nVanilla's own values are the defaults, so a loadout that has never touched this draws exactly what the game draws.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the block outline customiser is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "hide": {
+          "description": "Whether the outline is drawn at all. Off by default. On, the method is skipped entirely rather than drawn transparent — a fully transparent line is still a line the GPU rasterises, and there is no reason to pay for one nobody can see.",
+          "type": "boolean",
+          "default": false
+        },
+        "color": {
+          "description": "Colour of the outline, alpha included. `#00000066` is vanilla's own — black at 40% — and is the default so that an untouched loadout draws exactly what the game draws.\n\nThe alpha is part of this value rather than a second slider, because every reason to change the outline is a reason about how much it stands out against the block behind it, and hue and alpha only mean anything read together. `hit_color` made the same call from the other direction.",
+          "$ref": "#/definitions/hex_color"
+        },
+        "line_width": {
+          "description": "Width of the outline in GL line units. 2 is vanilla's.\n\nThe range is `hitboxes.line_width`'s exactly, and it is shared rather than chosen: `SETTING_BOUNDS` is keyed by the bare setting name and the generator refuses two mods that disagree about one. That rule is right here — this is the same quantity passed to the same `glLineWidth`, and a client where a line width of 3 means one thickness on a hitbox and another on an outline would be a client with two ideas of what a pixel is.\n\nThe ceiling is 5 because `glLineWidth` above about that is not portable: drivers clamp it, and a value the player sets and the driver ignores is a setting that does nothing on their machine and works on yours. The floor is 0.5 for the same reason from the other end.",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 5,
+          "default": 2
+        }
+      }
+    },
     "fps_entry": {
       "title": "FPS display entry",
       "description": "Registry entry for the FPS display, narrowed to its constant classification.",
@@ -4034,11 +4072,54 @@
           ]
         }
       ]
+    },
+    "block_outline_entry": {
+      "title": "Block outline entry",
+      "description": "Registry entry for the Block outline, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `block_outline`.",
+              "const": "block_outline"
+            },
+            "icon": {
+              "description": "Always `cube`.",
+              "const": "cube"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Block outline settings.",
+              "$ref": "#/definitions/block_outline_settings"
+            }
+          },
+          "not": {
+            "$comment": "the Block outline is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 16,
+      "version": 17,
       "mods": {
         "fps": {
           "id": "fps",
@@ -4821,6 +4902,22 @@
             "anchor": "top-left",
             "dx": 23,
             "dy": 331
+          }
+        },
+        "block_outline": {
+          "id": "block_outline",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Block outline",
+          "icon": "cube",
+          "description": "The box vanilla draws round the block you are looking at — recoloured, thickened, or gone.",
+          "source": "vanilla's own `WorldRenderer.drawBlockOutline`, redirected",
+          "defaults": {
+            "on": false,
+            "hide": false,
+            "color": "#00000066",
+            "line_width": 2
           }
         }
       }

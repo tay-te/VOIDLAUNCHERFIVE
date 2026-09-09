@@ -48,6 +48,7 @@ export const MOD_IDS = [
   'scoreboard',
   'reach',
   'potion_counter',
+  'block_outline',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -91,4 +92,5 @@ export const GAMEPLAY_MOD_IDS = [
   'old_animations',
   'old_input',
   'scoreboard',
+  'block_outline',
 ] as const satisfies readonly GameplayModId[];

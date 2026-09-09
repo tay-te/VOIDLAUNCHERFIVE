@@ -3549,6 +3549,55 @@ body {
   gap: 0;
 }
 
+/* Block outline: three faces of one block, so a stroke is judged against more than one ground.
+ *
+ * An isometric cube out of three parallelograms would need `transform: skew`, which is a 2D
+ * transform and allowed — but three *rectangles* at three shades say the same thing about the
+ * setting (this stroke, over these grounds) and say it at 118px, where a skewed 1px edge
+ * downsamples to a smudge. The same trade `build-icons.py` records for the whole sprite.
+ *
+ * The shades are the design's own fill steps rather than a rendered block: what the preview is
+ * for is the *contrast* between a stroke and a ground, and a photograph of stone would make the
+ * player judge it against one texture out of hundreds. */
+.gprev__cube {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.gprev__face {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 92px;
+  border-radius: 3px;
+  /* Box-sized, so a five-pixel stroke eats into the face rather than growing it — the outline in
+     game is on the block's own edge, not outside it. */
+  box-sizing: border-box;
+}
+
+.gprev__face--top {
+  background: rgba(237, 238, 239, 0.16);
+}
+
+.gprev__face--left {
+  background: rgba(237, 238, 239, 0.07);
+}
+
+/* Near-black, which is the ground the vanilla default is invisible against and therefore the one
+   the mod exists for. */
+.gprev__face--right {
+  background: rgba(237, 238, 239, 0.02);
+}
+
+.gprev--tile .gprev__cube {
+  gap: 5px;
+}
+
+.gprev--tile .gprev__face {
+  height: 44px;
+  border-radius: 2px;
+}
+
 /* Scoreboard: the server's sidebar on the screen it sits on.
  *
  * Positioned by its **top-right** corner and scaled about it, because that is the anchor vanilla

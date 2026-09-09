@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 35 mods.
+ * The closed registry of the 36 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -445,7 +445,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -880,7 +880,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -1313,7 +1313,7 @@ public final class ModRegistry {
                 // on their HUD and does not want the number twice.
                 "show_figure", bool(true));
 
-        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
 
         // Scoreboard — kind gameplay, hud tab, §11 safe.
         // Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
@@ -1414,6 +1414,39 @@ public final class ModRegistry {
                 // item count. Off makes it narrower for a player who has only one counter on
                 // screen.
                 "show_label", bool(true));
+
+        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
+
+        // Block outline — kind gameplay, visual tab, §11 safe.
+        // The box vanilla draws round the block you are looking at — recoloured, thickened, or
+        // gone.
+        // Source: vanilla's own `WorldRenderer.drawBlockOutline`, redirected.
+        mod("block_outline", Kind.GAMEPLAY, Category.VISUAL, "Block outline",
+                // Whether the block outline customiser is enabled.
+                "on", bool(false),
+                // Whether the outline is drawn at all. Off by default. On, the method is skipped
+                // entirely rather than drawn transparent — a fully transparent line is still a
+                // line the GPU rasterises, and there is no reason to pay for one nobody can see.
+                "hide", bool(false),
+                // Colour of the outline, alpha included. `#00000066` is vanilla's own — black at
+                // 40% — and is the default so that an untouched loadout draws exactly what the
+                // game draws. The alpha is part of this value rather than a second slider,
+                // because every reason to change the outline is a reason about how much it stands
+                // out against the block behind it, and hue and alpha only mean anything read
+                // together. `hit_color` made the same call from the other direction.
+                // Type: mods.json#/definitions/hex_color.
+                "color", color("#00000066"),
+                // Width of the outline in GL line units. 2 is vanilla's. The range is
+                // `hitboxes.line_width`'s exactly, and it is shared rather than chosen:
+                // `SETTING_BOUNDS` is keyed by the bare setting name and the generator refuses
+                // two mods that disagree about one. That rule is right here — this is the same
+                // quantity passed to the same `glLineWidth`, and a client where a line width of 3
+                // means one thickness on a hitbox and another on an outline would be a client
+                // with two ideas of what a pixel is. The ceiling is 5 because `glLineWidth` above
+                // about that is not portable: drivers clamp it, and a value the player sets and
+                // the driver ignores is a setting that does nothing on their machine and works on
+                // yours. The floor is 0.5 for the same reason from the other end.
+                "line_width", number(0.5, 5, 2));
 
         // --- The factory HUD layout (21) — where each widget starts ----------------------------
 
@@ -1534,7 +1567,7 @@ public final class ModRegistry {
     // END GENERATED DATA
     // =================================================================
 
-    /** The 35 mod ids, in registry order. */
+    /** The 36 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

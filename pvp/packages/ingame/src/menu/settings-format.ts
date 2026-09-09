@@ -29,6 +29,7 @@ export function settingLabel(key: string): string {
     // carrying it and would need a `REMOVED_SETTINGS` row, which is a migration to pay for a
     // spelling. Worth doing if the key is ever touched for another reason.
     hide_own_armor: 'Hide own armour',
+    hide: 'Hide',
     hide_fire: 'Hide fire overlay',
     hide_stuck_arrows: 'Hide stuck arrows',
     hide_pumpkin: 'Hide pumpkin blur',
@@ -134,6 +135,10 @@ export const SETTING_HINTS: Record<string, string> = {
   'armor_status.show_durability': 'The number left under each piece',
   'armor_status.show_held_item': 'Your held item as a fifth slot',
   'armor_status.warn_below': 'Where a durability bar turns amber',
+
+  'block_outline.hide': 'Do not draw the outline at all',
+  'block_outline.color': 'Ink of the outline, alpha included',
+  'block_outline.line_width': 'Stroke width, in GL line units',
 
   'clock.format': '24-hour, or 12-hour with AM/PM',
   'clock.show_seconds': 'A seconds field after the minutes',

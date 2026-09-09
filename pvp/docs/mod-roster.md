@@ -141,7 +141,7 @@ completeness and should not be built.
 | 2 | **GUI scale** | Hotbar and inventory scaled independently of Minecraft's GUI scale | ✓ | ✗ | ✗ | S | Build. Small, and it fixes the "my hotbar is enormous at 1080p" complaint permanently. |
 | 3 | **Block outline** | Colour, thickness, or removal of the block-targeting outline | ✓ | ✓ | ✗ | M | Build. World-space GL, so it costs more than it looks — but it is table stakes. |
 | 4 | **Nametag customiser** | Hide, scale, recolour, or de-background nametags | ✓ | ✗ | ✗ | M | Build. Nametag clutter in team modes is a real visibility problem. |
-| 5 | **Menu / inventory blur** | Blurs the world behind menus | ✓ | ✓ | ~ | S | **Finish what exists.** `screen/BlurBackdrop.java` is already here; it needs to become a registry mod with settings. |
+| 5 | **Menu / inventory blur** | Blurs the world behind menus | ✓ | ✓ | ~ | S | **Do not finish it — cut, 2026-09-09.** This row said "finish what exists"; what exists is switched off on purpose. See below. |
 | 6 | **Clear glass** | Glass without the frame texture, without a resource pack | ✓ (in `overlay-mod`) | ✓ | ✗ | M | Build. Bedwars-relevant, allowed, and a resource-pack behaviour people expect built in. |
 | 7 | **Fog customiser** | Reduce or remove water / distance / dimension fog | ✓ | ✗ | ✗ | M | Build, class it **`grey`**. It increases what you can see beyond vanilla — same posture as fullbright. |
 | 8 | **Shiny pots** | Enchantment glint on potions so they read at a glance in the hotbar | ✓ | ✓ | ✗ | S | Cheap. Genuinely useful in pot PvP for a small change. |
@@ -202,10 +202,26 @@ client notices these missing. Ordered by how badly they are noticed on 1.8.9:
 Deliberately excluded from the table-stakes list despite appearing on both: **Minimap,
 Waypoints, Replay, Item Physics, Motion Blur, MumbleLink, Schematica, AutoTip**. See §6.
 
-> **Status, 2026-09-09: fourteen of the nineteen are shipped**, and the five that are not are
-> 9 (block outline), 16 (menu blur), 17 (nick hider), 18 (shiny pots) and 19 (clear glass).
+> **Status, 2026-09-09: fifteen of the nineteen are shipped**, one is cut, and the three that
+> remain are 17 (nick hider), 18 (shiny pots) and 19 (clear glass). #9 (block outline) shipped in
+> Wave 9; #16 (menu blur) is the cut.
 >
-> **Every one of the five is visual. None of the fourteen was.** That is the useful reading of
+> **#16 was wrong, and it was wrong in the most expensive way a roster row can be: it read as
+> cheap.** "Finish what exists — `screen/BlurBackdrop.java` is already here; it needs to become a
+> registry mod with settings" describes a half-built feature waiting for a schema entry. What is
+> actually in that file is a *finished* implementation with `disabled = System.getenv("VOID_UI_BLUR")
+> == null` at the top of its constructor and a comment explaining that it is off **by design**:
+> `design/quiet-cell-system.md` §1 rules out blur, shadow and gradient anywhere, and the measured
+> cost was ~5 fps with the menu open — about three quarters of everything an open menu cost.
+>
+> So promoting it to a registry mod would have shipped a switch that trades five frames for an
+> effect the design forbids. The row is not "unfinished work", it is **work that was finished,
+> measured and reversed**, and the roster never heard about the reversal. That is the failure
+> mode worth naming: this document is scored against the code, and a row whose evidence is a file
+> *existing* rather than a file *running* will keep looking like a cheap win for as long as
+> nobody opens it.
+>
+> **Every one of the remainder is visual. None of the fifteen was.** That is the useful reading of
 > this list now, and it is worth more than the count: the rows a player *loses a fight* to —
 > animations, FOV, reach, freelook, hit colour, combo, saturation, the scoreboard covering the
 > right third of the screen — are done, and what is left is what a client looks like rather than
@@ -428,8 +444,8 @@ titles, pack display, glint, clear glass, particles, time changer, nick hider, s
 tooltips, inventory lock, kill sounds.
 
 **Wave 9 — the ones that needed the game read.** ~~Reach display~~ · ~~Scoreboard~~ ·
-~~zoom sensitivity~~ · ~~Potion counter~~ · ~~item counter, inventory-wide~~. Block outline ·
-nametags. **GUI scale: cut**, 2026-09-09, by the product owner rather than by this document —
+~~zoom sensitivity~~ · ~~Potion counter~~ · ~~item counter, inventory-wide~~ · ~~Block
+outline~~. Nametags. **GUI scale: cut**, 2026-09-09, by the product owner rather than by this document —
 §3.3 #2's "fixes the my-hotbar-is-enormous complaint permanently" is real and it is also the one
 row in this wave that changes a thing every player already has a working answer for (vanilla's
 own GUI scale). Recorded here rather than deleted, because a row that comes back should come
@@ -498,7 +514,7 @@ back knowing it was cut once.
 > discipline for three neighbouring fields. A test that pins a bug reads exactly like a test that
 > pins a contract.
 >
-> **What is left in this tier** is block outline and nametags, and neither is blocked — the jar is
+> **What is left in this tier** is nametags, and it is not blocked — the jar is
 > fetchable in five commands and `remapJar` proves a target exists (a member the mapping does not
 > know is left as its yarn string, so an intermediary name in the output is the proof). Potion
 > counter is the one §3.1 keeps asking for and is the only one that needs a new *sensor* field
@@ -574,7 +590,7 @@ graph.~~ Playtime · day counter.
 
 VOID is not thirteen mods behind ninety-eight. Strip Skyblock, modern-version and
 ornamental mods from Lunar's 98 and the 1.8.9-PvP-relevant roster is around **45**. VOID
-had 13 of them when this was written and has 35 now, and is *ahead* on two (1% low FPS, and
+had 13 of them when this was written and has 36 now, and is *ahead* on two (1% low FPS, and
 an HUD editor with live per-mod previews that neither competitor matches).
 
 The four gaps below were written against the thirteen. Two have closed: the cheap sweep is

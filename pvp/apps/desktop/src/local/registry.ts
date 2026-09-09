@@ -172,6 +172,12 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 9's outline customiser — three settings, each one instruction in one vanilla method.
+  block_outline: [
+    { key: 'hide', label: 'Hide', control: 'switch' },
+    { key: 'color', label: 'Colour', control: 'color' },
+    { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
+  ],
   // Wave 9's potion counter, off the new `inventory` sensor.
   potion_counter: [
     SCALE,
@@ -398,6 +404,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'clock',
   'reach',
   'potion_counter',
+  'block_outline',
   'scoreboard',
   'saturation',
   'momentum',

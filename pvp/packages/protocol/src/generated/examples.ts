@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 16,
+    "version": 17,
     "mods": {
       "fps": {
         "id": "fps",
@@ -797,6 +797,22 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "anchor": "top-left",
           "dx": 23,
           "dy": 331
+        }
+      },
+      "block_outline": {
+        "id": "block_outline",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Block outline",
+        "icon": "cube",
+        "description": "The box vanilla draws round the block you are looking at — recoloured, thickened, or gone.",
+        "source": "vanilla's own `WorldRenderer.drawBlockOutline`, redirected",
+        "defaults": {
+          "on": false,
+          "hide": false,
+          "color": "#00000066",
+          "line_width": 2
         }
       }
     }

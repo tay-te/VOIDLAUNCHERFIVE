@@ -728,6 +728,63 @@ export function SneakPreview({ dense = false, className }: DiagramProps = {}): R
 }
 
 /* -------------------------------------------------------------------------- */
+/* Block outline                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The box vanilla draws round the block you are looking at.
+ *
+ * ## It is drawn as a cube, not as a rectangle, because that is the setting's problem
+ *
+ * The outline is a wireframe on a block *in a world*, and what a player is actually choosing is
+ * how far it stands out from whatever is behind it. A flat rectangle would make the colour look
+ * like a swatch; three faces of a cube put the same stroke over two different shades of the same
+ * block, which is the comparison the setting is for — black at 40% is invisible on obsidian and
+ * fine on sandstone, and that is the whole reason the mod exists.
+ *
+ * ## The ink is the setting's own, and the alpha with it
+ *
+ * `quiet-cell-system.md` §1 keeps colour off the menu's own surface and explicitly not off marks
+ * drawn over the game world; this is the same exemption `HitboxPreview` and the crosshair take.
+ * The alpha is drawn as alpha rather than normalised away, because it is half of what the player
+ * picked — a preview that showed the hue at full opacity would be a preview of a different value.
+ *
+ * `hide` removes the outline and leaves the block, which is exactly what the setting does and is
+ * legible here in a way an absent HUD widget is not: the frame around it stays.
+ */
+export function BlockOutlinePreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('block_outline');
+  const hidden = settings.hide === true;
+  const ink = typeof settings.color === 'string' ? settings.color : '#00000066';
+  const width = Number(settings.line_width ?? 2);
+  // The stroke on a 118px tile against a 440px page is the same trade `HitboxPreview` records:
+  // a width that reads as five on the page is a smear at tile size, so the tile takes the same
+  // fraction of its own box rather than the same number of pixels.
+  const px = Math.max(1, Math.round(width * (dense ? 1.2 : 2.6)));
+  const face = (name: string): CSSProperties =>
+    hidden ? {} : { borderWidth: `${px}px`, borderColor: ink, borderStyle: 'solid' };
+  return (
+    <div className={root(dense, 'gprev--outline', className)}>
+      <div className="gprev__cube">
+        {/* The block: three faces at three shades, so one stroke is judged against more than one
+            ground. Flat fills, no gradient (§1 and ultralight-notes §8). */}
+        <span className="gprev__face gprev__face--top" style={face('top')} />
+        <span className="gprev__face gprev__face--left" style={face('left')} />
+        <span className="gprev__face gprev__face--right" style={face('right')} />
+      </div>
+      {dense ? null : (
+        <Reading
+          parts={[
+            hidden ? 'No outline' : `${width} px`,
+            hidden ? null : ink.toUpperCase() === '#00000066' ? "Vanilla's own" : ink.toUpperCase(),
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Scoreboard                                                                 */
 /* -------------------------------------------------------------------------- */
 

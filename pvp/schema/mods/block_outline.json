@@ -1,0 +1,40 @@
+{
+  "$comment": "Three notes.\n\n**Every setting is one instruction in one vanilla method, and that is why this is cheap where the roster called it M.** \u00a73.3 #3 rates Block outline medium and says \"world-space GL, so it costs more than it looks\" \u2014 which would be true of drawing one. Vanilla already draws it: `WorldRenderer.drawBlockOutline(PlayerEntity, BlockHitResult, int, float)` sets the colour at offsets 28-34 (`GlStateManager.color(0, 0, 0, 0.4F)`) and the width at 37-38 (`GL11.glLineWidth(2.0F)`), each exactly once in the method, and the whole body is guarded at offsets 0-11 by `param3 == 0 && hit.type == BLOCK`. So hiding is a cancel and the other two are one redirect apiece. The estimate was for the wrong implementation, not the wrong size.\n\n**It carries a colour, and that is not a contradiction of `quiet-cell-system.md` \u00a71.** \u00a71's rule is absolute on the *menu's own surface* and explicitly not on marks drawn over the game world \u2014 `crosshair.color`, `hitboxes.color` and `hit_color.color` are all already there for the same reason. What the setting picks is the ink of a mark in the world, which is what \u00a71 calls the far side of its own line.\n\n**The alpha is part of the colour and there is no separate opacity.** Vanilla's own value is `#00000066` \u2014 black at 40% \u2014 and every argument for changing the outline at all is an argument about how much it stands out against the block behind it, which is alpha and hue together. Splitting them would give a player two sliders that only mean anything read as a pair, which is the thing `hit_color` avoided by defining `intensity` as a fraction of vanilla's own alpha rather than as a second free number.",
+  "id": "block_outline",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Block outline",
+  "icon": "cube",
+  "the": true,
+  "noun": "the block outline",
+  "on_description": "the block outline customiser is enabled",
+  "description": "The box vanilla draws round the block you are looking at \u2014 recoloured, thickened, or gone.",
+  "settings_title": "Block outline settings",
+  "settings_description": "Settings for the Block outline gameplay mod. It draws nothing of its own: every line is vanilla's `WorldRenderer.drawBlockOutline`, and these change whether it runs and what two of its instructions are handed.\n\nWhy it is worth a mod \u2014 `docs/mod-roster.md` \u00a73.3 #3 calls it table stakes on both competing clients. In practice it is a Bedwars and a build-fight setting: black at 40% over a dark block is a box you cannot see, and the same box in white or at three pixels is the difference between placing where you meant to and placing one block over.\n\nVanilla's own values are the defaults, so a loadout that has never touched this draws exactly what the game draws.",
+  "source": "vanilla's own `WorldRenderer.drawBlockOutline`, redirected",
+  "enabled": false,
+  "defaults": {
+    "hide": false,
+    "color": "#00000066",
+    "line_width": 2
+  },
+  "settings": {
+    "hide": {
+      "description": "Whether the outline is drawn at all. Off by default. On, the method is skipped entirely rather than drawn transparent \u2014 a fully transparent line is still a line the GPU rasterises, and there is no reason to pay for one nobody can see.",
+      "type": "boolean",
+      "default": false
+    },
+    "color": {
+      "description": "Colour of the outline, alpha included. `#00000066` is vanilla's own \u2014 black at 40% \u2014 and is the default so that an untouched loadout draws exactly what the game draws.\n\nThe alpha is part of this value rather than a second slider, because every reason to change the outline is a reason about how much it stands out against the block behind it, and hue and alpha only mean anything read together. `hit_color` made the same call from the other direction.",
+      "$ref": "#/definitions/hex_color"
+    },
+    "line_width": {
+      "description": "Width of the outline in GL line units. 2 is vanilla's.\n\nThe range is `hitboxes.line_width`'s exactly, and it is shared rather than chosen: `SETTING_BOUNDS` is keyed by the bare setting name and the generator refuses two mods that disagree about one. That rule is right here \u2014 this is the same quantity passed to the same `glLineWidth`, and a client where a line width of 3 means one thickness on a hitbox and another on an outline would be a client with two ideas of what a pixel is.\n\nThe ceiling is 5 because `glLineWidth` above about that is not portable: drivers clamp it, and a value the player sets and the driver ignores is a setting that does nothing on their machine and works on yours. The floor is 0.5 for the same reason from the other end.",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 5,
+      "default": 2
+    }
+  }
+}

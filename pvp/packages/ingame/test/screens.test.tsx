@@ -291,25 +291,30 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const { container } = render(<App />);
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
-    // Twenty-nine mods: seven across, five down — the shape that fills the panel, solved from
-    // the registry's count and the window and handed to the CSS as lengths. Six across at
-    // twelve, seven when the watermark landed, eight at Wave 2's readouts, and seven again now
-    // that the cap is seven: past twenty-one no column count fits, so the width stopped being
-    // "how do I avoid a scrollbar" and became "how big is the tile in the rows you can see".
-    // Every one of those moves is `solveGrid` doing its job rather than a layout that had to be
-    // re-guessed, which is why this is rewritten each time rather than derived away.
+    // Thirty-six mods: seven across, six down — the shape that fills the panel, solved from the
+    // registry's count and the window and handed to the CSS as lengths. Six across at twelve,
+    // seven when the watermark landed, eight at Wave 2's readouts, and seven again once the cap
+    // was seven: past twenty-one no column count fits, so the width stopped being "how do I
+    // avoid a scrollbar" and became "how big is the tile in the rows you can see". Since then
+    // only the row count moves — five at twenty-nine, six at thirty-six.
+    //
+    // Every one of those is `solveGrid` doing its job rather than a layout that had to be
+    // re-guessed, which is why this is rewritten each time rather than derived away. **The
+    // rewriting is the point**: the number in this comment is the only place anyone states what
+    // the grid is supposed to look like, and a test that computed it from `MOD_ORDER.length`
+    // would agree with the code by construction and stop being able to disagree with it.
     const solved = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
     expect(solved.columns).toBe(7);
-    expect(solved.rows).toBe(5);
+    expect(solved.rows).toBe(6);
     expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
-    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('5');
+    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('6');
     expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${solved.panelW}px`);
     expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${solved.panelH}px`);
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
     // **Twenty-two is where it flips now.** Three full rows of seven is exactly the panel; the
     // fourth overflows it, so a gutter is held back for the scrollbar and the grid gains
-    // `overlay--scrolls`. Twenty-nine is well past that, and the panel is deliberately sized to
-    // show three of the five rows rather than to hold all of them: the panel is a fixed box
+    // `overlay--scrolls`. Thirty-six is well past that, and the panel is deliberately sized to
+    // show three of the six rows rather than to hold all of them: the panel is a fixed box
     // rather than the size of the registry, and "does it scroll yet" is the question a fixed box
     // exists to answer. It is answered here, once, in a test with the count in it.
     expect(solved.scrolls).toBe(true);
@@ -419,7 +424,15 @@ describe('Mods screen — the grid, and the page one click away', () => {
     );
     // The watermark is Visual too — it is a mark drawn over the game, not a readout. `overlay`
     // joined them in Wave 4: it is the mod whose whole subject is what the game draws over you.
-    expect(ids.sort()).toEqual(['crosshair', 'fullbright', 'overlay', 'watermark']);
+    // `block_outline` joined in Wave 9 on the same terms — it is a mark in the world, and its
+    // category is `visual` for the reason `crosshair`'s is rather than because it is cosmetic.
+    expect(ids.sort()).toEqual([
+      'block_outline',
+      'crosshair',
+      'fullbright',
+      'overlay',
+      'watermark',
+    ]);
 
     set(() => useVoidStore.getState().setModFilter('all'));
     set(() => useVoidStore.getState().setLayout('list'));

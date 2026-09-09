@@ -152,6 +152,17 @@ public final class LiveState {
     /** {@code zoom.sensitivity} — the fraction of normal look sensitivity while zoomed. */
     public volatile double zoomSensitivity = 1;
 
+    /* -------------------------------------------------------------- block outline */
+
+    /** {@code block_outline.on} — the customiser is engaged at all. */
+    public volatile boolean blockOutlineOn;
+    /** {@code block_outline.hide} — vanilla's outline draw is skipped entirely. */
+    public volatile boolean blockOutlineHide;
+    /** {@code block_outline.color} as ARGB; vanilla's own is {@code 0x66000000}. */
+    public volatile int blockOutlineColor = 0x66000000;
+    /** {@code block_outline.line_width} in GL line units; vanilla's is 2. */
+    public volatile double blockOutlineWidth = 2;
+
     /* ---------------------------------------------------------------- scoreboard */
 
     /** {@code scoreboard.on} — the customiser is engaged at all. */
@@ -517,6 +528,11 @@ public final class LiveState {
         zoomSmooth = l.boolSetting("zoom", "smooth", true);
         zoomCinematic = l.boolSetting("zoom", "cinematic", false);
         zoomSensitivity = l.numberSetting("zoom", "sensitivity", 1);
+        blockOutlineOn = l.isOn("block_outline");
+        blockOutlineHide = l.boolSetting("block_outline", "hide", false);
+        blockOutlineColor = parseColor(
+                l.stringSetting("block_outline", "color", "#00000066"), 0x66000000);
+        blockOutlineWidth = l.numberSetting("block_outline", "line_width", 2);
         scoreboardOn = l.isOn("scoreboard");
         scoreboardHide = l.boolSetting("scoreboard", "hide", false);
         scoreboardScale = l.numberSetting("scoreboard", "sidebar_scale", 1);

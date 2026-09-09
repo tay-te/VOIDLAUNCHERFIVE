@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 35 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 36 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -110,11 +110,14 @@ pub enum ModId {
     /// How many potions of one effect you are carrying, which in pot PvP is what you plan
     /// around.
     PotionCounter,
+    /// The box vanilla draws round the block you are looking at — recoloured, thickened, or
+    /// gone.
+    BlockOutline,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 35] = [
+    pub const ALL: [ModId; 36] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -150,6 +153,7 @@ impl ModId {
         ModId::Scoreboard,
         ModId::Reach,
         ModId::PotionCounter,
+        ModId::BlockOutline,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -190,6 +194,7 @@ impl ModId {
             ModId::Scoreboard => "scoreboard",
             ModId::Reach => "reach",
             ModId::PotionCounter => "potion_counter",
+            ModId::BlockOutline => "block_outline",
         }
     }
 }
@@ -311,7 +316,7 @@ impl HudModId {
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `gameplay`: the 14 mods an actuator Mixin reads
+/// The subset of [`ModId`] whose `kind` is `gameplay`: the 15 mods an actuator Mixin reads
 /// every frame.
 ///
 /// These are the only ids accepted by `void.setGameplay`.
@@ -349,11 +354,14 @@ pub enum GameplayModId {
     /// Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
     /// screen.
     Scoreboard,
+    /// The box vanilla draws round the block you are looking at — recoloured, thickened, or
+    /// gone.
+    BlockOutline,
 }
 
 impl GameplayModId {
     /// Every gameplay mod id, in registry order.
-    pub const ALL: [GameplayModId; 14] = [
+    pub const ALL: [GameplayModId; 15] = [
         GameplayModId::ToggleSprint,
         GameplayModId::Fullbright,
         GameplayModId::Hitboxes,
@@ -368,6 +376,7 @@ impl GameplayModId {
         GameplayModId::OldAnimations,
         GameplayModId::OldInput,
         GameplayModId::Scoreboard,
+        GameplayModId::BlockOutline,
     ];
 
     /// Widens to the full mod id enum.
@@ -387,6 +396,7 @@ impl GameplayModId {
             GameplayModId::OldAnimations => ModId::OldAnimations,
             GameplayModId::OldInput => ModId::OldInput,
             GameplayModId::Scoreboard => ModId::Scoreboard,
+            GameplayModId::BlockOutline => ModId::BlockOutline,
         }
     }
 
@@ -3918,11 +3928,55 @@ pub struct PotionCounterSettings {
     pub show_label: Option<bool>,
 }
 
+/// Block outline settings.
+///
+/// Settings for the Block outline gameplay mod. It draws nothing of its own: every line is
+/// vanilla's `WorldRenderer.drawBlockOutline`, and these change whether it runs and what two of
+/// its instructions are handed. Why it is worth a mod — `docs/mod-roster.md` §3.3 #3 calls it
+/// table stakes on both competing clients. In practice it is a Bedwars and a build-fight
+/// setting: black at 40% over a dark block is a box you cannot see, and the same box in white
+/// or at three pixels is the difference between placing where you meant to and placing one
+/// block over. Vanilla's own values are the defaults, so a loadout that has never touched this
+/// draws exactly what the game draws.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BlockOutlineSettings {
+    /// Whether the block outline customiser is enabled.
+    pub on: bool,
+
+    /// Whether the outline is drawn at all. Off by default. On, the method is skipped entirely
+    /// rather than drawn transparent — a fully transparent line is still a line the GPU
+    /// rasterises, and there is no reason to pay for one nobody can see.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hide: Option<bool>,
+
+    /// Colour of the outline, alpha included. `#00000066` is vanilla's own — black at 40% — and
+    /// is the default so that an untouched loadout draws exactly what the game draws. The alpha
+    /// is part of this value rather than a second slider, because every reason to change the
+    /// outline is a reason about how much it stands out against the block behind it, and hue
+    /// and alpha only mean anything read together. `hit_color` made the same call from the
+    /// other direction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<HexColor>,
+
+    /// Width of the outline in GL line units. 2 is vanilla's. The range is
+    /// `hitboxes.line_width`'s exactly, and it is shared rather than chosen: `SETTING_BOUNDS`
+    /// is keyed by the bare setting name and the generator refuses two mods that disagree about
+    /// one. That rule is right here — this is the same quantity passed to the same
+    /// `glLineWidth`, and a client where a line width of 3 means one thickness on a hitbox and
+    /// another on an outline would be a client with two ideas of what a pixel is. The ceiling
+    /// is 5 because `glLineWidth` above about that is not portable: drivers clamp it, and a
+    /// value the player sets and the driver ignores is a setting that does nothing on their
+    /// machine and works on yours. The floor is 0.5 for the same reason from the other end.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_width: Option<f64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 35.
+/// Every mod VOID ships, keyed by id. Closed set of 36.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -4044,6 +4098,10 @@ pub struct ModRegistryEntries {
     /// Potion counter — How many potions of one effect you are carrying, which in pot PvP is
     /// what you plan around.
     pub potion_counter: ModEntry<PotionCounterSettings>,
+
+    /// Block outline — The box vanilla draws round the block you are looking at — recoloured,
+    /// thickened, or gone.
+    pub block_outline: ModEntry<BlockOutlineSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -4125,6 +4183,8 @@ pub struct ModStates {
     pub reach: Option<ReachSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub potion_counter: Option<PotionCounterSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_outline: Option<BlockOutlineSettings>,
 }
 
 impl Registry {
@@ -4166,6 +4226,7 @@ impl Registry {
             ModId::Scoreboard => self.mods.scoreboard.info(),
             ModId::Reach => self.mods.reach.info(),
             ModId::PotionCounter => self.mods.potion_counter.info(),
+            ModId::BlockOutline => self.mods.block_outline.info(),
         }
     }
 
@@ -4209,6 +4270,7 @@ impl Registry {
             ModId::Scoreboard => self.mods.scoreboard.defaults_object(),
             ModId::Reach => self.mods.reach.defaults_object(),
             ModId::PotionCounter => self.mods.potion_counter.defaults_object(),
+            ModId::BlockOutline => self.mods.block_outline.defaults_object(),
         }
     }
 }
@@ -4253,6 +4315,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::Scoreboard => super::check::<ScoreboardSettings>(id, value),
         ModId::Reach => super::check::<ReachSettings>(id, value),
         ModId::PotionCounter => super::check::<PotionCounterSettings>(id, value),
+        ModId::BlockOutline => super::check::<BlockOutlineSettings>(id, value),
     }
 }
 

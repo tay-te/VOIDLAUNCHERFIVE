@@ -35,6 +35,7 @@ import combo from './combo';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
+import block_outline from './block_outline';
 import clock from './clock';
 import cps_graph from './cps_graph';
 import hit_trade from './hit_trade';
@@ -93,6 +94,7 @@ const ART = {
   momentum,
   memory,
   server_address,
+  block_outline,
   clock,
   cps_graph,
   hit_trade,
