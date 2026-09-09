@@ -225,6 +225,41 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   fullbright: [
     { key: 'gamma', label: 'Gamma', control: 'slider', min: 1, max: 15, step: 0.5, format: 'plain' },
   ],
+  // Wave 4 (docs/mod-roster.md §7, "the four that change how the client feels", plus the
+  // stopwatch the input path unblocked). Gameplay mods carry no SCALE/OPACITY: they draw
+  // nothing of their own, so there is nothing to size or fade.
+  stopwatch: [
+    SCALE,
+    OPACITY,
+    { key: 'format', label: 'Format', control: 'select', options: ['auto', 'mmss', 'hmmss'] },
+    { key: 'show_millis', label: 'Show hundredths', control: 'switch' },
+    { key: 'start_key', label: 'Start / stop', control: 'keybind' },
+    { key: 'reset_key', label: 'Reset', control: 'keybind' },
+  ],
+  fov: [
+    // Exactly vanilla's own slider range, which is the whole argument for this mod being
+    // classed `safe` — see schema/mods/fov.json.
+    { key: 'fov', label: 'Field of view', control: 'slider', min: 30, max: 110, step: 1, format: 'plain' },
+    { key: 'lock_sprint', label: 'Lock while sprinting', control: 'switch' },
+    { key: 'lock_bow', label: 'Lock while drawing a bow', control: 'switch' },
+  ],
+  toggle_sneak: [
+    { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
+    { key: 'keybind', label: 'Keybind', control: 'keybind' },
+  ],
+  overlay: [
+    { key: 'hide_fire', label: 'Hide fire overlay', control: 'switch' },
+    { key: 'view_bobbing', label: 'View bobbing', control: 'select', options: ['vanilla', 'minimal', 'off'] },
+    { key: 'hide_own_armor', label: 'Hide own armour', control: 'switch' },
+    { key: 'hide_stuck_arrows', label: 'Hide stuck arrows', control: 'switch' },
+    { key: 'hide_pumpkin', label: 'Hide pumpkin blur', control: 'switch' },
+  ],
+  old_animations: [
+    { key: 'swing', label: 'Swing', control: 'select', options: ['vanilla', 'one_seven'] },
+    { key: 'block_hit', label: 'Block hit', control: 'select', options: ['vanilla', 'one_seven'] },
+    { key: 'always_swing', label: 'Always swing', control: 'switch' },
+    { key: 'use_while_digging', label: 'Use item while digging', control: 'switch' },
+  ],
   hitboxes: [
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
     { key: 'color', label: 'Colour', control: 'color' },
@@ -275,7 +310,45 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'fullbright',
   'ping',
   'coordinates',
+  // Everything below trails in registry order, because the frame predates it. `direction` and
+  // `watermark` landed after the Figma was drawn, then Wave 2's six readouts, then Wave 4's
+  // five — thirteen mods that this array simply did not have, and nothing said so: it is
+  // `readonly ModId[]`, so an incomplete list is not a type error the way `SETTING_SPECS`
+  // above is, and the launcher's grid just drew fewer mods than the client ships. That is the
+  // failure mode `docs/mod-roster.md` §9's audit classifies as *silent*, in the application it
+  // already caught one in. The assertion under this array is the fix; the list is the symptom.
+  'direction',
+  'watermark',
+  'combo',
+  'saturation',
+  'momentum',
+  'memory',
+  'server_address',
+  'item_counter',
+  'stopwatch',
+  'fov',
+  'toggle_sneak',
+  'overlay',
+  'old_animations',
 ];
+
+/**
+ * A mod in the registry but missing from {@link MOD_GRID_ORDER} is simply not drawn — no error,
+ * no gap, just a launcher showing fewer mods than the client has. The type cannot catch it (the
+ * array is `ModId[]` whether or not it is complete), so this does, at import time, in every
+ * build.
+ *
+ * Deliberately the same shape as `packages/ingame/src/mods/order.ts`'s assertion, because it is
+ * the same bug in the other application — and this half is where it actually happened: the
+ * overlay's order has thrown since it was written, while this one silently lost thirteen mods.
+ */
+const ungridded = MOD_IDS.filter((id) => !MOD_GRID_ORDER.includes(id));
+if (ungridded.length > 0) {
+  throw new Error(
+    `local/registry.ts: MOD_GRID_ORDER is missing ${ungridded.join(', ')} — ` +
+      'a mod absent from the grid order is never drawn.',
+  );
+}
 
 export const FILTER_TABS = ['All', 'HUD', 'PvP', 'Visual', 'Utility'] as const;
 export type FilterTab = (typeof FILTER_TABS)[number];

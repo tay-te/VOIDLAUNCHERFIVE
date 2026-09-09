@@ -235,6 +235,12 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // The short form, which is the mod's own default — a card has a card's width.
   server_address: () => <Numeral value="Hypixel" unit="server" />,
   item_counter: () => <Numeral value="x12" unit="held" />,
+  stopwatch: () => <Numeral value="4:07" unit="elapsed" />,
+  fov: () => <Numeral value="90" unit="fov" />,
+  toggle_sneak: () => <Numeral value="HOLD" unit="sneak" />,
+  // The one the roster says decides fights, so it is what the card shows.
+  overlay: () => <Numeral value="5" unit="hidden" />,
+  old_animations: () => <Numeral value="1.7" unit="swing" />,
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
 };
