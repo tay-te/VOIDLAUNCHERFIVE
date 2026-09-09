@@ -291,27 +291,27 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const { container } = render(<App />);
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
-    // Twenty-nine mods: eight across, four down — the shape that fills the panel, solved from
+    // Twenty-nine mods: seven across, five down — the shape that fills the panel, solved from
     // the registry's count and the window and handed to the CSS as lengths. Six across at
-    // twelve, seven when the watermark landed, eight at Wave 2's readouts, a third row filled by
-    // Wave 4, and a fourth opened by Wave 5. Every one of those moves is `solveGrid` doing its
-    // job rather than a layout that had to be re-guessed, which is why this is rewritten each
-    // time rather than derived away.
+    // twelve, seven when the watermark landed, eight at Wave 2's readouts, and seven again now
+    // that the cap is seven: past twenty-one no column count fits, so the width stopped being
+    // "how do I avoid a scrollbar" and became "how big is the tile in the rows you can see".
+    // Every one of those moves is `solveGrid` doing its job rather than a layout that had to be
+    // re-guessed, which is why this is rewritten each time rather than derived away.
     const solved = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
-    expect(solved.columns).toBe(8);
-    expect(solved.rows).toBe(4);
-    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('8');
-    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('4');
+    expect(solved.columns).toBe(7);
+    expect(solved.rows).toBe(5);
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
+    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('5');
     expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${solved.panelW}px`);
     expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${solved.panelH}px`);
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
-    // **Twenty-nine is where it flips.** Three full rows of eight was exactly the panel; the
+    // **Twenty-two is where it flips now.** Three full rows of seven is exactly the panel; the
     // fourth overflows it, so a gutter is held back for the scrollbar and the grid gains
-    // `overlay--scrolls`. The previous revision of this test predicted the next mod would do
-    // this, and kept the assertion rather than loosening it for exactly that reason: the panel
-    // is a fixed box rather than the size of the registry, and "does it scroll yet" is the
-    // question a fixed box exists to answer. It is answered here, once, in a test with the
-    // count in it.
+    // `overlay--scrolls`. Twenty-nine is well past that, and the panel is deliberately sized to
+    // show three of the five rows rather than to hold all of them: the panel is a fixed box
+    // rather than the size of the registry, and "does it scroll yet" is the question a fixed box
+    // exists to answer. It is answered here, once, in a test with the count in it.
     expect(solved.scrolls).toBe(true);
     expect(overlay().style.getPropertyValue('--grid-gutter')).not.toBe('0px');
     expect(overlay().className).toContain('overlay--scrolls');
@@ -337,14 +337,14 @@ describe('Mods screen — the grid, and the page one click away', () => {
     set(() => useVoidStore.getState().setLayout('grid'));
     set(() => useVoidStore.getState().setModFilter('VISUAL'));
     expect(container.querySelectorAll('.mods-row')).toHaveLength(1);
-    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('8');
+    expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
   });
 
   it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
-    // Row-major, so the arrow keys had to change with the fill order. Twenty-nine mods are eight
-    // across: `fps` is index 0, `old_animations` index 7 (end of row one), `old_input` index 8
-    // (start of row two), `watermark` index 28 (the last, on a fourth row of five).
+    // Row-major, so the arrow keys had to change with the fill order. Twenty-nine mods are seven
+    // across: `fps` is index 0, `toggle_sneak` index 6 (end of row one), `old_animations` index 7
+    // (start of row two), `watermark` index 28 (the last, alone on a fifth row).
     const { container } = render(<App />);
     const overlay = container.querySelector('.overlay') as HTMLElement;
     const at = () => useVoidStore.getState().selectedMod;
@@ -354,7 +354,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     press('ArrowRight');
     expect(at()).toBe('memory');
     press('ArrowDown');
-    expect(at()).toBe('crosshair'); // index 1 + 8
+    expect(at()).toBe('old_input'); // index 1 + 7
     press('ArrowUp');
     expect(at()).toBe('memory');
 

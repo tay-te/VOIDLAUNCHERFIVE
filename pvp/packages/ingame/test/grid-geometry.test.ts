@@ -124,7 +124,7 @@ describe('solveGrid — the counts that used to break', () => {
    * The three tiles the 1150-wide panel can produce, to the fraction. Written out because the
    * table below is only readable if the numbers in it have names.
    */
-  const TILE = { six: 1042 / 6, seven: 1030 / 7, eight: 127.25 };
+  const TILE = { six: 1042 / 6, seven: 1030 / 7 };
 
   /** Rows of `tileH`, plus the 12px gaps between them. */
   const gridH = (rows: number, tileW: number) => rows * (tileW + GEOMETRY.foot) + (rows - 1) * 12;
@@ -146,18 +146,18 @@ describe('solveGrid — the counts that used to break', () => {
   const expected: Record<number, [number, number, number]> = {
     12: [6, 2, TILE.six],
     13: [7, 2, TILE.seven],
-    16: [8, 2, TILE.eight],
+    16: [7, 3, TILE.seven],
     // 17 to 21 are the bug: they used to ask for three rows of the widest tile, which did not
     // fit, and got clipped. What they fit is whatever the body of the day allows — three rows
-    // of seven while the panel was 796 tall, eight columns now that it is 716 and the body is
-    // 606. Which of the two it is has never been the property worth asserting; that the rows
-    // fit the box the panel actually has is, and that is the line below the table.
-    17: [8, 3, TILE.eight],
-    18: [8, 3, TILE.eight],
-    19: [8, 3, TILE.eight],
-    20: [8, 3, TILE.eight],
-    21: [8, 3, TILE.eight],
-    24: [8, 3, TILE.eight],
+    // of seven at a 796 panel, eight columns at 716, and three rows of seven again now that the
+    // panel is 740 and eight columns no longer exist. Which of the shapes it is has never been
+    // the property worth asserting; that the rows fit the box the panel actually has is, and
+    // that is the line below the table.
+    17: [7, 3, TILE.seven],
+    18: [7, 3, TILE.seven],
+    19: [7, 3, TILE.seven],
+    20: [7, 3, TILE.seven],
+    21: [7, 3, TILE.seven],
   };
 
   for (const [count, [columns, rows, tileW]] of Object.entries(expected)) {
@@ -175,9 +175,12 @@ describe('solveGrid — the counts that used to break', () => {
   }
 
   it('is unchanged at the counts that already worked', () => {
-    // The whole point of the regression range: 12 and 22-24 were fine and must stay that way,
-    // or the fix has traded one set of broken counts for another.
-    for (const count of [12, 13, 14, 15, 16, 22, 23, 24]) {
+    // The regression range, which is 12 through 21 now. Twenty-two to twenty-four have left it:
+    // they fitted as three rows of eight, and there is no eighth column any more, so seven
+    // columns need a fourth row and the grid scrolls. That is the cap's price and it is paid
+    // here — what must not happen is a count in this range clipping instead of scrolling, which
+    // is the line below and the reason the file exists.
+    for (const count of [12, 13, 14, 15, 16, 17, 18, 19, 20, 21]) {
       const shape = solveGrid(count, VIEW.w, VIEW.h);
       expect(shape.scrolls).toBe(false);
       expect(shape.panelH).toBeLessThanOrEqual(maxPanelH(VIEW.h));
@@ -185,7 +188,7 @@ describe('solveGrid — the counts that used to break', () => {
     // The grids these counts produce, which is what "unchanged" means now that the panel
     // holding them is a constant.
     expect(solveGrid(12, VIEW.w, VIEW.h).gridH).toBeCloseTo(463.333, 3);
-    expect(solveGrid(24, VIEW.w, VIEW.h).gridH).toBe(561.75);
+    expect(solveGrid(21, VIEW.w, VIEW.h).gridH).toBeCloseTo(621.429, 3);
   });
 
   it('never gives more mods a bigger tile or fewer columns', () => {
@@ -203,9 +206,9 @@ describe('solveGrid — the counts that used to break', () => {
 
 describe('solveGrid — past what the window can hold', () => {
   it('scrolls rather than clipping, and holds a gutter back for the scrollbar', () => {
-    // Twenty-four is the most that fits three rows of eight; twenty-five needs a fourth.
-    expect(solveGrid(24, VIEW.w, VIEW.h).scrolls).toBe(false);
-    const shape = solveGrid(25, VIEW.w, VIEW.h);
+    // Twenty-one is the most that fits three rows of seven; twenty-two needs a fourth.
+    expect(solveGrid(21, VIEW.w, VIEW.h).scrolls).toBe(false);
+    const shape = solveGrid(22, VIEW.w, VIEW.h);
     expect(shape.scrolls).toBe(true);
     expect(shape.columns).toBe(GEOMETRY.maxColumns);
     expect(shape.gutter).toBe(GEOMETRY.gutter);
@@ -218,8 +221,8 @@ describe('solveGrid — past what the window can hold', () => {
 
   it('still fits the panel to the window at the fixture ceiling', () => {
     const shape = solveGrid(64, VIEW.w, VIEW.h);
-    expect(shape.columns).toBe(8);
-    expect(shape.rows).toBe(8);
+    expect(shape.columns).toBe(GEOMETRY.maxColumns);
+    expect(shape.rows).toBe(Math.ceil(64 / GEOMETRY.maxColumns));
     expect(shape.panelH).toBe(GEOMETRY.maxPanelH);
     expect(shape.scrolls).toBe(true);
   });
@@ -236,17 +239,17 @@ describe('solveGrid — the panel is a fixed box', () => {
   /**
    * The change that motivated the pin, stated as the two counts either side of it.
    *
-   * Sixteen mods lay out two rows and seventeen lay out three. Under the old solve a row
+   * Fourteen mods lay out two rows and fifteen lay out three. Under the old solve a row
    * appearing was also a 229px change in the height of the menu — and of Settings, Loadouts,
    * Party and the HUD editor, which share the box and have no rows at all.
    *
-   * (It was fourteen and fifteen that straddled the change while the body was 686. The pair
-   * moved when the panel came down to 716; the property does not depend on which pair it is,
-   * only on there being one.)
+   * (The pair has moved twice: fourteen/fifteen at a 686 body, sixteen/seventeen at 606, and
+   * back to fourteen/fifteen at 630 with the seven-column cap. The property does not depend on
+   * which pair it is, only on there being one.)
    */
   it('does not change height when the row count changes', () => {
-    const two = solveGrid(16, VIEW.w, VIEW.h);
-    const three = solveGrid(17, VIEW.w, VIEW.h);
+    const two = solveGrid(14, VIEW.w, VIEW.h);
+    const three = solveGrid(15, VIEW.w, VIEW.h);
     expect(two.rows).toBe(2);
     expect(three.rows).toBe(3);
     expect(two.panelH).toBe(three.panelH);
@@ -287,16 +290,22 @@ describe('solveGrid — the panel is a fixed box', () => {
    * 676.29 by 9.7 — so the box is further from the edge than the one it replaces, and a
    * rounding in `chrome`, `foot` or `gap` cannot flip the shape out from under it.
    */
-  it('stands clear of the shape its body height is nearest', () => {
-    expect(GEOMETRY.maxPanelH).toBe(716);
+  it('shows three rows, and stands clear of the fourth', () => {
+    // The height's whole job now. At twenty-nine mods nothing fits in any column count, so the
+    // panel is not sized to hold the grid — it is sized to decide how much of it you see before
+    // you scroll, and the answer has to be a whole number of rows. Two and a fraction is what
+    // 716 gave, and a half-height row of tiles under the fold is what "squeezed" looked like.
+    expect(GEOMETRY.maxPanelH).toBe(740);
     const body = GEOMETRY.maxPanelH - GEOMETRY.chrome;
     const contentW = GEOMETRY.maxPanelW - 2 * GEOMETRY.edge;
-    const sevenWide = (contentW - 6 * GEOMETRY.gap) / 7;
-    const threeRows = 3 * (sevenWide + GEOMETRY.foot) + 2 * GEOMETRY.gap;
-    expect(threeRows - body).toBeGreaterThan(9.7);
-    // And the shape the body does hold, at the same count that used to take the other one.
-    expect(solveGrid(15, VIEW.w, VIEW.h).columns).toBe(8);
-    expect(solveGrid(15, VIEW.w, VIEW.h).gridH).toBeLessThanOrEqual(body);
+    // The scrolling tile: the gutter is held back for the scrollbar, so it is the narrower one.
+    const wide = (contentW - GEOMETRY.gutter - 6 * GEOMETRY.gap) / GEOMETRY.maxColumns;
+    const rows = (n: number) => n * (wide + GEOMETRY.foot) + (n - 1) * GEOMETRY.gap;
+    expect(rows(3)).toBeLessThanOrEqual(body);
+    expect(body - rows(3)).toBeGreaterThan(9.7);
+    // And no room for a fourth, which is the other half of "exactly three": a body that nearly
+    // held four would put a sliver of one under the fold, which is the thing being fixed.
+    expect(rows(4)).toBeGreaterThan(body);
   });
 });
 

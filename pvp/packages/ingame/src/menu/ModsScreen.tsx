@@ -178,12 +178,18 @@ export const GEOMETRY = {
    * the menu is usable are unchanged: fourteen, which the registry ships, is still two rows of
    * seven, and twenty-four is still the most that fits without scrolling.
    *
-   * **How close this is to a boundary**, which is the question 796 was picked to answer: 606
-   * clears the seven-column three-row solve by 15.4px, where 686 cleared it by 9.7. A constant
-   * one rounding away from changing the layout is not a constant, and this one is further from
-   * the edge than the number it replaces.
+   * **How close this is to a boundary**, which is the question 796 was picked to answer: the
+   * 630 body clears the seven-column three-row solve by 13.7px, where 686 cleared it by 9.7.
+   * A constant one rounding away from changing the layout is not a constant.
+   *
+   * **740, up from 716.** 716 was chosen against a fourteen-mod registry, where three rows were
+   * more than the grid ever needed. At twenty-nine the grid scrolls whatever the panel does, so
+   * the height stopped being "does it fit" and became "how many rows do you see before you
+   * scroll" — and at 716 the answer was two and a sliver of a third, which is what reads as
+   * squeezed. 740 shows exactly three: 3 x 197.43 + 24 is 616.3 against a body of 630. A fourth
+   * row needs 826, so the panel would have to reach 936 — past the canvas — to show one.
    */
-  maxPanelH: 716,
+  maxPanelH: 740,
   /** Left over each side of the panel: `max-width: calc(100% - 48px)`. */
   insetX: 48,
   /** Left over above and below: `max-height: calc(100% - 24px)`. */
@@ -201,8 +207,23 @@ export const GEOMETRY = {
    * clips the last column with no way to scroll it back, which is the bug this is here for.
    */
   gutter: 12,
-  /** The widest the grid ever gets, in columns. The frames draw eight (`289:1611`). */
-  maxColumns: 8,
+  /**
+   * The widest the grid ever gets, in columns.
+   *
+   * **Seven, not the eight the frames draw (`289:1611`).** The frames were drawn for a twelve-mod
+   * registry in a 1278-wide panel, where an eighth column was a 143px tile. The registry is
+   * twenty-nine now and the panel is 1150, and at eight columns that tile is 127 — small enough
+   * that the art inside it stops reading as a picture of the mod. Seven gives 145. The count no
+   * longer fits in any number of columns anyway, so the question is not "how many rows do I
+   * avoid scrolling" but "how big is the tile in the rows you can see", and seven answers that.
+   *
+   * It is also what keeps the solve monotonic. The alternative was to keep eight while the count
+   * still fits and drop to seven once it scrolls — which reads reasonably and is exactly the
+   * shape `test/grid-geometry.test.ts` was opened for: twenty-four mods would get a 127 tile and
+   * twenty-five a 145 one, more mods for a bigger tile. A cap cannot express that; a rule about
+   * the scrolling case can, which is why this is a cap.
+   */
+  maxColumns: 7,
 } as const;
 
 /**

@@ -510,7 +510,7 @@ body {
      within twelve pixels of the top and bottom of the screen; this one keeps its proportions
      and leaves the game visible around it. The two numbers move together or not at all. See
      `GEOMETRY.maxPanelH` for what the smaller body costs the column solve. */
-  --panel-h: 716px;
+  --panel-h: 740px;
   width: var(--panel-w);
   height: var(--panel-h);
   /* Belt and braces, not the mechanism. `solveGrid` has already fitted the panel to the
