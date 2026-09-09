@@ -125,11 +125,13 @@ body {
  * -------------------------------------------------------------------------- */
 
 .hud-chrome {
-  /* The ground hugs the widget: density is the widget's own inset now (see below), so this box
-     shrink-wraps and `subtle` / `solid` deepen the chip rather than drawing a halo two pixels
-     wider than it. That halo was the whole visible difference between the three background
-     steps, and two pixels of it at 0.55 alpha over a chip already at 0.55 was not one. */
-  display: inline-block;
+  /* The ground hugs the widget. Density is the widget's own inset now (see below), so this box
+     has no padding to hold it off, and it already shrink-wraps — on the HUD it is `.hud-item`,
+     absolutely positioned, and in the preview it is `.preview__zoom`, a centred flex box. So
+     `subtle` and `solid` deepen the chip rather than drawing a halo two pixels wider than it,
+     which is what makes them legible: that halo was the entire visible difference between the
+     three background steps, and two pixels of it at 0.55 alpha over a chip already at 0.55 was
+     not a difference. The radius matches the chip's own for the same reason. */
   border-radius: var(--radius-chip, 8px);
   /* No transition. A repaint is caused by a setting changing and by nothing else — §4's budget
      is 0 paints/s on an idle HUD, and an eased background would spend it on every toggle. */
