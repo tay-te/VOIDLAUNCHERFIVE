@@ -13,6 +13,7 @@ import dev.voidpvp.client.net.VoidSocket;
 import dev.voidpvp.client.render.CrosshairRenderer;
 import dev.voidpvp.client.screen.VoidMenuScreen;
 import dev.voidpvp.client.sensor.ArmorSlot;
+import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ServerWatcher;
@@ -89,12 +90,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * a poison tick would be wrong in exactly the situation it is being watched. The client owns
      * the *policy* — `combo.reset_ms` — and this owns only the fact that something landed.
      */
-    private int hitsDealt;
-    private int hitsTaken;
+    private final HitTally hits = new HitTally();
 
     /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
     private int lastAttackCooldownSeen;
-    private int lastHurtTime;
     private final ServerWatcher server = new ServerWatcher();
     /** {@code VOID_UI_TICKLOG}: print every coalesced `tick` payload. See the emit site. */
     private static final boolean TICK_LOG = System.getenv("VOID_UI_TICKLOG") != null;
@@ -1227,30 +1226,37 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // Same reasoning as above.
         }
         try {
-            // `hurtTime` is set to a fixed value on damage and counts down, so it is a level and
-            // not an edge: counting it directly would count one hit once per tick it stays up.
-            // The rising edge is the hit.
-            int hurt = player.hurtTime;
-            if (hurt > lastHurtTime) {
-                hitsTaken++;
-            }
-            lastHurtTime = hurt;
-            tickIn.hitsDealt = Integer.valueOf(hitsDealt);
-            tickIn.hitsTaken = Integer.valueOf(hitsTaken);
+            // The rising edge of `hurtTime` is the hit; `HitTally` owns that rule and the
+            // counters, so both halves of `bridge.json`'s `hits` object are decided in one
+            // plain class that `SensorsTest` can drive.
+            hits.sawHurtTime(player.hurtTime);
+            tickIn.hitsDealt = Integer.valueOf(hits.dealt());
+            tickIn.hitsTaken = Integer.valueOf(hits.taken());
         } catch (Throwable ignored) {
             // Same reasoning as above.
         }
     }
 
     /**
-     * Called by the attack mixin when the player lands a hit.
+     * Called by the attack mixin once per run of {@code MinecraftClient.doAttack} — once per
+     * swing, not once per hit.
      *
-     * <p>Separate from {@link #readWave2} because a landed hit is an *event* and there is no
-     * per-tick field that reports one: the player's own state says nothing about whether their
-     * swing connected. The counter it increments is read on the next tick like everything else.</p>
+     * <p>Separate from {@link #readWave2} because a swing is an *event* and there is no per-tick
+     * field that reports one: the player's own state says nothing about whether their swing
+     * connected. Whether this one counts is {@link HitTally}'s decision and is documented there;
+     * the mixin's job is only to say truthfully what the swing resolved onto, and this method's
+     * is to keep the mixin one line away from a plain object. The counter is read on the next
+     * tick like everything else.</p>
+     *
+     * <p>It used to be called {@code onAttackLanded} and to increment unconditionally, on a
+     * comment claiming 1.8.9 only ran {@code doAttack} when there was something to attack. The
+     * bytecode says otherwise — {@code MinecraftClientMixin} now carries the disassembly — so
+     * {@code hits.dealt} counted swings at air and shipped as a second CPS counter with a
+     * different window.</p>
      */
-    public void onAttackLanded() {
-        hitsDealt++;
+    public void onAttackSwing(HitTally.Swing at, boolean targetAlive, boolean targetAttackable,
+            boolean spectating) {
+        hits.swung(at, targetAlive, targetAttackable, spectating);
     }
 
     private List<ArmorSlot> readArmor(ClientPlayerEntity player) {

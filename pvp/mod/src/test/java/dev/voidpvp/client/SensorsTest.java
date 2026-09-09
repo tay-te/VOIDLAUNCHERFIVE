@@ -2,6 +2,7 @@ package dev.voidpvp.client;
 
 import com.google.gson.JsonObject;
 import dev.voidpvp.client.sensor.ArmorSlot;
+import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ServerWatcher;
@@ -311,6 +312,75 @@ class SensorsTest {
         // Being hit moves the other counter, which is what breaks a combo on the client.
         in.hitsTaken = Integer.valueOf(1);
         assertEquals(1, ticks.build(in).getAsJsonObject("hits").get("taken").getAsInt());
+    }
+
+    @Test
+    @DisplayName("a swing at air is not a hit — the counter is hits, not clicks")
+    void aSwingAtAirIsNotAHit() {
+        HitTally hits = new HitTally();
+
+        // The bug this class exists for. 1.8.9's `MinecraftClient.tick` calls `doAttack()` on
+        // every `attackKey.wasPressed()` with no look at the crosshair target, and `doAttack`
+        // swings the hand before it examines anything and then falls through its MISS arm to the
+        // same trailing `return` the ENTITY arm reaches. The old sensor incremented on reaching
+        // that return, so `hits.dealt` counted clicks — a second CPS readout with a different
+        // window, on a field `bridge.json` defines as "attacks the player has landed".
+        hits.swung(HitTally.Swing.AIR, false, false, false);
+        hits.swung(HitTally.Swing.AIR, false, false, false);
+        assertEquals(0, hits.dealt(), "a swing at air must not advance the counter");
+
+        // Mining is not fighting either, and it took the same path to TAIL.
+        hits.swung(HitTally.Swing.BLOCK, false, false, false);
+        assertEquals(0, hits.dealt(), "a swing at a block must not advance the counter");
+
+        hits.swung(HitTally.Swing.ENTITY, true, true, false);
+        assertEquals(1, hits.dealt(), "a swing that resolved onto a live target is a hit");
+    }
+
+    @Test
+    @DisplayName("landed means vanilla would have delivered the attack, and nothing more")
+    void landedFollowsVanillasOwnGate() {
+        HitTally hits = new HitTally();
+
+        // `Entity.isAlive()` is `!removed`. The crosshair raycast still resolves onto an entity
+        // that has already been removed client-side, and a swing through a corpse deals nothing.
+        hits.swung(HitTally.Swing.ENTITY, false, true, false);
+        assertEquals(0, hits.dealt(), "a dead target is not a hit");
+
+        // `PlayerEntity.attack` opens with `if (!target.isAttackable()) return;`, so this is
+        // vanilla's own definition of an attack rather than one invented here.
+        hits.swung(HitTally.Swing.ENTITY, true, false, false);
+        assertEquals(0, hits.dealt(), "an unattackable target is not a hit");
+
+        // `ClientPlayerInteractionManager.attackEntity` sends the ATTACK packet either way but
+        // skips `PlayerEntity.attack` in spectator, and the server ignores it.
+        hits.swung(HitTally.Swing.ENTITY, true, true, true);
+        assertEquals(0, hits.dealt(), "a spectator does not land hits");
+
+        hits.swung(HitTally.Swing.ENTITY, true, true, false);
+        assertEquals(1, hits.dealt());
+        assertEquals(0, hits.taken(), "swinging is not being hit");
+    }
+
+    @Test
+    @DisplayName("hits taken ride the rising edge of hurtTime, not the level")
+    void hitsTakenAreEdgeTriggered() {
+        HitTally hits = new HitTally();
+
+        // `hurtTime` is set to 10 on damage and counts down. Counting the level would count one
+        // hit ten times.
+        hits.sawHurtTime(0);
+        hits.sawHurtTime(10);
+        hits.sawHurtTime(9);
+        hits.sawHurtTime(8);
+        assertEquals(1, hits.taken(), "one hit, however long the animation lasts");
+
+        // Re-hit before the animation finished: the value rises again, and that is a second hit.
+        hits.sawHurtTime(10);
+        assertEquals(2, hits.taken());
+
+        hits.sawHurtTime(0);
+        assertEquals(2, hits.taken(), "the animation ending is not a hit");
     }
 
     @Test
