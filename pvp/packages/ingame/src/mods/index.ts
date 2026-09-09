@@ -35,6 +35,8 @@ import combo from './combo';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
+import clock from './clock';
+import cps_graph from './cps_graph';
 import hit_trade from './hit_trade';
 import item_counter from './item_counter';
 import memory from './memory';
@@ -88,6 +90,8 @@ const ART = {
   momentum,
   memory,
   server_address,
+  clock,
+  cps_graph,
   hit_trade,
   item_counter,
   // Wave 4 — §7's "four that change how the client feels", plus the stopwatch the `modaction`

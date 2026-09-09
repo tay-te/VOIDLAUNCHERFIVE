@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 30 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 32 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -77,7 +77,9 @@ export type ModId =
   | 'damage_tint'
   | 'old_animations'
   | 'old_input'
-  | 'hit_trade';
+  | 'hit_trade'
+  | 'clock'
+  | 'cps_graph';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -893,11 +895,65 @@ export type TradeCounterEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Clock, narrowed to its constant classification.
+ */
+export type ClockEntry = RegistryEntry & {
+  /**
+   * Always `clock`.
+   */
+  id?: 'clock';
+  /**
+   * Always `clock`.
+   */
+  icon?: 'clock';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ClockSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for the CPS graph, narrowed to its constant classification.
+ */
+export type CPSGraphEntry = RegistryEntry & {
+  /**
+   * Always `cps_graph`.
+   */
+  id?: 'cps_graph';
+  /**
+   * Always `cursor-click`.
+   */
+  icon?: 'cursor-click';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: CPSGraphSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 17 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 19 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -916,7 +972,9 @@ export type HUDModId =
   | 'server_address'
   | 'item_counter'
   | 'stopwatch'
-  | 'hit_trade';
+  | 'hit_trade'
+  | 'clock'
+  | 'cps_graph';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -931,9 +989,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 17, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 19, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 17
+ * @maxItems 19
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -1145,7 +1203,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 30 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 32 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1178,6 +1236,8 @@ export interface Mods {
   old_animations: OldAnimationsEntry;
   old_input: OldInputEntry;
   hit_trade: TradeCounterEntry;
+  clock: ClockEntry;
+  cps_graph: CPSGraphEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2176,6 +2236,88 @@ export interface TradeCounterSettings {
   show_label?: boolean;
 }
 /**
+ * Settings for the Clock HUD mod. It reads the machine's own clock and nothing on the wire — there is no sensor and there could not be one, since the game does not know what time it is where you are. It is therefore the one HUD readout that is correct at the main menu, in singleplayer and on a server alike.
+ *
+ * It owns a timer, which almost nothing in this bundle does. `hud/second-edge.ts` carries the rule and the budget: one timeout armed for the instant the drawn figure next changes, re-armed from the clock when it fires — never an interval and never a frame loop — and nothing armed at all while a menu covers the HUD. With `show_seconds` off the step is a whole minute, so the chip repaints fifty-nine times less often than a player would guess.
+ */
+export interface ClockSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the clock, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
+   */
+  background?: 'bare' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the clock, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the clock — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   *
+   * **This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.
+   *
+   * Five steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.
+   */
+  padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
+  /**
+   * How the time is written. `h24` — `21:41` — is the default because it is one width at every hour, which is what a readout anchored by its corner wants: a twelve-hour chip changes width at one o'clock and at ten, and a HUD item that reflows twice a day is a HUD item that moves. `h12` is `9:41 PM`, for a player who reads that form faster than they can subtract twelve.
+   */
+  format?: 'h24' | 'h12';
+  /**
+   * Whether seconds are drawn. Off by default, and the reason is the repaint rather than the width: with seconds off the drawn figure changes once a *minute*, so the chip's timer is armed for the next minute boundary and sleeps through the other fifty-nine seconds. On, it repaints once a second — still the cheapest live readout on the HUD, but sixty times the cost of a figure nobody is watching tick.
+   */
+  show_seconds?: boolean;
+}
+/**
+ * Settings for the CPS graph HUD mod. It reads the same click edges the CPS counter does — `keys.lmb` and `keys.rmb`, derived in JS with no Java sensor — and keeps one figure per second rather than the raw timestamps, because the drawing has one column per second and a fast hand puts several hundred timestamps into thirty of them.
+ *
+ * What it is for: a rate tells you what your hand is doing now, and a fight is not now. The number every player quotes is their peak, and the thing that actually decides a fight is whether the rate held through it — a hand that opens at 12 and is at 7 by the end has a different problem from one that sat at 9 throughout, and the CPS counter draws both of those identically.
+ *
+ * It repaints once a second, which is the column rate. That is a fact about the mod worth knowing before enabling it beside a HUD that is otherwise driven entirely by the 20 Hz sensor push: `hud/second-edge.ts` carries the rule and the budget, and nothing is armed at all while a menu covers the HUD.
+ */
+export interface CPSGraphSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the CPS graph, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
+   */
+  background?: 'bare' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the CPS graph, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the CPS graph — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   *
+   * **This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.
+   *
+   * Five steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.
+   */
+  padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
+  /**
+   * Which button the graph plots. `left` is the default because it is the attack button and the one a fight is fought with; `right` is for a player training a block-hit or a bow rhythm; `both` sums them, which is the only honest way to draw two hands in one row of columns — two overlaid series in one 60px-wide widget is two shapes nobody can separate over live game pixels.
+   */
+  mode?: 'left' | 'right' | 'both';
+  /**
+   * How many seconds the graph covers, one column per second. 20 is the default because it is about the length of a fight: 10 is a burst and shows nothing about whether a rate held, and 60 puts a whole minute into a widget narrow enough to sit on a HUD, where each column is under a pixel of information. The columns get narrower as this grows rather than the widget wider — a HUD item that changed width with a setting would move under an anchor that is a corner.
+   */
+  window_s?: number;
+  /**
+   * Whether the current rate is drawn as a figure beside the graph. On by default: the shape is what this mod adds and the figure is what makes the shape readable, since a column chart with no scale on it is a picture of a rate rather than a reading of one. Off for a player who already has the CPS counter on their HUD and does not want the number twice.
+   */
+  show_figure?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2201,7 +2343,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 30 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 32 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2234,6 +2376,8 @@ export interface ModStates {
   old_animations?: OldAnimationsSettings;
   old_input?: OldInputSettings;
   hit_trade?: TradeCounterSettings;
+  clock?: ClockSettings;
+  cps_graph?: CPSGraphSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 30 mods.
+ * The closed registry of the 32 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -178,7 +178,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (17) — they read game state and draw -------------------------------------
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -568,7 +568,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (17) — they read game state and draw -------------------------------------
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -1178,7 +1178,7 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- HUD mods (17) — they read game state and draw -------------------------------------
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
 
         // Trade counter — kind hud, pvp tab, §11 safe.
         // Hits you have landed against hits you have taken, this session.
@@ -1216,7 +1216,67 @@ public final class ModRegistry {
                 // this ships on.
                 "show_label", bool(true));
 
-        // --- The factory HUD layout (17) — where each widget starts ----------------------------
+        // Clock — kind hud, utility tab, §11 safe.
+        // The real-world time, for a session with somewhere to be after it.
+        // Source: the machine's own clock, in the page — no sensor.
+        mod("clock", Kind.HUD, Category.UTILITY, "Clock",
+                // Whether the clock is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // How the time is written. `h24` — `21:41` — is the default because it is one
+                // width at every hour, which is what a readout anchored by its corner wants: a
+                // twelve-hour chip changes width at one o'clock and at ten, and a HUD item that
+                // reflows twice a day is a HUD item that moves. `h12` is `9:41 PM`, for a player
+                // who reads that form faster than they can subtract twelve.
+                "format", enumOf("h24", "h24", "h12"),
+                // Whether seconds are drawn. Off by default, and the reason is the repaint rather
+                // than the width: with seconds off the drawn figure changes once a *minute*, so
+                // the chip's timer is armed for the next minute boundary and sleeps through the
+                // other fifty-nine seconds. On, it repaints once a second — still the cheapest
+                // live readout on the HUD, but sixty times the cost of a figure nobody is
+                // watching tick.
+                "show_seconds", bool(false));
+
+        // CPS graph — kind hud, pvp tab, §11 safe.
+        // The shape of your clicking over the last few seconds, not just the current rate.
+        // Source: the same click edges as the CPS counter, summarised once a second in the page.
+        mod("cps_graph", Kind.HUD, Category.PVP, "CPS graph",
+                // Whether the CPS graph is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // Which button the graph plots. `left` is the default because it is the attack
+                // button and the one a fight is fought with; `right` is for a player training a
+                // block-hit or a bow rhythm; `both` sums them, which is the only honest way to
+                // draw two hands in one row of columns — two overlaid series in one 60px-wide
+                // widget is two shapes nobody can separate over live game pixels.
+                "mode", enumOf("left", "left", "right", "both"),
+                // How many seconds the graph covers, one column per second. 20 is the default
+                // because it is about the length of a fight: 10 is a burst and shows nothing
+                // about whether a rate held, and 60 puts a whole minute into a widget narrow
+                // enough to sit on a HUD, where each column is under a pixel of information. The
+                // columns get narrower as this grows rather than the widget wider — a HUD item
+                // that changed width with a setting would move under an anchor that is a corner.
+                "window_s", integer(10, 60, 20),
+                // Whether the current rate is drawn as a figure beside the graph. On by default:
+                // the shape is what this mod adds and the figure is what makes the shape
+                // readable, since a column chart with no scale on it is a picture of a rate
+                // rather than a reading of one. Off for a player who already has the CPS counter
+                // on their HUD and does not want the number twice.
+                "show_figure", bool(true));
+
+        // --- The factory HUD layout (19) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1305,13 +1365,26 @@ public final class ModRegistry {
         // it is part of. The same argument put Combo under Coordinates — a mod goes next to the
         // mod it will be confused with, so the difference is visible rather than inferred.
         place("hit_trade", "top-left", 23, 255);
+
+        // Clock: Top-right, above Ping display's 20px inset, on the same right-edge column as the
+        // two network readouts. That corner is where a glance goes for "the world outside this
+        // fight" — which server, how far away, and now what time it is — and keeping the clock
+        // out of the top-left reference stack means it never sits between two numbers a player
+        // reads mid-match.
+        place("clock", "top-right", -25, 62);
+
+        // CPS graph: Under CPS counter in the top-left reference stack, 38 px below it on the
+        // same column rhythm. The two are one measurement drawn twice and are placed as a pair
+        // for the reason Combo and Trade counter are: a mod goes next to the mod it will be
+        // confused with, so the difference is visible rather than inferred.
+        place("cps_graph", "top-left", 23, 293);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 30 mod ids, in registry order. */
+    /** The 32 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

@@ -1523,6 +1523,29 @@ body {
   align-items: flex-end;
 }
 
+/* CPS graph: the chip's own drawing, at the tile's size.
+ *
+ * The tile borrows `CpsGraphChip` rather than redrawing it, for the reason `mods/types.ts` gives
+ * about the two pictures being different *jobs* but never different *drawings*: a hand-sized copy
+ * of a chart is how a tile and a page start disagreeing about what a mod looks like. What the tile
+ * changes is the column count (20, in the TSX) and the box, which is what the well can hold.
+ *
+ * `--pad-hud-chip: 0` because the chip inside a tile is not on the HUD — it has the tile's own
+ * padding around it already, and a second inset would shrink the drawing rather than protect it.
+ * `--hud-chip-bg: transparent` for the same reason: the tile is the ground. */
+.tart--graph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --pad-hud-chip: 0;
+  --hud-chip-bg: transparent;
+}
+
+.tart__graph .v-cpsgraph {
+  width: 108px;
+  height: 44px;
+}
+
 .tart__piece {
   display: flex;
   flex-direction: column;
@@ -2749,6 +2772,16 @@ body {
 
 .preview__stage .tart--armour {
   gap: 20px;
+}
+
+/* The graph at page size. `PreviewZoom` already enlarges the live widget by `previewZoom`, so
+   this is only the *tile art* path — which the CPS graph does not take, because its preview is
+   the real chip. Kept anyway and kept small: `TilePreview` is what the mod page falls back to
+   for a synthetic `?fake=` id, and a 44px graph blown to page width with nothing sizing it
+   would be the one preview in the grid that draws at the wrong scale. */
+.preview__stage .tart__graph .v-cpsgraph {
+  width: 260px;
+  height: 96px;
 }
 
 .preview__stage .tart__piece {

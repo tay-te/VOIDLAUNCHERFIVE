@@ -9,6 +9,43 @@
 import { describe, expect, it } from 'vitest';
 
 import { playedTime, shortHost } from '@/hud/format';
+import { formatClock } from '@/hud/clock';
+
+/**
+ * The twelve-hour form, which is the only part of a clock that has rules rather than padding.
+ *
+ * Midnight and noon are the two hours where the obvious arithmetic is wrong: `0 % 12` and
+ * `12 % 12` are both 0, and a clock reading `0:41 AM` is not a clock anybody has seen. They are
+ * the two values worth a test, and the two a hand-written `hours - 12` gets wrong.
+ */
+describe('formatClock', () => {
+  const at = (hours: number, minutes = 41, seconds = 7) => ({ hours, minutes, seconds });
+
+  it('pads the 24-hour form to one width at every hour', () => {
+    expect(formatClock(at(9), 'h24', false).value).toBe('09:41');
+    expect(formatClock(at(21), 'h24', false).value).toBe('21:41');
+  });
+
+  it('does not pad the 12-hour form, which is written 9:41 and never 09:41', () => {
+    expect(formatClock(at(9), 'h12', false)).toEqual({ value: '9:41', unit: 'AM' });
+    expect(formatClock(at(21), 'h12', false)).toEqual({ value: '9:41', unit: 'PM' });
+  });
+
+  it('reads midnight and noon as 12, not as 0', () => {
+    expect(formatClock(at(0), 'h12', false)).toEqual({ value: '12:41', unit: 'AM' });
+    expect(formatClock(at(12), 'h12', false)).toEqual({ value: '12:41', unit: 'PM' });
+  });
+
+  it('adds seconds to both forms, padded', () => {
+    expect(formatClock(at(21, 41, 7), 'h24', true).value).toBe('21:41:07');
+    expect(formatClock(at(21, 41, 7), 'h12', true).value).toBe('9:41:07');
+  });
+
+  /** There is no meridiem on the 24-hour form — the suffix is part of the other format. */
+  it('gives the 24-hour form no unit', () => {
+    expect(formatClock(at(21), 'h24', false).unit).toBeUndefined();
+  });
+});
 
 describe('shortHost', () => {
   it('takes the label before the public suffix, which is what a player calls the server', () => {

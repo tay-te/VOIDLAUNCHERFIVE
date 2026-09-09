@@ -29,6 +29,11 @@ export const MOD_ORDER: ModId[] = [
   'memory',
   'keystrokes',
   'cps',
+  // Beside CPS, because it is the same measurement drawn twice: one as a figure, one as a shape.
+  // The pair shares the `cursor-click` glyph, so the grid has to keep them together — two
+  // identical marks with other tiles between them is a collision, side by side with different
+  // labels they are a pair.
+  'cps_graph',
   // Beside CPS: one counts the hand, the other counts what the hand landed, and a player
   // reading one is reading the other in the same glance.
   'combo',
@@ -73,6 +78,11 @@ export const MOD_ORDER: ModId[] = [
   'server_address',
   // Closes the session block — the readouts about this sitting rather than about the fight.
   'stopwatch',
+  // Beside Stopwatch, whose `clock` glyph it shares: elapsed time and time of day are two
+  // readings of one subject, and the same reasoning that pairs Coordinates with Direction pairs
+  // these. It is also the last of the session block and the only readout in the registry that
+  // is correct with no game running.
+  'clock',
   'coordinates',
   // Beside Coordinates, which is the mod a player confuses it with — the two are next to each
   // other so the difference (a position, versus a facing) is visible rather than argued.

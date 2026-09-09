@@ -233,6 +233,14 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // read as this mod rather than as any other counter (`mods/hit_trade.tsx` makes the same
   // argument about the grid tile, for the same reason).
   hit_trade: () => <Numeral value="47 / 19" unit="trade" />,
+  // 24-hour, which is this mod's own default and the form that is one width at every hour.
+  // Static here: the launcher's card grid is not a clock, and a card that ticked would be the
+  // one thing on that screen repainting on its own.
+  clock: () => <Numeral value="21:41" unit="time" />,
+  // The graph's own subject is a shape, which a `Numeral` cannot be — so the card states the
+  // window instead, which is the one thing about it a launcher row can honestly say. The shape
+  // is in the client, on the HUD and on the mod page, where there is something to draw it over.
+  cps_graph: () => <Numeral value="20" unit="seconds" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

@@ -1,0 +1,52 @@
+{
+  "$comment": "Three notes, and the first is about what this mod is *not*.\n\n**It is not Wave 4's click analytics, and it must not grow into it.** `docs/mod-roster.md` §5 names click analytics as a differentiator and §7 puts it in Wave 4 beside the fight review and the W-tap trainer — those are a *store* and a screen you read between games, not a chip. This is the HUD half: the shape of your clicking over the last few seconds, on the screen, while it is happening. The two want different things from the same data and shipping the chip does not pay for the screen. If a stats screen is ever built, this stays as it is: a readout is not a report with the graph cropped out.\n\n**It shares CPS counter's `cursor-click` glyph.** Same argument the sheet's other three shares make and the plainest instance of it: these are the same measurement, one as a figure and one as a shape. `build-icons.py`'s closing rule is that no two mod glyphs may share a *silhouette* — the trap it names is drawing a near-miss that reads as a smudge at 13px — and taking the existing mark outright is the opposite of that. `MOD_ORDER` puts the two side by side so the shared mark reads as a pair.\n\n**No sensor, and no new one wanted.** `mods.json` already records that CPS is derived entirely in JS from click edges and has no Java sensor; this is the same click edges kept for longer and summarised once a second. A per-second history rather than the raw timestamps, because thirty seconds of a fast hand is several hundred timestamps and the drawing only ever has one column per second — the ring exists to be counted, not to be plotted.",
+  "id": "cps_graph",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "CPS graph",
+  "icon": "cursor-click",
+  "the": true,
+  "noun": "the CPS graph",
+  "on_description": "the CPS graph is enabled",
+  "description": "The shape of your clicking over the last few seconds, not just the current rate.",
+  "settings_title": "CPS graph settings",
+  "settings_description": "Settings for the CPS graph HUD mod. It reads the same click edges the CPS counter does — `keys.lmb` and `keys.rmb`, derived in JS with no Java sensor — and keeps one figure per second rather than the raw timestamps, because the drawing has one column per second and a fast hand puts several hundred timestamps into thirty of them.\n\nWhat it is for: a rate tells you what your hand is doing now, and a fight is not now. The number every player quotes is their peak, and the thing that actually decides a fight is whether the rate held through it — a hand that opens at 12 and is at 7 by the end has a different problem from one that sat at 9 throughout, and the CPS counter draws both of those identically.\n\nIt repaints once a second, which is the column rate. That is a fact about the mod worth knowing before enabling it beside a HUD that is otherwise driven entirely by the 20 Hz sensor push: `hud/second-edge.ts` carries the rule and the budget, and nothing is armed at all while a menu covers the HUD.",
+  "source": "the same click edges as the CPS counter, summarised once a second in the page",
+  "enabled": false,
+  "default_placement": {
+    "note": "Under CPS counter in the top-left reference stack, 38 px below it on the same column rhythm. The two are one measurement drawn twice and are placed as a pair for the reason Combo and Trade counter are: a mod goes next to the mod it will be confused with, so the difference is visible rather than inferred.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 293
+  },
+  "defaults": {
+    "mode": "left",
+    "window_s": 20,
+    "show_figure": true
+  },
+  "settings": {
+    "mode": {
+      "description": "Which button the graph plots. `left` is the default because it is the attack button and the one a fight is fought with; `right` is for a player training a block-hit or a bow rhythm; `both` sums them, which is the only honest way to draw two hands in one row of columns — two overlaid series in one 60px-wide widget is two shapes nobody can separate over live game pixels.",
+      "type": "string",
+      "enum": [
+        "left",
+        "right",
+        "both"
+      ],
+      "default": "left"
+    },
+    "window_s": {
+      "description": "How many seconds the graph covers, one column per second. 20 is the default because it is about the length of a fight: 10 is a burst and shows nothing about whether a rate held, and 60 puts a whole minute into a widget narrow enough to sit on a HUD, where each column is under a pixel of information. The columns get narrower as this grows rather than the widget wider — a HUD item that changed width with a setting would move under an anchor that is a corner.",
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 60,
+      "default": 20
+    },
+    "show_figure": {
+      "description": "Whether the current rate is drawn as a figure beside the graph. On by default: the shape is what this mod adds and the figure is what makes the shape readable, since a column chart with no scale on it is a picture of a rate rather than a reading of one. Off for a player who already has the CPS counter on their HUD and does not want the number twice.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

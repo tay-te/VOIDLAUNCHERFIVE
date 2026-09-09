@@ -103,4 +103,18 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * with, so the difference is visible rather than inferred.
    */
   hit_trade: { anchor: 'top-left', dx: 23, dy: 255 },
+  /**
+   * Top-right, above Ping display's 20px inset, on the same right-edge column as the two
+   * network readouts. That corner is where a glance goes for "the world outside this fight" —
+   * which server, how far away, and now what time it is — and keeping the clock out of the
+   * top-left reference stack means it never sits between two numbers a player reads mid-match.
+   */
+  clock: { anchor: 'top-right', dx: -25, dy: 62 },
+  /**
+   * Under CPS counter in the top-left reference stack, 38 px below it on the same column
+   * rhythm. The two are one measurement drawn twice and are placed as a pair for the reason
+   * Combo and Trade counter are: a mod goes next to the mod it will be confused with, so the
+   * difference is visible rather than inferred.
+   */
+  cps_graph: { anchor: 'top-left', dx: 23, dy: 293 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

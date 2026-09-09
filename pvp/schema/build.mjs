@@ -88,6 +88,13 @@ const ORDER = [
   // module and a row in three shared tables, which is what §9's per-mod tax looks like once
   // the generators exist. Appended, never inserted.
   'hit_trade',
+  // Wave 8 — two readouts the page can compute for itself. `clock` reads the machine's clock,
+  // which no sensor could carry because the game does not know what time it is where you are;
+  // `cps_graph` is the click edges the CPS counter already derives from, kept for longer and
+  // summarised once a second. Both own a timer, which almost nothing here does —
+  // `packages/ingame/src/hud/second-edge.ts` is the one place that is allowed to and carries the
+  // budget. Appended, never inserted.
+  'clock', 'cps_graph',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

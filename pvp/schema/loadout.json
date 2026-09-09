@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 30 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 32 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -238,6 +238,14 @@
         "hit_trade": {
           "description": "Trade counter state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/hit_trade_settings"
+        },
+        "clock": {
+          "description": "Clock state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/clock_settings"
+        },
+        "cps_graph": {
+          "description": "CPS graph state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/cps_graph_settings"
         }
       }
     },
@@ -300,9 +308,9 @@
     },
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 17, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 19, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 17,
+      "maxItems": 19,
       "items": {
         "description": "One HUD item placement.",
         "$ref": "#/definitions/hud_item"

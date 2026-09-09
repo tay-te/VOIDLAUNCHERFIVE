@@ -1,0 +1,43 @@
+{
+  "$comment": "Three notes.\n\n**It shares Stopwatch's `clock` glyph, and that sheet's own comment argues the mark is a stopwatch rather than a wall clock.** Both halves are true and the second is why this shares rather than gets its own. `build-icons.py`'s note on the `clock` cell records that a wall clock was drawn first and does not survive at 16px — two hands inside an 11.7u interior fall into one 2px band and downsample to a ring with a smudge in it, which is `crosshair` with a dirty centre. Drawing that mark anyway, for this mod, would be shipping the glyph that file already rejected on evidence. So this takes the timepiece the sheet has, which is the same move `compass` (Coordinates and Direction), `wifi` (Ping display and Server address) and `sword` (Combo counter and Trade counter) already make: two readings of one subject, told apart by the label under the tile, which is what the grid is actually read by.\n\n**It is an ornament and is shipped as one.** `docs/mod-roster.md` §3.1 files Clock with Playtime and Day counter under \"Ornaments. Ship them the week you have nothing better; they win zero fights.\" That judgement stands and nothing here disputes it. What changed is the cost: with the registry generated and the second-edge timer already written for the stopwatch, this mod is a schema entry, a widget and an art module, and the roster row it fills is one every competing client has. It ships **off**, which is the honest place for a readout that wins no fights.\n\n**There is no `show_seconds` on the twelve-hour form's meridiem.** `h12` prints `9:41 PM` and `h24` prints `21:41`, and the suffix is part of the format rather than a second switch — a twelve-hour clock without one is ambiguous twice a day, which is not a preference. `show_seconds` moves both forms together.",
+  "id": "clock",
+  "kind": "hud",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Clock",
+  "icon": "clock",
+  "the": true,
+  "noun": "the clock",
+  "on_description": "the clock is enabled",
+  "description": "The real-world time, for a session with somewhere to be after it.",
+  "settings_title": "Clock settings",
+  "settings_description": "Settings for the Clock HUD mod. It reads the machine's own clock and nothing on the wire — there is no sensor and there could not be one, since the game does not know what time it is where you are. It is therefore the one HUD readout that is correct at the main menu, in singleplayer and on a server alike.\n\nIt owns a timer, which almost nothing in this bundle does. `hud/second-edge.ts` carries the rule and the budget: one timeout armed for the instant the drawn figure next changes, re-armed from the clock when it fires — never an interval and never a frame loop — and nothing armed at all while a menu covers the HUD. With `show_seconds` off the step is a whole minute, so the chip repaints fifty-nine times less often than a player would guess.",
+  "source": "the machine's own clock, in the page — no sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Top-right, above Ping display's 20px inset, on the same right-edge column as the two network readouts. That corner is where a glance goes for \"the world outside this fight\" — which server, how far away, and now what time it is — and keeping the clock out of the top-left reference stack means it never sits between two numbers a player reads mid-match.",
+    "anchor": "top-right",
+    "dx": -25,
+    "dy": 62
+  },
+  "defaults": {
+    "format": "h24",
+    "show_seconds": false
+  },
+  "settings": {
+    "format": {
+      "description": "How the time is written. `h24` — `21:41` — is the default because it is one width at every hour, which is what a readout anchored by its corner wants: a twelve-hour chip changes width at one o'clock and at ten, and a HUD item that reflows twice a day is a HUD item that moves. `h12` is `9:41 PM`, for a player who reads that form faster than they can subtract twelve.",
+      "type": "string",
+      "enum": [
+        "h24",
+        "h12"
+      ],
+      "default": "h24"
+    },
+    "show_seconds": {
+      "description": "Whether seconds are drawn. Off by default, and the reason is the repaint rather than the width: with seconds off the drawn figure changes once a *minute*, so the chip's timer is armed for the next minute boundary and sleeps through the other fifty-nine seconds. On, it repaints once a second — still the cheapest live readout on the HUD, but sixty times the cost of a figure nobody is watching tick.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

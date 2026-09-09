@@ -413,6 +413,42 @@ connection quality · surface the input-latency number we already compute.
 titles, pack display, glint, clear glass, particles, time changer, nick hider, scrollable
 tooltips, inventory lock, kill sounds.
 
+**Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
+graph.~~ Playtime · day counter.
+
+> **Shipped 2026-09-09, two mods, no game code and no sensor.** `clock` reads the machine's own
+> clock, which no sensor could ever carry — the game does not know what time it is where you are,
+> and it is therefore the only readout in the registry that is correct at the main menu, in
+> singleplayer and on a server alike. `cps_graph` is the click edges the CPS counter already
+> derives from, kept for longer and summarised once a second.
+>
+> **What this wave is, as a category.** Wave 7 was "the data is on the wire and nobody reads it",
+> and that list emptied. This one is the tier below: **data the page can compute for itself.**
+> Both mods here own a *timer*, which almost nothing in this bundle does, and that is the actual
+> cost — `packages/ingame/src/hud/second-edge.ts` is the one place allowed to wake the page up
+> and carries the budget, lifted out of `stopwatch.tsx` rather than copied. The remaining
+> candidates (playtime, day counter) are the same shape and the same tier, which is to say
+> ornaments.
+>
+> **`cps_graph` is not §5's click analytics and must not grow into it.** §7 puts that in Wave 4
+> beside the fight review and the W-tap trainer, and those are a store and a screen you read
+> *between* games. This is the HUD half — the shape of your clicking while it is happening — and
+> shipping the chip does not pay for the screen. Its own `$comment` records the split condition.
+>
+> What it adds over the CPS counter is worth stating because it is the whole mod: a rate tells
+> you what your hand is doing now, and a fight is not now. A hand that opens at 12 and is at 7 by
+> the end has a different problem from one that sat at 9 throughout, and a figure draws both of
+> those identically. The scale is fixed at 16 rather than fitted to the data for exactly that
+> reason — an autoscaling chart relabels its own axis as the peak moves, so a fade and a hold
+> come out as the same picture.
+>
+> **`clock` is an ornament and ships as one** (off, and §3.1 files it under "they win zero
+> fights"). That judgement stands; what changed is the cost. It is also the third mod to share a
+> glyph, and the sheet's own note on the `clock` cell is why: `build-icons.py` records that a
+> wall clock was drawn first and does not survive at 16px — two hands inside an 11.7u interior
+> fall into one 2px band — so drawing that mark anyway would be shipping the glyph that file
+> already rejected on evidence.
+
 **Wave 7 — the readouts already on the wire.** ~~PvP info, as a trade counter.~~
 
 > **Shipped 2026-09-09, one mod, no game code.** `hit_trade` is §3.1 #8's "PvP info" reduced to
@@ -447,7 +483,7 @@ tooltips, inventory lock, kill sounds.
 
 VOID is not thirteen mods behind ninety-eight. Strip Skyblock, modern-version and
 ornamental mods from Lunar's 98 and the 1.8.9-PvP-relevant roster is around **45**. VOID
-had 13 of them when this was written and has 30 now, and is *ahead* on two (1% low FPS, and
+had 13 of them when this was written and has 32 now, and is *ahead* on two (1% low FPS, and
 an HUD editor with live per-mod previews that neither competitor matches).
 
 The four gaps below were written against the thirteen. Two have closed: the cheap sweep is

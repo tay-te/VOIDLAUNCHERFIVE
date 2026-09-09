@@ -255,6 +255,41 @@
   color: var(--text-muted);
 }
 
+/* ------------------------------------------------------------- CpsGraphChip
+
+   Columns, not a line. `design/ultralight-notes.md` §7 rates inline SVG [risky] and a sparkline
+   is nothing but a stroke, so this is plain divs with a height — the same drawing method the
+   armour panel's durability bar and `.v-hudchip__bar` already use, and the one that cannot fail
+   in this engine.
+
+   The track is a fixed 26px tall and the whole graph a fixed 88px wide, so `window_s` changes
+   the *column* width and never the widget's. A HUD item anchored by a corner that grew when a
+   setting moved would walk across the screen as it was configured.
+
+   Columns are bottom-aligned and grow upward, which is the only orientation in which a row of
+   them reads as a rate over time rather than as a bar code. `flex: 1` on each, so sixty of them
+   divide the same 88px that twenty do — below about 1px they are a texture rather than a
+   reading, which is the argument `window_s`'s own description makes for capping it at 60. */
+
+.v-cpsgraph {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  width: 88px;
+  height: 26px;
+}
+
+.v-cpsgraph__col {
+  flex: 1 1 0;
+  min-width: 0;
+  /* The ground: a column at zero still draws its footprint, so an idle graph is a row of marks
+     at the baseline rather than an empty box — the difference between "nothing happened" and
+     "this widget is broken", which over live game pixels is a difference worth a pixel. */
+  border-bottom: 1px solid var(--tint-10);
+  background: var(--text-primary);
+  border-radius: 1px;
+}
+
 /* -------------------------------------------------------------- PotionList */
 
 .v-potionlist {

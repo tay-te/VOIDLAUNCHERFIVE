@@ -102,6 +102,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "strength": {
     "min": 0,
     "max": 1
+  },
+  "window_s": {
+    "min": 10,
+    "max": 60
   }
 } as const;
 
@@ -417,6 +421,39 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "traded",
     "ratio",
     "dealt"
+  ],
+  "clock.background": [
+    "bare",
+    "subtle",
+    "solid"
+  ],
+  "clock.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
+  ],
+  "clock.format": [
+    "h24",
+    "h12"
+  ],
+  "cps_graph.background": [
+    "bare",
+    "subtle",
+    "solid"
+  ],
+  "cps_graph.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
+  ],
+  "cps_graph.mode": [
+    "left",
+    "right",
+    "both"
   ]
 } as const;
 

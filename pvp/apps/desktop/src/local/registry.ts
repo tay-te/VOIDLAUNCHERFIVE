@@ -172,6 +172,20 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 8's two, both computed by the page itself — no sensor either side.
+  clock: [
+    SCALE,
+    OPACITY,
+    { key: 'format', label: 'Format', control: 'select', options: ['h24', 'h12'] },
+    { key: 'show_seconds', label: 'Show seconds', control: 'switch' },
+  ],
+  cps_graph: [
+    SCALE,
+    OPACITY,
+    { key: 'mode', label: 'Buttons', control: 'select', options: ['left', 'right', 'both'] },
+    { key: 'window_s', label: 'Window', control: 'slider', min: 10, max: 60, step: 1, format: 'plain' },
+    { key: 'show_figure', label: 'Show figure', control: 'switch' },
+  ],
   // Wave 7's one readout, off counters the wire already carried.
   hit_trade: [
     SCALE,
@@ -355,6 +369,8 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'watermark',
   'combo',
   'hit_trade',
+  'cps_graph',
+  'clock',
   'saturation',
   'momentum',
   'memory',

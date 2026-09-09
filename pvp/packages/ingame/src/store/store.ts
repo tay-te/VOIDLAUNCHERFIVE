@@ -175,6 +175,27 @@ const FPS_WINDOW = 120;
 const fpsSamples: number[] = [];
 
 /**
+ * One clicks-per-second figure per whole second, per hand — what the CPS graph plots.
+ *
+ * **Summarised, not retained.** The obvious shape is to keep the click ring long enough to plot
+ * from, and it is the wrong one: sixty seconds of a fast hand is several hundred timestamps, and
+ * the drawing has exactly one column per second. So the ring stays sized for counting (its own
+ * module says why it is bounded at all) and this keeps the answer instead — sixty numbers, which
+ * is the longest window the mod offers.
+ *
+ * Written on the second boundary rather than on a rolling window, so a column is a second of wall
+ * clock and two adjacent columns never share a click. `lastSecond` is the boundary already
+ * written; a tick that lands in the same second adds nothing, and a gap (the menu was open, the
+ * game was paused) is filled with the seconds that actually elapsed rather than compressed —
+ * otherwise a graph would draw a quiet spell as if it had not happened.
+ *
+ * Module-level like `fpsSamples`, and reset by `resetDerivedState()` for the same reason.
+ */
+const CLICK_HISTORY_MAX = 60;
+const clickHistory: { l: number; r: number }[] = [];
+let lastSecond = 0;
+
+/**
  * Ping samples, for the jitter reading — `docs/mod-roster.md` §8's third gap, by name.
  *
  * Derived here for the same reason the 1% low and CPS are: the wire carries the *reading*, and
@@ -314,6 +335,8 @@ export function resetDerivedState(): void {
   rings.right = createClickRing();
   fpsSamples.length = 0;
   pingSamples.length = 0;
+  clickHistory.length = 0;
+  lastSecond = 0;
   lastHits = null;
 }
 
@@ -334,6 +357,14 @@ export interface VoidState {
   fps: number;
   /** 1st-percentile FPS over the last ~30 s. 0 until enough samples exist. */
   fpsLow: number;
+  /**
+   * Clicks per second for each hand, one entry per whole second, oldest first — the CPS graph.
+   *
+   * At most sixty entries, which is the longest window the mod offers. Replaced whole on each
+   * second boundary and left alone in between, so the one widget that reads it repaints once a
+   * second and nothing else notices it exists.
+   */
+  clickHistory: readonly { l: number; r: number }[];
   /**
    * Mean absolute change between consecutive ping readings, in ms — the `ping.show_jitter` aside.
    *
@@ -471,6 +502,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   keys: EMPTY_KEYS,
   fps: 0,
   fpsLow: 0,
+  clickHistory: [],
   ping: -1,
   pingJitter: 0,
   pos: null,
@@ -645,10 +677,42 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // on its last value until the next click. Only write when it changed.
     const now = Date.now();
     const w = windowMs(get().loadout);
-    const left = clicksPerSecond(trimRing(rings.left, now, w), now, w);
-    const right = clicksPerSecond(trimRing(rings.right, now, w), now, w);
+    // Trimmed to the *longer* of the two readers' windows. `cps.window_ms` goes down to 200 ms,
+    // and the CPS graph below counts over a fixed second — so trimming to `w` alone would throw
+    // away four fifths of the clicks the graph is about to count, and a player who narrowed the
+    // counter's window would silently flatten a different mod's chart.
+    const retain = Math.max(w, 1000);
+    const left = clicksPerSecond(trimRing(rings.left, now, retain), now, w);
+    const right = clicksPerSecond(trimRing(rings.right, now, retain), now, w);
     if (left !== get().cpsLeft) patch.cpsLeft = left;
     if (right !== get().cpsRight) patch.cpsRight = right;
+
+    // One column per whole second of wall clock, for the CPS graph.
+    //
+    // Fixed at a one-second window rather than the CPS counter's `window_ms`: a column is a
+    // second, and reading it through another mod's averaging window would make this graph's
+    // meaning depend on a setting on a different page. It is also why the figures are taken here
+    // rather than reusing `left` and `right` above.
+    const second = Math.floor(now / 1000);
+    if (second !== lastSecond) {
+      // A gap is elapsed time, not compressed time — the menu was open, or the game was paused.
+      // Filling it with silence is what makes the graph's x-axis a clock; dropping it would draw
+      // a quiet spell as though it had never happened. Capped, so a long spell is a full window
+      // of silence rather than a loop.
+      const gap = lastSecond === 0 ? 1 : Math.min(CLICK_HISTORY_MAX, second - lastSecond);
+      for (let i = 1; i < gap; i += 1) clickHistory.push({ l: 0, r: 0 });
+      clickHistory.push({
+        l: clicksPerSecond(rings.left, now, 1000),
+        r: clicksPerSecond(rings.right, now, 1000),
+      });
+      if (clickHistory.length > CLICK_HISTORY_MAX) {
+        clickHistory.splice(0, clickHistory.length - CLICK_HISTORY_MAX);
+      }
+      lastSecond = second;
+      // A fresh array, because the widget's selector compares by identity and the entries are
+      // the same objects. One allocation of at most sixty pointers, once a second.
+      patch.clickHistory = [...clickHistory];
+    }
     // Only ever upwards here. This branch is the clock rather than a click — it exists to let
     // the live figures *decay* — so taking a max against it is what keeps the peak a peak.
     const highest = Math.max(left, right);

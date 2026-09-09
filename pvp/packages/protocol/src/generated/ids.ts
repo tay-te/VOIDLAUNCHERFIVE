@@ -43,6 +43,8 @@ export const MOD_IDS = [
   'old_animations',
   'old_input',
   'hit_trade',
+  'clock',
+  'cps_graph',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -64,6 +66,8 @@ export const HUD_MOD_IDS = [
   'item_counter',
   'stopwatch',
   'hit_trade',
+  'clock',
+  'cps_graph',
 ] as const satisfies readonly HUDModId[];
 
 /** The mods an actuator Mixin reads every frame, in registry order. */

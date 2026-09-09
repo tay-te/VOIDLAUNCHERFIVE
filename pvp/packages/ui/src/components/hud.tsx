@@ -702,6 +702,145 @@ export function MemoryChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* TimeChip                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link TimeChip}. */
+export interface TimeChipProps extends HudChipProps {
+  /**
+   * The reading, already formatted.
+   *
+   * Formatting is the widget's job, not the chip's — the rule `ServerAddressChip` states and
+   * for the same reason. `clock.format` is `h24` or `h12`, and resolving it here would put a
+   * second time formatter in a package that has no business knowing what a meridiem is; the
+   * widget already owns `Date` and the setting.
+   */
+  value: string;
+  /** A muted run after the reading, e.g. `PM`. Absent draws nothing at all. */
+  unit?: ReactNode;
+}
+
+/**
+ * A time reading on a chip: `21:41`, or `9:41` with a `PM` after it.
+ *
+ * The thinnest chip on the sheet, and deliberately so — there is no dot, no bar and no aside,
+ * because a wall clock has exactly one thing to say and every mark beside it would be a mark
+ * about the mod rather than about the time. {@link StopwatchChip} carries a dot because a
+ * stopwatch has a *state* (running or stopped) that its own reading cannot show; a clock has no
+ * state and giving it a dot would be inventing one.
+ *
+ * Tabular figures come from `.v-hudchip__value` (`01-base.css`), which matters more here than
+ * anywhere: every field ticks, and a clock that changed width on the turn of a minute would move
+ * a readout anchored by its corner twice an hour.
+ */
+export function TimeChip({
+  value,
+  unit,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: TimeChipProps): React.ReactElement {
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-hudchip__value">
+        {value}
+        {unit ? <span className="v-hudchip__unit">&nbsp;{unit}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* CpsGraphChip                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link CpsGraphChip}. */
+export interface CpsGraphChipProps extends HudChipProps {
+  /** Clicks per second, one entry per second, oldest first. Shorter than `columns` pads left. */
+  series: readonly number[];
+  /** How many seconds the graph covers — the column count, whatever `series` holds. */
+  columns: number;
+  /** The current rate, drawn as a figure beside the graph. `undefined` draws no figure. */
+  figure?: number;
+}
+
+/**
+ * The graph's ceiling, in clicks per second.
+ *
+ * A fixed scale rather than one that fits the data, and the choice is the whole readability of
+ * the mod. An autoscaling chart redraws its own axis every time the peak moves, so a hand that
+ * fades from 12 to 7 draws *the same shape* as one that held at 9 — the columns simply get
+ * relabelled — which is precisely the comparison this mod exists to make. Against a fixed
+ * ceiling a fade is a fade.
+ *
+ * 16 because that is the top of what a human hand does without a mouse doing it for them: a fast
+ * butterfly click sits around 12-14, and the values above that are the ones a server is going to
+ * ask questions about. A column at the ceiling is therefore legible as "flat out" rather than as
+ * "the top of whatever happened recently", and the rare click above it clamps rather than
+ * rescaling everything else to accommodate it.
+ */
+const CPS_CEILING = 16;
+
+/**
+ * Clicks per second over the last few seconds, as columns.
+ *
+ * ## Columns, not a line
+ *
+ * `design/ultralight-notes.md` §7 rates inline SVG [risky] — strokes are the usual casualty —
+ * and a sparkline is nothing but a stroke. Columns are plain divs with a height, which is the
+ * one drawing method that cannot fail here, and it is what the armour panel's durability bar
+ * and both level meters already are. A second's clicks are also genuinely a bucket rather than
+ * a sample of a continuum, so the bar is the more honest mark as well as the safer one.
+ *
+ * ## Padded on the left
+ *
+ * A window longer than the session has run draws empty columns at the *start*, not the end, so
+ * "now" is always the right-hand edge. A graph whose present moment slid rightwards as history
+ * accumulated would be unreadable for the first `window_s` seconds of every session, which for
+ * a 60-second window is most of a fight.
+ *
+ * ## Monochrome
+ *
+ * `design/quiet-cell-system.md` §1: colour marks a live value or a state, and a rate has no
+ * threshold — there is no CPS at which clicking becomes a different thing, only a number you are
+ * on either side of. The figure beside the graph is the live value; the columns are its history,
+ * and history is not a state.
+ */
+export function CpsGraphChip({
+  series,
+  columns,
+  figure,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: CpsGraphChipProps): React.ReactElement {
+  const width = Math.max(1, Math.round(columns));
+  const recent = series.slice(-width);
+  const padded = [...new Array<number>(Math.max(0, width - recent.length)).fill(0), ...recent];
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-cpsgraph" aria-hidden="true">
+        {padded.map((rate, i) => (
+          <span
+            key={i}
+            className="v-cpsgraph__col"
+            // A floor of 1px on a non-zero second, so a slow but real minute of clicking is not
+            // drawn as an empty graph. Zero stays zero: nothing happened, and the ground row is
+            // what says so.
+            style={{
+              height: `${rate <= 0 ? 0 : Math.max(6, Math.min(100, (rate / CPS_CEILING) * 100))}%`,
+            }}
+          />
+        ))}
+      </span>
+      {figure === undefined ? null : <span className="v-hudchip__value">{figure}</span>}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* TradeChip                                                                  */
 /* -------------------------------------------------------------------------- */
 

@@ -39,6 +39,9 @@ export function settingLabel(key: string): string {
     use_while_digging: 'Use item while digging',
     block_hit: 'Block hit',
     show_jitter: 'Show jitter',
+    show_seconds: 'Show seconds',
+    show_figure: 'Show figure',
+    window_s: 'Window',
     show_millis: 'Show hundredths',
     start_key: 'Start / stop key',
     reset_key: 'Reset key',
@@ -124,6 +127,9 @@ export const SETTING_HINTS: Record<string, string> = {
   'armor_status.show_held_item': 'Your held item as a fifth slot',
   'armor_status.warn_below': 'Where a durability bar turns amber',
 
+  'clock.format': '24-hour, or 12-hour with AM/PM',
+  'clock.show_seconds': 'A seconds field after the minutes',
+
   'combo.reset_ms': 'How long without a hit before it zeroes',
   'combo.show_label': 'The COMBO unit after the figure',
 
@@ -135,6 +141,10 @@ export const SETTING_HINTS: Record<string, string> = {
   'cps.show_label': 'The CPS unit after the figures',
   'cps.window_ms': 'How far back the rate is measured',
   'cps.show_peak': 'This session’s best, as an aside',
+
+  'cps_graph.mode': 'Which button the graph plots',
+  'cps_graph.window_s': 'How many seconds it covers',
+  'cps_graph.show_figure': 'The current rate beside the graph',
 
   'crosshair.style': 'The shape at the screen centre',
   'crosshair.thickness': 'Stroke width, before GUI scale',

@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 12,
+    "version": 13,
     "mods": {
       "fps": {
         "id": "fps",
@@ -676,6 +676,57 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "anchor": "top-left",
           "dx": 23,
           "dy": 255
+        }
+      },
+      "clock": {
+        "id": "clock",
+        "kind": "hud",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Clock",
+        "icon": "clock",
+        "description": "The real-world time, for a session with somewhere to be after it.",
+        "source": "the machine's own clock, in the page — no sensor",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "subtle",
+          "border": false,
+          "padding": "normal",
+          "format": "h24",
+          "show_seconds": false
+        },
+        "default_placement": {
+          "anchor": "top-right",
+          "dx": -25,
+          "dy": 62
+        }
+      },
+      "cps_graph": {
+        "id": "cps_graph",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "CPS graph",
+        "icon": "cursor-click",
+        "description": "The shape of your clicking over the last few seconds, not just the current rate.",
+        "source": "the same click edges as the CPS counter, summarised once a second in the page",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "subtle",
+          "border": false,
+          "padding": "normal",
+          "mode": "left",
+          "window_s": 20,
+          "show_figure": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 293
         }
       }
     }

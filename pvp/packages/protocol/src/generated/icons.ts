@@ -57,5 +57,7 @@ export const MOD_ICON_NAMES = {
   "damage_tint": "heart-pulse",
   "old_animations": "reset",
   "old_input": "tap",
-  "hit_trade": "sword"
+  "hit_trade": "sword",
+  "clock": "clock",
+  "cps_graph": "cursor-click"
 } as const satisfies Record<ModId, string>;
