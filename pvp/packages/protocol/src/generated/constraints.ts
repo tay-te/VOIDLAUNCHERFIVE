@@ -342,13 +342,28 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "vanilla",
     "minimal",
     "off"
-  ],
-  "old_animations.swing": [
-    "vanilla",
-    "one_seven"
-  ],
-  "old_animations.block_hit": [
-    "vanilla",
-    "one_seven"
   ]
 } as const;
+
+/**
+ * Every settings property that is a keybind, as `<mod>.<key>`.
+ *
+ * Derived from the property's `$ref` at `mods.json#/definitions/keybind`, which is the only
+ * thing that actually makes a setting a keybind. `ModRegistry.java` already classified by that
+ * type and says why in as many words — "not by the property's name, which is `keybind` on one
+ * mod and `key` on another" — while the TypeScript side matched those two names literally.
+ * The stopwatch's `start_key` and `reset_key` matched neither, so they fell through to the
+ * enum branch, which draws a chip row over an empty options table: a label and no control,
+ * in game only. That is the same silent shape `watermark.style` shipped as.
+ */
+export const KEYBIND_SETTINGS: readonly string[] =
+  [
+  "keystrokes.keybind",
+  "toggle_sprint.keybind",
+  "fullbright.keybind",
+  "hitboxes.keybind",
+  "zoom.key",
+  "stopwatch.start_key",
+  "stopwatch.reset_key",
+  "toggle_sneak.keybind"
+] as const;

@@ -152,6 +152,27 @@ public final class VoidBridge {
     public static final String EVENT_SETTINGS = "settings";
 
     /**
+     * A key bound to one mod asked that mod to do something.
+     *
+     * <p>The tenth channel, and the first that is neither state nor a sensor reading: it is an
+     * <em>input</em>. {@link #EVENT_SETTING} can say exactly one thing — this mod's {@code on}
+     * moved — which covers every mod whose key is a switch and no mod whose key is a verb, and
+     * that is why {@code stopwatch} was held out of the last wave ({@code schema/mods/
+     * stopwatch.json}). Java owns the key, the widget owns what the key means.</p>
+     *
+     * <p>It stops here. {@code protocol.json} carries nothing for it and Rust is never told:
+     * a {@code modaction} is a request that the page in this same JAR fulfils, not a change the
+     * launcher's tray or its next launch has to agree with — see the {@code $comment} on
+     * {@code modaction_payload}.</p>
+     *
+     * <p><b>Never coalesced</b>, unlike the whole-state channels above, and that is the whole
+     * behaviour rather than an omission: two taps of a stopwatch's start key are a stop and a
+     * start, so folding them into one would silently swallow half a player's input on a slow
+     * frame.</p>
+     */
+    public static final String EVENT_MODACTION = "modaction";
+
+    /**
      * Most game-thread work to run in one drain.
      *
      * <p>The queue only ever holds {@code closeMenu}, so in practice a drain runs nothing or one
@@ -701,5 +722,22 @@ public final class VoidBridge {
         payload.addProperty("key", key);
         payload.add("value", value == null ? JsonNull.INSTANCE : value);
         emit(EVENT_SETTING, payload);
+    }
+
+    /**
+     * Queues the {@code modaction} event for one mod-scoped key Java edged.
+     *
+     * <p>{@code action} names the <em>request</em> and never the key that made it —
+     * {@code start_stop}, not {@code bound_key} — so a rebind cannot reach the page and the same
+     * action can arrive from a menu button tomorrow. Nothing is stored and nothing is returned:
+     * a page that is not listening loses the press and no state is left disagreeing with it.</p>
+     *
+     * @see #EVENT_MODACTION
+     */
+    public void emitModAction(String modId, String action) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("mod", modId);
+        payload.addProperty("action", action);
+        emit(EVENT_MODACTION, payload);
     }
 }

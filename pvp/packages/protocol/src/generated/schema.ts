@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 25 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 24 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -71,8 +71,7 @@ export type ModId =
   | 'stopwatch'
   | 'fov'
   | 'toggle_sneak'
-  | 'overlay'
-  | 'old_animations';
+  | 'overlay';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -727,32 +726,6 @@ export type OverlayEntry = RegistryEntry & {
   defaults?: OverlaySettings;
 };
 /**
- * Registry entry for Old animations, narrowed to its constant classification.
- */
-export type OldAnimationsEntry = RegistryEntry & {
-  /**
-   * Always `old_animations`.
-   */
-  id?: 'old_animations';
-  /**
-   * Always `reset`.
-   */
-  icon?: 'reset';
-  /**
-   * Always `gameplay`.
-   */
-  kind?: 'gameplay';
-  /**
-   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
-   */
-  category?: 'pvp';
-  /**
-   * Always `safe` (§11).
-   */
-  hypixel_safe?: 'safe';
-  defaults?: OldAnimationsSettings;
-};
-/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
@@ -884,8 +857,7 @@ export type GameplayModId =
   | 'crosshair'
   | 'fov'
   | 'toggle_sneak'
-  | 'overlay'
-  | 'old_animations';
+  | 'overlay';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1000,7 +972,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 25 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 24 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1027,7 +999,6 @@ export interface Mods {
   fov: FOVChangerEntry;
   toggle_sneak: ToggleSneakEntry;
   overlay: OverlayEntry;
-  old_animations: OldAnimationsEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -1746,28 +1717,6 @@ export interface OverlaySettings {
   hide_pumpkin?: boolean;
 }
 /**
- * Settings for the Old animations gameplay mod. `docs/mod-roster.md` §3.2 #1 opens with "Build this first" and is blunt about why: this is the single most-noticed absence in a 1.8 PvP client, a large part of the target audience treats 1.7 animations as non-negotiable, and "its absence reads as 'this client was made by someone who does not play.'" It is the one mod in the registry whose value is entirely in *feel* — no readout, no number, nothing a screenshot shows — which is also why the two enum settings default to `one_seven` while every other mod in this wave ships every switch at its vanilla value. A player who enables Old animations has said which animations they want in the act of enabling it, and a mod that turned on and changed nothing would be a mod that looked broken.
- */
-export interface OldAnimationsSettings {
-  on: Enabled;
-  /**
-   * Which arm-swing animation is drawn. `vanilla` leaves 1.8's alone. `one_seven` restores the shorter, flatter arc 1.7 drew, which is the motion a large part of this audience has thousands of hours of muscle memory in. It changes nothing the server is told — swing timing is a client animation and the attack packet is unchanged — but it changes when a hit *looks* like it landed, and that gap between what you see and what you expect is most of what people mean when they say a client feels wrong.
-   */
-  swing?: 'vanilla' | 'one_seven';
-  /**
-   * Which animation is drawn when you attack while blocking with a sword. `vanilla` is 1.8's, in which the sword barely moves. `one_seven` restores the pronounced swing 1.7 drew through the block, which is the most recognised single item in this mod: 1.8 changed it, sword PvP never accepted the change, and its absence is the concrete thing §3.2 #1 has in mind. Animation only, on both settings — whether a block registers is the server's business and neither value touches it.
-   */
-  block_hit?: 'vanilla' | 'one_seven';
-  /**
-   * Whether the arm swings on a click that connects with nothing. 1.7 swung on every click; 1.8 swings only when the click reaches a block or an entity, so a miss in 1.8 is invisible. Off by default, and it is the one setting here that changes what your *opponent* sees rather than what you see: the swing is sent, so every whiffed click becomes an animation on their screen, and a player who has not asked for that should not discover it mid-fight. On for a player who wants the click they made and the arm they see to agree.
-   */
-  always_swing?: boolean;
-  /**
-   * Whether right-click item use is allowed while a block is being broken. 1.7 allowed it and 1.8 does not, and the case it decides is eating or raising a block mid-mine in a Bedwars rush. Off by default and flagged deliberately: with `always_swing` it is one of the two switches in this mod that is not an animation, it changes what the client will *do* on an input rather than what it draws, and the `$comment` at the top of this file is the §11 argument for shipping it off rather than not shipping it.
-   */
-  use_while_digging?: boolean;
-}
-/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -1793,7 +1742,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 25 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 24 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -1820,7 +1769,6 @@ export interface ModStates {
   fov?: FOVChangerSettings;
   toggle_sneak?: ToggleSneakSettings;
   overlay?: OverlaySettings;
-  old_animations?: OldAnimationsSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

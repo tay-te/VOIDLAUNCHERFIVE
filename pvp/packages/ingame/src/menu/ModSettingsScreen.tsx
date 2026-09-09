@@ -53,6 +53,7 @@ import {
   type ModId,
 } from '@/bridge/protocol';
 import { SETTING_ENUMS, SETTING_RANGES, hueStyle } from '@/registry';
+import { KEYBIND_SETTINGS } from '@/bridge/protocol';
 import { hudItem, useModSettings, useVoidStore, type SettingValue } from '@/store/store';
 import {
   HudArmorStatus,
@@ -205,7 +206,14 @@ const BEHAVIOUR_KEYS = new Set([
 ]);
 
 function kindOf(id: ModId, key: string, value: SettingValue): PropertyKind {
-  if (key === 'keybind' || key === 'key') return 'keybind';
+  // By the schema type, never by the name. This used to read `key === 'keybind' || key === 'key'`
+  // — the two names that existed when it was written — and the stopwatch's `start_key` and
+  // `reset_key` matched neither, so they fell through to the `enum` branch and drew a label with
+  // no control beside it, in game only. `ModRegistry.java` has classified keybinds by type since
+  // it was generated, and says why: the property is `keybind` on one mod and `key` on another.
+  // `KEYBIND_SETTINGS` is that same `$ref` read off the schema, so a sixth spelling costs
+  // nothing here.
+  if (KEYBIND_SETTINGS.includes(`${id}.${key}`)) return 'keybind';
   if (key === 'key_color' || key === 'pressed_color') return 'swatch';
   // Any other `*_color` is a free colour, like `color` itself. Written as a suffix rather than
   // as a third name in the line above because of what the fall-through costs: a colour key this

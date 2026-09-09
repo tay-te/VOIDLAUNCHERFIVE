@@ -38,7 +38,9 @@ import direction from './direction';
 import item_counter from './item_counter';
 import memory from './memory';
 import momentum from './momentum';
+import overlay from './overlay';
 import crosshair from './crosshair';
+import fov from './fov';
 import fps from './fps';
 import fullbright from './fullbright';
 import hitboxes from './hitboxes';
@@ -46,13 +48,15 @@ import keystrokes from './keystrokes';
 import ping from './ping';
 import saturation from './saturation';
 import server_address from './server_address';
+import stopwatch from './stopwatch';
+import toggle_sneak from './toggle_sneak';
 import potion_effects from './potion_effects';
 import toggle_sprint from './toggle_sprint';
 import watermark from './watermark';
 import zoom from './zoom';
 
 /**
- * The art for all twenty mods.
+ * The art for all twenty-five mods.
  *
  * `satisfies` rather than a type annotation, so each value keeps its narrow `ModArt<'fps'>`
  * type while the whole object is still proved exhaustive over `ModId`.
@@ -79,6 +83,12 @@ const ART = {
   memory,
   server_address,
   item_counter,
+  // Wave 4 — §7's "four that change how the client feels", plus the stopwatch the `modaction`
+  // input path unblocked. Four of the five draw into the world, so their art is a diagram.
+  stopwatch,
+  fov,
+  toggle_sneak,
+  overlay,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

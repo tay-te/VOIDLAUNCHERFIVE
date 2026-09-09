@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 25 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 24 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -82,14 +82,11 @@ pub enum ModId {
     ToggleSneak,
     /// Turns off the vanilla overlays that sit between you and the fight.
     Overlay,
-    /// Restores the 1.7 swing and block-hit animations, and the two input behaviours that went
-    /// with them.
-    OldAnimations,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 25] = [
+    pub const ALL: [ModId; 24] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -114,7 +111,6 @@ impl ModId {
         ModId::Fov,
         ModId::ToggleSneak,
         ModId::Overlay,
-        ModId::OldAnimations,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -144,7 +140,6 @@ impl ModId {
             ModId::Fov => "fov",
             ModId::ToggleSneak => "toggle_sneak",
             ModId::Overlay => "overlay",
-            ModId::OldAnimations => "old_animations",
         }
     }
 }
@@ -243,7 +238,7 @@ impl HudModId {
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `gameplay`: the 9 mods an actuator Mixin reads every
+/// The subset of [`ModId`] whose `kind` is `gameplay`: the 8 mods an actuator Mixin reads every
 /// frame.
 ///
 /// These are the only ids accepted by `void.setGameplay`.
@@ -266,14 +261,11 @@ pub enum GameplayModId {
     ToggleSneak,
     /// Turns off the vanilla overlays that sit between you and the fight.
     Overlay,
-    /// Restores the 1.7 swing and block-hit animations, and the two input behaviours that went
-    /// with them.
-    OldAnimations,
 }
 
 impl GameplayModId {
     /// Every gameplay mod id, in registry order.
-    pub const ALL: [GameplayModId; 9] = [
+    pub const ALL: [GameplayModId; 8] = [
         GameplayModId::ToggleSprint,
         GameplayModId::Fullbright,
         GameplayModId::Hitboxes,
@@ -282,7 +274,6 @@ impl GameplayModId {
         GameplayModId::Fov,
         GameplayModId::ToggleSneak,
         GameplayModId::Overlay,
-        GameplayModId::OldAnimations,
     ];
 
     /// Widens to the full mod id enum.
@@ -296,7 +287,6 @@ impl GameplayModId {
             GameplayModId::Fov => ModId::Fov,
             GameplayModId::ToggleSneak => ModId::ToggleSneak,
             GameplayModId::Overlay => ModId::Overlay,
-            GameplayModId::OldAnimations => ModId::OldAnimations,
         }
     }
 
@@ -717,42 +707,6 @@ pub enum OverlayViewBobbing {
     Minimal,
     /// `off` is the vanilla switch off — both still, hand included.
     Off,
-}
-
-/// Which arm-swing animation is drawn. `vanilla` leaves 1.8's alone. `one_seven` restores the
-/// shorter, flatter arc 1.7 drew, which is the motion a large part of this audience has
-/// thousands of hours of muscle memory in. It changes nothing the server is told — swing timing
-/// is a client animation and the attack packet is unchanged — but it changes when a hit *looks*
-/// like it landed, and that gap between what you see and what you expect is most of what people
-/// mean when they say a client feels wrong.
-///
-/// `mods.json#/definitions/old_animations_settings/properties/swing`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OldAnimationsSwing {
-    /// `vanilla` leaves 1.8's alone.
-    Vanilla,
-    /// `one_seven` restores the shorter, flatter arc 1.7 drew, which is the motion a large part
-    /// of this audience has thousands of hours of muscle memory in.
-    OneSeven,
-}
-
-/// Which animation is drawn when you attack while blocking with a sword. `vanilla` is 1.8's, in
-/// which the sword barely moves. `one_seven` restores the pronounced swing 1.7 drew through the
-/// block, which is the most recognised single item in this mod: 1.8 changed it, sword PvP never
-/// accepted the change, and its absence is the concrete thing §3.2 #1 has in mind. Animation
-/// only, on both settings — whether a block registers is the server's business and neither
-/// value touches it.
-///
-/// `mods.json#/definitions/old_animations_settings/properties/block_hit`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OldAnimationsBlockHit {
-    /// `vanilla` is 1.8's, in which the sword barely moves.
-    Vanilla,
-    /// `one_seven` restores the pronounced swing 1.7 drew through the block, which is the most
-    /// recognised single item in this mod.
-    OneSeven,
 }
 
 // ---------------------------------------------------------------------------
@@ -2136,66 +2090,11 @@ pub struct OverlaySettings {
     pub hide_pumpkin: Option<bool>,
 }
 
-/// Old animations settings.
-///
-/// Settings for the Old animations gameplay mod. `docs/mod-roster.md` §3.2 #1 opens with "Build
-/// this first" and is blunt about why: this is the single most-noticed absence in a 1.8 PvP
-/// client, a large part of the target audience treats 1.7 animations as non-negotiable, and
-/// "its absence reads as 'this client was made by someone who does not play.'" It is the one
-/// mod in the registry whose value is entirely in *feel* — no readout, no number, nothing a
-/// screenshot shows — which is also why the two enum settings default to `one_seven` while
-/// every other mod in this wave ships every switch at its vanilla value. A player who enables
-/// Old animations has said which animations they want in the act of enabling it, and a mod that
-/// turned on and changed nothing would be a mod that looked broken.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct OldAnimationsSettings {
-    /// Whether the 1.7 animations are enabled.
-    pub on: bool,
-
-    /// Which arm-swing animation is drawn. `vanilla` leaves 1.8's alone. `one_seven` restores
-    /// the shorter, flatter arc 1.7 drew, which is the motion a large part of this audience has
-    /// thousands of hours of muscle memory in. It changes nothing the server is told — swing
-    /// timing is a client animation and the attack packet is unchanged — but it changes when a
-    /// hit *looks* like it landed, and that gap between what you see and what you expect is
-    /// most of what people mean when they say a client feels wrong.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub swing: Option<OldAnimationsSwing>,
-
-    /// Which animation is drawn when you attack while blocking with a sword. `vanilla` is
-    /// 1.8's, in which the sword barely moves. `one_seven` restores the pronounced swing 1.7
-    /// drew through the block, which is the most recognised single item in this mod: 1.8
-    /// changed it, sword PvP never accepted the change, and its absence is the concrete thing
-    /// §3.2 #1 has in mind. Animation only, on both settings — whether a block registers is the
-    /// server's business and neither value touches it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub block_hit: Option<OldAnimationsBlockHit>,
-
-    /// Whether the arm swings on a click that connects with nothing. 1.7 swung on every click;
-    /// 1.8 swings only when the click reaches a block or an entity, so a miss in 1.8 is
-    /// invisible. Off by default, and it is the one setting here that changes what your
-    /// *opponent* sees rather than what you see: the swing is sent, so every whiffed click
-    /// becomes an animation on their screen, and a player who has not asked for that should not
-    /// discover it mid-fight. On for a player who wants the click they made and the arm they
-    /// see to agree.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub always_swing: Option<bool>,
-
-    /// Whether right-click item use is allowed while a block is being broken. 1.7 allowed it
-    /// and 1.8 does not, and the case it decides is eating or raising a block mid-mine in a
-    /// Bedwars rush. Off by default and flagged deliberately: with `always_swing` it is one of
-    /// the two switches in this mod that is not an animation, it changes what the client will
-    /// *do* on an input rather than what it draws, and the `$comment` at the top of this file
-    /// is the §11 argument for shipping it off rather than not shipping it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub use_while_digging: Option<bool>,
-}
-
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 25.
+/// Every mod VOID ships, keyed by id. Closed set of 24.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -2276,10 +2175,6 @@ pub struct ModRegistryEntries {
 
     /// Overlay — Turns off the vanilla overlays that sit between you and the fight.
     pub overlay: ModEntry<OverlaySettings>,
-
-    /// Old animations — Restores the 1.7 swing and block-hit animations, and the two input
-    /// behaviours that went with them.
-    pub old_animations: ModEntry<OldAnimationsSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -2339,8 +2234,6 @@ pub struct ModStates {
     pub toggle_sneak: Option<ToggleSneakSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlay: Option<OverlaySettings>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub old_animations: Option<OldAnimationsSettings>,
 }
 
 impl Registry {
@@ -2371,7 +2264,6 @@ impl Registry {
             ModId::Fov => self.mods.fov.info(),
             ModId::ToggleSneak => self.mods.toggle_sneak.info(),
             ModId::Overlay => self.mods.overlay.info(),
-            ModId::OldAnimations => self.mods.old_animations.info(),
         }
     }
 
@@ -2404,7 +2296,6 @@ impl Registry {
             ModId::Fov => self.mods.fov.defaults_object(),
             ModId::ToggleSneak => self.mods.toggle_sneak.defaults_object(),
             ModId::Overlay => self.mods.overlay.defaults_object(),
-            ModId::OldAnimations => self.mods.old_animations.defaults_object(),
         }
     }
 }
@@ -2438,7 +2329,6 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::Fov => super::check::<FovSettings>(id, value),
         ModId::ToggleSneak => super::check::<ToggleSneakSettings>(id, value),
         ModId::Overlay => super::check::<OverlaySettings>(id, value),
-        ModId::OldAnimations => super::check::<OldAnimationsSettings>(id, value),
     }
 }
 

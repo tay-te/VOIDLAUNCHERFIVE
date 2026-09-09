@@ -33,9 +33,15 @@ export const MOD_ORDER: ModId[] = [
   // reading one is reading the other in the same glance.
   'combo',
   'toggle_sprint',
+  // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
+  'toggle_sneak',
   'crosshair',
   'zoom',
+  // Beside Zoom: both are the camera's own angle, one held and one fixed.
+  'fov',
   'fullbright',
+  // Beside Fullbright, the other mod whose subject is what the game stops you seeing.
+  'overlay',
   'hitboxes',
   'armor_status',
   // The survival block: what you are wearing, what is keeping you alive, what is in your hand.
@@ -47,6 +53,8 @@ export const MOD_ORDER: ModId[] = [
   // Beside Ping, the other half of "what am I connected to". They share the `wifi` glyph for
   // the same reason Coordinates and Direction share `compass`.
   'server_address',
+  // Closes the session block — the readouts about this sitting rather than about the fight.
+  'stopwatch',
   'coordinates',
   // Beside Coordinates, which is the mod a player confuses it with — the two are next to each
   // other so the difference (a position, versus a facing) is visible rather than argued.

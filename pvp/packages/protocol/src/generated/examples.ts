@@ -571,23 +571,6 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "hide_stuck_arrows": true,
           "hide_pumpkin": true
         }
-      },
-      "old_animations": {
-        "id": "old_animations",
-        "kind": "gameplay",
-        "category": "pvp",
-        "hypixel_safe": "safe",
-        "label": "Old animations",
-        "icon": "reset",
-        "description": "Restores the 1.7 swing and block-hit animations, and the two input behaviours that went with them.",
-        "source": "first-person item transforms and swing timing (`ItemRenderer`, `EntityLivingBase#swingProgress`)",
-        "defaults": {
-          "on": false,
-          "swing": "one_seven",
-          "block_hit": "one_seven",
-          "always_swing": false,
-          "use_while_digging": false
-        }
       }
     }
   }

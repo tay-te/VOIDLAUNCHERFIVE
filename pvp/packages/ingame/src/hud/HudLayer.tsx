@@ -22,6 +22,7 @@ import { HudMemory } from './memory';
 import { HudMomentum } from './momentum';
 import { HudSaturation } from './saturation';
 import { HudServerAddress } from './server_address';
+import { HudStopwatch } from './stopwatch';
 import {
   HudArmorStatus,
   HudCoordinates,
@@ -52,6 +53,7 @@ const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   memory: HudMemory,
   server_address: HudServerAddress,
   item_counter: HudItemCounter,
+  stopwatch: HudStopwatch,
   // The thirteenth mod, and it goes in this table like any other because that is the whole
   // argument for making the watermark a mod rather than a flag (`watermark.tsx`).
   watermark: HudWatermark,

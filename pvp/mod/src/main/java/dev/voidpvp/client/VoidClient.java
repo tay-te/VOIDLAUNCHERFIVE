@@ -189,6 +189,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private final EdgeKey fullbrightKey = new EdgeKey();
     private final EdgeKey hitboxesKey = new EdgeKey();
     private final EdgeKey toggleSprintKey = new EdgeKey();
+    // The two `modaction` rows. Same rule as above — one EdgeKey per hotkey, never shared.
+    private final EdgeKey stopwatchStartKey = new EdgeKey();
+    private final EdgeKey stopwatchResetKey = new EdgeKey();
 
     private VoidSocket socket;
     /**
@@ -218,6 +221,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     private SessionStats stats;
     private Float savedGamma;
+    /** The player's own field of view, while `fov` is overriding it. Exactly {@link #savedGamma}'s job. */
+    private Float savedFov;
     /** Vanilla's cinematic-camera setting, saved while `zoom.cinematic` overrides it. */
     private Boolean savedSmoothCamera;
     /** Last value this mod wrote to the hitbox flag, so F3+B keeps ownership between changes. */
@@ -840,15 +845,20 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             cycleLoadout();
         }
 
-        // The per-mod `keybind` hotkeys: a key that flips one mod's `on` without opening the
-        // menu. One setting changed, so each pushes the `setting` event rather than a whole
-        // loadout — the UI applies it exactly as it applies the return value of setModSetting
-        // (bridge.json, `setting_payload`).
+        // The per-mod hotkey table. Every row is "sample a code, edge it, do a thing", and the
+        // only difference between the rows is the thing.
         //
-        // A table rather than four copies of the block. `keystrokes` was the only one of these
-        // for a long time and its block was written inline; three more mods have earned one
-        // since, and four hand-written copies of "sample a code, edge it, flip a boolean, emit"
-        // is four places for the next one to be forgotten from.
+        // A table rather than a copy of the block per mod. `keystrokes` was the only one of
+        // these for a long time and its block was written inline; three more mods earned one
+        // after it, and hand-written copies of the sample-and-edge preamble are places for the
+        // next mod to be forgotten from. Two kinds of row now share it — `toggleMod` flips one
+        // mod's `on` and pushes `setting`, `modAction` pushes a named `modaction` and stores
+        // nothing — and they share the *gate* as well as the shape, through `hotkeyFired`, so a
+        // change to when a hotkey is allowed to fire cannot land on one kind and miss the other.
+        //
+        // `toggleMod` rows: one setting changed, so each pushes the `setting` event rather than
+        // a whole loadout — the UI applies it exactly as it applies the return value of
+        // setModSetting (bridge.json, `setting_payload`).
         toggleMod("keystrokes", state.keystrokesToggleCode, state.keystrokesOn, keystrokesKey,
                 otherScreenOpen, menuScreenOpen, canOpen);
         toggleMod("fullbright", state.fullbrightToggleCode, state.fullbrightOn, fullbrightKey,
@@ -857,6 +867,30 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 otherScreenOpen, menuScreenOpen, canOpen);
         toggleMod("toggle_sprint", state.toggleSprintToggleCode, state.toggleSprintOn,
                 toggleSprintKey, otherScreenOpen, menuScreenOpen, canOpen);
+        // `modAction` rows: a key whose mod has a verb rather than a switch. Nothing is stored
+        // and nothing is sent to Rust — the page owns what the action means (bridge.json,
+        // `modaction_payload`). The action names come from `schema/mods/stopwatch.json`, which
+        // is where the widget reads them too.
+        modAction("stopwatch", state.stopwatchStartCode, "start_stop", stopwatchStartKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+        modAction("stopwatch", state.stopwatchResetCode, "reset", stopwatchResetKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+    }
+
+    /**
+     * The half every row of the hotkey table shares: sample the code, gate it, edge it.
+     *
+     * <p>{@code edge.pressed} is evaluated on every frame the row runs, gate or no gate, because
+     * an {@link EdgeKey} is a latch: skipping the sample while a screen is open would leave it
+     * believing the key is still down and swallow the next real press.</p>
+     *
+     * @return true on the frame this hotkey fired and is allowed to act
+     */
+    private boolean hotkeyFired(int code, EdgeKey edge, boolean otherScreenOpen,
+                                boolean menuScreenOpen, boolean canOpen) {
+        boolean down = code != KeyNames.KEY_NONE && !otherScreenOpen && !menuScreenOpen
+                && isKeyDown(code);
+        return edge.pressed(down) && canOpen;
     }
 
     /**
@@ -868,9 +902,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      */
     private void toggleMod(String modId, int code, boolean on, EdgeKey edge,
                            boolean otherScreenOpen, boolean menuScreenOpen, boolean canOpen) {
-        boolean down = code != KeyNames.KEY_NONE && !otherScreenOpen && !menuScreenOpen
-                && isKeyDown(code);
-        if (!edge.pressed(down) || !canOpen) {
+        if (!hotkeyFired(code, edge, otherScreenOpen, menuScreenOpen, canOpen)) {
             return;
         }
         com.google.gson.JsonElement stored = state.setModSetting(modId, "on",
@@ -883,6 +915,28 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // onMenuClosed; see UiHost.requestRender.
             ui.requestRender();
         }
+    }
+
+    /**
+     * One mod's action hotkey: sample it, edge it, ask the page to do the named thing.
+     *
+     * <p>The other kind of row. Nothing here writes state — no setting moves, no loadout is
+     * touched and Rust is not told — so there is no "what was actually applied" to report and no
+     * value to hand back: the widget that owns the mod decides what {@code start_stop} means and
+     * is the only thing that knows whether the clock was running.</p>
+     *
+     * <p>{@link dev.voidpvp.client.ui.UiHost#requestRender} for the same reason
+     * {@link #toggleMod} calls it, one step further: a stopwatch that has just been stopped or
+     * zeroed draws a chip that then holds perfectly still, so without a frame asked for here the
+     * player's press would land on a surface nothing repaints.</p>
+     */
+    private void modAction(String modId, int code, String action, EdgeKey edge,
+                           boolean otherScreenOpen, boolean menuScreenOpen, boolean canOpen) {
+        if (!hotkeyFired(code, edge, otherScreenOpen, menuScreenOpen, canOpen)) {
+            return;
+        }
+        bridge.emitModAction(modId, action);
+        ui.requestRender();
     }
 
     /** L: next loadout in library order, applied locally and told to Rust (§8.2). */
@@ -917,6 +971,22 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         return savedGamma;
     }
 
+    /**
+     * The player's own field of view, while the FOV changer is overriding it; {@code null} when
+     * it is not.
+     *
+     * <p>The exact counterpart of {@link #playerGamma()}, read by the same mixin for the same
+     * reason. {@code GameOptions.fov} is in the same field family as {@code gamma} and carries
+     * the identical hazard: {@code save()} writes the live field to {@code options.txt}, so an
+     * override that reached disk would become the player's own field of view, be captured here
+     * as the value to restore on the next launch, and leave the mod permanently on with its
+     * switch reporting off. {@code schema/mods/fov.json}'s {@code $comment} is the briefing;
+     * {@code GameOptionsMixin} is the fix, and it is the same fix, not a second one.</p>
+     */
+    public Float playerFov() {
+        return savedFov;
+    }
+
     private void applyActuators(MinecraftClient mc) {
         // Fullbright: gammaSetting override, restored exactly when turned off.
         if (state.fullbrightOn) {
@@ -927,6 +997,23 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         } else if (savedGamma != null) {
             mc.options.gamma = savedGamma.floatValue();
             savedGamma = null;
+        }
+
+        // FOV changer: the same capture-and-restore discipline, on the same kind of field.
+        //
+        // The player's value is captured on the frame the mod comes on and put back byte for
+        // byte on the frame it goes off — not rounded to the mod's own range, not re-read from
+        // a `fov` the mod itself wrote. Together with GameOptionsMixin that is the whole
+        // guarantee: the override is live in memory for as long as the mod is on, and disk
+        // never sees it.
+        if (state.fovOn) {
+            if (savedFov == null) {
+                savedFov = Float.valueOf(mc.options.fov);
+            }
+            mc.options.fov = state.fovDegrees;
+        } else if (savedFov != null) {
+            mc.options.fov = savedFov.floatValue();
+            savedFov = null;
         }
 
         // Hitboxes: the same flag F3+B sets.
@@ -960,31 +1047,43 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
 
         // Toggle sprint: latch the sprint KeyBinding rather than the input.
+        //
+        // One key, read and written: the mod's bind *is* vanilla's sprint key, so `hold` here
+        // means "stop latching and let vanilla have it back", which is why it writes nothing.
         boolean canMove = mc.player != null && mc.currentScreen == null;
         int sprintCode = mc.options.sprintKey.getCode();
         boolean sprintHeld = sprint.update(state.toggleSprintOn, state.toggleSprintHold,
                 isKeyDown(sprintCode), canMove);
-        applyLatch(sprintCode, sprintHeld, sprintForced);
-        sprintForced.value = latchWrote(state, sprintHeld);
+        boolean sprintWrite = state.toggleSprintOn && !state.toggleSprintHold && sprintHeld;
+        applyLatch(sprintCode, sprintWrite, sprintForced);
+        sprintForced.value = sprintWrite;
 
-        if (state.toggleSprintSneakToo) {
-            int sneakCode = mc.options.sneakKey.getCode();
-            boolean sneakHeld = sneak.update(state.toggleSprintOn, state.toggleSprintHold,
-                    isKeyDown(sneakCode), canMove);
-            applyLatch(sneakCode, sneakHeld, sneakForced);
-            sneakForced.value = latchWrote(state, sneakHeld);
-        } else if (sneakForced.value) {
-            // The setting was turned off while the sneak latch was holding the key down.
-            // Same release as below, by the same argument.
-            KeyBinding.setKeyPressed(mc.options.sneakKey.getCode(), false);
-            sneak.release();
-            sneakForced.value = false;
-        }
-    }
-
-    /** Whether the latch wants the key reported as held this tick. */
-    private static boolean latchWrote(LiveState state, boolean held) {
-        return state.toggleSprintOn && !state.toggleSprintHold && held;
+        // Toggle sneak: the same latch, across two different keys.
+        //
+        // This is where it stops being a copy of the block above, and the difference is the
+        // whole mod. `toggle_sneak.keybind` is a key the player chose — it is *not* vanilla's
+        // sneak key — so the latch is driven by that bind and writes Shift's KeyBinding. Two
+        // consequences fall out of that and both are deliberate:
+        //
+        //   - `hold` is not inert here. On Toggle sprint, `hold` means vanilla's own key doing
+        //     vanilla's own thing, so the mod steps out of the way entirely. Here it means sneak
+        //     answers to a key that is not Shift for as long as it is held, which is a thing a
+        //     player asked for. So the write is gated on the mod being on and the latch holding,
+        //     with no `!hold` term.
+        //   - The key is sampled through `canMove` rather than only handed to the latch, because
+        //     the two keys are different: a bind held while a screen is open is a key the player
+        //     is using for that screen, and forcing Shift down under it would sneak them into a
+        //     hole through a chat window.
+        //
+        // `NONE` writes nothing at all, which is what makes the factory default harmless: a
+        // latch on a key nobody chose is the player stuck crouched, wondering what happened.
+        int sneakBind = state.toggleSneakCode;
+        boolean sneakBindDown = sneakBind != KeyNames.KEY_NONE && canMove && isKeyDown(sneakBind);
+        boolean sneakHeld = sneak.update(state.toggleSneakOn, state.toggleSneakHold,
+                sneakBindDown, canMove);
+        boolean sneakWrite = state.toggleSneakOn && sneakBind != KeyNames.KEY_NONE && sneakHeld;
+        applyLatch(mc.options.sneakKey.getCode(), sneakWrite, sneakForced);
+        sneakForced.value = sneakWrite;
     }
 
     /**
@@ -1001,9 +1100,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      *
      * <p>The release is conditional on <em>this</em> having been the writer ({@code forced}),
      * so a key the player is genuinely holding is never yanked out from under them.</p>
+     *
+     * @param write whether the latch wants the key held this tick, decided by the caller. It used
+     *             to be recomputed here from {@code toggle_sprint}'s own fields, which was fine
+     *             while both latches were that mod's; Toggle sneak is a different mod with a
+     *             different rule for {@code hold}, and a shared helper that reads one mod's state
+     *             is a helper that quietly does the wrong thing for the other.
      */
-    private void applyLatch(int code, boolean held, Flag forced) {
-        if (latchWrote(state, held)) {
+    private void applyLatch(int code, boolean write, Flag forced) {
+        if (write) {
             KeyBinding.setKeyPressed(code, true);
         } else if (forced.value && !isKeyDown(code)) {
             KeyBinding.setKeyPressed(code, false);

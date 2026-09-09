@@ -115,6 +115,7 @@ const SETTING_STEPS: Record<string, { step: number; unit?: string }> = {
   warn_below: { step: 0.05, unit: '%' },
   window_ms: { step: 50, unit: 'ms' },
   reset_ms: { step: 100, unit: 'ms' },
+  fov: { step: 1, unit: '°' },
   good_ms: { step: 5, unit: 'ms' },
   bad_ms: { step: 5, unit: 'ms' },
   decimals: { step: 1 },

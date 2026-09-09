@@ -151,6 +151,128 @@ class LiveStateTest {
     }
 
     @Test
+    @DisplayName("the FOV changer mirrors a value and two independent locks")
+    void fovFieldsAreMirrored() {
+        // Absent from the example, so these are the registry's factory values — and the factory
+        // values are the mod: 90 degrees, sprint locked, bow left alone.
+        assertFalse(state.fovOn);
+        assertEquals(90f, state.fovDegrees, 1e-6);
+        assertTrue(state.fovLockSprint, "lock_sprint is the mod, so it ships on");
+        assertFalse(state.fovLockBow, "the bow zoom is draw feedback, so it ships off");
+
+        assertEquals(new JsonPrimitive(Long.valueOf(110)),
+                state.setModSetting("fov", "fov", new JsonPrimitive(140)),
+                "the range is vanilla's own slider, so 140 clamps to 110");
+        assertEquals(110f, state.fovDegrees, 1e-6);
+        assertEquals(new JsonPrimitive(Long.valueOf(30)),
+                state.setModSetting("fov", "fov", new JsonPrimitive(0)));
+        assertEquals(30f, state.fovDegrees, 1e-6);
+
+        state.setModSetting("fov", "lock_bow", new JsonPrimitive(true));
+        assertTrue(state.fovLockBow);
+        assertTrue(state.fovLockSprint, "the two locks are independent");
+    }
+
+    @Test
+    @DisplayName("view_bobbing resolves to the two flags the two injection points need")
+    void overlayViewBobbingSplitsCameraFromHand() {
+        // The enum exists because 1.8.9's own switch cannot express `minimal`: one flag,
+        // `GameOptions.bobView`, guards both the camera bob and the held-item bob. It is
+        // resolved into two booleans on the loadout write rather than compared per frame in
+        // the render path — see the fields.
+        assertFalse(state.overlayLockCameraBob, "vanilla is the default and touches nothing");
+        assertFalse(state.overlayLockHandBob);
+
+        assertEquals(new JsonPrimitive("minimal"),
+                state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("minimal")));
+        assertTrue(state.overlayLockCameraBob, "minimal holds the camera still");
+        assertFalse(state.overlayLockHandBob, "and leaves the hand moving — that is the point");
+
+        assertEquals(new JsonPrimitive("off"),
+                state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("off")));
+        assertTrue(state.overlayLockCameraBob, "off is the vanilla switch off: both still");
+        assertTrue(state.overlayLockHandBob);
+
+        state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("vanilla"));
+        assertFalse(state.overlayLockCameraBob, "and it goes all the way back");
+        assertFalse(state.overlayLockHandBob);
+
+        // A value outside the enum leaves the stored one alone rather than resolving to
+        // something arbitrary: `!"vanilla".equals(x)` would read a typo as "hold the camera".
+        assertEquals(new JsonPrimitive("vanilla"),
+                state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("minimum")));
+        assertFalse(state.overlayLockCameraBob);
+    }
+
+    @Test
+    @DisplayName("the overlay's four booleans are five independent suppressions")
+    void overlaySuppressionsAreIndependent() {
+        // The factory configuration is the argument for the mod: the two that decide fights are
+        // on, the two that are preferences are at their vanilla value.
+        assertFalse(state.overlayOn);
+        assertTrue(state.overlayHideFire, "the switch the roster singles out");
+        assertTrue(state.overlayHidePumpkin);
+        assertTrue(state.overlayHideStuckArrows);
+        assertFalse(state.overlayHideOwnArmor, "cosmetic, so it ships off");
+
+        assertTrue(state.setGameplay("overlay", true));
+        assertTrue(state.overlayOn);
+
+        state.setModSetting("overlay", "hide_fire", new JsonPrimitive(false));
+        assertFalse(state.overlayHideFire);
+        assertTrue(state.overlayHidePumpkin, "one switch off is one switch off");
+        assertTrue(state.overlayOn, "and the mod is still on");
+    }
+
+    @Test
+    @DisplayName("toggle_sneak mirrors its own bind, and sneak_too is gone")
+    void toggleSneakReplacesSneakToo() {
+        assertFalse(state.toggleSneakOn);
+        assertFalse(state.toggleSneakHold, "`toggle` is the default and the mod");
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.toggleSneakCode,
+                "a latch on a key nobody chose is a player stuck crouched");
+
+        assertTrue(state.setGameplay("toggle_sneak", true));
+        assertEquals(new JsonPrimitive("V"),
+                state.setModSetting("toggle_sneak", "keybind", new JsonPrimitive("v")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("V"), state.toggleSneakCode);
+        assertTrue(state.toggleSneakOn);
+
+        state.setModSetting("toggle_sneak", "mode", new JsonPrimitive("hold"));
+        assertTrue(state.toggleSneakHold);
+        // The bind is this mod's, never vanilla's sneak key, which is why `hold` is a real
+        // setting here and inert on toggle_sprint.
+        assertFalse(state.toggleSprintHold, "the two mods' modes are not the same field");
+
+        // The boolean this mod replaces is gone from the registry, so writing it is refused
+        // rather than quietly stored — the failure mode the schema's $comment was written for
+        // is a setting that still exists on one side and not the other.
+        assertNull(state.setModSetting("toggle_sprint", "sneak_too", new JsonPrimitive(true)));
+    }
+
+    @Test
+    @DisplayName("the stopwatch's two keys are mirrored like every other keybind")
+    void stopwatchKeysAreMirrored() {
+        // Neither is bound in the example, so both start at NONE and the poll never samples
+        // them — a timer nobody bound costs nothing (schema/mods/stopwatch.json).
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.stopwatchStartCode);
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.stopwatchResetCode);
+
+        assertEquals(new JsonPrimitive("N"),
+                state.setModSetting("stopwatch", "start_key", new JsonPrimitive("n")));
+        assertEquals(new JsonPrimitive("M"),
+                state.setModSetting("stopwatch", "reset_key", new JsonPrimitive("m")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("N"), state.stopwatchStartCode);
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("M"), state.stopwatchResetCode);
+
+        // Two settings, two codes, two rows in the table: binding one must not move the other.
+        assertEquals(new JsonPrimitive("P"),
+                state.setModSetting("stopwatch", "start_key", new JsonPrimitive("P")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("M"), state.stopwatchResetCode,
+                "rebinding start_key left reset_key alone");
+    }
+
+    @Test
     @DisplayName("setModSetting only reports a real change")
     void unchangedSettingsAreNotReported() {
         state.setModSetting("keystrokes", "opacity", new JsonPrimitive(0.5));

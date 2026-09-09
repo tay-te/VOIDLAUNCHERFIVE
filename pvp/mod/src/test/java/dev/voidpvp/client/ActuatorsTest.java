@@ -1,5 +1,6 @@
 package dev.voidpvp.client;
 
+import dev.voidpvp.client.actuator.FovLock;
 import dev.voidpvp.client.actuator.SprintLatch;
 import dev.voidpvp.client.actuator.ZoomController;
 import dev.voidpvp.client.input.EdgeKey;
@@ -50,6 +51,58 @@ class ActuatorsTest {
         latch.update(true, false, true, true);
         latch.update(true, false, false, false);
         assertFalse(latch.isLatched(), "a screen opening unlatches");
+    }
+
+    @Test
+    @DisplayName("the FOV lock drops the half it was asked for and keeps the other")
+    void fovLockIsTwoIndependentSwitches() {
+        // What 1.8.9's getSpeed() hands back is one number: the movement-speed term times the
+        // bow term. These are a sprint (about 1.15) with the bow half-drawn (10 ticks -> 0.9625).
+        float bow = FovLock.bowFactor(true, 10);
+        assertEquals(1f - 0.25f * 0.15f, bow, 1e-6, "10 of 20 ticks is a quarter of the pull");
+        float sprinting = 1.15f * bow;
+
+        // Off, and on-but-with-nothing-locked, are both exactly vanilla: a mod that is not
+        // suppressing anything must not perturb the number at all.
+        assertEquals(sprinting, FovLock.apply(false, true, true, sprinting, bow), 1e-6);
+        assertEquals(sprinting, FovLock.apply(true, false, false, sprinting, bow), 1e-6);
+
+        // Both locked: the multiplier is the identity, so the player's own `fov` is what
+        // reaches the projection.
+        assertEquals(1f, FovLock.apply(true, true, true, sprinting, bow), 1e-6);
+
+        // lock_sprint only — the mod's default. The speed term is gone and the bow's zoom,
+        // which is draw feedback rather than noise, is exactly what it was.
+        assertEquals(bow, FovLock.apply(true, true, false, sprinting, bow), 1e-6);
+
+        // lock_bow only: the bow term is divided back out and the speed term survives whole.
+        assertEquals(1.15f, FovLock.apply(true, false, true, sprinting, bow), 1e-5);
+    }
+
+    @Test
+    @DisplayName("the bow factor is vanilla's curve, and holding past a full draw stops moving")
+    void bowFactorMatchesVanilla() {
+        assertEquals(1f, FovLock.bowFactor(false, 20), 1e-6, "no bow, no zoom");
+        assertEquals(1f, FovLock.bowFactor(true, 0), 1e-6, "the frame the draw starts");
+        // Vanilla squares the fraction before scaling it, so the pull is slow then fast.
+        assertEquals(1f - 0.25f * 0.15f, FovLock.bowFactor(true, 10), 1e-6);
+        assertEquals(0.85f, FovLock.bowFactor(true, 20), 1e-6, "a full draw is the whole 15%");
+        assertEquals(0.85f, FovLock.bowFactor(true, 200), 1e-6,
+                "and holding it longer does not zoom further");
+    }
+
+    @Test
+    @DisplayName("the FOV lock never hands the projection a NaN")
+    void fovLockSurvivesNonsense() {
+        // getSpeed() has NaN and infinity guards of its own precisely because a zero walk speed
+        // reaches it, and a NaN in the field of view is a black frame rather than a wide one.
+        assertTrue(Float.isNaN(FovLock.apply(true, false, true, Float.NaN, 0.9f))
+                || FovLock.apply(true, false, true, Float.NaN, 0.9f) == 1f,
+                "a NaN in is a NaN or the identity out, never a silent number");
+        assertEquals(1.2f, FovLock.apply(true, false, true, 1.2f, 0f), 1e-6,
+                "a zero bow factor cannot divide, so vanilla stands");
+        assertEquals(1f, FovLock.apply(true, true, true, Float.NaN, Float.NaN), 1e-6,
+                "with both locked there is nothing to compute from");
     }
 
     @Test

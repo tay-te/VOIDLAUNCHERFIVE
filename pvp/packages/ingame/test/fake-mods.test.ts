@@ -21,6 +21,19 @@ import type { SettingValue } from '@/store/store';
 // it — this constant is only here to say "the padding added nothing", which is a comparison to
 // the registry, not to a number.
 const REAL = MOD_IDS.length;
+
+/**
+ * How many synthetic mods to ask for, as a margin over the real registry rather than a total.
+ *
+ * Every number in this file used to be an absolute total — 24, 17 — chosen when the registry
+ * had thirteen mods. Each one decayed into something else as the roster grew: at twenty, 17
+ * became "fewer tiles than there are mods" and asked for a negative count; at twenty-five, 24
+ * did the same and quietly produced *no* fakes at all, so three tests measured an empty list
+ * and one of them still passed. `planFakeMods` takes a total, so a total is the one shape that
+ * cannot survive a roster pass. Two turns of the category cycle, expressed against what the
+ * registry actually holds today.
+ */
+const PAD = 8;
 const CATEGORIES: readonly ModCategory[] = ['hud', 'pvp', 'visual', 'utility'];
 
 describe('the fake-mod padding', () => {
@@ -72,13 +85,13 @@ describe('the fake-mod padding', () => {
   });
 
   it('varies enablement, so the disabled treatment is visible without clicking', () => {
-    const on = planFakeMods(24, REAL).map((m) => m.defaults.on);
+    const on = planFakeMods(REAL + PAD, REAL).map((m) => m.defaults.on);
     expect(on).toContain(true);
     expect(on).toContain(false);
   });
 
   it('covers all three of §8`s property structures', () => {
-    const structures = planFakeMods(24, REAL).map((mod) =>
+    const structures = planFakeMods(REAL + PAD, REAL).map((mod) =>
       propertyStructure(
         modProperties(
           mod.id as never,
@@ -90,7 +103,7 @@ describe('the fake-mod padding', () => {
   });
 
   it('gives every `mode` row its options, or the enum chips would render empty', () => {
-    for (const mod of planFakeMods(24, REAL)) {
+    for (const mod of planFakeMods(REAL + PAD, REAL)) {
       if ('mode' in mod.defaults) expect(mod.enums[`${mod.id}.mode`]).toEqual(['toggle', 'hold']);
     }
   });

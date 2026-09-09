@@ -1,14 +1,15 @@
 /**
- * Previews for the four mods that draw into the world, not onto the page.
+ * Previews for the eight mods that draw into the world, not onto the page.
  *
  * ## Why these are different from the other nine
  *
- * `LIVE_WIDGETS` (`ModSettingsScreen.tsx`) points nine mods at **the component `HudLayer`
- * already places**, which is the strongest possible guarantee that the preview and the HUD
- * agree: they are the same code. Four mods cannot be done that way, because there is no HTML of
- * them anywhere. Fullbright changes `mc.options.gamma`. Zoom changes the camera FOV. Hitboxes
- * pushes GL lines from an entity render pass. Toggle sprint changes what a key does and draws
- * nothing at all.
+ * `LIVE_WIDGETS` (`ModSettingsScreen.tsx`) points most of the registry at **the component
+ * `HudLayer` already places**, which is the strongest possible guarantee that the preview and
+ * the HUD agree: they are the same code. Eight mods cannot be done that way, because there is
+ * no HTML of them anywhere. Fullbright changes `mc.options.gamma`. Zoom and the FOV changer
+ * change the camera FOV. Hitboxes pushes GL lines from an entity render pass. Overlay deletes
+ * render passes the game was going to run. Old animations changes the shape of a first-person
+ * transform. Toggle sprint and Toggle sneak change what a key does and draw nothing at all.
  *
  * So these are **diagrams**, and the file says so rather than pretending otherwise. What is
  * shared with the game is not the drawing but the *numbers*: the same `gamma`, the same
@@ -30,7 +31,7 @@
  *
  * ## One drawing, two densities
  *
- * These are also the **grid tiles** for the same four mods, through `dense`. That is not a
+ * These are also the **grid tiles** for the same eight mods, through `dense`. That is not a
  * convenience: the grid used to draw its own 7x7 bitmap of a sun, a square and an arrow with
  * `BRIGHT`, `HITBOX` and `SPRINT` captioned under them, so a player who opened Fullbright went
  * from a blocky glyph to a pair of gamma ramps and had to work out that they were the same mod.
@@ -88,8 +89,14 @@ function CellRow({
    *
    * The label now sits **above** the cells at tile density (`.gprev--tile .gprev__row` turns the
    * column), where width is free and the cost is ~11px of height the tile has to spare.
+   *
+   * A node rather than a string, because a row's axis is not always a word. `SneakPreview` puts
+   * the mod's own keycap here: the row is "what this key does over time", and the key is the
+   * honest name of that axis — the same sentence `ZoomPreview` makes with `hold C`, said in the
+   * place the row already reserves for saying what it is. Anything passed here is still an axis
+   * label and still subject to the rule above it; it is not a slot for a caption.
    */
-  label?: string;
+  label?: React.ReactNode;
   /** Alpha per cell, 0-1. */
   cells: readonly number[];
   /**
@@ -451,3 +458,340 @@ export function SprintPreview({ dense = false, className }: DiagramProps = {}): 
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* FOV changer                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What vanilla multiplies the field of view by while you are sprinting.
+ *
+ * The game's own number, not a chosen one. `EntityPlayerSP#getFOVModifier` reads
+ * `f *= (movementSpeed / walkSpeed + 1) / 2`, and sprinting applies a +30% modifier to
+ * `movementSpeed` — so `(1.3 + 1) / 2 = 1.15`. That is the punch this mod exists to stop, and
+ * the diagram draws the same 15% the camera would take.
+ */
+const SPRINT_PUNCH = 1.15;
+
+/**
+ * What a fully-drawn bow multiplies the field of view by.
+ *
+ * The same method's other branch: `f -= f * 0.15` at full draw, so the camera ends at 0.85 of
+ * where it was. It pulls the opposite way from the sprint punch, which is exactly why
+ * `lock_bow` is a second switch — one is noise and the other is the only cue 1.8 gives for how
+ * far the shot is charged.
+ */
+const BOW_PULL = 0.85;
+
+/**
+ * Half of a field of view, in degrees off straight ahead — the angle one ray is drawn at.
+ *
+ * Capped just inside 90 because the diagram's ground is the half-disc of everything in front of
+ * you, and a ray past 88° would leave it. Nothing vanilla's slider can reach comes close; the
+ * cap exists for the *punched* angle, which is `fov` x 1.15 and does legitimately run past 110.
+ */
+function halfAngle(degrees: number): number {
+  return Math.min(88, Math.max(1, degrees) / 2);
+}
+
+/**
+ * One edge of a field of view, drawn from the eye.
+ *
+ * A 2D `rotate` about the ray's own foot, which is the apex — so the tip lands on the arc at
+ * every angle and the drawing is a real fan rather than a fan-shaped approximation. 2D only:
+ * `design/ultralight-notes.md` §4 has no 3D transforms at all, and none are wanted here.
+ */
+function Ray({
+  /** Degrees off straight ahead; negative is to the left. */
+  deg,
+  /**
+   * A state the camera *reaches* rather than the one it is held at.
+   *
+   * The same ghost vocabulary `ZoomPreview` uses for `smooth` and the crosshair uses for
+   * `dynamic`: an outline in the same ink, thinner and faint, means "this is where it would
+   * go". Here it is the whole content of the two locks — an unlocked camera has a second
+   * angle it swings to, and a locked one does not.
+   */
+  ghost = false,
+}: {
+  deg: number;
+  ghost?: boolean;
+}): React.ReactElement {
+  return (
+    <span
+      className={ghost ? 'gprev__ray gprev__ray--ghost' : 'gprev__ray'}
+      style={{ transform: `rotate(${deg.toFixed(2)}deg)` }}
+    />
+  );
+}
+
+/**
+ * The field of view, as the angle it actually is.
+ *
+ * An angle is the most directly drawable thing in this set, so this draws the angle: two rays
+ * from the eye, on the half-disc of everything in front of you. 30° is a slit of that half and
+ * 110° is most of it, which is the reading vanilla's own slider never gives you.
+ *
+ * **The locks are the mod, and they are drawn as ghost rays.** A held field of view on its own
+ * is a picture of the vanilla slider, which says nothing — the setting is only legible as the
+ * difference between the angle you asked for and the angle the game keeps taking. So an
+ * *unlocked* sprint puts a second, wider pair of rays on the drawing at `fov` x
+ * {@link SPRINT_PUNCH}, and an unlocked bow puts a narrower pair at `fov` x {@link BOW_PULL}.
+ * Lock either one and its ghost is **gone**, not faded: past the lock there is no second angle,
+ * the same way there is no dimmer box past `hitboxes.max_distance`.
+ *
+ * The ghosts stay at tile density, where `ZoomPreview`'s did not. That is not an inconsistency
+ * with it — zoom's ghosts were concentric hairlines inside 68px, which interfere; rays share an
+ * apex and *diverge*, so they separate as they travel and are furthest apart exactly where the
+ * eye reads them, at the arc.
+ */
+export function FovPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('fov');
+  const range = SETTING_RANGES.fov!;
+  const held = Math.min(range.max, Math.max(range.min, Number(settings.fov ?? 90)));
+  const lockSprint = settings.lock_sprint !== false;
+  const lockBow = settings.lock_bow === true;
+  const half = halfAngle(held);
+  const sprint = halfAngle(held * SPRINT_PUNCH);
+  const bow = halfAngle(held * BOW_PULL);
+  return (
+    <div className={root(dense, 'gprev--fov', className)}>
+      <div className="gprev__fan">
+        {lockSprint ? null : (
+          <>
+            <Ray deg={-sprint} ghost />
+            <Ray deg={sprint} ghost />
+          </>
+        )}
+        {lockBow ? null : (
+          <>
+            <Ray deg={-bow} ghost />
+            <Ray deg={bow} ghost />
+          </>
+        )}
+        <Ray deg={-half} />
+        <Ray deg={half} />
+        <span className="gprev__fanapex" />
+      </div>
+      {/* Under the fan at both densities. The wedge's interior is where the rays are, so a
+          number inside it would sit on the thing it is describing at every angle — the same
+          problem `ZoomPreview` solved by moving its label out from under the 1.0x frame. */}
+      <span className="gprev__fandeg tnum">{`${Math.round(held)}°`}</span>
+      {dense ? null : (
+        <Reading>
+          {`${Math.round(held)}° held. ` +
+            (lockSprint
+              ? `Sprinting would open it to ${Math.round(held * SPRINT_PUNCH)}°; it does not.`
+              : `Sprinting still opens it to ${Math.round(held * SPRINT_PUNCH)}° — the outer pair.`) +
+            (lockBow
+              ? ' A drawn bow is held too.'
+              : ` A drawn bow still closes it to ${Math.round(held * BOW_PULL)}° — the inner pair.`)}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Toggle sneak                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The latch, as a timeline of a key and the crouch it produces.
+ *
+ * `SprintPreview` is this mod's sibling and this is deliberately the same two-row instrument —
+ * the two mods are the same actuator on a different `KeyBinding`, and drawing them differently
+ * would be inventing a distinction the code does not have.
+ *
+ * **What it does differently, and why.** Sprint's timeline runs off the right-hand edge,
+ * because its statement is "and it carries on". Sneak's shows the **second tap**: both rows end
+ * at it. That is the sharper picture of a latch, and it is what stops these two tiles being the
+ * anonymous grid the file's header describes — side by side, sprint is a mark above a bar that
+ * leaves, and sneak is a pair of marks above a bar between them.
+ *
+ * Read across the two rows, `mode` is the whole mod: the crouch window is *identical* in both
+ * values and only the key row changes, from a run held down for its whole length to two taps at
+ * its ends. Same sneak, half the key.
+ *
+ * **The keybind is drawn**, as the key row's own axis label rather than as a caption. A latch
+ * on `NONE` is a real and shipped state — the schema defaults there on purpose, because a latch
+ * on a key nobody chose leaves a player crouched in a hole — so the unbound diagram draws the
+ * same shape at a fraction of the ink. Nothing has happened yet, and the picture says so
+ * without saying it in words.
+ */
+export function SneakPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('toggle_sneak');
+  const hold = settings.mode === 'hold';
+  const keybind = settings.keybind ?? null;
+  const armed = typeof keybind === 'string' && keybind !== '' && keybind !== 'NONE';
+  // Both rows drop to a whisper while the mod has no key. The shape stays — it is still the
+  // truth about what `mode` would do — but the contrast says the thing is not armed.
+  const on = armed ? 0.42 : 0.15;
+  const off = armed ? 0.07 : 0.04;
+  const n = steps(dense);
+  // The press lands one cell in and the release two from the end, so both marks are inside the
+  // row at either density: the read is "here, and again here", and a tap on the very edge reads
+  // as a row that was cut off rather than as an event.
+  const press = dense ? 1 : 2;
+  const lift = dense ? 5 : 9;
+
+  const key = Array.from({ length: n }, (_, i) =>
+    hold ? (i >= press && i <= lift ? on : off) : i === press || i === lift ? on : off,
+  );
+  const crouch = Array.from({ length: n }, (_, i) => (i >= press && i <= lift ? on : off));
+
+  return (
+    <div className={root(dense, undefined, className)}>
+      <CellRow
+        label={
+          // The tile drops the cap for the reason `ZoomPreview` does: `ModsScreen` already
+          // chips the mod's keybind into the tile's own top-left corner, and two caps on one
+          // 145px square saying the same thing is the caption problem in miniature.
+          dense ? (
+            'Key'
+          ) : (
+            <span className="gprev__keylabel">
+              <span className="gprev__kbd">{keybindLabel(keybind)}</span>
+            </span>
+          )
+        }
+        cells={key}
+        joined={hold}
+      />
+      <CellRow label="Sneak" cells={crouch} joined />
+      {dense ? null : (
+        <Reading>
+          {(hold
+            ? 'Hold: the crouch lasts exactly as long as the key is down — vanilla’s behaviour, on a key you picked.'
+            : 'Toggle: one tap crouches, the next stands. Same crouch, two presses instead of a held key.') +
+            (armed ? '' : ' No key is bound yet, so nothing latches.')}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Overlay                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The flame tongues, as a fraction of the scene's height.
+ *
+ * Eleven of them, the tallest reaching past the middle of the view. That size is the drawing
+ * agreeing with the roster: §3.3 #1 says "fire overlay alone decides fights", so the fire has
+ * to be the biggest thing this picture ever loses — a polite little flame at the bottom edge
+ * would be a picture of a different mod.
+ *
+ * Eleven rather than seven because the tongues share the width: at seven they came out 41px
+ * across on the page, which reads as a row of columns rather than as fire.
+ */
+const FLAMES: readonly number[] = [34, 52, 41, 66, 47, 74, 51, 62, 38, 56, 36];
+
+/**
+ * The player's own view, with things taken out of it.
+ *
+ * Five independent suppressions, and the obvious drawing — five little icons in a row, one per
+ * switch — is a legend rather than a picture: it would say *that* there are five settings
+ * without saying what any of them costs you. The honest subject is the thing they all act on,
+ * which is one framed first-person view. So there is one scene, every setting owns one element
+ * of it, and turning a suppression off puts its element back on your screen.
+ *
+ * That inversion is worth stating because it is what makes the diagram read. Four of the five
+ * ship **on**, so the factory picture is the clean view and the switches *add* clutter — which
+ * is exactly the trade the mod is offering, seen from the player's side.
+ *
+ * - `hide_fire` — the flames, and they are the biggest mark here by a long way (see
+ *   {@link FLAMES}).
+ * - `hide_pumpkin` — the carved mask, drawn as the thick inset frame it actually is: it eats
+ *   the view from every edge at once, which is the whole reason wearing one is a trade.
+ * - `hide_stuck_arrows` — shafts standing out of the bottom of the frame, where the ones in
+ *   your own model sit.
+ * - `hide_own_armor` — the plate on the held hand. Deliberately the smallest change on the
+ *   drawing, because the schema is explicit that it is the one switch here that changes nothing
+ *   about a first-person fight.
+ * - `view_bobbing` — ghost positions rather than motion, the trick `zoom.smooth` was rescued
+ *   by. `vanilla` bobs the camera and the hand, so both the horizon and the hand carry ghosts;
+ *   `minimal` holds the camera still and keeps the hand moving, so only the hand does; `off`
+ *   has no ghosts anywhere. Three values, three visibly different drawings, and nothing
+ *   animates — §4's idle-menu budget is 0 paints/s.
+ */
+export function OverlayPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('overlay');
+  // Every boolean here is a *hide*, so the drawing asks the opposite question: what is still on
+  // screen. Written as `=== false` / `!== false` rather than `!x` so a missing key falls back to
+  // the registry default rather than to "drawn".
+  const fire = settings.hide_fire === false;
+  const armour = settings.hide_own_armor === false;
+  const arrows = settings.hide_stuck_arrows === false;
+  const pumpkin = settings.hide_pumpkin === false;
+  const bobbing = typeof settings.view_bobbing === 'string' ? settings.view_bobbing : 'vanilla';
+  const cameraBobs = bobbing === 'vanilla';
+  const handBobs = bobbing !== 'off';
+  return (
+    <div className={root(dense, 'gprev--overlay', className)}>
+      <div className="gprev__scene">
+        {/* The world: one horizon, and the camera's ghost positions above and below it when the
+            camera is what bobs. A tilted copy either side is what a bob does to a horizon. */}
+        {cameraBobs ? (
+          <>
+            <span className="gprev__horizon gprev__horizon--up" />
+            <span className="gprev__horizon gprev__horizon--down" />
+          </>
+        ) : null}
+        <span className="gprev__horizon" />
+        {/* Dead centre, so the frame reads as a first-person view rather than as a landscape.
+            Not the crosshair mod's shape and not its colour — it is the scene's centre mark. */}
+        <span className="gprev__reticle" />
+        {/* The held hand, bottom right where 1.8 puts it. Its ghosts are the sweep the item
+            makes, and they survive `minimal` because that value is precisely "the hand keeps
+            moving and the camera stops". */}
+        {handBobs ? (
+          <>
+            <span className="gprev__hand gprev__hand--lead" />
+            <span className="gprev__hand gprev__hand--trail" />
+          </>
+        ) : null}
+        <span className="gprev__hand">{armour ? <span className="gprev__plate" /> : null}</span>
+        {arrows ? (
+          <>
+            <span className="gprev__arrow gprev__arrow--a" />
+            <span className="gprev__arrow gprev__arrow--b" />
+            <span className="gprev__arrow gprev__arrow--c" />
+          </>
+        ) : null}
+        {fire ? (
+          <span className="gprev__flames">
+            {FLAMES.map((height, i) => (
+              <span key={i} className="gprev__flame" style={{ height: `${height}%` }} />
+            ))}
+          </span>
+        ) : null}
+        {/* Last, and over everything: the mask is on your face, not in the world. */}
+        {pumpkin ? <span className="gprev__mask" /> : null}
+      </div>
+      {dense ? null : (
+        <Reading>
+          {(() => {
+            const left = [
+              fire ? 'the fire' : null,
+              pumpkin ? 'the pumpkin mask' : null,
+              arrows ? 'stuck arrows' : null,
+              armour ? 'your own armour' : null,
+            ].filter((x): x is string => x !== null);
+            const bob =
+              bobbing === 'off'
+                ? 'Nothing bobs, hand included.'
+                : bobbing === 'minimal'
+                  ? 'The hand still bobs; the camera is held still.'
+                  : 'The camera and the hand both bob.';
+            return left.length === 0
+              ? `Nothing left between you and the fight. ${bob}`
+              : `Still on your screen: ${left.join(', ')}. ${bob}`;
+          })()}
+        </Reading>
+      )}
+    </div>
+  );
+}
+

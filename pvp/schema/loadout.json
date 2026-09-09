@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 25 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 24 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -214,10 +214,6 @@
         "overlay": {
           "description": "Overlay state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/overlay_settings"
-        },
-        "old_animations": {
-          "description": "Old animations state and settings.",
-          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/old_animations_settings"
         }
       }
     },

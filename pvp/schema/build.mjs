@@ -70,7 +70,7 @@ const ORDER = [
   // then gameplay" reading of the header stopped describing this list at `direction`: the two
   // narrowed enums are *filters* over this order, not slices of it, so a wave appends in
   // whatever order its mods were decided and neither enum notices.
-  'stopwatch', 'fov', 'toggle_sneak', 'overlay', 'old_animations',
+  'stopwatch', 'fov', 'toggle_sneak', 'overlay',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

@@ -291,11 +291,11 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const { container } = render(<App />);
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
-    // Twenty mods: eight across, three down — the shape that fills the panel, solved from the
-    // registry's count and the window and handed to the CSS as lengths. Six across at twelve,
-    // seven when the watermark landed, eight now the Wave 2 readouts have. Every one of those
-    // moves is `solveGrid` doing its job rather than a layout that had to be re-guessed, which
-    // is the reason this assertion is worth rewriting each time rather than deriving away.
+    // Twenty-four mods: eight across, three down — the shape that fills the panel, solved from
+    // the registry's count and the window and handed to the CSS as lengths. Six across at
+    // twelve, seven when the watermark landed, eight at Wave 2's readouts, and Wave 4's four
+    // exactly fill the third row. Every one of those moves is `solveGrid` doing its job rather
+    // than a layout that had to be re-guessed, which is why this is rewritten each time.
     const solved = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
     expect(solved.columns).toBe(8);
     expect(solved.rows).toBe(3);
@@ -304,7 +304,12 @@ describe('Mods screen — the grid, and the page one click away', () => {
     expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${solved.panelW}px`);
     expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${solved.panelH}px`);
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
-    // Nothing to scroll at twenty, so nothing is held back from the tiles for a scrollbar.
+    // Still nothing to scroll at twenty-four — three full rows of eight is exactly the panel —
+    // so nothing is held back from the tiles for a scrollbar. Worth keeping as an assertion
+    // rather than dropping: the panel is a fixed box rather than the size of the registry, and
+    // "does it scroll yet" is the question that box exists to answer. The next mod is the one
+    // that flips it.
+    expect(solved.scrolls).toBe(false);
     expect(overlay().style.getPropertyValue('--grid-gutter')).toBe('0px');
     expect(overlay().className).not.toContain('overlay--scrolls');
 
@@ -334,9 +339,9 @@ describe('Mods screen — the grid, and the page one click away', () => {
   });
 
   it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
-    // Row-major, so the arrow keys had to change with the fill order. Twenty mods are eight
-    // across: `fps` is index 0, `zoom` index 7 (end of row one), `fullbright` index 8 (start of
-    // row two), `watermark` index 19 (the last).
+    // Row-major, so the arrow keys had to change with the fill order. Twenty-four mods are eight
+    // across: `fps` is index 0, `crosshair` index 7 (end of row one), `zoom` index 8 (start of
+    // row two), `watermark` index 23 (the last).
     const { container } = render(<App />);
     const overlay = container.querySelector('.overlay') as HTMLElement;
     const at = () => useVoidStore.getState().selectedMod;
@@ -346,14 +351,14 @@ describe('Mods screen — the grid, and the page one click away', () => {
     press('ArrowRight');
     expect(at()).toBe('memory');
     press('ArrowDown');
-    expect(at()).toBe('hitboxes'); // index 1 + 8
+    expect(at()).toBe('fov'); // index 1 + 8
     press('ArrowUp');
     expect(at()).toBe('memory');
 
     // A row boundary is a step, not a wall: the grid is one sequence laid out in rows.
-    set(() => useVoidStore.getState().selectMod('zoom'));
+    set(() => useVoidStore.getState().selectMod('crosshair'));
     press('ArrowRight');
-    expect(at()).toBe('fullbright');
+    expect(at()).toBe('zoom');
 
     // Both ends clamp rather than wrapping.
     set(() => useVoidStore.getState().selectMod('fps'));
@@ -409,8 +414,9 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const ids = [...container.querySelectorAll('[data-mod-id]')].map((el) =>
       el.getAttribute('data-mod-id'),
     );
-    // The watermark is Visual too — it is a mark drawn over the game, not a readout.
-    expect(ids.sort()).toEqual(['crosshair', 'fullbright', 'watermark']);
+    // The watermark is Visual too — it is a mark drawn over the game, not a readout. `overlay`
+    // joined them in Wave 4: it is the mod whose whole subject is what the game draws over you.
+    expect(ids.sort()).toEqual(['crosshair', 'fullbright', 'overlay', 'watermark']);
 
     set(() => useVoidStore.getState().setModFilter('all'));
     set(() => useVoidStore.getState().setLayout('list'));

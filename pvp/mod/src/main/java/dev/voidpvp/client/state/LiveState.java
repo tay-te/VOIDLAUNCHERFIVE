@@ -86,10 +86,56 @@ public final class LiveState {
     // -- actuator fields, read every frame by mixin/ ---------------------
     public volatile boolean toggleSprintOn;
     public volatile boolean toggleSprintHold;
-    public volatile boolean toggleSprintSneakToo;
+
+    /**
+     * Toggle sneak, which is the other half of what {@code toggle_sprint.sneak_too} used to be.
+     *
+     * <p>The same actuator shape as the sprint latch above, deliberately — {@code SprintLatch}
+     * drives both — with one difference that is the whole reason it is a mod and not a boolean:
+     * {@link #toggleSneakCode} is <b>this mod's own bind, not vanilla's sneak key</b>. The sprint
+     * latch reads vanilla's sprint key and writes it back; this one reads a key the player chose
+     * and writes vanilla's sneak key. That is also why {@code hold} means something here and
+     * nothing on {@code toggle_sprint}: holding a key that is not Shift is a real behaviour,
+     * holding Shift is just Shift.</p>
+     */
+    public volatile boolean toggleSneakOn;
+    public volatile boolean toggleSneakHold;
+    public volatile int toggleSneakCode;
 
     public volatile boolean fullbrightOn;
     public volatile float fullbrightGamma = 10f;
+
+    /**
+     * The FOV changer. {@link #fovDegrees} is written into {@code GameOptions.fov}, which is
+     * <b>saved to disk</b> — see {@code mixin/GameOptionsMixin}, which is what stops it, and
+     * {@code VoidClient.playerFov}, which is the one copy of the player's own value.
+     */
+    public volatile boolean fovOn;
+    public volatile float fovDegrees = 90f;
+    public volatile boolean fovLockSprint = true;
+    public volatile boolean fovLockBow;
+
+    /**
+     * The Overlay mod: five independent suppressions of render passes the game already runs.
+     *
+     * <p>Nothing here is drawn by this mod — every field is read at one injection point and
+     * answers one question: <em>skip this pass?</em> {@code view_bobbing} is the only one that is
+     * not a straight boolean in the schema, and it is mirrored here as the two booleans the two
+     * injection points actually need rather than as its enum: 1.8.9 reads
+     * {@code GameOptions.bobView} in three places, one in {@code GameRenderer.setupCamera} (the
+     * camera) and two in {@code GameRenderer.renderHand} (the held item), which is exactly the
+     * split {@code minimal} names — and comparing a string per frame in the render path to
+     * rediscover that is work the loadout write can do once.</p>
+     */
+    public volatile boolean overlayOn;
+    public volatile boolean overlayHideFire = true;
+    /** {@code view_bobbing} is {@code minimal} or {@code off}: hold the camera still. */
+    public volatile boolean overlayLockCameraBob;
+    /** {@code view_bobbing} is {@code off}: hold the held item still as well. */
+    public volatile boolean overlayLockHandBob;
+    public volatile boolean overlayHideOwnArmor;
+    public volatile boolean overlayHideStuckArrows = true;
+    public volatile boolean overlayHidePumpkin = true;
 
     public volatile boolean hitboxesOn;
     public volatile float hitboxLineWidth = 2f;
@@ -130,6 +176,18 @@ public final class LiveState {
     public volatile int fullbrightToggleCode;
     public volatile int hitboxesToggleCode;
     public volatile int toggleSprintToggleCode;
+
+    /**
+     * The two {@code stopwatch} keybinds, which are <b>not</b> toggles.
+     *
+     * <p>Mirrored exactly like the four above and polled from the same table, but the row they
+     * feed emits {@code modaction} instead of writing {@code on}: a timer has two verbs and
+     * neither of them is a boolean ({@code schema/mods/stopwatch.json}). The action names are the
+     * contract with the widget and are written down in that file — {@code start_stop} and
+     * {@code reset} — not here, because the page reads the schema and not this class.</p>
+     */
+    public volatile int stopwatchStartCode;
+    public volatile int stopwatchResetCode;
 
     // -- HUD-mod settings the game loop polls ----------------------------
     //
@@ -299,10 +357,31 @@ public final class LiveState {
     private void applyActuatorFields(Loadout l) {
         toggleSprintOn = l.isOn("toggle_sprint");
         toggleSprintHold = "hold".equals(l.stringSetting("toggle_sprint", "mode", "toggle"));
-        toggleSprintSneakToo = l.boolSetting("toggle_sprint", "sneak_too", false);
+
+        toggleSneakOn = l.isOn("toggle_sneak");
+        toggleSneakHold = "hold".equals(l.stringSetting("toggle_sneak", "mode", "toggle"));
+        toggleSneakCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("toggle_sneak", "keybind", "NONE"));
 
         fullbrightOn = l.isOn("fullbright");
         fullbrightGamma = (float) l.numberSetting("fullbright", "gamma", 10);
+
+        fovOn = l.isOn("fov");
+        fovDegrees = (float) l.numberSetting("fov", "fov", 90);
+        fovLockSprint = l.boolSetting("fov", "lock_sprint", true);
+        fovLockBow = l.boolSetting("fov", "lock_bow", false);
+
+        overlayOn = l.isOn("overlay");
+        overlayHideFire = l.boolSetting("overlay", "hide_fire", true);
+        String bob = l.stringSetting("overlay", "view_bobbing", "vanilla");
+        // Resolved here, not per frame: `off` is the vanilla switch off, so it takes the hand
+        // with it; `minimal` takes only the camera, which is the half a boolean cannot express
+        // and the reason this setting is an enum.
+        overlayLockCameraBob = !"vanilla".equals(bob);
+        overlayLockHandBob = "off".equals(bob);
+        overlayHideOwnArmor = l.boolSetting("overlay", "hide_own_armor", false);
+        overlayHideStuckArrows = l.boolSetting("overlay", "hide_stuck_arrows", true);
+        overlayHidePumpkin = l.boolSetting("overlay", "hide_pumpkin", true);
 
         hitboxesOn = l.isOn("hitboxes");
         hitboxLineWidth = (float) l.numberSetting("hitboxes", "line_width", 2);
@@ -343,6 +422,12 @@ public final class LiveState {
                 l.stringSetting("hitboxes", "keybind", "NONE"));
         toggleSprintToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("toggle_sprint", "keybind", "NONE"));
+        // The two that ask for something rather than flipping something: same mirror, same
+        // poll, a different row. See the fields.
+        stopwatchStartCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("stopwatch", "start_key", "NONE"));
+        stopwatchResetCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("stopwatch", "reset_key", "NONE"));
 
         keystrokesOn = l.isOn("keystrokes");
         armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);

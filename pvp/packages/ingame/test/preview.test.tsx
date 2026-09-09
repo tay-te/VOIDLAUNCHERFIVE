@@ -71,6 +71,10 @@ const LIVE: readonly ModId[] = [
   'memory',
   'server_address',
   'item_counter',
+  'stopwatch',
+  'fov',
+  'toggle_sneak',
+  'overlay',
 ];
 
 /**
@@ -114,6 +118,14 @@ const NOT_IN_THE_PREVIEW: Record<string, string> = {
   // not a preview, and passing by editing text would have made the gate worth less than the
   // exemption it replaced.
   'zoom.cinematic': 'the lag between two motions, and a still frame holds one instant',
+  // A stopwatch's two keys ask for a *change* — a clock starting, or a reading dropping to
+  // zero — and a change is two frames. This is a HUD mod, so the preview is the identical
+  // widget `HudLayer` places and there is no diagram to draw a keycap on, which is what
+  // rescued `zoom.key`. The only thing either key could move in a still frame is the fixture,
+  // and a fixture that moved when a *binding* changed would be drawing a press nobody made.
+  // The `KeybindChip` in the row is the feedback, and the page's meta line prints the key.
+  'stopwatch.start_key': 'it asks the clock to change state, and a still frame holds one instant',
+  'stopwatch.reset_key': 'it asks the reading to drop to zero, and a still frame holds one instant',
 };
 
 /** A legal value for `key` that differs from `current`. */

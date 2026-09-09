@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 25 mods.
+ * The closed registry of the 24 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -397,7 +397,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (9) — they mutate a client-side option ------------------------------
+        // --- Gameplay mods (8) — they mutate a client-side option ------------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -800,7 +800,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (9) — they mutate a client-side option ------------------------------
+        // --- Gameplay mods (8) — they mutate a client-side option ------------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -897,47 +897,6 @@ public final class ModRegistry {
                 // something Hypixel's allowlist has a category for.
                 "hide_pumpkin", bool(true));
 
-        // Old animations — kind gameplay, pvp tab, §11 safe.
-        // Restores the 1.7 swing and block-hit animations, and the two input behaviours that went
-        // with them.
-        // Source: first-person item transforms and swing timing (`ItemRenderer`,
-        // `EntityLivingBase#swingProgress`).
-        mod("old_animations", Kind.GAMEPLAY, Category.PVP, "Old animations",
-                // Whether the 1.7 animations are enabled.
-                "on", bool(false),
-                // Which arm-swing animation is drawn. `vanilla` leaves 1.8's alone. `one_seven`
-                // restores the shorter, flatter arc 1.7 drew, which is the motion a large part of
-                // this audience has thousands of hours of muscle memory in. It changes nothing
-                // the server is told — swing timing is a client animation and the attack packet
-                // is unchanged — but it changes when a hit *looks* like it landed, and that gap
-                // between what you see and what you expect is most of what people mean when they
-                // say a client feels wrong.
-                "swing", enumOf("one_seven", "vanilla", "one_seven"),
-                // Which animation is drawn when you attack while blocking with a sword. `vanilla`
-                // is 1.8's, in which the sword barely moves. `one_seven` restores the pronounced
-                // swing 1.7 drew through the block, which is the most recognised single item in
-                // this mod: 1.8 changed it, sword PvP never accepted the change, and its absence
-                // is the concrete thing §3.2 #1 has in mind. Animation only, on both settings —
-                // whether a block registers is the server's business and neither value touches
-                // it.
-                "block_hit", enumOf("one_seven", "vanilla", "one_seven"),
-                // Whether the arm swings on a click that connects with nothing. 1.7 swung on
-                // every click; 1.8 swings only when the click reaches a block or an entity, so a
-                // miss in 1.8 is invisible. Off by default, and it is the one setting here that
-                // changes what your *opponent* sees rather than what you see: the swing is sent,
-                // so every whiffed click becomes an animation on their screen, and a player who
-                // has not asked for that should not discover it mid-fight. On for a player who
-                // wants the click they made and the arm they see to agree.
-                "always_swing", bool(false),
-                // Whether right-click item use is allowed while a block is being broken. 1.7
-                // allowed it and 1.8 does not, and the case it decides is eating or raising a
-                // block mid-mine in a Bedwars rush. Off by default and flagged deliberately: with
-                // `always_swing` it is one of the two switches in this mod that is not an
-                // animation, it changes what the client will *do* on an input rather than what it
-                // draws, and the `$comment` at the top of this file is the §11 argument for
-                // shipping it off rather than not shipping it.
-                "use_while_digging", bool(false));
-
         // --- The factory HUD layout (16) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
@@ -1027,7 +986,7 @@ public final class ModRegistry {
     // END GENERATED DATA
     // =================================================================
 
-    /** The 25 mod ids, in registry order. */
+    /** The 24 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }
