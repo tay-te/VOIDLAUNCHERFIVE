@@ -125,7 +125,7 @@ completeness and should not be built.
 | 7 | **Damage tint** | Vignette when low on health, optional heartbeat audio | ✓ | ✗ | ✗ | S | Build. Cheap, and "I did not notice I was at 3 hearts" is a real way to lose. |
 | 8 | **Hurt cam control** | Disable or tune the hurt-camera shake and tilt | ✓ | ✗ | ✗ | S | Build. Trivially small, immediately felt. |
 | 9 | **Snaplook** | Hold a key for a third-person look, release to snap back | ✓ | ✗ | ✗ | S* | Build **after** freelook — it is the same camera machinery with a different input mode. |
-| 10 | **Nick hider** | Hides your own (or others') name and skin locally | ✓ | ✓ | ✗ | M | Later. Client-side only, so it is safe; it is also only meaningful on Hypixel. |
+| 10 | **Nick hider** | Hides your own (or others') name and skin locally | ✓ | ✓ | ✗ | L | Later, and the M was optimistic: a name is not one string on 1.8.9. See below. Client-side only, so it is safe; it is also only meaningful on Hypixel. |
 | 11 | **Protection display** | Shows total protection value of your armour | ✗ | ✓ | ✗ | S | Optional. Derived from enchants you can already read, so it is fine — but it is a convenience, not an edge. |
 | — | **Cooldowns** | Server tells the client what is on cooldown, client draws it | ✓ | ✗ | ✗ | L | **Don't.** Lunar's works because Apollo exists. We have a WebSocket to *our own launcher*, not to game servers. Shipping this means shipping a Minecraft server plugin and convincing networks to install it. That is a company strategy, not a mod. |
 | — | **Team view / Markers** | Teammate positions on HUD; FPS-style world pings | ✓ | ✗ | ✗ | L | Same reason. Both are server-driven. |
@@ -142,9 +142,9 @@ completeness and should not be built.
 | 3 | **Block outline** | Colour, thickness, or removal of the block-targeting outline | ✓ | ✓ | ✗ | M | Build. World-space GL, so it costs more than it looks — but it is table stakes. |
 | 4 | **Nametag customiser** | Hide, scale, recolour, or de-background nametags | ✓ | ✗ | ✗ | M | **Shipped 2026-09-09**, less the recolour: a nametag's colour is the server's, written by a scoreboard team, and in a team mode it is the difference between a teammate and a target. |
 | 5 | **Menu / inventory blur** | Blurs the world behind menus | ✓ | ✓ | ~ | S | **Do not finish it — cut, 2026-09-09.** This row said "finish what exists"; what exists is switched off on purpose. See below. |
-| 6 | **Clear glass** | Glass without the frame texture, without a resource pack | ✓ (in `overlay-mod`) | ✓ | ✗ | M | Build. Bedwars-relevant, allowed, and a resource-pack behaviour people expect built in. |
+| 6 | **Clear glass** | Glass without the frame texture, without a resource pack | ✓ (in `overlay-mod`) | ✓ | ✗ | M–L | Build, but **not as a render mod — it is a texture, and this row hid that.** Vanilla already culls the faces; the frame is pixels. See below. |
 | 7 | **Fog customiser** | Reduce or remove water / distance / dimension fog | ✓ | ✗ | ✗ | M | Build, class it **`grey`**. It increases what you can see beyond vanilla — same posture as fullbright. |
-| 8 | **Shiny pots** | Enchantment glint on potions so they read at a glance in the hotbar | ✓ | ✓ | ✗ | S | Cheap. Genuinely useful in pot PvP for a small change. |
+| 8 | **Shiny pots** | Enchantment glint on potions so they read at a glance in the hotbar | ✓ | ✓ | — | — | **Cut, 2026-09-09 — 1.8.9 already does it.** Not "we decided not to": there is nothing to build. See below. |
 | 9 | **Enchant glint colour / off** | Recolour or disable the enchantment shimmer | ✓ | ✓ | ✗ | M | Cheap-ish, cosmetic. Later. |
 | 10 | **Time / Weather changer** | Fix time of day; disable rain | ✓ | ✓/✗ | ✗ | S | Later. Rain removal is a small visibility win and is aesthetic, so it is safe. |
 | 11 | **Particle changer** | Reduce, recolour or add attack particles | ✓ | ✓ | ✗ | M | Later. Badlion's variant *adds* particles on hit, which is a hit-confirmation cue — mildly useful. |
@@ -194,17 +194,18 @@ client notices these missing. Ordered by how badly they are noticed on 1.8.9:
 14. **Stopwatch** (S)
 15. **Direction HUD split out** (S)
 16. **Menu blur finished** (S)
-17. **Nick hider** (M)
-18. **Shiny pots** (S)
-19. **Clear glass** (M)
+17. **Nick hider** (L) — re-rated from M, 2026-09-09; see §3.2 #10
+18. ~~**Shiny pots**~~ — **cut, 2026-09-09.** 1.8.9 already does this
+19. **Clear glass** (M–L) — re-rated from M, 2026-09-09; see §3.3 #6
 20. **Pack display, Clock, Chat customiser, Time changer, Enchant glint, Boss bar, Particles** — the long tail. Ship for completeness, expect no thanks.
 
 Deliberately excluded from the table-stakes list despite appearing on both: **Minimap,
 Waypoints, Replay, Item Physics, Motion Blur, MumbleLink, Schematica, AutoTip**. See §6.
 
-> **Status, 2026-09-09: fifteen of the nineteen are shipped**, one is cut, and the three that
-> remain are 17 (nick hider), 18 (shiny pots) and 19 (clear glass). #9 (block outline) shipped in
-> Wave 9; #16 (menu blur) is the cut.
+> **Status, 2026-09-09: fifteen of the nineteen are shipped**, two are cut, and the two that
+> remain are 17 (nick hider) and 19 (clear glass). #9 (block outline) shipped in Wave 9; #16
+> (menu blur) and #18 (shiny pots) are the cuts, for two different reasons that are worth
+> keeping apart — #16 is a thing we decided not to do, #18 is a thing there is nothing to do.
 >
 > **#16 was wrong, and it was wrong in the most expensive way a roster row can be: it read as
 > cheap.** "Finish what exists — `screen/BlurBackdrop.java` is already here; it needs to become a
@@ -225,8 +226,39 @@ Waypoints, Replay, Item Physics, Motion Blur, MumbleLink, Schematica, AutoTip**.
 > this list now, and it is worth more than the count: the rows a player *loses a fight* to —
 > animations, FOV, reach, freelook, hit colour, combo, saturation, the scoreboard covering the
 > right third of the screen — are done, and what is left is what a client looks like rather than
-> how it plays. #16 is also half-built: `mod/.../screen/BlurBackdrop.java` exists and has never
-> been a registry mod, which is the same "finish what exists" shape as `zoom.sensitivity` was.
+> how it plays.
+>
+> **#18 does not exist, and the roster could not have known without opening the jar.** Shiny pots
+> is a real mod on both competitors, and on 1.8.9 it is a no-op: `PotionItem.hasEnchantmentGlint`
+> returns true whenever `getCustomPotionEffects(stack)` is non-empty, and that method falls
+> through at offsets 45-53 to `StatusEffectStrings.getPotionEffects(stack.getData(), false)` when
+> there is no `CustomPotionEffects` tag — so every potion that grants an effect already glints,
+> in vanilla, with no client. A water bottle correctly does not: damage 0 drives that parser to
+> zero duration for every effect, the list is never allocated, and the method returns `null`.
+>
+> So the mod a competitor ships here is a mod for a *later* version, carried backwards onto a
+> compatibility list by its name. The lesson is the same one #16 taught from the other side:
+> **a roster row is a claim about code, and neither the competitor's feature list nor our own
+> is evidence.** #16 looked cheap because a file existed; #18 looked cheap because a name existed.
+>
+> **#19 is not the M it was rated, and the reason is that it is not a render mod at all.** 1.8.9
+> already culls the shared face between two identical glass blocks — `TransparentBlock
+> .isSideInvisible` returns false at offsets 53-60 when the neighbour is the same block — so
+> there is no culling left to add. The frame is *pixels in `blocks/glass.png`*, which means clear
+> glass is a texture override, and that is a mechanism this mod does not have: `fabric.mod.json`
+> depends on the loader and Minecraft alone, with no resource-loader to put our
+> `assets/minecraft/` above vanilla's in the pack stack. The alternative — blanking the frame in
+> the stitched sprite — takes effect at a resource reload, so the settings row would read
+> "applies on next reload", which nothing else in this registry does. Buildable, but it buys a
+> pipeline, not a Mixin.
+>
+> **#17 is L rather than M for one reason: a name is not one string.** The tab list alone reads
+> it three ways — `PlayerListEntry.getDisplayName`, `getProfile().getName()`, and
+> `Team.decorateName` — the nametag takes it as an already-resolved `String` argument to
+> `renderLabelIfPresent`, and chat and the sidebar carry it inside text the *server* wrote. A
+> nick hider has to catch every one of those or it leaks the real name in whichever it missed,
+> which is the one failure a nick hider cannot have. It is also the row this client benefits
+> from least: it is worth something while streaming and nothing in a fight.
 >
 > The long tail of #20 is one for twenty: `clock` shipped in Wave 8. Pack display, chat, time
 > changer, enchant glint, boss bar and particles are untouched, and "expect no thanks" still
@@ -234,6 +266,11 @@ Waypoints, Replay, Item Physics, Motion Blur, MumbleLink, Schematica, AutoTip**.
 
 Fifteen of the first nineteen are S or one-mixin M. **That is the roster problem: it is
 mostly volume, not difficulty.** Which is why §9 matters more than any individual row here.
+
+That reading survived the plough-through, with one amendment: of the four rows that were *not*
+volume, three were not difficulty either. Two were nothing (#16, #18) and one was a different
+kind of work than the row described (#19). **The cost column is the least reliable thing on this
+page**, because it is the column written furthest from the code.
 
 ---
 
@@ -531,6 +568,24 @@ back knowing it was cut once.
 > know is left as its yarn string, so an intermediary name in the output is the proof). Potion
 > counter is the one §3.1 keeps asking for and is the only one that needs a new *sensor* field
 > rather than a new hook.
+
+**Wave 9, addendum — the §4 tail, audited rather than built.** ~~Shiny pots~~ · Clear glass ·
+Nick hider. **Shiny pots is cut**: 1.8.9 already glints any potion with an effect, so there is
+nothing to write. Clear glass and nick hider stand, both re-rated upwards. §4's status block
+carries the bytecode for all three.
+
+> **Three rows, no commits, and that is the result rather than the absence of one.** Wave 9 was
+> the wave that learned to read the game instead of remembering it, and this is the same method
+> pointed at the roster itself: open the jar *before* opening an editor. One row turned out to
+> be vanilla behaviour, one turned out to be a resource pipeline wearing a Mixin's clothes, and
+> one turned out to touch five unrelated call sites rather than the one its cost implied.
+>
+> **The saving is not the code we did not write, it is the schema we did not ship.** A shiny-pots
+> entry would have been a mod id, four generated artefacts, an art file, a settings page and a
+> row in every grid-count test — a switch a player could turn off and see no change from, because
+> there was never a change to see. `design/rendering-invariants.md` §15 is about silent failures
+> in lookups; a mod whose whole effect is already the default is the same failure at the scale of
+> a registry entry, and nothing in this build would have caught it.
 
 **Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
 graph.~~ Playtime · day counter.
