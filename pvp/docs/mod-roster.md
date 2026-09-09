@@ -374,8 +374,37 @@ all S, all the same shape. This is where a generated registry pays for itself.
 >   inventory-wide mod. A `counts` field keyed by item id would serve both it and a proper item
 >   counter, and it is the one sensor addition the rest of §3.1 keeps asking for.
 
-**Wave 3 — the medium PvP set.** Reach display · Freelook (then Snaplook) · Hit color ·
-Damage tint · Hurt cam · Scoreboard.
+**Wave 3 — the medium PvP set.** Reach display · ~~Freelook (then Snaplook)~~ · ~~Hit color~~ ·
+~~Damage tint~~ · ~~Hurt cam~~ · Scoreboard.
+
+> **Four of six done, 2026-09-09**, as three mods rather than four. Two of this row's entries
+> were folded into their neighbours rather than shipped beside them:
+>
+> · **Snaplook is `freelook`'s factory defaults.** `mode: hold` + `snap_back: true` +
+>   `perspective: third_back` *is* Snaplook, and this row already said it was "the same camera
+>   machinery with a different input mode". Two mods over one piece of view state is two
+>   keybinds racing for it — the concrete failure this repo already found when `toggle_sneak`
+>   took sneak off `toggle_sprint`, where two owners of one latch was the whole bug.
+> · **Hurt cam is `damage_tint.camera_shake`.** These two genuinely share no render path, so the
+>   argument is §9's per-mod tax rather than machinery: split, Hurt cam is a registry row, a
+>   settings page, a thumbnail, a preview, a Rust struct, a Java descriptor, an undrawn glyph and
+>   a `MOD_ORDER` slot, for one three-valued enum. The cost is recorded beside the call:
+>   `hypixel_safe` is per mod, so if `camera_shake` is ever reclassified the vignette loses the
+>   badge with it, and that is the split condition.
+>
+> All three are classed `safe`, and `hit_color` is the one that had to be *earned* rather than
+> asserted. A raw strength slider whose top end makes a hit readable that vanilla left ambiguous
+> is not "purely aesthetic" on §6.1's own account, and it would have been the second `grey` mod
+> in two waves. So the number was defined instead of defended: **`intensity` is a fraction of
+> vanilla's own hurt-overlay alpha**, 1 being exactly what the game already draws. The mod cannot
+> make a landed hit more visible than Minecraft made it — only differently coloured, or less.
+> That is `fov`'s move ("the range is exactly vanilla's own slider") applied to a different
+> number, and it is the shape to reach for when a setting's *range* is what decides its class.
+>
+> **Reach display and Scoreboard are still open**, and Reach is now cheaper than this row
+> assumed: the combo-counter fix built the landed-attack classification it needs
+> (`sensor/HitTally`, ENTITY ∧ alive ∧ attackable ∧ not spectating), so the honest "compute only
+> from a landed attack, never predict" constraint in §6.1 already has somewhere to live.
 
 **Wave 4 — the differentiator.** Fight review · click analytics · W-tap trainer ·
 connection quality · surface the input-latency number we already compute.
