@@ -202,6 +202,20 @@ client notices these missing. Ordered by how badly they are noticed on 1.8.9:
 Deliberately excluded from the table-stakes list despite appearing on both: **Minimap,
 Waypoints, Replay, Item Physics, Motion Blur, MumbleLink, Schematica, AutoTip**. See §6.
 
+> **Status, 2026-09-09: fourteen of the nineteen are shipped**, and the five that are not are
+> 9 (block outline), 16 (menu blur), 17 (nick hider), 18 (shiny pots) and 19 (clear glass).
+>
+> **Every one of the five is visual. None of the fourteen was.** That is the useful reading of
+> this list now, and it is worth more than the count: the rows a player *loses a fight* to —
+> animations, FOV, reach, freelook, hit colour, combo, saturation, the scoreboard covering the
+> right third of the screen — are done, and what is left is what a client looks like rather than
+> how it plays. #16 is also half-built: `mod/.../screen/BlurBackdrop.java` exists and has never
+> been a registry mod, which is the same "finish what exists" shape as `zoom.sensitivity` was.
+>
+> The long tail of #20 is one for twenty: `clock` shipped in Wave 8. Pack display, chat, time
+> changer, enchant glint, boss bar and particles are untouched, and "expect no thanks" still
+> applies to all six.
+
 Fifteen of the first nineteen are S or one-mixin M. **That is the roster problem: it is
 mostly volume, not difficulty.** Which is why §9 matters more than any individual row here.
 
@@ -414,8 +428,12 @@ titles, pack display, glint, clear glass, particles, time changer, nick hider, s
 tooltips, inventory lock, kill sounds.
 
 **Wave 9 — the ones that needed the game read.** ~~Reach display~~ · ~~Scoreboard~~ ·
-~~zoom sensitivity~~ · ~~Potion counter~~ · ~~item counter, inventory-wide~~. GUI scale · block
-outline · nametags.
+~~zoom sensitivity~~ · ~~Potion counter~~ · ~~item counter, inventory-wide~~. Block outline ·
+nametags. **GUI scale: cut**, 2026-09-09, by the product owner rather than by this document —
+§3.3 #2's "fixes the my-hotbar-is-enormous complaint permanently" is real and it is also the one
+row in this wave that changes a thing every player already has a working answer for (vanilla's
+own GUI scale). Recorded here rather than deleted, because a row that comes back should come
+back knowing it was cut once.
 
 > **Shipped 2026-09-09, and the blocker was never time.** Wave 3 left Reach and Scoreboard open
 > and §7 recorded `old_animations` being withdrawn "for want of a 1.7.10 mapping". The same
@@ -480,7 +498,7 @@ outline · nametags.
 > discipline for three neighbouring fields. A test that pins a bug reads exactly like a test that
 > pins a contract.
 >
-> **What is left in this tier** is GUI scale, block outline and nametags, and none is blocked — the jar is
+> **What is left in this tier** is block outline and nametags, and neither is blocked — the jar is
 > fetchable in five commands and `remapJar` proves a target exists (a member the mapping does not
 > know is left as its yarn string, so an intermediary name in the output is the proof). Potion
 > counter is the one §3.1 keeps asking for and is the only one that needs a new *sensor* field
