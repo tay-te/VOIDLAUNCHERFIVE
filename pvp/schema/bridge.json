@@ -464,6 +464,12 @@
               "minimum": 0
             }
           }
+        },
+        "reach": {
+          "description": "Distance in blocks of the last attack that landed, eye to the point on the target's hitbox the ray struck. Absent until one has landed \u2014 a reach of 0 is not a point-blank swing, it is a session in which nothing has been hit, and the widget draws nothing rather than a figure nobody earned.\n\n**Only ever moved by a landed attack.** `docs/mod-roster.md` \u00a76.1 allows a reach display as a readout of your own attack distance and forbids one that reports a distance to something you have not hit \u2014 a *reach indicator* is the disallowed thing, and the difference is entirely in when the number is allowed to change. `ReachTally` in the mod carries that rule and is where it is tested; this field is its output, so a reader can take the value at face value and does not need to know the rule to use it honestly. It is the reason the mod is classed `grey`.\n\nThe figure is vanilla's own arithmetic: `GameRenderer.updateTargetedEntity` evaluates `result.pos.distanceTo(cameraPos)` for its own three-block cutoff, and the sensor reads the same two vectors in the same frame rather than reconstructing a distance at attack time \u2014 the eye moves up to about 0.28 blocks between the frame that picked the target and the tick that swings. Rounded to 2 dp at the sensor, which is as much precision as an interpolated position supports. Value-checked and deliberately **not** rate-limited: two swings at the same distance are indistinguishable from one, so a dropped update is a wrong answer rather than a stale one \u2014 the same argument `hits` makes.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 64
         }
       }
     },

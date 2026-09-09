@@ -43,6 +43,11 @@ export const MOD_ORDER: ModId[] = [
   // other tiles between them is the confusion; two identical marks side by side with different
   // labels is a pair, which is what Coordinates and Direction already are.
   'hit_trade',
+  // And beside those two, closing the fight block: the chain, the session, and how far away the
+  // last one connected. It is the only `grey` mod in this run of the order, which is visible on
+  // the tile — the badge is per mod — and is the honest place for it: a player reading the three
+  // together should see which of them carries the classification.
+  'reach',
   'toggle_sprint',
   // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
   'toggle_sneak',

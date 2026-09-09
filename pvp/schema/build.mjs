@@ -100,7 +100,7 @@ const ORDER = [
   // reading the game rather than on time (`docs/adding-a-mod.md`, "Reading the game, instead of
   // remembering it"), and the injection points in each are cited by offset in their own files.
   // Appended, never inserted.
-  'scoreboard',
+  'scoreboard', 'reach',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

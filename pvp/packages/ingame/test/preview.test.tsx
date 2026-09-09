@@ -70,6 +70,7 @@ const LIVE: readonly ModId[] = [
   'clock',
   'cps_graph',
   'scoreboard',
+  'reach',
   'saturation',
   'momentum',
   'memory',

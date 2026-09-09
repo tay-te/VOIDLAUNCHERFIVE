@@ -413,6 +413,45 @@ connection quality · surface the input-latency number we already compute.
 titles, pack display, glint, clear glass, particles, time changer, nick hider, scrollable
 tooltips, inventory lock, kill sounds.
 
+**Wave 9 — the ones that needed the game read.** ~~Reach display~~ · ~~Scoreboard~~ ·
+~~zoom sensitivity~~. Potion counter · GUI scale · block outline · nametags.
+
+> **Shipped 2026-09-09, and the blocker was never time.** Wave 3 left Reach and Scoreboard open
+> and §7 recorded `old_animations` being withdrawn "for want of a 1.7.10 mapping". The same
+> paragraph carries the recipe for *getting* one, written for 1.7.10 and identical for 1.8.9:
+> Mojang's manifest, Legacy Fabric's yarn at the build `gradle.properties` pins, tiny-remapper.
+> Five commands. **A blocker that is one page away from its own remedy is a blocker nobody read
+> the page for**, and that is the more useful finding than either mod.
+>
+> · **Zoom sensitivity** (§3.4 #1, "finish ours"). `GameOptions.sensitivity` is referenced from
+>   two classes and two methods; the one that matters is `GameRenderer.render(FJ)V` offsets
+>   161-193, where `f = s * 0.6 + 0.2` is cubed and multiplied by the mouse delta. Scoped to
+>   `render` so the read in `tick()` — the smooth-camera accumulator — is untouched, or
+>   `cinematic` would fight the zoom.
+> · **Scoreboard** (§3.1 #7). `InGameHud.renderScoreboardObjective` hangs the sidebar from the
+>   right edge at half height (offsets 205-231), so the scale is taken about that point. It is
+>   `kind: gameplay` — it draws nothing of its own — and `offset_y` is a row rather than a drag
+>   handle, which is §3.1 #16's limitation stated rather than worked around.
+> · **Reach display** (§3.2 #2, and §6.1's warning). The interesting one, and the reason it is
+>   worth a note: **its contract is not its type, it is when the number is allowed to change.** A
+>   permitted readout and the disallowed reach *indicator* draw the same figure in the same place.
+>   So the rule cannot live in the widget — a page that decided for itself when to refresh could
+>   cross the line without touching the sensor, the schema, or a review. It lives in `ReachTally`,
+>   one class with three tests, and `bridge.json`'s `reach` states it so every reader inherits it.
+>   Classed `grey`, as this section instructed.
+>
+> The figure is vanilla's own arithmetic — `updateTargetedEntity` evaluates
+> `result.pos.distanceTo(cameraPos)` for its own three-block cutoff — sampled in the frame that
+> picked the target and latched only when an attack lands. Not recomputed at attack time: the eye
+> moves up to 0.28 blocks between the frame that picks and the tick that swings, which on a
+> two-decimal figure is a different number rather than a rounding error.
+>
+> **What is left in this tier** is the four above, and none is blocked any more — the jar is
+> fetchable in five commands and `remapJar` proves a target exists (a member the mapping does not
+> know is left as its yarn string, so an intermediary name in the output is the proof). Potion
+> counter is the one §3.1 keeps asking for and is the only one that needs a new *sensor* field
+> rather than a new hook.
+
 **Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
 graph.~~ Playtime · day counter.
 
@@ -483,7 +522,7 @@ graph.~~ Playtime · day counter.
 
 VOID is not thirteen mods behind ninety-eight. Strip Skyblock, modern-version and
 ornamental mods from Lunar's 98 and the 1.8.9-PvP-relevant roster is around **45**. VOID
-had 13 of them when this was written and has 32 now, and is *ahead* on two (1% low FPS, and
+had 13 of them when this was written and has 34 now, and is *ahead* on two (1% low FPS, and
 an HUD editor with live per-mod previews that neither competitor matches).
 
 The four gaps below were written against the thirteen. Two have closed: the cheap sweep is

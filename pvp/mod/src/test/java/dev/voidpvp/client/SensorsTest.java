@@ -5,6 +5,7 @@ import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
+import dev.voidpvp.client.sensor.ReachTally;
 import dev.voidpvp.client.sensor.ServerWatcher;
 import dev.voidpvp.client.sensor.TickCoalescer;
 import dev.voidpvp.client.sensor.TickInput;
@@ -312,6 +313,68 @@ class SensorsTest {
         // Being hit moves the other counter, which is what breaks a combo on the client.
         in.hitsTaken = Integer.valueOf(1);
         assertEquals(1, ticks.build(in).getAsJsonObject("hits").get("taken").getAsInt());
+    }
+
+    @Test
+    @DisplayName("reach reports a landed attack and never a live distance")
+    void reachOnlyMovesOnALandedAttack() {
+        ReachTally reach = new ReachTally();
+        long t = 1_000_000L;
+
+        // Nothing has been hit, so there is no reading. Null on the wire, not zero: a reach of 0
+        // would be a point-blank swing, and this is a session in which nothing has connected.
+        assertEquals(ReachTally.NONE, reach.reach(), 0.0001,
+                "no reading before anything has been hit");
+
+        // **The rule this class exists for** (`docs/mod-roster.md` §6.1). The crosshair sweeping
+        // across three targets at three distances is the input a *reach indicator* would draw
+        // from. Sampling it publishes nothing.
+        reach.picked(2.11, t);
+        reach.picked(3.42, t);
+        reach.picked(4.87, t);
+        assertEquals(ReachTally.NONE, reach.reach(), 0.0001,
+                "a pick must not become a reading — that is the indicator, not the readout");
+
+        // An attack lands: the sample the frame took becomes the reading, and only now.
+        reach.landed(t);
+        assertEquals(4.87, reach.reach(), 0.0001);
+
+        // And it stays put while the crosshair moves on. A readout describes something that has
+        // already happened; a figure that tracked the next target would be the disallowed mod.
+        reach.picked(1.02, t);
+        assertEquals(4.87, reach.reach(), 0.0001, "the reading must not follow the crosshair");
+    }
+
+    @Test
+    @DisplayName("a stale sample is not reported — a swing must carry its own geometry")
+    void reachDropsASampleOlderThanItsWindow() {
+        ReachTally reach = new ReachTally();
+        long t = 5_000_000L;
+        reach.picked(3.0, t);
+        reach.landed(t + 40);
+        assertEquals(3.0, reach.reach(), 0.0001, "a fresh sample is the swing's own geometry");
+
+        // `doAttack` reads `MinecraftClient.result`, which is whatever the last *render frame*
+        // wrote — so a client that has stopped rendering (a stall, a resource pack reload) would
+        // otherwise attack against a sample from before it and report a real distance from the
+        // wrong moment, with nothing to say so.
+        reach.picked(6.0, t);
+        reach.landed(t + 400);
+        assertEquals(3.0, reach.reach(), 0.0001,
+                "a stale sample must leave the last honest reading alone rather than replace it");
+    }
+
+    @Test
+    @DisplayName("a swing at air cannot inherit the range of whatever was behind it")
+    void reachClearsTheSampleOnANonEntityPick() {
+        ReachTally reach = new ReachTally();
+        long t = 9_000L;
+        reach.picked(3.2, t);
+        // The crosshair leaves the target. `GameRendererMixin` reports the non-entity pick rather
+        // than staying quiet, because staying quiet would leave 3.2 latchable by the next swing.
+        reach.pickedNothing();
+        reach.landed(t);
+        assertEquals(ReachTally.NONE, reach.reach(), 0.0001);
     }
 
     @Test

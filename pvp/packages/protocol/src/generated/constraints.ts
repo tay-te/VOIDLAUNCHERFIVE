@@ -122,6 +122,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "offset_y": {
     "min": -200,
     "max": 200
+  },
+  "warn_above": {
+    "min": 0,
+    "max": 6
   }
 } as const;
 
@@ -470,6 +474,18 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "left",
     "right",
     "both"
+  ],
+  "reach.background": [
+    "bare",
+    "subtle",
+    "solid"
+  ],
+  "reach.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
   ]
 } as const;
 

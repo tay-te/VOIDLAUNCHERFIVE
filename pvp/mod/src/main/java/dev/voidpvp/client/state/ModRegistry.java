@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 33 mods.
+ * The closed registry of the 34 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -178,7 +178,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (19) — they read game state and draw -------------------------------------
+        // --- HUD mods (20) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -589,7 +589,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (19) — they read game state and draw -------------------------------------
+        // --- HUD mods (20) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -1199,7 +1199,7 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- HUD mods (19) — they read game state and draw -------------------------------------
+        // --- HUD mods (20) — they read game state and draw -------------------------------------
 
         // Trade counter — kind hud, pvp tab, §11 safe.
         // Hits you have landed against hits you have taken, this session.
@@ -1332,7 +1332,41 @@ public final class ModRegistry {
                 // every pixel here is vanilla's.
                 "offset_y", integer(-200, 200, 0));
 
-        // --- The factory HUD layout (19) — where each widget starts ----------------------------
+        // --- HUD mods (20) — they read game state and draw -------------------------------------
+
+        // Reach display — kind hud, pvp tab, §11 grey.
+        // How far away your last landed hit was — the swing that connected, never the one you are
+        // lining up.
+        // Source: the `reach` field, latched from a landed attack by the tick sensor.
+        mod("reach", Kind.HUD, Category.PVP, "Reach display",
+                // Whether the reach display is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // Whether the trailing `blocks` unit is drawn. On by default: a bare `3.14` on a
+                // HUD that may also be carrying a CPS pair, a combo count and a trade ratio is a
+                // number with no subject, and this is the one figure on that stack whose unit is
+                // not obvious from its magnitude.
+                "show_label", bool(true),
+                // A reach at or above this many blocks draws in the warn treatment. `0` is off
+                // and is the default. **It marks your own swings, and there is nothing else it
+                // could mark.** The field this reads is only ever your own landed attack, so this
+                // cannot become a flag on somebody else's play — which is the shape a threshold
+                // on a reach figure would otherwise be reaching for, and the shape §6.1 rules
+                // out. What it is for is the opposite direction: 1.8 gives you about 3 blocks of
+                // reach, and a swing reported well past that is a sign your connection is behind
+                // rather than a sign you are good, so a player who wants to see when the number
+                // stops being believable can ask for it. The ceiling is 6 because that is
+                // vanilla's own creative-mode reach, which is the furthest the client will ever
+                // raycast.
+                "warn_above", number(0, 6, 0));
+
+        // --- The factory HUD layout (20) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1434,13 +1468,19 @@ public final class ModRegistry {
         // for the reason Combo and Trade counter are: a mod goes next to the mod it will be
         // confused with, so the difference is visible rather than inferred.
         place("cps_graph", "top-left", 23, 293);
+
+        // Reach display: Under Trade counter in the top-left reference stack, 38 px below it on
+        // the same column rhythm. The whole stack from Combo down is now the fight's own
+        // arithmetic — the chain, the session, and how far away the last one connected — and the
+        // three are read together or not at all.
+        place("reach", "top-left", 23, 293);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 33 mod ids, in registry order. */
+    /** The 34 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

@@ -54,6 +54,7 @@ export function settingLabel(key: string): string {
     good_ms: 'Good under',
     bad_ms: 'Bad over',
     warn_below: 'Warn under',
+    warn_above: 'Warn over',
     fov_divisor: 'FOV divisor',
     line_width: 'Line width',
     decimals: 'Decimals',
@@ -236,6 +237,9 @@ export const SETTING_HINTS: Record<string, string> = {
   'potion_effects.show_duration': 'Time left beside each effect',
   'potion_effects.show_amplifier': 'The roman numeral after the name',
   'potion_effects.hide_ambient': 'Leave out beacon auras',
+
+  'reach.show_label': 'The blocks unit after the figure',
+  'reach.warn_above': 'Where the figure turns amber',
 
   'saturation.style': 'A number, a bar, or both',
   'saturation.show_label': 'The SAT unit after the figure',

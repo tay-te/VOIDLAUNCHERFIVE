@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 33 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 34 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -80,7 +80,8 @@ export type ModId =
   | 'hit_trade'
   | 'clock'
   | 'cps_graph'
-  | 'scoreboard';
+  | 'scoreboard'
+  | 'reach';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -976,11 +977,38 @@ export type ScoreboardEntry = RegistryEntry & {
   defaults?: ScoreboardSettings;
 };
 /**
+ * Registry entry for the Reach display, narrowed to its constant classification.
+ */
+export type ReachDisplayEntry = RegistryEntry & {
+  /**
+   * Always `reach`.
+   */
+  id?: 'reach';
+  /**
+   * Always `sword`.
+   */
+  icon?: 'sword';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `grey` (§11).
+   */
+  hypixel_safe?: 'grey';
+  defaults?: ReachSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 19 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 20 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -1001,7 +1029,8 @@ export type HUDModId =
   | 'stopwatch'
   | 'hit_trade'
   | 'clock'
-  | 'cps_graph';
+  | 'cps_graph'
+  | 'reach';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -1016,9 +1045,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 19, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 20, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 19
+ * @maxItems 20
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -1231,7 +1260,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 33 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 34 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1267,6 +1296,7 @@ export interface Mods {
   clock: ClockEntry;
   cps_graph: CPSGraphEntry;
   scoreboard: ScoreboardEntry;
+  reach: ReachDisplayEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2385,6 +2415,50 @@ export interface ScoreboardSettings {
   offset_y?: number;
 }
 /**
+ * Settings for the Reach display HUD mod. It reads `reach` on the tick payload, which the sensor moves **only when an attack lands** — that is the whole contract, and `docs/mod-roster.md` §6.1 is why: a readout of your own attack distance is allowed and a live distance to a target you have not hit is not, and the two draw the same figure. The mod is classed `grey` on that account.
+ *
+ * The figure is the distance from your eye to the point on the target's hitbox the crosshair ray struck, taken in the frame that made the pick rather than recomputed when the swing resolves — the eye moves up to about 0.28 blocks between the two, which on a two-decimal figure is a different number rather than a rounding error.
+ *
+ * It draws nothing until something has been hit. A reach of zero is not a point-blank swing, it is a session in which nothing has connected, and a chip reading `0.00` would be a figure nobody earned.
+ */
+export interface ReachSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the reach chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
+   */
+  background?: 'bare' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the reach chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the reach chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   *
+   * **This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.
+   *
+   * Five steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.
+   */
+  padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
+  /**
+   * Whether the trailing `blocks` unit is drawn. On by default: a bare `3.14` on a HUD that may also be carrying a CPS pair, a combo count and a trade ratio is a number with no subject, and this is the one figure on that stack whose unit is not obvious from its magnitude.
+   */
+  show_label?: boolean;
+  /**
+   * A reach at or above this many blocks draws in the warn treatment. `0` is off and is the default.
+   *
+   * **It marks your own swings, and there is nothing else it could mark.** The field this reads is only ever your own landed attack, so this cannot become a flag on somebody else's play — which is the shape a threshold on a reach figure would otherwise be reaching for, and the shape §6.1 rules out. What it is for is the opposite direction: 1.8 gives you about 3 blocks of reach, and a swing reported well past that is a sign your connection is behind rather than a sign you are good, so a player who wants to see when the number stops being believable can ask for it.
+   *
+   * The ceiling is 6 because that is vanilla's own creative-mode reach, which is the furthest the client will ever raycast.
+   */
+  warn_above?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2410,7 +2484,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 33 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 34 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2446,6 +2520,7 @@ export interface ModStates {
   clock?: ClockSettings;
   cps_graph?: CPSGraphSettings;
   scoreboard?: ScoreboardSettings;
+  reach?: ReachSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -2770,6 +2845,14 @@ export interface TickPayload {
      */
     taken: number;
   };
+  /**
+   * Distance in blocks of the last attack that landed, eye to the point on the target's hitbox the ray struck. Absent until one has landed — a reach of 0 is not a point-blank swing, it is a session in which nothing has been hit, and the widget draws nothing rather than a figure nobody earned.
+   *
+   * **Only ever moved by a landed attack.** `docs/mod-roster.md` §6.1 allows a reach display as a readout of your own attack distance and forbids one that reports a distance to something you have not hit — a *reach indicator* is the disallowed thing, and the difference is entirely in when the number is allowed to change. `ReachTally` in the mod carries that rule and is where it is tested; this field is its output, so a reader can take the value at face value and does not need to know the rule to use it honestly. It is the reason the mod is classed `grey`.
+   *
+   * The figure is vanilla's own arithmetic: `GameRenderer.updateTargetedEntity` evaluates `result.pos.distanceTo(cameraPos)` for its own three-block cutoff, and the sensor reads the same two vectors in the same frame rather than reconstructing a distance at attack time — the eye moves up to about 0.28 blocks between the frame that picked the target and the tick that swings. Rounded to 2 dp at the sensor, which is as much precision as an interpolated position supports. Value-checked and deliberately **not** rate-limited: two swings at the same distance are indistinguishable from one, so a dropped update is a wrong answer rather than a stale one — the same argument `hits` makes.
+   */
+  reach?: number;
 }
 /**
  * Player position and yaw from `EntityPlayerSP`, read once per tick. Pitch is deliberately absent: no mod in §3 uses it.

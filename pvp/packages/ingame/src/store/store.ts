@@ -415,6 +415,19 @@ export interface VoidState {
    * states, and only one of them is a chip that should draw `0 / 0`.
    */
   hits: { dealt: number; taken: number } | null;
+  /**
+   * Distance of the last attack that landed, in blocks — the reach readout.
+   *
+   * `null` until one has landed, and that is the mod rather than a nicety: a reach of 0 is not a
+   * point-blank swing, it is a session in which nothing has connected.
+   *
+   * **Nothing here decides when this moves.** `bridge.json`'s `reach` carries the rule and the
+   * sensor enforces it — the field only ever changes on a landed attack, which is what keeps the
+   * mod a readout rather than the reach *indicator* `docs/mod-roster.md` §6.1 forbids. The store
+   * takes the value at face value on purpose: a reader that re-derived the update rule would be
+   * a second place it could be got wrong.
+   */
+  reach: number | null;
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
@@ -515,6 +528,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   combo: 0,
   comboAt: 0,
   hits: null,
+  reach: null,
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
@@ -750,6 +764,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // advances it by however much it moved — by the delta, not by one, so a tick that carried
     // two hits is still exactly right. That robustness is the reason the wire sends counters
     // rather than events (`bridge.json`, `hits`).
+    // Assigned straight through: the sensor has already decided that this is a landed attack's
+    // distance and rounded it, and there is nothing left here to judge (see the field's note).
+    if (tick.reach !== undefined && tick.reach !== prev.reach) patch.reach = tick.reach;
+
     if (tick.hits !== undefined) {
       const seen = lastHits;
       lastHits = { dealt: tick.hits.dealt, taken: tick.hits.taken };

@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 33 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 34 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -54,7 +54,8 @@
         "hit_trade",
         "clock",
         "cps_graph",
-        "scoreboard"
+        "scoreboard",
+        "reach"
       ],
       "additionalProperties": false,
       "properties": {
@@ -189,6 +190,10 @@
         "scoreboard": {
           "description": "Scoreboard registry entry.",
           "$ref": "#/definitions/scoreboard_entry"
+        },
+        "reach": {
+          "description": "Reach display registry entry.",
+          "$ref": "#/definitions/reach_entry"
         }
       }
     }
@@ -196,7 +201,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 33 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 34 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -231,12 +236,13 @@
         "hit_trade",
         "clock",
         "cps_graph",
-        "scoreboard"
+        "scoreboard",
+        "reach"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 19 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 20 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
       "enum": [
         "fps",
@@ -257,7 +263,8 @@
         "stopwatch",
         "hit_trade",
         "clock",
-        "cps_graph"
+        "cps_graph",
+        "reach"
       ]
     },
     "gameplay_mod_id": {
@@ -2341,6 +2348,68 @@
         }
       }
     },
+    "reach_settings": {
+      "title": "Reach settings",
+      "description": "Settings for the Reach display HUD mod. It reads `reach` on the tick payload, which the sensor moves **only when an attack lands** — that is the whole contract, and `docs/mod-roster.md` §6.1 is why: a readout of your own attack distance is allowed and a live distance to a target you have not hit is not, and the two draw the same figure. The mod is classed `grey` on that account.\n\nThe figure is the distance from your eye to the point on the target's hitbox the crosshair ray struck, taken in the frame that made the pick rather than recomputed when the swing resolves — the eye moves up to about 0.28 blocks between the two, which on a two-decimal figure is a different number rather than a rounding error.\n\nIt draws nothing until something has been hit. A reach of zero is not a point-blank swing, it is a session in which nothing has connected, and a chip reading `0.00` would be a figure nobody earned.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the reach display is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the reach chip.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the reach chip.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the reach chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.\n\n**The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.\n\n**`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning \"I took the default\", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.",
+          "type": "string",
+          "enum": [
+            "bare",
+            "subtle",
+            "solid"
+          ],
+          "default": "subtle"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the reach chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the reach chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
+          "type": "string",
+          "enum": [
+            "none",
+            "tight",
+            "normal",
+            "roomy",
+            "wide"
+          ],
+          "default": "normal"
+        },
+        "show_label": {
+          "description": "Whether the trailing `blocks` unit is drawn. On by default: a bare `3.14` on a HUD that may also be carrying a CPS pair, a combo count and a trade ratio is a number with no subject, and this is the one figure on that stack whose unit is not obvious from its magnitude.",
+          "type": "boolean",
+          "default": true
+        },
+        "warn_above": {
+          "description": "A reach at or above this many blocks draws in the warn treatment. `0` is off and is the default.\n\n**It marks your own swings, and there is nothing else it could mark.** The field this reads is only ever your own landed attack, so this cannot become a flag on somebody else's play — which is the shape a threshold on a reach figure would otherwise be reaching for, and the shape §6.1 rules out. What it is for is the opposite direction: 1.8 gives you about 3 blocks of reach, and a swing reported well past that is a sign your connection is behind rather than a sign you are good, so a player who wants to see when the number stops being believable can ask for it.\n\nThe ceiling is 6 because that is vanilla's own creative-mode reach, which is the furthest the client will ever raycast.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 0
+        }
+      }
+    },
     "fps_entry": {
       "title": "FPS display entry",
       "description": "Registry entry for the FPS display, narrowed to its constant classification.",
@@ -3787,11 +3856,56 @@
           }
         }
       ]
+    },
+    "reach_entry": {
+      "title": "Reach display entry",
+      "description": "Registry entry for the Reach display, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `reach`.",
+              "const": "reach"
+            },
+            "icon": {
+              "description": "Always `sword`.",
+              "const": "sword"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `grey` (§11).",
+              "const": "grey"
+            },
+            "defaults": {
+              "description": "Factory Reach display settings.",
+              "$ref": "#/definitions/reach_settings"
+            },
+            "default_placement": {
+              "$comment": "Under Trade counter in the top-left reference stack, 38 px below it on the same column rhythm. The whole stack from Combo down is now the fight's own arithmetic — the chain, the session, and how far away the last one connected — and the three are read together or not at all.",
+              "description": "Where the Reach display starts on an untouched HUD. Required, because the Reach display is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 14,
+      "version": 15,
       "mods": {
         "fps": {
           "id": "fps",
@@ -4522,6 +4636,31 @@
             "sidebar_scale": 1,
             "offset_x": 0,
             "offset_y": 0
+          }
+        },
+        "reach": {
+          "id": "reach",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "grey",
+          "label": "Reach display",
+          "icon": "sword",
+          "description": "How far away your last landed hit was — the swing that connected, never the one you are lining up.",
+          "source": "the `reach` field, latched from a landed attack by the tick sensor",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "subtle",
+            "border": false,
+            "padding": "normal",
+            "show_label": true,
+            "warn_above": 0
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 293
           }
         }
       }

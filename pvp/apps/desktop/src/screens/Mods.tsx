@@ -245,6 +245,9 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // thing the mod does to one — and 100% is the resting value, which is honest about a mod that
   // ships doing nothing until you move a slider.
   scoreboard: () => <Numeral value="100" unit="% size" />,
+  // A hit at the edge of vanilla's own three blocks, which is the widget's own fixture. Static,
+  // for the reason that fixture is: a card whose figure moved would be the mod §6.1 forbids.
+  reach: () => <Numeral value="3.14" unit="blocks" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

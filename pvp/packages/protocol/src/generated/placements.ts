@@ -117,4 +117,11 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * difference is visible rather than inferred.
    */
   cps_graph: { anchor: 'top-left', dx: 23, dy: 293 },
+  /**
+   * Under Trade counter in the top-left reference stack, 38 px below it on the same column
+   * rhythm. The whole stack from Combo down is now the fight's own arithmetic — the chain, the
+   * session, and how far away the last one connected — and the three are read together or not
+   * at all.
+   */
+  reach: { anchor: 'top-left', dx: 23, dy: 293 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

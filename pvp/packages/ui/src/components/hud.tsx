@@ -702,6 +702,59 @@ export function MemoryChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* ReachChip                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link ReachChip}. */
+export interface ReachChipProps extends HudChipProps {
+  /** Distance of the last landed attack, in blocks. */
+  blocks: number;
+  /** Draw the trailing `blocks` unit. */
+  showLabel?: boolean;
+  /** At or above this many blocks the figure takes the warn treatment. `0` disables it. */
+  warnAbove?: number;
+}
+
+/**
+ * `3.14 blocks` — how far away the last hit that connected was.
+ *
+ * Two decimal places, fixed, and no prop to change it. The source is a position interpolated
+ * between two ticks, so a third decimal would be reporting the interpolation rather than the
+ * swing; `toFixed(2)` rather than the caller's arithmetic so the width is constant and a HUD item
+ * anchored by its corner does not step as the figure crosses ten.
+ *
+ * **The chip cannot show a live distance and that is not an accident.** It takes one number and
+ * has no idea where it came from — the rule that the number only moves on a landed attack lives
+ * in the sensor (`ReachTally`) and is stated on `bridge.json`'s `reach`, because a permitted
+ * readout and the reach *indicator* `docs/mod-roster.md` §6.1 forbids draw exactly this, and
+ * differ only in when the value is allowed to change. Keeping the rule upstream of every reader
+ * is what stops a component here from being able to cross that line.
+ *
+ * The warn treatment is {@link ItemCounterChip}'s, and marks a *value* rather than a preference
+ * (`design/quiet-cell-system.md` §1): 1.8 gives about three blocks of reach, and a figure well
+ * past that says the connection is behind rather than that the player is good.
+ */
+export function ReachChip({
+  blocks,
+  showLabel = true,
+  warnAbove = 0,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: ReachChipProps): React.ReactElement {
+  const warn = warnAbove > 0 && blocks >= warnAbove;
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-hudchip__value">
+        <span className={cx(warn && 'v-hudchip__value--warn')}>{blocks.toFixed(2)}</span>
+        {showLabel ? <span className="v-hudchip__unit">&nbsp;blocks</span> : null}
+      </span>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* TimeChip                                                                   */
 /* -------------------------------------------------------------------------- */
 

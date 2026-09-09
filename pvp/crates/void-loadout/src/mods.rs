@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn grey_mods_are_exactly_fullbright_hitboxes_overlay_and_old_input() {
+    fn grey_mods_are_exactly_fullbright_hitboxes_overlay_old_input_and_reach() {
         // An exact set, not a count, and it is edited by hand on purpose: `grey` is the class
         // that decides whether the HYPIXEL-READY badge can be shown, so a mod joining it is a
         // product decision that should have to touch a test with a name in it. `overlay` is the
@@ -411,13 +411,29 @@ mod tests {
         // rate-limited, so outbound swing volume rises in proportion to CPS, which is the signal
         // a CPS-based anticheat measures. Bundling it with the animation revert would have cost
         // a player the badge for wanting a sword to swing through a block.
+        //
+        // `reach` is the fifth, and unlike the other four it was classed `grey` by the roster
+        // *before* it was built: `docs/mod-roster.md` §6.1 says "class it `grey`, compute it only
+        // from a landed attack, never predict". The interesting part is that its exposure is not
+        // in what it draws — a reach readout and the disallowed reach *indicator* draw the same
+        // figure in the same place — it is in **when the number is allowed to change**. That rule
+        // lives in `mod/.../sensor/ReachTally.java` and is stated on `bridge.json`'s `reach`
+        // field, and this row is what makes the classification a thing somebody chose rather than
+        // a property of a JSON file. A setting that let the figure track the current crosshair
+        // target would move the mod from `grey` to unshippable without changing its type.
         let grey: Vec<ModId> = ModId::ALL
             .into_iter()
             .filter(|id| id.hypixel_safe() == HypixelSafe::Grey)
             .collect();
         assert_eq!(
             grey,
-            vec![ModId::Fullbright, ModId::Hitboxes, ModId::Overlay, ModId::OldInput]
+            vec![
+                ModId::Fullbright,
+                ModId::Hitboxes,
+                ModId::Overlay,
+                ModId::OldInput,
+                ModId::Reach
+            ]
         );
     }
 

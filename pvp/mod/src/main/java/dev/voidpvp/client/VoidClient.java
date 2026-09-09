@@ -18,6 +18,7 @@ import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
+import dev.voidpvp.client.sensor.ReachTally;
 import dev.voidpvp.client.sensor.ServerWatcher;
 import dev.voidpvp.client.sensor.TickCoalescer;
 import dev.voidpvp.client.sensor.TickInput;
@@ -93,6 +94,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * the *policy* — `combo.reset_ms` — and this owns only the fact that something landed.
      */
     private final HitTally hits = new HitTally();
+
+    /**
+     * The distance of the last attack that landed — {@code reach}.
+     *
+     * <p>Beside {@link #hits} and fed from the same swing, because they are the same event read
+     * two ways. {@link ReachTally} carries the rule that keeps it a readout rather than an
+     * indicator ({@code docs/mod-roster.md} §6.1) and is where that rule is tested.</p>
+     */
+    private final ReachTally reach = new ReachTally();
 
     /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
     private int lastAttackCooldownSeen;
@@ -393,6 +403,26 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     public VoidBridge bridge() {
         return bridge;
+    }
+
+    /**
+     * The crosshair's current entity pick, for {@code reach} — a sample, never a reading.
+     *
+     * <p>Called from {@code GameRendererMixin} at the return of
+     * {@code GameRenderer.updateTargetedEntity}, where vanilla has just written
+     * {@code client.result = new BlockHitResult(targetedEntity, hitVec)} (offsets 552-566) and
+     * still holds the camera vector it raycast from. {@link ReachTally} explains why the value
+     * is taken here rather than at attack time, and why sampling it is not the thing §6.1
+     * forbids: nothing this moves is ever displayed until an attack lands.</p>
+     *
+     * @param blocks the distance, or a negative number when the pick is not an entity
+     */
+    public void onEntityPick(double blocks) {
+        if (blocks < 0) {
+            reach.pickedNothing();
+        } else {
+            reach.picked(blocks, System.currentTimeMillis());
+        }
     }
 
     /** The FOV multiplier the zoom actuator wants this frame (§6.7). */
@@ -1441,6 +1471,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             hits.sawHurtTime(player.hurtTime);
             tickIn.hitsDealt = Integer.valueOf(hits.dealt());
             tickIn.hitsTaken = Integer.valueOf(hits.taken());
+            double landed = reach.reach();
+            tickIn.reach = landed == ReachTally.NONE ? null : Double.valueOf(landed);
         } catch (Throwable ignored) {
             // Same reasoning as above.
         }
@@ -1466,6 +1498,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     public void onAttackSwing(HitTally.Swing at, boolean targetAlive, boolean targetAttackable,
             boolean spectating) {
         hits.swung(at, targetAlive, targetAttackable, spectating);
+        // The same definition of "landed", not a second one — a reach reported for a swing the
+        // combo counter did not count would be a reach for an attack that was not delivered.
+        if (at == HitTally.Swing.ENTITY && targetAlive && targetAttackable && !spectating) {
+            reach.landed(System.currentTimeMillis());
+        }
     }
 
     private List<ArmorSlot> readArmor(ClientPlayerEntity player) {

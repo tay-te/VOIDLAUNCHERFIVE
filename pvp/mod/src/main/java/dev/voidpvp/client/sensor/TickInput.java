@@ -74,6 +74,15 @@ public final class TickInput {
     public Integer hitsTaken;
 
     /**
+     * Distance of the last attack that landed, in blocks. Null until one has.
+     *
+     * <p>Null and not zero, and the distinction is the mod: a reach of 0 is not a swing at
+     * point-blank range, it is a session in which nothing has been hit. The widget draws nothing
+     * in that state rather than a figure nobody earned.</p>
+     */
+    public Double reach;
+
+    /**
      * Clears every optional reading.
      *
      * <p>Called before each refill so that a reading which became unavailable — the player let go
@@ -91,5 +100,6 @@ public final class TickInput {
         memoryMaxMb = null;
         hitsDealt = null;
         hitsTaken = null;
+        reach = null;
     }
 }

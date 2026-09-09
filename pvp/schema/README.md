@@ -152,6 +152,38 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
+### 2026-09-09 (latest) — `tick_payload.reach`, and a field whose contract is *when* it moves
+
+`mods.json` registry `version` bumped; `protocol.json` `v` unchanged — this is a `bridge.json`
+addition, so it crosses Java to the page and never reaches Rust.
+
+**One optional number added to `tick_payload`.** Mechanically it is the smallest kind of change
+this file records: a new field, absent until there is something to say, on a payload whose every
+member is already optional. `reach` is why it is worth an entry anyway.
+
+**The field's contract is not its type, it is its update rule.** `docs/mod-roster.md` §6.1 allows
+a reach display as a readout of an attack that landed and forbids one that reports a distance to
+something you have not hit — those two mods draw the same figure in the same place and differ
+only in *when the number is allowed to change*. So the rule cannot live in the widget: a reader
+that decided for itself when to refresh could turn a permitted readout into a disallowed
+indicator without touching the sensor, the schema or a review. The rule lives in
+`mod/.../sensor/ReachTally.java`, where it is one class with a test, and the wire carries its
+output. This field's description states the rule so a second reader inherits it rather than
+re-deriving it.
+
+That is the general shape worth taking from this: **a field can carry a constraint that no JSON
+Schema keyword can express.** `minimum` and `maximum` here are honest and beside the point.
+
+**Not rate-limited, unlike every other continuous reading.** `speed` and `memory` are limited
+because they move constantly and nobody reads them twenty times a second. `reach` moves only on a
+landed attack, so it is value-checked and sent whenever it differs — the same call `hits` makes,
+and for the same reason: two swings at the same distance are indistinguishable from one, so
+dropping an update is a wrong answer rather than a stale one.
+
+**Followers:** `TickInput.reach` (`Double`, null before the first landed attack), `TickCoalescer`
+(value check, no interval), `@void/protocol`'s generated `TickPayload`, and the `reach` mod's
+widget. Nothing in `crates/` reads `bridge.json`.
+
 ### 2026-09-09 (later) — `hex_color_rgb`, and narrowing is migration-shaped
 
 `mods.json` registry `version` unchanged; `protocol.json` `v` unchanged.

@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 33 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 34 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -103,11 +103,14 @@ pub enum ModId {
     /// Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
     /// screen.
     Scoreboard,
+    /// How far away your last landed hit was — the swing that connected, never the one you are
+    /// lining up.
+    Reach,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 33] = [
+    pub const ALL: [ModId; 34] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -141,6 +144,7 @@ impl ModId {
         ModId::Clock,
         ModId::CpsGraph,
         ModId::Scoreboard,
+        ModId::Reach,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -179,11 +183,12 @@ impl ModId {
             ModId::Clock => "clock",
             ModId::CpsGraph => "cps_graph",
             ModId::Scoreboard => "scoreboard",
+            ModId::Reach => "reach",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 19 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 20 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -227,11 +232,14 @@ pub enum HudModId {
     Clock,
     /// The shape of your clicking over the last few seconds, not just the current rate.
     CpsGraph,
+    /// How far away your last landed hit was — the swing that connected, never the one you are
+    /// lining up.
+    Reach,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 19] = [
+    pub const ALL: [HudModId; 20] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -251,6 +259,7 @@ impl HudModId {
         HudModId::HitTrade,
         HudModId::Clock,
         HudModId::CpsGraph,
+        HudModId::Reach,
     ];
 
     /// Widens to the full mod id enum.
@@ -275,6 +284,7 @@ impl HudModId {
             HudModId::HitTrade => ModId::HitTrade,
             HudModId::Clock => ModId::Clock,
             HudModId::CpsGraph => ModId::CpsGraph,
+            HudModId::Reach => ModId::Reach,
         }
     }
 
@@ -443,6 +453,7 @@ impl Registry {
             HudModId::HitTrade => self.mods.hit_trade.default_placement,
             HudModId::Clock => self.mods.clock.default_placement,
             HudModId::CpsGraph => self.mods.cps_graph.default_placement,
+            HudModId::Reach => self.mods.reach.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -3621,11 +3632,114 @@ pub struct ScoreboardSettings {
     pub offset_y: Option<i64>,
 }
 
+/// Reach settings.
+///
+/// Settings for the Reach display HUD mod. It reads `reach` on the tick payload, which the
+/// sensor moves **only when an attack lands** — that is the whole contract, and
+/// `docs/mod-roster.md` §6.1 is why: a readout of your own attack distance is allowed and a
+/// live distance to a target you have not hit is not, and the two draw the same figure. The mod
+/// is classed `grey` on that account. The figure is the distance from your eye to the point on
+/// the target's hitbox the crosshair ray struck, taken in the frame that made the pick rather
+/// than recomputed when the swing resolves — the eye moves up to about 0.28 blocks between the
+/// two, which on a two-decimal figure is a different number rather than a rounding error. It
+/// draws nothing until something has been hit. A reach of zero is not a point-blank swing, it
+/// is a session in which nothing has connected, and a chip reading `0.00` would be a figure
+/// nobody earned.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReachSettings {
+    /// Whether the reach display is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the reach chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the reach chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the reach chip, as a step on the system's own scale rather than a
+    /// colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a
+    /// busy texture — and it is the default because it is what every HUD readout has always
+    /// been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla
+    /// treatment and is legible over sky and unreadable over snow, so it is a choice rather
+    /// than a default. `solid` is the opaque card ground, for a player who wants the HUD to
+    /// read as a panel. A step rather than a hex value because a per-mod background colour is
+    /// what §1 names as the far side of the line. **The step sets the widget's own ground; it
+    /// does not paint a second one behind it.** This was `background` on the *slot*, and every
+    /// widget already had a ground of its own underneath — so all three steps composited over
+    /// `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where
+    /// the slot's padding stuck out past the chip's corner. Once density moved onto the widget
+    /// the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg`
+    /// and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list
+    /// panels actually paint from. **`none` was renamed to `bare`, and the rename is the
+    /// migration.** The old value was the default *and* it drew a ground, so it never meant
+    /// what it said and no player can have chosen it deliberately: there was no way to get a
+    /// bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the
+    /// default", and the honest remap is to `subtle`, which is exactly what those players have
+    /// been looking at. Renaming rather than redefining is what makes that remap safe to run
+    /// once and never again — a stored `none` can only have been written before this, where a
+    /// redefined `none` would be indistinguishable from a player who has since chosen it.
+    /// `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's
+    /// `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which
+    /// is the same answer arrived at for free.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the reach chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the reach chip — the inset between its content and its edge, as one of five
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read. **This step drives the widget's own inset, not a box around it.** For one
+    /// release it set padding on the *slot* — the box `HudSlot` puts round the widget — while
+    /// the widget kept its own hard-coded padding underneath. With the default `background:
+    /// none` that outer box is transparent, so the setting moved an invisible edge and the
+    /// drawn chip never changed size. It passed `preview.test.tsx` because the class name on
+    /// the slot changed, which is exactly the erosion that file's own doc comment warns the
+    /// exemption list about: a gate that compares markup cannot tell a class that draws from a
+    /// class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and
+    /// `--gap-hud-keys`, the three variables every HUD surface actually reads its density from,
+    /// so the chip, the two list panels and the keycap cluster all move together and all move
+    /// at every background step. Five steps rather than three because three could not say what
+    /// players asked for at either end. `none` is the setting off — glyphs on the game with
+    /// nothing round them — which is what a player who has already turned the ground off is
+    /// after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`,
+    /// `normal` and `roomy` keep the values they had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Whether the trailing `blocks` unit is drawn. On by default: a bare `3.14` on a HUD that
+    /// may also be carrying a CPS pair, a combo count and a trade ratio is a number with no
+    /// subject, and this is the one figure on that stack whose unit is not obvious from its
+    /// magnitude.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+
+    /// A reach at or above this many blocks draws in the warn treatment. `0` is off and is the
+    /// default. **It marks your own swings, and there is nothing else it could mark.** The
+    /// field this reads is only ever your own landed attack, so this cannot become a flag on
+    /// somebody else's play — which is the shape a threshold on a reach figure would otherwise
+    /// be reaching for, and the shape §6.1 rules out. What it is for is the opposite direction:
+    /// 1.8 gives you about 3 blocks of reach, and a swing reported well past that is a sign
+    /// your connection is behind rather than a sign you are good, so a player who wants to see
+    /// when the number stops being believable can ask for it. The ceiling is 6 because that is
+    /// vanilla's own creative-mode reach, which is the furthest the client will ever raycast.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warn_above: Option<f64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 33.
+/// Every mod VOID ships, keyed by id. Closed set of 34.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -3738,6 +3852,10 @@ pub struct ModRegistryEntries {
     /// Scoreboard — Hide, shrink or move the server's sidebar, which vanilla nails to the right
     /// of the screen.
     pub scoreboard: ModEntry<ScoreboardSettings>,
+
+    /// Reach display — How far away your last landed hit was — the swing that connected, never
+    /// the one you are lining up.
+    pub reach: ModEntry<ReachSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -3815,6 +3933,8 @@ pub struct ModStates {
     pub cps_graph: Option<CpsGraphSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scoreboard: Option<ScoreboardSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reach: Option<ReachSettings>,
 }
 
 impl Registry {
@@ -3854,6 +3974,7 @@ impl Registry {
             ModId::Clock => self.mods.clock.info(),
             ModId::CpsGraph => self.mods.cps_graph.info(),
             ModId::Scoreboard => self.mods.scoreboard.info(),
+            ModId::Reach => self.mods.reach.info(),
         }
     }
 
@@ -3895,6 +4016,7 @@ impl Registry {
             ModId::Clock => self.mods.clock.defaults_object(),
             ModId::CpsGraph => self.mods.cps_graph.defaults_object(),
             ModId::Scoreboard => self.mods.scoreboard.defaults_object(),
+            ModId::Reach => self.mods.reach.defaults_object(),
         }
     }
 }
@@ -3937,6 +4059,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::Clock => super::check::<ClockSettings>(id, value),
         ModId::CpsGraph => super::check::<CpsGraphSettings>(id, value),
         ModId::Scoreboard => super::check::<ScoreboardSettings>(id, value),
+        ModId::Reach => super::check::<ReachSettings>(id, value),
     }
 }
 

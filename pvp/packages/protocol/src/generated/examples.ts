@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 14,
+    "version": 15,
     "mods": {
       "fps": {
         "id": "fps",
@@ -745,6 +745,31 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "sidebar_scale": 1,
           "offset_x": 0,
           "offset_y": 0
+        }
+      },
+      "reach": {
+        "id": "reach",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "grey",
+        "label": "Reach display",
+        "icon": "sword",
+        "description": "How far away your last landed hit was — the swing that connected, never the one you are lining up.",
+        "source": "the `reach` field, latched from a landed attack by the tick sensor",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "subtle",
+          "border": false,
+          "padding": "normal",
+          "show_label": true,
+          "warn_above": 0
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 293
         }
       }
     }

@@ -73,6 +73,8 @@ public final class TickCoalescer {
     private int lastMemUsed = Integer.MIN_VALUE;
     private long lastMemAt = Long.MIN_VALUE;
     private int lastHitsDealt = Integer.MIN_VALUE;
+    /** The last reach reported, or null before one was. */
+    private Double lastReach;
     private int lastHitsTaken = Integer.MIN_VALUE;
     private double lastX;
     private double lastY;
@@ -227,6 +229,20 @@ public final class TickCoalescer {
             hits.addProperty("taken", in.hitsTaken);
             o.add("hits", hits);
         }
+
+        // Reach moves only on a landed attack, so a value check is exact and no rate limit is
+        // wanted — the same argument as `hits` above, and the same consequence: dropping an
+        // update here is a *wrong answer* rather than a stale one, because two swings at the
+        // same distance are indistinguishable from one and the player would see a figure that
+        // stopped responding to their own hits.
+        //
+        // Compared as a boxed value rather than a primitive so that "no reading yet" survives:
+        // the field is null until something has been hit, and a `double` sentinel here would be
+        // a second spelling of the absence `TickInput.reach` already has a type for.
+        if (in.reach != null && !in.reach.equals(lastReach)) {
+            lastReach = in.reach;
+            o.add("reach", Json.number(in.reach.doubleValue()));
+        }
         return o;
     }
 
@@ -240,6 +256,7 @@ public final class TickCoalescer {
         lastMemAt = Long.MIN_VALUE;
         lastHitsDealt = Integer.MIN_VALUE;
         lastHitsTaken = Integer.MIN_VALUE;
+        lastReach = null;
         lastArmor = null;
         lastFx = null;
         lastFps = Integer.MIN_VALUE;

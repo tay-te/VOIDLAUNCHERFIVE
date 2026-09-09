@@ -1,0 +1,41 @@
+{
+  "$comment": "Three notes, and the first is the one that decides whether this mod may exist.\n\n**It is `grey`, and the classification is `docs/mod-roster.md` §6.1's, quoted rather than inferred:** \"Reach display, honestly. It is allowed as a HUD readout of your *own* attack distance — but if you implement it by ray-marching toward an entity rather than reporting an actual attack event, you have built a reach *indicator*, which is the disallowed thing. Class it `grey`, compute it only from a landed attack, never predict.\"\n\nSo the constraint is not on what this draws, it is on *when the number is allowed to change*. A permitted readout and a disallowed indicator draw the same figure in the same place; the only difference is whether it moves as the crosshair moves. That rule therefore cannot live in the widget — a page that decided for itself when to refresh could cross the line without touching the sensor, the schema or a review. It lives in `mod/.../sensor/ReachTally.java`, in one class, with a test, and `bridge.json`'s `reach` field states it so a second reader inherits it rather than re-deriving it. **Nothing may be added here that depends on the current pick.** A `show_live` switch, a \"target distance\" style, a colour that changes as you close — each of those is the disallowed mod, reachable in one settings row.\n\n**The number is eye to the point on the hitbox the ray struck.** Not eye-to-centre and not hitbox-to-hitbox: vanilla's raycast hit a surface, and the distance to that surface is the one quantity the client actually knows. Every other definition is a reconstruction, and a reconstruction is exactly what §6.1's \"never predict\" is about. It is vanilla's own arithmetic too — `GameRenderer.updateTargetedEntity` evaluates the same expression at offsets 479-483 for its own three-block cutoff.\n\n**Two decimal places, and no setting to change that.** The sample is interpolated between two tick positions, so a third decimal would be reporting the interpolation rather than the swing. `decimals` is a legitimate customisation on `coordinates` and `momentum` because those readings have precision to spend; this one does not, and a setting that lets a player ask for precision the source cannot supply is a setting that lies for them.",
+  "id": "reach",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "grey",
+  "label": "Reach display",
+  "icon": "sword",
+  "the": true,
+  "noun": "the reach chip",
+  "on_description": "the reach display is enabled",
+  "description": "How far away your last landed hit was — the swing that connected, never the one you are lining up.",
+  "settings_title": "Reach settings",
+  "settings_description": "Settings for the Reach display HUD mod. It reads `reach` on the tick payload, which the sensor moves **only when an attack lands** — that is the whole contract, and `docs/mod-roster.md` §6.1 is why: a readout of your own attack distance is allowed and a live distance to a target you have not hit is not, and the two draw the same figure. The mod is classed `grey` on that account.\n\nThe figure is the distance from your eye to the point on the target's hitbox the crosshair ray struck, taken in the frame that made the pick rather than recomputed when the swing resolves — the eye moves up to about 0.28 blocks between the two, which on a two-decimal figure is a different number rather than a rounding error.\n\nIt draws nothing until something has been hit. A reach of zero is not a point-blank swing, it is a session in which nothing has connected, and a chip reading `0.00` would be a figure nobody earned.",
+  "source": "the `reach` field, latched from a landed attack by the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Under Trade counter in the top-left reference stack, 38 px below it on the same column rhythm. The whole stack from Combo down is now the fight's own arithmetic — the chain, the session, and how far away the last one connected — and the three are read together or not at all.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 293
+  },
+  "defaults": {
+    "show_label": true,
+    "warn_above": 0
+  },
+  "settings": {
+    "show_label": {
+      "description": "Whether the trailing `blocks` unit is drawn. On by default: a bare `3.14` on a HUD that may also be carrying a CPS pair, a combo count and a trade ratio is a number with no subject, and this is the one figure on that stack whose unit is not obvious from its magnitude.",
+      "type": "boolean",
+      "default": true
+    },
+    "warn_above": {
+      "description": "A reach at or above this many blocks draws in the warn treatment. `0` is off and is the default.\n\n**It marks your own swings, and there is nothing else it could mark.** The field this reads is only ever your own landed attack, so this cannot become a flag on somebody else's play — which is the shape a threshold on a reach figure would otherwise be reaching for, and the shape §6.1 rules out. What it is for is the opposite direction: 1.8 gives you about 3 blocks of reach, and a swing reported well past that is a sign your connection is behind rather than a sign you are good, so a player who wants to see when the number stops being believable can ask for it.\n\nThe ceiling is 6 because that is vanilla's own creative-mode reach, which is the furthest the client will ever raycast.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 6,
+      "default": 0
+    }
+  }
+}

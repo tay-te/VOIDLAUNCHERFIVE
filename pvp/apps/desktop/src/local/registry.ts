@@ -172,6 +172,13 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 9's reach readout. `grey` — see the mod's own `$comment`.
+  reach: [
+    SCALE,
+    OPACITY,
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    { key: 'warn_above', label: 'Warn over', control: 'slider', min: 0, max: 6, step: 0.1, format: 'plain' },
+  ],
   // Wave 9's sidebar customiser. `sidebar_scale` rather than `scale` because `SETTING_BOUNDS`
   // is keyed by the bare name and this mod's range is not the shared HUD block's.
   scoreboard: [
@@ -380,6 +387,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'hit_trade',
   'cps_graph',
   'clock',
+  'reach',
   'scoreboard',
   'saturation',
   'momentum',

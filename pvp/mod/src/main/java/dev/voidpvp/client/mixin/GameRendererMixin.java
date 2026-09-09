@@ -3,9 +3,11 @@ package dev.voidpvp.client.mixin;
 import dev.voidpvp.client.HiDpi;
 import dev.voidpvp.client.VoidClient;
 import dev.voidpvp.client.state.LiveState;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.entity.Entity;
+import net.minecraft.util.hit.BlockHitResult;
 import org.lwjgl.input.Mouse;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -53,6 +56,48 @@ public abstract class GameRendererMixin {
             target = "Lorg/lwjgl/input/Mouse;getY()I"))
     private int void$mouseYInPixels() {
         return HiDpi.toPixels(Mouse.getY());
+    }
+
+    /**
+     * The reach sensor's sample: how far away the thing under the crosshair is (§6.6).
+     *
+     * <p><b>It publishes nothing.</b> {@code docs/mod-roster.md} §6.1 allows a reach display as a
+     * readout of an attack that landed and forbids one that reports a distance to something you
+     * have not hit — the difference between a readout and an indicator. {@link ReachTally} holds
+     * that rule and this is its sample half: the value moves as the crosshair moves and is only
+     * ever <em>latched</em> by {@code VoidClient.onAttackSwing}, from the same swing and the same
+     * definition of "landed" the combo counter uses.</p>
+     *
+     * <p><b>The arithmetic is vanilla's, not ours.</b> {@code updateTargetedEntity} evaluates
+     * exactly this expression at offsets 479-483 for its own three-block cutoff, from the camera
+     * vector it took at offsets 73-78 and the hit point it writes at 552-566 as
+     * {@code new BlockHitResult(targetedEntity, hitVec)}. Reading the same two vectors at RETURN
+     * is reading the geometry that decided the pick rather than reconstructing one.</p>
+     *
+     * <p><b>Why here and not in {@code doAttack}.</b> {@code doAttack} runs during the tick and
+     * consults a raycast performed during a render frame; recomputing the eye there would use a
+     * position up to about 0.28 blocks from the one that made the pick, which on a two-decimal
+     * figure is a different number rather than a rounding error. {@link ReachTally}'s sample
+     * window is what stops that latitude becoming staleness.</p>
+     *
+     * <p>A non-entity pick clears the sample rather than leaving it: without that, a swing at air
+     * would report the range of the wall behind it.</p>
+     */
+    @Inject(method = "updateTargetedEntity", at = @At("RETURN"))
+    private void void$sampleReach(float tickDelta, CallbackInfo ci) {
+        VoidClient client = VoidClient.get();
+        if (client == null) {
+            return;
+        }
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Entity camera = mc == null ? null : mc.getCameraEntity();
+        BlockHitResult hit = mc == null ? null : mc.result;
+        if (camera == null || hit == null || hit.type != BlockHitResult.Type.ENTITY
+                || hit.entity == null || hit.pos == null) {
+            client.onEntityPick(-1);
+            return;
+        }
+        client.onEntityPick(hit.pos.distanceTo(camera.getCameraPosVec(tickDelta)));
     }
 
     /**
