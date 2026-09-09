@@ -221,7 +221,6 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   ],
   toggle_sprint: [
     { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
-    { key: 'sneak_too', label: 'Sneak too', control: 'switch' },
   ],
   fullbright: [
     { key: 'gamma', label: 'Gamma', control: 'slider', min: 1, max: 15, step: 0.5, format: 'plain' },

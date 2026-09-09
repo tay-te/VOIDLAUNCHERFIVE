@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 20 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 25 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -198,6 +198,26 @@
         "item_counter": {
           "description": "Item counter state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/item_counter_settings"
+        },
+        "stopwatch": {
+          "description": "Stopwatch state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/stopwatch_settings"
+        },
+        "fov": {
+          "description": "FOV changer state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/fov_settings"
+        },
+        "toggle_sneak": {
+          "description": "Toggle sneak state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/toggle_sneak_settings"
+        },
+        "overlay": {
+          "description": "Overlay state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/overlay_settings"
+        },
+        "old_animations": {
+          "description": "Old animations state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/old_animations_settings"
         }
       }
     },
@@ -260,9 +280,9 @@
     },
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 15, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 15,
+      "maxItems": 16,
       "items": {
         "description": "One HUD item placement.",
         "$ref": "#/definitions/hud_item"

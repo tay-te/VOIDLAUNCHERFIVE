@@ -40,9 +40,11 @@ fn hud(items: &[(HudModId, Anchor, f64, f64)]) -> Vec<HudItem> {
 /// crosshair.
 ///
 /// The Figma's "24 mods on" is the marketing count across the whole client; in this
-/// registry the equivalent is those eight plus the 3 safe gameplay mods, with the two
-/// `grey` mods (fullbright, hitboxes) off — which is what makes this loadout
-/// HYPIXEL-READY.
+/// registry the equivalent is those eight plus the 3 safe gameplay mods, with every
+/// `grey` mod (fullbright, hitboxes, and now overlay) off — which is what makes this
+/// loadout HYPIXEL-READY. The list is named rather than counted on purpose: it was "the two
+/// grey mods" until `overlay` joined the class, and a count in a doc comment is a fact that
+/// goes stale without failing anything.
 ///
 /// It used to say "every HUD mod on", and that stopped being true at the ninth: `direction`
 /// ships disabled and is not in the list below. Deliberately left that way rather than

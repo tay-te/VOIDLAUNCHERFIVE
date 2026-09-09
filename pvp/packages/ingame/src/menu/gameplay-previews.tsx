@@ -413,11 +413,14 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
  * In `toggle` the key is tapped once and the state runs on without it. In `hold` the two tracks
  * are the same track. That difference is the entire mod, and side by side it needs no caption —
  * though it gets one, because a diagram nobody can decode is decoration.
+ *
+ * There used to be a third row here, drawn when `sneak_too` was on. That setting is gone: sneak
+ * is `toggle_sneak` now, its own mod with its own bind, so it draws its own diagram rather than
+ * riding along in this one.
  */
 export function SprintPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
   const settings = useModSettings('toggle_sprint');
   const hold = settings.mode === 'hold';
-  const sneak = settings.sneak_too === true;
   const on = 0.42;
   const off = 0.07;
   const n = steps(dense);
@@ -438,15 +441,11 @@ export function SprintPreview({ dense = false, className }: DiagramProps = {}): 
     <div className={root(dense, undefined, className)}>
       <CellRow label="Key" cells={key} />
       <CellRow label="Sprint" cells={state} joined />
-      {/* Three rows is a block rather than a comparison at tile size, and `sneak_too` is a
-          second mod riding along rather than the thing the tile identifies. Page only. */}
-      {sneak && !dense ? <CellRow label="Sneak" cells={key} /> : null}
       {dense ? null : (
         <Reading>
           {hold
             ? 'Hold: sprint lasts exactly as long as the key is down.'
             : 'Toggle: one tap and sprint stays on until you tap again.'}
-          {sneak ? ' Sneak follows the same rule.' : ''}
         </Reading>
       )}
     </div>

@@ -23,7 +23,6 @@ export function settingLabel(key: string): string {
     show_held_item: 'Show held item',
     show_direction: 'Show direction',
     show_eye_line: 'Show eye line',
-    sneak_too: 'Sneak too',
     window_ms: 'Window',
     good_ms: 'Good under',
     bad_ms: 'Bad over',

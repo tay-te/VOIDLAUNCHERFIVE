@@ -25,9 +25,15 @@
 //! and [`HypixelSafe`]; [`ModEntry`] and [`ModInfo`]; [`registry()`], [`defaults_json`] and
 //! `validate_settings`; and the semantic half of `impl ModId`.
 //!
-//! One note the generated types cannot carry: `toggle_sprint` used to have a `show_status`
-//! setting and no longer does — see `ModRegistry.java`. A sprint indicator comes back as its
-//! own placeable HUD mod, not as a setting on a gameplay one.
+//! Two notes the generated types cannot carry, both about `toggle_sprint` and both about the
+//! same habit. It used to have a `show_status` setting and no longer does — see
+//! `ModRegistry.java`; a sprint indicator comes back as its own placeable HUD mod, not as a
+//! setting on a gameplay one. It also used to have `sneak_too`, and sneak is now `toggle_sneak`,
+//! its own mod with its own bind. **Both removals are only safe because of `REMOVED_SETTINGS` in
+//! [`crate::store`]**: every settings struct here is `deny_unknown_fields`, so a loadout already
+//! on disk carrying a deleted key fails to deserialise and takes the whole library listing with
+//! it. Deleting a setting is a two-part change, and this half is the half that cannot see the
+//! other one.
 
 use std::fmt;
 use std::sync::OnceLock;
@@ -390,12 +396,18 @@ mod tests {
     }
 
     #[test]
-    fn grey_mods_are_exactly_fullbright_and_hitboxes() {
+    fn grey_mods_are_exactly_fullbright_hitboxes_and_overlay() {
+        // An exact set, not a count, and it is edited by hand on purpose: `grey` is the class
+        // that decides whether the HYPIXEL-READY badge can be shown, so a mod joining it is a
+        // product decision that should have to touch a test with a name in it. `overlay` is the
+        // third, and `schema/mods/overlay.json`'s `$comment` carries the argument — two of its
+        // five switches (`hide_fire`, `hide_pumpkin`) remove a view cost the game imposes
+        // deliberately, which is not the "purely aesthetic" category §6.1 would need it to be.
         let grey: Vec<ModId> = ModId::ALL
             .into_iter()
             .filter(|id| id.hypixel_safe() == HypixelSafe::Grey)
             .collect();
-        assert_eq!(grey, vec![ModId::Fullbright, ModId::Hitboxes]);
+        assert_eq!(grey, vec![ModId::Fullbright, ModId::Hitboxes, ModId::Overlay]);
     }
 
     #[test]

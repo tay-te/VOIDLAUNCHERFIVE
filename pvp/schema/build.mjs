@@ -64,6 +64,13 @@ const ORDER = [
   // Wave 3 — six more HUD readouts, every one fed by a `tick_payload` field that already
   // existed. Appended, never inserted, for the same reason as `direction`.
   'combo', 'saturation', 'momentum', 'memory', 'server_address', 'item_counter',
+  // Wave 4 — the four §3.2/§3.3 gameplay mods that change how the client *feels*, plus the one
+  // HUD readout Wave 3 could not ship because no key could reach it (`bridge.json`'s
+  // `modaction` is what opened that path). Appended, never inserted. Note that the "HUD first,
+  // then gameplay" reading of the header stopped describing this list at `direction`: the two
+  // narrowed enums are *filters* over this order, not slices of it, so a wave appends in
+  // whatever order its mods were decided and neither enum notices.
+  'stopwatch', 'fov', 'toggle_sneak', 'overlay', 'old_animations',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

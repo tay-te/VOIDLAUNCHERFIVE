@@ -1,0 +1,55 @@
+{
+  "$comment": "**Classified `grey`, and it is the only mod in this wave that is.** The easy move was to copy `safe` off `crosshair` and `watermark` on the grounds that suppressing a render pass adds no information, and for four of these five switches that is right. Two of them are not that. `hide_fire` removes an occluder the game puts on your camera *as the cost of being on fire*, and `docs/mod-roster.md` §3.3 #1 says so in as many words — \"Fire overlay alone decides fights\". `hide_pumpkin` removes the blur a carved pumpkin costs you, which is the whole reason wearing one is a trade. §6.1 states Hypixel's policy as an allowlist of three categories — performance, purely aesthetic, and cosmetic HUD that adds no otherwise-unavailable information — closing with \"if it does not fit a category, assume it is disallowed\". A change that decides fights is, on its own roster's account, not purely aesthetic. That is the same argument §3.3 #7 already uses to class the fog customiser `grey`, and the same posture VOID takes on `fullbright`, which every competitor ships as ordinary and this schema does not.\n\nThe cost of the call is real and belongs written down next to it: `hypixel_safe` is per mod, not per setting, so a player who enables this only for `view_bobbing: minimal` — which nobody anywhere disputes — loses the HYPIXEL-READY badge along with it. Splitting the six into a `safe` mod and a `grey` one was considered and rejected. §3.3 #1's instruction is \"ship the six that matter as one VOID mod and stop\"; two mods is the grab-bag growing back, and a badge that is honest about the most exposed switch in a bundle is the only kind worth showing. If the split is ever made, `hide_fire` and `hide_pumpkin` are what move, and this note is the list.",
+  "id": "overlay",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "grey",
+  "label": "Overlay",
+  "icon": "sparkle",
+  "the": false,
+  "on_description": "the overlay suppressions are enabled",
+  "description": "Turns off the vanilla overlays that sit between you and the fight.",
+  "settings_title": "Overlay settings",
+  "settings_description": "Settings for the Overlay gameplay mod — five switches over render passes that already exist, and `docs/mod-roster.md` §3.3 #1 calls it \"the highest value-per-hour on this entire page\" for exactly that reason: none of the five needs a sensor, a new render pass or a number, only a settings-driven `return` in a draw the game is already doing. Lunar bundles roughly fifty of these into one mod; the roster's instruction is to \"ship the six that matter as one VOID mod and stop\", and stopping is the design. It is five and not six, and the difference is worth naming rather than rounding: §3.3 #1's list reads \"minimal view bobbing, lower/hide fire overlay, hide own armour pieces, hide stuck & ground arrows, disable damage overlay\", and the last of those is not here. The damage overlay is the red flash that tells you that you were hit, so suppressing it removes a combat cue rather than an occluder — the opposite trade from the other four — and `hide_pumpkin` took the slot because it is the same one-line suppression of a self-inflicted view block that `hide_fire` is. If damage tint comes back it comes back as §3.2 #7's own mod, where a vignette and a heartbeat can be argued together. What is deliberately not here is a colour, a strength or an opacity for any of them: a suppression that is half-applied is a worse picture than either end of it, and the moment one of these grows a slider this mod is on its way to fifty. Classified `grey`, which is not the obvious call and is argued at the top of this file rather than assumed.",
+  "source": "the first-person fire, pumpkin, own-armour and stuck-arrow render passes, plus `GameSettings.viewBobbing`",
+  "enabled": false,
+  "defaults": {
+    "hide_fire": true,
+    "view_bobbing": "vanilla",
+    "hide_own_armor": false,
+    "hide_stuck_arrows": true,
+    "hide_pumpkin": true
+  },
+  "settings": {
+    "hide_fire": {
+      "description": "Whether the first-person fire overlay is drawn while you are burning. The one the roster singles out: flames cover the middle of the screen for the duration of a fire-aspect hit or a lava dip, which is precisely the window in which you cannot afford to lose the other player. On by default, because a player enabling this mod at all is enabling it for this. It is also the switch that classes the whole mod `grey` — see the top of this file — and the honest reading is that it removes a cost the game imposed rather than revealing something the game hid.",
+      "type": "boolean",
+      "default": true
+    },
+    "view_bobbing": {
+      "description": "How much the camera and the held item move as you walk. `vanilla` is the game's own bob, unchanged, and is the default because bobbing is a motion cue for your own speed and taking it away is a preference rather than an improvement. `minimal` keeps the held item moving and holds the camera still, which is what most players actually want out of the vanilla switch and cannot get from a boolean. `off` is the vanilla switch off — both still, hand included.",
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "minimal",
+        "off"
+      ],
+      "default": "vanilla"
+    },
+    "hide_own_armor": {
+      "description": "Whether your own armour is drawn on your own player model. Off by default, because unlike the rest of this mod it changes nothing you see in a first-person fight — your armour is on screen only in third person and in the inventory preview — so it is a cosmetic preference for players who want to see their skin, not a visibility fix. Included because it is one line in the same render path and leaving it out means a second mod later.",
+      "type": "boolean",
+      "default": false
+    },
+    "hide_stuck_arrows": {
+      "description": "Whether arrows stuck in your own model, and arrows lying where they landed, are drawn. On by default: a bow exchange leaves a thicket of arrow entities around the fight and several sticking out of you, and neither tells you anything a moment after it lands. This is the one switch here that removes *information* rather than an occluder, which is the direction §6.1 has no objection to — the objection is to mods that add data the player could not otherwise have.",
+      "type": "boolean",
+      "default": true
+    },
+    "hide_pumpkin": {
+      "description": "Whether the carved-pumpkin blur is drawn while one is worn. On by default, because a player who has put a pumpkin on has done it for the head slot and not for the view. It is the second of the two switches that class this mod `grey`: the blur is the price of the helmet, and removing the price locally is not something Hypixel's allowlist has a category for.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the twenty mods.
+ * The closed registry of the 25 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -171,7 +171,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (15) — they read game state and draw -------------------------------------
+        // --- HUD mods (16) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -397,25 +397,35 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (5) — they mutate a client-side option ------------------------------
+        // --- Gameplay mods (9) — they mutate a client-side option ------------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
         // Source: KeyBinding override in onLivingUpdate.
-        // `show_status` used to be here and is gone. A sprint indicator is still wanted, but as
-        // its own placeable HUD mod: a gameplay mod has no `hud[]` entry, so anything this drew
-        // would have been the only fixed, un-movable thing on the HUD — the one property the HUD
-        // editor exists to remove. Promoting this mod to `Kind.HUD` for one boolean is a
-        // structural change deserving its own decision, and `Kind` and `Category` are already
-        // independent, so the machinery supports it.
+        // `sneak_too` used to be here and is gone too, and this one has a Java tail:
+        // `LiveState.toggleSprintSneakToo` and its reader in `VoidClient` still exist, still
+        // compile and now always read `false`, because `Loadout.boolSetting` takes a default
+        // rather than failing on a key the registry dropped. Delete both — sneak is
+        // `toggle_sneak` now, with its own bind. A stored loadout that still carries the key is
+        // handled on the Rust side by `REMOVED_SETTINGS` in `void-loadout`'s `store.rs`, not
+        // here: Gson is lenient, so this side never noticed either way. `show_status` used to be
+        // here and is gone. A sprint indicator is still wanted, but as its own placeable HUD mod:
+        // a gameplay mod has no `hud[]` entry, so anything this drew would have been the only
+        // fixed, un-movable thing on the HUD — the one property the HUD editor exists to remove.
+        // Promoting this mod to `Kind.HUD` for one boolean is a structural change deserving its
+        // own decision, and `Kind` and `Category` are already independent, so the machinery
+        // supports it.
         mod("toggle_sprint", Kind.GAMEPLAY, Category.PVP, "Toggle sprint",
                 // Whether toggle sprint is enabled.
                 "on", bool(true),
                 // `toggle` latches sprint until the key is pressed again; `hold` restores vanilla
-                // hold-to-sprint but keeps the status readout.
+                // hold-to-sprint. `hold` used to be the value that turned the latch off while
+                // keeping the status readout, and the readout has been gone since `show_status`
+                // was removed, so on this mod it now means the mod is inert until it is set back
+                // — unlike `toggle_sneak.mode`, whose `hold` still moves sneak onto that mod's
+                // own bind. Worth revisiting when a sprint indicator comes back as its own HUD
+                // mod.
                 "mode", enumOf("toggle", "toggle", "hold"),
-                // Whether the same latching behaviour is applied to sneak.
-                "sneak_too", bool(false),
                 // Key that toggles the mod in game, captured through
                 // `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key
                 // itself, which is vanilla's and is what `mode` latches: this one turns the
@@ -515,7 +525,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (15) — they read game state and draw -------------------------------------
+        // --- HUD mods (16) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -738,7 +748,197 @@ public final class ModRegistry {
                 // stack, above which the warning would be permanently on.
                 "low_threshold", integer(0, 64, 0));
 
-        // --- The factory HUD layout (15) — where each widget starts ----------------------------
+        // Stopwatch — kind hud, utility tab, §11 safe.
+        // A manual timer, started and zeroed from the keyboard.
+        // Source: no game field — the overlay's own clock, driven by the `modaction` bridge
+        // event.
+        mod("stopwatch", Kind.HUD, Category.UTILITY, "Stopwatch",
+                // Whether the stopwatch is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // Whether a fraction of a second is drawn after the seconds, as hundredths. Off
+                // by default, because a digit that never stops moving is the most expensive thing
+                // a HUD chip can do to a player's attention and a stopwatch is usually read
+                // *after* it stops. Two places rather than three: the overlay repaints per frame,
+                // so a thousandths digit would be a digit nobody can read and the chip would be
+                // claiming a precision the page's own clock does not have. On for timing
+                // something short enough that a whole second is too coarse — a potion window, a
+                // bridge run, a respawn.
+                "show_millis", bool(false),
+                // How the elapsed time is written. `auto` grows the field as the clock does —
+                // `4:07` until an hour has passed and `1:04:07` after — which keeps the chip as
+                // narrow as the reading allows and is right for almost everyone. `mmss` pins it
+                // to minutes and seconds and lets the minutes run past sixty (`64:07`), so the
+                // chip never changes width mid-read, which is what a player timing repeated
+                // attempts against each other wants. `hmmss` always prints the hour, for a
+                // session timer that is meant to be read as a duration rather than as a count.
+                "format", enumOf("auto", "auto", "mmss", "hmmss"),
+                // Key that starts the clock and stops it again, captured through
+                // `void.openKeybindCapture('stopwatch')`. Unlike the four per-mod `keybind`
+                // settings Java already dispatches, this one does **not** flip the mod's `on`:
+                // Java edges the key with `input/EdgeKey` and pushes `{"e": "modaction",
+                // "payload": {"mod": "stopwatch", "action": "start_stop"}}`, and the page decides
+                // what running means. One key for both verbs rather than two, because a stopwatch
+                // has one hand on it and the state it is in is on screen. `NONE` by default:
+                // there is no key a 1.8 PvP player is not already using, and a timer nobody bound
+                // costs nothing but a chip that reads `0:00`.
+                // Type: mods.json#/definitions/keybind.
+                "start_key", keybind("NONE"),
+                // Key that returns the clock to zero, captured the same way. Java pushes `action:
+                // "reset"`; the page zeroes the elapsed time and leaves the run state alone, so a
+                // reset while running is a lap restart and a reset while stopped clears the last
+                // reading. Its own bind rather than a long press on `start_key`, because a hold
+                // gesture on a key you also tap is the one input a fight reliably gets wrong —
+                // and because the two actions are then independent, which is what lets a player
+                // bind only the one they use.
+                // Type: mods.json#/definitions/keybind.
+                "reset_key", keybind("NONE"));
+
+        // --- Gameplay mods (9) — they mutate a client-side option ------------------------------
+
+        // FOV changer — kind gameplay, pvp tab, §11 safe.
+        // Holds your field of view still, so sprint and speed stop punching the camera.
+        // Source: GameOptions.fov, with the movement-speed multiplier suppressed.
+        mod("fov", Kind.GAMEPLAY, Category.PVP, "FOV changer",
+                // Whether the FOV override is enabled.
+                "on", bool(false),
+                // Field of view held while the mod is on, in degrees. The range is exactly
+                // vanilla's own slider — 30 to 110 — and that is the whole §11 argument for
+                // classing this mod `safe`: it moves a number the game already lets the player
+                // move, where `fullbright.gamma` runs to 15 against a vanilla slider that stops
+                // at 1. 90 by default rather than vanilla's 70 because a player who turns this on
+                // is turning it on for peripheral vision in a duel, and 70 is the value they are
+                // leaving.
+                "fov", integer(30, 110, 90),
+                // Whether the movement-speed FOV modifier is suppressed. This is the mod. Vanilla
+                // scales the field of view by how fast the player is moving, so sprinting, a
+                // speed potion and every knockback you take zoom the camera in the middle of a
+                // fight — a change of framing you did not ask for, at the moment framing matters
+                // most. On by default, because a player who wanted a different field of view and
+                // *not* this would have used the vanilla slider and never opened the Mods panel.
+                "lock_sprint", bool(true),
+                // Whether the bow-pull zoom is suppressed as well. Off by default, and
+                // deliberately a second switch rather than part of `lock_sprint`: the speed
+                // modifier is noise, but the bow zoom is *feedback*. It is how far the shot is
+                // drawn, and on 1.8 it is close to the only cue the client gives for a charge
+                // that decides whether the arrow travels. On for a player who reads draw from the
+                // arm animation instead and wants the camera to stop moving at all.
+                "lock_bow", bool(false));
+
+        // Toggle sneak — kind gameplay, pvp tab, §11 safe.
+        // Latches sneak instead of holding the key.
+        // Source: KeyBinding override in onLivingUpdate.
+        mod("toggle_sneak", Kind.GAMEPLAY, Category.PVP, "Toggle sneak",
+                // Whether toggle sneak is enabled.
+                "on", bool(false),
+                // `toggle` latches sneak until the key is pressed again, which is the mod. `hold`
+                // restores hold-to-sneak on this mod's own bind — not a null setting, because the
+                // bind below is *not* vanilla's sneak key: `hold` is how a player moves sneak
+                // onto a key their hand can reach without giving up the latch behaviour of every
+                // other key they have bound.
+                "mode", enumOf("toggle", "toggle", "hold"),
+                // Key this mod latches, captured through
+                // `void.openKeybindCapture('toggle_sneak')`. Its own bind rather than vanilla's
+                // sneak key, and that is the entire reason this is a mod rather than a boolean on
+                // Toggle sprint: a player who latches sneak wants it under a thumb that is not
+                // already holding shift, and one who latches sprint wants a different key again.
+                // `NONE` by default, because a latch on a key nobody chose is a player stuck
+                // crouched in a hole wondering what happened.
+                // Type: mods.json#/definitions/keybind.
+                "keybind", keybind("NONE"));
+
+        // Overlay — kind gameplay, visual tab, §11 grey.
+        // Turns off the vanilla overlays that sit between you and the fight.
+        // Source: the first-person fire, pumpkin, own-armour and stuck-arrow render passes, plus
+        // `GameSettings.viewBobbing`.
+        mod("overlay", Kind.GAMEPLAY, Category.VISUAL, "Overlay",
+                // Whether the overlay suppressions are enabled.
+                "on", bool(false),
+                // Whether the first-person fire overlay is drawn while you are burning. The one
+                // the roster singles out: flames cover the middle of the screen for the duration
+                // of a fire-aspect hit or a lava dip, which is precisely the window in which you
+                // cannot afford to lose the other player. On by default, because a player
+                // enabling this mod at all is enabling it for this. It is also the switch that
+                // classes the whole mod `grey` — see the top of this file — and the honest
+                // reading is that it removes a cost the game imposed rather than revealing
+                // something the game hid.
+                "hide_fire", bool(true),
+                // How much the camera and the held item move as you walk. `vanilla` is the game's
+                // own bob, unchanged, and is the default because bobbing is a motion cue for your
+                // own speed and taking it away is a preference rather than an improvement.
+                // `minimal` keeps the held item moving and holds the camera still, which is what
+                // most players actually want out of the vanilla switch and cannot get from a
+                // boolean. `off` is the vanilla switch off — both still, hand included.
+                "view_bobbing", enumOf("vanilla", "vanilla", "minimal", "off"),
+                // Whether your own armour is drawn on your own player model. Off by default,
+                // because unlike the rest of this mod it changes nothing you see in a
+                // first-person fight — your armour is on screen only in third person and in the
+                // inventory preview — so it is a cosmetic preference for players who want to see
+                // their skin, not a visibility fix. Included because it is one line in the same
+                // render path and leaving it out means a second mod later.
+                "hide_own_armor", bool(false),
+                // Whether arrows stuck in your own model, and arrows lying where they landed, are
+                // drawn. On by default: a bow exchange leaves a thicket of arrow entities around
+                // the fight and several sticking out of you, and neither tells you anything a
+                // moment after it lands. This is the one switch here that removes *information*
+                // rather than an occluder, which is the direction §6.1 has no objection to — the
+                // objection is to mods that add data the player could not otherwise have.
+                "hide_stuck_arrows", bool(true),
+                // Whether the carved-pumpkin blur is drawn while one is worn. On by default,
+                // because a player who has put a pumpkin on has done it for the head slot and not
+                // for the view. It is the second of the two switches that class this mod `grey`:
+                // the blur is the price of the helmet, and removing the price locally is not
+                // something Hypixel's allowlist has a category for.
+                "hide_pumpkin", bool(true));
+
+        // Old animations — kind gameplay, pvp tab, §11 safe.
+        // Restores the 1.7 swing and block-hit animations, and the two input behaviours that went
+        // with them.
+        // Source: first-person item transforms and swing timing (`ItemRenderer`,
+        // `EntityLivingBase#swingProgress`).
+        mod("old_animations", Kind.GAMEPLAY, Category.PVP, "Old animations",
+                // Whether the 1.7 animations are enabled.
+                "on", bool(false),
+                // Which arm-swing animation is drawn. `vanilla` leaves 1.8's alone. `one_seven`
+                // restores the shorter, flatter arc 1.7 drew, which is the motion a large part of
+                // this audience has thousands of hours of muscle memory in. It changes nothing
+                // the server is told — swing timing is a client animation and the attack packet
+                // is unchanged — but it changes when a hit *looks* like it landed, and that gap
+                // between what you see and what you expect is most of what people mean when they
+                // say a client feels wrong.
+                "swing", enumOf("one_seven", "vanilla", "one_seven"),
+                // Which animation is drawn when you attack while blocking with a sword. `vanilla`
+                // is 1.8's, in which the sword barely moves. `one_seven` restores the pronounced
+                // swing 1.7 drew through the block, which is the most recognised single item in
+                // this mod: 1.8 changed it, sword PvP never accepted the change, and its absence
+                // is the concrete thing §3.2 #1 has in mind. Animation only, on both settings —
+                // whether a block registers is the server's business and neither value touches
+                // it.
+                "block_hit", enumOf("one_seven", "vanilla", "one_seven"),
+                // Whether the arm swings on a click that connects with nothing. 1.7 swung on
+                // every click; 1.8 swings only when the click reaches a block or an entity, so a
+                // miss in 1.8 is invisible. Off by default, and it is the one setting here that
+                // changes what your *opponent* sees rather than what you see: the swing is sent,
+                // so every whiffed click becomes an animation on their screen, and a player who
+                // has not asked for that should not discover it mid-fight. On for a player who
+                // wants the click they made and the arm they see to agree.
+                "always_swing", bool(false),
+                // Whether right-click item use is allowed while a block is being broken. 1.7
+                // allowed it and 1.8 does not, and the case it decides is eating or raising a
+                // block mid-mine in a Bedwars rush. Off by default and flagged deliberately: with
+                // `always_swing` it is one of the two switches in this mod that is not an
+                // animation, it changes what the client will *do* on an input rather than what it
+                // draws, and the `$comment` at the top of this file is the §11 argument for
+                // shipping it off rather than not shipping it.
+                "use_while_digging", bool(false));
+
+        // --- The factory HUD layout (16) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -812,13 +1012,22 @@ public final class ModRegistry {
         // fast the hand is going, and the held stack directly above it at -146 is what the hand
         // is going *through*. The 38 px gap is this table's rhythm.
         place("item_counter", "bottom-left", 175, -146);
+
+        // Stopwatch: Third row of the bottom-right corner, 38 px above Server address (`-61`) and
+        // 76 above Memory (`-23`), continuing upward the rhythm those two opened. It is not a
+        // diagnostic like its two neighbours, and that is the argument for putting it there
+        // rather than against: Memory and Server address are read when something is wrong, and a
+        // stopwatch is read when a fight is over. Neither is a glance you take mid-swing, so both
+        // belong in the corner furthest from the crosshair, and the top-left column stays what it
+        // is — the things you sweep while playing.
+        place("stopwatch", "bottom-right", -25, -99);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The twenty mod ids, in registry order. */
+    /** The 25 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

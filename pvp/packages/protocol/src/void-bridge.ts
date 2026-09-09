@@ -50,6 +50,7 @@ import type {
   Loadout,
   LoadoutId,
   LoadoutsPayload,
+  ModactionPayload,
   ModId,
   ServerPayload,
   SessionPayload,
@@ -75,7 +76,7 @@ export type { GlobalSettings };
 /* -------------------------------------------------------------------------- */
 
 /**
- * The nine channels Java pushes on.
+ * The ten channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -94,9 +95,10 @@ export const VOID_EVENTS = [
   'menu',
   'session',
   'settings',
+  'modaction',
 ] as const;
 
-/** Name of one of the nine push channels. */
+/** Name of one of the ten push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -138,6 +140,23 @@ export interface VoidEventPayloadMap {
    * player is holding (§6.5, the same rule as `setting`).
    */
   settings: GlobalSettings;
+  /**
+   * A key bound to one mod asked that mod to do something — `{mod, action}`, where the
+   * action is a snake_case verb naming the *request* (`start_stop`, `reset`) and never the
+   * key that made it.
+   *
+   * The channel exists because the per-mod `keybind` hotkeys Java already dispatches can say
+   * exactly one thing: flip that mod's `on`, pushed as {@link VoidEventPayloadMap.setting}.
+   * A mod whose key is a verb rather than a switch had no way to be reached at all, which is
+   * why the stopwatch was held back from the HUD wave. Java has changed nothing by sending
+   * this — it is a request, and the page is what fulfils it — so unlike `setting` there is
+   * no stored value to bind to and nothing to reconcile.
+   *
+   * `action` is a plain `string` rather than a union, matching `bridge.json`'s pattern: the
+   * event is dispatched by `mod` first, so an action a widget does not implement is a no-op
+   * inside that widget rather than a lost channel. Ignore what you do not recognise.
+   */
+  modaction: ModactionPayload;
 }
 
 /** Handler signature for a given channel. */

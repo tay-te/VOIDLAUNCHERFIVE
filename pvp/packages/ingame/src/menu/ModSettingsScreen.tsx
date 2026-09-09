@@ -171,7 +171,6 @@ const ORDER = [
   'show_eye_line',
   'max_distance',
   'show_peak',
-  'sneak_too',
   'center_dot',
   'outline',
   'dynamic',

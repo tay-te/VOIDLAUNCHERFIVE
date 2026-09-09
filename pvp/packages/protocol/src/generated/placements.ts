@@ -86,4 +86,14 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * table's rhythm.
    */
   item_counter: { anchor: 'bottom-left', dx: 175, dy: -146 },
+  /**
+   * Third row of the bottom-right corner, 38 px above Server address (`-61`) and 76 above
+   * Memory (`-23`), continuing upward the rhythm those two opened. It is not a diagnostic like
+   * its two neighbours, and that is the argument for putting it there rather than against:
+   * Memory and Server address are read when something is wrong, and a stopwatch is read when a
+   * fight is over. Neither is a glance you take mid-swing, so both belong in the corner
+   * furthest from the crosshair, and the top-left column stays what it is — the things you
+   * sweep while playing.
+   */
+  stopwatch: { anchor: 'bottom-right', dx: -25, dy: -99 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

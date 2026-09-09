@@ -86,6 +86,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "low_threshold": {
     "min": 0,
     "max": 64
+  },
+  "fov": {
+    "min": 30,
+    "max": 110
   }
 } as const;
 
@@ -314,5 +318,37 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "tight",
     "normal",
     "roomy"
+  ],
+  "stopwatch.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "stopwatch.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "stopwatch.format": [
+    "auto",
+    "mmss",
+    "hmmss"
+  ],
+  "toggle_sneak.mode": [
+    "toggle",
+    "hold"
+  ],
+  "overlay.view_bobbing": [
+    "vanilla",
+    "minimal",
+    "off"
+  ],
+  "old_animations.swing": [
+    "vanilla",
+    "one_seven"
+  ],
+  "old_animations.block_hit": [
+    "vanilla",
+    "one_seven"
   ]
 } as const;

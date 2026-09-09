@@ -324,11 +324,13 @@ all S, all the same shape. This is where a generated registry pays for itself.
 >
 > **Two are still out, and neither is cheap the way this wave was.**
 >
-> · **Stopwatch** needs an input path. The `keys` payload carries W/A/S/D, the mouse, space and
->   shift, and `hotkey_id` is a closed set of two globals — so a `toggle_key` setting would
->   store a key nothing acts on, and the mod would ship a timer with no way to start it. That
->   is the failure `text_shadow` was removed for. It wants either a third hotkey id or a
->   per-mod keybind the game dispatches; both are protocol changes, not an S.
+> · ~~**Stopwatch** needs an input path.~~ **Shipped 2026-09-09 with Wave 4.** The diagnosis
+>   held and the fix was the second of the two options: not a third `hotkey_id` but a per-mod
+>   key the game dispatches, as a new `modaction` bridge event carrying `{mod, action}`. It
+>   deliberately did *not* become a protocol change — `hotkey_id` stays a closed set of two,
+>   because those two are things Java has already done and the launcher must follow, where a
+>   `modaction` is a request the page in the same JAR fulfils and Rust has no state riding on
+>   it. `stopwatch.start_key` and `reset_key` are its first and only callers.
 >
 > · **Potion counter** needs an inventory sensor. `held_count` sees the hand and nothing else,
 >   which is why `item_counter` counts the held stack and says so rather than implying Lunar's

@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 7,
+    "version": 8,
     "mods": {
       "fps": {
         "id": "fps",
@@ -243,7 +243,6 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "defaults": {
           "on": true,
           "mode": "toggle",
-          "sneak_too": false,
           "keybind": "NONE"
         }
       },
@@ -495,6 +494,99 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "anchor": "bottom-left",
           "dx": 175,
           "dy": -146
+        }
+      },
+      "stopwatch": {
+        "id": "stopwatch",
+        "kind": "hud",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Stopwatch",
+        "icon": "clock",
+        "description": "A manual timer, started and zeroed from the keyboard.",
+        "source": "no game field — the overlay's own clock, driven by the `modaction` bridge event",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "show_millis": false,
+          "format": "auto",
+          "start_key": "NONE",
+          "reset_key": "NONE"
+        },
+        "default_placement": {
+          "anchor": "bottom-right",
+          "dx": -25,
+          "dy": -99
+        }
+      },
+      "fov": {
+        "id": "fov",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "FOV changer",
+        "icon": "eye",
+        "description": "Holds your field of view still, so sprint and speed stop punching the camera.",
+        "source": "GameOptions.fov, with the movement-speed multiplier suppressed",
+        "defaults": {
+          "on": false,
+          "fov": 90,
+          "lock_sprint": true,
+          "lock_bow": false
+        }
+      },
+      "toggle_sneak": {
+        "id": "toggle_sneak",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Toggle sneak",
+        "icon": "chevron-down",
+        "description": "Latches sneak instead of holding the key.",
+        "source": "KeyBinding override in onLivingUpdate",
+        "defaults": {
+          "on": false,
+          "mode": "toggle",
+          "keybind": "NONE"
+        }
+      },
+      "overlay": {
+        "id": "overlay",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "grey",
+        "label": "Overlay",
+        "icon": "sparkle",
+        "description": "Turns off the vanilla overlays that sit between you and the fight.",
+        "source": "the first-person fire, pumpkin, own-armour and stuck-arrow render passes, plus `GameSettings.viewBobbing`",
+        "defaults": {
+          "on": false,
+          "hide_fire": true,
+          "view_bobbing": "vanilla",
+          "hide_own_armor": false,
+          "hide_stuck_arrows": true,
+          "hide_pumpkin": true
+        }
+      },
+      "old_animations": {
+        "id": "old_animations",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Old animations",
+        "icon": "reset",
+        "description": "Restores the 1.7 swing and block-hit animations, and the two input behaviours that went with them.",
+        "source": "first-person item transforms and swing timing (`ItemRenderer`, `EntityLivingBase#swingProgress`)",
+        "defaults": {
+          "on": false,
+          "swing": "one_seven",
+          "block_hit": "one_seven",
+          "always_swing": false,
+          "use_while_digging": false
         }
       }
     }
@@ -1274,6 +1366,20 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   {
     "c": "setGlobal",
     "returns": "RSHIFT"
+  },
+  {
+    "e": "modaction",
+    "payload": {
+      "mod": "stopwatch",
+      "action": "start_stop"
+    }
+  },
+  {
+    "e": "modaction",
+    "payload": {
+      "mod": "stopwatch",
+      "action": "reset"
+    }
   }
 ];
 

@@ -47,5 +47,10 @@ export const MOD_ICON_NAMES = {
   "momentum": "move",
   "memory": "layers",
   "server_address": "wifi",
-  "item_counter": "box"
+  "item_counter": "box",
+  "stopwatch": "clock",
+  "fov": "eye",
+  "toggle_sneak": "chevron-down",
+  "overlay": "sparkle",
+  "old_animations": "reset"
 } as const satisfies Record<ModId, string>;

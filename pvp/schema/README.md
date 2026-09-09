@@ -140,6 +140,166 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
+### 2026-09-09 (later) — a key can reach a mod, and the five that change how it feels
+
+`mods.json` registry `version` `7 → 8`; `bridge.json` gains its tenth channel; **`protocol.json`
+and its `v` are untouched, deliberately** — the reason is the whole first half of this entry.
+Twenty-five mods: 16 HUD, 9 gameplay.
+
+**`bridge.json` — the `modaction` event, and the input path it opens**
+
+Until now a key could reach a *mod* in exactly one way. `VoidClient.toggleMod` polls four per-mod
+`keybind` settings, edges each with `input/EdgeKey` against a code mirrored into
+`LiveState.applyActuatorFields`, flips that mod's `on` and pushes `setting`. That is a table, not
+four copies, and its own comment says why — but it covers every mod whose key is a *switch* and no
+mod whose key is a *verb*. `docs/mod-roster.md` §7 is where the bill came due: Stopwatch was cut
+from the last wave because `keys` carries W/A/S/D, the mouse, space and shift, and `hotkey_id` is
+a closed set of two globals, so a `start_key` would have stored a key nothing acted on. That is
+exactly the failure `text_shadow` was removed from `_shared.json` for, and it is the reason a
+seven-mod wave shipped six.
+
+So: `{"e": "modaction", "payload": {"mod": <mod_id>, "action": <verb>}}`, Java → JS. It is the
+second row of the same table — same poll, same edge, same mirrored code — emitting a named
+action instead of writing a setting. Three decisions inside it are worth more than the diff:
+
+- **`mod` `$ref`s `mods.json#/definitions/mod_id`**, exactly as `setting_payload.id` does. The
+  mod set is written down once, in the registry, and a restated list on a bridge payload is a
+  list that goes stale the next time a mod is added.
+- **`action` is a pattern, not a closed enum**, and that is argued rather than defaulted. The
+  closed sets nearby are closed because a consumer must handle them exhaustively: both shims
+  build their channel map from `event_name`, so an undeclared channel is dropped in total
+  silence, and `void-core`'s `sync::pump` switches on `hotkey_id` to move the launcher's own
+  pointer. Neither applies here. A `modaction` is dispatched by `mod` first, so an action nobody
+  implements is a no-op inside one widget rather than a lost channel; the two halves that must
+  agree ship in the same JAR (which is the same reason every payload on this surface stays
+  `additionalProperties: false`); and the vocabulary has no registry to derive from the way
+  `mod_id` does, so an enum would be a *fourth* place a per-mod input is written down, after the
+  mod's settings prose, the Java table and the widget. Today it would be a closed set of two,
+  invented for one mod. The `$comment` names the condition for revisiting: three or four mods
+  sharing a vocabulary, at which point closing it buys real exhaustiveness.
+- **It does not go to Rust, and that is the point rather than an omission.** `hotkey_id` stays
+  `loadout.next` and `overlay`. Those two are things Java has **already done** — the active
+  loadout advanced, the menu opened — and the launcher keeps its own copy of that state, so its
+  tray and its next launch would disagree with the running game if it were not told. A
+  `modaction` is the opposite shape: a **request**, unfulfilled when it is sent, fulfilled by the
+  page inside the same binary. The launcher holds no state that depends on whether a stopwatch is
+  running, and a stopwatch that survived a relaunch is not a feature anyone asked for. A third
+  `hotkey_id` would have put a per-mod input vocabulary on a cross-process wire that has to stay
+  compatible across launcher versions, in order to notify a process with nothing to do.
+
+Consumers, the five-files-or-none list `bridge/connect.ts` names: `bridge.json`, `@void/protocol`'s
+`VOID_EVENTS` / `VoidEventPayloadMap` (`ModactionPayload` is generated), `void-shim.js`'s `EVENTS`,
+and `createFakeVoid`, which gains `emitModAction(id, action)` beside `applyModSetting` — no return
+value, because nothing is stored. **The Java half is not written.** It is one more row in
+`toggleMod`'s table that emits instead of setting, plus two mirrored key codes in
+`applyActuatorFields`, and the page half is the widget that acts on `start_stop` and `reset`.
+
+**Five mods**
+
+- **`stopwatch`** (`hud`, utility, `clock`, ships off) — the mod the event exists for. With
+  `watermark` it is one of two with no game field behind it: the elapsed time is the overlay's
+  own, counted from `Date.now()` the way the combo chip already counts its own timeout, and no
+  sensor, tick field or wire message carries it. Java owns the key, the page owns the clock, and
+  they cannot disagree about elapsed time because only one of them counts it. `start_key` names
+  the action `start_stop` and `reset_key` names `reset`, **in the settings prose**, because that
+  is the one document the Java wave and the page wave both read. `-25,-99` is the third row of
+  the bottom-right corner, 38 px above Server address and 76 above Memory, continuing the rhythm
+  those two opened last wave — it is not a diagnostic like its neighbours, but it is read between
+  fights rather than during them, which is the same reason for the same corner.
+  Its icon is `clock`, and the glyph is **already drawn** — `packages/ui`'s `ICON_NAMES` and
+  `packages/ingame/scripts/build-icons.py` both carry it, from `ec2d0a5`, whose own comment says
+  it is deliberately a stopwatch rather than a wall clock. This entry was written expecting to
+  name a glyph that did not exist and to leave `@void/ui` red until it did, which is the order
+  `docs/adding-a-mod.md` §3 describes; the art wave got there first, so `MOD_ICONS`'
+  `satisfies Record<ModId, IconName>` is satisfied on the day the id lands and `@void/ui`
+  typechecks clean. Worth recording because the mechanism is only visible when it fires: a
+  named-but-undrawn glyph is a compile error in the package that owns the drawing, not an empty
+  box in game.
+- **`fov`** (`gameplay`, pvp, `eye`, off) — `GameOptions.fov`, 30–110 (exactly vanilla's own
+  slider, which is the whole §11 argument for `safe`: it moves a number the game already lets the
+  player move, where `fullbright.gamma` runs to 15 against a vanilla ceiling of 1), plus
+  `lock_sprint` and `lock_bow`. Lunar has 25 options here; §3.2 #2 says you need about four and
+  this is three. **The mod file carries a hazard note and it is the most load-bearing thing in
+  the entry**: `fov` is the same field family as Fullbright's `gamma`, and `GameOptions.save()`
+  persists the live field into the player's own `options.txt` on almost any settings change and
+  on quit. Left alone, the mod does not override the player's field of view — it *eats* it, the
+  next launch starts at the override, `VoidClient` captures the override as the value to restore,
+  and turning the mod off restores the override. That is measured, on gamma, in
+  `mixin/GameOptionsMixin.java`'s own doc comment. The fix is that mixin, extended by one field
+  in the same two injections. It is written next to the mod because the argument belongs where
+  the mod is, not where the Java is.
+- **`toggle_sneak`** (`gameplay`, pvp, `chevron-down`, off) — `mode` (`toggle`/`hold`) and its
+  own `keybind`. §3.2 #3 says promote it, and promotion means the boolean it replaces goes:
+  **`toggle_sprint.sneak_too` is removed.** That was checked rather than assumed, and the answer
+  is that removing a setting is *fatal* on its own. Every `*Settings` struct in `void-loadout` is
+  `#[serde(deny_unknown_fields)]`, so a stored loadout carrying the key stops deserialising and
+  `Store::load` returns `Error::Json`; `Store::list` collects a `Result` over the whole
+  directory, so **one orphaned file takes the entire library listing with it**, not just itself.
+  `validate_settings` and `Loadout::validate` are not where this is decided — they run after the
+  parse that has already failed. What makes it survivable is `REMOVED_SETTINGS` in
+  `void-loadout/src/store.rs`, a mechanism this repo already built for exactly this and already
+  used once (`toggle_sprint.show_status`): `read_loadout_json` drops a retired key on the way in
+  and the next save writes the file without it, so the migration is a save the player was going
+  to make anyway. `("toggle_sprint", "sneak_too")` is added there in the same change. The two
+  store tests either side of it — one proving a stale removed key still loads, one proving junk
+  that was never ours still fails loudly — are what keep that tolerance narrow. Java's
+  `LiveState.toggleSprintSneakToo` and its reader in `VoidClient` are the loose end and are named
+  in `gen-java-registry.mjs`'s `JAVA_NOTES`, because they *compile* and silently read `false`
+  rather than failing — the quiet kind.
+- **`overlay`** (`gameplay`, visual, `sparkle`, off) — `hide_fire`, `view_bobbing`
+  (`vanilla`/`minimal`/`off`), `hide_own_armor`, `hide_stuck_arrows`, `hide_pumpkin`. §3.3 #1
+  calls this the highest value-per-hour on the page and it is: five settings-driven suppressions
+  in render passes that already exist, no sensor and no new number. It is five and not the six
+  the roster lists, and the difference is named in the file rather than rounded — the damage
+  overlay is not here, because suppressing the red flash removes a *combat cue* rather than an
+  occluder, which is the opposite trade from the other four; it belongs with §3.2 #7's damage
+  tint. **It is `hypixel_safe: grey`, and it is the only mod in this wave that is not `safe`.**
+  Copying `safe` off its neighbours would have been wrong for two of the five switches.
+  `hide_fire` removes an occluder the game puts on your camera as the *cost* of being on fire —
+  §3.3 #1's own words are "Fire overlay alone decides fights" — and `hide_pumpkin` removes the
+  blur that is the entire reason wearing a pumpkin is a trade. §6.1 renders Hypixel's policy as
+  an allowlist of three categories closing with "if it does not fit a category, assume it is
+  disallowed", and a change that decides fights is, on the roster's own account, not "purely
+  aesthetic". That is the same reasoning §3.3 #7 already applies to the fog customiser, and the
+  same posture this schema takes on `fullbright` while every competitor ships it as ordinary. The
+  cost is written down beside the call: `hypixel_safe` is per **mod**, so a player who enables
+  this only for `view_bobbing: minimal` loses the HYPIXEL-READY badge too. Splitting the bundle
+  into a `safe` mod and a `grey` one was considered and rejected — §3.3 #1 says ship one mod and
+  stop, two mods is the grab-bag growing back, and a badge honest about the most exposed switch
+  in a bundle is the only kind worth showing. `void-loadout`'s exact-set assertion is renamed to
+  `grey_mods_are_exactly_fullbright_hitboxes_and_overlay`; it stays an exact set by hand, because
+  a mod joining the class that gates the badge should have to touch a test with a name in it.
+- **`old_animations`** (`gameplay`, pvp, `reset`, off) — `swing` and `block_hit`, both
+  `vanilla`/`one_seven` and both defaulting to `one_seven`, plus `always_swing` and
+  `use_while_digging`, both off. §3.2 #1: "Build this first… its absence reads as 'this client
+  was made by someone who does not play.'" It is the only mod in this wave whose two enums ship
+  at the non-vanilla value, and that is deliberate: a player who enables Old animations has said
+  which animations they want by enabling it, and a mod that turned on and changed nothing would
+  look broken. `safe`, with the reasoning kept because two of the four settings are not
+  animations: `always_swing` and `use_while_digging` change what the client *does* on an input
+  rather than what it draws, so both ship off and the factory configuration of the mod is
+  animation and nothing else. Neither automates anything — one press, one action, no sequence
+  and no timing the player did not supply — which is the thing §6.1's "no macros of any kind" is
+  aimed at.
+
+**One correction while here.** `toggle_sprint.mode`'s description still ended "but keeps the
+status readout", and the readout has been gone since `show_status` was removed. It now says what
+is true — on that mod `hold` leaves nothing behind and the mod is inert until it is set back —
+and contrasts it with `toggle_sneak.mode`, whose `hold` still does something, because it moves
+sneak onto that mod's own bind rather than vanilla's key.
+
+Consumers, all generated and all re-run: `ModRegistry.java` (25 mods, 193 setting descriptors),
+`void-loadout`'s `mods/generated.rs` (25 mods, 20 settings enums — five new settings structs and
+five new enums: `StopwatchFormat`, `ToggleSneakMode`, `OverlayViewBobbing`, `OldAnimationsSwing`,
+`OldAnimationsBlockHit`), `@void/protocol`'s `src/generated/*` and its build. Hand-written halves
+that did need a per-mod edit, both in `void-loadout` and both about a decision no generator can
+make: the grey-set assertion in `mods.rs`, and the `REMOVED_SETTINGS` row in `store.rs`.
+`registry()` and `validate_settings()` still dispatch through generated tables and needed nothing;
+`defaults.rs` iterates `ModId::ALL`, so all five ship off in the three curated loadouts; and
+`Loadout::validate` bounds `hud` by `HudModId::ALL.len()`, which follows to 16 on its own.
+`scripts/verify-mods.mjs` picks up `stopwatch` in `baseline-all-huds` and `hud-all-off` for free,
+because both are derived from `HUD_MOD_IDS`; per-setting steps for the five are still to write.
+
 ### 2026-09-09 — six readouts, and the first mod in the bottom-right corner
 
 `mods.json` registry `version` `6 → 7`; `protocol.json` `v` unchanged, and `bridge.json`

@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 20 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 25 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -67,7 +67,12 @@ export type ModId =
   | 'momentum'
   | 'memory'
   | 'server_address'
-  | 'item_counter';
+  | 'item_counter'
+  | 'stopwatch'
+  | 'fov'
+  | 'toggle_sneak'
+  | 'overlay'
+  | 'old_animations';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -617,11 +622,142 @@ export type ItemCounterEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Stopwatch, narrowed to its constant classification.
+ */
+export type StopwatchEntry = RegistryEntry & {
+  /**
+   * Always `stopwatch`.
+   */
+  id?: 'stopwatch';
+  /**
+   * Always `clock`.
+   */
+  icon?: 'clock';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: StopwatchSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for the FOV changer, narrowed to its constant classification.
+ */
+export type FOVChangerEntry = RegistryEntry & {
+  /**
+   * Always `fov`.
+   */
+  id?: 'fov';
+  /**
+   * Always `eye`.
+   */
+  icon?: 'eye';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: FOVChangerSettings;
+};
+/**
+ * Registry entry for Toggle sneak, narrowed to its constant classification.
+ */
+export type ToggleSneakEntry = RegistryEntry & {
+  /**
+   * Always `toggle_sneak`.
+   */
+  id?: 'toggle_sneak';
+  /**
+   * Always `chevron-down`.
+   */
+  icon?: 'chevron-down';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ToggleSneakSettings;
+};
+/**
+ * Registry entry for Overlay, narrowed to its constant classification.
+ */
+export type OverlayEntry = RegistryEntry & {
+  /**
+   * Always `overlay`.
+   */
+  id?: 'overlay';
+  /**
+   * Always `sparkle`.
+   */
+  icon?: 'sparkle';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `grey` (§11).
+   */
+  hypixel_safe?: 'grey';
+  defaults?: OverlaySettings;
+};
+/**
+ * Registry entry for Old animations, narrowed to its constant classification.
+ */
+export type OldAnimationsEntry = RegistryEntry & {
+  /**
+   * Always `old_animations`.
+   */
+  id?: 'old_animations';
+  /**
+   * Always `reset`.
+   */
+  icon?: 'reset';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: OldAnimationsSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 15 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -638,7 +774,8 @@ export type HUDModId =
   | 'momentum'
   | 'memory'
   | 'server_address'
-  | 'item_counter';
+  | 'item_counter'
+  | 'stopwatch';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -653,9 +790,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 15, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 15
+ * @maxItems 16
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -701,7 +838,8 @@ export type Event =
   | SettingEvent
   | MenuEvent
   | SessionEvent
-  | SettingsEvent;
+  | SettingsEvent
+  | ModactionEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -738,7 +876,16 @@ export type SetGameplayParams = [GameplayModId, boolean];
 /**
  * The subset of mod ids whose `kind` is `gameplay`, i.e. the mods an actuator Mixin reads every frame. These are the only ids accepted by `void.setGameplay`.
  */
-export type GameplayModId = 'toggle_sprint' | 'fullbright' | 'hitboxes' | 'zoom' | 'crosshair';
+export type GameplayModId =
+  | 'toggle_sprint'
+  | 'fullbright'
+  | 'hitboxes'
+  | 'zoom'
+  | 'crosshair'
+  | 'fov'
+  | 'toggle_sneak'
+  | 'overlay'
+  | 'old_animations';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -846,14 +993,14 @@ export type SetSurfacesReturns = number;
 export type SetGlobalReturns = boolean | number | string | null;
 
 /**
- * The closed registry of the 13 mods VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3 plus the VOID watermark — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
+ * The closed registry of every mod VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3, the VOID watermark, and the readouts added since — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
  */
 export interface ModRegistryDocument {
   version: RegistryVersion;
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 20 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 25 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -876,6 +1023,11 @@ export interface Mods {
   memory: MemoryEntry;
   server_address: ServerAddressEntry;
   item_counter: ItemCounterEntry;
+  stopwatch: StopwatchEntry;
+  fov: FOVChangerEntry;
+  toggle_sneak: ToggleSneakEntry;
+  overlay: OverlayEntry;
+  old_animations: OldAnimationsEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -1208,13 +1360,9 @@ export interface VOIDWatermarkSettings {
 export interface ToggleSprintSettings {
   on: Enabled;
   /**
-   * `toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint but keeps the status readout.
+   * `toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint. `hold` used to be the value that turned the latch off while keeping the status readout, and the readout has been gone since `show_status` was removed, so on this mod it now means the mod is inert until it is set back — unlike `toggle_sneak.mode`, whose `hold` still moves sneak onto that mod's own bind. Worth revisiting when a sprint indicator comes back as its own HUD mod.
    */
   mode?: 'toggle' | 'hold';
-  /**
-   * Whether the same latching behaviour is applied to sneak.
-   */
-  sneak_too?: boolean;
   keybind?: Keybind;
 }
 /**
@@ -1513,6 +1661,113 @@ export interface ItemCounterSettings {
   low_threshold?: number;
 }
 /**
+ * Settings for the Stopwatch HUD mod. Along with the watermark it is one of two mods with no game field behind it: the elapsed time is the overlay's own, counted from `Date.now()` exactly as the combo chip already counts its own timeout, and no sensor field, no tick payload and no wire message carries it. What does cross the bridge is the *input*. `start_key` and `reset_key` are dispatched by Java and arrive as `modaction` — `{mod: 'stopwatch', action: 'start_stop' | 'reset'}` — because a timer's keys ask the page to do something rather than flipping a boolean, which is all the existing per-mod `keybind` hotkeys can say. Java therefore owns the key and the page owns the clock, and the two never disagree about elapsed time because only one of them counts it.
+ */
+export interface StopwatchSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the stopwatch chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the stopwatch chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the stopwatch chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Whether a fraction of a second is drawn after the seconds, as hundredths. Off by default, because a digit that never stops moving is the most expensive thing a HUD chip can do to a player's attention and a stopwatch is usually read *after* it stops. Two places rather than three: the overlay repaints per frame, so a thousandths digit would be a digit nobody can read and the chip would be claiming a precision the page's own clock does not have. On for timing something short enough that a whole second is too coarse — a potion window, a bridge run, a respawn.
+   */
+  show_millis?: boolean;
+  /**
+   * How the elapsed time is written. `auto` grows the field as the clock does — `4:07` until an hour has passed and `1:04:07` after — which keeps the chip as narrow as the reading allows and is right for almost everyone. `mmss` pins it to minutes and seconds and lets the minutes run past sixty (`64:07`), so the chip never changes width mid-read, which is what a player timing repeated attempts against each other wants. `hmmss` always prints the hour, for a session timer that is meant to be read as a duration rather than as a count.
+   */
+  format?: 'auto' | 'mmss' | 'hmmss';
+  start_key?: Keybind;
+  reset_key?: Keybind;
+}
+/**
+ * Settings for the FOV changer gameplay mod. Overrides `GameOptions.fov` and suppresses the movement-speed multiplier vanilla applies on top of it. `docs/mod-roster.md` §3.2 #2 is explicit about the size of this: Lunar ships twenty-five options here and the useful ones number about four, so there are three below and no per-state override table. Everything the extra twenty would buy is a different constant for a state a fight does not give you time to notice. The one thing this mod must get right is not a setting at all — it is keeping the override out of `options.txt`; the `$comment` at the top of this file is the whole briefing.
+ */
+export interface FOVChangerSettings {
+  on: Enabled;
+  /**
+   * Field of view held while the mod is on, in degrees. The range is exactly vanilla's own slider — 30 to 110 — and that is the whole §11 argument for classing this mod `safe`: it moves a number the game already lets the player move, where `fullbright.gamma` runs to 15 against a vanilla slider that stops at 1. 90 by default rather than vanilla's 70 because a player who turns this on is turning it on for peripheral vision in a duel, and 70 is the value they are leaving.
+   */
+  fov?: number;
+  /**
+   * Whether the movement-speed FOV modifier is suppressed. This is the mod. Vanilla scales the field of view by how fast the player is moving, so sprinting, a speed potion and every knockback you take zoom the camera in the middle of a fight — a change of framing you did not ask for, at the moment framing matters most. On by default, because a player who wanted a different field of view and *not* this would have used the vanilla slider and never opened the Mods panel.
+   */
+  lock_sprint?: boolean;
+  /**
+   * Whether the bow-pull zoom is suppressed as well. Off by default, and deliberately a second switch rather than part of `lock_sprint`: the speed modifier is noise, but the bow zoom is *feedback*. It is how far the shot is drawn, and on 1.8 it is close to the only cue the client gives for a charge that decides whether the arrow travels. On for a player who reads draw from the arm animation instead and wants the camera to stop moving at all.
+   */
+  lock_bow?: boolean;
+}
+/**
+ * Settings for the Toggle sneak gameplay mod. Overrides the sneak `KeyBinding` in `onLivingUpdate`, exactly as Toggle sprint overrides the sprint one — the same actuator shape, deliberately, so the two read the same in `LiveState` and the next latch after them costs nothing new. It is a mod of its own and not a boolean on Toggle sprint because `docs/mod-roster.md` §3.2 #3 says both competitors ship it as one: a sneak latch and a sprint latch are bound to different keys, turned on in different game modes and turned off for different reasons, and a boolean cannot carry a keybind. The boolean it replaces is gone; the top of this file records the migration that made removing it safe.
+ */
+export interface ToggleSneakSettings {
+  on: Enabled;
+  /**
+   * `toggle` latches sneak until the key is pressed again, which is the mod. `hold` restores hold-to-sneak on this mod's own bind — not a null setting, because the bind below is *not* vanilla's sneak key: `hold` is how a player moves sneak onto a key their hand can reach without giving up the latch behaviour of every other key they have bound.
+   */
+  mode?: 'toggle' | 'hold';
+  keybind?: Keybind;
+}
+/**
+ * Settings for the Overlay gameplay mod — five switches over render passes that already exist, and `docs/mod-roster.md` §3.3 #1 calls it "the highest value-per-hour on this entire page" for exactly that reason: none of the five needs a sensor, a new render pass or a number, only a settings-driven `return` in a draw the game is already doing. Lunar bundles roughly fifty of these into one mod; the roster's instruction is to "ship the six that matter as one VOID mod and stop", and stopping is the design. It is five and not six, and the difference is worth naming rather than rounding: §3.3 #1's list reads "minimal view bobbing, lower/hide fire overlay, hide own armour pieces, hide stuck & ground arrows, disable damage overlay", and the last of those is not here. The damage overlay is the red flash that tells you that you were hit, so suppressing it removes a combat cue rather than an occluder — the opposite trade from the other four — and `hide_pumpkin` took the slot because it is the same one-line suppression of a self-inflicted view block that `hide_fire` is. If damage tint comes back it comes back as §3.2 #7's own mod, where a vignette and a heartbeat can be argued together. What is deliberately not here is a colour, a strength or an opacity for any of them: a suppression that is half-applied is a worse picture than either end of it, and the moment one of these grows a slider this mod is on its way to fifty. Classified `grey`, which is not the obvious call and is argued at the top of this file rather than assumed.
+ */
+export interface OverlaySettings {
+  on: Enabled;
+  /**
+   * Whether the first-person fire overlay is drawn while you are burning. The one the roster singles out: flames cover the middle of the screen for the duration of a fire-aspect hit or a lava dip, which is precisely the window in which you cannot afford to lose the other player. On by default, because a player enabling this mod at all is enabling it for this. It is also the switch that classes the whole mod `grey` — see the top of this file — and the honest reading is that it removes a cost the game imposed rather than revealing something the game hid.
+   */
+  hide_fire?: boolean;
+  /**
+   * How much the camera and the held item move as you walk. `vanilla` is the game's own bob, unchanged, and is the default because bobbing is a motion cue for your own speed and taking it away is a preference rather than an improvement. `minimal` keeps the held item moving and holds the camera still, which is what most players actually want out of the vanilla switch and cannot get from a boolean. `off` is the vanilla switch off — both still, hand included.
+   */
+  view_bobbing?: 'vanilla' | 'minimal' | 'off';
+  /**
+   * Whether your own armour is drawn on your own player model. Off by default, because unlike the rest of this mod it changes nothing you see in a first-person fight — your armour is on screen only in third person and in the inventory preview — so it is a cosmetic preference for players who want to see their skin, not a visibility fix. Included because it is one line in the same render path and leaving it out means a second mod later.
+   */
+  hide_own_armor?: boolean;
+  /**
+   * Whether arrows stuck in your own model, and arrows lying where they landed, are drawn. On by default: a bow exchange leaves a thicket of arrow entities around the fight and several sticking out of you, and neither tells you anything a moment after it lands. This is the one switch here that removes *information* rather than an occluder, which is the direction §6.1 has no objection to — the objection is to mods that add data the player could not otherwise have.
+   */
+  hide_stuck_arrows?: boolean;
+  /**
+   * Whether the carved-pumpkin blur is drawn while one is worn. On by default, because a player who has put a pumpkin on has done it for the head slot and not for the view. It is the second of the two switches that class this mod `grey`: the blur is the price of the helmet, and removing the price locally is not something Hypixel's allowlist has a category for.
+   */
+  hide_pumpkin?: boolean;
+}
+/**
+ * Settings for the Old animations gameplay mod. `docs/mod-roster.md` §3.2 #1 opens with "Build this first" and is blunt about why: this is the single most-noticed absence in a 1.8 PvP client, a large part of the target audience treats 1.7 animations as non-negotiable, and "its absence reads as 'this client was made by someone who does not play.'" It is the one mod in the registry whose value is entirely in *feel* — no readout, no number, nothing a screenshot shows — which is also why the two enum settings default to `one_seven` while every other mod in this wave ships every switch at its vanilla value. A player who enables Old animations has said which animations they want in the act of enabling it, and a mod that turned on and changed nothing would be a mod that looked broken.
+ */
+export interface OldAnimationsSettings {
+  on: Enabled;
+  /**
+   * Which arm-swing animation is drawn. `vanilla` leaves 1.8's alone. `one_seven` restores the shorter, flatter arc 1.7 drew, which is the motion a large part of this audience has thousands of hours of muscle memory in. It changes nothing the server is told — swing timing is a client animation and the attack packet is unchanged — but it changes when a hit *looks* like it landed, and that gap between what you see and what you expect is most of what people mean when they say a client feels wrong.
+   */
+  swing?: 'vanilla' | 'one_seven';
+  /**
+   * Which animation is drawn when you attack while blocking with a sword. `vanilla` is 1.8's, in which the sword barely moves. `one_seven` restores the pronounced swing 1.7 drew through the block, which is the most recognised single item in this mod: 1.8 changed it, sword PvP never accepted the change, and its absence is the concrete thing §3.2 #1 has in mind. Animation only, on both settings — whether a block registers is the server's business and neither value touches it.
+   */
+  block_hit?: 'vanilla' | 'one_seven';
+  /**
+   * Whether the arm swings on a click that connects with nothing. 1.7 swung on every click; 1.8 swings only when the click reaches a block or an entity, so a miss in 1.8 is invisible. Off by default, and it is the one setting here that changes what your *opponent* sees rather than what you see: the swing is sent, so every whiffed click becomes an animation on their screen, and a player who has not asked for that should not discover it mid-fight. On for a player who wants the click they made and the arm they see to agree.
+   */
+  always_swing?: boolean;
+  /**
+   * Whether right-click item use is allowed while a block is being broken. 1.7 allowed it and 1.8 does not, and the case it decides is eating or raising a block mid-mine in a Bedwars rush. Off by default and flagged deliberately: with `always_swing` it is one of the two switches in this mod that is not an animation, it changes what the client will *do* on an input rather than what it draws, and the `$comment` at the top of this file is the §11 argument for shipping it off rather than not shipping it.
+   */
+  use_while_digging?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -1538,7 +1793,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 20 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 25 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -1561,6 +1816,11 @@ export interface ModStates {
   memory?: MemorySettings;
   server_address?: ServerAddressSettings;
   item_counter?: ItemCounterSettings;
+  stopwatch?: StopwatchSettings;
+  fov?: FOVChangerSettings;
+  toggle_sneak?: ToggleSneakSettings;
+  overlay?: OverlaySettings;
+  old_animations?: OldAnimationsSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -2074,6 +2334,30 @@ export interface SettingsEvent {
    */
   e: 'settings';
   payload: GlobalSettings;
+}
+/**
+ * Envelope for the `modaction` event.
+ */
+export interface ModactionEvent {
+  /**
+   * Event discriminator; always `modaction`.
+   */
+  e: 'modaction';
+  payload: ModactionPayload;
+}
+/**
+ * One mod-scoped key press, dispatched by Java for the page to act on.
+ *
+ * The existing per-mod `keybind` hotkeys can say exactly one thing — flip this mod's `on` — and they say it by pushing `setting`. Java polls them from a table in `VoidClient.toggleMod`, edging each with `input/EdgeKey` against a code mirrored into `LiveState.applyActuatorFields`. That covers every mod whose key is a switch and no mod whose key is a verb, which is why `docs/mod-roster.md` §7 held Stopwatch back from the last wave: a `start_key` would have stored a key nothing acted on. This event is the second row of that table — same poll, same edge detection, same mirrored code — emitting a named action instead of writing a setting.
+ *
+ * It is a notification and not a call: there is no return value and nothing is stored. Java has not changed any state by sending it, so a page that is not listening loses only the press. Deliver it in the frame the edge was seen; do not coalesce two presses of the same action into one, because two taps of a stopwatch's start key are a stop and a start.
+ */
+export interface ModactionPayload {
+  mod: ModId;
+  /**
+   * What the key asked for: a short snake_case verb naming the *request*, never the key that made it. `start_stop`, not `bound_key`; `reset`, not `key_r`. Java knows which key is bound and the page must not care — a page that branched on key names would break the moment a player rebound one, and the same action can reach it from a keybind today and from a menu button tomorrow. The vocabulary is per mod and lives in that mod's own settings prose, which is where the Java wave and the page wave both read it: `stopwatch.start_key` names `start_stop` and `stopwatch.reset_key` names `reset`, and those two are the whole set today. An action the page does not recognise is ignored, not an error.
+   */
+  action: string;
 }
 /**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.
