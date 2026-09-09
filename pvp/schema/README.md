@@ -7,7 +7,7 @@ cross-directory need is expressed by reading a schema here.
 
 | File | Defines | Written by | Read by |
 |---|---|---|---|
-| `mods.json` | **Generated** (`build.mjs`). The closed registry of the 13 mods (§3, plus the VOID watermark): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
+| `mods.json` | **Generated** (`build.mjs`). The closed registry of every mod VOID ships (the 12 of §3, the VOID watermark, and the readouts added since): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
 | `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 6 Java→Rust, 3 Rust→Java | `core` | `core`, `mod` |
 | `bridge.json` | The `window.void` surface (§6.5): 9 events Java→JS, 8 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
@@ -139,6 +139,82 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-09 — six readouts, and the first mod in the bottom-right corner
+
+`mods.json` registry `version` `6 → 7`; `protocol.json` `v` unchanged, and `bridge.json`
+unchanged — **no sensor was added by this change.** Every one of the six reads a `tick_payload`
+field that already existed (`saturation`, `held_count`, `speed`, `memory`, `hits`) or an event
+that already existed (`server.host`). That is the whole reason six mods land at once: the
+expensive half of a HUD mod is the sensor, and this wave had none to write.
+
+Six new `kind: hud` entries — `combo` (pvp), `saturation` (hud), `momentum` (hud), `memory`
+(hud), `server_address` (utility), `item_counter` (pvp). Registry order is 15 HUD + 5 gameplay,
+20 in total; `hud_layout.maxItems` follows `hud_mod_id` to 15, as it is derived to.
+
+- **`combo` is derived in JS, like `cps`.** `bridge.json`'s `hits` sends two monotonic counters
+  and refuses to send a combo, because a combo is a count with a *timeout policy* on it and the
+  timeout is `combo.reset_ms` — a mod setting. A sensor that expired the count would put a UI
+  policy on the wire and make the field unshareable between two readers who disagree about it.
+  Counters rather than events for the matching reason: an event lost to a dropped tick leaves
+  the combo wrong forever, a counter that jumps by two is still exactly right.
+- **Three settings were specified and deliberately not shipped**: `combo.hide_at_zero`,
+  `item_counter.hide_empty`, `server_address.hide_offline`. Each was a switch whose entire
+  content is "the widget is not there". Hiding is *behaviour* here, not a preference — a combo
+  chip reading `0` between fights, a counter on an empty hand and a host chip in singleplayer
+  are noise, and `design/quiet-cell-system.md` §1 draws the customisation line at position,
+  anchor and offset, scale, opacity, density, what is shown and format, none of which is
+  absence. They are also untestable as settings: `packages/ingame/test/preview.test.tsx` walks
+  every setting of every mod and asserts the drawing changed, and a switch with no drawing to
+  move would need three new `NOT_IN_THE_PREVIEW` exemptions in one wave — from a list whose own
+  doc comment calls it the one place that gate can quietly erode. The three widgets do it
+  unconditionally instead, and each mod file carries a `$comment` saying so, because the next
+  person to read a two-setting mod will want to add a third.
+- **`server_address` shares `wifi` with `ping`, on purpose.** They are the same corner of the
+  product — which server, and how far away it feels. `compass` is already shared by
+  `coordinates` and `direction` for the same reason, so the precedent is one row up;
+  `MOD_ICONS` is `Record<ModId, IconName>` and not a bijection. `ping.show_host` also stays:
+  that is the inline form, this is the standalone chip, exactly the split `direction` makes
+  against `coordinates.show_direction`.
+- **`saturation.decimals` is `0..2`, not the `0..1` it would pick for itself.**
+  `packages/protocol`'s `gen.mjs` keys `SETTING_BOUNDS` by property *name* — a name means one
+  thing across this schema — and **throws** rather than hand one mod another's slider.
+  `coordinates.decimals` and `momentum.decimals` are both `0..2`, so `0..1` was a hard build
+  failure, caught by the generator rather than by a reviewer. Widening is the honest fix: the
+  sensor sends saturation as a raw float, so a second place is real, just rarely worth the
+  width. The default is still 1.
+- **The bottom-right corner opens.** `memory` at `-25,-23` and `server_address` at `-25,-61`
+  are the first factory placements there. Both are diagnostics — read when something is wrong,
+  not while it is going wrong — so keeping them opposite the top-left reference stack stops the
+  "is the client healthy" glance from crossing the "where am I" column. The insets match the
+  corners already in use (25 px from the right as the top-right stack, 23 px from the bottom as
+  the top-left stack is from the top), and the 38 px gap is this table's rhythm.
+  `combo` (`23,217`) and `saturation`/`momentum` (`255`, `293`) extend the left column on that
+  same rhythm; `item_counter` (`175,-146`) joins the *175* column of the bottom-left corner
+  rather than the 31 one, because Keystrokes at `dx 31` is over a hundred canvas pixels tall and
+  anything stacked above `dy -109` there lands on the caps. `combo`'s and `item_counter`'s
+  `note` fields carry those arguments into every generated table.
+  One correction while here: `docs/adding-a-mod.md`'s worked example annotates `combo` with
+  "Under Coordinates, the mod players confuse it with." That argument belongs to `direction`,
+  which has held `dy 179` since it shipped; `combo`'s real note is that it is *last* in a column
+  the eye already sweeps.
+- **All six are `hypixel_safe: safe`.** Every one reads state the client already has about its
+  own player or its own process and draws it; nothing changes what is rendered of the world.
+  `grey` stays exactly `fullbright` and `hitboxes`, which `void-loadout`'s
+  `grey_mods_are_exactly_fullbright_and_hitboxes` asserts.
+- Consumers, all generated and all re-run: `ModRegistry.java` (166 setting descriptors),
+  `void-loadout`'s `mods/generated.rs` (20 mods, 15 settings enums — six new settings structs,
+  four new enums: `SaturationStyle`, `MomentumUnit`, `MemoryStyle`, `ServerAddressStyle`),
+  `@void/protocol`'s `src/generated/*`. Nothing hand-written needed a per-mod edit: `registry()`
+  and `validate_settings()` dispatch through generated tables, `defaults.rs` builds its three
+  curated loadouts by iterating `ModId::ALL` (so the six ship *off* there, which is the product
+  decision that file already documents), and `Loadout::validate` bounds `hud` by
+  `HudModId::ALL.len()`.
+- `scripts/verify-mods.mjs` gained fifteen steps and lost its last hand-written mod list: the
+  `hud-all-off` step named the eight original HUD mods and had never been extended, so it was
+  already asserting less than it claimed when `direction` shipped. It is derived from
+  `HUD_MOD_IDS` now, like `HUD` and `baseMods()` beside it. `combo.reset_ms` has no step, for
+  the same reason `cps.window_ms` has none — two timeouts produce the same still frame.
 
 ### 2026-09-08 (later still) — `default_placement`, and the last hand-maintained table
 

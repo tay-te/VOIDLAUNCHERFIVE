@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 14 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 20 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -62,11 +62,23 @@ pub enum ModId {
     Crosshair,
     /// Which way you are facing, as its own placeable readout.
     Direction,
+    /// Consecutive hits landed without being hit back.
+    Combo,
+    /// The hidden half of the hunger bar — what actually decides whether you regenerate.
+    Saturation,
+    /// How fast you are actually travelling across the ground.
+    Momentum,
+    /// JVM heap in use, against the ceiling the launcher gave the game.
+    Memory,
+    /// The host you are actually connected to.
+    ServerAddress,
+    /// How many of the item in your hand you have left.
+    ItemCounter,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 14] = [
+    pub const ALL: [ModId; 20] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -81,6 +93,12 @@ impl ModId {
         ModId::Zoom,
         ModId::Crosshair,
         ModId::Direction,
+        ModId::Combo,
+        ModId::Saturation,
+        ModId::Momentum,
+        ModId::Memory,
+        ModId::ServerAddress,
+        ModId::ItemCounter,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -100,11 +118,17 @@ impl ModId {
             ModId::Zoom => "zoom",
             ModId::Crosshair => "crosshair",
             ModId::Direction => "direction",
+            ModId::Combo => "combo",
+            ModId::Saturation => "saturation",
+            ModId::Momentum => "momentum",
+            ModId::Memory => "memory",
+            ModId::ServerAddress => "server_address",
+            ModId::ItemCounter => "item_counter",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 9 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 15 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -128,11 +152,23 @@ pub enum HudModId {
     Watermark,
     /// Which way you are facing, as its own placeable readout.
     Direction,
+    /// Consecutive hits landed without being hit back.
+    Combo,
+    /// The hidden half of the hunger bar — what actually decides whether you regenerate.
+    Saturation,
+    /// How fast you are actually travelling across the ground.
+    Momentum,
+    /// JVM heap in use, against the ceiling the launcher gave the game.
+    Memory,
+    /// The host you are actually connected to.
+    ServerAddress,
+    /// How many of the item in your hand you have left.
+    ItemCounter,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 9] = [
+    pub const ALL: [HudModId; 15] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -142,6 +178,12 @@ impl HudModId {
         HudModId::PotionEffects,
         HudModId::Watermark,
         HudModId::Direction,
+        HudModId::Combo,
+        HudModId::Saturation,
+        HudModId::Momentum,
+        HudModId::Memory,
+        HudModId::ServerAddress,
+        HudModId::ItemCounter,
     ];
 
     /// Widens to the full mod id enum.
@@ -156,6 +198,12 @@ impl HudModId {
             HudModId::PotionEffects => ModId::PotionEffects,
             HudModId::Watermark => ModId::Watermark,
             HudModId::Direction => ModId::Direction,
+            HudModId::Combo => ModId::Combo,
+            HudModId::Saturation => ModId::Saturation,
+            HudModId::Momentum => ModId::Momentum,
+            HudModId::Memory => ModId::Memory,
+            HudModId::ServerAddress => ModId::ServerAddress,
+            HudModId::ItemCounter => ModId::ItemCounter,
         }
     }
 
@@ -275,6 +323,12 @@ impl Registry {
             HudModId::PotionEffects => self.mods.potion_effects.default_placement,
             HudModId::Watermark => self.mods.watermark.default_placement,
             HudModId::Direction => self.mods.direction.default_placement,
+            HudModId::Combo => self.mods.combo.default_placement,
+            HudModId::Saturation => self.mods.saturation.default_placement,
+            HudModId::Momentum => self.mods.momentum.default_placement,
+            HudModId::Memory => self.mods.memory.default_placement,
+            HudModId::ServerAddress => self.mods.server_address.default_placement,
+            HudModId::ItemCounter => self.mods.item_counter.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -467,6 +521,94 @@ pub enum DirectionStyle {
     Word,
     /// `axis` prints the Minecraft world axis instead (`+X`.
     Axis,
+}
+
+/// How the value is drawn. `number` prints the figure, and it is the default because saturation
+/// is read against a *threshold* rather than as a quantity: in 1.8 combat regeneration runs
+/// while saturation is above zero and stops the instant it is not, so the only reading that
+/// matters is how close to zero you are, and a bar cannot be read to that precision at a
+/// glance. `bar` draws it as a fill, in the shape of the hunger row it is the hidden half of,
+/// for a player who wants it to look like part of the vanilla HUD. `both` puts the figure
+/// beside the fill for the player who wants the shape *and* the cliff.
+///
+/// `mods.json#/definitions/saturation_settings/properties/style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SaturationStyle {
+    /// `number` prints the figure, and it is the default because saturation is read against a
+    /// *threshold* rather than as a quantity.
+    Number,
+    /// `bar` draws it as a fill, in the shape of the hunger row it is the hidden half of, for a
+    /// player who wants it to look like part of the vanilla HUD.
+    Bar,
+    /// `both` puts the figure beside the fill for the player who wants the shape *and* the
+    /// cliff.
+    Both,
+}
+
+/// Which unit the figure is printed in. `bps` — blocks per second — is the default because the
+/// block is the unit every other thing a player reasons about is already in: reach, knockback,
+/// sprint-jump distance, the gap you are trying to clear. A number in blocks can be compared
+/// against the world without arithmetic. `kmh` is the same reading multiplied by 3.6 and it
+/// exists because it is the number players quote at each other; it reads as faster and it is
+/// genuinely easier to see small differences in, which is what a movement-mechanics player
+/// wants out of it.
+///
+/// `mods.json#/definitions/momentum_settings/properties/unit`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MomentumUnit {
+    /// `bps` — blocks per second — is the default because the block is the unit every other
+    /// thing a player reasons about is already in.
+    Bps,
+    /// `kmh` is the same reading multiplied by 3.6 and it exists because it is the number
+    /// players quote at each other.
+    Kmh,
+}
+
+/// What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a heap figure
+/// on its own answers nothing: 1400 MB is idle on an 8 G allocation and terminal on a 2 G one,
+/// so the ceiling is half the reading and the player is the only one who knows which they
+/// launched with. `used` is the bare figure, for a player who already knows their ceiling and
+/// wants the narrowest chip. `percent` is the same comparison pre-done, which is the smallest
+/// form that still means something, at the cost of the absolute numbers you would quote in a
+/// bug report.
+///
+/// `mods.json#/definitions/memory_settings/properties/style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryStyle {
+    /// `used` is the bare figure, for a player who already knows their ceiling and wants the
+    /// narrowest chip.
+    Used,
+    /// `used_of_max` — `1400/4096 MB` — is the default because a heap figure on its own answers
+    /// nothing.
+    UsedOfMax,
+    /// `percent` is the same comparison pre-done, which is the smallest form that still means
+    /// something, at the cost of the absolute numbers you would quote in a bug report.
+    Percent,
+}
+
+/// How much of the host is printed. `short` keeps the part players actually say out loud —
+/// `hypixel` out of `mc.hypixel.net` — and is the default because on a chip the leading `mc.`
+/// and the trailing `.net` are the two pieces that never differ between the servers a player
+/// switches between, so they cost width and carry no information. `full` prints the address
+/// exactly as it was connected to, which is what you want on a network with several proxies, on
+/// a bare IP, or in a screenshot that has to be reproducible by somebody else.
+///
+/// `mods.json#/definitions/server_address_settings/properties/style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ServerAddressStyle {
+    /// `short` keeps the part players actually say out loud — `hypixel` out of `mc.hypixel.net`
+    /// — and is the default because on a chip the leading `mc.` and the trailing `.net` are the
+    /// two pieces that never differ between the servers a player switches between, so they cost
+    /// width and carry no information.
+    Short,
+    /// `full` prints the address exactly as it was connected to, which is what you want on a
+    /// network with several proxies, on a bare IP, or in a screenshot that has to be
+    /// reproducible by somebody else.
+    Full,
 }
 
 // ---------------------------------------------------------------------------
@@ -1204,11 +1346,421 @@ pub struct DirectionSettings {
     pub color: Option<HexColor>,
 }
 
+/// Combo counter settings.
+///
+/// Settings for the Combo counter HUD mod. Derived in JS from the monotonic `hits` counters on
+/// the tick payload rather than sent as a combo: `bridge.json`'s `hits` records why. The sensor
+/// ships `dealt` and `taken` as counters that only ever go up, so a tick lost to coalescing
+/// leaves a counter that jumps by two rather than a hit that never happened — and it
+/// deliberately holds no opinion about when a combo expires, because the expiry is `reset_ms`
+/// below, a setting on this mod. A sensor that timed out on its own would be a UI policy baked
+/// into the wire, and two readers with different `reset_ms` values could not share it. `cps`
+/// set the precedent: it is derived entirely in JS from click edges and has no Java sensor
+/// either. What is deliberately *not* here is a switch for hiding the chip at zero — the widget
+/// does that on its own, and the `$comment` at the top of this file is why.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComboSettings {
+    /// Whether the combo counter is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the combo chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the combo chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the combo chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the combo chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the combo chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// How long without landing a hit before the count drops back to zero. This is the timeout
+    /// the sensor refuses to have — it sends counters, and the policy lives here. 3000 ms
+    /// because a 1.8 combo is bounded by knockback recovery rather than by a clock: consecutive
+    /// hits in a real chase are well under a second apart, so three seconds forgives one
+    /// whiffed swing and the sprint back into range, while still clearing the chip before the
+    /// fight it described is over. Lower makes the counter honest about a broken chain; higher
+    /// leaves a stale number on screen after the target is already dead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_ms: Option<i64>,
+
+    /// Whether the trailing "COMBO" unit is drawn after the figure. A bare number on a chip of
+    /// its own is ambiguous in a way the other readouts are not — there is no unit that gives
+    /// it away the way `ms` or `FPS` do — so this defaults on and is worth turning off only
+    /// once the chip's position has taught you what it is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+}
+
+/// Saturation settings.
+///
+/// Settings for the Saturation HUD mod. Reads `FoodStats#getSaturationLevel` off the tick
+/// payload, which value-checks it rather than rate-limiting it: saturation moves when you eat
+/// and when you exert yourself, not on a clock, so every push is news. Vanilla draws the hunger
+/// bar and hides the number underneath it, which is the whole argument for the mod — see
+/// `description`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaturationSettings {
+    /// Whether the saturation readout is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the saturation readout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the saturation readout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the saturation readout, as a step on the system's own scale rather
+    /// than a colour. `none` is the vanilla treatment and the default — the readout sits on the
+    /// game. `subtle` is the card ground at low alpha, which is enough to hold a chip together
+    /// over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD
+    /// to read as a panel. A step rather than a hex value because a per-mod background colour
+    /// is what §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the saturation readout, at the system's own
+    /// `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as
+    /// `background`: the edge either separates the chip from the game or it does not, and the
+    /// one useful answer is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the saturation readout — the inset between its content and its edge, as one
+    /// of three steps. `density` is named in §1 as legitimate customisation, and it is what a
+    /// player actually means by 'make the HUD smaller' when `scale` has already made the text
+    /// too small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// How the value is drawn. `number` prints the figure, and it is the default because
+    /// saturation is read against a *threshold* rather than as a quantity: in 1.8 combat
+    /// regeneration runs while saturation is above zero and stops the instant it is not, so the
+    /// only reading that matters is how close to zero you are, and a bar cannot be read to that
+    /// precision at a glance. `bar` draws it as a fill, in the shape of the hunger row it is
+    /// the hidden half of, for a player who wants it to look like part of the vanilla HUD.
+    /// `both` puts the figure beside the fill for the player who wants the shape *and* the
+    /// cliff.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<SaturationStyle>,
+
+    /// Decimal places on the figure. 1 by default, because saturation drains in fractions of a
+    /// point and the difference between `0.4` and `0` is the difference between regenerating
+    /// and not — rounding that to a whole number hides the one transition the readout exists to
+    /// show. 0 is for a player who only wants to know roughly how much food is left in the tank
+    /// and would rather the chip stopped twitching. The bound is 0-2 rather than the 0-1 this
+    /// readout would pick on its own: `decimals` means the same thing in `coordinates` and in
+    /// `momentum` and both are capped at 2, and `packages/protocol`'s generator keys
+    /// `SETTING_BOUNDS` by property *name* precisely so that one name cannot mean two ranges —
+    /// it throws rather than hand one mod the other's slider. A second place is honest here
+    /// anyway (the sensor sends a raw float, unrounded), it is just rarely worth the width.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decimals: Option<i64>,
+
+    /// Whether the trailing "SAT" unit is drawn after the figure. Saturation shares its range
+    /// with hunger (both 0-20) and sits near it on most layouts, so the label is what stops the
+    /// two being read as each other.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+}
+
+/// Momentum settings.
+///
+/// Settings for the Momentum HUD mod. Reads `speed` off the tick payload, which is
+/// **horizontal** ground speed and horizontal on purpose: falling is not momentum a player is
+/// steering, and folding the vertical component in would spike the number on every drop and off
+/// every jump, which is exactly when the readout is least useful. The sensor rounds to 2 dp and
+/// rate-limits, because speed changes every tick while you are moving and an uncoalesced field
+/// costs a full-surface repaint — so `decimals` below cannot ask for precision the wire does
+/// not carry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MomentumSettings {
+    /// Whether the momentum readout is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the speed chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the speed chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the speed chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the speed chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the speed chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Which unit the figure is printed in. `bps` — blocks per second — is the default because
+    /// the block is the unit every other thing a player reasons about is already in: reach,
+    /// knockback, sprint-jump distance, the gap you are trying to clear. A number in blocks can
+    /// be compared against the world without arithmetic. `kmh` is the same reading multiplied
+    /// by 3.6 and it exists because it is the number players quote at each other; it reads as
+    /// faster and it is genuinely easier to see small differences in, which is what a
+    /// movement-mechanics player wants out of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<MomentumUnit>,
+
+    /// Decimal places on the figure. 2 by default, and 2 is also the ceiling — the sensor
+    /// rounds to 2 dp before it sends, so a third place would be inventing digits the wire
+    /// never carried. 2 is where the differences a player is chasing actually live:
+    /// sprint-jumping and plain sprinting are about 0.4 blocks/second apart, and ice, soul sand
+    /// and a speed potion each move the last two places rather than the first. 0 or 1 is for a
+    /// player who wants the magnitude without a chip that flickers every tick.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decimals: Option<i64>,
+
+    /// Whether the trailing unit (`bps` or `km/h`) is drawn after the figure. Worth keeping
+    /// while `unit` is anything but the one you always use: the two readings differ by 3.6x and
+    /// a bare number is silently ambiguous between them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+}
+
+/// Memory settings.
+///
+/// Settings for the Memory HUD mod. Reads the `memory` object on the tick payload — heap in use
+/// and `Runtime.maxMemory`, both in mebibytes. That field is **rate-limited hard** at the
+/// sensor, and `bridge.json` says why: heap moves constantly, nobody reads it twenty times a
+/// second, and it is the single field most able to undo the coalescing the whole tick payload
+/// exists for. So this readout is deliberately not live to the tick; it is a gauge you glance
+/// at when the game stutters, which is what `show_bar` below is defaulted against.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemorySettings {
+    /// Whether the memory readout is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the memory chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the memory chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the memory chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the memory chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the memory chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a heap
+    /// figure on its own answers nothing: 1400 MB is idle on an 8 G allocation and terminal on
+    /// a 2 G one, so the ceiling is half the reading and the player is the only one who knows
+    /// which they launched with. `used` is the bare figure, for a player who already knows
+    /// their ceiling and wants the narrowest chip. `percent` is the same comparison pre-done,
+    /// which is the smallest form that still means something, at the cost of the absolute
+    /// numbers you would quote in a bug report.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<MemoryStyle>,
+
+    /// Whether a fill bar is drawn under the figure. Off by default, and the reason is the
+    /// sensor: `memory` is rate-limited hard, so the bar would move in visible steps rather
+    /// than sweep, and a bar that jumps reads as a broken bar rather than as a coarse one. A
+    /// bar also invites watching, and heap is not a number worth watching — the useful reading
+    /// is a glance after a stutter, which the figure alone already answers. On for a player who
+    /// wants headroom legible without parsing two numbers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_bar: Option<bool>,
+
+    /// Whether the trailing unit is drawn — `MB` on `used` and `used_of_max`, `%` on `percent`.
+    /// Off makes the chip narrower at the cost of leaving a four-digit number with nothing to
+    /// say what it counts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+}
+
+/// Server address settings.
+///
+/// Settings for the Server address HUD mod. Reads `host` from the `server` bridge event, which
+/// is pushed on connect and on disconnect and carries an empty string on the way out — so "not
+/// connected" is a state this mod can see, and the chip simply draws nothing in it rather than
+/// offering a switch about it. `ping.show_host` is deliberately kept alongside this mod: that
+/// is the inline form, a shortened host printed after the latency figure, and this is the
+/// standalone one a player places on its own — the same split Coordinates and Direction already
+/// make between a suffix and a chip. Neither reads the other's settings. One setting is all a
+/// hostname supports; the file's `$comment` says why that is the honest count.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ServerAddressSettings {
+    /// Whether the server address is drawn.
+    pub on: bool,
+
+    /// Size multiplier of the host chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the host chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the host chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the host chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the host chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// How much of the host is printed. `short` keeps the part players actually say out loud —
+    /// `hypixel` out of `mc.hypixel.net` — and is the default because on a chip the leading
+    /// `mc.` and the trailing `.net` are the two pieces that never differ between the servers a
+    /// player switches between, so they cost width and carry no information. `full` prints the
+    /// address exactly as it was connected to, which is what you want on a network with several
+    /// proxies, on a bare IP, or in a screenshot that has to be reproducible by somebody else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<ServerAddressStyle>,
+}
+
+/// Item counter settings.
+///
+/// Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the
+/// stack size of the **held** item and nothing else. Be clear about the scope, because the name
+/// is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen*
+/// item across the whole inventory — tell it pearls, and it counts your pearls whether or not
+/// they are in your hand. This one counts the hand, because `held_count` is the sensor that
+/// exists. It answers "how many blocks are left" while you are bridging with them and "how many
+/// gapples" while you are holding one; it does not answer "how many pearls do I have" while you
+/// are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to
+/// pick the item it watches, and neither exists yet; when they do, that is a superset of this
+/// mod rather than a rewrite of it. The stack size is value-checked at the sensor rather than
+/// rate-limited: it changes on use, not on a clock, so every push is news.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ItemCounterSettings {
+    /// Whether the item counter is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the count chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the count chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the count chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the count chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the count chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Whether the count is prefixed with the multiplication sign — `x12` rather than `12`. On
+    /// by default: the chip sits next to a CPS figure and above a keystrokes block, so a bare
+    /// integer in that corner is a number among numbers, and the `x` is the cheapest thing that
+    /// says it is a quantity of something rather than a rate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+
+    /// A count at or below this many draws in the warn treatment instead of the normal ink. **0
+    /// disables the warning entirely, and 0 is the default**, because what counts as low
+    /// depends completely on what is in the hand: eight is nearly out of blocks and a generous
+    /// stash of pearls, and a client that guessed one number would be wrong for every player
+    /// who does not build the way it assumed. So VOID does not guess — a player who knows what
+    /// they are counting sets it, and everybody else gets a chip that never cries wolf. The
+    /// ceiling is 64: a full stack, above which the warning would be permanently on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub low_threshold: Option<i64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 14.
+/// Every mod VOID ships, keyed by id. Closed set of 20.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -1257,6 +1809,25 @@ pub struct ModRegistryEntries {
 
     /// Direction — Which way you are facing, as its own placeable readout.
     pub direction: ModEntry<DirectionSettings>,
+
+    /// Combo counter — Consecutive hits landed without being hit back.
+    pub combo: ModEntry<ComboSettings>,
+
+    /// Saturation — The hidden half of the hunger bar — what actually decides whether you
+    /// regenerate.
+    pub saturation: ModEntry<SaturationSettings>,
+
+    /// Momentum — How fast you are actually travelling across the ground.
+    pub momentum: ModEntry<MomentumSettings>,
+
+    /// Memory — JVM heap in use, against the ceiling the launcher gave the game.
+    pub memory: ModEntry<MemorySettings>,
+
+    /// Server address — The host you are actually connected to.
+    pub server_address: ModEntry<ServerAddressSettings>,
+
+    /// Item counter — How many of the item in your hand you have left.
+    pub item_counter: ModEntry<ItemCounterSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -1296,6 +1867,18 @@ pub struct ModStates {
     pub crosshair: Option<CrosshairSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direction: Option<DirectionSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub combo: Option<ComboSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saturation: Option<SaturationSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub momentum: Option<MomentumSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<MemorySettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_address: Option<ServerAddressSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_counter: Option<ItemCounterSettings>,
 }
 
 impl Registry {
@@ -1316,6 +1899,12 @@ impl Registry {
             ModId::Zoom => self.mods.zoom.info(),
             ModId::Crosshair => self.mods.crosshair.info(),
             ModId::Direction => self.mods.direction.info(),
+            ModId::Combo => self.mods.combo.info(),
+            ModId::Saturation => self.mods.saturation.info(),
+            ModId::Momentum => self.mods.momentum.info(),
+            ModId::Memory => self.mods.memory.info(),
+            ModId::ServerAddress => self.mods.server_address.info(),
+            ModId::ItemCounter => self.mods.item_counter.info(),
         }
     }
 
@@ -1338,6 +1927,12 @@ impl Registry {
             ModId::Zoom => self.mods.zoom.defaults_object(),
             ModId::Crosshair => self.mods.crosshair.defaults_object(),
             ModId::Direction => self.mods.direction.defaults_object(),
+            ModId::Combo => self.mods.combo.defaults_object(),
+            ModId::Saturation => self.mods.saturation.defaults_object(),
+            ModId::Momentum => self.mods.momentum.defaults_object(),
+            ModId::Memory => self.mods.memory.defaults_object(),
+            ModId::ServerAddress => self.mods.server_address.defaults_object(),
+            ModId::ItemCounter => self.mods.item_counter.defaults_object(),
         }
     }
 }
@@ -1361,6 +1956,12 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::Zoom => super::check::<ZoomSettings>(id, value),
         ModId::Crosshair => super::check::<CrosshairSettings>(id, value),
         ModId::Direction => super::check::<DirectionSettings>(id, value),
+        ModId::Combo => super::check::<ComboSettings>(id, value),
+        ModId::Saturation => super::check::<SaturationSettings>(id, value),
+        ModId::Momentum => super::check::<MomentumSettings>(id, value),
+        ModId::Memory => super::check::<MemorySettings>(id, value),
+        ModId::ServerAddress => super::check::<ServerAddressSettings>(id, value),
+        ModId::ItemCounter => super::check::<ItemCounterSettings>(id, value),
     }
 }
 

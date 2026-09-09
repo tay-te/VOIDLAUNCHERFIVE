@@ -1,0 +1,49 @@
+{
+  "id": "momentum",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Momentum",
+  "icon": "move",
+  "the": false,
+  "noun": "the speed chip",
+  "on_description": "the momentum readout is enabled",
+  "description": "How fast you are actually travelling across the ground.",
+  "settings_title": "Momentum settings",
+  "settings_description": "Settings for the Momentum HUD mod. Reads `speed` off the tick payload, which is **horizontal** ground speed and horizontal on purpose: falling is not momentum a player is steering, and folding the vertical component in would spike the number on every drop and off every jump, which is exactly when the readout is least useful. The sensor rounds to 2 dp and rate-limits, because speed changes every tick while you are moving and an uncoalesced field costs a full-surface repaint — so `decimals` below cannot ask for precision the wire does not carry.",
+  "source": "horizontal ground speed (`speed`) on the tick payload",
+  "enabled": false,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 293
+  },
+  "defaults": {
+    "unit": "bps",
+    "decimals": 2,
+    "show_label": true
+  },
+  "settings": {
+    "unit": {
+      "description": "Which unit the figure is printed in. `bps` — blocks per second — is the default because the block is the unit every other thing a player reasons about is already in: reach, knockback, sprint-jump distance, the gap you are trying to clear. A number in blocks can be compared against the world without arithmetic. `kmh` is the same reading multiplied by 3.6 and it exists because it is the number players quote at each other; it reads as faster and it is genuinely easier to see small differences in, which is what a movement-mechanics player wants out of it.",
+      "type": "string",
+      "enum": [
+        "bps",
+        "kmh"
+      ],
+      "default": "bps"
+    },
+    "decimals": {
+      "description": "Decimal places on the figure. 2 by default, and 2 is also the ceiling — the sensor rounds to 2 dp before it sends, so a third place would be inventing digits the wire never carried. 2 is where the differences a player is chasing actually live: sprint-jumping and plain sprinting are about 0.4 blocks/second apart, and ice, soul sand and a speed potion each move the last two places rather than the first. 0 or 1 is for a player who wants the magnitude without a chip that flickers every tick.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "default": 2
+    },
+    "show_label": {
+      "description": "Whether the trailing unit (`bps` or `km/h`) is drawn after the figure. Worth keeping while `unit` is anything but the one you always use: the two readings differ by 3.6x and a bare number is silently ambiguous between them.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

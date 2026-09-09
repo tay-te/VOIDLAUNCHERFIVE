@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the fourteen mods.
+ * The closed registry of the twenty mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -171,7 +171,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (9) — they read game state and draw --------------------------------------
+        // --- HUD mods (15) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -515,7 +515,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (9) — they read game state and draw --------------------------------------
+        // --- HUD mods (15) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -548,7 +548,197 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/hex_color.
                 "color", color("#FFFFFF"));
 
-        // --- The factory HUD layout (9) — where each widget starts -----------------------------
+        // Combo counter — kind hud, pvp tab, §11 safe.
+        // Consecutive hits landed without being hit back.
+        // Source: derived in JS from the monotonic `hits.dealt`/`hits.taken` counters on the tick
+        // payload.
+        mod("combo", Kind.HUD, Category.PVP, "Combo counter",
+                // Whether the combo counter is enabled.
+                "on", bool(true),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // How long without landing a hit before the count drops back to zero. This is the
+                // timeout the sensor refuses to have — it sends counters, and the policy lives
+                // here. 3000 ms because a 1.8 combo is bounded by knockback recovery rather than
+                // by a clock: consecutive hits in a real chase are well under a second apart, so
+                // three seconds forgives one whiffed swing and the sprint back into range, while
+                // still clearing the chip before the fight it described is over. Lower makes the
+                // counter honest about a broken chain; higher leaves a stale number on screen
+                // after the target is already dead.
+                "reset_ms", integer(500, 10000, 3000),
+                // Whether the trailing "COMBO" unit is drawn after the figure. A bare number on a
+                // chip of its own is ambiguous in a way the other readouts are not — there is no
+                // unit that gives it away the way `ms` or `FPS` do — so this defaults on and is
+                // worth turning off only once the chip's position has taught you what it is.
+                "show_label", bool(true));
+
+        // Saturation — kind hud, hud tab, §11 safe.
+        // The hidden half of the hunger bar — what actually decides whether you regenerate.
+        // Source: `FoodStats#getSaturationLevel`, via the tick sensor.
+        mod("saturation", Kind.HUD, Category.HUD, "Saturation",
+                // Whether the saturation readout is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // How the value is drawn. `number` prints the figure, and it is the default
+                // because saturation is read against a *threshold* rather than as a quantity: in
+                // 1.8 combat regeneration runs while saturation is above zero and stops the
+                // instant it is not, so the only reading that matters is how close to zero you
+                // are, and a bar cannot be read to that precision at a glance. `bar` draws it as
+                // a fill, in the shape of the hunger row it is the hidden half of, for a player
+                // who wants it to look like part of the vanilla HUD. `both` puts the figure
+                // beside the fill for the player who wants the shape *and* the cliff.
+                "style", enumOf("number", "number", "bar", "both"),
+                // Decimal places on the figure. 1 by default, because saturation drains in
+                // fractions of a point and the difference between `0.4` and `0` is the difference
+                // between regenerating and not — rounding that to a whole number hides the one
+                // transition the readout exists to show. 0 is for a player who only wants to know
+                // roughly how much food is left in the tank and would rather the chip stopped
+                // twitching. The bound is 0-2 rather than the 0-1 this readout would pick on its
+                // own: `decimals` means the same thing in `coordinates` and in `momentum` and
+                // both are capped at 2, and `packages/protocol`'s generator keys `SETTING_BOUNDS`
+                // by property *name* precisely so that one name cannot mean two ranges — it
+                // throws rather than hand one mod the other's slider. A second place is honest
+                // here anyway (the sensor sends a raw float, unrounded), it is just rarely worth
+                // the width.
+                "decimals", integer(0, 2, 1),
+                // Whether the trailing "SAT" unit is drawn after the figure. Saturation shares
+                // its range with hunger (both 0-20) and sits near it on most layouts, so the
+                // label is what stops the two being read as each other.
+                "show_label", bool(true));
+
+        // Momentum — kind hud, hud tab, §11 safe.
+        // How fast you are actually travelling across the ground.
+        // Source: horizontal ground speed (`speed`) on the tick payload.
+        mod("momentum", Kind.HUD, Category.HUD, "Momentum",
+                // Whether the momentum readout is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // Which unit the figure is printed in. `bps` — blocks per second — is the default
+                // because the block is the unit every other thing a player reasons about is
+                // already in: reach, knockback, sprint-jump distance, the gap you are trying to
+                // clear. A number in blocks can be compared against the world without arithmetic.
+                // `kmh` is the same reading multiplied by 3.6 and it exists because it is the
+                // number players quote at each other; it reads as faster and it is genuinely
+                // easier to see small differences in, which is what a movement-mechanics player
+                // wants out of it.
+                "unit", enumOf("bps", "bps", "kmh"),
+                // Decimal places on the figure. 2 by default, and 2 is also the ceiling — the
+                // sensor rounds to 2 dp before it sends, so a third place would be inventing
+                // digits the wire never carried. 2 is where the differences a player is chasing
+                // actually live: sprint-jumping and plain sprinting are about 0.4 blocks/second
+                // apart, and ice, soul sand and a speed potion each move the last two places
+                // rather than the first. 0 or 1 is for a player who wants the magnitude without a
+                // chip that flickers every tick.
+                "decimals", integer(0, 2, 2),
+                // Whether the trailing unit (`bps` or `km/h`) is drawn after the figure. Worth
+                // keeping while `unit` is anything but the one you always use: the two readings
+                // differ by 3.6x and a bare number is silently ambiguous between them.
+                "show_label", bool(true));
+
+        // Memory — kind hud, hud tab, §11 safe.
+        // JVM heap in use, against the ceiling the launcher gave the game.
+        // Source: heap in use and `Runtime.maxMemory` (`memory`), via the tick sensor.
+        mod("memory", Kind.HUD, Category.HUD, "Memory",
+                // Whether the memory readout is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a
+                // heap figure on its own answers nothing: 1400 MB is idle on an 8 G allocation
+                // and terminal on a 2 G one, so the ceiling is half the reading and the player is
+                // the only one who knows which they launched with. `used` is the bare figure, for
+                // a player who already knows their ceiling and wants the narrowest chip.
+                // `percent` is the same comparison pre-done, which is the smallest form that
+                // still means something, at the cost of the absolute numbers you would quote in a
+                // bug report.
+                "style", enumOf("used_of_max", "used", "used_of_max", "percent"),
+                // Whether a fill bar is drawn under the figure. Off by default, and the reason is
+                // the sensor: `memory` is rate-limited hard, so the bar would move in visible
+                // steps rather than sweep, and a bar that jumps reads as a broken bar rather than
+                // as a coarse one. A bar also invites watching, and heap is not a number worth
+                // watching — the useful reading is a glance after a stutter, which the figure
+                // alone already answers. On for a player who wants headroom legible without
+                // parsing two numbers.
+                "show_bar", bool(false),
+                // Whether the trailing unit is drawn — `MB` on `used` and `used_of_max`, `%` on
+                // `percent`. Off makes the chip narrower at the cost of leaving a four-digit
+                // number with nothing to say what it counts.
+                "show_label", bool(true));
+
+        // Server address — kind hud, utility tab, §11 safe.
+        // The host you are actually connected to.
+        // Source: `host` on the `server` bridge event.
+        mod("server_address", Kind.HUD, Category.UTILITY, "Server address",
+                // Whether the server address is drawn.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // How much of the host is printed. `short` keeps the part players actually say
+                // out loud — `hypixel` out of `mc.hypixel.net` — and is the default because on a
+                // chip the leading `mc.` and the trailing `.net` are the two pieces that never
+                // differ between the servers a player switches between, so they cost width and
+                // carry no information. `full` prints the address exactly as it was connected to,
+                // which is what you want on a network with several proxies, on a bare IP, or in a
+                // screenshot that has to be reproducible by somebody else.
+                "style", enumOf("short", "short", "full"));
+
+        // Item counter — kind hud, pvp tab, §11 safe.
+        // How many of the item in your hand you have left.
+        // Source: `held_count` on the tick payload — the stack size of the held item.
+        mod("item_counter", Kind.HUD, Category.PVP, "Item counter",
+                // Whether the item counter is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // Whether the count is prefixed with the multiplication sign — `x12` rather than
+                // `12`. On by default: the chip sits next to a CPS figure and above a keystrokes
+                // block, so a bare integer in that corner is a number among numbers, and the `x`
+                // is the cheapest thing that says it is a quantity of something rather than a
+                // rate.
+                "show_label", bool(true),
+                // A count at or below this many draws in the warn treatment instead of the normal
+                // ink. **0 disables the warning entirely, and 0 is the default**, because what
+                // counts as low depends completely on what is in the hand: eight is nearly out of
+                // blocks and a generous stash of pearls, and a client that guessed one number
+                // would be wrong for every player who does not build the way it assumed. So VOID
+                // does not guess — a player who knows what they are counting sets it, and
+                // everybody else gets a chip that never cries wolf. The ceiling is 64: a full
+                // stack, above which the warning would be permanently on.
+                "low_threshold", integer(0, 64, 0));
+
+        // --- The factory HUD layout (15) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -591,13 +781,44 @@ public final class ModRegistry {
         // them makes the difference — a position, versus a facing — visible at a glance rather
         // than argued about.
         place("direction", "top-left", 23, 179);
+
+        // Combo counter: The sixth and last row of the left column, 38 px under Direction on this
+        // table's rhythm. NOT "under Coordinates, the mod players confuse it with" — that
+        // argument belongs to Direction and Direction has held `dy 179` since it was added. What
+        // this row actually is, is the *bottom* of the column the eye already sweeps: the five
+        // above it are ambient readouts checked between fights, and the combo is the one that
+        // means nothing except during one. Last in the stack puts a fight-time number somewhere
+        // already looked at without dropping it into the middle of that sweep.
+        place("combo", "top-left", 23, 217);
+        place("saturation", "top-left", 23, 255);
+        place("momentum", "top-left", 23, 293);
+
+        // Memory: Opens the bottom-right corner, which the factory layout does not otherwise use.
+        // Both mods that live there — this and Server address, 38 px above it — are
+        // *diagnostics*: you read them when something is wrong, not while it is going wrong.
+        // Keeping them opposite the top-left reference stack means the glance for "is the client
+        // healthy" never crosses the column holding the glance for "where am I". The insets match
+        // the corners already in use: 25 px in from the right edge as the top-right stack is, 23
+        // px up from the bottom as the top-left stack is down from the top.
+        place("memory", "bottom-right", -25, -23);
+        place("server_address", "bottom-right", -25, -61);
+
+        // Item counter: Above the CPS chip, in the hand-and-clicks corner, and in the **175
+        // column rather than the 31 one**. The bottom-left corner has two columns because
+        // Keystrokes at `dx 31` is a *tall* widget: a WASD block with a mouse row and a space bar
+        // under it is over a hundred design-canvas pixels of column, so 31 is spoken for far
+        // above its own `dy -109`, and anything stacked there lands on the caps. 175 is the
+        // column that already answers the same question this mod does — CPS at `dy -108` is how
+        // fast the hand is going, and the held stack directly above it at -146 is what the hand
+        // is going *through*. The 38 px gap is this table's rhythm.
+        place("item_counter", "bottom-left", 175, -146);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The fourteen mod ids, in registry order. */
+    /** The twenty mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

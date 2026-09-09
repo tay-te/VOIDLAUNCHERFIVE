@@ -199,10 +199,13 @@ function loadout(overrides = {}, hud = HUD) {
  */
 export const STEPS = [
   { name: 'baseline-all-huds', why: 'every HUD widget on, factory placement', state: loadout() },
+  // Derived from HUD_MOD_IDS, not listed. The literal list that used to be here named the
+  // eight original HUD mods and was never extended: `direction` shipped and this step kept
+  // asserting that the *other* eight go away, which is a step that passes while proving less
+  // than it claims. Same lesson as `HUD` and `baseMods()` above, in the one place it had not
+  // been applied yet — and the six Wave 3 readouts are covered by it for free.
   { name: 'hud-all-off', why: 'the on switch genuinely gates each widget',
-    state: loadout(Object.fromEntries(
-      ['fps', 'keystrokes', 'cps', 'ping', 'coordinates', 'armor_status', 'potion_effects',
-       'watermark'].map((id) => [id, { on: false }]))) },
+    state: loadout(Object.fromEntries(HUD_MOD_IDS.map((id) => [id, { on: false }]))) },
 
   { name: 'fps-color-mint', why: 'fps.color tints the figure and not the unit',
     state: loadout({ fps: { color: '#7AE0B0' } }) },
@@ -388,6 +391,55 @@ export const STEPS = [
     state: loadout({ hitboxes: { on: true, line_width: 3, color: '#FF9E7A', max_distance: 4 } }) },
   { name: 'hitbox-far-again', why: '…and 64 brings them back, so the cutoff is the setting and not the world',
     state: loadout({ hitboxes: { on: true, line_width: 3, color: '#FF9E7A', max_distance: 64 } }) },
+
+  /* ---------------------------------------------------------------------- */
+  /* Wave 3 — the six readouts fed by tick_payload fields that already existed */
+  /*                                                                        */
+  /* All six are in the baseline shot already (`baseMods()` forces every HUD */
+  /* mod on), so what is missing is the second value: each step below states */
+  /* the one the baseline does *not* hold, because a setting pushed at one   */
+  /* value only proves the loadout parses.                                   */
+  /*                                                                        */
+  /* `combo.reset_ms` has no step, for the same reason `cps.window_ms` has   */
+  /* none: it is a timeout, and two timeouts produce the same still frame.   */
+  /* It is verified by `packages/ingame`'s tests, against a clock.           */
+  /* ---------------------------------------------------------------------- */
+
+  { name: 'combo-no-label', why: 'combo.show_label drops the trailing COMBO unit',
+    state: loadout({ combo: { show_label: false } }) },
+
+  { name: 'saturation-bar', why: 'saturation.style bar draws a fill where the baseline prints a figure',
+    state: loadout({ saturation: { style: 'bar' } }) },
+  { name: 'saturation-both', why: 'saturation.style both is figure AND fill, not either one',
+    state: loadout({ saturation: { style: 'both' } }) },
+  { name: 'saturation-decimals-0', why: 'saturation.decimals 0 rounds off the fraction the default shows',
+    state: loadout({ saturation: { decimals: 0 } }) },
+  { name: 'saturation-no-label', why: 'saturation.show_label drops the SAT unit',
+    state: loadout({ saturation: { show_label: false } }) },
+
+  { name: 'momentum-kmh', why: 'momentum.unit kmh is the same speed x3.6, so both figure and unit change',
+    state: loadout({ momentum: { unit: 'kmh' } }) },
+  { name: 'momentum-decimals-0', why: 'momentum.decimals 0 — VOID_UI_AUTOWALK is moving, so there is a figure to round',
+    state: loadout({ momentum: { decimals: 0 } }) },
+  { name: 'momentum-no-label', why: 'momentum.show_label drops the bps unit',
+    state: loadout({ momentum: { show_label: false } }) },
+
+  { name: 'memory-used', why: 'memory.style used drops the ceiling the default prints beside it',
+    state: loadout({ memory: { style: 'used' } }) },
+  { name: 'memory-percent', why: 'memory.style percent is one figure and a % where used_of_max is two and MB',
+    state: loadout({ memory: { style: 'percent' } }) },
+  { name: 'memory-bar', why: 'memory.show_bar adds the fill under the figure',
+    state: loadout({ memory: { show_bar: true } }) },
+  { name: 'memory-no-label', why: 'memory.show_label drops the MB unit',
+    state: loadout({ memory: { show_label: false } }) },
+
+  { name: 'server-full', why: 'server_address.style full prints the whole host the short form trims',
+    state: loadout({ server_address: { style: 'full' } }) },
+
+  { name: 'item-count-no-label', why: 'item_counter.show_label drops the leading x',
+    state: loadout({ item_counter: { show_label: false } }) },
+  { name: 'item-count-warn', why: 'item_counter.low_threshold 64 warns on any stack — the default 0 never warns',
+    state: loadout({ item_counter: { low_threshold: 64 } }) },
 ];
 
 /* -------------------------------------------------------------------------- */

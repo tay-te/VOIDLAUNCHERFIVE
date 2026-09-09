@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 6,
+  "version": 7,
   "mods": {
     "fps": {
       "id": "fps",
@@ -345,6 +345,158 @@ export const MOD_REGISTRY_DOCUMENT = {
         "anchor": "top-left",
         "dx": 23,
         "dy": 179
+      }
+    },
+    "combo": {
+      "id": "combo",
+      "kind": "hud",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Combo counter",
+      "icon": "sword",
+      "description": "Consecutive hits landed without being hit back.",
+      "source": "derived in JS from the monotonic `hits.dealt`/`hits.taken` counters on the tick payload",
+      "defaults": {
+        "on": true,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "reset_ms": 3000,
+        "show_label": true
+      },
+      "default_placement": {
+        "anchor": "top-left",
+        "dx": 23,
+        "dy": 217
+      }
+    },
+    "saturation": {
+      "id": "saturation",
+      "kind": "hud",
+      "category": "hud",
+      "hypixel_safe": "safe",
+      "label": "Saturation",
+      "icon": "heart",
+      "description": "The hidden half of the hunger bar — what actually decides whether you regenerate.",
+      "source": "`FoodStats#getSaturationLevel`, via the tick sensor",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "style": "number",
+        "decimals": 1,
+        "show_label": true
+      },
+      "default_placement": {
+        "anchor": "top-left",
+        "dx": 23,
+        "dy": 255
+      }
+    },
+    "momentum": {
+      "id": "momentum",
+      "kind": "hud",
+      "category": "hud",
+      "hypixel_safe": "safe",
+      "label": "Momentum",
+      "icon": "move",
+      "description": "How fast you are actually travelling across the ground.",
+      "source": "horizontal ground speed (`speed`) on the tick payload",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "unit": "bps",
+        "decimals": 2,
+        "show_label": true
+      },
+      "default_placement": {
+        "anchor": "top-left",
+        "dx": 23,
+        "dy": 293
+      }
+    },
+    "memory": {
+      "id": "memory",
+      "kind": "hud",
+      "category": "hud",
+      "hypixel_safe": "safe",
+      "label": "Memory",
+      "icon": "layers",
+      "description": "JVM heap in use, against the ceiling the launcher gave the game.",
+      "source": "heap in use and `Runtime.maxMemory` (`memory`), via the tick sensor",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "style": "used_of_max",
+        "show_bar": false,
+        "show_label": true
+      },
+      "default_placement": {
+        "anchor": "bottom-right",
+        "dx": -25,
+        "dy": -23
+      }
+    },
+    "server_address": {
+      "id": "server_address",
+      "kind": "hud",
+      "category": "utility",
+      "hypixel_safe": "safe",
+      "label": "Server address",
+      "icon": "wifi",
+      "description": "The host you are actually connected to.",
+      "source": "`host` on the `server` bridge event",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "style": "short"
+      },
+      "default_placement": {
+        "anchor": "bottom-right",
+        "dx": -25,
+        "dy": -61
+      }
+    },
+    "item_counter": {
+      "id": "item_counter",
+      "kind": "hud",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Item counter",
+      "icon": "box",
+      "description": "How many of the item in your hand you have left.",
+      "source": "`held_count` on the tick payload — the stack size of the held item",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "show_label": true,
+        "low_threshold": 0
+      },
+      "default_placement": {
+        "anchor": "bottom-left",
+        "dx": 175,
+        "dy": -146
       }
     }
   }

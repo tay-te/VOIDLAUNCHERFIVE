@@ -1,0 +1,41 @@
+{
+  "$comment": "There is no `hide_at_zero` setting, and there should not be one. A combo chip reading `0` between fights is noise, so the widget hides itself at zero **unconditionally** — that is behaviour, not a preference, and the same rule is written on `item_counter` (empty hand) and `server_address` (no server). Two things say so. `design/quiet-cell-system.md` draws the customisation line at position, scale, opacity, density, what is shown and format; \"the widget is not there\" is none of those, it is the widget's own idea of when it has something to say. And `packages/ingame/test/preview.test.tsx` walks every setting of every mod and asserts the drawing changed, so a switch whose entire content is absence has no preview to move and would need a `NOT_IN_THE_PREVIEW` exemption — a list whose own doc comment calls it the one place that gate can quietly erode, and whose bar is *structurally* undrawable rather than merely awkward. Do not re-add it.",
+  "id": "combo",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Combo counter",
+  "icon": "sword",
+  "the": true,
+  "noun": "the combo chip",
+  "on_description": "the combo counter is enabled",
+  "description": "Consecutive hits landed without being hit back.",
+  "settings_title": "Combo counter settings",
+  "settings_description": "Settings for the Combo counter HUD mod. Derived in JS from the monotonic `hits` counters on the tick payload rather than sent as a combo: `bridge.json`'s `hits` records why. The sensor ships `dealt` and `taken` as counters that only ever go up, so a tick lost to coalescing leaves a counter that jumps by two rather than a hit that never happened — and it deliberately holds no opinion about when a combo expires, because the expiry is `reset_ms` below, a setting on this mod. A sensor that timed out on its own would be a UI policy baked into the wire, and two readers with different `reset_ms` values could not share it. `cps` set the precedent: it is derived entirely in JS from click edges and has no Java sensor either. What is deliberately *not* here is a switch for hiding the chip at zero — the widget does that on its own, and the `$comment` at the top of this file is why.",
+  "source": "derived in JS from the monotonic `hits.dealt`/`hits.taken` counters on the tick payload",
+  "enabled": true,
+  "default_placement": {
+    "note": "The sixth and last row of the left column, 38 px under Direction on this table's rhythm. NOT \"under Coordinates, the mod players confuse it with\" — that argument belongs to Direction and Direction has held `dy 179` since it was added. What this row actually is, is the *bottom* of the column the eye already sweeps: the five above it are ambient readouts checked between fights, and the combo is the one that means nothing except during one. Last in the stack puts a fight-time number somewhere already looked at without dropping it into the middle of that sweep.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 217
+  },
+  "defaults": {
+    "reset_ms": 3000,
+    "show_label": true
+  },
+  "settings": {
+    "reset_ms": {
+      "description": "How long without landing a hit before the count drops back to zero. This is the timeout the sensor refuses to have — it sends counters, and the policy lives here. 3000 ms because a 1.8 combo is bounded by knockback recovery rather than by a clock: consecutive hits in a real chase are well under a second apart, so three seconds forgives one whiffed swing and the sprint back into range, while still clearing the chip before the fight it described is over. Lower makes the counter honest about a broken chain; higher leaves a stale number on screen after the target is already dead.",
+      "type": "integer",
+      "minimum": 500,
+      "maximum": 10000,
+      "default": 3000
+    },
+    "show_label": {
+      "description": "Whether the trailing \"COMBO\" unit is drawn after the figure. A bare number on a chip of its own is ambiguous in a way the other readouts are not — there is no unit that gives it away the way `ms` or `FPS` do — so this defaults on and is worth turning off only once the chip's position has taught you what it is.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "saturation",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Saturation",
+  "icon": "heart",
+  "the": false,
+  "noun": "the saturation readout",
+  "on_description": "the saturation readout is enabled",
+  "description": "The hidden half of the hunger bar — what actually decides whether you regenerate.",
+  "settings_title": "Saturation settings",
+  "settings_description": "Settings for the Saturation HUD mod. Reads `FoodStats#getSaturationLevel` off the tick payload, which value-checks it rather than rate-limiting it: saturation moves when you eat and when you exert yourself, not on a clock, so every push is news. Vanilla draws the hunger bar and hides the number underneath it, which is the whole argument for the mod — see `description`.",
+  "source": "`FoodStats#getSaturationLevel`, via the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 255
+  },
+  "defaults": {
+    "style": "number",
+    "decimals": 1,
+    "show_label": true
+  },
+  "settings": {
+    "style": {
+      "description": "How the value is drawn. `number` prints the figure, and it is the default because saturation is read against a *threshold* rather than as a quantity: in 1.8 combat regeneration runs while saturation is above zero and stops the instant it is not, so the only reading that matters is how close to zero you are, and a bar cannot be read to that precision at a glance. `bar` draws it as a fill, in the shape of the hunger row it is the hidden half of, for a player who wants it to look like part of the vanilla HUD. `both` puts the figure beside the fill for the player who wants the shape *and* the cliff.",
+      "type": "string",
+      "enum": [
+        "number",
+        "bar",
+        "both"
+      ],
+      "default": "number"
+    },
+    "decimals": {
+      "description": "Decimal places on the figure. 1 by default, because saturation drains in fractions of a point and the difference between `0.4` and `0` is the difference between regenerating and not — rounding that to a whole number hides the one transition the readout exists to show. 0 is for a player who only wants to know roughly how much food is left in the tank and would rather the chip stopped twitching. The bound is 0-2 rather than the 0-1 this readout would pick on its own: `decimals` means the same thing in `coordinates` and in `momentum` and both are capped at 2, and `packages/protocol`'s generator keys `SETTING_BOUNDS` by property *name* precisely so that one name cannot mean two ranges — it throws rather than hand one mod the other's slider. A second place is honest here anyway (the sensor sends a raw float, unrounded), it is just rarely worth the width.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "default": 1
+    },
+    "show_label": {
+      "description": "Whether the trailing \"SAT\" unit is drawn after the figure. Saturation shares its range with hunger (both 0-20) and sits near it on most layouts, so the label is what stops the two being read as each other.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 14 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 20 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -174,6 +174,30 @@
         "direction": {
           "description": "Direction state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/direction_settings"
+        },
+        "combo": {
+          "description": "Combo counter state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/combo_settings"
+        },
+        "saturation": {
+          "description": "Saturation state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/saturation_settings"
+        },
+        "momentum": {
+          "description": "Momentum state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/momentum_settings"
+        },
+        "memory": {
+          "description": "Memory state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/memory_settings"
+        },
+        "server_address": {
+          "description": "Server address state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/server_address_settings"
+        },
+        "item_counter": {
+          "description": "Item counter state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/item_counter_settings"
         }
       }
     },
@@ -236,9 +260,9 @@
     },
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 9, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 15, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 9,
+      "maxItems": 15,
       "items": {
         "description": "One HUD item placement.",
         "$ref": "#/definitions/hud_item"

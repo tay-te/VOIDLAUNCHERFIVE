@@ -61,6 +61,9 @@ const ORDER = [
   'watermark', 'toggle_sprint', 'fullbright', 'hitboxes', 'zoom', 'crosshair',
   // Wave 2 (docs/mod-roster.md §7). Appended, never inserted.
   'direction',
+  // Wave 3 — six more HUD readouts, every one fed by a `tick_payload` field that already
+  // existed. Appended, never inserted, for the same reason as `direction`.
+  'combo', 'saturation', 'momentum', 'memory', 'server_address', 'item_counter',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

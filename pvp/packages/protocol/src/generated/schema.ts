@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 14 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 20 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -61,7 +61,13 @@ export type ModId =
   | 'hitboxes'
   | 'zoom'
   | 'crosshair'
-  | 'direction';
+  | 'direction'
+  | 'combo'
+  | 'saturation'
+  | 'momentum'
+  | 'memory'
+  | 'server_address'
+  | 'item_counter';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -449,11 +455,173 @@ export type DirectionEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Combo counter, narrowed to its constant classification.
+ */
+export type ComboCounterEntry = RegistryEntry & {
+  /**
+   * Always `combo`.
+   */
+  id?: 'combo';
+  /**
+   * Always `sword`.
+   */
+  icon?: 'sword';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ComboCounterSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for Saturation, narrowed to its constant classification.
+ */
+export type SaturationEntry = RegistryEntry & {
+  /**
+   * Always `saturation`.
+   */
+  id?: 'saturation';
+  /**
+   * Always `heart`.
+   */
+  icon?: 'heart';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: SaturationSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for Momentum, narrowed to its constant classification.
+ */
+export type MomentumEntry = RegistryEntry & {
+  /**
+   * Always `momentum`.
+   */
+  id?: 'momentum';
+  /**
+   * Always `move`.
+   */
+  icon?: 'move';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: MomentumSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for Memory, narrowed to its constant classification.
+ */
+export type MemoryEntry = RegistryEntry & {
+  /**
+   * Always `memory`.
+   */
+  id?: 'memory';
+  /**
+   * Always `layers`.
+   */
+  icon?: 'layers';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: MemorySettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for the Server address, narrowed to its constant classification.
+ */
+export type ServerAddressEntry = RegistryEntry & {
+  /**
+   * Always `server_address`.
+   */
+  id?: 'server_address';
+  /**
+   * Always `wifi`.
+   */
+  icon?: 'wifi';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ServerAddressSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for the Item counter, narrowed to its constant classification.
+ */
+export type ItemCounterEntry = RegistryEntry & {
+  /**
+   * Always `item_counter`.
+   */
+  id?: 'item_counter';
+  /**
+   * Always `box`.
+   */
+  icon?: 'box';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ItemCounterSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 9 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 15 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -464,7 +632,13 @@ export type HUDModId =
   | 'armor_status'
   | 'potion_effects'
   | 'watermark'
-  | 'direction';
+  | 'direction'
+  | 'combo'
+  | 'saturation'
+  | 'momentum'
+  | 'memory'
+  | 'server_address'
+  | 'item_counter';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -479,9 +653,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 9, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 15, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 9
+ * @maxItems 15
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -679,7 +853,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 14 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 20 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -696,6 +870,12 @@ export interface Mods {
   zoom: ZoomEntry;
   crosshair: CrosshairEntry;
   direction: DirectionEntry;
+  combo: ComboCounterEntry;
+  saturation: SaturationEntry;
+  momentum: MomentumEntry;
+  memory: MemoryEntry;
+  server_address: ServerAddressEntry;
+  item_counter: ItemCounterEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -1153,6 +1333,186 @@ export interface DirectionSettings {
   color?: Colour;
 }
 /**
+ * Settings for the Combo counter HUD mod. Derived in JS from the monotonic `hits` counters on the tick payload rather than sent as a combo: `bridge.json`'s `hits` records why. The sensor ships `dealt` and `taken` as counters that only ever go up, so a tick lost to coalescing leaves a counter that jumps by two rather than a hit that never happened — and it deliberately holds no opinion about when a combo expires, because the expiry is `reset_ms` below, a setting on this mod. A sensor that timed out on its own would be a UI policy baked into the wire, and two readers with different `reset_ms` values could not share it. `cps` set the precedent: it is derived entirely in JS from click edges and has no Java sensor either. What is deliberately *not* here is a switch for hiding the chip at zero — the widget does that on its own, and the `$comment` at the top of this file is why.
+ */
+export interface ComboCounterSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the combo chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the combo chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the combo chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * How long without landing a hit before the count drops back to zero. This is the timeout the sensor refuses to have — it sends counters, and the policy lives here. 3000 ms because a 1.8 combo is bounded by knockback recovery rather than by a clock: consecutive hits in a real chase are well under a second apart, so three seconds forgives one whiffed swing and the sprint back into range, while still clearing the chip before the fight it described is over. Lower makes the counter honest about a broken chain; higher leaves a stale number on screen after the target is already dead.
+   */
+  reset_ms?: number;
+  /**
+   * Whether the trailing "COMBO" unit is drawn after the figure. A bare number on a chip of its own is ambiguous in a way the other readouts are not — there is no unit that gives it away the way `ms` or `FPS` do — so this defaults on and is worth turning off only once the chip's position has taught you what it is.
+   */
+  show_label?: boolean;
+}
+/**
+ * Settings for the Saturation HUD mod. Reads `FoodStats#getSaturationLevel` off the tick payload, which value-checks it rather than rate-limiting it: saturation moves when you eat and when you exert yourself, not on a clock, so every push is news. Vanilla draws the hunger bar and hides the number underneath it, which is the whole argument for the mod — see `description`.
+ */
+export interface SaturationSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the saturation readout, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the saturation readout, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the saturation readout — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * How the value is drawn. `number` prints the figure, and it is the default because saturation is read against a *threshold* rather than as a quantity: in 1.8 combat regeneration runs while saturation is above zero and stops the instant it is not, so the only reading that matters is how close to zero you are, and a bar cannot be read to that precision at a glance. `bar` draws it as a fill, in the shape of the hunger row it is the hidden half of, for a player who wants it to look like part of the vanilla HUD. `both` puts the figure beside the fill for the player who wants the shape *and* the cliff.
+   */
+  style?: 'number' | 'bar' | 'both';
+  /**
+   * Decimal places on the figure. 1 by default, because saturation drains in fractions of a point and the difference between `0.4` and `0` is the difference between regenerating and not — rounding that to a whole number hides the one transition the readout exists to show. 0 is for a player who only wants to know roughly how much food is left in the tank and would rather the chip stopped twitching. The bound is 0-2 rather than the 0-1 this readout would pick on its own: `decimals` means the same thing in `coordinates` and in `momentum` and both are capped at 2, and `packages/protocol`'s generator keys `SETTING_BOUNDS` by property *name* precisely so that one name cannot mean two ranges — it throws rather than hand one mod the other's slider. A second place is honest here anyway (the sensor sends a raw float, unrounded), it is just rarely worth the width.
+   */
+  decimals?: number;
+  /**
+   * Whether the trailing "SAT" unit is drawn after the figure. Saturation shares its range with hunger (both 0-20) and sits near it on most layouts, so the label is what stops the two being read as each other.
+   */
+  show_label?: boolean;
+}
+/**
+ * Settings for the Momentum HUD mod. Reads `speed` off the tick payload, which is **horizontal** ground speed and horizontal on purpose: falling is not momentum a player is steering, and folding the vertical component in would spike the number on every drop and off every jump, which is exactly when the readout is least useful. The sensor rounds to 2 dp and rate-limits, because speed changes every tick while you are moving and an uncoalesced field costs a full-surface repaint — so `decimals` below cannot ask for precision the wire does not carry.
+ */
+export interface MomentumSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the speed chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the speed chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the speed chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Which unit the figure is printed in. `bps` — blocks per second — is the default because the block is the unit every other thing a player reasons about is already in: reach, knockback, sprint-jump distance, the gap you are trying to clear. A number in blocks can be compared against the world without arithmetic. `kmh` is the same reading multiplied by 3.6 and it exists because it is the number players quote at each other; it reads as faster and it is genuinely easier to see small differences in, which is what a movement-mechanics player wants out of it.
+   */
+  unit?: 'bps' | 'kmh';
+  /**
+   * Decimal places on the figure. 2 by default, and 2 is also the ceiling — the sensor rounds to 2 dp before it sends, so a third place would be inventing digits the wire never carried. 2 is where the differences a player is chasing actually live: sprint-jumping and plain sprinting are about 0.4 blocks/second apart, and ice, soul sand and a speed potion each move the last two places rather than the first. 0 or 1 is for a player who wants the magnitude without a chip that flickers every tick.
+   */
+  decimals?: number;
+  /**
+   * Whether the trailing unit (`bps` or `km/h`) is drawn after the figure. Worth keeping while `unit` is anything but the one you always use: the two readings differ by 3.6x and a bare number is silently ambiguous between them.
+   */
+  show_label?: boolean;
+}
+/**
+ * Settings for the Memory HUD mod. Reads the `memory` object on the tick payload — heap in use and `Runtime.maxMemory`, both in mebibytes. That field is **rate-limited hard** at the sensor, and `bridge.json` says why: heap moves constantly, nobody reads it twenty times a second, and it is the single field most able to undo the coalescing the whole tick payload exists for. So this readout is deliberately not live to the tick; it is a gauge you glance at when the game stutters, which is what `show_bar` below is defaulted against.
+ */
+export interface MemorySettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the memory chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the memory chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the memory chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a heap figure on its own answers nothing: 1400 MB is idle on an 8 G allocation and terminal on a 2 G one, so the ceiling is half the reading and the player is the only one who knows which they launched with. `used` is the bare figure, for a player who already knows their ceiling and wants the narrowest chip. `percent` is the same comparison pre-done, which is the smallest form that still means something, at the cost of the absolute numbers you would quote in a bug report.
+   */
+  style?: 'used' | 'used_of_max' | 'percent';
+  /**
+   * Whether a fill bar is drawn under the figure. Off by default, and the reason is the sensor: `memory` is rate-limited hard, so the bar would move in visible steps rather than sweep, and a bar that jumps reads as a broken bar rather than as a coarse one. A bar also invites watching, and heap is not a number worth watching — the useful reading is a glance after a stutter, which the figure alone already answers. On for a player who wants headroom legible without parsing two numbers.
+   */
+  show_bar?: boolean;
+  /**
+   * Whether the trailing unit is drawn — `MB` on `used` and `used_of_max`, `%` on `percent`. Off makes the chip narrower at the cost of leaving a four-digit number with nothing to say what it counts.
+   */
+  show_label?: boolean;
+}
+/**
+ * Settings for the Server address HUD mod. Reads `host` from the `server` bridge event, which is pushed on connect and on disconnect and carries an empty string on the way out — so "not connected" is a state this mod can see, and the chip simply draws nothing in it rather than offering a switch about it. `ping.show_host` is deliberately kept alongside this mod: that is the inline form, a shortened host printed after the latency figure, and this is the standalone one a player places on its own — the same split Coordinates and Direction already make between a suffix and a chip. Neither reads the other's settings. One setting is all a hostname supports; the file's `$comment` says why that is the honest count.
+ */
+export interface ServerAddressSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the host chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the host chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the host chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * How much of the host is printed. `short` keeps the part players actually say out loud — `hypixel` out of `mc.hypixel.net` — and is the default because on a chip the leading `mc.` and the trailing `.net` are the two pieces that never differ between the servers a player switches between, so they cost width and carry no information. `full` prints the address exactly as it was connected to, which is what you want on a network with several proxies, on a bare IP, or in a screenshot that has to be reproducible by somebody else.
+   */
+  style?: 'short' | 'full';
+}
+/**
+ * Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.
+ *
+ * Be clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers "how many blocks are left" while you are bridging with them and "how many gapples" while you are holding one; it does not answer "how many pearls do I have" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.
+ *
+ * The stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.
+ */
+export interface ItemCounterSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the count chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the count chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the count chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Whether the count is prefixed with the multiplication sign — `x12` rather than `12`. On by default: the chip sits next to a CPS figure and above a keystrokes block, so a bare integer in that corner is a number among numbers, and the `x` is the cheapest thing that says it is a quantity of something rather than a rate.
+   */
+  show_label?: boolean;
+  /**
+   * A count at or below this many draws in the warn treatment instead of the normal ink. **0 disables the warning entirely, and 0 is the default**, because what counts as low depends completely on what is in the hand: eight is nearly out of blocks and a generous stash of pearls, and a client that guessed one number would be wrong for every player who does not build the way it assumed. So VOID does not guess — a player who knows what they are counting sets it, and everybody else gets a chip that never cries wolf. The ceiling is 64: a full stack, above which the warning would be permanently on.
+   */
+  low_threshold?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -1178,7 +1538,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 14 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 20 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -1195,6 +1555,12 @@ export interface ModStates {
   zoom?: ZoomSettings;
   crosshair?: CrosshairSettings;
   direction?: DirectionSettings;
+  combo?: ComboCounterSettings;
+  saturation?: SaturationSettings;
+  momentum?: MomentumSettings;
+  memory?: MemorySettings;
+  server_address?: ServerAddressSettings;
+  item_counter?: ItemCounterSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

@@ -2,16 +2,16 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schema.void.dev/pvp/mods.json",
   "title": "VOID PVP \u2014 Mod registry",
-  "description": "The closed registry of the 13 mods VOID ships \u2014 the 12 defined in PVP_ARCHITECTURE.md \u00a73 plus the VOID watermark \u2014 together with the per-mod settings sub-schema, the anti-cheat classification of \u00a711, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
+  "description": "The closed registry of every mod VOID ships \u2014 the 12 defined in PVP_ARCHITECTURE.md \u00a73, the VOID watermark, and the readouts added since \u2014 together with the per-mod settings sub-schema, the anti-cheat classification of \u00a711, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
   "type": "object",
   "required": [
     "version",
     "mods"
   ],
   "additionalProperties": false,
-  "registry_version": 6,
+  "registry_version": 7,
   "mods_title": "Mods",
-  "mods_description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.",
+  "mods_description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: every key is required and no others are permitted. (`build.mjs` rewrites this with the live count; no number is written by hand.)",
   "version": {
     "title": "Registry version",
     "description": "Integer revision of the registry document. Bumped whenever a mod is added, removed or reclassified. Independent of the wire protocol version `v` in protocol.json.",

@@ -78,6 +78,14 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "gap": {
     "min": 0,
     "max": 10
+  },
+  "reset_ms": {
+    "min": 500,
+    "max": 10000
+  },
+  "low_threshold": {
+    "min": 0,
+    "max": 64
   }
 } as const;
 
@@ -228,5 +236,83 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "letter",
     "word",
     "axis"
+  ],
+  "combo.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "combo.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "saturation.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "saturation.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "saturation.style": [
+    "number",
+    "bar",
+    "both"
+  ],
+  "momentum.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "momentum.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "momentum.unit": [
+    "bps",
+    "kmh"
+  ],
+  "memory.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "memory.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "memory.style": [
+    "used",
+    "used_of_max",
+    "percent"
+  ],
+  "server_address.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "server_address.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "server_address.style": [
+    "short",
+    "full"
+  ],
+  "item_counter.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "item_counter.padding": [
+    "tight",
+    "normal",
+    "roomy"
   ]
 } as const;
