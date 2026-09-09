@@ -71,6 +71,16 @@ const ORDER = [
   // narrowed enums are *filters* over this order, not slices of it, so a wave appends in
   // whatever order its mods were decided and neither enum notices.
   'stopwatch', 'fov', 'toggle_sneak', 'overlay',
+  // Wave 5 — three `kind: gameplay` PvP mods, two of which are two roster rows each: `freelook`
+  // absorbs Snaplook (§3.2 #9) and `damage_tint` absorbs Hurt cam control (§3.2 #8). Each mod's
+  // own `$comment` argues its bundle and names what would split it. Appended, never inserted.
+  'freelook', 'hit_color', 'damage_tint',
+  // Wave 6 — the two mods the withdrawn `old_animations` turned into once its four settings were
+  // read out of real 1.7.10 bytecode instead of guessed at. They are two and not one because the
+  // animation half sends nothing and the input half changes what leaves the client, and
+  // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
+  // its own half. Appended, never inserted.
+  'old_animations', 'old_input',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

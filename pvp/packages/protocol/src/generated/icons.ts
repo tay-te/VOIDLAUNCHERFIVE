@@ -51,5 +51,10 @@ export const MOD_ICON_NAMES = {
   "stopwatch": "clock",
   "fov": "eye",
   "toggle_sneak": "chevron-down",
-  "overlay": "sparkle"
+  "overlay": "sparkle",
+  "freelook": "orbit",
+  "hit_color": "droplet",
+  "damage_tint": "heart-pulse",
+  "old_animations": "reset",
+  "old_input": "tap"
 } as const satisfies Record<ModId, string>;

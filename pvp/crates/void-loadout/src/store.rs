@@ -345,6 +345,14 @@ const REMOVED_SETTINGS: &[(&str, &str)] = &[
     // the shipped registry defaults, so it is in essentially every loadout ever written, and
     // without it every one of those files would fail to deserialise on the next launch.
     ("toggle_sprint", "sneak_too"),
+    // `toggle_sprint.mode` — removed because it was provably a no-op, not because it was
+    // deprecated. `ClientPlayerEntity.tickMovement` re-evaluates sprint as a *level* every tick
+    // and `KeyBinding.setKeyPressed(code, true)` writes the same `pressed` field that level
+    // reads, so the latch was indistinguishable from a held key and `mode: "hold"` could only
+    // mean "write nothing" — which is what `on: false` already means. Same hazard as the two
+    // above and a wider blast radius: `mode` was in the shipped registry defaults from the
+    // first release, so it is in essentially every loadout on disk.
+    ("toggle_sprint", "mode"),
 ];
 
 /// Reads a loadout, dropping settings that have since been removed from the registry.

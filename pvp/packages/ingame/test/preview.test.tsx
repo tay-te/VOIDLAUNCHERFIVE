@@ -75,6 +75,11 @@ const LIVE: readonly ModId[] = [
   'fov',
   'toggle_sneak',
   'overlay',
+  'freelook',
+  'hit_color',
+  'damage_tint',
+  'old_animations',
+  'old_input',
 ];
 
 /**

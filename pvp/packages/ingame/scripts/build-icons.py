@@ -139,6 +139,10 @@ ICONS = [
     # appended, never inserted — see the module docstring
     'watermark',
     'clock',
+    'orbit',
+    'droplet',
+    'heart-pulse',
+    'tap',
 ]
 
 
@@ -643,6 +647,136 @@ def draw(name, d):
         circle(d, 12, 13.4, 7.1, s)
         line(d, 12, 6.3, 12, 3.3, s)          # the crown
         line(d, 12, 13.4, 14.43, 9.20, s)     # the sweep hand, 30 degrees off 12
+
+    # ---------------------------------------------------------------- freelook / hit / tint / input
+
+    elif name == 'orbit':
+        # A body and a satellite on its path — `freelook`, where the view moves and the player
+        # does not. NOT Lucide's `orbit`, which is a big ellipse, two small circles ON it and a
+        # third at the centre: five marks, and the two on the ellipse are r 1 here.
+        #
+        # The ellipse itself was the first thing rendered and it is the interesting rejection.
+        # A tilted ellipse with a disc at its centre — the obvious "orbit" — needs the disc to
+        # clear the ellipse's own minor axis by 3.0u, which at a body of r 2.4 puts the minor
+        # semi-axis at 6.5 and the major at 10.5 to still read as tilted rather than round.
+        # That is 21u across, over the box; drawn inside the box instead (rx 9.4, ry 5.6) it
+        # renders as **`eye`** — an almond with a pupil in it, six cells away on this sheet.
+        #
+        # So the path is a circle and the satellite breaks it, which is the one composition
+        # `crosshair` cannot be confused with: a closed ring with a centre dot is that glyph,
+        # and this is a ring with a bite out of it and a mark sitting in the bite.
+        #
+        # Geometry. The ring is r 7.55, which is the 17.6u circular diameter of the box rule at
+        # this stroke, and the satellite rides ON it at 45 degrees — on the diagonal so that its
+        # own 2.4 radius reaches 9.95 from the centre without widening the cell's box, which at
+        # 12 or 3 o'clock it would. The gap in the ring is derived, not drawn to taste: the
+        # satellite's ink needs the aperture floor from each arc end, so the chord from the
+        # satellite to an end is 2.4 + 3.0 + 1.25 = 6.65u, which at r 7.55 is 52.3 degrees of
+        # arc each side. The ring keeps 255 degrees, which still reads as a closed path the eye
+        # completes. The body is a disc (SMALL RINGS) and clears the ring by 3.9u.
+        R, sat, r_sat = 7.55, -45.0, 2.4
+        half = 2 * math.degrees(math.asin((r_sat + 3.0 + s / 2) / (2 * R)))   # chord -> angle
+        arc(d, 12, 12, R, sat + half, 360 + sat - half, s)
+        disc(d, 12, 12, 2.4)
+        disc(d, *polar(12, 12, R, sat), r_sat)
+
+    elif name == 'droplet':
+        # `hit_color` recolours a flash, and a drop of colour is the mark for that. The
+        # constraint is `potion_effects` six cells away: both are "a small volume of liquid",
+        # and at 16px the sheet cannot carry two of them unless they differ in silhouette
+        # rather than in detail. They do, and it is structural: the flask is a **container** —
+        # a flat lip, two straight flanks and a fill line, all of them horizontal or vertical —
+        # and the drop is a **closed curve with a point on top** and nothing inside it. There is
+        # no orientation at which one collapses into the other. Rendered side by side at 16 and
+        # 13 before this was accepted, and against `heart`, which is the other closed blob here:
+        # a heart is two lobes and a notch at the TOP with the point at the bottom, and this is
+        # the exact inverse, which is as far apart as two closed curves get in one cell.
+        #
+        # The construction is `coordinates`' teardrop, inverted and with the hole taken out —
+        # deliberately the same geometry, because the pin is the mark this must not be confused
+        # with either, and being the same construction is what makes the two differences (which
+        # way the point faces, and whether there is anything inside) the *only* differences.
+        #
+        # Bowl r 5.5 about (12, 13.95) with the point at (12, 4.55): the flanks are the tangents
+        # from the point, so they leave the bowl without a kink. 17.4u tall, which is `clock`'s
+        # height rule for a form that is taller than it is wide, and the bowl's interior is 8.5u
+        # of clear ground — the widest hole on the sheet, and the reason the drop reads as empty
+        # at 13px where the pin reads as full.
+        ay, cy, r = 4.55, 13.95, 5.5
+        a = math.degrees(math.acos(r / (cy - ay)))
+        arc(d, 12, cy, r, 270 + a, 360 + 270 - a, s)
+        for t in (270 - a, 270 + a):
+            line(d, *polar(12, cy, r, t), 12, ay, s)
+
+    elif name == 'heart-pulse':
+        # A heart over a trace with one beat in it. The heart is `heart`'s own construction —
+        # lobe offset, lobe radius and apex distance scaled by 0.68 together — so the two cells
+        # are provably the same heart at two sizes, which is what keeps `saturation` and
+        # `damage_tint` reading as relatives rather than as two different organs.
+        #
+        # **The trace cannot go through the heart, and that is a measurement rather than a
+        # preference.** Lucide's `heart-pulse` runs its ECG across the middle and out both
+        # sides; drawn here it fails twice over. Above the line, the lobes' inner notch sits
+        # 0.5u from a trace at the heart's waist, so the spike's peak and the notch fall in one
+        # 2px band at 16px and the top of the heart fills in. Below it, the wedge left between
+        # the trace and the apex is under 3u tall at every apex position that keeps the heart
+        # inside the cell — the arithmetic: the trace must clear the lobes' ink by 3.0 and the
+        # apex must clear the trace by 3.0, which needs the apex at y 22.5 with the lobes at
+        # their smallest legible radius. Both were rendered at 48/16/13 before being given up,
+        # along with a filled heart with the trace cut out of it as negative space (the channel
+        # has to be 3u wide to survive the downsample, and a 3u channel across an 18u heart cuts
+        # it into three pieces).
+        #
+        # What survives is the stack, and it survives because the two ideas stop competing for
+        # the same 11u of interior: a 13.5u heart with a 3.1u lobe interior, and beneath it a
+        # baseline with a single 4u beat, 3.18u clear of the heart's lower-left flank at the
+        # closest approach. The beat sits at the left rather than under the apex — centred, its
+        # own peak and the heart's point meet in the middle of the cell and the glyph reads as
+        # an hourglass. 19.25u tall overall, which is `coordinates`' height and the tallest a
+        # non-full-bleed form goes here.
+        #
+        # Against `heart` at 13px the difference is the whole lower third of the cell, not a
+        # detail inside the shape — which is the test this had to pass, because the two mods sit
+        # in one list. It is deliberately not a heart with a line struck through it: a line that
+        # crosses a symbol edge to edge means *off* in every product a player uses.
+        k = 0.68
+        lx, r = 12 - 3.8 * k, 4.15 * k
+        ly = 3.0 + s / 2 + r                      # 3.0 is the ink's top edge
+        ay = ly + 11.1 * k
+        dd = math.hypot(12 - lx, ay - ly)
+        tan = math.degrees(math.atan2(ay - ly, 12 - lx)) + math.degrees(math.acos(r / dd))
+        notch = math.degrees(math.acos((12 - lx) / r))    # where the lobes cross, at x=12
+        arc(d, lx, ly, r, tan, 360 + notch, s)
+        arc(d, 24 - lx, ly, r, 180 - notch, 360 + 180 - tan, s)
+        tx, ty = polar(lx, ly, r, tan)
+        line(d, tx, ty, 12, ay, s)
+        line(d, 24 - tx, ty, 12, ay, s)
+        polyline(d, [(4.0, 21.0), (6.6, 17.0), (9.2, 21.0), (20.0, 21.0)], s)
+
+    elif name == 'tap':
+        # A press landing on a surface: the stroke meets the line (a join — the click has
+        # landed, and a gap there would say "about to"), and two ticks fly off the contact.
+        #
+        # **It is not a cursor and not a mouse, and it cannot be.** The mod is about what a
+        # click does, so the vocabulary asks for `cursor-click` — which this sheet already
+        # draws twice over, as the pointer-and-sparks in `@void/ui`'s `PATHS` and as the mouse
+        # capsule in `cps` here. Both were rendered beside candidates at 13px. A bare pointer is
+        # `cursor-click` with its sparks deleted, which is a difference nobody can name at 13px
+        # in the launcher's rows; a capsule with the button marked differently is `cps`'s
+        # silhouette, and the sheet's closing rule is that no two mod glyphs may share one. The
+        # third option is to leave the pointer family altogether, which is this: a press is what
+        # a click *is*, and nothing else on the sheet is a vertical meeting a horizontal.
+        #
+        # Geometry. The ticks are the constraint: their inner ends have to clear the stem by the
+        # aperture floor, so they sit at x 6.5 and 17.5 (5.5u from the stem, 3.0u of ground),
+        # and they run at 45 degrees for 3.1u — over the 3u minimum for a mark, and diagonal so
+        # that three near-parallel verticals never happen. That was the first version and it
+        # read as a row of bars over a bar, which is `keystrokes`. The surface is 16u, `list`'s
+        # own line length, and the stem is 9.8u so the whole form is 17.9 x 13.1.
+        line(d, 4.0, 20.2, 20.0, 20.2, s)      # the surface
+        line(d, 12, 9.6, 12, 19.4, s)          # the press, ending inside the surface's stroke
+        line(d, 4.3, 11.1, 6.5, 13.3, s)
+        line(d, 19.7, 11.1, 17.5, 13.3, s)
 
     else:
         raise SystemExit('unknown icon ' + name)

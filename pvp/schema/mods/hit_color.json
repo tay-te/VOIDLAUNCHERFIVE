@@ -1,0 +1,40 @@
+{
+  "$comment": "**Classified `safe`, and the range is what buys it.** The easy reading is that recolouring a flash the game already draws is aesthetic and therefore fits §6.1's second allowlist category without an argument. For hue that is true. For `intensity` it very nearly was not, and the fix was to define the number rather than to defend it: `intensity` is a fraction of **vanilla's own hurt-overlay alpha**, not an absolute strength, so 1 is exactly what Minecraft already draws and there is no value above it. The mod cannot make a landed hit more visible than the game made it; it can only make it a different colour, or less visible. That is the same move `fov` made — \"the range is exactly vanilla's own slider\" — and it is deliberate here, because the alternative was shipping a slider whose top end made a hit readable that vanilla left ambiguous and then arguing about whether that counted. A number that cannot cross the line does not need the argument.\n\nTwo things are **not** what carries the classification, and they are named so that a later change to either does not silently move the mod. `own_hits_only` is a legibility default, not a safety gate: the tint vanilla draws on an entity somebody *else* hit is already on your screen, at the same alpha, for the same hurt ticks, so recolouring it reveals nothing — it only makes a worse cue. And this mod does not touch the first-person damage overlay, the red flash on your own screen when you are hit. `overlay`'s `settings_description` records that switch being cut from that mod for removing a combat cue rather than an occluder, and it stays cut; this is `RenderLivingBase`'s entity tint and nothing else.\n\n**`color` owns hue, `intensity` owns alpha, and they must not both own alpha.** `#/definitions/hex_color` accepts `#RRGGBBAA` and `crosshair.color` ships the eight-digit form, so nothing in the schema stops a player storing an alpha byte here. The actuator drops it: `intensity` is the single owner. Two owners of one alpha is `toggle_sneak`'s \"two owners of one latch\" with a different noun, and the failure it produces is a player dragging `intensity` to its top and seeing nothing because their colour ends in `00` — silent, and blamed on the wrong setting. The default is six digits for that reason. Narrowing the `$ref` in place is not possible in draft-07 (a `$ref` sibling is ignored), so this note and the description below are the enforcement until the newtype in `crates/void-loadout/src/mods.rs` grows one.\n\nWhat would move this to `grey`: `intensity` gaining any range above vanilla's alpha; a duration or persistence setting of any kind, because a tint that outlives vanilla's `hurtTime` is a hit *marker* rather than a recolour, and a marker is a different mod and a `grey` one; or tinting an entity vanilla did not tint.",
+  "id": "hit_color",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Hit colour",
+  "icon": "droplet",
+  "the": false,
+  "on_description": "the hit flash is recoloured",
+  "description": "Recolours the red flash the game draws on an entity you hit.",
+  "settings_title": "Hit colour settings",
+  "settings_description": "Settings for the Hit colour gameplay mod. §3.2 #5's verdict is \"Entity-render tint; genuinely helps read whether a hit landed\", and the reason it helps is not that the flash is missing — it is that vanilla drew it in the one colour a 1.8 PvP screen is already full of. The mod is a hue swap in the entity hurt overlay and an alpha the player can lower; it changes nothing about when the flash fires, how long it lasts, or which entities get one, and the `$comment` at the top of this file is the whole §11 briefing for why those three are the constraints rather than the settings.\n\nIt is `kind: gameplay` although it draws, for `hitboxes`' reason: `kind` splits on whether the mod owns a draggable HUD item, and a tint on somebody else's model has nowhere to be placed. `_shared.json`'s gameplay block says so directly.",
+  "source": "the entity hurt overlay applied in RenderLivingBase#setBrightness",
+  "enabled": false,
+  "defaults": {
+    "color": "#2FB8A6",
+    "own_hits_only": true,
+    "intensity": 1
+  },
+  "settings": {
+    "color": {
+      "description": "Colour the hurt overlay is drawn in. `#2FB8A6` by default, and deliberately not vanilla's red, for two reasons that are both about the rest of the screen. A mod that turns on and changes nothing looks broken — that is the argument that withdrew `old_animations` from the last wave — and a default of `#FF0000` would be exactly that mod. More to the point, red is the worst available choice on a 1.8 map: it is the nether, it is lava, it is red wool and red leather in Bedwars, and as of this same wave it is the low-health vignette `damage_tint` draws at the edge of the same frame. The two most decision-shaped cues on screen should not be the same hue. Teal is far from all of them and is a colour the product already owns (`--teal` in `packages/ui/src/tokens.css`), so the default is a choice somebody already defended rather than a new hex. Six digits and not eight: the alpha byte belongs to `intensity`, and if one is written here it is dropped — see the top of this file. Expect players who live in one mode to retune this, which is why it is a colour and not a switch.",
+      "$ref": "#/definitions/hex_color",
+      "default": "#2FB8A6"
+    },
+    "own_hits_only": {
+      "description": "Whether the recolour applies only to entities you damaged, or to every entity the game tints. On by default, because the mod is hit *confirmation* and a confirmation that also fires when two other players hit each other across the arena is not one — you would be reading somebody else's fight in your own colour, in your peripheral vision, during yours. Off is for spectating and for the team modes where knowing a teammate connected is worth the noise. It is not what makes this mod `safe`, and the top of this file says why in as many words: a setting everybody believes is load-bearing is a setting nobody dares change.",
+      "type": "boolean",
+      "default": true
+    },
+    "intensity": {
+      "description": "Alpha of the recoloured overlay, as a fraction of the alpha vanilla already draws it at — 1 is the game's own, 0 draws nothing. **Not an absolute strength**, and that distinction is the entire §11 argument at the top of this file: there is no value here that makes a landed hit more visible than Minecraft made it, which is what keeps a recolour inside \"purely aesthetic\". 1 by default, because a player enabling this wants the flash they already had, in a colour they can pick out. Lower values are for the player who finds a full-strength tint on a model they are standing next to more distracting than useful; 0 is the honest way to say \"recolour nothing\", and it costs you the cue rather than buying you anything — which is the direction §6.1 has never had an objection to.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    }
+  }
+}

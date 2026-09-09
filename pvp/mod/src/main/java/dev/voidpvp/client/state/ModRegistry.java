@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 24 mods.
+ * The closed registry of the 29 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -397,7 +397,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (8) — they mutate a client-side option ------------------------------
+        // --- Gameplay mods (13) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -418,18 +418,13 @@ public final class ModRegistry {
         mod("toggle_sprint", Kind.GAMEPLAY, Category.PVP, "Toggle sprint",
                 // Whether toggle sprint is enabled.
                 "on", bool(true),
-                // `toggle` latches sprint until the key is pressed again; `hold` restores vanilla
-                // hold-to-sprint. `hold` used to be the value that turned the latch off while
-                // keeping the status readout, and the readout has been gone since `show_status`
-                // was removed, so on this mod it now means the mod is inert until it is set back
-                // — unlike `toggle_sneak.mode`, whose `hold` still moves sneak onto that mod's
-                // own bind. Worth revisiting when a sprint indicator comes back as its own HUD
-                // mod.
-                "mode", enumOf("toggle", "toggle", "hold"),
                 // Key that toggles the mod in game, captured through
                 // `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key
-                // itself, which is vanilla's and is what `mode` latches: this one turns the
-                // latching off, for a fight where holding the key is what the hands expect.
+                // itself, which is vanilla's and is the key this mod latches: this one turns the
+                // latching off and on mid-game, for a fight where holding the key is what the
+                // hands expect. With `mode` removed it is the only way to get vanilla
+                // hold-to-sprint back without opening the menu — which is the job `mode` was
+                // believed to be doing and never did.
                 // Type: mods.json#/definitions/keybind.
                 "keybind", keybind("NONE"));
 
@@ -800,7 +795,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (8) — they mutate a client-side option ------------------------------
+        // --- Gameplay mods (13) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -897,6 +892,237 @@ public final class ModRegistry {
                 // something Hypixel's allowlist has a category for.
                 "hide_pumpkin", bool(true));
 
+        // Freelook — kind gameplay, pvp tab, §11 safe.
+        // Detaches the camera from your facing, so you can look around without turning.
+        // Source: camera yaw and pitch detached from the player's own in GameRendererMixin; key
+        // polled per frame as ZoomController's is.
+        mod("freelook", Kind.GAMEPLAY, Category.PVP, "Freelook",
+                // Whether freelook is enabled.
+                "on", bool(false),
+                // Key that engages freelook, captured through
+                // `void.openKeybindCapture('freelook')`. `NONE` by default, for `toggle_sneak`'s
+                // reason: a camera that detaches on a key nobody chose is a player who thinks the
+                // game broke. It is its own bind and not vanilla's F5 because F5 is a cycle
+                // through three states and this is a hold — binding a hold to a cycling key is
+                // how you end up stuck in third person in the middle of a fight.
+                // Type: mods.json#/definitions/keybind.
+                "keybind", keybind("NONE"),
+                // `hold` engages freelook while the key is down and ends it on release. That is
+                // Snaplook (§3.2 #9) and it is the default, because it is the behaviour a fight
+                // can afford: the camera comes back without a second decision from a player who
+                // is already making several. `toggle` latches it until the key is pressed again,
+                // for the case a hold is wrong for — crossing a bridge or running a chase while
+                // watching what is behind you, which is a length of time no thumb wants to hold a
+                // key for.
+                "mode", enumOf("hold", "hold", "toggle"),
+                // Where the camera sits while freelook is engaged. `third_back` and `third_front`
+                // are vanilla's own two F5 offsets and nothing more — the same pivot, the same
+                // distance, reached by a different key. `free` is an orbit about that same pivot
+                // rather than a snap to either offset, and the top of this file pins what that
+                // word may and may not mean, because the difference between an orbit and a
+                // freecam is the difference between this mod and one VOID will not ship.
+                // `third_back` by default: it is the view players already have muscle memory for,
+                // and the one that keeps your own model out of the middle of the frame.
+                "perspective", enumOf("third_back", "third_back", "third_front", "free"),
+                // What happens to your facing when freelook ends. `true` restores the view to the
+                // direction your body was already pointing, so the mod is a look and never a turn
+                // — that is the "snap back" of Snaplook, and it is the default because a camera
+                // that quietly rotated your aim while you were watching your back is the single
+                // worst thing this mod could do in a duel. `false` keeps the direction the camera
+                // ended on and brings the body round to match, which turns freelook into an input
+                // for turning around rather than for looking around. Both are legitimate and only
+                // one of them is safe to be surprised by, which is what picks the default rather
+                // than which is more useful.
+                "snap_back", bool(true));
+
+        // Hit colour — kind gameplay, pvp tab, §11 safe.
+        // Recolours the red flash the game draws on an entity you hit.
+        // Source: the entity hurt overlay applied in RenderLivingBase#setBrightness.
+        mod("hit_color", Kind.GAMEPLAY, Category.PVP, "Hit colour",
+                // Whether the hit flash is recoloured.
+                "on", bool(false),
+                // Colour the hurt overlay is drawn in. `#2FB8A6` by default, and deliberately not
+                // vanilla's red, for two reasons that are both about the rest of the screen. A
+                // mod that turns on and changes nothing looks broken — that is the argument that
+                // withdrew `old_animations` from the last wave — and a default of `#FF0000` would
+                // be exactly that mod. More to the point, red is the worst available choice on a
+                // 1.8 map: it is the nether, it is lava, it is red wool and red leather in
+                // Bedwars, and as of this same wave it is the low-health vignette `damage_tint`
+                // draws at the edge of the same frame. The two most decision-shaped cues on
+                // screen should not be the same hue. Teal is far from all of them and is a colour
+                // the product already owns (`--teal` in `packages/ui/src/tokens.css`), so the
+                // default is a choice somebody already defended rather than a new hex. Six digits
+                // and not eight: the alpha byte belongs to `intensity`, and if one is written
+                // here it is dropped — see the top of this file. Expect players who live in one
+                // mode to retune this, which is why it is a colour and not a switch.
+                // Type: mods.json#/definitions/hex_color.
+                "color", color("#2FB8A6"),
+                // Whether the recolour applies only to entities you damaged, or to every entity
+                // the game tints. On by default, because the mod is hit *confirmation* and a
+                // confirmation that also fires when two other players hit each other across the
+                // arena is not one — you would be reading somebody else's fight in your own
+                // colour, in your peripheral vision, during yours. Off is for spectating and for
+                // the team modes where knowing a teammate connected is worth the noise. It is not
+                // what makes this mod `safe`, and the top of this file says why in as many words:
+                // a setting everybody believes is load-bearing is a setting nobody dares change.
+                "own_hits_only", bool(true),
+                // Alpha of the recoloured overlay, as a fraction of the alpha vanilla already
+                // draws it at — 1 is the game's own, 0 draws nothing. **Not an absolute
+                // strength**, and that distinction is the entire §11 argument at the top of this
+                // file: there is no value here that makes a landed hit more visible than
+                // Minecraft made it, which is what keeps a recolour inside "purely aesthetic". 1
+                // by default, because a player enabling this wants the flash they already had, in
+                // a colour they can pick out. Lower values are for the player who finds a
+                // full-strength tint on a model they are standing next to more distracting than
+                // useful; 0 is the honest way to say "recolour nothing", and it costs you the cue
+                // rather than buying you anything — which is the direction §6.1 has never had an
+                // objection to.
+                "intensity", number(0, 1, 1));
+
+        // Damage tint — kind gameplay, pvp tab, §11 safe.
+        // Vignettes the screen when your health is low, and owns the vanilla hurt-camera shake.
+        // Source: EntityLivingBase#getHealth for the vignette; EntityRenderer#hurtCameraEffect
+        // for the shake.
+        mod("damage_tint", Kind.GAMEPLAY, Category.PVP, "Damage tint",
+                // Whether the low-health vignette and the hurt-camera control are enabled.
+                "on", bool(false),
+                // Health at or below which the vignette draws, in half-hearts on vanilla's own
+                // 0-20 scale — so 6 is three hearts and 20 is "always on". 6 by default because
+                // §3.2 #7's whole case for this mod is that sentence about three hearts, and
+                // three hearts is where a 1.8 fight stops being about landing damage and starts
+                // being about whether you can still disengage. Compared against `getHealth()`,
+                // which is a float rather than an integer, so the boundary is inclusive and a
+                // player regenerating past it crosses out of the vignette at exactly the value
+                // they set rather than half a heart later.
+                "threshold", integer(1, 20, 6),
+                // Peak alpha of the vignette, reached at zero health. 0.6 by default: enough to
+                // be unmissable at the edge of vision, and not enough to cost you the corners of
+                // the screen at the moment you most need them, which is what drawing this at 1
+                // does. The vignette ramps from nothing at `threshold` to this value at zero
+                // rather than switching on flat, and that is a design decision worth stating
+                // because the two numbers alone do not imply it — a mark that pops on at one
+                // value is a mark you stop seeing after an hour, and the slide from three hearts
+                // to dead is exactly the interval this should be describing. A player who wants
+                // the alarm rather than the gradient sets a low `threshold` instead; the ramp
+                // then has nowhere to run and it is a pop.
+                "strength", number(0, 1, 0.6),
+                // What happens to vanilla's hurt-camera roll — up to fourteen degrees about the
+                // view axis, oriented by `attackedAtYaw`, which is to say by the direction the
+                // hit came from. `vanilla` is unchanged and is the default, deliberately and
+                // against the grain of what most players think they want: the roll is a handicap
+                // on your aim, but it is also close to the only thing 1.8.9's client tells you
+                // about *where* you were hit from, and a player who deletes it from a settings
+                // page without knowing that has traded a cue for a fraction of a degree of
+                // accuracy. `reduced` keeps the direction and takes most of the amplitude, which
+                // is what that player usually meant. `off` removes it entirely. Removing it is
+                // not `overlay`'s grey trade and the top of this file is the argument for why — a
+                // rotated frame hides nothing, where the fire overlay hid the other player.
+                "camera_shake", enumOf("vanilla", "vanilla", "reduced", "off"));
+
+        // Old animations — kind gameplay, pvp tab, §11 safe.
+        // Puts the 1.7 blocking animation back: the sword moves with your swing instead of
+        // freezing.
+        // Source: HeldItemRenderer#renderArmHoldingItem and BiPedModel#setAngles.
+        mod("old_animations", Kind.GAMEPLAY, Category.PVP, "Old animations",
+                // Whether the 1.7 animation reverts are enabled.
+                "on", bool(false),
+                // Which version's blocking animation is drawn. `one_seven` is the mod and is the
+                // default: while you are holding right-click with a sword, your swing still moves
+                // the sword. 1.8.9 discards it — `renderArmHoldingItem`'s BLOCK branch calls
+                // `applyEquipAndSwingOffset(equip, 0.0F)`, hard-coding the swing progress to zero
+                // — so a 1.8 block-hit is a frozen arm with a hit landing somewhere behind it,
+                // and that stationary sword is the thing 1.7 players say the client "feels wrong"
+                // for. The fix is that one argument: pass the live
+                // `getHandSwingProgress(tickDelta)` instead of `0.0F`. **Do not also call
+                // `translateSwingProgress`** — 1.7 skipped that translate while an item was in
+                // use exactly as 1.8.9 does, so adding it back overshoots 1.7 rather than
+                // restoring it. `one_seven` also drops the −30° right-arm yaw (`rightArm.posY =
+                // -0.5235988f`) that 1.8 added to the blocking pose in `BiPedModel.setAngles`,
+                // which is how *other* players' blocking looks on your screen — your own body is
+                // drawn by their client, so nothing about how you appear to anyone else changes.
+                // That third-person half is folded in here rather than given a switch of its own
+                // on purpose: it is the same revert in the other render path, no player wants 1.7
+                // blocking in their hands and 1.8 blocking on the model in front of them, and a
+                // boolean whose entire visible effect is a 30° arm rotation on an entity would
+                // have to be drawn in `test/preview.test.tsx` or exempted from it. If it is ever
+                // split, this sentence is the split list. `vanilla` leaves both alone and is what
+                // a player picks to compare.
+                "block_hit", enumOf("one_seven", "vanilla", "one_seven"),
+                // Whether your arm still swings during the half-second of dead time 1.8 imposes
+                // after a click that hit nothing. **Read the second half of this before assuming
+                // what it does.** On a miss, 1.8.9's `doAttack` sets `attackCooldown = 10` in
+                // survival, and for those ten ticks every further click returns at the top of the
+                // method: no swing, no attack, nothing. 1.7.10's switch has no MISS entry at all
+                // and falls straight to `return`, so a 1.7 player clicking into open air sees an
+                // arm that keeps up with the mouse. Turning this on reproduces
+                // `LivingEntity.swingHand()`'s body — the two public fields `handSwinging` and
+                // `handSwingTicks` — **without** `ClientPlayerEntity.swingHand()`'s outbound
+                // `HandSwingC2SPacket`. Nothing reaches the server and nothing about the fight
+                // changes. So be plain about what is restored and what is not: **the click is
+                // still swallowed.** A left click inside the dead window does not attack, does
+                // not start mining and is not sent anywhere, whether this is on or off. Only the
+                // animation comes back. That means this is not a 1.7 revert either — in 1.7 the
+                // click also *worked* — it is a third behaviour that existed in no version, and
+                // the honest description of it is "the arm agrees with the mouse". Off by default
+                // for exactly that reason: an arm that swings on a click the game ate can be read
+                // as a hit that landed. The half that actually restores 1.7's click cadence is
+                // `old_input.no_miss_delay`, and it is in a `grey` mod because it changes how
+                // many swing packets leave the client, which is the number a CPS-based anticheat
+                // is watching. Note for whoever writes the mixin: `getMiningSpeedMultiplier()` is
+                // **private** on `LivingEntity`, so the re-entry guard needs an `@Invoker` rather
+                // than a straight copy.
+                "swing_during_delay", bool(false));
+
+        // Old input — kind gameplay, pvp tab, §11 grey.
+        // Removes the input interlocks 1.8 added, so a click is not swallowed by what your other
+        // hand is doing.
+        // Source: MinecraftClient#doUse, #handleBlockBreaking and #doAttack.
+        mod("old_input", Kind.GAMEPLAY, Category.PVP, "Old input",
+                // Whether the 1.7 input behaviours are enabled.
+                "on", bool(false),
+                // Whether right-click is allowed to act while you are mining. 1.8.9's `doUse`
+                // opens `if (this.interactionManager.isBreakingBlock()) return;` at offsets 0–10,
+                // so every right click during a break is discarded: no block placed, no bow
+                // drawn, no potion thrown, no block-hit started. 1.7.10 has no such guard and no
+                // `isBreakingBlock()` accessor at all — only the private `breakingBlock` field
+                // the 1.8 method was written to expose — so the two clicks were simply
+                // independent. One `@Redirect` on that call is the entire feature, which is why
+                // `docs/mod-roster.md` §7 calls it the one setting of the four that was ready and
+                // provable. Off by default: it is the switch a Bedwars player turns on to bridge
+                // out of a block they are still breaking, and it is a click reaching the server
+                // that vanilla would have dropped.
+                "use_while_digging", bool(false),
+                // Whether left-click is allowed to keep mining while you are holding an item in
+                // use. The mirror of the setting above, and it was not on any roster line — it
+                // came out of reading the method next door. 1.8.9's `handleBlockBreaking` opens
+                // `if (this.attackCooldown > 0 || this.player.isUsingItem()) return;`; 1.7.10 has
+                // the identical line with only the cooldown term. So in 1.8 a drawn bow, a raised
+                // sword or a potion at the lips stops your pickaxe, and in 1.7 it did not. Same
+                // shape as `use_while_digging`, same one-term change, same classification, and in
+                // a rush it is the half you notice more often — blocking with a sword is a
+                // resting state, and mining through it is what 1.7 hands expect. Off by default
+                // for the same reason as its mirror.
+                "dig_while_using", bool(false),
+                // Whether the half-second dead time after a whiffed click is removed. On a click
+                // that hits nothing, 1.8.9's `doAttack` reaches `hasLimitedAttackSpeed()` and
+                // sets `attackCooldown = 10`, and for those ten ticks every click returns at the
+                // top of the method — a whiff costs you the next half second of clicking, and in
+                // survival only. 1.7.10's switch has no MISS entry and falls through to `return`,
+                // so a whiff cost nothing. **This is the setting the withdrawn draft got wrong**,
+                // and the correction is worth keeping: that draft called it `always_swing` and
+                // said 1.8 only swings when a click connects. It does not. Both versions call
+                // `swingHand()` unconditionally at offset 12, before the hit result is even read,
+                // so the arm swings on a miss in 1.8 exactly as it does in 1.7. The only
+                // difference was ever this cooldown. Turning this on restores 1.7's click cadence
+                // and, because a click that is not swallowed is a click that sends
+                // `HandSwingC2SPacket`, raises outbound swing volume on whiffs in proportion to
+                // CPS — which is what classes this mod `grey`, and is the reason the purely
+                // local, packetless version of this lives in `old_animations.swing_during_delay`
+                // instead. Off by default. Scope it to the MISS branch: 1.7 still set the same
+                // cooldown on a null hit result and on a BLOCK hit that resolved to air, so
+                // suppressing the field outright goes past 1.7 rather than back to it.
+                "no_miss_delay", bool(false));
+
         // --- The factory HUD layout (16) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
@@ -986,7 +1212,7 @@ public final class ModRegistry {
     // END GENERATED DATA
     // =================================================================
 
-    /** The 24 mod ids, in registry order. */
+    /** The 29 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

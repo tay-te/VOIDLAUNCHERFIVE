@@ -90,6 +90,18 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "fov": {
     "min": 30,
     "max": 110
+  },
+  "intensity": {
+    "min": 0,
+    "max": 1
+  },
+  "threshold": {
+    "min": 1,
+    "max": 20
+  },
+  "strength": {
+    "min": 0,
+    "max": 1
   }
 } as const;
 
@@ -213,10 +225,6 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "full",
     "mark",
     "word"
-  ],
-  "toggle_sprint.mode": [
-    "toggle",
-    "hold"
   ],
   "crosshair.style": [
     "default",
@@ -342,6 +350,24 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "vanilla",
     "minimal",
     "off"
+  ],
+  "freelook.mode": [
+    "hold",
+    "toggle"
+  ],
+  "freelook.perspective": [
+    "third_back",
+    "third_front",
+    "free"
+  ],
+  "damage_tint.camera_shake": [
+    "vanilla",
+    "reduced",
+    "off"
+  ],
+  "old_animations.block_hit": [
+    "vanilla",
+    "one_seven"
   ]
 } as const;
 
@@ -365,5 +391,6 @@ export const KEYBIND_SETTINGS: readonly string[] =
   "zoom.key",
   "stopwatch.start_key",
   "stopwatch.reset_key",
-  "toggle_sneak.keybind"
+  "toggle_sneak.keybind",
+  "freelook.keybind"
 ] as const;

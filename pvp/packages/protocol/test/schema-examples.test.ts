@@ -136,13 +136,19 @@ describe('mod registry', () => {
     }
   });
 
-  it('classifies exactly fullbright, hitboxes and overlay as grey', () => {
+  it('classifies exactly fullbright, hitboxes, overlay and old_input as grey', () => {
     // An exact set rather than a count, and edited by hand when it moves: `grey` is what gates
     // the HYPIXEL-READY badge, so a mod joining the class should have to touch a test that
     // names it. `overlay` is the third — `schema/mods/overlay.json`'s `$comment` carries the
     // argument, and the same set is asserted in `void-loadout`'s `mods.rs`.
+    //
+    // `old_input` is the fourth, and it is why `old_animations` is a separate mod rather than
+    // one 1.7 bundle: each of its three switches changes what the client *does* on an input and
+    // therefore what the server receives, which fits none of §6.1's three permitted categories.
+    // Bundled, a player wanting the sword to swing through a block would have paid the badge for
+    // switches they never turned on.
     const grey = MOD_IDS.filter((id) => MOD_REGISTRY[id].hypixel_safe === 'grey');
-    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay']);
+    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input']);
   });
 });
 

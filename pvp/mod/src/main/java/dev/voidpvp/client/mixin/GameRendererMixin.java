@@ -5,11 +5,14 @@ import dev.voidpvp.client.VoidClient;
 import dev.voidpvp.client.state.LiveState;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.entity.Entity;
 import org.lwjgl.input.Mouse;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -99,5 +102,116 @@ public abstract class GameRendererMixin {
     private boolean void$handBobEnabled(GameOptions options) {
         LiveState state = LiveState.get();
         return options.bobView && !(state.overlayOn && state.overlayLockHandBob);
+    }
+
+    // -----------------------------------------------------------------
+    // Freelook (§6.7)
+    //
+    // Everything below was established by disassembling the named 1.8.9 jar
+    // (`net.legacyfabric:yarn:1.8.9+build.604`, Loom's
+    // `minecraft-merged-legacy-intermediary-1-v2` artifact — *not* the `-intermediary`
+    // sibling) with `javap -p -c`, and the instruction counts in each `require` are counted
+    // out of that disassembly rather than guessed.
+    // -----------------------------------------------------------------
+
+    /**
+     * The camera's yaw, while freelook is engaged.
+     *
+     * <p>{@code transformCamera(F)V} — MCP's {@code orientCamera} — is the whole of where the
+     * 1.8.9 camera goes, and it reads the camera entity's rotation in three roles. All three
+     * want freelook's angle and none of them wants a different one:</p>
+     *
+     * <ul>
+     *   <li><b>The seat.</b> Offsets 300-310 snapshot {@code yaw}/{@code pitch} into locals and
+     *       offsets 334-419 turn them into the third-person offset
+     *       {@code (-sin y cos p, -sin p, cos y cos p) * distance}.</li>
+     *   <li><b>The block clamp.</b> Offsets 421-610 ray-trace that offset from eight corner
+     *       offsets and shorten {@code distance} to the nearest hit — vanilla's own "do not put
+     *       the camera through a wall", which needs the same direction the seat used or it
+     *       clamps against the wrong wall.</li>
+     *   <li><b>The orientation.</b> Offsets 708-813, guarded by the debug-camera flag, rotate by
+     *       the interpolated {@code prevPitch -> pitch} and {@code prevYaw -> yaw + 180}. This is
+     *       the view direction.</li>
+     * </ul>
+     *
+     * <p>Counted out of that method: five {@code GETFIELD Entity.yaw}, five
+     * {@code Entity.pitch}, four {@code Entity.prevYaw}, four {@code Entity.prevPitch}. All are
+     * redirected, so the seat, the clamp and the orientation cannot disagree.</p>
+     *
+     * <p><b>Nothing here can move the eye off the pivot, and that is structural.</b> The
+     * distance is {@code lastThirdPersonDistance -> thirdPersonDistance}, which this mod never
+     * reads and never writes; the pivot is the camera entity's own interpolated position plus
+     * its eye height, read at offsets 13-71 from position fields this mod does not redirect;
+     * and which of vanilla's three arms runs is {@code GameOptions.perspective}, which the mod
+     * may only set to one of the three values vanilla's own F5 cycles. Substituting an angle
+     * therefore rotates the camera about the pivot at vanilla's radius and can do nothing else —
+     * there is no expression in this file that adds a length to a position.</p>
+     *
+     * <p>{@code prevYaw} and {@code yaw} answer with the same number on purpose: the camera
+     * angle is a per-frame value, so vanilla's interpolation between the two has nothing to
+     * interpolate and would only smear a sweep by a frame.</p>
+     */
+    @Redirect(method = "transformCamera", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/entity/Entity;yaw:F", opcode = Opcodes.GETFIELD),
+            require = 5)
+    private float void$cameraYaw(Entity entity) {
+        VoidClient client = VoidClient.get();
+        return client == null ? entity.yaw : client.cameraYaw(entity, entity.yaw);
+    }
+
+    @Redirect(method = "transformCamera", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/entity/Entity;prevYaw:F", opcode = Opcodes.GETFIELD),
+            require = 4)
+    private float void$cameraPrevYaw(Entity entity) {
+        VoidClient client = VoidClient.get();
+        return client == null ? entity.prevYaw : client.cameraYaw(entity, entity.prevYaw);
+    }
+
+    @Redirect(method = "transformCamera", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/entity/Entity;pitch:F", opcode = Opcodes.GETFIELD),
+            require = 5)
+    private float void$cameraPitch(Entity entity) {
+        VoidClient client = VoidClient.get();
+        return client == null ? entity.pitch : client.cameraPitch(entity, entity.pitch);
+    }
+
+    @Redirect(method = "transformCamera", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/entity/Entity;prevPitch:F", opcode = Opcodes.GETFIELD),
+            require = 4)
+    private float void$cameraPrevPitch(Entity entity) {
+        VoidClient client = VoidClient.get();
+        return client == null ? entity.prevPitch : client.cameraPitch(entity, entity.prevPitch);
+    }
+
+    /**
+     * The Damage tint mod's {@code camera_shake} (§6.7): vanilla's hurt roll, scaled.
+     *
+     * <p>{@code bobViewWhenHurt(F)V} — MCP's {@code hurtCameraEffect} — is thirteen instructions
+     * of roll once the death spin is past. At offsets 100-134:</p>
+     *
+     * <pre>
+     *   float g = entity.knockbackVelocity;          // MCP attackedAtYaw
+     *   GlStateManager.rotate(-g,         0, 1, 0);
+     *   GlStateManager.rotate(-f * 14.0F, 0, 0, 1);
+     *   GlStateManager.rotate( g,         0, 1, 0);
+     * </pre>
+     *
+     * <p>The two rotations about Y are the direction the hit came from and the {@code ldc 14.0f}
+     * is the entire amplitude — and it is the <b>only</b> {@code 14.0f} in the method, which is
+     * what makes a constant modifier unambiguous here where an ordinal on one of the four
+     * {@code rotate} calls would have been a bet on instruction order. Scaling it keeps the lean
+     * and takes the amplitude, which is exactly what {@code reduced} promises; {@code off} is
+     * zero, at which point the two Y rotations are exact inverses and the frame is untouched.
+     * The death spin above it is a different {@code rotate} with a different constant and is
+     * deliberately left alone.</p>
+     *
+     * <p>With the mod off, {@link LiveState#damageTintShake} is vanilla's own 14 and the
+     * substitution is the identity, so a frame with the mod off rolls byte-identically to
+     * vanilla.</p>
+     */
+    @ModifyConstant(method = "bobViewWhenHurt", constant = @Constant(floatValue = 14.0F))
+    private float void$hurtShakeAmplitude(float vanilla) {
+        LiveState state = LiveState.get();
+        return state.damageTintOn ? state.damageTintShake : vanilla;
     }
 }

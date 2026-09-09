@@ -2,16 +2,22 @@ package dev.voidpvp.client.mixin;
 
 import dev.voidpvp.client.HiDpi;
 import dev.voidpvp.client.VoidClient;
+import dev.voidpvp.client.actuator.OldAnimations;
+import dev.voidpvp.client.actuator.OldInput;
 import dev.voidpvp.client.sensor.HitTally;
+import dev.voidpvp.client.state.LiveState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.ClientPlayerEntity;
 import net.minecraft.util.hit.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -103,6 +109,132 @@ public abstract class MinecraftClientMixin {
                 target != null && target.isAlive(),
                 target != null && target.isAttackable(),
                 mc.player != null && mc.player.isSpectator());
+        // The same swing, reported a second way for `hit_color.own_hits_only`. Separate from the
+        // HitTally call on purpose: that one is a counter with a defended definition of "landed"
+        // and this one is a scope filter that only has to know which entity was under the
+        // crosshair, so widening the counter's contract to carry an entity id would put a mod
+        // setting inside a sensor — the thing `HitTally`'s own comment refuses.
+        if (at == HitTally.Swing.ENTITY && target != null) {
+            client.onAttackedEntity(target.getEntityId());
+        }
+    }
+
+    /**
+     * Old animations' {@code swing_during_delay} (§6.7): the arm keeps up with the mouse during
+     * the ten ticks 1.8 swallows after a whiffed click.
+     *
+     * <p><b>This is the injection point, and it is the whole condition.</b> {@code doAttack} has
+     * exactly three {@code return} instructions — offset 7 (the {@code attackCooldown > 0} early
+     * out), offset 49 (the null-hit-result path) and offset 178 (the single trailing return every
+     * arm of the {@code tableswitch} reaches). {@code ordinal = 0} is therefore the swallowed
+     * click and nothing else: reaching it <em>is</em> the cooldown having eaten the click, so the
+     * guard does not have to be restated here and cannot drift away from vanilla's.</p>
+     *
+     * <p><b>Nothing leaves the client.</b> {@code ClientPlayerEntity.swingHand()} is
+     * {@code super.swingHand()} plus {@code networkHandler.sendPacket(new HandSwingC2SPacket())};
+     * this reproduces the body of {@code LivingEntity.swingHand()} — the guard in
+     * {@link OldAnimations#restartsSwing}, then {@code handSwingTicks = -1} and
+     * {@code handSwinging = true}, both public fields — and calls neither. The remaining branch
+     * of the vanilla method, {@code world instanceof ServerWorld} broadcasting an
+     * {@code EntityAnimationS2CPacket}, is the server's own copy and is unreachable from a client
+     * world; it is not reproduced either. That is why this setting is in the {@code safe} mod
+     * while {@code old_input.no_miss_delay} — which lets the click through, and so lets the swing
+     * packet out — is in the {@code grey} one.</p>
+     *
+     * <p><b>And the click is still swallowed.</b> It does not attack, does not start mining and
+     * is not sent anywhere. Only the animation comes back, which is why this is a third behaviour
+     * rather than a 1.7 revert and why it ships off.</p>
+     */
+    @Inject(method = "doAttack", at = @At(value = "RETURN", ordinal = 0))
+    private void void$swingDuringDelay(CallbackInfo ci) {
+        LiveState state = LiveState.get();
+        if (!state.oldAnimationsOn || !state.oldAnimationsSwingDuringDelay) {
+            return;
+        }
+        MinecraftClient mc = (MinecraftClient) (Object) this;
+        ClientPlayerEntity player = mc.player;
+        if (player == null) {
+            return;
+        }
+        int multiplier = ((LivingEntityInvoker) (Object) player).void$getMiningSpeedMultiplier();
+        if (OldAnimations.restartsSwing(player.handSwinging, player.handSwingTicks, multiplier)) {
+            player.handSwingTicks = -1;
+            player.handSwinging = true;
+        }
+    }
+
+    /**
+     * Old input's {@code no_miss_delay} (§6.7): the half-second of dead time after a whiff.
+     *
+     * <p><b>Why this needs a runtime test and not just an injection point.</b> 1.8.9's
+     * {@code doAttack} arms {@code attackCooldown = 10} behind {@code hasLimitedAttackSpeed()} in
+     * two places — offsets 33-46 on the null-hit-result path, and offsets 162-175 on the tail
+     * <em>shared</em> by the {@code tableswitch}'s MISS arm and by a BLOCK hit whose block turned
+     * out to be {@code Material.AIR} (the {@code if_acmpeq 162} at offset 140). 1.7.10 arms the
+     * same cooldown on both of those other paths: its null path is offsets 33-46 and its
+     * air-block path is 156-169. Only MISS differs — 1.7's {@code lookupswitch} has keys 1 and 2
+     * alone and sends everything else to {@code default: 192}, the bare {@code return}.</p>
+     *
+     * <p>So {@code ordinal = 1} picks the right instruction and is still not enough: the two
+     * cases that share it have to be told apart by reading {@code result.type}. Suppressing the
+     * field write, or this whole tail, would be a shorter mixin that goes past 1.7 rather than
+     * back to it.</p>
+     */
+    @Redirect(method = "doAttack", at = @At(value = "INVOKE", ordinal = 1,
+            target = "Lnet/minecraft/client/network/ClientPlayerInteractionManager;"
+                    + "hasLimitedAttackSpeed()Z"))
+    private boolean void$noMissDelay(ClientPlayerInteractionManager manager) {
+        boolean limited = manager.hasLimitedAttackSpeed();
+        LiveState state = LiveState.get();
+        MinecraftClient mc = (MinecraftClient) (Object) this;
+        BlockHitResult hit = mc.result;
+        boolean miss = hit != null && hit.type == BlockHitResult.Type.MISS;
+        return OldInput.hasLimitedAttackSpeed(limited, state.oldInputOn, state.oldInputNoMissDelay,
+                miss);
+    }
+
+    /**
+     * Old input's {@code use_while_digging} (§6.7): right click acts while you are mining.
+     *
+     * <p>{@code doUse()} opens at offsets 0-10 with
+     * {@code if (this.interactionManager.isBreakingBlock()) return;}, and that is the only call to
+     * {@code isBreakingBlock()} in the whole class — so no ordinal, and the scope is exact.
+     * 1.7.10's {@code doUse} has no such guard and its
+     * {@code ClientPlayerInteractionManager} has no {@code isBreakingBlock()} at all.</p>
+     *
+     * <p>Answering the guard rather than cancelling the method is deliberate and is the same
+     * shape as the Overlay mod's bobbing redirects: with the mod off this returns exactly what
+     * the interaction manager said, so the click path is vanilla's.</p>
+     */
+    @Redirect(method = "doUse", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/network/ClientPlayerInteractionManager;"
+                    + "isBreakingBlock()Z"))
+    private boolean void$useWhileDigging(ClientPlayerInteractionManager manager) {
+        LiveState state = LiveState.get();
+        return OldInput.isBreakingBlock(manager.isBreakingBlock(), state.oldInputOn,
+                state.oldInputUseWhileDigging);
+    }
+
+    /**
+     * Old input's {@code dig_while_using} (§6.7): left click keeps mining while an item is in use.
+     *
+     * <p>The mirror of the setting above, in the method next door.
+     * {@code handleBlockBreaking(Z)V} opens at offsets 9-26 with
+     * {@code if (this.attackCooldown > 0 || this.player.isUsingItem()) return;}; 1.7.10's, at
+     * offsets 9-16, is the cooldown term alone.</p>
+     *
+     * <p><b>The scope is the reason this is a {@code method =} and not an ordinal.</b>
+     * {@code isUsingItem()} is called three times in 1.8.9's {@code MinecraftClient} — here and
+     * twice inside {@code tick}, at offsets 1673 and 1835 — and those two are byte-identical to
+     * 1.7.10's own and must stay untouched. Naming the method is what keeps this to the one call
+     * that differs.</p>
+     */
+    @Redirect(method = "handleBlockBreaking", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/entity/player/ClientPlayerEntity;isUsingItem()Z"))
+    private boolean void$digWhileUsing(ClientPlayerEntity player) {
+        LiveState state = LiveState.get();
+        return OldInput.isUsingItemForBreaking(player.isUsingItem(), state.oldInputOn,
+                state.oldInputDigWhileUsing);
     }
 
     /**

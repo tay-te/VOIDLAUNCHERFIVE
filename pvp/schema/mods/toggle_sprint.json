@@ -1,5 +1,5 @@
 {
-  "$comment": "`sneak_too` used to be here and is gone: sneak is `toggle_sneak` now, its own mod with its own bind, per `docs/mod-roster.md` \u00a73.2 #3. Two mods latching the same key would be two owners of one behaviour, so the boolean was removed rather than left beside it \u2014 and removing a setting is not free. Every `*Settings` struct in `crates/void-loadout` is `#[serde(deny_unknown_fields)]`, so a loadout already on disk that carries `sneak_too` stops deserialising and `Store::load` returns `Error::Json`; `Store::list` collects a `Result` over the whole directory, so one orphaned file takes the entire library with it. The migration is `REMOVED_SETTINGS` in `crates/void-loadout/src/store.rs`, which now carries `(\"toggle_sprint\", \"sneak_too\")` beside the `show_status` entry that established the pattern: the stale key is dropped on the way in and the next save writes the file without it. This is the second setting to leave this mod that way. Both left for the same reason \u2014 a gameplay mod is a poor place to keep something that wants a widget or a bind of its own.",
+  "$comment": "**`mode` is gone, and it was removed because it was provably a no-op — not because it was deprecated.** The Java wave read it out of the bytecode: `ClientPlayerEntity.tickMovement` re-evaluates sprint as a *level* every tick — both the idle-start test and the collision-resume test call `sprintKey.isPressed()` — and `KeyBinding.setKeyPressed(code, true)` writes exactly the `pressed` field that `isPressed()` reads. A latch that sets that field every tick is therefore bit-for-bit indistinguishable from a player holding the key down; sprint auto-resumes after a collision in both cases. So \"restore vanilla hold-to-sprint\" had no implementation other than *write nothing*, and writing nothing is what `on: false` already does. `mode: hold` was not merely redundant with the off switch, it was worse than it: the actuator went quiet while the Mods panel went on reporting the mod enabled, which is a settings page lying about the game. It was redundant a second way too, with a key this mod already ships — `keybind`'s own description claimed the same use case, a fight where holding the key is what the hands expect.\n\n**The prose it replaces was the real defect.** The previous wave rewrote `mode`'s description to say that on this mod `hold` \"now means the mod is inert until it is set back\", and closed with \"worth revisiting when a sprint indicator comes back\". That is a bug promoted to a specification, and a confidently-worded description is exactly what stops the next reader checking — the silent species of failure `design/rendering-invariants.md` catalogues over and over. There was nothing to revisit: there was no behaviour behind the setting to restore.\n\n**`toggle_sneak.mode` is not affected and stays.** The difference is structural, not a matter of taste. `toggle_sneak` latches its **own** bind rather than vanilla's sneak key, so its `hold` is a real behaviour — sneak under a thumb that is not Shift. `toggle_sprint` latches vanilla's sprint key and its `keybind` is the toggle-the-mod bind, so there is no second key for a `hold` to move sprint onto.\n\nThis is the third setting to leave this mod, and removing one is not free. Every `*Settings` struct in `crates/void-loadout` is `#[serde(deny_unknown_fields)]`, so a loadout already on disk that still carries the key stops deserialising, `Store::load` returns `Error::Json`, and `Store::list` collects a `Result` over the whole directory — one orphaned file takes the entire library listing with it, not just itself. `mode` was in the shipped registry defaults, so it is in essentially every loadout ever written; the migration is mandatory rather than precautionary. `REMOVED_SETTINGS` in `crates/void-loadout/src/store.rs` now carries `(\"toggle_sprint\", \"mode\")` beside `show_status` and `sneak_too`: the stale key is dropped on the way in and never written back, so the next save is the migration.\n\nThe two that went before it. `show_status` was a status line nothing drew, and it comes back as its own placeable HUD mod rather than as a setting on a gameplay one. `sneak_too` went to `toggle_sneak`, its own mod with its own bind, per `docs/mod-roster.md` §3.2 #3 — two mods latching one key would have been two owners of one behaviour. Three departures, three different destinations, and only one of them was ever a behaviour this mod could perform.",
   "id": "toggle_sprint",
   "kind": "gameplay",
   "category": "pvp",
@@ -10,25 +10,15 @@
   "on_description": "toggle sprint is enabled",
   "description": "Latches sprint instead of holding the key.",
   "settings_title": "Toggle sprint settings",
-  "settings_description": "Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`.",
+  "settings_description": "Settings for the Toggle sprint gameplay mod. Overrides the sprint `KeyBinding` in `onLivingUpdate`. One setting now, and the `$comment` at the top of this file is mostly about the three that have left: `show_status` to a HUD mod that does not exist yet, `sneak_too` to `toggle_sneak`, and `mode` to nothing at all, because it turned out to have no behaviour behind it. The mod itself is unchanged — it latches, or it is off.",
   "source": "KeyBinding override in onLivingUpdate",
   "enabled": true,
   "defaults": {
-    "mode": "toggle",
     "keybind": "NONE"
   },
   "settings": {
-    "mode": {
-      "description": "`toggle` latches sprint until the key is pressed again; `hold` restores vanilla hold-to-sprint. `hold` used to be the value that turned the latch off while keeping the status readout, and the readout has been gone since `show_status` was removed, so on this mod it now means the mod is inert until it is set back \u2014 unlike `toggle_sneak.mode`, whose `hold` still moves sneak onto that mod's own bind. Worth revisiting when a sprint indicator comes back as its own HUD mod.",
-      "type": "string",
-      "enum": [
-        "toggle",
-        "hold"
-      ],
-      "default": "toggle"
-    },
     "keybind": {
-      "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key itself, which is vanilla's and is what `mode` latches: this one turns the latching off, for a fight where holding the key is what the hands expect.",
+      "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key itself, which is vanilla's and is the key this mod latches: this one turns the latching off and on mid-game, for a fight where holding the key is what the hands expect. With `mode` removed it is the only way to get vanilla hold-to-sprint back without opening the menu — which is the job `mode` was believed to be doing and never did.",
       "$ref": "#/definitions/keybind",
       "default": "NONE"
     }

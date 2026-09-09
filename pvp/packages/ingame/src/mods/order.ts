@@ -35,14 +35,26 @@ export const MOD_ORDER: ModId[] = [
   'toggle_sprint',
   // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
   'toggle_sneak',
+  // The two that change how a swing feels, beside the two that change how it starts. Adjacent
+  // and deliberately separate: one is animation and `safe`, the other is input and `grey`, and a
+  // player should be able to take the first without paying the badge for the second.
+  'old_animations',
+  'old_input',
   'crosshair',
   'zoom',
   // Beside Zoom: both are the camera's own angle, one held and one fixed.
   'fov',
+  // And beside those two: the third thing a player does to the camera, which is to stop it
+  // being aimed by their body.
+  'freelook',
   'fullbright',
   // Beside Fullbright, the other mod whose subject is what the game stops you seeing.
   'overlay',
   'hitboxes',
+  // Beside Hitboxes, the other mod whose subject is reading a fight off the entity in front of
+  // you rather than off the HUD.
+  'hit_color',
+  'damage_tint',
   'armor_status',
   // The survival block: what you are wearing, what is keeping you alive, what is in your hand.
   // Saturation sits inside it because in 1.8 saturation *is* regen, and vanilla never draws it.

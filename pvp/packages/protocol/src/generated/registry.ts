@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 8,
+  "version": 10,
   "mods": {
     "fps": {
       "id": "fps",
@@ -244,7 +244,6 @@ export const MOD_REGISTRY_DOCUMENT = {
       "source": "KeyBinding override in onLivingUpdate",
       "defaults": {
         "on": true,
-        "mode": "toggle",
         "keybind": "NONE"
       }
     },
@@ -572,6 +571,86 @@ export const MOD_REGISTRY_DOCUMENT = {
         "hide_own_armor": false,
         "hide_stuck_arrows": true,
         "hide_pumpkin": true
+      }
+    },
+    "freelook": {
+      "id": "freelook",
+      "kind": "gameplay",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Freelook",
+      "icon": "orbit",
+      "description": "Detaches the camera from your facing, so you can look around without turning.",
+      "source": "camera yaw and pitch detached from the player's own in GameRendererMixin; key polled per frame as ZoomController's is",
+      "defaults": {
+        "on": false,
+        "keybind": "NONE",
+        "mode": "hold",
+        "perspective": "third_back",
+        "snap_back": true
+      }
+    },
+    "hit_color": {
+      "id": "hit_color",
+      "kind": "gameplay",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Hit colour",
+      "icon": "droplet",
+      "description": "Recolours the red flash the game draws on an entity you hit.",
+      "source": "the entity hurt overlay applied in RenderLivingBase#setBrightness",
+      "defaults": {
+        "on": false,
+        "color": "#2FB8A6",
+        "own_hits_only": true,
+        "intensity": 1
+      }
+    },
+    "damage_tint": {
+      "id": "damage_tint",
+      "kind": "gameplay",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Damage tint",
+      "icon": "heart-pulse",
+      "description": "Vignettes the screen when your health is low, and owns the vanilla hurt-camera shake.",
+      "source": "EntityLivingBase#getHealth for the vignette; EntityRenderer#hurtCameraEffect for the shake",
+      "defaults": {
+        "on": false,
+        "threshold": 6,
+        "strength": 0.6,
+        "camera_shake": "vanilla"
+      }
+    },
+    "old_animations": {
+      "id": "old_animations",
+      "kind": "gameplay",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Old animations",
+      "icon": "reset",
+      "description": "Puts the 1.7 blocking animation back: the sword moves with your swing instead of freezing.",
+      "source": "HeldItemRenderer#renderArmHoldingItem and BiPedModel#setAngles",
+      "defaults": {
+        "on": false,
+        "block_hit": "one_seven",
+        "swing_during_delay": false
+      }
+    },
+    "old_input": {
+      "id": "old_input",
+      "kind": "gameplay",
+      "category": "pvp",
+      "hypixel_safe": "grey",
+      "label": "Old input",
+      "icon": "tap",
+      "description": "Removes the input interlocks 1.8 added, so a click is not swallowed by what your other hand is doing.",
+      "source": "MinecraftClient#doUse, #handleBlockBreaking and #doAttack",
+      "defaults": {
+        "on": false,
+        "use_while_digging": false,
+        "dig_while_using": false,
+        "no_miss_delay": false
       }
     }
   }

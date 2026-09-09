@@ -37,6 +37,11 @@ export const MOD_IDS = [
   'fov',
   'toggle_sneak',
   'overlay',
+  'freelook',
+  'hit_color',
+  'damage_tint',
+  'old_animations',
+  'old_input',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -69,4 +74,9 @@ export const GAMEPLAY_MOD_IDS = [
   'fov',
   'toggle_sneak',
   'overlay',
+  'freelook',
+  'hit_color',
+  'damage_tint',
+  'old_animations',
+  'old_input',
 ] as const satisfies readonly GameplayModId[];

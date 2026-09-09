@@ -2,6 +2,8 @@ package dev.voidpvp.client;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import dev.voidpvp.client.actuator.DamageTint;
+import dev.voidpvp.client.actuator.FreeLook;
 import dev.voidpvp.client.actuator.SprintLatch;
 import dev.voidpvp.client.actuator.ZoomController;
 import dev.voidpvp.client.bridge.BridgeHost;
@@ -112,6 +114,26 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private final SprintLatch sprint = new SprintLatch();
     private final SprintLatch sneak = new SprintLatch();
     private final ZoomController zoom = new ZoomController();
+    /**
+     * Freelook's whole state. The camera angles live in here and nowhere else, and there is no
+     * position beside them — see {@link FreeLook}.
+     */
+    private final FreeLook freelook = new FreeLook();
+    /**
+     * The player's own {@code GameOptions.perspective}, while freelook is holding it; null when
+     * it is not. The same capture-and-restore discipline as {@link #savedGamma} and
+     * {@link #savedFov}, with one difference that is worth stating rather than assuming:
+     * <b>this field does not need a {@code GameOptionsMixin} counterpart.</b> Disassembling
+     * {@code GameOptions} out of the named 1.8.9 jar, {@code perspective} appears exactly once
+     * in the whole class — its own {@code public int perspective;} declaration. Neither
+     * {@code save()} nor {@code load()} contains a single {@code GETFIELD} or {@code PUTFIELD}
+     * of it, so unlike {@code gamma} and {@code fov} it is a session field that never reaches
+     * {@code options.txt} and cannot become the player's own setting behind their back.
+     */
+    private Integer savedPerspective;
+    /** Which entities this player has recently swung at — {@code hit_color.own_hits_only}. */
+    private final dev.voidpvp.client.sensor.OwnHits ownHits =
+            new dev.voidpvp.client.sensor.OwnHits();
 
     private final EdgeKey menuKey = new EdgeKey();
     /**
@@ -422,6 +444,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // The menu screen paints the same view itself, one layer up.
             pumpUi();
         }
+        drawDamageTint(mc, window);
         drawCrosshair(mc, window);
         if (!menuOpen) {
             ui.paint(window.getWidth(), window.getHeight());
@@ -459,6 +482,26 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         ClientPlayerEntity player = mc.player;
         CrosshairRenderer.draw(state, window.getWidth(), window.getHeight(),
                 player != null && player.isSprinting());
+    }
+
+    /**
+     * The Damage tint mod's low-health vignette, in the game's own overlay pass.
+     *
+     * <p>Before the crosshair and before the Ultralight layer, so it reads as part of the game
+     * rather than as part of the HUD, and so neither of those two ends up behind it. It needs no
+     * injection point of its own: it draws at the tail of {@code InGameHud.render}, which the
+     * mod already holds, from {@code LivingEntity.getHealth()}, which the schema names as its
+     * source. The ramp is {@link DamageTint#vignetteAlpha}, where a test can hold it.</p>
+     */
+    private void drawDamageTint(MinecraftClient mc, Window window) {
+        ClientPlayerEntity player = mc.player;
+        if (player == null) {
+            return;
+        }
+        float alpha = DamageTint.vignetteAlpha(state.damageTintOn, player.getHealth(),
+                state.damageTintThreshold, state.damageTintStrength);
+        dev.voidpvp.client.render.VignetteRenderer.draw(
+                window.getWidth(), window.getHeight(), alpha);
     }
 
     private void advanceZoom(MinecraftClient mc) {
@@ -986,6 +1029,115 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         return savedFov;
     }
 
+    // -----------------------------------------------------------------
+    // Freelook (§6.7) and the entity-hit scope filter
+    // -----------------------------------------------------------------
+
+    /**
+     * One frame of mouse travel, offered to freelook before the player gets it.
+     *
+     * <p>Called from {@code EntityMixin}, at the head of {@code Entity.increaseTransforms} —
+     * which that file establishes is the whole of 1.8.9's mouse-look path, two call sites in
+     * {@code GameRenderer.render} and nothing else in the jar. That makes this the one moment
+     * per frame the game is applying mouse look — world loaded, no screen, mouse grabbed — so it
+     * is also where the key is sampled: sampling it anywhere else would leave a frame in which
+     * the key was down and the delta still turned the player, and a mod whose promise is "a look
+     * and never a turn" cannot afford one.</p>
+     *
+     * <p>{@code entity} is checked against {@code mc.player} rather than trusted: both call
+     * sites pass the local player, and a third that did not would be turning somebody else.</p>
+     *
+     * <p><b>{@code snap_back: true} writes nothing to the player, ever.</b> The camera angle is
+     * this mod's own; the player's rotation is untouched for the whole engagement, so releasing
+     * needs no restore and the server is never told about a turn that did not happen. Only
+     * {@code snap_back: false} writes, and only once, on release — the player asked for
+     * freelook to be an input for turning around, and {@code prevYaw}/{@code prevPitch} go with
+     * it so the body arrives rather than smearing there over a tick.</p>
+     *
+     * @return true when freelook took the delta and the player must not
+     */
+    public boolean freelookTurn(net.minecraft.entity.Entity entity, float dx, float dy) {
+        MinecraftClient mc = minecraft();
+        ClientPlayerEntity player = mc == null ? null : mc.player;
+        if (player == null || entity != player) {
+            return false;
+        }
+        boolean enabled = state.freelookOn && state.freelookKeyCode != KeyNames.KEY_NONE;
+        boolean engaged = freelook.update(enabled, state.freelookHold,
+                isKeyDown(state.freelookKeyCode), true, player.yaw, player.pitch);
+        if (engaged && savedPerspective == null) {
+            savedPerspective = Integer.valueOf(mc.options.perspective);
+            // The only write this mod makes to where the eye sits, and it can only ever be one
+            // of vanilla's own three F5 states. `FreeLook.perspectiveFor` is the whole mapping.
+            mc.options.perspective = state.freelookPerspective;
+        }
+        if (freelook.justReleased()) {
+            endFreelook(mc, player);
+        }
+        if (!engaged) {
+            return false;
+        }
+        freelook.look(dx, dy);
+        return true;
+    }
+
+    /**
+     * Puts the camera back, and the perspective with it.
+     *
+     * <p>{@code savedPerspective} is restored rather than assumed to be 0: a player who pressed
+     * F5 before engaging freelook gets their third-person view back, not first person.</p>
+     */
+    private void endFreelook(MinecraftClient mc, ClientPlayerEntity player) {
+        if (savedPerspective != null) {
+            mc.options.perspective = savedPerspective.intValue();
+            savedPerspective = null;
+        }
+        if (!state.freelookSnapBack && player != null) {
+            player.yaw = freelook.yaw();
+            player.pitch = freelook.pitch();
+            player.prevYaw = freelook.yaw();
+            player.prevPitch = freelook.pitch();
+        }
+    }
+
+    /**
+     * The camera's yaw for {@code GameRenderer.transformCamera}, or vanilla's.
+     *
+     * <p>Only the entity the client is actually looking out of is answered for. Everything else
+     * that reaches {@code transformCamera} — a spectated entity, a mount the camera is riding —
+     * keeps its own rotation, because freelook's angle is the player's mouse and belongs to the
+     * player.</p>
+     */
+    public float cameraYaw(net.minecraft.entity.Entity entity, float vanilla) {
+        return freelookOwns(entity) ? freelook.yaw() : vanilla;
+    }
+
+    public float cameraPitch(net.minecraft.entity.Entity entity, float vanilla) {
+        return freelookOwns(entity) ? freelook.pitch() : vanilla;
+    }
+
+    private boolean freelookOwns(net.minecraft.entity.Entity entity) {
+        if (!freelook.isEngaged() || entity == null) {
+            return false;
+        }
+        MinecraftClient mc = minecraft();
+        return mc != null && entity == mc.player;
+    }
+
+    /**
+     * {@code MinecraftClient.doAttack} resolved onto an entity — the whole of what
+     * {@code hit_color.own_hits_only} knows. See {@link dev.voidpvp.client.sensor.OwnHits} for
+     * why it is a window and not a fact.
+     */
+    public void onAttackedEntity(int entityId) {
+        ownHits.swungAt(entityId, System.currentTimeMillis());
+    }
+
+    /** Whether the hurt flash now on this entity is plausibly one this player caused. */
+    public boolean isOwnHit(int entityId) {
+        return ownHits.isOwn(entityId, System.currentTimeMillis());
+    }
+
     private void applyActuators(MinecraftClient mc) {
         // Fullbright: gammaSetting override, restored exactly when turned off.
         if (state.fullbrightOn) {
@@ -1051,9 +1203,16 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // means "stop latching and let vanilla have it back", which is why it writes nothing.
         boolean canMove = mc.player != null && mc.currentScreen == null;
         int sprintCode = mc.options.sprintKey.getCode();
-        boolean sprintHeld = sprint.update(state.toggleSprintOn, state.toggleSprintHold,
+        // `false` is not a placeholder: `toggle_sprint.mode` was removed because `hold` was
+        // provably a no-op — `KeyBinding.setKeyPressed` writes the same `pressed` field the two
+        // sprint tests in `tickMovement` read, so latching it every tick is indistinguishable
+        // from the player holding the key, and "restore vanilla hold-to-sprint" had no
+        // implementation other than writing nothing. `SprintLatch` keeps the parameter because
+        // `toggle_sneak.mode` genuinely uses it: that mod latches its OWN bind rather than
+        // vanilla's key, so its `hold` is a real behaviour.
+        boolean sprintHeld = sprint.update(state.toggleSprintOn, false,
                 isKeyDown(sprintCode), canMove);
-        boolean sprintWrite = state.toggleSprintOn && !state.toggleSprintHold && sprintHeld;
+        boolean sprintWrite = state.toggleSprintOn && sprintHeld;
         applyLatch(sprintCode, sprintWrite, sprintForced);
         sprintForced.value = sprintWrite;
 
@@ -1083,6 +1242,24 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         boolean sneakWrite = state.toggleSneakOn && sneakBind != KeyNames.KEY_NONE && sneakHeld;
         applyLatch(mc.options.sneakKey.getCode(), sneakWrite, sneakForced);
         sneakForced.value = sneakWrite;
+
+        // Freelook's release path, and only its release path.
+        //
+        // The engage lives in `freelookTurn`, which is the frame hook; this is the tick that
+        // still runs when that hook cannot — a screen opened, the world went away, the mod was
+        // switched off, the loadout changed under it, the keybind went back to NONE. Without it
+        // a `toggle`-latched freelook would survive an inventory screen with the camera detached
+        // and vanilla's perspective still held, which is `applyLatch`'s "a mod that goes on
+        // acting after it is switched off" one camera over.
+        //
+        // It deliberately does NOT sample the key: `FreeLook.update` owns that edge, and a
+        // second sampler on a different clock is a toggle that fires twice on one press —
+        // `toggle_sneak`'s two owners of one latch, with the camera as the noun.
+        boolean freelookPossible = state.freelookOn && state.freelookKeyCode != KeyNames.KEY_NONE
+                && mc.player != null && mc.currentScreen == null;
+        if (!freelookPossible && freelook.forceRelease()) {
+            endFreelook(mc, mc.player);
+        }
     }
 
     /**
@@ -1358,6 +1535,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // about the server: a new world invalidates the last armour, the last effects and the
         // last position whether or not anybody is hosting it.
         ticks.reset();
+        // Entity ids are reissued per world, so a stale id is a stale id for somebody else.
+        ownHits.clear();
         if (!server.update(connected, host, port)) {
             return;
         }

@@ -96,6 +96,13 @@ export const SHEET_ORDER: readonly string[] = [
   // Appended, so no existing cell's offset moves — `build-icons.py` writes the sheet in this
   // order and `icons.css` puts `clock` at -560px, which is cell 35.
   'clock',
+  // Cells 36-39, appended for the same reason: `icons.css` puts them at -576, -592, -608 and
+  // -624px. These four are named after what they draw, like every other cell — the mods that
+  // ask for them are `freelook`, `hit_color`, `damage_tint` and the input mod.
+  'orbit',
+  'droplet',
+  'heart-pulse',
+  'tap',
 ];
 
 /** How many cells the sheet holds. The width at size *s* is this many *s*. */
@@ -191,6 +198,12 @@ export const SPRITE: Record<IconName, string> = {
   'chevron-right': 'chevron-right',
   bed: 'bed',
   clock: 'clock',
+  // These four are drawn once and named the same on both sides, so there is no translation to
+  // get wrong — `build-icons.py` draws the same coordinates at the sheet's heavier stroke.
+  orbit: 'orbit',
+  droplet: 'droplet',
+  'heart-pulse': 'heart-pulse',
+  tap: 'tap',
 };
 
 /** The inline geometry for one cell at one size. Exported for the test that pins the mapping. */

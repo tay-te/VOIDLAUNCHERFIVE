@@ -39,7 +39,7 @@ export const SWORD_PVP: Loadout = {
     coordinates: { on: false },
     armor_status: { on: true, orientation: 'horizontal', show_durability: true, show_held_item: true },
     potion_effects: { on: true },
-    toggle_sprint: { on: true, mode: 'toggle' },
+    toggle_sprint: { on: true },
     fullbright: { on: false, gamma: 10 },
     hitboxes: { on: false },
     zoom: { on: true, key: 'C', fov_divisor: 4, smooth: true },

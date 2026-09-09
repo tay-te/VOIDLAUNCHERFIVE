@@ -254,6 +254,38 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'hide_stuck_arrows', label: 'Hide stuck arrows', control: 'switch' },
     { key: 'hide_pumpkin', label: 'Hide pumpkin blur', control: 'switch' },
   ],
+  // Roster §3.2's medium PvP set. Two of the three are deliberate bundles — `freelook` absorbs
+  // Snaplook, `damage_tint` absorbs Hurt cam — argued in their schema `$comment`s.
+  freelook: [
+    { key: 'keybind', label: 'Keybind', control: 'keybind' },
+    { key: 'mode', label: 'Mode', control: 'select', options: ['hold', 'toggle'] },
+    { key: 'perspective', label: 'View', control: 'select', options: ['third_back', 'third_front', 'free'] },
+    { key: 'snap_back', label: 'Snap back on release', control: 'switch' },
+  ],
+  hit_color: [
+    { key: 'color', label: 'Colour', control: 'color' },
+    { key: 'own_hits_only', label: 'Only hits you land', control: 'switch' },
+    // 1 is exactly vanilla's own hurt-overlay alpha, never more — that ceiling is what keeps
+    // this mod `safe` rather than `grey`. See schema/mods/hit_color.json.
+    { key: 'intensity', label: 'Intensity', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+  ],
+  damage_tint: [
+    { key: 'threshold', label: 'Show below', control: 'slider', min: 1, max: 20, step: 1, format: 'plain' },
+    { key: 'strength', label: 'Strength', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'camera_shake', label: 'Hurt camera', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+  ],
+  // The 1.7 pair. `old_animations` is `safe` and is animation only; `old_input` is the
+  // registry's fourth `grey` mod because each of its switches changes what the client *does* on
+  // an input, and therefore what the server receives.
+  old_animations: [
+    { key: 'block_hit', label: 'Block hit', control: 'select', options: ['vanilla', 'one_seven'] },
+    { key: 'swing_during_delay', label: 'Swing during delay', control: 'switch' },
+  ],
+  old_input: [
+    { key: 'use_while_digging', label: 'Use item while mining', control: 'switch' },
+    { key: 'dig_while_using', label: 'Mine while using an item', control: 'switch' },
+    { key: 'no_miss_delay', label: 'No delay after a miss', control: 'switch' },
+  ],
   hitboxes: [
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
     { key: 'color', label: 'Colour', control: 'color' },
@@ -323,6 +355,11 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'fov',
   'toggle_sneak',
   'overlay',
+  'freelook',
+  'hit_color',
+  'damage_tint',
+  'old_animations',
+  'old_input',
 ];
 
 /**

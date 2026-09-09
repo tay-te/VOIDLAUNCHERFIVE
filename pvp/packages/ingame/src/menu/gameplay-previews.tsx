@@ -1,15 +1,17 @@
 /**
- * Previews for the eight mods that draw into the world, not onto the page.
+ * Previews for the twelve mods that draw into the world, not onto the page.
  *
- * ## Why these are different from the other nine
+ * ## Why these are different from the rest of the registry
  *
  * `LIVE_WIDGETS` (`ModSettingsScreen.tsx`) points most of the registry at **the component
  * `HudLayer` already places**, which is the strongest possible guarantee that the preview and
- * the HUD agree: they are the same code. Eight mods cannot be done that way, because there is
+ * the HUD agree: they are the same code. Twelve mods cannot be done that way, because there is
  * no HTML of them anywhere. Fullbright changes `mc.options.gamma`. Zoom and the FOV changer
  * change the camera FOV. Hitboxes pushes GL lines from an entity render pass. Overlay deletes
  * render passes the game was going to run. Old animations changes the shape of a first-person
- * transform. Toggle sprint and Toggle sneak change what a key does and draw nothing at all.
+ * transform and Old input deletes two `return`s and a cooldown, so between them they change
+ * what a click is allowed to do and draw nothing at all. Toggle sprint and Toggle sneak change
+ * what a key does and draw nothing at all either.
  *
  * So these are **diagrams**, and the file says so rather than pretending otherwise. What is
  * shared with the game is not the drawing but the *numbers*: the same `gamma`, the same
@@ -409,25 +411,32 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
 
 
 /**
- * The two modes, as a timeline of a key and the state it produces.
+ * The latch, as a timeline of a key and the state it produces.
  *
  * This mod is the only one in the registry that draws **nothing** — `show_status` was removed
  * rather than faked, because a gameplay mod has no `hud[]` placement and an indicator would
  * have been the one thing on screen a player could not move. So there is no widget to show, and
  * the honest preview is of the *behaviour*: what the key does, and what sprint does because of
- * it.
+ * it. One tap, and the state runs on without the key. That is the whole mod.
  *
- * In `toggle` the key is tapped once and the state runs on without it. In `hold` the two tracks
- * are the same track. That difference is the entire mod, and side by side it needs no caption —
- * though it gets one, because a diagram nobody can decode is decoration.
+ * **It used to draw two modes side by side, and one of them was a lie.** `toggle_sprint.mode`
+ * offered `hold` as "restore vanilla hold-to-sprint", and this diagram dutifully drew the two
+ * tracks as the same track. They were: `KeyBinding.setKeyPressed` writes the same `pressed`
+ * field that both sprint tests in `ClientPlayerEntity.tickMovement` read, so latching it every
+ * tick is indistinguishable from a held key — `hold` had no implementation other than writing
+ * nothing, which is what turning the mod off already does. The setting is gone, and with it the
+ * only branch this drawing had. A diagram that renders a setting faithfully is not evidence the
+ * setting means anything.
  *
- * There used to be a third row here, drawn when `sneak_too` was on. That setting is gone: sneak
- * is `toggle_sneak` now, its own mod with its own bind, so it draws its own diagram rather than
- * riding along in this one.
+ * There used to be a third row too, drawn when `sneak_too` was on. That setting is also gone:
+ * sneak is `toggle_sneak` now, its own mod with its own bind, and it draws its own diagram —
+ * where `mode: hold` *is* real, because that mod latches a key of its own rather than vanilla's.
+ *
+ * Nothing here reads a setting, and nothing needs to: the mod's one remaining setting is
+ * `keybind`, which turns the mod off, and `test/preview.test.tsx` exempts it for the reason it
+ * exempts the other three — the game without the mod is not the mod's preview.
  */
 export function SprintPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
-  const settings = useModSettings('toggle_sprint');
-  const hold = settings.mode === 'hold';
   const on = 0.42;
   const off = 0.07;
   const n = steps(dense);
@@ -435,26 +444,15 @@ export function SprintPreview({ dense = false, className }: DiagramProps = {}): 
   // cells: the whole read is "a tap here, and the state carries on past the end", and a run that
   // stops short of the edge says the opposite.
   const tap = dense ? 1 : 2;
-  const release = dense ? 4 : 7;
 
-  const key = Array.from({ length: n }, (_, i) =>
-    hold ? (i >= tap && i <= release ? on : off) : i === tap ? on : off,
-  );
-  const state = Array.from({ length: n }, (_, i) =>
-    hold ? (i >= tap && i <= release ? on : off) : i >= tap ? on : off,
-  );
+  const key = Array.from({ length: n }, (_, i) => (i === tap ? on : off));
+  const state = Array.from({ length: n }, (_, i) => (i >= tap ? on : off));
 
   return (
     <div className={root(dense, undefined, className)}>
       <CellRow label="Key" cells={key} />
       <CellRow label="Sprint" cells={state} joined />
-      {dense ? null : (
-        <Reading>
-          {hold
-            ? 'Hold: sprint lasts exactly as long as the key is down.'
-            : 'Toggle: one tap and sprint stays on until you tap again.'}
-        </Reading>
-      )}
+      {dense ? null : <Reading>One tap and sprint stays on until you tap again.</Reading>}
     </div>
   );
 }
@@ -795,3 +793,954 @@ export function OverlayPreview({ dense = false, className }: DiagramProps = {}):
   );
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* Freelook                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where the camera stands, per `perspective`, as a bearing in degrees clockwise from the
+ * player's own facing — and the bearings it is *also* able to stand at.
+ *
+ * **This table is the whole anti-freecam argument, expressed as data.** Every value in it is a
+ * bearing and none of them is a distance, because the distance is not a setting and must never
+ * look like one: `schema/mods/freelook.json`'s `$comment` pins `free` to "an orbit about the
+ * same pivot vanilla's third-person camera already uses", and says in as many words that a
+ * camera which can leave the body is a freecam, a freecam is scouting, and scouting is on §6.1's
+ * "never, under any framing" list. A reader forms their idea of what a setting does from the
+ * picture, so the picture may not contain a camera that flies away. Here it cannot: the mark is
+ * a dot on a ring of fixed radius, tied to the middle by a spoke, and the only thing any value
+ * changes is *where on the ring* it sits.
+ *
+ * The ghosts are the same vocabulary `FovPreview` uses for the angles the camera would reach.
+ * The two vanilla offsets carry one each — standing at the back, the front is the other place
+ * F5 can put you, which is the honest statement that these two values are one pair rather than
+ * two unrelated pictures. `free` carries five, spread right round the circle, because there
+ * every bearing is reachable and a single ghost would understate it to "three positions".
+ */
+const ORBIT: Record<string, { readonly bearing: number; readonly ghosts: readonly number[] }> = {
+  third_back: { bearing: 180, ghosts: [0] },
+  third_front: { bearing: 0, ghosts: [180] },
+  // Off both axes on purpose. A `free` camera parked at 90° would read as a *third* fixed
+  // offset — a left shoulder view — which is the one wrong idea this value can give.
+  free: { bearing: 132, ghosts: [36, 84, 192, 240, 300] },
+};
+
+/**
+ * The camera, on its ring, joined to the player by the spoke it can never leave.
+ *
+ * A bar rotated about its own foot, exactly as `Ray` is — the foot is the pivot, the bar is the
+ * orbit radius, and the mark sits at its far end, so the mark lands on the ring at every bearing
+ * and the drawing is a real orbit rather than an orbit-shaped arrangement. 2D `rotate` only
+ * (`design/ultralight-notes.md` §4).
+ *
+ * The spoke is not decoration. Without it the camera is a dot near a circle, which is a picture
+ * of a camera that happens to be over there; with it the camera is *attached at a fixed radius*,
+ * which is the one thing this diagram has to be unambiguous about.
+ */
+function Tether({
+  /** Degrees clockwise from the player's facing; 0 is directly in front. */
+  deg,
+  /** A bearing the camera can also stand at, rather than the one it is standing at. */
+  ghost = false,
+}: {
+  deg: number;
+  ghost?: boolean;
+}): React.ReactElement {
+  return (
+    <span
+      className={ghost ? 'gprev__tether gprev__tether--ghost' : 'gprev__tether'}
+      style={{ transform: `rotate(${deg.toFixed(2)}deg)` }}
+    >
+      <span className="gprev__cam" />
+    </span>
+  );
+}
+
+/**
+ * Freelook, as a plan view of one player and one camera — plus the timeline of the key.
+ *
+ * ## Why a plan view
+ *
+ * The mod's subject is an *angle between two things*: where your body points, and where the
+ * camera points. A first-person frame cannot show that, because in a first-person frame the
+ * body is off screen by definition — you would be drawing the second half of the sentence with
+ * the first half missing. Seen from above, both halves are on the page at once: the bright arrow
+ * is the body, fixed, pointing the way it was already pointing, and the dot is the camera,
+ * somewhere else. "Look around without turning" is then a picture rather than a claim.
+ *
+ * It also makes the dangerous reading unavailable, which is the reason this shape was chosen
+ * over the alternatives rather than merely a nice property of it. See {@link ORBIT}.
+ *
+ * ## What each setting moves
+ *
+ * - `perspective` — the camera dot's bearing, and how many ghost bearings sit with it
+ *   ({@link ORBIT}). Three genuinely different pictures: behind you, in front of you, and off
+ *   your axis on a ring that is lit all the way round.
+ * - `snap_back` — a **second, faint facing arrow**. On (the default) there is none, because the
+ *   body does not move at all: the whole promise of the setting is that freelook is a look and
+ *   never a turn, and the honest drawing of "nothing happens to your aim" is nothing on the
+ *   page. Off puts a ghost arrow at the camera's own bearing, which is where the body swings to
+ *   when you let go. That is `FovPreview`'s lock idiom exactly — past the lock there is no second
+ *   angle — read in the other direction, and the quiet picture is the safe default, which is the
+ *   right way round for a setting whose off state can rotate your aim mid-duel.
+ * - `mode` and `snap_back`'s companion, the two-track timeline. `hold` runs the key row as one
+ *   unbroken bar for exactly the length of the look; `toggle` replaces it with two taps at the
+ *   same two instants. The look row is **identical in both**, which is the whole content of the
+ *   setting: same look, half the key.
+ * - `keybind` — the key row's axis label is the mod's own keycap, and the two rows drop to a
+ *   whisper while the bind is `NONE`.
+ *
+ * ## Two things it deliberately does not do
+ *
+ * **The timeline is the same instrument as `SneakPreview`'s, and that is intended.** Hold versus
+ * latch is the same question there and here, and drawing it differently would invent a
+ * distinction the mod does not have. What stops the two pages reading as one diagram is that
+ * this one is not the whole drawing: the orbit sits above it and carries the mod's identity.
+ * The tiles cannot collide either, because at tile density the rows are dropped entirely — the
+ * same trade the animation stages make, and for the same reason: a 123px well holds one diagram.
+ *
+ * **The orbit keeps its full ink while the bind is `NONE`, and only the rows whisper.** The
+ * split is real rather than a compromise: the ring is where the camera *can be*, which is true
+ * of a mod nobody has bound yet, while the timeline is the mod *running*, which needs a key
+ * before it means anything. It also keeps the tile legible, and the tile is the one drawing that
+ * has to work at the factory settings, where this mod ships unbound.
+ */
+export function FreelookPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('freelook');
+  // Read into a local before the ternary rather than inlining it. `scripts/check-ultralight.mjs`
+  // rejects the *CSS* property `perspective:` (§4, 2D transforms only) with a regex that cannot
+  // tell a stylesheet from a source file, and `settings.perspective : 'third_back'` reads as one
+  // to it. The rule is right and the spelling is free, so the spelling moves.
+  const chosen = settings.perspective;
+  const view = typeof chosen === 'string' ? chosen : 'third_back';
+  const orbit = ORBIT[view] ?? ORBIT.third_back!;
+  const free = view === 'free';
+  const snapBack = settings.snap_back !== false;
+  const hold = settings.mode !== 'toggle';
+  const keybind = settings.keybind ?? null;
+  const armed = typeof keybind === 'string' && keybind !== '' && keybind !== 'NONE';
+  // `SneakPreview`'s contrast, for `SneakPreview`'s reason: an unbound latch is a real and
+  // shipped state, so the rows draw the same shape at a fraction of the ink rather than
+  // disappearing or lying about being armed.
+  const on = armed ? 0.42 : 0.15;
+  const off = armed ? 0.07 : 0.04;
+  const n = steps(dense);
+  const press = dense ? 1 : 2;
+  const lift = dense ? 5 : 9;
+  const key = Array.from({ length: n }, (_, i) =>
+    hold ? (i >= press && i <= lift ? on : off) : i === press || i === lift ? on : off,
+  );
+  const look = Array.from({ length: n }, (_, i) => (i >= press && i <= lift ? on : off));
+  return (
+    <div className={root(dense, 'gprev--freelook', className)}>
+      <div className="gprev__orbit">
+        {/* Always drawn, at every perspective, because the ring is the invariant: two of the
+            three values are points on it and the third is the whole of it. It lights up for
+            `free` — the ghost dots say the camera reaches those bearings, and a lit ring says
+            it reaches every bearing between them. */}
+        <span className={free ? 'gprev__orbitring gprev__orbitring--free' : 'gprev__orbitring'} />
+        {orbit.ghosts.map((deg) => (
+          <Tether key={deg} deg={deg} ghost />
+        ))}
+        <Tether deg={orbit.bearing} />
+        {/* Where the body ends up. Absent when it does not move, which is the default and is
+            the entire point of the default. */}
+        {snapBack ? null : (
+          <span
+            className="gprev__facing gprev__facing--ghost"
+            style={{ transform: `rotate(${orbit.bearing.toFixed(2)}deg)` }}
+          />
+        )}
+        {/* The body, pointing where it was already pointing. It never rotates — that is the
+            mod's name, drawn. */}
+        <span className="gprev__facing" />
+        <span className="gprev__pivot" />
+      </div>
+      {dense ? null : (
+        <>
+          <CellRow
+            label={
+              <span className="gprev__keylabel">
+                <span className="gprev__kbd">{keybindLabel(keybind)}</span>
+              </span>
+            }
+            cells={key}
+            joined={hold}
+          />
+          <CellRow label="Look" cells={look} joined />
+        </>
+      )}
+      {dense ? null : (
+        <Reading>
+          {(view === 'free'
+            ? 'The camera orbits your own head at vanilla’s own distance — every bearing on the ring, and never a step further out. '
+            : view === 'third_front'
+              ? 'The camera stands at vanilla’s front offset, looking back at you. '
+              : 'The camera stands at vanilla’s back offset, over your shoulder. ') +
+            (hold
+              ? 'It holds while the key is down.'
+              : 'One tap engages it, the next lets it go.') +
+            (snapBack
+              ? ' Your facing is restored on release, so this is a look and never a turn.'
+              : ' On release your body comes round to where you were looking — freelook turns you.') +
+            (armed ? '' : ' No key is bound yet, so nothing engages.')}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Hit colour                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The alpha this diagram draws a full-strength flash at — the top of `intensity`'s range.
+ *
+ * **Not the GL constant, and the difference is the point.** In game the hurt pass colours at
+ * `RenderLivingBase#setBrightness`'s own alpha, composited over a lit skin texture on arbitrary
+ * world pixels; here it is composited over one flat grey silhouette on the menu's own ground.
+ * Reproducing the number rather than the *read* would draw a flash far fainter than the one a
+ * player sees, which would be faithful to the source and wrong about the subject — the same
+ * trade `HITBOX_UNIT` makes when it draws a `line_width` of 5 as 20px rather than as 5.
+ *
+ * What is faithful is the **ceiling**, and that is the part the schema spends its §11 argument
+ * on: `intensity` is a fraction of vanilla's alpha, 1 is exactly what the game already draws,
+ * and there is no value above it. So this constant is the drawing's maximum as well as its
+ * default — nothing on this diagram can be brighter than a flash the game was going to draw
+ * anyway, which is the honest shape of "vanilla, or less".
+ */
+const VANILLA_FLASH = 0.68;
+
+/**
+ * One entity, and the flash on it.
+ *
+ * A filled silhouette rather than `HitboxPreview`'s outline, because the subject is a *tint on a
+ * model* rather than a mark around one. Two layers: the body, which is always there in the
+ * menu's own grey, and the flash over it in whatever ink this figure is entitled to. The base
+ * layer is why `intensity: 0` still draws something — "recolour nothing" is a picture of an
+ * entity with no flash on it, not a picture of no entity.
+ */
+function Figure({
+  /** Standing further off — smaller and dimmer, exactly as `.gprev__box--far` is. */
+  far = false,
+  /** The flash's ink. `var(--text-primary)` is the game's own flash, uncoloured by this mod. */
+  ink,
+  /** The flash's alpha: {@link VANILLA_FLASH} scaled by `intensity`. */
+  alpha,
+}: {
+  far?: boolean;
+  ink: string;
+  alpha: number;
+}): React.ReactElement {
+  const tint = { background: ink, opacity: alpha.toFixed(3) } as CSSProperties;
+  return (
+    <span className={far ? 'gprev__fig gprev__fig--far' : 'gprev__fig'}>
+      <span className="gprev__fighead">
+        <span className="gprev__figtint" style={tint} />
+      </span>
+      <span className="gprev__figbody">
+        <span className="gprev__figtint" style={tint} />
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The hit flash, as the two entities the setting is actually about.
+ *
+ * ## Why two figures
+ *
+ * `own_hits_only` is not a property of a tint, it is a property of *whose fight you are reading*
+ * — the schema's own sentence is "two other players hit each other across the arena ... in your
+ * peripheral vision, during yours". One figure cannot hold that, and a caption saying it would
+ * be the thing `test/preview.test.tsx` exists to refuse. So there are two: the one you are
+ * fighting, near, and somebody else's, standing off. Distance is size and air, which is the same
+ * answer `HitboxPreview` gives for the same reason — there is no perspective in a face-on
+ * diagram to put it in.
+ *
+ * Both figures flash in **both** states, and only the far one's *ink* changes. That is exact:
+ * the schema is explicit that the tint on an entity somebody else hit "is already on your
+ * screen, at the same alpha, for the same hurt ticks", so a drawing where the far figure goes
+ * dark when `own_hits_only` is on would be inventing a suppression the mod does not do. What the
+ * setting decides is whether your colour reaches it, and the drawing says exactly that.
+ *
+ * ## The colour, and where it stops
+ *
+ * This is the one diagram in the file whose subject **is** a colour, so the page draws it — the
+ * same "where the accent rule stops" clause that lets `HitboxPreview` ink its box, and for the
+ * same reason: a hurt overlay is a mark drawn over the game world, where colour is the channel.
+ *
+ * The **tile stays monochrome**, exactly as the hitbox tile does. §1's other half is about the
+ * grid specifically — "no colour on the menu's own surface, the mod tiles included" — and the
+ * page is where a colour is chosen, so the page is where it is shown. The cost is stated rather
+ * than hidden: at tile density both figures take `--text-primary`, so `own_hits_only` is not
+ * legible there. That is the right trade and not a hole, because a tile answers "which mod is
+ * this" and two players mid-flash answers it; the page answers "what will this look like", and
+ * the page has the colour.
+ *
+ * **Vanilla's red is not drawn**, and that is a decision worth being able to disagree with. It
+ * would make `own_hits_only` read instantly and it would put the mod's whole argument in one
+ * picture. It would also put an ink the player did not choose on the menu's own surface, beside
+ * the one they did — and it would be the exact hue `hit_color.color` defaults away from and
+ * `damage_tint` keeps, so the page would be teaching the confusion the wave was arranged to
+ * avoid. The far figure's un-recoloured flash is drawn in the menu's own grey instead, and the
+ * reading names it.
+ *
+ * ## The track under them
+ *
+ * `intensity` already moves both flashes, so the row is not there to satisfy the gate — it is
+ * there because an alpha you can only see *on* something is an alpha you cannot judge. A bounded
+ * bar filling toward a right-hand end is the shape of a fraction, and the end it fills to is
+ * vanilla's own: {@link VANILLA_FLASH}. There is nothing past it, which is what makes this mod
+ * `safe` rather than an argument.
+ */
+export function HitColorPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('hit_color');
+  const range = SETTING_RANGES.intensity!;
+  const intensity = Math.min(
+    range.max,
+    Math.max(range.min, Number(settings.intensity ?? range.max)),
+  );
+  const alpha = VANILLA_FLASH * intensity;
+  // §1, "where the accent rule stops": the page shows the ink because the ink is the setting;
+  // the tile is chrome and stays grey, like the hitbox tile and the crosshair tile.
+  const ink = !dense && typeof settings.color === 'string' ? settings.color : 'var(--text-primary)';
+  const ownOnly = settings.own_hits_only !== false;
+  // The far figure's flash is the game's own until you tell the mod to take it over.
+  const farInk = ownOnly ? 'var(--text-primary)' : ink;
+  const n = steps(dense);
+  const trackOn = 0.42;
+  const trackOff = 0.07;
+  // A continuous fill rather than a count of lit cells: the boundary cell carries the fraction,
+  // so every value of `intensity` moves the row rather than only the ones that cross a cell.
+  const track = Array.from({ length: n }, (_, i) => {
+    const filled = Math.min(1, Math.max(0, intensity * n - i));
+    return trackOff + (trackOn - trackOff) * filled;
+  });
+  return (
+    <div className={root(dense, 'gprev--hit', className)}>
+      <div className="gprev__melee">
+        <Figure ink={ink} alpha={alpha} />
+        <Figure far ink={farInk} alpha={alpha} />
+      </div>
+      <CellRow label="Alpha" cells={track} joined />
+      {dense ? null : (
+        <Reading>
+          {(intensity <= 0
+            ? 'At 0 nothing is recoloured — you keep the entity and lose the cue. '
+            : `The flash draws at ${Math.round(intensity * 100)}% of the alpha the game already ` +
+              'uses, which is the most there is: the row cannot fill past vanilla. ') +
+            (ownOnly
+              ? 'Only the entity you hit takes your colour; the far one still flashes, in the game’s own.'
+              : 'Every entity the game flashes takes your colour, including fights that are not yours.')}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Damage tint                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The health the diagram draws you at, in half-hearts on vanilla's own 0-20 scale.
+ *
+ * Two hearts short of one — a *stated* number, like `FAR_BLOCKS`, so the marker and the vignette
+ * cannot disagree about what they are describing. It is not a game reading and nothing measures
+ * it; it is one heart left, because that is the state this mod exists for and because it is low
+ * enough that the vignette is well up its ramp at the factory `threshold` and still visibly
+ * short of its peak. Drawing you at full health would make the honest picture an empty frame,
+ * and drawing you at zero would make `threshold` and `strength` the same control.
+ */
+const SAMPLE_HEALTH = 2;
+
+/**
+ * Hearts drawn for vanilla's twenty half-hearts.
+ *
+ * Ten marks and not twenty: hearts are what the game draws and what a player counts, and twenty
+ * cells do not fit the narrowest tile the grid can produce. A half-heart threshold still lands
+ * exactly, because {@link heartMark} places it inside a heart rather than between two.
+ */
+const HEARTS = 10;
+
+/**
+ * Heart geometry per density, in px — the cell edge and the gap between two.
+ *
+ * In the TSX rather than only in the CSS because the threshold marker is placed *between* two
+ * hearts and has to know where the gaps are. A percentage of the row would be off by up to a gap
+ * at every value, and this diagram's entire content is where one line falls on a scale, so being
+ * approximately right about it is being wrong about it. 10 x 30 + 9 x 6 = 354 on the page; the
+ * tile's 10 x 10 + 9 x 2 = 118, which is the same 118 the scene above it is.
+ */
+const HEART: Record<'page' | 'tile', { edge: number; gap: number }> = {
+  page: { edge: 30, gap: 6 },
+  tile: { edge: 10, gap: 2 },
+};
+
+/**
+ * How deep the vignette is drawn, per density: the shadow's blur and its spread, in px.
+ *
+ * Inline rather than in a rule because the alpha has to be, and a `box-shadow` is one property —
+ * splitting the geometry into CSS and the colour into the style attribute is not expressible.
+ */
+const VIGNETTE: Record<'page' | 'tile', { blur: number; spread: number }> = {
+  page: { blur: 64, spread: 18 },
+  tile: { blur: 20, spread: 6 },
+};
+
+/**
+ * How far vanilla rolls the camera when you are hit, per `camera_shake`, in degrees.
+ *
+ * Fourteen is the game's own maximum and `vanilla` is unchanged, so `vanilla` is fourteen.
+ * `reduced` is four rather than seven, and the number is chosen to make the setting's actual
+ * shape visible: it is **not** half way between the other two. What it keeps is the *direction*,
+ * which is the only thing 1.8.9 tells you about where a hit came from (`attackedAtYaw`); what it
+ * spends is the amplitude, which is the part that costs you the shot. A `reduced` drawn at seven
+ * would read as "a bit less", and a player would take it for a compromise between two positions
+ * rather than for the one value that keeps the cue and drops the cost.
+ */
+const ROLL: Record<string, number> = { vanilla: 14, reduced: 4, off: 0 };
+
+/**
+ * Where a health threshold falls on the heart row, in px from its left edge.
+ *
+ * A boundary between two hearts lands in the middle of the gap between them, because that is
+ * where it actually is — putting it on a heart's edge would claim the heart it is touching.
+ * A half-heart threshold lands inside a heart, half way across.
+ */
+function heartMark(halves: number, edge: number, gap: number): number {
+  const whole = Math.floor(halves / 2);
+  const half = (halves % 2) / 2;
+  const total = HEARTS * edge + (HEARTS - 1) * gap;
+  if (half > 0) return Math.min(total, whole * (edge + gap) + half * edge);
+  return whole === 0 ? 0 : Math.min(total, whole * (edge + gap) - gap / 2);
+}
+
+/**
+ * The vignette's alpha at a given health: nothing at `threshold`, `strength` at zero.
+ *
+ * The ramp is the schema's, stated there because the two numbers alone do not imply it — "a mark
+ * that pops on at one value is a mark you stop seeing after an hour, and the slide from three
+ * hearts to dead is exactly the interval this should be describing". It is linear in the health
+ * *below* the threshold, so raising the threshold with the health held still deepens the
+ * vignette, which is the true and slightly surprising thing about the setting: it is not only a
+ * switch-on point, it is the length of the run-in.
+ */
+export function vignetteAlpha(threshold: number, strength: number, health: number): number {
+  if (threshold <= 0) return 0;
+  const ramp = Math.min(1, Math.max(0, (threshold - health) / threshold));
+  return ramp * strength;
+}
+
+/**
+ * Low health and the hurt camera, on one screen and one health bar.
+ *
+ * ## Why the frame is the same frame
+ *
+ * The scene is `OverlayPreview`'s — the same `.gprev__scene`, the same horizon, the same centre
+ * mark — and that is reuse rather than coincidence. Both mods' subject is *your own view*, and
+ * two diagrams of the same thing that drew it two different ways would be asking the player to
+ * learn a private idiom per mod. What is on it is entirely different, so there is no risk of the
+ * two tiles colliding: overlay's frame is full of things being taken out of it, and this one is
+ * empty except for what is happening to its edges and its horizon.
+ *
+ * ## What each setting moves
+ *
+ * - `threshold` — the **marker on the heart row**, which is the setting's literal form: a health
+ *   level is a place on a health bar. It also deepens the vignette, because the ramp starts
+ *   there (see {@link vignetteAlpha}), so raising it from three hearts to ten does two visible
+ *   things and both of them are true.
+ * - `strength` — the vignette's peak, and therefore its alpha here. It is the only one of the
+ *   three that is purely a weight.
+ * - `camera_shake` — a **ghost horizon at the roll angle** ({@link ROLL}). A roll about the view
+ *   axis moves nothing at the centre of the screen and everything at the horizon, so the horizon
+ *   is where it is drawn; the reticle stays put because in game it does too. Three values, three
+ *   pictures: a steep ghost, a shallow one leaning the same way, and none at all. Leaning the
+ *   same way is the whole of `reduced` and is why it is not drawn at half the angle.
+ *
+ * ## The two things it will not do
+ *
+ * **The vignette is not red here**, though it is in game and the schema is emphatic that it has
+ * to be. §1's accent rule governs the menu's own surface absolutely, `hit_color` is this wave's
+ * one licensed colour because there the colour *is* the setting, and here it is a constant. So
+ * the vignette is drawn as the menu's own ink closing in from the edges — the shape of a vignette
+ * without its hue, which is the same translation the hitbox tile makes when it draws a coloured
+ * world mark in grey. The reading says what colour it will be.
+ *
+ * **The health does not animate and is not a live reading.** It is {@link SAMPLE_HEALTH}, fixed,
+ * for §4's budget of 0 paints/s on an idle open menu and because a preview whose picture depends
+ * on the player's current health would show a different mod in a lobby than in a fight.
+ */
+export function DamageTintPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('damage_tint');
+  const tRange = SETTING_RANGES.threshold!;
+  const sRange = SETTING_RANGES.strength!;
+  const threshold = Math.min(
+    tRange.max,
+    Math.max(tRange.min, Number(settings.threshold ?? 6)),
+  );
+  const strength = Math.min(sRange.max, Math.max(sRange.min, Number(settings.strength ?? 0.6)));
+  const shake = typeof settings.camera_shake === 'string' ? settings.camera_shake : 'vanilla';
+  const roll = ROLL[shake] ?? ROLL.vanilla!;
+  const alpha = vignetteAlpha(threshold, strength, SAMPLE_HEALTH);
+  const { blur, spread } = VIGNETTE[dense ? 'tile' : 'page'];
+  const { edge, gap } = HEART[dense ? 'tile' : 'page'];
+  const hearts = Array.from({ length: HEARTS }, (_, i) =>
+    (i + 1) * 2 <= SAMPLE_HEALTH ? 0.42 : 0.07,
+  );
+  return (
+    <div className={root(dense, 'gprev--damage', className)}>
+      <div className="gprev__scene">
+        {/* The roll, drawn where a roll is visible. Absent at `off`, because there is then no
+            second orientation for the view to reach — the same absence `FovPreview` uses for a
+            locked angle rather than a fade, which would say "quieter" instead of "gone". */}
+        {roll > 0 ? (
+          <span
+            className="gprev__horizon gprev__horizon--roll"
+            style={{ transform: `rotate(${roll}deg)` }}
+          />
+        ) : null}
+        <span className="gprev__horizon" />
+        <span className="gprev__reticle" />
+        {/* Last and over everything: the vignette is on your screen, not in the world. */}
+        <span
+          className="gprev__vignette"
+          style={{
+            boxShadow: `inset 0 0 ${blur}px ${spread}px rgba(237, 238, 239, ${alpha.toFixed(3)})`,
+          }}
+        />
+      </div>
+      <div className="gprev__health">
+        <span className="gprev__hearts">
+          {hearts.map((a, i) => (
+            <span
+              key={i}
+              className="gprev__heart"
+              style={{ background: `rgba(237, 238, 239, ${a.toFixed(3)})` }}
+            />
+          ))}
+        </span>
+        {/* Where the vignette starts. A line on a health bar, which is what the setting is. */}
+        <span
+          className="gprev__mark"
+          style={{ left: `${heartMark(threshold, edge, gap).toFixed(1)}px` }}
+        />
+      </div>
+      {dense ? null : (
+        <Reading>
+          {`The red vignette starts at ${(threshold / 2).toFixed(threshold % 2 === 0 ? 0 : 1)} ` +
+            `hearts and reaches ${Math.round(strength * 100)}% at zero; at one heart left it is ` +
+            `${Math.round(alpha * 100)}% of the way in. ` +
+            (shake === 'off'
+              ? 'The hurt camera does not roll at all — and the roll was your only clue which side the hit came from.'
+              : shake === 'reduced'
+                ? 'The hurt camera still rolls the way the hit came from, at a fraction of the angle.'
+                : `The hurt camera rolls up to ${ROLL.vanilla}° toward the hit, as it always did.`)}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* The swallowed click — shared by Old animations and Old input               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The dead time 1.8.9 imposes after a click that hit nothing, in ticks.
+ *
+ * The game's own number and not a chosen one: `MinecraftClient.doAttack` sets
+ * `attackCooldown = 10` on the MISS branch, and for those ten ticks every further click returns
+ * at the top of the method. 1.7.10's switch has no MISS entry at all.
+ *
+ * It is here, above both mods, because **both of them are about this window and they disagree
+ * about it**, which is the one thing a player has to get right when choosing between them:
+ * `old_animations.swing_during_delay` plays the arm for the clicks the window eats,
+ * `old_input.no_miss_delay` stops the window eating them. Two diagrams drawing the same ten
+ * ticks at two different lengths would make that comparison unreadable, so they draw the same
+ * constant.
+ */
+const MISS_COOLDOWN_TICKS = 10;
+
+/**
+ * Ticks per cell on the click timeline. Twelve cells is therefore 24 ticks, about 1.2 seconds.
+ *
+ * One tick per cell would put the whole dead window past the right-hand edge of a twelve-cell
+ * row, and a window with no "after" in it is a picture of a client that stopped responding
+ * rather than of a half-second cost. Two ticks per cell leaves five cells of window and five
+ * cells of recovery, which is the shape of the thing.
+ */
+const TICKS_PER_CELL = 2;
+
+/** The dead window, in cells. Derived, so the drawing cannot drift from the number above it. */
+const DEAD_CELLS = MISS_COOLDOWN_TICKS / TICKS_PER_CELL;
+
+/** The cell the whiff lands on. One cell in, so the row has a "before" as well as an "after". */
+const WHIFF_CELL = 1;
+
+/**
+ * When the player clicks, in cells — every other cell, which at {@link TICKS_PER_CELL} is 5 CPS.
+ *
+ * A stated cadence rather than a measured one, exactly as `FAR_BLOCKS` is a stated distance. It
+ * is chosen to be an ordinary human click rate, because the whole content of the dead window is
+ * *how many of your own clicks it eats*, and that number is a function of how fast you click.
+ */
+const CLICK_CELLS: readonly number[] = [1, 3, 5, 7, 9, 11];
+
+/** Whether a click on this cell falls inside the dead window the whiff opened. */
+function swallowed(cell: number): boolean {
+  return cell > WHIFF_CELL && cell <= WHIFF_CELL + DEAD_CELLS;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Old animations                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The first-person arm's poses, in degrees about its own foot in the bottom-right corner.
+ *
+ * Three angles and one arc. {@link ARM_REST} is a hand at rest, {@link ARM_SWEPT} is the far
+ * end of a swing, and {@link ARM_GUARD} is the pose `applySwordBlockTransformation` holds the
+ * sword at — whose constants the schema records as *identical* in both versions, which is why
+ * the guard pose is a constant here and not a setting.
+ *
+ * {@link ARM_ARC} is the swing's own travel, and the block stage reuses it rather than
+ * inventing a shorter one. That is the fix, drawn: 1.7 passed the live
+ * `getHandSwingProgress(tickDelta)` into the same `applyEquipAndSwingOffset` the block branch
+ * already called, so the 1.7 block-hit is the ordinary swing *applied on top of* the guard
+ * pose, not a smaller motion of its own.
+ */
+const ARM_REST = -10;
+const ARM_SWEPT = -50;
+const ARM_GUARD = -24;
+const ARM_ARC = ARM_SWEPT - ARM_REST;
+
+/*
+ * The end of the block stroke is `ARM_GUARD + ARM_ARC` = -64°, and that number is the one
+ * constraint on how far the arc may open. `.gprev__armstage` clips — deliberately, "an arm that
+ * swings past the edge of the view has swung past the edge of the view" — but the tile's stage
+ * is 56 x 62 with a 48px arm, so at -64° the tip lands 3px inside the left edge and at -74° it
+ * lands on it. A tip resting exactly on the border reads as a mistake rather than as a swing
+ * leaving the view, so the arc is sized for the *tile* and the page inherits it.
+ */
+
+/**
+ * Where along the stroke the ghost poses sit, and how solid each one is.
+ *
+ * Bunched toward the start, because a swing decelerates into its end pose and evenly-spaced
+ * copies would draw a constant-speed sweep the game does not have. The alpha ramp is what makes
+ * the picture directional: faint at rest, nearly the solid arm's weight at the end, so the eye
+ * reads the stroke as going one way. Two symmetric ghosts could not — see
+ * `.gprev__arm--ghost`, which reserves the alpha for exactly this.
+ */
+const SWING_STOPS: readonly number[] = [0, 0.3, 0.55, 0.76];
+const GHOST_ALPHA = { min: 0.13, max: 0.34 };
+
+/**
+ * One pose of the arm, solid or ghosted.
+ *
+ * `Ray`'s construction used for a motion rather than for an angle: a bar rotated about its own
+ * foot, several copies at the angles the real one passes through. 2D `rotate` only
+ * (`design/ultralight-notes.md` §4), and nothing animates — §4's budget is 0 paints/s on an
+ * idle open menu, and an arm that swung would spend all of it.
+ */
+function Arm({
+  /** Degrees about the foot; negative sweeps the hand up and across the view. */
+  deg,
+  /** A pose the arm *passes through* rather than the one it is drawn at. */
+  ghost = false,
+  /** A ghost's own weight along the stroke. Ignored for the solid pose. */
+  alpha,
+}: {
+  deg: number;
+  ghost?: boolean;
+  alpha?: number;
+}): React.ReactElement {
+  const style = {
+    transform: `rotate(${deg.toFixed(2)}deg)`,
+    ...(alpha === undefined ? {} : { opacity: alpha.toFixed(3) }),
+  } as CSSProperties;
+  return <span className={ghost ? 'gprev__arm gprev__arm--ghost' : 'gprev__arm'} style={style} />;
+}
+
+/**
+ * One labelled stage: a framed first-person view with an arm in it, at one pose or at all of
+ * them.
+ *
+ * `swings` is the whole of the difference between a motion and a hold. When it is false the arm
+ * is drawn once, at `from`, and there are **no ghosts at all** — the same absence `FovPreview`
+ * uses for a locked angle and `DamageTintPreview` for `camera_shake: off`. Past the lock there
+ * is no second position, and fading the ghosts instead would say "quieter" where the truth is
+ * "gone".
+ */
+function ArmStage({
+  label,
+  from,
+  to,
+  swings,
+  guard = false,
+}: {
+  /** The stage's axis label — `Swing` or `Block`. Part of the drawing, not a caption. */
+  label: string;
+  /** The pose the stroke starts at, and the pose a held arm is drawn at. */
+  from: number;
+  /** The pose the stroke ends at. */
+  to: number;
+  /** Whether the arm travels, or is held at `from`. */
+  swings: boolean;
+  /** The raised sword. Context for the block stage, and never a setting. */
+  guard?: boolean;
+}): React.ReactElement {
+  return (
+    <div className="gprev__armcol">
+      <span className="gprev__stagelabel">{label}</span>
+      <div className="gprev__armstage">
+        {guard ? <span className="gprev__guard" /> : null}
+        {swings
+          ? SWING_STOPS.map((t, i) => (
+              <Arm
+                key={i}
+                ghost
+                deg={from + (to - from) * t}
+                alpha={GHOST_ALPHA.min + (GHOST_ALPHA.max - GHOST_ALPHA.min) * t}
+              />
+            ))
+          : null}
+        <Arm deg={swings ? to : from} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The block-hit, as a swing that survives the guard — and the free swing beside it that does
+ * not change.
+ *
+ * ## Why there are two stages when there is only one enum
+ *
+ * The left stage reads no setting and never moves, and it is the most load-bearing thing on
+ * this diagram. `schema/mods/old_animations.json` spends its whole `$comment` establishing that
+ * the swing itself is **byte-for-byte identical** between 1.7.10 and 1.8.9 — `swingHand`,
+ * `tickHandSwing`, `getHandSwingProgress` and the three first-person rotations all the way down
+ * to `-0.71999997f` — and that a checkbox called `swing` would be a promise to smuggle in a
+ * renderer rewrite. A player opens a mod called Old animations expecting their swing to change.
+ * It does not, and the honest place to say so is the picture rather than the changelog: the free
+ * swing is drawn, in full, and it is the same in both values of the only setting there is.
+ *
+ * It is also what makes the right stage legible. `vanilla` and `one_seven` on their own are two
+ * arms, and an arm is not self-evidently frozen; an arm frozen *beside the arc it should have
+ * had* is. The two stages are the mechanism — `applyEquipAndSwingOffset(equip, 0.0F)` throws the
+ * swing progress away — expressed as the one comparison that shows what was thrown.
+ *
+ * This is the shape `SprintPreview`'s doc comment warns about, met from the other side. There,
+ * two tracks were drawn side by side and one of them was a lie, because `hold` had no
+ * implementation. Here the second stage differs from the first by exactly one float argument in
+ * one method, which the schema quotes; the difference is real, so the comparison is allowed.
+ *
+ * ## What each setting moves
+ *
+ * - `block_hit` — the **right stage only**. `one_seven` gives it the same {@link ARM_ARC} the
+ *   free swing has, ghosts and all, started from the guard pose. `vanilla` removes every ghost
+ *   and parks the solid arm at {@link ARM_GUARD}, which is a frozen sword with a hit landing
+ *   somewhere behind it. The raised guard stays in both, because the sword is up either way —
+ *   what changes is whether your swing reaches it.
+ * - `swing_during_delay` — the **`Arm` row**, and nothing else on the page.
+ *
+ * ## How the timeline refuses to say the clicks work again
+ *
+ * This is the trap the schema is emphatic about, and it is worth naming: the setting plays a
+ * local animation for clicks 1.8 has already eaten. It does not give the clicks back. A one-row
+ * drawing of "your arm swings more" is indistinguishable from "your clicks land more", and a
+ * player who read it that way would have been told the opposite of the truth by their own
+ * settings page.
+ *
+ * So the timeline has three rows and only the middle one is the setting:
+ *
+ * - `Click` — the button going down, at {@link CLICK_CELLS}. Never moves. It is what you did.
+ * - `Arm` — `LivingEntity.swingHand()`'s two public fields running. The only row the setting
+ *   touches. On, it becomes an exact copy of `Click`: the arm agrees with the mouse, which is
+ *   the schema's own phrase for what this is.
+ * - `Sent` — what leaves the client and reaches the fight. **Identical in both states**, with
+ *   the two swallowed clicks dark in both. Nothing reaches the server, so nothing about the
+ *   exchange changes.
+ *
+ * That inversion is `SneakPreview`'s reading turned over. There the crouch row is identical in
+ * both values and only the key row moves, and the identity is the content — same sneak, half the
+ * key. Here the identity is the *warning*: same fight, more arm. `old_input.no_miss_delay` draws
+ * this same `Sent` row, and there it does move — which is the difference between the two mods,
+ * and the reason one of them is `safe` and the other is not.
+ *
+ * ## Tile density
+ *
+ * The rows are dropped and the two stages are the whole tile, which `.gprev--tile.gprev--anim`
+ * already sizes for. Same trade `FreelookPreview` makes: a 123px well holds one diagram, and
+ * the one that identifies this mod is an arm moving through a raised sword.
+ */
+export function AnimationPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('old_animations');
+  // Written against `'vanilla'` rather than for `'one_seven'` so an unknown value falls back to
+  // the shipped default, which is the mod doing its job.
+  const oneSeven = settings.block_hit !== 'vanilla';
+  const armInDelay = settings.swing_during_delay === true;
+  const n = steps(dense);
+  const on = 0.42;
+  const off = 0.07;
+  const click = Array.from({ length: n }, (_, i) => (CLICK_CELLS.includes(i) ? on : off));
+  // What the client actually does with each click. The whiff at `WHIFF_CELL` works — it swings
+  // and misses, which is an attack — and the ones inside the window it opened do not.
+  const sent = Array.from({ length: n }, (_, i) =>
+    CLICK_CELLS.includes(i) && !swallowed(i) ? on : off,
+  );
+  // The one row this mod moves: the mouse when it is on, the client when it is off.
+  const arm = armInDelay ? click : sent;
+  const eaten = CLICK_CELLS.filter(swallowed).length;
+  return (
+    <div className={root(dense, 'gprev--anim', className)}>
+      <div className="gprev__stages">
+        <ArmStage label="Swing" from={ARM_REST} to={ARM_REST + ARM_ARC} swings />
+        <ArmStage
+          label="Block"
+          from={ARM_GUARD}
+          to={ARM_GUARD + ARM_ARC}
+          swings={oneSeven}
+          guard
+        />
+      </div>
+      {dense ? null : (
+        <div className="gprev__gate">
+          <CellRow label="Click" cells={click} />
+          <CellRow label="Arm" cells={arm} />
+          <CellRow label="Sent" cells={sent} />
+        </div>
+      )}
+      {dense ? null : (
+        <Reading>
+          {(oneSeven
+            ? 'Blocking, your swing still moves the sword — the same arc as the free swing beside it. '
+            : '1.8’s own: while the sword is up your swing is discarded, so the arm holds the guard pose and the hit lands behind a stationary sword. ') +
+            (armInDelay
+              ? `After a click that hits nothing, the next ${MISS_COOLDOWN_TICKS} ticks of clicks are still swallowed — ${eaten} of these. The arm swings for them and nothing else does: the sent row is unchanged, so the fight is too.`
+              : `After a click that hits nothing, the next ${MISS_COOLDOWN_TICKS} ticks of clicks are swallowed — ${eaten} of these — and the arm does not move for them either.`)}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Old input                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Three input gates 1.8 added, as the ticks they take away from you.
+ *
+ * ## The mirrors are one picture, not two
+ *
+ * `use_while_digging` and `dig_while_using` are the same one-term difference in two methods —
+ * `doUse` opening `if (isBreakingBlock()) return;`, `handleBlockBreaking` opening
+ * `if (attackCooldown > 0 || player.isUsingItem()) return;` — and the schema found them
+ * together. Drawn as two separate instruments they would be two identical rows of cells, which
+ * is the anonymous-grid failure this file's header describes.
+ *
+ * So they share one timeline and one consequence, which is the true one and is sharper than
+ * either setting stated on its own: **in 1.8 these two bars cannot overlap.** A break and an
+ * item in use may not be live in the same tick, so at the factory settings the second bar can
+ * only begin after the first has ended, and the cell between them is the changeover the
+ * interlock costs you. Each switch then opens one end of that:
+ *
+ * - `use_while_digging` — the `Use` bar starts **earlier**, inside the break, and the two rows
+ *   overlap on the left.
+ * - `dig_while_using` — the `Mine` bar runs **later**, on through the item in use, and they
+ *   overlap on the right.
+ *
+ * Opposite directions on the same pair of rows, which is what "mirrors" means, drawn.
+ *
+ * ## The whiff is a second situation and is drawn as one
+ *
+ * `no_miss_delay` cannot join that timeline, and the reason is mechanical rather than
+ * aesthetic: mining and attacking are the **same button**. A row that was a break in progress
+ * cannot also be a whiffed swing without claiming the player did both with one hand. So the
+ * whiff gets its own pair below, and the two groups are told apart by the `joined` distinction
+ * the file already relies on — a break and a use are *states* and run as unbroken bars, a click
+ * is an *event* and stays a discrete mark.
+ *
+ * - `Click` — the button going down, {@link CLICK_CELLS}, never moving.
+ * - `Sent` — what reaches the fight. Off, the {@link MISS_COOLDOWN_TICKS}-tick window eats the
+ *   clicks inside it. On, every click gets through.
+ *
+ * **That `Sent` row is deliberately the same row `AnimationPreview` draws**, and comparing the
+ * two is the whole difference between the mods: there it is identical in both states because
+ * only an animation was restored, and here it lights up because the clicks were. It is also
+ * exactly why this mod is `grey` — a click that is not swallowed is a `HandSwingC2SPacket` that
+ * is sent, and outbound swing volume on whiffs is the number a CPS anticheat measures. The
+ * drawing says that by drawing more marks in the row named for what leaves the client, which is
+ * as close to editorialising as art should get: it states the cost and lets the player price it.
+ *
+ * ## The factory state is 1.8, and every switch has to open something
+ *
+ * All three ship off and the mod ships off, so the drawing a player meets is 1.8 with three
+ * gates closed: two bars that will not overlap and a click row with holes under it. There is no
+ * value of any switch that makes the picture quieter, which is the right shape for a mod whose
+ * defaults are the classification's doing rather than a hedge.
+ *
+ * ## Tile density
+ *
+ * The whiff pair is dropped and the two gate bars are the tile, for `FreelookPreview`'s reason:
+ * four labelled rows come to ~126px in a well that can be 123. The pair that survives is the one
+ * that carries the mod's name — two inputs that 1.8 will not let be live at once.
+ */
+export function InputPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('old_input');
+  const useWhileDigging = settings.use_while_digging === true;
+  const digWhileUsing = settings.dig_while_using === true;
+  const noMissDelay = settings.no_miss_delay === true;
+  const n = steps(dense);
+  const on = 0.42;
+  const off = 0.07;
+  // The break starts where it starts; what the switches move is where each bar *ends* relative
+  // to the other one. Both densities keep the same shape — a break, a changeover cell, a use —
+  // so the tile and the page cannot disagree about what the interlock costs.
+  const mineFrom = dense ? 0 : 1;
+  const mineTo = digWhileUsing ? (dense ? 5 : 9) : dense ? 2 : 5;
+  const useFrom = useWhileDigging ? (dense ? 2 : 3) : dense ? 4 : 7;
+  const mine = Array.from({ length: n }, (_, i) => (i >= mineFrom && i <= mineTo ? on : off));
+  const use = Array.from({ length: n }, (_, i) => (i >= useFrom ? on : off));
+  const click = Array.from({ length: n }, (_, i) => (CLICK_CELLS.includes(i) ? on : off));
+  const sent = Array.from({ length: n }, (_, i) =>
+    CLICK_CELLS.includes(i) && (noMissDelay || !swallowed(i)) ? on : off,
+  );
+  const eaten = CLICK_CELLS.filter(swallowed).length;
+  return (
+    <div className={root(dense, 'gprev--input', className)}>
+      <div className="gprev__gates">
+        <div className="gprev__gate">
+          <CellRow label="Mine" cells={mine} joined />
+          <CellRow label="Use" cells={use} joined />
+        </div>
+        {dense ? null : (
+          <div className="gprev__gate">
+            <CellRow label="Click" cells={click} />
+            <CellRow label="Sent" cells={sent} />
+          </div>
+        )}
+      </div>
+      {dense ? null : (
+        <Reading>
+          {(useWhileDigging && digWhileUsing
+            ? 'Both hands are live together: the placement starts inside the break and the break runs on through it. '
+            : useWhileDigging
+              ? 'A right click acts during a break now, so the use starts inside it instead of after it — the break still stops the moment you raise the item. '
+              : digWhileUsing
+                ? 'The break runs on through an item in use now, instead of stopping the moment you raise one — a right click still waits for the break to end. '
+                : '1.8 will not let these two overlap: neither bar may start until the other has ended, and the cell between them is what the interlock costs. ') +
+            (noMissDelay
+              ? `A whiff no longer costs the next ${MISS_COOLDOWN_TICKS} ticks, so all ${CLICK_CELLS.length} clicks are sent — which is ${eaten} more swing packets on this miss than vanilla sends.`
+              : `A whiff still costs the next ${MISS_COOLDOWN_TICKS} ticks: ${eaten} of these clicks reach nothing at all.`)}
+        </Reading>
+      )}
+    </div>
+  );
+}

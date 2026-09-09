@@ -34,8 +34,16 @@ node build.mjs --check   # the CI gate: is the committed output still its source
 ```
 
 `mods.json` stays **generated and committed**, because it is the contract: `void-loadout`
-`include_str!`s it, `@void/protocol` generates from it and `ModRegistry.java` transcribes it,
-and none of those can run a Node script. So "generated" has to also mean "checked".
+`include_str!`s it, and `@void/protocol` and `ModRegistry.java` are both generated from it by
+Node scripts that Gradle, Cargo and Vite cannot run themselves. So "generated" has to also mean
+"checked" — hence the three `--check` gates.
+
+`ModRegistry.java` was hand-transcribed until Wave 0 (`scripts/gen-java-registry.mjs`), and this
+paragraph went on saying so for three roster passes afterwards. It cost real time: an agent
+reading it concluded that two mods added to `schema/mods/` needed transcribing into Java by
+hand, and went looking for a person to do it, when the answer was to run the generator. **A
+stale sentence about how a file is maintained is as expensive as a stale table** — the file was
+correct, and the documentation sent someone to edit it anyway.
 
 A `kind: hud` mod must also carry a `default_placement` (`anchor` + `dx`/`dy`, and an optional
 `note` saying why those numbers) — that is the factory HUD layout, and both the Java registry's
@@ -43,8 +51,11 @@ copy and `@void/protocol`'s are generated from it. `build.mjs` refuses a HUD mod
 a gameplay mod with one, and so does the emitted schema.
 
 `mods/_shared.json` holds the properties every mod of a `kind` carries. A property added there
-reaches all eight HUD mods at once, which is the point — `docs/mod-roster.md` §9's advice was
+reaches every HUD mod at once, which is the point — `docs/mod-roster.md` §9's advice was
 to settle the shared HUD property set once rather than retrofit it into twenty settings pages.
+(It said "all eight" until this was written and there were sixteen; a count in prose is a
+count somebody has to remember to edit, which is the argument `validate.mjs` already makes
+about the count it stopped hard-coding.)
 
 `mods/_base.json` holds the static half of the schema and the registry `version`, which is
 bumped by hand: "did this change break a stored loadout" is not something a diff can answer.
@@ -58,7 +69,8 @@ node validate.mjs        # compiles all four, checks every `examples` entry, plu
 ```
 
 `validate.mjs` also asserts the things JSON Schema cannot: that the registry contains
-exactly the 13 ids in the `mod_id` enum, that `hud_mod_id`/`gameplay_mod_id` agree with
+exactly the ids in the `mod_id` enum and no others (a count it derives rather than one
+written here, which is why this sentence no longer names a number), that `hud_mod_id`/`gameplay_mod_id` agree with
 each entry's `kind`, that every entry carries a `category` from the enum and that each
 `<id>_entry` narrows it to the same value, that labels are unique, that every registry
 `defaults` object satisfies its own mod's settings sub-schema, and that `init.loadouts`
@@ -139,6 +151,352 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-09 (last) — `old_animations` comes back from the bytecode, as two mods and one fewer setting
+
+`mods.json` registry `version` `9 → 10`; **`protocol.json` and `bridge.json` untouched.** Twenty-nine
+mods: 16 HUD, 13 gameplay. Two `kind: gameplay` PvP mods, and between them they carry three of the
+four settings the withdrawn draft had — because **one of those four named a difference that does not
+exist**.
+
+**The withdrawal, and what closed it.** The entry two below records `old_animations` declared and
+pulled before its wave shipped: every one of its four settings was defined as "what 1.7 did", the 1.7
+side could not be established from this repo, and a mod whose two `one_seven` defaults changed nothing
+would have been the exact failure that removed `text_shadow` on the day it landed. That entry said what
+it needed was **a 1.7.10 mapping, not more time**, and that is what it got — a 1.7.10 jar remapped with
+Legacy Fabric yarn `1.7.10+build.603`, disassembled method-for-method against Loom's named 1.8.9 jar.
+The result is the most useful thing in this entry and it is not a mod: **the draft was wrong about the
+game, not merely unfinished.**
+
+- **`swing` is deleted and must never come back.** `LivingEntity.swingHand`, `tickHandSwing`,
+  `getHandSwingProgress` and the private `getMiningSpeedMultiplier` they read are byte-for-byte
+  identical across the two versions. So is the first-person arc: 1.8.9's `applyEquipAndSwingOffset`
+  opens `translate(0.56f, -0.52f, -0.71999997f)` and 1.7.10 opens the same translate spelled
+  `0.7f*0.8f, -0.65f*0.8f, -0.9f*0.8f` — the same numbers with the `0.8f` constant-folded, the third
+  folding to exactly `-0.71999997f` in float — followed by the same three rotations on the same axes.
+  **There is no 1.7 swing arc.** What players remember under that name is 1.8's held-item *render
+  pipeline* (fixed sprite quads → `BakedModel` + the JSON `firstperson` transforms), which is an L-cost
+  renderer rewrite; the danger a `swing` checkbox creates is that it *promises* that rewrite in one
+  word, so the mod file's `$comment` says so rather than leaving the absence to be re-litigated.
+- **`always_swing` was factually wrong**, which §7 of the roster had already half-caught: both versions
+  call `swingHand()` unconditionally at offset 12 of `doAttack`, before the hit result is read, so a
+  miss swings the arm in 1.8 exactly as in 1.7. The real difference is 1.8.9's `attackCooldown = 10` on
+  MISS (survival only) where 1.7.10's switch has no MISS entry and falls to `return`. That is one
+  premise supporting **two** features, and they are not the same kind of thing — which is what split
+  this wave into two mods.
+- **`block_hit` is real and is exactly one float**, in two render paths. 1.8.9's `renderArmHoldingItem`
+  passes `applyEquipAndSwingOffset(equip, 0.0F)` in every `UseAction` branch. 1.7.10 skipped the swing
+  *translate* while using an item too — its three sines sit inside the same `else` — but the
+  equip-and-swing block that follows is **outside** the branch and re-reads `getHandSwingProgress`
+  live. So the fix is to pass the live progress, and explicitly **not** to add `translateSwingProgress`,
+  which an earlier guess called for and which would overshoot 1.7 by the one thing 1.7 also skipped.
+  `applySwordBlockTransformation`'s constants are identical in both versions.
+- **`use_while_digging` was ready, and had an unrecorded mirror.** 1.8.9's `doUse` opens
+  `if (interactionManager.isBreakingBlock()) return;` and 1.7.10 has no such guard and no
+  `isBreakingBlock()` accessor at all. Reading the method next door found the other half: 1.8.9's
+  `handleBlockBreaking` opens `if (attackCooldown > 0 || player.isUsingItem()) return;` where 1.7.10 has
+  only the cooldown term. Same shape, same cost, and in a Bedwars rush arguably the more-felt half.
+
+**Two mods, and the reason is `hypixel_safe` being per mod**
+
+- **`old_animations`** (pvp, `reset`, ships off, **`safe`**) — `block_hit`
+  (`vanilla`/`one_seven`, default `one_seven`) and `swing_during_delay` (boolean, default false).
+  Animations only, and both claims are cheap to check: `block_hit` is an argument to a
+  `GlStateManager.rotate`, and `swing_during_delay` sends nothing. No packet, no timing, no reach, no
+  information — a stronger `safe` case than the withdrawn draft's, which had `use_while_digging` inside
+  the same mod.
+- **`old_input`** (pvp, `tap`, ships off, **`grey`**, every switch off) — `use_while_digging`,
+  `dig_while_using`, `no_miss_delay`. §6.1 renders Hypixel's policy as an allowlist of three categories
+  closing with "if it does not fit a category, assume it is disallowed", and none of these three is a
+  performance improvement, an aesthetic change or a HUD readout: each changes what the client *does* on
+  an input and therefore what the server receives. **"It ships off" is an argument about defaults, not
+  about classification** — `hypixel_safe` is a per-mod claim and the badge is computed from it over the
+  mods a loadout has enabled, which is exactly why shipping off costs nobody the badge and exactly why
+  the label still has to be honest for the player who turns it on.
+
+**Two decisions where the brief for this wave was followed with a change, both named here so a reader
+can overturn them in one place.**
+
+*The third-person half of the block revert is folded into `block_hit` rather than given its own
+boolean.* 1.8 added `rightArm.posY = -0.5235988f` (a **yaw** of −30°; see the mapping trap below) to the
+BLOCK case of `BiPedModel.setAngles`, which 1.7 did not have — it is how *other* players' blocking looks
+on your screen, and nothing about how you appear to anyone else. It is the same revert in the other
+render path, nobody wants 1.7 blocking in their hands and 1.8 blocking on the model in front of them,
+and a boolean whose entire visible effect is a 30° arm rotation on an entity would need its own drawing
+in `test/preview.test.tsx` or an exemption from it — the argument that kept `combo.hide_at_zero` and its
+two neighbours out of Wave 3. The setting's description carries the split list if it is ever wanted.
+
+*`always_swing` is renamed `swing_during_delay`, not merely redefined.* It ships as the cosmetic variant
+— reproduce `LivingEntity.swingHand()`'s body through the public `handSwinging` / `handSwingTicks`
+fields, **without** `ClientPlayerEntity.swingHand()`'s outbound `HandSwingC2SPacket`, so the arm agrees
+with the mouse during the dead time and nothing reaches the server. The functional variant is
+`old_input.no_miss_delay`. Keeping the old name would have carried the disproved premise ("1.8 does not
+swing on a miss") into a Rust field, a Java descriptor and a settings page, on a setting that does not
+make you always swing — you already always swing — while the honest name sat one mod over. The
+description also states the thing that name would hide: **the click is still swallowed**, only the
+animation returns. That makes it a behaviour that existed in *neither* version rather than a 1.7 revert,
+and it is off by default because an arm that swings on a click the game ate can be read as a hit that
+landed.
+
+**Why two mods where `overlay` was kept whole, since a reader will notice the inconsistency.** Two
+things separate them. §3.3 #1 explicitly instructed that grab-bag to "ship the six that matter as one
+VOID mod and stop" — there was a roster line telling `overlay` not to split, and there is none here. And
+`overlay`'s five switches are the same *kind* of thing (a settings-driven `return` in a render pass)
+differing only in exposure, so splitting them would have cut a coherent mod along a line the player
+cannot see; here the line is the subject of the mod. A bundle is only as safe as its worst switch, and a
+player who wants their sword to keep swinging while they block should not lose HYPIXEL-READY for it.
+
+**A mapping trap, recorded because it will otherwise cost an afternoon.** Legacy Fabric yarn names
+`ModelPart`'s **rotation** fields `posX`/`posY`/`posZ` — `ModelPart.render` hands them to
+`GlStateManager.rotate`, and the translation is the separate `pivotX`/`pivotY`/`pivotZ`. So
+`rightArm.posY = -0.5235988f` is −π/6 of yaw, not a position. Read as a position it is unimplementable.
+
+**Two scoping notes that a faster mixin would get wrong**, both in the setting descriptions rather than
+here alone. `no_miss_delay` must be scoped to the **MISS branch only**: 1.7.10 still set the same
+`attackCooldown = 10` on a null hit result and on a BLOCK hit resolving to `AIR`, so suppressing the
+field outright goes past 1.7 rather than back to it. And `block_hit`'s `one_seven` reverts **BLOCK
+only**, although 1.7's live swing applied to every `UseAction` — eating, drinking and bow-drawing
+included — because those are cancelled by the click that would swing or do not occur inside an exchange.
+
+**Glyphs — `reset` exists, `tap` does not.** `old_animations` keeps `reset`, already in `@void/ui`'s
+`ICON_NAMES`. `tap` is declared undrawn, which is the order `docs/adding-a-mod.md` §3 describes:
+`MOD_ICONS` is `satisfies Record<ModId, IconName>`, so a named-but-undrawn glyph is a **compile error in
+the package that owns the drawing** rather than an empty box in game. It must be structurally distinct
+from the existing `cursor-click` at 13px or it needs a different name, and the name is reconcilable here
+in one line if the art wave proposes one.
+
+**Consumers — nothing in this wave is generated yet, and three generators are outstanding.** They write
+outside `schema/` and were deliberately not run: `scripts/gen-java-registry.mjs` (`ModRegistry.java`, 29
+mods), `scripts/gen-rust-mods.mjs` (`mods/generated.rs` — two settings structs and one new enum,
+`OldAnimationsBlockHit`; note this is *not* the `OldAnimationsSwing` the withdrawn draft would have
+produced, because that setting no longer exists), and `pnpm --filter @void/protocol gen` followed by its
+build. The one hand-written half that a generator cannot reach is in `crates/void-loadout`:
+`grey_mods_are_exactly_fullbright_hitboxes_and_overlay` in `mods.rs` gains a fourth member and its name
+has to move with it — `..._fullbright_hitboxes_overlay_and_old_input`. That is the mechanism working as
+designed: a mod joining the class that gates the badge must touch a test with the class written into its
+name. Nothing else in `void-loadout` needs a per-mod edit — `registry()` and `validate_settings()`
+dispatch through generated tables, `defaults.rs` iterates `ModId::ALL` so both ship off in the curated
+loadouts, and `Loadout::validate` bounds `hud` by `HudModId::ALL.len()`, unchanged at 16 because this
+wave added no HUD mod. **No `REMOVED_SETTINGS` row is needed**: `old_animations` was never released, so
+no loadout on disk carries `swing`, `always_swing` or `use_while_digging` — the same free removal the
+withdrawal entry claimed, still true a wave later. Steps 2, 3 and 4 of `docs/adding-a-mod.md` — the two
+widgets and `MOD_ORDER`, the `tap` glyph, and the actuators — are all still to write.
+
+### 2026-09-09 (later still) — the camera, the flash, the vignette, and a setting that never did anything
+
+`mods.json` registry `version` `8 → 9`; **`protocol.json` and `bridge.json` are both untouched**,
+and that is a result rather than an oversight — see the note on the key path below. Twenty-seven
+mods: 16 HUD, 11 gameplay. Three mods added, and one setting removed from a fourth.
+
+**Three `kind: gameplay` PvP mods, and two of them are two roster rows each**
+
+- **`freelook`** (pvp, `orbit`, ships off) — `keybind`, `mode` (`hold`/`toggle`), `perspective`
+  (`third_back`/`third_front`/`free`) and `snap_back`. **It absorbs Snaplook**, which
+  `docs/mod-roster.md` lists as its own mod at §3.2 #9. The roster's own verdict on #9 is "Build
+  **after** freelook — it is the same camera machinery with a different input mode", costed `S*`
+  where the asterisk is freelook having already paid. Snaplook is "hold a key for a third-person
+  look, release to snap back", which is `mode: hold` + `snap_back: true` + `perspective:
+  third_back` — and all three are the factory defaults, so VOID's freelook out of the box *is*
+  Snaplook, on the key the player binds. A second registry row for a configuration of the first is
+  `overlay`'s objection moved to a different corner of the roster: two mods over one input path is
+  the grab-bag growing back. The concrete failure is sharper here than it was there, and this repo
+  already found it once — `toggle_sneak` removed `toggle_sprint.sneak_too` because "two owners of
+  one latch is a bug waiting for a player to find". Two mods over one camera is two keybinds
+  racing for one piece of view state, and the player who binds both gets whichever actuator ran
+  last. The mod file carries the split list in case the call is overturned: `mode` and `snap_back`
+  move, `perspective` stays, and the camera detach cannot be split at all — which is the thing to
+  notice before splitting rather than after.
+
+  **The load-bearing sentence in that file is not about the bundle, it is about one enum value.**
+  `perspective: free` means an **orbit** about the pivot vanilla's third-person camera already
+  uses — the player's own head — and never a translation away from the body. A camera that can
+  leave the body is a freecam; a freecam is scouting; scouting sees around walls and into rooms
+  the player cannot reach, which is §6.1's "chest or player radar" wearing a nicer word and sits
+  on the list §6.1 prefixes with "Never, under any framing". The distance from the pivot is
+  vanilla's and is deliberately not a setting, because the moment it is one somebody raises it. If
+  `free` ever stops meaning orbit the mod does not become `grey`; it does not ship.
+
+  **`safe`.** §3.2 #4's researched verdict is "Camera-only, allowed, universally used", and §6.1's
+  allowlist test is about information, which this adds none of: every camera position freelook can
+  reach is one vanilla's own F5 reaches, and vanilla's front view already shows a player what is
+  behind them while their body faces forward. What the mod adds is a continuous sweep in place of
+  two fixed offsets, and a key that is not F5.
+
+  **Its key does not go through the bridge, and the previous wave is why that is worth writing
+  down.** `modaction` was added because `stopwatch`'s key is a *verb* for a widget the **page**
+  owns. Freelook's camera is owned entirely by Java, so its key is polled the way `zoom.key`
+  already is — `VoidClient` reads `isKeyDown` each frame and `ZoomController` eases off the level
+  — and a round trip through the overlay would put a frame of latency inside a hold. That is the
+  whole reason this wave adds no channel and no message.
+
+- **`hit_color`** (pvp, `droplet`, ships off) — `color`, `own_hits_only`, `intensity`. §3.2 #5:
+  "Entity-render tint; genuinely helps read whether a hit landed." It recolours
+  `RenderLivingBase`'s entity hurt overlay and nothing else; it does not touch the first-person
+  damage overlay, which `overlay` cut for removing a combat cue rather than an occluder, and which
+  stays cut.
+
+  **`safe`, and the *range* is what buys it rather than an argument.** Hue is aesthetic without
+  needing a defence. `intensity` was where that stopped being true: a strength slider whose top
+  end made a hit readable that vanilla left ambiguous is not "purely aesthetic" on §6.1's own
+  account, and it would have been the second `grey` mod in two waves. So the number was defined
+  instead of defended — `intensity` is a **fraction of vanilla's own hurt-overlay alpha**, 1 being
+  exactly what the game already draws, with nothing above it. The mod cannot make a landed hit
+  more visible than Minecraft made it; it can only make it a different colour, or less visible.
+  That is `fov`'s move ("the range is exactly vanilla's own slider") applied to a different
+  number, and it is the reason this entry is short where `overlay`'s was long.
+
+  Two things are explicitly *not* what carries the classification, so that changing either does
+  not move the mod by accident. `own_hits_only` (default on) is a legibility default: the tint on
+  an entity somebody else hit is already on your screen at the same alpha for the same hurt ticks,
+  so recolouring it reveals nothing and only makes a worse cue. And the mod's `$comment` names
+  what *would* make it `grey`: an intensity range above vanilla's alpha, any duration or
+  persistence setting — a tint that outlives `hurtTime` is a hit *marker*, a different mod and a
+  `grey` one — or tinting an entity vanilla did not tint.
+
+  **One conflict the schema cannot express and the file therefore states.** `#/definitions/
+  hex_color` accepts `#RRGGBBAA` and `crosshair.color` ships the eight-digit form, so nothing
+  stops a player storing an alpha byte in `color` — where it would be a second owner of the alpha
+  `intensity` owns, and the failure is a player dragging `intensity` to its top and seeing nothing
+  because their colour ends in `00`. The actuator drops the byte; the default is six digits;
+  narrowing the `$ref` in place is not possible in draft-07, so the newtype in `void-loadout`'s
+  `mods.rs` is where an enforcement could live if one is wanted.
+
+  The default is `#2FB8A6` and not red, for two reasons that are both about the rest of the
+  screen. A mod that turns on and changes nothing looks broken — the argument that withdrew
+  `old_animations` last wave — and `#FF0000` would be exactly that mod. And red is the worst
+  available colour on a 1.8 map: the nether, lava, red wool and red leather in Bedwars, and as of
+  this same wave the low-health vignette `damage_tint` draws at the edge of the same frame. The
+  two most decision-shaped cues on screen should not share a hue, and that trade is made once,
+  here, rather than left to whichever settings page the player opens second.
+
+- **`damage_tint`** (pvp, `pulse`, ships off) — `threshold` (half-hearts, 1–20, default 6),
+  `strength` and `camera_shake` (`vanilla`/`reduced`/`off`). §3.2 #7's case is one sentence and it
+  is the right one: "I did not notice I was at 3 hearts" is a real way to lose. **It absorbs Hurt
+  cam control**, §3.2 #8. Unlike freelook/Snaplook these two share no render path — a
+  health-driven vignette and `EntityRenderer#hurtCameraEffect` are different code — so the
+  argument is the per-mod tax rather than the machinery. Split, `hurt_cam` is a registry row, a
+  settings page, a thumbnail, a preview, a Rust settings struct, a Java descriptor block, an
+  undrawn glyph and a `MOD_ORDER` slot, all to carry one three-valued enum; §9 costs that tax, and
+  `build.mjs` removed nine of its twenty-five steps but not steps 2 and 4, which are the
+  hand-written ones. The cost is `overlay`'s cost and the file writes it down: `hypixel_safe` is
+  per **mod**, so if `camera_shake` is ever reclassified the vignette loses the badge with it.
+  **That is the split condition and `camera_shake` is the split list.**
+
+  **`safe`, and `camera_shake` is the half that needed checking rather than assuming.** It would
+  be easy to read it as `overlay`'s trade: vanilla rolls the camera up to fourteen degrees when
+  you are hit, and turning that off removes a cost the game imposed. But that is not the test
+  `overlay` applied. Its two grey switches remove **occluders** — the fire overlay and the pumpkin
+  blur are world pixels the game covered up, and suppressing them shows you world you could not
+  see; "Fire overlay alone decides fights" decides them by hiding the other player. A camera roll
+  hides nothing: the same frame, rotated, every pixel already yours. The precedent for that shape
+  shipped two files ago and is `safe` — `fov.lock_sprint` suppresses a camera change the game
+  imposes on you for sprinting and for *every knockback you take*, which is the same event and the
+  same complaint. `camera_shake` is `lock_sprint`'s sibling, not `hide_fire`'s. The vignette is
+  not near the line at all: your own health is already on your own HUD, and drawing it a second
+  time in the periphery moves information rather than adding it.
+
+  `vanilla` is the default and that is deliberate against the grain of what players think they
+  want. The roll is a handicap, but it is oriented by `attackedAtYaw` — it is close to the only
+  thing 1.8.9's client tells you about *where* a hit came from — so `reduced` exists to keep the
+  direction and take the amplitude, and the description says so, because a player who deletes the
+  cue from a settings page without knowing it was a cue has made a trade nobody explained.
+
+  **No heartbeat audio, and §3.2 #7 does mention one.** Three reasons, in increasing order of
+  weight. It would be the first sound VOID ships and this repo has no audio asset pipeline — §3.4
+  #4 defers kill sounds for exactly that, which is the roster's own statement that audio is a
+  project and not a setting. It would be a cue the game does not make, where everything else here
+  re-presents something already on screen. And it could not be previewed: `test/preview.test.tsx`
+  walks every setting and asserts the drawing changed, so it would land in `NOT_IN_THE_PREVIEW` on
+  the day it shipped — the `text_shadow` failure moved into a different medium.
+
+  It is `kind: gameplay` although it draws, for `crosshair`'s and `hitboxes`' reason: `kind`
+  splits on whether the mod owns a draggable HUD item, and a full-viewport vignette has nowhere to
+  be placed. The file also says where it should be drawn, because "vignette" and "full-screen
+  effect" sound like the same cost and are two orders of magnitude apart: it belongs in the game's
+  own overlay pass beside the crosshair, not as an element in the Ultralight page, where a
+  full-viewport node whose alpha follows health would dirty the whole view every health tick —
+  `design/rendering-invariants.md` §5 measures a forced full repaint at 22 ms against 0.5 ms. One
+  alpha gradient, not the post-process §3.3 refuses on that same budget.
+
+**All three are `safe`, and that is a claim rather than a copy.** `overlay` was classed `grey`
+today by *not* copying its neighbours, so the three arguments above were made from §6.1's text
+each time and each one names what would overturn it. The consequence for the Rust side is that
+`grey_mods_are_exactly_fullbright_hitboxes_and_overlay` needs **no** edit; if any of the three
+calls is overturned on review, that test's name and its `vec!` are the hand-written half that has
+to move with it.
+
+**Three glyphs that do not exist yet — `orbit`, `droplet`, `pulse`.** None is in `@void/ui`'s
+`ICON_NAMES`, and they are declared anyway, which is the order `docs/adding-a-mod.md` §3
+describes: `MOD_ICONS` is `satisfies Record<ModId, IconName>`, so a named-but-undrawn glyph is a
+**compile error in the package that owns the drawing** rather than an empty box in game.
+`@void/ui` typechecks red until a later wave draws them, and that is the mechanism working. The
+last wave got to write the opposite note because the art wave beat it to `clock`; this one does
+not.
+
+**Removed: `toggle_sprint.mode` — because it was provably a no-op, not because it was deprecated**
+
+Separate change, same version bump, and the reason is worth more than the diff. The Java wave read
+it out of the bytecode: `ClientPlayerEntity.tickMovement` re-evaluates sprint as a *level* every
+tick — both the idle-start test and the collision-resume test call `sprintKey.isPressed()` — and
+`KeyBinding.setKeyPressed(code, true)` writes exactly the `pressed` field that `isPressed()` reads.
+A latch setting that field every tick is bit-for-bit indistinguishable from a player holding the
+key; sprint auto-resumes after a collision either way. So "restore vanilla hold-to-sprint" had no
+implementation other than *write nothing*, and writing nothing is what `on: false` already does.
+`mode: hold` was not merely redundant with the off switch, it was **worse** than it: the actuator
+went quiet while the Mods panel went on reporting the mod enabled, which is a settings page lying
+about the game. It was redundant a second way as well — `keybind` toggles the mod in game and its
+own description already claimed the same use case, "a fight where holding the key is what the
+hands expect".
+
+**The prose was the actual defect, and this is the part to take away from the entry.** The
+previous wave rewrote this description to say that on this mod `hold` "now means the mod is inert
+until it is set back", and closed with "worth revisiting when a sprint indicator comes back". That
+is a bug promoted to a specification. A confidently-worded description is exactly what stops the
+next reader checking, which is the same species of silence `design/rendering-invariants.md`
+catalogues in code; there was nothing to revisit, because there was no behaviour behind the
+setting to restore. The correction was made in good faith and it made the file *more* wrong, which
+is the argument for reading the bytecode rather than the neighbouring sentence.
+
+**`toggle_sneak.mode` is not affected and stays**, and the difference is structural rather than a
+judgement call: `toggle_sneak` latches its **own** bind rather than vanilla's sneak key, so its
+`hold` is a real behaviour — sneak under a thumb that is not Shift. `toggle_sprint` latches
+vanilla's sprint key and its `keybind` is the toggle-the-mod bind, so there is no second key for a
+`hold` to move sprint onto.
+
+**The migration is mandatory, not precautionary.** `mode` was in the shipped registry defaults from
+the first release, so it is in essentially every loadout on disk; every `*Settings` struct in
+`void-loadout` is `#[serde(deny_unknown_fields)]`, so without the migration each of those files
+stops deserialising, `Store::load` returns `Error::Json`, and `Store::list` collects a `Result`
+over the whole directory — one orphaned file takes the entire library listing with it.
+`("toggle_sprint", "mode")` is added to `REMOVED_SETTINGS` in `crates/void-loadout/src/store.rs`
+in the same change, the third entry after `show_status` and `sneak_too`; the stale key is dropped
+on the way in and never written back, so the next save is the migration. The two tests bracketing
+that constant — one proving a stale removed key still loads, one proving junk that was never ours
+still fails loudly — are what keep the tolerance narrow, and both are parameterised on
+`show_status`, so neither needed editing. `schema/loadout.json`'s third example carried
+`toggle_sprint.mode` by hand and no longer does; `validate.mjs` would have failed on it, which is
+the gate doing its job.
+
+**Consumers**
+
+Nothing in this wave is generated yet, and the list is short because the wave deliberately touched
+no wire format. Still to run, all of them writing outside `schema/`: `scripts/gen-java-registry.mjs`
+(`ModRegistry.java` — 27 mods, and `toggle_sprint`'s `mode` descriptor goes),
+`scripts/gen-rust-mods.mjs` (`mods/generated.rs` — three settings structs and three enums added,
+`FreelookMode`, `FreelookPerspective` and `DamageTintCameraShake`; `ToggleSprintMode` **removed**),
+and `pnpm --filter @void/protocol gen`, which is *not* what `build` runs — `build` is only `tsc`,
+so `src/generated/*` is stale at 24 mods until `gen` is run and the build after it is what proves
+the result compiles. Hand-written halves in `void-loadout` that needed a per-mod edit: the
+`REMOVED_SETTINGS` row above, and nothing else — the grey-set assertion is unchanged because all
+three new mods are `safe`, `registry()` and `validate_settings()` dispatch through generated
+tables, `defaults.rs` iterates `ModId::ALL` so all three ship off in the curated loadouts, and
+`Loadout::validate` bounds `hud` by `HudModId::ALL.len()`, which is unchanged at 16 because this
+wave added no HUD mod. Step 2 (`packages/ingame/src/mods/<id>.tsx` and `MOD_ORDER`), step 3 (the
+three glyphs) and step 4 (the actuators) are all still to write, and one existing preview needs
+rebuilding rather than extending: `menu/gameplay-previews.tsx` draws `toggle_sprint` as a
+two-mode timeline off `settings.mode`, which is a type error the moment `@void/protocol` is
+regenerated.
+
 
 ### 2026-09-09 (later) — a key can reach a mod, and the five that change how it feels
 

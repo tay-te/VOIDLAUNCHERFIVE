@@ -38,11 +38,16 @@ import direction from './direction';
 import item_counter from './item_counter';
 import memory from './memory';
 import momentum from './momentum';
+import old_animations from './old_animations';
+import old_input from './old_input';
 import overlay from './overlay';
 import crosshair from './crosshair';
+import damage_tint from './damage_tint';
 import fov from './fov';
+import freelook from './freelook';
 import fps from './fps';
 import fullbright from './fullbright';
+import hit_color from './hit_color';
 import hitboxes from './hitboxes';
 import keystrokes from './keystrokes';
 import ping from './ping';
@@ -89,6 +94,15 @@ const ART = {
   fov,
   toggle_sneak,
   overlay,
+  // Roster §3.2's medium PvP set. `freelook` absorbs Snaplook (#9) and `damage_tint` absorbs
+  // Hurt cam (#8); both bundles are argued in their own schema `$comment`s.
+  freelook,
+  hit_color,
+  damage_tint,
+  // The 1.7 pair. Split rather than bundled because the badge is per mod: `old_animations` is
+  // `safe` and animation only, `old_input` is `grey` and changes what leaves the client.
+  old_animations,
+  old_input,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

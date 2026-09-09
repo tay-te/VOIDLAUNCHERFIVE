@@ -396,18 +396,29 @@ mod tests {
     }
 
     #[test]
-    fn grey_mods_are_exactly_fullbright_hitboxes_and_overlay() {
+    fn grey_mods_are_exactly_fullbright_hitboxes_overlay_and_old_input() {
         // An exact set, not a count, and it is edited by hand on purpose: `grey` is the class
         // that decides whether the HYPIXEL-READY badge can be shown, so a mod joining it is a
         // product decision that should have to touch a test with a name in it. `overlay` is the
         // third, and `schema/mods/overlay.json`'s `$comment` carries the argument — two of its
         // five switches (`hide_fire`, `hide_pumpkin`) remove a view cost the game imposes
         // deliberately, which is not the "purely aesthetic" category §6.1 would need it to be.
+        //
+        // `old_input` is the fourth, and it is the reason `old_animations` is a separate mod
+        // rather than one bundle: each of its three switches changes what the client *does* on
+        // an input and therefore what the server receives, which fits none of §6.1's three
+        // permitted categories. `no_miss_delay` is the most exposed — whiffed clicks stop being
+        // rate-limited, so outbound swing volume rises in proportion to CPS, which is the signal
+        // a CPS-based anticheat measures. Bundling it with the animation revert would have cost
+        // a player the badge for wanting a sword to swing through a block.
         let grey: Vec<ModId> = ModId::ALL
             .into_iter()
             .filter(|id| id.hypixel_safe() == HypixelSafe::Grey)
             .collect();
-        assert_eq!(grey, vec![ModId::Fullbright, ModId::Hitboxes, ModId::Overlay]);
+        assert_eq!(
+            grey,
+            vec![ModId::Fullbright, ModId::Hitboxes, ModId::Overlay, ModId::OldInput]
+        );
     }
 
     #[test]

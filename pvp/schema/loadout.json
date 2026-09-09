@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 24 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 29 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -214,6 +214,26 @@
         "overlay": {
           "description": "Overlay state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/overlay_settings"
+        },
+        "freelook": {
+          "description": "Freelook state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/freelook_settings"
+        },
+        "hit_color": {
+          "description": "Hit colour state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/hit_color_settings"
+        },
+        "damage_tint": {
+          "description": "Damage tint state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/damage_tint_settings"
+        },
+        "old_animations": {
+          "description": "Old animations state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/old_animations_settings"
+        },
+        "old_input": {
+          "description": "Old input state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/old_input_settings"
         }
       }
     },
@@ -358,8 +378,7 @@
           "style": "full"
         },
         "toggle_sprint": {
-          "on": true,
-          "mode": "toggle"
+          "on": true
         },
         "fullbright": {
           "on": false,

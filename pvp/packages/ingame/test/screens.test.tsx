@@ -291,27 +291,30 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const { container } = render(<App />);
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
-    // Twenty-four mods: eight across, three down — the shape that fills the panel, solved from
+    // Twenty-nine mods: eight across, four down — the shape that fills the panel, solved from
     // the registry's count and the window and handed to the CSS as lengths. Six across at
-    // twelve, seven when the watermark landed, eight at Wave 2's readouts, and Wave 4's four
-    // exactly fill the third row. Every one of those moves is `solveGrid` doing its job rather
-    // than a layout that had to be re-guessed, which is why this is rewritten each time.
+    // twelve, seven when the watermark landed, eight at Wave 2's readouts, a third row filled by
+    // Wave 4, and a fourth opened by Wave 5. Every one of those moves is `solveGrid` doing its
+    // job rather than a layout that had to be re-guessed, which is why this is rewritten each
+    // time rather than derived away.
     const solved = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
     expect(solved.columns).toBe(8);
-    expect(solved.rows).toBe(3);
+    expect(solved.rows).toBe(4);
     expect(overlay().style.getPropertyValue('--panel-cols')).toBe('8');
-    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('3');
+    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('4');
     expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${solved.panelW}px`);
     expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${solved.panelH}px`);
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
-    // Still nothing to scroll at twenty-four — three full rows of eight is exactly the panel —
-    // so nothing is held back from the tiles for a scrollbar. Worth keeping as an assertion
-    // rather than dropping: the panel is a fixed box rather than the size of the registry, and
-    // "does it scroll yet" is the question that box exists to answer. The next mod is the one
-    // that flips it.
-    expect(solved.scrolls).toBe(false);
-    expect(overlay().style.getPropertyValue('--grid-gutter')).toBe('0px');
-    expect(overlay().className).not.toContain('overlay--scrolls');
+    // **Twenty-nine is where it flips.** Three full rows of eight was exactly the panel; the
+    // fourth overflows it, so a gutter is held back for the scrollbar and the grid gains
+    // `overlay--scrolls`. The previous revision of this test predicted the next mod would do
+    // this, and kept the assertion rather than loosening it for exactly that reason: the panel
+    // is a fixed box rather than the size of the registry, and "does it scroll yet" is the
+    // question a fixed box exists to answer. It is answered here, once, in a test with the
+    // count in it.
+    expect(solved.scrolls).toBe(true);
+    expect(overlay().style.getPropertyValue('--grid-gutter')).not.toBe('0px');
+    expect(overlay().className).toContain('overlay--scrolls');
 
     // The panel's box is the *panel's*, not the grid's: it is solved the same way and written
     // to the same custom properties on a mod's page, so navigating moves no length on the
@@ -339,9 +342,9 @@ describe('Mods screen — the grid, and the page one click away', () => {
   });
 
   it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
-    // Row-major, so the arrow keys had to change with the fill order. Twenty-four mods are eight
-    // across: `fps` is index 0, `crosshair` index 7 (end of row one), `zoom` index 8 (start of
-    // row two), `watermark` index 23 (the last).
+    // Row-major, so the arrow keys had to change with the fill order. Twenty-nine mods are eight
+    // across: `fps` is index 0, `old_animations` index 7 (end of row one), `old_input` index 8
+    // (start of row two), `watermark` index 28 (the last, on a fourth row of five).
     const { container } = render(<App />);
     const overlay = container.querySelector('.overlay') as HTMLElement;
     const at = () => useVoidStore.getState().selectedMod;
@@ -351,14 +354,14 @@ describe('Mods screen — the grid, and the page one click away', () => {
     press('ArrowRight');
     expect(at()).toBe('memory');
     press('ArrowDown');
-    expect(at()).toBe('fov'); // index 1 + 8
+    expect(at()).toBe('crosshair'); // index 1 + 8
     press('ArrowUp');
     expect(at()).toBe('memory');
 
     // A row boundary is a step, not a wall: the grid is one sequence laid out in rows.
-    set(() => useVoidStore.getState().selectMod('crosshair'));
+    set(() => useVoidStore.getState().selectMod('old_animations'));
     press('ArrowRight');
-    expect(at()).toBe('zoom');
+    expect(at()).toBe('old_input');
 
     // Both ends clamp rather than wrapping.
     set(() => useVoidStore.getState().selectMod('fps'));
@@ -821,12 +824,33 @@ describe('The mod page — contract §8', () => {
     // chrome block gave every `kind: hud` mod four more, so all eight are grouped and the flat
     // branch belongs to the mods that have no chrome. That is the block working as intended
     // rather than a regression — §8's rule is "structure follows property count", and the count
-    // genuinely moved — but it does mean this branch now has exactly `toggle_sprint` and
-    // `hitboxes` to cover it.
-    open('toggle_sprint');
+    // genuinely moved — but it does mean this branch is covered by the gameplay mods alone.
+    //
+    // It was `toggle_sprint` until `mode` was removed for being provably a no-op, which left
+    // that mod one property and moved it down a structure. `zoom`'s four carry the case now —
+    // not `hitboxes`, which has six and is grouped.
+    open('zoom');
     expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
     expect(container.querySelectorAll('.mprops__group')).toHaveLength(0);
     expect(container.querySelector('.mprops__cap')).toBeNull();
+  });
+
+  it('gives Toggle sprint the sentence structure now that only its keybind is left', () => {
+    const { container } = render(<App />);
+    open('toggle_sprint');
+    // A shipped mod reaches §8's sentence structure again. The neighbouring case notes that
+    // none did after Fullbright gained a toggle key, and that its coverage had to move to the
+    // `?fake=` fixture; removing `toggle_sprint.mode` handed the shape back to a real mod.
+    //
+    // Worth asserting rather than routing around, because it is the *visible* half of that
+    // removal: `mode` was a setting that could not mean anything (`KeyBinding.setKeyPressed`
+    // writes the same field the sprint tests read, so `hold` had no implementation but "write
+    // nothing"), and taking it out does not merely delete a row — it changes what the page is.
+    expect(container.querySelector('[data-structure="sentence"]')).not.toBeNull();
+    expect(container.querySelectorAll('.mprops__sentence')).toHaveLength(1);
+    // §8's own rule, and the reason the shape exists: a list of one is not a list, so the one
+    // setting is said rather than drawn as a labelled row.
+    expect(container.querySelector('.mprops__sentence')?.textContent).toContain('Keybind');
   });
 
   it('gives Fullbright a flat list now that it has a toggle key as well as a gamma', () => {
