@@ -17,7 +17,7 @@ export type * from './generated/schema.js';
 export { MOD_REGISTRY_DOCUMENT } from './generated/registry.js';
 // The bounds and enum tables of every settings property, generated from the `<id>_settings`
 // sub-schemas. The UI used to transcribe both by hand; see `generated/constraints.ts`.
-export { SETTING_BOUNDS, SETTING_OPTIONS } from './generated/constraints.js';
+export { SETTING_BOUNDS, SETTING_OPTIONS, KEYBIND_SETTINGS } from './generated/constraints.js';
 // The glyph each registry entry names, generated with its literal type intact so that
 // `@void/ui` can check the whole table against its closed `IconName` union in one
 // `satisfies`. Applications should use `@void/ui`'s `MOD_ICONS`; this is the contract

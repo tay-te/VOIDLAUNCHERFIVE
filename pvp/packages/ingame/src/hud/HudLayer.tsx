@@ -14,6 +14,15 @@ import { hudItem, isModOn, useModSettings, useVoidStore } from '@/store/store';
 import { DEFAULT_HUD, placementStyle, zoomStyle } from '@/store/hud-geometry';
 import { HUD_MOD_IDS, type HUDAnchor, type HUDModId } from '@/bridge/protocol';
 import { HudWatermark } from './watermark';
+// The Wave 2 readouts, each in its own module — `watermark.tsx` set that precedent and
+// `mods/art.tsx` states the principle: what one mod draws lives in that mod's own file.
+import { HudCombo } from './combo';
+import { HudItemCounter } from './item_counter';
+import { HudMemory } from './memory';
+import { HudMomentum } from './momentum';
+import { HudSaturation } from './saturation';
+import { HudServerAddress } from './server_address';
+import { HudStopwatch } from './stopwatch';
 import {
   HudArmorStatus,
   HudCoordinates,
@@ -38,6 +47,13 @@ const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   armor_status: HudArmorStatus,
   keystrokes: HudKeystrokes,
   cps: HudCps,
+  combo: HudCombo,
+  saturation: HudSaturation,
+  momentum: HudMomentum,
+  memory: HudMemory,
+  server_address: HudServerAddress,
+  item_counter: HudItemCounter,
+  stopwatch: HudStopwatch,
   // The thirteenth mod, and it goes in this table like any other because that is the whole
   // argument for making the watermark a mod rather than a flag (`watermark.tsx`).
   watermark: HudWatermark,

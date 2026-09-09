@@ -78,6 +78,30 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "gap": {
     "min": 0,
     "max": 10
+  },
+  "reset_ms": {
+    "min": 500,
+    "max": 10000
+  },
+  "low_threshold": {
+    "min": 0,
+    "max": 64
+  },
+  "fov": {
+    "min": 30,
+    "max": 110
+  },
+  "intensity": {
+    "min": 0,
+    "max": 1
+  },
+  "threshold": {
+    "min": 1,
+    "max": 20
+  },
+  "strength": {
+    "min": 0,
+    "max": 1
   }
 } as const;
 
@@ -202,10 +226,6 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "mark",
     "word"
   ],
-  "toggle_sprint.mode": [
-    "toggle",
-    "hold"
-  ],
   "crosshair.style": [
     "default",
     "cross",
@@ -228,5 +248,149 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "letter",
     "word",
     "axis"
+  ],
+  "combo.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "combo.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "saturation.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "saturation.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "saturation.style": [
+    "number",
+    "bar",
+    "both"
+  ],
+  "momentum.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "momentum.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "momentum.unit": [
+    "bps",
+    "kmh"
+  ],
+  "memory.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "memory.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "memory.style": [
+    "used",
+    "used_of_max",
+    "percent"
+  ],
+  "server_address.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "server_address.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "server_address.style": [
+    "short",
+    "full"
+  ],
+  "item_counter.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "item_counter.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "stopwatch.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "stopwatch.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "stopwatch.format": [
+    "auto",
+    "mmss",
+    "hmmss"
+  ],
+  "toggle_sneak.mode": [
+    "toggle",
+    "hold"
+  ],
+  "overlay.view_bobbing": [
+    "vanilla",
+    "minimal",
+    "off"
+  ],
+  "freelook.mode": [
+    "hold",
+    "toggle"
+  ],
+  "freelook.perspective": [
+    "third_back",
+    "third_front",
+    "free"
+  ],
+  "damage_tint.camera_shake": [
+    "vanilla",
+    "reduced",
+    "off"
+  ],
+  "old_animations.block_hit": [
+    "vanilla",
+    "one_seven"
   ]
 } as const;
+
+/**
+ * Every settings property that is a keybind, as `<mod>.<key>`.
+ *
+ * Derived from the property's `$ref` at `mods.json#/definitions/keybind`, which is the only
+ * thing that actually makes a setting a keybind. `ModRegistry.java` already classified by that
+ * type and says why in as many words — "not by the property's name, which is `keybind` on one
+ * mod and `key` on another" — while the TypeScript side matched those two names literally.
+ * The stopwatch's `start_key` and `reset_key` matched neither, so they fell through to the
+ * enum branch, which draws a chip row over an empty options table: a label and no control,
+ * in game only. That is the same silent shape `watermark.style` shipped as.
+ */
+export const KEYBIND_SETTINGS: readonly string[] =
+  [
+  "keystrokes.keybind",
+  "toggle_sprint.keybind",
+  "fullbright.keybind",
+  "hitboxes.keybind",
+  "zoom.key",
+  "stopwatch.start_key",
+  "stopwatch.reset_key",
+  "toggle_sneak.keybind",
+  "freelook.keybind"
+] as const;

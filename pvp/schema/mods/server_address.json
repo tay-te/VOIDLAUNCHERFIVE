@@ -1,0 +1,36 @@
+{
+  "$comment": "Two notes, both about things a reader will want to change.\n\n**The icon is shared with Ping display, on purpose.** The two mods are the same corner of the product — which server, and how far away it feels — and a glyph that says \"the network\" says it correctly for both. There is precedent one row up: `compass` is shared by Coordinates and Direction, two readings of one thing. `MOD_ICONS` is `Record<ModId, IconName>` and not a bijection, so the sharing costs nothing structurally; what it costs is distinguishability in the Mods grid, and the answer to that is the label under the tile, which is what the grid is actually read by.\n\n**One setting is the honest number, not an oversight.** The `server` event carries a hostname without a port and a connected flag, and `style` is the only choice that hostname supports; the shared HUD block still gives this mod `on`, `scale`, `opacity`, `background`, `border` and `padding`. There is deliberately no `hide_offline`: the chip has nothing to print in singleplayer or at the menu (`host` is the empty string on disconnect), so it draws nothing there **unconditionally**. That is behaviour, not a preference — `design/quiet-cell-system.md` puts position, scale, opacity, density, what is shown and format on the customisation side of its line, and \"the widget is not there\" is none of them — and a switch whose entire content is absence has no preview to move, so it would need a `NOT_IN_THE_PREVIEW` exemption from `packages/ingame/test/preview.test.tsx`, whose own doc comment calls that list the one place the gate can quietly erode. `combo` and `item_counter` carry the same note for the same reason. Do not add a second setting to make this file look fuller.",
+  "id": "server_address",
+  "kind": "hud",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Server address",
+  "icon": "wifi",
+  "the": true,
+  "noun": "the host chip",
+  "on_description": "the server address is drawn",
+  "description": "The host you are actually connected to.",
+  "settings_title": "Server address settings",
+  "settings_description": "Settings for the Server address HUD mod. Reads `host` from the `server` bridge event, which is pushed on connect and on disconnect and carries an empty string on the way out — so \"not connected\" is a state this mod can see, and the chip simply draws nothing in it rather than offering a switch about it. `ping.show_host` is deliberately kept alongside this mod: that is the inline form, a shortened host printed after the latency figure, and this is the standalone one a player places on its own — the same split Coordinates and Direction already make between a suffix and a chip. Neither reads the other's settings. One setting is all a hostname supports; the file's `$comment` says why that is the honest count.",
+  "source": "`host` on the `server` bridge event",
+  "enabled": false,
+  "default_placement": {
+    "anchor": "bottom-right",
+    "dx": -25,
+    "dy": -61
+  },
+  "defaults": {
+    "style": "short"
+  },
+  "settings": {
+    "style": {
+      "description": "How much of the host is printed. `short` keeps the part players actually say out loud — `hypixel` out of `mc.hypixel.net` — and is the default because on a chip the leading `mc.` and the trailing `.net` are the two pieces that never differ between the servers a player switches between, so they cost width and carry no information. `full` prints the address exactly as it was connected to, which is what you want on a network with several proxies, on a bare IP, or in a screenshot that has to be reproducible by somebody else.",
+      "type": "string",
+      "enum": [
+        "short",
+        "full"
+      ],
+      "default": "short"
+    }
+  }
+}

@@ -129,9 +129,89 @@ impl<'de> Deserialize<'de> for HexColor {
     }
 }
 
+/// An sRGB colour as `#RRGGBB`, with no alpha byte (`mods.json#/definitions/hex_color_rgb`).
+///
+/// The narrow half of [`HexColor`], for a setting where something else owns the transparency.
+/// `hit_color.intensity` is defined as a fraction of vanilla's own hurt-overlay alpha — that
+/// ceiling is what classifies the mod `safe` rather than `grey` — so an alpha byte stored in the
+/// colour would be a second owner of one value, and a player who dragged `intensity` to its top
+/// and saw nothing would blame the wrong control.
+///
+/// Separate from `HexColor` rather than a flag on it: the two are different types in the schema,
+/// and `NEWTYPE_REFS` in `scripts/gen-rust-mods.mjs` resolves a settings field's Rust type from
+/// the definition it `$ref`s. A shared type with a runtime mode would make the generated struct
+/// unable to say which rule applies to it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct HexColorRgb(String);
+
+impl HexColorRgb {
+    /// Whether `s` matches the schema's `hex_color_rgb` pattern.
+    pub fn is_valid(s: &str) -> bool {
+        let Some(hex) = s.strip_prefix('#') else {
+            return false;
+        };
+        hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_hexdigit())
+    }
+
+    /// Builds a colour, returning `None` if `s` is not exactly `#RRGGBB`.
+    pub fn new(s: impl Into<String>) -> Option<Self> {
+        let s = s.into();
+        Self::is_valid(&s).then_some(Self(s))
+    }
+
+    /// The colour as it appears on the wire and on disk.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for HexColorRgb {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl Serialize for HexColorRgb {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for HexColorRgb {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Self::new(s.clone()).ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "`{s}` is not #RRGGBB — this setting has no alpha byte, because another one owns it"
+            ))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hex_color_rgb_rejects_the_alpha_byte_hex_color_allows() {
+        // The whole point of the narrower type. `crosshair.color` ships the eight-digit form, so
+        // `HexColor` must keep accepting it; `hit_color.color` may not, because `intensity` owns
+        // the alpha there and two owners of one value is the bug this removes.
+        assert!(HexColor::is_valid("#2FB8A680"));
+        assert!(!HexColorRgb::is_valid("#2FB8A680"));
+
+        assert!(HexColorRgb::is_valid("#2FB8A6"));
+        assert!(HexColorRgb::is_valid("#ffffff"));
+        assert!(!HexColorRgb::is_valid("#fff"));
+        assert!(!HexColorRgb::is_valid("2FB8A6"));
+        assert!(!HexColorRgb::is_valid("#GGGGGG"));
+        assert!(!HexColorRgb::is_valid(""));
+
+        // And it round-trips through serde rather than only through `is_valid`, since the
+        // deserializer is what a stored loadout actually meets.
+        assert!(serde_json::from_str::<HexColorRgb>("\"#2FB8A6\"").is_ok());
+        assert!(serde_json::from_str::<HexColorRgb>("\"#2FB8A680\"").is_err());
+    }
 
     #[test]
     fn accepts_the_schema_pattern() {

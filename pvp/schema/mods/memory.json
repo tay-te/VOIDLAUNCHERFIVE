@@ -1,0 +1,49 @@
+{
+  "id": "memory",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Memory",
+  "icon": "layers",
+  "the": false,
+  "noun": "the memory chip",
+  "on_description": "the memory readout is enabled",
+  "description": "JVM heap in use, against the ceiling the launcher gave the game.",
+  "settings_title": "Memory settings",
+  "settings_description": "Settings for the Memory HUD mod. Reads the `memory` object on the tick payload — heap in use and `Runtime.maxMemory`, both in mebibytes. That field is **rate-limited hard** at the sensor, and `bridge.json` says why: heap moves constantly, nobody reads it twenty times a second, and it is the single field most able to undo the coalescing the whole tick payload exists for. So this readout is deliberately not live to the tick; it is a gauge you glance at when the game stutters, which is what `show_bar` below is defaulted against.",
+  "source": "heap in use and `Runtime.maxMemory` (`memory`), via the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Opens the bottom-right corner, which the factory layout does not otherwise use. Both mods that live there — this and Server address, 38 px above it — are *diagnostics*: you read them when something is wrong, not while it is going wrong. Keeping them opposite the top-left reference stack means the glance for \"is the client healthy\" never crosses the column holding the glance for \"where am I\". The insets match the corners already in use: 25 px in from the right edge as the top-right stack is, 23 px up from the bottom as the top-left stack is down from the top.",
+    "anchor": "bottom-right",
+    "dx": -25,
+    "dy": -23
+  },
+  "defaults": {
+    "style": "used_of_max",
+    "show_bar": false,
+    "show_label": true
+  },
+  "settings": {
+    "style": {
+      "description": "What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a heap figure on its own answers nothing: 1400 MB is idle on an 8 G allocation and terminal on a 2 G one, so the ceiling is half the reading and the player is the only one who knows which they launched with. `used` is the bare figure, for a player who already knows their ceiling and wants the narrowest chip. `percent` is the same comparison pre-done, which is the smallest form that still means something, at the cost of the absolute numbers you would quote in a bug report.",
+      "type": "string",
+      "enum": [
+        "used",
+        "used_of_max",
+        "percent"
+      ],
+      "default": "used_of_max"
+    },
+    "show_bar": {
+      "description": "Whether a fill bar is drawn under the figure. Off by default, and the reason is the sensor: `memory` is rate-limited hard, so the bar would move in visible steps rather than sweep, and a bar that jumps reads as a broken bar rather than as a coarse one. A bar also invites watching, and heap is not a number worth watching — the useful reading is a glance after a stutter, which the figure alone already answers. On for a player who wants headroom legible without parsing two numbers.",
+      "type": "boolean",
+      "default": false
+    },
+    "show_label": {
+      "description": "Whether the trailing unit is drawn — `MB` on `used` and `used_of_max`, `%` on `percent`. Off makes the chip narrower at the cost of leaving a four-digit number with nothing to say what it counts.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

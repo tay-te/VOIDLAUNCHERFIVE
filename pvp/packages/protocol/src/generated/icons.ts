@@ -41,5 +41,20 @@ export const MOD_ICON_NAMES = {
   "hitboxes": "cube",
   "zoom": "zoom",
   "crosshair": "crosshair",
-  "direction": "compass"
+  "direction": "compass",
+  "combo": "sword",
+  "saturation": "heart",
+  "momentum": "move",
+  "memory": "layers",
+  "server_address": "wifi",
+  "item_counter": "box",
+  "stopwatch": "clock",
+  "fov": "eye",
+  "toggle_sneak": "chevron-down",
+  "overlay": "sparkle",
+  "freelook": "orbit",
+  "hit_color": "droplet",
+  "damage_tint": "heart-pulse",
+  "old_animations": "reset",
+  "old_input": "tap"
 } as const satisfies Record<ModId, string>;

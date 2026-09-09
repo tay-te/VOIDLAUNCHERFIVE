@@ -18,7 +18,25 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { MOD_IDS as SHIPPED_MOD_IDS } from '@void/protocol';
+
 afterEach(cleanup);
+
+/**
+ * The total this file asks `?fake=` for.
+ *
+ * A **total**, not a count of fakes — which is exactly why it cannot be a literal. It was 24,
+ * written when the registry had thirteen mods; at twenty-five real mods that total asks for
+ * padding of *minus one*, produces no synthetic mods at all, and leaves the assertions below
+ * measuring an empty set. Read off the shipped registry instead, with a margin big enough to
+ * come round the four-category cycle twice.
+ *
+ * Read here, before the `?fake=` URL is set and before any dynamic import triggers the
+ * injection, so it is the real count rather than a padded one. This is the file's one static
+ * import of a module under test, and it is deliberate: the alternative is another literal that
+ * will be wrong at the next roster pass.
+ */
+const FAKE_TOTAL = SHIPPED_MOD_IDS.length + 8;
 
 describe('?fake= padding, end to end', () => {
   it('draws §8’s sentence structure, which no shipped mod has a small enough page for', async () => {
@@ -27,10 +45,12 @@ describe('?fake= padding, end to end', () => {
     // the registry's one-property mod until it gained a toggle key. The structure is derived
     // from the count, so what is worth pinning is that the small end of the table still draws
     // the small layout — a preview with a line under it and no rows at all.
-    window.history.replaceState({}, '', '/?fake=24');
+    window.history.replaceState({}, '', `/?fake=${FAKE_TOTAL}`);
     const { connectBridge } = await import('@/bridge/connect');
     const { useVoidStore } = await import('@/store/store');
     const { App } = await import('@/App');
+    const { solveGrid } = await import('@/menu/ModsScreen');
+    const { IN_GAME_VIEW } = await import('./setup');
     const { MOD_ORDER } = await import('@/registry');
     const { isFakeMod } = await import('@/dev/fake-mods');
     const { modProperties } = await import('@/menu/ModSettingsScreen');
@@ -60,11 +80,10 @@ describe('?fake= padding, end to end', () => {
   });
 
   it('pads the grid and gives every synthetic mod what the panel reads', async () => {
-    window.history.replaceState({}, '', '/?fake=24');
+    window.history.replaceState({}, '', `/?fake=${FAKE_TOTAL}`);
 
-    const { MOD_ORDER, MOD_CATEGORY, modLabel, hueStyle, SETTING_ENUMS } = await import(
-      '@/registry'
-    );
+    const { MOD_ORDER, MOD_CATEGORY, MOD_CATEGORY_TAGS, modLabel, hueStyle, SETTING_ENUMS } =
+      await import('@/registry');
     const { MOD_REGISTRY, MOD_IDS } = await import('@/bridge/protocol');
     const { MOD_ICONS } = await import('@/ui');
     const { FAKE_MOD_COUNT, isFakeMod, fakeArtSource } = await import('@/dev/fake-mods');
@@ -76,10 +95,10 @@ describe('?fake= padding, end to end', () => {
     // literal 11/13 this held when the registry had thirteen mods: those numbers stopped being
     // true at the fourteenth, and one of them would have kept passing while measuring the wrong
     // slice.
-    const REAL = 24 - FAKE_MOD_COUNT;
+    const REAL = FAKE_TOTAL - FAKE_MOD_COUNT;
     expect(FAKE_MOD_COUNT).toBeGreaterThan(0);
-    expect(MOD_ORDER).toHaveLength(24);
-    expect(MOD_IDS).toHaveLength(24);
+    expect(MOD_ORDER).toHaveLength(FAKE_TOTAL);
+    expect(MOD_IDS).toHaveLength(FAKE_TOTAL);
 
     // The registry's own mods are untouched and still first, so the frames' reading order
     // survives the padding.
@@ -99,17 +118,32 @@ describe('?fake= padding, end to end', () => {
       expect(MOD_ORDER.slice(0, REAL)).toContain(fakeArtSource(id));
     }
 
-    // The layout re-solves: 24 mods are the frames' three rows of eight, not twelve's two of six.
+    // The layout re-solves for the padded count — the claim this test can make, now that the
+    // total follows the registry. Written against `shape` rather than as three numbers: those
+    // numbers were the frames' 24 mods in three rows of eight, and both the total and the shape
+    // it solves to now move whenever a mod ships. What must hold at any total is that the grid
+    // covers every tile exactly once, in full rows but for the last.
     const shape = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
-    expect(shape.rows).toBe(3);
-    expect(shape.columns).toBe(8);
-    expect(shape.scrolls).toBe(false);
-    expect(gridRows([...MOD_ORDER], shape.columns).map((row) => row.length)).toEqual([8, 8, 8]);
+    expect(shape.columns).toBeGreaterThan(0);
+    expect(shape.rows).toBe(Math.ceil(FAKE_TOTAL / shape.columns));
+    const rows = gridRows([...MOD_ORDER], shape.columns);
+    expect(rows.flat()).toHaveLength(FAKE_TOTAL);
+    expect(rows.slice(0, -1).every((row) => row.length === shape.columns)).toBe(true);
 
     // Filtering still works on them, which is what proves the category is real data and not a
-    // label: every tab matches at least one synthetic mod.
-    for (const tag of ['HUD', 'PVP', 'VISUAL', 'UTILITY']) {
-      expect(visibleMods(tag, '').some((id) => isFakeMod(id))).toBe(true);
+    // label. Asked per synthetic mod rather than per tab: "every tab matches at least one fake"
+    // silently depends on there being at least four fakes, and `?fake=24` is a *total*, so the
+    // count shrinks by one every time a real mod ships — at twenty mods it is four, and four
+    // only covers four tabs if the cycle starts on the right one. This asks the stronger
+    // question anyway: each synthetic mod appears under its own tag, and under no other.
+    const fakes = MOD_ORDER.filter((id) => isFakeMod(id));
+    expect(fakes.length).toBeGreaterThan(0);
+    for (const id of fakes) {
+      const own = MOD_CATEGORY[id];
+      expect(visibleMods(own, '')).toContain(id);
+      for (const other of MOD_CATEGORY_TAGS.filter((c) => c !== own)) {
+        expect(visibleMods(other, '')).not.toContain(id);
+      }
     }
 
     // Enum rows need their options or the chip row renders empty.
@@ -118,11 +152,13 @@ describe('?fake= padding, end to end', () => {
     }
   });
 
-  it('renders all twenty-four tiles, borrowed previews and all', async () => {
-    window.history.replaceState({}, '', '/?fake=24');
+  it('renders every tile it was asked for, borrowed previews and all', async () => {
+    window.history.replaceState({}, '', `/?fake=${FAKE_TOTAL}`);
     const { connectBridge } = await import('@/bridge/connect');
     const { useVoidStore } = await import('@/store/store');
     const { App } = await import('@/App');
+    const { solveGrid } = await import('@/menu/ModsScreen');
+    const { IN_GAME_VIEW } = await import('./setup');
 
     const bridge = connectBridge({ forceFake: true, runFakeClock: false });
     act(() => {
@@ -130,8 +166,11 @@ describe('?fake= padding, end to end', () => {
     });
     const { container } = render(<App />);
 
-    expect(container.querySelectorAll('.modcell')).toHaveLength(24);
-    expect(container.querySelectorAll('.mods-row')).toHaveLength(3);
+    expect(container.querySelectorAll('.modcell')).toHaveLength(FAKE_TOTAL);
+    const columns = solveGrid(FAKE_TOTAL, IN_GAME_VIEW.width, IN_GAME_VIEW.height).columns;
+    expect(container.querySelectorAll('.mods-row')).toHaveLength(
+      Math.ceil(FAKE_TOTAL / columns),
+    );
     // Every tile drew art rather than the id-as-caption fallback, which is what a fake with no
     // borrowed preview would have rendered.
     for (const cell of container.querySelectorAll('.modcell')) {

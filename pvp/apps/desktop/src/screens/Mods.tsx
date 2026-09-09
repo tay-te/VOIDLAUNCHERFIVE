@@ -228,6 +228,23 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   ),
   // The facing over its angle, which is what the chip draws. Static here, live in the overlay.
   direction: () => <Numeral value="NE" unit="45°" />,
+  combo: () => <Numeral value="7" unit="combo" />,
+  saturation: () => <Numeral value="13.7" unit="sat" />,
+  momentum: () => <Numeral value="5.61" unit="bps" />,
+  memory: () => <Numeral value="1462" unit="MB" />,
+  // The short form, which is the mod's own default — a card has a card's width.
+  server_address: () => <Numeral value="Hypixel" unit="server" />,
+  item_counter: () => <Numeral value="x12" unit="held" />,
+  stopwatch: () => <Numeral value="4:07" unit="elapsed" />,
+  fov: () => <Numeral value="90" unit="fov" />,
+  toggle_sneak: () => <Numeral value="HOLD" unit="sneak" />,
+  // The one the roster says decides fights, so it is what the card shows.
+  overlay: () => <Numeral value="5" unit="hidden" />,
+  freelook: () => <Numeral value="360°" unit="look" />,
+  hit_color: () => <Numeral value="HIT" unit="tint" />,
+  damage_tint: () => <Numeral value="3" unit="hearts" />,
+  old_animations: () => <Numeral value="1.7" unit="block" />,
+  old_input: () => <Numeral value="3" unit="gates" />,
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
 };

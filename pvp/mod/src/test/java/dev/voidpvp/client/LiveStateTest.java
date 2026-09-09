@@ -140,6 +140,103 @@ class LiveStateTest {
     }
 
     @Test
+    @DisplayName("freelook mirrors a perspective as vanilla's own int, never a fourth value")
+    void freelookFieldsAreMirrored() {
+        // Absent from the example, so these are the registry's factory values — and the factory
+        // values are Snaplook: hold, snap back, behind the head, on a key nobody has bound yet.
+        assertFalse(state.freelookOn);
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.freelookKeyCode);
+        assertTrue(state.freelookHold);
+        assertTrue(state.freelookSnapBack);
+        assertEquals(1, state.freelookPerspective, "third_back is vanilla's F5 view 1");
+
+        assertEquals(new JsonPrimitive("free"),
+                state.setModSetting("freelook", "perspective", new JsonPrimitive("free")));
+        assertEquals(0, state.freelookPerspective,
+                "free is vanilla's first-person arm: the eye is the pivot and nothing translates");
+        assertEquals(new JsonPrimitive("third_front"),
+                state.setModSetting("freelook", "perspective", new JsonPrimitive("third_front")));
+        assertEquals(2, state.freelookPerspective);
+        // The schema's enum is the only thing that can be stored, so the mirror is the only
+        // thing that can be read — and it is inside vanilla's own range either way.
+        assertEquals(new JsonPrimitive("third_front"),
+                state.setModSetting("freelook", "perspective", new JsonPrimitive("freecam")),
+                "a value outside the enum leaves the stored one alone");
+        assertTrue(state.freelookPerspective >= 0 && state.freelookPerspective <= 2);
+
+        state.setModSetting("freelook", "mode", new JsonPrimitive("toggle"));
+        assertFalse(state.freelookHold);
+        state.setModSetting("freelook", "snap_back", new JsonPrimitive(false));
+        assertFalse(state.freelookSnapBack);
+        state.setModSetting("freelook", "keybind", new JsonPrimitive("v"));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("V"), state.freelookKeyCode);
+    }
+
+    @Test
+    @DisplayName("hit_color: intensity owns alpha, and an alpha byte is refused rather than fixed")
+    void hitColourAlphaHasOneOwner() {
+        assertFalse(state.hitColorOn);
+        assertEquals(0x2FB8A6, state.hitColorRgb, "six digits, and deliberately not red");
+        assertTrue(state.hitColorOwnHitsOnly);
+        assertEquals(1f, state.hitColorIntensity, 1e-6);
+
+        // This setting `$ref`s `hex_color_rgb`, not the shared `hex_color`, so eight digits are
+        // **refused at the clamp** and the last good value stands. It used to be accepted and
+        // masked, which was the wrong half of the contract to enforce: `void-loadout`'s
+        // `HexColorRgb` rejects an alpha byte on deserialization, so a stored one is fatal at
+        // load whatever Java does with it — masking here would only have hidden the
+        // disagreement from the player and from the bridge, which reports what was stored.
+        // The write is refused, and `bridge.json` says what that looks like: Java is
+        // authoritative for live state and a call returns *the value actually applied*, so a
+        // rejected colour echoes the one still in force rather than null. Null is reserved for a
+        // setting that does not exist — which is what `toggle_sprint.sneak_too` returns below.
+        assertEquals(new JsonPrimitive("#2FB8A6"),
+                state.setModSetting("hit_color", "color", new JsonPrimitive("#2FB8A600")),
+                "an alpha byte belongs to intensity, and a refused write echoes the old colour");
+        assertEquals(0x2FB8A6, state.hitColorRgb, "the refused write left the colour alone");
+
+        // A six-digit change is stored normally, so the refusal above is about the alpha and not
+        // about the setting being read-only.
+        assertEquals(new JsonPrimitive("#FF8A3D"),
+                state.setModSetting("hit_color", "color", new JsonPrimitive("#FF8A3D")));
+        assertEquals(0xFF8A3D, state.hitColorRgb);
+        assertEquals(0, state.hitColorRgb & 0xFF000000, "no alpha reaches the renderer");
+
+        assertEquals(new JsonPrimitive(Double.valueOf(1.0)),
+                state.setModSetting("hit_color", "intensity", new JsonPrimitive(4.0)),
+                "there is no value above vanilla's own alpha");
+        assertEquals(1f, state.hitColorIntensity, 1e-6);
+        state.setModSetting("hit_color", "intensity", new JsonPrimitive(0.25));
+        assertEquals(0.25f, state.hitColorIntensity, 1e-6);
+    }
+
+    @Test
+    @DisplayName("damage_tint mirrors the hurt roll as degrees, and vanilla's own when off")
+    void damageTintFieldsAreMirrored() {
+        assertFalse(state.damageTintOn);
+        assertEquals(6, state.damageTintThreshold, "three hearts");
+        assertEquals(0.6f, state.damageTintStrength, 1e-6);
+        assertEquals(14f, state.damageTintShake, 0f,
+                "with the mod off the mixin's substitution has to be the identity");
+
+        state.setGameplay("damage_tint", true);
+        assertTrue(state.damageTintOn);
+        assertEquals(14f, state.damageTintShake, 0f, "`vanilla` is the default and is unchanged");
+        state.setModSetting("damage_tint", "camera_shake", new JsonPrimitive("reduced"));
+        assertEquals(3.5f, state.damageTintShake, 1e-6);
+        state.setModSetting("damage_tint", "camera_shake", new JsonPrimitive("off"));
+        assertEquals(0f, state.damageTintShake, 0f);
+
+        // Switching the mod off puts vanilla's own number back, whatever camera_shake says.
+        state.setGameplay("damage_tint", false);
+        assertEquals(14f, state.damageTintShake, 0f);
+
+        assertEquals(new JsonPrimitive(Long.valueOf(20)),
+                state.setModSetting("damage_tint", "threshold", new JsonPrimitive(99)));
+        assertEquals(20, state.damageTintThreshold);
+    }
+
+    @Test
     @DisplayName("a keybind is upper-cased and validated against the schema pattern")
     void keybindsAreNormalised() {
         assertEquals(new JsonPrimitive("V"),
@@ -148,6 +245,134 @@ class LiveStateTest {
         assertEquals(new JsonPrimitive("V"),
                 state.setModSetting("zoom", "key", new JsonPrimitive("NOT_A_KEY")),
                 "an invalid keybind leaves the old one in place");
+    }
+
+    @Test
+    @DisplayName("the FOV changer mirrors a value and two independent locks")
+    void fovFieldsAreMirrored() {
+        // Absent from the example, so these are the registry's factory values — and the factory
+        // values are the mod: 90 degrees, sprint locked, bow left alone.
+        assertFalse(state.fovOn);
+        assertEquals(90f, state.fovDegrees, 1e-6);
+        assertTrue(state.fovLockSprint, "lock_sprint is the mod, so it ships on");
+        assertFalse(state.fovLockBow, "the bow zoom is draw feedback, so it ships off");
+
+        assertEquals(new JsonPrimitive(Long.valueOf(110)),
+                state.setModSetting("fov", "fov", new JsonPrimitive(140)),
+                "the range is vanilla's own slider, so 140 clamps to 110");
+        assertEquals(110f, state.fovDegrees, 1e-6);
+        assertEquals(new JsonPrimitive(Long.valueOf(30)),
+                state.setModSetting("fov", "fov", new JsonPrimitive(0)));
+        assertEquals(30f, state.fovDegrees, 1e-6);
+
+        state.setModSetting("fov", "lock_bow", new JsonPrimitive(true));
+        assertTrue(state.fovLockBow);
+        assertTrue(state.fovLockSprint, "the two locks are independent");
+    }
+
+    @Test
+    @DisplayName("view_bobbing resolves to the two flags the two injection points need")
+    void overlayViewBobbingSplitsCameraFromHand() {
+        // The enum exists because 1.8.9's own switch cannot express `minimal`: one flag,
+        // `GameOptions.bobView`, guards both the camera bob and the held-item bob. It is
+        // resolved into two booleans on the loadout write rather than compared per frame in
+        // the render path — see the fields.
+        assertFalse(state.overlayLockCameraBob, "vanilla is the default and touches nothing");
+        assertFalse(state.overlayLockHandBob);
+
+        assertEquals(new JsonPrimitive("minimal"),
+                state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("minimal")));
+        assertTrue(state.overlayLockCameraBob, "minimal holds the camera still");
+        assertFalse(state.overlayLockHandBob, "and leaves the hand moving — that is the point");
+
+        assertEquals(new JsonPrimitive("off"),
+                state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("off")));
+        assertTrue(state.overlayLockCameraBob, "off is the vanilla switch off: both still");
+        assertTrue(state.overlayLockHandBob);
+
+        state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("vanilla"));
+        assertFalse(state.overlayLockCameraBob, "and it goes all the way back");
+        assertFalse(state.overlayLockHandBob);
+
+        // A value outside the enum leaves the stored one alone rather than resolving to
+        // something arbitrary: `!"vanilla".equals(x)` would read a typo as "hold the camera".
+        assertEquals(new JsonPrimitive("vanilla"),
+                state.setModSetting("overlay", "view_bobbing", new JsonPrimitive("minimum")));
+        assertFalse(state.overlayLockCameraBob);
+    }
+
+    @Test
+    @DisplayName("the overlay's four booleans are five independent suppressions")
+    void overlaySuppressionsAreIndependent() {
+        // The factory configuration is the argument for the mod: the two that decide fights are
+        // on, the two that are preferences are at their vanilla value.
+        assertFalse(state.overlayOn);
+        assertTrue(state.overlayHideFire, "the switch the roster singles out");
+        assertTrue(state.overlayHidePumpkin);
+        assertTrue(state.overlayHideStuckArrows);
+        assertFalse(state.overlayHideOwnArmor, "cosmetic, so it ships off");
+
+        assertTrue(state.setGameplay("overlay", true));
+        assertTrue(state.overlayOn);
+
+        state.setModSetting("overlay", "hide_fire", new JsonPrimitive(false));
+        assertFalse(state.overlayHideFire);
+        assertTrue(state.overlayHidePumpkin, "one switch off is one switch off");
+        assertTrue(state.overlayOn, "and the mod is still on");
+    }
+
+    @Test
+    @DisplayName("toggle_sneak mirrors its own bind, and sneak_too is gone")
+    void toggleSneakReplacesSneakToo() {
+        assertFalse(state.toggleSneakOn);
+        assertFalse(state.toggleSneakHold, "`toggle` is the default and the mod");
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.toggleSneakCode,
+                "a latch on a key nobody chose is a player stuck crouched");
+
+        assertTrue(state.setGameplay("toggle_sneak", true));
+        assertEquals(new JsonPrimitive("V"),
+                state.setModSetting("toggle_sneak", "keybind", new JsonPrimitive("v")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("V"), state.toggleSneakCode);
+        assertTrue(state.toggleSneakOn);
+
+        state.setModSetting("toggle_sneak", "mode", new JsonPrimitive("hold"));
+        assertTrue(state.toggleSneakHold);
+
+        // The two settings `toggle_sprint` shed are both refused rather than quietly stored,
+        // which is the failure mode the schema's $comment was written for: a setting that still
+        // exists on one side and not the other.
+        //
+        // `sneak_too` was replaced by this mod. `mode` was removed because `hold` was provably a
+        // no-op — `KeyBinding.setKeyPressed` writes the same `pressed` field the sprint tests in
+        // `tickMovement` read, so the latch is indistinguishable from a held key, and there was
+        // nothing for `hold` to do but write nothing, which is what `on: false` does. This mod's
+        // `mode` is unaffected and the difference is structural: `toggle_sneak.keybind` is the
+        // key this mod *latches*, not a toggle-the-mod bind, so `hold` here means sneak on a key
+        // that is not Shift.
+        assertNull(state.setModSetting("toggle_sprint", "sneak_too", new JsonPrimitive(true)));
+        assertNull(state.setModSetting("toggle_sprint", "mode", new JsonPrimitive("hold")));
+    }
+
+    @Test
+    @DisplayName("the stopwatch's two keys are mirrored like every other keybind")
+    void stopwatchKeysAreMirrored() {
+        // Neither is bound in the example, so both start at NONE and the poll never samples
+        // them — a timer nobody bound costs nothing (schema/mods/stopwatch.json).
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.stopwatchStartCode);
+        assertEquals(dev.voidpvp.client.input.KeyNames.KEY_NONE, state.stopwatchResetCode);
+
+        assertEquals(new JsonPrimitive("N"),
+                state.setModSetting("stopwatch", "start_key", new JsonPrimitive("n")));
+        assertEquals(new JsonPrimitive("M"),
+                state.setModSetting("stopwatch", "reset_key", new JsonPrimitive("m")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("N"), state.stopwatchStartCode);
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("M"), state.stopwatchResetCode);
+
+        // Two settings, two codes, two rows in the table: binding one must not move the other.
+        assertEquals(new JsonPrimitive("P"),
+                state.setModSetting("stopwatch", "start_key", new JsonPrimitive("P")));
+        assertEquals(dev.voidpvp.client.input.KeyNames.codeOf("M"), state.stopwatchResetCode,
+                "rebinding start_key left reset_key alone");
     }
 
     @Test
@@ -427,5 +652,80 @@ class LiveStateTest {
             }
         }
         throw new AssertionError("protocol.json lost its loadout example");
+    }
+
+    @Test
+    @DisplayName("block_hit resolves to the one boolean both render paths ask for")
+    void oldAnimationsBlockHitMirrorsAsABoolean() {
+        // `one_seven` is the mod and the default, and the mod itself ships off — so the factory
+        // state is "the revert is configured, and nothing is drawn differently".
+        assertFalse(state.oldAnimationsOn);
+        assertTrue(state.oldAnimationsBlockHitOneSeven, "the default is the revert");
+        assertFalse(state.oldAnimationsSwingDuringDelay,
+                "an arm that swings on a click the game ate can be read as a hit that landed");
+
+        assertTrue(state.setGameplay("old_animations", true));
+        assertTrue(state.oldAnimationsOn);
+
+        assertEquals(new JsonPrimitive("vanilla"),
+                state.setModSetting("old_animations", "block_hit", new JsonPrimitive("vanilla")));
+        assertFalse(state.oldAnimationsBlockHitOneSeven,
+                "vanilla is what a player picks to compare, in both render paths at once");
+
+        assertEquals(new JsonPrimitive("one_seven"),
+                state.setModSetting("old_animations", "block_hit",
+                        new JsonPrimitive("one_seven")));
+        assertTrue(state.oldAnimationsBlockHitOneSeven);
+
+        // A value outside the enum leaves the stored one alone. The mirror is written as an
+        // equality against `one_seven` rather than as `!"vanilla".equals(x)` so that a value
+        // this class did not expect can only ever read as "leave the frame alone".
+        assertEquals(new JsonPrimitive("one_seven"),
+                state.setModSetting("old_animations", "block_hit", new JsonPrimitive("1.7")));
+        assertTrue(state.oldAnimationsBlockHitOneSeven);
+    }
+
+    @Test
+    @DisplayName("swing_during_delay is independent of block_hit, and of old_input")
+    void oldAnimationsSwingDuringDelayIsItsOwnSwitch() {
+        state.setGameplay("old_animations", true);
+        state.setModSetting("old_animations", "swing_during_delay", new JsonPrimitive(true));
+        assertTrue(state.oldAnimationsSwingDuringDelay);
+        assertTrue(state.oldAnimationsBlockHitOneSeven, "one switch on is one switch on");
+
+        // The packetless animation and the switch that actually restores 1.7's click cadence are
+        // in different mods on purpose: this one is `safe`, `old_input` is `grey`.
+        assertFalse(state.oldInputOn);
+        assertFalse(state.oldInputNoMissDelay);
+
+        state.setGameplay("old_animations", false);
+        assertFalse(state.oldAnimationsOn);
+        assertTrue(state.oldAnimationsSwingDuringDelay,
+                "the mod's `on` gates it; the setting keeps what the player chose");
+    }
+
+    @Test
+    @DisplayName("old_input is three independent guards, all off at the factory")
+    void oldInputIsThreeIndependentGuards() {
+        assertFalse(state.oldInputOn, "a grey mod ships off");
+        assertFalse(state.oldInputUseWhileDigging);
+        assertFalse(state.oldInputDigWhileUsing);
+        assertFalse(state.oldInputNoMissDelay);
+
+        assertTrue(state.setGameplay("old_input", true));
+        assertTrue(state.oldInputOn);
+        assertFalse(state.oldInputUseWhileDigging,
+                "turning the mod on changes nothing until a switch is chosen");
+
+        state.setModSetting("old_input", "use_while_digging", new JsonPrimitive(true));
+        assertTrue(state.oldInputUseWhileDigging);
+        assertFalse(state.oldInputDigWhileUsing, "its mirror is a separate decision");
+        assertFalse(state.oldInputNoMissDelay);
+
+        state.setModSetting("old_input", "dig_while_using", new JsonPrimitive(true));
+        state.setModSetting("old_input", "no_miss_delay", new JsonPrimitive(true));
+        assertTrue(state.oldInputDigWhileUsing);
+        assertTrue(state.oldInputNoMissDelay);
+        assertFalse(state.oldAnimationsOn, "and none of it reached the animations mod");
     }
 }

@@ -339,6 +339,20 @@ const REMOVED_SETTINGS: &[(&str, &str)] = &[
     // `toggle_sprint.show_status` — a status line that was never drawn. It is coming back as
     // its own placeable HUD mod rather than as a setting on a gameplay one.
     ("toggle_sprint", "show_status"),
+    // `toggle_sprint.sneak_too` — sneak is `toggle_sneak` now, its own mod with its own bind
+    // (`docs/mod-roster.md` §3.2 #3), so the boolean was removed rather than left as a second
+    // owner of the same latch. This entry is what makes that removal survivable: the key was in
+    // the shipped registry defaults, so it is in essentially every loadout ever written, and
+    // without it every one of those files would fail to deserialise on the next launch.
+    ("toggle_sprint", "sneak_too"),
+    // `toggle_sprint.mode` — removed because it was provably a no-op, not because it was
+    // deprecated. `ClientPlayerEntity.tickMovement` re-evaluates sprint as a *level* every tick
+    // and `KeyBinding.setKeyPressed(code, true)` writes the same `pressed` field that level
+    // reads, so the latch was indistinguishable from a held key and `mode: "hold"` could only
+    // mean "write nothing" — which is what `on: false` already means. Same hazard as the two
+    // above and a wider blast radius: `mode` was in the shipped registry defaults from the
+    // first release, so it is in essentially every loadout on disk.
+    ("toggle_sprint", "mode"),
 ];
 
 /// Reads a loadout, dropping settings that have since been removed from the registry.

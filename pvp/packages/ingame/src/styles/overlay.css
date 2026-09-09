@@ -3024,6 +3024,959 @@ body {
   width: 22px;
 }
 
+/* ------------------------------------------------- the four gameplay diagrams of wave 4
+
+   Same primitives, same rules: §3's cell where the subject is a scale or a timeline, and a
+   plain outline where it is a shape. Monochrome throughout — none of these four mods owns any
+   ink at all, so unlike Hitboxes there is not even the world-mark exception to make.
+
+   Two shapes are new here and are worth naming, because the next world mod will want one of
+   them. `.gprev__ray` is a line rotated about its own foot, which is how an *angle* is drawn
+   without SVG or 3D (ultralight-notes §4 allows 2D `rotate` and nothing else). `.gprev__arm` is
+   the same trick used for a *motion*: several copies of one bar at the angles the real one
+   passes through, faint, exactly as `.gprev__fovstep` draws the sizes a smooth zoom eases
+   through. Neither animates. §4's budget is 0 paints/s on an idle open menu. */
+
+/* FOV: the angle, drawn as an angle, on the half-disc of everything in front of you.
+
+   The ground is a semicircle rather than a rectangle because the setting is a *fraction of what
+   is in front of you* — 30° reads as a slit of that half and 110° as most of it, which is the
+   comparison vanilla's own slider never offers. The rays are exactly the radius long and pinned
+   at the apex, so every tip lands on the arc and the fan is a real one. */
+.gprev--fov {
+  gap: 12px;
+}
+
+.gprev__fan {
+  position: relative;
+  width: 400px;
+  height: 200px;
+  border: 1px solid var(--border-strong);
+  /* No bottom edge: the flat side of the half-disc is the plane through your own eyes, and a
+     line drawn along it would read as a floor the fan is standing on. */
+  border-bottom: none;
+  border-radius: 200px 200px 0 0;
+  background: rgba(237, 238, 239, 0.03);
+}
+
+/* The eye. Small, and centred on the flat edge, because that is where the rays meet. */
+.gprev__fanapex {
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+/* One edge of the field of view. `height` equals the fan's radius and the origin is the ray's
+   own foot, so a rotation sweeps the tip along the arc instead of off it. */
+.gprev__ray {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 2px;
+  height: 200px;
+  margin-left: -1px;
+  background: var(--text-secondary);
+  transform-origin: 50% 100%;
+}
+
+/* An angle the camera would *reach* — the sprint punch, or the bow pull. Same ghost convention
+   as `.gprev__fovstep`: the same ink, thinner and faint. Unlike zoom's ghosts these survive at
+   tile density, because rays share an apex and diverge, so they are furthest apart exactly
+   where the eye reads them. */
+.gprev__ray--ghost {
+  width: 1px;
+  background: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* The angle in degrees, under the fan at both densities — the interior is where the rays are,
+   so a number inside it would sit on the thing it describes at every setting. Same tier as
+   zoom's `4.0x`: the reading itself, not a unit. */
+.gprev__fandeg {
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+/* Toggle sneak: the mod's own keycap standing in for the key row's axis label.
+
+   The row is "what this key does over time", so the key is the honest name of the axis. The
+   eyebrow's caps and tracking are for a word and have to be undone for a cap. */
+.gprev__keylabel {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gprev__keylabel .gprev__kbd {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Overlay: one first-person view, with things taken out of it.
+
+   Five switches and one picture, because five icons in a row would say that there are five
+   settings without saying what any of them costs you. Everything below is an occluder in its
+   real place on a real screen: the flames over the middle, the mask around every edge, the
+   arrows out of the bottom, the plate on the hand. */
+.gprev--overlay {
+  gap: 14px;
+}
+
+.gprev__scene {
+  position: relative;
+  width: 440px;
+  height: 248px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(237, 238, 239, 0.03);
+  /* An occluder that runs off the edge of your screen is drawn running off the edge. */
+  overflow: hidden;
+}
+
+/* The world. One line, and the camera's ghost positions either side of it when the camera is
+   the thing that bobs — a bob tilts and lifts a horizon, which is a shape a still frame holds. */
+.gprev__horizon {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 52%;
+  height: 1px;
+  background: var(--text-secondary);
+  opacity: 0.55;
+}
+
+.gprev__horizon--up {
+  top: 44%;
+  opacity: 0.16;
+  transform: rotate(-1.2deg);
+}
+
+.gprev__horizon--down {
+  top: 60%;
+  opacity: 0.16;
+  transform: rotate(1.2deg);
+}
+
+/* Dead centre, so the frame reads as a view out of a face rather than as a landscape. Not the
+   Crosshair mod's shape and never its colour — this is the scene's centre mark. */
+.gprev__reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -5px;
+  border: 1px solid var(--text-muted);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+/* The held hand, bottom right where 1.8 puts it. */
+.gprev__hand {
+  position: absolute;
+  right: 12%;
+  bottom: -6%;
+  width: 26px;
+  height: 108px;
+  border-radius: 8px;
+  background: rgba(237, 238, 239, 0.32);
+  transform-origin: 50% 100%;
+  transform: rotate(-24deg);
+}
+
+/* The two ends of the hand's own sweep. They outlive `minimal`, because that value is exactly
+   "the hand keeps moving and the camera stops". */
+.gprev__hand--lead {
+  opacity: 0.3;
+  transform: rotate(-13deg);
+}
+
+.gprev__hand--trail {
+  opacity: 0.3;
+  transform: rotate(-35deg);
+}
+
+/* Your own armour, on the hand that is on your screen. Deliberately the smallest mark here: the
+   schema is explicit that this is the one switch in the mod that changes nothing about a
+   first-person fight. */
+.gprev__plate {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 26%;
+  height: 26px;
+  border-radius: 5px;
+  background: rgba(237, 238, 239, 0.62);
+}
+
+/* Arrows standing out of you, and out of the ground where they landed. */
+.gprev__arrow {
+  position: absolute;
+  width: 2px;
+  height: 54px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+  opacity: 0.72;
+  transform-origin: 50% 100%;
+}
+
+/* A head, so a shaft reads as an arrow at 54px and not as a scratch. */
+.gprev__arrow::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: -4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+  transform: rotate(45deg);
+}
+
+.gprev__arrow--a {
+  left: 18%;
+  bottom: 4%;
+  transform: rotate(-28deg);
+}
+
+.gprev__arrow--b {
+  left: 33%;
+  bottom: -2%;
+  height: 40px;
+  transform: rotate(16deg);
+}
+
+.gprev__arrow--c {
+  left: 58%;
+  bottom: 2%;
+  height: 46px;
+  transform: rotate(-9deg);
+}
+
+/* The fire, and it is the biggest thing this picture can lose on purpose — `docs/mod-roster.md`
+   §3.3 #1 says "fire overlay alone decides fights", and a polite flame at the bottom edge would
+   be a drawing of a different mod. Eleven tongues across the width, the tallest past the middle
+   of the view; each one's height is inline, from `FLAMES`. */
+.gprev__flames {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12%;
+}
+
+.gprev__flame {
+  flex: 1 1 0;
+  /* A tongue: round at the top, near-square where it meets the bottom of the screen. */
+  border-radius: 50% 50% 22% 22% / 62% 62% 38% 38%;
+  background: rgba(237, 238, 239, 0.42);
+}
+
+/* The carved pumpkin, which is a mask and is drawn as one: it eats the view from every edge at
+   once, which is the whole reason wearing one is a trade. An inset shadow rather than a border,
+   so the opening is a hole in something on your face rather than a frame around the picture —
+   and inset shadows are confirmed-good in Ultralight (§8) where nothing else here would be. */
+.gprev__mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  box-shadow:
+    inset 0 0 0 40px rgba(11, 11, 12, 0.9),
+    inset 0 0 0 41px rgba(237, 238, 239, 0.1);
+}
+
+/* Old animations: two arms, each drawn at every pose its sweep passes through.
+
+   A still frame has one instant in it, which is the objection `zoom.smooth` was nearly written
+   off by — and the answer is the same one: depicting a motion is not animating it. The stages
+   sit side by side so one does not have to carry both arcs and make the reader untangle which
+   ghost belonged to which.
+
+   This used to say "because the mod's two enums are two different animations". That premise is
+   dead: the second enum was `swing`, and disassembling both versions showed it named a
+   difference that does not exist — `getMiningSpeedMultiplier`, `swingHand`, `tickHandSwing` and
+   the first-person arc are byte-for-byte identical in 1.7.10 and 1.8.9. The layout survived the
+   finding for a better reason than it was given: the left stage now draws the free swing and
+   reads *no setting at all*, which is what lets the right stage read as frozen. An arm alone is
+   not self-evidently still; an arm beside the arc it should have had is. */
+.gprev--anim {
+  gap: 14px;
+}
+
+.gprev__stages {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 20px;
+}
+
+.gprev__armcol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* `Swing` / `Block`. The same object as a `CellRow`'s label and under the same rule: an axis
+   label is part of the drawing, and without it the two stages are one shape drawn twice. */
+.gprev__stagelabel {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gprev__armstage {
+  position: relative;
+  width: 168px;
+  height: 136px;
+  border: 1px solid var(--border-raised);
+  border-radius: 8px;
+  background: rgba(237, 238, 239, 0.03);
+  /* An arm that swings past the edge of the view has swung past the edge of the view. */
+  overflow: hidden;
+}
+
+/* The arm. Pivoted at its own foot in the bottom-right corner, which is where a first-person
+   hand lives; every ghost is this same bar at another angle. */
+.gprev__arm {
+  position: absolute;
+  right: 20px;
+  bottom: 12px;
+  width: 9px;
+  height: 104px;
+  margin-right: -4px;
+  border-radius: 5px;
+  background: var(--text-secondary);
+  transform-origin: 50% 100%;
+}
+
+/* Thinner than the solid pose, and its alpha is inline: the ramp runs from faint at rest to
+   nearly solid at the end of the stroke, which is how a still picture says which way the arm
+   is going. Two symmetric ghosts could not. */
+.gprev__arm--ghost {
+  width: 7px;
+  margin-right: -3px;
+}
+
+/* The raised sword the block-hit arm is swinging through. Context, not a setting — it is what
+   stops the second stage reading as a second swing. */
+.gprev__guard {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 34px;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(237, 238, 239, 0.18);
+  transform: rotate(-8deg);
+}
+
+/* ------------------------------------------------- wave 4's diagrams at tile density
+
+   Sizes and nothing else, exactly as the block above it: what the two densities differ in is
+   what the TSX omits and the numbers here, which is the property that keeps a tile and a page
+   from drifting apart. Every width fits **123px**, the narrowest well `ModsScreen.solveGrid`
+   can produce. */
+
+.gprev--tile.gprev--fov {
+  gap: 8px;
+}
+
+.gprev--tile .gprev__fan {
+  width: 118px;
+  height: 59px;
+  border-radius: 59px 59px 0 0;
+}
+
+.gprev--tile .gprev__ray {
+  height: 59px;
+}
+
+.gprev--tile .gprev__fanapex {
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  bottom: -2px;
+}
+
+.gprev--tile .gprev__fandeg {
+  font-size: 15px;
+}
+
+.gprev--tile.gprev--overlay {
+  gap: 0;
+}
+
+.gprev--tile .gprev__scene {
+  width: 118px;
+  height: 74px;
+  border-radius: 6px;
+}
+
+.gprev--tile .gprev__reticle {
+  width: 5px;
+  height: 5px;
+  margin: -3px 0 0 -3px;
+}
+
+.gprev--tile .gprev__hand {
+  width: 9px;
+  height: 36px;
+  border-radius: 3px;
+}
+
+.gprev--tile .gprev__plate {
+  left: -2px;
+  right: -2px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.gprev--tile .gprev__arrow {
+  height: 18px;
+}
+
+.gprev--tile .gprev__arrow--b {
+  height: 13px;
+}
+
+.gprev--tile .gprev__arrow--c {
+  height: 15px;
+}
+
+.gprev--tile .gprev__arrow::after {
+  left: -1px;
+  top: -2px;
+  width: 4px;
+  height: 4px;
+}
+
+.gprev--tile .gprev__flames {
+  gap: 2px;
+  padding: 0 10%;
+}
+
+.gprev--tile .gprev__mask {
+  border-radius: 5px;
+  box-shadow:
+    inset 0 0 0 12px rgba(11, 11, 12, 0.9),
+    inset 0 0 0 13px rgba(237, 238, 239, 0.1);
+}
+
+/* Two 56px stages on a 6px gap is 118. The input rows the page draws under these are dropped in
+   the TSX, not here — a tile identifies a mod, two fans of arm positions do that, and three
+   more rows of cells would be a second diagram in a 118px well. */
+.gprev--tile.gprev--anim {
+  gap: 0;
+}
+
+.gprev--tile .gprev__stages {
+  gap: 6px;
+}
+
+.gprev--tile .gprev__armcol {
+  gap: 3px;
+}
+
+.gprev--tile .gprev__stagelabel {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.gprev--tile .gprev__armstage {
+  width: 56px;
+  height: 62px;
+  border-radius: 5px;
+}
+
+.gprev--tile .gprev__arm {
+  right: 9px;
+  bottom: 6px;
+  width: 5px;
+  height: 48px;
+  margin-right: -2px;
+  border-radius: 3px;
+}
+
+.gprev--tile .gprev__arm--ghost {
+  width: 4px;
+  margin-right: -2px;
+}
+
+.gprev--tile .gprev__guard {
+  left: 6px;
+  right: 6px;
+  bottom: 15px;
+  height: 4px;
+}
+
+/* ------------------------------------------------- wave 5's diagrams
+
+   Three more world mods, and between them one genuinely new primitive and one reuse worth
+   naming, because the next world mod will want both.
+
+   `.gprev__orbit` is a **plan view**: a ring, a spoke rotated about the middle of it, and a mark
+   at the spoke's far end. It is `.gprev__ray`'s trick turned into a position rather than an
+   angle, and it is the shape to reach for whenever the subject is *where a thing is relative to
+   the player* — the mark cannot leave the ring, so the drawing cannot make a claim the mod does
+   not make. `FreelookPreview` says why that is load-bearing rather than tidy.
+
+   The reuse is `.gprev__scene`, which the damage tint borrows whole from the overlay along with
+   `.gprev__horizon` and `.gprev__reticle`. Both mods' subject is the player's own view, and one
+   frame drawn one way for both is what stops the file growing a private idiom per mod. Nothing
+   below re-declares those three; this block only adds what goes *inside* the frame.
+
+   Monochrome, with one licensed exception in the whole wave: `hit_color`'s flash takes the mod's
+   own ink **on the page only**, on exactly the terms `hitboxes.color` already had — it is the
+   colour of a mark drawn over the game world, and it is the setting itself. The tile stays grey
+   (§1: "any colour on the menu's own surface, the mod tiles included"), and the damage vignette
+   is grey at both densities because there the colour is a constant rather than a value. */
+
+/* Freelook: one player, one camera, and the ring the camera never leaves.
+
+   Seen from above, because the mod is an *angle between two things* — where the body points and
+   where the camera points — and a first-person frame has the body off screen by definition. The
+   ring is 200px across on the page and the spoke is exactly its radius, so the camera mark lands
+   on the ring at every bearing and the orbit is a real one rather than an arrangement that looks
+   like one. */
+.gprev--freelook {
+  gap: 16px;
+}
+
+.gprev__orbit {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+
+/* The orbit itself. Always drawn, at every perspective: two of the three values are points on
+   this circle and the third is the whole of it, so the circle is the one thing that is true in
+   all three pictures. It is also the statement the mod's schema spends its `$comment` on — the
+   camera's distance from the pivot is vanilla's, is not a setting, and never will be. */
+.gprev__orbitring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+/* `perspective: free` — the ring comes up out of the chrome and reads as a track. The ghost
+   marks say the camera reaches those bearings; a lit ring says it reaches every bearing between
+   them, which is what an orbit is and is not something five dots can say on their own. */
+.gprev__orbitring--free {
+  border-color: var(--text-muted);
+}
+
+/* You. A cell at the middle of the ring, and the pivot everything else rotates about. */
+.gprev__pivot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 30%;
+  background: var(--text-primary);
+}
+
+/* Your body's facing. Pinned pointing up and never rotated — that is the mod's name, drawn.
+   Shorter than the radius so it reads as belonging to the figure at the centre rather than as a
+   second spoke, and in the brightest ink on the diagram because it is the thing the camera is
+   being compared against. */
+.gprev__facing {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 4px;
+  height: 64px;
+  margin-left: -2px;
+  background: var(--text-primary);
+  transform-origin: 50% 100%;
+}
+
+.gprev__facing::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--text-primary);
+  transform: rotate(45deg);
+}
+
+/* Where the body ends up when `snap_back` is off — a facing it *reaches*, in the ghost ink the
+   rest of the file uses for exactly that. Drawn only in the state where the body moves; with
+   snap back on there is no second facing, and the absence is the promise. */
+.gprev__facing--ghost {
+  background: var(--text-muted);
+  opacity: 0.55;
+}
+
+.gprev__facing--ghost::after {
+  background: var(--text-muted);
+}
+
+/* The spoke from the pivot to the camera. Its height is the ring's radius and its origin is its
+   own foot, so a rotation sweeps the camera round the ring instead of off it — the same
+   construction as `.gprev__ray`, used for a position rather than for an angle.
+
+   It is not decoration. Without it the camera is a dot near a circle, which is a picture of a
+   camera that happens to be over there; with it the camera is attached at a fixed radius, which
+   is the one thing this diagram has to leave no room to misread. */
+.gprev__tether {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 2px;
+  height: 100px;
+  margin-left: -1px;
+  background: var(--text-muted);
+  transform-origin: 50% 100%;
+}
+
+/* A bearing the camera can also stand at. Same ghost convention as `.gprev__ray--ghost`, and it
+   dims the mark with the spoke because both belong to the position being suggested. */
+.gprev__tether--ghost {
+  opacity: 0.34;
+}
+
+/* The camera: a cell at the far end of the spoke, sitting on the ring. */
+.gprev__cam {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 30%;
+  background: var(--text-primary);
+}
+
+/* Hit colour: the entity you hit, the entity somebody else hit, and the flash on both. */
+.gprev--hit {
+  gap: 18px;
+}
+
+/* Both figures stand on the same ground, so the far one reads as further off rather than as
+   floating — distance here is size and air, exactly as it is for `.gprev__box--far`, because a
+   face-on diagram has no perspective to put it in. */
+.gprev__melee {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 64px;
+}
+
+.gprev__fig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The body under the flash, in the menu's own grey. It is why `intensity: 0` still draws
+   something: "recolour nothing" is a picture of an entity with no flash on it, not a picture of
+   no entity. */
+.gprev__fighead {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 22%;
+  background: rgba(237, 238, 239, 0.14);
+}
+
+.gprev__figbody {
+  position: relative;
+  width: 34px;
+  height: 76px;
+  border-radius: 6px;
+  background: rgba(237, 238, 239, 0.14);
+}
+
+/* The flash. Ink and alpha are inline — they are the two settings this diagram exists to show,
+   the same way the hitbox's stroke and colour are. `inherit` on the radius so the tint is the
+   shape of the part it is on rather than a rectangle over it. */
+.gprev__figtint {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.gprev__fig--far {
+  opacity: 0.55;
+}
+
+.gprev__fig--far .gprev__fighead {
+  width: 14px;
+  height: 14px;
+}
+
+.gprev__fig--far .gprev__figbody {
+  width: 19px;
+  height: 42px;
+}
+
+/* Damage tint: your own screen, and the health that decides what happens to it.
+
+   The frame is `.gprev__scene` unchanged — see the head of this block. Only what goes inside it
+   is new, and it is two things: the edges closing in, and the horizon leaning. */
+
+.gprev--damage {
+  gap: 16px;
+}
+
+/* The vignette, as the menu's own ink arriving from every edge at once.
+
+   Grey and not red, and the component says why at length: in game this mark is red and has to
+   be, but §1 governs the menu's surface absolutely and the colour here is a constant rather than
+   a value — so the diagram keeps the vignette's *shape*, which is the part a player is choosing.
+   An inset shadow rather than a gradient for `.gprev__mask`'s reason: inset shadows are
+   confirmed-good in Ultralight (§8) and this one has a real falloff, which is the whole
+   difference between a vignette and a border. Blur, spread and alpha are inline, because a
+   `box-shadow` is one property and the alpha has to be. */
+.gprev__vignette {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+}
+
+/* The orientation the view rolls to when you are hit. A roll about the view axis moves nothing
+   at the centre of the screen and everything at the horizon, and this element's own centre is
+   the frame's centre — so rotating it is the roll, exactly, with no origin to choose. Fainter
+   than `--up` / `--down` because those are two ends of a bob and this is one place the view goes
+   and comes back from. */
+.gprev__horizon--roll {
+  opacity: 0.18;
+}
+
+/* The health bar, and the line on it. `position: relative` so the marker can be placed in px
+   from the row's left edge — see `heartMark`, which puts a whole-heart threshold in the middle
+   of a gap because that is where the boundary between two hearts actually is. */
+.gprev__health {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.gprev__hearts {
+  display: flex;
+  gap: 6px;
+}
+
+/* Ten hearts, discrete — vanilla draws ten discrete hearts and this is a health bar, not a
+   scale, so these keep their air where `.gprev__cells--joined` would take it away. Alpha is
+   inline: which hearts are left is the drawing. */
+.gprev__heart {
+  width: 30px;
+  height: 30px;
+  border-radius: 30%;
+}
+
+/* `threshold`, as a line across the bar. Overhanging the hearts at both ends so it reads as a
+   mark *on* the scale rather than as an eleventh heart, and in the brightest ink because it is
+   the value this control sets. */
+.gprev__mark {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-primary);
+}
+
+/* ------------------------------------------------- wave 5's diagrams at tile density
+
+   Sizes and nothing else, as in the two blocks above: the densities differ in what the TSX omits
+   and in the numbers here, which is the property that keeps a tile and a page from drifting.
+   Every width fits **123px**, the narrowest well `ModsScreen.solveGrid` can produce. */
+
+/* Freelook. The ring alone, at 104px — the timeline rows are dropped in the TSX, not here, for
+   the reason the animation stages drop theirs: a 123px well holds one diagram, and the one that
+   identifies this mod is the camera going round the player. The spoke is the radius, 52. */
+.gprev--tile.gprev--freelook {
+  gap: 0;
+}
+
+.gprev--tile .gprev__orbit {
+  width: 104px;
+  height: 104px;
+}
+
+.gprev--tile .gprev__pivot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+}
+
+.gprev--tile .gprev__facing {
+  width: 2px;
+  height: 32px;
+  margin-left: -1px;
+}
+
+.gprev--tile .gprev__facing::after {
+  left: -2px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+}
+
+.gprev--tile .gprev__tether {
+  height: 52px;
+}
+
+.gprev--tile .gprev__cam {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+}
+
+/* Hit colour. The near figure is 13 + 4 + 38 tall and the far one 55% of it, the same ratio the
+   page uses, so the pair reads identically at both densities. The alpha row under them stays —
+   it is one row of seven cells and it is what says the flash has a ceiling. */
+.gprev--tile.gprev--hit {
+  gap: 10px;
+}
+
+.gprev--tile .gprev__melee {
+  gap: 22px;
+}
+
+.gprev--tile .gprev__fig {
+  gap: 3px;
+}
+
+.gprev--tile .gprev__fighead {
+  width: 13px;
+  height: 13px;
+}
+
+.gprev--tile .gprev__figbody {
+  width: 17px;
+  height: 38px;
+  border-radius: 3px;
+}
+
+.gprev--tile .gprev__fig--far .gprev__fighead {
+  width: 7px;
+  height: 7px;
+}
+
+.gprev--tile .gprev__fig--far .gprev__figbody {
+  width: 10px;
+  height: 21px;
+}
+
+/* Damage tint. The scene is 118 x 74 from the overlay's own tile rules, and ten hearts at
+   10 + 2 come to exactly 118 under it — the two marks are the same width, which is what makes
+   the marker's position read against the frame rather than against nothing. */
+.gprev--tile.gprev--damage {
+  gap: 8px;
+}
+
+.gprev--tile .gprev__vignette {
+  border-radius: 6px;
+}
+
+.gprev--tile .gprev__hearts {
+  gap: 2px;
+}
+
+.gprev--tile .gprev__heart {
+  width: 10px;
+  height: 10px;
+}
+
+.gprev--tile .gprev__mark {
+  top: -3px;
+  bottom: -3px;
+}
+
+/* ------------------------------------------------- wave 6's diagrams
+
+   Two 1.7 mods, and between them **no new shape at all** — which is the note worth leaving,
+   because it is the first time that has been true of a wave.
+
+   Old animations is `.gprev__arm` and `.gprev__guard`, authored a wave early for a draft of
+   this mod that had four settings and shipped with one. The block above them still describes
+   the trick exactly: several copies of one bar at the angles the real one passes through,
+   faint, which is how a *motion* is drawn by a renderer that may not animate (§4's idle-menu
+   budget is 0 paints/s). What changed is only the reason the two stages sit side by side — it
+   was "the mod's two enums are two different animations", and the second enum did not survive
+   disassembly. It is now a comparison: an arc, and the same arc thrown away. `AnimationPreview`
+   argues it.
+
+   Old input is `CellRow`, four times, and nothing else. Two joined bars for the states a break
+   and an item-in-use are, two discrete rows for the events a click is — the `joined` split
+   doing exactly the work it was added for.
+
+   The one addition is a **grouping**, not a mark: a diagram that holds two situations has to
+   say which rows belong together, and 8px inside a group against 18px between them is the
+   whole of it. Old animations borrows the same wrapper for its single group so the two mods'
+   rows sit on the same rhythm. */
+
+.gprev--input {
+  gap: 16px;
+}
+
+/* The situations, stacked. The gap here is the only thing separating "your two hands" from
+   "your whiffed click", and it has to beat the 8px inside a group by enough to read as a break
+   rather than as a wider row. */
+.gprev__gates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+/* One situation's rows. Tighter than `.gprev`'s own 16px, because rows that share a timeline
+   are read across and air between them is air across the reading. */
+.gprev__gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Tile density: only the first group survives (`InputPreview` drops the second in the TSX), so
+   `.gprev__gates` has nothing to separate and the gate carries the same 3px the tile's rows
+   already use between a label and its cells. Two labelled rows come to ~59px in a well of 118,
+   which is the fullbright tile's own height. */
+.gprev--tile.gprev--input {
+  gap: 0;
+}
+
+.gprev--tile .gprev__gates {
+  gap: 0;
+  width: auto;
+}
+
+.gprev--tile .gprev__gate {
+  align-items: flex-start;
+  gap: 3px;
+  width: auto;
+}
+
 /* The crosshair's plate — which is the screen, and is drawn as one.
 
    Two problems it solves at once. The crosshair's `outline` is black, and black against the

@@ -52,4 +52,48 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * difference — a position, versus a facing — visible at a glance rather than argued about.
    */
   direction: { anchor: 'top-left', dx: 23, dy: 179 },
+  /**
+   * The sixth and last row of the left column, 38 px under Direction on this table's rhythm.
+   * NOT "under Coordinates, the mod players confuse it with" — that argument belongs to
+   * Direction and Direction has held `dy 179` since it was added. What this row actually is, is
+   * the *bottom* of the column the eye already sweeps: the five above it are ambient readouts
+   * checked between fights, and the combo is the one that means nothing except during one. Last
+   * in the stack puts a fight-time number somewhere already looked at without dropping it into
+   * the middle of that sweep.
+   */
+  combo: { anchor: 'top-left', dx: 23, dy: 217 },
+  saturation: { anchor: 'top-left', dx: 23, dy: 255 },
+  momentum: { anchor: 'top-left', dx: 23, dy: 293 },
+  /**
+   * Opens the bottom-right corner, which the factory layout does not otherwise use. Both mods
+   * that live there — this and Server address, 38 px above it — are *diagnostics*: you read
+   * them when something is wrong, not while it is going wrong. Keeping them opposite the
+   * top-left reference stack means the glance for "is the client healthy" never crosses the
+   * column holding the glance for "where am I". The insets match the corners already in use: 25
+   * px in from the right edge as the top-right stack is, 23 px up from the bottom as the
+   * top-left stack is down from the top.
+   */
+  memory: { anchor: 'bottom-right', dx: -25, dy: -23 },
+  server_address: { anchor: 'bottom-right', dx: -25, dy: -61 },
+  /**
+   * Above the CPS chip, in the hand-and-clicks corner, and in the **175 column rather than the
+   * 31 one**. The bottom-left corner has two columns because Keystrokes at `dx 31` is a *tall*
+   * widget: a WASD block with a mouse row and a space bar under it is over a hundred
+   * design-canvas pixels of column, so 31 is spoken for far above its own `dy -109`, and
+   * anything stacked there lands on the caps. 175 is the column that already answers the same
+   * question this mod does — CPS at `dy -108` is how fast the hand is going, and the held stack
+   * directly above it at -146 is what the hand is going *through*. The 38 px gap is this
+   * table's rhythm.
+   */
+  item_counter: { anchor: 'bottom-left', dx: 175, dy: -146 },
+  /**
+   * Third row of the bottom-right corner, 38 px above Server address (`-61`) and 76 above
+   * Memory (`-23`), continuing upward the rhythm those two opened. It is not a diagnostic like
+   * its two neighbours, and that is the argument for putting it there rather than against:
+   * Memory and Server address are read when something is wrong, and a stopwatch is read when a
+   * fight is over. Neither is a glance you take mid-swing, so both belong in the corner
+   * furthest from the crosshair, and the top-left column stays what it is — the things you
+   * sweep while playing.
+   */
+  stopwatch: { anchor: 'bottom-right', dx: -25, dy: -99 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

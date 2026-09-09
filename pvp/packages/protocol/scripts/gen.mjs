@@ -268,6 +268,7 @@ export const MOD_ICON_NAMES = ${JSON.stringify(icons, null, 2)} as const satisfi
 {
   const ranges = {};
   const enums = {};
+  const keybinds = [];
   const conflicts = [];
   const modIds = Object.keys(source.mods.examples[0].mods);
 
@@ -284,6 +285,13 @@ export const MOD_ICON_NAMES = ${JSON.stringify(icons, null, 2)} as const satisfi
   for (const id of modIds) {
     const props = source.mods.definitions[`${id}_settings`]?.properties ?? {};
     for (const [key, node] of Object.entries(props)) {
+      // Read BEFORE resolving, because `resolveProp` deletes the `$ref` it followed. A keybind
+      // is identified by the definition it points at, never by the property's name: it is
+      // `key` on zoom, `keybind` on four mods and `start_key`/`reset_key` on the stopwatch,
+      // and the consumer that guessed from the name drew those last two as an empty enum row.
+      if (typeof node.$ref === 'string' && node.$ref.endsWith('/definitions/keybind')) {
+        keybinds.push(`${id}.${key}`);
+      }
       const p = resolveProp(node);
       if (Array.isArray(p.enum)) enums[`${id}.${key}`] = p.enum;
       if (typeof p.minimum === 'number' && typeof p.maximum === 'number') {
@@ -325,6 +333,20 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
  */
 export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
   ${JSON.stringify(enums, null, 2)} as const;
+
+/**
+ * Every settings property that is a keybind, as \`<mod>.<key>\`.
+ *
+ * Derived from the property's \`$ref\` at \`mods.json#/definitions/keybind\`, which is the only
+ * thing that actually makes a setting a keybind. \`ModRegistry.java\` already classified by that
+ * type and says why in as many words — "not by the property's name, which is \`keybind\` on one
+ * mod and \`key\` on another" — while the TypeScript side matched those two names literally.
+ * The stopwatch's \`start_key\` and \`reset_key\` matched neither, so they fell through to the
+ * enum branch, which draws a chip row over an empty options table: a label and no control,
+ * in game only. That is the same silent shape \`watermark.style\` shipped as.
+ */
+export const KEYBIND_SETTINGS: readonly string[] =
+  ${JSON.stringify(keybinds, null, 2)} as const;
 `,
     'utf8',
   );

@@ -1,0 +1,36 @@
+{
+  "$comment": "This mod replaces `toggle_sprint.sneak_too`, and the boolean is **removed** rather than left beside it — two owners of one latch is a bug waiting for a player to find. Removing a setting is not free and was not assumed to be: every `*Settings` struct in `crates/void-loadout` is `#[serde(deny_unknown_fields)]`, so a loadout already on disk carrying `sneak_too` stops deserialising, `Store::load` returns `Error::Json`, and — because `Store::list` collects a `Result` over the whole directory — one orphaned file takes the entire library down, not just itself. The repo has a mechanism for exactly this and a precedent for using it: `REMOVED_SETTINGS` in `crates/void-loadout/src/store.rs`, which already carries `(\"toggle_sprint\", \"show_status\")`. `(\"toggle_sprint\", \"sneak_too\")` is added there in the same change; `read_loadout_json` drops the stale key on the way in and the next save writes the file without it, so the migration is a save the player was going to do anyway. The store's two tests — `a_loadout_written_before_a_setting_was_removed_still_loads` and `an_unknown_setting_that_was_never_ours_still_fails_loudly` — are what keep the tolerance narrow. Java's `LiveState.toggleSprintSneakToo` and its reader in `VoidClient` are the other half and are the Java wave's to delete; they fail soft (the lookup defaults to `false`) rather than failing to compile, which is why they are named here.",
+  "id": "toggle_sneak",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Toggle sneak",
+  "icon": "chevron-down",
+  "the": false,
+  "on_description": "toggle sneak is enabled",
+  "description": "Latches sneak instead of holding the key.",
+  "settings_title": "Toggle sneak settings",
+  "settings_description": "Settings for the Toggle sneak gameplay mod. Overrides the sneak `KeyBinding` in `onLivingUpdate`, exactly as Toggle sprint overrides the sprint one — the same actuator shape, deliberately, so the two read the same in `LiveState` and the next latch after them costs nothing new. It is a mod of its own and not a boolean on Toggle sprint because `docs/mod-roster.md` §3.2 #3 says both competitors ship it as one: a sneak latch and a sprint latch are bound to different keys, turned on in different game modes and turned off for different reasons, and a boolean cannot carry a keybind. The boolean it replaces is gone; the top of this file records the migration that made removing it safe.",
+  "source": "KeyBinding override in onLivingUpdate",
+  "enabled": false,
+  "defaults": {
+    "mode": "toggle",
+    "keybind": "NONE"
+  },
+  "settings": {
+    "mode": {
+      "description": "`toggle` latches sneak until the key is pressed again, which is the mod. `hold` restores hold-to-sneak on this mod's own bind — not a null setting, because the bind below is *not* vanilla's sneak key: `hold` is how a player moves sneak onto a key their hand can reach without giving up the latch behaviour of every other key they have bound.",
+      "type": "string",
+      "enum": [
+        "toggle",
+        "hold"
+      ],
+      "default": "toggle"
+    },
+    "keybind": {
+      "description": "Key this mod latches, captured through `void.openKeybindCapture('toggle_sneak')`. Its own bind rather than vanilla's sneak key, and that is the entire reason this is a mod rather than a boolean on Toggle sprint: a player who latches sneak wants it under a thumb that is not already holding shift, and one who latches sprint wants a different key again. `NONE` by default, because a latch on a key nobody chose is a player stuck crouched in a hole wondering what happened.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
+    }
+  }
+}

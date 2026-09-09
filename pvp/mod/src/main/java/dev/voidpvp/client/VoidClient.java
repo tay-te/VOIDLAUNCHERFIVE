@@ -2,6 +2,8 @@ package dev.voidpvp.client;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import dev.voidpvp.client.actuator.DamageTint;
+import dev.voidpvp.client.actuator.FreeLook;
 import dev.voidpvp.client.actuator.SprintLatch;
 import dev.voidpvp.client.actuator.ZoomController;
 import dev.voidpvp.client.bridge.BridgeHost;
@@ -13,6 +15,7 @@ import dev.voidpvp.client.net.VoidSocket;
 import dev.voidpvp.client.render.CrosshairRenderer;
 import dev.voidpvp.client.screen.VoidMenuScreen;
 import dev.voidpvp.client.sensor.ArmorSlot;
+import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ServerWatcher;
@@ -89,12 +92,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * a poison tick would be wrong in exactly the situation it is being watched. The client owns
      * the *policy* — `combo.reset_ms` — and this owns only the fact that something landed.
      */
-    private int hitsDealt;
-    private int hitsTaken;
+    private final HitTally hits = new HitTally();
 
     /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
     private int lastAttackCooldownSeen;
-    private int lastHurtTime;
     private final ServerWatcher server = new ServerWatcher();
     /** {@code VOID_UI_TICKLOG}: print every coalesced `tick` payload. See the emit site. */
     private static final boolean TICK_LOG = System.getenv("VOID_UI_TICKLOG") != null;
@@ -113,6 +114,26 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private final SprintLatch sprint = new SprintLatch();
     private final SprintLatch sneak = new SprintLatch();
     private final ZoomController zoom = new ZoomController();
+    /**
+     * Freelook's whole state. The camera angles live in here and nowhere else, and there is no
+     * position beside them — see {@link FreeLook}.
+     */
+    private final FreeLook freelook = new FreeLook();
+    /**
+     * The player's own {@code GameOptions.perspective}, while freelook is holding it; null when
+     * it is not. The same capture-and-restore discipline as {@link #savedGamma} and
+     * {@link #savedFov}, with one difference that is worth stating rather than assuming:
+     * <b>this field does not need a {@code GameOptionsMixin} counterpart.</b> Disassembling
+     * {@code GameOptions} out of the named 1.8.9 jar, {@code perspective} appears exactly once
+     * in the whole class — its own {@code public int perspective;} declaration. Neither
+     * {@code save()} nor {@code load()} contains a single {@code GETFIELD} or {@code PUTFIELD}
+     * of it, so unlike {@code gamma} and {@code fov} it is a session field that never reaches
+     * {@code options.txt} and cannot become the player's own setting behind their back.
+     */
+    private Integer savedPerspective;
+    /** Which entities this player has recently swung at — {@code hit_color.own_hits_only}. */
+    private final dev.voidpvp.client.sensor.OwnHits ownHits =
+            new dev.voidpvp.client.sensor.OwnHits();
 
     private final EdgeKey menuKey = new EdgeKey();
     /**
@@ -189,6 +210,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private final EdgeKey fullbrightKey = new EdgeKey();
     private final EdgeKey hitboxesKey = new EdgeKey();
     private final EdgeKey toggleSprintKey = new EdgeKey();
+    // The two `modaction` rows. Same rule as above — one EdgeKey per hotkey, never shared.
+    private final EdgeKey stopwatchStartKey = new EdgeKey();
+    private final EdgeKey stopwatchResetKey = new EdgeKey();
 
     private VoidSocket socket;
     /**
@@ -218,6 +242,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     private SessionStats stats;
     private Float savedGamma;
+    /** The player's own field of view, while `fov` is overriding it. Exactly {@link #savedGamma}'s job. */
+    private Float savedFov;
     /** Vanilla's cinematic-camera setting, saved while `zoom.cinematic` overrides it. */
     private Boolean savedSmoothCamera;
     /** Last value this mod wrote to the hitbox flag, so F3+B keeps ownership between changes. */
@@ -418,6 +444,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // The menu screen paints the same view itself, one layer up.
             pumpUi();
         }
+        drawDamageTint(mc, window);
         drawCrosshair(mc, window);
         if (!menuOpen) {
             ui.paint(window.getWidth(), window.getHeight());
@@ -455,6 +482,26 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         ClientPlayerEntity player = mc.player;
         CrosshairRenderer.draw(state, window.getWidth(), window.getHeight(),
                 player != null && player.isSprinting());
+    }
+
+    /**
+     * The Damage tint mod's low-health vignette, in the game's own overlay pass.
+     *
+     * <p>Before the crosshair and before the Ultralight layer, so it reads as part of the game
+     * rather than as part of the HUD, and so neither of those two ends up behind it. It needs no
+     * injection point of its own: it draws at the tail of {@code InGameHud.render}, which the
+     * mod already holds, from {@code LivingEntity.getHealth()}, which the schema names as its
+     * source. The ramp is {@link DamageTint#vignetteAlpha}, where a test can hold it.</p>
+     */
+    private void drawDamageTint(MinecraftClient mc, Window window) {
+        ClientPlayerEntity player = mc.player;
+        if (player == null) {
+            return;
+        }
+        float alpha = DamageTint.vignetteAlpha(state.damageTintOn, player.getHealth(),
+                state.damageTintThreshold, state.damageTintStrength);
+        dev.voidpvp.client.render.VignetteRenderer.draw(
+                window.getWidth(), window.getHeight(), alpha);
     }
 
     private void advanceZoom(MinecraftClient mc) {
@@ -840,15 +887,20 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             cycleLoadout();
         }
 
-        // The per-mod `keybind` hotkeys: a key that flips one mod's `on` without opening the
-        // menu. One setting changed, so each pushes the `setting` event rather than a whole
-        // loadout — the UI applies it exactly as it applies the return value of setModSetting
-        // (bridge.json, `setting_payload`).
+        // The per-mod hotkey table. Every row is "sample a code, edge it, do a thing", and the
+        // only difference between the rows is the thing.
         //
-        // A table rather than four copies of the block. `keystrokes` was the only one of these
-        // for a long time and its block was written inline; three more mods have earned one
-        // since, and four hand-written copies of "sample a code, edge it, flip a boolean, emit"
-        // is four places for the next one to be forgotten from.
+        // A table rather than a copy of the block per mod. `keystrokes` was the only one of
+        // these for a long time and its block was written inline; three more mods earned one
+        // after it, and hand-written copies of the sample-and-edge preamble are places for the
+        // next mod to be forgotten from. Two kinds of row now share it — `toggleMod` flips one
+        // mod's `on` and pushes `setting`, `modAction` pushes a named `modaction` and stores
+        // nothing — and they share the *gate* as well as the shape, through `hotkeyFired`, so a
+        // change to when a hotkey is allowed to fire cannot land on one kind and miss the other.
+        //
+        // `toggleMod` rows: one setting changed, so each pushes the `setting` event rather than
+        // a whole loadout — the UI applies it exactly as it applies the return value of
+        // setModSetting (bridge.json, `setting_payload`).
         toggleMod("keystrokes", state.keystrokesToggleCode, state.keystrokesOn, keystrokesKey,
                 otherScreenOpen, menuScreenOpen, canOpen);
         toggleMod("fullbright", state.fullbrightToggleCode, state.fullbrightOn, fullbrightKey,
@@ -857,6 +909,30 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 otherScreenOpen, menuScreenOpen, canOpen);
         toggleMod("toggle_sprint", state.toggleSprintToggleCode, state.toggleSprintOn,
                 toggleSprintKey, otherScreenOpen, menuScreenOpen, canOpen);
+        // `modAction` rows: a key whose mod has a verb rather than a switch. Nothing is stored
+        // and nothing is sent to Rust — the page owns what the action means (bridge.json,
+        // `modaction_payload`). The action names come from `schema/mods/stopwatch.json`, which
+        // is where the widget reads them too.
+        modAction("stopwatch", state.stopwatchStartCode, "start_stop", stopwatchStartKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+        modAction("stopwatch", state.stopwatchResetCode, "reset", stopwatchResetKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+    }
+
+    /**
+     * The half every row of the hotkey table shares: sample the code, gate it, edge it.
+     *
+     * <p>{@code edge.pressed} is evaluated on every frame the row runs, gate or no gate, because
+     * an {@link EdgeKey} is a latch: skipping the sample while a screen is open would leave it
+     * believing the key is still down and swallow the next real press.</p>
+     *
+     * @return true on the frame this hotkey fired and is allowed to act
+     */
+    private boolean hotkeyFired(int code, EdgeKey edge, boolean otherScreenOpen,
+                                boolean menuScreenOpen, boolean canOpen) {
+        boolean down = code != KeyNames.KEY_NONE && !otherScreenOpen && !menuScreenOpen
+                && isKeyDown(code);
+        return edge.pressed(down) && canOpen;
     }
 
     /**
@@ -868,9 +944,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      */
     private void toggleMod(String modId, int code, boolean on, EdgeKey edge,
                            boolean otherScreenOpen, boolean menuScreenOpen, boolean canOpen) {
-        boolean down = code != KeyNames.KEY_NONE && !otherScreenOpen && !menuScreenOpen
-                && isKeyDown(code);
-        if (!edge.pressed(down) || !canOpen) {
+        if (!hotkeyFired(code, edge, otherScreenOpen, menuScreenOpen, canOpen)) {
             return;
         }
         com.google.gson.JsonElement stored = state.setModSetting(modId, "on",
@@ -883,6 +957,28 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // onMenuClosed; see UiHost.requestRender.
             ui.requestRender();
         }
+    }
+
+    /**
+     * One mod's action hotkey: sample it, edge it, ask the page to do the named thing.
+     *
+     * <p>The other kind of row. Nothing here writes state — no setting moves, no loadout is
+     * touched and Rust is not told — so there is no "what was actually applied" to report and no
+     * value to hand back: the widget that owns the mod decides what {@code start_stop} means and
+     * is the only thing that knows whether the clock was running.</p>
+     *
+     * <p>{@link dev.voidpvp.client.ui.UiHost#requestRender} for the same reason
+     * {@link #toggleMod} calls it, one step further: a stopwatch that has just been stopped or
+     * zeroed draws a chip that then holds perfectly still, so without a frame asked for here the
+     * player's press would land on a surface nothing repaints.</p>
+     */
+    private void modAction(String modId, int code, String action, EdgeKey edge,
+                           boolean otherScreenOpen, boolean menuScreenOpen, boolean canOpen) {
+        if (!hotkeyFired(code, edge, otherScreenOpen, menuScreenOpen, canOpen)) {
+            return;
+        }
+        bridge.emitModAction(modId, action);
+        ui.requestRender();
     }
 
     /** L: next loadout in library order, applied locally and told to Rust (§8.2). */
@@ -917,6 +1013,131 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         return savedGamma;
     }
 
+    /**
+     * The player's own field of view, while the FOV changer is overriding it; {@code null} when
+     * it is not.
+     *
+     * <p>The exact counterpart of {@link #playerGamma()}, read by the same mixin for the same
+     * reason. {@code GameOptions.fov} is in the same field family as {@code gamma} and carries
+     * the identical hazard: {@code save()} writes the live field to {@code options.txt}, so an
+     * override that reached disk would become the player's own field of view, be captured here
+     * as the value to restore on the next launch, and leave the mod permanently on with its
+     * switch reporting off. {@code schema/mods/fov.json}'s {@code $comment} is the briefing;
+     * {@code GameOptionsMixin} is the fix, and it is the same fix, not a second one.</p>
+     */
+    public Float playerFov() {
+        return savedFov;
+    }
+
+    // -----------------------------------------------------------------
+    // Freelook (§6.7) and the entity-hit scope filter
+    // -----------------------------------------------------------------
+
+    /**
+     * One frame of mouse travel, offered to freelook before the player gets it.
+     *
+     * <p>Called from {@code EntityMixin}, at the head of {@code Entity.increaseTransforms} —
+     * which that file establishes is the whole of 1.8.9's mouse-look path, two call sites in
+     * {@code GameRenderer.render} and nothing else in the jar. That makes this the one moment
+     * per frame the game is applying mouse look — world loaded, no screen, mouse grabbed — so it
+     * is also where the key is sampled: sampling it anywhere else would leave a frame in which
+     * the key was down and the delta still turned the player, and a mod whose promise is "a look
+     * and never a turn" cannot afford one.</p>
+     *
+     * <p>{@code entity} is checked against {@code mc.player} rather than trusted: both call
+     * sites pass the local player, and a third that did not would be turning somebody else.</p>
+     *
+     * <p><b>{@code snap_back: true} writes nothing to the player, ever.</b> The camera angle is
+     * this mod's own; the player's rotation is untouched for the whole engagement, so releasing
+     * needs no restore and the server is never told about a turn that did not happen. Only
+     * {@code snap_back: false} writes, and only once, on release — the player asked for
+     * freelook to be an input for turning around, and {@code prevYaw}/{@code prevPitch} go with
+     * it so the body arrives rather than smearing there over a tick.</p>
+     *
+     * @return true when freelook took the delta and the player must not
+     */
+    public boolean freelookTurn(net.minecraft.entity.Entity entity, float dx, float dy) {
+        MinecraftClient mc = minecraft();
+        ClientPlayerEntity player = mc == null ? null : mc.player;
+        if (player == null || entity != player) {
+            return false;
+        }
+        boolean enabled = state.freelookOn && state.freelookKeyCode != KeyNames.KEY_NONE;
+        boolean engaged = freelook.update(enabled, state.freelookHold,
+                isKeyDown(state.freelookKeyCode), true, player.yaw, player.pitch);
+        if (engaged && savedPerspective == null) {
+            savedPerspective = Integer.valueOf(mc.options.perspective);
+            // The only write this mod makes to where the eye sits, and it can only ever be one
+            // of vanilla's own three F5 states. `FreeLook.perspectiveFor` is the whole mapping.
+            mc.options.perspective = state.freelookPerspective;
+        }
+        if (freelook.justReleased()) {
+            endFreelook(mc, player);
+        }
+        if (!engaged) {
+            return false;
+        }
+        freelook.look(dx, dy);
+        return true;
+    }
+
+    /**
+     * Puts the camera back, and the perspective with it.
+     *
+     * <p>{@code savedPerspective} is restored rather than assumed to be 0: a player who pressed
+     * F5 before engaging freelook gets their third-person view back, not first person.</p>
+     */
+    private void endFreelook(MinecraftClient mc, ClientPlayerEntity player) {
+        if (savedPerspective != null) {
+            mc.options.perspective = savedPerspective.intValue();
+            savedPerspective = null;
+        }
+        if (!state.freelookSnapBack && player != null) {
+            player.yaw = freelook.yaw();
+            player.pitch = freelook.pitch();
+            player.prevYaw = freelook.yaw();
+            player.prevPitch = freelook.pitch();
+        }
+    }
+
+    /**
+     * The camera's yaw for {@code GameRenderer.transformCamera}, or vanilla's.
+     *
+     * <p>Only the entity the client is actually looking out of is answered for. Everything else
+     * that reaches {@code transformCamera} — a spectated entity, a mount the camera is riding —
+     * keeps its own rotation, because freelook's angle is the player's mouse and belongs to the
+     * player.</p>
+     */
+    public float cameraYaw(net.minecraft.entity.Entity entity, float vanilla) {
+        return freelookOwns(entity) ? freelook.yaw() : vanilla;
+    }
+
+    public float cameraPitch(net.minecraft.entity.Entity entity, float vanilla) {
+        return freelookOwns(entity) ? freelook.pitch() : vanilla;
+    }
+
+    private boolean freelookOwns(net.minecraft.entity.Entity entity) {
+        if (!freelook.isEngaged() || entity == null) {
+            return false;
+        }
+        MinecraftClient mc = minecraft();
+        return mc != null && entity == mc.player;
+    }
+
+    /**
+     * {@code MinecraftClient.doAttack} resolved onto an entity — the whole of what
+     * {@code hit_color.own_hits_only} knows. See {@link dev.voidpvp.client.sensor.OwnHits} for
+     * why it is a window and not a fact.
+     */
+    public void onAttackedEntity(int entityId) {
+        ownHits.swungAt(entityId, System.currentTimeMillis());
+    }
+
+    /** Whether the hurt flash now on this entity is plausibly one this player caused. */
+    public boolean isOwnHit(int entityId) {
+        return ownHits.isOwn(entityId, System.currentTimeMillis());
+    }
+
     private void applyActuators(MinecraftClient mc) {
         // Fullbright: gammaSetting override, restored exactly when turned off.
         if (state.fullbrightOn) {
@@ -927,6 +1148,23 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         } else if (savedGamma != null) {
             mc.options.gamma = savedGamma.floatValue();
             savedGamma = null;
+        }
+
+        // FOV changer: the same capture-and-restore discipline, on the same kind of field.
+        //
+        // The player's value is captured on the frame the mod comes on and put back byte for
+        // byte on the frame it goes off — not rounded to the mod's own range, not re-read from
+        // a `fov` the mod itself wrote. Together with GameOptionsMixin that is the whole
+        // guarantee: the override is live in memory for as long as the mod is on, and disk
+        // never sees it.
+        if (state.fovOn) {
+            if (savedFov == null) {
+                savedFov = Float.valueOf(mc.options.fov);
+            }
+            mc.options.fov = state.fovDegrees;
+        } else if (savedFov != null) {
+            mc.options.fov = savedFov.floatValue();
+            savedFov = null;
         }
 
         // Hitboxes: the same flag F3+B sets.
@@ -960,31 +1198,68 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         }
 
         // Toggle sprint: latch the sprint KeyBinding rather than the input.
+        //
+        // One key, read and written: the mod's bind *is* vanilla's sprint key, so `hold` here
+        // means "stop latching and let vanilla have it back", which is why it writes nothing.
         boolean canMove = mc.player != null && mc.currentScreen == null;
         int sprintCode = mc.options.sprintKey.getCode();
-        boolean sprintHeld = sprint.update(state.toggleSprintOn, state.toggleSprintHold,
+        // `false` is not a placeholder: `toggle_sprint.mode` was removed because `hold` was
+        // provably a no-op — `KeyBinding.setKeyPressed` writes the same `pressed` field the two
+        // sprint tests in `tickMovement` read, so latching it every tick is indistinguishable
+        // from the player holding the key, and "restore vanilla hold-to-sprint" had no
+        // implementation other than writing nothing. `SprintLatch` keeps the parameter because
+        // `toggle_sneak.mode` genuinely uses it: that mod latches its OWN bind rather than
+        // vanilla's key, so its `hold` is a real behaviour.
+        boolean sprintHeld = sprint.update(state.toggleSprintOn, false,
                 isKeyDown(sprintCode), canMove);
-        applyLatch(sprintCode, sprintHeld, sprintForced);
-        sprintForced.value = latchWrote(state, sprintHeld);
+        boolean sprintWrite = state.toggleSprintOn && sprintHeld;
+        applyLatch(sprintCode, sprintWrite, sprintForced);
+        sprintForced.value = sprintWrite;
 
-        if (state.toggleSprintSneakToo) {
-            int sneakCode = mc.options.sneakKey.getCode();
-            boolean sneakHeld = sneak.update(state.toggleSprintOn, state.toggleSprintHold,
-                    isKeyDown(sneakCode), canMove);
-            applyLatch(sneakCode, sneakHeld, sneakForced);
-            sneakForced.value = latchWrote(state, sneakHeld);
-        } else if (sneakForced.value) {
-            // The setting was turned off while the sneak latch was holding the key down.
-            // Same release as below, by the same argument.
-            KeyBinding.setKeyPressed(mc.options.sneakKey.getCode(), false);
-            sneak.release();
-            sneakForced.value = false;
+        // Toggle sneak: the same latch, across two different keys.
+        //
+        // This is where it stops being a copy of the block above, and the difference is the
+        // whole mod. `toggle_sneak.keybind` is a key the player chose — it is *not* vanilla's
+        // sneak key — so the latch is driven by that bind and writes Shift's KeyBinding. Two
+        // consequences fall out of that and both are deliberate:
+        //
+        //   - `hold` is not inert here. On Toggle sprint, `hold` means vanilla's own key doing
+        //     vanilla's own thing, so the mod steps out of the way entirely. Here it means sneak
+        //     answers to a key that is not Shift for as long as it is held, which is a thing a
+        //     player asked for. So the write is gated on the mod being on and the latch holding,
+        //     with no `!hold` term.
+        //   - The key is sampled through `canMove` rather than only handed to the latch, because
+        //     the two keys are different: a bind held while a screen is open is a key the player
+        //     is using for that screen, and forcing Shift down under it would sneak them into a
+        //     hole through a chat window.
+        //
+        // `NONE` writes nothing at all, which is what makes the factory default harmless: a
+        // latch on a key nobody chose is the player stuck crouched, wondering what happened.
+        int sneakBind = state.toggleSneakCode;
+        boolean sneakBindDown = sneakBind != KeyNames.KEY_NONE && canMove && isKeyDown(sneakBind);
+        boolean sneakHeld = sneak.update(state.toggleSneakOn, state.toggleSneakHold,
+                sneakBindDown, canMove);
+        boolean sneakWrite = state.toggleSneakOn && sneakBind != KeyNames.KEY_NONE && sneakHeld;
+        applyLatch(mc.options.sneakKey.getCode(), sneakWrite, sneakForced);
+        sneakForced.value = sneakWrite;
+
+        // Freelook's release path, and only its release path.
+        //
+        // The engage lives in `freelookTurn`, which is the frame hook; this is the tick that
+        // still runs when that hook cannot — a screen opened, the world went away, the mod was
+        // switched off, the loadout changed under it, the keybind went back to NONE. Without it
+        // a `toggle`-latched freelook would survive an inventory screen with the camera detached
+        // and vanilla's perspective still held, which is `applyLatch`'s "a mod that goes on
+        // acting after it is switched off" one camera over.
+        //
+        // It deliberately does NOT sample the key: `FreeLook.update` owns that edge, and a
+        // second sampler on a different clock is a toggle that fires twice on one press —
+        // `toggle_sneak`'s two owners of one latch, with the camera as the noun.
+        boolean freelookPossible = state.freelookOn && state.freelookKeyCode != KeyNames.KEY_NONE
+                && mc.player != null && mc.currentScreen == null;
+        if (!freelookPossible && freelook.forceRelease()) {
+            endFreelook(mc, mc.player);
         }
-    }
-
-    /** Whether the latch wants the key reported as held this tick. */
-    private static boolean latchWrote(LiveState state, boolean held) {
-        return state.toggleSprintOn && !state.toggleSprintHold && held;
     }
 
     /**
@@ -1001,9 +1276,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      *
      * <p>The release is conditional on <em>this</em> having been the writer ({@code forced}),
      * so a key the player is genuinely holding is never yanked out from under them.</p>
+     *
+     * @param write whether the latch wants the key held this tick, decided by the caller. It used
+     *             to be recomputed here from {@code toggle_sprint}'s own fields, which was fine
+     *             while both latches were that mod's; Toggle sneak is a different mod with a
+     *             different rule for {@code hold}, and a shared helper that reads one mod's state
+     *             is a helper that quietly does the wrong thing for the other.
      */
-    private void applyLatch(int code, boolean held, Flag forced) {
-        if (latchWrote(state, held)) {
+    private void applyLatch(int code, boolean write, Flag forced) {
+        if (write) {
             KeyBinding.setKeyPressed(code, true);
         } else if (forced.value && !isKeyDown(code)) {
             KeyBinding.setKeyPressed(code, false);
@@ -1122,30 +1403,37 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // Same reasoning as above.
         }
         try {
-            // `hurtTime` is set to a fixed value on damage and counts down, so it is a level and
-            // not an edge: counting it directly would count one hit once per tick it stays up.
-            // The rising edge is the hit.
-            int hurt = player.hurtTime;
-            if (hurt > lastHurtTime) {
-                hitsTaken++;
-            }
-            lastHurtTime = hurt;
-            tickIn.hitsDealt = Integer.valueOf(hitsDealt);
-            tickIn.hitsTaken = Integer.valueOf(hitsTaken);
+            // The rising edge of `hurtTime` is the hit; `HitTally` owns that rule and the
+            // counters, so both halves of `bridge.json`'s `hits` object are decided in one
+            // plain class that `SensorsTest` can drive.
+            hits.sawHurtTime(player.hurtTime);
+            tickIn.hitsDealt = Integer.valueOf(hits.dealt());
+            tickIn.hitsTaken = Integer.valueOf(hits.taken());
         } catch (Throwable ignored) {
             // Same reasoning as above.
         }
     }
 
     /**
-     * Called by the attack mixin when the player lands a hit.
+     * Called by the attack mixin once per run of {@code MinecraftClient.doAttack} — once per
+     * swing, not once per hit.
      *
-     * <p>Separate from {@link #readWave2} because a landed hit is an *event* and there is no
-     * per-tick field that reports one: the player's own state says nothing about whether their
-     * swing connected. The counter it increments is read on the next tick like everything else.</p>
+     * <p>Separate from {@link #readWave2} because a swing is an *event* and there is no per-tick
+     * field that reports one: the player's own state says nothing about whether their swing
+     * connected. Whether this one counts is {@link HitTally}'s decision and is documented there;
+     * the mixin's job is only to say truthfully what the swing resolved onto, and this method's
+     * is to keep the mixin one line away from a plain object. The counter is read on the next
+     * tick like everything else.</p>
+     *
+     * <p>It used to be called {@code onAttackLanded} and to increment unconditionally, on a
+     * comment claiming 1.8.9 only ran {@code doAttack} when there was something to attack. The
+     * bytecode says otherwise — {@code MinecraftClientMixin} now carries the disassembly — so
+     * {@code hits.dealt} counted swings at air and shipped as a second CPS counter with a
+     * different window.</p>
      */
-    public void onAttackLanded() {
-        hitsDealt++;
+    public void onAttackSwing(HitTally.Swing at, boolean targetAlive, boolean targetAttackable,
+            boolean spectating) {
+        hits.swung(at, targetAlive, targetAttackable, spectating);
     }
 
     private List<ArmorSlot> readArmor(ClientPlayerEntity player) {
@@ -1247,6 +1535,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // about the server: a new world invalidates the last armour, the last effects and the
         // last position whether or not anybody is hosting it.
         ticks.reset();
+        // Entity ids are reissued per world, so a stale id is a stale id for somebody else.
+        ownHits.clear();
         if (!server.update(connected, host, port)) {
             return;
         }

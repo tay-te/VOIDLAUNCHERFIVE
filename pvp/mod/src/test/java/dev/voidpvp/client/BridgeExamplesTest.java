@@ -442,6 +442,71 @@ class BridgeExamplesTest {
     }
 
     @Test
+    @DisplayName("both stopwatch keys emit the modaction payloads bridge.json declares")
+    void modActionEventsMatchTheSchema() {
+        VoidBridge bridge = new VoidBridge(seededState(), new Host());
+
+        // Every `modaction` example in the schema, produced by the emitter the hotkey table
+        // calls. The mod and the action are the whole payload, so this is the whole contract.
+        JsonArray examples = Schemas.examples("bridge.json");
+        List<JsonObject> expected = new ArrayList<JsonObject>();
+        for (int i = 0; i < examples.size(); i++) {
+            JsonObject o = examples.get(i).getAsJsonObject();
+            if (o.has("e") && VoidBridge.EVENT_MODACTION.equals(o.get("e").getAsString())) {
+                expected.add(o.getAsJsonObject("payload"));
+            }
+        }
+        assertEquals(2, expected.size(),
+                "bridge.json should carry both of the stopwatch's actions: " + expected);
+
+        String actionPattern = Schemas.load("bridge.json").getAsJsonObject("definitions")
+                .getAsJsonObject("modaction_payload").getAsJsonObject("properties")
+                .getAsJsonObject("action").get("pattern").getAsString();
+
+        for (JsonObject payload : expected) {
+            bridge.emitModAction(payload.get("mod").getAsString(),
+                    payload.get("action").getAsString());
+        }
+        JsonArray batch = drain(bridge);
+        assertEquals(expected.size(), batch.size(), "one envelope per press");
+        for (int i = 0; i < batch.size(); i++) {
+            JsonObject envelope = batch.get(i).getAsJsonObject();
+            assertEquals(VoidBridge.EVENT_MODACTION, envelope.get("e").getAsString());
+            JsonObject payload = envelope.getAsJsonObject("payload");
+            Schemas.assertContains(expected.get(i), payload, "modaction payload");
+            // `additionalProperties: false`, so the payload is exactly {mod, action} — a third
+            // field would be rejected by the shim's own validator and never reach the widget.
+            assertEquals(2, payload.entrySet().size(), "the payload is {mod, action}: " + payload);
+            assertTrue(payload.get("action").getAsString().matches(actionPattern),
+                    "the action is a snake_case verb: " + payload.get("action"));
+        }
+    }
+
+    @Test
+    @DisplayName("two presses of one action are two events, because they are two verbs")
+    void modActionsAreNeverCoalesced() {
+        VoidBridge bridge = new VoidBridge(seededState(), new Host());
+
+        // The whole-state channels coalesce and this one must not: two taps of the stopwatch's
+        // start key are a stop and a start, so folding a slow frame's pair into one would leave
+        // the clock running when the player had stopped it. `modaction_payload` says so in as
+        // many words — "do not coalesce two presses of the same action into one".
+        bridge.emitModAction("stopwatch", "start_stop");
+        bridge.emitModAction("stopwatch", "start_stop");
+
+        JsonArray batch = drain(bridge);
+        assertEquals(2, batch.size(), "both presses survive the frame");
+    }
+
+    /** The envelopes the bridge would push this frame, in order. */
+    private static JsonArray drain(VoidBridge bridge) {
+        String script = bridge.drainScript();
+        assertNotNull(script, "something should have been queued");
+        return Json.parse(script.substring("window.void.__emit(".length(),
+                script.length() - 1)).getAsJsonArray();
+    }
+
+    @Test
     @DisplayName("the mod knows every event name and every call name bridge.json declares")
     void theSurfaceIsCovered() {
         JsonObject defs = Schemas.load("bridge.json").getAsJsonObject("definitions");
@@ -455,7 +520,8 @@ class BridgeExamplesTest {
         java.util.Set<String> ours = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
                 VoidBridge.EVENT_KEYS, VoidBridge.EVENT_TICK, VoidBridge.EVENT_SERVER,
                 VoidBridge.EVENT_LOADOUT, VoidBridge.EVENT_LOADOUTS, VoidBridge.EVENT_SETTING,
-                VoidBridge.EVENT_MENU, VoidBridge.EVENT_SESSION, VoidBridge.EVENT_SETTINGS));
+                VoidBridge.EVENT_MENU, VoidBridge.EVENT_SESSION, VoidBridge.EVENT_SETTINGS,
+                VoidBridge.EVENT_MODACTION));
         java.util.List<String> events = new ArrayList<String>();
         for (JsonElement e : defs.getAsJsonObject("event_name").getAsJsonArray("enum")) {
             events.add(e.getAsString());

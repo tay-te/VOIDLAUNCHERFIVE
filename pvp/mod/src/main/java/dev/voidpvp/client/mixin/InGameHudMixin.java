@@ -1,7 +1,9 @@
 package dev.voidpvp.client.mixin;
 
 import dev.voidpvp.client.VoidClient;
+import dev.voidpvp.client.state.LiveState;
 import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.client.util.Window;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -49,6 +51,23 @@ public abstract class InGameHudMixin {
         VoidClient client = VoidClient.get();
         if (client != null && client.suppressesVanillaCrosshair()) {
             cir.setReturnValue(Boolean.FALSE);
+        }
+    }
+
+    /**
+     * The Overlay mod's {@code hide_pumpkin} (§6.7).
+     *
+     * <p>The private draw the {@code GameOptions.perspective} read above guards — the one the
+     * crosshair suppression used to redirect by mistake, which is why this file already knows
+     * where it is. It blits the pumpkin-blur texture over the whole screen and does nothing
+     * else, so not entering it is the whole suppression; the first-person check that decides
+     * whether it is called at all stays vanilla's.</p>
+     */
+    @Inject(method = "renderPumpkinBlur", at = @At("HEAD"), cancellable = true)
+    private void void$hidePumpkinBlur(Window window, CallbackInfo ci) {
+        LiveState state = LiveState.get();
+        if (state.overlayOn && state.overlayHidePumpkin) {
+            ci.cancel();
         }
     }
 }

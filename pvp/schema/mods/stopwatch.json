@@ -1,0 +1,56 @@
+{
+  "$comment": "This is the mod `docs/mod-roster.md` §7 held back, and the reason it was held back was input, not drawing. Before this wave `bridge.json`'s `keys` payload carried W/A/S/D, the mouse, space and shift; `protocol.json`'s `hotkey_id` was a closed set of two globals; and the only per-mod key Java dispatched was the `keybind` table in `VoidClient.toggleMod`, which does exactly one thing — flip that mod's `on` and push `setting`. A timer has two verbs and neither of them is `on`, so a `start_key` stored here would have been a key nothing acted on: the same failure `text_shadow` was removed from `_shared.json` for. The path is open now — `bridge.json`'s `modaction` event — and the two keys below are its only caller. Read `modaction_payload` before writing either half: the action names are the contract between the Java that edges the key and the widget that acts on it, and they are written down in this file because this file is the only place both waves read.",
+  "id": "stopwatch",
+  "kind": "hud",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Stopwatch",
+  "icon": "clock",
+  "the": true,
+  "noun": "the stopwatch chip",
+  "on_description": "the stopwatch is enabled",
+  "description": "A manual timer, started and zeroed from the keyboard.",
+  "settings_title": "Stopwatch settings",
+  "settings_description": "Settings for the Stopwatch HUD mod. Along with the watermark it is one of two mods with no game field behind it: the elapsed time is the overlay's own, counted from `Date.now()` exactly as the combo chip already counts its own timeout, and no sensor field, no tick payload and no wire message carries it. What does cross the bridge is the *input*. `start_key` and `reset_key` are dispatched by Java and arrive as `modaction` — `{mod: 'stopwatch', action: 'start_stop' | 'reset'}` — because a timer's keys ask the page to do something rather than flipping a boolean, which is all the existing per-mod `keybind` hotkeys can say. Java therefore owns the key and the page owns the clock, and the two never disagree about elapsed time because only one of them counts it.",
+  "source": "no game field — the overlay's own clock, driven by the `modaction` bridge event",
+  "enabled": false,
+  "default_placement": {
+    "note": "Third row of the bottom-right corner, 38 px above Server address (`-61`) and 76 above Memory (`-23`), continuing upward the rhythm those two opened. It is not a diagnostic like its two neighbours, and that is the argument for putting it there rather than against: Memory and Server address are read when something is wrong, and a stopwatch is read when a fight is over. Neither is a glance you take mid-swing, so both belong in the corner furthest from the crosshair, and the top-left column stays what it is — the things you sweep while playing.",
+    "anchor": "bottom-right",
+    "dx": -25,
+    "dy": -99
+  },
+  "defaults": {
+    "show_millis": false,
+    "format": "auto",
+    "start_key": "NONE",
+    "reset_key": "NONE"
+  },
+  "settings": {
+    "show_millis": {
+      "description": "Whether a fraction of a second is drawn after the seconds, as hundredths. Off by default, because a digit that never stops moving is the most expensive thing a HUD chip can do to a player's attention and a stopwatch is usually read *after* it stops. Two places rather than three: the overlay repaints per frame, so a thousandths digit would be a digit nobody can read and the chip would be claiming a precision the page's own clock does not have. On for timing something short enough that a whole second is too coarse — a potion window, a bridge run, a respawn.",
+      "type": "boolean",
+      "default": false
+    },
+    "format": {
+      "description": "How the elapsed time is written. `auto` grows the field as the clock does — `4:07` until an hour has passed and `1:04:07` after — which keeps the chip as narrow as the reading allows and is right for almost everyone. `mmss` pins it to minutes and seconds and lets the minutes run past sixty (`64:07`), so the chip never changes width mid-read, which is what a player timing repeated attempts against each other wants. `hmmss` always prints the hour, for a session timer that is meant to be read as a duration rather than as a count.",
+      "type": "string",
+      "enum": [
+        "auto",
+        "mmss",
+        "hmmss"
+      ],
+      "default": "auto"
+    },
+    "start_key": {
+      "description": "Key that starts the clock and stops it again, captured through `void.openKeybindCapture('stopwatch')`. Unlike the four per-mod `keybind` settings Java already dispatches, this one does **not** flip the mod's `on`: Java edges the key with `input/EdgeKey` and pushes `{\"e\": \"modaction\", \"payload\": {\"mod\": \"stopwatch\", \"action\": \"start_stop\"}}`, and the page decides what running means. One key for both verbs rather than two, because a stopwatch has one hand on it and the state it is in is on screen. `NONE` by default: there is no key a 1.8 PvP player is not already using, and a timer nobody bound costs nothing but a chip that reads `0:00`.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
+    },
+    "reset_key": {
+      "description": "Key that returns the clock to zero, captured the same way. Java pushes `action: \"reset\"`; the page zeroes the elapsed time and leaves the run state alone, so a reset while running is a lap restart and a reset while stopped clears the last reading. Its own bind rather than a long press on `start_key`, because a hold gesture on a key you also tap is the one input a fight reliably gets wrong — and because the two actions are then independent, which is what lets a player bind only the one they use.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
+    }
+  }
+}

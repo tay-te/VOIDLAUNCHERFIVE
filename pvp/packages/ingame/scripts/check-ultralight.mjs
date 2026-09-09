@@ -57,7 +57,18 @@ const RULES = [
   [/\bbackground-blend-mode\s*:/i, 'background-blend-mode — §2'],
   [/\btext-shadow\s*:/i, 'text-shadow — §3: give the text a chip, or a 4-copy offset outline'],
   [/-webkit-text-stroke/i, '-webkit-text-stroke — §3: unreliable in Ultralight'],
-  [/(?<!-)\bperspective\s*:/i, 'perspective — §4: 2D transforms only'],
+  // Matched on the *value*, not just the name. CSS `perspective` takes a length, `none`,
+  // `calc()` or `var()` — never a quoted string. `freelook` has a settings key called
+  // `perspective`, so `perspective:"third_back"` is bundled into the page from the generated
+  // registry, and the old name-only rule failed the build on it. That is a false positive the
+  // whole repo pays for: the guard scans the built bundle, where CSS and JS sit in one file,
+  // and a schema key is not a style. Narrowing the value keeps every real 3D transform caught —
+  // `perspective:800px`, `perspective:none`, `perspective:var(--d)` all still match — while a
+  // string-valued object key does not.
+  [
+    /(?<!-)\bperspective\s*:\s*(?:none\b|calc\(|var\(|[.\d])/i,
+    'perspective — §4: 2D transforms only',
+  ],
   [/\btransform-style\s*:\s*preserve-3d/i, 'preserve-3d — §4'],
   [/\bbackface-visibility\s*:/i, 'backface-visibility — §4'],
   [/\b(?:translate|rotate|scale)3d\s*\(/i, '3D transform function — §4'],

@@ -283,6 +283,13 @@ export interface FakeVoid extends VoidBridge {
    * Distinct from `setModSetting`, which is the *page* asking and pushes nothing.
    */
   applyModSetting(id: ModId, key: string, value: ModSettingValue): ModSettingValue;
+  /**
+   * Push a `modaction` the way Java does when a key bound to one mod is pressed — the
+   * stopwatch's `start_key` and `reset_key` are the first two. There is no state behind it
+   * and nothing is stored: it is a request, and the page is what fulfils it, which is why
+   * this returns nothing where {@link FakeVoid.applyModSetting} returns the stored value.
+   */
+  emitModAction(id: ModId, action: string): void;
   /** The active loadout (a live reference; do not mutate). */
   getLoadout(): Loadout;
   /** The whole library. */
@@ -810,6 +817,15 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       settingsFor(id)[key] = applied;
       emit({ e: 'setting', payload: { id, key, value: applied } });
       return applied;
+    },
+
+    emitModAction(id, action) {
+      // Java's half of this is one more row in `VoidClient.toggleMod`'s table: sample the
+      // code, edge it, and push a named action instead of writing a setting. Nothing is
+      // clamped and nothing is stored, so unlike `applyModSetting` there is no return value
+      // and an unknown mod id is the only thing worth refusing.
+      if (!isModId(id)) return;
+      emit({ e: 'modaction', payload: { mod: id, action } });
     },
 
     getLoadout() {

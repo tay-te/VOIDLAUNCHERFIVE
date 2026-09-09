@@ -31,22 +31,37 @@ import type { ModId } from '@/bridge/protocol';
 import type { ModArt } from './types';
 
 import armor_status from './armor_status';
+import combo from './combo';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
+import item_counter from './item_counter';
+import memory from './memory';
+import momentum from './momentum';
+import old_animations from './old_animations';
+import old_input from './old_input';
+import overlay from './overlay';
 import crosshair from './crosshair';
+import damage_tint from './damage_tint';
+import fov from './fov';
+import freelook from './freelook';
 import fps from './fps';
 import fullbright from './fullbright';
+import hit_color from './hit_color';
 import hitboxes from './hitboxes';
 import keystrokes from './keystrokes';
 import ping from './ping';
+import saturation from './saturation';
+import server_address from './server_address';
+import stopwatch from './stopwatch';
+import toggle_sneak from './toggle_sneak';
 import potion_effects from './potion_effects';
 import toggle_sprint from './toggle_sprint';
 import watermark from './watermark';
 import zoom from './zoom';
 
 /**
- * The art for all thirteen mods.
+ * The art for all twenty-five mods.
  *
  * `satisfies` rather than a type annotation, so each value keeps its narrow `ModArt<'fps'>`
  * type while the whole object is still proved exhaustive over `ModId`.
@@ -66,6 +81,28 @@ const ART = {
   hitboxes,
   zoom,
   crosshair,
+  // The Wave 2 readout sweep (docs/mod-roster.md §7). Six chips, no new sensor between them.
+  combo,
+  saturation,
+  momentum,
+  memory,
+  server_address,
+  item_counter,
+  // Wave 4 — §7's "four that change how the client feels", plus the stopwatch the `modaction`
+  // input path unblocked. Four of the five draw into the world, so their art is a diagram.
+  stopwatch,
+  fov,
+  toggle_sneak,
+  overlay,
+  // Roster §3.2's medium PvP set. `freelook` absorbs Snaplook (#9) and `damage_tint` absorbs
+  // Hurt cam (#8); both bundles are argued in their own schema `$comment`s.
+  freelook,
+  hit_color,
+  damage_tint,
+  // The 1.7 pair. Split rather than bundled because the badge is per mod: `old_animations` is
+  // `safe` and animation only, `old_input` is `grey` and changes what leaves the client.
+  old_animations,
+  old_input,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

@@ -85,11 +85,56 @@ public final class LiveState {
 
     // -- actuator fields, read every frame by mixin/ ---------------------
     public volatile boolean toggleSprintOn;
-    public volatile boolean toggleSprintHold;
-    public volatile boolean toggleSprintSneakToo;
+
+    /**
+     * Toggle sneak, which is the other half of what {@code toggle_sprint.sneak_too} used to be.
+     *
+     * <p>The same actuator shape as the sprint latch above, deliberately — {@code SprintLatch}
+     * drives both — with one difference that is the whole reason it is a mod and not a boolean:
+     * {@link #toggleSneakCode} is <b>this mod's own bind, not vanilla's sneak key</b>. The sprint
+     * latch reads vanilla's sprint key and writes it back; this one reads a key the player chose
+     * and writes vanilla's sneak key. That is also why {@code hold} means something here and
+     * nothing on {@code toggle_sprint}: holding a key that is not Shift is a real behaviour,
+     * holding Shift is just Shift.</p>
+     */
+    public volatile boolean toggleSneakOn;
+    public volatile boolean toggleSneakHold;
+    public volatile int toggleSneakCode;
 
     public volatile boolean fullbrightOn;
     public volatile float fullbrightGamma = 10f;
+
+    /**
+     * The FOV changer. {@link #fovDegrees} is written into {@code GameOptions.fov}, which is
+     * <b>saved to disk</b> — see {@code mixin/GameOptionsMixin}, which is what stops it, and
+     * {@code VoidClient.playerFov}, which is the one copy of the player's own value.
+     */
+    public volatile boolean fovOn;
+    public volatile float fovDegrees = 90f;
+    public volatile boolean fovLockSprint = true;
+    public volatile boolean fovLockBow;
+
+    /**
+     * The Overlay mod: five independent suppressions of render passes the game already runs.
+     *
+     * <p>Nothing here is drawn by this mod — every field is read at one injection point and
+     * answers one question: <em>skip this pass?</em> {@code view_bobbing} is the only one that is
+     * not a straight boolean in the schema, and it is mirrored here as the two booleans the two
+     * injection points actually need rather than as its enum: 1.8.9 reads
+     * {@code GameOptions.bobView} in three places, one in {@code GameRenderer.setupCamera} (the
+     * camera) and two in {@code GameRenderer.renderHand} (the held item), which is exactly the
+     * split {@code minimal} names — and comparing a string per frame in the render path to
+     * rediscover that is work the loadout write can do once.</p>
+     */
+    public volatile boolean overlayOn;
+    public volatile boolean overlayHideFire = true;
+    /** {@code view_bobbing} is {@code minimal} or {@code off}: hold the camera still. */
+    public volatile boolean overlayLockCameraBob;
+    /** {@code view_bobbing} is {@code off}: hold the held item still as well. */
+    public volatile boolean overlayLockHandBob;
+    public volatile boolean overlayHideOwnArmor;
+    public volatile boolean overlayHideStuckArrows = true;
+    public volatile boolean overlayHidePumpkin = true;
 
     public volatile boolean hitboxesOn;
     public volatile float hitboxLineWidth = 2f;
@@ -115,6 +160,93 @@ public final class LiveState {
     public volatile boolean crosshairDynamic;
     public volatile boolean crosshairCenterDot;
 
+    /**
+     * Freelook, which is also Snaplook — {@code mode: hold} + {@code snap_back: true} +
+     * {@code perspective: third_back} is Snaplook and all three are the factory defaults.
+     *
+     * <p>{@link #freelookPerspective} is mirrored as the {@code int} vanilla's
+     * {@code GameOptions.perspective} actually is, resolved once here by
+     * {@code FreeLook.perspectiveFor} rather than by comparing a string per frame inside the
+     * camera transform. The mapping is the whole of what the mod may do to where the eye sits:
+     * 0 for {@code free} (vanilla's first-person arm — no third-person translation at all, so
+     * the eye is the pivot), 1 for {@code third_back}, 2 for {@code third_front}. There is no
+     * distance here and no offset, because there is no distance setting: vanilla's
+     * {@code thirdPersonDistance} is left alone, which is what stops an orbit from becoming a
+     * freecam.</p>
+     */
+    public volatile boolean freelookOn;
+    public volatile int freelookKeyCode;
+    /** {@code mode} is {@code hold} rather than {@code toggle}. */
+    public volatile boolean freelookHold = true;
+    /** One of vanilla's own three {@code GameOptions.perspective} values; never a fourth. */
+    public volatile int freelookPerspective = 1;
+    public volatile boolean freelookSnapBack = true;
+
+    /**
+     * Hit colour: a hue for the entity hurt overlay and a fraction of vanilla's alpha.
+     *
+     * <p>{@link #hitColorRgb} is {@code 0x00RRGGBB} — <b>the alpha byte is masked off here</b>,
+     * which is the one place it is dropped. {@code #/definitions/hex_color} accepts
+     * {@code #RRGGBBAA} and nothing in the schema stops a player storing one, so {@code color}
+     * owning a hue and {@code intensity} owning alpha has to be enforced somewhere; doing it at
+     * the mirror means the renderer cannot accidentally read one.</p>
+     */
+    public volatile boolean hitColorOn;
+    public volatile int hitColorRgb = 0x2FB8A6;
+    public volatile boolean hitColorOwnHitsOnly = true;
+    /** 0..1, a fraction of vanilla's own 0.3 hurt-overlay alpha. 1 is exactly what vanilla draws. */
+    public volatile float hitColorIntensity = 1f;
+
+    /**
+     * Damage tint, which is also Hurt cam control.
+     *
+     * <p>{@link #damageTintShake} is mirrored as the amplitude in degrees the hurt roll should
+     * use in place of vanilla's 14, not as the enum: the value is read inside
+     * {@code GameRenderer.bobViewWhenHurt} on every frame the player is in their hurt animation,
+     * and comparing a string there to rediscover a number is work the loadout write can do once.
+     * With the mod off it is vanilla's own 14, so the mixin's substitution is the identity.</p>
+     */
+    public volatile boolean damageTintOn;
+    public volatile int damageTintThreshold = 6;
+    public volatile float damageTintStrength = 0.6f;
+    public volatile float damageTintShake = dev.voidpvp.client.actuator.DamageTint.VANILLA_SHAKE;
+
+    /**
+     * Old animations: one revert drawn in two render paths, and one animation that is neither
+     * version's.
+     *
+     * <p>{@link #oldAnimationsBlockHitOneSeven} is the enum resolved to the boolean both
+     * injection points actually ask for — {@code block_hit} has exactly two values and the
+     * question at each site is "is the revert on?", so comparing a string per frame inside
+     * {@code HeldItemRenderer.renderArmHoldingItem} and once per rendered biped in
+     * {@code BiPedModel.setAngles} would be work the loadout write can do once. It drives both
+     * halves on purpose: the first-person swing progress and the third-person −30° arm yaw are
+     * the same revert seen from the two ends, and the setting's own description is where the
+     * argument for not splitting them lives.</p>
+     *
+     * <p>{@link #oldAnimationsSwingDuringDelay} is not a revert at all — 1.7's click inside that
+     * window also <em>worked</em> — so it is off by default and it is deliberately packetless.
+     * The half that restores 1.7's click cadence is {@code old_input.no_miss_delay}, in a
+     * {@code grey} mod, because that one changes what leaves the client.</p>
+     */
+    public volatile boolean oldAnimationsOn;
+    public volatile boolean oldAnimationsBlockHitOneSeven = true;
+    public volatile boolean oldAnimationsSwingDuringDelay;
+
+    /**
+     * Old input: three guards 1.8 added to {@code MinecraftClient} that 1.7.10 did not have.
+     *
+     * <p>Each is read at exactly one call site and answers one question — <em>does this guard
+     * still hold?</em> — so with the mod off the three redirects return what vanilla read and
+     * the client behaves byte-identically. This is the {@code grey} mod: every one of the three
+     * turns a click vanilla would have swallowed into a click that reaches the server, which is
+     * why they all ship off and why they are not in {@code old_animations}.</p>
+     */
+    public volatile boolean oldInputOn;
+    public volatile boolean oldInputUseWhileDigging;
+    public volatile boolean oldInputDigWhileUsing;
+    public volatile boolean oldInputNoMissDelay;
+
     /** Optional in-game toggle for the keystrokes overlay; NONE means always on. */
     public volatile int keystrokesToggleCode;
 
@@ -130,6 +262,18 @@ public final class LiveState {
     public volatile int fullbrightToggleCode;
     public volatile int hitboxesToggleCode;
     public volatile int toggleSprintToggleCode;
+
+    /**
+     * The two {@code stopwatch} keybinds, which are <b>not</b> toggles.
+     *
+     * <p>Mirrored exactly like the four above and polled from the same table, but the row they
+     * feed emits {@code modaction} instead of writing {@code on}: a timer has two verbs and
+     * neither of them is a boolean ({@code schema/mods/stopwatch.json}). The action names are the
+     * contract with the widget and are written down in that file — {@code start_stop} and
+     * {@code reset} — not here, because the page reads the schema and not this class.</p>
+     */
+    public volatile int stopwatchStartCode;
+    public volatile int stopwatchResetCode;
 
     // -- HUD-mod settings the game loop polls ----------------------------
     //
@@ -298,11 +442,31 @@ public final class LiveState {
     /** Writes every actuator field from the loadout — the whole hot-swap (§8.2). */
     private void applyActuatorFields(Loadout l) {
         toggleSprintOn = l.isOn("toggle_sprint");
-        toggleSprintHold = "hold".equals(l.stringSetting("toggle_sprint", "mode", "toggle"));
-        toggleSprintSneakToo = l.boolSetting("toggle_sprint", "sneak_too", false);
+
+        toggleSneakOn = l.isOn("toggle_sneak");
+        toggleSneakHold = "hold".equals(l.stringSetting("toggle_sneak", "mode", "toggle"));
+        toggleSneakCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("toggle_sneak", "keybind", "NONE"));
 
         fullbrightOn = l.isOn("fullbright");
         fullbrightGamma = (float) l.numberSetting("fullbright", "gamma", 10);
+
+        fovOn = l.isOn("fov");
+        fovDegrees = (float) l.numberSetting("fov", "fov", 90);
+        fovLockSprint = l.boolSetting("fov", "lock_sprint", true);
+        fovLockBow = l.boolSetting("fov", "lock_bow", false);
+
+        overlayOn = l.isOn("overlay");
+        overlayHideFire = l.boolSetting("overlay", "hide_fire", true);
+        String bob = l.stringSetting("overlay", "view_bobbing", "vanilla");
+        // Resolved here, not per frame: `off` is the vanilla switch off, so it takes the hand
+        // with it; `minimal` takes only the camera, which is the half a boolean cannot express
+        // and the reason this setting is an enum.
+        overlayLockCameraBob = !"vanilla".equals(bob);
+        overlayLockHandBob = "off".equals(bob);
+        overlayHideOwnArmor = l.boolSetting("overlay", "hide_own_armor", false);
+        overlayHideStuckArrows = l.boolSetting("overlay", "hide_stuck_arrows", true);
+        overlayHidePumpkin = l.boolSetting("overlay", "hide_pumpkin", true);
 
         hitboxesOn = l.isOn("hitboxes");
         hitboxLineWidth = (float) l.numberSetting("hitboxes", "line_width", 2);
@@ -343,6 +507,51 @@ public final class LiveState {
                 l.stringSetting("hitboxes", "keybind", "NONE"));
         toggleSprintToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("toggle_sprint", "keybind", "NONE"));
+        // The two that ask for something rather than flipping something: same mirror, same
+        // poll, a different row. See the fields.
+        stopwatchStartCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("stopwatch", "start_key", "NONE"));
+        stopwatchResetCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("stopwatch", "reset_key", "NONE"));
+
+        freelookOn = l.isOn("freelook");
+        freelookKeyCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("freelook", "keybind", "NONE"));
+        freelookHold = "hold".equals(l.stringSetting("freelook", "mode", "hold"));
+        freelookPerspective = dev.voidpvp.client.actuator.FreeLook.perspectiveFor(
+                l.stringSetting("freelook", "perspective", "third_back"));
+        freelookSnapBack = l.boolSetting("freelook", "snap_back", true);
+
+        hitColorOn = l.isOn("hit_color");
+        // `& 0xFFFFFF`: the alpha byte of an eight-digit colour is dropped here and only here.
+        // `intensity` is the sole owner of alpha, and two owners of one alpha is
+        // `toggle_sneak`'s two owners of one latch with a different noun.
+        hitColorRgb = parseColor(l.stringSetting("hit_color", "color", "#2FB8A6"), 0xFF2FB8A6)
+                & 0xFFFFFF;
+        hitColorOwnHitsOnly = l.boolSetting("hit_color", "own_hits_only", true);
+        hitColorIntensity = (float) l.numberSetting("hit_color", "intensity", 1);
+
+        damageTintOn = l.isOn("damage_tint");
+        damageTintThreshold = (int) l.numberSetting("damage_tint", "threshold", 6);
+        damageTintStrength = (float) l.numberSetting("damage_tint", "strength", 0.6);
+        // Resolved to degrees here, not per frame in the hurt-roll path. See the field.
+        damageTintShake = dev.voidpvp.client.actuator.DamageTint.shakeDegrees(
+                damageTintOn, l.stringSetting("damage_tint", "camera_shake", "vanilla"));
+
+        oldAnimationsOn = l.isOn("old_animations");
+        // `one_seven` is the mod and the default, so the mirror is "not vanilla" — but written
+        // as an equality against the value that means the revert, not as `!"vanilla".equals(x)`.
+        // A stored value outside the enum then reads as "leave the frame alone", which is the
+        // answer that changes nothing; the inverse would read a typo as "turn the revert on".
+        oldAnimationsBlockHitOneSeven =
+                "one_seven".equals(l.stringSetting("old_animations", "block_hit", "one_seven"));
+        oldAnimationsSwingDuringDelay =
+                l.boolSetting("old_animations", "swing_during_delay", false);
+
+        oldInputOn = l.isOn("old_input");
+        oldInputUseWhileDigging = l.boolSetting("old_input", "use_while_digging", false);
+        oldInputDigWhileUsing = l.boolSetting("old_input", "dig_while_using", false);
+        oldInputNoMissDelay = l.boolSetting("old_input", "no_miss_delay", false);
 
         keystrokesOn = l.isOn("keystrokes");
         armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);

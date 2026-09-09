@@ -1,0 +1,40 @@
+{
+  "$comment": "**This mod writes `GameOptions.fov`, and that field is saved to disk.** It is the same field family as Fullbright's `gamma` and it carries the identical hazard, so read `mod/src/main/java/dev/voidpvp/client/mixin/GameOptionsMixin.java` before writing a line of the actuator. `GameOptions.save()` writes the live field into the player's own `options.txt`, and the game saves on almost any settings change and on quit. So a mod that holds `fov` at 90 does not merely override the setting for a session: it *overwrites the player's own field of view*, the next launch starts at 90 before the mod has done anything, `VoidClient` captures 90 as the value to restore, and turning the mod off restores it to 90. The mod is then permanently on with its own switch reporting off, and the player's real preference is gone with no way back except editing the file by hand. That is not a hypothetical — the mixin's own doc comment records it measured on gamma, where `options.txt` read `gamma:10.0` after a single audit run and a Fullbright-*off* frame was pixel-identical to Fullbright on. The fix is the one that already exists: add `fov` to the same two injections, swapped out for the player's value for the duration of `save()` and swapped back after. One more field in one mixin, not a second mixin, and not a `save()` suppression — the player's other options still have to reach disk.",
+  "id": "fov",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "FOV changer",
+  "icon": "eye",
+  "the": true,
+  "on_description": "the FOV override is enabled",
+  "description": "Holds your field of view still, so sprint and speed stop punching the camera.",
+  "settings_title": "FOV changer settings",
+  "settings_description": "Settings for the FOV changer gameplay mod. Overrides `GameOptions.fov` and suppresses the movement-speed multiplier vanilla applies on top of it. `docs/mod-roster.md` §3.2 #2 is explicit about the size of this: Lunar ships twenty-five options here and the useful ones number about four, so there are three below and no per-state override table. Everything the extra twenty would buy is a different constant for a state a fight does not give you time to notice. The one thing this mod must get right is not a setting at all — it is keeping the override out of `options.txt`; the `$comment` at the top of this file is the whole briefing.",
+  "source": "GameOptions.fov, with the movement-speed multiplier suppressed",
+  "enabled": false,
+  "defaults": {
+    "fov": 90,
+    "lock_sprint": true,
+    "lock_bow": false
+  },
+  "settings": {
+    "fov": {
+      "description": "Field of view held while the mod is on, in degrees. The range is exactly vanilla's own slider — 30 to 110 — and that is the whole §11 argument for classing this mod `safe`: it moves a number the game already lets the player move, where `fullbright.gamma` runs to 15 against a vanilla slider that stops at 1. 90 by default rather than vanilla's 70 because a player who turns this on is turning it on for peripheral vision in a duel, and 70 is the value they are leaving.",
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 110,
+      "default": 90
+    },
+    "lock_sprint": {
+      "description": "Whether the movement-speed FOV modifier is suppressed. This is the mod. Vanilla scales the field of view by how fast the player is moving, so sprinting, a speed potion and every knockback you take zoom the camera in the middle of a fight — a change of framing you did not ask for, at the moment framing matters most. On by default, because a player who wanted a different field of view and *not* this would have used the vanilla slider and never opened the Mods panel.",
+      "type": "boolean",
+      "default": true
+    },
+    "lock_bow": {
+      "description": "Whether the bow-pull zoom is suppressed as well. Off by default, and deliberately a second switch rather than part of `lock_sprint`: the speed modifier is noise, but the bow zoom is *feedback*. It is how far the shot is drawn, and on 1.8 it is close to the only cue the client gives for a charge that decides whether the arrow travels. On for a player who reads draw from the arm animation instead and wants the camera to stop moving at all.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

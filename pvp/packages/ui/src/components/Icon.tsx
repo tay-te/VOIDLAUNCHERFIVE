@@ -59,6 +59,11 @@ export const ICON_NAMES = [
   'cube',
   'sparkle',
   'watermark',
+  'clock',
+  'orbit',
+  'droplet',
+  'heart-pulse',
+  'tap',
 ] as const;
 
 /** One icon name. */
@@ -143,6 +148,100 @@ const PATHS: Record<IconName, string[]> = {
   // `ingame/scripts/build-icons.py`, `watermark`, draws the same reasoning at 48px; the name
   // is chosen in `schema/mods/watermark.json` now.
   watermark: ['M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M7.4 15a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2Z'],
+  // A **stopwatch**, not a wall clock, and the difference is the whole reason this glyph is
+  // three marks rather than two. A ring with two hands in it is a wall clock; at 16px the two
+  // hands fall inside one 2px band and it is a ring with a smudge in it, which is a worse
+  // `crosshair`. A stopwatch is a ring with a *crown on top of it* and one sweep hand, and the
+  // crown is the mark that carries the meaning at every size — it survives to 13px as a nub on
+  // the case where a second hand does not survive to 16.
+  //
+  // So: case, crown, hand. Three ideas, and the sweep hand sits at 1 o'clock rather than at 12
+  // so it does not read as the crown continued through the case.
+  //
+  // The case is r 7.1 rather than the 8-9 the other rings here take, because the crown has to
+  // fit above it inside the same box: case bottom to crown tip is 17.2 units, which is the
+  // height a full-size ring would have had on its own. The form comes out taller than it is
+  // wide, which is what a stopwatch is.
+  //
+  // The coordinates are shared with `ingame/scripts/build-icons.py`'s `clock` cell on purpose,
+  // so the launcher's SVG and the overlay's sprite are provably the same drawing at two stroke
+  // weights rather than two drawings that happen to share a name — the failure `toggle_sprint`
+  // shipped for months.
+  clock: [
+    'M12 20.5a7.1 7.1 0 1 0 0-14.2 7.1 7.1 0 0 0 0 14.2Z',
+    'M12 6.3V3.3',
+    'M12 13.4 14.7 8.7',
+  ],
+  // A body, its path, and a satellite sitting in the break — `freelook`, where the view moves
+  // and the player does not. Not Lucide's `orbit` (a tilted ellipse, two r-1 circles on it and
+  // a third at the centre): the ellipse was drawn and measured first and it is `eye`. A disc
+  // inside a tilted ellipse needs 3u of ground on the minor axis, which puts the ellipse at 21u
+  // across; brought inside the box instead it is an almond with a pupil, which this set already
+  // draws. A circle broken by its own satellite is the one composition `crosshair` — a closed
+  // ring with a centre dot — cannot be mistaken for.
+  //
+  // The break is derived: the satellite's ink needs the sheet's 3.0u aperture from each arc
+  // end, so the chord is 2.4 + 3.0 + 1.25 = 6.65u, which at r 7.55 is 52.3 degrees each side.
+  // The satellite rides at 45 degrees so its own radius reaches past the ring on the diagonal,
+  // where it costs the cell's box nothing. Same coordinates as
+  // `ingame/scripts/build-icons.py`'s `orbit` cell; the two discs are rings here because a
+  // 1.6 stroke still leaves them an interior, which is `eye`'s and `settings`' convention.
+  orbit: [
+    'M19.49 12.95A7.55 7.55 0 1 1 11.05 4.51',
+    'M12 14.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z',
+    'M17.34 9.06a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z',
+  ],
+  // `hit_color`'s drop of colour, and the glyph it has to survive is `flask`, which is also a
+  // small volume of liquid. The difference is structural rather than detailed: a flask is a
+  // **container** — flat lip, straight flanks, a fill line, every edge horizontal or vertical —
+  // and this is a closed curve with a point on top and nothing inside it. Rendered beside it at
+  // 16 and 13, and beside `heart`, the other closed blob here: a heart is two lobes and a notch
+  // at the top over a point at the bottom, and this is exactly that inverted.
+  //
+  // Construction is `coordinates`' teardrop turned over with the hole removed — the same
+  // geometry on purpose, so that which way the point faces and whether anything is inside are
+  // the *only* two differences between the two marks. Bowl r 5.5 about (12, 13.95), point at
+  // (12, 4.55), flanks tangent to the bowl so they leave it without a kink.
+  droplet: ['M12 4.55 16.46 10.73A5.5 5.5 0 1 1 7.54 10.73Z'],
+  // `damage_tint`: a heart over a trace with one beat in it. The heart is `heart`'s own
+  // construction scaled by 0.68 — offset, radius and apex distance together — so the two are
+  // the same heart at two sizes rather than two hearts.
+  //
+  // **The trace does not cross the heart, and that is measured.** Lucide's `heart-pulse` runs
+  // its ECG through the middle and out both sides; at the sizes this set is drawn, a trace at
+  // the heart's waist falls 0.5u under the lobes' notch — one 2px band at 16px, so the top of
+  // the heart fills in — and the wedge left between the trace and the apex is under 3u tall for
+  // every apex position that keeps the heart in the cell. A filled heart with the trace cut out
+  // as negative space was rendered too: the channel has to be 3u wide to survive the
+  // downsample, and 3u across an 18u heart cuts it into three pieces.
+  //
+  // Stacked, the two ideas stop competing for the same 11u of interior. The beat sits left of
+  // centre because under the apex its peak and the heart's point meet and the glyph is an
+  // hourglass; the closest approach to the heart's lower-left flank is 3.18u. Against `heart`
+  // at 13px the difference is the bottom third of the cell rather than a detail inside the
+  // shape, which is the test it had to pass — `saturation` and `damage_tint` share a list. And
+  // it is deliberately not a heart with a line struck through it: a line crossing a symbol edge
+  // to edge means *off* everywhere else a player has seen one.
+  'heart-pulse': [
+    'M12 14.62 7.24 8.87A2.82 2.82 0 1 1 12 8.21A2.82 2.82 0 1 1 16.76 8.87Z',
+    'M4 21 6.6 17 9.2 21H20',
+  ],
+  // A press landing on a surface: the stroke meets the line — a join, because the click has
+  // landed — with two ticks thrown off the contact.
+  //
+  // **Not a cursor and not a mouse.** The mod is about what a click does, so the vocabulary
+  // asks for `cursor-click`, which this product already draws twice: the pointer-and-sparks
+  // above, and the mouse capsule the overlay's sheet gives that same name. Both were rendered
+  // against candidates at 13px. A pointer without its sparks is `cursor-click` with a detail
+  // deleted, which is not a difference at 13px in a list row; a capsule marked differently is
+  // the sprite's `cps` silhouette, and no two mod glyphs may share one. So the drawing leaves
+  // the pointer family: a press is what a click is, and nothing else here is a vertical meeting
+  // a horizontal.
+  //
+  // The ticks are the constraint. Their inner ends clear the stem by the 3.0u aperture, which
+  // fixes them at x 6.5 and 17.5, and they run at 45 degrees for 3.1u — a mark, not noise, and
+  // diagonal so the glyph is never three parallel verticals over a bar, which is `keyboard`.
+  tap: ['M4 20.2h16', 'M12 9.6v9.8', 'M4.3 11.1 6.5 13.3', 'M19.7 11.1 17.5 13.3'],
 };
 
 /** Icons drawn as a solid shape rather than a stroke. */

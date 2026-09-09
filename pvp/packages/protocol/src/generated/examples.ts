@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 6,
+    "version": 10,
     "mods": {
       "fps": {
         "id": "fps",
@@ -242,8 +242,6 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "source": "KeyBinding override in onLivingUpdate",
         "defaults": {
           "on": true,
-          "mode": "toggle",
-          "sneak_too": false,
           "keybind": "NONE"
         }
       },
@@ -344,6 +342,314 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "dx": 23,
           "dy": 179
         }
+      },
+      "combo": {
+        "id": "combo",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Combo counter",
+        "icon": "sword",
+        "description": "Consecutive hits landed without being hit back.",
+        "source": "derived in JS from the monotonic `hits.dealt`/`hits.taken` counters on the tick payload",
+        "defaults": {
+          "on": true,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "reset_ms": 3000,
+          "show_label": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 217
+        }
+      },
+      "saturation": {
+        "id": "saturation",
+        "kind": "hud",
+        "category": "hud",
+        "hypixel_safe": "safe",
+        "label": "Saturation",
+        "icon": "heart",
+        "description": "The hidden half of the hunger bar — what actually decides whether you regenerate.",
+        "source": "`FoodStats#getSaturationLevel`, via the tick sensor",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "style": "number",
+          "decimals": 1,
+          "show_label": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 255
+        }
+      },
+      "momentum": {
+        "id": "momentum",
+        "kind": "hud",
+        "category": "hud",
+        "hypixel_safe": "safe",
+        "label": "Momentum",
+        "icon": "move",
+        "description": "How fast you are actually travelling across the ground.",
+        "source": "horizontal ground speed (`speed`) on the tick payload",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "unit": "bps",
+          "decimals": 2,
+          "show_label": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 293
+        }
+      },
+      "memory": {
+        "id": "memory",
+        "kind": "hud",
+        "category": "hud",
+        "hypixel_safe": "safe",
+        "label": "Memory",
+        "icon": "layers",
+        "description": "JVM heap in use, against the ceiling the launcher gave the game.",
+        "source": "heap in use and `Runtime.maxMemory` (`memory`), via the tick sensor",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "style": "used_of_max",
+          "show_bar": false,
+          "show_label": true
+        },
+        "default_placement": {
+          "anchor": "bottom-right",
+          "dx": -25,
+          "dy": -23
+        }
+      },
+      "server_address": {
+        "id": "server_address",
+        "kind": "hud",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Server address",
+        "icon": "wifi",
+        "description": "The host you are actually connected to.",
+        "source": "`host` on the `server` bridge event",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "style": "short"
+        },
+        "default_placement": {
+          "anchor": "bottom-right",
+          "dx": -25,
+          "dy": -61
+        }
+      },
+      "item_counter": {
+        "id": "item_counter",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Item counter",
+        "icon": "box",
+        "description": "How many of the item in your hand you have left.",
+        "source": "`held_count` on the tick payload — the stack size of the held item",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "show_label": true,
+          "low_threshold": 0
+        },
+        "default_placement": {
+          "anchor": "bottom-left",
+          "dx": 175,
+          "dy": -146
+        }
+      },
+      "stopwatch": {
+        "id": "stopwatch",
+        "kind": "hud",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Stopwatch",
+        "icon": "clock",
+        "description": "A manual timer, started and zeroed from the keyboard.",
+        "source": "no game field — the overlay's own clock, driven by the `modaction` bridge event",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "show_millis": false,
+          "format": "auto",
+          "start_key": "NONE",
+          "reset_key": "NONE"
+        },
+        "default_placement": {
+          "anchor": "bottom-right",
+          "dx": -25,
+          "dy": -99
+        }
+      },
+      "fov": {
+        "id": "fov",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "FOV changer",
+        "icon": "eye",
+        "description": "Holds your field of view still, so sprint and speed stop punching the camera.",
+        "source": "GameOptions.fov, with the movement-speed multiplier suppressed",
+        "defaults": {
+          "on": false,
+          "fov": 90,
+          "lock_sprint": true,
+          "lock_bow": false
+        }
+      },
+      "toggle_sneak": {
+        "id": "toggle_sneak",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Toggle sneak",
+        "icon": "chevron-down",
+        "description": "Latches sneak instead of holding the key.",
+        "source": "KeyBinding override in onLivingUpdate",
+        "defaults": {
+          "on": false,
+          "mode": "toggle",
+          "keybind": "NONE"
+        }
+      },
+      "overlay": {
+        "id": "overlay",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "grey",
+        "label": "Overlay",
+        "icon": "sparkle",
+        "description": "Turns off the vanilla overlays that sit between you and the fight.",
+        "source": "the first-person fire, pumpkin, own-armour and stuck-arrow render passes, plus `GameSettings.viewBobbing`",
+        "defaults": {
+          "on": false,
+          "hide_fire": true,
+          "view_bobbing": "vanilla",
+          "hide_own_armor": false,
+          "hide_stuck_arrows": true,
+          "hide_pumpkin": true
+        }
+      },
+      "freelook": {
+        "id": "freelook",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Freelook",
+        "icon": "orbit",
+        "description": "Detaches the camera from your facing, so you can look around without turning.",
+        "source": "camera yaw and pitch detached from the player's own in GameRendererMixin; key polled per frame as ZoomController's is",
+        "defaults": {
+          "on": false,
+          "keybind": "NONE",
+          "mode": "hold",
+          "perspective": "third_back",
+          "snap_back": true
+        }
+      },
+      "hit_color": {
+        "id": "hit_color",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Hit colour",
+        "icon": "droplet",
+        "description": "Recolours the red flash the game draws on an entity you hit.",
+        "source": "the entity hurt overlay applied in RenderLivingBase#setBrightness",
+        "defaults": {
+          "on": false,
+          "color": "#2FB8A6",
+          "own_hits_only": true,
+          "intensity": 1
+        }
+      },
+      "damage_tint": {
+        "id": "damage_tint",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Damage tint",
+        "icon": "heart-pulse",
+        "description": "Vignettes the screen when your health is low, and owns the vanilla hurt-camera shake.",
+        "source": "EntityLivingBase#getHealth for the vignette; EntityRenderer#hurtCameraEffect for the shake",
+        "defaults": {
+          "on": false,
+          "threshold": 6,
+          "strength": 0.6,
+          "camera_shake": "vanilla"
+        }
+      },
+      "old_animations": {
+        "id": "old_animations",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Old animations",
+        "icon": "reset",
+        "description": "Puts the 1.7 blocking animation back: the sword moves with your swing instead of freezing.",
+        "source": "HeldItemRenderer#renderArmHoldingItem and BiPedModel#setAngles",
+        "defaults": {
+          "on": false,
+          "block_hit": "one_seven",
+          "swing_during_delay": false
+        }
+      },
+      "old_input": {
+        "id": "old_input",
+        "kind": "gameplay",
+        "category": "pvp",
+        "hypixel_safe": "grey",
+        "label": "Old input",
+        "icon": "tap",
+        "description": "Removes the input interlocks 1.8 added, so a click is not swallowed by what your other hand is doing.",
+        "source": "MinecraftClient#doUse, #handleBlockBreaking and #doAttack",
+        "defaults": {
+          "on": false,
+          "use_while_digging": false,
+          "dig_while_using": false,
+          "no_miss_delay": false
+        }
       }
     }
   }
@@ -403,8 +709,7 @@ export const LOADOUT_EXAMPLES: Loadout[] = [
         "style": "full"
       },
       "toggle_sprint": {
-        "on": true,
-        "mode": "toggle"
+        "on": true
       },
       "fullbright": {
         "on": false,
@@ -1122,6 +1427,20 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   {
     "c": "setGlobal",
     "returns": "RSHIFT"
+  },
+  {
+    "e": "modaction",
+    "payload": {
+      "mod": "stopwatch",
+      "action": "start_stop"
+    }
+  },
+  {
+    "e": "modaction",
+    "payload": {
+      "mod": "stopwatch",
+      "action": "reset"
+    }
   }
 ];
 

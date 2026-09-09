@@ -1,0 +1,53 @@
+{
+  "$comment": "**This mod is Freelook and Snaplook, and that is a decision rather than an omission.** `docs/mod-roster.md` lists them as §3.2 #4 and §3.2 #9, and its own verdict on #9 is \"Build **after** freelook — it is the same camera machinery with a different input mode\", costed `S*` where the asterisk is freelook having already paid for it. That is not two mods, it is one mod and one setting: Snaplook is \"hold a key for a third-person look, release to snap back\", which is `mode: hold` plus `snap_back: true` plus `perspective: third_back` — and all three are the factory defaults, so VOID's freelook out of the box *is* Snaplook, on the key the player binds. Shipping a second registry row for a configuration of the first is `overlay`'s objection in a different corner of the roster: two mods over one input path is the grab-bag growing back. The concrete failure is worse here than there, and this repo has already found it once — `toggle_sneak`'s `$comment` removed `toggle_sprint.sneak_too` because \"two owners of one latch is a bug waiting for a player to find\". Two mods over one camera is two keybinds racing for one piece of view state, and the player who binds both gets a camera that answers to whichever actuator ran last. The split list, if this call is ever overturned: `mode` and `snap_back` move to a `snaplook` entry and `freelook` keeps `perspective` — but the camera detach itself does not split, so the second mod would be a second settings page over the first mod's Mixin, which is the thing to notice before splitting rather than after.\n\n**`perspective: free` is an orbit, and the word has to be pinned here before the actuator is written.** It means the camera rotates freely about the same pivot vanilla's third-person camera already uses — the player's own head — instead of snapping to vanilla's two fixed offsets. It does **not** mean the camera may translate away from the player. A camera that can leave the body is a freecam, a freecam is scouting, and scouting sees around walls and into rooms the player cannot reach: that is §6.1's \"chest or player radar\" under a friendlier name, and it is on the list §6.1 prefixes with \"Never, under any framing\". The distance from the pivot is vanilla's and is not a setting, deliberately — the moment it becomes one, somebody will raise it. If `free` ever stops meaning orbit, this mod does not become `grey`; it does not ship.",
+  "id": "freelook",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Freelook",
+  "icon": "orbit",
+  "the": false,
+  "on_description": "freelook is enabled",
+  "description": "Detaches the camera from your facing, so you can look around without turning.",
+  "settings_title": "Freelook settings",
+  "settings_description": "Settings for the Freelook gameplay mod, which is also Snaplook — the top of this file is the argument for that, and the settings below are the difference between them. §3.2 #4 flags the shape of the work rather than the size of it: this needs a camera detach in `GameRendererMixin` territory, not a HUD widget, so it is `kind: gameplay` and the only thing it exposes to the loadout is which key, which mode, which offset and what happens on release.\n\nThe key does not go through the bridge, and that is worth stating because the previous wave added a channel for exactly this problem and this mod is not it. `stopwatch` needed `modaction` because the key is a *verb* for a widget the **page** owns; freelook's camera is owned entirely by Java, so its key is polled the way `zoom.key` already is — `VoidClient` reads `isKeyDown` each frame and `ZoomController` eases from the level — and a round trip through the overlay would put a frame of latency inside a hold. **This wave changes no bridge channel and no protocol message.**\n\nClassified `safe`. §3.2 #4's researched verdict is \"Camera-only, allowed, universally used\", and §6.1's allowlist test is about *information*, which this adds none of: every camera position freelook can reach is one vanilla's own F5 reaches, and vanilla's front view already shows a player what is behind them while their body faces forward. What the mod adds is a continuous sweep in place of two fixed offsets, and a key that is not F5. It is worth saying why that is not `overlay`'s trade, since `overlay` shipped `grey` today: its two grey switches remove **occluders** — the fire overlay and the pumpkin blur are world pixels the game covered up, and suppressing them shows you world you could not see. Freelook covers nothing and uncovers nothing. Its nearest classified sibling is `fov.lock_sprint`, which suppresses a camera change the game imposes on you and is `safe`.",
+  "source": "camera yaw and pitch detached from the player's own in GameRendererMixin; key polled per frame as ZoomController's is",
+  "enabled": false,
+  "defaults": {
+    "keybind": "NONE",
+    "mode": "hold",
+    "perspective": "third_back",
+    "snap_back": true
+  },
+  "settings": {
+    "keybind": {
+      "description": "Key that engages freelook, captured through `void.openKeybindCapture('freelook')`. `NONE` by default, for `toggle_sneak`'s reason: a camera that detaches on a key nobody chose is a player who thinks the game broke. It is its own bind and not vanilla's F5 because F5 is a cycle through three states and this is a hold — binding a hold to a cycling key is how you end up stuck in third person in the middle of a fight.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
+    },
+    "mode": {
+      "description": "`hold` engages freelook while the key is down and ends it on release. That is Snaplook (§3.2 #9) and it is the default, because it is the behaviour a fight can afford: the camera comes back without a second decision from a player who is already making several. `toggle` latches it until the key is pressed again, for the case a hold is wrong for — crossing a bridge or running a chase while watching what is behind you, which is a length of time no thumb wants to hold a key for.",
+      "type": "string",
+      "enum": [
+        "hold",
+        "toggle"
+      ],
+      "default": "hold"
+    },
+    "perspective": {
+      "description": "Where the camera sits while freelook is engaged. `third_back` and `third_front` are vanilla's own two F5 offsets and nothing more — the same pivot, the same distance, reached by a different key. `free` is an orbit about that same pivot rather than a snap to either offset, and the top of this file pins what that word may and may not mean, because the difference between an orbit and a freecam is the difference between this mod and one VOID will not ship. `third_back` by default: it is the view players already have muscle memory for, and the one that keeps your own model out of the middle of the frame.",
+      "type": "string",
+      "enum": [
+        "third_back",
+        "third_front",
+        "free"
+      ],
+      "default": "third_back"
+    },
+    "snap_back": {
+      "description": "What happens to your facing when freelook ends. `true` restores the view to the direction your body was already pointing, so the mod is a look and never a turn — that is the \"snap back\" of Snaplook, and it is the default because a camera that quietly rotated your aim while you were watching your back is the single worst thing this mod could do in a duel. `false` keeps the direction the camera ended on and brings the body round to match, which turns freelook into an input for turning around rather than for looking around. Both are legitimate and only one of them is safe to be surprised by, which is what picks the default rather than which is more useful.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

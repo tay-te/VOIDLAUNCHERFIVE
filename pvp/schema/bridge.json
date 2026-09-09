@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The nine channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The ten channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -31,7 +31,8 @@
         "setting",
         "menu",
         "session",
-        "settings"
+        "settings",
+        "modaction"
       ]
     },
     "call_name": {
@@ -88,6 +89,10 @@
         {
           "description": "Global, non-loadout settings.",
           "$ref": "#/definitions/event_settings"
+        },
+        {
+          "description": "A key bound to one mod asked that mod to do something.",
+          "$ref": "#/definitions/event_modaction"
         }
       ]
     },
@@ -277,6 +282,27 @@
         "payload": {
           "description": "The whole global settings object.",
           "$ref": "#/definitions/settings_payload"
+        }
+      }
+    },
+    "event_modaction": {
+      "title": "modaction event",
+      "description": "Envelope for the `modaction` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `modaction`.",
+          "type": "string",
+          "const": "modaction"
+        },
+        "payload": {
+          "description": "Which mod, and what its key asked for.",
+          "$ref": "#/definitions/modaction_payload"
         }
       }
     },
@@ -672,6 +698,31 @@
       "title": "settings payload",
       "description": "The global, non-loadout settings of `protocol.json#/definitions/global_settings` \u2014 the whole object, never a delta, exactly as `msg_settings` carries it. Pushed on `pushWholeState()` (first paint, a launcher `init`, and a reloaded document per design/rendering-invariants.md \u00a79a) and again whenever Rust pushes new settings down while the game runs, e.g. the player rebound the menu key in the launcher. It is **not** pushed as an echo of the page's own `setGlobal`: that call already returned what was stored, and re-pushing it would fight the control the player is holding \u2014 the same rule \u00a76.5 sets for `setting` and `setModSetting`.",
       "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/global_settings"
+    },
+    "modaction_payload": {
+      "$comment": "**This event stops here. It is deliberately not forwarded to Rust, and `protocol.json`'s `v` is untouched by it.** The comparison to make is with `msg_hotkey`, whose `hotkey_id` stays a closed set of two globals (`loadout.next`, `overlay`). Those two are things Java has *already done* \u2014 the active loadout advanced, the menu opened \u2014 and the launcher has its own copy of that state, so its tray and its next launch would disagree with the running game if it were not told. A `modaction` is the opposite shape: it is a *request*, unfulfilled at the moment it is sent, and the thing that fulfils it is the page in the same JAR. The launcher holds no state that depends on whether a stopwatch is running, and a stopwatch that survived a relaunch is not a feature anyone asked for. Adding a third `hotkey_id` would have put a per-mod input vocabulary on a cross-process wire that has to stay compatible across launcher versions, to tell a process that has nothing to do about it.",
+      "title": "modaction payload",
+      "description": "One mod-scoped key press, dispatched by Java for the page to act on.\n\nThe existing per-mod `keybind` hotkeys can say exactly one thing \u2014 flip this mod's `on` \u2014 and they say it by pushing `setting`. Java polls them from a table in `VoidClient.toggleMod`, edging each with `input/EdgeKey` against a code mirrored into `LiveState.applyActuatorFields`. That covers every mod whose key is a switch and no mod whose key is a verb, which is why `docs/mod-roster.md` \u00a77 held Stopwatch back from the last wave: a `start_key` would have stored a key nothing acted on. This event is the second row of that table \u2014 same poll, same edge detection, same mirrored code \u2014 emitting a named action instead of writing a setting.\n\nIt is a notification and not a call: there is no return value and nothing is stored. Java has not changed any state by sending it, so a page that is not listening loses only the press. Deliver it in the frame the edge was seen; do not coalesce two presses of the same action into one, because two taps of a stopwatch's start key are a stop and a start.",
+      "type": "object",
+      "required": [
+        "mod",
+        "action"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mod": {
+          "description": "Which mod's key was pressed. The registry's own `mod_id` enum, `$ref`'d exactly as `setting_payload.id` refs it \u2014 the mod set is written down once, in `mods.json`, and a restated list here is a list that goes stale the next time a mod is added.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+        },
+        "action": {
+          "$comment": "**A pattern, not a closed enum, and that is a decision rather than laziness.** The three closed sets nearby are closed because a consumer must handle them exhaustively: both shims build their channel map from `event_name`, so an undeclared channel is dropped in silence, and `void-core`'s `sync::pump` switches on `hotkey_id` to move the launcher's own pointer. Neither applies here. A `modaction` is dispatched by `mod` first, and the widget that owns that mod is the only code that reads the action \u2014 so an action nobody implements is a no-op inside one widget, not a lost channel. The two halves that must agree, the Java that edges the key and the widget that acts on it, ship in the same JAR as one binary, which is the same reason every payload on this surface is `additionalProperties: false`. And the vocabulary has no registry to derive from the way `mod_id` does: a closed enum here would be a fourth place a per-mod input is written down, after the mod's own settings prose, the Java table and the widget. Today it would be a closed set of two, invented for one mod. Revisit when three or four mods share a vocabulary \u2014 closing it then costs one enum and buys real exhaustiveness; closing it now buys a typo check on a string the same author writes on both sides.",
+          "description": "What the key asked for: a short snake_case verb naming the *request*, never the key that made it. `start_stop`, not `bound_key`; `reset`, not `key_r`. Java knows which key is bound and the page must not care \u2014 a page that branched on key names would break the moment a player rebound one, and the same action can reach it from a keybind today and from a menu button tomorrow. The vocabulary is per mod and lives in that mod's own settings prose, which is where the Java wave and the page wave both read it: `stopwatch.start_key` names `start_stop` and `stopwatch.reset_key` names `reset`, and those two are the whole set today. An action the page does not recognise is ignored, not an error.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
     },
     "call": {
       "title": "Call",
@@ -1743,6 +1794,20 @@
     {
       "c": "setGlobal",
       "returns": "RSHIFT"
+    },
+    {
+      "e": "modaction",
+      "payload": {
+        "mod": "stopwatch",
+        "action": "start_stop"
+      }
+    },
+    {
+      "e": "modaction",
+      "payload": {
+        "mod": "stopwatch",
+        "action": "reset"
+      }
     }
   ]
 }

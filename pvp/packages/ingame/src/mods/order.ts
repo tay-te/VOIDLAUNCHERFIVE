@@ -24,20 +24,56 @@ import { FAKE_MOD_ORDER } from '@/dev/fake-mods';
  */
 export const MOD_ORDER: ModId[] = [
   'fps',
+  // Beside FPS because they are the same question asked twice — is this machine keeping up.
+  // `docs/mod-roster.md` §3.1 lists Memory as "trivial and expected next to an FPS chip".
+  'memory',
   'keystrokes',
   'cps',
+  // Beside CPS: one counts the hand, the other counts what the hand landed, and a player
+  // reading one is reading the other in the same glance.
+  'combo',
   'toggle_sprint',
+  // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
+  'toggle_sneak',
+  // The two that change how a swing feels, beside the two that change how it starts. Adjacent
+  // and deliberately separate: one is animation and `safe`, the other is input and `grey`, and a
+  // player should be able to take the first without paying the badge for the second.
+  'old_animations',
+  'old_input',
   'crosshair',
   'zoom',
+  // Beside Zoom: both are the camera's own angle, one held and one fixed.
+  'fov',
+  // And beside those two: the third thing a player does to the camera, which is to stop it
+  // being aimed by their body.
+  'freelook',
   'fullbright',
+  // Beside Fullbright, the other mod whose subject is what the game stops you seeing.
+  'overlay',
   'hitboxes',
+  // Beside Hitboxes, the other mod whose subject is reading a fight off the entity in front of
+  // you rather than off the HUD.
+  'hit_color',
+  'damage_tint',
   'armor_status',
+  // The survival block: what you are wearing, what is keeping you alive, what is in your hand.
+  // Saturation sits inside it because in 1.8 saturation *is* regen, and vanilla never draws it.
+  'saturation',
   'potion_effects',
+  'item_counter',
   'ping',
+  // Beside Ping, the other half of "what am I connected to". They share the `wifi` glyph for
+  // the same reason Coordinates and Direction share `compass`.
+  'server_address',
+  // Closes the session block — the readouts about this sitting rather than about the fight.
+  'stopwatch',
   'coordinates',
   // Beside Coordinates, which is the mod a player confuses it with — the two are next to each
   // other so the difference (a position, versus a facing) is visible rather than argued.
   'direction',
+  // Closes the movement block. Coordinates says where, Direction says which way, Momentum says
+  // how fast — the three readouts a bridging or knockback player reads together.
+  'momentum',
   // Last, and newest. The mark is not a readout, so it does not belong among the four that end
   // the order; putting it after them is also the honest reading of a mod added after the grid
   // was designed.

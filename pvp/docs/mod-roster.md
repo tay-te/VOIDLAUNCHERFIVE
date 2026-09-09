@@ -308,16 +308,103 @@ which is the real answer to "they have 98 and we have 13."
 `crates/void-loadout/src/mods.rs` from `schema/mods.json` the way `@void/protocol` already
 generates its TypeScript. Do this *before* adding twenty mods, not after.
 
-**Wave 1 — the four that change how the client feels.** Old animations · FOV changer ·
+**Wave 1 — the four that change how the client feels.** ~~Old animations ·~~ FOV changer ·
 Toggle sneak promoted · the overlay grab-bag (view bobbing, fire overlay, own armour,
 arrows).
 
-**Wave 2 — the cheap HUD sweep, one PR.** Combo · Saturation · Item counter · Potion
-counter · Momentum · Server address · Memory · Stopwatch · Direction split out. Nine mods,
+> **Three of four done, 2026-09-09.** `fov`, `toggle_sneak` and `overlay` shipped with their
+> actuators and mixins; `stopwatch` came with them, on a new `modaction` bridge event that gives
+> a per-mod keybind a way to reach the page. Every injection point was established by
+> disassembling the real 1.8.9 methods out of Loom's named jar and confirmed by reading the
+> remapped classes back out of the built JAR — a target the mapping does not know is left as the
+> yarn string, so that is proof the members exist rather than proof the code compiles.
+>
+> **Old animations was declared and then withdrawn**, and the reason is worth keeping because it
+> is not "we ran out of time". The 1.8.9 side is establishable; the **1.7** side is not, from
+> this repo — there is no 1.7.10 source or mapping here or in the Gradle cache, and all four
+> settings are defined as "what 1.7 did". Two of the four default to `one_seven`, so shipping
+> the schema without the mixins is a mod that reports on and changes nothing, which is the
+> failure `text_shadow` was removed for on the day it landed. **What it needs is a 1.7.10
+> mapping**, not more time.
+>
+> Two findings from the attempt, both worth more than the mod would have been this week:
+>
+> · **`use_while_digging` is ready and provable.** `MinecraftClient.doUse()` opens with
+>   `if (this.interactionManager.isBreakingBlock()) return;` at offsets 0–10. That is exactly
+>   the 1.8 guard the setting names, so one `@Redirect` on that call is the whole feature. It
+>   was not shipped alone because one live switch among three inert ones is the same "looks
+>   broken" failure at a smaller scale.
+>
+> · **`always_swing`'s premise is wrong for 1.8.9, and the schema said it confidently.** The
+>   draft description read "1.8 swings only when the click reaches a block or an entity, so a
+>   miss in 1.8 is invisible". `MinecraftClient.doAttack()` calls `player.swingHand()` at offset
+>   12 — *before* the hit result is examined — and reaches it on `MISS` too. The real 1.8
+>   behaviour is the `attackCooldown = 10` set on a miss, which suppresses the next ~10 ticks of
+>   clicks. Whatever this setting should do, it is not what was written. Settle that before
+>   anyone writes the mixin.
+>
+> The same bytecode read found a **shipped** bug one mod over: `MinecraftClientMixin`'s
+> `void$onAttack` fed `hits.dealt` from that same unconditional path, so the combo counter was
+> counting clicks rather than landed hits — a second CPS counter with a different window. Fixed
+> separately; recorded here because it was found by disassembling a method for a different mod,
+> which is an argument for doing that rather than trusting a doc comment.
+
+**Wave 2 — the cheap HUD sweep, one PR.** ~~Combo · Saturation · Item counter · Potion
+counter · Momentum · Server address · Memory · Stopwatch · Direction split out.~~ Nine mods,
 all S, all the same shape. This is where a generated registry pays for itself.
 
-**Wave 3 — the medium PvP set.** Reach display · Freelook (then Snaplook) · Hit color ·
-Damage tint · Hurt cam · Scoreboard.
+> **Done, 2026-09-09 — seven of the nine.** Direction shipped earlier as the fourteenth mod;
+> Combo, Saturation, Momentum, Memory, Server address and Item counter landed together, taking
+> the registry to twenty. The prediction held: no new sensor (the five readings were already on
+> the wire), no hand-written Java or Rust, and the per-mod cost was the schema entry, a widget,
+> an art module and a row in three shared tables.
+>
+> **Two are still out, and neither is cheap the way this wave was.**
+>
+> · ~~**Stopwatch** needs an input path.~~ **Shipped 2026-09-09 with Wave 4.** The diagnosis
+>   held and the fix was the second of the two options: not a third `hotkey_id` but a per-mod
+>   key the game dispatches, as a new `modaction` bridge event carrying `{mod, action}`. It
+>   deliberately did *not* become a protocol change — `hotkey_id` stays a closed set of two,
+>   because those two are things Java has already done and the launcher must follow, where a
+>   `modaction` is a request the page in the same JAR fulfils and Rust has no state riding on
+>   it. `stopwatch.start_key` and `reset_key` are its first and only callers.
+>
+> · **Potion counter** needs an inventory sensor. `held_count` sees the hand and nothing else,
+>   which is why `item_counter` counts the held stack and says so rather than implying Lunar's
+>   inventory-wide mod. A `counts` field keyed by item id would serve both it and a proper item
+>   counter, and it is the one sensor addition the rest of §3.1 keeps asking for.
+
+**Wave 3 — the medium PvP set.** Reach display · ~~Freelook (then Snaplook)~~ · ~~Hit color~~ ·
+~~Damage tint~~ · ~~Hurt cam~~ · Scoreboard.
+
+> **Four of six done, 2026-09-09**, as three mods rather than four. Two of this row's entries
+> were folded into their neighbours rather than shipped beside them:
+>
+> · **Snaplook is `freelook`'s factory defaults.** `mode: hold` + `snap_back: true` +
+>   `perspective: third_back` *is* Snaplook, and this row already said it was "the same camera
+>   machinery with a different input mode". Two mods over one piece of view state is two
+>   keybinds racing for it — the concrete failure this repo already found when `toggle_sneak`
+>   took sneak off `toggle_sprint`, where two owners of one latch was the whole bug.
+> · **Hurt cam is `damage_tint.camera_shake`.** These two genuinely share no render path, so the
+>   argument is §9's per-mod tax rather than machinery: split, Hurt cam is a registry row, a
+>   settings page, a thumbnail, a preview, a Rust struct, a Java descriptor, an undrawn glyph and
+>   a `MOD_ORDER` slot, for one three-valued enum. The cost is recorded beside the call:
+>   `hypixel_safe` is per mod, so if `camera_shake` is ever reclassified the vignette loses the
+>   badge with it, and that is the split condition.
+>
+> All three are classed `safe`, and `hit_color` is the one that had to be *earned* rather than
+> asserted. A raw strength slider whose top end makes a hit readable that vanilla left ambiguous
+> is not "purely aesthetic" on §6.1's own account, and it would have been the second `grey` mod
+> in two waves. So the number was defined instead of defended: **`intensity` is a fraction of
+> vanilla's own hurt-overlay alpha**, 1 being exactly what the game already draws. The mod cannot
+> make a landed hit more visible than Minecraft made it — only differently coloured, or less.
+> That is `fov`'s move ("the range is exactly vanilla's own slider") applied to a different
+> number, and it is the shape to reach for when a setting's *range* is what decides its class.
+>
+> **Reach display and Scoreboard are still open**, and Reach is now cheaper than this row
+> assumed: the combo-counter fix built the landed-attack classification it needs
+> (`sensor/HitTally`, ENTITY ∧ alive ∧ attackable ∧ not spectating), so the honest "compute only
+> from a landed attack, never predict" constraint in §6.1 already has somewhere to live.
 
 **Wave 4 — the differentiator.** Fight review · click analytics · W-tap trainer ·
 connection quality · surface the input-latency number we already compute.

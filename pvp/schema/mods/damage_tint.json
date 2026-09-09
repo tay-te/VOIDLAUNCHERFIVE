@@ -1,0 +1,47 @@
+{
+  "$comment": "**This mod is Damage tint and Hurt cam control** — §3.2 #7 and §3.2 #8 of `docs/mod-roster.md`, which lists them as separate rows and costs both `S`. They ship as one entry, and the argument is the per-mod tax rather than shared machinery: unlike `freelook` and Snaplook these two genuinely do not share a render path — a health-driven vignette and `EntityRenderer#hurtCameraEffect` are different code in different passes. What they share is the question, which is what the client should do to your screen while you are taking damage. Split, `hurt_cam` is a registry row, a settings page, a thumbnail, a preview, a Rust settings struct, a Java descriptor block, a glyph nobody has drawn and a `MOD_ORDER` slot, all to carry one three-valued enum; §9 costs that tax explicitly and `build.mjs` removed nine of its twenty-five steps but not steps 2 and 4, which are the hand-written ones. §3.3 #1's instruction for the last bundle was to ship the ones that matter as one VOID mod and stop.\n\nThe honest cost is the one `overlay` wrote down: `hypixel_safe` is per **mod**. The vignette is the least arguable thing in this wave and `camera_shake` is the only part with an argument at all, so if `camera_shake` is ever reclassified the vignette loses the HYPIXEL-READY badge with it. **That is the split condition, and this is the split list: `camera_shake` is what moves.** It is not the condition today, and the next paragraph is why.\n\n**Classified `safe`, and `camera_shake` is the half that needed checking rather than assuming.** `overlay` shipped `grey` today and it would be easy to read this as the same shape: vanilla rolls the camera by up to fourteen degrees when you are hit, and turning that off removes a cost the game imposed. But that is not the test `overlay` actually applied. Its two grey switches remove **occluders** — the fire overlay and the pumpkin blur are world pixels the game covered up, and suppressing them shows you world you could not see; §3.3 #1's own words are \"Fire overlay alone decides fights\", and it decides them by hiding the other player. A camera roll hides nothing. It is the same frame, rotated, and every pixel in it was already yours. The precedent for that shape is in this wave already and it is `safe`: `fov.lock_sprint` suppresses a camera change the game imposes on you for sprinting and for **every knockback you take**, which is the same event and the same complaint, and it shipped `safe` two files ago. `camera_shake` is `lock_sprint`'s sibling, not `hide_fire`'s. The vignette is not near the line at all — your own health is already on your own HUD, and drawing it a second time in the periphery adds no information, it moves the information to where your eyes are.\n\n**No heartbeat audio, and §3.2 #7 does mention one.** Three reasons, in increasing order of how load-bearing they are. It would be the first sound VOID ships and this repo has no audio asset pipeline — §3.4 #4 defers kill sounds for exactly that, which is the roster's own statement that audio is a project rather than a setting. It would also be a cue the game does not make, where everything else here re-presents something already on screen. And it could not be previewed: `test/preview.test.tsx` walks every setting of every mod and asserts the drawing changed, so a sound would land in `NOT_IN_THE_PREVIEW` on the day it shipped, and a settings control that does nothing visible on the settings page is the `text_shadow` failure moved into a different medium.\n\n**Why `kind: gameplay` when it draws.** The same reason as `crosshair` and `hitboxes`: `kind` splits on whether the mod owns a draggable HUD item, not on whether pixels appear, and `_shared.json`'s gameplay block says so. A full-viewport vignette has nowhere to be placed. It belongs in the game's own overlay pass beside the crosshair and **not** as an element in the Ultralight page: a full-viewport node whose alpha follows health would dirty the whole view on every health tick, and `design/rendering-invariants.md` §5 measures a forced full repaint at 22 ms against 0.5 ms. It is one alpha gradient and not a post-process, which is the entire difference between this and the motion blur §3.3 refuses on the same budget — worth saying, because \"vignette\" and \"full-screen effect\" sound like the same cost and are two orders of magnitude apart.",
+  "id": "damage_tint",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Damage tint",
+  "icon": "heart-pulse",
+  "the": false,
+  "on_description": "the low-health vignette and the hurt-camera control are enabled",
+  "description": "Vignettes the screen when your health is low, and owns the vanilla hurt-camera shake.",
+  "settings_title": "Damage tint settings",
+  "settings_description": "Settings for the Damage tint gameplay mod, which is also Hurt cam control — the top of this file argues that bundle and names what would split it. §3.2 #7's case for the vignette is one sentence and it is the right one: \"I did not notice I was at 3 hearts\" is a real way to lose. The hearts are already on screen; what they are not is in your peripheral vision while you are reading somebody else's, and a vignette is the cheapest way to put a number you already have where your eyes already are.\n\nThree settings and no fourth. There is no colour here, deliberately: a low-health vignette that is not red is a low-health vignette a player has to learn, and this is the one cue in the wave that has to work the first time it fires. `hit_color` is the mod that owns a colour, and it defaults away from red partly so that this one can keep it — the two most decision-shaped cues on a 1.8 screen should not be the same hue, and that trade is made once, here, rather than left to whichever settings page a player opens second.",
+  "source": "EntityLivingBase#getHealth for the vignette; EntityRenderer#hurtCameraEffect for the shake",
+  "enabled": false,
+  "defaults": {
+    "threshold": 6,
+    "strength": 0.6,
+    "camera_shake": "vanilla"
+  },
+  "settings": {
+    "threshold": {
+      "description": "Health at or below which the vignette draws, in half-hearts on vanilla's own 0-20 scale — so 6 is three hearts and 20 is \"always on\". 6 by default because §3.2 #7's whole case for this mod is that sentence about three hearts, and three hearts is where a 1.8 fight stops being about landing damage and starts being about whether you can still disengage. Compared against `getHealth()`, which is a float rather than an integer, so the boundary is inclusive and a player regenerating past it crosses out of the vignette at exactly the value they set rather than half a heart later.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 6
+    },
+    "strength": {
+      "description": "Peak alpha of the vignette, reached at zero health. 0.6 by default: enough to be unmissable at the edge of vision, and not enough to cost you the corners of the screen at the moment you most need them, which is what drawing this at 1 does. The vignette ramps from nothing at `threshold` to this value at zero rather than switching on flat, and that is a design decision worth stating because the two numbers alone do not imply it — a mark that pops on at one value is a mark you stop seeing after an hour, and the slide from three hearts to dead is exactly the interval this should be describing. A player who wants the alarm rather than the gradient sets a low `threshold` instead; the ramp then has nowhere to run and it is a pop.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.6
+    },
+    "camera_shake": {
+      "description": "What happens to vanilla's hurt-camera roll — up to fourteen degrees about the view axis, oriented by `attackedAtYaw`, which is to say by the direction the hit came from. `vanilla` is unchanged and is the default, deliberately and against the grain of what most players think they want: the roll is a handicap on your aim, but it is also close to the only thing 1.8.9's client tells you about *where* you were hit from, and a player who deletes it from a settings page without knowing that has traded a cue for a fraction of a degree of accuracy. `reduced` keeps the direction and takes most of the amplitude, which is what that player usually meant. `off` removes it entirely. Removing it is not `overlay`'s grey trade and the top of this file is the argument for why — a rotated frame hides nothing, where the fire overlay hid the other player.",
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "reduced",
+        "off"
+      ],
+      "default": "vanilla"
+    }
+  }
+}

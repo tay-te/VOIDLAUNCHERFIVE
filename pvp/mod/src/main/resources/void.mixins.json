@@ -5,15 +5,25 @@
   "compatibilityLevel": "JAVA_8",
   "mixins": [],
   "client": [
+    "AbstractArrowEntityAccessor",
+    "AbstractClientPlayerEntityMixin",
+    "ArmorFeatureRendererMixin",
+    "BaseArrowEntityRendererMixin",
+    "BiPedModelMixin",
+    "EntityMixin",
     "EntityRenderDispatcherMixin",
     "GameOptionsMixin",
     "GameRendererMixin",
+    "HeldItemRendererMixin",
     "InGameHudMixin",
     "KeyBindingMixin",
+    "LivingEntityInvoker",
+    "LivingEntityRendererMixin",
     "MinecraftClientAccessor",
     "MinecraftClientInvoker",
     "MinecraftClientMixin",
-    "ScreenMixin"
+    "ScreenMixin",
+    "StuckArrowsFeatureRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

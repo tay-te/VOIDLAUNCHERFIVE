@@ -61,6 +61,26 @@ const ORDER = [
   'watermark', 'toggle_sprint', 'fullbright', 'hitboxes', 'zoom', 'crosshair',
   // Wave 2 (docs/mod-roster.md §7). Appended, never inserted.
   'direction',
+  // Wave 3 — six more HUD readouts, every one fed by a `tick_payload` field that already
+  // existed. Appended, never inserted, for the same reason as `direction`.
+  'combo', 'saturation', 'momentum', 'memory', 'server_address', 'item_counter',
+  // Wave 4 — the four §3.2/§3.3 gameplay mods that change how the client *feels*, plus the one
+  // HUD readout Wave 3 could not ship because no key could reach it (`bridge.json`'s
+  // `modaction` is what opened that path). Appended, never inserted. Note that the "HUD first,
+  // then gameplay" reading of the header stopped describing this list at `direction`: the two
+  // narrowed enums are *filters* over this order, not slices of it, so a wave appends in
+  // whatever order its mods were decided and neither enum notices.
+  'stopwatch', 'fov', 'toggle_sneak', 'overlay',
+  // Wave 5 — three `kind: gameplay` PvP mods, two of which are two roster rows each: `freelook`
+  // absorbs Snaplook (§3.2 #9) and `damage_tint` absorbs Hurt cam control (§3.2 #8). Each mod's
+  // own `$comment` argues its bundle and names what would split it. Appended, never inserted.
+  'freelook', 'hit_color', 'damage_tint',
+  // Wave 6 — the two mods the withdrawn `old_animations` turned into once its four settings were
+  // read out of real 1.7.10 bytecode instead of guessed at. They are two and not one because the
+  // animation half sends nothing and the input half changes what leaves the client, and
+  // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
+  // its own half. Appended, never inserted.
+  'old_animations', 'old_input',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

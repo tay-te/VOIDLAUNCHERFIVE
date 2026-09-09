@@ -21,9 +21,28 @@ export function settingLabel(key: string): string {
     hide_ambient: 'Hide ambient',
     show_durability: 'Show durability',
     show_held_item: 'Show held item',
+    // The schema key is `hide_own_armor`, American, while every label this client draws says
+    // "armour" — `armor_status`'s own rows, and this setting's own description ("your own
+    // armour"). The `_`-to-space fallback would put "Hide own armor" directly beside "Show
+    // armour" on the same panel. Fixed here rather than by renaming the schema key: the key is
+    // already in the shipped registry defaults, so renaming it now would orphan every loadout
+    // carrying it and would need a `REMOVED_SETTINGS` row, which is a migration to pay for a
+    // spelling. Worth doing if the key is ever touched for another reason.
+    hide_own_armor: 'Hide own armour',
+    hide_fire: 'Hide fire overlay',
+    hide_stuck_arrows: 'Hide stuck arrows',
+    hide_pumpkin: 'Hide pumpkin blur',
+    view_bobbing: 'View bobbing',
+    lock_sprint: 'Lock while sprinting',
+    lock_bow: 'Lock while drawing a bow',
+    always_swing: 'Always swing',
+    use_while_digging: 'Use item while digging',
+    block_hit: 'Block hit',
+    show_millis: 'Show hundredths',
+    start_key: 'Start / stop key',
+    reset_key: 'Reset key',
     show_direction: 'Show direction',
     show_eye_line: 'Show eye line',
-    sneak_too: 'Sneak too',
     window_ms: 'Window',
     good_ms: 'Good under',
     bad_ms: 'Bad over',

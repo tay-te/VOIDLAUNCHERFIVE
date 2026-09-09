@@ -1,0 +1,41 @@
+{
+  "$comment": "There is no `hide_empty` setting. The sensor already distinguishes an empty hand from a stack of zero — `bridge.json`'s `held_count` is *absent* rather than `0`, and `store.ts` keeps that as `heldCount: null` — so the widget draws nothing on an empty hand, unconditionally. That is behaviour, not a preference: a counter with nothing to count is noise, `design/quiet-cell-system.md` draws the customisation line at position, scale, opacity, density, what is shown and format, and \"the widget is not there\" is none of them. It is also untestable as a setting — `packages/ingame/test/preview.test.tsx` walks every setting of every mod and asserts the drawing changed, and a switch whose entire content is absence has no preview to move, so it would need a `NOT_IN_THE_PREVIEW` exemption from a list whose own doc comment calls it the one place that gate can quietly erode. `combo` and `server_address` carry the same note. Do not re-add it.",
+  "id": "item_counter",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Item counter",
+  "icon": "box",
+  "the": true,
+  "noun": "the count chip",
+  "on_description": "the item counter is enabled",
+  "description": "How many of the item in your hand you have left.",
+  "settings_title": "Item counter settings",
+  "settings_description": "Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.\n\nBe clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers \"how many blocks are left\" while you are bridging with them and \"how many gapples\" while you are holding one; it does not answer \"how many pearls do I have\" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.\n\nThe stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.",
+  "source": "`held_count` on the tick payload — the stack size of the held item",
+  "enabled": false,
+  "default_placement": {
+    "note": "Above the CPS chip, in the hand-and-clicks corner, and in the **175 column rather than the 31 one**. The bottom-left corner has two columns because Keystrokes at `dx 31` is a *tall* widget: a WASD block with a mouse row and a space bar under it is over a hundred design-canvas pixels of column, so 31 is spoken for far above its own `dy -109`, and anything stacked there lands on the caps. 175 is the column that already answers the same question this mod does — CPS at `dy -108` is how fast the hand is going, and the held stack directly above it at -146 is what the hand is going *through*. The 38 px gap is this table's rhythm.",
+    "anchor": "bottom-left",
+    "dx": 175,
+    "dy": -146
+  },
+  "defaults": {
+    "show_label": true,
+    "low_threshold": 0
+  },
+  "settings": {
+    "show_label": {
+      "description": "Whether the count is prefixed with the multiplication sign — `x12` rather than `12`. On by default: the chip sits next to a CPS figure and above a keystrokes block, so a bare integer in that corner is a number among numbers, and the `x` is the cheapest thing that says it is a quantity of something rather than a rate.",
+      "type": "boolean",
+      "default": true
+    },
+    "low_threshold": {
+      "description": "A count at or below this many draws in the warn treatment instead of the normal ink. **0 disables the warning entirely, and 0 is the default**, because what counts as low depends completely on what is in the hand: eight is nearly out of blocks and a generous stash of pearls, and a client that guessed one number would be wrong for every player who does not build the way it assumed. So VOID does not guess — a player who knows what they are counting sets it, and everybody else gets a chip that never cries wolf. The ceiling is 64: a full stack, above which the warning would be permanently on.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64,
+      "default": 0
+    }
+  }
+}

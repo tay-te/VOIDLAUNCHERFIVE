@@ -109,7 +109,7 @@ const JAVA_NOTES = {
   'coordinates.decimals':
     'The "tick sensor" the description names is `sensor/TickCoalescer` on this side; that is the class to change if 2 dp ever stops being enough.',
   toggle_sprint:
-    '`show_status` used to be here and is gone. A sprint indicator is still wanted, but as its own placeable HUD mod: a gameplay mod has no `hud[]` entry, so anything this drew would have been the only fixed, un-movable thing on the HUD — the one property the HUD editor exists to remove. Promoting this mod to `Kind.HUD` for one boolean is a structural change deserving its own decision, and `Kind` and `Category` are already independent, so the machinery supports it.',
+    '`sneak_too` used to be here and is gone too, and this one has a Java tail: `LiveState.toggleSprintSneakToo` and its reader in `VoidClient` still exist, still compile and now always read `false`, because `Loadout.boolSetting` takes a default rather than failing on a key the registry dropped. Delete both — sneak is `toggle_sneak` now, with its own bind. A stored loadout that still carries the key is handled on the Rust side by `REMOVED_SETTINGS` in `void-loadout`\'s `store.rs`, not here: Gson is lenient, so this side never noticed either way.\n\n`show_status` used to be here and is gone. A sprint indicator is still wanted, but as its own placeable HUD mod: a gameplay mod has no `hud[]` entry, so anything this drew would have been the only fixed, un-movable thing on the HUD — the one property the HUD editor exists to remove. Promoting this mod to `Kind.HUD` for one boolean is a structural change deserving its own decision, and `Kind` and `Category` are already independent, so the machinery supports it.',
   watermark:
     "The only HUD mod with no game field behind it — every other widget reads something (fps, ping, the armour slots) and this one is drawn from nothing but its own settings. Java's whole job for it is that the id exists, that its settings clamp and that its HUD placement round-trips; the overlay page draws it.",
 };
@@ -182,7 +182,13 @@ function descriptorOf(modId, key, node, factory) {
   if (p.type === 'string' && typeof p.pattern === 'string') {
     if (p.pattern === DEFS.hex_color.pattern) return `color(${str(factory)})`;
     if (p.pattern === DEFS.keybind.pattern) return `keybind(${str(factory)})`;
-    throw new Error(`${where}: string pattern is neither hex_color's nor keybind's — teach descriptorOf about it`);
+    // `hex_color_rgb` — a colour narrowed to six digits because another setting owns the alpha.
+    // Its own Java type rather than reusing `COLOR`: this generator's whole job is that the
+    // clamp and the schema cannot disagree, and `ModRegistryTest` proves it by probing `clamp`
+    // with values taken from the sub-schema. A wider clamp here would be a value Java stores
+    // and `void-loadout` then refuses to parse — the exact bug that test was written for.
+    if (p.pattern === DEFS.hex_color_rgb.pattern) return `colorRgb(${str(factory)})`;
+    throw new Error(`${where}: string pattern is none this generator knows — teach descriptorOf about it`);
   }
   throw new Error(`${where}: no ModRegistry.Type for ${JSON.stringify(p.type)}`);
 }
@@ -503,7 +509,7 @@ public final class ModRegistry {
      * {@code mods.json#/definitions/hex_color} and {@code #/definitions/keybind} — not by the
      * property's name, which is {@code keybind} on one mod and {@code key} on another.</p>
      */
-    private enum Type { BOOL, INT, NUMBER, ENUM, COLOR, KEYBIND }
+    private enum Type { BOOL, INT, NUMBER, ENUM, COLOR, COLOR_RGB, KEYBIND }
 
     private static final class Setting {
         final Type type;
@@ -554,6 +560,9 @@ public final class ModRegistry {
 
     private static final Pattern COLOR = Pattern.compile("^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
 
+    /** {@code hex_color_rgb} — six digits, for a setting whose alpha another one owns. */
+    private static final Pattern COLOR_RGB = Pattern.compile("^#(?:[0-9a-fA-F]{6})$");
+
     private static Setting bool(boolean def) {
         return new Setting(Type.BOOL, 0, 0, null, new JsonPrimitive(Boolean.valueOf(def)));
     }
@@ -573,6 +582,10 @@ public final class ModRegistry {
 
     private static Setting color(String def) {
         return new Setting(Type.COLOR, 0, 0, null, new JsonPrimitive(def));
+    }
+
+    private static Setting colorRgb(String def) {
+        return new Setting(Type.COLOR_RGB, 0, 0, null, new JsonPrimitive(def));
     }
 
     private static Setting keybind(String def) {
@@ -737,6 +750,15 @@ ${data}
                 return null;
             case COLOR:
                 if (p.isString() && COLOR.matcher(p.getAsString()).matches()) {
+                    return p;
+                }
+                return null;
+            case COLOR_RGB:
+                // Rejected rather than truncated to six digits. A clamp that quietly rewrote the
+                // value would hide the disagreement from the player *and* from the bridge, which
+                // reports what was actually stored; refusing it makes the setting keep its last
+                // good value, which is what every other rejected clamp here does.
+                if (p.isString() && COLOR_RGB.matcher(p.getAsString()).matches()) {
                     return p;
                 }
                 return null;
