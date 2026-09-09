@@ -175,6 +175,20 @@ const FPS_WINDOW = 120;
 const fpsSamples: number[] = [];
 
 /**
+ * Ping samples, for the jitter reading — `docs/mod-roster.md` §8's third gap, by name.
+ *
+ * Derived here for the same reason the 1% low and CPS are: the wire carries the *reading*, and
+ * a statistic over readings is a policy over them. `bridge.json` sends `ping` unrate-limited
+ * because it moves slowly, so a sample is one tick and thirty of them is a second and a half —
+ * which is the span a player means by "is my connection steady right now", not "was it steady
+ * this session". A longer window would average out the burst that is the whole complaint.
+ *
+ * Sized in samples like `fpsSamples`, and reset by `resetDerivedState()` for the same reason.
+ */
+const PING_WINDOW = 30;
+const pingSamples: number[] = [];
+
+/**
  * The last `hits` pair seen, or null before the first one.
  *
  * Module-level like `fpsSamples`, and reset by `resetDerivedState()` for the same reason: it is
@@ -267,11 +281,39 @@ function onePercentLow(): number {
   return sorted[Math.floor(sorted.length * 0.01)] ?? 0;
 }
 
+/**
+ * Ping jitter: the mean absolute change between consecutive readings, in ms.
+ *
+ * **Consecutive differences, not a standard deviation about the mean**, and the difference
+ * between those two is the whole reason this number is worth drawing. A connection that sits at
+ * 30 ms for a second and then at 90 for a second has a large deviation and feels fine; one that
+ * alternates 30, 90, 30, 90 has the same deviation and is unplayable. What a player feels is the
+ * *step*, so the step is what this measures — which is also how RFC 3550 defines interarrival
+ * jitter, for the same reason.
+ *
+ * Zero until there are enough samples to mean anything. Zero is also a legitimate reading (a
+ * perfectly flat link reports 0), and the widget does not need to tell the two apart: on a link
+ * with no readings at all the ping itself is `-1` and the chip is already drawing an em-dash.
+ *
+ * Rounded to a whole millisecond because that is the resolution of the input — `responseTime` is
+ * an integer — and a jitter figure with a decimal on it would be claiming precision the sensor
+ * does not have.
+ */
+function pingJitter(): number {
+  if (pingSamples.length < 4) return 0;
+  let total = 0;
+  for (let i = 1; i < pingSamples.length; i += 1) {
+    total += Math.abs(pingSamples[i]! - pingSamples[i - 1]!);
+  }
+  return Math.round(total / (pingSamples.length - 1));
+}
+
 /** Reset the derived rings. Tests call this between cases. */
 export function resetDerivedState(): void {
   rings.left = createClickRing();
   rings.right = createClickRing();
   fpsSamples.length = 0;
+  pingSamples.length = 0;
   lastHits = null;
 }
 
@@ -292,6 +334,14 @@ export interface VoidState {
   fps: number;
   /** 1st-percentile FPS over the last ~30 s. 0 until enough samples exist. */
   fpsLow: number;
+  /**
+   * Mean absolute change between consecutive ping readings, in ms — the `ping.show_jitter` aside.
+   *
+   * A steadiness reading rather than a second latency one: 40 ms of ping that never moves plays
+   * better than 25 that swings, and the figure the chip already draws cannot say which you have.
+   * 0 until there are enough samples, and 0 is also what a flat link reports.
+   */
+  pingJitter: number;
   ping: number;
   pos: Position | null;
   armor: ArmorSlot[];
@@ -422,6 +472,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   fps: 0,
   fpsLow: 0,
   ping: -1,
+  pingJitter: 0,
   pos: null,
   armor: [],
   fx: [],
@@ -536,6 +587,14 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       fpsSamples.push(tick.fps);
       if (fpsSamples.length > FPS_WINDOW) fpsSamples.splice(0, fpsSamples.length - FPS_WINDOW);
     }
+    // Above the menu guard, like the FPS samples and for the same reason: sampling is what keeps
+    // the statistic honest, and a window with the menu's worth of readings missing from it would
+    // report a calm link for as long as it took to scroll out. `-1` is "no server", not a
+    // reading, and averaging it in would make disconnecting look like the worst jitter there is.
+    if (tick.ping !== undefined && tick.ping >= 0) {
+      pingSamples.push(tick.ping);
+      if (pingSamples.length > PING_WINDOW) pingSamples.splice(0, pingSamples.length - PING_WINDOW);
+    }
 
     // Hold the live readouts while the menu covers them.
     //
@@ -562,6 +621,14 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     }
 
     if (tick.ping !== undefined && tick.ping !== prev.ping) patch.ping = tick.ping;
+    // Recomputed on the ticks the reading moved, not on every tick: the window is 30 samples, so
+    // one new reading moves the mean by at most a thirtieth and a figure that changes when the
+    // ping did not is a chip repainting for nothing — which on this surface is a full-panel
+    // damage rectangle (see the guard above).
+    if (patch.ping !== undefined) {
+      const jitter = pingJitter();
+      if (jitter !== prev.pingJitter) patch.pingJitter = jitter;
+    }
     // Compare by value, never by identity. The bridge builds a fresh object every tick, so
     // assigning it unconditionally published a change 20 times a second while standing still —
     // and every one of those repainted the whole menu panel at ~50 ms. Measured: three

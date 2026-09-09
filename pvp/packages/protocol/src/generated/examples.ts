@@ -119,7 +119,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_label": true,
           "good_ms": 60,
           "bad_ms": 150,
-          "show_host": true
+          "show_host": true,
+          "show_jitter": false
         },
         "default_placement": {
           "anchor": "top-left",

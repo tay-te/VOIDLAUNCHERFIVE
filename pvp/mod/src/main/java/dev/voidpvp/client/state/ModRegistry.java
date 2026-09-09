@@ -300,7 +300,28 @@ public final class ModRegistry {
                 // Whether the shortened server name is drawn after the figure. A player who only
                 // ever plays one server is being told something they already know, on the chip
                 // they look at most often.
-                "show_host", bool(true));
+                "show_host", bool(true),
+                // Whether the mean change between consecutive readings is drawn as a trailing
+                // aside — `· ± 8 ms`. Derived in JS from the `ping` field over a ~1.5 s window,
+                // the way `fps.show_low` and the whole CPS counter are; the wire carries
+                // readings, and a statistic over readings is a policy over them (`bridge.json`,
+                // `hits`, makes the same argument about the combo). **It is the reading the
+                // figure beside it cannot give.** 40 ms that never moves plays better than 25
+                // that swings, and a single latency number says nothing about which you have —
+                // which is why "my ping says 30 and it feels awful" is a complaint every client
+                // gets and none of them answer. `docs/mod-roster.md` §8 names ping jitter as one
+                // of three items in its third gap: depth on mods that already exist, which never
+                // shows up on a feature-count comparison and is what a returning player notices
+                // in the first ten minutes. The statistic is the mean absolute *step*, not a
+                // standard deviation about the mean, and the distinction is the point rather than
+                // a detail: a link that sits at 30 for a second and then at 90 has a large
+                // deviation and feels fine, while one alternating 30, 90, 30, 90 has the same
+                // deviation and is unplayable. What a player feels is the step. RFC 3550 defines
+                // interarrival jitter the same way for the same reason. Off by default. The
+                // figure is the reading and this is the gloss on it; a chip that ships with both
+                // has decided for you, which is the argument `memory.show_bar` and
+                // `hit_trade.show_bar` already make.
+                "show_jitter", bool(false));
 
         // Coordinates — kind hud, hud tab, §11 safe.
         // Player position and facing direction.

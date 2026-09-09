@@ -99,14 +99,30 @@ export const HudFps = memo(function HudFps({ variant, sample }: HudWidgetProps) 
 
 /* ------------------------------------------------------------------- ping */
 
+/**
+ * The jitter a preview stands on when the page was opened outside a match.
+ *
+ * 8 ms against the fixture's own pings is a link a player would call fine but not perfect,
+ * which is the band where the reading is worth having at all: at 0 the aside is a row of
+ * zeroes that makes the setting look like it does nothing, and at 60 it is an outage. It is
+ * also large enough to be legible beside a two-digit ping without being mistaken for one.
+ */
+const SAMPLE_JITTER_MS = 8;
+
 export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.ping);
   const liveHost = useVoidStore((s) => s.server.host);
+  const liveJitter = useVoidStore((s) => s.pingJitter);
   const showHost = useVoidStore((s) => modSettings(s.loadout, 'ping').show_host !== false);
   const good = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').good_ms ?? 60));
   const bad = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').bad_ms ?? 150));
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'ping').show_label !== false);
+  const showJitter = useVoidStore((s) => modSettings(s.loadout, 'ping').show_jitter === true);
   const host = liveHost ?? (sample ? 'mc.hypixel.net' : null);
+  // A measured 0 is a fact — a perfectly flat link — so the fixture only stands in where there
+  // is nothing measured at all, which off a server is every reading. Live always wins, as it
+  // does for the host beside it.
+  const jitter = liveJitter > 0 ? liveJitter : sample ? SAMPLE_JITTER_MS : liveJitter;
   const chip = (value: number, key?: number) => (
     <PingChip
       key={key}
@@ -115,6 +131,7 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
       goodMs={good}
       badMs={bad}
       showLabel={showLabel}
+      jitterMs={showJitter ? jitter : undefined}
       host={showHost && host ? shortHost(host) : undefined}
     />
   );

@@ -38,6 +38,7 @@ export function settingLabel(key: string): string {
     always_swing: 'Always swing',
     use_while_digging: 'Use item while digging',
     block_hit: 'Block hit',
+    show_jitter: 'Show jitter',
     show_millis: 'Show hundredths',
     start_key: 'Start / stop key',
     reset_key: 'Reset key',
@@ -216,6 +217,7 @@ export const SETTING_HINTS: Record<string, string> = {
   'ping.good_ms': 'At or under this, the figure reads good',
   'ping.bad_ms': 'At or over this, the figure reads bad',
   'ping.show_host': 'The server name after the figure',
+  'ping.show_jitter': 'How much the ping is moving, as ± ms',
 
   'potion_effects.show_duration': 'Time left beside each effect',
   'potion_effects.show_amplifier': 'The roman numeral after the name',

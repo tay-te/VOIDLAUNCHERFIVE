@@ -1215,6 +1215,27 @@ pub struct PingSettings {
     /// most often.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_host: Option<bool>,
+
+    /// Whether the mean change between consecutive readings is drawn as a trailing aside — `· ±
+    /// 8 ms`. Derived in JS from the `ping` field over a ~1.5 s window, the way `fps.show_low`
+    /// and the whole CPS counter are; the wire carries readings, and a statistic over readings
+    /// is a policy over them (`bridge.json`, `hits`, makes the same argument about the combo).
+    /// **It is the reading the figure beside it cannot give.** 40 ms that never moves plays
+    /// better than 25 that swings, and a single latency number says nothing about which you
+    /// have — which is why "my ping says 30 and it feels awful" is a complaint every client
+    /// gets and none of them answer. `docs/mod-roster.md` §8 names ping jitter as one of three
+    /// items in its third gap: depth on mods that already exist, which never shows up on a
+    /// feature-count comparison and is what a returning player notices in the first ten
+    /// minutes. The statistic is the mean absolute *step*, not a standard deviation about the
+    /// mean, and the distinction is the point rather than a detail: a link that sits at 30 for
+    /// a second and then at 90 has a large deviation and feels fine, while one alternating 30,
+    /// 90, 30, 90 has the same deviation and is unplayable. What a player feels is the step.
+    /// RFC 3550 defines interarrival jitter the same way for the same reason. Off by default.
+    /// The figure is the reading and this is the gloss on it; a chip that ships with both has
+    /// decided for you, which is the argument `memory.show_bar` and `hit_trade.show_bar`
+    /// already make.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_jitter: Option<bool>,
 }
 
 /// Coordinates settings.

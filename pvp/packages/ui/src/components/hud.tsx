@@ -138,15 +138,26 @@ export interface PingChipProps extends HudChipProps {
   badMs?: number;
   /** Whether to draw the trailing `ms` unit. */
   showLabel?: boolean;
+  /**
+   * Mean change between consecutive readings, in ms — drawn as `· ± 8 ms` after the host.
+   *
+   * `undefined` is "not asked for"; a number is drawn even when it is 0, because 0 is the best
+   * possible reading and hiding it would make a perfectly steady link look like a broken
+   * setting. The distinction {@link FpsChip} draws between `onePercentLow` absent and zero is
+   * the same one, arrived at from the other side: an unmeasured 1% low is 0, and a measured
+   * jitter of 0 is a fact.
+   */
+  jitterMs?: number;
 }
 
-/** `● 42 ms  Hypixel`, with the dot coloured by the mod's good/bad thresholds. */
+/** `● 42 ms  Hypixel  · ± 8 ms`, with the dot coloured by the mod's good/bad thresholds. */
 export function PingChip({
   ping,
   host,
   goodMs = 60,
   badMs = 150,
   showLabel = true,
+  jitterMs,
   variant = 'compact',
   dimmed = false,
   className,
@@ -168,6 +179,13 @@ export function PingChip({
         {showLabel && !unknown ? <span className="v-hudchip__unit">&nbsp;ms</span> : null}
       </span>
       {host ? <span className="v-hudchip__unit">{host}</span> : null}
+      {/* The aside tier, which is `FpsChip`'s `1% low` — a second reading that qualifies the
+          first, set below it rather than beside it. `±` because the figure is a spread and not
+          a latency: `8 ms` after `42 ms` would read as two pings. Suppressed with the ping
+          itself, since a spread over no readings is not a number. */}
+      {jitterMs === undefined || unknown ? null : (
+        <span className="v-hudchip__aside">·&nbsp;&nbsp;± {jitterMs} ms</span>
+      )}
     </div>
   );
 }
