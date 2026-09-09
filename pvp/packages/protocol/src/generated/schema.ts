@@ -783,6 +783,10 @@ export type HitColourEntry = RegistryEntry & {
   defaults?: HitColourSettings;
 };
 /**
+ * sRGB colour as #RRGGBB, with no alpha byte. The narrow half of `hex_color`, for a mod where something else owns the transparency: `hit_color.intensity` is defined as a fraction of vanilla's own hurt-overlay alpha, and a second way to set alpha would be two owners of one value — the shape `toggle_sneak` was split out of `toggle_sprint` to remove. A separate definition rather than a `pattern` written beside `$ref: hex_color`, because draft-07 ignores keywords sitting next to a `$ref`: that spelling validates nothing while reading as though it does. Both generators resolve string types by definition name, so a named definition is also the only shape they can be taught.
+ */
+export type ColourOpaque = string;
+/**
  * Registry entry for Damage tint, narrowed to its constant classification.
  */
 export type DamageTintEntry = RegistryEntry & {
@@ -1887,7 +1891,7 @@ export interface FreelookSettings {
  */
 export interface HitColourSettings {
   on: Enabled;
-  color?: Colour;
+  color?: ColourOpaque;
   /**
    * Whether the recolour applies only to entities you damaged, or to every entity the game tints. On by default, because the mod is hit *confirmation* and a confirmation that also fires when two other players hit each other across the arena is not one — you would be reading somebody else's fight in your own colour, in your peripheral vision, during yours. Off is for spectating and for the team modes where knowing a teammate connected is worth the noise. It is not what makes this mod `safe`, and the top of this file says why in as many words: a setting everybody believes is load-bearing is a setting nobody dares change.
    */
@@ -1928,6 +1932,8 @@ export interface OldAnimationsSettings {
   on: Enabled;
   /**
    * Which version's blocking animation is drawn. `one_seven` is the mod and is the default: while you are holding right-click with a sword, your swing still moves the sword. 1.8.9 discards it — `renderArmHoldingItem`'s BLOCK branch calls `applyEquipAndSwingOffset(equip, 0.0F)`, hard-coding the swing progress to zero — so a 1.8 block-hit is a frozen arm with a hit landing somewhere behind it, and that stationary sword is the thing 1.7 players say the client "feels wrong" for. The fix is that one argument: pass the live `getHandSwingProgress(tickDelta)` instead of `0.0F`. **Do not also call `translateSwingProgress`** — 1.7 skipped that translate while an item was in use exactly as 1.8.9 does, so adding it back overshoots 1.7 rather than restoring it. `one_seven` also drops the −30° right-arm yaw (`rightArm.posY = -0.5235988f`) that 1.8 added to the blocking pose in `BiPedModel.setAngles`, which is how *other* players' blocking looks on your screen — your own body is drawn by their client, so nothing about how you appear to anyone else changes. That third-person half is folded in here rather than given a switch of its own on purpose: it is the same revert in the other render path, no player wants 1.7 blocking in their hands and 1.8 blocking on the model in front of them, and a boolean whose entire visible effect is a 30° arm rotation on an entity would have to be drawn in `test/preview.test.tsx` or exempted from it. If it is ever split, this sentence is the split list. `vanilla` leaves both alone and is what a player picks to compare.
+   *
+   * One interaction worth knowing, because neither mod's page can show it: with `old_input.use_while_digging` off — its factory state — 1.8.9's `doUse` guard discards every right click made while you are mining, so you cannot *raise* the sword mid-break at all, and this setting has nothing to draw for that click. The two mods are separate on purpose (one is animation and `safe`, the other is input and `grey`), which is exactly why the dependency has to be written down rather than inferred from sitting next to each other in the grid.
    */
   block_hit?: 'vanilla' | 'one_seven';
   /**

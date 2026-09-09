@@ -173,21 +173,34 @@ class LiveStateTest {
     }
 
     @Test
-    @DisplayName("hit_color: intensity owns alpha and an alpha byte in colour is dropped")
+    @DisplayName("hit_color: intensity owns alpha, and an alpha byte is refused rather than fixed")
     void hitColourAlphaHasOneOwner() {
         assertFalse(state.hitColorOn);
         assertEquals(0x2FB8A6, state.hitColorRgb, "six digits, and deliberately not red");
         assertTrue(state.hitColorOwnHitsOnly);
         assertEquals(1f, state.hitColorIntensity, 1e-6);
 
-        // `#/definitions/hex_color` accepts eight digits, so a player can store one. The hue
-        // survives; the alpha byte does not reach the mirror at all.
-        assertEquals(new JsonPrimitive("#2FB8A600"),
-                state.setModSetting("hit_color", "color", new JsonPrimitive("#2FB8A600")));
-        assertEquals(0x2FB8A6, state.hitColorRgb,
-                "a colour ending in 00 must not silently mean 'draw nothing'");
-        assertEquals(0x2FB8A6, state.hitColorRgb & 0xFFFFFF);
-        assertEquals(0, state.hitColorRgb & 0xFF000000, "no alpha reaches the renderer from here");
+        // This setting `$ref`s `hex_color_rgb`, not the shared `hex_color`, so eight digits are
+        // **refused at the clamp** and the last good value stands. It used to be accepted and
+        // masked, which was the wrong half of the contract to enforce: `void-loadout`'s
+        // `HexColorRgb` rejects an alpha byte on deserialization, so a stored one is fatal at
+        // load whatever Java does with it — masking here would only have hidden the
+        // disagreement from the player and from the bridge, which reports what was stored.
+        // The write is refused, and `bridge.json` says what that looks like: Java is
+        // authoritative for live state and a call returns *the value actually applied*, so a
+        // rejected colour echoes the one still in force rather than null. Null is reserved for a
+        // setting that does not exist — which is what `toggle_sprint.sneak_too` returns below.
+        assertEquals(new JsonPrimitive("#2FB8A6"),
+                state.setModSetting("hit_color", "color", new JsonPrimitive("#2FB8A600")),
+                "an alpha byte belongs to intensity, and a refused write echoes the old colour");
+        assertEquals(0x2FB8A6, state.hitColorRgb, "the refused write left the colour alone");
+
+        // A six-digit change is stored normally, so the refusal above is about the alpha and not
+        // about the setting being read-only.
+        assertEquals(new JsonPrimitive("#FF8A3D"),
+                state.setModSetting("hit_color", "color", new JsonPrimitive("#FF8A3D")));
+        assertEquals(0xFF8A3D, state.hitColorRgb);
+        assertEquals(0, state.hitColorRgb & 0xFF000000, "no alpha reaches the renderer");
 
         assertEquals(new JsonPrimitive(Double.valueOf(1.0)),
                 state.setModSetting("hit_color", "intensity", new JsonPrimitive(4.0)),

@@ -21,7 +21,8 @@
   "settings": {
     "color": {
       "description": "Colour the hurt overlay is drawn in. `#2FB8A6` by default, and deliberately not vanilla's red, for two reasons that are both about the rest of the screen. A mod that turns on and changes nothing looks broken — that is the argument that withdrew `old_animations` from the last wave — and a default of `#FF0000` would be exactly that mod. More to the point, red is the worst available choice on a 1.8 map: it is the nether, it is lava, it is red wool and red leather in Bedwars, and as of this same wave it is the low-health vignette `damage_tint` draws at the edge of the same frame. The two most decision-shaped cues on screen should not be the same hue. Teal is far from all of them and is a colour the product already owns (`--teal` in `packages/ui/src/tokens.css`), so the default is a choice somebody already defended rather than a new hex. Six digits and not eight: the alpha byte belongs to `intensity`, and if one is written here it is dropped — see the top of this file. Expect players who live in one mode to retune this, which is why it is a colour and not a switch.",
-      "$ref": "#/definitions/hex_color",
+      "$comment": "`$ref: hex_color_rgb`, the six-digit definition, rather than the shared `hex_color`. `intensity` is the sole owner of alpha on this mod — it is a fraction of vanilla's own hurt-overlay strength, which is what keeps the mod `safe` rather than `grey` — so a byte stored here would be a second owner of one value. Every consumer already dropped it; this is the contract agreeing with them rather than relying on them, and it gives Rust a validating newtype that rejects it on load.",
+      "$ref": "#/definitions/hex_color_rgb",
       "default": "#2FB8A6"
     },
     "own_hits_only": {

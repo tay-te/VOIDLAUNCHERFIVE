@@ -109,9 +109,31 @@ export function playedTime(ms: number): string {
   return `${hours}h ${String(rest).padStart(2, '0')}m`;
 }
 
-/** `mc.hypixel.net` reads as `Hypixel` in the frames. */
+/**
+ * `mc.hypixel.net` reads as `Hypixel` in the frames — the second-to-last label, capitalised.
+ *
+ * **An address that is not a name is returned whole.** The rule above is about domains: it takes
+ * the label before the public suffix, which is the word a player calls the server. An IPv4
+ * literal has no such label, and running one through the rule picks a digit group out of the
+ * middle — `192.168.1.20` drew `1` on the HUD, and `127.0.0.1` drew `0`.
+ *
+ * That shipped, and it took a mod to make it visible: `ping.show_host` had carried it quietly,
+ * and `server_address` — whose `style` defaults to `short` — put it on its own chip, where a
+ * one-character server name is obviously wrong rather than merely odd. `server_address`'s schema
+ * already tells a player on a direct IP to choose `full`; that was advice written around a bug,
+ * and the default should not be the broken one.
+ *
+ * A port is stripped either way: it belongs to the connection, not to the name, and the sensor
+ * documents `host` as being sent without one — this is defence against a host that sends it
+ * anyway, not a second feature.
+ */
 export function shortHost(host: string): string {
-  const parts = host.split('.').filter(Boolean);
-  const core = parts.length >= 2 ? parts[parts.length - 2]! : (parts[0] ?? host);
+  const bare = host.replace(/:\d+$/, '');
+  const parts = bare.split('.').filter(Boolean);
+  // Four all-numeric labels is an IPv4 literal. Tested before the domain rule because every
+  // label of one is also a legal label, so the domain rule would happily shorten it.
+  const isIpv4 = parts.length === 4 && parts.every((p) => /^\d{1,3}$/.test(p));
+  if (isIpv4) return bare;
+  const core = parts.length >= 2 ? parts[parts.length - 2]! : (parts[0] ?? bare);
   return core.charAt(0).toUpperCase() + core.slice(1);
 }

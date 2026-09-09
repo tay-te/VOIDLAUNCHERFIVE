@@ -168,6 +168,19 @@ export interface DiagramProps {
  * eight 12px cells read as a texture and seven 14px cells read as a scale, which is the whole
  * job. 7 x 14 + 6 x 3 = 116.
  */
+/**
+ * A `#RRGGBB[AA]` colour with any alpha byte removed.
+ *
+ * `mods.json`'s shared `hex_color` accepts both lengths because `crosshair.color` genuinely ships
+ * the eight-digit form. `hit_color` does not: its `intensity` is the sole owner of alpha, defined
+ * as a fraction of vanilla's own hurt-overlay strength, and that ownership is what keeps the mod
+ * `safe` rather than `grey`. Two owners of one value is the shape `toggle_sneak` was split out of
+ * `toggle_sprint` to remove.
+ */
+export function rgbOnly(color: string): string {
+  return /^#[0-9a-fA-F]{8}$/.test(color) ? color.slice(0, 7) : color;
+}
+
 function steps(dense: boolean): number {
   return dense ? 7 : 12;
 }
@@ -1106,7 +1119,16 @@ export function HitColorPreview({ dense = false, className }: DiagramProps = {})
   const alpha = VANILLA_FLASH * intensity;
   // §1, "where the accent rule stops": the page shows the ink because the ink is the setting;
   // the tile is chrome and stays grey, like the hitbox tile and the crosshair tile.
-  const ink = !dense && typeof settings.color === 'string' ? settings.color : 'var(--text-primary)';
+  //
+  // `rgbOnly` is not tidying. `intensity` owns the alpha, and the actuator drops any byte stored
+  // in `color` for that reason — so a preview that honoured one would draw a flash the game will
+  // not, on the page whose whole job is showing what the game will do. The schema now narrows
+  // this setting to six digits, which closes it at the contract; this closes it for a loadout
+  // written before that, or edited by hand.
+  const ink =
+    !dense && typeof settings.color === 'string'
+      ? rgbOnly(settings.color)
+      : 'var(--text-primary)';
   const ownOnly = settings.own_hits_only !== false;
   // The far figure's flash is the game's own until you tell the mod to take it over.
   const farInk = ownOnly ? 'var(--text-primary)' : ink;

@@ -68,7 +68,7 @@ public final class ModRegistry {
      * {@code mods.json#/definitions/hex_color} and {@code #/definitions/keybind} — not by the
      * property's name, which is {@code keybind} on one mod and {@code key} on another.</p>
      */
-    private enum Type { BOOL, INT, NUMBER, ENUM, COLOR, KEYBIND }
+    private enum Type { BOOL, INT, NUMBER, ENUM, COLOR, COLOR_RGB, KEYBIND }
 
     private static final class Setting {
         final Type type;
@@ -119,6 +119,9 @@ public final class ModRegistry {
 
     private static final Pattern COLOR = Pattern.compile("^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
 
+    /** {@code hex_color_rgb} — six digits, for a setting whose alpha another one owns. */
+    private static final Pattern COLOR_RGB = Pattern.compile("^#(?:[0-9a-fA-F]{6})$");
+
     private static Setting bool(boolean def) {
         return new Setting(Type.BOOL, 0, 0, null, new JsonPrimitive(Boolean.valueOf(def)));
     }
@@ -138,6 +141,10 @@ public final class ModRegistry {
 
     private static Setting color(String def) {
         return new Setting(Type.COLOR, 0, 0, null, new JsonPrimitive(def));
+    }
+
+    private static Setting colorRgb(String def) {
+        return new Setting(Type.COLOR_RGB, 0, 0, null, new JsonPrimitive(def));
     }
 
     private static Setting keybind(String def) {
@@ -955,8 +962,8 @@ public final class ModRegistry {
                 // and not eight: the alpha byte belongs to `intensity`, and if one is written
                 // here it is dropped — see the top of this file. Expect players who live in one
                 // mode to retune this, which is why it is a colour and not a switch.
-                // Type: mods.json#/definitions/hex_color.
-                "color", color("#2FB8A6"),
+                // Type: mods.json#/definitions/hex_color_rgb.
+                "color", colorRgb("#2FB8A6"),
                 // Whether the recolour applies only to entities you damaged, or to every entity
                 // the game tints. On by default, because the mod is hit *confirmation* and a
                 // confirmation that also fires when two other players hit each other across the
@@ -1046,7 +1053,14 @@ public final class ModRegistry {
                 // boolean whose entire visible effect is a 30° arm rotation on an entity would
                 // have to be drawn in `test/preview.test.tsx` or exempted from it. If it is ever
                 // split, this sentence is the split list. `vanilla` leaves both alone and is what
-                // a player picks to compare.
+                // a player picks to compare. One interaction worth knowing, because neither mod's
+                // page can show it: with `old_input.use_while_digging` off — its factory state —
+                // 1.8.9's `doUse` guard discards every right click made while you are mining, so
+                // you cannot *raise* the sword mid-break at all, and this setting has nothing to
+                // draw for that click. The two mods are separate on purpose (one is animation and
+                // `safe`, the other is input and `grey`), which is exactly why the dependency has
+                // to be written down rather than inferred from sitting next to each other in the
+                // grid.
                 "block_hit", enumOf("one_seven", "vanilla", "one_seven"),
                 // Whether your arm still swings during the half-second of dead time 1.8 imposes
                 // after a click that hit nothing. **Read the second half of this before assuming
@@ -1336,6 +1350,15 @@ public final class ModRegistry {
                 return null;
             case COLOR:
                 if (p.isString() && COLOR.matcher(p.getAsString()).matches()) {
+                    return p;
+                }
+                return null;
+            case COLOR_RGB:
+                // Rejected rather than truncated to six digits. A clamp that quietly rewrote the
+                // value would hide the disagreement from the player *and* from the bridge, which
+                // reports what was actually stored; refusing it makes the setting keep its last
+                // good value, which is what every other rejected clamp here does.
+                if (p.isString() && COLOR_RGB.matcher(p.getAsString()).matches()) {
                     return p;
                 }
                 return null;

@@ -54,7 +54,7 @@ pub mod store;
 
 pub use error::Error;
 pub use diff::{apply_patch, diff, diff_split, Change, Diff, StatePatch};
-pub use keybind::{HexColor, Keybind};
+pub use keybind::{HexColor, HexColorRgb, Keybind};
 pub use loadout::{
     hypixel_ready, Anchor, HudItem, HudLayout, Loadout, LoadoutId, LoadoutStats, LoadoutSummary,
     ModStates, DEFAULT_MC,

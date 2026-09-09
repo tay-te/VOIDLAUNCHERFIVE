@@ -198,6 +198,8 @@ class ModRegistryTest {
                 .getAsJsonObject("hex_color").get("pattern").getAsString();
         String keybindPattern = schema.getAsJsonObject("definitions")
                 .getAsJsonObject("keybind").get("pattern").getAsString();
+        String rgbPattern = schema.getAsJsonObject("definitions")
+                .getAsJsonObject("hex_color_rgb").get("pattern").getAsString();
 
         int checked = 0;
         for (Map.Entry<String, JsonElement> me : registry().entrySet()) {
@@ -259,6 +261,18 @@ class ModRegistryTest {
                                 where + " rejects a #RRGGBBAA colour");
                         assertNull(ModRegistry.clamp(id, key, new JsonPrimitive("red")),
                                 where + " accepts a non-colour");
+                    } else if (rgbPattern.equals(pattern)) {
+                        // The narrow colour: six digits accepted, eight refused. `hit_color` is
+                        // the first, because `intensity` owns alpha there and two owners of one
+                        // value is the bug the separate definition removes. Refused rather than
+                        // truncated — a clamp that rewrote the value would hide the disagreement
+                        // from the player and from the bridge, which reports what was stored.
+                        assertNotNull(ModRegistry.clamp(id, key, new JsonPrimitive("#0a1B2c")),
+                                where + " rejects a #RRGGBB colour");
+                        assertNull(ModRegistry.clamp(id, key, new JsonPrimitive("#0A1B2C3D")),
+                                where + " accepts an alpha byte another setting owns");
+                        assertNull(ModRegistry.clamp(id, key, new JsonPrimitive("red")),
+                                where + " accepts a non-colour");
                     } else if (keybindPattern.equals(pattern)) {
                         JsonElement got = ModRegistry.clamp(id, key, new JsonPrimitive("rshift"));
                         assertNotNull(got, where + " rejects a valid key name");
@@ -267,8 +281,8 @@ class ModRegistryTest {
                         assertNull(ModRegistry.clamp(id, key, new JsonPrimitive("NOT_A_KEY")),
                                 where + " accepts a key name that does not exist");
                     } else {
-                        assertTrue(false, where + ": string pattern is neither hex_color's nor "
-                                + "keybind's — ModRegistry.Type has no arm for it");
+                        assertTrue(false, where + ": string pattern is none this test knows "
+                                + "— ModRegistry.Type has no arm for it");
                     }
                 } else {
                     assertTrue(false, where + ": no ModRegistry.Type covers " + p);

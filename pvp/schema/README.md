@@ -152,6 +152,47 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
+### 2026-09-09 (later) — `hex_color_rgb`, and narrowing is migration-shaped
+
+`mods.json` registry `version` unchanged; `protocol.json` `v` unchanged.
+
+**`hit_color.color` moves from `$ref: hex_color` to a new `$ref: hex_color_rgb`.** Its own
+description already promised six digits and said the alpha byte belongs to `intensity` — which is
+defined as a fraction of vanilla's own hurt-overlay alpha, and is the ceiling that classifies the
+mod `safe` rather than `grey`. The promise was not enforced anywhere: `hex_color` accepts
+`#RRGGBBAA` because `crosshair.color` genuinely ships it, and **draft-07 ignores keywords sitting
+beside a `$ref`**, so writing a `pattern` next to one validates nothing while reading as though it
+does. Two owners of one value is the shape `toggle_sneak` was split out of `toggle_sprint` to
+remove, and it had a visible symptom: the mod page would have drawn a flash the game does not.
+
+A separate definition rather than an inline pattern, because both generators resolve a string
+type **by definition name** — `NEWTYPE_REFS` in `gen-rust-mods.mjs` and `descriptorOf` in
+`gen-java-registry.mjs`. An inline pattern is a hard error in both, by design, and the error text
+says to teach them. A named definition is the shape they can be taught.
+
+It cost four edits and every one of them was refused by a gate first, which is the system working:
+
+- `gen-java-registry.mjs` refused an unknown pattern, so `Type.COLOR_RGB` exists with its own
+  clamp. It **refuses** an alpha byte rather than truncating it — a clamp that rewrote the value
+  would hide the disagreement from the player and from the bridge, which reports what was stored.
+- `ModRegistryTest`'s clamp-parity test then refused the mismatch between that clamp and the
+  sub-schema, which is exactly what it was written for.
+- `gen-rust-mods.mjs` refused a `$ref` with no newtype, so `HexColorRgb` is a real validating
+  newtype in `keybind.rs` — and the generated file's `use` line is now derived from
+  `NEWTYPE_REFS` instead of naming two types by hand, because the hand-written pair went stale the
+  moment a third arrived.
+- `LiveStateTest` asserted Java *masked* the byte; it now asserts the refusal, and that the refused
+  write echoes the colour still in force. Null is reserved for a setting that does not exist —
+  `bridge.json` says a call returns the value actually applied.
+
+**Narrowing an accepted value set is the same shape of change as removing a setting**, and it is
+worth saying so next to `REMOVED_SETTINGS`: `HexColorRgb` rejects an eight-digit value on
+deserialization, so a stored loadout carrying one would fail `Store::load`, and `Store::list`
+collects a `Result` — one such file would take the whole library down. This was safe **only**
+because `hit_color` has never been released, exactly as `old_animations` was safe to withdraw. A
+narrowing to a setting that has shipped needs a migration, and `REMOVED_SETTINGS` as it stands
+cannot express one — it drops a key, it does not repair a value.
+
 ### 2026-09-09 (last) — `old_animations` comes back from the bytecode, as two mods and one fewer setting
 
 `mods.json` registry `version` `9 → 10`; **`protocol.json` and `bridge.json` untouched.** Twenty-nine

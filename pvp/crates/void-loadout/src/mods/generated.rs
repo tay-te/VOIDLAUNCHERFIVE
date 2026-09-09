@@ -17,7 +17,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::keybind::{HexColor, Keybind};
+use crate::keybind::{HexColor, HexColorRgb, Keybind};
 use crate::loadout::Anchor;
 use crate::Error;
 
@@ -821,7 +821,13 @@ pub enum DamageTintCameraShake {
 /// their hands and 1.8 blocking on the model in front of them, and a boolean whose entire
 /// visible effect is a 30° arm rotation on an entity would have to be drawn in
 /// `test/preview.test.tsx` or exempted from it. If it is ever split, this sentence is the split
-/// list. `vanilla` leaves both alone and is what a player picks to compare.
+/// list. `vanilla` leaves both alone and is what a player picks to compare. One interaction
+/// worth knowing, because neither mod's page can show it: with `old_input.use_while_digging`
+/// off — its factory state — 1.8.9's `doUse` guard discards every right click made while you
+/// are mining, so you cannot *raise* the sword mid-break at all, and this setting has nothing
+/// to draw for that click. The two mods are separate on purpose (one is animation and `safe`,
+/// the other is input and `grey`), which is exactly why the dependency has to be written down
+/// rather than inferred from sitting next to each other in the grid.
 ///
 /// `mods.json#/definitions/old_animations_settings/properties/block_hit`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -2311,7 +2317,7 @@ pub struct HitColorSettings {
     /// and if one is written here it is dropped — see the top of this file. Expect players who
     /// live in one mode to retune this, which is why it is a colour and not a switch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<HexColor>,
+    pub color: Option<HexColorRgb>,
 
     /// Whether the recolour applies only to entities you damaged, or to every entity the game
     /// tints. On by default, because the mod is hit *confirmation* and a confirmation that also
@@ -2437,7 +2443,13 @@ pub struct OldAnimationsSettings {
     /// of them, and a boolean whose entire visible effect is a 30° arm rotation on an entity
     /// would have to be drawn in `test/preview.test.tsx` or exempted from it. If it is ever
     /// split, this sentence is the split list. `vanilla` leaves both alone and is what a player
-    /// picks to compare.
+    /// picks to compare. One interaction worth knowing, because neither mod's page can show it:
+    /// with `old_input.use_while_digging` off — its factory state — 1.8.9's `doUse` guard
+    /// discards every right click made while you are mining, so you cannot *raise* the sword
+    /// mid-break at all, and this setting has nothing to draw for that click. The two mods are
+    /// separate on purpose (one is animation and `safe`, the other is input and `grey`), which
+    /// is exactly why the dependency has to be written down rather than inferred from sitting
+    /// next to each other in the grid.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub block_hit: Option<OldAnimationsBlockHit>,
 

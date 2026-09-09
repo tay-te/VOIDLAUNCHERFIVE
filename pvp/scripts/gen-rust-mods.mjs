@@ -72,7 +72,7 @@
  *
  * The seam between generated and hand-written is instead drawn at *validation*: a `$ref` to
  * a definition that carries an `enum` becomes a generated Rust enum, and a `$ref` to one of
- * the two string definitions with a `pattern` (`keybind`, `hex_color`) becomes the
+ * the string definitions with a `pattern` (`keybind`, `hex_color`, `hex_color_rgb`) becomes the
  * hand-written validating newtype from `keybind.rs`. That table is `NEWTYPE_REFS` below and
  * it is the *only* hard-coded name in this script; an unrecognised `$ref` is a hard error
  * rather than a guess.
@@ -129,6 +129,7 @@ const OUT_PATH = join(ROOT, 'crates', 'void-loadout', 'src', 'mods', 'generated.
 const NEWTYPE_REFS = {
   keybind: 'Keybind',
   hex_color: 'HexColor',
+  hex_color_rgb: 'HexColorRgb',
 };
 
 /** Scalar JSON types, for a `$ref` or an inline property without an `enum`. */
@@ -406,7 +407,11 @@ push(
   'use serde::{Deserialize, Serialize};',
   'use serde_json::{Map, Value};',
   '',
-  'use crate::keybind::{HexColor, Keybind};',
+  // Derived from NEWTYPE_REFS rather than written out, so adding a fourth validating newtype is
+  // one table edit instead of two. The hardcoded pair went stale the first time a third arrived
+  // (`hex_color_rgb`) and the generated file failed to compile with an unresolved type — a loud
+  // failure, but one the generator had no reason to hand anybody.
+  `use crate::keybind::{${Object.values(NEWTYPE_REFS).slice().sort().join(', ')}};`,
   'use crate::loadout::Anchor;',
   'use crate::Error;',
   '',
