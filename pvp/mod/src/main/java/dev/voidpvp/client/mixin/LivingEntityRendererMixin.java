@@ -62,7 +62,7 @@ public abstract class LivingEntityRendererMixin {
     protected FloatBuffer buffer;
 
     @Inject(method = "method_10252", at = @At(value = "INVOKE",
-            target = "Lorg/lwjgl/opengl/GL11;glTexEnv:(IILjava/nio/FloatBuffer;)V"))
+            target = "Lorg/lwjgl/opengl/GL11;glTexEnv(IILjava/nio/FloatBuffer;)V"))
     private void void$recolourHurtOverlay(LivingEntity entity, float tickDelta,
                                           boolean combineTextures,
                                           CallbackInfoReturnable<Boolean> cir) {
