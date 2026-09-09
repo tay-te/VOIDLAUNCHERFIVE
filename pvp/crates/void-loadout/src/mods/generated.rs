@@ -1344,9 +1344,13 @@ pub struct ArmorStatusSettings {
     pub background: Option<HudBackground>,
 
     /// Whether a hairline is drawn around the armor row, at the system's own `--border-panel`
-    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
-    /// edge either separates the chip from the game or it does not, and the one useful answer
-    /// is already a token.
+    /// alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than
+    /// a chip — 150 px of rows over live game — and the sheet has always drawn it with a
+    /// `--border-dock` edge, which is what separates a list of rows from the world behind it.
+    /// That edge used to be written into the rule unconditionally, so the setting existed and
+    /// could not turn it off; moving it onto the shared `border` switch is what makes the
+    /// control real, and this default is what stops that fix from silently stripping the edge
+    /// off every loadout on disk.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border: Option<bool>,
 
@@ -1418,9 +1422,13 @@ pub struct PotionEffectsSettings {
     pub background: Option<HudBackground>,
 
     /// Whether a hairline is drawn around the effect list, at the system's own `--border-panel`
-    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
-    /// edge either separates the chip from the game or it does not, and the one useful answer
-    /// is already a token.
+    /// alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than
+    /// a chip — 150 px of rows over live game — and the sheet has always drawn it with a
+    /// `--border-dock` edge, which is what separates a list of rows from the world behind it.
+    /// That edge used to be written into the rule unconditionally, so the setting existed and
+    /// could not turn it off; moving it onto the shared `border` switch is what makes the
+    /// control real, and this default is what stops that fix from silently stripping the edge
+    /// off every loadout on disk.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border: Option<bool>,
 

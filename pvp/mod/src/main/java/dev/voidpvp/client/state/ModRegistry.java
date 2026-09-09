@@ -367,7 +367,17 @@ public final class ModRegistry {
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
-                "border", bool(false),
+                // shared_overrides: ships true where every other hud mod ships false. Whether a
+                // hairline is drawn around the armor row, at the system's own `--border-panel`
+                // alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel
+                // rather than a chip — 150 px of rows over live game — and the sheet has always
+                // drawn it with a `--border-dock` edge, which is what separates a list of rows
+                // from the world behind it. That edge used to be written into the rule
+                // unconditionally, so the setting existed and could not turn it off; moving it
+                // onto the shared `border` switch is what makes the control real, and this
+                // default is what stops that fix from silently stripping the edge off every
+                // loadout on disk.
+                "border", bool(true),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether armor pieces are laid out left to right or top to bottom.
                 "orientation", enumOf("horizontal", "horizontal", "vertical"),
@@ -392,7 +402,17 @@ public final class ModRegistry {
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
-                "border", bool(false),
+                // shared_overrides: ships true where every other hud mod ships false. Whether a
+                // hairline is drawn around the effect list, at the system's own `--border-panel`
+                // alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel
+                // rather than a chip — 150 px of rows over live game — and the sheet has always
+                // drawn it with a `--border-dock` edge, which is what separates a list of rows
+                // from the world behind it. That edge used to be written into the rule
+                // unconditionally, so the setting existed and could not turn it off; moving it
+                // onto the shared `border` switch is what makes the control real, and this
+                // default is what stops that fix from silently stripping the edge off every
+                // loadout on disk.
+                "border", bool(true),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether to print the remaining duration next to each effect.
                 "show_duration", bool(true),

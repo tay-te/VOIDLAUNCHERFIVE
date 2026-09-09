@@ -48,6 +48,9 @@ const hudCss = readFileSync(resolve(here, '../../ui/src/styles/06-hud.css'), 'ut
 /** The three variables a density step is allowed to move. */
 const DENSITY_VARS = ['--pad-hud-chip', '--pad-hud-panel', '--gap-hud-keys'] as const;
 
+/** The variable the `border` switch moves. */
+const BORDER_VAR = '--border-hud';
+
 /**
  * The declarations of one rule, as `name: value`.
  *
@@ -114,6 +117,62 @@ describe('the padding steps resolve to lengths', () => {
   /** An unknown value is the factory default, the way `ModRegistry.clamp` treats it. */
   it('falls back to the schema default on a value the registry does not have', () => {
     expect(hudChrome({ padding: 'enormous' })).toContain('hud-chrome--pad-normal');
+  });
+});
+
+/**
+ * `border` draws an edge, and draws it on the box it is the edge of.
+ *
+ * It shipped invisible for a subtler reason than `padding` did. The rule was real and the
+ * property is one Ultralight fully supports — but it was an inset shadow on the *slot*, and the
+ * slot is behind the widget, so the edge was painted under the chip's own ground and came
+ * through 55% of an opaque black. The mod page could not show it either, because the preview
+ * draws `variant="editor"` and that variant carried a hard `1px solid var(--border-dock)` of its
+ * own: the switch was toggling an invisible edge underneath a permanent one.
+ *
+ * Both halves are asserted, because fixing either alone leaves the setting broken.
+ */
+describe('the border switch draws an edge, on the widget', () => {
+  it('sets the variable rather than drawing on the slot', () => {
+    expect(declaration(overlayCss, '.hud-chrome--border', BORDER_VAR)).not.toBe(null);
+    // The old rule. A box-shadow here is an edge behind the widget again.
+    expect(declaration(overlayCss, '.hud-chrome--border', 'box-shadow')).toBe(null);
+  });
+
+  it.each([
+    ['.v-hudchip', 'box-shadow'],
+    ['.v-potionlist', 'border'],
+    ['.v-armorlist', 'border'],
+  ] as const)('%s draws its edge from the variable', (selector, property) => {
+    expect(declaration(hudCss, selector, property)).toContain(`var(${BORDER_VAR}`);
+  });
+
+  /**
+   * The editor variant may not carry an edge of its own — that is what made the preview lie.
+   * The HUD layout editor still outlines every chip; it says so on its own layer, where the
+   * claim is true.
+   */
+  it('leaves the editor variant without a hard edge', () => {
+    expect(declaration(hudCss, '.v-hudchip--editor', 'border')).toBe(null);
+    expect(declaration(overlayCss, '.hud-layer--editor .hud-chrome', BORDER_VAR)).not.toBe(null);
+  });
+
+  /**
+   * The two panels have always been drawn with an edge, so their factory `border` has to be on
+   * or this fix strips it from every loadout on disk. `shared_overrides` is where that is said.
+   */
+  it.each(['armor_status', 'potion_effects'] as const)('%s still ships with its edge', (id) => {
+    const defaults = MOD_REGISTRY[id].defaults as unknown as Record<string, unknown>;
+    expect(defaults.border).toBe(true);
+  });
+
+  /** And nothing else changed its mind about the factory default while that was being done. */
+  it('leaves every other HUD mod defaulting to no edge', () => {
+    const on = (Object.keys(MOD_REGISTRY) as ModId[]).filter((id) => {
+      const defaults = MOD_REGISTRY[id].defaults as unknown as Record<string, unknown>;
+      return MOD_REGISTRY[id].kind === 'hud' && defaults.border === true;
+    });
+    expect(on.sort()).toEqual(['armor_status', 'potion_effects']);
   });
 });
 

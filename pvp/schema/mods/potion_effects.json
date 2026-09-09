@@ -39,5 +39,11 @@
       "type": "boolean",
       "default": false
     }
+  },
+  "shared_overrides": {
+    "border": {
+      "default": true,
+      "description": "Whether a hairline is drawn around {noun}, at the system's own `--border-panel` alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than a chip \u2014 150 px of rows over live game \u2014 and the sheet has always drawn it with a `--border-dock` edge, which is what separates a list of rows from the world behind it. That edge used to be written into the rule unconditionally, so the setting existed and could not turn it off; moving it onto the shared `border` switch is what makes the control real, and this default is what stops that fix from silently stripping the edge off every loadout on disk."
+    }
   }
 }

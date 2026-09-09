@@ -876,9 +876,9 @@
           "default": "none"
         },
         "border": {
-          "description": "Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "description": "Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than a chip — 150 px of rows over live game — and the sheet has always drawn it with a `--border-dock` edge, which is what separates a list of rows from the world behind it. That edge used to be written into the rule unconditionally, so the setting existed and could not turn it off; moving it onto the shared `border` switch is what makes the control real, and this default is what stops that fix from silently stripping the edge off every loadout on disk.",
           "type": "boolean",
-          "default": false
+          "default": true
         },
         "padding": {
           "description": "Density of the armor row — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
@@ -952,9 +952,9 @@
           "default": "none"
         },
         "border": {
-          "description": "Whether a hairline is drawn around the effect list, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "description": "Whether a hairline is drawn around the effect list, at the system's own `--border-panel` alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than a chip — 150 px of rows over live game — and the sheet has always drawn it with a `--border-dock` edge, which is what separates a list of rows from the world behind it. That edge used to be written into the rule unconditionally, so the setting existed and could not turn it off; moving it onto the shared `border` switch is what makes the control real, and this default is what stops that fix from silently stripping the edge off every loadout on disk.",
           "type": "boolean",
-          "default": false
+          "default": true
         },
         "padding": {
           "description": "Density of the effect list — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
@@ -3608,7 +3608,7 @@
             "scale": 1,
             "opacity": 1,
             "background": "none",
-            "border": false,
+            "border": true,
             "padding": "normal",
             "orientation": "horizontal",
             "show_durability": true,
@@ -3635,7 +3635,7 @@
             "scale": 1,
             "opacity": 1,
             "background": "none",
-            "border": false,
+            "border": true,
             "padding": "normal",
             "show_duration": true,
             "show_amplifier": true,

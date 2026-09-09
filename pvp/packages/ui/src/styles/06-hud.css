@@ -11,6 +11,25 @@
 
 /* -------------------------------------------------------------- HUD chip */
 
+/**
+ * The chip.
+ *
+ * The hairline is drawn **by the chip**, from `--border-hud`, and that placement is the whole
+ * point rather than a detail. It used to be an inset shadow on the *slot* the chip sits in,
+ * which is behind the chip's own translucent ground — so the edge the setting drew was painted
+ * under 55% of an opaque black and could not be seen. An edge belongs on the box it is the edge
+ * of.
+ *
+ * `transparent` as the fallback, so a page that sets nothing draws no edge. Every chip that
+ * *should* always carry one now says so where that is true — the HUD layout editor sets the
+ * variable for its whole layer (`packages/ingame`, `.hud-layer--editor`), because "every chip is
+ * outlined so you can grab it" is a fact about that screen, not about the chip.
+ *
+ * `box-shadow: inset` rather than `border`, so the edge costs no layout: a border would grow the
+ * chip by 2px the moment the setting came on, which on a HUD anchored by its corner moves the
+ * readout. `design/ultralight-notes.md` lists inset box-shadow as fully supported and it is what
+ * every bevel in this sheet already uses.
+ */
 .v-hudchip {
   display: inline-flex;
   align-items: center;
@@ -18,6 +37,7 @@
   padding: var(--pad-hud-chip);
   border-radius: var(--radius-chip);
   background: var(--hud-chip-bg);
+  box-shadow: inset 0 0 0 1px var(--border-hud, transparent);
   white-space: nowrap;
 }
 
@@ -34,7 +54,6 @@
   padding: var(--pad-hud-chip);
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
-  border: 1px solid var(--border-dock);
 }
 
 /** Compact chips render at 0.7 opacity while the overlay panel is up. */
@@ -246,7 +265,7 @@
   padding: var(--pad-hud-panel, var(--space-8) var(--space-10));
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
-  border: 1px solid var(--border-dock);
+  border: 1px solid var(--border-hud, transparent);
 }
 
 .v-potionlist__row {
@@ -293,7 +312,7 @@
   padding: var(--pad-hud-panel, var(--space-8) var(--space-10));
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
-  border: 1px solid var(--border-dock);
+  border: 1px solid var(--border-hud, transparent);
 }
 
 /** Pieces stacked top to bottom: one full row each, label left, value right, bar under. */

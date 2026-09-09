@@ -152,9 +152,21 @@ body {
   background: var(--card-bg, #191a1c);
 }
 
-/* White at low alpha, never a colour — the border rule of §1. */
+/* White at low alpha, never a colour — the border rule of §1.
+
+   **It sets a variable rather than drawing.** This rule was `box-shadow: inset` on *this* box,
+   and this box is behind the widget: the chip paints its own ground over the top, so the edge
+   the setting drew came through 55% of an opaque black and could not be seen at all. Padding
+   made it worse rather than better — the old outer inset at least pushed a few pixels of the
+   box past the chip's corner, and once density moved onto the widget the two rectangles became
+   the same rectangle and the last visible pixel went with it.
+
+   So the widgets draw it, from `--border-hud`, on the box it is the edge of
+   (`@void/ui`'s `.v-hudchip`, `.v-potionlist`, `.v-armorlist` — all three read it, all three
+   fall back to `transparent`). Same shape as the density block above, and for the same reason:
+   a setting that has to reach *inside* a widget has to arrive as something the widget reads. */
 .hud-chrome--border {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --border-hud: var(--border-dock);
 }
 
 /* There is no `.hud-chrome--shadow`. A `text-shadow` rule stood here for one commit and
@@ -4355,6 +4367,20 @@ body {
 }
 
 /* Widgets take input only in the editor. */
+/* Every chip outlined while the layout editor is open, whatever each mod's `border` says.
+ *
+ * That edge used to live on `.v-hudchip--editor` in `@void/ui`, which made it a property of the
+ * *variant* — and the mod page's preview draws that variant, so every preview carried an edge
+ * and toggling `border` on the page beside it changed nothing you could see. That is the whole
+ * reason the setting read as broken: not that it drew nothing, but that it drew underneath a
+ * second edge nobody asked for.
+ *
+ * It belongs here instead. "Every widget is outlined so you can find the one you are dragging"
+ * is true of this screen and of nothing else, and stating it here leaves the preview honest. */
+.hud-layer--editor .hud-chrome {
+  --border-hud: var(--border-dock);
+}
+
 .hud-layer--editor .hud-item {
   pointer-events: auto;
   cursor: move;

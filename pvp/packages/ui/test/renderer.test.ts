@@ -260,6 +260,11 @@ describe('every custom property the stylesheet reads is declared', () => {
     // correct rather than collapsed — a consumer that sets nothing draws what it always drew.
     '--pad-hud-panel',
     '--gap-hud-keys',
+    // The `border` half of the same block. Set by `.hud-chrome--border` and by the HUD layout
+    // editor's own layer; read here with `transparent` as the fallback, because a widget nobody
+    // has asked for an edge on has none. It used to be a hard `1px solid var(--border-dock)` on
+    // three rules in this file, which is why the setting could not turn it off.
+    '--border-hud',
   ]);
 
   const declared = new Set<string>([
