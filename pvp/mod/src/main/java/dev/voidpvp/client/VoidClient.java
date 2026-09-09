@@ -184,6 +184,11 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     }
     private final EdgeKey cycleKey = new EdgeKey();
     private final EdgeKey keystrokesKey = new EdgeKey();
+    // One per mod: an EdgeKey is a latch, so sharing one between two hotkeys would make either
+    // key release the other's.
+    private final EdgeKey fullbrightKey = new EdgeKey();
+    private final EdgeKey hitboxesKey = new EdgeKey();
+    private final EdgeKey toggleSprintKey = new EdgeKey();
 
     private VoidSocket socket;
     /**
@@ -835,28 +840,48 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             cycleLoadout();
         }
 
-        // keystrokes.keybind: the one per-mod hotkey in the registry. It hides
-        // and shows the overlay without opening the menu. One setting changed,
-        // so it pushes the `setting` event rather than a whole loadout — the UI
-        // applies it exactly as it applies the return value of setModSetting
+        // The per-mod `keybind` hotkeys: a key that flips one mod's `on` without opening the
+        // menu. One setting changed, so each pushes the `setting` event rather than a whole
+        // loadout — the UI applies it exactly as it applies the return value of setModSetting
         // (bridge.json, `setting_payload`).
-        int keystrokesCode = state.keystrokesToggleCode;
-        boolean keystrokesDown = keystrokesCode != KeyNames.KEY_NONE && !otherScreenOpen
-                && !menuScreenOpen && isKeyDown(keystrokesCode);
-        if (keystrokesKey.pressed(keystrokesDown) && canOpen) {
-            // The mirror, not loadout().isOn(): this is sampled every frame, and the loadout's
-            // maps are written by the UI thread under a monitor this path must not take.
-            boolean on = state.keystrokesOn;
-            com.google.gson.JsonElement stored = state.setModSetting("keystrokes", "on",
-                    new JsonPrimitive(Boolean.valueOf(!on)));
-            if (stored != null) {
-                bridge.emitSetting("keystrokes", "on", stored);
-                // This hotkey can take the last thing off the overlay — it hides a HUD widget
-                // with no menu open — and a page with nothing left to draw submits no draw
-                // commands, so the accelerated renderer would go on showing the widget that was
-                // just hidden. Same reason as onMenuClosed; see UiHost.requestRender.
-                ui.requestRender();
-            }
+        //
+        // A table rather than four copies of the block. `keystrokes` was the only one of these
+        // for a long time and its block was written inline; three more mods have earned one
+        // since, and four hand-written copies of "sample a code, edge it, flip a boolean, emit"
+        // is four places for the next one to be forgotten from.
+        toggleMod("keystrokes", state.keystrokesToggleCode, state.keystrokesOn, keystrokesKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+        toggleMod("fullbright", state.fullbrightToggleCode, state.fullbrightOn, fullbrightKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+        toggleMod("hitboxes", state.hitboxesToggleCode, state.hitboxesOn, hitboxesKey,
+                otherScreenOpen, menuScreenOpen, canOpen);
+        toggleMod("toggle_sprint", state.toggleSprintToggleCode, state.toggleSprintOn,
+                toggleSprintKey, otherScreenOpen, menuScreenOpen, canOpen);
+    }
+
+    /**
+     * One mod's toggle hotkey: sample it, edge it, flip its {@code on}, tell the page.
+     *
+     * @param on the actuator <em>mirror</em>, never {@code loadout().isOn()} — this is sampled
+     *           every frame and the loadout's maps are written by the UI thread under a monitor
+     *           this path must not take
+     */
+    private void toggleMod(String modId, int code, boolean on, EdgeKey edge,
+                           boolean otherScreenOpen, boolean menuScreenOpen, boolean canOpen) {
+        boolean down = code != KeyNames.KEY_NONE && !otherScreenOpen && !menuScreenOpen
+                && isKeyDown(code);
+        if (!edge.pressed(down) || !canOpen) {
+            return;
+        }
+        com.google.gson.JsonElement stored = state.setModSetting(modId, "on",
+                new JsonPrimitive(Boolean.valueOf(!on)));
+        if (stored != null) {
+            bridge.emitSetting(modId, "on", stored);
+            // These hotkeys can take the last thing off the overlay — hiding a HUD widget with
+            // no menu open — and a page with nothing left to draw submits no draw commands, so
+            // the accelerated renderer would go on showing what was just hidden. Same reason as
+            // onMenuClosed; see UiHost.requestRender.
+            ui.requestRender();
         }
     }
 

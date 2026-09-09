@@ -21,7 +21,8 @@
   "defaults": {
     "decimals": 1,
     "show_direction": true,
-    "layout": "inline"
+    "layout": "inline",
+    "color": "#FFFFFF"
   },
   "settings": {
     "decimals": {
@@ -44,6 +45,10 @@
         "inline"
       ],
       "default": "inline"
+    },
+    "color": {
+      "description": "Ink for the readings \u2014 the three axes and the cardinal. Not the separator between them: quiet-cell \u00a71 gives colour to the live value rather than to the punctuation around it.",
+      "$ref": "#/definitions/hex_color"
     }
   }
 }

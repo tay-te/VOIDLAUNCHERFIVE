@@ -43,6 +43,16 @@ public abstract class EntityRenderDispatcherMixin {
             // taking over a debug key we were not asked for is how a mod becomes a nuisance.
             return;
         }
+        // `hitboxes.max_distance`. x/y/z are the entity's position *relative to the camera* —
+        // that is what the dispatcher passes and what the box is rebased against below — so
+        // their squared length is the distance to it, with no camera lookup and no sqrt.
+        //
+        // Return rather than cancel: past the limit this mod has no opinion, so vanilla's own
+        // box is what should draw. That only matters when the flag came from F3+B, which is
+        // exactly the case the `hitboxesOn` check above is also careful about.
+        if (x * x + y * y + z * z > state.hitboxMaxDistanceSq) {
+            return;
+        }
         Box box = entity.getBoundingBox();
         if (box == null) {
             return;

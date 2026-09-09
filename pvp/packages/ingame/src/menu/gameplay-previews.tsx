@@ -322,6 +322,16 @@ export function ZoomPreview({ dense = false, className }: DiagramProps = {}): Re
 const HITBOX_UNIT = { page: 4, tile: 2.1 };
 
 /**
+ * How far off the second figure in the Hitboxes diagram is standing, in blocks.
+ *
+ * Half the schema's maximum, so both ends of the slider land on opposite sides of it: at 64 the
+ * far figure is drawn and at 4 it is not, and the control moves the picture rather than only the
+ * number under it. Not a game distance — nothing measures it — but a stated one, so the caption
+ * and the drawing cannot disagree about what the second figure means.
+ */
+const FAR_BLOCKS = 32;
+
+/**
  * One entity's box, head-on, at the mod's own line width and colour.
  *
  * Head-on rather than in perspective on purpose. The real thing is a 3D wireframe pushed by
@@ -346,22 +356,40 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
   // either.
   const color =
     !dense && typeof settings.color === 'string' ? settings.color : 'var(--text-primary)';
+  // The ray gets its own ink, on the same terms as the box's: chosen on the page, so shown on
+  // the page, and monochrome on the tile where §1 keeps the grid quiet.
+  const eyeColor =
+    !dense && typeof settings.eye_line_color === 'string' ? settings.eye_line_color : color;
   const eye = settings.show_eye_line === true;
+  // `max_distance` is about *which* entities get a box, and one figure cannot show a cutoff. So
+  // the diagram has two: the near one, always drawn, and a second standing at FAR_BLOCKS which
+  // is drawn only while the limit reaches it. Dropping out is the whole content of the setting,
+  // and it is the same thing that happens in game — which is why this is a second figure rather
+  // than a sentence about a number.
+  const limit = Number(settings.max_distance ?? 64);
+  const far = limit >= FAR_BLOCKS;
   return (
     <div className={root(dense, 'gprev--hitbox', className)}>
       <div className="gprev__box" style={{ borderWidth: `${width}px`, borderColor: color }}>
         {eye ? (
           <span
             className="gprev__eye"
-            style={{ height: `${Math.max(1, width)}px`, background: color }}
+            style={{ height: `${Math.max(1, width)}px`, background: eyeColor }}
           />
         ) : null}
       </div>
+      {far ? (
+        <div
+          className="gprev__box gprev__box--far"
+          style={{ borderWidth: `${Math.max(1, width * 0.5)}px`, borderColor: color }}
+        />
+      ) : null}
       {dense ? null : (
         <Reading>
           {`A player's box is 0.6 by 1.8 blocks, drawn at ${Number(
             settings.line_width ?? 2,
-          )} px.${eye ? ' The eye line leaves at 1.62, where they are looking.' : ''}`}
+          )} px.${eye ? ' The eye line leaves at 1.62, where they are looking.' : ''}` +
+            ` Boxes stop at ${limit} blocks, so the second figure${far ? ' is drawn' : ' is not'}.`}
         </Reading>
       )}
     </div>

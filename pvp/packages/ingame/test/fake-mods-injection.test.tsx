@@ -21,6 +21,44 @@ import { afterEach, describe, expect, it } from 'vitest';
 afterEach(cleanup);
 
 describe('?fake= padding, end to end', () => {
+  it('draws §8’s sentence structure, which no shipped mod has a small enough page for', async () => {
+    // The fixture's first shape is one property (`SHAPES` in `dev/fake-mods.ts` says so by
+    // name), and that is now the only place the sentence layout can be reached: Fullbright was
+    // the registry's one-property mod until it gained a toggle key. The structure is derived
+    // from the count, so what is worth pinning is that the small end of the table still draws
+    // the small layout — a preview with a line under it and no rows at all.
+    window.history.replaceState({}, '', '/?fake=24');
+    const { connectBridge } = await import('@/bridge/connect');
+    const { useVoidStore } = await import('@/store/store');
+    const { App } = await import('@/App');
+    const { MOD_ORDER } = await import('@/registry');
+    const { isFakeMod } = await import('@/dev/fake-mods');
+    const { modProperties } = await import('@/menu/ModSettingsScreen');
+    const { modSettings } = await import('@/store/store');
+
+    const bridge = connectBridge({ forceFake: true, runFakeClock: false });
+    act(() => {
+      useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } });
+    });
+    const { container } = render(<App />);
+
+    const single = MOD_ORDER.filter(isFakeMod).find(
+      (id) =>
+        modProperties(id, modSettings(useVoidStore.getState().loadout, id)).length === 1,
+    );
+    expect(single, 'the fixture must still carry a one-property shape').toBeTruthy();
+
+    act(() => {
+      useVoidStore.getState().openMod(single!);
+    });
+    expect(container.querySelector('[data-structure="sentence"]')).not.toBeNull();
+    expect(container.querySelector('.mprop')).toBeNull();
+    expect(container.querySelector('.mprops--sentence .preview')).not.toBeNull();
+    // The preview takes the height the properties leave rather than carrying one of its own.
+    expect(container.querySelector('.preview--large')).toBeNull();
+    bridge.dispose();
+  });
+
   it('pads the grid and gives every synthetic mod what the panel reads', async () => {
     window.history.replaceState({}, '', '/?fake=24');
 

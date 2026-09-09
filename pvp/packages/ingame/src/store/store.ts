@@ -324,6 +324,19 @@ export interface VoidState {
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
+  /**
+   * The highest rate either hand has reached this session — the mod's `show_peak` aside.
+   *
+   * Session, not window: `window_ms` is already the averaging window, so a peak measured over
+   * the same window would be the live figure with a lag. What a player wants beside the live
+   * number is the best they have managed, which only ever goes up and holds still — so it is
+   * kept here, next to the rings the live figures come out of, rather than derived per render
+   * from a history nothing keeps.
+   *
+   * Store state rather than a module-level scratch value like the rings themselves, because it
+   * is *rendered*: a peak nothing subscribed to would not repaint the chip when it moved.
+   */
+  cpsPeak: number;
   /** Who is playing. Null until the first `session` push, and after that never changes. */
   session: SessionInfo | null;
   /** The client's globals. Factory values until the first `settings` push replaces them. */
@@ -408,6 +421,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
+  cpsPeak: 0,
   session: null,
   globals: FACTORY_GLOBALS,
 
@@ -491,6 +505,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       pushClick(rings.right, now);
       patch.cpsRight = clicksPerSecond(rings.right, now, windowMs(get().loadout));
     }
+    // Both hands against one peak: `mode` decides which figures are *drawn*, and a peak that
+    // forgot the other hand would drop the moment a player switched to it.
+    const peaked = Math.max(patch.cpsLeft ?? 0, patch.cpsRight ?? 0);
+    if (peaked > get().cpsPeak) patch.cpsPeak = peaked;
     if (hidden) {
       return;
     }
@@ -550,6 +568,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const right = clicksPerSecond(trimRing(rings.right, now, w), now, w);
     if (left !== get().cpsLeft) patch.cpsLeft = left;
     if (right !== get().cpsRight) patch.cpsRight = right;
+    // Only ever upwards here. This branch is the clock rather than a click — it exists to let
+    // the live figures *decay* — so taking a max against it is what keeps the peak a peak.
+    const highest = Math.max(left, right);
+    if (highest > get().cpsPeak) patch.cpsPeak = highest;
 
     // ---------------------------------------------------------- the Wave 2 readings
     //

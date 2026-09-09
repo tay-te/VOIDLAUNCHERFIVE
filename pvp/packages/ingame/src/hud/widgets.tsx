@@ -159,6 +159,7 @@ export const HudCoordinates = memo(function HudCoordinates({ variant, sample }: 
       z={pos.z}
       decimals={Number(settings.decimals ?? 0)}
       layout={settings.layout === 'stacked' ? 'stacked' : 'inline'}
+      color={typeof settings.color === 'string' ? settings.color : undefined}
       direction={settings.show_direction === false ? undefined : cardinalFromYaw(pos.yaw)}
     />
   );
@@ -184,6 +185,7 @@ export const HudDirection = memo(function HudDirection({ variant, sample }: HudW
       yaw={pos.yaw}
       notation={asDirectionStyle(settings.style)}
       showDegrees={settings.show_degrees === true}
+      color={typeof settings.color === 'string' ? settings.color : undefined}
     />
   );
 });
@@ -347,12 +349,20 @@ export const HudCps = memo(function HudCps({ variant, sample }: HudWidgetProps) 
   const idle = liveLeft === 0 && liveRight === 0;
   const left = idle && sample ? sampleRate(SAMPLE_CLICKS_LEFT, window) : liveLeft;
   const right = idle && sample ? sampleRate(SAMPLE_CLICKS_RIGHT, window) : liveRight;
+  const showPeak = useVoidStore((s) => modSettings(s.loadout, 'cps').show_peak === true);
+  const livePeak = useVoidStore((s) => s.cpsPeak);
+  // The same stand-in argument as the two figures above, one line down: on the settings page
+  // nobody has clicked, so the session peak is zero and the switch would turn a `· peak 0` on
+  // and off. A peak is by definition at or above the live figure, so the fixture's is the
+  // higher of the two hands with a little headroom — which is what a real one looks like.
+  const peak = idle && sample ? Math.round(Math.max(left, right) * 1.35 * 10) / 10 : livePeak;
   return (
     <CpsChip
       variant={variant}
       left={left}
       right={right}
       showLabel={showLabel}
+      peak={showPeak ? peak : undefined}
       mode={mode === 'right' ? 'right' : mode === 'both' ? 'both' : 'left'}
     />
   );

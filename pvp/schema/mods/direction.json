@@ -21,7 +21,8 @@
   },
   "defaults": {
     "style": "letter",
-    "show_degrees": false
+    "show_degrees": false,
+    "color": "#FFFFFF"
   },
   "settings": {
     "style": {
@@ -34,6 +35,10 @@
       "description": "Whether the raw yaw angle is printed after the facing. Off by default: it is a second number on a chip whose whole job is to be read without reading, and it is only wanted by players aligning something precisely.",
       "type": "boolean",
       "default": false
+    },
+    "color": {
+      "description": "Ink for the facing. Not the degrees aside, when `show_degrees` draws it: that is the same reading in another unit, and colouring both leaves the chip one solid block with no hierarchy in it.",
+      "$ref": "#/definitions/hex_color"
     }
   }
 }

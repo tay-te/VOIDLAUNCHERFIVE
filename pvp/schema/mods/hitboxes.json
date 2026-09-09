@@ -15,7 +15,10 @@
   "defaults": {
     "line_width": 2,
     "color": "#FFFFFFFF",
-    "show_eye_line": false
+    "show_eye_line": false,
+    "eye_line_color": "#7ADFFFFF",
+    "max_distance": 64,
+    "keybind": "NONE"
   },
   "settings": {
     "line_width": {
@@ -33,6 +36,22 @@
       "description": "Whether to draw the vanilla eye-direction ray along with the box.",
       "type": "boolean",
       "default": false
+    },
+    "eye_line_color": {
+      "description": "Colour of the eye-direction ray, when `show_eye_line` draws it. Its own colour rather than the box's: the ray answers *where is he looking*, which is a different question from the box's *where is he*, and one colour for both draws a box with a spike on it rather than two readings.",
+      "$ref": "#/definitions/hex_color"
+    },
+    "max_distance": {
+      "description": "Furthest an entity can be, in blocks, and still be drawn. The point of a box in a fight is the entity you are fighting; every box past that is a wireframe over the scenery. 64 is vanilla's own entity render distance, so the default draws what the game was already drawing.",
+      "type": "number",
+      "minimum": 4,
+      "maximum": 64,
+      "default": 64
+    },
+    "keybind": {
+      "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and not the next, which is a decision made mid-match rather than in a menu.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
     }
   }
 }

@@ -558,6 +558,11 @@
           "minimum": 200,
           "maximum": 5000,
           "default": 1000
+        },
+        "show_peak": {
+          "description": "Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers \"how fast am I clicking\"; this answers \"how fast can I\", which is the number worth comparing against and the one the live figure never sits still long enough to show.",
+          "type": "boolean",
+          "default": false
         }
       }
     },
@@ -699,6 +704,10 @@
             "inline"
           ],
           "default": "inline"
+        },
+        "color": {
+          "description": "Ink for the readings — the three axes and the cardinal. Not the separator between them: quiet-cell §1 gives colour to the live value rather than to the punctuation around it.",
+          "$ref": "#/definitions/hex_color"
         }
       }
     },
@@ -924,6 +933,11 @@
           "description": "Whether the same latching behaviour is applied to sneak.",
           "type": "boolean",
           "default": false
+        },
+        "keybind": {
+          "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key itself, which is vanilla's and is what `mode` latches: this one turns the latching off, for a fight where holding the key is what the hands expect.",
+          "$ref": "#/definitions/keybind",
+          "default": "NONE"
         }
       }
     },
@@ -946,6 +960,11 @@
           "minimum": 1,
           "maximum": 15,
           "default": 10
+        },
+        "keybind": {
+          "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('fullbright')`. The mod that most wants one: brightness is something you change *because* of what is in front of you, and reaching the menu to change it means the moment has passed.",
+          "$ref": "#/definitions/keybind",
+          "default": "NONE"
         }
       }
     },
@@ -977,6 +996,22 @@
           "description": "Whether to draw the vanilla eye-direction ray along with the box.",
           "type": "boolean",
           "default": false
+        },
+        "eye_line_color": {
+          "description": "Colour of the eye-direction ray, when `show_eye_line` draws it. Its own colour rather than the box's: the ray answers *where is he looking*, which is a different question from the box's *where is he*, and one colour for both draws a box with a spike on it rather than two readings.",
+          "$ref": "#/definitions/hex_color"
+        },
+        "max_distance": {
+          "description": "Furthest an entity can be, in blocks, and still be drawn. The point of a box in a fight is the entity you are fighting; every box past that is a wireframe over the scenery. 64 is vanilla's own entity render distance, so the default draws what the game was already drawing.",
+          "type": "number",
+          "minimum": 4,
+          "maximum": 64,
+          "default": 64
+        },
+        "keybind": {
+          "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and not the next, which is a decision made mid-match rather than in a menu.",
+          "$ref": "#/definitions/keybind",
+          "default": "NONE"
         }
       }
     },
@@ -1145,6 +1180,10 @@
           "description": "Whether the raw yaw angle is printed after the facing. Off by default: it is a second number on a chip whose whole job is to be read without reading, and it is only wanted by players aligning something precisely.",
           "type": "boolean",
           "default": false
+        },
+        "color": {
+          "description": "Ink for the facing. Not the degrees aside, when `show_degrees` draws it: that is the same reading in another unit, and colouring both leaves the chip one solid block with no hierarchy in it.",
+          "$ref": "#/definitions/hex_color"
         }
       }
     },
@@ -1841,7 +1880,8 @@
             "padding": "normal",
             "mode": "left",
             "show_label": true,
-            "window_ms": 1000
+            "window_ms": 1000,
+            "show_peak": false
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -1894,7 +1934,8 @@
             "padding": "normal",
             "decimals": 1,
             "show_direction": true,
-            "layout": "inline"
+            "layout": "inline",
+            "color": "#FFFFFF"
           },
           "default_placement": {
             "anchor": "top-left",
@@ -1991,7 +2032,8 @@
           "defaults": {
             "on": true,
             "mode": "toggle",
-            "sneak_too": false
+            "sneak_too": false,
+            "keybind": "NONE"
           }
         },
         "fullbright": {
@@ -2005,7 +2047,8 @@
           "source": "gammaSetting override (client-side, Watchdog-tolerated)",
           "defaults": {
             "on": false,
-            "gamma": 10
+            "gamma": 10,
+            "keybind": "NONE"
           }
         },
         "hitboxes": {
@@ -2021,7 +2064,10 @@
             "on": false,
             "line_width": 2,
             "color": "#FFFFFFFF",
-            "show_eye_line": false
+            "show_eye_line": false,
+            "eye_line_color": "#7ADFFFFF",
+            "max_distance": 64,
+            "keybind": "NONE"
           }
         },
         "zoom": {
@@ -2079,7 +2125,8 @@
             "border": false,
             "padding": "normal",
             "style": "letter",
-            "show_degrees": false
+            "show_degrees": false,
+            "color": "#FFFFFF"
           },
           "default_placement": {
             "anchor": "top-left",

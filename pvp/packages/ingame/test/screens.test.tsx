@@ -431,11 +431,16 @@ describe('Mods screen — the grid, and the page one click away', () => {
 
     const rows = (id: string) =>
       container.querySelector(`.modrow[data-mod-id="${id}"]`) as HTMLElement;
-    // Fullbright is a gameplay mod: no keybind, no place on the HUD, no scale.
-    const fullbright = rows('fullbright');
-    expect(fullbright.querySelectorAll('.modrow__empty')).toHaveLength(3);
+    // Crosshair is a gameplay mod with no keybind of its own: no key, no place on the HUD, no
+    // scale. It replaces Fullbright here, which was the example until Fullbright gained a
+    // `keybind` — a gameplay mod with a toggle key now fills that column like any HUD mod, and
+    // an em-dash in it would be the wrong assertion rather than a failing one.
+    const crosshair = rows('crosshair');
+    expect(crosshair.querySelectorAll('.modrow__empty')).toHaveLength(3);
+    // And the mod that moved: three empties became two, because the key is real.
+    expect(rows('fullbright').querySelectorAll('.modrow__empty')).toHaveLength(2);
     expect(
-      within(fullbright).getByText('Raises gamma so caves and shadows are fully lit.'),
+      within(rows('fullbright')).getByText('Raises gamma so caves and shadows are fully lit.'),
     ).toBeTruthy();
     // Keystrokes has all four, so nothing is missing from its row.
     expect(rows('keystrokes').querySelectorAll('.modrow__empty')).toHaveLength(0);
@@ -817,17 +822,21 @@ describe('The mod page — contract §8', () => {
     expect(container.querySelector('.mprops__cap')).toBeNull();
   });
 
-  it('gives a single property no list at all — a sentence, and the preview takes the room', () => {
+  it('gives Fullbright a flat list now that it has a toggle key as well as a gamma', () => {
     const { container } = render(<App />);
     open('fullbright');
-    expect(container.querySelector('[data-structure="sentence"]')).not.toBeNull();
-    expect(container.querySelector('.mprop')).toBeNull();
-    expect(screen.getByText(/Gamma sits at/)).toBeTruthy();
-    // The preview no longer carries a size of its own — it takes the height the properties
-    // leave, which for one property is nearly all of it. `preview--large` was that height as a
-    // hard-coded 208px, and it went with the fixed-height panel it was measured against.
-    expect(container.querySelector('.preview--large')).toBeNull();
-    expect(container.querySelector('.mprops--sentence .preview')).not.toBeNull();
+    // **This was the sentence test.** Fullbright was the registry's only one-property mod, and
+    // `gamma` alone is what the §8 sentence structure was demonstrated on. It gained
+    // `keybind` — brightness is the mod you most want on a key — and two properties is a flat
+    // list, by the same derived rule that gave it a sentence before.
+    //
+    // The sentence structure is not gone and is not untested: no *shipped* mod reaches it now,
+    // so its coverage moved to `fake-mods-injection.test.tsx`, whose fixture exists precisely
+    // to hold one of every §8 shape. Asserting it here on a mod that no longer has one
+    // property would have meant either faking the count or deleting the case.
+    expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
+    expect(container.querySelectorAll('.mprop')).toHaveLength(2);
+    expect(container.querySelector('.mprops__cap')).toBeNull();
   });
 
   it('draws the mod itself on every page, never a paragraph in an empty box', () => {

@@ -2896,6 +2896,19 @@ body {
   /* Width and colour are inline — they are the two settings this diagram exists to show. */
 }
 
+/* The second figure of the `max_distance` pair: the same box, standing further off.
+
+   Smaller and dimmer, which is the whole of "further away" in a face-on diagram — there is no
+   perspective here to put it in (`HitboxPreview` says why), so distance is size and air. It is
+   absent rather than faded out when the limit drops below it, because that is what the mod does:
+   past the limit there is no box, not a quieter one. */
+.gprev__box--far {
+  width: 34px;
+  height: 102px;
+  align-self: center;
+  opacity: 0.55;
+}
+
 /* The eye line leaves at 1.62 of 1.8, which is 10% down from the top, and runs out to the side
    the entity is facing. */
 .gprev__eye {
@@ -2999,6 +3012,12 @@ body {
 .gprev--tile .gprev__box {
   width: 40px;
   height: 120px;
+}
+
+/* Same ratio to the near box as on the page (45%), so the pair reads the same at both densities. */
+.gprev--tile .gprev__box--far {
+  width: 18px;
+  height: 54px;
 }
 
 .gprev--tile .gprev__eye {

@@ -93,7 +93,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "padding": "normal",
         "mode": "left",
         "show_label": true,
-        "window_ms": 1000
+        "window_ms": 1000,
+        "show_peak": false
       },
       "default_placement": {
         "anchor": "bottom-left",
@@ -146,7 +147,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "padding": "normal",
         "decimals": 1,
         "show_direction": true,
-        "layout": "inline"
+        "layout": "inline",
+        "color": "#FFFFFF"
       },
       "default_placement": {
         "anchor": "top-left",
@@ -243,7 +245,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       "defaults": {
         "on": true,
         "mode": "toggle",
-        "sneak_too": false
+        "sneak_too": false,
+        "keybind": "NONE"
       }
     },
     "fullbright": {
@@ -257,7 +260,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       "source": "gammaSetting override (client-side, Watchdog-tolerated)",
       "defaults": {
         "on": false,
-        "gamma": 10
+        "gamma": 10,
+        "keybind": "NONE"
       }
     },
     "hitboxes": {
@@ -273,7 +277,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": false,
         "line_width": 2,
         "color": "#FFFFFFFF",
-        "show_eye_line": false
+        "show_eye_line": false,
+        "eye_line_color": "#7ADFFFFF",
+        "max_distance": 64,
+        "keybind": "NONE"
       }
     },
     "zoom": {
@@ -331,7 +338,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "border": false,
         "padding": "normal",
         "style": "letter",
-        "show_degrees": false
+        "show_degrees": false,
+        "color": "#FFFFFF"
       },
       "default_placement": {
         "anchor": "top-left",

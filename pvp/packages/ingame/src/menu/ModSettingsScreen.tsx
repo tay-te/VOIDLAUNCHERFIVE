@@ -147,6 +147,7 @@ const ORDER = [
   'layout',
   'orientation',
   'color',
+  'eye_line_color',
   'key_color',
   'pressed_color',
   'keybind',
@@ -168,6 +169,8 @@ const ORDER = [
   'show_held_item',
   'show_direction',
   'show_eye_line',
+  'max_distance',
+  'show_peak',
   'sneak_too',
   'center_dot',
   'outline',
@@ -198,11 +201,19 @@ const BEHAVIOUR_KEYS = new Set([
   // A threshold on a live value, like the two above it: it is about when the mod tells you
   // something, not about what it looks like.
   'warn_below',
+  // Same argument one mod over: it decides which entities get a box, not what a box looks like.
+  'max_distance',
 ]);
 
 function kindOf(id: ModId, key: string, value: SettingValue): PropertyKind {
   if (key === 'keybind' || key === 'key') return 'keybind';
   if (key === 'key_color' || key === 'pressed_color') return 'swatch';
+  // Any other `*_color` is a free colour, like `color` itself. Written as a suffix rather than
+  // as a third name in the line above because of what the fall-through costs: a colour key this
+  // function does not recognise reaches the `enum` branch, and the enum branch draws a chip row
+  // over `SETTING_ENUMS[id.key] ?? []` — a label with nothing beside it, in game only. The
+  // second one of these (`hitboxes.eye_line_color`) would have shipped exactly that.
+  if (key.endsWith('_color')) return 'hex';
   if (key === 'color') return 'hex';
   if (typeof value === 'boolean') return 'boolean';
   if (SETTING_ENUMS[`${id}.${key}`]) return 'enum';

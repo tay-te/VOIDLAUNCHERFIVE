@@ -49,6 +49,7 @@ public final class HitboxRenderer {
         float r = ((argb >> 16) & 0xFF) / 255f;
         float g = ((argb >> 8) & 0xFF) / 255f;
         float b = (argb & 0xFF) / 255f;
+        int eyeArgb = state.hitboxEyeLineColor;
 
         GL11.glPushAttrib(ATTRIB_MASK);
         try {
@@ -74,11 +75,24 @@ public final class HitboxRenderer {
                 GL11.glVertex3d(e.x1, e.y1, e.z1);
                 GL11.glVertex3d(e.x2, e.y2, e.z2);
             }
+            GL11.glEnd();
+
+            // A second batch, because the ray has its own colour and `glColor4f` inside a
+            // `glBegin` block is one of the few GL calls that is simply illegal there. It is a
+            // separate colour on purpose: `eye_line_color` answers *where is he looking*, which
+            // is a different question from the box's *where is he*, and one colour for both
+            // draws a box with a spike on it rather than two readings.
             if (eye != null) {
+                GL11.glColor4f(
+                        ((eyeArgb >> 16) & 0xFF) / 255f,
+                        ((eyeArgb >> 8) & 0xFF) / 255f,
+                        (eyeArgb & 0xFF) / 255f,
+                        ((eyeArgb >>> 24) & 0xFF) / 255f);
+                GL11.glBegin(GL11.GL_LINES);
                 GL11.glVertex3d(eye.x1, eye.y1, eye.z1);
                 GL11.glVertex3d(eye.x2, eye.y2, eye.z2);
+                GL11.glEnd();
             }
-            GL11.glEnd();
         } finally {
             // glPopAttrib restores colour, blend, depth mask, line width and the enables.
             GL11.glPopAttrib();

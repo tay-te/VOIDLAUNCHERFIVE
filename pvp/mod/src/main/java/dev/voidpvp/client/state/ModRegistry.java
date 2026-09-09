@@ -263,7 +263,12 @@ public final class ModRegistry {
                 "show_label", bool(true),
                 // Length of the sliding window in milliseconds over which clicks are counted
                 // before being scaled to clicks per second.
-                "window_ms", integer(200, 5000, 1000));
+                "window_ms", integer(200, 5000, 1000),
+                // Whether the highest rate seen this session is drawn as a trailing aside.
+                // `window_ms` already averages, so the live figure answers "how fast am I
+                // clicking"; this answers "how fast can I", which is the number worth comparing
+                // against and the one the live figure never sits still long enough to show.
+                "show_peak", bool(false));
 
         // Ping display — kind hud, hud tab, §11 safe.
         // Round-trip time to the current server.
@@ -316,7 +321,12 @@ public final class ModRegistry {
                 // Whether X, Y and Z are stacked on three lines or printed on one. Defaults to
                 // `inline`, which is what the HUD frame draws; `stacked` holds the three numbers
                 // against one left edge, which is easier to read while moving.
-                "layout", enumOf("inline", "stacked", "inline"));
+                "layout", enumOf("inline", "stacked", "inline"),
+                // Ink for the readings — the three axes and the cardinal. Not the separator
+                // between them: quiet-cell §1 gives colour to the live value rather than to the
+                // punctuation around it.
+                // Type: mods.json#/definitions/hex_color.
+                "color", color("#FFFFFF"));
 
         // Armor status — kind hud, hud tab, §11 safe.
         // Worn armor and held item with remaining durability.
@@ -405,7 +415,13 @@ public final class ModRegistry {
                 // hold-to-sprint but keeps the status readout.
                 "mode", enumOf("toggle", "toggle", "hold"),
                 // Whether the same latching behaviour is applied to sneak.
-                "sneak_too", bool(false));
+                "sneak_too", bool(false),
+                // Key that toggles the mod in game, captured through
+                // `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key
+                // itself, which is vanilla's and is what `mode` latches: this one turns the
+                // latching off, for a fight where holding the key is what the hands expect.
+                // Type: mods.json#/definitions/keybind.
+                "keybind", keybind("NONE"));
 
         // Fullbright — kind gameplay, visual tab, §11 grey.
         // Raises gamma so caves and shadows are fully lit.
@@ -415,7 +431,13 @@ public final class ModRegistry {
                 "on", bool(false),
                 // Value written to `gammaSetting` while the mod is on. Vanilla's slider tops out
                 // at 1; 10 is the conventional fullbright value.
-                "gamma", number(1, 15, 10));
+                "gamma", number(1, 15, 10),
+                // Key that toggles the mod in game, captured through
+                // `void.openKeybindCapture('fullbright')`. The mod that most wants one:
+                // brightness is something you change *because* of what is in front of you, and
+                // reaching the menu to change it means the moment has passed.
+                // Type: mods.json#/definitions/keybind.
+                "keybind", keybind("NONE"));
 
         // Hitboxes — kind gameplay, pvp tab, §11 grey.
         // Draws entity bounding boxes.
@@ -429,7 +451,23 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/hex_color.
                 "color", color("#FFFFFFFF"),
                 // Whether to draw the vanilla eye-direction ray along with the box.
-                "show_eye_line", bool(false));
+                "show_eye_line", bool(false),
+                // Colour of the eye-direction ray, when `show_eye_line` draws it. Its own colour
+                // rather than the box's: the ray answers *where is he looking*, which is a
+                // different question from the box's *where is he*, and one colour for both draws
+                // a box with a spike on it rather than two readings.
+                // Type: mods.json#/definitions/hex_color.
+                "eye_line_color", color("#7ADFFFFF"),
+                // Furthest an entity can be, in blocks, and still be drawn. The point of a box in
+                // a fight is the entity you are fighting; every box past that is a wireframe over
+                // the scenery. 64 is vanilla's own entity render distance, so the default draws
+                // what the game was already drawing.
+                "max_distance", number(4, 64, 64),
+                // Key that toggles the mod in game, captured through
+                // `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and
+                // not the next, which is a decision made mid-match rather than in a menu.
+                // Type: mods.json#/definitions/keybind.
+                "keybind", keybind("NONE"));
 
         // Zoom — kind gameplay, utility tab, §11 safe.
         // Narrows FOV while the zoom key is held.
@@ -503,7 +541,12 @@ public final class ModRegistry {
                 // Whether the raw yaw angle is printed after the facing. Off by default: it is a
                 // second number on a chip whose whole job is to be read without reading, and it
                 // is only wanted by players aligning something precisely.
-                "show_degrees", bool(false));
+                "show_degrees", bool(false),
+                // Ink for the facing. Not the degrees aside, when `show_degrees` draws it: that
+                // is the same reading in another unit, and colouring both leaves the chip one
+                // solid block with no hierarchy in it.
+                // Type: mods.json#/definitions/hex_color.
+                "color", color("#FFFFFF"));
 
         // --- The factory HUD layout (9) — where each widget starts -----------------------------
 
