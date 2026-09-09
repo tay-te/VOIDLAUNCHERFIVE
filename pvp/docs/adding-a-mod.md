@@ -148,6 +148,60 @@ machinery in `ModRegistry.java` (inside the generator's template, between the `B
 GENERATED DATA` markers), and `registry()` / `validate_settings()` / the validating newtypes in
 `mods.rs`.
 
+### Reading the game, instead of remembering it
+
+**Do not write a Mixin from memory about what Minecraft does.** Three defects were shipped that
+way and each was found the same way — by disassembling the method and looking. Two of them were
+*defended by a confident doc comment*, which is what stopped anyone checking:
+
+| Shipped claim | What the bytecode said |
+|---|---|
+| "`doAttack` runs only when there is something to attack, so reaching TAIL is the swing having connected" | `swingHand()` is called at offset 12, before the hit result is read; MISS reaches TAIL too. The combo counter was counting clicks. |
+| `toggle_sprint.mode: "hold"` restores vanilla hold-to-sprint | `setKeyPressed` writes the same `pressed` field the sprint tests read, so the latch is indistinguishable from a held key. `hold` had no implementation but "write nothing", which is `on: false`. |
+| `old_animations.swing` reverts "the shorter, flatter arc 1.7 drew" | `getMiningSpeedMultiplier`, `swingHand`, `tickHandSwing` and the first-person arc are byte-for-byte identical in 1.7.10 and 1.8.9. There is no such arc. |
+
+The 1.8.9 named jar is already in the Gradle cache, put there by Loom:
+
+```sh
+find ~/.gradle/caches -name '*minecraft-merged-legacy-intermediary*-v2.jar'
+javap -p -c -cp <that jar> net.minecraft.client.MinecraftClient | less
+```
+
+Take the jar **without** the `-intermediary` suffix — the sibling is the intermediary one and its
+members are named `method_6644`, not `doAttack`.
+
+**Another version is about five minutes, not a blocker.** `old_animations` was withdrawn once for
+want of a 1.7.10 mapping, and it need not have been:
+
+```sh
+mkdir -p /tmp/mc17 && cd /tmp/mc17
+curl -sSL -o vm.json https://launchermeta.mojang.com/mc/game/version_manifest_v2.json
+#   -> the version's own json -> downloads.client.url ; verify the published sha1
+curl -sSL -o client.jar <that url>
+#   Legacy Fabric publishes a `mergedv2` yarn classifier — official+intermediary+named in one,
+#   so no separate intermediary download is needed. Follow redirects: the host 301s.
+curl -sSL -o yarn.jar \
+  "https://repo.legacyfabric.net/repository/legacyfabric/net/legacyfabric/yarn/<ver>+build.<n>/yarn-<ver>+build.<n>-mergedv2.jar"
+unzip -oq yarn.jar -d yarnmerged        # yarnmerged/mappings/mappings.tiny
+#   tiny-remapper, mapping-io and asm are ALREADY in ~/.gradle/caches/modules-2 — Loom put them
+#   there. No new dependency, no Gradle run.
+java -cp "<those jars>" net.fabricmc.tinyremapper.Main \
+  client.jar client-named.jar yarnmerged/mappings/mappings.tiny official named
+```
+
+Two traps worth knowing before you read the result:
+
+- **A `tableswitch` over an enum does not use the enum's ordinals.** javac emits a synthetic
+  `$SwitchMap` class; read *that* `<clinit>` to learn which arm is which. `BlockHitResult$Type`
+  declares `MISS, BLOCK, ENTITY`, so guessing from declaration order points at the wrong arm.
+- **Legacy Fabric names `ModelPart`'s rotation fields `posX/posY/posZ`.** The translation is
+  `pivotX/pivotY/pivotZ`. Implementing `rightArm.posY = -0.5235988f` as a translate gets nothing;
+  it is a −30° yaw.
+
+Then prove the targets exist rather than that the code compiles: `./gradlew remapJar` and read
+`build/libs/` back. A member the mapping does not know is left as the yarn string, so an
+intermediary name in the output *is* the proof.
+
 ## 5. Check it
 
 ```sh
