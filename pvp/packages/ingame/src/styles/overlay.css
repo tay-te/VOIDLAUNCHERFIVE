@@ -3549,6 +3549,48 @@ body {
   gap: 0;
 }
 
+/* Nametags: two names at two distances, over the same scene the overlay mod draws.
+ *
+ * Absolutely positioned rather than laid out, because the two are at *distances* rather than in a
+ * list: the far one sits higher and nearer the middle, which is what says "further away" without
+ * drawing a third thing to compare against.
+ *
+ * The plate is vanilla's — black at 25%, sized from the text with a couple of pixels either side
+ * — and it is drawn as real padding on real type rather than as a box of a guessed size, so
+ * `nametag_scale` moves the plate with the word the way it does in game. */
+.gprev__tagslot {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.gprev__tagslot--near {
+  left: 38%;
+  top: 46%;
+}
+
+.gprev__tagslot--far {
+  left: 63%;
+  top: 33%;
+}
+
+.gprev__tag {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* `background: off` leaves the text and takes the plate, which is exactly what the setting does —
+   the ink does not change, so this rule removes and does not replace. */
+.gprev__tag--bare {
+  background: transparent;
+}
+
 /* Block outline: three faces of one block, so a stroke is judged against more than one ground.
  *
  * An isometric cube out of three parallelograms would need `transform: skew`, which is a 2D

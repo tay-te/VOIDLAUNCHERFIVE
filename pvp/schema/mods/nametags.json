@@ -1,0 +1,49 @@
+{
+  "$comment": "Three notes.\n\n**No recolouring, and it is the scoreboard's argument rather than \u00a71's.** Lunar's version recolours nametag text. `design/quiet-cell-system.md` \u00a71 would allow a colour on a mark drawn in the world \u2014 that is the exemption `crosshair.color` and `block_outline.color` live under \u2014 so the rule does not settle this one. What settles it is whose colour it is: a nametag's is the *server's*, written by a scoreboard team, and in every mode that uses teams it is the difference between a teammate and someone about to hit you. Repainting it would take information away while looking like a preference. Same call the Scoreboard mod makes about the sidebar's colour codes, for the same reason.\n\n**Every setting is one instruction in `EntityRenderer.renderLabelIfPresent(T, String, double, double, double, int)`, read rather than remembered.** Offsets 0-25 are the distance cull (`squaredDistanceTo > param9\u00b2` returns); offset 32 loads the `1.6F` the label's scale is built from; offsets 176-307 are the background quad, bracketed by the method's only `disableTexture` / `enableTexture` pair and containing its only four `BufferBuilder.color` calls. So hide is a cancel, scale is one constant, distance is one parameter, and the plate is four alpha bytes.\n\n**`plate`, not `background`.** That word belongs to the shared HUD chrome block, and `ModRegistryTest` asserts no gameplay mod carries one of its six keys. The third naming collision this wave and the third one a generator or a test caught rather than a reviewer.\n\n**The plate is hidden by drawing it transparent, not by skipping the draw.** Cancelling `Tessellator.draw()` would leave the buffer in its building state and break the *next* thing to draw \u2014 a `begin` without a `draw` is not a no-op, it is a corrupted tessellator. Four vertices submitted at zero alpha cost nothing measurable and leave GL exactly as vanilla left it, which is the property that matters in a render path this deep.",
+  "id": "nametags",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Nametags",
+  "icon": "users",
+  "the": false,
+  "noun": "nametags",
+  "on_description": "the nametag customiser is enabled",
+  "description": "Shrink, thin out or hide the floating names, which in a team mode are most of what is on screen.",
+  "settings_title": "Nametag settings",
+  "settings_description": "Settings for the Nametags gameplay mod. It draws nothing of its own: every name is vanilla's `EntityRenderer.renderLabelIfPresent`, and these change whether it runs, how big it is, how far it reaches and whether the dark plate behind it is drawn.\n\nWhy it is worth a mod \u2014 `docs/mod-roster.md` \u00a73.3 #4: nametag clutter in team modes is a real visibility problem. Eight names at full size and full plate across a Bedwars mid is more screen than the fight is.\n\nThere is deliberately no colour setting. A nametag's colour is the server's, written by a scoreboard team, and in every mode that uses teams it is the difference between a teammate and someone about to hit you \u2014 repainting it takes information away while looking like a preference.",
+  "source": "vanilla's own `EntityRenderer.renderLabelIfPresent`, redirected",
+  "enabled": false,
+  "defaults": {
+    "hide": false,
+    "nametag_scale": 1,
+    "plate": true,
+    "max_distance": 64
+  },
+  "settings": {
+    "hide": {
+      "description": "Whether names are drawn at all. Off by default, and it is the setting to reach for last: a nametag is how you tell a teammate from a target, so hiding them is a trade rather than a cleanup. It is offered because in a 1v1 there is nothing to tell apart and the name is just a thing over your opponent's head.",
+      "type": "boolean",
+      "default": false
+    },
+    "nametag_scale": {
+      "description": "Size of the names, as a multiplier on vanilla's. 1 is untouched. This is the setting most players actually want \u2014 the clutter is area, not count, and a name at 0.7 is half the pixels of one at 1.\n\nSpelled `nametag_scale` rather than `scale` because `SETTING_BOUNDS` is keyed by the bare name and `scale` is the shared HUD block's 0.25-4; the floor here is 0.5 because vanilla's font is a bitmap and below half size the glyphs stop resolving.",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2,
+      "default": 1
+    },
+    "plate": {
+      "description": "Whether the dark plate behind the text is drawn. On is vanilla. Off leaves the text, which over a bright sky is less readable and over a dark build is most of what you get back \u2014 it is the cheapest way to halve the area a name covers without making it smaller.\n\nThe plate is drawn transparent rather than skipped: cancelling the draw would leave the tessellator mid-build and corrupt whatever drew next.\n\n**Spelled `plate`, not `background`.** `background` is the shared HUD chrome block's word \u2014 one of the six keys `schema/mods/_shared.json#/hud` gives every `kind: hud` mod \u2014 and `ModRegistryTest.hudChromeIsUniversal` asserts that no gameplay mod carries one of them. That rule is right: the chrome block is answerable by key name, and a gameplay mod with a `background` would make \"does this mod have chrome\" a question you have to look up the kind to answer. It is also the third naming collision this wave, after `sidebar_scale` and `line_width` \u2014 the generators and this test have caught every one of them, which is the argument for keying them by bare name in the first place.",
+      "type": "boolean",
+      "default": true
+    },
+    "max_distance": {
+      "description": "Furthest a name is drawn, in blocks. 64 is vanilla's own cull and the default.\n\nWhat it is for is the far half of a Bedwars map: names at forty blocks are unreadable *and* opaque, so they cost screen without paying for it. Bringing this in is the one setting here that removes clutter without removing anything you could have read.\n\nThe range is `hitboxes.max_distance`'s exactly, and shared rather than chosen \u2014 the generator refuses two mods that disagree about one bare setting name, which is right here: both are \"how far away does this client stop drawing a mark on an entity\", and two answers to that would be two ideas of what distance means.",
+      "type": "number",
+      "minimum": 4,
+      "maximum": 64,
+      "default": 64
+    }
+  }
+}

@@ -172,6 +172,13 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 9's nametag customiser. No colour row: the colour is the server's — see the schema.
+  nametags: [
+    { key: 'hide', label: 'Hide', control: 'switch' },
+    { key: 'nametag_scale', label: 'Name scale', control: 'slider', min: 0.5, max: 2, step: 0.05, format: 'multiplier' },
+    { key: 'plate', label: 'Plate', control: 'switch' },
+    { key: 'max_distance', label: 'Max distance', control: 'slider', min: 4, max: 64, step: 1, format: 'plain' },
+  ],
   // Wave 9's outline customiser — three settings, each one instruction in one vanilla method.
   block_outline: [
     { key: 'hide', label: 'Hide', control: 'switch' },
@@ -405,6 +412,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'reach',
   'potion_counter',
   'block_outline',
+  'nametags',
   'scoreboard',
   'saturation',
   'momentum',

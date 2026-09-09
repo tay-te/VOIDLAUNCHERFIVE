@@ -12,6 +12,7 @@
     "BiPedModelMixin",
     "EntityMixin",
     "EntityRenderDispatcherMixin",
+    "EntityRendererMixin",
     "GameOptionsMixin",
     "GameRendererMixin",
     "HeldItemRendererMixin",

@@ -126,6 +126,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "warn_above": {
     "min": 0,
     "max": 6
+  },
+  "nametag_scale": {
+    "min": 0.5,
+    "max": 2
   }
 } as const;
 

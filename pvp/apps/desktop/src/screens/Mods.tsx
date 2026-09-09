@@ -253,6 +253,8 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // Vanilla's own width, which is this mod's default — a card states the number a player will
   // reach for the slider to change.
   block_outline: () => <Numeral value="2" unit="px" />,
+  // Vanilla's own cull, which is the default — the number a player pulls in rather than pushes.
+  nametags: () => <Numeral value="64" unit="blocks" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 17,
+  "version": 18,
   "mods": {
     "fps": {
       "id": "fps",
@@ -815,6 +815,23 @@ export const MOD_REGISTRY_DOCUMENT = {
         "hide": false,
         "color": "#00000066",
         "line_width": 2
+      }
+    },
+    "nametags": {
+      "id": "nametags",
+      "kind": "gameplay",
+      "category": "visual",
+      "hypixel_safe": "safe",
+      "label": "Nametags",
+      "icon": "users",
+      "description": "Shrink, thin out or hide the floating names, which in a team mode are most of what is on screen.",
+      "source": "vanilla's own `EntityRenderer.renderLabelIfPresent`, redirected",
+      "defaults": {
+        "on": false,
+        "hide": false,
+        "nametag_scale": 1,
+        "plate": true,
+        "max_distance": 64
       }
     }
   }

@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 36 mods.
+ * The closed registry of the 37 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -445,7 +445,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (16) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -880,7 +880,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (16) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -1313,7 +1313,7 @@ public final class ModRegistry {
                 // on their HUD and does not want the number twice.
                 "show_figure", bool(true));
 
-        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (16) — they mutate a client-side option -----------------------------
 
         // Scoreboard — kind gameplay, hud tab, §11 safe.
         // Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
@@ -1415,7 +1415,7 @@ public final class ModRegistry {
                 // screen.
                 "show_label", bool(true));
 
-        // --- Gameplay mods (15) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (16) — they mutate a client-side option -----------------------------
 
         // Block outline — kind gameplay, visual tab, §11 safe.
         // The box vanilla draws round the block you are looking at — recoloured, thickened, or
@@ -1447,6 +1447,52 @@ public final class ModRegistry {
                 // the driver ignores is a setting that does nothing on their machine and works on
                 // yours. The floor is 0.5 for the same reason from the other end.
                 "line_width", number(0.5, 5, 2));
+
+        // Nametags — kind gameplay, visual tab, §11 safe.
+        // Shrink, thin out or hide the floating names, which in a team mode are most of what is
+        // on screen.
+        // Source: vanilla's own `EntityRenderer.renderLabelIfPresent`, redirected.
+        mod("nametags", Kind.GAMEPLAY, Category.VISUAL, "Nametags",
+                // Whether the nametag customiser is enabled.
+                "on", bool(false),
+                // Whether names are drawn at all. Off by default, and it is the setting to reach
+                // for last: a nametag is how you tell a teammate from a target, so hiding them is
+                // a trade rather than a cleanup. It is offered because in a 1v1 there is nothing
+                // to tell apart and the name is just a thing over your opponent's head.
+                "hide", bool(false),
+                // Size of the names, as a multiplier on vanilla's. 1 is untouched. This is the
+                // setting most players actually want — the clutter is area, not count, and a name
+                // at 0.7 is half the pixels of one at 1. Spelled `nametag_scale` rather than
+                // `scale` because `SETTING_BOUNDS` is keyed by the bare name and `scale` is the
+                // shared HUD block's 0.25-4; the floor here is 0.5 because vanilla's font is a
+                // bitmap and below half size the glyphs stop resolving.
+                "nametag_scale", number(0.5, 2, 1),
+                // Whether the dark plate behind the text is drawn. On is vanilla. Off leaves the
+                // text, which over a bright sky is less readable and over a dark build is most of
+                // what you get back — it is the cheapest way to halve the area a name covers
+                // without making it smaller. The plate is drawn transparent rather than skipped:
+                // cancelling the draw would leave the tessellator mid-build and corrupt whatever
+                // drew next. **Spelled `plate`, not `background`.** `background` is the shared
+                // HUD chrome block's word — one of the six keys `schema/mods/_shared.json#/hud`
+                // gives every `kind: hud` mod — and `ModRegistryTest.hudChromeIsUniversal`
+                // asserts that no gameplay mod carries one of them. That rule is right: the
+                // chrome block is answerable by key name, and a gameplay mod with a `background`
+                // would make "does this mod have chrome" a question you have to look up the kind
+                // to answer. It is also the third naming collision this wave, after
+                // `sidebar_scale` and `line_width` — the generators and this test have caught
+                // every one of them, which is the argument for keying them by bare name in the
+                // first place.
+                "plate", bool(true),
+                // Furthest a name is drawn, in blocks. 64 is vanilla's own cull and the default.
+                // What it is for is the far half of a Bedwars map: names at forty blocks are
+                // unreadable *and* opaque, so they cost screen without paying for it. Bringing
+                // this in is the one setting here that removes clutter without removing anything
+                // you could have read. The range is `hitboxes.max_distance`'s exactly, and shared
+                // rather than chosen — the generator refuses two mods that disagree about one
+                // bare setting name, which is right here: both are "how far away does this client
+                // stop drawing a mark on an entity", and two answers to that would be two ideas
+                // of what distance means.
+                "max_distance", number(4, 64, 64));
 
         // --- The factory HUD layout (21) — where each widget starts ----------------------------
 
@@ -1567,7 +1613,7 @@ public final class ModRegistry {
     // END GENERATED DATA
     // =================================================================
 
-    /** The 36 mod ids, in registry order. */
+    /** The 37 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

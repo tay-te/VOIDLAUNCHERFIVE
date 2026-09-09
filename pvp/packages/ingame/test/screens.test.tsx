@@ -424,12 +424,14 @@ describe('Mods screen — the grid, and the page one click away', () => {
     );
     // The watermark is Visual too — it is a mark drawn over the game, not a readout. `overlay`
     // joined them in Wave 4: it is the mod whose whole subject is what the game draws over you.
-    // `block_outline` joined in Wave 9 on the same terms — it is a mark in the world, and its
-    // category is `visual` for the reason `crosshair`'s is rather than because it is cosmetic.
+    // `block_outline` and `nametags` joined in Wave 9 on the same terms — both are marks in the
+    // world, and their category is `visual` for the reason `crosshair`'s is rather than because
+    // they are cosmetic.
     expect(ids.sort()).toEqual([
       'block_outline',
       'crosshair',
       'fullbright',
+      'nametags',
       'overlay',
       'watermark',
     ]);

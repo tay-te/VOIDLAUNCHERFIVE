@@ -71,6 +71,7 @@ const LIVE: readonly ModId[] = [
   'cps_graph',
   'scoreboard',
   'block_outline',
+  'nametags',
   'reach',
   'potion_counter',
   'saturation',

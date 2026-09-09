@@ -140,7 +140,7 @@ completeness and should not be built.
 | 1 | **The "overlay" grab-bag** — minimal view bobbing, lower/hide fire overlay, hide own armour pieces, hide stuck & ground arrows, disable damage overlay | A dozen independent visual suppressions of things that block your view mid-fight | ✓ (one mod: `overlay-mod`) | ✗ | ✗ | S each | **Build. Highest value-per-hour on this entire page.** Each is a settings-driven suppression in an existing render path. Fire overlay alone decides fights. Lunar bundles ~50 of these into one mod; ship the six that matter as one VOID mod and stop. |
 | 2 | **GUI scale** | Hotbar and inventory scaled independently of Minecraft's GUI scale | ✓ | ✗ | ✗ | S | Build. Small, and it fixes the "my hotbar is enormous at 1080p" complaint permanently. |
 | 3 | **Block outline** | Colour, thickness, or removal of the block-targeting outline | ✓ | ✓ | ✗ | M | Build. World-space GL, so it costs more than it looks — but it is table stakes. |
-| 4 | **Nametag customiser** | Hide, scale, recolour, or de-background nametags | ✓ | ✗ | ✗ | M | Build. Nametag clutter in team modes is a real visibility problem. |
+| 4 | **Nametag customiser** | Hide, scale, recolour, or de-background nametags | ✓ | ✗ | ✗ | M | **Shipped 2026-09-09**, less the recolour: a nametag's colour is the server's, written by a scoreboard team, and in a team mode it is the difference between a teammate and a target. |
 | 5 | **Menu / inventory blur** | Blurs the world behind menus | ✓ | ✓ | ~ | S | **Do not finish it — cut, 2026-09-09.** This row said "finish what exists"; what exists is switched off on purpose. See below. |
 | 6 | **Clear glass** | Glass without the frame texture, without a resource pack | ✓ (in `overlay-mod`) | ✓ | ✗ | M | Build. Bedwars-relevant, allowed, and a resource-pack behaviour people expect built in. |
 | 7 | **Fog customiser** | Reduce or remove water / distance / dimension fog | ✓ | ✗ | ✗ | M | Build, class it **`grey`**. It increases what you can see beyond vanilla — same posture as fullbright. |
@@ -445,7 +445,7 @@ tooltips, inventory lock, kill sounds.
 
 **Wave 9 — the ones that needed the game read.** ~~Reach display~~ · ~~Scoreboard~~ ·
 ~~zoom sensitivity~~ · ~~Potion counter~~ · ~~item counter, inventory-wide~~ · ~~Block
-outline~~. Nametags. **GUI scale: cut**, 2026-09-09, by the product owner rather than by this document —
+outline~~ · ~~Nametags~~. **Wave 9 is closed.** **GUI scale: cut**, 2026-09-09, by the product owner rather than by this document —
 §3.3 #2's "fixes the my-hotbar-is-enormous complaint permanently" is real and it is also the one
 row in this wave that changes a thing every player already has a working answer for (vanilla's
 own GUI scale). Recorded here rather than deleted, because a row that comes back should come
@@ -514,7 +514,19 @@ back knowing it was cut once.
 > discipline for three neighbouring fields. A test that pins a bug reads exactly like a test that
 > pins a contract.
 >
-> **What is left in this tier** is nametags, and it is not blocked — the jar is
+> **Nothing is left in this tier.** Nametags closed it, and what the wave is worth recording for
+> is not the seven mods — it is that **every one of them was blocked on reading the game, and the
+> recipe for reading it was already in this repo**, written for 1.7.10 and never tried on 1.8.9.
+>
+> The other thing worth carrying forward is how the collisions were caught. Three settings in
+> this wave wanted a name that was already taken — `scale` (the shared HUD block's),
+> `line_width` (`hitboxes`') and `background` (the chrome block's) — and a generator or a test
+> caught all three before a reviewer could have. `SETTING_BOUNDS` refuses two bounds for one bare
+> name; `ModRegistryTest.hudChromeIsUniversal` refuses a gameplay mod carrying a chrome key. Both
+> rules looked like tidiness when they were written and are the reason this wave did not ship a
+> client where `3` means two different thicknesses.
+>
+> The old note said the remaining items were not blocked — the jar is
 > fetchable in five commands and `remapJar` proves a target exists (a member the mapping does not
 > know is left as its yarn string, so an intermediary name in the output is the proof). Potion
 > counter is the one §3.1 keeps asking for and is the only one that needs a new *sensor* field
@@ -590,7 +602,7 @@ graph.~~ Playtime · day counter.
 
 VOID is not thirteen mods behind ninety-eight. Strip Skyblock, modern-version and
 ornamental mods from Lunar's 98 and the 1.8.9-PvP-relevant roster is around **45**. VOID
-had 13 of them when this was written and has 36 now, and is *ahead* on two (1% low FPS, and
+had 13 of them when this was written and has 37 now, and is *ahead* on two (1% low FPS, and
 an HUD editor with live per-mod previews that neither competitor matches).
 
 The four gaps below were written against the thirteen. Two have closed: the cheap sweep is

@@ -39,6 +39,7 @@ import block_outline from './block_outline';
 import clock from './clock';
 import cps_graph from './cps_graph';
 import hit_trade from './hit_trade';
+import nametags from './nametags';
 import potion_counter from './potion_counter';
 import reach from './reach';
 import scoreboard from './scoreboard';
@@ -98,6 +99,7 @@ const ART = {
   clock,
   cps_graph,
   hit_trade,
+  nametags,
   potion_counter,
   reach,
   scoreboard,

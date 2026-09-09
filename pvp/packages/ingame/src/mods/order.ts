@@ -69,6 +69,8 @@ export const MOD_ORDER: ModId[] = [
   // Beside Hitboxes, the other mod whose whole subject is a wireframe drawn in the world — the
   // two share a `cube` glyph for that reason, and the grid keeps them together so the shared mark
   // reads as a pair rather than as a collision.
+  // Beside Block outline, the other mod whose subject is a mark the world draws over the fight.
+  'nametags',
   'block_outline',
   'hitboxes',
   // Beside Hitboxes, the other mod whose subject is reading a fight off the entity in front of

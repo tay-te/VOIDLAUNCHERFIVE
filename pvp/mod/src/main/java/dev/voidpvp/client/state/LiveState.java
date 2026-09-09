@@ -152,6 +152,19 @@ public final class LiveState {
     /** {@code zoom.sensitivity} — the fraction of normal look sensitivity while zoomed. */
     public volatile double zoomSensitivity = 1;
 
+    /* ----------------------------------------------------------------- nametags */
+
+    /** {@code nametags.on} — the customiser is engaged at all. */
+    public volatile boolean nametagsOn;
+    /** {@code nametags.hide} — vanilla's label draw is skipped entirely. */
+    public volatile boolean nametagsHide;
+    /** {@code nametags.nametag_scale} — a multiplier on vanilla's own 1.6. */
+    public volatile double nametagScale = 1;
+    /** {@code nametags.plate} — the dark plate behind the text. */
+    public volatile boolean nametagsPlate = true;
+    /** {@code nametags.max_distance} — blocks; vanilla's own cull is 64. */
+    public volatile double nametagsMaxDistance = 64;
+
     /* -------------------------------------------------------------- block outline */
 
     /** {@code block_outline.on} — the customiser is engaged at all. */
@@ -528,6 +541,11 @@ public final class LiveState {
         zoomSmooth = l.boolSetting("zoom", "smooth", true);
         zoomCinematic = l.boolSetting("zoom", "cinematic", false);
         zoomSensitivity = l.numberSetting("zoom", "sensitivity", 1);
+        nametagsOn = l.isOn("nametags");
+        nametagsHide = l.boolSetting("nametags", "hide", false);
+        nametagScale = l.numberSetting("nametags", "nametag_scale", 1);
+        nametagsPlate = l.boolSetting("nametags", "plate", true);
+        nametagsMaxDistance = l.numberSetting("nametags", "max_distance", 64);
         blockOutlineOn = l.isOn("block_outline");
         blockOutlineHide = l.boolSetting("block_outline", "hide", false);
         blockOutlineColor = parseColor(

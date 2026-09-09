@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 36 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 37 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -83,7 +83,8 @@ export type ModId =
   | 'scoreboard'
   | 'reach'
   | 'potion_counter'
-  | 'block_outline';
+  | 'block_outline'
+  | 'nametags';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -1059,6 +1060,32 @@ export type BlockOutlineEntry = RegistryEntry & {
   defaults?: BlockOutlineSettings;
 };
 /**
+ * Registry entry for Nametags, narrowed to its constant classification.
+ */
+export type NametagsEntry = RegistryEntry & {
+  /**
+   * Always `nametags`.
+   */
+  id?: 'nametags';
+  /**
+   * Always `users`.
+   */
+  icon?: 'users';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: NametagSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
@@ -1202,7 +1229,8 @@ export type GameplayModId =
   | 'old_animations'
   | 'old_input'
   | 'scoreboard'
-  | 'block_outline';
+  | 'block_outline'
+  | 'nametags';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1317,7 +1345,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 36 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 37 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1356,6 +1384,7 @@ export interface Mods {
   reach: ReachDisplayEntry;
   potion_counter: PotionCounterEntry;
   block_outline: BlockOutlineEntry;
+  nametags: NametagsEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2595,6 +2624,42 @@ export interface BlockOutlineSettings {
   line_width?: number;
 }
 /**
+ * Settings for the Nametags gameplay mod. It draws nothing of its own: every name is vanilla's `EntityRenderer.renderLabelIfPresent`, and these change whether it runs, how big it is, how far it reaches and whether the dark plate behind it is drawn.
+ *
+ * Why it is worth a mod — `docs/mod-roster.md` §3.3 #4: nametag clutter in team modes is a real visibility problem. Eight names at full size and full plate across a Bedwars mid is more screen than the fight is.
+ *
+ * There is deliberately no colour setting. A nametag's colour is the server's, written by a scoreboard team, and in every mode that uses teams it is the difference between a teammate and someone about to hit you — repainting it takes information away while looking like a preference.
+ */
+export interface NametagSettings {
+  on: Enabled;
+  /**
+   * Whether names are drawn at all. Off by default, and it is the setting to reach for last: a nametag is how you tell a teammate from a target, so hiding them is a trade rather than a cleanup. It is offered because in a 1v1 there is nothing to tell apart and the name is just a thing over your opponent's head.
+   */
+  hide?: boolean;
+  /**
+   * Size of the names, as a multiplier on vanilla's. 1 is untouched. This is the setting most players actually want — the clutter is area, not count, and a name at 0.7 is half the pixels of one at 1.
+   *
+   * Spelled `nametag_scale` rather than `scale` because `SETTING_BOUNDS` is keyed by the bare name and `scale` is the shared HUD block's 0.25-4; the floor here is 0.5 because vanilla's font is a bitmap and below half size the glyphs stop resolving.
+   */
+  nametag_scale?: number;
+  /**
+   * Whether the dark plate behind the text is drawn. On is vanilla. Off leaves the text, which over a bright sky is less readable and over a dark build is most of what you get back — it is the cheapest way to halve the area a name covers without making it smaller.
+   *
+   * The plate is drawn transparent rather than skipped: cancelling the draw would leave the tessellator mid-build and corrupt whatever drew next.
+   *
+   * **Spelled `plate`, not `background`.** `background` is the shared HUD chrome block's word — one of the six keys `schema/mods/_shared.json#/hud` gives every `kind: hud` mod — and `ModRegistryTest.hudChromeIsUniversal` asserts that no gameplay mod carries one of them. That rule is right: the chrome block is answerable by key name, and a gameplay mod with a `background` would make "does this mod have chrome" a question you have to look up the kind to answer. It is also the third naming collision this wave, after `sidebar_scale` and `line_width` — the generators and this test have caught every one of them, which is the argument for keying them by bare name in the first place.
+   */
+  plate?: boolean;
+  /**
+   * Furthest a name is drawn, in blocks. 64 is vanilla's own cull and the default.
+   *
+   * What it is for is the far half of a Bedwars map: names at forty blocks are unreadable *and* opaque, so they cost screen without paying for it. Bringing this in is the one setting here that removes clutter without removing anything you could have read.
+   *
+   * The range is `hitboxes.max_distance`'s exactly, and shared rather than chosen — the generator refuses two mods that disagree about one bare setting name, which is right here: both are "how far away does this client stop drawing a mark on an entity", and two answers to that would be two ideas of what distance means.
+   */
+  max_distance?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2620,7 +2685,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 36 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 37 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2659,6 +2724,7 @@ export interface ModStates {
   reach?: ReachSettings;
   potion_counter?: PotionCounterSettings;
   block_outline?: BlockOutlineSettings;
+  nametags?: NametagSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

@@ -728,6 +728,80 @@ export function SneakPreview({ dense = false, className }: DiagramProps = {}): R
 }
 
 /* -------------------------------------------------------------------------- */
+/* Nametags                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Two names at two distances, which is the only way a cull has a drawn form.
+ *
+ * `max_distance` is about *which* names get drawn, and one nametag cannot show a cutoff — this is
+ * `HitboxPreview`'s problem exactly, and it takes the same answer: a near tag that is always
+ * there, and a second standing at {@link FAR_BLOCKS} which is drawn only while the limit reaches
+ * it. Dropping out is the whole content of the setting and it is the same thing that happens in
+ * game, which is why it is a second tag rather than a sentence about a number.
+ *
+ * The two are also what makes `nametag_scale` legible. A name shrinking on its own reads as the
+ * preview zooming; a near one and a far one shrinking together read as names getting smaller,
+ * because the *scene* has not moved.
+ *
+ * ## Why the text is a word and not a bar
+ *
+ * Everything textural in this client is §3 cells, and a nametag is the one mark in this file that
+ * is genuinely *type* — its size is a font size, its plate is sized from a string width, and the
+ * thing a player is judging is how much screen a word takes. A bar would be drawing the clutter
+ * without drawing what makes it clutter. The name is a fixture rather than the player's own,
+ * because the mod is about every name on screen and not about theirs.
+ */
+const NAMETAG_FIXTURE = 'Notch';
+
+export function NametagsPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('nametags');
+  const hidden = settings.hide === true;
+  const scale = Number(settings.nametag_scale ?? 1);
+  const plate = settings.plate !== false;
+  const limit = Number(settings.max_distance ?? 64);
+  const far = limit >= FAR_BLOCKS;
+  const tag = (size: number, key: string) => (
+    <span
+      key={key}
+      className={plate ? 'gprev__tag' : 'gprev__tag gprev__tag--bare'}
+      style={{ fontSize: `${size * scale}px` }}
+    >
+      {NAMETAG_FIXTURE}
+    </span>
+  );
+  return (
+    <div className={root(dense, 'gprev--tags', className)}>
+      <div className="gprev__scene">
+        <span className="gprev__horizon" />
+        <span className="gprev__reticle" />
+        {/* The far one first, so it sits behind and higher — a name further away is nearer the
+            horizon, which is what says "further" without drawing a third thing. */}
+        {hidden || !far ? null : (
+          <span className="gprev__tagslot gprev__tagslot--far">
+            {tag(dense ? 5 : 9, 'far')}
+          </span>
+        )}
+        {hidden ? null : (
+          <span className="gprev__tagslot gprev__tagslot--near">
+            {tag(dense ? 8 : 15, 'near')}
+          </span>
+        )}
+      </div>
+      {dense ? null : (
+        <Reading
+          parts={[
+            hidden ? 'No names' : `${Math.round(scale * 100)}% size`,
+            hidden ? null : plate ? 'On their plate' : 'Text only',
+            hidden ? null : `Out to ${limit} blocks`,
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Block outline                                                              */
 /* -------------------------------------------------------------------------- */
 

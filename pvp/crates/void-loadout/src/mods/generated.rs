@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 36 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 37 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -113,11 +113,14 @@ pub enum ModId {
     /// The box vanilla draws round the block you are looking at — recoloured, thickened, or
     /// gone.
     BlockOutline,
+    /// Shrink, thin out or hide the floating names, which in a team mode are most of what is on
+    /// screen.
+    Nametags,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 36] = [
+    pub const ALL: [ModId; 37] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -154,6 +157,7 @@ impl ModId {
         ModId::Reach,
         ModId::PotionCounter,
         ModId::BlockOutline,
+        ModId::Nametags,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -195,6 +199,7 @@ impl ModId {
             ModId::Reach => "reach",
             ModId::PotionCounter => "potion_counter",
             ModId::BlockOutline => "block_outline",
+            ModId::Nametags => "nametags",
         }
     }
 }
@@ -316,7 +321,7 @@ impl HudModId {
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `gameplay`: the 15 mods an actuator Mixin reads
+/// The subset of [`ModId`] whose `kind` is `gameplay`: the 16 mods an actuator Mixin reads
 /// every frame.
 ///
 /// These are the only ids accepted by `void.setGameplay`.
@@ -357,11 +362,14 @@ pub enum GameplayModId {
     /// The box vanilla draws round the block you are looking at — recoloured, thickened, or
     /// gone.
     BlockOutline,
+    /// Shrink, thin out or hide the floating names, which in a team mode are most of what is on
+    /// screen.
+    Nametags,
 }
 
 impl GameplayModId {
     /// Every gameplay mod id, in registry order.
-    pub const ALL: [GameplayModId; 15] = [
+    pub const ALL: [GameplayModId; 16] = [
         GameplayModId::ToggleSprint,
         GameplayModId::Fullbright,
         GameplayModId::Hitboxes,
@@ -377,6 +385,7 @@ impl GameplayModId {
         GameplayModId::OldInput,
         GameplayModId::Scoreboard,
         GameplayModId::BlockOutline,
+        GameplayModId::Nametags,
     ];
 
     /// Widens to the full mod id enum.
@@ -397,6 +406,7 @@ impl GameplayModId {
             GameplayModId::OldInput => ModId::OldInput,
             GameplayModId::Scoreboard => ModId::Scoreboard,
             GameplayModId::BlockOutline => ModId::BlockOutline,
+            GameplayModId::Nametags => ModId::Nametags,
         }
     }
 
@@ -3972,11 +3982,72 @@ pub struct BlockOutlineSettings {
     pub line_width: Option<f64>,
 }
 
+/// Nametag settings.
+///
+/// Settings for the Nametags gameplay mod. It draws nothing of its own: every name is vanilla's
+/// `EntityRenderer.renderLabelIfPresent`, and these change whether it runs, how big it is, how
+/// far it reaches and whether the dark plate behind it is drawn. Why it is worth a mod —
+/// `docs/mod-roster.md` §3.3 #4: nametag clutter in team modes is a real visibility problem.
+/// Eight names at full size and full plate across a Bedwars mid is more screen than the fight
+/// is. There is deliberately no colour setting. A nametag's colour is the server's, written by
+/// a scoreboard team, and in every mode that uses teams it is the difference between a teammate
+/// and someone about to hit you — repainting it takes information away while looking like a
+/// preference.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NametagsSettings {
+    /// Whether the nametag customiser is enabled.
+    pub on: bool,
+
+    /// Whether names are drawn at all. Off by default, and it is the setting to reach for last:
+    /// a nametag is how you tell a teammate from a target, so hiding them is a trade rather
+    /// than a cleanup. It is offered because in a 1v1 there is nothing to tell apart and the
+    /// name is just a thing over your opponent's head.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hide: Option<bool>,
+
+    /// Size of the names, as a multiplier on vanilla's. 1 is untouched. This is the setting
+    /// most players actually want — the clutter is area, not count, and a name at 0.7 is half
+    /// the pixels of one at 1. Spelled `nametag_scale` rather than `scale` because
+    /// `SETTING_BOUNDS` is keyed by the bare name and `scale` is the shared HUD block's 0.25-4;
+    /// the floor here is 0.5 because vanilla's font is a bitmap and below half size the glyphs
+    /// stop resolving.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nametag_scale: Option<f64>,
+
+    /// Whether the dark plate behind the text is drawn. On is vanilla. Off leaves the text,
+    /// which over a bright sky is less readable and over a dark build is most of what you get
+    /// back — it is the cheapest way to halve the area a name covers without making it smaller.
+    /// The plate is drawn transparent rather than skipped: cancelling the draw would leave the
+    /// tessellator mid-build and corrupt whatever drew next. **Spelled `plate`, not
+    /// `background`.** `background` is the shared HUD chrome block's word — one of the six keys
+    /// `schema/mods/_shared.json#/hud` gives every `kind: hud` mod — and
+    /// `ModRegistryTest.hudChromeIsUniversal` asserts that no gameplay mod carries one of them.
+    /// That rule is right: the chrome block is answerable by key name, and a gameplay mod with
+    /// a `background` would make "does this mod have chrome" a question you have to look up the
+    /// kind to answer. It is also the third naming collision this wave, after `sidebar_scale`
+    /// and `line_width` — the generators and this test have caught every one of them, which is
+    /// the argument for keying them by bare name in the first place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plate: Option<bool>,
+
+    /// Furthest a name is drawn, in blocks. 64 is vanilla's own cull and the default. What it
+    /// is for is the far half of a Bedwars map: names at forty blocks are unreadable *and*
+    /// opaque, so they cost screen without paying for it. Bringing this in is the one setting
+    /// here that removes clutter without removing anything you could have read. The range is
+    /// `hitboxes.max_distance`'s exactly, and shared rather than chosen — the generator refuses
+    /// two mods that disagree about one bare setting name, which is right here: both are "how
+    /// far away does this client stop drawing a mark on an entity", and two answers to that
+    /// would be two ideas of what distance means.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_distance: Option<f64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 36.
+/// Every mod VOID ships, keyed by id. Closed set of 37.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -4102,6 +4173,10 @@ pub struct ModRegistryEntries {
     /// Block outline — The box vanilla draws round the block you are looking at — recoloured,
     /// thickened, or gone.
     pub block_outline: ModEntry<BlockOutlineSettings>,
+
+    /// Nametags — Shrink, thin out or hide the floating names, which in a team mode are most of
+    /// what is on screen.
+    pub nametags: ModEntry<NametagsSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -4185,6 +4260,8 @@ pub struct ModStates {
     pub potion_counter: Option<PotionCounterSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub block_outline: Option<BlockOutlineSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nametags: Option<NametagsSettings>,
 }
 
 impl Registry {
@@ -4227,6 +4304,7 @@ impl Registry {
             ModId::Reach => self.mods.reach.info(),
             ModId::PotionCounter => self.mods.potion_counter.info(),
             ModId::BlockOutline => self.mods.block_outline.info(),
+            ModId::Nametags => self.mods.nametags.info(),
         }
     }
 
@@ -4271,6 +4349,7 @@ impl Registry {
             ModId::Reach => self.mods.reach.defaults_object(),
             ModId::PotionCounter => self.mods.potion_counter.defaults_object(),
             ModId::BlockOutline => self.mods.block_outline.defaults_object(),
+            ModId::Nametags => self.mods.nametags.defaults_object(),
         }
     }
 }
@@ -4316,6 +4395,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::Reach => super::check::<ReachSettings>(id, value),
         ModId::PotionCounter => super::check::<PotionCounterSettings>(id, value),
         ModId::BlockOutline => super::check::<BlockOutlineSettings>(id, value),
+        ModId::Nametags => super::check::<NametagsSettings>(id, value),
     }
 }
 

@@ -41,6 +41,8 @@ export function settingLabel(key: string): string {
     block_hit: 'Block hit',
     show_jitter: 'Show jitter',
     sidebar_scale: 'Sidebar scale',
+    nametag_scale: 'Name scale',
+    plate: 'Plate',
     offset_x: 'Horizontal offset',
     offset_y: 'Vertical offset',
     show_seconds: 'Show seconds',
@@ -223,6 +225,11 @@ export const SETTING_HINTS: Record<string, string> = {
 
   'momentum.unit': 'Blocks per second, or km/h',
   'momentum.show_label': 'The unit after the figure',
+
+  'nametags.hide': 'Do not draw floating names at all',
+  'nametags.nametag_scale': 'Size of the names',
+  'nametags.plate': 'The dark plate behind the text',
+  'nametags.max_distance': 'How far away a name is still drawn',
 
   'old_animations.block_hit': '1.7 swings while blocking, 1.8 does not',
   'old_animations.swing_during_delay': 'Your arm moves during the miss delay',

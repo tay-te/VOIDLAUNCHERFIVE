@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 36 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 37 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -57,7 +57,8 @@
         "scoreboard",
         "reach",
         "potion_counter",
-        "block_outline"
+        "block_outline",
+        "nametags"
       ],
       "additionalProperties": false,
       "properties": {
@@ -204,6 +205,10 @@
         "block_outline": {
           "description": "Block outline registry entry.",
           "$ref": "#/definitions/block_outline_entry"
+        },
+        "nametags": {
+          "description": "Nametags registry entry.",
+          "$ref": "#/definitions/nametags_entry"
         }
       }
     }
@@ -211,7 +216,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 36 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 37 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -249,7 +254,8 @@
         "scoreboard",
         "reach",
         "potion_counter",
-        "block_outline"
+        "block_outline",
+        "nametags"
       ]
     },
     "hud_mod_id": {
@@ -299,7 +305,8 @@
         "old_animations",
         "old_input",
         "scoreboard",
-        "block_outline"
+        "block_outline",
+        "nametags"
       ]
     },
     "kind": {
@@ -2536,6 +2543,45 @@
         }
       }
     },
+    "nametags_settings": {
+      "title": "Nametag settings",
+      "description": "Settings for the Nametags gameplay mod. It draws nothing of its own: every name is vanilla's `EntityRenderer.renderLabelIfPresent`, and these change whether it runs, how big it is, how far it reaches and whether the dark plate behind it is drawn.\n\nWhy it is worth a mod — `docs/mod-roster.md` §3.3 #4: nametag clutter in team modes is a real visibility problem. Eight names at full size and full plate across a Bedwars mid is more screen than the fight is.\n\nThere is deliberately no colour setting. A nametag's colour is the server's, written by a scoreboard team, and in every mode that uses teams it is the difference between a teammate and someone about to hit you — repainting it takes information away while looking like a preference.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the nametag customiser is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "hide": {
+          "description": "Whether names are drawn at all. Off by default, and it is the setting to reach for last: a nametag is how you tell a teammate from a target, so hiding them is a trade rather than a cleanup. It is offered because in a 1v1 there is nothing to tell apart and the name is just a thing over your opponent's head.",
+          "type": "boolean",
+          "default": false
+        },
+        "nametag_scale": {
+          "description": "Size of the names, as a multiplier on vanilla's. 1 is untouched. This is the setting most players actually want — the clutter is area, not count, and a name at 0.7 is half the pixels of one at 1.\n\nSpelled `nametag_scale` rather than `scale` because `SETTING_BOUNDS` is keyed by the bare name and `scale` is the shared HUD block's 0.25-4; the floor here is 0.5 because vanilla's font is a bitmap and below half size the glyphs stop resolving.",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2,
+          "default": 1
+        },
+        "plate": {
+          "description": "Whether the dark plate behind the text is drawn. On is vanilla. Off leaves the text, which over a bright sky is less readable and over a dark build is most of what you get back — it is the cheapest way to halve the area a name covers without making it smaller.\n\nThe plate is drawn transparent rather than skipped: cancelling the draw would leave the tessellator mid-build and corrupt whatever drew next.\n\n**Spelled `plate`, not `background`.** `background` is the shared HUD chrome block's word — one of the six keys `schema/mods/_shared.json#/hud` gives every `kind: hud` mod — and `ModRegistryTest.hudChromeIsUniversal` asserts that no gameplay mod carries one of them. That rule is right: the chrome block is answerable by key name, and a gameplay mod with a `background` would make \"does this mod have chrome\" a question you have to look up the kind to answer. It is also the third naming collision this wave, after `sidebar_scale` and `line_width` — the generators and this test have caught every one of them, which is the argument for keying them by bare name in the first place.",
+          "type": "boolean",
+          "default": true
+        },
+        "max_distance": {
+          "description": "Furthest a name is drawn, in blocks. 64 is vanilla's own cull and the default.\n\nWhat it is for is the far half of a Bedwars map: names at forty blocks are unreadable *and* opaque, so they cost screen without paying for it. Bringing this in is the one setting here that removes clutter without removing anything you could have read.\n\nThe range is `hitboxes.max_distance`'s exactly, and shared rather than chosen — the generator refuses two mods that disagree about one bare setting name, which is right here: both are \"how far away does this client stop drawing a mark on an entity\", and two answers to that would be two ideas of what distance means.",
+          "type": "number",
+          "minimum": 4,
+          "maximum": 64,
+          "default": 64
+        }
+      }
+    },
     "fps_entry": {
       "title": "FPS display entry",
       "description": "Registry entry for the FPS display, narrowed to its constant classification.",
@@ -4115,11 +4161,54 @@
           }
         }
       ]
+    },
+    "nametags_entry": {
+      "title": "Nametags entry",
+      "description": "Registry entry for Nametags, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `nametags`.",
+              "const": "nametags"
+            },
+            "icon": {
+              "description": "Always `users`.",
+              "const": "users"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Nametags settings.",
+              "$ref": "#/definitions/nametags_settings"
+            }
+          },
+          "not": {
+            "$comment": "Nametags is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 17,
+      "version": 18,
       "mods": {
         "fps": {
           "id": "fps",
@@ -4918,6 +5007,23 @@
             "hide": false,
             "color": "#00000066",
             "line_width": 2
+          }
+        },
+        "nametags": {
+          "id": "nametags",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Nametags",
+          "icon": "users",
+          "description": "Shrink, thin out or hide the floating names, which in a team mode are most of what is on screen.",
+          "source": "vanilla's own `EntityRenderer.renderLabelIfPresent`, redirected",
+          "defaults": {
+            "on": false,
+            "hide": false,
+            "nametag_scale": 1,
+            "plate": true,
+            "max_distance": 64
           }
         }
       }

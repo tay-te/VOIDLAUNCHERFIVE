@@ -108,7 +108,7 @@ const ORDER = [
   // Wave 9, third: §4's ninth table-stakes row. Vanilla already draws the outline, so every
   // setting is one instruction in `WorldRenderer.drawBlockOutline` — the roster's M estimate was
   // for drawing one rather than for redirecting the one that exists. Appended, never inserted.
-  'block_outline',
+  'block_outline', 'nametags',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

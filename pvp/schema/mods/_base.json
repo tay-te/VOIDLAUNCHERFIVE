@@ -9,7 +9,7 @@
     "mods"
   ],
   "additionalProperties": false,
-  "registry_version": 17,
+  "registry_version": 18,
   "mods_title": "Mods",
   "mods_description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: every key is required and no others are permitted. (`build.mjs` rewrites this with the live count; no number is written by hand.)",
   "version": {
