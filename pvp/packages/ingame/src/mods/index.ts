@@ -31,22 +31,28 @@ import type { ModId } from '@/bridge/protocol';
 import type { ModArt } from './types';
 
 import armor_status from './armor_status';
+import combo from './combo';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
+import item_counter from './item_counter';
+import memory from './memory';
+import momentum from './momentum';
 import crosshair from './crosshair';
 import fps from './fps';
 import fullbright from './fullbright';
 import hitboxes from './hitboxes';
 import keystrokes from './keystrokes';
 import ping from './ping';
+import saturation from './saturation';
+import server_address from './server_address';
 import potion_effects from './potion_effects';
 import toggle_sprint from './toggle_sprint';
 import watermark from './watermark';
 import zoom from './zoom';
 
 /**
- * The art for all thirteen mods.
+ * The art for all twenty mods.
  *
  * `satisfies` rather than a type annotation, so each value keeps its narrow `ModArt<'fps'>`
  * type while the whole object is still proved exhaustive over `ModId`.
@@ -66,6 +72,13 @@ const ART = {
   hitboxes,
   zoom,
   crosshair,
+  // The Wave 2 readout sweep (docs/mod-roster.md §7). Six chips, no new sensor between them.
+  combo,
+  saturation,
+  momentum,
+  memory,
+  server_address,
+  item_counter,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

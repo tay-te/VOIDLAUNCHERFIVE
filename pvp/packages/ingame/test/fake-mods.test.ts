@@ -33,8 +33,13 @@ describe('the fake-mod padding', () => {
   });
 
   it('pads up to a total rather than adding a count', () => {
-    expect(planFakeMods(24, REAL)).toHaveLength(24 - REAL);
-    expect(planFakeMods(17, REAL)).toHaveLength(17 - REAL);
+    // Derived from `REAL`, never written as a literal. The line below used to read 24 and 17,
+    // chosen when the registry was 13; at twenty, 17 quietly became "fewer tiles than there are
+    // mods" and asserted a negative length. That is the same decay the comment beneath already
+    // records for `REAL - 1` — the second time this file has been bitten by a number that was
+    // true when it was typed, so there are no numbers left here that are not relative to REAL.
+    expect(planFakeMods(REAL + 10, REAL)).toHaveLength(10);
+    expect(planFakeMods(REAL + 3, REAL)).toHaveLength(3);
     // Never removes a real mod, and never trips over nonsense. `REAL - 1` is "asked for fewer
     // tiles than there are mods", which was written as the literal 13 back when that was the
     // registry's size and silently became "exactly the registry" at fourteen — a test that
@@ -57,7 +62,11 @@ describe('the fake-mod padding', () => {
   });
 
   it('draws categories from the real four, and uses all of them', () => {
-    const mods = planFakeMods(24, REAL);
+    // Enough fakes to come round the cycle twice, expressed against `CATEGORIES` rather than as
+    // a total: the literal 24 was four fakes at a registry of twenty, and four only covers the
+    // four categories if the cycle happens to start on one. "Uses all of them" is a claim about
+    // the cycle, so ask for a length the cycle cannot dodge.
+    const mods = planFakeMods(REAL + CATEGORIES.length * 2, REAL);
     for (const mod of mods) expect(CATEGORIES).toContain(mod.category);
     expect(new Set(mods.map((m) => m.category)).size).toBe(CATEGORIES.length);
   });

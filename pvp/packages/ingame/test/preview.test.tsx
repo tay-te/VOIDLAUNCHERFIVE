@@ -65,6 +65,12 @@ const LIVE: readonly ModId[] = [
   'fullbright',
   'hitboxes',
   'zoom',
+  'combo',
+  'saturation',
+  'momentum',
+  'memory',
+  'server_address',
+  'item_counter',
 ];
 
 /**

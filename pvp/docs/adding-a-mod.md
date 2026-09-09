@@ -117,7 +117,15 @@ fails `pnpm -r typecheck` rather than throwing in game.
 This is the only step that is still writing, and it is only about *behaviour*:
 
 - A **HUD** mod: a sensor field if it needs one, and a widget in
-  `packages/ingame/src/hud/widgets.tsx` added to `HudLayer`'s `WIDGETS`.
+  `packages/ingame/src/hud/<id>.tsx` added to `HudLayer`'s `WIDGETS`.
+
+  **Its own module, not `widgets.tsx`.** `watermark.tsx` set that precedent and the Wave 2
+  sweep followed it for all six, because `mods/art.tsx` already states the principle for the
+  other half of a mod's drawing: what a *single* mod draws lives in that mod's own file, so the
+  shared file stops growing when the roster does. `widgets.tsx` holds the eight that predate the
+  rule plus the shared `HudWidgetProps`; a new mod imports that type and exports one `Hud<Name>`
+  of its own. Six more appended to one file would have been six agents editing one file, which
+  is the practical half of the same argument.
 - A **gameplay** mod: an actuator in `LiveState.applyActuatorFields`, and the Mixin it writes
   through.
 

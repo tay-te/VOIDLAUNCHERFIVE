@@ -431,15 +431,6 @@ export interface ComboChipProps extends HudChipProps {
    * in a second colour, because it is the same combo it sits under.
    */
   remaining?: number;
-  /**
-   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
-   *
-   * The **figure only**, never the `combo` unit. Quiet-cell §1, exactly as
-   * {@link FpsChipProps.color} draws the line: the count is the live value and the noun
-   * after it is not. The depletion rule is inside the figure and takes `currentColor`, so
-   * it follows this ink without being a second decision.
-   */
-  color?: string;
 }
 
 /**
@@ -447,15 +438,21 @@ export interface ComboChipProps extends HudChipProps {
  *
  * A count and its noun — the house shape ({@link FpsChip}), with no aside, because a combo
  * has no second figure that gives the first one a scale; what it has instead is a clock, and
- * {@link ComboChipProps.remaining} draws that. A dropped combo is `0`, not an absent chip:
- * the widget sits in a player-placed slot in the HUD editor, and one that vanished between
- * fights would leave that slot flickering.
+ * {@link ComboChipProps.remaining} draws that.
+ *
+ * A `combo` of `0` draws `0` here, but the in-game HUD never asks for one: `hud/combo.tsx`
+ * returns `null` at zero or past the window, because a chip reading `0 combo` between fights
+ * is noise, and `schema/mods/combo.json`'s `$comment` argues why that is behaviour rather than
+ * a setting. Hiding costs nothing on the HUD — `placementStyle` gives every slot
+ * `position: absolute` from its own anchor, so a widget that draws nothing cannot move
+ * anything else, and `HudCoordinates`, `HudPotionEffects` and `HudArmorStatus` already take
+ * exactly this shape. The zero path is for `apps/desktop`, which draws mod cards from these
+ * chips without the widget layer in front of them.
  */
 export function ComboChip({
   combo,
   showLabel = true,
   remaining,
-  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -466,7 +463,6 @@ export function ComboChip({
     <div className={chipClass(variant, dimmed, className)} {...rest}>
       <span
         className={cx('v-hudchip__value', ruled && 'v-hudchip__value--ruled')}
-        style={color ? { color } : undefined}
       >
         {combo}
         {/* Inside the figure, so `currentColor` is the figure's ink and the rule cannot end
@@ -514,15 +510,6 @@ export interface SaturationChipProps extends Omit<HudChipProps, 'style'> {
   decimals?: number;
   /** Whether to draw the trailing `sat` unit — the mod's `show_label` setting. */
   showLabel?: boolean;
-  /**
-   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
-   *
-   * The **figure only**: never the `sat` unit, and never the bar. In `both` the bar is
-   * the same reading a second time in the shape of a level, and colouring both makes
-   * the chip one solid block with no hierarchy in it — the argument
-   * {@link DirectionChipProps.color} makes about its degrees aside.
-   */
-  color?: string;
 }
 
 /** Saturation held to the 0-20 the food system produces. */
@@ -545,7 +532,6 @@ export function SaturationChip({
   style = 'number',
   decimals = 1,
   showLabel = true,
-  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -556,7 +542,7 @@ export function SaturationChip({
     <div className={chipClass(variant, dimmed, className)} {...rest}>
       {style === 'bar' ? null : (
         <>
-          <span className="v-hudchip__value" style={color ? { color } : undefined}>
+          <span className="v-hudchip__value">
             {value.toFixed(decimals)}
           </span>
           {showLabel ? <span className="v-hudchip__unit">sat</span> : null}
@@ -597,13 +583,6 @@ export interface MomentumChipProps extends HudChipProps {
   decimals?: number;
   /** Whether to draw the trailing unit — the mod's `show_label` setting. */
   showLabel?: boolean;
-  /**
-   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
-   *
-   * The **figure only**, never the `bps` / `km/h` unit. Quiet-cell §1, as
-   * {@link FpsChipProps.color}.
-   */
-  color?: string;
 }
 
 /** 1 block per second is 3.6 km/h — a block is a metre. */
@@ -615,7 +594,6 @@ export function MomentumChip({
   unit = 'bps',
   decimals = 2,
   showLabel = true,
-  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -624,7 +602,7 @@ export function MomentumChip({
   const figure = unit === 'kmh' ? speed * KMH_PER_BPS : speed;
   return (
     <div className={chipClass(variant, dimmed, className)} {...rest}>
-      <span className="v-hudchip__value" style={color ? { color } : undefined}>
+      <span className="v-hudchip__value">
         {figure.toFixed(decimals)}
       </span>
       {showLabel ? (
@@ -669,15 +647,6 @@ export interface MemoryChipProps extends Omit<HudChipProps, 'style'> {
    * switch doing one job everywhere rather than three different ones.
    */
   showLabel?: boolean;
-  /**
-   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
-   *
-   * `usedMb` only, in every style. Not the unit, not the bar, and **not the `/ 4096`**:
-   * the ceiling does not change for the life of the process, so by quiet-cell §1 it is
-   * context rather than a live value — the same division {@link CoordsChipProps.color}
-   * makes between the axes and the separator between them.
-   */
-  color?: string;
 }
 
 /** `1024 / 4096 MB`, `1024 MB` or `25%`, optionally over a level. */
@@ -687,7 +656,6 @@ export function MemoryChip({
   style = 'used_of_max',
   showBar = false,
   showLabel = true,
-  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -707,7 +675,7 @@ export function MemoryChip({
   return (
     <div className={chipClass(variant, dimmed, className)} {...rest}>
       <span className="v-hudchip__value">
-        <span style={color ? { color } : undefined}>{figure}</span>
+        <span>{figure}</span>
         {tail ? <span className="v-hudchip__unit">{tail}</span> : null}
       </span>
       {showBar ? <HudBar fraction={fraction} /> : null}
@@ -729,15 +697,6 @@ export interface ServerAddressChipProps extends HudChipProps {
    * {@link ServerAddressChip}.
    */
   host: string;
-  /**
-   * Ink for the host — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
-   *
-   * The host is the whole chip and it is the live value — which server you are on — so
-   * here the ink and the figure are the same span. There is no unit and no aside to keep
-   * monochrome, which is why this is the one chip of the six whose `color` covers
-   * everything it draws.
-   */
-  color?: string;
 }
 
 /**
@@ -755,7 +714,6 @@ export interface ServerAddressChipProps extends HudChipProps {
  */
 export function ServerAddressChip({
   host,
-  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -764,7 +722,7 @@ export function ServerAddressChip({
   if (host.trim() === '') return null;
   return (
     <div className={chipClass(variant, dimmed, cx('v-serverchip', className))} {...rest}>
-      <span className="v-hudchip__value" style={color ? { color } : undefined}>
+      <span className="v-hudchip__value">
         {host}
       </span>
     </div>
@@ -805,16 +763,6 @@ export interface ItemCounterChipProps extends HudChipProps {
    * situation — so the chip will not pick one for you.
    */
   lowThreshold?: number;
-  /**
-   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
-   *
-   * The **figure only**, never the `x` prefix, and **`lowThreshold` outranks it**: the
-   * warn is a state and the ink is the resting appearance of a value, so a chip that let
-   * a chosen colour hide the one moment it exists to announce would have the priority
-   * backwards. Same reasoning as {@link PingChipProps.goodMs} — a threshold reading wins
-   * the pixel.
-   */
-  color?: string;
 }
 
 /**
@@ -833,7 +781,6 @@ export function ItemCounterChip({
   count,
   showLabel = true,
   lowThreshold = 0,
-  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -849,14 +796,7 @@ export function ItemCounterChip({
           reading of anything. */}
       <span className="v-hudchip__value">
         {showLabel && !empty ? <span className="v-hudchip__unit">x</span> : null}
-        <span
-          className={cx(low && 'v-hudchip__value--warn')}
-          // The warn is a class, so it must not be overridden by an inline colour — and an
-          // empty hand has no live value to ink either.
-          style={!low && !empty && color ? { color } : undefined}
-        >
-          {empty ? '—' : count}
-        </span>
+        <span className={cx(low && 'v-hudchip__value--warn')}>{empty ? '—' : count}</span>
       </span>
     </div>
   );

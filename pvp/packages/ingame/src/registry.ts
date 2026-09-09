@@ -114,6 +114,7 @@ const SETTING_STEPS: Record<string, { step: number; unit?: string }> = {
   opacity: { step: 0.01, unit: '%' },
   warn_below: { step: 0.05, unit: '%' },
   window_ms: { step: 50, unit: 'ms' },
+  reset_ms: { step: 100, unit: 'ms' },
   good_ms: { step: 5, unit: 'ms' },
   bad_ms: { step: 5, unit: 'ms' },
   decimals: { step: 1 },

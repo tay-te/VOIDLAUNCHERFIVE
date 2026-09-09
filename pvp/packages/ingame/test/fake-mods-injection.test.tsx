@@ -62,9 +62,8 @@ describe('?fake= padding, end to end', () => {
   it('pads the grid and gives every synthetic mod what the panel reads', async () => {
     window.history.replaceState({}, '', '/?fake=24');
 
-    const { MOD_ORDER, MOD_CATEGORY, modLabel, hueStyle, SETTING_ENUMS } = await import(
-      '@/registry'
-    );
+    const { MOD_ORDER, MOD_CATEGORY, MOD_CATEGORY_TAGS, modLabel, hueStyle, SETTING_ENUMS } =
+      await import('@/registry');
     const { MOD_REGISTRY, MOD_IDS } = await import('@/bridge/protocol');
     const { MOD_ICONS } = await import('@/ui');
     const { FAKE_MOD_COUNT, isFakeMod, fakeArtSource } = await import('@/dev/fake-mods');
@@ -107,9 +106,19 @@ describe('?fake= padding, end to end', () => {
     expect(gridRows([...MOD_ORDER], shape.columns).map((row) => row.length)).toEqual([8, 8, 8]);
 
     // Filtering still works on them, which is what proves the category is real data and not a
-    // label: every tab matches at least one synthetic mod.
-    for (const tag of ['HUD', 'PVP', 'VISUAL', 'UTILITY']) {
-      expect(visibleMods(tag, '').some((id) => isFakeMod(id))).toBe(true);
+    // label. Asked per synthetic mod rather than per tab: "every tab matches at least one fake"
+    // silently depends on there being at least four fakes, and `?fake=24` is a *total*, so the
+    // count shrinks by one every time a real mod ships — at twenty mods it is four, and four
+    // only covers four tabs if the cycle starts on the right one. This asks the stronger
+    // question anyway: each synthetic mod appears under its own tag, and under no other.
+    const fakes = MOD_ORDER.filter((id) => isFakeMod(id));
+    expect(fakes.length).toBeGreaterThan(0);
+    for (const id of fakes) {
+      const own = MOD_CATEGORY[id];
+      expect(visibleMods(own, '')).toContain(id);
+      for (const other of MOD_CATEGORY_TAGS.filter((c) => c !== own)) {
+        expect(visibleMods(other, '')).not.toContain(id);
+      }
     }
 
     // Enum rows need their options or the chip row renders empty.

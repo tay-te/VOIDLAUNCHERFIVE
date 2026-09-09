@@ -42,12 +42,6 @@ describe('ComboChip', () => {
     expect(container.textContent).toBe('7');
   });
 
-  it('inks the figure and leaves the unit monochrome (§1)', () => {
-    const { container } = render(<ComboChip combo={7} color="#FF9E7A" />);
-    expect(figure(container)).toHaveStyle({ color: '#FF9E7A' });
-    expect(container.querySelector('.v-hudchip__unit')).not.toHaveAttribute('style');
-  });
-
   it('draws a dropped combo as zero rather than as nothing', () => {
     const { container } = render(<ComboChip combo={0} />);
     expect(container.querySelector('.v-hudchip')).not.toBeNull();
@@ -82,10 +76,9 @@ describe('ComboChip', () => {
   });
 
   it('hangs the rule inside the figure, so it takes the figure\u2019s own ink', () => {
-    const { container } = render(<ComboChip combo={7} remaining={0.5} color="#FF9E7A" />);
+    const { container } = render(<ComboChip combo={7} remaining={0.5} />);
     const value = figure(container);
     expect(value).toHaveClass('v-hudchip__value--ruled');
-    expect(value).toHaveStyle({ color: '#FF9E7A' });
     // `currentColor` in CSS, so the rule carries no colour of its own to disagree with.
     expect(container.querySelector('.v-hudchip__fill')).toHaveAttribute('style', 'width: 50%;');
   });
@@ -125,13 +118,6 @@ describe('SaturationChip', () => {
     expect(under.querySelector('.v-hudchip__fill')).toHaveStyle({ width: '0%' });
   });
 
-  it('never inks the level — the figure beside it is the live value', () => {
-    const { container } = render(
-      <SaturationChip saturation={10} style="both" color="#7AE0B0" />,
-    );
-    expect(figure(container)).toHaveStyle({ color: '#7AE0B0' });
-    expect(container.querySelector('.v-hudchip__fill')).toHaveAttribute('style', 'width: 50%;');
-  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -156,11 +142,6 @@ describe('MomentumChip', () => {
     expect(container.textContent).toBe('18.0');
   });
 
-  it('inks the figure only', () => {
-    const { container } = render(<MomentumChip speed={4.3} color="#7ADFFF" />);
-    expect(figure(container)).toHaveStyle({ color: '#7ADFFF' });
-    expect(container.querySelector('.v-hudchip__unit')).not.toHaveAttribute('style');
-  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -183,16 +164,6 @@ describe('MemoryChip', () => {
     expect(render(<MemoryChip {...off} style="used_of_max" />).container.textContent)
       .toBe('1024\u00a0/\u00a04096');
     expect(render(<MemoryChip {...off} style="percent" />).container.textContent).toBe('25');
-  });
-
-  it('inks the used figure and not the ceiling, which does not change all session', () => {
-    const { container } = render(
-      <MemoryChip usedMb={1024} maxMb={4096} style="used_of_max" color="#9F8BFF" />,
-    );
-    const tail = container.querySelector('.v-hudchip__unit');
-    expect(tail?.textContent).toBe('\u00a0/\u00a04096\u00a0MB');
-    expect(tail).not.toHaveAttribute('style');
-    expect(figure(container).firstElementChild).toHaveStyle({ color: '#9F8BFF' });
   });
 
   it('draws the level only when asked, filled to used / max', () => {
@@ -285,14 +256,14 @@ describe('ItemCounterChip', () => {
       .not.toHaveClass('v-hudchip__value--warn');
   });
 
-  it('lets the warn state outrank the chosen ink, and restores it above the threshold', () => {
+  it('warns at or below the threshold and not above it', () => {
     const warned = countFigure(
-      render(<ItemCounterChip count={4} lowThreshold={16} color="#7ADFFF" />).container,
+      render(<ItemCounterChip count={4} lowThreshold={16} />).container,
     );
-    expect(warned).not.toHaveAttribute('style');
+    expect(warned).toHaveClass('v-hudchip__value--warn');
     const calm = countFigure(
-      render(<ItemCounterChip count={40} lowThreshold={16} color="#7ADFFF" />).container,
+      render(<ItemCounterChip count={40} lowThreshold={16} />).container,
     );
-    expect(calm).toHaveStyle({ color: '#7ADFFF' });
+    expect(calm).not.toHaveClass('v-hudchip__value--warn');
   });
 });

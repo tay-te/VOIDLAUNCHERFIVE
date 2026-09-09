@@ -164,6 +164,47 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'style', label: 'Style', control: 'select', options: ['letter', 'word', 'axis'] },
     { key: 'show_degrees', label: 'Show degrees', control: 'switch' },
   ],
+  // The Wave 2 readout sweep. Six rows, added because this table is `Record<ModId, …>` and
+  // would not compile without them — which is the property the codegen pass was after.
+  combo: [
+    SCALE,
+    OPACITY,
+    { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+  ],
+  saturation: [
+    SCALE,
+    OPACITY,
+    { key: 'style', label: 'Style', control: 'select', options: ['number', 'bar', 'both'] },
+    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 2, step: 1, format: 'plain' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+  ],
+  momentum: [
+    SCALE,
+    OPACITY,
+    { key: 'unit', label: 'Unit', control: 'select', options: ['bps', 'kmh'] },
+    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 2, step: 1, format: 'plain' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+  ],
+  memory: [
+    SCALE,
+    OPACITY,
+    { key: 'style', label: 'Style', control: 'select', options: ['used', 'used_of_max', 'percent'] },
+    { key: 'show_bar', label: 'Show bar', control: 'switch' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+  ],
+  server_address: [
+    SCALE,
+    OPACITY,
+    { key: 'style', label: 'Style', control: 'select', options: ['short', 'full'] },
+  ],
+  item_counter: [
+    SCALE,
+    OPACITY,
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    // 0 disables the warn treatment, which is why the floor is 0 rather than 1.
+    { key: 'low_threshold', label: 'Warn at or below', control: 'slider', min: 0, max: 64, step: 1, format: 'plain' },
+  ],
   armor_status: [
     SCALE,
     OPACITY,

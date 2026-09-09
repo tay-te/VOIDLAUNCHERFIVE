@@ -312,9 +312,28 @@ generates its TypeScript. Do this *before* adding twenty mods, not after.
 Toggle sneak promoted · the overlay grab-bag (view bobbing, fire overlay, own armour,
 arrows).
 
-**Wave 2 — the cheap HUD sweep, one PR.** Combo · Saturation · Item counter · Potion
-counter · Momentum · Server address · Memory · Stopwatch · Direction split out. Nine mods,
+**Wave 2 — the cheap HUD sweep, one PR.** ~~Combo · Saturation · Item counter · Potion
+counter · Momentum · Server address · Memory · Stopwatch · Direction split out.~~ Nine mods,
 all S, all the same shape. This is where a generated registry pays for itself.
+
+> **Done, 2026-09-09 — seven of the nine.** Direction shipped earlier as the fourteenth mod;
+> Combo, Saturation, Momentum, Memory, Server address and Item counter landed together, taking
+> the registry to twenty. The prediction held: no new sensor (the five readings were already on
+> the wire), no hand-written Java or Rust, and the per-mod cost was the schema entry, a widget,
+> an art module and a row in three shared tables.
+>
+> **Two are still out, and neither is cheap the way this wave was.**
+>
+> · **Stopwatch** needs an input path. The `keys` payload carries W/A/S/D, the mouse, space and
+>   shift, and `hotkey_id` is a closed set of two globals — so a `toggle_key` setting would
+>   store a key nothing acts on, and the mod would ship a timer with no way to start it. That
+>   is the failure `text_shadow` was removed for. It wants either a third hotkey id or a
+>   per-mod keybind the game dispatches; both are protocol changes, not an S.
+>
+> · **Potion counter** needs an inventory sensor. `held_count` sees the hand and nothing else,
+>   which is why `item_counter` counts the held stack and says so rather than implying Lunar's
+>   inventory-wide mod. A `counts` field keyed by item id would serve both it and a proper item
+>   counter, and it is the one sensor addition the rest of §3.1 keeps asking for.
 
 **Wave 3 — the medium PvP set.** Reach display · Freelook (then Snaplook) · Hit color ·
 Damage tint · Hurt cam · Scoreboard.
