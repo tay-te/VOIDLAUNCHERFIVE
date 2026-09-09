@@ -51,6 +51,9 @@ const DENSITY_VARS = ['--pad-hud-chip', '--pad-hud-panel', '--gap-hud-keys'] as 
 /** The variable the `border` switch moves. */
 const BORDER_VAR = '--border-hud';
 
+/** The two variables a background step moves — the chip's ground and the panel's. */
+const GROUND_VARS = ['--hud-chip-bg', '--hud-chip-bg-strong'] as const;
+
 /**
  * The declarations of one rule, as `name: value`.
  *
@@ -117,6 +120,66 @@ describe('the padding steps resolve to lengths', () => {
   /** An unknown value is the factory default, the way `ModRegistry.clamp` treats it. */
   it('falls back to the schema default on a value the registry does not have', () => {
     expect(hudChrome({ padding: 'enormous' })).toContain('hud-chrome--pad-normal');
+  });
+});
+
+/**
+ * `background` sets the widget's ground, rather than painting a second one behind it.
+ *
+ * The third of the block and the third variant of one bug. All three steps used to set
+ * `background` on the slot, and every widget already had a ground underneath — so the steps
+ * composited over an opaque black at 0.55 and the only visible difference between them was a
+ * two-pixel halo where the slot's padding stuck out past the chip's corner. Fixing density
+ * removed the halo and took the last of the difference with it.
+ *
+ * `--hud-chip-bg-strong` is asserted alongside the chip's own, because it is what the editor
+ * chip and both list panels paint from: a step that moved only the first would leave three
+ * surfaces carrying a ground the player had turned off.
+ */
+describe('the background steps set the widget ground', () => {
+  const steps: readonly string[] = SETTING_OPTIONS['fps.background'] ?? [];
+
+  it('has the steps the schema declares', () => {
+    expect([...steps].sort()).toEqual(['bare', 'solid', 'subtle']);
+  });
+
+  it.each(steps)('`%s` sets both grounds and paints none of its own', (step) => {
+    const selector = `.hud-chrome--bg-${step}`;
+    for (const name of GROUND_VARS) {
+      expect(declaration(overlayCss, selector, name), `${selector} does not set ${name}`).not.toBe(
+        null,
+      );
+    }
+    // A `background` here is a ground behind the widget's ground again.
+    expect(declaration(overlayCss, selector, 'background')).toBe(null);
+  });
+
+  it.each(GROUND_VARS)('%s differs at every step', (name) => {
+    const values = steps.map((step) => declaration(overlayCss, `.hud-chrome--bg-${step}`, name));
+    expect(new Set(values).size).toBe(steps.length);
+  });
+
+  /** `bare` is the only step that draws nothing, and it has to actually draw nothing. */
+  it('makes `bare` transparent on both grounds', () => {
+    for (const name of GROUND_VARS) {
+      expect(declaration(overlayCss, '.hud-chrome--bg-bare', name)).toBe('transparent');
+    }
+  });
+
+  /**
+   * The rename is the migration, so the old value must not be reachable: a rule for it would let
+   * a stored `none` keep drawing instead of being remapped by `void-loadout`'s `REMAPPED_VALUES`.
+   */
+  it('has no rule left for the renamed value', () => {
+    expect(ruleBody(overlayCss, '.hud-chrome--bg-none')).toBe('');
+  });
+
+  it('ships every HUD mod on `subtle`, which is what they were already drawn on', () => {
+    for (const id of Object.keys(MOD_REGISTRY) as ModId[]) {
+      if (MOD_REGISTRY[id].kind !== 'hud') continue;
+      const defaults = MOD_REGISTRY[id].defaults as unknown as Record<string, unknown>;
+      expect(defaults.background, id).toBe('subtle');
+    }
   });
 });
 

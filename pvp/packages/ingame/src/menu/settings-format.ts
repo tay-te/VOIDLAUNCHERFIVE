@@ -113,7 +113,7 @@ export const SETTING_HINTS: Record<string, string> = {
      and `size` are absent on purpose: they are spatial, so they live on the preview as a drag
      handle rather than as a row (`ModSettingsScreen`'s `SPATIAL_KEYS`). */
   opacity: 'How solid it is over the game',
-  background: 'A ground behind it, for busy textures',
+  background: 'The ground it sits on over the game',
   border: 'A hairline round the edge',
   padding: 'How much room inside the edge',
   decimals: 'Decimal places on the figure',

@@ -137,19 +137,42 @@ body {
      is 0 paints/s on an idle HUD, and an eased background would spend it on every toggle. */
 }
 
-/* `none` is vanilla and the default: the readout sits on the game with nothing behind it. */
-.hud-chrome--bg-none {
-  background: transparent;
+/* The ground, as the widget's own rather than as a second one behind it.
+ *
+ * These rules used to set `background` on *this* box, and every widget already had a ground
+ * underneath: `.v-hudchip` paints `--hud-chip-bg`, and the editor chip and both list panels
+ * paint `--hud-chip-bg-strong`. So all three steps composited over an opaque black at 0.55 and
+ * the only visible difference between them was a two-pixel halo where this box's padding stuck
+ * out past the chip's corner — and once density moved onto the widget, that halo went and the
+ * three steps became one drawing. The same failure as `border` one rule down, from the other
+ * side: there, an edge behind a ground; here, a ground behind a ground.
+ *
+ * So they set the two variables the widgets paint from, and inherit down. Same shape as the
+ * density block below and the border switch above, for the same reason: a setting that has to
+ * reach inside a widget arrives as something the widget reads.
+ *
+ * `--hud-chip-bg-strong` is not a second choice — it is the editor chip's and the two panels'
+ * own step, one notch up from the chip's, and it has to move with the setting or those three
+ * surfaces keep a ground the player has turned off. */
+
+/* Nothing behind the readout at all: glyphs on the game. The vanilla treatment, legible over
+   sky and unreadable over snow, which is why it is a choice and not the default. */
+.hud-chrome--bg-bare {
+  --hud-chip-bg: transparent;
+  --hud-chip-bg-strong: transparent;
 }
 
-/* Enough to hold a chip together over a busy texture without becoming a panel. */
+/* Enough to hold a chip together over a busy texture without becoming a panel — the values the
+   sheet has always drawn a HUD readout on, which is what makes this the default. */
 .hud-chrome--bg-subtle {
-  background: rgba(25, 26, 28, 0.55);
+  --hud-chip-bg: rgba(10, 11, 12, 0.55);
+  --hud-chip-bg-strong: rgba(10, 11, 12, 0.62);
 }
 
 /* The opaque card ground, for a player who wants the HUD to read as a panel. */
 .hud-chrome--bg-solid {
-  background: var(--card-bg, #191a1c);
+  --hud-chip-bg: var(--card-bg, #191a1c);
+  --hud-chip-bg-strong: var(--card-bg, #191a1c);
 }
 
 /* White at low alpha, never a colour — the border rule of §1.

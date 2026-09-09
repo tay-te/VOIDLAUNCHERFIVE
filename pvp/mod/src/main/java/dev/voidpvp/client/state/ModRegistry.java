@@ -190,7 +190,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Text colour of the FPS readout.
@@ -216,7 +216,7 @@ public final class ModRegistry {
                 // shared_overrides: ships 0.85 where every other hud mod ships 1. Alpha of the
                 // key tiles when a key is not pressed.
                 "opacity", number(0, 1, 0.85),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Optional key that toggles the keystrokes overlay on and off in game without
@@ -258,7 +258,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Which mouse buttons to count: left only, right only, or both shown side by
@@ -287,7 +287,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether to render the trailing "ms" unit after the number.
@@ -333,7 +333,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Number of decimal places printed for X, Y and Z. Capped at 2 because that is
@@ -366,7 +366,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 // shared_overrides: ships true where every other hud mod ships false. Whether a
                 // hairline is drawn around the armor row, at the system's own `--border-panel`
                 // alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel
@@ -401,7 +401,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 // shared_overrides: ships true where every other hud mod ships false. Whether a
                 // hairline is drawn around the effect list, at the system's own `--border-panel`
                 // alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel
@@ -438,7 +438,7 @@ public final class ModRegistry {
                 // mark. Lower than the other HUD mods by default, so it sits behind the readouts
                 // the player is actually reading.
                 "opacity", number(0, 1, 0.9),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark,
@@ -580,7 +580,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How the facing is written. `letter` is the compass abbreviation the Coordinates
@@ -612,7 +612,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How long without landing a hit before the count drops back to zero. This is the
@@ -640,7 +640,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How the value is drawn. `number` prints the figure, and it is the default
@@ -680,7 +680,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Which unit the figure is printed in. `bps` — blocks per second — is the default
@@ -715,7 +715,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a
@@ -750,7 +750,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How much of the host is printed. `short` keeps the part players actually say
@@ -772,7 +772,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether the count is prefixed with the multiplication sign — `x12` rather than
@@ -802,7 +802,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether a fraction of a second is drawn after the seconds, as hundredths. Off
@@ -1190,7 +1190,7 @@ public final class ModRegistry {
                 // same meaning, on every hud mod.
                 "scale", number(0.25, 4, 1),
                 "opacity", number(0, 1, 1),
-                "background", enumOf("none", "none", "subtle", "solid"),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // What the chip prints. `traded` — `12 / 4` — is the default because both figures

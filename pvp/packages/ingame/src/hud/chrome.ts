@@ -52,7 +52,7 @@
  * widget already carries its own inset — `.v-hudchip` reads `--pad-hud-chip`, and the armour and
  * potion panels and the keycap cluster had theirs written into the rule — so padding on the slot
  * was a second, outer inset stacked on top of an inner one the setting could not reach. At the
- * shipped default (`background: none`) that outer box is transparent, so the whole control moved
+ * shipped default the outer box was transparent, so the whole control moved
  * an invisible edge: the chip a player was looking at never changed size at any step.
  *
  * It shipped because the gate could not see it. `test/preview.test.tsx` compares the preview's
@@ -65,6 +65,13 @@
  * and inherit down into the widget rather than boxing it. `test/hud-chrome.test.ts` asserts the
  * resolved lengths differ from step to step, which is a claim about what is drawn rather than
  * about what is spelled.
+ *
+ * **And it was all three, not just padding.** `background` and `border` failed the same way from
+ * the other side: the slot is *behind* the widget, so a ground drawn here sat under a ground the
+ * widget already had, and an edge drawn here sat under it too. Both now set variables the
+ * widgets paint from — `--hud-chip-bg` / `--hud-chip-bg-strong` and `--border-hud` — so the
+ * whole block reaches the drawing rather than the box around it. What the slot still genuinely
+ * owns is `scale` and `opacity`, which are transforms of the widget and not properties of it.
  */
 
 import { SETTING_OPTIONS } from '@/bridge/protocol';
@@ -109,7 +116,7 @@ const PADDINGS = sharedEnum('padding');
 export function hudChrome(settings: Readonly<Record<string, SettingValue>>): string {
   const background = typeof settings.background === 'string' && BACKGROUNDS.has(settings.background)
     ? settings.background
-    : 'none';
+    : 'subtle';
   const padding = typeof settings.padding === 'string' && PADDINGS.has(settings.padding)
     ? settings.padding
     : 'normal';

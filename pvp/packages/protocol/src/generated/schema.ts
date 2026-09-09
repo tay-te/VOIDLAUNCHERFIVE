@@ -1243,9 +1243,13 @@ export interface FPSDisplaySettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the FPS tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the FPS tile, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the FPS tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1276,9 +1280,13 @@ export interface KeystrokesSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the key tiles, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the key tiles, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the key tiles, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1323,9 +1331,13 @@ export interface CPSCounterSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the CPS tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the CPS tile, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the CPS tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1363,9 +1375,13 @@ export interface PingDisplaySettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the ping tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the ping tile, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the ping tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1413,9 +1429,13 @@ export interface CoordinatesSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the coordinates tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the coordinates tile, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the coordinates tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1450,9 +1470,13 @@ export interface ArmorStatusSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the armor row, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the armor row, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than a chip — 150 px of rows over live game — and the sheet has always drawn it with a `--border-dock` edge, which is what separates a list of rows from the world behind it. That edge used to be written into the rule unconditionally, so the setting existed and could not turn it off; moving it onto the shared `border` switch is what makes the control real, and this default is what stops that fix from silently stripping the edge off every loadout on disk.
    */
@@ -1490,9 +1514,13 @@ export interface PotionEffectsSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the effect list, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the effect list, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the effect list, at the system's own `--border-panel` alpha. Ships **on** for this mod, unlike the other fifteen. This is a panel rather than a chip — 150 px of rows over live game — and the sheet has always drawn it with a `--border-dock` edge, which is what separates a list of rows from the world behind it. That edge used to be written into the rule unconditionally, so the setting existed and could not turn it off; moving it onto the shared `border` switch is what makes the control real, and this default is what stops that fix from silently stripping the edge off every loadout on disk.
    */
@@ -1526,9 +1554,13 @@ export interface VOIDWatermarkSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the mark, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the mark, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the mark, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1647,9 +1679,13 @@ export interface DirectionSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the direction chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the direction chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the direction chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1680,9 +1716,13 @@ export interface ComboCounterSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the combo chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the combo chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the combo chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1712,9 +1752,13 @@ export interface SaturationSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the saturation readout, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the saturation readout, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the saturation readout, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1748,9 +1792,13 @@ export interface MomentumSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the speed chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the speed chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the speed chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1784,9 +1832,13 @@ export interface MemorySettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the memory chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the memory chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the memory chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1820,9 +1872,13 @@ export interface ServerAddressSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the host chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the host chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the host chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1852,9 +1908,13 @@ export interface ItemCounterSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the count chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the count chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the count chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -1884,9 +1944,13 @@ export interface StopwatchSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the stopwatch chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the stopwatch chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the stopwatch chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */
@@ -2079,9 +2143,13 @@ export interface TradeCounterSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
-   * Ground drawn behind the trade chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   * Ground drawn behind the trade chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
    */
-  background?: 'none' | 'subtle' | 'solid';
+  background?: 'bare' | 'subtle' | 'solid';
   /**
    * Whether a hairline is drawn around the trade chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
    */

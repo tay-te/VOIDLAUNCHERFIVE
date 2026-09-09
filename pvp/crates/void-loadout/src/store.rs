@@ -355,11 +355,35 @@ const REMOVED_SETTINGS: &[(&str, &str)] = &[
     ("toggle_sprint", "mode"),
 ];
 
-/// Reads a loadout, dropping settings that have since been removed from the registry.
+/// Enum values that were renamed, as `(setting key, old value, new value)`.
+///
+/// The sibling problem to [`REMOVED_SETTINGS`], and it needs its own table for the same reason:
+/// every settings struct is `deny_unknown_fields` and every generated enum is closed, so a value
+/// that left the schema does not degrade — the file stops deserialising and the player's loadout
+/// is gone.
+///
+/// **Applied to every mod, because these are shared-block keys.** `background` is declared once
+/// in `schema/mods/_shared.json#/hud` and reaches all seventeen HUD mods, so a remap that named
+/// mods would be seventeen rows that have to be edited again with the eighteenth.
+///
+/// A rename is what makes a remap safe to run on every load rather than once. `background: none`
+/// was the shipped default *and* it drew a ground — there was no way to get a bare readout at
+/// all — so every occurrence on disk means "I took the default", and `subtle` is exactly what
+/// those players have been looking at. Because `none` is no longer a legal value, seeing one can
+/// only mean the file predates the rename; a *redefined* `none` would have been indistinguishable
+/// from a player who has since chosen it, and this table would have pinned them to `subtle`
+/// forever. Rows can be retired once no file on disk can plausibly carry the old value.
+const REMAPPED_VALUES: &[(&str, &str, &str)] = &[
+    // `background: none` -> `bare`, and the honest default is `subtle`. See above.
+    ("background", "none", "subtle"),
+];
+
+/// Reads a loadout, dropping settings that have since been removed from the registry and
+/// remapping enum values that have since been renamed.
 ///
 /// Deliberately not a general `read_json` behaviour: this tolerance is for one shape of file
-/// and one class of key. Everything else the store reads keeps failing loudly on a key it does
-/// not recognise, which is what `deny_unknown_fields` is for.
+/// and two known classes of change. Everything else the store reads keeps failing loudly on a
+/// key it does not recognise, which is what `deny_unknown_fields` is for.
 fn read_loadout_json(path: &Path) -> Result<Loadout, Error> {
     let text =
         fs::read_to_string(path).map_err(|e| Error::Io { path: path.to_path_buf(), source: e })?;
@@ -370,6 +394,13 @@ fn read_loadout_json(path: &Path) -> Result<Loadout, Error> {
         for (mod_id, key) in REMOVED_SETTINGS {
             if let Some(settings) = mods.get_mut(*mod_id).and_then(Value::as_object_mut) {
                 settings.remove(*key);
+            }
+        }
+        for settings in mods.values_mut().filter_map(Value::as_object_mut) {
+            for (key, from, to) in REMAPPED_VALUES {
+                if settings.get(*key).and_then(Value::as_str) == Some(*from) {
+                    settings.insert((*key).to_string(), Value::String((*to).to_string()));
+                }
             }
         }
     }
@@ -484,6 +515,43 @@ mod tests {
             after["mods"]["toggle_sprint"].get("show_status").is_none(),
             "a save after the migration must not write the removed key back"
         );
+    }
+
+    #[test]
+    fn a_loadout_written_before_a_value_was_renamed_still_loads() {
+        // Same hazard as the test above, from the other side: `HudBackground` is a closed
+        // generated enum, so a value that left the schema does not degrade — it fails the whole
+        // file. `background: "none"` was the shipped default and is therefore in essentially
+        // every loadout ever written, which is the widest blast radius this store has.
+        let (_d, s) = store();
+        s.init().unwrap();
+
+        let id = LoadoutId::new("sword-pvp").unwrap();
+        let path = s.loadouts_dir().join("sword-pvp.json");
+
+        let mut raw: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        for mod_id in ["fps", "cps", "ping"] {
+            raw["mods"][mod_id]
+                .as_object_mut()
+                .unwrap()
+                .insert("background".into(), "none".into());
+        }
+        fs::write(&path, serde_json::to_string_pretty(&raw).unwrap()).unwrap();
+
+        // It loads, and every occurrence has become the value those players were looking at.
+        let loaded = s.load(&id).expect("a renamed enum value must not orphan the loadout");
+        for mod_id in [ModId::Fps, ModId::Cps, ModId::Ping] {
+            assert_eq!(
+                loaded.mods.effective(mod_id).get("background").and_then(Value::as_str),
+                Some("subtle"),
+                "{mod_id:?} kept the pre-rename value"
+            );
+        }
+
+        // …and the next save is the migration: the old value is gone from the file too.
+        s.save(&loaded).unwrap();
+        let after: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_ne!(after["mods"]["fps"]["background"].as_str(), Some("none"));
     }
 
     #[test]

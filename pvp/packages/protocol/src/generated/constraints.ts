@@ -115,7 +115,7 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
 export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
   {
   "fps.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -127,7 +127,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "wide"
   ],
   "keystrokes.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -153,7 +153,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "teal"
   ],
   "cps.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -170,7 +170,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "both"
   ],
   "ping.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -182,7 +182,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "wide"
   ],
   "coordinates.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -198,7 +198,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "inline"
   ],
   "armor_status.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -214,7 +214,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "vertical"
   ],
   "potion_effects.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -226,7 +226,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "wide"
   ],
   "watermark.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -251,7 +251,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "none"
   ],
   "direction.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -268,7 +268,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "axis"
   ],
   "combo.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -280,7 +280,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "wide"
   ],
   "saturation.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -297,7 +297,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "both"
   ],
   "momentum.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -313,7 +313,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "kmh"
   ],
   "memory.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -330,7 +330,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "percent"
   ],
   "server_address.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -346,7 +346,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "full"
   ],
   "item_counter.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -358,7 +358,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "wide"
   ],
   "stopwatch.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
@@ -402,7 +402,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "one_seven"
   ],
   "hit_trade.background": [
-    "none",
+    "bare",
     "subtle",
     "solid"
   ],
