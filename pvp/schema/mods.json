@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 34 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 35 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -55,7 +55,8 @@
         "clock",
         "cps_graph",
         "scoreboard",
-        "reach"
+        "reach",
+        "potion_counter"
       ],
       "additionalProperties": false,
       "properties": {
@@ -194,6 +195,10 @@
         "reach": {
           "description": "Reach display registry entry.",
           "$ref": "#/definitions/reach_entry"
+        },
+        "potion_counter": {
+          "description": "Potion counter registry entry.",
+          "$ref": "#/definitions/potion_counter_entry"
         }
       }
     }
@@ -201,7 +206,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 34 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 35 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -237,12 +242,13 @@
         "clock",
         "cps_graph",
         "scoreboard",
-        "reach"
+        "reach",
+        "potion_counter"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 20 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 21 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
       "enum": [
         "fps",
@@ -264,7 +270,8 @@
         "hit_trade",
         "clock",
         "cps_graph",
-        "reach"
+        "reach",
+        "potion_counter"
       ]
     },
     "gameplay_mod_id": {
@@ -1731,6 +1738,15 @@
           ],
           "default": "normal"
         },
+        "source": {
+          "description": "What the count covers. `held` is the stack in your hand and is the default, because it is what the mod has always meant and what a player watching a stack of blocks run down is asking about. `inventory` sums **every** slot holding the same item, which is `docs/mod-roster.md` §3.1 #5's \"counts a chosen item (blocks, pearls, gapples)\".\n\n**There is no item picker, and its absence is the design.** The roster's phrasing invites a dropdown of item ids, which would be a list somebody has to maintain against a game that has hundreds and a setting a player has to re-open every time they change what they are carrying. The item you are holding *is* the choice, and it is the one a player makes with their scroll wheel a hundred times a match. Hold a pearl and the chip counts pearls; hold blocks and it counts blocks. The setting is one switch instead of an enum nobody could finish.\n\nIt reads the `inventory` field of the tick payload, which is value-checked at the sensor and sent only when something actually moved — so this costs nothing between pickups.",
+          "type": "string",
+          "enum": [
+            "held",
+            "inventory"
+          ],
+          "default": "held"
+        },
         "show_label": {
           "description": "Whether the count is prefixed with the multiplication sign — `x12` rather than `12`. On by default: the chip sits next to a CPS figure and above a keystrokes block, so a bare integer in that corner is a number among numbers, and the `x` is the cheapest thing that says it is a quantity of something rather than a rate.",
           "type": "boolean",
@@ -2407,6 +2423,78 @@
           "minimum": 0,
           "maximum": 6,
           "default": 0
+        }
+      }
+    },
+    "potion_counter_settings": {
+      "title": "Potion counter settings",
+      "description": "Settings for the Potion counter HUD mod. It reads the `inventory` field of the tick payload — one entry per distinct thing, with a potion's effect carried as the same numeric id the `fx` array uses — and sums the entries matching the effect below.\n\nWhy it needs its own field rather than the held stack: `held_count` sees the hand and nothing else, which is why `item_counter` counted the held stack and said so. Pot PvP is `docs/mod-roster.md` §3.1 #4's 'first-class 1.8.9 mode', and what you plan around is what is in the inventory, not what happens to be in your hand.\n\nThe count is sent only when the inventory actually changes, which between pickups is never — so this readout is free in the sense that matters on this surface: it does not repaint while you fight, it repaints when you drink.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the potion counter is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the potion count.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the potion count.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the potion count, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.\n\n**The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.\n\n**`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning \"I took the default\", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.",
+          "type": "string",
+          "enum": [
+            "bare",
+            "subtle",
+            "solid"
+          ],
+          "default": "subtle"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the potion count, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the potion count — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
+          "type": "string",
+          "enum": [
+            "none",
+            "tight",
+            "normal",
+            "roomy",
+            "wide"
+          ],
+          "default": "normal"
+        },
+        "effect": {
+          "description": "Which potion is counted. `healing` is the default because it is the one a fight is planned around. `speed`, `strength` and `fire_resistance` are the other three a 1.8.9 kit is built on; `any` counts every potion that grants an effect, which is the reading for 'how much have I got left to throw' rather than 'have I got a heal'.\n\nA water bottle is never counted under any value, `any` included: the sensor reports no effect for it, so there is nothing to match. That is a fact about the item rather than a filter this mod applies.",
+          "type": "string",
+          "enum": [
+            "healing",
+            "speed",
+            "strength",
+            "fire_resistance",
+            "any"
+          ],
+          "default": "healing"
+        },
+        "splash_only": {
+          "description": "Whether only throwable potions count. On by default: in a duel a drinkable takes 32 ticks of standing still and a splash takes none, so a count that merged them would promise heals that cost the fight. Off for pot UHC and Skywars kits, which do carry drinkables and where a player means both.",
+          "type": "boolean",
+          "default": true
+        },
+        "show_label": {
+          "description": "Whether the trailing unit is drawn — the effect's own short name, so the chip reads `6 heals` rather than a bare figure on a HUD that may also be carrying an item count. Off makes it narrower for a player who has only one counter on screen.",
+          "type": "boolean",
+          "default": true
         }
       }
     },
@@ -3901,11 +3989,56 @@
           ]
         }
       ]
+    },
+    "potion_counter_entry": {
+      "title": "Potion counter entry",
+      "description": "Registry entry for the Potion counter, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `potion_counter`.",
+              "const": "potion_counter"
+            },
+            "icon": {
+              "description": "Always `flask`.",
+              "const": "flask"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Potion counter settings.",
+              "$ref": "#/definitions/potion_counter_settings"
+            },
+            "default_placement": {
+              "$comment": "Top-left, under Item counter's row in the survival stack — what you are wearing, what is keeping you alive, and what you have left to fix it with. 38 px below on the same column rhythm.",
+              "description": "Where the Potion counter starts on an untouched HUD. Required, because the Potion counter is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 15,
+      "version": 16,
       "mods": {
         "fps": {
           "id": "fps",
@@ -4370,7 +4503,7 @@
           "hypixel_safe": "safe",
           "label": "Item counter",
           "icon": "box",
-          "description": "How many of the item in your hand you have left.",
+          "description": "How many of the item in your hand you have — in the stack, or across the whole inventory.",
           "source": "`held_count` on the tick payload — the stack size of the held item",
           "defaults": {
             "on": false,
@@ -4379,6 +4512,7 @@
             "background": "subtle",
             "border": false,
             "padding": "normal",
+            "source": "held",
             "show_label": true,
             "low_threshold": 0
           },
@@ -4661,6 +4795,32 @@
             "anchor": "top-left",
             "dx": 23,
             "dy": 293
+          }
+        },
+        "potion_counter": {
+          "id": "potion_counter",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "safe",
+          "label": "Potion counter",
+          "icon": "flask",
+          "description": "How many potions of one effect you are carrying, which in pot PvP is what you plan around.",
+          "source": "the `inventory` field, via the tick sensor",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "subtle",
+            "border": false,
+            "padding": "normal",
+            "effect": "healing",
+            "splash_only": true,
+            "show_label": true
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 331
           }
         }
       }

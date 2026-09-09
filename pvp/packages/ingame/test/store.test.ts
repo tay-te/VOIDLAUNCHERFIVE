@@ -116,14 +116,42 @@ describe('bridge ingestion', () => {
     expect(useVoidStore.getState().combo).toBe(1);
   });
 
-  it('treats an empty hand as news, not as an unchanged field', () => {
+  /**
+   * This test used to assert the opposite, and the opposite was a bug.
+   *
+   * It read: "`held_count` is the one tick field whose absence is a value: the sensor omits it
+   * for an empty hand rather than sending 0". That was the field's description, faithfully
+   * transcribed — and it cannot be true at the same time as the payload's own rule, which
+   * `bridge.json` states one paragraph above the field: "a handler must treat an absent field as
+   * unchanged". `held_count` is value-checked at the sensor, so it is absent on every tick where
+   * the count did not move as well as on every tick where the hand is empty, and the two are
+   * indistinguishable downstream.
+   *
+   * The symptom was a chip that drew its figure for exactly one tick after each change and then
+   * blanked itself. **The next test in this file asserts the correct discipline for `saturation`,
+   * `speed` and `memory`** — "holds a Wave 2 reading that the sensor coalesced away" — so the two
+   * sat side by side saying opposite things about the same payload, and this one was the wrong
+   * one. A test that pins a bug reads exactly like a test that pins a contract.
+   *
+   * Emptiness is a value now (`held_count: 0`), because of the two meanings only that one can be
+   * stated: a field cannot also say "nothing changed" by being absent if absence already means
+   * something else.
+   */
+  it('holds the held count through the ticks that omit it, and reads 0 as the empty hand', () => {
     const apply = useVoidStore.getState().applyTick;
-    apply({ held_count: 64 });
+    apply({ held_count: 64, held_item: 'minecraft:ender_pearl' });
     expect(useVoidStore.getState().heldCount).toBe(64);
-    // `held_count` is the one tick field whose absence is a value: the sensor omits it for an
-    // empty hand rather than sending 0, so the chip has to stop showing the last stack.
+    expect(useVoidStore.getState().heldItem).toBe('minecraft:ender_pearl');
+
+    // A tick that carries something else carries neither of those, and changes neither.
     apply({ fps: 100 });
+    expect(useVoidStore.getState().heldCount, 'absent means unchanged').toBe(64);
+    expect(useVoidStore.getState().heldItem).toBe('minecraft:ender_pearl');
+
+    // The hand empties, and the wire says so.
+    apply({ held_count: 0 });
     expect(useVoidStore.getState().heldCount).toBeNull();
+    expect(useVoidStore.getState().heldItem, 'one source of truth for an empty hand').toBeNull();
   });
 
   it('holds a Wave 2 reading that the sensor coalesced away', () => {

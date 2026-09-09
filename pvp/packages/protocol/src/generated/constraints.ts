@@ -381,6 +381,10 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "roomy",
     "wide"
   ],
+  "item_counter.source": [
+    "held",
+    "inventory"
+  ],
   "stopwatch.background": [
     "bare",
     "subtle",
@@ -486,6 +490,25 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "normal",
     "roomy",
     "wide"
+  ],
+  "potion_counter.background": [
+    "bare",
+    "subtle",
+    "solid"
+  ],
+  "potion_counter.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
+  ],
+  "potion_counter.effect": [
+    "healing",
+    "speed",
+    "strength",
+    "fire_resistance",
+    "any"
   ]
 } as const;
 

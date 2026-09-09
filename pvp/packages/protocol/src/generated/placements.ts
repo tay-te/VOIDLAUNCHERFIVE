@@ -124,4 +124,10 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * at all.
    */
   reach: { anchor: 'top-left', dx: 23, dy: 293 },
+  /**
+   * Top-left, under Item counter's row in the survival stack — what you are wearing, what is
+   * keeping you alive, and what you have left to fix it with. 38 px below on the same column
+   * rhythm.
+   */
+  potion_counter: { anchor: 'top-left', dx: 23, dy: 331 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

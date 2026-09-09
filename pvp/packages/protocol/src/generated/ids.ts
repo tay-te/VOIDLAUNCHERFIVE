@@ -47,6 +47,7 @@ export const MOD_IDS = [
   'cps_graph',
   'scoreboard',
   'reach',
+  'potion_counter',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -71,6 +72,7 @@ export const HUD_MOD_IDS = [
   'clock',
   'cps_graph',
   'reach',
+  'potion_counter',
 ] as const satisfies readonly HUDModId[];
 
 /** The mods an actuator Mixin reads every frame, in registry order. */

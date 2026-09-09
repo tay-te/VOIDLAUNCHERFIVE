@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 34 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 35 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -72,7 +72,8 @@ pub enum ModId {
     Memory,
     /// The host you are actually connected to.
     ServerAddress,
-    /// How many of the item in your hand you have left.
+    /// How many of the item in your hand you have — in the stack, or across the whole
+    /// inventory.
     ItemCounter,
     /// A manual timer, started and zeroed from the keyboard.
     Stopwatch,
@@ -106,11 +107,14 @@ pub enum ModId {
     /// How far away your last landed hit was — the swing that connected, never the one you are
     /// lining up.
     Reach,
+    /// How many potions of one effect you are carrying, which in pot PvP is what you plan
+    /// around.
+    PotionCounter,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 34] = [
+    pub const ALL: [ModId; 35] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -145,6 +149,7 @@ impl ModId {
         ModId::CpsGraph,
         ModId::Scoreboard,
         ModId::Reach,
+        ModId::PotionCounter,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -184,11 +189,12 @@ impl ModId {
             ModId::CpsGraph => "cps_graph",
             ModId::Scoreboard => "scoreboard",
             ModId::Reach => "reach",
+            ModId::PotionCounter => "potion_counter",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 20 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 21 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -222,7 +228,8 @@ pub enum HudModId {
     Memory,
     /// The host you are actually connected to.
     ServerAddress,
-    /// How many of the item in your hand you have left.
+    /// How many of the item in your hand you have — in the stack, or across the whole
+    /// inventory.
     ItemCounter,
     /// A manual timer, started and zeroed from the keyboard.
     Stopwatch,
@@ -235,11 +242,14 @@ pub enum HudModId {
     /// How far away your last landed hit was — the swing that connected, never the one you are
     /// lining up.
     Reach,
+    /// How many potions of one effect you are carrying, which in pot PvP is what you plan
+    /// around.
+    PotionCounter,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 20] = [
+    pub const ALL: [HudModId; 21] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -260,6 +270,7 @@ impl HudModId {
         HudModId::Clock,
         HudModId::CpsGraph,
         HudModId::Reach,
+        HudModId::PotionCounter,
     ];
 
     /// Widens to the full mod id enum.
@@ -285,6 +296,7 @@ impl HudModId {
             HudModId::Clock => ModId::Clock,
             HudModId::CpsGraph => ModId::CpsGraph,
             HudModId::Reach => ModId::Reach,
+            HudModId::PotionCounter => ModId::PotionCounter,
         }
     }
 
@@ -454,6 +466,7 @@ impl Registry {
             HudModId::Clock => self.mods.clock.default_placement,
             HudModId::CpsGraph => self.mods.cps_graph.default_placement,
             HudModId::Reach => self.mods.reach.default_placement,
+            HudModId::PotionCounter => self.mods.potion_counter.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -761,6 +774,31 @@ pub enum ServerAddressStyle {
     Full,
 }
 
+/// What the count covers. `held` is the stack in your hand and is the default, because it is
+/// what the mod has always meant and what a player watching a stack of blocks run down is
+/// asking about. `inventory` sums **every** slot holding the same item, which is
+/// `docs/mod-roster.md` §3.1 #5's "counts a chosen item (blocks, pearls, gapples)". **There is
+/// no item picker, and its absence is the design.** The roster's phrasing invites a dropdown of
+/// item ids, which would be a list somebody has to maintain against a game that has hundreds
+/// and a setting a player has to re-open every time they change what they are carrying. The
+/// item you are holding *is* the choice, and it is the one a player makes with their scroll
+/// wheel a hundred times a match. Hold a pearl and the chip counts pearls; hold blocks and it
+/// counts blocks. The setting is one switch instead of an enum nobody could finish. It reads
+/// the `inventory` field of the tick payload, which is value-checked at the sensor and sent
+/// only when something actually moved — so this costs nothing between pickups.
+///
+/// `mods.json#/definitions/item_counter_settings/properties/source`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemCounterSource {
+    /// `held` is the stack in your hand and is the default, because it is what the mod has
+    /// always meant and what a player watching a stack of blocks run down is asking about.
+    Held,
+    /// `inventory` sums **every** slot holding the same item, which is `docs/mod-roster.md`
+    /// §3.1 #5's "counts a chosen item (blocks, pearls, gapples)".
+    Inventory,
+}
+
 /// How the elapsed time is written. `auto` grows the field as the clock does — `4:07` until an
 /// hour has passed and `1:04:07` after — which keeps the chip as narrow as the reading allows
 /// and is right for almost everyone. `mmss` pins it to minutes and seconds and lets the minutes
@@ -983,6 +1021,30 @@ pub enum CpsGraphMode {
     /// two overlaid series in one 60px-wide widget is two shapes nobody can separate over live
     /// game pixels.
     Both,
+}
+
+/// Which potion is counted. `healing` is the default because it is the one a fight is planned
+/// around. `speed`, `strength` and `fire_resistance` are the other three a 1.8.9 kit is built
+/// on; `any` counts every potion that grants an effect, which is the reading for 'how much have
+/// I got left to throw' rather than 'have I got a heal'. A water bottle is never counted under
+/// any value, `any` included: the sensor reports no effect for it, so there is nothing to
+/// match. That is a fact about the item rather than a filter this mod applies.
+///
+/// `mods.json#/definitions/potion_counter_settings/properties/effect`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PotionCounterEffect {
+    /// `healing` is the default because it is the one a fight is planned around.
+    Healing,
+    /// `speed`.
+    Speed,
+    /// `strength` and `fire_resistance` are the other three a 1.8.9 kit is built on.
+    Strength,
+    /// `fire_resistance`.
+    FireResistance,
+    /// `any` counts every potion that grants an effect, which is the reading for 'how much have
+    /// I got left to throw' rather than 'have I got a heal'.
+    Any,
 }
 
 // ---------------------------------------------------------------------------
@@ -2653,6 +2715,22 @@ pub struct ItemCounterSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding: Option<HudPadding>,
 
+    /// What the count covers. `held` is the stack in your hand and is the default, because it
+    /// is what the mod has always meant and what a player watching a stack of blocks run down
+    /// is asking about. `inventory` sums **every** slot holding the same item, which is
+    /// `docs/mod-roster.md` §3.1 #5's "counts a chosen item (blocks, pearls, gapples)". **There
+    /// is no item picker, and its absence is the design.** The roster's phrasing invites a
+    /// dropdown of item ids, which would be a list somebody has to maintain against a game that
+    /// has hundreds and a setting a player has to re-open every time they change what they are
+    /// carrying. The item you are holding *is* the choice, and it is the one a player makes
+    /// with their scroll wheel a hundred times a match. Hold a pearl and the chip counts
+    /// pearls; hold blocks and it counts blocks. The setting is one switch instead of an enum
+    /// nobody could finish. It reads the `inventory` field of the tick payload, which is
+    /// value-checked at the sensor and sent only when something actually moved — so this costs
+    /// nothing between pickups.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ItemCounterSource>,
+
     /// Whether the count is prefixed with the multiplication sign — `x12` rather than `12`. On
     /// by default: the chip sits next to a CPS figure and above a keystrokes block, so a bare
     /// integer in that corner is a number among numbers, and the `x` is the cheapest thing that
@@ -3735,11 +3813,116 @@ pub struct ReachSettings {
     pub warn_above: Option<f64>,
 }
 
+/// Potion counter settings.
+///
+/// Settings for the Potion counter HUD mod. It reads the `inventory` field of the tick payload
+/// — one entry per distinct thing, with a potion's effect carried as the same numeric id the
+/// `fx` array uses — and sums the entries matching the effect below. Why it needs its own field
+/// rather than the held stack: `held_count` sees the hand and nothing else, which is why
+/// `item_counter` counted the held stack and said so. Pot PvP is `docs/mod-roster.md` §3.1 #4's
+/// 'first-class 1.8.9 mode', and what you plan around is what is in the inventory, not what
+/// happens to be in your hand. The count is sent only when the inventory actually changes,
+/// which between pickups is never — so this readout is free in the sense that matters on this
+/// surface: it does not repaint while you fight, it repaints when you drink.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PotionCounterSettings {
+    /// Whether the potion counter is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the potion count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the potion count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the potion count, as a step on the system's own scale rather than a
+    /// colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a
+    /// busy texture — and it is the default because it is what every HUD readout has always
+    /// been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla
+    /// treatment and is legible over sky and unreadable over snow, so it is a choice rather
+    /// than a default. `solid` is the opaque card ground, for a player who wants the HUD to
+    /// read as a panel. A step rather than a hex value because a per-mod background colour is
+    /// what §1 names as the far side of the line. **The step sets the widget's own ground; it
+    /// does not paint a second one behind it.** This was `background` on the *slot*, and every
+    /// widget already had a ground of its own underneath — so all three steps composited over
+    /// `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where
+    /// the slot's padding stuck out past the chip's corner. Once density moved onto the widget
+    /// the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg`
+    /// and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list
+    /// panels actually paint from. **`none` was renamed to `bare`, and the rename is the
+    /// migration.** The old value was the default *and* it drew a ground, so it never meant
+    /// what it said and no player can have chosen it deliberately: there was no way to get a
+    /// bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the
+    /// default", and the honest remap is to `subtle`, which is exactly what those players have
+    /// been looking at. Renaming rather than redefining is what makes that remap safe to run
+    /// once and never again — a stored `none` can only have been written before this, where a
+    /// redefined `none` would be indistinguishable from a player who has since chosen it.
+    /// `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's
+    /// `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which
+    /// is the same answer arrived at for free.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the potion count, at the system's own
+    /// `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as
+    /// `background`: the edge either separates the chip from the game or it does not, and the
+    /// one useful answer is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the potion count — the inset between its content and its edge, as one of five
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read. **This step drives the widget's own inset, not a box around it.** For one
+    /// release it set padding on the *slot* — the box `HudSlot` puts round the widget — while
+    /// the widget kept its own hard-coded padding underneath. With the default `background:
+    /// none` that outer box is transparent, so the setting moved an invisible edge and the
+    /// drawn chip never changed size. It passed `preview.test.tsx` because the class name on
+    /// the slot changed, which is exactly the erosion that file's own doc comment warns the
+    /// exemption list about: a gate that compares markup cannot tell a class that draws from a
+    /// class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and
+    /// `--gap-hud-keys`, the three variables every HUD surface actually reads its density from,
+    /// so the chip, the two list panels and the keycap cluster all move together and all move
+    /// at every background step. Five steps rather than three because three could not say what
+    /// players asked for at either end. `none` is the setting off — glyphs on the game with
+    /// nothing round them — which is what a player who has already turned the ground off is
+    /// after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`,
+    /// `normal` and `roomy` keep the values they had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Which potion is counted. `healing` is the default because it is the one a fight is
+    /// planned around. `speed`, `strength` and `fire_resistance` are the other three a 1.8.9
+    /// kit is built on; `any` counts every potion that grants an effect, which is the reading
+    /// for 'how much have I got left to throw' rather than 'have I got a heal'. A water bottle
+    /// is never counted under any value, `any` included: the sensor reports no effect for it,
+    /// so there is nothing to match. That is a fact about the item rather than a filter this
+    /// mod applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect: Option<PotionCounterEffect>,
+
+    /// Whether only throwable potions count. On by default: in a duel a drinkable takes 32
+    /// ticks of standing still and a splash takes none, so a count that merged them would
+    /// promise heals that cost the fight. Off for pot UHC and Skywars kits, which do carry
+    /// drinkables and where a player means both.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub splash_only: Option<bool>,
+
+    /// Whether the trailing unit is drawn — the effect's own short name, so the chip reads `6
+    /// heals` rather than a bare figure on a HUD that may also be carrying an item count. Off
+    /// makes it narrower for a player who has only one counter on screen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 34.
+/// Every mod VOID ships, keyed by id. Closed set of 35.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -3805,7 +3988,8 @@ pub struct ModRegistryEntries {
     /// Server address — The host you are actually connected to.
     pub server_address: ModEntry<ServerAddressSettings>,
 
-    /// Item counter — How many of the item in your hand you have left.
+    /// Item counter — How many of the item in your hand you have — in the stack, or across the
+    /// whole inventory.
     pub item_counter: ModEntry<ItemCounterSettings>,
 
     /// Stopwatch — A manual timer, started and zeroed from the keyboard.
@@ -3856,6 +4040,10 @@ pub struct ModRegistryEntries {
     /// Reach display — How far away your last landed hit was — the swing that connected, never
     /// the one you are lining up.
     pub reach: ModEntry<ReachSettings>,
+
+    /// Potion counter — How many potions of one effect you are carrying, which in pot PvP is
+    /// what you plan around.
+    pub potion_counter: ModEntry<PotionCounterSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -3935,6 +4123,8 @@ pub struct ModStates {
     pub scoreboard: Option<ScoreboardSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reach: Option<ReachSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub potion_counter: Option<PotionCounterSettings>,
 }
 
 impl Registry {
@@ -3975,6 +4165,7 @@ impl Registry {
             ModId::CpsGraph => self.mods.cps_graph.info(),
             ModId::Scoreboard => self.mods.scoreboard.info(),
             ModId::Reach => self.mods.reach.info(),
+            ModId::PotionCounter => self.mods.potion_counter.info(),
         }
     }
 
@@ -4017,6 +4208,7 @@ impl Registry {
             ModId::CpsGraph => self.mods.cps_graph.defaults_object(),
             ModId::Scoreboard => self.mods.scoreboard.defaults_object(),
             ModId::Reach => self.mods.reach.defaults_object(),
+            ModId::PotionCounter => self.mods.potion_counter.defaults_object(),
         }
     }
 }
@@ -4060,6 +4252,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::CpsGraph => super::check::<CpsGraphSettings>(id, value),
         ModId::Scoreboard => super::check::<ScoreboardSettings>(id, value),
         ModId::Reach => super::check::<ReachSettings>(id, value),
+        ModId::PotionCounter => super::check::<PotionCounterSettings>(id, value),
     }
 }
 

@@ -172,6 +172,14 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 9's potion counter, off the new `inventory` sensor.
+  potion_counter: [
+    SCALE,
+    OPACITY,
+    { key: 'effect', label: 'Effect', control: 'select', options: ['healing', 'speed', 'strength', 'fire_resistance', 'any'] },
+    { key: 'splash_only', label: 'Splash only', control: 'switch' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+  ],
   // Wave 9's reach readout. `grey` — see the mod's own `$comment`.
   reach: [
     SCALE,
@@ -238,6 +246,7 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   item_counter: [
     SCALE,
     OPACITY,
+    { key: 'source', label: 'Count', control: 'select', options: ['held', 'inventory'] },
     { key: 'show_label', label: 'Show label', control: 'switch' },
     // 0 disables the warn treatment, which is why the floor is 0 rather than 1.
     { key: 'low_threshold', label: 'Warn at or below', control: 'slider', min: 0, max: 64, step: 1, format: 'plain' },
@@ -388,6 +397,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'cps_graph',
   'clock',
   'reach',
+  'potion_counter',
   'scoreboard',
   'saturation',
   'momentum',

@@ -152,7 +152,46 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
-### 2026-09-09 (latest) — `tick_payload.reach`, and a field whose contract is *when* it moves
+### 2026-09-09 (latest) — `tick_payload.inventory`, and identity is the whole design
+
+`mods.json` registry `version` bumped; `protocol.json` `v` unchanged — a `bridge.json` addition,
+so it crosses Java to the page and never reaches Rust.
+
+**The sensor `docs/mod-roster.md` §3.1 has been asking for since Wave 2.** Two roster rows depend
+on it — the potion counter (#4) and a real item counter (#5) — and the note under Wave 2 named it
+by shape: "a `counts` field keyed by item id would serve both".
+
+**It is not keyed by item id, and that is the change worth recording.** Every potion in 1.8.9 is
+`minecraft:potion`: a water bottle, a splash of healing II and a lingering weakness are one
+registry name and three different things. A map keyed by item id would have told a pot-PvP player
+they had eight heals when three were water — in the mode the field was added for. So an entry's
+identity is the registry name *plus*, for a potion, the effect it grants and whether it is
+throwable.
+
+**And it is not the stack's metadata either**, which is the trap one level down. `getData()`
+distinguishes those potions and it also distinguishes a sword at three durability from the same
+sword undamaged, so putting the raw number on the wire would fragment every tool and every piece
+of armour into as many entries as it has wear states. Metadata is identity on a few items and
+wear on most, and only the mod side knows which — so the mod side resolves it and the wire carries
+the answer.
+
+The effect crosses as the **numeric potion id**, which is already how an effect crosses this
+bridge (`potion_effect.id` on the `fx` array). A second spelling would have been a second table
+for the page to keep in step with the first.
+
+**Value-checked, not rate-limited**, unlike every other large field. An inventory is the biggest
+thing on this payload and the stillest: it does not move while you fight, only when you pick
+something up or throw a pearl. A rate limit would delay the update that matters most and do
+nothing about a case that does not exist — the field cannot flicker, only change.
+
+**An empty array is a reading; an absent field is not.** A counter must draw nothing when the
+sensor has said nothing, rather than a zero it did not measure.
+
+**Followers:** `InventoryTally` (identity, merge, and the equality the coalescer compares on),
+`TickInput.inventory`, `TickCoalescer`, `@void/protocol`'s generated types, and the two mods —
+`potion_counter`, and `item_counter`'s new `source`. Nothing in `crates/` reads `bridge.json`.
+
+### 2026-09-09 — `tick_payload.reach`, and a field whose contract is *when* it moves
 
 `mods.json` registry `version` bumped; `protocol.json` `v` unchanged — this is a `bridge.json`
 addition, so it crosses Java to the page and never reaches Rust.

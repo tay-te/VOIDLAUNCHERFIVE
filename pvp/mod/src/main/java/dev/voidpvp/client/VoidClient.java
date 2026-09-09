@@ -16,6 +16,7 @@ import dev.voidpvp.client.render.CrosshairRenderer;
 import dev.voidpvp.client.screen.VoidMenuScreen;
 import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
+import dev.voidpvp.client.sensor.InventoryTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ReachTally;
@@ -34,7 +35,10 @@ import net.minecraft.client.util.Session;
 import net.minecraft.client.util.Window;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.player.ClientPlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.PotionItem;
+import net.minecraft.util.Identifier;
 import org.lwjgl.input.Keyboard;
 
 import java.nio.charset.StandardCharsets;
@@ -403,6 +407,68 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
 
     public VoidBridge bridge() {
         return bridge;
+    }
+
+    /**
+     * The whole main inventory, merged into one entry per distinct thing — {@code inventory}.
+     *
+     * <p>The reading half of {@link InventoryTally}, which owns what "the same thing" means and
+     * is where that is tested. What lives here is the part that needs the game: the registry
+     * name, and — for a potion — the effect it grants and whether it is throwable.</p>
+     *
+     * <p><b>Potions are resolved here rather than by sending metadata.</b>
+     * {@code ItemStack.getData()} distinguishes a splash of healing from a water bottle and it
+     * also distinguishes a sword at three durability from the same sword undamaged, so putting
+     * the raw number on the wire would fragment every tool into as many entries as it has wear
+     * states. Only this side knows which items use their metadata as identity, so this side
+     * resolves it: {@code PotionItem.getPotionEffects(data)} for the effect and
+     * {@code PotionItem.isThrowable(data)} for the splash flag, both public in 1.8.9. The effect
+     * crosses as the numeric potion id because that is already how an effect crosses this
+     * bridge — {@code potion_effect.id} on the {@code fx} array — and the page has one table.</p>
+     *
+     * <p>Wrapped whole, like every other reader in this method: a sensor that throws must cost a
+     * reading, never a tick.</p>
+     */
+    private static InventoryTally readInventory(ClientPlayerEntity player) {
+        InventoryTally tally = new InventoryTally();
+        try {
+            ItemStack[] main = player.inventory.main;
+            if (main == null) {
+                return tally;
+            }
+            for (int i = 0; i < main.length; i++) {
+                ItemStack stack = main[i];
+                if (stack == null || stack.count <= 0) {
+                    continue;
+                }
+                Item item = stack.getItem();
+                if (item == null) {
+                    continue;
+                }
+                Identifier id = Item.REGISTRY.getIdentifier(item);
+                if (id == null) {
+                    continue;
+                }
+                int effect = InventoryTally.NO_EFFECT;
+                boolean splash = false;
+                if (item instanceof PotionItem) {
+                    int data = stack.getData();
+                    // A water bottle is data 0 and has no effects; `getPotionEffects` answers
+                    // null for it rather than an empty list, so both are handled.
+                    List<StatusEffectInstance> effects = ((PotionItem) item).getPotionEffects(data);
+                    if (effects != null && !effects.isEmpty()) {
+                        effect = effects.get(0).getEffectId();
+                        splash = PotionItem.isThrowable(data);
+                    }
+                }
+                tally.add(id.toString(), effect, splash, stack.count);
+            }
+        } catch (Throwable ignored) {
+            // A partial tally is a wrong count, so anything that throws leaves an empty one and
+            // the field goes absent — "no reading" rather than "you have none of that".
+            return new InventoryTally();
+        }
+        return tally;
     }
 
     /**
@@ -1440,12 +1506,25 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // `stack.count`, not `getCount()`: 1.8.9 exposes it as a public field, and
             // `readArmor` below has read it that way since it was written. The modern accessor
             // does not exist in these mappings.
+            // `0` is the empty hand, not an absence. `bridge.json`'s own rule is that an absent
+            // field means "unchanged", and this one is value-checked — so omitting it for an
+            // empty hand made the two indistinguishable and the chip blanked itself one tick
+            // after every change. Emptiness is the one of the two that can be said explicitly.
+            tickIn.heldCount = Integer.valueOf(held == null ? 0 : Math.max(0, held.count));
             if (held != null && held.count > 0) {
-                tickIn.heldCount = Integer.valueOf(held.count);
+                // The identity of what is held, so `item_counter.source: inventory` can name what
+                // it is summing. Separate from the count because they go absent together and
+                // change apart: a count moves as the stack is used, this moves only on a scroll.
+                Item item = held.getItem();
+                Identifier id = item == null ? null : Item.REGISTRY.getIdentifier(item);
+                if (id != null) {
+                    tickIn.heldItem = id.toString();
+                }
             }
         } catch (Throwable ignored) {
             // Same reasoning as above.
         }
+        tickIn.inventory = readInventory(player);
         try {
             // Horizontal only: falling is not momentum the player is steering, and including the
             // vertical component would spike the readout on every drop. x20 because velocity is

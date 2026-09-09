@@ -77,6 +77,10 @@ export const MOD_ORDER: ModId[] = [
   'saturation',
   'potion_effects',
   'item_counter',
+  // Beside Item counter, which is the mod it shares a sensor with: one counts what you are
+  // holding (and now every copy of it), the other counts what you have to fix yourself with.
+  // §3.1 #5's "same engine as #4 — do them together", drawn as adjacency.
+  'potion_counter',
   // The one mod whose subject is a *vanilla* overlay rather than one of ours, and it reads here
   // because the sidebar is the thing it covers up: Ping display and Server address are the
   // top-right corner's own readouts, and the scoreboard is what vanilla puts over them.

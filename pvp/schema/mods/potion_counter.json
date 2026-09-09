@@ -1,0 +1,52 @@
+{
+  "$comment": "Three notes.\n\n**It counts potions and not 'heals', and the difference is one the schema can hold.** The obvious mod is a heal counter: one number, no settings, exactly what a pot-PvP player wants. It is also a mod that has decided for the player which effects matter, in a game where a debuff-heavy Bedwars kit and a soup-and-speed UHC kit want different tallies. So the effect is a setting, healing is the default, and the mod is the general one with the common answer preselected. `docs/mod-roster.md` §3.1 #4 names it 'Potion/soup counter'; soup is `minecraft:mushroom_stew` and is `item_counter`'s job now that it can count the inventory, which is the other half of §3.1 #5's 'same engine as #4 - do them together'.\n\n**`splash_only` ships on, and that is a claim about 1.8.9 rather than a preference.** In a duel a drinkable healing potion takes 32 ticks of standing still and a splash takes none, so they are not interchangeable and a count that merged them would tell a player they had eight heals when four of them cost them the fight. The switch exists because pot UHC and Skywars kits do carry drinkables and a player there means both.\n\n**No `warn_below`, unlike `item_counter`.** The threshold there marks a stack running out, which is a fact about one number. Here the useful warning is 'fewer heals than the fight needs', which depends on the mode, the kit and who you are fighting - and a threshold that means something different every game is a threshold a player stops reading. The figure is small enough to read directly, which is the whole argument for a counter rather than a bar.",
+  "id": "potion_counter",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Potion counter",
+  "icon": "flask",
+  "the": true,
+  "noun": "the potion count",
+  "on_description": "the potion counter is enabled",
+  "description": "How many potions of one effect you are carrying, which in pot PvP is what you plan around.",
+  "settings_title": "Potion counter settings",
+  "settings_description": "Settings for the Potion counter HUD mod. It reads the `inventory` field of the tick payload — one entry per distinct thing, with a potion's effect carried as the same numeric id the `fx` array uses — and sums the entries matching the effect below.\n\nWhy it needs its own field rather than the held stack: `held_count` sees the hand and nothing else, which is why `item_counter` counted the held stack and said so. Pot PvP is `docs/mod-roster.md` §3.1 #4's 'first-class 1.8.9 mode', and what you plan around is what is in the inventory, not what happens to be in your hand.\n\nThe count is sent only when the inventory actually changes, which between pickups is never — so this readout is free in the sense that matters on this surface: it does not repaint while you fight, it repaints when you drink.",
+  "source": "the `inventory` field, via the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Top-left, under Item counter's row in the survival stack — what you are wearing, what is keeping you alive, and what you have left to fix it with. 38 px below on the same column rhythm.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 331
+  },
+  "defaults": {
+    "effect": "healing",
+    "splash_only": true,
+    "show_label": true
+  },
+  "settings": {
+    "effect": {
+      "description": "Which potion is counted. `healing` is the default because it is the one a fight is planned around. `speed`, `strength` and `fire_resistance` are the other three a 1.8.9 kit is built on; `any` counts every potion that grants an effect, which is the reading for 'how much have I got left to throw' rather than 'have I got a heal'.\n\nA water bottle is never counted under any value, `any` included: the sensor reports no effect for it, so there is nothing to match. That is a fact about the item rather than a filter this mod applies.",
+      "type": "string",
+      "enum": [
+        "healing",
+        "speed",
+        "strength",
+        "fire_resistance",
+        "any"
+      ],
+      "default": "healing"
+    },
+    "splash_only": {
+      "description": "Whether only throwable potions count. On by default: in a duel a drinkable takes 32 ticks of standing still and a splash takes none, so a count that merged them would promise heals that cost the fight. Off for pot UHC and Skywars kits, which do carry drinkables and where a player means both.",
+      "type": "boolean",
+      "default": true
+    },
+    "show_label": {
+      "description": "Whether the trailing unit is drawn — the effect's own short name, so the chip reads `6 heals` rather than a bare figure on a HUD that may also be carrying an item count. Off makes it narrower for a player who has only one counter on screen.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

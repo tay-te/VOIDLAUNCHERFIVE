@@ -101,6 +101,10 @@ const ORDER = [
   // remembering it"), and the injection points in each are cited by offset in their own files.
   // Appended, never inserted.
   'scoreboard', 'reach',
+  // Wave 9, second half — the readout §3.1 has been asking for since Wave 2's note, and the
+  // sensor it needed. `item_counter`'s new `source` is the other half of #5's "same engine as
+  // #4 — do them together". Appended, never inserted.
+  'potion_counter',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

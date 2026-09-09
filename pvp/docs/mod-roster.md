@@ -414,7 +414,8 @@ titles, pack display, glint, clear glass, particles, time changer, nick hider, s
 tooltips, inventory lock, kill sounds.
 
 **Wave 9 — the ones that needed the game read.** ~~Reach display~~ · ~~Scoreboard~~ ·
-~~zoom sensitivity~~. Potion counter · GUI scale · block outline · nametags.
+~~zoom sensitivity~~ · ~~Potion counter~~ · ~~item counter, inventory-wide~~. GUI scale · block
+outline · nametags.
 
 > **Shipped 2026-09-09, and the blocker was never time.** Wave 3 left Reach and Scoreboard open
 > and §7 recorded `old_animations` being withdrawn "for want of a 1.7.10 mapping". The same
@@ -446,7 +447,40 @@ tooltips, inventory lock, kill sounds.
 > moves up to 0.28 blocks between the frame that picks and the tick that swings, which on a
 > two-decimal figure is a different number rather than a rounding error.
 >
-> **What is left in this tier** is the four above, and none is blocked any more — the jar is
+> **The second half, same day: the sensor §3.1 has been asking for since Wave 2.** That wave's
+> own note said "a `counts` field keyed by item id would serve both [the potion counter and a
+> real item counter], and it is the one sensor addition the rest of §3.1 keeps asking for."
+>
+> **It is not keyed by item id, and finding out why is the useful part.** Every potion in 1.8.9
+> is `minecraft:potion` — a water bottle, a splash of healing II and a lingering weakness are one
+> registry name and three different things — so the field Wave 2 sketched would have told a
+> pot-PvP player they had eight heals when three were water, in the mode it was added for. And
+> the obvious repair, keying on the stack's metadata, is worse: `getData()` is identity on a
+> potion and *wear* on a sword, so it would fragment every tool into as many entries as it has
+> durability values. Metadata is identity for a few items and noise for most, and only the mod
+> side knows which — so the mod side resolves it and the wire carries the answer.
+>
+> · **Potion counter** (§3.1 #4). It counts potions rather than "heals", because a debuff-heavy
+>   Bedwars kit and a soup-and-speed UHC kit want different tallies — so the effect is a setting
+>   with healing preselected. `splash_only` ships on: a drinkable costs 32 ticks of standing
+>   still and a splash costs none, so merging them promises heals that lose the fight. It is the
+>   one counter on the HUD that draws at zero, because "no heals left" is the most important
+>   thing it can say and a mod that vanished there would answer by leaving.
+> · **Item counter** gains `source: inventory` (§3.1 #5, "same engine as #4 — do them together").
+>   **There is no item picker**, and its absence is the design: the roster's phrasing invites a
+>   dropdown of item ids, which is a list somebody maintains against a game with hundreds and a
+>   setting a player reopens every time they change what they carry. The item you are holding is
+>   the choice, and it is the one they already make with a scroll wheel a hundred times a match.
+>
+> **And it turned up a shipped bug in the mod it was extending.** `held_count` was value-checked
+> at the sensor and the page read its absence as "the hand is empty" — which is also what absence
+> means when nothing changed. So the item counter drew its figure for exactly one tick after
+> every change and then blanked itself. Both halves were individually correct and `store.test.ts`
+> had a passing test asserting the wrong one, sitting directly above a test asserting the right
+> discipline for three neighbouring fields. A test that pins a bug reads exactly like a test that
+> pins a contract.
+>
+> **What is left in this tier** is GUI scale, block outline and nametags, and none is blocked — the jar is
 > fetchable in five commands and `remapJar` proves a target exists (a member the mapping does not
 > know is left as its yarn string, so an intermediary name in the output is the proof). Potion
 > counter is the one §3.1 keeps asking for and is the only one that needs a new *sensor* field
@@ -522,7 +556,7 @@ graph.~~ Playtime · day counter.
 
 VOID is not thirteen mods behind ninety-eight. Strip Skyblock, modern-version and
 ornamental mods from Lunar's 98 and the 1.8.9-PvP-relevant roster is around **45**. VOID
-had 13 of them when this was written and has 34 now, and is *ahead* on two (1% low FPS, and
+had 13 of them when this was written and has 35 now, and is *ahead* on two (1% low FPS, and
 an HUD editor with live per-mod previews that neither competitor matches).
 
 The four gaps below were written against the thirteen. Two have closed: the cheap sweep is

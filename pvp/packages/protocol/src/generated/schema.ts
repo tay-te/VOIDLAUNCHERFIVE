@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 34 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 35 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -81,7 +81,8 @@ export type ModId =
   | 'clock'
   | 'cps_graph'
   | 'scoreboard'
-  | 'reach';
+  | 'reach'
+  | 'potion_counter';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -1004,11 +1005,38 @@ export type ReachDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Potion counter, narrowed to its constant classification.
+ */
+export type PotionCounterEntry = RegistryEntry & {
+  /**
+   * Always `potion_counter`.
+   */
+  id?: 'potion_counter';
+  /**
+   * Always `flask`.
+   */
+  icon?: 'flask';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: PotionCounterSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 20 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 21 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -1030,7 +1058,8 @@ export type HUDModId =
   | 'hit_trade'
   | 'clock'
   | 'cps_graph'
-  | 'reach';
+  | 'reach'
+  | 'potion_counter';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -1045,9 +1074,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 20, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 21, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 20
+ * @maxItems 21
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -1260,7 +1289,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 34 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 35 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1297,6 +1326,7 @@ export interface Mods {
   cps_graph: CPSGraphEntry;
   scoreboard: ScoreboardEntry;
   reach: ReachDisplayEntry;
+  potion_counter: PotionCounterEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2057,6 +2087,14 @@ export interface ItemCounterSettings {
    */
   padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
   /**
+   * What the count covers. `held` is the stack in your hand and is the default, because it is what the mod has always meant and what a player watching a stack of blocks run down is asking about. `inventory` sums **every** slot holding the same item, which is `docs/mod-roster.md` §3.1 #5's "counts a chosen item (blocks, pearls, gapples)".
+   *
+   * **There is no item picker, and its absence is the design.** The roster's phrasing invites a dropdown of item ids, which would be a list somebody has to maintain against a game that has hundreds and a setting a player has to re-open every time they change what they are carrying. The item you are holding *is* the choice, and it is the one a player makes with their scroll wheel a hundred times a match. Hold a pearl and the chip counts pearls; hold blocks and it counts blocks. The setting is one switch instead of an enum nobody could finish.
+   *
+   * It reads the `inventory` field of the tick payload, which is value-checked at the sensor and sent only when something actually moved — so this costs nothing between pickups.
+   */
+  source?: 'held' | 'inventory';
+  /**
    * Whether the count is prefixed with the multiplication sign — `x12` rather than `12`. On by default: the chip sits next to a CPS figure and above a keystrokes block, so a bare integer in that corner is a number among numbers, and the `x` is the cheapest thing that says it is a quantity of something rather than a rate.
    */
   show_label?: boolean;
@@ -2459,6 +2497,52 @@ export interface ReachSettings {
   warn_above?: number;
 }
 /**
+ * Settings for the Potion counter HUD mod. It reads the `inventory` field of the tick payload — one entry per distinct thing, with a potion's effect carried as the same numeric id the `fx` array uses — and sums the entries matching the effect below.
+ *
+ * Why it needs its own field rather than the held stack: `held_count` sees the hand and nothing else, which is why `item_counter` counted the held stack and said so. Pot PvP is `docs/mod-roster.md` §3.1 #4's 'first-class 1.8.9 mode', and what you plan around is what is in the inventory, not what happens to be in your hand.
+ *
+ * The count is sent only when the inventory actually changes, which between pickups is never — so this readout is free in the sense that matters on this surface: it does not repaint while you fight, it repaints when you drink.
+ */
+export interface PotionCounterSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the potion count, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
+   */
+  background?: 'bare' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the potion count, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the potion count — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   *
+   * **This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.
+   *
+   * Five steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.
+   */
+  padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
+  /**
+   * Which potion is counted. `healing` is the default because it is the one a fight is planned around. `speed`, `strength` and `fire_resistance` are the other three a 1.8.9 kit is built on; `any` counts every potion that grants an effect, which is the reading for 'how much have I got left to throw' rather than 'have I got a heal'.
+   *
+   * A water bottle is never counted under any value, `any` included: the sensor reports no effect for it, so there is nothing to match. That is a fact about the item rather than a filter this mod applies.
+   */
+  effect?: 'healing' | 'speed' | 'strength' | 'fire_resistance' | 'any';
+  /**
+   * Whether only throwable potions count. On by default: in a duel a drinkable takes 32 ticks of standing still and a splash takes none, so a count that merged them would promise heals that cost the fight. Off for pot UHC and Skywars kits, which do carry drinkables and where a player means both.
+   */
+  splash_only?: boolean;
+  /**
+   * Whether the trailing unit is drawn — the effect's own short name, so the chip reads `6 heals` rather than a bare figure on a HUD that may also be carrying an item count. Off makes it narrower for a player who has only one counter on screen.
+   */
+  show_label?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2484,7 +2568,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 34 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 35 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2521,6 +2605,7 @@ export interface ModStates {
   cps_graph?: CPSGraphSettings;
   scoreboard?: ScoreboardSettings;
   reach?: ReachSettings;
+  potion_counter?: PotionCounterSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -2812,9 +2897,23 @@ export interface TickPayload {
    */
   saturation?: number;
   /**
-   * Stack size of the held item, for the item counter. Absent when the hand is empty — a count of 0 and an empty hand are different states, and the widget draws nothing rather than a zero. Value-checked; a stack size changes on use, not on a clock.
+   * Stack size of the held item, for the item counter. **`0` is the empty hand**, and everything else is a real stack.
+   *
+   * **It used to be absent for an empty hand, and that was a bug with a one-tick symptom.** This payload's own rule is that "a handler must treat an absent field as unchanged" — and this field is value-checked at the sensor, so it is *also* absent on every tick where the count did not move. The two meanings are indistinguishable downstream, and the page resolved the ambiguity as "empty": the chip drew the count for exactly one tick after each change and then blanked itself until the next one. Nothing caught it, because both halves are individually correct and the payload rule is stated one paragraph above the field that broke it.
+   *
+   * So emptiness is a *value* now. That is the only shape that keeps the payload rule true: a field cannot mean both "nothing changed" and "the thing is gone", and of the two only the second can be said explicitly. `held_item` goes with it — it is omitted on an empty hand, and the page clears it from this field's zero rather than from that one's absence, so there is one source of truth for "the hand is empty".
+   *
+   * Value-checked, so the transition to empty is sent once and the field is then quiet. The widget still draws nothing at 0: a count of zero is not a stack, and the argument for that was always about the drawing rather than about the wire.
    */
   held_count?: number;
+  /**
+   * Registry name of the held item, such as `minecraft:ender_pearl`. Absent when the hand is empty, on the same terms as `held_count`.
+   *
+   * **It exists so that `item_counter.source: inventory` can name what it is counting.** The count of the held *stack* needs no identity — it is the number in your hand — but summing every slot holding the same thing needs to know what that thing is, and the alternative was an item picker in the settings page: a list somebody maintains against a game with hundreds of items, and a setting a player re-opens every time they change what they are carrying. The item you are holding is the choice, made with a scroll wheel a hundred times a match.
+   *
+   * Value-checked, so it crosses only when you change slots. Deliberately *not* merged into `held_count`: they go absent together but they change on different events — a count moves as you use the stack and this moves only as you scroll — and one object would republish both every time either moved.
+   */
+  held_item?: string;
   /**
    * Horizontal ground speed in blocks per second, for the momentum readout. Horizontal on purpose: falling is not momentum a player is steering, and including it would make the number spike on every drop. Rounded to 2 dp at the sensor and rate-limited, because it changes every tick while moving and an uncoalesced field costs a full-surface repaint (see `TickCoalescer`'s header).
    */
@@ -2853,6 +2952,16 @@ export interface TickPayload {
    * The figure is vanilla's own arithmetic: `GameRenderer.updateTargetedEntity` evaluates `result.pos.distanceTo(cameraPos)` for its own three-block cutoff, and the sensor reads the same two vectors in the same frame rather than reconstructing a distance at attack time — the eye moves up to about 0.28 blocks between the frame that picked the target and the tick that swings. Rounded to 2 dp at the sensor, which is as much precision as an interpolated position supports. Value-checked and deliberately **not** rate-limited: two swings at the same distance are indistinguishable from one, so a dropped update is a wrong answer rather than a stale one — the same argument `hits` makes.
    */
   reach?: number;
+  /**
+   * The main inventory, merged into one entry per distinct thing. Present only on the ticks where it changed — value-checked at the sensor and deliberately **not** rate-limited, because an inventory is the largest thing on this payload and also the stillest: it does not move while you fight, only when you pick something up, throw a pearl or drink a pot. A rate limit would delay the update that matters most while doing nothing about a case that does not exist, since this field cannot flicker, only change.
+   *
+   * An empty array is a real reading — an empty inventory — and is different from the field being absent, which is "no reading". A counter must draw nothing in the second case rather than a zero it did not measure.
+   *
+   * The merge is by *identity*, and `InventoryTally` in the mod owns what that means. Three stacks of pearls in three slots are sixteen pearls; a water bottle and a splash of healing are not eight potions.
+   *
+   * @maxItems 36
+   */
+  inventory?: InventoryEntry[];
 }
 /**
  * Player position and yaw from `EntityPlayerSP`, read once per tick. Pitch is deliberately absent: no mod in §3 uses it.
@@ -2928,6 +3037,29 @@ export interface PotionEffect {
    * Whether the effect comes from an ambient source such as a beacon; hidden when `hide_ambient` is set.
    */
   ambient?: boolean;
+}
+/**
+ * One distinct thing in the inventory and how many of it, summed across every slot holding it.
+ */
+export interface InventoryEntry {
+  /**
+   * Registry name, such as `minecraft:ender_pearl`.
+   */
+  item: string;
+  /**
+   * Total across every slot holding this thing.
+   */
+  count: number;
+  /**
+   * For a potion, the numeric potion id of the effect it grants — the same id `potion_effect.id` carries on the `fx` array, so the page needs one table and not two. Absent on anything that is not a potion with an effect, which includes a water bottle.
+   *
+   * **It is here because every potion in 1.8.9 shares one registry name.** A water bottle, a splash of healing II and a lingering weakness are all `minecraft:potion`, so `item` alone would tell a player they had eight heals when three were water — and pot PvP is the mode this whole field was added for. The effect is resolved by the sensor rather than sent as the stack's metadata, because metadata is identity on a potion and *wear* on a sword: sending the raw number would fragment every tool into as many entries as it has durability values.
+   */
+  effect?: number;
+  /**
+   * Whether the potion is throwable. Present exactly when `effect` is, and part of the same identity: a drinkable healing potion and a splash of healing are different things to a player mid-fight, and merging them would overcount the ones they can actually use in a duel.
+   */
+  splash?: boolean;
 }
 /**
  * Envelope for the `server` event.

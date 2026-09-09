@@ -702,6 +702,56 @@ export function MemoryChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* PotionCountChip                                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link PotionCountChip}. */
+export interface PotionCountChipProps extends Omit<HudChipProps, 'color'> {
+  /** How many potions match. */
+  count: number;
+  /** The unit after the figure, e.g. `heals`. Absent draws none. */
+  unit?: ReactNode;
+  /** The effect's swatch colour, for the pip. Absent draws no pip. */
+  color?: string;
+}
+
+/**
+ * `● 6 heals` — how many of one potion you are carrying.
+ *
+ * The pip is {@link PotionList}'s swatch, at the same 10px and from the same table: this chip and
+ * the effects list are two readings of the same thing, and a player with both on screen should
+ * see one vocabulary. It is the one mark here allowed to be coloured, on `quiet-cell-system.md`
+ * §1's own terms — the colour identifies an effect, which is a *value*, and is the game's rather
+ * than a preference. The figure stays in the resting ink.
+ *
+ * **It draws at zero, unlike the item counter.** An empty hand is a state with nothing to say and
+ * the chip goes away; "no heals left" is the single most important thing this readout can tell
+ * you, and a mod that vanished at exactly that moment would be answering a question by leaving.
+ * The widget's own module carries the argument.
+ */
+export function PotionCountChip({
+  count,
+  unit,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: PotionCountChipProps): React.ReactElement {
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      {color ? (
+        <span className="v-potionlist__swatch" style={{ background: color }} aria-hidden="true" />
+      ) : null}
+      <span className="v-hudchip__value">
+        {count}
+        {unit ? <span className="v-hudchip__unit">&nbsp;{unit}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* ReachChip                                                                  */
 /* -------------------------------------------------------------------------- */
 

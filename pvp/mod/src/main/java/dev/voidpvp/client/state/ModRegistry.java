@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 34 mods.
+ * The closed registry of the 35 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -178,7 +178,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (20) — they read game state and draw -------------------------------------
+        // --- HUD mods (21) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -589,7 +589,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (20) — they read game state and draw -------------------------------------
+        // --- HUD mods (21) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -784,7 +784,8 @@ public final class ModRegistry {
                 "style", enumOf("short", "short", "full"));
 
         // Item counter — kind hud, pvp tab, §11 safe.
-        // How many of the item in your hand you have left.
+        // How many of the item in your hand you have — in the stack, or across the whole
+        // inventory.
         // Source: `held_count` on the tick payload — the stack size of the held item.
         mod("item_counter", Kind.HUD, Category.PVP, "Item counter",
                 // Whether the item counter is enabled.
@@ -796,6 +797,21 @@ public final class ModRegistry {
                 "background", enumOf("subtle", "bare", "subtle", "solid"),
                 "border", bool(false),
                 "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // What the count covers. `held` is the stack in your hand and is the default,
+                // because it is what the mod has always meant and what a player watching a stack
+                // of blocks run down is asking about. `inventory` sums **every** slot holding the
+                // same item, which is `docs/mod-roster.md` §3.1 #5's "counts a chosen item
+                // (blocks, pearls, gapples)". **There is no item picker, and its absence is the
+                // design.** The roster's phrasing invites a dropdown of item ids, which would be
+                // a list somebody has to maintain against a game that has hundreds and a setting
+                // a player has to re-open every time they change what they are carrying. The item
+                // you are holding *is* the choice, and it is the one a player makes with their
+                // scroll wheel a hundred times a match. Hold a pearl and the chip counts pearls;
+                // hold blocks and it counts blocks. The setting is one switch instead of an enum
+                // nobody could finish. It reads the `inventory` field of the tick payload, which
+                // is value-checked at the sensor and sent only when something actually moved — so
+                // this costs nothing between pickups.
+                "source", enumOf("held", "held", "inventory"),
                 // Whether the count is prefixed with the multiplication sign — `x12` rather than
                 // `12`. On by default: the chip sits next to a CPS figure and above a keystrokes
                 // block, so a bare integer in that corner is a number among numbers, and the `x`
@@ -1199,7 +1215,7 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- HUD mods (20) — they read game state and draw -------------------------------------
+        // --- HUD mods (21) — they read game state and draw -------------------------------------
 
         // Trade counter — kind hud, pvp tab, §11 safe.
         // Hits you have landed against hits you have taken, this session.
@@ -1332,7 +1348,7 @@ public final class ModRegistry {
                 // every pixel here is vanilla's.
                 "offset_y", integer(-200, 200, 0));
 
-        // --- HUD mods (20) — they read game state and draw -------------------------------------
+        // --- HUD mods (21) — they read game state and draw -------------------------------------
 
         // Reach display — kind hud, pvp tab, §11 grey.
         // How far away your last landed hit was — the swing that connected, never the one you are
@@ -1366,7 +1382,40 @@ public final class ModRegistry {
                 // raycast.
                 "warn_above", number(0, 6, 0));
 
-        // --- The factory HUD layout (20) — where each widget starts ----------------------------
+        // Potion counter — kind hud, pvp tab, §11 safe.
+        // How many potions of one effect you are carrying, which in pot PvP is what you plan
+        // around.
+        // Source: the `inventory` field, via the tick sensor.
+        mod("potion_counter", Kind.HUD, Category.PVP, "Potion counter",
+                // Whether the potion counter is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // Which potion is counted. `healing` is the default because it is the one a fight
+                // is planned around. `speed`, `strength` and `fire_resistance` are the other
+                // three a 1.8.9 kit is built on; `any` counts every potion that grants an effect,
+                // which is the reading for 'how much have I got left to throw' rather than 'have
+                // I got a heal'. A water bottle is never counted under any value, `any` included:
+                // the sensor reports no effect for it, so there is nothing to match. That is a
+                // fact about the item rather than a filter this mod applies.
+                "effect", enumOf("healing", "healing", "speed", "strength", "fire_resistance", "any"),
+                // Whether only throwable potions count. On by default: in a duel a drinkable
+                // takes 32 ticks of standing still and a splash takes none, so a count that
+                // merged them would promise heals that cost the fight. Off for pot UHC and
+                // Skywars kits, which do carry drinkables and where a player means both.
+                "splash_only", bool(true),
+                // Whether the trailing unit is drawn — the effect's own short name, so the chip
+                // reads `6 heals` rather than a bare figure on a HUD that may also be carrying an
+                // item count. Off makes it narrower for a player who has only one counter on
+                // screen.
+                "show_label", bool(true));
+
+        // --- The factory HUD layout (21) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1474,13 +1523,18 @@ public final class ModRegistry {
         // arithmetic — the chain, the session, and how far away the last one connected — and the
         // three are read together or not at all.
         place("reach", "top-left", 23, 293);
+
+        // Potion counter: Top-left, under Item counter's row in the survival stack — what you are
+        // wearing, what is keeping you alive, and what you have left to fix it with. 38 px below
+        // on the same column rhythm.
+        place("potion_counter", "top-left", 23, 331);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 34 mod ids, in registry order. */
+    /** The 35 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

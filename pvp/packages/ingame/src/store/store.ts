@@ -25,6 +25,7 @@ import {
   HUD_MOD_IDS,
   type HUDAnchor,
   type HUDModId,
+  type InventoryEntry,
   type Keybind,
   type KeysPayload,
   type Loadout,
@@ -231,6 +232,22 @@ let lastHits: { dealt: number; taken: number } | null = null;
  * fixed, so a generic deep-equal would cost more than the comparison saves and would hide a
  * schema change behind a recursive walk rather than failing to compile.
  */
+function sameInventory(
+  a: readonly InventoryEntry[] | null,
+  b: readonly InventoryEntry[] | null | undefined,
+): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (x.item !== y.item || x.count !== y.count || x.effect !== y.effect || x.splash !== y.splash) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function samePosition(a: Position | null, b: Position | null | undefined): boolean {
   if (a == null || b == null) return a == null && b == null;
   return a.x === b.x && a.y === b.y && a.z === b.z && a.yaw === b.yaw;
@@ -387,6 +404,13 @@ export interface VoidState {
   saturation: number | null;
   /** Stack size of the held item; null for an empty hand, which is not a count of zero. */
   heldCount: number | null;
+  /**
+   * Registry name of the held item; null on an empty hand, with {@link heldCount}.
+   *
+   * It is what `item_counter.source: inventory` sums by — the item you are holding is the choice,
+   * rather than a picker listing a game's worth of ids.
+   */
+  heldItem: string | null;
   /** Horizontal ground speed, blocks/sec. */
   speed: number | null;
   /** JVM heap, mebibytes. */
@@ -428,6 +452,18 @@ export interface VoidState {
    * a second place it could be got wrong.
    */
   reach: number | null;
+  /**
+   * The main inventory, one entry per distinct thing, or `null` before the first reading.
+   *
+   * Null and empty are different and both reach here: an empty array is an empty inventory,
+   * which is a measurement, and null is "the sensor has not said" — a counter must draw nothing
+   * for the second rather than a zero nobody measured.
+   *
+   * The identity is the sensor's (`InventoryTally`), not this store's: three stacks of pearls are
+   * one entry, and a water bottle is not a healing potion even though both are `minecraft:potion`.
+   * `bridge.json`'s `inventory_entry` carries why.
+   */
+  inventory: readonly InventoryEntry[] | null;
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
@@ -523,12 +559,14 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   fx: [],
   saturation: null,
   heldCount: null,
+  heldItem: null,
   speed: null,
   memory: null,
   combo: 0,
   comboAt: 0,
   hits: null,
   reach: null,
+  inventory: null,
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
@@ -740,11 +778,31 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     if (tick.saturation !== undefined && tick.saturation !== prev.saturation) {
       patch.saturation = tick.saturation;
     }
-    // An absent `held_count` is an empty hand, which IS news — the chip has to stop showing the
-    // last stack. That makes it the one field here where `undefined` is a value rather than a
-    // non-answer, and it is why the sensor is careful to omit it rather than send 0.
-    const held = tick.held_count ?? null;
-    if (held !== prev.heldCount) patch.heldCount = held;
+    // `held_count: 0` is the empty hand, and an absent field is "unchanged" like every other
+    // field on this payload.
+    //
+    // **It used to be the other way round and that was a bug.** The sensor value-checks this
+    // field, so it is absent whenever the count did not move — and the page read absence as
+    // emptiness, so the chip drew a count for exactly one tick after each change and then
+    // blanked itself until the next one. Both halves were individually correct:
+    // `bridge.json`'s payload rule says an absent field means unchanged, and the field's own
+    // description said absent meant empty. The wire says emptiness explicitly now, which is the
+    // only shape that leaves both true — a field cannot mean both "nothing changed" and "the
+    // thing is gone", and of the two only the second can be stated.
+    //
+    // `null` stays the store's spelling of an empty hand: it is what the widget's `count ??
+    // sample` already reads, and a stack of zero is not a stack.
+    if (tick.held_count !== undefined) {
+      const held = tick.held_count > 0 ? tick.held_count : null;
+      if (held !== prev.heldCount) patch.heldCount = held;
+      // One source of truth for "the hand is empty". `held_item` is omitted when nothing is
+      // held, so it is cleared from *this* field's zero rather than from its own absence —
+      // which would be the same ambiguity again, one field along.
+      if (held === null && prev.heldItem !== null) patch.heldItem = null;
+    }
+    if (tick.held_item !== undefined && tick.held_item !== prev.heldItem) {
+      patch.heldItem = tick.held_item;
+    }
 
     if (tick.speed !== undefined && tick.speed !== prev.speed) patch.speed = tick.speed;
     if (
@@ -764,6 +822,16 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // advances it by however much it moved — by the delta, not by one, so a tick that carried
     // two hits is still exactly right. That robustness is the reason the wire sends counters
     // rather than events (`bridge.json`, `hits`).
+    // Compared by value, never by identity: the sensor sends this only on the ticks where it
+    // actually changed, so an identity check would be redundant on the way in and the real work
+    // is not repeating it — but the bridge deserialises a fresh array either way, and assigning
+    // it unconditionally would republish on every tick that carried one. `sameInventory` is
+    // shallow and hand-written for the same reason `sameArmor` is: the shape is `bridge.json`'s,
+    // it is tiny and fixed, and a generic deep-equal would hide a schema change behind a walk.
+    if (tick.inventory !== undefined && !sameInventory(prev.inventory, tick.inventory)) {
+      patch.inventory = tick.inventory as InventoryEntry[];
+    }
+
     // Assigned straight through: the sensor has already decided that this is a landed attack's
     // distance and rounded it, and there is nothing left here to judge (see the field's note).
     if (tick.reach !== undefined && tick.reach !== prev.reach) patch.reach = tick.reach;

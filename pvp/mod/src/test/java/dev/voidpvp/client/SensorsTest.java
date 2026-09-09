@@ -3,6 +3,7 @@ package dev.voidpvp.client;
 import com.google.gson.JsonObject;
 import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
+import dev.voidpvp.client.sensor.InventoryTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ReachTally;
@@ -313,6 +314,66 @@ class SensorsTest {
         // Being hit moves the other counter, which is what breaks a combo on the client.
         in.hitsTaken = Integer.valueOf(1);
         assertEquals(1, ticks.build(in).getAsJsonObject("hits").get("taken").getAsInt());
+    }
+
+    @Test
+    @DisplayName("an inventory merges by identity — and a water bottle is not a heal")
+    void inventoryMergesByIdentity() {
+        InventoryTally tally = new InventoryTally();
+
+        // Three stacks of pearls in three slots are sixteen pearls. Nobody counts them by slot,
+        // and a counter that did would be a counter of slots.
+        tally.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 8);
+        tally.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 5);
+        tally.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 3);
+        assertEquals(1, tally.entries().size());
+        assertEquals(16, tally.entries().get(0).count);
+
+        // **The reason this field is not a map keyed by item id.** Every potion in 1.8.9 is
+        // `minecraft:potion`, so identity by name alone would report six potions here — and tell
+        // a pot-PvP player they had six heals when two were water and two were drinkable.
+        tally.add("minecraft:potion", 6, true, 2);   // splash healing
+        tally.add("minecraft:potion", 6, true, 1);   // more of the same, and it merges
+        tally.add("minecraft:potion", 6, false, 2);  // drinkable healing — a different thing
+        tally.add("minecraft:potion", InventoryTally.NO_EFFECT, false, 1); // a water bottle
+        assertEquals(4, tally.entries().size(), "splash, drinkable and water are three things");
+        assertEquals(3, tally.entries().get(1).count, "the two splash stacks merged");
+
+        // A water bottle carries no effect at all, so it can never match a counter's filter —
+        // that is a property of the item rather than something a mod has to filter out.
+        assertEquals(InventoryTally.NO_EFFECT, tally.entries().get(3).effect);
+    }
+
+    @Test
+    @DisplayName("the inventory's equality is what stops it being sent every tick")
+    void inventoryEqualityIsWhatMakesTheFieldAffordable() {
+        InventoryTally a = new InventoryTally();
+        a.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 16);
+        a.add("minecraft:potion", 6, true, 3);
+
+        InventoryTally same = new InventoryTally();
+        same.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 16);
+        same.add("minecraft:potion", 6, true, 3);
+        assertTrue(a.sameAs(same), "an unchanged inventory must not be sent");
+
+        // The pearl you just threw. This is the update the field exists for, and it is why the
+        // coalescer value-checks rather than rate-limits: a limit would delay exactly this.
+        InventoryTally thrown = new InventoryTally();
+        thrown.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 15);
+        thrown.add("minecraft:potion", 6, true, 3);
+        assertFalse(a.sameAs(thrown));
+
+        // A stack moved between slots is a real change to what the inventory looks like, and the
+        // comparison is order-sensitive on purpose rather than sorting on every tick to hide it.
+        InventoryTally reordered = new InventoryTally();
+        reordered.add("minecraft:potion", 6, true, 3);
+        reordered.add("minecraft:ender_pearl", InventoryTally.NO_EFFECT, false, 16);
+        assertFalse(a.sameAs(reordered));
+
+        // Nothing at all is not the same as an empty inventory, and neither is the same as an
+        // inventory. `null` here is "no reading", which the coalescer sends as an absent field.
+        assertFalse(a.sameAs(null));
+        assertTrue(new InventoryTally().sameAs(new InventoryTally()));
     }
 
     @Test

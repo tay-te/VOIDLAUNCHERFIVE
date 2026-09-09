@@ -248,6 +248,8 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // A hit at the edge of vanilla's own three blocks, which is the widget's own fixture. Static,
   // for the reason that fixture is: a card whose figure moved would be the mod §6.1 forbids.
   reach: () => <Numeral value="3.14" unit="blocks" />,
+  // The mod's own default effect, and the word a player says rather than the effect's name.
+  potion_counter: () => <Numeral value="6" unit="heals" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

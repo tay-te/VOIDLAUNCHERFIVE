@@ -42,6 +42,7 @@
 import { memo } from 'react';
 
 import { ItemCounterChip } from '@/ui';
+import { type InventoryEntry } from '@/bridge/protocol';
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -65,17 +66,53 @@ import type { HudWidgetProps } from './widgets';
  */
 const SAMPLE_HELD_COUNT = 12;
 
+/**
+ * What the fixture's inventory holds, for `source: inventory`.
+ *
+ * Four stacks of the held item — 12 in hand and 52 elsewhere — so the two sources draw plainly
+ * different figures (12 against 64) and the switch has something to bite on. A fixture where the
+ * hand held everything would make `inventory` look like a setting that does nothing, which is the
+ * failure `test/preview.test.tsx` walks every setting to catch.
+ *
+ * 64 is also the honest shape of the reading: what `inventory` is for is the stack you are
+ * holding *plus the spares*, and a player who has spares has about a stack of them.
+ */
+const SAMPLE_INVENTORY: readonly InventoryEntry[] = [
+  { item: 'minecraft:ender_pearl', count: 12 },
+  { item: 'minecraft:ender_pearl', count: 52 },
+];
+
+/** The fixture's held item, so `source: inventory` has something to match on. */
+const SAMPLE_HELD_ITEM = 'minecraft:ender_pearl';
+
 export const HudItemCounter = memo(function HudItemCounter({ variant, sample }: HudWidgetProps) {
-  const live = useVoidStore((s) => s.heldCount);
+  const heldCount = useVoidStore((s) => s.heldCount);
+  const heldItem = useVoidStore((s) => s.heldItem);
+  const inventory = useVoidStore((s) => s.inventory);
+  const wholeInventory = useVoidStore(
+    (s) => modSettings(s.loadout, 'item_counter').source === 'inventory',
+  );
   const showLabel = useVoidStore(
     (s) => modSettings(s.loadout, 'item_counter').show_label !== false,
   );
   const lowThreshold = useVoidStore((s) =>
     Number(modSettings(s.loadout, 'item_counter').low_threshold ?? 0),
   );
+
   // `??`, never `||`: a held stack of 0 is a reading and must draw as one. Only `null` — the
   // empty hand — falls through to the fixture, and only on the settings page.
-  const count = live ?? (sample ? SAMPLE_HELD_COUNT : null);
+  const held = heldCount ?? (sample ? SAMPLE_HELD_COUNT : null);
+  // **The item you are holding is the choice**, which is why there is no item picker: it is the
+  // one a player already makes with their scroll wheel a hundred times a match
+  // (`schema/mods/item_counter.json` argues it out). An empty hand has no choice to make, so the
+  // whole-inventory source falls back to nothing there rather than to some other item's count.
+  const item = heldItem ?? (sample ? SAMPLE_HELD_ITEM : null);
+  const entries = inventory ?? (sample ? SAMPLE_INVENTORY : null);
+  const summed =
+    item === null || entries === null
+      ? null
+      : entries.reduce((total, entry) => (entry.item === item ? total + entry.count : total), 0);
+  const count = wholeInventory ? summed : held;
   if (count === null) return null;
   // No `color`: the registry gives this mod `show_label`, `low_threshold` and the shared chrome
   // block. The chip accepts one, and `lowThreshold` would outrank it anyway.

@@ -38,6 +38,7 @@ import direction from './direction';
 import clock from './clock';
 import cps_graph from './cps_graph';
 import hit_trade from './hit_trade';
+import potion_counter from './potion_counter';
 import reach from './reach';
 import scoreboard from './scoreboard';
 import item_counter from './item_counter';
@@ -95,6 +96,7 @@ const ART = {
   clock,
   cps_graph,
   hit_trade,
+  potion_counter,
   reach,
   scoreboard,
   item_counter,

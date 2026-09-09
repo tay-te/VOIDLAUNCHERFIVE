@@ -62,6 +62,9 @@ export function settingLabel(key: string): string {
     layout: 'Layout',
     mode: 'Mode',
     style: 'Style',
+    source: 'Count',
+    effect: 'Effect',
+    splash_only: 'Splash only',
     gamma: 'Gamma',
     key: 'Key',
     keybind: 'Keybind',
@@ -196,6 +199,7 @@ export const SETTING_HINTS: Record<string, string> = {
   'hitboxes.eye_line_color': 'Colour of that ray',
   'hitboxes.max_distance': 'How far away a box is still drawn',
 
+  'item_counter.source': 'The stack in hand, or every copy of it',
   'item_counter.show_label': 'The × before the count',
   'item_counter.low_threshold': 'Where the count turns amber',
 
@@ -237,6 +241,10 @@ export const SETTING_HINTS: Record<string, string> = {
   'potion_effects.show_duration': 'Time left beside each effect',
   'potion_effects.show_amplifier': 'The roman numeral after the name',
   'potion_effects.hide_ambient': 'Leave out beacon auras',
+
+  'potion_counter.effect': 'Which potion is counted',
+  'potion_counter.splash_only': 'Only the ones you can throw',
+  'potion_counter.show_label': 'The unit after the figure',
 
   'reach.show_label': 'The blocks unit after the figure',
   'reach.warn_above': 'Where the figure turns amber',

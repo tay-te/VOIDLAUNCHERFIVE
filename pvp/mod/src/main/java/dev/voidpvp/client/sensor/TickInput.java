@@ -58,6 +58,9 @@ public final class TickInput {
     /** Stack size of the held item; null for an empty hand, which is not a count of zero. */
     public Integer heldCount;
 
+    /** Registry name of the held item; null on an empty hand, with {@link #heldCount}. */
+    public String heldItem;
+
     /** Horizontal ground speed, blocks/sec. Null when unreadable. */
     public Double speed;
 
@@ -83,6 +86,17 @@ public final class TickInput {
     public Double reach;
 
     /**
+     * The main inventory, merged into one entry per distinct thing. Null to omit.
+     *
+     * <p>An empty tally is not the same as null and both reach the wire as an absence, which is
+     * the one place this field is subtle: a player holding nothing has an empty inventory and a
+     * sensor that threw has no reading, and neither should make a counter draw a zero it did not
+     * measure. {@link dev.voidpvp.client.sensor.TickCoalescer} sends the empty array for the
+     * first and nothing for the second.</p>
+     */
+    public InventoryTally inventory;
+
+    /**
      * Clears every optional reading.
      *
      * <p>Called before each refill so that a reading which became unavailable — the player let go
@@ -95,11 +109,13 @@ public final class TickInput {
         fx = null;
         saturation = null;
         heldCount = null;
+        heldItem = null;
         speed = null;
         memoryUsedMb = null;
         memoryMaxMb = null;
         hitsDealt = null;
         hitsTaken = null;
         reach = null;
+        inventory = null;
     }
 }

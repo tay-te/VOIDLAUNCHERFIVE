@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 15,
+    "version": 16,
     "mods": {
       "fps": {
         "id": "fps",
@@ -479,7 +479,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "hypixel_safe": "safe",
         "label": "Item counter",
         "icon": "box",
-        "description": "How many of the item in your hand you have left.",
+        "description": "How many of the item in your hand you have — in the stack, or across the whole inventory.",
         "source": "`held_count` on the tick payload — the stack size of the held item",
         "defaults": {
           "on": false,
@@ -488,6 +488,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "background": "subtle",
           "border": false,
           "padding": "normal",
+          "source": "held",
           "show_label": true,
           "low_threshold": 0
         },
@@ -770,6 +771,32 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "anchor": "top-left",
           "dx": 23,
           "dy": 293
+        }
+      },
+      "potion_counter": {
+        "id": "potion_counter",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Potion counter",
+        "icon": "flask",
+        "description": "How many potions of one effect you are carrying, which in pot PvP is what you plan around.",
+        "source": "the `inventory` field, via the tick sensor",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "subtle",
+          "border": false,
+          "padding": "normal",
+          "effect": "healing",
+          "splash_only": true,
+          "show_label": true
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 331
         }
       }
     }

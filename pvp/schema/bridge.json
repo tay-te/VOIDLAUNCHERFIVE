@@ -412,10 +412,15 @@
           "maximum": 20
         },
         "held_count": {
-          "description": "Stack size of the held item, for the item counter. Absent when the hand is empty \u2014 a count of 0 and an empty hand are different states, and the widget draws nothing rather than a zero. Value-checked; a stack size changes on use, not on a clock.",
+          "description": "Stack size of the held item, for the item counter. **`0` is the empty hand**, and everything else is a real stack.\n\n**It used to be absent for an empty hand, and that was a bug with a one-tick symptom.** This payload's own rule is that \"a handler must treat an absent field as unchanged\" \u2014 and this field is value-checked at the sensor, so it is *also* absent on every tick where the count did not move. The two meanings are indistinguishable downstream, and the page resolved the ambiguity as \"empty\": the chip drew the count for exactly one tick after each change and then blanked itself until the next one. Nothing caught it, because both halves are individually correct and the payload rule is stated one paragraph above the field that broke it.\n\nSo emptiness is a *value* now. That is the only shape that keeps the payload rule true: a field cannot mean both \"nothing changed\" and \"the thing is gone\", and of the two only the second can be said explicitly. `held_item` goes with it \u2014 it is omitted on an empty hand, and the page clears it from this field's zero rather than from that one's absence, so there is one source of truth for \"the hand is empty\".\n\nValue-checked, so the transition to empty is sent once and the field is then quiet. The widget still draws nothing at 0: a count of zero is not a stack, and the argument for that was always about the drawing rather than about the wire.",
           "type": "integer",
-          "minimum": 1,
+          "minimum": 0,
           "maximum": 64
+        },
+        "held_item": {
+          "description": "Registry name of the held item, such as `minecraft:ender_pearl`. Absent when the hand is empty, on the same terms as `held_count`.\n\n**It exists so that `item_counter.source: inventory` can name what it is counting.** The count of the held *stack* needs no identity \u2014 it is the number in your hand \u2014 but summing every slot holding the same thing needs to know what that thing is, and the alternative was an item picker in the settings page: a list somebody maintains against a game with hundreds of items, and a setting a player re-opens every time they change what they are carrying. The item you are holding is the choice, made with a scroll wheel a hundred times a match.\n\nValue-checked, so it crosses only when you change slots. Deliberately *not* merged into `held_count`: they go absent together but they change on different events \u2014 a count moves as you use the stack and this moves only as you scroll \u2014 and one object would republish both every time either moved.",
+          "type": "string",
+          "maxLength": 64
         },
         "speed": {
           "description": "Horizontal ground speed in blocks per second, for the momentum readout. Horizontal on purpose: falling is not momentum a player is steering, and including it would make the number spike on every drop. Rounded to 2 dp at the sensor and rate-limited, because it changes every tick while moving and an uncoalesced field costs a full-surface repaint (see `TickCoalescer`'s header).",
@@ -470,6 +475,15 @@
           "type": "number",
           "minimum": 0,
           "maximum": 64
+        },
+        "inventory": {
+          "description": "The main inventory, merged into one entry per distinct thing. Present only on the ticks where it changed \u2014 value-checked at the sensor and deliberately **not** rate-limited, because an inventory is the largest thing on this payload and also the stillest: it does not move while you fight, only when you pick something up, throw a pearl or drink a pot. A rate limit would delay the update that matters most while doing nothing about a case that does not exist, since this field cannot flicker, only change.\n\nAn empty array is a real reading \u2014 an empty inventory \u2014 and is different from the field being absent, which is \"no reading\". A counter must draw nothing in the second case rather than a zero it did not measure.\n\nThe merge is by *identity*, and `InventoryTally` in the mod owns what that means. Three stacks of pearls in three slots are sixteen pearls; a water bottle and a splash of healing are not eight potions.",
+          "type": "array",
+          "maxItems": 36,
+          "items": {
+            "description": "One merged inventory line.",
+            "$ref": "#/definitions/inventory_entry"
+          }
         }
       }
     },
@@ -1457,6 +1471,39 @@
         "returns": {
           "description": "Surfaces kept.",
           "$ref": "#/definitions/setSurfaces_returns"
+        }
+      }
+    },
+    "inventory_entry": {
+      "title": "Inventory entry",
+      "description": "One distinct thing in the inventory and how many of it, summed across every slot holding it.",
+      "type": "object",
+      "required": [
+        "item",
+        "count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "description": "Registry name, such as `minecraft:ender_pearl`.",
+          "type": "string",
+          "maxLength": 64
+        },
+        "count": {
+          "description": "Total across every slot holding this thing.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2304
+        },
+        "effect": {
+          "description": "For a potion, the numeric potion id of the effect it grants \u2014 the same id `potion_effect.id` carries on the `fx` array, so the page needs one table and not two. Absent on anything that is not a potion with an effect, which includes a water bottle.\n\n**It is here because every potion in 1.8.9 shares one registry name.** A water bottle, a splash of healing II and a lingering weakness are all `minecraft:potion`, so `item` alone would tell a player they had eight heals when three were water \u2014 and pot PvP is the mode this whole field was added for. The effect is resolved by the sensor rather than sent as the stack's metadata, because metadata is identity on a potion and *wear* on a sword: sending the raw number would fragment every tool into as many entries as it has durability values.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "splash": {
+          "description": "Whether the potion is throwable. Present exactly when `effect` is, and part of the same identity: a drinkable healing potion and a splash of healing are different things to a player mid-fight, and merging them would overcount the ones they can actually use in a duel.",
+          "type": "boolean"
         }
       }
     }

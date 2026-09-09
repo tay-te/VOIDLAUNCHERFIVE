@@ -75,6 +75,10 @@ public final class TickCoalescer {
     private int lastHitsDealt = Integer.MIN_VALUE;
     /** The last reach reported, or null before one was. */
     private Double lastReach;
+    /** The last inventory reported, or null before one was. */
+    private InventoryTally lastInventory;
+    /** The last held item reported, or null before one was. */
+    private String lastHeldItem;
     private int lastHitsTaken = Integer.MIN_VALUE;
     private double lastX;
     private double lastY;
@@ -179,8 +183,9 @@ public final class TickCoalescer {
             }
         }
 
-        // A stack size changes on use. An empty hand omits the field rather than sending 0 —
-        // `bridge.json` says so, and the widget draws nothing rather than a zero.
+        // A stack size changes on use, and `0` is the empty hand rather than an absence — see
+        // `bridge.json`, which records the one-tick bug that shape was fixing. The widget still
+        // draws nothing at zero; that argument was always about the drawing, not the wire.
         if (in.heldCount != null && in.heldCount.intValue() != lastHeldCount) {
             lastHeldCount = in.heldCount.intValue();
             o.addProperty("held_count", in.heldCount);
@@ -243,6 +248,31 @@ public final class TickCoalescer {
             lastReach = in.reach;
             o.add("reach", Json.number(in.reach.doubleValue()));
         }
+
+        // What is held, value-checked: it changes on a scroll and on nothing else, so a rate
+        // limit would only ever delay it.
+        if (in.heldItem != null && !in.heldItem.equals(lastHeldItem)) {
+            lastHeldItem = in.heldItem;
+            o.addProperty("held_item", in.heldItem);
+        }
+
+        // The inventory, value-checked and not rate-limited.
+        //
+        // **The value check is doing almost all of the work here and is why this field is
+        // affordable at all.** An inventory is the largest thing on this payload — up to
+        // thirty-six entries — and it is also the *stillest*: a player's inventory does not
+        // change while they fight, only when they pick something up, throw a pearl or drink a
+        // pot. So the honest reading of "coalesce" for this field is not a clock, it is
+        // equality: send it when it differs and never otherwise, and a whole match's worth of
+        // ticks carry nothing.
+        //
+        // A rate limit would be the wrong tool twice over. It would delay the update that
+        // matters most — the pearl you just threw — while doing nothing at all about the case it
+        // is meant for, because there is no case: the field cannot flicker, it can only change.
+        if (in.inventory != null && !in.inventory.sameAs(lastInventory)) {
+            lastInventory = in.inventory;
+            o.add("inventory", in.inventory.toJson());
+        }
         return o;
     }
 
@@ -257,6 +287,8 @@ public final class TickCoalescer {
         lastHitsDealt = Integer.MIN_VALUE;
         lastHitsTaken = Integer.MIN_VALUE;
         lastReach = null;
+        lastInventory = null;
+        lastHeldItem = null;
         lastArmor = null;
         lastFx = null;
         lastFps = Integer.MIN_VALUE;

@@ -20,6 +20,7 @@ import { HudCombo } from './combo';
 import { HudClock } from './clock';
 import { HudCpsGraph } from './cps_graph';
 import { HudHitTrade } from './hit_trade';
+import { HudPotionCounter } from './potion_counter';
 import { HudReach } from './reach';
 import { HudItemCounter } from './item_counter';
 import { HudMemory } from './memory';
@@ -54,6 +55,7 @@ const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   combo: HudCombo,
   hit_trade: HudHitTrade,
   reach: HudReach,
+  potion_counter: HudPotionCounter,
   clock: HudClock,
   cps_graph: HudCpsGraph,
   saturation: HudSaturation,
