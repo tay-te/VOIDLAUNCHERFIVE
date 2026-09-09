@@ -470,15 +470,73 @@ public final class VoidBridge {
         env.addProperty("e", event);
         env.add("payload", payload == null ? JsonNull.INSTANCE : payload);
         synchronized (pending) {
-            // `tick`, `keys`, `menu`, `loadouts` and `settings` carry whole state, so an
-            // older envelope on the same channel is dead weight. `loadout` is
-            // whole-state too but a switch is rare enough to keep in order.
-            if (EVENT_TICK.equals(event) || EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
+            // `keys`, `menu`, `loadouts` and `settings` carry whole state, so an older envelope
+            // on the same channel really is dead weight. `loadout` is whole-state too but a
+            // switch is rare enough to keep in order.
+            if (EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
                     || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)) {
                 dropChannel(event);
             }
+            // `tick` is the exception, and it used to be in the list above.
+            //
+            // It is the one channel that is *not* whole state: `TickCoalescer` puts a field on
+            // the tick it changed on and never repeats it, which is the whole reason a tick where
+            // nothing moved is not sent at all. So dropping an older queued tick does not discard
+            // a stale copy of anything — it discards the only copy of every field that tick was
+            // carrying. For `fps`, `ping` and `pos` that is invisible, because they change again a
+            // moment later. For `armor` and `fx` it is permanent: a set of armour nobody is
+            // hitting and a potion nobody has drunk never change, so the array goes out once and
+            // its envelope is deleted by the next tick to arrive before the page drains.
+            //
+            // Which is exactly what the in-game audit found — the Armour widget blank from world
+            // entry through sixty-five steps of a run, coming back only at the step that happened
+            // to change the array's length. Merging keeps the queue at one tick, which is what
+            // this was for, without the queue deciding that a field it cannot see again is
+            // redundant.
+            if (EVENT_TICK.equals(event)) {
+                mergeOlderTicksInto(env);
+            }
             pending.addLast(env);
         }
+    }
+
+    /**
+     * Folds every queued {@code tick} into {@code newest} and removes them, newest field winning.
+     *
+     * <p>Order matters and is the reason this is not a `putIfAbsent` loop: the queue holds the
+     * ticks oldest-first, so each one overwrites the fields of the tick before it, and the
+     * envelope being queued overwrites all of them. A field's most recent value is the one the
+     * page is handed; a field only an older tick carried survives.</p>
+     */
+    private void mergeOlderTicksInto(JsonObject newest) {
+        JsonElement newestPayload = newest.get("payload");
+        if (newestPayload == null || !newestPayload.isJsonObject()) {
+            return;
+        }
+        JsonObject merged = new JsonObject();
+        java.util.Iterator<JsonObject> it = pending.iterator();
+        while (it.hasNext()) {
+            JsonObject old = it.next();
+            if (!EVENT_TICK.equals(Json.string(old, "e", null))) {
+                continue;
+            }
+            JsonElement payload = old.get("payload");
+            if (payload != null && payload.isJsonObject()) {
+                for (java.util.Map.Entry<String, JsonElement> field
+                        : payload.getAsJsonObject().entrySet()) {
+                    merged.add(field.getKey(), field.getValue());
+                }
+            }
+            it.remove();
+        }
+        if (merged.entrySet().isEmpty()) {
+            return;
+        }
+        for (java.util.Map.Entry<String, JsonElement> field
+                : newestPayload.getAsJsonObject().entrySet()) {
+            merged.add(field.getKey(), field.getValue());
+        }
+        newest.add("payload", merged);
     }
 
     private void dropChannel(String event) {
@@ -602,6 +660,12 @@ public final class VoidBridge {
             if (session != null) {
                 emit(EVENT_SESSION, session);
             }
+            // Nothing is emitted here: this asks the sensor to forget what it last reported, so
+            // that the next tick carries `armor` and `fx` again. They belong in this method for
+            // the same reason `session` is the line above it — a page that missed them is never
+            // sent them again — but they cannot be *pushed* from here, because they are read off
+            // the player on the game thread and a reloading page may be at the title screen.
+            host.resendSensors();
         }
         // Second, and for the same reason as session: the globals are the page's chrome — the
         // theme it paints in and the scale it lays out at — so they want to be in hand before the

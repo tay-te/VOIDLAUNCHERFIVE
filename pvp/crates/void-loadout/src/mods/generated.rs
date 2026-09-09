@@ -671,6 +671,13 @@ pub struct CpsSettings {
     /// scaled to clicks per second.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window_ms: Option<i64>,
+
+    /// Whether the highest rate seen this session is drawn as a trailing aside. `window_ms`
+    /// already averages, so the live figure answers "how fast am I clicking"; this answers "how
+    /// fast can I", which is the number worth comparing against and the one the live figure
+    /// never sits still long enough to show.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_peak: Option<bool>,
 }
 
 /// Ping display settings.
@@ -791,6 +798,11 @@ pub struct CoordinatesSettings {
     /// edge, which is easier to read while moving.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<CoordinatesLayout>,
+
+    /// Ink for the readings — the three axes and the cardinal. Not the separator between them:
+    /// quiet-cell §1 gives colour to the live value rather than to the punctuation around it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<HexColor>,
 }
 
 /// Armor status settings.
@@ -976,6 +988,13 @@ pub struct ToggleSprintSettings {
     /// Whether the same latching behaviour is applied to sneak.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sneak_too: Option<bool>,
+
+    /// Key that toggles the mod in game, captured through
+    /// `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key itself, which
+    /// is vanilla's and is what `mode` latches: this one turns the latching off, for a fight
+    /// where holding the key is what the hands expect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keybind: Option<Keybind>,
 }
 
 /// Fullbright settings.
@@ -992,6 +1011,13 @@ pub struct FullbrightSettings {
     /// is the conventional fullbright value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gamma: Option<f64>,
+
+    /// Key that toggles the mod in game, captured through
+    /// `void.openKeybindCapture('fullbright')`. The mod that most wants one: brightness is
+    /// something you change *because* of what is in front of you, and reaching the menu to
+    /// change it means the moment has passed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keybind: Option<Keybind>,
 }
 
 /// Hitboxes settings.
@@ -1015,6 +1041,26 @@ pub struct HitboxesSettings {
     /// Whether to draw the vanilla eye-direction ray along with the box.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_eye_line: Option<bool>,
+
+    /// Colour of the eye-direction ray, when `show_eye_line` draws it. Its own colour rather
+    /// than the box's: the ray answers *where is he looking*, which is a different question
+    /// from the box's *where is he*, and one colour for both draws a box with a spike on it
+    /// rather than two readings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eye_line_color: Option<HexColor>,
+
+    /// Furthest an entity can be, in blocks, and still be drawn. The point of a box in a fight
+    /// is the entity you are fighting; every box past that is a wireframe over the scenery. 64
+    /// is vanilla's own entity render distance, so the default draws what the game was already
+    /// drawing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_distance: Option<f64>,
+
+    /// Key that toggles the mod in game, captured through
+    /// `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and not the
+    /// next, which is a decision made mid-match rather than in a menu.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keybind: Option<Keybind>,
 }
 
 /// Zoom settings.
@@ -1150,6 +1196,12 @@ pub struct DirectionSettings {
     /// players aligning something precisely.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_degrees: Option<bool>,
+
+    /// Ink for the facing. Not the degrees aside, when `show_degrees` draws it: that is the
+    /// same reading in another unit, and colouring both leaves the chip one solid block with no
+    /// hierarchy in it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<HexColor>,
 }
 
 // ---------------------------------------------------------------------------

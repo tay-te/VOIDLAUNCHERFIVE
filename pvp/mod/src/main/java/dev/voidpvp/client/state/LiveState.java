@@ -95,6 +95,9 @@ public final class LiveState {
     public volatile float hitboxLineWidth = 2f;
     public volatile int hitboxColor = 0xFFFFFFFF;
     public volatile boolean hitboxEyeLine;
+    public volatile int hitboxEyeLineColor = 0xFF7ADFFF;
+    /** `hitboxes.max_distance`, in blocks, squared — the mixin compares against a squared length. */
+    public volatile double hitboxMaxDistanceSq = 64d * 64d;
 
     public volatile boolean zoomOn;
     public volatile int zoomKeyCode;
@@ -114,6 +117,19 @@ public final class LiveState {
 
     /** Optional in-game toggle for the keystrokes overlay; NONE means always on. */
     public volatile int keystrokesToggleCode;
+
+    /**
+     * The other three `keybind` settings: a key that flips its own mod's `on`, NONE for none.
+     *
+     * Four mods now carry one, and `keystrokes` was the first — which is why the naming is its
+     * and not the other way round. The three below are the ones a player reaches for mid-match:
+     * brightness because it depends on where you are standing, boxes because they are worth
+     * having for one fight and not the next, and the sprint latch because a chase is exactly
+     * when hold-to-sprint is what the hands expect.
+     */
+    public volatile int fullbrightToggleCode;
+    public volatile int hitboxesToggleCode;
+    public volatile int toggleSprintToggleCode;
 
     // -- HUD-mod settings the game loop polls ----------------------------
     //
@@ -292,6 +308,12 @@ public final class LiveState {
         hitboxLineWidth = (float) l.numberSetting("hitboxes", "line_width", 2);
         hitboxColor = parseColor(l.stringSetting("hitboxes", "color", "#FFFFFFFF"), 0xFFFFFFFF);
         hitboxEyeLine = l.boolSetting("hitboxes", "show_eye_line", false);
+        hitboxEyeLineColor = parseColor(
+                l.stringSetting("hitboxes", "eye_line_color", "#7ADFFFFF"), 0xFF7ADFFF);
+        // Squared once here rather than per entity per frame: `renderHitbox` runs for every
+        // entity the dispatcher draws, and the comparison it wants is against a squared length.
+        double maxDistance = l.numberSetting("hitboxes", "max_distance", 64);
+        hitboxMaxDistanceSq = maxDistance * maxDistance;
 
         zoomOn = l.isOn("zoom");
         zoomKeyCode = dev.voidpvp.client.input.KeyNames.codeOf(
@@ -312,6 +334,15 @@ public final class LiveState {
 
         keystrokesToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("keystrokes", "keybind", "NONE"));
+        // The other three `keybind` settings, read exactly the same way. Each is a key that
+        // flips its own mod's `on`; see `VoidClient.pollHotkeys`, which walks one table rather
+        // than repeating the block per mod.
+        fullbrightToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("fullbright", "keybind", "NONE"));
+        hitboxesToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("hitboxes", "keybind", "NONE"));
+        toggleSprintToggleCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("toggle_sprint", "keybind", "NONE"));
 
         keystrokesOn = l.isOn("keystrokes");
         armorShowHeldItem = l.boolSetting("armor_status", "show_held_item", true);

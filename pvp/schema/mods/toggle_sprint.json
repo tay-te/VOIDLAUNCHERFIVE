@@ -14,7 +14,8 @@
   "enabled": true,
   "defaults": {
     "mode": "toggle",
-    "sneak_too": false
+    "sneak_too": false,
+    "keybind": "NONE"
   },
   "settings": {
     "mode": {
@@ -30,6 +31,11 @@
       "description": "Whether the same latching behaviour is applied to sneak.",
       "type": "boolean",
       "default": false
+    },
+    "keybind": {
+      "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('toggle_sprint')`. Distinct from the sprint key itself, which is vanilla's and is what `mode` latches: this one turns the latching off, for a fight where holding the key is what the hands expect.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
     }
   }
 }

@@ -59,6 +59,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
     "min": 0.5,
     "max": 5
   },
+  "max_distance": {
+    "min": 4,
+    "max": 64
+  },
   "fov_divisor": {
     "min": 1.1,
     "max": 10

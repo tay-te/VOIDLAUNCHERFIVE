@@ -158,6 +158,13 @@ export interface DirectionChipProps extends HudChipProps {
   notation?: DirectionStyle;
   /** Whether the raw angle is printed after the facing. */
   showDegrees?: boolean;
+  /**
+   * Ink for the facing — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The facing only, never the degrees aside: the aside is the same reading in another unit,
+   * and colouring both makes the chip one solid block with no hierarchy in it.
+   */
+  color?: string;
 }
 
 /** The eight compass points, in the order `yawIndex` produces. */
@@ -199,6 +206,7 @@ export function DirectionChip({
   yaw,
   notation = 'letter',
   showDegrees = false,
+  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -211,7 +219,9 @@ export function DirectionChip({
   const degrees = Math.round((((yaw % 360) + 360) % 360));
   return (
     <div className={chipClass(variant, dimmed, cx('v-dirchip', className))} {...rest}>
-      <span className="v-hudchip__value">{facing}</span>
+      <span className="v-hudchip__value" style={color ? { color } : undefined}>
+        {facing}
+      </span>
       {showDegrees ? <span className="v-hudchip__unit">{degrees}°</span> : null}
     </div>
   );
@@ -242,6 +252,14 @@ export interface CoordsChipProps extends HudChipProps {
    *   changing is a digit you can see change.
    */
   layout?: 'inline' | 'stacked';
+  /**
+   * Ink for the readings — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The three axes and the cardinal, which are the live values; never the `·` between them,
+   * which is a separator. Quiet-cell §1, and the same division {@link FpsChipProps.color}
+   * makes between a figure and its unit.
+   */
+  color?: string;
 }
 
 /** `X 118   Y 64   Z -212   ·   NE`, or the same three axes stacked. */
@@ -252,6 +270,7 @@ export function CoordsChip({
   direction,
   decimals = 0,
   layout = 'inline',
+  color,
   variant = 'compact',
   dimmed = false,
   className,
@@ -259,6 +278,7 @@ export function CoordsChip({
 }: CoordsChipProps): React.ReactElement {
   const format = (value: number): string => value.toFixed(decimals);
   const stacked = layout === 'stacked';
+  const ink = color ? { color } : undefined;
   return (
     <div
       className={chipClass(
@@ -268,15 +288,15 @@ export function CoordsChip({
       )}
       {...rest}
     >
-      <span className="v-coordschip__axis">X {format(x)}</span>
-      <span className="v-coordschip__axis">Y {format(y)}</span>
-      <span className="v-coordschip__axis">Z {format(z)}</span>
+      <span className="v-coordschip__axis" style={ink}>X {format(x)}</span>
+      <span className="v-coordschip__axis" style={ink}>Y {format(y)}</span>
+      <span className="v-coordschip__axis" style={ink}>Z {format(z)}</span>
       {direction ? (
         <>
           {/* The separator is a horizontal device. Stacked, the line break already
               separates, and a `·` on a line of its own is a mark that means nothing. */}
           {stacked ? null : <span className="v-hudchip__aside">·</span>}
-          <span className="v-coordschip__axis">{direction}</span>
+          <span className="v-coordschip__axis" style={ink}>{direction}</span>
         </>
       ) : null}
     </div>
@@ -302,6 +322,15 @@ export interface CpsChipProps extends HudChipProps {
    * made it the widest chip on screen for a player who knows perfectly well what the number is.
    */
   showLabel?: boolean;
+  /**
+   * The session's highest rate, drawn as ` · peak 14` after the unit.
+   *
+   * Deliberately the same shape as {@link FpsChipProps.onePercentLow}, and for the same reason:
+   * both are a second figure that gives the first one a scale, and both are the number that
+   * holds still while the live one moves. Muted, like that one — the live figure is the live
+   * value and stays the only coloured thing on the chip.
+   */
+  peak?: number;
 }
 
 /** `12 | 9 CPS` — the left figure in the accent ink, the right in the primary. */
@@ -310,6 +339,7 @@ export function CpsChip({
   right,
   mode = 'both',
   showLabel = true,
+  peak,
   variant = 'compact',
   dimmed = false,
   className,
@@ -329,6 +359,9 @@ export function CpsChip({
         </>
       ) : null}
       {showLabel ? <span className="v-cpschip__unit">CPS</span> : null}
+      {peak === undefined ? null : (
+        <span className="v-hudchip__aside">·&nbsp;&nbsp;peak {peak}</span>
+      )}
     </div>
   );
 }

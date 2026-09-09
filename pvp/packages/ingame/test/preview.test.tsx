@@ -92,6 +92,13 @@ const NOT_IN_THE_PREVIEW: Record<string, string> = {
   // whose content is an empty box is the §15 failure the rest of this file exists to prevent.
   // The `KeybindChip` in the row is the feedback, and the page's meta line prints it again.
   'keystrokes.keybind': 'it makes the widget absent, and an absent widget is not a preview',
+  // The same setting on three more mods, and the same answer, for a reason worth stating once:
+  // a toggle key's whole content is *the mod not being there*. On `keystrokes` that is an empty
+  // box; on these three it is the game drawn normally, which is a picture of no mod at all. The
+  // `KeybindChip` in the row is the feedback, and the page's meta line prints the key again.
+  'fullbright.keybind': 'it turns the mod off, and the game without the mod is not its preview',
+  'hitboxes.keybind': 'it turns the mod off, and the game without the mod is not its preview',
+  'toggle_sprint.keybind': 'it turns the mod off, and the game without the mod is not its preview',
   // Camera damping: the mouse moves and the view follows late. The whole content of the
   // setting is the lag between two things, and a still frame has one instant in it.
   //
@@ -115,9 +122,15 @@ function otherValue(id: ModId, key: string, current: SettingValue): SettingValue
   // A keybind's domain is key names, which no table here carries. `zoom.key` is drawn on the
   // FOV diagram, so it has to be exercised like anything else.
   if (key === 'key' || key === 'keybind') return current === 'V' ? 'C' : 'V';
-  if (key === 'color') return current === '#FF9E7A' ? '#7ADFFF' : '#FF9E7A';
   if (key === 'key_color') return current === 'sky' ? 'teal' : 'sky';
   if (key === 'pressed_color') return current === 'sky' ? 'warn' : 'sky';
+  // Every `hex_color`, not only the one named `color`. Written as a suffix for the same reason
+  // `kindOf` is: `hitboxes.eye_line_color` is the second of these, and matching on the exact
+  // name would have failed it here as "no alternative value could be built" — which reads like
+  // a broken setting rather than a table that had not heard of it.
+  if (key === 'color' || key.endsWith('_color')) {
+    return current === '#FF9E7A' ? '#7ADFFF' : '#FF9E7A';
+  }
   return null;
 }
 
@@ -145,6 +158,24 @@ function settingKeys(id: ModId): string[] {
   return Object.keys(defaults).filter((key) => key !== 'on');
 }
 
+/**
+ * Settings that only draw once another setting is on, and what to turn on to see them.
+ *
+ * A **prerequisite, not an exemption.** `hitboxes.eye_line_color` inks the look ray, and the
+ * ray ships off (`show_eye_line` defaults to false) — so at the factory settings this test
+ * changes the colour of something that is not on screen and reads it as inert. That is a true
+ * observation about the fixture and a false one about the setting.
+ *
+ * The alternative was an entry in {@link NOT_IN_THE_PREVIEW}, and it would have been the first
+ * dishonest one there: the other three are settings a still frame genuinely cannot hold, where
+ * this one draws perfectly well the moment the thing it colours exists. Stating the dependency
+ * keeps the gate strict — the setting still has to move the drawing, it is just asked in a
+ * state where it has something to move.
+ */
+const REQUIRES: Record<string, Record<string, SettingValue>> = {
+  'hitboxes.eye_line_color': { show_eye_line: true },
+};
+
 describe('the live preview', () => {
   it('claims exactly the mods whose preview is the real widget', () => {
     expect([...LIVE_WIDGET_IDS].sort()).toEqual([...LIVE].sort());
@@ -156,6 +187,17 @@ describe('the live preview', () => {
 
     for (const key of settingKeys(id)) {
       if (NOT_IN_THE_PREVIEW[`${id}.${key}`]) continue;
+      // Whatever this key needs on screen before it can move anything. Set before the mount,
+      // and put back after it, so the next key is exercised from the factory state like the
+      // rest.
+      const required = REQUIRES[`${id}.${key}`] ?? {};
+      const restore: Record<string, SettingValue> = {};
+      for (const [dep, value] of Object.entries(required)) {
+        restore[dep] = modSettings(useVoidStore.getState().loadout, id)[dep] as SettingValue;
+        act(() => {
+          useVoidStore.getState().setSetting(id, dep, value);
+        });
+      }
       // A fresh mount per key, so a value left behind by the previous one cannot mask this one.
       const { container, unmount } = render(<ModPreview id={id} />);
       const stage = () => drawing(container.querySelector('.preview__stage'));
@@ -166,11 +208,19 @@ describe('the live preview', () => {
       // below vacuous while the test still passes.
       const current = modSettings(useVoidStore.getState().loadout, id)[key] as SettingValue;
       const next = otherValue(id, key, current);
+      const putBack = () => {
+        for (const [dep, value] of Object.entries(restore)) {
+          act(() => {
+            useVoidStore.getState().setSetting(id, dep, value);
+          });
+        }
+      };
       if (next === null) {
         // No second legal value could be constructed — which means this test is not actually
         // exercising the key, and saying so is better than passing.
         unreachable.push(key);
         unmount();
+        putBack();
         continue;
       }
       act(() => {
@@ -181,6 +231,7 @@ describe('the live preview', () => {
         useVoidStore.getState().setSetting(id, key, current);
       });
       unmount();
+      putBack();
     }
 
     expect(unreachable, `${id}: no alternative value could be built for these`).toEqual([]);

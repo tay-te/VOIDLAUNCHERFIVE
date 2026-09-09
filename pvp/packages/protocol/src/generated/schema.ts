@@ -856,6 +856,10 @@ export interface CPSCounterSettings {
    * Length of the sliding window in milliseconds over which clicks are counted before being scaled to clicks per second.
    */
   window_ms?: number;
+  /**
+   * Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers "how fast am I clicking"; this answers "how fast can I", which is the number worth comparing against and the one the live figure never sits still long enough to show.
+   */
+  show_peak?: boolean;
 }
 /**
  * Settings for the Ping display HUD mod. Reads the player's own `NetworkPlayerInfo.responseTime`.
@@ -924,6 +928,7 @@ export interface CoordinatesSettings {
    * Whether X, Y and Z are stacked on three lines or printed on one. Defaults to `inline`, which is what the HUD frame draws; `stacked` holds the three numbers against one left edge, which is easier to read while moving.
    */
   layout?: 'stacked' | 'inline';
+  color?: Colour;
 }
 /**
  * Settings for the Armor status HUD mod. Reads `InventoryPlayer.armorInventory` durability, pushed only when it changes.
@@ -1030,6 +1035,7 @@ export interface ToggleSprintSettings {
    * Whether the same latching behaviour is applied to sneak.
    */
   sneak_too?: boolean;
+  keybind?: Keybind;
 }
 /**
  * Settings for the Fullbright gameplay mod. Overrides `gameSettings.gammaSetting`; client-side only and Watchdog-tolerated (§3), but classified `grey` in §11.
@@ -1040,6 +1046,7 @@ export interface FullbrightSettings {
    * Value written to `gammaSetting` while the mod is on. Vanilla's slider tops out at 1; 10 is the conventional fullbright value.
    */
   gamma?: number;
+  keybind?: Keybind;
 }
 /**
  * Settings for the Hitboxes gameplay mod. Forces `RenderManager.debugBoundingBox`. Classified `grey` in §11.
@@ -1055,6 +1062,12 @@ export interface HitboxesSettings {
    * Whether to draw the vanilla eye-direction ray along with the box.
    */
   show_eye_line?: boolean;
+  eye_line_color?: Colour;
+  /**
+   * Furthest an entity can be, in blocks, and still be drawn. The point of a box in a fight is the entity you are fighting; every box past that is a wireframe over the scenery. 64 is vanilla's own entity render distance, so the default draws what the game was already drawing.
+   */
+  max_distance?: number;
+  keybind?: Keybind;
 }
 /**
  * Settings for the Zoom gameplay mod. Overrides FOV while `key` is held.
@@ -1137,6 +1150,7 @@ export interface DirectionSettings {
    * Whether the raw yaw angle is printed after the facing. Off by default: it is a second number on a chip whose whole job is to be read without reading, and it is only wanted by players aligning something precisely.
    */
   show_degrees?: boolean;
+  color?: Colour;
 }
 /**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).

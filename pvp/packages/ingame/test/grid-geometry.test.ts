@@ -57,9 +57,12 @@ describe('solveGrid — the panel always fits the window', () => {
 
   it.each(ALL_COUNTS)('at %i mods, on the narrow-aspect canvas', (count) => {
     const shape = solveGrid(count, NARROW.w, NARROW.h);
-    // 1300 - 48 is 1252, narrower than the 1278 the panel wants. Before the fix the tile was
-    // still sized for 1278 and 26px of the last column ran off the panel's own clip.
-    expect(shape.panelW).toBe(1252);
+    // The canvas leaves 1252 here (1300 less the inset), and the panel asks for 1150, so the
+    // width the solve returns is its own. It was the other way round at 1278: the canvas
+    // clamped the panel, the tile was still sized for 1278, and 26px of the last column ran
+    // off the panel's own clip. Asserted as the smaller of the two rather than as 1150, so
+    // that a panel wider than this canvas is caught here rather than at the clip again.
+    expect(shape.panelW).toBe(maxPanelW(NARROW.w));
     expect(shape.panelH).toBeLessThanOrEqual(maxPanelH(NARROW.h));
     expect(shape.gridW).toBeLessThanOrEqual(shape.panelW - 2 * GEOMETRY.edge);
   });
@@ -118,10 +121,10 @@ describe('solveGrid — the grid fills the panel it is given', () => {
 
 describe('solveGrid — the counts that used to break', () => {
   /**
-   * The three tiles the 1278-wide panel can produce, to the fraction. Written out because the
+   * The three tiles the 1150-wide panel can produce, to the fraction. Written out because the
    * table below is only readable if the numbers in it have names.
    */
-  const TILE = { six: 195, seven: 1158 / 7, eight: 143.25 };
+  const TILE = { six: 1042 / 6, seven: 1030 / 7, eight: 127.25 };
 
   /** Rows of `tileH`, plus the 12px gaps between them. */
   const gridH = (rows: number, tileW: number) => rows * (tileW + GEOMETRY.foot) + (rows - 1) * 12;
@@ -143,16 +146,17 @@ describe('solveGrid — the counts that used to break', () => {
   const expected: Record<number, [number, number, number]> = {
     12: [6, 2, TILE.six],
     13: [7, 2, TILE.seven],
-    16: [7, 3, TILE.seven],
-    // 17 to 21 are the bug: they used to ask for three rows of a 195 tile, which did not fit,
-    // and got clipped. They fit three rows of the 165.4 tile, and have since the solve started
-    // checking. (They were eight columns of 143.25 while the chrome was 129 — the seven-column
-    // grid missed the budget by nine pixels, which is exactly what the shorter footer freed.)
-    17: [7, 3, TILE.seven],
-    18: [7, 3, TILE.seven],
-    19: [7, 3, TILE.seven],
-    20: [7, 3, TILE.seven],
-    21: [7, 3, TILE.seven],
+    16: [8, 2, TILE.eight],
+    // 17 to 21 are the bug: they used to ask for three rows of the widest tile, which did not
+    // fit, and got clipped. What they fit is whatever the body of the day allows — three rows
+    // of seven while the panel was 796 tall, eight columns now that it is 716 and the body is
+    // 606. Which of the two it is has never been the property worth asserting; that the rows
+    // fit the box the panel actually has is, and that is the line below the table.
+    17: [8, 3, TILE.eight],
+    18: [8, 3, TILE.eight],
+    19: [8, 3, TILE.eight],
+    20: [8, 3, TILE.eight],
+    21: [8, 3, TILE.eight],
     24: [8, 3, TILE.eight],
   };
 
@@ -180,8 +184,8 @@ describe('solveGrid — the counts that used to break', () => {
     }
     // The grids these counts produce, which is what "unchanged" means now that the panel
     // holding them is a constant.
-    expect(solveGrid(12, VIEW.w, VIEW.h).gridH).toBe(506);
-    expect(solveGrid(24, VIEW.w, VIEW.h).gridH).toBe(609.75);
+    expect(solveGrid(12, VIEW.w, VIEW.h).gridH).toBeCloseTo(463.333, 3);
+    expect(solveGrid(24, VIEW.w, VIEW.h).gridH).toBe(561.75);
   });
 
   it('never gives more mods a bigger tile or fewer columns', () => {
@@ -232,13 +236,17 @@ describe('solveGrid — the panel is a fixed box', () => {
   /**
    * The change that motivated the pin, stated as the two counts either side of it.
    *
-   * Fourteen mods lay out two rows and fifteen lay out three. Under the old solve that was
-   * also a 229px change in the height of the menu — and of Settings, Loadouts, Party and the
-   * HUD editor, which share the box and have no rows at all.
+   * Sixteen mods lay out two rows and seventeen lay out three. Under the old solve a row
+   * appearing was also a 229px change in the height of the menu — and of Settings, Loadouts,
+   * Party and the HUD editor, which share the box and have no rows at all.
+   *
+   * (It was fourteen and fifteen that straddled the change while the body was 686. The pair
+   * moved when the panel came down to 716; the property does not depend on which pair it is,
+   * only on there being one.)
    */
   it('does not change height when the row count changes', () => {
-    const two = solveGrid(14, VIEW.w, VIEW.h);
-    const three = solveGrid(15, VIEW.w, VIEW.h);
+    const two = solveGrid(16, VIEW.w, VIEW.h);
+    const three = solveGrid(17, VIEW.w, VIEW.h);
     expect(two.rows).toBe(2);
     expect(three.rows).toBe(3);
     expect(two.panelH).toBe(three.panelH);
@@ -271,16 +279,24 @@ describe('solveGrid — the panel is a fixed box', () => {
   });
 
   /**
-   * 796 is the whole in-game canvas, and picking it rather than the 786 three rows strictly
-   * need is what keeps this change invisible to the column solve. Three rows of seven come to
-   * 676.29 against a 686 budget; at 786 the budget would be 676 and fifteen through twenty-one
-   * mods would fall through to eight columns over a third of a pixel.
+   * The height is a chosen number, so the question it has to answer is how near it stands to a
+   * shape it does not intend.
+   *
+   * The boundary either side of 716 is the seven-column three-row solve: 621.4 of rows against
+   * a 606 body. Fifteen pixels of clearance, where 796's body of 686 cleared the same solve's
+   * 676.29 by 9.7 — so the box is further from the edge than the one it replaces, and a
+   * rounding in `chrome`, `foot` or `gap` cannot flip the shape out from under it.
    */
-  it('leaves the three-row solve room it does not have at 786', () => {
-    expect(GEOMETRY.maxPanelH).toBe(796);
-    expect(solveGrid(15, VIEW.w, VIEW.h).gridH).toBeGreaterThan(786 - GEOMETRY.chrome);
-    expect(solveGrid(15, VIEW.w, VIEW.h).gridH).toBeLessThanOrEqual(796 - GEOMETRY.chrome);
-    expect(solveGrid(15, VIEW.w, VIEW.h).columns).toBe(7);
+  it('stands clear of the shape its body height is nearest', () => {
+    expect(GEOMETRY.maxPanelH).toBe(716);
+    const body = GEOMETRY.maxPanelH - GEOMETRY.chrome;
+    const contentW = GEOMETRY.maxPanelW - 2 * GEOMETRY.edge;
+    const sevenWide = (contentW - 6 * GEOMETRY.gap) / 7;
+    const threeRows = 3 * (sevenWide + GEOMETRY.foot) + 2 * GEOMETRY.gap;
+    expect(threeRows - body).toBeGreaterThan(9.7);
+    // And the shape the body does hold, at the same count that used to take the other one.
+    expect(solveGrid(15, VIEW.w, VIEW.h).columns).toBe(8);
+    expect(solveGrid(15, VIEW.w, VIEW.h).gridH).toBeLessThanOrEqual(body);
   });
 });
 

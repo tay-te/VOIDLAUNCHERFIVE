@@ -21,7 +21,8 @@
   "defaults": {
     "mode": "left",
     "show_label": true,
-    "window_ms": 1000
+    "window_ms": 1000,
+    "show_peak": false
   },
   "settings": {
     "mode": {
@@ -45,6 +46,11 @@
       "minimum": 200,
       "maximum": 5000,
       "default": 1000
+    },
+    "show_peak": {
+      "description": "Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers \"how fast am I clicking\"; this answers \"how fast can I\", which is the number worth comparing against and the one the live figure never sits still long enough to show.",
+      "type": "boolean",
+      "default": false
     }
   }
 }

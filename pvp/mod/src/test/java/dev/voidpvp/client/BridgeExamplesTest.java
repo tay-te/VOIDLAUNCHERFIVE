@@ -55,6 +55,14 @@ class BridgeExamplesTest {
             surfaces = next;
         }
 
+        /** Counted: `pushWholeState` asking the host to resend the once-only sensors. */
+        int resendSensorsCalls;
+
+        @Override
+        public void resendSensors() {
+            resendSensorsCalls++;
+        }
+
         /** Not exercised here; the bridge only asks for it from pushWholeState. */
         @Override
         public com.google.gson.JsonObject sessionJson() {

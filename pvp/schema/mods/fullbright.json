@@ -13,7 +13,8 @@
   "source": "gammaSetting override (client-side, Watchdog-tolerated)",
   "enabled": false,
   "defaults": {
-    "gamma": 10
+    "gamma": 10,
+    "keybind": "NONE"
   },
   "settings": {
     "gamma": {
@@ -22,6 +23,11 @@
       "minimum": 1,
       "maximum": 15,
       "default": 10
+    },
+    "keybind": {
+      "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('fullbright')`. The mod that most wants one: brightness is something you change *because* of what is in front of you, and reaching the menu to change it means the moment has passed.",
+      "$ref": "#/definitions/keybind",
+      "default": "NONE"
     }
   }
 }

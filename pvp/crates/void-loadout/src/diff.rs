@@ -370,7 +370,7 @@ mod tests {
     fn diff_splits_gameplay_from_hud() {
         let a = base();
         let mut b = a.clone();
-        b.mods.fullbright = Some(FullbrightSettings { on: true, gamma: None });
+        b.mods.fullbright = Some(FullbrightSettings { on: true, gamma: None, keybind: None });
         b.hud.push(HudItem::new(HudModId::Fps, Anchor::TopLeft, 20.0, 20.0));
         b.name = "Y".into();
 
@@ -387,7 +387,7 @@ mod tests {
     fn an_explicit_value_equal_to_the_default_is_not_a_change() {
         let a = base();
         let mut b = a.clone();
-        b.mods.fullbright = Some(FullbrightSettings { on: false, gamma: Some(10.0) });
+        b.mods.fullbright = Some(FullbrightSettings { on: false, gamma: Some(10.0), keybind: None });
         assert!(diff_split(&a, &b).is_empty());
     }
 

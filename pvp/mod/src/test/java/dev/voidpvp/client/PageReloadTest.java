@@ -48,6 +48,14 @@ class PageReloadTest {
         public void setSurfaces(List<EffectSurface> surfaces) {
         }
 
+        /** Counted, because `pushWholeState` asking for it is the contract under test. */
+        int resendSensorsCalls;
+
+        @Override
+        public void resendSensors() {
+            resendSensorsCalls++;
+        }
+
         /** Who is playing. Immutable, and the reason `session` rides on pushWholeState. */
         @Override
         public com.google.gson.JsonObject sessionJson() {
@@ -299,5 +307,56 @@ class PageReloadTest {
             assertNotEquals("acceleratedInUse", f.getName(),
                     "a cached copy of which renderer is running is what goes stale");
         }
+    }
+
+    @Test
+    @DisplayName("a fresh page is told to expect the sensor arrays it was not listening for")
+    void freshPageAsksForTheOnceOnlySensors() {
+        // `armor` and `fx` are coalesced by content: the sensor sends each array once and then
+        // says nothing until the game changes it. That makes them exactly as unrepeatable as
+        // `session` for a page that was not there — the audit found the Armour widget blank for
+        // sixty-five steps of a run, because the array had gone out before the page mounted and
+        // nothing damaged a single piece of armour afterwards. So the whole-state push has to
+        // ask for them, and it is asked of the host because the page is not always in a world.
+        Host host = new Host();
+        VoidBridge bridge = new VoidBridge(seededState(), host);
+        assertEquals(0, host.resendSensorsCalls);
+        bridge.pushWholeState();
+        assertEquals(1, host.resendSensorsCalls,
+                "pushWholeState is the one definition of what a fresh page needs");
+        bridge.pushWholeState();
+        assertEquals(2, host.resendSensorsCalls, "every reload, not just the first");
+    }
+
+    @Test
+    @DisplayName("a queued tick is merged into the next one, not deleted with its once-only fields")
+    void ticksMergeRatherThanDrop() {
+        // The bug this pins, in three envelopes. `tick` is coalesced by change — a field rides
+        // the tick it changed on and is never repeated — so the queue cannot treat an older tick
+        // as a stale copy of the newer one. It did, and the Armour widget was blank in game for
+        // an entire audit run because the only envelope that ever carried `armor` was deleted by
+        // the next tick to arrive before the page drained.
+        VoidBridge bridge = new VoidBridge(seededState(), new Host());
+
+        JsonObject first = new JsonObject();
+        first.addProperty("fps", 60);
+        JsonArray armor = new JsonArray();
+        armor.add(new com.google.gson.JsonPrimitive("diamond_helmet"));
+        first.add("armor", armor);
+        bridge.emit(VoidBridge.EVENT_TICK, first);
+
+        JsonObject second = new JsonObject();
+        second.addProperty("fps", 61);
+        bridge.emit(VoidBridge.EVENT_TICK, second);
+
+        String script = bridge.drainScript();
+        assertNotNull(script);
+        assertTrue(script.contains("\"armor\""),
+                "the array the older tick carried survives: nothing will ever send it again");
+        assertTrue(script.contains("61"), "and the newer value of a field they share wins");
+        assertTrue(!script.contains("60"), "the older value of that field does not");
+        // Still one tick on the wire: the queue is not allowed to grow, which is what dropping
+        // was for in the first place.
+        assertEquals(1, script.split("\"e\":\"tick\"", -1).length - 1);
     }
 }

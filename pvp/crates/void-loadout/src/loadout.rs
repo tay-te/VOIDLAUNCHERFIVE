@@ -393,9 +393,9 @@ mod tests {
     fn hypixel_ready_tracks_the_grey_mods() {
         let mut l = Loadout::new(LoadoutId::new("x").unwrap(), "X", "sword");
         assert!(hypixel_ready(&l));
-        l.mods.fullbright = Some(FullbrightSettings { on: true, gamma: None });
+        l.mods.fullbright = Some(FullbrightSettings { on: true, gamma: None, keybind: None });
         assert!(!hypixel_ready(&l));
-        l.mods.fullbright = Some(FullbrightSettings { on: false, gamma: None });
+        l.mods.fullbright = Some(FullbrightSettings { on: false, gamma: None, keybind: None });
         assert!(hypixel_ready(&l));
     }
 
