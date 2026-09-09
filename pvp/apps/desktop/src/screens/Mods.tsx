@@ -240,7 +240,6 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   toggle_sneak: () => <Numeral value="HOLD" unit="sneak" />,
   // The one the roster says decides fights, so it is what the card shows.
   overlay: () => <Numeral value="5" unit="hidden" />,
-  old_animations: () => <Numeral value="1.7" unit="swing" />,
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
 };

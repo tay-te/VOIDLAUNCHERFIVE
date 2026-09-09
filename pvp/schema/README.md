@@ -269,18 +269,20 @@ value, because nothing is stored. **The Java half is not written.** It is one mo
   in a bundle is the only kind worth showing. `void-loadout`'s exact-set assertion is renamed to
   `grey_mods_are_exactly_fullbright_hitboxes_and_overlay`; it stays an exact set by hand, because
   a mod joining the class that gates the badge should have to touch a test with a name in it.
-- **`old_animations`** (`gameplay`, pvp, `reset`, off) — `swing` and `block_hit`, both
-  `vanilla`/`one_seven` and both defaulting to `one_seven`, plus `always_swing` and
-  `use_while_digging`, both off. §3.2 #1: "Build this first… its absence reads as 'this client
-  was made by someone who does not play.'" It is the only mod in this wave whose two enums ship
-  at the non-vanilla value, and that is deliberate: a player who enables Old animations has said
-  which animations they want by enabling it, and a mod that turned on and changed nothing would
-  look broken. `safe`, with the reasoning kept because two of the four settings are not
-  animations: `always_swing` and `use_while_digging` change what the client *does* on an input
-  rather than what it draws, so both ship off and the factory configuration of the mod is
-  animation and nothing else. Neither automates anything — one press, one action, no sequence
-  and no timing the player did not supply — which is the thing §6.1's "no macros of any kind" is
-  aimed at.
+- ~~**`old_animations`**~~ — **declared here and withdrawn before the wave shipped.** The entry
+  above described `swing`, `block_hit`, `always_swing` and `use_while_digging`, the first two
+  defaulting to `one_seven`, and argued that a mod which turned on and changed nothing would look
+  broken. That argument is what removed it: the game code could not be written, so the mod would
+  have been exactly that. Registry went 20 → 25 → **24**, and `registry_version` 8 covers the
+  four that shipped. Nothing ever released it, so no stored loadout carries it and there is no
+  `REMOVED_SETTINGS` row to add — the one time a mod can be taken out for free.
+
+  The 1.8.9 side was established precisely, by disassembling the real methods out of Loom's named
+  jar. The **1.7** side could not be: there is no 1.7.10 source or mapping in this repo or in the
+  Gradle cache, and every one of the four settings is defined as "what 1.7 did". A reconstructed
+  swing arc that nobody can runtime-test today is worse than an absent mod. `docs/mod-roster.md`
+  §7 carries what was learned, and it is not nothing — one of the four settings is ready and
+  provable, and one of the four descriptions above is factually wrong about 1.8.9.
 
 **One correction while here.** `toggle_sprint.mode`'s description still ended "but keeps the
 status readout", and the readout has been gone since `show_status` was removed. It now says what

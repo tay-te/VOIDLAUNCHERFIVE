@@ -254,12 +254,6 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'hide_stuck_arrows', label: 'Hide stuck arrows', control: 'switch' },
     { key: 'hide_pumpkin', label: 'Hide pumpkin blur', control: 'switch' },
   ],
-  old_animations: [
-    { key: 'swing', label: 'Swing', control: 'select', options: ['vanilla', 'one_seven'] },
-    { key: 'block_hit', label: 'Block hit', control: 'select', options: ['vanilla', 'one_seven'] },
-    { key: 'always_swing', label: 'Always swing', control: 'switch' },
-    { key: 'use_while_digging', label: 'Use item while digging', control: 'switch' },
-  ],
   hitboxes: [
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
     { key: 'color', label: 'Colour', control: 'color' },
@@ -329,7 +323,6 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'fov',
   'toggle_sneak',
   'overlay',
-  'old_animations',
 ];
 
 /**

@@ -308,9 +308,46 @@ which is the real answer to "they have 98 and we have 13."
 `crates/void-loadout/src/mods.rs` from `schema/mods.json` the way `@void/protocol` already
 generates its TypeScript. Do this *before* adding twenty mods, not after.
 
-**Wave 1 — the four that change how the client feels.** Old animations · FOV changer ·
+**Wave 1 — the four that change how the client feels.** ~~Old animations ·~~ FOV changer ·
 Toggle sneak promoted · the overlay grab-bag (view bobbing, fire overlay, own armour,
 arrows).
+
+> **Three of four done, 2026-09-09.** `fov`, `toggle_sneak` and `overlay` shipped with their
+> actuators and mixins; `stopwatch` came with them, on a new `modaction` bridge event that gives
+> a per-mod keybind a way to reach the page. Every injection point was established by
+> disassembling the real 1.8.9 methods out of Loom's named jar and confirmed by reading the
+> remapped classes back out of the built JAR — a target the mapping does not know is left as the
+> yarn string, so that is proof the members exist rather than proof the code compiles.
+>
+> **Old animations was declared and then withdrawn**, and the reason is worth keeping because it
+> is not "we ran out of time". The 1.8.9 side is establishable; the **1.7** side is not, from
+> this repo — there is no 1.7.10 source or mapping here or in the Gradle cache, and all four
+> settings are defined as "what 1.7 did". Two of the four default to `one_seven`, so shipping
+> the schema without the mixins is a mod that reports on and changes nothing, which is the
+> failure `text_shadow` was removed for on the day it landed. **What it needs is a 1.7.10
+> mapping**, not more time.
+>
+> Two findings from the attempt, both worth more than the mod would have been this week:
+>
+> · **`use_while_digging` is ready and provable.** `MinecraftClient.doUse()` opens with
+>   `if (this.interactionManager.isBreakingBlock()) return;` at offsets 0–10. That is exactly
+>   the 1.8 guard the setting names, so one `@Redirect` on that call is the whole feature. It
+>   was not shipped alone because one live switch among three inert ones is the same "looks
+>   broken" failure at a smaller scale.
+>
+> · **`always_swing`'s premise is wrong for 1.8.9, and the schema said it confidently.** The
+>   draft description read "1.8 swings only when the click reaches a block or an entity, so a
+>   miss in 1.8 is invisible". `MinecraftClient.doAttack()` calls `player.swingHand()` at offset
+>   12 — *before* the hit result is examined — and reaches it on `MISS` too. The real 1.8
+>   behaviour is the `attackCooldown = 10` set on a miss, which suppresses the next ~10 ticks of
+>   clicks. Whatever this setting should do, it is not what was written. Settle that before
+>   anyone writes the mixin.
+>
+> The same bytecode read found a **shipped** bug one mod over: `MinecraftClientMixin`'s
+> `void$onAttack` fed `hits.dealt` from that same unconditional path, so the combo counter was
+> counting clicks rather than landed hits — a second CPS counter with a different window. Fixed
+> separately; recorded here because it was found by disassembling a method for a different mod,
+> which is an argument for doing that rather than trusting a doc comment.
 
 **Wave 2 — the cheap HUD sweep, one PR.** ~~Combo · Saturation · Item counter · Potion
 counter · Momentum · Server address · Memory · Stopwatch · Direction split out.~~ Nine mods,
