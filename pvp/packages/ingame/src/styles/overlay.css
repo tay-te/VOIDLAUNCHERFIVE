@@ -499,14 +499,18 @@ body {
      six columns of 179 in a panel built for six of 195, and a 96px hole down the right where
      the arithmetic disagreed with itself. So the window is read in JS, once, and arrives here
      already resolved. */
-  --panel-w: 1278px;
+  --panel-w: 1150px;
   /* Fixed, and the same at every mod count — `GEOMETRY.maxPanelH`. This used to be the height
      the rows happened to come to (635, at the twelve the registry shipped then), which made the
      menu's size a function of the roster: the fifteenth mod would have flipped the grid to
      three rows and grown the panel by 229px. Width was never allowed to do that, and now
-     neither is height. See `GEOMETRY.maxPanelH` for why it is 796 rather than the 786 three
-     rows strictly need. */
-  --panel-h: 796px;
+     neither is height.
+
+     The pair is 1278 x 796 — the canvas, less the insets — taken down by 0.9. That box ran to
+     within twelve pixels of the top and bottom of the screen; this one keeps its proportions
+     and leaves the game visible around it. The two numbers move together or not at all. See
+     `GEOMETRY.maxPanelH` for what the smaller body costs the column solve. */
+  --panel-h: 716px;
   width: var(--panel-w);
   height: var(--panel-h);
   /* Belt and braces, not the mechanism. `solveGrid` has already fitted the panel to the

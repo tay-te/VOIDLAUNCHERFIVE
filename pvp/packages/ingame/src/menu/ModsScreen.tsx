@@ -15,7 +15,7 @@
  * is what is inside it. The frames hold twenty-four mods in eight columns and the registry
  * holds fourteen, so a grid declared as three rows left five columns filling most of 1277 and a
  * third of the panel empty. The grid is shaped by the registry instead — two rows of seven,
- * tiles sized from the panel — inside a box that is 1278 x 796 at every count.
+ * tiles sized from the panel — inside a box that is 1150 x 716 at every count.
  * See {@link solveGrid}, which owns every length in it, and {@link GEOMETRY.maxPanelH} for why
  * the height is pinned rather than taken from the rows.
  *
@@ -140,8 +140,14 @@ export const GEOMETRY = {
    * That is the intent, not a side effect — `solveGrid` picks the *largest* tile that fits.
    */
   chrome: 110,
-  /** The widest the panel ever is. Six columns of 195 plus the insets. */
-  maxPanelW: 1278,
+  /**
+   * The widest the panel ever is.
+   *
+   * Moves with {@link maxPanelH} and never on its own: the two are one box at one aspect
+   * ratio, and the ratio is the thing about this panel that was right. See there for the
+   * scale they were taken down by and what it cost.
+   */
+  maxPanelW: 1150,
   /**
    * The tallest the panel ever is — and, on the in-game canvas, the only height it ever has.
    *
@@ -158,16 +164,26 @@ export const GEOMETRY = {
    * content-derived height meant the *grid's* mod count silently set the height of five
    * screens that have nothing to do with it.
    *
-   * **Why 796 and not the 786 three rows strictly need.** 796 is the whole canvas:
+   * **Why 716, when the canvas allows 796.** 796 was the whole canvas —
    * `VoidClient.DESIGN_HEIGHT` is 820 and the fit scale pins the logical view to exactly that
-   * height on every aspect ratio, less {@link insetY}. Choosing it rather than 786 keeps the
-   * solve's *column* choice bit-for-bit what it was — the budget below stays 686 — so the
-   * shape at all 53 counts `test/grid-geometry.test.ts` covers is unchanged by this. 786
-   * would have cut the budget to 676, and three rows of seven need 676.29: fifteen through
-   * twenty-one mods would have silently fallen through to eight columns over a third of a
-   * pixel. A constant that is one rounding away from changing the layout is not a constant.
+   * height on every aspect ratio, less {@link insetY} — so the menu came to within twelve
+   * pixels of the top and bottom of the screen and read as a takeover rather than a panel.
+   * 1150 x 716 is that box at 0.9, the one operation that leaves its proportions alone, and
+   * the game is visible around it on all four sides.
+   *
+   * Unlike the pin itself, this does move the column solve. The body is 606 rather than 686
+   * and three rows of seven need 621.4, so fifteen through twenty-one mods lay out as eight
+   * columns rather than seven. That is the solve working — the fewest columns whose rows fit —
+   * and `test/grid-geometry.test.ts` carries the shapes. The two counts that decide whether
+   * the menu is usable are unchanged: fourteen, which the registry ships, is still two rows of
+   * seven, and twenty-four is still the most that fits without scrolling.
+   *
+   * **How close this is to a boundary**, which is the question 796 was picked to answer: 606
+   * clears the seven-column three-row solve by 15.4px, where 686 cleared it by 9.7. A constant
+   * one rounding away from changing the layout is not a constant, and this one is further from
+   * the edge than the number it replaces.
    */
-  maxPanelH: 796,
+  maxPanelH: 716,
   /** Left over each side of the panel: `max-width: calc(100% - 48px)`. */
   insetX: 48,
   /** Left over above and below: `max-height: calc(100% - 24px)`. */
