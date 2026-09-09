@@ -34,6 +34,35 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { argv, exit } from 'node:process';
 
+/**
+ * The registry, from `@void/protocol`'s generated tables rather than from a copy here.
+ *
+ * This file used to carry its own `HUD` placement table and its own per-mod defaults, both
+ * annotated "copied from `Loadout.DEFAULT_HUD`". The copy did what copies of a registry do: the
+ * fourteenth mod, `direction`, was added to `schema/mods/` and to every generated table, and
+ * this audit — the thing whose entire job is to notice that a mod does not work — **never
+ * pushed it once**. It was not in `baseMods()`, so it was never on, and it was not in `HUD`, so
+ * it had nowhere to draw. A missing mod reads exactly like a passing one: no step, no shot, no
+ * failure.
+ *
+ * Deriving both from the same generated source the client is built from makes that
+ * unrepresentable. A mod added to the schema is in the baseline of this audit on the next run,
+ * at its own registry defaults and its own factory placement, whether or not anybody remembers
+ * this file exists.
+ *
+ * The import is the built `dist`, so `pnpm --filter @void/protocol build` has to have run —
+ * which `scripts/verify-all.sh` does, and a bare `pnpm install` does not.
+ */
+const PROTOCOL = new URL('../packages/protocol/dist/index.js', import.meta.url);
+const { MOD_REGISTRY, DEFAULT_HUD_PLACEMENTS, HUD_MOD_IDS } = await import(PROTOCOL).catch(
+  (cause) => {
+    throw new Error(
+      "@void/protocol is not built — run `pnpm --filter @void/protocol build` first.\n" +
+        `  tried: ${PROTOCOL.pathname}\n  cause: ${cause.message}`,
+    );
+  },
+);
+
 /* -------------------------------------------------------------------------- */
 /* Minimal RFC6455 server — no dependency, because this package has none       */
 /* -------------------------------------------------------------------------- */
@@ -101,55 +130,52 @@ function drain(state, chunk) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The factory HUD layout, copied from `Loadout.DEFAULT_HUD` / `HudEditorScreen.DEFAULT_HUD`.
- * Stated here so a step can move one widget without the other two tables being involved.
+ * The factory HUD layout — every HUD mod at its generated `default_placement`.
+ *
+ * Not a copy of `Loadout.DEFAULT_HUD` any more; the same table that seeds it. A widget with no
+ * `hud[]` entry has nowhere to draw, so an omission here is indistinguishable from the mod
+ * being broken, which is how `direction` came to be audited zero times.
  */
-const HUD = [
-  { id: 'fps', anchor: 'top-left', dx: 23, dy: 23, scale: 1 },
-  { id: 'ping', anchor: 'top-left', dx: 23, dy: 65, scale: 1 },
-  { id: 'coordinates', anchor: 'top-left', dx: 23, dy: 103, scale: 1 },
-  { id: 'watermark', anchor: 'top-left', dx: 23, dy: 141, scale: 1 },
-  { id: 'potion_effects', anchor: 'top-right', dx: -25, dy: 23, scale: 1 },
-  { id: 'armor_status', anchor: 'top-right', dx: -25, dy: 299, scale: 1 },
-  { id: 'keystrokes', anchor: 'bottom-left', dx: 31, dy: -109, scale: 1 },
-  { id: 'cps', anchor: 'bottom-left', dx: 175, dy: -108, scale: 1 },
-];
+const HUD = HUD_MOD_IDS.map((id) => ({ id, ...DEFAULT_HUD_PLACEMENTS[id], scale: 1 }));
 
-/** Every mod on, at its registry default, so a step only has to state its own difference. */
+/**
+ * What the baseline says over the registry's own defaults, and why each one earns it.
+ *
+ * Everything not named here is whatever `MOD_REGISTRY[id].defaults` says, so the audit's
+ * starting point is the client's starting point. These six are the exceptions: each turns on
+ * something the factory default hides, so that the *baseline shot* shows it rather than needing
+ * a step of its own to prove it exists at all.
+ */
+const BASELINE = {
+  // Both hands, so `mode: 'both'` is what the widest form of the tile looks like; `left` gets
+  // its own step below.
+  cps: { mode: 'both' },
+  // Every optional cap on: the baseline is the one shot that has to show the full keyboard.
+  keystrokes: { opacity: 0.85, show_spacebar: true, show_sneak: true, show_cps: true, corner_radius: 8 },
+  // A decimal place, so `decimals: 0` and `2` are visibly different from the baseline.
+  coordinates: { decimals: 1 },
+  ping: { good_ms: 60, bad_ms: 150 },
+  watermark: { opacity: 0.9 },
+};
+
+/**
+ * Every mod at its registry defaults, with the HUD ones on so each widget is in shot.
+ *
+ * `on` is forced for the HUD mods because two of them (`coordinates`, `direction`) ship off,
+ * and a widget that is off is a widget this audit cannot see. The gameplay mods keep their own
+ * default — they change the *world*, so turning them all on at once would make every later
+ * shot a photograph of four mods at the same time.
+ */
 function baseMods() {
-  return {
-    fps: { on: true, scale: 1, opacity: 1, color: '#FFFFFF', show_label: true, show_low: true },
-    keystrokes: {
-      on: true, scale: 1, opacity: 0.85, keybind: 'NONE', show_mouse: true,
-      show_spacebar: true, show_sneak: true, show_cps: true, corner_radius: 8,
-      key_color: 'shell', pressed_color: 'accent',
-    },
-    cps: { on: true, scale: 1, opacity: 1, mode: 'both', show_label: true, window_ms: 1000 },
-    ping: {
-      on: true, scale: 1, opacity: 1, show_label: true, good_ms: 60, bad_ms: 150,
-      show_host: true,
-    },
-    coordinates: {
-      on: true, scale: 1, opacity: 1, decimals: 1, show_direction: true, layout: 'inline',
-    },
-    armor_status: {
-      on: true, scale: 1, opacity: 1, orientation: 'horizontal',
-      show_durability: true, show_held_item: true, warn_below: 0.5,
-    },
-    potion_effects: {
-      on: true, scale: 1, opacity: 1, show_duration: true, show_amplifier: true,
-      hide_ambient: false,
-    },
-    watermark: { on: true, scale: 1, opacity: 0.9, style: 'full' },
-    toggle_sprint: { on: true, mode: 'toggle', sneak_too: false },
-    fullbright: { on: false, gamma: 10 },
-    hitboxes: { on: false, line_width: 2, color: '#FFFFFFFF', show_eye_line: false },
-    zoom: { on: true, key: 'C', fov_divisor: 4, smooth: true, cinematic: false },
-    crosshair: {
-      on: false, style: 'cross', size: 5, thickness: 1, gap: 2,
-      color: '#FFFFFFFF', outline: true, dynamic: false, center_dot: false,
-    },
-  };
+  const mods = {};
+  for (const [id, entry] of Object.entries(MOD_REGISTRY)) {
+    mods[id] = {
+      ...entry.defaults,
+      ...(HUD_MOD_IDS.includes(id) ? { on: true } : {}),
+      ...(BASELINE[id] ?? {}),
+    };
+  }
+  return mods;
 }
 
 /** Deep-merge a step's overrides onto the base loadout. */
@@ -274,6 +300,94 @@ export const STEPS = [
     state: loadout({ keystrokes: { pressed_color: 'warn' } }) },
   { name: 'pressed-teal', why: 'pressed_color teal',
     state: loadout({ keystrokes: { pressed_color: 'teal' } }) },
+
+  /* ---------------------------------------------------------------------- */
+  /* The settings that were being counted as covered without being tested    */
+  /*                                                                        */
+  /* Everything below was pushed by the steps above at exactly one value —   */
+  /* usually its default — which proves the loadout parses and nothing more. */
+  /* A setting is verified when two values produce two different frames, so  */
+  /* each of these states the value the baseline does *not* hold.            */
+  /* ---------------------------------------------------------------------- */
+
+  // Direction — the fourteenth mod, and until this run the only one with no step at all.
+  { name: 'direction-letter', why: 'direction on at style letter — the compass point as N/NE/E',
+    state: loadout({ direction: { on: true, style: 'letter' } }) },
+  { name: 'direction-word', why: 'direction.style word spells it out',
+    state: loadout({ direction: { on: true, style: 'word' } }) },
+  { name: 'direction-axis', why: 'direction.style axis names the axis (+X / -Z) instead',
+    state: loadout({ direction: { on: true, style: 'axis' } }) },
+  { name: 'direction-degrees', why: 'direction.show_degrees adds the yaw figure',
+    state: loadout({ direction: { on: true, style: 'letter', show_degrees: true } }) },
+
+  { name: 'watermark-mark', why: 'watermark.style mark — the glyph alone, no wordmark',
+    state: loadout({ watermark: { style: 'mark' } }) },
+  { name: 'watermark-word', why: 'watermark.style word — the wordmark alone, no glyph',
+    state: loadout({ watermark: { style: 'word' } }) },
+
+  { name: 'cps-left-only', why: 'cps.mode left draws one figure where the baseline draws two',
+    state: loadout({ cps: { mode: 'left' } }) },
+  { name: 'cps-right-only', why: 'cps.mode right is the other hand, not the same one',
+    state: loadout({ cps: { mode: 'right' } }) },
+
+  { name: 'coords-no-direction', why: 'coordinates.show_direction drops the cardinal off the row',
+    state: loadout({ coordinates: { show_direction: false } }) },
+  { name: 'armor-no-held', why: 'armor_status.show_held_item drops the fifth slot',
+    state: loadout({ armor_status: { show_held_item: false } }) },
+  { name: 'ping-no-label', why: 'ping.show_label drops the ms unit',
+    state: loadout({ ping: { show_label: false } }) },
+
+  { name: 'keys-no-mouse', why: 'keystrokes.show_mouse drops LMB/RMB, keeping WASD',
+    state: loadout({ keystrokes: { show_mouse: false } }) },
+  { name: 'keys-no-space', why: 'keystrokes.show_spacebar drops the bar the baseline shows',
+    state: loadout({ keystrokes: { show_spacebar: false } }) },
+  { name: 'keys-no-cps', why: 'keystrokes.show_cps drops the click figures beside the caps',
+    state: loadout({ keystrokes: { show_cps: false } }) },
+  { name: 'keys-no-sneak', why: 'keystrokes.show_sneak off — `keys-sneak` only ever asserted the on side',
+    state: loadout({ keystrokes: { show_sneak: false } }) },
+
+  { name: 'crosshair-no-outline', why: 'crosshair.outline off — no dark rim, at a size where a rim is visible',
+    state: loadout({ crosshair: { on: true, style: 'cross', size: 12, thickness: 3, outline: false } }) },
+  { name: 'crosshair-dynamic', why: 'crosshair.dynamic spreads with movement — AUTOWALK is walking',
+    state: loadout({ crosshair: { on: true, style: 'cross', size: 12, gap: 4, dynamic: true } }) },
+
+  /* The chrome every HUD mod shares — `_shared.json`'s `hud` block. Applied to all nine at
+     once rather than one widget at a time: the question is whether the shared property reaches
+     every widget, and nine widgets in one frame answers it nine times. */
+  { name: 'chrome-bg-subtle', why: 'background subtle on every HUD widget',
+    state: loadout(Object.fromEntries(HUD_MOD_IDS.map((id) => [id, { background: 'subtle' }]))) },
+  { name: 'chrome-bg-solid', why: 'background solid — a filled plate behind each widget',
+    state: loadout(Object.fromEntries(HUD_MOD_IDS.map((id) => [id, { background: 'solid' }]))) },
+  { name: 'chrome-border', why: 'border on, over the solid plate',
+    state: loadout(Object.fromEntries(
+      HUD_MOD_IDS.map((id) => [id, { background: 'solid', border: true }]))) },
+  { name: 'chrome-padding-tight', why: 'padding tight pulls each plate in',
+    state: loadout(Object.fromEntries(
+      HUD_MOD_IDS.map((id) => [id, { background: 'solid', padding: 'tight' }]))) },
+  { name: 'chrome-padding-roomy', why: 'padding roomy pushes it out — must differ from tight',
+    state: loadout(Object.fromEntries(
+      HUD_MOD_IDS.map((id) => [id, { background: 'solid', padding: 'roomy' }]))) },
+  { name: 'chrome-scale-half', why: 'scale 0.5 on every widget, so the property is not fps-only',
+    state: loadout(Object.fromEntries(HUD_MOD_IDS.map((id) => [id, { scale: 0.5 }]))) },
+
+  /* ---------------------------------------------------------------------- */
+  /* The settings added to fill out the thin mods                            */
+  /* ---------------------------------------------------------------------- */
+
+  { name: 'coords-coral', why: 'coordinates.color inks the three axes and the cardinal, not the separator',
+    state: loadout({ coordinates: { color: '#FF9E7A' } }) },
+  { name: 'direction-mint', why: 'direction.color inks the facing and leaves the degrees muted',
+    state: loadout({ direction: { on: true, color: '#7AE0B0', show_degrees: true } }) },
+  { name: 'cps-peak', why: 'cps.show_peak adds the session-high aside',
+    state: loadout({ cps: { show_peak: true } }) },
+  { name: 'hitbox-eye-own-colour', why: 'eye_line_color is its own ink — a coral box with an ice ray',
+    state: loadout({ hitboxes: {
+      on: true, line_width: 3, color: '#FF9E7A', show_eye_line: true, eye_line_color: '#7ADFFF',
+    } }) },
+  { name: 'hitbox-near-only', why: 'max_distance 4 — boxes on nothing but what is in your face',
+    state: loadout({ hitboxes: { on: true, line_width: 3, color: '#FF9E7A', max_distance: 4 } }) },
+  { name: 'hitbox-far-again', why: '…and 64 brings them back, so the cutoff is the setting and not the world',
+    state: loadout({ hitboxes: { on: true, line_width: 3, color: '#FF9E7A', max_distance: 64 } }) },
 ];
 
 /* -------------------------------------------------------------------------- */
