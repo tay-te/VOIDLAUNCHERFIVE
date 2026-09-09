@@ -64,5 +64,6 @@ export const MOD_ICON_NAMES = {
   "reach": "sword",
   "potion_counter": "flask",
   "block_outline": "cube",
-  "nametags": "users"
+  "nametags": "users",
+  "sprint_reset": "bolt"
 } as const satisfies Record<ModId, string>;

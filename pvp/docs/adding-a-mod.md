@@ -160,6 +160,22 @@ way and each was found the same way — by disassembling the method and looking.
 | `toggle_sprint.mode: "hold"` restores vanilla hold-to-sprint | `setKeyPressed` writes the same `pressed` field the sprint tests read, so the latch is indistinguishable from a held key. `hold` had no implementation but "write nothing", which is `on: false`. |
 | `old_animations.swing` reverts "the shorter, flatter arc 1.7 drew" | `getMiningSpeedMultiplier`, `swingHand`, `tickHandSwing` and the first-person arc are byte-for-byte identical in 1.7.10 and 1.8.9. There is no such arc. |
 
+**And one that was caught rather than shipped, because it is the variant the table above cannot
+warn you about: a fact that is true when you sample it and false where you report it.** Every
+other thing a swing knows — what it hit, whether the target was alive, whether you were spectating
+— can be read at `doAttack` TAIL, so TAIL is where a fifth reading naturally goes. `sprint_reset`
+needed `isSprinting()`, and `PlayerEntity.attack` calls `setSprinting(false)` at offset 339 in the
+branch that applies the knockback the sprint earned. The client reaches it:
+`ClientPlayerInteractionManager.attackEntity` runs `PlayerEntity.attack` at its own offsets 32-34.
+So a TAIL reading is false for exactly the hits the counter exists to count.
+
+The reason it belongs in this section is what the failure would have looked like: not a wrong
+number, but a **counter that stayed at zero**, which is a legal value and reads as a player who
+never resets. The three defects above were all found because something looked wrong. This one
+would not have. **Before reading a mutable flag off the game, check whether the method you are
+injected into writes it** — `javap -c` the whole method and grep the disassembly for the setter,
+not just for the getter you want.
+
 The 1.8.9 named jar is already in the Gradle cache, put there by Loom:
 
 ```sh

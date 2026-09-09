@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 37 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 38 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -116,11 +116,14 @@ pub enum ModId {
     /// Shrink, thin out or hide the floating names, which in a team mode are most of what is on
     /// screen.
     Nametags,
+    /// How many of your recent hits landed with a sprint behind them — whether the W-tap is
+    /// working.
+    SprintReset,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 37] = [
+    pub const ALL: [ModId; 38] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -158,6 +161,7 @@ impl ModId {
         ModId::PotionCounter,
         ModId::BlockOutline,
         ModId::Nametags,
+        ModId::SprintReset,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -200,11 +204,12 @@ impl ModId {
             ModId::PotionCounter => "potion_counter",
             ModId::BlockOutline => "block_outline",
             ModId::Nametags => "nametags",
+            ModId::SprintReset => "sprint_reset",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 21 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 22 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -255,11 +260,14 @@ pub enum HudModId {
     /// How many potions of one effect you are carrying, which in pot PvP is what you plan
     /// around.
     PotionCounter,
+    /// How many of your recent hits landed with a sprint behind them — whether the W-tap is
+    /// working.
+    SprintReset,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 21] = [
+    pub const ALL: [HudModId; 22] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -281,6 +289,7 @@ impl HudModId {
         HudModId::CpsGraph,
         HudModId::Reach,
         HudModId::PotionCounter,
+        HudModId::SprintReset,
     ];
 
     /// Widens to the full mod id enum.
@@ -307,6 +316,7 @@ impl HudModId {
             HudModId::CpsGraph => ModId::CpsGraph,
             HudModId::Reach => ModId::Reach,
             HudModId::PotionCounter => ModId::PotionCounter,
+            HudModId::SprintReset => ModId::SprintReset,
         }
     }
 
@@ -487,6 +497,7 @@ impl Registry {
             HudModId::CpsGraph => self.mods.cps_graph.default_placement,
             HudModId::Reach => self.mods.reach.default_placement,
             HudModId::PotionCounter => self.mods.potion_counter.default_placement,
+            HudModId::SprintReset => self.mods.sprint_reset.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -1065,6 +1076,23 @@ pub enum PotionCounterEffect {
     /// `any` counts every potion that grants an effect, which is the reading for 'how much have
     /// I got left to throw' rather than 'have I got a heal'.
     Any,
+}
+
+/// What the chip prints. `percent` — `75%` — is the default because a rate is what the mod
+/// measures and it is one figure wide. `ratio` prints `15 / 20`, which says the same thing and
+/// also says how much evidence is behind it: a perfect 5/5 and a perfect 20/20 are the same
+/// percentage and only one of them is a habit.
+///
+/// `mods.json#/definitions/sprint_reset_settings/properties/style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SprintResetStyle {
+    /// `percent` — `75%` — is the default because a rate is what the mod measures and it is one
+    /// figure wide.
+    Percent,
+    /// `ratio` prints `15 / 20`, which says the same thing and also says how much evidence is
+    /// behind it.
+    Ratio,
 }
 
 // ---------------------------------------------------------------------------
@@ -4043,11 +4071,138 @@ pub struct NametagsSettings {
     pub max_distance: Option<f64>,
 }
 
+/// Sprint reset settings.
+///
+/// Settings for the Sprint reset HUD mod. It reads `hits.dealt` and `hits.sprint_dealt` — both
+/// monotonic since the client started — and reports the share of your recent landed hits that
+/// were delivered while sprinting. **Why that share is the reading.** In 1.8.9 a hit thrown
+/// while sprinting carries an extra point of knockback, and landing it clears your sprint. So a
+/// chain of sprint-hits is only possible if the sprint is restarted between every one, which is
+/// what a W-tap is for. The mod does not watch your W key: it watches whether the reset worked,
+/// which is the same question with no timing window to argue about. It draws nothing until
+/// something has been hit. A rate of zero is a player whose resets are all failing; no hits at
+/// all is a player who has not swung, and a chip reading `0%` would confuse the two.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SprintResetSettings {
+    /// Whether the sprint reset readout is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the sprint reset chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the sprint reset chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the sprint reset chip, as a step on the system's own scale rather
+    /// than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together
+    /// over a busy texture — and it is the default because it is what every HUD readout has
+    /// always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla
+    /// treatment and is legible over sky and unreadable over snow, so it is a choice rather
+    /// than a default. `solid` is the opaque card ground, for a player who wants the HUD to
+    /// read as a panel. A step rather than a hex value because a per-mod background colour is
+    /// what §1 names as the far side of the line. **The step sets the widget's own ground; it
+    /// does not paint a second one behind it.** This was `background` on the *slot*, and every
+    /// widget already had a ground of its own underneath — so all three steps composited over
+    /// `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where
+    /// the slot's padding stuck out past the chip's corner. Once density moved onto the widget
+    /// the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg`
+    /// and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list
+    /// panels actually paint from. **`none` was renamed to `bare`, and the rename is the
+    /// migration.** The old value was the default *and* it drew a ground, so it never meant
+    /// what it said and no player can have chosen it deliberately: there was no way to get a
+    /// bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the
+    /// default", and the honest remap is to `subtle`, which is exactly what those players have
+    /// been looking at. Renaming rather than redefining is what makes that remap safe to run
+    /// once and never again — a stored `none` can only have been written before this, where a
+    /// redefined `none` would be indistinguishable from a player who has since chosen it.
+    /// `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's
+    /// `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which
+    /// is the same answer arrived at for free.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the sprint reset chip, at the system's own
+    /// `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as
+    /// `background`: the edge either separates the chip from the game or it does not, and the
+    /// one useful answer is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the sprint reset chip — the inset between its content and its edge, as one of
+    /// five steps. `density` is named in §1 as legitimate customisation, and it is what a
+    /// player actually means by 'make the HUD smaller' when `scale` has already made the text
+    /// too small to read. **This step drives the widget's own inset, not a box around it.** For
+    /// one release it set padding on the *slot* — the box `HudSlot` puts round the widget —
+    /// while the widget kept its own hard-coded padding underneath. With the default
+    /// `background: none` that outer box is transparent, so the setting moved an invisible edge
+    /// and the drawn chip never changed size. It passed `preview.test.tsx` because the class
+    /// name on the slot changed, which is exactly the erosion that file's own doc comment warns
+    /// the exemption list about: a gate that compares markup cannot tell a class that draws
+    /// from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel`
+    /// and `--gap-hud-keys`, the three variables every HUD surface actually reads its density
+    /// from, so the chip, the two list panels and the keycap cluster all move together and all
+    /// move at every background step. Five steps rather than three because three could not say
+    /// what players asked for at either end. `none` is the setting off — glyphs on the game
+    /// with nothing round them — which is what a player who has already turned the ground off
+    /// is after; `wide` is the panel treatment, for a HUD read at a glance across a room.
+    /// `tight`, `normal` and `roomy` keep the values they had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// How many of your most recent landed hits the rate is taken over. 20 by default — long
+    /// enough that one missed reset moves the figure by five points rather than by a third,
+    /// short enough that it still reads as *now* rather than as a session average. Counted in
+    /// hits and not in seconds, deliberately: a rate over the last ten seconds is a rate over
+    /// however many hits happened to land in them, which is none during a chase and a dozen in
+    /// a corner, and the figure would swing on the fight's shape rather than on your play. The
+    /// ceiling is 40, which is the longest history the client keeps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<i64>,
+
+    /// What the chip prints. `percent` — `75%` — is the default because a rate is what the mod
+    /// measures and it is one figure wide. `ratio` prints `15 / 20`, which says the same thing
+    /// and also says how much evidence is behind it: a perfect 5/5 and a perfect 20/20 are the
+    /// same percentage and only one of them is a habit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<SprintResetStyle>,
+
+    /// Whether a fill bar is drawn under the figure. Off by default because the figure is the
+    /// reading; on, it is the fastest form there is — a rate is already a share, so the bar has
+    /// nothing to normalise and full means every hit had a sprint behind it. Monochrome, like
+    /// the two chips that already draw this bar: a colour would be marking a threshold, and the
+    /// threshold is `warn_below`'s to mark (`design/quiet-cell-system.md` §1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_bar: Option<bool>,
+
+    /// Whether the trailing `SPRINT` unit is drawn. On by default: a bare `75%` on a HUD that
+    /// may also be carrying a saturation percentage and an armour bar is a share with no
+    /// subject, and this is the one figure on that stack whose meaning is not obvious from its
+    /// magnitude.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+
+    /// A rate at or below this fraction draws in the warn treatment. `0` is off and is the
+    /// default. A fraction rather than a percentage, and that is the registry deciding rather
+    /// than this mod: `warn_below` is `armor_status`' name for "the share under which a player
+    /// wants to be told", the generator refuses two meanings for one setting name, and a share
+    /// is what both of these are. The chip still prints a percentage — the unit a player reads
+    /// is not the unit a threshold is stored in. Off by default because where the line sits is
+    /// a claim about how good you should be, and this client does not have one: a rate that is
+    /// poor in a 1v1 is fine in a chase where half your hits are thrown mid-turn. A player who
+    /// knows their own number can ask to be told when they drop under it, which is the only
+    /// version of this threshold that is theirs rather than ours.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warn_below: Option<f64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 37.
+/// Every mod VOID ships, keyed by id. Closed set of 38.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -4177,6 +4332,10 @@ pub struct ModRegistryEntries {
     /// Nametags — Shrink, thin out or hide the floating names, which in a team mode are most of
     /// what is on screen.
     pub nametags: ModEntry<NametagsSettings>,
+
+    /// Sprint reset — How many of your recent hits landed with a sprint behind them — whether
+    /// the W-tap is working.
+    pub sprint_reset: ModEntry<SprintResetSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -4262,6 +4421,8 @@ pub struct ModStates {
     pub block_outline: Option<BlockOutlineSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nametags: Option<NametagsSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprint_reset: Option<SprintResetSettings>,
 }
 
 impl Registry {
@@ -4305,6 +4466,7 @@ impl Registry {
             ModId::PotionCounter => self.mods.potion_counter.info(),
             ModId::BlockOutline => self.mods.block_outline.info(),
             ModId::Nametags => self.mods.nametags.info(),
+            ModId::SprintReset => self.mods.sprint_reset.info(),
         }
     }
 
@@ -4350,6 +4512,7 @@ impl Registry {
             ModId::PotionCounter => self.mods.potion_counter.defaults_object(),
             ModId::BlockOutline => self.mods.block_outline.defaults_object(),
             ModId::Nametags => self.mods.nametags.defaults_object(),
+            ModId::SprintReset => self.mods.sprint_reset.defaults_object(),
         }
     }
 }
@@ -4396,6 +4559,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::PotionCounter => super::check::<PotionCounterSettings>(id, value),
         ModId::BlockOutline => super::check::<BlockOutlineSettings>(id, value),
         ModId::Nametags => super::check::<NametagsSettings>(id, value),
+        ModId::SprintReset => super::check::<SprintResetSettings>(id, value),
     }
 }
 

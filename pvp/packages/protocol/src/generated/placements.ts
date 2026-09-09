@@ -130,4 +130,12 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * rhythm.
    */
   potion_counter: { anchor: 'top-left', dx: 23, dy: 331 },
+  /**
+   * Under Reach display, 38 px below it on the top-left column rhythm, closing the stack that
+   * is the fight's own arithmetic — the chain, the session, how far the last one connected, and
+   * whether it had a sprint behind it. Placed last because it is the one reading that needs
+   * several hits before it means anything, so it is the one a player checks between fights
+   * rather than during one.
+   */
+  sprint_reset: { anchor: 'top-left', dx: 23, dy: 331 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

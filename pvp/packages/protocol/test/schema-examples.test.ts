@@ -136,7 +136,7 @@ describe('mod registry', () => {
     }
   });
 
-  it('classifies exactly fullbright, hitboxes, overlay and old_input as grey', () => {
+  it('classifies exactly fullbright, hitboxes, overlay, old_input and reach as grey', () => {
     // An exact set rather than a count, and edited by hand when it moves: `grey` is what gates
     // the HYPIXEL-READY badge, so a mod joining the class should have to touch a test that
     // names it. `overlay` is the third — `schema/mods/overlay.json`'s `$comment` carries the
@@ -147,8 +147,20 @@ describe('mod registry', () => {
     // therefore what the server receives, which fits none of §6.1's three permitted categories.
     // Bundled, a player wanting the sword to swing through a block would have paid the badge for
     // switches they never turned on.
+    //
+    // `reach` is the fifth, and `docs/mod-roster.md` §6.1 classes it by name: a readout of your
+    // own attack distance is allowed and a live distance to a target you have not hit is not,
+    // and the two draw the same figure. The rule that keeps it the first lives in
+    // `mod/.../sensor/ReachTally.java`, not in the widget.
+    //
+    // **This assertion was stale for a wave, and the way it went stale is the lesson.** `reach`
+    // shipped with its Rust twin in `void-loadout`'s `mods.rs` updated and this one not — two
+    // hand-maintained lists of the same set, in two languages, and only one of them was in the
+    // suite that got run. Neither is derived, deliberately; what is missing is that they are
+    // never checked against each other, so the next mod to join this class should expect to
+    // touch both by hand and to have only one of them tell it so.
     const grey = MOD_IDS.filter((id) => MOD_REGISTRY[id].hypixel_safe === 'grey');
-    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input']);
+    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input', 'reach']);
   });
 });
 

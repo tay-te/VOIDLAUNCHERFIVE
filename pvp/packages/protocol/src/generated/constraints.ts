@@ -130,6 +130,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "nametag_scale": {
     "min": 0.5,
     "max": 2
+  },
+  "window": {
+    "min": 5,
+    "max": 40
   }
 } as const;
 
@@ -513,6 +517,22 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "strength",
     "fire_resistance",
     "any"
+  ],
+  "sprint_reset.background": [
+    "bare",
+    "subtle",
+    "solid"
+  ],
+  "sprint_reset.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
+  ],
+  "sprint_reset.style": [
+    "percent",
+    "ratio"
   ]
 } as const;
 

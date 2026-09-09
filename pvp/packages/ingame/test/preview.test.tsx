@@ -73,6 +73,7 @@ const LIVE: readonly ModId[] = [
   'block_outline',
   'nametags',
   'reach',
+  'sprint_reset',
   'potion_counter',
   'saturation',
   'momentum',

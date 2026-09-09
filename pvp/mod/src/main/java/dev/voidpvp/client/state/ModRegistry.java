@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 37 mods.
+ * The closed registry of the 38 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -178,7 +178,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (21) — they read game state and draw -------------------------------------
+        // --- HUD mods (22) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -589,7 +589,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (21) — they read game state and draw -------------------------------------
+        // --- HUD mods (22) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -1215,7 +1215,7 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- HUD mods (21) — they read game state and draw -------------------------------------
+        // --- HUD mods (22) — they read game state and draw -------------------------------------
 
         // Trade counter — kind hud, pvp tab, §11 safe.
         // Hits you have landed against hits you have taken, this session.
@@ -1348,7 +1348,7 @@ public final class ModRegistry {
                 // every pixel here is vanilla's.
                 "offset_y", integer(-200, 200, 0));
 
-        // --- HUD mods (21) — they read game state and draw -------------------------------------
+        // --- HUD mods (22) — they read game state and draw -------------------------------------
 
         // Reach display — kind hud, pvp tab, §11 grey.
         // How far away your last landed hit was — the swing that connected, never the one you are
@@ -1494,7 +1494,62 @@ public final class ModRegistry {
                 // of what distance means.
                 "max_distance", number(4, 64, 64));
 
-        // --- The factory HUD layout (21) — where each widget starts ----------------------------
+        // --- HUD mods (22) — they read game state and draw -------------------------------------
+
+        // Sprint reset — kind hud, pvp tab, §11 safe.
+        // How many of your recent hits landed with a sprint behind them — whether the W-tap is
+        // working.
+        // Source: the `hits.dealt` and `hits.sprint_dealt` counters, via the tick sensor.
+        mod("sprint_reset", Kind.HUD, Category.PVP, "Sprint reset",
+                // Whether the sprint reset readout is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // How many of your most recent landed hits the rate is taken over. 20 by default
+                // — long enough that one missed reset moves the figure by five points rather than
+                // by a third, short enough that it still reads as *now* rather than as a session
+                // average. Counted in hits and not in seconds, deliberately: a rate over the last
+                // ten seconds is a rate over however many hits happened to land in them, which is
+                // none during a chase and a dozen in a corner, and the figure would swing on the
+                // fight's shape rather than on your play. The ceiling is 40, which is the longest
+                // history the client keeps.
+                "window", integer(5, 40, 20),
+                // What the chip prints. `percent` — `75%` — is the default because a rate is what
+                // the mod measures and it is one figure wide. `ratio` prints `15 / 20`, which
+                // says the same thing and also says how much evidence is behind it: a perfect 5/5
+                // and a perfect 20/20 are the same percentage and only one of them is a habit.
+                "style", enumOf("percent", "percent", "ratio"),
+                // Whether a fill bar is drawn under the figure. Off by default because the figure
+                // is the reading; on, it is the fastest form there is — a rate is already a
+                // share, so the bar has nothing to normalise and full means every hit had a
+                // sprint behind it. Monochrome, like the two chips that already draw this bar: a
+                // colour would be marking a threshold, and the threshold is `warn_below`'s to
+                // mark (`design/quiet-cell-system.md` §1).
+                "show_bar", bool(false),
+                // Whether the trailing `SPRINT` unit is drawn. On by default: a bare `75%` on a
+                // HUD that may also be carrying a saturation percentage and an armour bar is a
+                // share with no subject, and this is the one figure on that stack whose meaning
+                // is not obvious from its magnitude.
+                "show_label", bool(true),
+                // A rate at or below this fraction draws in the warn treatment. `0` is off and is
+                // the default. A fraction rather than a percentage, and that is the registry
+                // deciding rather than this mod: `warn_below` is `armor_status`' name for "the
+                // share under which a player wants to be told", the generator refuses two
+                // meanings for one setting name, and a share is what both of these are. The chip
+                // still prints a percentage — the unit a player reads is not the unit a threshold
+                // is stored in. Off by default because where the line sits is a claim about how
+                // good you should be, and this client does not have one: a rate that is poor in a
+                // 1v1 is fine in a chase where half your hits are thrown mid-turn. A player who
+                // knows their own number can ask to be told when they drop under it, which is the
+                // only version of this threshold that is theirs rather than ours.
+                "warn_below", number(0, 1, 0));
+
+        // --- The factory HUD layout (22) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1607,13 +1662,20 @@ public final class ModRegistry {
         // wearing, what is keeping you alive, and what you have left to fix it with. 38 px below
         // on the same column rhythm.
         place("potion_counter", "top-left", 23, 331);
+
+        // Sprint reset: Under Reach display, 38 px below it on the top-left column rhythm,
+        // closing the stack that is the fight's own arithmetic — the chain, the session, how far
+        // the last one connected, and whether it had a sprint behind it. Placed last because it
+        // is the one reading that needs several hits before it means anything, so it is the one a
+        // player checks between fights rather than during one.
+        place("sprint_reset", "top-left", 23, 331);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 37 mod ids, in registry order. */
+    /** The 38 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

@@ -1,0 +1,65 @@
+{
+  "$comment": "Four notes.\n\n**This is §5's row, not §4's, and the difference decides the whole design.** `docs/mod-roster.md` §5 lists \"Sprint-reset (W-tap) feedback\" as *unclaimed*: Lunar's Knockback Trainer covers jump resets and nothing on either client covers this one. A table-stakes mod is judged by whether it matches; a differentiator is judged by whether the reading is true, because there is nothing to compare it against. So the argument below is about the measurement rather than about the settings.\n\n**It is measured on the outcome, not on the key, and the game is why.** The obvious build is to watch `keys.w` for a release-and-repress and time it against the hits. That measures the *attempt*. 1.8.9's `PlayerEntity.attack` adds one to the knockback amount when the attacker is sprinting (offsets 81-88) and calls `setSprinting(false)` at offset 339 in the branch that applies it — so a sprint-hit spends the sprint that made it one, and a second one in a row is only possible if the sprint was restarted in between. The share of your landed hits that were sprint-hits therefore *is* the reset success rate, with no timing window to tune and no definition of a \"tap\" to defend. A W-tap that came half a tick late releases the key and produces no sprint-hit, and only the outcome measure can tell those apart.\n\n**It shares `bolt` with Toggle sprint, on this registry's own stated terms.** `build-icons.py` forbids two glyphs with one *silhouette* — a near-miss nobody can read at 13px — and this sheet already shares an existing mark three times, every one a pair of mods reading one subject: `compass` is Coordinates and Direction, `wifi` is Ping and Server address, `sword` is Combo, Trade and Reach. Sprinting is one subject too: one mod decides how you hold it, this one reports whether you spent it. Inventing a fourth lightning mark would be the case `tap`'s comment records the cost of.\n\n**No timeout, and the window is counted in hits rather than seconds.** Combo owns the only clock in this registry (`combo.reset_ms`) and two mods owning one timeout is what `toggle_sneak` was split out of `toggle_sprint` to stop. A window in seconds would also be the wrong unit: a rate over \"the last ten seconds\" is a rate over however many hits happened to land in them, which is nought in a chase and twelve in a corner. Counting hits makes the denominator the thing the numerator came from, and it needs no repaint between hits at all.",
+  "id": "sprint_reset",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Sprint reset",
+  "icon": "bolt",
+  "the": true,
+  "noun": "the sprint reset chip",
+  "on_description": "the sprint reset readout is enabled",
+  "description": "How many of your recent hits landed with a sprint behind them — whether the W-tap is working.",
+  "settings_title": "Sprint reset settings",
+  "settings_description": "Settings for the Sprint reset HUD mod. It reads `hits.dealt` and `hits.sprint_dealt` — both monotonic since the client started — and reports the share of your recent landed hits that were delivered while sprinting.\n\n**Why that share is the reading.** In 1.8.9 a hit thrown while sprinting carries an extra point of knockback, and landing it clears your sprint. So a chain of sprint-hits is only possible if the sprint is restarted between every one, which is what a W-tap is for. The mod does not watch your W key: it watches whether the reset worked, which is the same question with no timing window to argue about.\n\nIt draws nothing until something has been hit. A rate of zero is a player whose resets are all failing; no hits at all is a player who has not swung, and a chip reading `0%` would confuse the two.",
+  "source": "the `hits.dealt` and `hits.sprint_dealt` counters, via the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Under Reach display, 38 px below it on the top-left column rhythm, closing the stack that is the fight's own arithmetic — the chain, the session, how far the last one connected, and whether it had a sprint behind it. Placed last because it is the one reading that needs several hits before it means anything, so it is the one a player checks between fights rather than during one.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 331
+  },
+  "defaults": {
+    "window": 20,
+    "style": "percent",
+    "show_bar": false,
+    "show_label": true,
+    "warn_below": 0
+  },
+  "settings": {
+    "window": {
+      "description": "How many of your most recent landed hits the rate is taken over. 20 by default — long enough that one missed reset moves the figure by five points rather than by a third, short enough that it still reads as *now* rather than as a session average.\n\nCounted in hits and not in seconds, deliberately: a rate over the last ten seconds is a rate over however many hits happened to land in them, which is none during a chase and a dozen in a corner, and the figure would swing on the fight's shape rather than on your play. The ceiling is 40, which is the longest history the client keeps.",
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 40,
+      "default": 20
+    },
+    "style": {
+      "description": "What the chip prints. `percent` — `75%` — is the default because a rate is what the mod measures and it is one figure wide. `ratio` prints `15 / 20`, which says the same thing and also says how much evidence is behind it: a perfect 5/5 and a perfect 20/20 are the same percentage and only one of them is a habit.",
+      "type": "string",
+      "enum": [
+        "percent",
+        "ratio"
+      ],
+      "default": "percent"
+    },
+    "show_bar": {
+      "description": "Whether a fill bar is drawn under the figure. Off by default because the figure is the reading; on, it is the fastest form there is — a rate is already a share, so the bar has nothing to normalise and full means every hit had a sprint behind it. Monochrome, like the two chips that already draw this bar: a colour would be marking a threshold, and the threshold is `warn_below`'s to mark (`design/quiet-cell-system.md` §1).",
+      "type": "boolean",
+      "default": false
+    },
+    "show_label": {
+      "description": "Whether the trailing `SPRINT` unit is drawn. On by default: a bare `75%` on a HUD that may also be carrying a saturation percentage and an armour bar is a share with no subject, and this is the one figure on that stack whose meaning is not obvious from its magnitude.",
+      "type": "boolean",
+      "default": true
+    },
+    "warn_below": {
+      "description": "A rate at or below this fraction draws in the warn treatment. `0` is off and is the default.\n\nA fraction rather than a percentage, and that is the registry deciding rather than this mod: `warn_below` is `armor_status`' name for \"the share under which a player wants to be told\", the generator refuses two meanings for one setting name, and a share is what both of these are. The chip still prints a percentage — the unit a player reads is not the unit a threshold is stored in.\n\nOff by default because where the line sits is a claim about how good you should be, and this client does not have one: a rate that is poor in a 1v1 is fine in a chase where half your hits are thrown mid-turn. A player who knows their own number can ask to be told when they drop under it, which is the only version of this threshold that is theirs rather than ours.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  }
+}

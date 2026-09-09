@@ -109,6 +109,12 @@ const ORDER = [
   // setting is one instruction in `WorldRenderer.drawBlockOutline` — the roster's M estimate was
   // for drawing one rather than for redirecting the one that exists. Appended, never inserted.
   'block_outline', 'nametags',
+  // Wave 10 — the first row off §5 rather than §4, and the first mod here that measures something
+  // no competitor reports. `sprint_reset` needed one bit added to a counter that already existed,
+  // and the bit had to be read at `doAttack` HEAD because the attack that earns it also clears it
+  // (`HitTally.sprintDealt`, and `bridge.json`'s `hits.sprint_dealt`, both cite the offsets).
+  // Appended, never inserted.
+  'sprint_reset',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

@@ -152,7 +152,52 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
-### 2026-09-09 (latest) — `tick_payload.inventory`, and identity is the whole design
+### 2026-09-09 (latest) — `hits.sprint_dealt`, and a bit that expires inside the method that earns it
+
+`mods.json` registry `version` bumped; `protocol.json` `v` unchanged — a `bridge.json` addition,
+so it crosses Java to the page and never reaches Rust.
+
+**One optional integer added to an object that already existed.** `hits` has carried `dealt` and
+`taken` since the combo counter shipped; this adds `sprint_dealt` — of those landed attacks, the
+ones delivered while sprinting. Optional, so an older sender simply omits it and a reader treats
+the absence as unchanged, which is this payload's rule for every field.
+
+**It is the first field added for `docs/mod-roster.md` §5 rather than §4**, and the difference
+shows in what had to be argued. A table-stakes field is judged against what the competitors send;
+this one has no counterpart on either client, so the entry is about whether the measurement is
+true.
+
+**Why a counter and not a rate.** Sprint-reset feedback is a percentage, and the percentage is not
+here. A rate is a rate over a window, the window is `sprint_reset.window`, and a mod setting in a
+sensor is how a sensor starts needing to know about mods — the same sentence `hits` already
+carries for refusing to send the combo. The client keeps one boolean per landed hit, filled from
+the *deltas* of the two counters, so a tick that carried two hits contributes two entries and a
+dropped tick costs nothing. That robustness is the whole reason `hits` sends counters rather than
+events, and it survives the addition unchanged.
+
+**Why the sender has to read the flag before the attack, and why that is in the schema.**
+1.8.9's `PlayerEntity.attack` adds one to the knockback amount when the attacker is sprinting
+(offsets 81-88) and then calls `setSprinting(false)` at offset 339, in the branch that applies it.
+The client reaches that line — `ClientPlayerInteractionManager.attackEntity` runs
+`PlayerEntity.attack` at its own offsets 32-34 for every game mode but spectator. So the fact this
+field reports is destroyed by the call that produces it, and a sender sampling `isSprinting()` at
+the end of the swing reports false for precisely the hits it is meant to count. That failure is
+silent and plausible: it looks like a player who never resets. It is recorded in `bridge.json`
+rather than only in the mixin because a second sender would otherwise have to rediscover it, and
+would discover it as a bug report.
+
+**That the mechanic is measurable this way is itself the finding.** A sprint-hit spends the sprint
+that made it one, so two in a row require the sprint to have been restarted in between — which is
+what a W-tap is. The share of landed hits that were sprint-hits therefore *is* the reset success
+rate, with no timing window to tune and no definition of a "tap" to defend. Watching `keys.w`
+would have measured the attempt instead, and the two differ exactly where the reading is useful.
+
+**Followers:** `HitTally.sprintDealt` (the counter and the gate it shares with `dealt`),
+`MinecraftClientMixin.void$readSprintBeforeAttack` (the HEAD latch), `TickInput`, `TickCoalescer`,
+`@void/protocol`'s generated types and `fake-void`, the store's `sprintHistory`, and the one mod —
+`sprint_reset`. Nothing in `crates/` reads `bridge.json`.
+
+### 2026-09-09 — `tick_payload.inventory`, and identity is the whole design
 
 `mods.json` registry `version` bumped; `protocol.json` `v` unchanged — a `bridge.json` addition,
 so it crosses Java to the page and never reaches Rust.

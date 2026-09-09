@@ -831,6 +831,34 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "plate": true,
           "max_distance": 64
         }
+      },
+      "sprint_reset": {
+        "id": "sprint_reset",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Sprint reset",
+        "icon": "bolt",
+        "description": "How many of your recent hits landed with a sprint behind them — whether the W-tap is working.",
+        "source": "the `hits.dealt` and `hits.sprint_dealt` counters, via the tick sensor",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "subtle",
+          "border": false,
+          "padding": "normal",
+          "window": 20,
+          "style": "percent",
+          "show_bar": false,
+          "show_label": true,
+          "warn_below": 0
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 331
+        }
       }
     }
   }

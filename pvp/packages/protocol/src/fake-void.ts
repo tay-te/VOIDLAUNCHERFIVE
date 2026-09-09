@@ -584,9 +584,15 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     // Monotonic, like the real thing. A hit roughly every 700 ms and a hit taken every ~5 s, so
     // a combo builds and then breaks — which is the whole behaviour the combo mod draws, and it
     // would be invisible in a fake that only ever incremented one counter.
+    // `sprint_dealt` trails `dealt` at roughly three in four, which is a plausible reset rate for
+    // somebody good and, more to the point, is neither of the two figures a bug would produce: a
+    // sensor reading the sprint flag after the attack gives 0, and one that never clears it gives
+    // `dealt`. A fake that sat at either would make both failures look like the harness working.
+    const dealt = Math.floor(clockMs / 700);
     payload.hits = {
-      dealt: Math.floor(clockMs / 700),
+      dealt,
       taken: Math.floor(clockMs / 5000),
+      sprint_dealt: dealt - Math.floor(dealt / 4),
     };
     return payload;
   }

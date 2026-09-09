@@ -467,6 +467,11 @@
               "description": "Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.",
               "type": "integer",
               "minimum": 0
+            },
+            "sprint_dealt": {
+              "description": "Of `dealt`, the attacks delivered **while sprinting**. Monotonic, and never larger than `dealt`. Optional: absent means unchanged, like every field on this payload, and a sender that had no reading omits it rather than sending 0 \u2014 a zero here would read as a sprint-hit rate that collapsed in the tick a sensor threw.\\n\\n**This is the sprint-reset (W-tap) measurement, and it is taken on the outcome rather than on the key.** 1.8.9's `PlayerEntity.attack` adds one to the knockback amount when the attacker is sprinting (offsets 81-88) and then calls `setSprinting(false)` at offset 339, in the branch that applies it \u2014 so a sprint-hit spends the sprint that made it one, and landing two in a row requires the sprint to have been restarted in between. That restart is what a W-tap is, so `sprint_dealt / dealt` over any window is the success rate of the reset over that window. Counting W releases instead would count the attempt; this counts the result, and the two differ exactly where the reading is useful.\\n\\n**The sender must sample `isSprinting()` before the attack is delivered**, because the flag is cleared by the call that consumes it. A reading taken after `PlayerEntity.attack` is false for precisely the swings this counts, which is a failure that looks like a player who never resets rather than like a broken field.\\n\\n**No rate, no window and no percentage on the wire**, for the same reason `hits` carries counters rather than a combo: a window is a mod setting, and a mod setting in a sensor is how a sensor starts needing to know about mods.",
+              "type": "integer",
+              "minimum": 0
             }
           }
         },

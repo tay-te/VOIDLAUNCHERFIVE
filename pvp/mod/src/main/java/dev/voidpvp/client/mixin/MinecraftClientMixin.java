@@ -14,6 +14,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.ClientPlayerEntity;
 import net.minecraft.util.hit.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -84,6 +85,36 @@ public abstract class MinecraftClientMixin {
      * field records: a timeout is a mod setting, and putting a mod setting in a sensor is how a
      * sensor starts needing to know about mods.</p>
      */
+    /**
+     * {@code isSprinting()} as it was at the top of the swing, for {@code HitTally.sprintDealt}.
+     *
+     * <p><b>A field rather than an argument because the fact expires inside the method.</b>
+     * 1.8.9's {@code PlayerEntity.attack} calls {@code setSprinting(false)} at offset 339, in the
+     * branch that applies the knockback a sprint earned — and the client reaches it: {@code
+     * ClientPlayerInteractionManager.attackEntity} runs {@code PlayerEntity.attack} at its own
+     * offsets 32-34 for every game mode but spectator. So by {@code doAttack} TAIL the flag reads
+     * false for exactly the swings the counter exists to count, and a player landing a perfect
+     * chain of sprint-hits would be shown zero of them.</p>
+     *
+     * <p><b>And it is read at HEAD rather than reported from there</b>, because whether the swing
+     * landed is not known until TAIL. Splitting the read from the decision keeps
+     * {@link HitTally}'s one definition of "landed" — the alternative, a second injection next to
+     * {@code attackEntity} that reports its own hits, is exactly the second definition the
+     * {@code onAttackSwing} comment below refuses.</p>
+     *
+     * <p>Not reset between swings: {@code doAttack} cannot run re-entrantly and every TAIL is
+     * preceded by the HEAD that wrote this, so a stale value is unreachable rather than
+     * defended against with a flag that would need its own reasoning.</p>
+     */
+    @Unique
+    private boolean void$sprintingAtSwing;
+
+    @Inject(method = "doAttack", at = @At("HEAD"))
+    private void void$readSprintBeforeAttack(CallbackInfo ci) {
+        MinecraftClient mc = (MinecraftClient) (Object) this;
+        void$sprintingAtSwing = mc.player != null && mc.player.isSprinting();
+    }
+
     @Inject(method = "doAttack", at = @At("TAIL"))
     private void void$onAttack(CallbackInfo ci) {
         VoidClient client = VoidClient.get();
@@ -108,7 +139,8 @@ public abstract class MinecraftClientMixin {
         client.onAttackSwing(at,
                 target != null && target.isAlive(),
                 target != null && target.isAttackable(),
-                mc.player != null && mc.player.isSpectator());
+                mc.player != null && mc.player.isSpectator(),
+                void$sprintingAtSwing);
         // The same swing, reported a second way for `hit_color.own_hits_only`. Separate from the
         // HitTally call on purpose: that one is a counter with a defended definition of "landed"
         // and this one is a scope filter that only has to know which entity was under the

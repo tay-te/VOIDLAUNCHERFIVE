@@ -77,6 +77,15 @@ public final class TickInput {
     public Integer hitsTaken;
 
     /**
+     * Of {@link #hitsDealt}, the ones delivered while sprinting. Monotonic, never larger.
+     *
+     * <p>Carried with the other two rather than as its own object because it is the same fact
+     * about the same event, and because the three move together: {@link TickCoalescer} publishes
+     * {@code hits} when any of them changes, and a sprint-hit changes two of them at once.</p>
+     */
+    public Integer hitsSprintDealt;
+
+    /**
      * Distance of the last attack that landed, in blocks. Null until one has.
      *
      * <p>Null and not zero, and the distinction is the mod: a reach of 0 is not a swing at
@@ -115,6 +124,7 @@ public final class TickInput {
         memoryMaxMb = null;
         hitsDealt = null;
         hitsTaken = null;
+        hitsSprintDealt = null;
         reach = null;
         inventory = null;
     }

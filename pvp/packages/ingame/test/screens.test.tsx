@@ -347,9 +347,12 @@ describe('Mods screen — the grid, and the page one click away', () => {
   });
 
   it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
-    // Row-major, so the arrow keys had to change with the fill order. Thirty-four mods are seven
+    // Row-major, so the arrow keys had to change with the fill order. Thirty-eight mods are seven
     // across: `fps` is index 0, `hit_trade` index 6 (end of row one), `reach` index 7 (start of
-    // row two), `watermark` index 33 (the last, sixth on a fifth row).
+    // row two), `watermark` index 37 (the last, third on a sixth row).
+    //
+    // Rewritten rather than derived, on purpose — a count read out of `MOD_ORDER` would agree
+    // with whatever the grid does, including a fill order nobody intended.
     const { container } = render(<App />);
     const overlay = container.querySelector('.overlay') as HTMLElement;
     const at = () => useVoidStore.getState().selectedMod;
@@ -359,7 +362,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     press('ArrowRight');
     expect(at()).toBe('memory');
     press('ArrowDown');
-    expect(at()).toBe('toggle_sprint'); // index 1 + 7
+    expect(at()).toBe('sprint_reset'); // index 1 + 7
     press('ArrowUp');
     expect(at()).toBe('memory');
 

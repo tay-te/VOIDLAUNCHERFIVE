@@ -1,8 +1,8 @@
 package dev.voidpvp.client.sensor;
 
 /**
- * The two monotonic counters behind {@code bridge.json}'s {@code hits} object, and the rules for
- * moving them (§6.6).
+ * The three monotonic counters behind {@code bridge.json}'s {@code hits} object, and the rules
+ * for moving them (§6.6).
  *
  * <p>Plain on purpose, like {@link KeyStateTracker} and {@link ServerWatcher}: the Mixin that
  * feeds this cannot be unit-tested, so everything that <em>decides</em> lives here and the Mixin
@@ -28,6 +28,7 @@ public final class HitTally {
     }
 
     private int dealt;
+    private int sprintDealt;
     private int taken;
     private int lastHurtTime;
 
@@ -66,11 +67,17 @@ public final class HitTally {
      * @param spectating        the player is in spectator mode, where
      *                          {@code attackEntity} sends the packet but skips
      *                          {@code PlayerEntity.attack} and the server ignores it
+     * @param sprinting         {@code PlayerEntity.isSprinting()} as it was <em>before</em> the
+     *                          attack was delivered — see {@link #sprintDealt()}. Meaningless
+     *                          unless the swing lands, and ignored when it does not
      */
     public void swung(Swing at, boolean targetAlive, boolean targetAttackable,
-            boolean spectating) {
+            boolean spectating, boolean sprinting) {
         if (at == Swing.ENTITY && targetAlive && targetAttackable && !spectating) {
             dealt++;
+            if (sprinting) {
+                sprintDealt++;
+            }
         }
     }
 
@@ -92,6 +99,35 @@ public final class HitTally {
     /** Attacks landed since the session began. Monotonic; never reset on the wire. */
     public int dealt() {
         return dealt;
+    }
+
+    /**
+     * Of those, the ones delivered while sprinting. Monotonic, and never larger than
+     * {@link #dealt()}.
+     *
+     * <p><b>Why this counter is the sprint-reset measurement and not a proxy for it.</b> 1.8.9's
+     * {@code PlayerEntity.attack} adds one to the knockback amount when the attacker is sprinting
+     * (offsets 81-88) and then, in the branch that applies that knockback, calls
+     * {@code setSprinting(false)} at offset 339. So a sprint-hit spends the sprint that made it
+     * one: landing two in a row is not a matter of holding W, it requires the sprint to have been
+     * restarted in between, which is the whole of what a W-tap is. The fraction of landed attacks
+     * that were sprint-hits is therefore the success rate of the reset, measured on the outcome
+     * rather than on the key.</p>
+     *
+     * <p><b>Which is why the caller must read {@code isSprinting()} before the attack, not
+     * after.</b> The flag this counts is cleared by the very call that consumes it, so a reading
+     * taken at the end of {@code doAttack} — after
+     * {@code ClientPlayerInteractionManager.attackEntity} has run {@code PlayerEntity.attack} at
+     * its own offsets 32-34 — is false for exactly the hits this is trying to count, and the
+     * counter would sit at zero for a player doing it perfectly. {@code MinecraftClientMixin}
+     * latches the flag at {@code doAttack} HEAD for that reason.</p>
+     *
+     * <p><b>Not a keypress tally.</b> Counting W releases would count the attempt; this counts
+     * the result, and the two differ precisely where the mod is useful — a tap that came too late
+     * releases the key and does not produce a sprint-hit.</p>
+     */
+    public int sprintDealt() {
+        return sprintDealt;
     }
 
     /** Times the player has been hit since the session began. Monotonic. */

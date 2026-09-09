@@ -287,11 +287,60 @@ one mechanic. Nobody, on either client, ships:
 | Idea | What it is | Cost | Why it is ours to take |
 |---|---|---|---|
 | **Fight review** | A post-fight card: hits landed / taken, average reach, CPS through the fight, sprint-reset rate, time-to-kill, where it went wrong | M–L | Lunar's `pvp-info` has **two settings**. It is a stub. We already run an Ultralight surface and a desktop launcher — a review screen is a page, not a renderer. This is the one place our architecture is straightforwardly better suited than a plain Fabric mod. |
-| **Click analytics** | Interval histogram of *your own* clicks, jitter spread, drag/butterfly detection, consistency over a session | S–M | Purely your own input, so it is unimpeachably safe. We already window clicks for `cps.window_ms`. Nobody ships it and every player is curious. |
-| **Sprint-reset (W-tap) feedback** | The other half of knockback control: did your W-tap land in the window, how often, drifting over a session | M | Lunar covers jump resets only. This is the obvious adjacent mechanic and it is unclaimed. |
+| **Click analytics** | Interval histogram of *your own* clicks, jitter spread, drag/butterfly detection, consistency over a session | S–M, but see below | Purely your own input, so it is unimpeachably safe. Half of it is buildable and half is blocked on a clock we do not own — the interval histogram is not the safe half. |
+| **Sprint-reset (W-tap) feedback** | The share of your landed hits that had a sprint behind them | S | **Shipped 2026-09-09** as `sprint_reset`, and smaller than M because the window turned out not to exist — see below. Lunar covers jump resets only; this stays unclaimed on both clients. |
 | **Connection quality, not a ping number** | Jitter band, packet-loss estimate, tick-skip / "the server is behind" indicator | S–M | Careful: Lunar's `ping` mod *does* have spike detection with two thresholds and rolling averages, so "we show ping spikes" is not new. Jitter distribution, loss and tick-skip **are**. We already have `net/SessionStats` and `sensor/ServerWatcher`. |
-| **Input latency readout** | Actual input-to-action latency | S | `input/InputLatency.java` **already exists in this repo.** Neither competitor exposes anything like it. This is close to free. |
+| **Input latency readout** | Actual input-to-action latency | M–L | **The row is wrong and the file is not what it says.** `input/InputLatency.java` measures our own *menu's* event path — see below. Neither competitor exposes anything like it, and neither do we. |
 | **Loadout as a shareable artifact** | Export/import a full loadout — mods, settings, HUD placement — by code | S–M | Lunar has profiles; neither has sharing. The Electron launcher already has a share-code system to copy from. Pure product work, no game code. |
+
+> **Status, 2026-09-09: one of the six is shipped, and reading the other five moved three rows.**
+>
+> **Sprint reset shipped, and the design is the finding rather than the mod.** The row above
+> described timing a W-tap against a window — did the tap land in it, how often, drifting over a
+> session — which needs a definition of "a tap", a window to tune, and a timestamp accurate enough
+> to compare them. None of that was necessary, because 1.8.9 measures it for us:
+> `PlayerEntity.attack` adds a point of knockback when the attacker is sprinting (offsets 81-88)
+> and then clears the sprint at offset 339. **A sprint-hit spends the sprint that made it one**, so
+> a second one in a row is only possible if the reset worked. The share of your landed hits that
+> were sprint-hits *is* the success rate, with nothing to tune and nothing to define — and it
+> measures the outcome, where watching the key would have measured the attempt. The two differ
+> exactly where the mod is useful: a tap half a tick late releases the key and produces no
+> sprint-hit.
+>
+> One bit added to a counter that already existed. The only hard part was where to read it: the
+> attack that earns the bit is the attack that clears it, so a sample taken at the end of the swing
+> is false for every hit the mod counts — a failure that would have looked like a player who never
+> resets. `MinecraftClientMixin` latches it at `doAttack` HEAD, and `bridge.json` says why so a
+> second sender inherits it rather than filing it as a bug.
+>
+> **Input latency is a dead row, and it is the third one this document has had.** "Close to free —
+> the file already exists" is the shape that made menu blur look cheap (§4 #16) and shiny pots look
+> cheap (§4 #18), and it is wrong here for a third reason: the file exists and measures something
+> else. `input/InputLatency.java` is a developer instrument behind `VOID_UI_INPUTLOG` that times
+> LWJGL's event clock against our Ultralight dispatch, and every call site is `VoidMenuScreen` or
+> `UiHost` — the **menu's** input path, on macOS clock assumptions it verifies at runtime because
+> "should be" is how that investigation started. Promoting it would report how long *our menu*
+> takes to receive a click, which is a number about VOID and not about the player's aim. A real
+> input-to-action readout is a different build, in the game's own input path, and it is M–L.
+>
+> **Click analytics splits in two, and the half everyone wants is the blocked half.** The clicks
+> themselves are fine: `MinecraftClient.tick` drains the whole LWJGL queue at offset 365, so two
+> clicks in one tick each reach `KeyBinding.setKeyPressed` and nothing is lost to the 20 Hz beat.
+> The *timestamps* are the problem. Stamping with `System.nanoTime()` inside the drain gives every
+> event in a tick the same instant, which quantises intervals to 50 ms; `Mouse.getEventNanoseconds()`
+> is the honest source and is not nanoseconds — on Windows, `WindowsMouse.handleMouseButton`
+> multiplies an incoming *milliseconds* value by 1,000,000, and that value is the Win32 message
+> time. So on the platform most of the audience is on, the click clock is millisecond-valued at
+> best and system-tick-quantised in practice.
+>
+> Mean rate and consistency-over-a-session survive that, because quantisation error averages out
+> over hundreds of samples. A 10 ms interval histogram and drag/butterfly detection do not:
+> butterfly clicking lives at 5-20 ms, which is one clock tick wide. **The mod is buildable; the
+> screenshot everybody imagines is not**, and a client that shipped the histogram anyway would be
+> drawing the scheduler's quantisation and calling it the player's hand.
+>
+> Fight review, connection quality and loadout sharing are untouched. Fight review is still the
+> biggest of the six and the one the architecture actually favours.
 
 Of Lunar's own recent additions, the ones players actually talk about are **TierTagger**
 (social status, not gameplay) and **Kill Sounds** (shareable, personality). Both are
@@ -586,6 +635,49 @@ carries the bytecode for all three.
 > there was never a change to see. `design/rendering-invariants.md` §15 is about silent failures
 > in lookups; a mod whose whole effect is already the default is the same failure at the scale of
 > a registry entry, and nothing in this build would have caught it.
+
+**Wave 10 — the first row off §5.** ~~Sprint-reset feedback~~. **Wave 10 is open**: fight review,
+connection quality and loadout sharing remain; input latency is cut and click analytics is halved.
+§5's status block carries the bytecode for all four.
+
+> **Shipped 2026-09-09, one mod, and the schema change is one optional integer.** `hits` has
+> carried `dealt` and `taken` since the combo counter; `sprint_dealt` is the third — of those
+> landed attacks, the ones delivered while sprinting.
+>
+> **What makes it a §5 mod rather than a §4 one is that nothing tells you whether it is right.** A
+> table-stakes mod is judged against the competitor that already ships it. This one has no
+> counterpart on either client, so the only question is whether the measurement is true, and the
+> answer came out of `PlayerEntity.attack`: sprinting adds a point of knockback at offsets 81-88
+> and the branch that applies it clears the sprint at offset 339. **A sprint-hit spends the sprint
+> that made it one.** So the share of landed hits that were sprint-hits is the reset success rate,
+> exactly — no window to tune, no definition of "a tap" to defend, and no way for the reading to
+> flatter a player whose tap came half a tick late.
+>
+> **The trap was where to read the bit, and it is the same class as `held_count`.** The attack that
+> earns the flag is the attack that clears it, and the client reaches that line —
+> `ClientPlayerInteractionManager.attackEntity` runs `PlayerEntity.attack` at its own offsets
+> 32-34 for every game mode but spectator. A reading taken at `doAttack` TAIL, which is where every
+> other fact about a swing is already read, would be false for precisely the hits being counted.
+> That failure has no symptom: the counter sits at zero and zero is a legal answer. It reads as a
+> player who never resets.
+>
+> `MinecraftClientMixin` latches the flag at HEAD and consumes it at TAIL, so `HitTally` keeps its
+> one definition of "landed" — the alternative, a second injection beside `attackEntity` reporting
+> its own hits, is the second definition that file spends a paragraph refusing.
+>
+> **And the fourth name collision a generator caught.** `warn_below` is `armor_status`' name for
+> "the share under which a player wants to be told", bounded 0-1; this mod arrived wanting a
+> percentage, 0-100, and `SETTING_BOUNDS` refused. The right fix was the schema's, not the mod's: a
+> share is what both of them are, and the chip prints a percentage anyway — the unit a player reads
+> is not the unit a threshold is stored in. Four collisions in two waves, all caught by a rule that
+> looked like tidiness when it was written.
+>
+> **It also turned up a stale test from Wave 9.** `@void/protocol`'s grey-mod assertion still named
+> four mods after `reach` made five, and its Rust twin in `void-loadout`'s `mods.rs` had been
+> updated. Two hand-maintained lists of one set, in two languages, and only one of them was in the
+> suite that got run. Both are hand-maintained on purpose — `grey` gates the HYPIXEL-READY badge,
+> so joining the class should cost a reviewer's attention — but nothing checks them against each
+> other, which is the gap rather than the staleness.
 
 **Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
 graph.~~ Playtime · day counter.

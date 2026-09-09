@@ -1550,6 +1550,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             hits.sawHurtTime(player.hurtTime);
             tickIn.hitsDealt = Integer.valueOf(hits.dealt());
             tickIn.hitsTaken = Integer.valueOf(hits.taken());
+            tickIn.hitsSprintDealt = Integer.valueOf(hits.sprintDealt());
             double landed = reach.reach();
             tickIn.reach = landed == ReachTally.NONE ? null : Double.valueOf(landed);
         } catch (Throwable ignored) {
@@ -1575,8 +1576,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * different window.</p>
      */
     public void onAttackSwing(HitTally.Swing at, boolean targetAlive, boolean targetAttackable,
-            boolean spectating) {
-        hits.swung(at, targetAlive, targetAttackable, spectating);
+            boolean spectating, boolean sprinting) {
+        hits.swung(at, targetAlive, targetAttackable, spectating, sprinting);
         // The same definition of "landed", not a second one — a reach reported for a swing the
         // combo counter did not count would be a reach for an attack that was not delivered.
         if (at == HitTally.Swing.ENTITY && targetAlive && targetAttackable && !spectating) {

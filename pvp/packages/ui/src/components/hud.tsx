@@ -1025,6 +1025,102 @@ export function TradeChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* SprintResetChip                                                            */
+/* -------------------------------------------------------------------------- */
+
+/** What {@link SprintResetChip} prints. */
+export type SprintResetStyle = 'percent' | 'ratio';
+
+/** Props for {@link SprintResetChip}. */
+export interface SprintResetChipProps extends Omit<HudChipProps, 'style'> {
+  /** Recent landed hits, oldest first: `true` when the hit had a sprint behind it. */
+  history: readonly boolean[];
+  /** How many of the most recent hits the rate is taken over. */
+  window: number;
+  /** `percent` is `75%`, `ratio` is `15 / 20`. */
+  style?: SprintResetStyle;
+  /** Draw the rate as a level under the figure. */
+  showBar?: boolean;
+  /** Draw the trailing `SPRINT` unit. */
+  showLabel?: boolean;
+  /** At or below this fraction the figure takes the warn treatment. `0` disables it. */
+  warnBelow?: number;
+}
+
+/**
+ * The share of your recent hits that landed with a sprint behind them.
+ *
+ * ## Why the window is applied here and not by the caller
+ *
+ * The store hands over the whole history it keeps and this takes the tail of it, which looks
+ * like the wrong side of the boundary until you notice what the alternative costs: a caller
+ * that sliced first would have to slice again for the ratio's denominator, and the two slices
+ * could disagree. Here `window` is read once and the figure and its evidence come out of the
+ * same array. It is also what makes `ratio` honest early — twelve hits into a session the
+ * denominator is 12, not the 20 that was asked for, because 12 is what happened.
+ *
+ * ## Nothing is drawn before there is something to divide
+ *
+ * An empty history renders nothing at all. A rate of zero is a player whose every reset is
+ * failing, which is the most useful thing this chip can say; no hits at all is a player who
+ * has not swung, and `0%` would say the first about the second. {@link ItemCounterChip} draws
+ * an em dash in its empty state because a counter with nothing to count is still counting;
+ * a rate with nothing to divide is not a rate.
+ *
+ * ## The warn ink marks a value, and the player sets where
+ *
+ * `design/quiet-cell-system.md` §1 allows colour on a live value or a state, which a rate that
+ * has crossed a threshold is. It does not allow one on a preference, which is why the threshold
+ * ships at `0` — a line nobody chose is the client having an opinion about how well you should
+ * be playing, and there is no rate that is correct in every fight. Same shape as
+ * {@link ReachChip}'s `warnAbove` and {@link ItemCounterChip}'s `warnBelow`.
+ *
+ * ## Monochrome bar
+ *
+ * {@link HudBar}, as {@link TradeChip} and the armour panel draw it. A rate is already a share,
+ * so the bar has nothing to normalise: full is every hit sprinting. It stays monochrome even
+ * when the figure warns — two marks for one threshold is the same state said twice, and the
+ * second one is the one that turns a meter into a gauge.
+ */
+export function SprintResetChip({
+  history,
+  window,
+  style = 'percent',
+  showBar = false,
+  showLabel = true,
+  warnBelow = 0,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: SprintResetChipProps): React.ReactElement | null {
+  // `Math.max(1, ...)` rather than trusting the schema's floor of 5: this is a public component
+  // and a window of 0 would make `slice(-0)` the whole array, which is the one wrong answer that
+  // looks like a right one.
+  const recent = history.slice(-Math.max(1, window));
+  if (recent.length === 0) {
+    return null;
+  }
+  const sprinted = recent.filter(Boolean).length;
+  const share = sprinted / recent.length;
+  const warn = warnBelow > 0 && share <= warnBelow;
+  const figure = style === 'ratio' ? String(sprinted) : `${Math.round(share * 100)}%`;
+  // One muted run in one span, so the chip's 8px gap cannot open inside a reading — the rule
+  // `TradeChip` and `MemoryChip` follow, with `\u00a0` for the same reason `PingChip` does.
+  const tail =
+    (style === 'ratio' ? `\u00a0/\u00a0${recent.length}` : '') + (showLabel ? '\u00a0SPRINT' : '');
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-hudchip__value">
+        <span className={cx(warn && 'v-hudchip__value--warn')}>{figure}</span>
+        {tail ? <span className="v-hudchip__unit">{tail}</span> : null}
+      </span>
+      {showBar ? <HudBar fraction={share} /> : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* ServerAddressChip                                                          */
 /* -------------------------------------------------------------------------- */
 

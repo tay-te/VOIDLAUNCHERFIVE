@@ -48,6 +48,14 @@ export const MOD_ORDER: ModId[] = [
   // the tile — the badge is per mod — and is the honest place for it: a player reading the three
   // together should see which of them carries the classification.
   'reach',
+  // And after Reach, which is the hinge: the fight block ends with the two mods that report the
+  // *geometry* of a landed hit rather than a count of them — how far away it was, and whether it
+  // had a sprint behind it. Placed before Toggle sprint on purpose, because that is the mod a
+  // reader will want next: this one says the reset is failing and that one is where the key it
+  // fails on lives. They share the `bolt` glyph for the same reason, and two identical marks
+  // one apart would be the confusion the `sword` run above is arranged to avoid — so the
+  // ordering here is not a nicety, it is what makes the shared mark legible.
+  'sprint_reset',
   'toggle_sprint',
   // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
   'toggle_sneak',

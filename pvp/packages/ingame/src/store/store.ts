@@ -217,7 +217,27 @@ const pingSamples: number[] = [];
  * derivation scratch, not state anybody renders, and a test that left it set would carry a
  * baseline into the next test and count the wrong number of hits.
  */
-let lastHits: { dealt: number; taken: number } | null = null;
+let lastHits: { dealt: number; taken: number; sprintDealt: number } | null = null;
+
+/**
+ * One entry per landed attack: whether it was a sprint-hit — what the sprint-reset mod reads.
+ *
+ * **Kept as the raw sequence and not as a rate, because the window is a mod setting.** `hits`
+ * carries counters rather than a combo for the same reason and says so; a percentage computed
+ * here would be a percentage over a span nobody chose, and the widget would have no way back to
+ * the hits it was taken over.
+ *
+ * Bounded at the largest window the mod offers, so the ring is sized by a number a reader can
+ * name rather than by a fight's length. Booleans and not objects: the only fact per hit is which
+ * kind it was, and forty of them is the whole structure.
+ *
+ * Filled from the *deltas* of the two counters, never from an event — a tick that carried two
+ * landed hits pushes two entries, which is the property `bridge.json` sends counters to get.
+ *
+ * Module-level like `fpsSamples`, and reset by `resetDerivedState()` for the same reason.
+ */
+const SPRINT_HISTORY_MAX = 40;
+const sprintHistory: boolean[] = [];
 
 /**
  * Value equality for the object-shaped `tick` fields.
@@ -355,6 +375,7 @@ export function resetDerivedState(): void {
   clickHistory.length = 0;
   lastSecond = 0;
   lastHits = null;
+  sprintHistory.length = 0;
 }
 
 export interface VoidState {
@@ -438,7 +459,18 @@ export interface VoidState {
    * `null` until the first `hits` arrives: zero hits dealt and no reading yet are different
    * states, and only one of them is a chip that should draw `0 / 0`.
    */
-  hits: { dealt: number; taken: number } | null;
+  hits: { dealt: number; taken: number; sprintDealt: number } | null;
+  /**
+   * One entry per landed attack, oldest first: `true` when it was delivered while sprinting.
+   *
+   * At most forty, which is the longest window the sprint-reset mod offers. The rate is not here
+   * on purpose — see the module constant: a rate is a rate *over something*, and what it is over
+   * is `sprint_reset.window`, a mod setting.
+   *
+   * Empty until the first landed hit, and empty is not zero percent: a player who has not swung
+   * has no reset rate, and the widget draws nothing rather than a failure they did not have.
+   */
+  sprintHistory: readonly boolean[];
   /**
    * Distance of the last attack that landed, in blocks — the reach readout.
    *
@@ -565,6 +597,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   combo: 0,
   comboAt: 0,
   hits: null,
+  sprintHistory: [],
   reach: null,
   inventory: null,
   server: { host: '', connected: false },
@@ -838,7 +871,12 @@ export const useVoidStore = create<VoidState>((set, get) => ({
 
     if (tick.hits !== undefined) {
       const seen = lastHits;
-      lastHits = { dealt: tick.hits.dealt, taken: tick.hits.taken };
+      // `sprint_dealt` is optional on the wire and absence means unchanged, like every field on
+      // this payload — so it is carried forward from the last reading rather than defaulted to
+      // zero. Defaulting would make a tick where the sensor had no reading look like a player
+      // whose every hit since the session began stopped being a sprint-hit at once.
+      const sprintDealt = tick.hits.sprint_dealt ?? seen?.sprintDealt ?? 0;
+      lastHits = { dealt: tick.hits.dealt, taken: tick.hits.taken, sprintDealt };
       // The pair itself, for the trade counter. Written on first sight, unlike the combo below:
       // a baseline is something a *derived* value needs, and these two are not derived — they
       // are the session totals the sensor is reporting, and the first push is as true as the
@@ -847,9 +885,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       if (
         prev.hits === null ||
         prev.hits.dealt !== tick.hits.dealt ||
-        prev.hits.taken !== tick.hits.taken
+        prev.hits.taken !== tick.hits.taken ||
+        prev.hits.sprintDealt !== sprintDealt
       ) {
-        patch.hits = { dealt: tick.hits.dealt, taken: tick.hits.taken };
+        patch.hits = { dealt: tick.hits.dealt, taken: tick.hits.taken, sprintDealt };
       }
       if (seen !== null) {
         let combo = prev.combo;
@@ -860,6 +899,21 @@ export const useVoidStore = create<VoidState>((set, get) => ({
           patch.comboAt = Date.now();
         }
         if (combo !== prev.combo) patch.combo = combo;
+
+        // One entry per hit the counters moved by, sprint-hits first. The order within a single
+        // tick is a guess — the wire carries two totals, not a sequence — and it is a guess that
+        // cannot change any answer this mod gives: every window it offers is a count of `true`
+        // over the last N, and reordering entries inside one tick moves neither. Guessing was
+        // still the choice worth naming, because the alternative is a sequence on the wire, and
+        // an *event* stream is what `bridge.json` refuses for hits and gives its reason for.
+        const sprintLanded = sprintDealt - seen.sprintDealt;
+        for (let i = 0; i < landed; i += 1) sprintHistory.push(i < sprintLanded);
+        if (landed > 0) {
+          if (sprintHistory.length > SPRINT_HISTORY_MAX) {
+            sprintHistory.splice(0, sprintHistory.length - SPRINT_HISTORY_MAX);
+          }
+          patch.sprintHistory = [...sprintHistory];
+        }
       }
     }
 

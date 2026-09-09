@@ -449,15 +449,15 @@ class SensorsTest {
         // same trailing `return` the ENTITY arm reaches. The old sensor incremented on reaching
         // that return, so `hits.dealt` counted clicks — a second CPS readout with a different
         // window, on a field `bridge.json` defines as "attacks the player has landed".
-        hits.swung(HitTally.Swing.AIR, false, false, false);
-        hits.swung(HitTally.Swing.AIR, false, false, false);
+        hits.swung(HitTally.Swing.AIR, false, false, false, false);
+        hits.swung(HitTally.Swing.AIR, false, false, false, false);
         assertEquals(0, hits.dealt(), "a swing at air must not advance the counter");
 
         // Mining is not fighting either, and it took the same path to TAIL.
-        hits.swung(HitTally.Swing.BLOCK, false, false, false);
+        hits.swung(HitTally.Swing.BLOCK, false, false, false, false);
         assertEquals(0, hits.dealt(), "a swing at a block must not advance the counter");
 
-        hits.swung(HitTally.Swing.ENTITY, true, true, false);
+        hits.swung(HitTally.Swing.ENTITY, true, true, false, false);
         assertEquals(1, hits.dealt(), "a swing that resolved onto a live target is a hit");
     }
 
@@ -468,22 +468,46 @@ class SensorsTest {
 
         // `Entity.isAlive()` is `!removed`. The crosshair raycast still resolves onto an entity
         // that has already been removed client-side, and a swing through a corpse deals nothing.
-        hits.swung(HitTally.Swing.ENTITY, false, true, false);
+        hits.swung(HitTally.Swing.ENTITY, false, true, false, false);
         assertEquals(0, hits.dealt(), "a dead target is not a hit");
 
         // `PlayerEntity.attack` opens with `if (!target.isAttackable()) return;`, so this is
         // vanilla's own definition of an attack rather than one invented here.
-        hits.swung(HitTally.Swing.ENTITY, true, false, false);
+        hits.swung(HitTally.Swing.ENTITY, true, false, false, false);
         assertEquals(0, hits.dealt(), "an unattackable target is not a hit");
 
         // `ClientPlayerInteractionManager.attackEntity` sends the ATTACK packet either way but
         // skips `PlayerEntity.attack` in spectator, and the server ignores it.
-        hits.swung(HitTally.Swing.ENTITY, true, true, true);
+        hits.swung(HitTally.Swing.ENTITY, true, true, true, false);
         assertEquals(0, hits.dealt(), "a spectator does not land hits");
 
-        hits.swung(HitTally.Swing.ENTITY, true, true, false);
+        hits.swung(HitTally.Swing.ENTITY, true, true, false, false);
         assertEquals(1, hits.dealt());
         assertEquals(0, hits.taken(), "swinging is not being hit");
+    }
+
+    @Test
+    @DisplayName("a sprint-hit is a hit that was also sprinting, and only a hit can be one")
+    void sprintHitsAreASubsetOfLandedHits() {
+        HitTally hits = new HitTally();
+
+        // The whole point of the counter: it rides the same gate as `dealt`, so it can never
+        // claim a sprint-hit for a swing vanilla would not have delivered. A player mashing at
+        // air while sprinting is doing nothing, and a rate computed against `dealt` would read
+        // as infinite success if this counted it.
+        hits.swung(HitTally.Swing.AIR, false, false, false, true);
+        hits.swung(HitTally.Swing.BLOCK, false, false, false, true);
+        hits.swung(HitTally.Swing.ENTITY, false, true, false, true);
+        hits.swung(HitTally.Swing.ENTITY, true, true, true, true);
+        assertEquals(0, hits.dealt(), "none of those landed");
+        assertEquals(0, hits.sprintDealt(), "so none of them can be a sprint-hit either");
+
+        // Three landed, two of them sprinting: the reading a W-tap mod divides.
+        hits.swung(HitTally.Swing.ENTITY, true, true, false, true);
+        hits.swung(HitTally.Swing.ENTITY, true, true, false, false);
+        hits.swung(HitTally.Swing.ENTITY, true, true, false, true);
+        assertEquals(3, hits.dealt());
+        assertEquals(2, hits.sprintDealt());
     }
 
     @Test

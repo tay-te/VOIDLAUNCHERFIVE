@@ -80,6 +80,7 @@ public final class TickCoalescer {
     /** The last held item reported, or null before one was. */
     private String lastHeldItem;
     private int lastHitsTaken = Integer.MIN_VALUE;
+    private int lastHitsSprintDealt = Integer.MIN_VALUE;
     private double lastX;
     private double lastY;
     private double lastZ;
@@ -224,14 +225,30 @@ public final class TickCoalescer {
         // Hit counters move only on a hit, so a value check is exact and no limit is wanted: a
         // rate limit here would merge two hits into one and the combo would under-count. This is
         // the one new field where dropping an update is a *wrong answer* rather than a stale one.
+        //
+        // `sprint_dealt` is in the same check rather than trusted to ride along. It can only move
+        // when `dealt` moves — `HitTally.swung` increments it inside that branch — so testing it
+        // is redundant today, and that is the reason to test it: the day the two come apart, this
+        // publishes the change instead of silently holding the old figure while `dealt` sits
+        // still. `design/rendering-invariants.md` §15's shape, one layer down from a lookup.
+        int sprintDealt = in.hitsSprintDealt == null ? lastHitsSprintDealt
+                : in.hitsSprintDealt.intValue();
         if (in.hitsDealt != null && in.hitsTaken != null
                 && (in.hitsDealt.intValue() != lastHitsDealt
-                    || in.hitsTaken.intValue() != lastHitsTaken)) {
+                    || in.hitsTaken.intValue() != lastHitsTaken
+                    || sprintDealt != lastHitsSprintDealt)) {
             lastHitsDealt = in.hitsDealt.intValue();
             lastHitsTaken = in.hitsTaken.intValue();
+            lastHitsSprintDealt = sprintDealt;
             JsonObject hits = new JsonObject();
             hits.addProperty("dealt", in.hitsDealt);
             hits.addProperty("taken", in.hitsTaken);
+            // Omitted when the sensor had no reading, not sent as zero: absence means unchanged
+            // on this payload, and a zero would tell a player their sprint-hit rate had collapsed
+            // in the tick a sensor threw.
+            if (in.hitsSprintDealt != null) {
+                hits.addProperty("sprint_dealt", in.hitsSprintDealt);
+            }
             o.add("hits", hits);
         }
 
@@ -286,6 +303,7 @@ public final class TickCoalescer {
         lastMemAt = Long.MIN_VALUE;
         lastHitsDealt = Integer.MIN_VALUE;
         lastHitsTaken = Integer.MIN_VALUE;
+        lastHitsSprintDealt = Integer.MIN_VALUE;
         lastReach = null;
         lastInventory = null;
         lastHeldItem = null;
