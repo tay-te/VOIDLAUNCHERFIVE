@@ -192,7 +192,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Text colour of the FPS readout.
                 // Type: mods.json#/definitions/hex_color.
                 "color", color("#FFFFFF"),
@@ -218,7 +218,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 0.85),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Optional key that toggles the keystrokes overlay on and off in game without
                 // opening the menu. NONE leaves it always visible while the mod is on.
                 // Type: mods.json#/definitions/keybind.
@@ -260,7 +260,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Which mouse buttons to count: left only, right only, or both shown side by
                 // side.
                 "mode", enumOf("left", "left", "right", "both"),
@@ -289,7 +289,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether to render the trailing "ms" unit after the number.
                 "show_label", bool(true),
                 // Ping at or below this many milliseconds renders in the good colour.
@@ -314,7 +314,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Number of decimal places printed for X, Y and Z. Capped at 2 because that is
                 // what the wire carries: the `tick` sensor rounds the position to 2 dp before
                 // publishing it, so a third place could only ever print a zero. Widening it is a
@@ -347,7 +347,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether armor pieces are laid out left to right or top to bottom.
                 "orientation", enumOf("horizontal", "horizontal", "vertical"),
                 // Whether to print remaining durability as a number under each piece.
@@ -372,7 +372,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether to print the remaining duration next to each effect.
                 "show_duration", bool(true),
                 // Whether to print the roman-numeral amplifier next to each effect name.
@@ -399,7 +399,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 0.9),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark,
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
@@ -541,7 +541,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How the facing is written. `letter` is the compass abbreviation the Coordinates
                 // mod already prints (`N`, `NE`, `SW`) and is what fits a small chip. `word`
                 // spells it out (`North`), which is what a player reading at a glance across a
@@ -573,7 +573,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How long without landing a hit before the count drops back to zero. This is the
                 // timeout the sensor refuses to have — it sends counters, and the policy lives
                 // here. 3000 ms because a 1.8 combo is bounded by knockback recovery rather than
@@ -601,7 +601,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How the value is drawn. `number` prints the figure, and it is the default
                 // because saturation is read against a *threshold* rather than as a quantity: in
                 // 1.8 combat regeneration runs while saturation is above zero and stops the
@@ -641,7 +641,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Which unit the figure is printed in. `bps` — blocks per second — is the default
                 // because the block is the unit every other thing a player reasons about is
                 // already in: reach, knockback, sprint-jump distance, the gap you are trying to
@@ -676,7 +676,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // What the chip prints. `used_of_max` — `1400/4096 MB` — is the default because a
                 // heap figure on its own answers nothing: 1400 MB is idle on an 8 G allocation
                 // and terminal on a 2 G one, so the ceiling is half the reading and the player is
@@ -711,7 +711,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // How much of the host is printed. `short` keeps the part players actually say
                 // out loud — `hypixel` out of `mc.hypixel.net` — and is the default because on a
                 // chip the leading `mc.` and the trailing `.net` are the two pieces that never
@@ -733,7 +733,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether the count is prefixed with the multiplication sign — `x12` rather than
                 // `12`. On by default: the chip sits next to a CPS figure and above a keystrokes
                 // block, so a bare integer in that corner is a number among numbers, and the `x`
@@ -763,7 +763,7 @@ public final class ModRegistry {
                 "opacity", number(0, 1, 1),
                 "background", enumOf("none", "none", "subtle", "solid"),
                 "border", bool(false),
-                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
                 // Whether a fraction of a second is drawn after the seconds, as hundredths. Off
                 // by default, because a digit that never stops moving is the most expensive thing
                 // a HUD chip can do to a player's attention and a stopwatch is usually read

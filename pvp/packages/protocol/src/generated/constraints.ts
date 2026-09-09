@@ -120,9 +120,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "fps.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "keystrokes.background": [
     "none",
@@ -130,9 +132,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "keystrokes.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "keystrokes.key_color": [
     "shell",
@@ -154,9 +158,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "cps.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "cps.mode": [
     "left",
@@ -169,9 +175,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "ping.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "coordinates.background": [
     "none",
@@ -179,9 +187,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "coordinates.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "coordinates.layout": [
     "stacked",
@@ -193,9 +203,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "armor_status.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "armor_status.orientation": [
     "horizontal",
@@ -207,9 +219,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "potion_effects.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "watermark.background": [
     "none",
@@ -217,9 +231,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "watermark.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "watermark.style": [
     "full",
@@ -240,9 +256,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "direction.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "direction.style": [
     "letter",
@@ -255,9 +273,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "combo.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "saturation.background": [
     "none",
@@ -265,9 +285,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "saturation.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "saturation.style": [
     "number",
@@ -280,9 +302,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "momentum.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "momentum.unit": [
     "bps",
@@ -294,9 +318,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "memory.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "memory.style": [
     "used",
@@ -309,9 +335,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "server_address.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "server_address.style": [
     "short",
@@ -323,9 +351,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "item_counter.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "stopwatch.background": [
     "none",
@@ -333,9 +363,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "solid"
   ],
   "stopwatch.padding": [
+    "none",
     "tight",
     "normal",
-    "roomy"
+    "roomy",
+    "wide"
   ],
   "stopwatch.format": [
     "auto",

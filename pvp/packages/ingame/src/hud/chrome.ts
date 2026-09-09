@@ -45,12 +45,54 @@
  * It also means the mod page's preview gets it for free, because `PreviewZoom` applies exactly
  * this in exactly the same place — which is what makes the preview the same drawing rather than
  * a similar one.
+ *
+ * ## The half of that which was wrong, and what it cost
+ *
+ * `background` and `border` are genuinely things the slot draws. **`padding` is not.** Every HUD
+ * widget already carries its own inset — `.v-hudchip` reads `--pad-hud-chip`, and the armour and
+ * potion panels and the keycap cluster had theirs written into the rule — so padding on the slot
+ * was a second, outer inset stacked on top of an inner one the setting could not reach. At the
+ * shipped default (`background: none`) that outer box is transparent, so the whole control moved
+ * an invisible edge: the chip a player was looking at never changed size at any step.
+ *
+ * It shipped because the gate could not see it. `test/preview.test.tsx` compares the preview's
+ * markup, the class on the box changed, and a class that matches a rule which draws nothing is
+ * indistinguishable from one that draws. Its own doc comment names this as the way the exemption
+ * list erodes; this was the same erosion one level up, in the comparison itself.
+ *
+ * So the padding classes now set `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`
+ * (`styles/overlay.css`) — the three variables the widgets actually read their density from —
+ * and inherit down into the widget rather than boxing it. `test/hud-chrome.test.ts` asserts the
+ * resolved lengths differ from step to step, which is a claim about what is drawn rather than
+ * about what is spelled.
  */
 
+import { SETTING_OPTIONS } from '@/bridge/protocol';
 import type { SettingValue } from '@/store/store';
 
-const BACKGROUNDS = new Set(['none', 'subtle', 'solid']);
-const PADDINGS = new Set(['tight', 'normal', 'roomy']);
+/**
+ * The legal values of one shared key, read out of the registry rather than transcribed.
+ *
+ * These two sets were literals, and the literal is what let `padding` gain two steps in
+ * `schema/mods/_shared.json` and lose them again here: an unlisted value falls back to the
+ * factory default, so `wide` would have been stored, echoed back, and drawn as `normal` — a
+ * setting that moves on the page and not in the game, which is `rendering-invariants.md` §15
+ * exactly. Deriving the set makes that unrepresentable instead of tested for.
+ *
+ * A union across every mod that has the key, because the block is shared and the generated
+ * table is keyed `<mod>.<key>`. `fps.padding` alone would work today and would be a lookup
+ * pinned to one mod's continued existence.
+ */
+function sharedEnum(key: string): ReadonlySet<string> {
+  const suffix = `.${key}`;
+  const values = Object.entries(SETTING_OPTIONS)
+    .filter(([id]) => id.endsWith(suffix))
+    .flatMap(([, options]) => options);
+  return new Set(values);
+}
+
+const BACKGROUNDS = sharedEnum('background');
+const PADDINGS = sharedEnum('padding');
 
 /**
  * Resolve one mod's chrome settings into a class list for its slot box.

@@ -21,9 +21,17 @@
   white-space: nowrap;
 }
 
-/** Editor flavour: a stronger ground and a visible edge, at r10. */
+/**
+ * Editor flavour: a stronger ground and a visible edge, at r10.
+ *
+ * Its inset is `--pad-hud-chip`, the same variable the compact chip reads, and that is
+ * load-bearing rather than tidiness. The mod page draws `variant="editor"`, so a hard-coded
+ * padding here is a padding the HUD's own `padding` setting cannot reach — which is how that
+ * setting came to move a class name and nothing else. The two variants differ in ground, edge
+ * and radius; density is one number for both.
+ */
 .v-hudchip--editor {
-  padding: var(--space-8) var(--space-10);
+  padding: var(--pad-hud-chip);
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
   border: 1px solid var(--border-dock);
@@ -235,7 +243,7 @@
   flex-direction: column;
   gap: var(--space-4);
   width: 150px;
-  padding: var(--space-8) var(--space-10);
+  padding: var(--pad-hud-panel, var(--space-8) var(--space-10));
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
   border: 1px solid var(--border-dock);
@@ -282,7 +290,7 @@
  */
 .v-armorlist {
   display: flex;
-  padding: var(--space-8) var(--space-10);
+  padding: var(--pad-hud-panel, var(--space-8) var(--space-10));
   border-radius: var(--radius-field);
   background: var(--hud-chip-bg-strong);
   border: 1px solid var(--border-dock);
@@ -431,16 +439,23 @@
 
 /* -------------------------------------------------------- KeystrokesWidget */
 
+/**
+ * The keycap cluster.
+ *
+ * It has no inset of its own — the caps are the edge — so its density is the *gap* between
+ * them, and that is what `--gap-hud-keys` carries. The fallback is the value that was written
+ * here, so a page that sets nothing draws exactly what it drew before.
+ */
 .v-keystrokes {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--gap-hud-keys, var(--space-5));
 }
 
 .v-keystrokes__row {
   display: flex;
-  gap: var(--space-5);
+  gap: var(--gap-hud-keys, var(--space-5));
 }
 
 .v-keystrokes__key {

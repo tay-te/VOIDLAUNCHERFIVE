@@ -486,12 +486,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the FPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the FPS tile — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -549,12 +551,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the key tiles — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the key tiles — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -639,12 +643,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the CPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the CPS tile — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -714,12 +720,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the ping tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the ping tile — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -786,12 +794,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the coordinates tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the coordinates tile — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -859,12 +869,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the armor row — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the armor row — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -933,12 +945,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the effect list — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the effect list — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -997,12 +1011,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the mark — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the mark — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1254,12 +1270,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the direction chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the direction chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1321,12 +1339,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the combo chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the combo chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1381,12 +1401,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the saturation readout — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the saturation readout — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1451,12 +1473,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the speed chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the speed chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1520,12 +1544,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the memory chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the memory chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1588,12 +1614,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the host chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the host chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1645,12 +1673,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the count chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the count chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },
@@ -1705,12 +1735,14 @@
           "default": false
         },
         "padding": {
-          "description": "Density of the stopwatch chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "description": "Density of the stopwatch chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
           "type": "string",
           "enum": [
+            "none",
             "tight",
             "normal",
-            "roomy"
+            "roomy",
+            "wide"
           ],
           "default": "normal"
         },

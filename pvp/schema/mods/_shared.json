@@ -30,12 +30,14 @@
       "default": false
     },
     "padding": {
-      "description": "Density of {noun} \u2014 the inset between its content and its edge, as one of three steps. `density` is named in \u00a71 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+      "description": "Density of {noun} \u2014 the inset between its content and its edge, as one of five steps. `density` is named in \u00a71 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* \u2014 the box `HudSlot` puts round the widget \u2014 while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off \u2014 glyphs on the game with nothing round them \u2014 which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
       "type": "string",
       "enum": [
+        "none",
         "tight",
         "normal",
-        "roomy"
+        "roomy",
+        "wide"
       ],
       "default": "normal"
     }

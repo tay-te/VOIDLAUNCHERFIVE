@@ -125,7 +125,12 @@ body {
  * -------------------------------------------------------------------------- */
 
 .hud-chrome {
-  border-radius: 8px;
+  /* The ground hugs the widget: density is the widget's own inset now (see below), so this box
+     shrink-wraps and `subtle` / `solid` deepen the chip rather than drawing a halo two pixels
+     wider than it. That halo was the whole visible difference between the three background
+     steps, and two pixels of it at 0.55 alpha over a chip already at 0.55 was not one. */
+  display: inline-block;
+  border-radius: var(--radius-chip, 8px);
   /* No transition. A repaint is caused by a setting changing and by nothing else — §4's budget
      is 0 paints/s on an idle HUD, and an eased background would spend it on every toggle. */
 }
@@ -157,26 +162,66 @@ body {
    is solved by giving text a chip, which is what `--bg-subtle` and `--bg-solid` are. */
 
 /* Density — §1's own word for it, and what a player means by "make the HUD smaller" once
-   `scale` has already made the text too small to read. Zero at `tight` so the block is a true
-   no-op for a player who wants what the HUD looked like before this existed. */
+   `scale` has already made the text too small to read.
+
+   **These set the widget's inset, they do not add a box around it.** For one release they were
+   `padding` on this slot, and the slot is not what the player sees: every HUD widget carries its
+   own inset underneath (`.v-hudchip` reads `--pad-hud-chip`, the two list panels and the keycap
+   cluster had theirs hard-coded), and at the shipped default `background: none` this box is
+   transparent — so the setting moved an invisible edge and the drawn chip never changed size.
+   `preview.test.tsx` passed it because the *class name* changed, which is the erosion its own doc
+   comment warns about: a gate that diffs markup cannot tell a class that draws from one that does
+   not. `test/hud-chrome.test.ts` now asserts the resolved lengths differ step to step, which is a
+   claim about the drawing rather than about the attribute.
+
+   So each step sets the three variables every HUD surface actually reads:
+
+     --pad-hud-chip    the inline chips (`.v-hudchip`, both variants)
+     --pad-hud-panel   the two list panels (armour, potions), which sit on a wider scale
+     --gap-hud-keys    the keycap cluster, whose density is the gap between caps, not an inset
+
+   The chip and panel scales are not the same numbers: a 150px panel with a chip's 6px inset
+   reads as text jammed into a card, so the panel runs one step ahead throughout.
+
+   `none` is the setting genuinely off — glyphs on the game, nothing round them. `normal` is the
+   value `--pad-hud-chip` ships with, so a player who never touches this sees no change. */
+.hud-chrome--pad-none {
+  --pad-hud-chip: 0;
+  --pad-hud-panel: 0;
+  --gap-hud-keys: 2px;
+}
+
 .hud-chrome--pad-tight {
-  padding: 0;
+  --pad-hud-chip: 2px 5px;
+  --pad-hud-panel: 4px 6px;
+  --gap-hud-keys: 3px;
 }
 
 .hud-chrome--pad-normal {
-  padding: 2px 4px;
+  --pad-hud-chip: 6px 10px;
+  --pad-hud-panel: 8px 10px;
+  --gap-hud-keys: 5px;
 }
 
 .hud-chrome--pad-roomy {
-  padding: 6px 10px;
+  --pad-hud-chip: 10px 16px;
+  --pad-hud-panel: 12px 16px;
+  --gap-hud-keys: 8px;
+}
+
+.hud-chrome--pad-wide {
+  --pad-hud-chip: 15px 24px;
+  --pad-hud-panel: 18px 24px;
+  --gap-hud-keys: 12px;
 }
 
 /* A ground with no inset reads as a smear against the glyphs, so the two smallest steps get a
-   floor once there is something to sit on. The padding setting still moves; it moves between
-   4 and 10 rather than between 0 and 10. */
-.hud-chrome--bg-subtle.hud-chrome--pad-tight,
-.hud-chrome--bg-solid.hud-chrome--pad-tight {
-  padding: 1px 3px;
+   floor once there is something to sit on. The setting still moves at every step; at `none` it
+   moves between 2 and 5 rather than between 0 and 5. */
+.hud-chrome--bg-subtle.hud-chrome--pad-none,
+.hud-chrome--bg-solid.hud-chrome--pad-none {
+  --pad-hud-chip: 2px 5px;
+  --pad-hud-panel: 3px 5px;
 }
 
 /* The scale, as a layout zoom rather than a transform — see `placementStyle`. `inline-block` so
