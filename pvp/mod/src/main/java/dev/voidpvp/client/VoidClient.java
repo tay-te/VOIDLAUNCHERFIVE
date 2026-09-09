@@ -96,6 +96,20 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     private int lastAttackCooldownSeen;
     private int lastHurtTime;
     private final ServerWatcher server = new ServerWatcher();
+    /** {@code VOID_UI_TICKLOG}: print every coalesced `tick` payload. See the emit site. */
+    private static final boolean TICK_LOG = System.getenv("VOID_UI_TICKLOG") != null;
+
+    /**
+     * Set when a page needs the once-only sensor arrays again; cleared by the next tick.
+     *
+     * <p>Volatile because it is written from Ultralight's UI thread — {@code pushWholeState}
+     * runs there on a page reload — and read on the game thread. A flag rather than a direct
+     * {@code ticks.reset()} for exactly that reason: {@link TickCoalescer} is game-thread state
+     * with no synchronisation of its own, and resetting it from under a tick in progress is a
+     * race, where a missed flag is at worst one tick late.</p>
+     */
+    private volatile boolean resendSensors;
+
     private final SprintLatch sprint = new SprintLatch();
     private final SprintLatch sneak = new SprintLatch();
     private final ZoomController zoom = new ZoomController();
@@ -981,6 +995,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (player == null) {
             return;
         }
+        // A page that has just been handed the whole state still has nothing on the two sensor
+        // channels that are sent *only when they change* — `armor` and `fx`. Forgetting what was
+        // last reported is what puts them on the next tick. Consumed here rather than in
+        // `resendSensors()` because the coalescer is game-thread state and that call arrives on
+        // Ultralight's UI thread; the flag is the handoff, and this is the only reader.
+        if (resendSensors) {
+            resendSensors = false;
+            ticks.reset();
+        }
         tickIn.clearOptional();
         tickIn.fps = dev.voidpvp.client.mixin.MinecraftClientAccessor.void$currentFps();
         tickIn.ping = latency(mc, player);
@@ -996,6 +1019,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // it anyway would cross the bridge, parse, and run a reducer 20 times a second to conclude
         // there is no news.
         if (payload.entrySet().size() > 0) {
+            // Test hook, off unless VOID_UI_TICKLOG is set: the payload the page is actually
+            // handed. Sibling of VOID_UI_INPUTLOG, and there for the same reason — a widget that
+            // draws nothing is indistinguishable from a widget that was sent nothing, and the
+            // launcher bridge cannot answer it because `tick` does not cross it (it is the
+            // in-process VoidBridge, not the socket). Coalesced, so a field only appears on the
+            // tick it changed on, which is what makes the log short enough to read.
+            if (TICK_LOG) {
+                VoidLog.info("tick " + payload);
+            }
             bridge.emit(VoidBridge.EVENT_TICK, payload);
         }
         stats.sample(tickIn.fps);
@@ -1182,10 +1214,17 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         boolean connected = hasWorld && address != null && !address.isEmpty();
         String host = ServerWatcher.stripPort(address);
         int port = ServerWatcher.portOf(address);
+        // Before the early return, not after it. This used to sit below the `server.update`
+        // guard, so the sensor cache was cleared only when the *server identity* changed — and
+        // singleplayer never changes it: `connected` is false with an empty host both at the
+        // title screen and in a world, so `update` returns false and the reset was skipped on
+        // every singleplayer world entry there has ever been. The cache is about the world, not
+        // about the server: a new world invalidates the last armour, the last effects and the
+        // last position whether or not anybody is hosting it.
+        ticks.reset();
         if (!server.update(connected, host, port)) {
             return;
         }
-        ticks.reset();
         bridge.emit(VoidBridge.EVENT_SERVER, server.payload());
         if (socket != null) {
             socket.sendServer(server.host(), server.connected(), server.port());
@@ -1258,6 +1297,17 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     /** The surfaces to draw shadows behind, newest report wins. Never null. */
     public java.util.List<dev.voidpvp.client.render.EffectSurface> surfaces() {
         return surfaces;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A flag, and nothing else — see {@link #resendSensors} for why this cannot reset the
+     * coalescer where it stands.</p>
+     */
+    @Override
+    public void resendSensors() {
+        resendSensors = true;
     }
 
     public boolean captureActive() {

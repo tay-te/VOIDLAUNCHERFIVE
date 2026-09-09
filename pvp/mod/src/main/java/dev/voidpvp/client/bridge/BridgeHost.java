@@ -70,4 +70,26 @@ public interface BridgeHost {
      * @param surfaces every surface to draw, in CSS pixels of the view
      */
     void setSurfaces(java.util.List<dev.voidpvp.client.render.EffectSurface> surfaces);
+
+    /**
+     * A fresh page needs the sensor arrays that are only ever sent when they change.
+     *
+     * <p>{@code armor} and {@code fx} ride the {@code tick} channel but are coalesced by
+     * <em>content</em> rather than rate-limited: the sensor sends an array once and then stays
+     * quiet until a piece is damaged or an effect starts. That is right for the wire and wrong
+     * for a page that was not listening when the array went out — it renders an empty Armour
+     * status and empty Potion effects for as long as the player's armour and effects hold still,
+     * which in a duel is the whole fight.</p>
+     *
+     * <p>It is the same argument {@link #sessionJson()} carries, one channel over: the profile is
+     * on {@link VoidBridge#pushWholeState()} because nothing will ever push it again, and these
+     * two are on it because nothing will push them again <em>until the game changes them</em>.
+     * The implementation makes the next tick carry everything; it does not itself send anything,
+     * because there is no player to read on a page reload at the title screen.</p>
+     *
+     * <p><b>UI thread, inline.</b> Called from {@code pushWholeState}, which a reloaded page
+     * triggers on Ultralight's thread. The implementation may only set a {@code volatile} flag
+     * the game thread reads — the sensor state it is asking to clear belongs to that thread.</p>
+     */
+    void resendSensors();
 }
