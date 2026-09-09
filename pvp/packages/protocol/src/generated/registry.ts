@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 13,
+  "version": 14,
   "mods": {
     "fps": {
       "id": "fps",
@@ -296,7 +296,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "key": "C",
         "fov_divisor": 4,
         "smooth": true,
-        "cinematic": false
+        "cinematic": false,
+        "sensitivity": 1
       }
     },
     "crosshair": {
@@ -729,6 +730,23 @@ export const MOD_REGISTRY_DOCUMENT = {
         "anchor": "top-left",
         "dx": 23,
         "dy": 293
+      }
+    },
+    "scoreboard": {
+      "id": "scoreboard",
+      "kind": "gameplay",
+      "category": "hud",
+      "hypixel_safe": "safe",
+      "label": "Scoreboard",
+      "icon": "users",
+      "description": "Hide, shrink or move the server's sidebar, which vanilla nails to the right of the screen.",
+      "source": "vanilla's own `InGameHud.renderScoreboardObjective`, wrapped",
+      "defaults": {
+        "on": false,
+        "hide": false,
+        "sidebar_scale": 1,
+        "offset_x": 0,
+        "offset_y": 0
       }
     }
   }

@@ -56,6 +56,53 @@ public abstract class GameRendererMixin {
     }
 
     /**
+     * {@code zoom.sensitivity} — the look step, scaled while the zoom is engaged (§6.7).
+     *
+     * <p><b>The injection point was read, not remembered.</b> {@code GameOptions.sensitivity} is
+     * referenced from exactly two classes in 1.8.9 — {@code GameOptions} itself and this one —
+     * and from two methods here: {@code tick()} and {@code render(FJ)V}. The one that matters is
+     * in {@code render}, at offsets 161-193:</p>
+     *
+     * <pre>
+     *   f  = options.sensitivity * 0.6F + 0.2F;
+     *   f1 = f * f * f * 8.0F;
+     *   dx = mouse.x * f1;  dy = mouse.y * f1;
+     *   player.increaseTransforms(dx, dy * invert);
+     * </pre>
+     *
+     * <p>So this is the single value the whole look step is built from, and scaling it here is
+     * the same arithmetic vanilla does with a smaller number — which is why the setting is a
+     * fraction of the <em>setting</em> rather than of the resulting angle. Scoping the redirect
+     * to {@code render(FJ)V} is what keeps the read in {@code tick()} alone; a class-wide field
+     * redirect would have taken both, and the one in {@code tick} is the smooth-camera
+     * accumulator, where scaling it would make {@code cinematic} fight the zoom.</p>
+     *
+     * <p>Redirecting the <em>read</em> rather than the resulting angle is deliberate and is the
+     * same shape as the bob redirect below: the cubic curve stays vanilla's, so a player who has
+     * tuned their sensitivity keeps that tuning and scales it, and a frame with the feature
+     * unused returns the field untouched.</p>
+     */
+    @Redirect(method = "render(FJ)V", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/client/option/GameOptions;sensitivity:F",
+            opcode = Opcodes.GETFIELD))
+    private float void$zoomSensitivity(GameOptions options) {
+        VoidClient client = VoidClient.get();
+        if (client == null) {
+            return options.sensitivity;
+        }
+        double scale = client.zoomSensitivityScale();
+        if (scale >= 1) {
+            return options.sensitivity;
+        }
+        // The curve below this read is `s * 0.6 + 0.2`, cubed. It has a floor: at `sensitivity`
+        // 0 the step is still 0.2^3 * 8, which is 6.4% of a normal look rather than none — so
+        // scaling the field can slow the mouse a long way but can never stop it, and a player
+        // who drags this to 0.2 is left with a usable camera rather than a stuck one. That is a
+        // property of vanilla's own arithmetic and is the reason it is safe to scale here.
+        return (float) (options.sensitivity * scale);
+    }
+
+    /**
      * The Overlay mod's {@code view_bobbing}, camera half (§6.7).
      *
      * <p>1.8.9 has one bob routine, {@code bobView(float)}, and calls it from two places behind

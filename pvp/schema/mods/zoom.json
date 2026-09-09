@@ -16,7 +16,8 @@
     "key": "C",
     "fov_divisor": 4,
     "smooth": true,
-    "cinematic": false
+    "cinematic": false,
+    "sensitivity": 1.0
   },
   "settings": {
     "key": {
@@ -40,6 +41,13 @@
       "description": "Whether smooth-camera mouse damping is applied while zoomed.",
       "type": "boolean",
       "default": false
+    },
+    "sensitivity": {
+      "description": "Mouse sensitivity while the zoom is engaged, as a fraction of your normal sensitivity. 1 leaves it alone, which is the default because it is what the mod did before this existed.\n\n**Why it needs a setting at all.** Zoom divides the field of view without changing what a mouse count does to your yaw, so at 4x every millimetre of desk turns you four times as far *across the visible scene* \u2014 the aim that lands a bow shot at 1x is unusable at 4x. `docs/mod-roster.md` \u00a73.4 #1 names exactly this: \"the absence of sensitivity scaling is felt every single time you zoom\", and files it under finishing a mod that already exists rather than under a new one.\n\n**Why the honest default is not `1 / fov_divisor`.** That is the value which keeps the *on-screen* angular rate identical, and it is what a player who has never tried it asks for; in practice it is too slow, because at 4x you are also making a smaller correction. The range bottoms out at 0.2 so that answer is reachable at every divisor the mod offers, and the default stays out of the way. It multiplies vanilla's own sensitivity rather than replacing it, so a player who has already tuned their sensitivity keeps that tuning and scales it.\n\nApplied where the game computes its look step \u2014 `GameRenderer.render`'s read of `GameOptions.sensitivity`, the one the cubic curve is built from \u2014 so this is a fraction of the *setting*, not of the resulting angle, and it eases in and out with the zoom rather than snapping when the key goes down.",
+      "type": "number",
+      "minimum": 0.2,
+      "maximum": 1,
+      "default": 1
     }
   }
 }

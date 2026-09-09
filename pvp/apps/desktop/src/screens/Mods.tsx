@@ -241,6 +241,10 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // window instead, which is the one thing about it a launcher row can honestly say. The shape
   // is in the client, on the HUD and on the mod page, where there is something to draw it over.
   cps_graph: () => <Numeral value="20" unit="seconds" />,
+  // The setting a player opens this mod for. A card cannot draw a screen, so it states the
+  // thing the mod does to one — and 100% is the resting value, which is honest about a mod that
+  // ships doing nothing until you move a slider.
+  scoreboard: () => <Numeral value="100" unit="% size" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

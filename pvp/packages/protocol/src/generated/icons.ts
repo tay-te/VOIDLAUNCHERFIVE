@@ -59,5 +59,6 @@ export const MOD_ICON_NAMES = {
   "old_input": "tap",
   "hit_trade": "sword",
   "clock": "clock",
-  "cps_graph": "cursor-click"
+  "cps_graph": "cursor-click",
+  "scoreboard": "users"
 } as const satisfies Record<ModId, string>;

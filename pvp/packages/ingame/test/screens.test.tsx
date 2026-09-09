@@ -827,9 +827,17 @@ describe('The mod page — contract §8', () => {
     // genuinely moved — but it does mean this branch is covered by the gameplay mods alone.
     //
     // It was `toggle_sprint` until `mode` was removed for being provably a no-op, which left
-    // that mod one property and moved it down a structure. `zoom`'s four carry the case now —
-    // not `hitboxes`, which has six and is grouped.
-    open('zoom');
+    // that mod one property and moved it down a structure. Then it was `zoom`, until
+    // `zoom.sensitivity` took that mod to five and grouped it — which is §8 working, not a
+    // regression, and is the third time this one assertion has had to move house.
+    //
+    // **The lesson is that this case should not be pinned to a mod at all**, and it still is
+    // because the alternative is worse: a `?fake=` fixture with four settings tests the *layout*
+    // and stops testing that a shipped mod reaches this structure, which is the half worth
+    // having. `fov` carries it now — three properties, all of them the mod's whole subject, and
+    // nothing in `docs/mod-roster.md` §3.2 #2 wanting a fourth ("you need about four" is Lunar's
+    // twenty-five cut down, and we are at three of them).
+    open('fov');
     expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
     expect(container.querySelectorAll('.mprops__group')).toHaveLength(0);
     expect(container.querySelector('.mprops__cap')).toBeNull();

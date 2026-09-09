@@ -149,6 +149,37 @@ public final class LiveState {
     public volatile double zoomFovDivisor = 4;
     public volatile boolean zoomSmooth = true;
     public volatile boolean zoomCinematic;
+    /** {@code zoom.sensitivity} — the fraction of normal look sensitivity while zoomed. */
+    public volatile double zoomSensitivity = 1;
+
+    /* ---------------------------------------------------------------- scoreboard */
+
+    /** {@code scoreboard.on} — the customiser is engaged at all. */
+    public volatile boolean scoreboardOn;
+    /** {@code scoreboard.hide} — vanilla's sidebar draw is skipped entirely. */
+    public volatile boolean scoreboardHide;
+    /** {@code scoreboard.sidebar_scale} — about the sidebar's own right-edge anchor. */
+    public volatile double scoreboardScale = 1;
+    /** {@code scoreboard.offset_x} — scaled screen pixels, positive right. */
+    public volatile int scoreboardOffsetX;
+    /** {@code scoreboard.offset_y} — scaled screen pixels, positive down. */
+    public volatile int scoreboardOffsetY;
+
+    /**
+     * Whether the sidebar needs any transform at all this frame.
+     *
+     * <p>Read once per draw by the Mixin so that a loadout with the mod on but every value at its
+     * factory setting takes the vanilla path exactly — no matrix push, no pop, and therefore no
+     * behaviour to get wrong. The same discipline the zoom's {@code factor == 1} short-circuit
+     * follows, and for the same reason: the cheapest way to be sure a feature cannot break the
+     * frame it is not being used in is for it to not run.</p>
+     */
+    public boolean scoreboardTransformed() {
+        return scoreboardOn
+                && (Math.abs(scoreboardScale - 1) > 0.0005
+                        || scoreboardOffsetX != 0
+                        || scoreboardOffsetY != 0);
+    }
 
     public volatile boolean crosshairOn;
     public volatile String crosshairStyle = "cross";
@@ -485,6 +516,12 @@ public final class LiveState {
         zoomFovDivisor = l.numberSetting("zoom", "fov_divisor", 4);
         zoomSmooth = l.boolSetting("zoom", "smooth", true);
         zoomCinematic = l.boolSetting("zoom", "cinematic", false);
+        zoomSensitivity = l.numberSetting("zoom", "sensitivity", 1);
+        scoreboardOn = l.isOn("scoreboard");
+        scoreboardHide = l.boolSetting("scoreboard", "hide", false);
+        scoreboardScale = l.numberSetting("scoreboard", "sidebar_scale", 1);
+        scoreboardOffsetX = (int) l.numberSetting("scoreboard", "offset_x", 0);
+        scoreboardOffsetY = (int) l.numberSetting("scoreboard", "offset_y", 0);
 
         crosshairOn = l.isOn("crosshair");
         crosshairStyle = l.stringSetting("crosshair", "style", "cross");

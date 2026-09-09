@@ -1,10 +1,13 @@
 package dev.voidpvp.client.mixin;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dev.voidpvp.client.VoidClient;
 import dev.voidpvp.client.state.LiveState;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.util.Window;
+import net.minecraft.scoreboard.ScoreboardObjective;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -68,6 +71,77 @@ public abstract class InGameHudMixin {
         LiveState state = LiveState.get();
         if (state.overlayOn && state.overlayHidePumpkin) {
             ci.cancel();
+        }
+    }
+
+    /**
+     * Whether {@link #void$scoreboardBefore} pushed a matrix this draw.
+     *
+     * <p>The two injectors have to agree, and they cannot agree by re-reading {@link LiveState}:
+     * every field there is {@code volatile} and written from the WS and UI threads, so a setting
+     * that changed between the head and the return would leave the matrix stack one deep — which
+     * is not a scoreboard bug, it is every subsequent draw in the frame under a stale transform.
+     * One field, written and read on the render thread inside one method call.</p>
+     */
+    @Unique
+    private boolean void$scoreboardPushed;
+
+    /**
+     * The Scoreboard mod (§6.7): hide, scale or move the server's sidebar.
+     *
+     * <p><b>The geometry was read, not remembered.</b> In
+     * {@code InGameHud.renderScoreboardObjective(ScoreboardObjective, Window)} the sidebar's left
+     * edge is computed at offsets 221-231 as {@code window.getWidth() - maxWidth - 3} and its top
+     * at 205-216 as {@code window.getHeight() / 2 + rows * fontHeight / 3}. So it hangs from a
+     * point on the <em>right edge at half height</em> and grows left and down from there — which
+     * is why the scale is taken about that point. A scale about the origin would slide the
+     * sidebar towards the middle of the screen as it shrank, which is the opposite of what a
+     * player asking for a smaller scoreboard wants.</p>
+     *
+     * <p><b>Hiding cancels rather than transforming.</b> The whole method is the sidebar and
+     * nothing else, so not entering it is the entire suppression and it costs less than vanilla
+     * rather than more. It also means the cancel must happen <em>before</em> the push: a cancelled
+     * {@code CallbackInfo} returns from the method at this injection point, so the {@code RETURN}
+     * injector below never runs and a matrix pushed here would never be popped.</p>
+     *
+     * <p>The transform order is {@code offset · anchor · scale · anchor⁻¹}, so a vertex ends at
+     * {@code offset + anchor + scale * (v - anchor)} — the offset is in screen pixels rather than
+     * in scaled ones, which is what makes "move it up 40" mean the same thing at every scale.</p>
+     */
+    @Inject(method = "renderScoreboardObjective", at = @At("HEAD"), cancellable = true)
+    private void void$scoreboardBefore(ScoreboardObjective objective, Window window,
+            CallbackInfo ci) {
+        void$scoreboardPushed = false;
+        LiveState state = LiveState.get();
+        if (!state.scoreboardOn) {
+            return;
+        }
+        if (state.scoreboardHide) {
+            ci.cancel();
+            return;
+        }
+        if (!state.scoreboardTransformed()) {
+            return;
+        }
+        float anchorX = window.getWidth();
+        float anchorY = window.getHeight() / 2.0F;
+        float scale = (float) state.scoreboardScale;
+        GlStateManager.pushMatrix();
+        void$scoreboardPushed = true;
+        GlStateManager.translate((float) state.scoreboardOffsetX, (float) state.scoreboardOffsetY,
+                0.0F);
+        GlStateManager.translate(anchorX, anchorY, 0.0F);
+        GlStateManager.scale(scale, scale, 1.0F);
+        GlStateManager.translate(-anchorX, -anchorY, 0.0F);
+    }
+
+    /** The other half of {@link #void$scoreboardBefore}; see there for why the flag exists. */
+    @Inject(method = "renderScoreboardObjective", at = @At("RETURN"))
+    private void void$scoreboardAfter(ScoreboardObjective objective, Window window,
+            CallbackInfo ci) {
+        if (void$scoreboardPushed) {
+            void$scoreboardPushed = false;
+            GlStateManager.popMatrix();
         }
     }
 }

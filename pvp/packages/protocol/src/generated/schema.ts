@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 32 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 33 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -79,7 +79,8 @@ export type ModId =
   | 'old_input'
   | 'hit_trade'
   | 'clock'
-  | 'cps_graph';
+  | 'cps_graph'
+  | 'scoreboard';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -949,6 +950,32 @@ export type CPSGraphEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Scoreboard, narrowed to its constant classification.
+ */
+export type ScoreboardEntry = RegistryEntry & {
+  /**
+   * Always `scoreboard`.
+   */
+  id?: 'scoreboard';
+  /**
+   * Always `users`.
+   */
+  icon?: 'users';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ScoreboardSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
@@ -1088,7 +1115,8 @@ export type GameplayModId =
   | 'hit_color'
   | 'damage_tint'
   | 'old_animations'
-  | 'old_input';
+  | 'old_input'
+  | 'scoreboard';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1203,7 +1231,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 32 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 33 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1238,6 +1266,7 @@ export interface Mods {
   hit_trade: TradeCounterEntry;
   clock: ClockEntry;
   cps_graph: CPSGraphEntry;
+  scoreboard: ScoreboardEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -1695,6 +1724,16 @@ export interface ZoomSettings {
    * Whether smooth-camera mouse damping is applied while zoomed.
    */
   cinematic?: boolean;
+  /**
+   * Mouse sensitivity while the zoom is engaged, as a fraction of your normal sensitivity. 1 leaves it alone, which is the default because it is what the mod did before this existed.
+   *
+   * **Why it needs a setting at all.** Zoom divides the field of view without changing what a mouse count does to your yaw, so at 4x every millimetre of desk turns you four times as far *across the visible scene* — the aim that lands a bow shot at 1x is unusable at 4x. `docs/mod-roster.md` §3.4 #1 names exactly this: "the absence of sensitivity scaling is felt every single time you zoom", and files it under finishing a mod that already exists rather than under a new one.
+   *
+   * **Why the honest default is not `1 / fov_divisor`.** That is the value which keeps the *on-screen* angular rate identical, and it is what a player who has never tried it asks for; in practice it is too slow, because at 4x you are also making a smaller correction. The range bottoms out at 0.2 so that answer is reachable at every divisor the mod offers, and the default stays out of the way. It multiplies vanilla's own sensitivity rather than replacing it, so a player who has already tuned their sensitivity keeps that tuning and scales it.
+   *
+   * Applied where the game computes its look step — `GameRenderer.render`'s read of `GameOptions.sensitivity`, the one the cubic curve is built from — so this is a fraction of the *setting*, not of the resulting angle, and it eases in and out with the zoom rather than snapping when the key goes down.
+   */
+  sensitivity?: number;
 }
 /**
  * Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.
@@ -2318,6 +2357,34 @@ export interface CPSGraphSettings {
   show_figure?: boolean;
 }
 /**
+ * Settings for the Scoreboard gameplay mod. It draws nothing of its own: every pixel is vanilla's `InGameHud.renderScoreboardObjective`, and this changes whether that runs and what transform it runs under.
+ *
+ * Why it is worth a mod at all — `docs/mod-roster.md` §3.1 #7: the vanilla sidebar covers the right third of the screen, at a size chosen for a 2011 resolution, and on most servers it is a scoreboard you have already read. It is also exactly where a right-handed player's eye goes for their own HUD.
+ *
+ * The geometry was read out of the method rather than remembered. The sidebar's left edge is `window.getWidth() - maxWidth - 3` and its top is `window.getHeight() / 2 + rows * fontHeight / 3`, so it hangs from a point on the right edge at half height and grows left and down from there. `scale` is applied about that point, which is why shrinking it keeps it in its corner instead of sliding it into the middle of the screen.
+ */
+export interface ScoreboardSettings {
+  on: Enabled;
+  /**
+   * Whether the sidebar is drawn at all. Off by default, because a scoreboard is the only thing telling you the score in half the game modes it appears in and a mod that ships hiding it would be a mod that breaks Bedwars for anyone who enables it without reading. On, nothing is drawn — the whole method is skipped, so it costs less than vanilla rather than more.
+   */
+  hide?: boolean;
+  /**
+   * Size of the sidebar, as a multiplier on vanilla's. 1 is untouched. Applied about the sidebar's own anchor — the point on the right edge at half height that the method hangs it from — so shrinking it keeps it in its corner rather than sliding it towards the middle. The floor is 0.5 because vanilla's font is a bitmap: below half size the glyphs stop resolving into letters, and a scoreboard nobody can read is `hide` with extra steps.
+   */
+  sidebar_scale?: number;
+  /**
+   * Horizontal nudge in scaled screen pixels, positive to the right. The useful direction is negative — pulling the sidebar in off the edge — but both are offered because a player who has shrunk it may want it flush again.
+   */
+  offset_x?: number;
+  /**
+   * Vertical nudge in scaled screen pixels, positive downwards. This is the setting most players actually want: the sidebar sits at half height, which on a 16:9 screen is straight through the middle of a fight, and moving it up puts it above the horizon where a bow arc lives instead.
+   *
+   * It is a row rather than a drag handle on a preview, and that is a stated limitation rather than an oversight — see this mod's `$comment`. The HUD editor places *this client's* widgets, and every pixel here is vanilla's.
+   */
+  offset_y?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2343,7 +2410,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 32 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 33 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2378,6 +2445,7 @@ export interface ModStates {
   hit_trade?: TradeCounterSettings;
   clock?: ClockSettings;
   cps_graph?: CPSGraphSettings;
+  scoreboard?: ScoreboardSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

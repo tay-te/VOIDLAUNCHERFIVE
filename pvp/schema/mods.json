@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 32 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 33 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -53,7 +53,8 @@
         "old_input",
         "hit_trade",
         "clock",
-        "cps_graph"
+        "cps_graph",
+        "scoreboard"
       ],
       "additionalProperties": false,
       "properties": {
@@ -184,6 +185,10 @@
         "cps_graph": {
           "description": "CPS graph registry entry.",
           "$ref": "#/definitions/cps_graph_entry"
+        },
+        "scoreboard": {
+          "description": "Scoreboard registry entry.",
+          "$ref": "#/definitions/scoreboard_entry"
         }
       }
     }
@@ -191,7 +196,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 32 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 33 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -225,7 +230,8 @@
         "old_input",
         "hit_trade",
         "clock",
-        "cps_graph"
+        "cps_graph",
+        "scoreboard"
       ]
     },
     "hud_mod_id": {
@@ -271,7 +277,8 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "scoreboard"
       ]
     },
     "kind": {
@@ -1188,6 +1195,13 @@
           "description": "Whether smooth-camera mouse damping is applied while zoomed.",
           "type": "boolean",
           "default": false
+        },
+        "sensitivity": {
+          "description": "Mouse sensitivity while the zoom is engaged, as a fraction of your normal sensitivity. 1 leaves it alone, which is the default because it is what the mod did before this existed.\n\n**Why it needs a setting at all.** Zoom divides the field of view without changing what a mouse count does to your yaw, so at 4x every millimetre of desk turns you four times as far *across the visible scene* — the aim that lands a bow shot at 1x is unusable at 4x. `docs/mod-roster.md` §3.4 #1 names exactly this: \"the absence of sensitivity scaling is felt every single time you zoom\", and files it under finishing a mod that already exists rather than under a new one.\n\n**Why the honest default is not `1 / fov_divisor`.** That is the value which keeps the *on-screen* angular rate identical, and it is what a player who has never tried it asks for; in practice it is too slow, because at 4x you are also making a smaller correction. The range bottoms out at 0.2 so that answer is reachable at every divisor the mod offers, and the default stays out of the way. It multiplies vanilla's own sensitivity rather than replacing it, so a player who has already tuned their sensitivity keeps that tuning and scales it.\n\nApplied where the game computes its look step — `GameRenderer.render`'s read of `GameOptions.sensitivity`, the one the cubic curve is built from — so this is a fraction of the *setting*, not of the resulting angle, and it eases in and out with the zoom rather than snapping when the key goes down.",
+          "type": "number",
+          "minimum": 0.2,
+          "maximum": 1,
+          "default": 1
         }
       }
     },
@@ -2283,6 +2297,47 @@
           "description": "Whether the current rate is drawn as a figure beside the graph. On by default: the shape is what this mod adds and the figure is what makes the shape readable, since a column chart with no scale on it is a picture of a rate rather than a reading of one. Off for a player who already has the CPS counter on their HUD and does not want the number twice.",
           "type": "boolean",
           "default": true
+        }
+      }
+    },
+    "scoreboard_settings": {
+      "title": "Scoreboard settings",
+      "description": "Settings for the Scoreboard gameplay mod. It draws nothing of its own: every pixel is vanilla's `InGameHud.renderScoreboardObjective`, and this changes whether that runs and what transform it runs under.\n\nWhy it is worth a mod at all — `docs/mod-roster.md` §3.1 #7: the vanilla sidebar covers the right third of the screen, at a size chosen for a 2011 resolution, and on most servers it is a scoreboard you have already read. It is also exactly where a right-handed player's eye goes for their own HUD.\n\nThe geometry was read out of the method rather than remembered. The sidebar's left edge is `window.getWidth() - maxWidth - 3` and its top is `window.getHeight() / 2 + rows * fontHeight / 3`, so it hangs from a point on the right edge at half height and grows left and down from there. `scale` is applied about that point, which is why shrinking it keeps it in its corner instead of sliding it into the middle of the screen.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the scoreboard customiser is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "hide": {
+          "description": "Whether the sidebar is drawn at all. Off by default, because a scoreboard is the only thing telling you the score in half the game modes it appears in and a mod that ships hiding it would be a mod that breaks Bedwars for anyone who enables it without reading. On, nothing is drawn — the whole method is skipped, so it costs less than vanilla rather than more.",
+          "type": "boolean",
+          "default": false
+        },
+        "sidebar_scale": {
+          "description": "Size of the sidebar, as a multiplier on vanilla's. 1 is untouched. Applied about the sidebar's own anchor — the point on the right edge at half height that the method hangs it from — so shrinking it keeps it in its corner rather than sliding it towards the middle. The floor is 0.5 because vanilla's font is a bitmap: below half size the glyphs stop resolving into letters, and a scoreboard nobody can read is `hide` with extra steps.",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1.5,
+          "default": 1
+        },
+        "offset_x": {
+          "description": "Horizontal nudge in scaled screen pixels, positive to the right. The useful direction is negative — pulling the sidebar in off the edge — but both are offered because a player who has shrunk it may want it flush again.",
+          "type": "integer",
+          "minimum": -200,
+          "maximum": 200,
+          "default": 0
+        },
+        "offset_y": {
+          "description": "Vertical nudge in scaled screen pixels, positive downwards. This is the setting most players actually want: the sidebar sits at half height, which on a 16:9 screen is straight through the middle of a fight, and moving it up puts it above the horizon where a bow arc lives instead.\n\nIt is a row rather than a drag handle on a preview, and that is a stated limitation rather than an oversight — see this mod's `$comment`. The HUD editor places *this client's* widgets, and every pixel here is vanilla's.",
+          "type": "integer",
+          "minimum": -200,
+          "maximum": 200,
+          "default": 0
         }
       }
     },
@@ -3689,11 +3744,54 @@
           ]
         }
       ]
+    },
+    "scoreboard_entry": {
+      "title": "Scoreboard entry",
+      "description": "Registry entry for the Scoreboard, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `scoreboard`.",
+              "const": "scoreboard"
+            },
+            "icon": {
+              "description": "Always `users`.",
+              "const": "users"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).",
+              "const": "hud"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Scoreboard settings.",
+              "$ref": "#/definitions/scoreboard_settings"
+            }
+          },
+          "not": {
+            "$comment": "the Scoreboard is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 13,
+      "version": 14,
       "mods": {
         "fps": {
           "id": "fps",
@@ -3973,7 +4071,8 @@
             "key": "C",
             "fov_divisor": 4,
             "smooth": true,
-            "cinematic": false
+            "cinematic": false,
+            "sensitivity": 1
           }
         },
         "crosshair": {
@@ -4406,6 +4505,23 @@
             "anchor": "top-left",
             "dx": 23,
             "dy": 293
+          }
+        },
+        "scoreboard": {
+          "id": "scoreboard",
+          "kind": "gameplay",
+          "category": "hud",
+          "hypixel_safe": "safe",
+          "label": "Scoreboard",
+          "icon": "users",
+          "description": "Hide, shrink or move the server's sidebar, which vanilla nails to the right of the screen.",
+          "source": "vanilla's own `InGameHud.renderScoreboardObjective`, wrapped",
+          "defaults": {
+            "on": false,
+            "hide": false,
+            "sidebar_scale": 1,
+            "offset_x": 0,
+            "offset_y": 0
           }
         }
       }

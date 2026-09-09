@@ -67,6 +67,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
     "min": 1.1,
     "max": 10
   },
+  "sensitivity": {
+    "min": 0.2,
+    "max": 1
+  },
   "size": {
     "min": 1,
     "max": 20
@@ -106,6 +110,18 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "window_s": {
     "min": 10,
     "max": 60
+  },
+  "sidebar_scale": {
+    "min": 0.5,
+    "max": 1.5
+  },
+  "offset_x": {
+    "min": -200,
+    "max": 200
+  },
+  "offset_y": {
+    "min": -200,
+    "max": 200
   }
 } as const;
 

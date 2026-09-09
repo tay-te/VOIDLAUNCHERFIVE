@@ -399,6 +399,7 @@ mod tests {
             on: true,
             key: crate::keybind::Keybind::new("V"),
             fov_divisor: None,
+            sensitivity: None,
             smooth: None,
             cinematic: None,
         });

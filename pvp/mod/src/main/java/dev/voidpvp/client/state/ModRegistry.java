@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 32 mods.
+ * The closed registry of the 33 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -445,7 +445,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (13) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -537,7 +537,28 @@ public final class ModRegistry {
                 // Whether the FOV change is eased over a few frames rather than snapping.
                 "smooth", bool(true),
                 // Whether smooth-camera mouse damping is applied while zoomed.
-                "cinematic", bool(false));
+                "cinematic", bool(false),
+                // Mouse sensitivity while the zoom is engaged, as a fraction of your normal
+                // sensitivity. 1 leaves it alone, which is the default because it is what the mod
+                // did before this existed. **Why it needs a setting at all.** Zoom divides the
+                // field of view without changing what a mouse count does to your yaw, so at 4x
+                // every millimetre of desk turns you four times as far *across the visible scene*
+                // — the aim that lands a bow shot at 1x is unusable at 4x. `docs/mod-roster.md`
+                // §3.4 #1 names exactly this: "the absence of sensitivity scaling is felt every
+                // single time you zoom", and files it under finishing a mod that already exists
+                // rather than under a new one. **Why the honest default is not `1 /
+                // fov_divisor`.** That is the value which keeps the *on-screen* angular rate
+                // identical, and it is what a player who has never tried it asks for; in practice
+                // it is too slow, because at 4x you are also making a smaller correction. The
+                // range bottoms out at 0.2 so that answer is reachable at every divisor the mod
+                // offers, and the default stays out of the way. It multiplies vanilla's own
+                // sensitivity rather than replacing it, so a player who has already tuned their
+                // sensitivity keeps that tuning and scales it. Applied where the game computes
+                // its look step — `GameRenderer.render`'s read of `GameOptions.sensitivity`, the
+                // one the cubic curve is built from — so this is a fraction of the *setting*, not
+                // of the resulting angle, and it eases in and out with the zoom rather than
+                // snapping when the key goes down.
+                "sensitivity", number(0.2, 1, 1));
 
         // Crosshair — kind gameplay, visual tab, §11 safe.
         // Replaces the vanilla crosshair with a configurable one at the exact screen centre.
@@ -843,7 +864,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (13) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -1276,6 +1297,41 @@ public final class ModRegistry {
                 // on their HUD and does not want the number twice.
                 "show_figure", bool(true));
 
+        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+
+        // Scoreboard — kind gameplay, hud tab, §11 safe.
+        // Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
+        // screen.
+        // Source: vanilla's own `InGameHud.renderScoreboardObjective`, wrapped.
+        mod("scoreboard", Kind.GAMEPLAY, Category.HUD, "Scoreboard",
+                // Whether the scoreboard customiser is enabled.
+                "on", bool(false),
+                // Whether the sidebar is drawn at all. Off by default, because a scoreboard is
+                // the only thing telling you the score in half the game modes it appears in and a
+                // mod that ships hiding it would be a mod that breaks Bedwars for anyone who
+                // enables it without reading. On, nothing is drawn — the whole method is skipped,
+                // so it costs less than vanilla rather than more.
+                "hide", bool(false),
+                // Size of the sidebar, as a multiplier on vanilla's. 1 is untouched. Applied
+                // about the sidebar's own anchor — the point on the right edge at half height
+                // that the method hangs it from — so shrinking it keeps it in its corner rather
+                // than sliding it towards the middle. The floor is 0.5 because vanilla's font is
+                // a bitmap: below half size the glyphs stop resolving into letters, and a
+                // scoreboard nobody can read is `hide` with extra steps.
+                "sidebar_scale", number(0.5, 1.5, 1),
+                // Horizontal nudge in scaled screen pixels, positive to the right. The useful
+                // direction is negative — pulling the sidebar in off the edge — but both are
+                // offered because a player who has shrunk it may want it flush again.
+                "offset_x", integer(-200, 200, 0),
+                // Vertical nudge in scaled screen pixels, positive downwards. This is the setting
+                // most players actually want: the sidebar sits at half height, which on a 16:9
+                // screen is straight through the middle of a fight, and moving it up puts it
+                // above the horizon where a bow arc lives instead. It is a row rather than a drag
+                // handle on a preview, and that is a stated limitation rather than an oversight —
+                // see this mod's `$comment`. The HUD editor places *this client's* widgets, and
+                // every pixel here is vanilla's.
+                "offset_y", integer(-200, 200, 0));
+
         // --- The factory HUD layout (19) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
@@ -1384,7 +1440,7 @@ public final class ModRegistry {
     // END GENERATED DATA
     // =================================================================
 
-    /** The 32 mod ids, in registry order. */
+    /** The 33 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

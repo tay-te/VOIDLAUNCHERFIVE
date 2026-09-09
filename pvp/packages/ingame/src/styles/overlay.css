@@ -3549,6 +3549,52 @@ body {
   gap: 0;
 }
 
+/* Scoreboard: the server's sidebar on the screen it sits on.
+ *
+ * Positioned by its **top-right** corner and scaled about it, because that is the anchor vanilla
+ * itself uses — `InGameHud.renderScoreboardObjective` computes the left edge as
+ * `width - maxWidth - 3` and the top as `height / 2 + rows * fontHeight / 3`, so the sidebar
+ * hangs from the right edge at half height and grows left and down. Any other origin would make
+ * shrinking it in this preview slide it towards the middle, which is not what shrinking it in
+ * game does — and a preview that disagrees with the mod is the failure this whole page exists to
+ * prevent. `transform-origin` therefore names that same point rather than a convenient one. */
+.gprev__board {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 34%;
+  padding: 6px 6px 6px 0;
+  transform-origin: 100% 0;
+}
+
+.gprev__boardhead {
+  width: 62%;
+  height: 5px;
+  border-radius: 2px;
+  background: rgba(237, 238, 239, 0.42);
+}
+
+.gprev__boardrow {
+  height: 3px;
+  border-radius: 1.5px;
+  background: rgba(237, 238, 239, 0.16);
+}
+
+.gprev--tile .gprev__board {
+  gap: 2px;
+  padding: 3px 3px 3px 0;
+}
+
+.gprev--tile .gprev__boardhead {
+  height: 3px;
+}
+
+.gprev--tile .gprev__boardrow {
+  height: 2px;
+}
+
 .gprev--tile .gprev__scene {
   width: 118px;
   height: 74px;

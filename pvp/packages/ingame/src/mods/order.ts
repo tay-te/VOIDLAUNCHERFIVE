@@ -72,6 +72,10 @@ export const MOD_ORDER: ModId[] = [
   'saturation',
   'potion_effects',
   'item_counter',
+  // The one mod whose subject is a *vanilla* overlay rather than one of ours, and it reads here
+  // because the sidebar is the thing it covers up: Ping display and Server address are the
+  // top-right corner's own readouts, and the scoreboard is what vanilla puts over them.
+  'scoreboard',
   'ping',
   // Beside Ping, the other half of "what am I connected to". They share the `wifi` glyph for
   // the same reason Coordinates and Direction share `compass`.

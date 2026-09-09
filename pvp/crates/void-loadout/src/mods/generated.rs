@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 32 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 33 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -100,11 +100,14 @@ pub enum ModId {
     Clock,
     /// The shape of your clicking over the last few seconds, not just the current rate.
     CpsGraph,
+    /// Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
+    /// screen.
+    Scoreboard,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 32] = [
+    pub const ALL: [ModId; 33] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -137,6 +140,7 @@ impl ModId {
         ModId::HitTrade,
         ModId::Clock,
         ModId::CpsGraph,
+        ModId::Scoreboard,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -174,6 +178,7 @@ impl ModId {
             ModId::HitTrade => "hit_trade",
             ModId::Clock => "clock",
             ModId::CpsGraph => "cps_graph",
+            ModId::Scoreboard => "scoreboard",
         }
     }
 }
@@ -284,7 +289,7 @@ impl HudModId {
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `gameplay`: the 13 mods an actuator Mixin reads
+/// The subset of [`ModId`] whose `kind` is `gameplay`: the 14 mods an actuator Mixin reads
 /// every frame.
 ///
 /// These are the only ids accepted by `void.setGameplay`.
@@ -319,11 +324,14 @@ pub enum GameplayModId {
     /// Removes the input interlocks 1.8 added, so a click is not swallowed by what your other
     /// hand is doing.
     OldInput,
+    /// Hide, shrink or move the server's sidebar, which vanilla nails to the right of the
+    /// screen.
+    Scoreboard,
 }
 
 impl GameplayModId {
     /// Every gameplay mod id, in registry order.
-    pub const ALL: [GameplayModId; 13] = [
+    pub const ALL: [GameplayModId; 14] = [
         GameplayModId::ToggleSprint,
         GameplayModId::Fullbright,
         GameplayModId::Hitboxes,
@@ -337,6 +345,7 @@ impl GameplayModId {
         GameplayModId::DamageTint,
         GameplayModId::OldAnimations,
         GameplayModId::OldInput,
+        GameplayModId::Scoreboard,
     ];
 
     /// Widens to the full mod id enum.
@@ -355,6 +364,7 @@ impl GameplayModId {
             GameplayModId::DamageTint => ModId::DamageTint,
             GameplayModId::OldAnimations => ModId::OldAnimations,
             GameplayModId::OldInput => ModId::OldInput,
+            GameplayModId::Scoreboard => ModId::Scoreboard,
         }
     }
 
@@ -1872,6 +1882,27 @@ pub struct ZoomSettings {
     /// Whether smooth-camera mouse damping is applied while zoomed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cinematic: Option<bool>,
+
+    /// Mouse sensitivity while the zoom is engaged, as a fraction of your normal sensitivity. 1
+    /// leaves it alone, which is the default because it is what the mod did before this
+    /// existed. **Why it needs a setting at all.** Zoom divides the field of view without
+    /// changing what a mouse count does to your yaw, so at 4x every millimetre of desk turns
+    /// you four times as far *across the visible scene* — the aim that lands a bow shot at 1x
+    /// is unusable at 4x. `docs/mod-roster.md` §3.4 #1 names exactly this: "the absence of
+    /// sensitivity scaling is felt every single time you zoom", and files it under finishing a
+    /// mod that already exists rather than under a new one. **Why the honest default is not `1
+    /// / fov_divisor`.** That is the value which keeps the *on-screen* angular rate identical,
+    /// and it is what a player who has never tried it asks for; in practice it is too slow,
+    /// because at 4x you are also making a smaller correction. The range bottoms out at 0.2 so
+    /// that answer is reachable at every divisor the mod offers, and the default stays out of
+    /// the way. It multiplies vanilla's own sensitivity rather than replacing it, so a player
+    /// who has already tuned their sensitivity keeps that tuning and scales it. Applied where
+    /// the game computes its look step — `GameRenderer.render`'s read of
+    /// `GameOptions.sensitivity`, the one the cubic curve is built from — so this is a fraction
+    /// of the *setting*, not of the resulting angle, and it eases in and out with the zoom
+    /// rather than snapping when the key goes down.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensitivity: Option<f64>,
 }
 
 /// Crosshair settings.
@@ -3538,11 +3569,63 @@ pub struct CpsGraphSettings {
     pub show_figure: Option<bool>,
 }
 
+/// Scoreboard settings.
+///
+/// Settings for the Scoreboard gameplay mod. It draws nothing of its own: every pixel is
+/// vanilla's `InGameHud.renderScoreboardObjective`, and this changes whether that runs and what
+/// transform it runs under. Why it is worth a mod at all — `docs/mod-roster.md` §3.1 #7: the
+/// vanilla sidebar covers the right third of the screen, at a size chosen for a 2011
+/// resolution, and on most servers it is a scoreboard you have already read. It is also exactly
+/// where a right-handed player's eye goes for their own HUD. The geometry was read out of the
+/// method rather than remembered. The sidebar's left edge is `window.getWidth() - maxWidth - 3`
+/// and its top is `window.getHeight() / 2 + rows * fontHeight / 3`, so it hangs from a point on
+/// the right edge at half height and grows left and down from there. `scale` is applied about
+/// that point, which is why shrinking it keeps it in its corner instead of sliding it into the
+/// middle of the screen.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScoreboardSettings {
+    /// Whether the scoreboard customiser is enabled.
+    pub on: bool,
+
+    /// Whether the sidebar is drawn at all. Off by default, because a scoreboard is the only
+    /// thing telling you the score in half the game modes it appears in and a mod that ships
+    /// hiding it would be a mod that breaks Bedwars for anyone who enables it without reading.
+    /// On, nothing is drawn — the whole method is skipped, so it costs less than vanilla rather
+    /// than more.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hide: Option<bool>,
+
+    /// Size of the sidebar, as a multiplier on vanilla's. 1 is untouched. Applied about the
+    /// sidebar's own anchor — the point on the right edge at half height that the method hangs
+    /// it from — so shrinking it keeps it in its corner rather than sliding it towards the
+    /// middle. The floor is 0.5 because vanilla's font is a bitmap: below half size the glyphs
+    /// stop resolving into letters, and a scoreboard nobody can read is `hide` with extra
+    /// steps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sidebar_scale: Option<f64>,
+
+    /// Horizontal nudge in scaled screen pixels, positive to the right. The useful direction is
+    /// negative — pulling the sidebar in off the edge — but both are offered because a player
+    /// who has shrunk it may want it flush again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset_x: Option<i64>,
+
+    /// Vertical nudge in scaled screen pixels, positive downwards. This is the setting most
+    /// players actually want: the sidebar sits at half height, which on a 16:9 screen is
+    /// straight through the middle of a fight, and moving it up puts it above the horizon where
+    /// a bow arc lives instead. It is a row rather than a drag handle on a preview, and that is
+    /// a stated limitation rather than an oversight — see this mod's `$comment`. The HUD editor
+    /// places *this client's* widgets, and every pixel here is vanilla's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset_y: Option<i64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 32.
+/// Every mod VOID ships, keyed by id. Closed set of 33.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -3651,6 +3734,10 @@ pub struct ModRegistryEntries {
     /// CPS graph — The shape of your clicking over the last few seconds, not just the current
     /// rate.
     pub cps_graph: ModEntry<CpsGraphSettings>,
+
+    /// Scoreboard — Hide, shrink or move the server's sidebar, which vanilla nails to the right
+    /// of the screen.
+    pub scoreboard: ModEntry<ScoreboardSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -3726,6 +3813,8 @@ pub struct ModStates {
     pub clock: Option<ClockSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cps_graph: Option<CpsGraphSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scoreboard: Option<ScoreboardSettings>,
 }
 
 impl Registry {
@@ -3764,6 +3853,7 @@ impl Registry {
             ModId::HitTrade => self.mods.hit_trade.info(),
             ModId::Clock => self.mods.clock.info(),
             ModId::CpsGraph => self.mods.cps_graph.info(),
+            ModId::Scoreboard => self.mods.scoreboard.info(),
         }
     }
 
@@ -3804,6 +3894,7 @@ impl Registry {
             ModId::HitTrade => self.mods.hit_trade.defaults_object(),
             ModId::Clock => self.mods.clock.defaults_object(),
             ModId::CpsGraph => self.mods.cps_graph.defaults_object(),
+            ModId::Scoreboard => self.mods.scoreboard.defaults_object(),
         }
     }
 }
@@ -3845,6 +3936,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::HitTrade => super::check::<HitTradeSettings>(id, value),
         ModId::Clock => super::check::<ClockSettings>(id, value),
         ModId::CpsGraph => super::check::<CpsGraphSettings>(id, value),
+        ModId::Scoreboard => super::check::<ScoreboardSettings>(id, value),
     }
 }
 

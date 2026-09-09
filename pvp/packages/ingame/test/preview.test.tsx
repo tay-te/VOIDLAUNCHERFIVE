@@ -69,6 +69,7 @@ const LIVE: readonly ModId[] = [
   'hit_trade',
   'clock',
   'cps_graph',
+  'scoreboard',
   'saturation',
   'momentum',
   'memory',

@@ -95,6 +95,12 @@ const ORDER = [
   // `packages/ingame/src/hud/second-edge.ts` is the one place that is allowed to and carries the
   // budget. Appended, never inserted.
   'clock', 'cps_graph',
+  // Wave 9 — the two the 1.8.9 bytecode was needed for. `scoreboard` wraps vanilla's own sidebar
+  // draw; `reach` reports the distance of an attack that has already landed. Both were blocked on
+  // reading the game rather than on time (`docs/adding-a-mod.md`, "Reading the game, instead of
+  // remembering it"), and the injection points in each are cited by offset in their own files.
+  // Appended, never inserted.
+  'scoreboard',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

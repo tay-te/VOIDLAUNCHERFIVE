@@ -39,6 +39,9 @@ export function settingLabel(key: string): string {
     use_while_digging: 'Use item while digging',
     block_hit: 'Block hit',
     show_jitter: 'Show jitter',
+    sidebar_scale: 'Sidebar scale',
+    offset_x: 'Horizontal offset',
+    offset_y: 'Vertical offset',
     show_seconds: 'Show seconds',
     show_figure: 'Show figure',
     window_s: 'Window',
@@ -69,6 +72,7 @@ export function settingLabel(key: string): string {
     center_dot: 'Centre dot',
     smooth: 'Smooth',
     cinematic: 'Cinematic',
+    sensitivity: 'Zoom sensitivity',
     color: 'Colour',
   };
   if (overrides[key]) return overrides[key]!;
@@ -236,6 +240,11 @@ export const SETTING_HINTS: Record<string, string> = {
   'saturation.style': 'A number, a bar, or both',
   'saturation.show_label': 'The SAT unit after the figure',
 
+  'scoreboard.hide': 'Do not draw the sidebar at all',
+  'scoreboard.sidebar_scale': 'Size, about its own right edge',
+  'scoreboard.offset_x': 'Nudge it left or right, in pixels',
+  'scoreboard.offset_y': 'Nudge it up or down, in pixels',
+
   'server_address.style': 'The short host, or the whole thing',
 
   'stopwatch.show_millis': 'Hundredths after the seconds',
@@ -251,6 +260,7 @@ export const SETTING_HINTS: Record<string, string> = {
 
   'zoom.key': 'The key you hold to zoom',
   'zoom.fov_divisor': 'How far in it goes',
+  'zoom.sensitivity': 'How much mouse you keep while zoomed',
   'zoom.smooth': 'Eases in rather than snapping',
   'zoom.cinematic': 'Damped mouse movement while zoomed',
 };

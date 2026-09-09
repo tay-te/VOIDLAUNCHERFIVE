@@ -400,6 +400,38 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         return zoom.factor();
     }
 
+    /**
+     * The multiplier this frame's look sensitivity is scaled by — {@code zoom.sensitivity}.
+     *
+     * <p>Zoom divides the field of view without changing what a mouse count does to your yaw, so
+     * at 4x every millimetre of desk turns you four times as far across the visible scene. That
+     * is what {@code docs/mod-roster.md} §3.4 #1 means by "the absence of sensitivity scaling is
+     * felt every single time you zoom".</p>
+     *
+     * <p><b>It follows the eased zoom rather than the key.</b> {@link ZoomController#factor()} is
+     * 1 when the zoom is released and {@code 1/divisor} when it is fully engaged, easing between
+     * the two; the sensitivity is interpolated along the same path, so a smooth zoom does not
+     * snap the mouse at the moment the key goes down. The interpolation is on the *engagement*
+     * (how far into the zoom we are), not on the factor itself: at 10x the factor is 0.1 and a
+     * naive lerp would spend nine tenths of its travel in the first fifth of the zoom.</p>
+     *
+     * <p>1 when the mod is off, when it is not engaged, or when the player left the setting at
+     * its default — in which case the Mixin returns vanilla's own field untouched, so a frame
+     * with this feature unused runs byte-identical to one before it existed.</p>
+     */
+    public double zoomSensitivityScale() {
+        double wanted = state.zoomSensitivity;
+        if (!state.zoomOn || wanted >= 1) {
+            return 1;
+        }
+        double divisor = state.zoomFovDivisor < 1.1 ? 1.1 : Math.min(state.zoomFovDivisor, 10);
+        // How far into the zoom the eased factor currently is: 0 released, 1 fully engaged.
+        double fullyIn = 1.0 / divisor;
+        double engaged = fullyIn >= 1 ? 0 : (1.0 - zoom.factor()) / (1.0 - fullyIn);
+        engaged = engaged < 0 ? 0 : (engaged > 1 ? 1 : engaged);
+        return 1 + (wanted - 1) * engaged;
+    }
+
     /** True when our crosshair replaces the vanilla pass this frame. */
     public boolean suppressesVanillaCrosshair() {
         return state.crosshairOn

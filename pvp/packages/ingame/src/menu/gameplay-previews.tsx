@@ -302,10 +302,10 @@ export function zoomFraction(divisor: number): number {
  */
 export function ZoomPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
   const settings = useModSettings('zoom');
-  const range = SETTING_RANGES.fov_divisor!;
   const divisor = Number(settings.fov_divisor ?? 4);
   const fraction = zoomFraction(divisor);
   const smooth = settings.smooth !== false;
+  const sensitivity = Number(settings.sensitivity ?? 1);
   const frame = (f: number): CSSProperties => ({
     width: `${(f * 100).toFixed(2)}%`,
     height: `${(f * 100).toFixed(2)}%`,
@@ -345,12 +345,29 @@ export function ZoomPreview({ dense = false, className }: DiagramProps = {}): Re
         {dense ? null : <span className="gprev__fovlabel tnum">{divisor.toFixed(1)}×</span>}
       </div>
       {dense ? <span className="gprev__fovunder tnum">{divisor.toFixed(1)}×</span> : null}
+      {/* `sensitivity` scales how far your look moves for the same mouse travel, and it has a
+          drawn form for the same reason `smooth` turned out to: a still frame cannot animate a
+          motion but it can draw its *extent*. The row is the mouse step at full sensitivity;
+          the lit part is what is left of it while the zoom is engaged. At 1 the row is full,
+          which is the honest statement that nothing is being taken away.
+
+          A row of cells rather than a bar because that is what everything textural in this
+          client is made of (§3), and separated rather than joined because a sensitivity is a
+          *scale* the player picks a step on, not a continuous state the way sprint is. */}
+      {dense ? null : (
+        <CellRow
+          label="Mouse"
+          cells={Array.from({ length: steps(false) }, (_, i) =>
+            i / steps(false) < sensitivity ? 0.42 : 0.07,
+          )}
+        />
+      )}
       {dense ? null : (
         <Reading
           parts={[
             `${BASE_FOV}° → ${(BASE_FOV / Math.max(1, divisor)).toFixed(1)}°`,
             `${Math.round(fraction * 100)}% of the width`,
-            divisor <= range.min ? 'Barely a zoom' : null,
+            sensitivity >= 1 ? null : `Mouse at ${Math.round(sensitivity * 100)}%`,
             smooth ? 'Eases in' : 'Snaps',
           ]}
         />
@@ -703,6 +720,85 @@ export function SneakPreview({ dense = false, className }: DiagramProps = {}): R
           parts={[
             hold ? 'Crouches while held' : 'Tap down, tap up',
             armed ? null : 'No key bound',
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scoreboard                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The screen, with the server's sidebar on it — where it is, how big, and whether at all.
+ *
+ * ## The one diagram in this file that is a *plan* rather than a schematic
+ *
+ * Everything else here draws a mechanism: two gamma ramps, a fan of view angles, a click
+ * timeline. This mod's whole subject is *position on a screen*, so the honest picture is the
+ * screen. It reuses `.gprev__scene` — the frame the overlay mod already draws its first-person
+ * view in — because a player looking at two of these pages should not have to learn two ideas of
+ * what a screen is.
+ *
+ * ## The proportions are vanilla's, read out of the method
+ *
+ * `InGameHud.renderScoreboardObjective` puts the sidebar's left edge at
+ * `window.getWidth() - maxWidth - 3` and its top at `window.getHeight() / 2 + rows * fontHeight
+ * / 3`, so it hangs from the right edge at half height and grows left and down. The block below
+ * is drawn from that same anchor with the same growth direction, which is what makes shrinking
+ * it in the preview move it the way shrinking it in game does — the failure this diagram is
+ * guarding against is a preview where a scale looks like it slides the sidebar into the middle.
+ *
+ * The rows are §3 cells at a stated width, not lorem text: a scoreboard's content is the
+ * server's and changes every game, and drawing plausible words would be inventing a game mode.
+ * What is true of every scoreboard is that it is a stack of lines of ragged length under a
+ * heading, which is what this is.
+ */
+export function ScoreboardPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('scoreboard');
+  const hidden = settings.hide === true;
+  const scale = Number(settings.sidebar_scale ?? 1);
+  const dx = Number(settings.offset_x ?? 0);
+  const dy = Number(settings.offset_y ?? 0);
+  // The scene is 440x248 on the page and 118x74 on a tile; the offsets are in the game's own
+  // scaled pixels, whose screen is nearer 640 wide. One factor, so a nudge of 40 reads as the
+  // same fraction of the frame at both densities and in game.
+  const unit = dense ? 118 / 640 : 440 / 640;
+  // Ragged line lengths, longest first under the heading — the shape every scoreboard has.
+  const rows = [0.86, 0.62, 0.94, 0.5, 0.78, 0.68];
+  return (
+    <div className={root(dense, 'gprev--board', className)}>
+      <div className="gprev__scene">
+        <span className="gprev__horizon" />
+        <span className="gprev__reticle" />
+        {/* Absent when hidden, which is the whole of what the setting does — and unlike a HUD
+            widget's absence this one is legible, because the frame around it stays. */}
+        {hidden ? null : (
+          <span
+            className="gprev__board"
+            style={{
+              // Right edge at half height is the anchor, so the box is positioned by its
+              // top-right corner and `transform-origin` sits there too — the same point
+              // `GlStateManager` is handed in `InGameHudMixin`.
+              right: `${-dx * unit}px`,
+              top: `${50 + (dy * unit * 100) / (dense ? 74 : 248)}%`,
+              transform: `scale(${scale})`,
+            }}
+          >
+            <span className="gprev__boardhead" />
+            {rows.map((width, i) => (
+              <span key={i} className="gprev__boardrow" style={{ width: `${width * 100}%` }} />
+            ))}
+          </span>
+        )}
+      </div>
+      {dense ? null : (
+        <Reading
+          parts={[
+            hidden ? 'Hidden' : `${Math.round(scale * 100)}% size`,
+            hidden ? null : dx === 0 && dy === 0 ? 'Where vanilla puts it' : `Moved ${dx}, ${dy}`,
           ]}
         />
       )}

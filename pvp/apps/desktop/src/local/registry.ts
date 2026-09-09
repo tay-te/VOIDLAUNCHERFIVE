@@ -172,6 +172,14 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 9's sidebar customiser. `sidebar_scale` rather than `scale` because `SETTING_BOUNDS`
+  // is keyed by the bare name and this mod's range is not the shared HUD block's.
+  scoreboard: [
+    { key: 'hide', label: 'Hide', control: 'switch' },
+    { key: 'sidebar_scale', label: 'Sidebar scale', control: 'slider', min: 0.5, max: 1.5, step: 0.05, format: 'multiplier' },
+    { key: 'offset_x', label: 'Horizontal offset', control: 'slider', min: -200, max: 200, step: 1, format: 'plain' },
+    { key: 'offset_y', label: 'Vertical offset', control: 'slider', min: -200, max: 200, step: 1, format: 'plain' },
+  ],
   // Wave 8's two, both computed by the page itself — no sensor either side.
   clock: [
     SCALE,
@@ -316,6 +324,7 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   zoom: [
     { key: 'key', label: 'Keybind', control: 'keybind' },
     { key: 'fov_divisor', label: 'Amount', control: 'slider', min: 1.1, max: 10, step: 0.1, format: 'multiplier' },
+    { key: 'sensitivity', label: 'Zoom sensitivity', control: 'slider', min: 0.2, max: 1, step: 0.05, format: 'percent' },
     { key: 'smooth', label: 'Smooth', control: 'switch' },
     { key: 'cinematic', label: 'Cinematic', control: 'switch' },
   ],
@@ -371,6 +380,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'hit_trade',
   'cps_graph',
   'clock',
+  'scoreboard',
   'saturation',
   'momentum',
   'memory',

@@ -1,0 +1,51 @@
+{
+  "$comment": "Four notes.\n\n**It is `kind: gameplay`, and that is not a fudge.** The split is a *data direction*: a `hud` mod owns a draggable item this client draws and places, a `gameplay` mod mutates something the game was going to do anyway. This mod draws nothing \u2014 every pixel of the sidebar is vanilla's, and all four settings change how vanilla's own draw is set up. It is the same shape as `overlay`, which is a grab-bag of suppressions of things the game draws, and the same reason `crosshair` and `hitboxes` carry their own geometry without being HUD items: that geometry belongs to a mark the *world* pass draws.\n\n**Why it is not a HUD item, when a HUD editor exists.** `docs/mod-roster.md` \u00a73.1 #16 already answers this for the boss bar and the titles: vanilla overlays become HUD items \"only once the HUD editor can own vanilla elements\", which it cannot \u2014 `loadout.json`'s `hud[]` is a list of *this client's* widgets, and the editor's drag writes an anchor and an offset that `HudSlot` applies to a React box. There is no React box here. Giving the scoreboard `offset_y` as a row rather than a drag handle is the honest version of that limitation, and the day the editor learns to place a vanilla element this mod becomes its first caller.\n\n**Scale is about the right edge, because that is where the sidebar is anchored.** Read out of `InGameHud.renderScoreboardObjective` rather than assumed: at offsets 221-231 the left edge is `window.getWidth() - maxWidth - 3`, and at 205-216 the top is `window.getHeight() / 2 + rows * fontHeight / 3`. So the sidebar grows leftwards and downwards from a point on the right edge at half height, and a scale about the origin would slide it into the middle of the screen. The transform anchors that point.\n\n**No recolouring.** Lunar's version recolours the sidebar's text and its ground. `design/quiet-cell-system.md` \u00a71 rules a per-element colour out, and here it is not even our colour to choose: the server writes those colour codes and they carry meaning in every game mode that uses them. Hiding the whole thing is a choice; repainting a server's own message is not.\n\n**The glyph is `users`, not `list`.** A scoreboard is a list, and `list` is the mark that reads it \u2014 but that mark is one of the overlay bar's own four controls, three inches above the grid and on screen at the same time, so a tile carrying it would be a tile that looks like a button. `users` is unused by any mod and is honest about the content: a sidebar is players and their scores. The three glyph *shares* in this registry are all pairs of mods reading one subject; borrowing a chrome control is a different thing and is not one of them.\n\n**`scale` is spelled `sidebar_scale`, and the generator is why.** `SETTING_BOUNDS` is keyed by the bare setting name and throws if two mods disagree about a bound, which is the right rule: `scale` is the shared HUD block's, 0.25 to 4, and this wants 0.5 to 1.5 because vanilla's font is a bitmap that stops resolving below half size. `ModSettingsScreen`'s `SPATIAL_KEYS` is the second reason \u2014 it puts anything called `scale` or `size` on the preview as a drag handle, and this mod's preview is a diagram with nothing to drag.",
+  "id": "scoreboard",
+  "kind": "gameplay",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Scoreboard",
+  "icon": "users",
+  "the": true,
+  "noun": "the scoreboard",
+  "on_description": "the scoreboard customiser is enabled",
+  "description": "Hide, shrink or move the server's sidebar, which vanilla nails to the right of the screen.",
+  "settings_title": "Scoreboard settings",
+  "settings_description": "Settings for the Scoreboard gameplay mod. It draws nothing of its own: every pixel is vanilla's `InGameHud.renderScoreboardObjective`, and this changes whether that runs and what transform it runs under.\n\nWhy it is worth a mod at all \u2014 `docs/mod-roster.md` \u00a73.1 #7: the vanilla sidebar covers the right third of the screen, at a size chosen for a 2011 resolution, and on most servers it is a scoreboard you have already read. It is also exactly where a right-handed player's eye goes for their own HUD.\n\nThe geometry was read out of the method rather than remembered. The sidebar's left edge is `window.getWidth() - maxWidth - 3` and its top is `window.getHeight() / 2 + rows * fontHeight / 3`, so it hangs from a point on the right edge at half height and grows left and down from there. `scale` is applied about that point, which is why shrinking it keeps it in its corner instead of sliding it into the middle of the screen.",
+  "source": "vanilla's own `InGameHud.renderScoreboardObjective`, wrapped",
+  "enabled": false,
+  "defaults": {
+    "hide": false,
+    "sidebar_scale": 1,
+    "offset_x": 0,
+    "offset_y": 0
+  },
+  "settings": {
+    "hide": {
+      "description": "Whether the sidebar is drawn at all. Off by default, because a scoreboard is the only thing telling you the score in half the game modes it appears in and a mod that ships hiding it would be a mod that breaks Bedwars for anyone who enables it without reading. On, nothing is drawn \u2014 the whole method is skipped, so it costs less than vanilla rather than more.",
+      "type": "boolean",
+      "default": false
+    },
+    "sidebar_scale": {
+      "description": "Size of the sidebar, as a multiplier on vanilla's. 1 is untouched. Applied about the sidebar's own anchor \u2014 the point on the right edge at half height that the method hangs it from \u2014 so shrinking it keeps it in its corner rather than sliding it towards the middle. The floor is 0.5 because vanilla's font is a bitmap: below half size the glyphs stop resolving into letters, and a scoreboard nobody can read is `hide` with extra steps.",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 1.5,
+      "default": 1
+    },
+    "offset_x": {
+      "description": "Horizontal nudge in scaled screen pixels, positive to the right. The useful direction is negative \u2014 pulling the sidebar in off the edge \u2014 but both are offered because a player who has shrunk it may want it flush again.",
+      "type": "integer",
+      "minimum": -200,
+      "maximum": 200,
+      "default": 0
+    },
+    "offset_y": {
+      "description": "Vertical nudge in scaled screen pixels, positive downwards. This is the setting most players actually want: the sidebar sits at half height, which on a 16:9 screen is straight through the middle of a fight, and moving it up puts it above the horizon where a bow arc lives instead.\n\nIt is a row rather than a drag handle on a preview, and that is a stated limitation rather than an oversight \u2014 see this mod's `$comment`. The HUD editor places *this client's* widgets, and every pixel here is vanilla's.",
+      "type": "integer",
+      "minimum": -200,
+      "maximum": 200,
+      "default": 0
+    }
+  }
+}
