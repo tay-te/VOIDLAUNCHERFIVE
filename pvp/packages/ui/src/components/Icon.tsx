@@ -59,6 +59,7 @@ export const ICON_NAMES = [
   'cube',
   'sparkle',
   'watermark',
+  'clock',
 ] as const;
 
 /** One icon name. */
@@ -143,6 +144,30 @@ const PATHS: Record<IconName, string[]> = {
   // `ingame/scripts/build-icons.py`, `watermark`, draws the same reasoning at 48px; the name
   // is chosen in `schema/mods/watermark.json` now.
   watermark: ['M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M7.4 15a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2Z'],
+  // A **stopwatch**, not a wall clock, and the difference is the whole reason this glyph is
+  // three marks rather than two. A ring with two hands in it is a wall clock; at 16px the two
+  // hands fall inside one 2px band and it is a ring with a smudge in it, which is a worse
+  // `crosshair`. A stopwatch is a ring with a *crown on top of it* and one sweep hand, and the
+  // crown is the mark that carries the meaning at every size — it survives to 13px as a nub on
+  // the case where a second hand does not survive to 16.
+  //
+  // So: case, crown, hand. Three ideas, and the sweep hand sits at 1 o'clock rather than at 12
+  // so it does not read as the crown continued through the case.
+  //
+  // The case is r 7.1 rather than the 8-9 the other rings here take, because the crown has to
+  // fit above it inside the same box: case bottom to crown tip is 17.2 units, which is the
+  // height a full-size ring would have had on its own. The form comes out taller than it is
+  // wide, which is what a stopwatch is.
+  //
+  // The coordinates are shared with `ingame/scripts/build-icons.py`'s `clock` cell on purpose,
+  // so the launcher's SVG and the overlay's sprite are provably the same drawing at two stroke
+  // weights rather than two drawings that happen to share a name — the failure `toggle_sprint`
+  // shipped for months.
+  clock: [
+    'M12 20.5a7.1 7.1 0 1 0 0-14.2 7.1 7.1 0 0 0 0 14.2Z',
+    'M12 6.3V3.3',
+    'M12 13.4 14.7 8.7',
+  ],
 };
 
 /** Icons drawn as a solid shape rather than a stroke. */

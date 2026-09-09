@@ -803,6 +803,182 @@ export function ItemCounterChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* StopwatchChip                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** How {@link StopwatchChip} writes an elapsed time. */
+export type StopwatchFormat = 'auto' | 'mmss' | 'hmmss';
+
+/** Two digits, which is what every field of a clock reading except the hour is. */
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+/**
+ * Format an elapsed duration as the stopwatch's reading.
+ *
+ * Exported for the same reason {@link formatPotionTime} is: the string is the mod's
+ * contract as much as the chip is, and `packages/ingame`'s widget and `apps/desktop`'s
+ * mod card should not each grow their own arithmetic for it.
+ *
+ * **Truncated, never rounded.** A stopwatch reads the time that has *elapsed*, so a chip
+ * showing `0:01` at 999ms would be claiming a second that has not finished. `Math.floor`
+ * throughout, including on the hundredths.
+ *
+ * ## What `mmss` does past an hour
+ *
+ * It keeps counting minutes: an hour and four minutes is **`64:07`**, not `04:07` and not
+ * `59:59`.
+ *
+ * The three candidates were rollover, clamping and carrying, and two of them are lies. A
+ * rollover draws `04:07` for an elapsed hour and four minutes, which is a reading of a
+ * different duration — the exact failure a player would only catch by having watched the
+ * whole hour. A clamp at `59:59` is a chip that stops being a stopwatch after an hour while
+ * still looking like one. Carrying is the only honest option, it is what a lap timer does,
+ * and it is what the player asked for: `mmss` is a request for *two fields*, not a request
+ * to throw away the third. The cost is that the figure grows a digit at 100 minutes; that is
+ * a width change once per session against a wrong number every session, and
+ * {@link StopwatchFormat} `auto` exists precisely for players who would rather have the hour.
+ *
+ * ## Which fields are padded, and why they differ per format
+ *
+ * `auto` leaves the leading field unpadded — `4:07`, and `1:04:07` once there are hours —
+ * which is {@link formatPotionTime}'s shape further down this file, and the narrowest
+ * honest reading. `mmss` pads the minutes instead: it is the format whose whole promise is
+ * that the chip does not change width while you are reading it, so `04:07` and `64:07` are
+ * one width and the field is fixed at two digits until it genuinely cannot be. Every field
+ * after the leading one is always padded, in every format, because a field that is not the
+ * leading one has a known width by definition.
+ *
+ * That split is what makes the three options three options: narrowest (`auto`), fixed-width
+ * (`mmss`), always-a-duration (`hmmss`). `schema/mods/stopwatch.json` argues the same three
+ * from the player's side and writes the same examples.
+ *
+ * @param elapsedMs Elapsed time in milliseconds. Negative input is held at zero.
+ * @param format Which fields to draw — see {@link StopwatchChipProps.format}.
+ * @param showMillis Append hundredths of a second.
+ */
+export function formatElapsed(
+  elapsedMs: number,
+  format: StopwatchFormat = 'auto',
+  showMillis = false,
+): string {
+  const total = Math.max(0, Math.floor(elapsedMs));
+  const hundredths = Math.floor((total % 1000) / 10);
+  const totalSeconds = Math.floor(total / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const withHours = format === 'hmmss' || (format === 'auto' && hours > 0);
+  // The leading field is never padded to a width it might exceed: hours are unbounded, so
+  // there is no width to pad them *to*, and `mmss`'s minutes are only pinned at two because
+  // that format is the one promising a stable width. Everything after the leading field is
+  // padded — those fields have a known width, and an unpadded `1:2:3` is not a clock.
+  const head = withHours
+    ? `${hours}:${pad2(totalMinutes % 60)}`
+    : format === 'mmss'
+      ? pad2(totalMinutes)
+      : String(totalMinutes);
+  return `${head}:${pad2(totalSeconds % 60)}${showMillis ? `.${pad2(hundredths)}` : ''}`;
+}
+
+/** Props for {@link StopwatchChip}. */
+export interface StopwatchChipProps extends HudChipProps {
+  /** Elapsed time in milliseconds. */
+  elapsedMs: number;
+  /**
+   * Whether the clock is currently running.
+   *
+   * Drawn as the leading dot's tone — `ok` while it runs, `muted` while it is stopped. See
+   * {@link StopwatchChip} for why that is the state channel and why nothing here blinks.
+   *
+   * Defaults to `false`, i.e. the chip does not claim a state nobody gave it. That is the
+   * loud default of the two: a stopped dot over digits that are visibly climbing is a
+   * contradiction anyone sees in one second, where a running dot over frozen digits is a
+   * chip quietly agreeing with itself.
+   */
+  running?: boolean;
+  /**
+   * Whether to draw hundredths.
+   *
+   * Hundredths are part of the figure and take the figure's ink — they are the fastest-moving
+   * part of the live value, not an aside about it.
+   */
+  showMillis?: boolean;
+  /**
+   * Which fields the reading carries.
+   *
+   * - `auto` — `M:SS`, growing to `H:MM:SS` the moment there are hours. The default, and the
+   *   narrowest reading of the three.
+   * - `mmss` — always `MM:SS` at a fixed two-digit minute, with the minutes **carrying past
+   *   59**: an hour and four minutes is `64:07`. See {@link formatElapsed} for why that
+   *   rather than a rollover.
+   * - `hmmss` — always `H:MM:SS`, including `0:00:00`.
+   */
+  format?: StopwatchFormat;
+}
+
+/**
+ * `● 4:31` — an elapsed time, and whether the clock behind it is still moving.
+ *
+ * ## Running and stopped
+ *
+ * The two states have to be told apart at a glance or the mod cannot say what it is doing,
+ * and the device is {@link PingChip}'s: a {@link StatusDot} in front of the figure, `ok`
+ * while running and `muted` while stopped.
+ *
+ * That is inside the quiet-cell line and not near it. §1's chrome/world split is decidable —
+ * *"colour encodes a value or a state; it is never a preference"* — and running/stopped is a
+ * state in the plainest sense the document has: it is the same shape of thing as `ping`'s
+ * dot going amber past `bad_ms`, which the file names as the precedent. Nothing here is
+ * configurable, so there is no preference for colour to leak into.
+ *
+ * It is the dot that changes and not the figure, for the same reason `fps.color` lands on
+ * the figure and nowhere else: the figure is the elapsed time, and the elapsed time is not
+ * what running/stopped is about. Recolouring the digits would have said the *reading* had
+ * changed meaning, when what changed is whether it is still moving.
+ *
+ * The dot is also the only mark on the chip that costs nothing to change: it is present in
+ * both states, so the chip cannot reflow when the clock is paused, and `--ok` against
+ * `--text-muted` is a large luminance step as well as a hue one, which is what makes it
+ * survive both a colour-blind player and whatever game pixels are behind it.
+ *
+ * ## Why nothing moves
+ *
+ * No blink, no pulse, no ticking colon. `design/ultralight-notes.md` is explicit that the
+ * overlay's engine drops most of what a designer reaches for here, and the guard in
+ * `packages/ingame/scripts/check-ultralight.mjs` rejects the rest at `build` — so an
+ * animated state marker is a thing that renders perfectly in jsdom, passes every test in
+ * this package, and does nothing at all in game. A static dot is a state that is legible in
+ * a screenshot, which is also the only kind a player glances at mid-fight.
+ *
+ * ## Digits
+ *
+ * The reading sits in `.v-hudchip__value`, which `01-base.css` gives `tnum` — this chip is
+ * the strongest case on the sheet for it, since every field ticks, and it takes no wrapper
+ * class of the `.v-serverchip` kind that turns tabular figures back off. With tabular
+ * figures plus {@link formatElapsed}'s padding, the figure never changes width on a tick:
+ * the only widths it has are the ones where the reading genuinely gained a field — an hour
+ * under `auto`, ten minutes under `auto`, a hundred minutes under `mmss`.
+ */
+export function StopwatchChip({
+  elapsedMs,
+  running = false,
+  showMillis = false,
+  format = 'auto',
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: StopwatchChipProps): React.ReactElement {
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <StatusDot tone={running ? 'ok' : 'muted'} size={7} />
+      <span className="v-hudchip__value">{formatElapsed(elapsedMs, format, showMillis)}</span>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* PotionList                                                                 */
 /* -------------------------------------------------------------------------- */
 

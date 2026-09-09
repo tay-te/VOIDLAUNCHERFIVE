@@ -138,6 +138,7 @@ ICONS = [
     'check', 'plus', 'star', 'heart', 'eye', 'play', 'reset', 'chevron-right', 'bed',
     # appended, never inserted — see the module docstring
     'watermark',
+    'clock',
 ]
 
 
@@ -602,6 +603,46 @@ def draw(name, d):
         # wins at 2.6u of clearance.
         rrect(d, 2.2, 3.8, 19.6, 16.4, 4.92, s)
         line(d, 7.3, 15.0, 11.1, 15.0, s)
+
+    elif name == 'clock':
+        # A **stopwatch**, which is a different drawing from a wall clock and has to be, because
+        # the mod is a stopwatch and this sheet already carries two rings.
+        #
+        # The wall clock was rendered first and is not survivable here. Its two hands are the
+        # whole of what says "clock", and at 16px the case's interior is 11.7u across — 7.8px —
+        # so an hour hand and a minute hand at any angle short of a right angle fall inside one
+        # 2px band and downsample to a ring with a smudge in it. That is `crosshair` with a
+        # dirty centre, and `crosshair` is six cells away on the same sheet. Drawn at a right
+        # angle it survives and reads as a *dial*, not a clock, because two perpendicular
+        # radii is what `fps`' needle would look like with a friend.
+        #
+        # The stopwatch is legible for a reason the clock is not: its identity is on the
+        # OUTSIDE of the case. A crown at 12 o'clock is a mark against black ground with
+        # nothing to merge into, so it holds at 13px where an interior mark cannot. So the
+        # glyph is case + crown + one sweep hand — three ideas, and the hand can then be a
+        # single stroke, which the interior does have room for.
+        #
+        # Geometry. The crown is 3.0u clear of the case's outer edge, which is `settings`'
+        # teeth exactly: that is the measured length at which a radial stub off a ring is a
+        # deliberate mark rather than a bump. Its inner end sits inside the case's stroke —
+        # a join, like the needle and its dial, not an aperture. Working back from those two
+        # constraints, the case is r 7.1 about (12, 13.4): crown tip to case bottom is 17.2u,
+        # the box rule's height for a non-full-bleed form, and the case takes what is left.
+        # It is the narrowest ring on the sheet at 14.2u across, and it is meant to be — a
+        # stopwatch is taller than it is wide, and a case sized to the 17.6u circular rule
+        # would have put the crown outside the cell.
+        #
+        # The hand sits at 1 o'clock rather than at 12. At 12 it is the crown continued
+        # through the case and the whole glyph reads as one vertical stroke skewered through a
+        # ring; 30 degrees off is far enough to separate them and still reads as a few seconds
+        # elapsed rather than as half past. It clears the case's inner edge by 1.0u — `fps`'
+        # needle gap, and the same argument: a hand is meant to point at its dial.
+        #
+        # No hub dot, for `fps`' measured reason: at this size the hub and the hand's root
+        # merge into a blob that closes the dial's centre.
+        circle(d, 12, 13.4, 7.1, s)
+        line(d, 12, 6.3, 12, 3.3, s)          # the crown
+        line(d, 12, 13.4, 14.43, 9.20, s)     # the sweep hand, 30 degrees off 12
 
     else:
         raise SystemExit('unknown icon ' + name)

@@ -93,6 +93,9 @@ export const SHEET_ORDER: readonly string[] = [
   'chevron-right',
   'bed',
   'watermark',
+  // Appended, so no existing cell's offset moves — `build-icons.py` writes the sheet in this
+  // order and `icons.css` puts `clock` at -560px, which is cell 35.
+  'clock',
 ];
 
 /** How many cells the sheet holds. The width at size *s* is this many *s*. */
@@ -187,6 +190,7 @@ export const SPRITE: Record<IconName, string> = {
   reset: 'reset',
   'chevron-right': 'chevron-right',
   bed: 'bed',
+  clock: 'clock',
 };
 
 /** The inline geometry for one cell at one size. Exported for the test that pins the mapping. */
