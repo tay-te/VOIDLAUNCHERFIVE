@@ -790,7 +790,7 @@ describe('The mod page — contract §8', () => {
     render(<App />);
     open('keystrokes');
     // Frame `289:5523` captions the preview with what the two things on it do.
-    expect(screen.getByText(/Click a slot to place/)).toBeTruthy();
+    expect(screen.getByText(/Click a corner to place/)).toBeTruthy();
     // `Scale` is the size property, so it is the drag handle, not a row.
     expect(screen.getByRole('button', { name: 'Scale' })).toBeTruthy();
     // …and placement is four labelled corner slots, printing the frame's own tags.

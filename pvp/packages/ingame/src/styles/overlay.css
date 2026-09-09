@@ -2837,15 +2837,27 @@ body {
 
 /* The one line under a diagram that says what the current value means. `--text-secondary` and
    not the hue: a sentence is not a live value. */
+/* The reading under a diagram — facts, `·`-separated, not a sentence.
+
+   Same shape and same separator as `.preview__meta` above, on purpose: a mod page carries both
+   lines, and two ways of stating a reading on one page reads as two features. `pre-wrap` rather
+   than `pre` because the spaced separators have to survive collapsing while the line still wraps
+   at the max-width; `pre` would push a four-part reading off the frame.
+
+   It is 12px rather than 13 and tracked like the meta line for the same reason: at 13px in a
+   paragraph face it read as body copy, which is what invited the sentences that used to be
+   here. */
 .gprev__reading {
   margin: 0;
   font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 300;
-  line-height: 1.45;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
   color: var(--text-secondary);
   text-align: center;
   max-width: 380px;
+  white-space: pre-wrap;
 }
 
 /* Zoom: the field of view, as what you see now and what fills the screen when the key is held.

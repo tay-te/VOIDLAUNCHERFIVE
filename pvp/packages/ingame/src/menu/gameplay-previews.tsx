@@ -185,9 +185,34 @@ function steps(dense: boolean): number {
   return dense ? 7 : 12;
 }
 
-/** The one-line reading under a diagram: what the current value actually means. */
-function Reading({ children }: { children: React.ReactNode }): React.ReactElement {
-  return <p className="gprev__reading">{children}</p>;
+/**
+ * The one line under a diagram: what the current values *are*.
+ *
+ * ## It takes facts, not prose, and that is the whole change
+ *
+ * These were sentences — two and three of them, with subordinate clauses, em-dashes and an
+ * argument in each. Read on a page you opened to move one slider, in game, that is not an
+ * explanation, it is homework: `damage_tint` printed forty-four words about a vignette that was
+ * already drawn above it, and every one of them had to be read to find the two numbers.
+ *
+ * The diagram is the explanation. This line is the *reading* — the same job the mod page's own
+ * `.preview__meta` does with `Bottom left · 1.0× · 85%`, in the same shape, so the two lines on
+ * one page read as one system rather than as a caption and an essay. A fact is a few words: a
+ * number with its unit, or a state named. Anything that needs a clause to make sense belongs in
+ * the drawing or in the setting's own hint (`menu/settings-format.ts`), not here.
+ *
+ * `null` drops a part, so a value that has nothing to say says nothing rather than saying
+ * "none" — the absence rule of `design/quiet-cell-system.md` §1, which the preview's meta line
+ * already follows.
+ *
+ * `test/preview-copy.test.tsx` holds the line to it: every part short, no part a sentence.
+ */
+function Reading({ parts }: { parts: ReadonlyArray<string | null> }): React.ReactElement {
+  return (
+    <p className="gprev__reading">
+      {parts.filter((part): part is string => part !== null && part !== '').join('   ·   ')}
+    </p>
+  );
 }
 
 /** The diagram root's classes. `--tile` is the density modifier; the rest is unchanged. */
@@ -234,13 +259,14 @@ export function FullbrightPreview({ dense = false, className }: DiagramProps = {
       <CellRow label="World" cells={world} joined />
       <CellRow label="Seen" cells={seen} joined />
       {dense ? null : (
-      <Reading>
-        {gamma <= 1
-          ? 'At 1.0 the two rows match — the mod is on and changing nothing.'
-          : `The darkest step reads ${Math.round(seen[0]! * 100)}% instead of ${Math.round(
-              world[0]! * 100,
-            )}%.`}
-      </Reading>
+      <Reading
+        parts={[
+          `Gamma ${gamma.toFixed(1)}`,
+          gamma <= 1
+            ? 'Nothing lifted'
+            : `Darkest step ${Math.round(world[0]! * 100)}% → ${Math.round(seen[0]! * 100)}%`,
+        ]}
+      />
       )}
     </div>
   );
@@ -320,12 +346,14 @@ export function ZoomPreview({ dense = false, className }: DiagramProps = {}): Re
       </div>
       {dense ? <span className="gprev__fovunder tnum">{divisor.toFixed(1)}×</span> : null}
       {dense ? null : (
-        <Reading>
-          {`${BASE_FOV}° becomes ${(BASE_FOV / Math.max(1, divisor)).toFixed(1)}° — ` +
-            `${Math.round(fraction * 100)}% of the width, filling the screen.`}
-          {divisor <= range.min ? ' Barely a zoom at all.' : ''}
-          {smooth ? ' It eases in through the steps behind it.' : ' It snaps straight there.'}
-        </Reading>
+        <Reading
+          parts={[
+            `${BASE_FOV}° → ${(BASE_FOV / Math.max(1, divisor)).toFixed(1)}°`,
+            `${Math.round(fraction * 100)}% of the width`,
+            divisor <= range.min ? 'Barely a zoom' : null,
+            smooth ? 'Eases in' : 'Snaps',
+          ]}
+        />
       )}
     </div>
   );
@@ -407,12 +435,14 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
         />
       ) : null}
       {dense ? null : (
-        <Reading>
-          {`A player's box is 0.6 by 1.8 blocks, drawn at ${Number(
-            settings.line_width ?? 2,
-          )} px.${eye ? ' The eye line leaves at 1.62, where they are looking.' : ''}` +
-            ` Boxes stop at ${limit} blocks, so the second figure${far ? ' is drawn' : ' is not'}.`}
-        </Reading>
+        <Reading
+          parts={[
+            `0.6 × 1.8 blocks`,
+            `${Number(settings.line_width ?? 2)} px lines`,
+            eye ? 'Eye line at 1.62' : null,
+            `Out to ${limit} blocks`,
+          ]}
+        />
       )}
     </div>
   );
@@ -465,7 +495,7 @@ export function SprintPreview({ dense = false, className }: DiagramProps = {}): 
     <div className={root(dense, undefined, className)}>
       <CellRow label="Key" cells={key} />
       <CellRow label="Sprint" cells={state} joined />
-      {dense ? null : <Reading>One tap and sprint stays on until you tap again.</Reading>}
+      {dense ? null : <Reading parts={['Tap on', 'Tap off']} />}
     </div>
   );
 }
@@ -589,15 +619,13 @@ export function FovPreview({ dense = false, className }: DiagramProps = {}): Rea
           problem `ZoomPreview` solved by moving its label out from under the 1.0x frame. */}
       <span className="gprev__fandeg tnum">{`${Math.round(held)}°`}</span>
       {dense ? null : (
-        <Reading>
-          {`${Math.round(held)}° held. ` +
-            (lockSprint
-              ? `Sprinting would open it to ${Math.round(held * SPRINT_PUNCH)}°; it does not.`
-              : `Sprinting still opens it to ${Math.round(held * SPRINT_PUNCH)}° — the outer pair.`) +
-            (lockBow
-              ? ' A drawn bow is held too.'
-              : ` A drawn bow still closes it to ${Math.round(held * BOW_PULL)}° — the inner pair.`)}
-        </Reading>
+        <Reading
+          parts={[
+            `${Math.round(held)}° held`,
+            lockSprint ? 'Sprint locked' : `Sprint opens to ${Math.round(held * SPRINT_PUNCH)}°`,
+            lockBow ? 'Bow locked' : `Bow closes to ${Math.round(held * BOW_PULL)}°`,
+          ]}
+        />
       )}
     </div>
   );
@@ -671,12 +699,12 @@ export function SneakPreview({ dense = false, className }: DiagramProps = {}): R
       />
       <CellRow label="Sneak" cells={crouch} joined />
       {dense ? null : (
-        <Reading>
-          {(hold
-            ? 'Hold: the crouch lasts exactly as long as the key is down — vanilla’s behaviour, on a key you picked.'
-            : 'Toggle: one tap crouches, the next stands. Same crouch, two presses instead of a held key.') +
-            (armed ? '' : ' No key is bound yet, so nothing latches.')}
-        </Reading>
+        <Reading
+          parts={[
+            hold ? 'Crouches while held' : 'Tap down, tap up',
+            armed ? null : 'No key bound',
+          ]}
+        />
       )}
     </div>
   );
@@ -739,6 +767,15 @@ export function OverlayPreview({ dense = false, className }: DiagramProps = {}):
   const bobbing = typeof settings.view_bobbing === 'string' ? settings.view_bobbing : 'vanilla';
   const cameraBobs = bobbing === 'vanilla';
   const handBobs = bobbing !== 'off';
+  // What the mod has *not* taken away, for the reading. Hoisted rather than computed in the JSX
+  // so the reading stays a flat list of facts — which is the shape `test/preview-copy.test.tsx`
+  // reads, and the shape the other eleven are already in.
+  const stillShown = [
+    fire ? 'fire' : null,
+    pumpkin ? 'pumpkin' : null,
+    arrows ? 'arrows' : null,
+    armour ? 'armour' : null,
+  ].filter((item): item is string => item !== null);
   return (
     <div className={root(dense, 'gprev--overlay', className)}>
       <div className="gprev__scene">
@@ -782,25 +819,16 @@ export function OverlayPreview({ dense = false, className }: DiagramProps = {}):
         {pumpkin ? <span className="gprev__mask" /> : null}
       </div>
       {dense ? null : (
-        <Reading>
-          {(() => {
-            const left = [
-              fire ? 'the fire' : null,
-              pumpkin ? 'the pumpkin mask' : null,
-              arrows ? 'stuck arrows' : null,
-              armour ? 'your own armour' : null,
-            ].filter((x): x is string => x !== null);
-            const bob =
-              bobbing === 'off'
-                ? 'Nothing bobs, hand included.'
-                : bobbing === 'minimal'
-                  ? 'The hand still bobs; the camera is held still.'
-                  : 'The camera and the hand both bob.';
-            return left.length === 0
-              ? `Nothing left between you and the fight. ${bob}`
-              : `Still on your screen: ${left.join(', ')}. ${bob}`;
-          })()}
-        </Reading>
+        <Reading
+          parts={[
+            stillShown.length === 0 ? 'View clear' : `Still shown: ${stillShown.join(', ')}`,
+            bobbing === 'off'
+              ? 'Nothing bobs'
+              : bobbing === 'minimal'
+                ? 'Hand bobs, camera still'
+                : 'Camera and hand bob',
+          ]}
+        />
       )}
     </div>
   );
@@ -985,20 +1013,18 @@ export function FreelookPreview({ dense = false, className }: DiagramProps = {})
         </>
       )}
       {dense ? null : (
-        <Reading>
-          {(view === 'free'
-            ? 'The camera orbits your own head at vanilla’s own distance — every bearing on the ring, and never a step further out. '
-            : view === 'third_front'
-              ? 'The camera stands at vanilla’s front offset, looking back at you. '
-              : 'The camera stands at vanilla’s back offset, over your shoulder. ') +
-            (hold
-              ? 'It holds while the key is down.'
-              : 'One tap engages it, the next lets it go.') +
-            (snapBack
-              ? ' Your facing is restored on release, so this is a look and never a turn.'
-              : ' On release your body comes round to where you were looking — freelook turns you.') +
-            (armed ? '' : ' No key is bound yet, so nothing engages.')}
-        </Reading>
+        <Reading
+          parts={[
+            view === 'free'
+              ? 'Orbits your head'
+              : view === 'third_front'
+                ? 'In front, looking back'
+                : 'Over your shoulder',
+            hold ? 'Held' : 'Tap on, tap off',
+            snapBack ? 'Facing restored' : 'Body follows on release',
+            armed ? null : 'No key bound',
+          ]}
+        />
       )}
     </div>
   );
@@ -1149,15 +1175,14 @@ export function HitColorPreview({ dense = false, className }: DiagramProps = {})
       </div>
       <CellRow label="Alpha" cells={track} joined />
       {dense ? null : (
-        <Reading>
-          {(intensity <= 0
-            ? 'At 0 nothing is recoloured — you keep the entity and lose the cue. '
-            : `The flash draws at ${Math.round(intensity * 100)}% of the alpha the game already ` +
-              'uses, which is the most there is: the row cannot fill past vanilla. ') +
-            (ownOnly
-              ? 'Only the entity you hit takes your colour; the far one still flashes, in the game’s own.'
-              : 'Every entity the game flashes takes your colour, including fights that are not yours.')}
-        </Reading>
+        <Reading
+          parts={[
+            intensity <= 0
+              ? 'Nothing recoloured'
+              : `${Math.round(intensity * 100)}% of vanilla's flash`,
+            ownOnly ? 'Your hits only' : 'Every flash',
+          ]}
+        />
       )}
     </div>
   );
@@ -1352,16 +1377,17 @@ export function DamageTintPreview({ dense = false, className }: DiagramProps = {
         />
       </div>
       {dense ? null : (
-        <Reading>
-          {`The red vignette starts at ${(threshold / 2).toFixed(threshold % 2 === 0 ? 0 : 1)} ` +
-            `hearts and reaches ${Math.round(strength * 100)}% at zero; at one heart left it is ` +
-            `${Math.round(alpha * 100)}% of the way in. ` +
-            (shake === 'off'
-              ? 'The hurt camera does not roll at all — and the roll was your only clue which side the hit came from.'
+        <Reading
+          parts={[
+            `From ${(threshold / 2).toFixed(threshold % 2 === 0 ? 0 : 1)} hearts`,
+            `${Math.round(strength * 100)}% at zero`,
+            shake === 'off'
+              ? 'No hurt roll'
               : shake === 'reduced'
-                ? 'The hurt camera still rolls the way the hit came from, at a fraction of the angle.'
-                : `The hurt camera rolls up to ${ROLL.vanilla}° toward the hit, as it always did.`)}
-        </Reading>
+                ? `Hurt roll ${ROLL.reduced}°`
+                : `Hurt roll ${ROLL.vanilla}°`,
+          ]}
+        />
       )}
     </div>
   );
@@ -1639,14 +1665,13 @@ export function AnimationPreview({ dense = false, className }: DiagramProps = {}
         </div>
       )}
       {dense ? null : (
-        <Reading>
-          {(oneSeven
-            ? 'Blocking, your swing still moves the sword — the same arc as the free swing beside it. '
-            : '1.8’s own: while the sword is up your swing is discarded, so the arm holds the guard pose and the hit lands behind a stationary sword. ') +
-            (armInDelay
-              ? `After a click that hits nothing, the next ${MISS_COOLDOWN_TICKS} ticks of clicks are still swallowed — ${eaten} of these. The arm swings for them and nothing else does: the sent row is unchanged, so the fight is too.`
-              : `After a click that hits nothing, the next ${MISS_COOLDOWN_TICKS} ticks of clicks are swallowed — ${eaten} of these — and the arm does not move for them either.`)}
-        </Reading>
+        <Reading
+          parts={[
+            oneSeven ? 'Sword swings while blocking' : 'Sword frozen while blocking',
+            `A miss eats ${eaten} clicks`,
+            armInDelay ? 'The arm swings anyway' : 'The arm stops too',
+          ]}
+        />
       )}
     </div>
   );
@@ -1750,18 +1775,20 @@ export function InputPreview({ dense = false, className }: DiagramProps = {}): R
         )}
       </div>
       {dense ? null : (
-        <Reading>
-          {(useWhileDigging && digWhileUsing
-            ? 'Both hands are live together: the placement starts inside the break and the break runs on through it. '
-            : useWhileDigging
-              ? 'A right click acts during a break now, so the use starts inside it instead of after it — the break still stops the moment you raise the item. '
-              : digWhileUsing
-                ? 'The break runs on through an item in use now, instead of stopping the moment you raise one — a right click still waits for the break to end. '
-                : '1.8 will not let these two overlap: neither bar may start until the other has ended, and the cell between them is what the interlock costs. ') +
-            (noMissDelay
-              ? `A whiff no longer costs the next ${MISS_COOLDOWN_TICKS} ticks, so all ${CLICK_CELLS.length} clicks are sent — which is ${eaten} more swing packets on this miss than vanilla sends.`
-              : `A whiff still costs the next ${MISS_COOLDOWN_TICKS} ticks: ${eaten} of these clicks reach nothing at all.`)}
-        </Reading>
+        <Reading
+          parts={[
+            useWhileDigging && digWhileUsing
+              ? 'Mine and use overlap'
+              : useWhileDigging
+                ? 'Use starts inside a break'
+                : digWhileUsing
+                  ? 'A break runs through a use'
+                  : '1.8 keeps them apart',
+            noMissDelay
+              ? `No miss delay — all ${CLICK_CELLS.length} clicks sent`
+              : `A miss eats ${eaten} clicks`,
+          ]}
+        />
       )}
     </div>
   );

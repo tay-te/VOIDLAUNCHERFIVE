@@ -63,7 +63,7 @@ import {
 import { MOD_ART, modArt } from '@/mods';
 import { hudChrome } from '@/hud/chrome';
 import { CellMeter } from './CellMeter';
-import { SETTING_SUBTITLES, formatSetting, keybindLabel, settingLabel } from './settings-format';
+import { formatSetting, keybindLabel, settingHint, settingLabel } from './settings-format';
 
 /* -------------------------------------------------------------------------- */
 /* Swatch sets                                                                */
@@ -252,7 +252,7 @@ export function modProperties(
       key,
       kind,
       label: settingLabel(key),
-      sub: SETTING_SUBTITLES[key],
+      sub: settingHint(id, key),
       group:
         !APPEARANCE_KEYS.has(key) && (kind === 'boolean' || BEHAVIOUR_KEYS.has(key))
           ? 'behaviour'
@@ -676,13 +676,18 @@ export function ModPreview({ id }: ModPreviewProps): React.ReactElement {
       </div>
 
       {/* The caption sits *under* the frame in every in-game frame, and says what
-          the two things on the preview do rather than naming the preview twice. */}
+          the two things on the preview do rather than naming the preview twice.
+
+          It said "drag a corner to scale", and there is no corner that scales: the corners are
+          the four placement slots and the size handle is the one grip at the bottom right. A
+          caption that names the wrong affordance is worse than none — it sends a player to pull
+          on a button that places the widget somewhere else. */}
       <div className="preview__bar">
         <span className="preview__caption">
           {isHud && placement
-            ? 'Click a slot to place   ·   drag a corner to scale'
+            ? 'Click a corner to place   ·   drag the grip to size'
             : sizeKey
-              ? 'Drag the handle to resize'
+              ? 'Drag the grip to size'
               : 'Live preview'}
         </span>
         {/* Placement, size and opacity, and only the ones the mod has. A gameplay mod with no
