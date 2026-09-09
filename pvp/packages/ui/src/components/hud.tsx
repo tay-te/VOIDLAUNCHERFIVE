@@ -41,6 +41,42 @@ function chipClass(variant: HudVariant, dimmed: boolean, extra?: string): string
   return cx('v-hudchip', variant === 'editor' && 'v-hudchip--editor', dimmed && 'v-hudchip--dimmed', extra);
 }
 
+/**
+ * The level a chip draws when a reading is a proportion of something — `SaturationChip`'s
+ * `bar` and `MemoryChip`'s `show_bar`.
+ *
+ * Not a new invention and deliberately not the quiet-cell meter: `Meter` / `CellMeter` are
+ * the *slider*, a control with a current cell that takes the hue, and neither of these is a
+ * control. The device this is, down to the 4px height and the `--tint-10` ground, is the
+ * armour panel's durability bar — the one meter this design already draws over live game —
+ * lifted out of `.v-armorlist__*` into the shared `.v-hudchip` vocabulary so that two more
+ * chips did not each grow a private copy of it. Solid fill, no gradient, no animation (§5,
+ * and design/ultralight-notes.md §8 on what the renderer will actually paint).
+ *
+ * Monochrome, unlike the armour bar, which turns amber and then red: durability has
+ * thresholds and saturation and heap do not, so there is no state for a colour to mark, and
+ * the live value on both of those chips is the figure standing next to this (§1).
+ */
+interface HudBarProps {
+  /** How full the level is, 0-1. Already clamped by the caller. */
+  fraction: number;
+  /** A modifier on the track — `v-hudchip__bar--rule` is the one this file uses. */
+  className?: string;
+}
+
+function HudBar({ fraction, className }: HudBarProps): React.ReactElement {
+  return (
+    <span className={cx('v-hudchip__bar', className)}>
+      <span className="v-hudchip__fill" style={{ width: `${fraction * 100}%` }} />
+    </span>
+  );
+}
+
+/** A 0-1 reading held to 0-1, wherever one arrives from a sensor rather than from arithmetic. */
+function clampFraction(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
 /* -------------------------------------------------------------------------- */
 /* FpsChip                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -362,6 +398,466 @@ export function CpsChip({
       {peak === undefined ? null : (
         <span className="v-hudchip__aside">·&nbsp;&nbsp;peak {peak}</span>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ComboChip                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link ComboChip}. */
+export interface ComboChipProps extends HudChipProps {
+  /** Consecutive hits landed. */
+  combo: number;
+  /**
+   * Trailing "combo" unit — the mod's `show_label` setting.
+   *
+   * On by default, like every other chip's label: `7` alone over game pixels is a number
+   * with no noun, and this chip is small enough that the noun costs nothing.
+   */
+  showLabel?: boolean;
+  /**
+   * Fraction of the combo's reset window still to run, 0..1. Undefined draws no rule.
+   *
+   * `combo.reset_ms` is the mod's own policy — `bridge.json`'s `hits` field sends monotonic
+   * counters precisely so the timeout lives here rather than in the sensor — and a timeout
+   * is the one kind of setting that is invisible in a still frame. This is what makes it
+   * visible: a hairline under the figure that shortens as the window runs out, so a combo
+   * about to lapse says so while there is still time to do something about it.
+   *
+   * A **state**, not a preference, which is what keeps it inside quiet-cell §1: it is the
+   * live value of a clock, and it is drawn in the figure's own ink at low alpha rather than
+   * in a second colour, because it is the same combo it sits under.
+   */
+  remaining?: number;
+  /**
+   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The **figure only**, never the `combo` unit. Quiet-cell §1, exactly as
+   * {@link FpsChipProps.color} draws the line: the count is the live value and the noun
+   * after it is not. The depletion rule is inside the figure and takes `currentColor`, so
+   * it follows this ink without being a second decision.
+   */
+  color?: string;
+}
+
+/**
+ * `7 combo`, over a rule that runs out with the reset window.
+ *
+ * A count and its noun — the house shape ({@link FpsChip}), with no aside, because a combo
+ * has no second figure that gives the first one a scale; what it has instead is a clock, and
+ * {@link ComboChipProps.remaining} draws that. A dropped combo is `0`, not an absent chip:
+ * the widget sits in a player-placed slot in the HUD editor, and one that vanished between
+ * fights would leave that slot flickering.
+ */
+export function ComboChip({
+  combo,
+  showLabel = true,
+  remaining,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: ComboChipProps): React.ReactElement {
+  const ruled = remaining !== undefined;
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span
+        className={cx('v-hudchip__value', ruled && 'v-hudchip__value--ruled')}
+        style={color ? { color } : undefined}
+      >
+        {combo}
+        {/* Inside the figure, so `currentColor` is the figure's ink and the rule cannot end
+            up a second colour; and so it measures the figure rather than the chip, which is
+            what makes a full window read as full. */}
+        {remaining === undefined ? null : (
+          <HudBar fraction={clampFraction(remaining)} className="v-hudchip__bar--rule" />
+        )}
+      </span>
+      {showLabel ? <span className="v-hudchip__unit">combo</span> : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* SaturationChip                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** How {@link SaturationChip} draws its reading. */
+export type SaturationStyle = 'number' | 'bar' | 'both';
+
+/** Props for {@link SaturationChip}. */
+export interface SaturationChipProps extends Omit<HudChipProps, 'style'> {
+  /** Food saturation, 0-20. Clamped to that range before it is drawn. */
+  saturation: number;
+  /**
+   * The mod's `style` setting: the figure, the bar, or both.
+   *
+   * Named `style` because that is the frozen contract, which costs this interface the
+   * inline `style` attribute — see the note on {@link SaturationChip} itself.
+   */
+  style?: SaturationStyle;
+  /**
+   * Decimal places on the figure — `0`, `1` or `2`, per the mod's `decimals` setting.
+   *
+   * Defaults to 1. Saturation is genuinely fractional and it is the fraction that is the
+   * reading: it drains continuously while food holds still, so a chip rounding 17.9 to 18
+   * for four seconds is a chip that says nothing is happening.
+   *
+   * The range is 0..2 rather than the 0..1 this prop was first specified with, because
+   * `SETTING_BOUNDS` in `packages/protocol/scripts/gen.mjs` is keyed by property *name*
+   * across every mod and `coordinates.decimals` and `momentum.decimals` are both 0..2.
+   * Nothing here clamps: 2 is passed straight to `toFixed` like the other two.
+   */
+  decimals?: number;
+  /** Whether to draw the trailing `sat` unit — the mod's `show_label` setting. */
+  showLabel?: boolean;
+  /**
+   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The **figure only**: never the `sat` unit, and never the bar. In `both` the bar is
+   * the same reading a second time in the shape of a level, and colouring both makes
+   * the chip one solid block with no hierarchy in it — the argument
+   * {@link DirectionChipProps.color} makes about its degrees aside.
+   */
+  color?: string;
+}
+
+/** Saturation held to the 0-20 the food system produces. */
+function clampSaturation(value: number): number {
+  return Math.min(20, Math.max(0, value));
+}
+
+/**
+ * `17.5 sat`, a 40px level, or both.
+ *
+ * `style` collides with `HTMLAttributes.style`, so this interface omits the inline style
+ * attribute rather than renaming the prop. {@link DirectionChipProps.notation} went the
+ * other way and renamed; this one cannot, because the name is a frozen contract three
+ * other packages are already coding against. Nothing in the HUD passes a chip an inline
+ * style — the editor positions the wrapper — so the omission costs nothing today, but it
+ * is the second time this collision has been paid for and it is worth saying out loud.
+ */
+export function SaturationChip({
+  saturation,
+  style = 'number',
+  decimals = 1,
+  showLabel = true,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: SaturationChipProps): React.ReactElement {
+  const value = clampSaturation(saturation);
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      {style === 'bar' ? null : (
+        <>
+          <span className="v-hudchip__value" style={color ? { color } : undefined}>
+            {value.toFixed(decimals)}
+          </span>
+          {showLabel ? <span className="v-hudchip__unit">sat</span> : null}
+        </>
+      )}
+      {style === 'number' ? null : <HudBar fraction={value / 20} />}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* MomentumChip                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** The units {@link MomentumChip} can read a speed in. */
+export type MomentumUnit = 'bps' | 'kmh';
+
+/** Props for {@link MomentumChip}. */
+export interface MomentumChipProps extends HudChipProps {
+  /** Horizontal ground speed in blocks per second. Always in `bps`, whatever `unit` says. */
+  speed: number;
+  /**
+   * The mod's `unit` setting.
+   *
+   * - `bps` — blocks per second, the number the game itself works in.
+   * - `kmh` — the same speed at 3.6 km/h per block per second, since a block is a metre.
+   *
+   * A conversion, not a second reading: {@link MomentumChipProps.speed} is `bps` in both.
+   */
+  unit?: MomentumUnit;
+  /**
+   * Decimal places — `0`, `1` or `2`, per the mod's `decimals` setting.
+   *
+   * Defaults to 2, which is also the ceiling, because the sensor rounds to 2 dp before it
+   * sends: a third place would be digits the wire never carried. It is where the differences
+   * a movement player is chasing actually are — sprinting and sprint-jumping are tenths apart.
+   */
+  decimals?: number;
+  /** Whether to draw the trailing unit — the mod's `show_label` setting. */
+  showLabel?: boolean;
+  /**
+   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The **figure only**, never the `bps` / `km/h` unit. Quiet-cell §1, as
+   * {@link FpsChipProps.color}.
+   */
+  color?: string;
+}
+
+/** 1 block per second is 3.6 km/h — a block is a metre. */
+const KMH_PER_BPS = 3.6;
+
+/** `4.3 bps`, or the same speed as `15.5 km/h`. */
+export function MomentumChip({
+  speed,
+  unit = 'bps',
+  decimals = 2,
+  showLabel = true,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: MomentumChipProps): React.ReactElement {
+  const figure = unit === 'kmh' ? speed * KMH_PER_BPS : speed;
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-hudchip__value" style={color ? { color } : undefined}>
+        {figure.toFixed(decimals)}
+      </span>
+      {showLabel ? (
+        <span className="v-hudchip__unit">{unit === 'kmh' ? 'km/h' : 'bps'}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* MemoryChip                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/** How {@link MemoryChip} writes the heap. */
+export type MemoryStyle = 'used' | 'used_of_max' | 'percent';
+
+/** Props for {@link MemoryChip}. */
+export interface MemoryChipProps extends Omit<HudChipProps, 'style'> {
+  /** Heap in use, in megabytes. The live value, and the only figure that ticks. */
+  usedMb: number;
+  /** Heap ceiling, in megabytes — the JVM's `-Xmx`. Constant for the session. */
+  maxMb: number;
+  /**
+   * The mod's `style` setting.
+   *
+   * - `used` — `1024 MB`.
+   * - `used_of_max` — `1024 / 4096 MB`.
+   * - `percent` — `25%`.
+   *
+   * Named `style` because that is the frozen contract, at the cost of the inline `style`
+   * attribute — the same trade {@link SaturationChipProps.style} makes.
+   */
+  style?: MemoryStyle;
+  /** Draw the 40px level after the figure, filled to `usedMb / maxMb`. */
+  showBar?: boolean;
+  /**
+   * Whether to draw the unit — the mod's `show_label` setting.
+   *
+   * The unit is the last thing on the figure in all three styles (`MB`, `MB`, `%`) and
+   * `/ 4096` is not part of it: the ceiling is a second *figure*, not a label, so
+   * `used_of_max` with the label off still reads `1024 / 4096`. That is what keeps this
+   * switch doing one job everywhere rather than three different ones.
+   */
+  showLabel?: boolean;
+  /**
+   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * `usedMb` only, in every style. Not the unit, not the bar, and **not the `/ 4096`**:
+   * the ceiling does not change for the life of the process, so by quiet-cell §1 it is
+   * context rather than a live value — the same division {@link CoordsChipProps.color}
+   * makes between the axes and the separator between them.
+   */
+  color?: string;
+}
+
+/** `1024 / 4096 MB`, `1024 MB` or `25%`, optionally over a level. */
+export function MemoryChip({
+  usedMb,
+  maxMb,
+  style = 'used_of_max',
+  showBar = false,
+  showLabel = true,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: MemoryChipProps): React.ReactElement {
+  const fraction = maxMb > 0 ? Math.min(1, Math.max(0, usedMb / maxMb)) : 0;
+  const figure = style === 'percent' ? Math.round(fraction * 100) : Math.round(usedMb);
+  // The tail is one muted run in one span rather than several, so it stays a single flex item
+  // and the chip's 8px gap cannot open up inside a reading. Its spaces are `\u00a0`, for the
+  // same reason `PingChip` writes `&nbsp;ms`: `1024 / 4096 MB` is one reading, not three
+  // things with room between them.
+  const tail =
+    style === 'percent'
+      ? showLabel ? '%' : ''
+      : (style === 'used_of_max' ? `\u00a0/\u00a0${Math.round(maxMb)}` : '') +
+        (showLabel ? '\u00a0MB' : '');
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-hudchip__value">
+        <span style={color ? { color } : undefined}>{figure}</span>
+        {tail ? <span className="v-hudchip__unit">{tail}</span> : null}
+      </span>
+      {showBar ? <HudBar fraction={fraction} /> : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ServerAddressChip                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link ServerAddressChip}. */
+export interface ServerAddressChipProps extends HudChipProps {
+  /**
+   * The address to draw.
+   *
+   * Already formatted by the caller — short or full is the widget's decision, not the
+   * chip's. An empty or whitespace-only host renders nothing at all; see
+   * {@link ServerAddressChip}.
+   */
+  host: string;
+  /**
+   * Ink for the host — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The host is the whole chip and it is the live value — which server you are on — so
+   * here the ink and the figure are the same span. There is no unit and no aside to keep
+   * monochrome, which is why this is the one chip of the six whose `color` covers
+   * everything it draws.
+   */
+  color?: string;
+}
+
+/**
+ * `mc.hypixel.net` — the server you are on, and nothing else.
+ *
+ * **Returns `null` for an empty host**, rather than an empty chip: a widget with nothing
+ * to say says nothing. That is safe here in a way it is not on
+ * {@link ItemCounterChip} because the absence is not intermittent — singleplayer has no
+ * address for the whole session, so the chip does not appear and disappear under the
+ * player, it is simply not there. `HudCoords` already takes this shape in
+ * `packages/ingame` for a position it has not received yet.
+ *
+ * The return type is therefore `React.ReactElement | null`, which is the one place this
+ * component's signature is wider than the frozen API's `React.ReactElement`.
+ */
+export function ServerAddressChip({
+  host,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: ServerAddressChipProps): React.ReactElement | null {
+  if (host.trim() === '') return null;
+  return (
+    <div className={chipClass(variant, dimmed, cx('v-serverchip', className))} {...rest}>
+      <span className="v-hudchip__value" style={color ? { color } : undefined}>
+        {host}
+      </span>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ItemCounterChip                                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link ItemCounterChip}. */
+export interface ItemCounterChipProps extends HudChipProps {
+  /**
+   * Stack size of the held item.
+   *
+   * `null` is an empty hand, which is **not** a count of zero — zero is a real reading a
+   * stack can arrive at, and the two must not draw the same. An empty hand renders `—`;
+   * see {@link ItemCounterChip}.
+   */
+  count: number | null;
+  /**
+   * Whether the count is prefixed with the multiplication sign — `x12` rather than `12`.
+   *
+   * The mod's `show_label` setting, and the one label on these six chips that leads rather
+   * than trails: a stack size has no unit, so there is no noun to put after it, and `x` is
+   * the cheapest mark that says the figure is a quantity of something rather than a rate —
+   * which matters because this chip is usually placed next to a CPS figure. Written as an
+   * ASCII `x` rather than `×`, which is how the mod's own schema spells the example, and
+   * which cannot go missing from a bundled static face.
+   */
+  showLabel?: boolean;
+  /**
+   * At or below this the figure takes the warn treatment. `0` disables it.
+   *
+   * Defaults to `0`, i.e. off: the warn ink is legitimate because it marks a state, but a
+   * state nobody configured is not one, and the threshold that is worth warning at is a
+   * property of what you are holding — sixteen blocks and sixteen pearls are not the same
+   * situation — so the chip will not pick one for you.
+   */
+  lowThreshold?: number;
+  /**
+   * Ink for the figure — the mod's `color` setting, `#RRGGBB` or `#RRGGBBAA`.
+   *
+   * The **figure only**, never the `x` prefix, and **`lowThreshold` outranks it**: the
+   * warn is a state and the ink is the resting appearance of a value, so a chip that let
+   * a chosen colour hide the one moment it exists to announce would have the priority
+   * backwards. Same reasoning as {@link PingChipProps.goodMs} — a threshold reading wins
+   * the pixel.
+   */
+  color?: string;
+}
+
+/**
+ * `x12`, with the figure amber under the low threshold.
+ *
+ * **An empty hand renders `—`, and does not return `null`** — which is where this parts
+ * company with {@link ServerAddressChip}. An empty hand is the most ordinary thing a
+ * player's hand does: it happens every time a stack is thrown, and it un-happens a tick
+ * later. A chip that removed itself on each of those would strobe in and out of a
+ * player-placed HUD slot during exactly the fight it was placed for, and would drag
+ * whatever the layout puts after it back and forth. `—` is what {@link PingChip} already
+ * draws for a reading it does not have: the widget stays where it was put and says it
+ * has nothing.
+ */
+export function ItemCounterChip({
+  count,
+  showLabel = true,
+  lowThreshold = 0,
+  color,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: ItemCounterChipProps): React.ReactElement {
+  const empty = count === null;
+  const low = !empty && lowThreshold > 0 && count <= lowThreshold;
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      {/* The prefix is inside the value rather than beside it, so the chip's 8px gap cannot
+          open up between the `x` and the number it belongs to — the same reason `PingChip`
+          keeps its `ms` in the value span. It is dropped on an empty hand: `x —` is not a
+          reading of anything. */}
+      <span className="v-hudchip__value">
+        {showLabel && !empty ? <span className="v-hudchip__unit">x</span> : null}
+        <span
+          className={cx(low && 'v-hudchip__value--warn')}
+          // The warn is a class, so it must not be overridden by an inline colour — and an
+          // empty hand has no live value to ink either.
+          style={!low && !empty && color ? { color } : undefined}
+        >
+          {empty ? '—' : count}
+        </span>
+      </span>
     </div>
   );
 }

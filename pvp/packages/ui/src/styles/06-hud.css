@@ -55,6 +55,107 @@
   white-space: pre;
 }
 
+/**
+ * The warn treatment on a figure — `ItemCounterChip`'s `low_threshold`.
+ *
+ * A state, not a preference (design/quiet-cell-system.md §1, the chrome / world split):
+ * the same argument that lets `PingChip` turn its dot amber past `bad_ms` and the armour
+ * bar turn amber under `warn_below`. It is a rule rather than an inline colour precisely
+ * so it outranks the mod's `color` setting, which is set on the element.
+ */
+.v-hudchip__value--warn {
+  color: var(--warn);
+}
+
+/**
+ * A level on a chip — `SaturationChip`'s `bar` and `MemoryChip`'s `show_bar`.
+ *
+ * The armour panel's durability bar, promoted: same 4px track, same `--tint-10` ground,
+ * same hairline radius, same solid fill. It is here rather than copied twice because two
+ * of the Wave 2 chips draw a proportion, and the alternative to one shared rule was
+ * `.v-satchip__bar` and `.v-memchip__bar` with identical bodies.
+ *
+ * 40px, which is two pixels per point of saturation across the 0-20 the food system
+ * produces, and the keycap width this file already uses everywhere else.
+ *
+ * Monochrome: the coloured thing on both chips is the figure beside it, and this is that
+ * same reading drawn a second time (§1). No gradient and no transition — a HUD level that
+ * animated would be chasing a value that changes every tick.
+ */
+.v-hudchip__bar {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 4px;
+  border-radius: var(--radius-hairline);
+  background: var(--tint-10);
+  overflow: hidden;
+}
+
+.v-hudchip__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--radius-hairline);
+  background: var(--text-secondary);
+}
+
+/**
+ * `ComboChip`'s depletion rule — the same track and fill, as a hairline under the figure.
+ *
+ * A modifier rather than a second pair of elements: `combo.reset_ms` is a level like any
+ * other, it is only drawn *as* a rule rather than as a gauge, and one vocabulary that bends
+ * is better than two that agree. The differences are all it needs and each one earns itself:
+ *
+ * - No ground. A gauge shows you the empty part; a rule that is running out does not, because
+ *   the empty part is the seconds you no longer have and drawing them is drawing a thing that
+ *   is not there.
+ * - `left/right: 0` instead of the 40px width, so it measures the **figure** it is inside.
+ *   `142` and `7` are different widths and a full window has to read as full on both.
+ * - `currentColor`, so the mod's `color` reaches it without the component deciding twice —
+ *   it is the same combo the figure is, one step quieter (§1: one reading, one colour).
+ * - Square, at 1px: a 2px radius on a 1px bar rounds away most of the bar.
+ *
+ * No transition and no animation, deliberately. The widget re-renders as the window runs, so
+ * the rule is already moving; CSS easing on top of that would fight the clock and lag it.
+ */
+.v-hudchip__bar--rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 1px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.v-hudchip__bar--rule .v-hudchip__fill {
+  border-radius: 0;
+  background: currentColor;
+  opacity: 0.35;
+}
+
+/** The figure a depletion rule hangs under — it is the rule's containing block. */
+.v-hudchip__value--ruled {
+  position: relative;
+}
+
+/* -------------------------------------------------------- ServerAddressChip */
+
+/**
+ * The host is written once when you join and then holds still, so it is `01-base.css`'s
+ * own example of a readout that does not earn tabular figures — it names "a server
+ * address" in as many words. `.v-hudchip__value` carries `tnum` for the chips whose
+ * digits tick; this turns it back off for the one whose digits do not, so `192.168.1.20`
+ * sets in the proportional widths Outfit actually draws.
+ */
+.v-serverchip .v-hudchip__value {
+  font-variant-numeric: normal;
+  font-feature-settings: normal;
+}
+
 /* ---------------------------------------------------------------- FpsChip */
 
 .v-fpschip .v-hudchip__value {
