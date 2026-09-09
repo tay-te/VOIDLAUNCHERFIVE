@@ -10,13 +10,14 @@
  * the bar, then content from edge inset to edge inset, then a status line and the
  * keyboard hint at the bottom left.
  *
- * That matters beyond looks. The panel is **one wide, centred box** and does not resize
- * between its states; what changes is what is inside it. The frames hold twenty-four mods in
- * eight columns and the registry holds thirteen, so a grid declared as three rows left five
- * columns filling most of 1277 and a third of the panel empty. The grid is shaped by the
- * registry instead — two rows of seven, tiles sized from the panel — and it fills the panel
- * edge to edge.
- * See {@link solveGrid}, which owns every length in it.
+ * That matters beyond looks. The panel is **one wide, centred box of a fixed size** — it does
+ * not resize between its states, and it does not resize with the registry either. What changes
+ * is what is inside it. The frames hold twenty-four mods in eight columns and the registry
+ * holds fourteen, so a grid declared as three rows left five columns filling most of 1277 and a
+ * third of the panel empty. The grid is shaped by the registry instead — two rows of seven,
+ * tiles sized from the panel — inside a box that is 1278 x 796 at every count.
+ * See {@link solveGrid}, which owns every length in it, and {@link GEOMETRY.maxPanelH} for why
+ * the height is pinned rather than taken from the rows.
  *
  * There is no screen title and no search field. Both were removed in the design
  * work ("Remove the mods header. Center the navbar over the top of the window.
@@ -49,19 +50,23 @@
  * depended on, and the bar's properties toggle — there is no panel to toggle, which also
  * relieves a bar that was carrying too much.
  *
- * **The panel box is the same on both routes.** `solveGrid` still sizes it from the registry
- * and the window, and the page is laid out inside whatever that comes to, so navigating
- * changes no length on this element. That is the property the contraction was reaching for
- * ("the thing you clicked must not move") and could only half keep.
+ * **The panel box is the same on both routes** — and now on all six, since Settings, Loadouts,
+ * Party and the HUD editor are drawn in it too. `solveGrid` answers with the same box whatever
+ * the route and whatever the count, and each page is laid out inside it, so navigating changes
+ * no length on this element. That is the property the contraction was reaching for ("the thing
+ * you clicked must not move") and could only half keep; pinning the height is what finally made
+ * it true of the *other* five screens, whose size was until now set by how many mods the grid
+ * they are not had.
  *
  * ## At any mod count
  *
- * The registry is thirteen and generated from the schema, so this lays out for thirteen — but
+ * The registry is fourteen and generated from the schema, so this lays out for fourteen — but
  * nothing here is written as thirteen, and the dev fixture (`src/dev/fake-mods.ts`) reaches
  * sixty-four. {@link solveGrid} takes the count and the window and answers with the fewest
- * columns whose rows still fit: thirteen give **two rows of seven** at 165 wide (the last row
- * short, which row-major fill allows), twenty-four give **three rows of eight** at 143 —
- * exactly what the frames draw — and the panel is as tall as whatever that comes to.
+ * columns whose rows still fit: fourteen give **two rows of seven** at 165 wide (the last row
+ * short, which row-major fill allows), fifteen give **three rows of seven** at the same width,
+ * twenty-four give **three rows of eight** at 143 — exactly what the frames draw. The panel is
+ * the same box through all of it; what the count moves is the grid inside it.
  *
  * The watermark is what took it from twelve to thirteen, and therefore from six columns to
  * seven and the tile from 195 to 165. That is the solve working, not a layout to re-tune: the
@@ -137,6 +142,32 @@ export const GEOMETRY = {
   chrome: 110,
   /** The widest the panel ever is. Six columns of 195 plus the insets. */
   maxPanelW: 1278,
+  /**
+   * The tallest the panel ever is — and, on the in-game canvas, the only height it ever has.
+   *
+   * **The panel is a fixed box now.** It used to be exactly as tall as its own contents
+   * (`panelH = gridH + chrome`), which meant the menu's size was a function of how many mods
+   * were in the registry: fourteen laid out two rows and gave a 557-tall panel, and the
+   * fifteenth would have flipped the grid to three rows and grown the panel to 786 — the menu
+   * changing shape because somebody shipped a mod. Width was never allowed to do that
+   * ({@link maxPanelW} has been a constant throughout); height only did because nothing had
+   * pinned it. This is the missing half of that symmetry.
+   *
+   * It is also what every other route wanted. The panel box is shared — the grid, a mod's
+   * page, Settings, Loadouts, Party and the HUD editor are all drawn in it — so a
+   * content-derived height meant the *grid's* mod count silently set the height of five
+   * screens that have nothing to do with it.
+   *
+   * **Why 796 and not the 786 three rows strictly need.** 796 is the whole canvas:
+   * `VoidClient.DESIGN_HEIGHT` is 820 and the fit scale pins the logical view to exactly that
+   * height on every aspect ratio, less {@link insetY}. Choosing it rather than 786 keeps the
+   * solve's *column* choice bit-for-bit what it was — the budget below stays 686 — so the
+   * shape at all 53 counts `test/grid-geometry.test.ts` covers is unchanged by this. 786
+   * would have cut the budget to 676, and three rows of seven need 676.29: fifteen through
+   * twenty-one mods would have silently fallen through to eight columns over a third of a
+   * pixel. A constant that is one rounding away from changing the layout is not a constant.
+   */
+  maxPanelH: 796,
   /** Left over each side of the panel: `max-width: calc(100% - 48px)`. */
   insetX: 48,
   /** Left over above and below: `max-height: calc(100% - 24px)`. */
@@ -225,10 +256,23 @@ export function solveGrid(count: number, viewW: number, viewH: number): GridShap
   const n = Math.max(1, Math.floor(count));
 
   const panelW = Math.min(g.maxPanelW, Math.max(g.minPanelW, viewW - g.insetX));
-  const maxPanelH = Math.max(g.chrome + 1, viewH - g.insetY);
+  /**
+   * Fixed, then clamped to the window — the same two steps `panelW` takes, in the same order.
+   * The clamp only ever binds in a window shorter than the design canvas; in game the view is
+   * exactly 820 CSS tall, so this is flatly `maxPanelH`.
+   */
+  const panelH = Math.max(g.chrome + 1, Math.min(g.maxPanelH, viewH - g.insetY));
   const contentW = panelW - 2 * g.edge;
-  /** The height the rows may take: the tallest the panel may be, less its chrome. */
-  const budget = maxPanelH - g.chrome;
+  /**
+   * The height the rows may take: the panel, less its chrome.
+   *
+   * Taken from `panelH` and not from the window, which matters in the one case they differ —
+   * a window taller than the design canvas, which the `?debug` harness's 1600 x 980 board is.
+   * Solving against the window there would size the grid for height the panel does not have,
+   * and that is the exact shape of the bug this whole file exists for: a length CSS clamped
+   * after the arithmetic had already spent it.
+   */
+  const budget = panelH - g.chrome;
 
   /** The shape `columns` columns produce, given how much width is held back for a scrollbar. */
   const shapeAt = (columns: number, gutter: number) => {
@@ -244,12 +288,12 @@ export function solveGrid(count: number, viewW: number, viewH: number): GridShap
   for (let columns = 1; columns <= widest; columns += 1) {
     const shape = shapeAt(columns, 0);
     if (shape.gridH <= budget) {
-      return { ...shape, panelW, panelH: shape.gridH + g.chrome, gutter: 0, scrolls: false };
+      return { ...shape, panelW, panelH, gutter: 0, scrolls: false };
     }
   }
 
   const shape = shapeAt(widest, g.gutter);
-  return { ...shape, panelW, panelH: maxPanelH, gutter: g.gutter, scrolls: true };
+  return { ...shape, panelW, panelH, gutter: g.gutter, scrolls: true };
 }
 
 /** The view size to solve for before anything has been measured. */

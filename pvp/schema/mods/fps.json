@@ -1,0 +1,42 @@
+{
+  "id": "fps",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "FPS display",
+  "icon": "gauge",
+  "the": true,
+  "noun": "the FPS tile",
+  "on_description": "the FPS display is enabled",
+  "description": "Frames per second, updated once per tick.",
+  "settings_title": "FPS display settings",
+  "settings_description": "Settings for the FPS display HUD mod. Reads `Minecraft.debugFPS` once per tick.",
+  "source": "Minecraft.debugFPS",
+  "enabled": true,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 23
+  },
+  "defaults": {
+    "color": "#FFFFFF",
+    "show_label": true,
+    "show_low": true
+  },
+  "settings": {
+    "color": {
+      "description": "Text colour of the FPS readout.",
+      "$ref": "#/definitions/hex_color"
+    },
+    "show_label": {
+      "description": "Whether to render the trailing \"FPS\" label after the number.",
+      "type": "boolean",
+      "default": true
+    },
+    "show_low": {
+      "description": "Whether the 1% low is drawn as a trailing aside. It is the figure that says whether a frame rate is actually smooth, and it is also a third number on the chip a player reads mid-match \u2014 so it is a switch rather than something that appears whenever a low has been measured.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

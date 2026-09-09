@@ -30,6 +30,35 @@ public abstract class MinecraftClientMixin {
     }
 
     /**
+     * The player landed an attack — the one input to the combo counter that no per-tick field
+     * reports.
+     *
+     * <p>Everything else Wave 2 reads is a *level* on the player entity that can be sampled once
+     * per tick (`VoidClient.readWave2`). A landed hit is not: the player's own state says nothing
+     * about whether their swing connected, and `hurtTime` on the target is on the target, which
+     * the client is not tracking. So this is the one place the sensor has to be told rather than
+     * ask.</p>
+     *
+     * <p>{@code doAttack} in 1.8.9 runs only when there is something to attack — it is called
+     * from the attack-key path after the crosshair target has been resolved — so reaching TAIL is
+     * the swing having connected, not merely the button having been pressed. That distinction is
+     * the whole mod: a combo counts hits, and counting swings would make it a click counter,
+     * which `cps` already is.</p>
+     *
+     * <p>It only ever increments a counter. The <em>policy</em> — how long a combo survives
+     * without a hit — is `combo.reset_ms` and lives on the client, for the reason
+     * `bridge.json`'s `hits` field records: a timeout is a mod setting, and putting a mod setting
+     * in a sensor is how a sensor starts needing to know about mods.</p>
+     */
+    @Inject(method = "doAttack", at = @At("TAIL"))
+    private void void$onAttack(CallbackInfo ci) {
+        VoidClient client = VoidClient.get();
+        if (client != null) {
+            client.onAttackLanded();
+        }
+    }
+
+    /**
      * Head of the game loop, once per rendered frame: drain LWJGL's input queues into the VOID
      * menu, instead of leaving them to {@code tick}'s own {@code Screen.handleInput} at 20 Hz.
      *

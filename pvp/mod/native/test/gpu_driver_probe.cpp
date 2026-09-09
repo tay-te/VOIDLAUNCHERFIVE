@@ -28,6 +28,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "gpu_driver_gl.h"
 
@@ -36,28 +37,62 @@
 
 namespace {
 
+/// ctest's skip code (`SKIP_RETURN_CODE` in CMakeLists.txt), and the autotools convention.
+///
+/// A machine with no legacy GL context is not a failing driver, and reporting it as one is worse
+/// than useless: it makes CI red for a reason nobody can fix, which trains people to ignore the
+/// colour. That is exactly what happened — GitHub's `macos-14` arm64 runners are VMs with no GPU,
+/// so all three of these tests failed on every run of this workflow, on `main` included.
+constexpr int kSkip = 77;
+
+/// Outcome of trying to get a context, kept apart from "the driver misbehaved".
+enum class Context { Ready, Unavailable };
+
 // A context with no drawable. Shader compilation, linking and every glGet the driver's start-up
 // makes are all legal against one; only actual rasterisation would not be, and nothing here
 // rasterises.
-bool make_offscreen_context() {
-  CGLPixelFormatAttribute attrs[] = {kCGLPFAAccelerated, kCGLPFAOpenGLProfile,
-                                     static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_Legacy),
-                                     static_cast<CGLPixelFormatAttribute>(0)};
-  CGLPixelFormatObj pixel_format = nullptr;
-  GLint formats = 0;
-  if (CGLChoosePixelFormat(attrs, &pixel_format, &formats) != kCGLNoError || !pixel_format) {
-    printf("  FAIL could not choose a legacy (2.1) pixel format\n");
-    return false;
+//
+// Two pixel formats are tried, in order, and the order is the point:
+//
+//   1. `kCGLPFAAccelerated` — the real driver, which is what this test is *for*. A pass here is
+//      the claim the header makes: the ported GLSL 1.20 survives a hardware shader compiler.
+//   2. no accelerator flag — Apple's software GL. Still a genuine GL 2.1 front end, so it still
+//      compiles and links the programs and still exercises the driver's whole start-up path; it
+//      just is not anybody's real driver. Weaker evidence, and worth having rather than nothing.
+//
+// If neither is available there is no GL on this machine at all, and the run is SKIPPED. That
+// distinction is the whole fix: `Unavailable` means "ask a different machine", not "the shaders
+// are broken", and only a real refusal from a context that exists is a failure.
+Context make_offscreen_context() {
+  const CGLPixelFormatAttribute profile = static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_Legacy);
+  CGLPixelFormatAttribute accelerated[] = {kCGLPFAAccelerated, kCGLPFAOpenGLProfile, profile,
+                                           static_cast<CGLPixelFormatAttribute>(0)};
+  CGLPixelFormatAttribute software[] = {kCGLPFAOpenGLProfile, profile,
+                                        static_cast<CGLPixelFormatAttribute>(0)};
+
+  for (const auto& attempt : {std::make_pair(&accelerated[0], "accelerated"),
+                              std::make_pair(&software[0], "software")}) {
+    CGLPixelFormatObj pixel_format = nullptr;
+    GLint formats = 0;
+    if (CGLChoosePixelFormat(attempt.first, &pixel_format, &formats) != kCGLNoError ||
+        !pixel_format) {
+      printf("  ....  no legacy (2.1) %s pixel format on this machine\n", attempt.second);
+      continue;
+    }
+    CGLContextObj context = nullptr;
+    CGLError err = CGLCreateContext(pixel_format, nullptr, &context);
+    CGLDestroyPixelFormat(pixel_format);
+    if (err != kCGLNoError || !context) {
+      printf("  ....  %s pixel format exists but no context (CGL error %d)\n", attempt.second, err);
+      continue;
+    }
+    CGLSetCurrentContext(context);
+    printf("  ok    GL 2.1 context, %s\n", attempt.second);
+    return Context::Ready;
   }
-  CGLContextObj context = nullptr;
-  CGLError err = CGLCreateContext(pixel_format, nullptr, &context);
-  CGLDestroyPixelFormat(pixel_format);
-  if (err != kCGLNoError || !context) {
-    printf("  FAIL could not create an offscreen GL context (CGL error %d)\n", err);
-    return false;
-  }
-  CGLSetCurrentContext(context);
-  return true;
+
+  printf("  SKIP  no legacy (2.1) GL context available — nothing to test the driver against\n");
+  return Context::Unavailable;
 }
 
 } // namespace
@@ -67,7 +102,7 @@ int main(int argc, char** argv) {
   const bool expect_ok = argc < 2 || strcmp(argv[1], "fail") != 0;
   printf("gpu_driver_probe: expecting the driver to %s\n", expect_ok ? "build" : "refuse");
 
-  if (!make_offscreen_context()) return 1;
+  if (make_offscreen_context() == Context::Unavailable) return kSkip;
 
   int failures = 0;
   bool built = voidul::gpu::probe();

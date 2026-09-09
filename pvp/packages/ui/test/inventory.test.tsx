@@ -10,6 +10,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { MOD_IDS } from '@void/protocol';
+
 import * as UI from '../src/index.js';
 import {
   ArmorList,
@@ -489,13 +491,15 @@ describe('Icon', () => {
     expect(svg?.querySelectorAll('path').length).toBeGreaterThan(0);
   });
 
-  it('has an icon for every one of the 13 mods', () => {
+  it('has a drawable icon for every mod, and a row for every mod', () => {
     for (const [mod, icon] of Object.entries(MOD_ICONS)) {
       expect(ICON_NAMES, `${mod} -> ${icon}`).toContain(icon);
     }
-    // Thirteen since the watermark became a mod rather than a flag
-    // (`ingame/src/hud/watermark.tsx` opens with why).
-    expect(Object.keys(MOD_ICONS)).toHaveLength(13);
+    // Both directions, against the registry rather than against a number. This asserted
+    // `toHaveLength(13)` and the fourteenth mod tripped it — a hard-coded count in the test
+    // guarding the table that a hard-coded count used to be. What it is actually for is that
+    // `MOD_ICONS` and the mod set agree, which has no number in it.
+    expect(Object.keys(MOD_ICONS).sort()).toEqual([...MOD_IDS].sort());
   });
 
   it('is hidden from assistive tech — every icon has a labelled parent', () => {

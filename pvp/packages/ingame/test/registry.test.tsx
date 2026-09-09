@@ -70,8 +70,10 @@ describe('the mod registry view', () => {
   });
 
   it('still owns the grid order, which is layout and not a property of a mod', () => {
+    // Both directions against the registry, and no count: the line above already proves the
+    // sets are equal, so `toHaveLength(13)` only ever added a number to keep up to date. It
+    // tripped on the fourteenth mod, which is the whole argument against it.
     expect([...MOD_ORDER].sort()).toEqual([...MOD_IDS].sort());
-    expect(MOD_ORDER).toHaveLength(13);
   });
 
   it('keeps category distinct from kind', () => {

@@ -286,7 +286,9 @@ class LiveStateTest {
         assertTrue(factory.isOn("watermark"), "and it ships on");
 
         // It sits under the rest of the top-left column rather than on top of it. The number is
-        // this table's, not loadout.json's — see the note on Loadout.DEFAULT_HUD.
+        // the factory layout's, not loadout.json's example library's — see the watermark's
+        // `default_placement` in schema/mods/watermark.json, and the block it is generated into
+        // in ModRegistry.
         assertTrue(mark.dy > factory.hudItem("ping").dy,
                 "the mark goes under ping, not over it");
         assertTrue(mark.dy > factory.hudItem("coordinates").dy,

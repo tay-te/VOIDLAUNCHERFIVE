@@ -137,6 +137,87 @@ export function PingChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* DirectionChip                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** How a facing is written. */
+export type DirectionStyle = 'letter' | 'word' | 'axis';
+
+/** Props for {@link DirectionChip}. */
+export interface DirectionChipProps extends HudChipProps {
+  /** Yaw in degrees, straight off the tick payload. */
+  yaw: number;
+  /**
+   * `letter` (`N`), `word` (`North`) or `axis` (`+X`).
+   *
+   * Named `notation` rather than `style`, which is what the *setting* is called: this interface
+   * extends `HTMLAttributes<HTMLDivElement>`, where `style` is already the inline style object,
+   * and TypeScript rejects the clash outright. Worth the mismatch — `notation` is also the more
+   * honest word, since all three are notations for one reading.
+   */
+  notation?: DirectionStyle;
+  /** Whether the raw angle is printed after the facing. */
+  showDegrees?: boolean;
+}
+
+/** The eight compass points, in the order `yawIndex` produces. */
+const COMPASS = ['S', 'SW', 'W', 'NW', 'N', 'NE', 'E', 'SE'] as const;
+
+const COMPASS_WORDS: Record<(typeof COMPASS)[number], string> = {
+  S: 'South', SW: 'Southwest', W: 'West', NW: 'Northwest',
+  N: 'North', NE: 'Northeast', E: 'East', SE: 'Southeast',
+};
+
+/**
+ * Minecraft's world axes, per compass point.
+ *
+ * South is +Z and west is +X in 1.8.9 — not a mnemonic anybody remembers, which is exactly why
+ * this style exists. The four diagonals name both axes because that is what a player lining up
+ * a nether tunnel needs; naming only the dominant one would be a lie at 45°.
+ */
+const COMPASS_AXES: Record<(typeof COMPASS)[number], string> = {
+  S: '+Z', SW: '+X +Z', W: '+X', NW: '+X −Z',
+  N: '−Z', NE: '−X −Z', E: '−X', SE: '−X +Z',
+};
+
+/**
+ * Which of the eight compass points a yaw faces.
+ *
+ * The same arithmetic as `@void/protocol`'s `cardinalFromYaw`, and deliberately duplicated
+ * rather than imported: `@void/ui` is the design system and does not depend on the wire
+ * protocol, so a chip that took its reading from the protocol package would invert that. The
+ * two are pinned together by `test/hud.test.tsx`, which walks all eight octants against
+ * `cardinalFromYaw` — a shared *number* is worth a test; a shared *dependency* is not.
+ */
+export function yawIndex(yaw: number): (typeof COMPASS)[number] {
+  const index = Math.round((((yaw + 180) % 360) + 360) % 360 / 45) % 8;
+  return COMPASS[index] ?? 'S';
+}
+
+/** `N`, `North`, or `−Z` — optionally with the raw angle after it. */
+export function DirectionChip({
+  yaw,
+  notation = 'letter',
+  showDegrees = false,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: DirectionChipProps): React.ReactElement {
+  const point = yawIndex(yaw);
+  const facing =
+    notation === 'word' ? COMPASS_WORDS[point] : notation === 'axis' ? COMPASS_AXES[point] : point;
+  // Yaw runs unbounded in both directions in game; a chip printing `-1043°` is not a reading.
+  const degrees = Math.round((((yaw % 360) + 360) % 360));
+  return (
+    <div className={chipClass(variant, dimmed, cx('v-dirchip', className))} {...rest}>
+      <span className="v-hudchip__value">{facing}</span>
+      {showDegrees ? <span className="v-hudchip__unit">{degrees}°</span> : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* CoordsChip                                                                 */
 /* -------------------------------------------------------------------------- */
 

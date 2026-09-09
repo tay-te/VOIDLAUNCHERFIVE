@@ -1,12 +1,13 @@
 # `schema/` — the contracts
 
-Four JSON Schema (draft-07) files. They are the **only** thing the six parallel owners in
+Four JSON Schema (draft-07) files. **`mods.json` and the derived half of `loadout.json` are
+generated** — see "Adding a mod" below and `docs/adding-a-mod.md`. They are the **only** thing the six parallel owners in
 [`../CONTRACTS.md`](../CONTRACTS.md) share. Nobody edits another owner's code; a
 cross-directory need is expressed by reading a schema here.
 
 | File | Defines | Written by | Read by |
 |---|---|---|---|
-| `mods.json` | The closed registry of the 13 mods (§3, plus the VOID watermark): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
+| `mods.json` | **Generated** (`build.mjs`). The closed registry of the 13 mods (§3, plus the VOID watermark): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
 | `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 6 Java→Rust, 3 Rust→Java | `core` | `core`, `mod` |
 | `bridge.json` | The `window.void` surface (§6.5): 9 events Java→JS, 8 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
@@ -18,6 +19,35 @@ message carry one type rather than two. **A mod is added in exactly one
 place.** Refs are absolute (`https://schema.void.dev/pvp/<file>.json#/definitions/...`)
 so any resolver works as long as all four documents are registered; the URL is an
 identifier, not a location, and nothing fetches it.
+
+## Adding a mod
+
+**Write `mods/<id>.json`, add the id to `ORDER` in `build.mjs`, and run it.** A mod used to be
+spelled out in nine mechanical places — seven in this file, two in `loadout.json` — and all
+nine were silent when wrong: a mod missing from `hud_mod_id` is not a schema error, it is a mod
+that cannot be placed on the HUD, and you find out in game.
+
+```sh
+cd schema
+node build.mjs           # regenerate mods.json, patch loadout.json
+node build.mjs --check   # the CI gate: is the committed output still its sources?
+```
+
+`mods.json` stays **generated and committed**, because it is the contract: `void-loadout`
+`include_str!`s it, `@void/protocol` generates from it and `ModRegistry.java` transcribes it,
+and none of those can run a Node script. So "generated" has to also mean "checked".
+
+A `kind: hud` mod must also carry a `default_placement` (`anchor` + `dx`/`dy`, and an optional
+`note` saying why those numbers) — that is the factory HUD layout, and both the Java registry's
+copy and `@void/protocol`'s are generated from it. `build.mjs` refuses a HUD mod without one and
+a gameplay mod with one, and so does the emitted schema.
+
+`mods/_shared.json` holds the properties every mod of a `kind` carries. A property added there
+reaches all eight HUD mods at once, which is the point — `docs/mod-roster.md` §9's advice was
+to settle the shared HUD property set once rather than retrofit it into twenty settings pages.
+
+`mods/_base.json` holds the static half of the schema and the registry `version`, which is
+bumped by hand: "did this change break a stored loadout" is not something a diff can answer.
 
 ## Validate
 
@@ -109,6 +139,121 @@ one validatable schema, and because it is exactly the recording format the brows
 ## Contract changes
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
+
+### 2026-09-08 (later still) — `default_placement`, and the last hand-maintained table
+
+`mods.json` registry `version` `5 → 6`; `protocol.json` `v` unchanged.
+
+**`mod_entry` gains `default_placement`, on `kind: hud` mods only.** The factory HUD layout —
+what a new loadout is seeded with and what the HUD editor's `Reset layout` restores — was the
+one per-mod table left written out by hand, and it was written out *twice*: `DEFAULT_HUD` in
+`packages/ingame/src/store/hud-geometry.ts` and `Loadout.DEFAULT_HUD` in Java. They were kept
+level by a vitest that read the Java *source* and diffed it, which is precisely the shape
+`docs/mod-roster.md` §9 names as the problem rather than the fix. Adding the fourteenth mod
+meant editing both by hand, which is how it got flagged.
+
+What the duplication risked is worse than a stale table: two tables that disagree make **`Reset
+layout` a move rather than an undo** — the client starts in one layout and the button that
+claims to restore it silently puts every widget somewhere else, for everyone.
+
+- **The constraint is per-`kind`, and the schema says so.** `mod_entry` lists the property so
+  `additionalProperties: false` permits it, and leaves it out of `required`; each `<id>_entry`
+  then `required`s it on a HUD mod and forbids it on a gameplay one with
+  `not: {required: [default_placement]}`. A gameplay mod draws nothing, so it has nowhere to
+  be, and a HUD mod with no placement is a widget every consumer would have to guess at. Both
+  are now schema errors rather than silent defaults, and `validate.mjs` walks all fourteen to
+  prove the narrowings themselves were generated for the right kind.
+- **The anchor set is not restated.** `build.mjs` copies
+  `loadout.json#/definitions/anchor` into `hud_placement`; a second hand-written copy of nine
+  strings would be the same duplication this field removes, and a `$ref` the other way would
+  invert the documents' dependency — the registry is the root.
+- **The reasoning moved with the numbers**, because it was the argument for them: the
+  38-42 px rhythm and the design-canvas pixels are `hud_placement`'s own `description`, and the
+  per-number arguments (the watermark's `dy 141` rather than `loadout.json`'s 58, which would
+  collide with the ping chip at 65; direction taking the row under Coordinates) are the
+  `$comment` on that mod's `<id>_entry`. Every generator reproduces them next to the row, so
+  the argument is still readable where the number is.
+- **Values unchanged.** Both pre-change tables were diffed against everything generated from
+  the schema, row for row; nine placements, no differences. A silent change here moves every
+  player's HUD on their next launch.
+- Consumers: `ModRegistry`'s generated `place(...)` table plus a hand-written `Placement` and
+  `defaultHud()`, which `Loadout.defaults` now seeds from (its own `DEFAULT_HUD` is gone);
+  `void_loadout::HudPlacement` and `Registry::default_placement` — mandatory, since `ModEntry`
+  is `deny_unknown_fields` and a field the schema has and Rust does not is a runtime parse
+  failure of the whole registry; `@void/protocol`'s generated `DEFAULT_HUD_PLACEMENTS`, which
+  `hud-geometry.ts` re-exports as `DEFAULT_HUD`.
+
+`packages/ingame/test/hud-defaults.test.ts` survives with a different job: it no longer diffs
+two hand tables against each other, it checks the schema against both generated tables — the
+page's and the *committed bytes* of `ModRegistry.java`. Both generated files are committed
+because neither Gradle nor Vite may run Node, and committed means they can be stale.
+
+### 2026-09-08 (later) — `icon` on the entry, and Java/Rust stop being transcribed
+
+`mods.json` registry `version` `4` throughout; `protocol.json` `v` unchanged.
+
+**`mod_entry` gains a required `icon`.** The glyph the Mods list and quick palette draw was a
+hand-maintained `MOD_ICONS` table in `@void/ui` — the last piece of mod *identity* no schema
+knew about. It lived there because two applications need it and neither can import the other,
+which is an argument for the contract rather than for a table per app. The game draws no icons,
+so Rust and Java carry the field without using it; Rust had to, since `ModEntry` is
+`deny_unknown_fields`.
+
+**`text_shadow` removed from the HUD chrome block, same day it was added.**
+`design/ultralight-notes.md` §3 rates `text-shadow` [risky] — the rasteriser drops it, or it
+smears the glyph atlas — so the setting would have moved on the settings page and drawn nothing
+in game. §3 also says HUD legibility is already solved structurally and the decision "must be
+preserved rather than 'improved' later". `background` is that chip, exposed. The block is
+`background` / `border` / `padding`, and `_shared.json`'s `$comment` carries the argument so
+nobody re-adds it. Version was not bumped again: the block had not shipped.
+
+**`ModRegistry.java` and `void-loadout`'s type surface are now generated**, by
+`scripts/gen-java-registry.mjs` and `scripts/gen-rust-mods.mjs`, both `--check`-gated in CI
+beside `build.mjs --check`. §9 of `docs/mod-roster.md` called the Java transcription "a test
+compensating for hand-transcription"; that is now a generator with the test guarding staleness
+instead. Both semantic diffs came back identical — the transcriptions were correct — so the
+change buys the future, not a bug fix.
+
+### 2026-09-08 — one file per mod, and the shared HUD chrome block
+
+`mods.json` registry `version` `3 → 4`; `protocol.json` `v` unchanged at 2 — nothing on the
+Rust ⇄ Java wire changed shape, only the settings each mod carries.
+
+**`mods.json` and `loadout.json` are now generated from `schema/mods/`**
+
+Not a contract change so much as a change to how the contract is written. A mod id appeared in
+seven places in this file and two in `loadout.json`; every one was mechanical and every one
+failed quietly. `build.mjs` derives all nine from `mods/<id>.json`, and `--check` is a CI gate
+ahead of `validate.mjs`. The round-trip was verified structurally against the previous
+`mods.json` before anything was added — enums, per-mod settings, entry narrowing and all
+thirteen `defaults` identical. It caught one real drop (`keystrokes` ships `opacity` 0.85,
+not 1), which is now a stated `shared_overrides` rather than an accident waiting to be noticed.
+
+**The HUD chrome block — `background`, `border`, `text_shadow`, `padding`**
+
+Every `kind: hud` mod, declared once in `mods/_shared.json#/hud`. Settled now rather than after
+the ninth HUD widget, which is what `docs/mod-roster.md` §9 asks for: "decide whether VOID
+matches that depth as a shared HUD-item property set before you write the ninth HUD widget, or
+you will retrofit it into twenty settings pages later."
+
+The answer is **not** Lunar's depth, and the difference is the whole design decision. Lunar
+gives every HUD mod a background colour, a border colour and per-element text colours;
+`design/quiet-cell-system.md` §1 names exactly that as the far side of its line — "a chip
+background, border or label colour per mod" — because colour in this system encodes a value or
+a state and is never a preference. So all four are *structural*: `background` is a step on a
+token scale (`none` | `subtle` | `solid`), `border` and `text_shadow` are booleans, `padding`
+is `density` under its own name, which §1 lists as legitimate customisation. The player chooses
+whether a chip has a ground, never what colour that ground is.
+
+`text_shadow` defaults **on**: it is what Minecraft itself does, and it is the one control that
+makes white text survive a snow biome. Everything else defaults to the vanilla treatment, so
+the block is a no-op for a player who liked the HUD as it was.
+
+Consumers: Rust's eight HUD settings structs (mandatory — every one is `deny_unknown_fields`,
+so the new keys would have failed registry parsing) plus `HudBackground` / `HudPadding`;
+Java's `ModRegistry` transcription; `packages/ingame`'s `hud/chrome.ts`, applied by `HudSlot`
+and by the mod page's `PreviewZoom` — the same box, in the same place `scale` and `opacity`
+already apply, so the preview stays the same drawing rather than a similar one.
 
 ### 2026-09-07 — the watermark, and global settings reach the page
 

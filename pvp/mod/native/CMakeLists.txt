@@ -232,6 +232,20 @@ if(VOIDUL_BUILD_JAVA)
         ENVIRONMENT "VOID_UI_GPU_FAIL=compile")
       add_test(NAME gpu_driver_fails_link COMMAND gpu_driver_probe fail)
       set_tests_properties(gpu_driver_fails_link PROPERTIES ENVIRONMENT "VOID_UI_GPU_FAIL=link")
+
+      # 77 is "this machine has no legacy GL context", not "the driver is broken", and the
+      # difference has to reach ctest or the three tests are red for a reason nobody can act on.
+      #
+      # The header above claims CGL hands out an offscreen 2.1 context on macOS. True on a Mac;
+      # false on GitHub's `macos-14` arm64 runners, which are GPU-less VMs — so all three failed
+      # on every run of this workflow, `main` included, with `could not choose a legacy (2.1)
+      # pixel format`. A permanently red job is a job people stop reading, which costs more than
+      # the coverage it was protecting.
+      #
+      # The probe now falls back to Apple's software GL before giving up, so a runner that has
+      # any GL at all still compiles and links the real shaders; only a machine with none skips.
+      set_tests_properties(gpu_driver_builds gpu_driver_fails_compile gpu_driver_fails_link
+        PROPERTIES SKIP_RETURN_CODE 77)
     endif()
   endif()
 endif()

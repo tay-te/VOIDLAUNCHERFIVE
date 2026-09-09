@@ -111,6 +111,74 @@ body {
   pointer-events: none;
 }
 
+/* -------------------------------------------------------------------------- *
+ * The shared HUD chrome block — `hud/chrome.ts`, `schema/mods/_shared.json#/hud`
+ *
+ * Applied by the slot around the widget, exactly where `scale` and `opacity` are applied, so
+ * one set of rules serves all eight HUD mods and the mod page's preview at once.
+ *
+ * Every value here is a token, and that is the point rather than an implementation detail:
+ * `design/quiet-cell-system.md` §1 rules a per-mod background, border or label *colour* out —
+ * colour encodes a value or a state and is never a preference — so what the player chooses is
+ * whether a chip has a ground, not what colour it is. All four settings are steps on scales
+ * this file owns.
+ * -------------------------------------------------------------------------- */
+
+.hud-chrome {
+  border-radius: 8px;
+  /* No transition. A repaint is caused by a setting changing and by nothing else — §4's budget
+     is 0 paints/s on an idle HUD, and an eased background would spend it on every toggle. */
+}
+
+/* `none` is vanilla and the default: the readout sits on the game with nothing behind it. */
+.hud-chrome--bg-none {
+  background: transparent;
+}
+
+/* Enough to hold a chip together over a busy texture without becoming a panel. */
+.hud-chrome--bg-subtle {
+  background: rgba(25, 26, 28, 0.55);
+}
+
+/* The opaque card ground, for a player who wants the HUD to read as a panel. */
+.hud-chrome--bg-solid {
+  background: var(--card-bg, #191a1c);
+}
+
+/* White at low alpha, never a colour — the border rule of §1. */
+.hud-chrome--border {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* There is no `.hud-chrome--shadow`. A `text-shadow` rule stood here for one commit and
+   `scripts/check-ultralight.mjs` rejected it, correctly: ultralight-notes §3 rates the property
+   [risky] — the rasteriser drops it, or it smears the glyph atlas — so the switch above it would
+   have moved on the settings page and drawn nothing in game. §3's own answer is that legibility
+   is solved by giving text a chip, which is what `--bg-subtle` and `--bg-solid` are. */
+
+/* Density — §1's own word for it, and what a player means by "make the HUD smaller" once
+   `scale` has already made the text too small to read. Zero at `tight` so the block is a true
+   no-op for a player who wants what the HUD looked like before this existed. */
+.hud-chrome--pad-tight {
+  padding: 0;
+}
+
+.hud-chrome--pad-normal {
+  padding: 2px 4px;
+}
+
+.hud-chrome--pad-roomy {
+  padding: 6px 10px;
+}
+
+/* A ground with no inset reads as a smear against the glyphs, so the two smallest steps get a
+   floor once there is something to sit on. The padding setting still moves; it moves between
+   4 and 10 rather than between 0 and 10. */
+.hud-chrome--bg-subtle.hud-chrome--pad-tight,
+.hud-chrome--bg-solid.hud-chrome--pad-tight {
+  padding: 1px 3px;
+}
+
 /* The scale, as a layout zoom rather than a transform — see `placementStyle`. `inline-block` so
    the outer box shrink-wraps it and therefore measures the widget at its drawn size, which is
    what both the anchor offsets and the HUD editor's selection frame are computed from. */
@@ -381,7 +449,7 @@ body {
   --edge: 24px; /* content inset, left and right */
   --tile-gap: 12px;
   --content-w: calc(var(--panel-w) - 2 * var(--edge));
-  --panel-cols: 6;
+  --panel-cols: 7;
   --panel-rows: 2;
   /* Zero unless the rows are taller than the panel can be. `solveGrid` holds it back out of
      the tile width so a scrollbar cannot eat the last column; see `GEOMETRY.gutter` for why
@@ -432,7 +500,13 @@ body {
      the arithmetic disagreed with itself. So the window is read in JS, once, and arrives here
      already resolved. */
   --panel-w: 1278px;
-  --panel-h: 635px;
+  /* Fixed, and the same at every mod count — `GEOMETRY.maxPanelH`. This used to be the height
+     the rows happened to come to (635, at the twelve the registry shipped then), which made the
+     menu's size a function of the roster: the fifteenth mod would have flipped the grid to
+     three rows and grown the panel by 229px. Width was never allowed to do that, and now
+     neither is height. See `GEOMETRY.maxPanelH` for why it is 796 rather than the 786 three
+     rows strictly need. */
+  --panel-h: 796px;
   width: var(--panel-w);
   height: var(--panel-h);
   /* Belt and braces, not the mechanism. `solveGrid` has already fitted the panel to the
@@ -1020,14 +1094,30 @@ body {
   align-items: flex-start;
   gap: var(--tile-gap);
   height: 100%;
-  /* Zero at every count that fits — `solveGrid` sizes the panel to the rows, so up to
-     twenty-four mods there is nothing to scroll. Past that the gutter is what keeps the
-     scrollbar off the last column. */
+  /* Zero at every count through twenty-four, which is three rows of eight and the most the
+     fixed panel holds. Past that the gutter is what keeps the scrollbar off the last column. */
   overflow-y: auto;
   /* The rows are exactly as wide as the box now — `solveGrid` derives the tile from the
      content width — so this clips nothing in practice. It stays because a row that is one
      subpixel over should disappear rather than grow a horizontal scrollbar under the grid. */
   overflow-x: hidden;
+}
+
+/* Centred down the body, but only while the rows fit it.
+
+   The panel is a fixed height now (`GEOMETRY.maxPanelH`) and the grid is not: fourteen mods
+   are two rows of 447 in a 686 body, so 239px is slack. Left at `flex-start` all of it pools
+   under the last row and the grid reads as having been cut off; split above and below, the
+   same two rows read as deliberately airy. At three rows the slack is zero and this does
+   nothing, which is the count the panel is sized for.
+
+   Gated on `:not(.overlay--scrolls)` rather than written unconditionally because a centred
+   flex column whose content overflows pushes the first row *above* the scroll origin, and it
+   cannot be scrolled back — the overflow is unreachable in exactly the direction nobody looks.
+   `safe center` is the one-word fix for that and Ultralight does not implement it, so the
+   class the solve already writes does the same job. */
+.overlay:not(.overlay--scrolls) .mods-grid {
+  justify-content: center;
 }
 
 .mods-row {

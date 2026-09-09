@@ -17,21 +17,29 @@ import { FAKE_MOD_COUNT, planFakeMods } from '@/dev/fake-mods';
 import { modProperties, propertyStructure } from '@/menu/ModSettingsScreen';
 import type { SettingValue } from '@/store/store';
 
-const REAL = 13;
+// The real registry's size, read from the registry. It was `13` and the fourteenth mod tripped
+// it — this constant is only here to say "the padding added nothing", which is a comparison to
+// the registry, not to a number.
+const REAL = MOD_IDS.length;
 const CATEGORIES: readonly ModCategory[] = ['hud', 'pvp', 'visual', 'utility'];
 
 describe('the fake-mod padding', () => {
   it('is off unless asked for, so every other test measures the real registry', () => {
     expect(FAKE_MOD_COUNT).toBe(0);
+    // `MOD_ORDER` against the registry, not against a number — `MOD_IDS` IS `REAL`, so
+    // asserting its length says nothing. What matters is that no synthetic id reached either.
     expect(MOD_ORDER).toHaveLength(REAL);
-    expect(MOD_IDS).toHaveLength(REAL);
+    expect(MOD_ORDER.every((id) => (MOD_IDS as readonly string[]).includes(id))).toBe(true);
   });
 
   it('pads up to a total rather than adding a count', () => {
-    expect(planFakeMods(24, REAL)).toHaveLength(11);
-    expect(planFakeMods(17, REAL)).toHaveLength(4);
-    // Never removes a real mod, and never trips over nonsense.
-    expect(planFakeMods(13, REAL)).toHaveLength(0);
+    expect(planFakeMods(24, REAL)).toHaveLength(24 - REAL);
+    expect(planFakeMods(17, REAL)).toHaveLength(17 - REAL);
+    // Never removes a real mod, and never trips over nonsense. `REAL - 1` is "asked for fewer
+    // tiles than there are mods", which was written as the literal 13 back when that was the
+    // registry's size and silently became "exactly the registry" at fourteen — a test that
+    // still passed while no longer testing what it says.
+    expect(planFakeMods(REAL - 1, REAL)).toHaveLength(0);
     expect(planFakeMods(3, REAL)).toHaveLength(0);
     expect(planFakeMods(Number.NaN, REAL)).toHaveLength(0);
     // Capped, so a stray zero cannot ask for a thousand tiles.

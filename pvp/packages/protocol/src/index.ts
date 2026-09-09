@@ -15,6 +15,18 @@
 
 export type * from './generated/schema.js';
 export { MOD_REGISTRY_DOCUMENT } from './generated/registry.js';
+// The bounds and enum tables of every settings property, generated from the `<id>_settings`
+// sub-schemas. The UI used to transcribe both by hand; see `generated/constraints.ts`.
+export { SETTING_BOUNDS, SETTING_OPTIONS } from './generated/constraints.js';
+// The glyph each registry entry names, generated with its literal type intact so that
+// `@void/ui` can check the whole table against its closed `IconName` union in one
+// `satisfies`. Applications should use `@void/ui`'s `MOD_ICONS`; this is the contract
+// underneath it. See `generated/icons.ts`.
+export { MOD_ICON_NAMES } from './generated/icons.js';
+// The factory HUD layout, generated from `mod_entry.default_placement`. It was two
+// hand-maintained tables, one here and one in Java, and a disagreement between them made the
+// HUD editor's `Reset layout` a move rather than an undo. See `generated/placements.ts`.
+export { DEFAULT_HUD_PLACEMENTS } from './generated/placements.js';
 export {
   BRIDGE_EXAMPLES,
   LOADOUT_EXAMPLES,

@@ -10,6 +10,7 @@ import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ServerWatcher;
 import dev.voidpvp.client.sensor.TickCoalescer;
+import dev.voidpvp.client.sensor.TickInput;
 import dev.voidpvp.client.state.Json;
 import dev.voidpvp.client.state.LiveState;
 import dev.voidpvp.client.state.Loadout;
@@ -163,12 +164,16 @@ class BridgeExamplesTest {
         JsonObject pos = expected.getAsJsonObject("pos");
 
         TickCoalescer ticks = new TickCoalescer();
-        JsonObject payload = ticks.build(
-                expected.get("fps").getAsInt(),
-                expected.get("ping").getAsInt(),
-                pos.get("x").getAsDouble(), pos.get("y").getAsDouble(),
-                pos.get("z").getAsDouble(), (float) pos.get("yaw").getAsDouble(),
-                armor, fx);
+        TickInput in = new TickInput();
+        in.fps = expected.get("fps").getAsInt();
+        in.ping = expected.get("ping").getAsInt();
+        in.x = pos.get("x").getAsDouble();
+        in.y = pos.get("y").getAsDouble();
+        in.z = pos.get("z").getAsDouble();
+        in.yaw = (float) pos.get("yaw").getAsDouble();
+        in.armor = armor;
+        in.fx = fx;
+        JsonObject payload = ticks.build(in);
         Schemas.assertContains(expected, payload, "tick payload");
         assertEquals(expected.entrySet().size(), payload.entrySet().size(),
                 "the first tick carries everything");

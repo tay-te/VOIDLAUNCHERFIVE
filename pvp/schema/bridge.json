@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The nine channels Java pushes on. Closed set; `void.on` with any other name is a programming error — and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The nine channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -341,7 +341,7 @@
     },
     "tick_payload": {
       "title": "tick payload",
-      "description": "All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (\u00a76.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged.",
+      "description": "All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (\u00a76.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged. Every field is optional and absent means unchanged; the sensor coalesces, because an uncoalesced field costs a full-surface Ultralight repaint (`TickCoalescer`'s header has the measurements).",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -377,6 +377,66 @@
           "items": {
             "description": "One active potion effect.",
             "$ref": "#/definitions/potion_effect"
+          }
+        },
+        "saturation": {
+          "description": "Food saturation, the hidden half of the hunger bar. Vanilla never draws it and it is what decides whether you regenerate, which is why every competing client ships a readout for it. Value-checked only, not rate-limited: it moves on eating and on exertion, not every tick.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "held_count": {
+          "description": "Stack size of the held item, for the item counter. Absent when the hand is empty \u2014 a count of 0 and an empty hand are different states, and the widget draws nothing rather than a zero. Value-checked; a stack size changes on use, not on a clock.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "speed": {
+          "description": "Horizontal ground speed in blocks per second, for the momentum readout. Horizontal on purpose: falling is not momentum a player is steering, and including it would make the number spike on every drop. Rounded to 2 dp at the sensor and rate-limited, because it changes every tick while moving and an uncoalesced field costs a full-surface repaint (see `TickCoalescer`'s header).",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "memory": {
+          "description": "JVM heap, for the memory readout. Rate-limited hard: it changes constantly, nobody reads it twenty times a second, and it is the field most able to undo the coalescing this payload exists for.",
+          "type": "object",
+          "required": [
+            "used_mb",
+            "max_mb"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "used_mb": {
+              "description": "Heap in use, mebibytes.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_mb": {
+              "description": "Heap ceiling, mebibytes \u2014 `Runtime.maxMemory`.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "hits": {
+          "description": "Monotonic hit counters, and the raw material for the combo counter. NOT the combo itself: a combo is a count with a *timeout policy* on it, and the timeout is a mod setting, so deriving it here would put a UI policy in the sensor. `cps` already sets that precedent \u2014 `mods.json` records that it is derived entirely in JS from click edges and has no Java sensor. Counters rather than hit *events* because an event lost to a dropped tick leaves the combo wrong forever, whereas a counter that jumps by two is still exactly right.",
+          "type": "object",
+          "required": [
+            "dealt",
+            "taken"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "dealt": {
+              "description": "Attacks the player has landed since the session began. Monotonic; never reset on the wire.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "taken": {
+              "description": "Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.",
+              "type": "integer",
+              "minimum": 0
+            }
           }
         }
       }
@@ -577,7 +637,7 @@
     },
     "session_payload": {
       "title": "session payload",
-      "description": "Who is playing: the account the launcher signed in with, as Java already knows it from the JVM arguments it was spawned with. Pushed on `pushWholeState()` — first paint, a launcher `init`, and a reloaded document (design/rendering-invariants.md \u00a79a) \u2014 and never again in between: the account cannot change while the game runs. The About screen prints it, and the HUD greets by name.",
+      "description": "Who is playing: the account the launcher signed in with, as Java already knows it from the JVM arguments it was spawned with. Pushed on `pushWholeState()` \u2014 first paint, a launcher `init`, and a reloaded document (design/rendering-invariants.md \u00a79a) \u2014 and never again in between: the account cannot change while the game runs. The About screen prints it, and the HUD greets by name.",
       "type": "object",
       "required": [
         "name",

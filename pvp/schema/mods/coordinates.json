@@ -1,0 +1,49 @@
+{
+  "id": "coordinates",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Coordinates",
+  "icon": "compass",
+  "the": false,
+  "noun": "the coordinates tile",
+  "on_description": "the coordinates display is enabled",
+  "description": "Player position and facing direction.",
+  "settings_title": "Coordinates settings",
+  "settings_description": "Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.",
+  "source": "EntityPlayerSP pos/yaw",
+  "enabled": false,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 103
+  },
+  "defaults": {
+    "decimals": 1,
+    "show_direction": true,
+    "layout": "inline"
+  },
+  "settings": {
+    "decimals": {
+      "description": "Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one \u2014 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "default": 1
+    },
+    "show_direction": {
+      "description": "Whether to append the cardinal direction derived from yaw.",
+      "type": "boolean",
+      "default": true
+    },
+    "layout": {
+      "description": "Whether X, Y and Z are stacked on three lines or printed on one. Defaults to `inline`, which is what the HUD frame draws; `stacked` holds the three numbers against one left edge, which is easier to read while moving.",
+      "type": "string",
+      "enum": [
+        "stacked",
+        "inline"
+      ],
+      "default": "inline"
+    }
+  }
+}

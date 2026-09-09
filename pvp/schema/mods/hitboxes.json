@@ -1,0 +1,38 @@
+{
+  "id": "hitboxes",
+  "kind": "gameplay",
+  "category": "pvp",
+  "hypixel_safe": "grey",
+  "label": "Hitboxes",
+  "icon": "cube",
+  "the": false,
+  "on_description": "entity hitboxes are drawn",
+  "description": "Draws entity bounding boxes.",
+  "settings_title": "Hitboxes settings",
+  "settings_description": "Settings for the Hitboxes gameplay mod. Forces `RenderManager.debugBoundingBox`. Classified `grey` in \u00a711.",
+  "source": "RenderManager.debugBoundingBox",
+  "enabled": false,
+  "defaults": {
+    "line_width": 2,
+    "color": "#FFFFFFFF",
+    "show_eye_line": false
+  },
+  "settings": {
+    "line_width": {
+      "description": "GL line width used for the bounding box wireframe.",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 5,
+      "default": 2
+    },
+    "color": {
+      "description": "Colour of the bounding box wireframe.",
+      "$ref": "#/definitions/hex_color"
+    },
+    "show_eye_line": {
+      "description": "Whether to draw the vanilla eye-direction ray along with the box.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

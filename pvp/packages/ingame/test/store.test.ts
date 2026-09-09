@@ -91,6 +91,51 @@ describe('bridge ingestion', () => {
     expect(useVoidStore.getState().ping).toBe(38);
   });
 
+  it('derives the combo from the hit counters, and counts nothing on first sight', () => {
+    const apply = useVoidStore.getState().applyTick;
+    // The counters are session-monotonic, so the first pair is a baseline. Counting it would
+    // report an entire match's hits at once to a page that reloaded mid-fight.
+    apply({ hits: { dealt: 40, taken: 7 } });
+    expect(useVoidStore.getState().combo).toBe(0);
+
+    apply({ hits: { dealt: 41, taken: 7 } });
+    expect(useVoidStore.getState().combo).toBe(1);
+
+    // By the delta, not by one: a tick carrying two hits is still exactly right, which is the
+    // reason the wire sends counters rather than events.
+    apply({ hits: { dealt: 43, taken: 7 } });
+    expect(useVoidStore.getState().combo).toBe(3);
+
+    // Being hit breaks it.
+    apply({ hits: { dealt: 43, taken: 8 } });
+    expect(useVoidStore.getState().combo).toBe(0);
+
+    // Hit and being hit on the same tick: the break wins, then the landed hit re-opens. Worth
+    // pinning because the order is a real decision — the other order would swallow the hit.
+    apply({ hits: { dealt: 44, taken: 9 } });
+    expect(useVoidStore.getState().combo).toBe(1);
+  });
+
+  it('treats an empty hand as news, not as an unchanged field', () => {
+    const apply = useVoidStore.getState().applyTick;
+    apply({ held_count: 64 });
+    expect(useVoidStore.getState().heldCount).toBe(64);
+    // `held_count` is the one tick field whose absence is a value: the sensor omits it for an
+    // empty hand rather than sending 0, so the chip has to stop showing the last stack.
+    apply({ fps: 100 });
+    expect(useVoidStore.getState().heldCount).toBeNull();
+  });
+
+  it('holds a Wave 2 reading that the sensor coalesced away', () => {
+    const apply = useVoidStore.getState().applyTick;
+    apply({ saturation: 12.5, speed: 4.2, memory: { used_mb: 900, max_mb: 4096 } });
+    apply({ fps: 100 });
+    const s = useVoidStore.getState();
+    expect(s.saturation).toBe(12.5);
+    expect(s.speed).toBe(4.2);
+    expect(s.memory).toEqual({ usedMb: 900, maxMb: 4096 });
+  });
+
   it('keeps the previous armour list on ticks that omit it', () => {
     const apply = useVoidStore.getState().applyTick;
     apply({ armor: [{ slot: 'helmet', item: 'diamond_helmet', damage: 0, max_damage: 363 }] });

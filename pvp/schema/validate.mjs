@@ -68,7 +68,17 @@ const check = (name, cond, detail = "") => {
   else { failures++; console.log(`FAIL  cross-check  ${name}  ${detail}`); }
 };
 
-check("registry has all 13 mod_id values", ids.length === 13 && enumIds.every((i) => ids.includes(i)));
+// The count is derived, not typed in. It was `ids.length === 13` and the fourteenth mod
+// tripped it — a hard-coded total in the gate that exists to catch hard-coded totals. What
+// this check is actually for is that the registry and the `mod_id` enum agree *both ways*,
+// which is a set comparison and has no number in it at all.
+check(
+  `registry and mod_id enum agree (${ids.length} mods)`,
+  ids.length === enumIds.length &&
+    enumIds.every((i) => ids.includes(i)) &&
+    ids.every((i) => enumIds.includes(i)),
+  `registry [${ids}] vs enum [${enumIds}]`,
+);
 check("every entry.id equals its key", ids.every((k) => registry[k].id === k));
 check("hud_mod_id == entries with kind hud", JSON.stringify(ids.filter((k) => registry[k].kind === "hud")) === JSON.stringify(hudEnum));
 check("gameplay_mod_id == entries with kind gameplay", JSON.stringify(ids.filter((k) => registry[k].kind === "gameplay")) === JSON.stringify(gpEnum));
@@ -94,6 +104,38 @@ check(
 );
 check("every category has at least one mod", categoryEnum.every((c) => ids.some((k) => registry[k].category === c)));
 check("labels are unique", new Set(ids.map((k) => registry[k].label)).size === ids.length);
+
+// `default_placement` is per-`kind`, and the `<id>_entry` narrowings say so — a HUD entry
+// `required`s it, a gameplay entry forbids it with `not`. Both are enforced by the schema, so
+// the registry above cannot be wrong; what JSON Schema cannot say is that the *narrowings
+// themselves* were generated for the right kind. A `<id>_entry` that forgot the constraint is
+// a schema that accepts a HUD mod with nowhere to be, and nothing else here would notice.
+// Walks all 14, not the 9 that have one, for the reason rendering-invariants §15 gives.
+const entryOf = (k) => docs.get("mods.json").definitions[`${k}_entry`].allOf?.[1] ?? {};
+const requiresPlacement = (k) => (entryOf(k).required ?? []).includes("default_placement");
+const forbidsPlacement = (k) => (entryOf(k).not?.required ?? []).includes("default_placement");
+check(
+  "every <id>_entry requires default_placement iff the mod is kind hud",
+  ids.every((k) =>
+    registry[k].kind === "hud"
+      ? requiresPlacement(k) && !forbidsPlacement(k)
+      : forbidsPlacement(k) && !requiresPlacement(k),
+  ),
+  ids.filter((k) => (registry[k].kind === "hud") !== requiresPlacement(k)).join(", "),
+);
+check(
+  `every hud entry carries a default_placement and no gameplay entry does (${hudEnum.length} placed)`,
+  ids.every((k) => ("default_placement" in registry[k]) === (registry[k].kind === "hud")),
+  ids.filter((k) => ("default_placement" in registry[k]) !== (registry[k].kind === "hud")).join(", "),
+);
+// The anchor set is written once, in loadout.json, and copied into mods.json by build.mjs.
+// This is the assertion that the copy is still the original.
+const anchorEnum = docs.get("loadout.json").definitions.anchor.enum;
+check(
+  "default_placement's anchors are loadout.json's anchors",
+  JSON.stringify(docs.get("mods.json").definitions.hud_placement.properties.anchor.enum) ===
+    JSON.stringify(anchorEnum),
+);
 
 // The two bridge channels that carry a whole loadout and the protocol's `init.loadouts`
 // must agree, or the in-game library would be shaped differently depending on where it

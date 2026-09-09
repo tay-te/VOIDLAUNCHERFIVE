@@ -172,49 +172,68 @@ function CellGlyph({ rows, caption, size }: { rows: readonly string[]; caption?:
 /** A 5 × 5 of 18px cells, all lit — Fullbright's preview in the file. */
 const FULL_GLYPH = ['11111', '11111', '11111', '11111', '11111'];
 
-/** Every card's preview, by mod. */
+/**
+ * A mark in the corner of a screen, which is what the watermark mod is.
+ *
+ * It had no arm in the old `switch` and therefore drew `FULL_GLYPH` — Fullbright's art, on the
+ * watermark's card, since the fallthrough arm was `case 'fullbright': default:`. That shipped;
+ * nobody saw it, because a wrong picture is still a picture. Same shape as `MOD_ICONS.watermark`
+ * in `@void/ui`, which is the glyph the row layout already draws for it.
+ */
+const MARK_GLYPH = ['11111', '10001', '10001', '11001', '11111'];
+
+/**
+ * Every card's preview, by mod.
+ *
+ * A `Record<ModId, …>` rather than a `switch`, and the difference is a bug this table actually
+ * had. It was a switch whose last arm read `case 'fullbright': default:` — so every mod the
+ * switch did not name fell through to Fullbright's glyph. Adding the fourteenth mod
+ * (`direction`) did exactly that: the launcher drew a 5x5 of lit cells on its card and nothing
+ * failed, because a `default` arm is a lookup miss that produces a *plausible* answer.
+ *
+ * `packages/ingame` had the same shape in `TilePreview` and it was removed for the same reason;
+ * this copy was missed because it lives in the other application. Now the type is total over
+ * `ModId`, so a mod added to `schema/mods/` does not compile until it has a card.
+ *
+ * These stay deliberately **static**, unlike the overlay's. The launcher has no game running
+ * behind it and no live values to read: a card here answers "which mod is this", which is the
+ * thumbnail's job, and `packages/ingame/src/mods/types.ts` explains why that is a different
+ * question from "what will this look like".
+ */
+const PREVIEWS: Record<ModId, () => ReactElement> = {
+  fps: () => <Numeral value="142" unit="fps" />,
+  cps: () => <Numeral value="6.2" unit="cps" />,
+  zoom: () => <Numeral value="2.0×" unit="zoom" />,
+  hitboxes: () => <Numeral value="3.2" unit="blocks" />,
+  ping: () => <Numeral value="42" unit="ms" />,
+  keystrokes: () => <Keycaps />,
+  armor_status: () => <Bars />,
+  crosshair: () => <Crosshair />,
+  watermark: () => <CellGlyph rows={MARK_GLYPH} size={18} />,
+  potion_effects: () => (
+    <Effects
+      rows={[
+        ['Speed II', '1:24'],
+        ['Strength', '0:42'],
+      ]}
+    />
+  ),
+  coordinates: () => (
+    <Effects
+      rows={[
+        ['X', '118'],
+        ['Z', '−402'],
+      ]}
+    />
+  ),
+  // The facing over its angle, which is what the chip draws. Static here, live in the overlay.
+  direction: () => <Numeral value="NE" unit="45°" />,
+  toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
+  fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,
+};
+
 function Preview({ id }: { id: ModId }): ReactElement {
-  switch (id) {
-    case 'fps':
-      return <Numeral value="142" unit="fps" />;
-    case 'cps':
-      return <Numeral value="6.2" unit="cps" />;
-    case 'zoom':
-      return <Numeral value="2.0×" unit="zoom" />;
-    case 'hitboxes':
-      return <Numeral value="3.2" unit="blocks" />;
-    case 'ping':
-      return <Numeral value="42" unit="ms" />;
-    case 'keystrokes':
-      return <Keycaps />;
-    case 'armor_status':
-      return <Bars />;
-    case 'crosshair':
-      return <Crosshair />;
-    case 'potion_effects':
-      return (
-        <Effects
-          rows={[
-            ['Speed II', '1:24'],
-            ['Strength', '0:42'],
-          ]}
-        />
-      );
-    case 'coordinates':
-      return (
-        <Effects
-          rows={[
-            ['X', '118'],
-            ['Z', '−402'],
-          ]}
-        />
-      );
-    case 'toggle_sprint':
-      return <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />;
-    case 'fullbright':
-    default:
-      return <CellGlyph rows={FULL_GLYPH} size={18} />;
-  }
+  return PREVIEWS[id]();
 }
 
 /** How many mods sit under each filter tab — the count the rail prints. */

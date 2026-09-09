@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schema.void.dev/pvp/mods.json",
+  "title": "VOID PVP \u2014 Mod registry",
+  "description": "The closed registry of the 13 mods VOID ships \u2014 the 12 defined in PVP_ARCHITECTURE.md \u00a73 plus the VOID watermark \u2014 together with the per-mod settings sub-schema, the anti-cheat classification of \u00a711, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.",
+  "type": "object",
+  "required": [
+    "version",
+    "mods"
+  ],
+  "additionalProperties": false,
+  "registry_version": 6,
+  "mods_title": "Mods",
+  "mods_description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.",
+  "version": {
+    "title": "Registry version",
+    "description": "Integer revision of the registry document. Bumped whenever a mod is added, removed or reclassified. Independent of the wire protocol version `v` in protocol.json.",
+    "type": "integer",
+    "minimum": 1
+  },
+  "definitions": {
+    "kind": {
+      "title": "Mod kind",
+      "description": "Data direction of the mod, per \u00a73. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.",
+      "type": "string",
+      "enum": [
+        "hud",
+        "gameplay"
+      ]
+    },
+    "category": {
+      "title": "Mod category",
+      "description": "The product taxonomy the Mods panel filters across \u2014 the tabs `All / HUD / PvP / Visual / Utility` of Figma 244:538, and the tag printed on each tile. Distinct from `kind`, which is a data-direction split (does the mod draw, or does it mutate a client-side option): Crosshair is `kind: gameplay` but `category: visual`, and Zoom is `kind: gameplay` but `category: utility`. Carried here so no consumer has to hard-code the mapping.",
+      "type": "string",
+      "enum": [
+        "hud",
+        "pvp",
+        "visual",
+        "utility"
+      ]
+    },
+    "key_swatch": {
+      "title": "Key colour swatch",
+      "description": "One of the five unpressed-key swatches on the Mod settings frame, named by the design token it resolves to (`--bg-shell`, `--surface-2`, `--surface-3`, `--sky`, `--teal`). A name rather than a hex value so the choice survives a theme change.",
+      "type": "string",
+      "enum": [
+        "shell",
+        "raised",
+        "pill",
+        "sky",
+        "teal"
+      ]
+    },
+    "pressed_swatch": {
+      "title": "Pressed colour swatch",
+      "description": "One of the five pressed-key swatches on the Mod settings frame, named by the design token it resolves to (`--accent`, `--sky`, `--warn`, `--danger`, `--teal`). `accent` is the frame's default and follows the loadout accent.",
+      "type": "string",
+      "enum": [
+        "accent",
+        "sky",
+        "warn",
+        "fear",
+        "teal"
+      ]
+    },
+    "hypixel_safe": {
+      "title": "Hypixel safety class",
+      "description": "Anti-cheat posture of \u00a711. `safe` mods are unambiguously allowed; `grey` mods change what the player can see and are tolerated but not endorsed. The HYPIXEL-READY badge is shown only when every enabled mod in the loadout is `safe`.",
+      "type": "string",
+      "enum": [
+        "safe",
+        "grey"
+      ]
+    },
+    "keybind": {
+      "title": "Keybind",
+      "description": "An LWJGL 2 key name in upper case as used by Minecraft 1.8.9 `Keyboard.getKeyName`, a mouse button as MOUSE0..MOUSE7, or NONE for unbound. Produced by `void.openKeybindCapture`.",
+      "type": "string",
+      "pattern": "^(?:NONE|[A-Z0-9]|F[1-9]|F1[0-2]|NUMPAD[0-9]|MOUSE[0-7]|SPACE|TAB|ESCAPE|RETURN|BACK|DELETE|INSERT|HOME|END|PRIOR|NEXT|UP|DOWN|LEFT|RIGHT|LSHIFT|RSHIFT|LCONTROL|RCONTROL|LMENU|RMENU|CAPITAL|LBRACKET|RBRACKET|SEMICOLON|APOSTROPHE|COMMA|PERIOD|SLASH|BACKSLASH|MINUS|EQUALS|GRAVE)$"
+    },
+    "scale": {
+      "title": "Scale",
+      "description": "Multiplier applied to the mod's rendered size, on top of MC GUI scale x window DPI (\u00a76.2). 1 is the design size.",
+      "type": "number",
+      "minimum": 0.25,
+      "maximum": 4,
+      "default": 1
+    },
+    "opacity": {
+      "title": "Opacity",
+      "description": "Alpha of the mod's rendered element, 0 fully transparent to 1 fully opaque.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    },
+    "hex_color": {
+      "title": "Colour",
+      "description": "sRGB colour as #RRGGBB or #RRGGBBAA. Lower case or upper case hex both accepted.",
+      "type": "string",
+      "pattern": "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "on": {
+      "title": "Enabled",
+      "description": "Whether the mod is enabled. Present in every mod state inside a loadout, and in the registry `defaults` as the factory enabled state.",
+      "type": "boolean"
+    },
+    "hud_placement": {
+      "$comment": "`properties.anchor.enum` is NOT written here. `schema/build.mjs` copies it from `loadout.json#/definitions/anchor`, which is where the anchor set is defined and where `hud_item` reads it. A second hand-written copy of nine strings is the same duplication this field exists to remove, and a cross-document `$ref` the other way would make `mods.json` depend on `loadout.json` \u2014 the registry is the root, and `loadout.json` refs it, not the reverse.",
+      "title": "Factory HUD placement",
+      "description": "Where this mod's widget sits on a HUD nobody has touched \u2014 the layout of Figma frame 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset layout` restores. Anchor plus `dx`/`dy`, exactly as `loadout.json#/definitions/hud_item`, minus the `id` (it is the entry's own) and the per-item `scale` (a factory layout is always 1). The numbers are in the **overlay's own design-canvas pixels** \u2014 `VoidClient.pumpUi` fits the view to a 1300 x 820 canvas \u2014 because that is the space the page actually lays out in, and they are on a **38-42 px vertical rhythm**, which is what it takes to stack chips that are taller than that without overlapping. They are therefore NOT the tighter offsets in `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`, whose 18-20 px rhythm belongs to hand-authored product loadouts rather than to the factory layout. Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a widget *would* go, not whether it is drawn \u2014 the `on` setting decides that. Required on every `kind: hud` mod and forbidden on every `kind: gameplay` mod; the per-mod `<id>_entry` definitions are where that is enforced, so a HUD mod with no placement, or a gameplay mod with one, is a schema error rather than a silent default.",
+      "type": "object",
+      "required": [
+        "anchor",
+        "dx",
+        "dy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "description": "Screen anchor the offsets are measured from. The anchor names a point on the viewport *and* the matching point on the widget box, which is why `dx` is negative on right-hand anchors and `dy` negative on bottom ones.",
+          "type": "string"
+        },
+        "dx": {
+          "description": "Horizontal offset in design-canvas pixels from the anchor. Positive is right.",
+          "type": "number",
+          "minimum": -4096,
+          "maximum": 4096
+        },
+        "dy": {
+          "description": "Vertical offset in design-canvas pixels from the anchor. Positive is down.",
+          "type": "number",
+          "minimum": -4096,
+          "maximum": 4096
+        }
+      }
+    },
+    "mod_entry": {
+      "title": "Registry entry",
+      "description": "One row of the \u00a73 table plus its \u00a711 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.",
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "category",
+        "hypixel_safe",
+        "label",
+        "icon",
+        "description",
+        "source",
+        "defaults"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The mod's snake_case id; equals the key this entry is stored under.",
+          "$ref": "#/definitions/mod_id"
+        },
+        "kind": {
+          "description": "Whether this mod draws (hud) or mutates a client-side option (gameplay).",
+          "$ref": "#/definitions/kind"
+        },
+        "category": {
+          "description": "Filter-tab taxonomy of the Mods panel, per frame 244:538.",
+          "$ref": "#/definitions/category"
+        },
+        "hypixel_safe": {
+          "description": "Anti-cheat class of \u00a711.",
+          "$ref": "#/definitions/hypixel_safe"
+        },
+        "label": {
+          "description": "Human-readable name as it appears in the Mods panel of the Figma.",
+          "type": "string",
+          "minLength": 1
+        },
+        "icon": {
+          "description": "Name of the glyph the Mods list and the quick palette draw for this mod, from `@void/ui`'s icon sheet. Carried here rather than in a table per application: the in-game overlay and the desktop launcher both need it and neither can import the other, so before this it was one hand-maintained `MOD_ICONS` object that no schema knew about. Not consumed by the game \u2014 the mod draws no icons \u2014 but the registry is where mod *identity* lives, and an icon is identity.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "description": {
+          "description": "One-line explanation shown under the label in the Mods panel.",
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "description": "The Minecraft 1.8.9 field, method or injection point the sensor reads or the actuator writes, quoted from the \u00a73 table. Documentation only; not consumed at runtime.",
+          "type": "string",
+          "minLength": 1
+        },
+        "defaults": {
+          "description": "Factory settings for this mod, used when a loadout omits it. Validates against the mod's own settings sub-schema.",
+          "type": "object"
+        },
+        "default_placement": {
+          "description": "Where this mod's widget sits on an untouched HUD. Listed here so `additionalProperties: false` permits it, and left out of `required` because it is per-`kind`: each `<id>_entry` requires it on a HUD mod and forbids it on a gameplay one. A gameplay mod draws nothing and therefore has nowhere to be.",
+          "$ref": "#/definitions/hud_placement"
+        }
+      }
+    }
+  }
+}

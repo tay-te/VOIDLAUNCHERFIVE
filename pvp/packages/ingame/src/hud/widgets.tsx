@@ -27,6 +27,8 @@ import {
   formatPotionTime,
   asCrosshairStyle,
   keystrokesColorStyle,
+  DirectionChip,
+  type DirectionStyle,
   type HudVariant,
 } from '@/ui';
 import { cardinalFromYaw, type ArmorSlot } from '@/bridge/protocol';
@@ -161,6 +163,35 @@ export const HudCoordinates = memo(function HudCoordinates({ variant, sample }: 
     />
   );
 });
+
+/* -------------------------------------------------------------- direction */
+
+/**
+ * Which way you are facing, as its own placeable chip.
+ *
+ * Reads the same `pos.yaw` Coordinates already reads, so this mod cost no sensor work — the
+ * reason it was the first of Wave 2 to ship. `coordinates.show_direction` still exists and is
+ * the *inline* form; this is the standalone one. Neither reads the other's settings.
+ */
+export const HudDirection = memo(function HudDirection({ variant, sample }: HudWidgetProps) {
+  const live = useVoidStore((s) => s.pos);
+  const settings = useModSettings('direction');
+  const pos = live ?? (sample ? SAMPLE_POS : null);
+  if (!pos) return null;
+  return (
+    <DirectionChip
+      variant={variant}
+      yaw={pos.yaw}
+      notation={asDirectionStyle(settings.style)}
+      showDegrees={settings.show_degrees === true}
+    />
+  );
+});
+
+/** A stored `style` narrowed to what the chip draws; anything else is the factory default. */
+function asDirectionStyle(value: unknown): DirectionStyle {
+  return value === 'word' || value === 'axis' ? value : 'letter';
+}
 
 /* ---------------------------------------------------------------- potions */
 

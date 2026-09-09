@@ -1,0 +1,53 @@
+{
+  "id": "ping",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Ping display",
+  "icon": "wifi",
+  "the": true,
+  "noun": "the ping tile",
+  "on_description": "the ping display is enabled",
+  "description": "Round-trip time to the current server.",
+  "settings_title": "Ping display settings",
+  "settings_description": "Settings for the Ping display HUD mod. Reads the player's own `NetworkPlayerInfo.responseTime`.",
+  "source": "own NetworkPlayerInfo.responseTime",
+  "enabled": true,
+  "default_placement": {
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 65
+  },
+  "defaults": {
+    "show_label": true,
+    "good_ms": 60,
+    "bad_ms": 150,
+    "show_host": true
+  },
+  "settings": {
+    "show_label": {
+      "description": "Whether to render the trailing \"ms\" unit after the number.",
+      "type": "boolean",
+      "default": true
+    },
+    "good_ms": {
+      "description": "Ping at or below this many milliseconds renders in the good colour.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "default": 60
+    },
+    "bad_ms": {
+      "description": "Ping at or above this many milliseconds renders in the bad colour. Must be greater than `good_ms`; not enforced by the schema.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2000,
+      "default": 150
+    },
+    "show_host": {
+      "description": "Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

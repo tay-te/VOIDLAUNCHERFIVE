@@ -1,0 +1,27 @@
+{
+  "id": "fullbright",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "grey",
+  "label": "Fullbright",
+  "icon": "sun",
+  "the": false,
+  "on_description": "fullbright is enabled",
+  "description": "Raises gamma so caves and shadows are fully lit.",
+  "settings_title": "Fullbright settings",
+  "settings_description": "Settings for the Fullbright gameplay mod. Overrides `gameSettings.gammaSetting`; client-side only and Watchdog-tolerated (\u00a73), but classified `grey` in \u00a711.",
+  "source": "gammaSetting override (client-side, Watchdog-tolerated)",
+  "enabled": false,
+  "defaults": {
+    "gamma": 10
+  },
+  "settings": {
+    "gamma": {
+      "description": "Value written to `gammaSetting` while the mod is on. Vanilla's slider tops out at 1; 10 is the conventional fullbright value.",
+      "type": "number",
+      "minimum": 1,
+      "maximum": 15,
+      "default": 10
+    }
+  }
+}

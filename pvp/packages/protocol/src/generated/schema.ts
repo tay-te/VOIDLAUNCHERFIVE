@@ -26,6 +26,10 @@ export type FPSDisplayEntry = RegistryEntry & {
    */
   id?: 'fps';
   /**
+   * Always `gauge`.
+   */
+  icon?: 'gauge';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -38,9 +42,10 @@ export type FPSDisplayEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: FPSDisplaySettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 13 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 14 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -55,7 +60,8 @@ export type ModId =
   | 'fullbright'
   | 'hitboxes'
   | 'zoom'
-  | 'crosshair';
+  | 'crosshair'
+  | 'direction';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -93,6 +99,10 @@ export type KeystrokesEntry = RegistryEntry & {
    */
   id?: 'keystrokes';
   /**
+   * Always `keyboard`.
+   */
+  icon?: 'keyboard';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -105,6 +115,7 @@ export type KeystrokesEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: KeystrokesSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * An LWJGL 2 key name in upper case as used by Minecraft 1.8.9 `Keyboard.getKeyName`, a mouse button as MOUSE0..MOUSE7, or NONE for unbound. Produced by `void.openKeybindCapture`.
@@ -127,6 +138,10 @@ export type CPSCounterEntry = RegistryEntry & {
    */
   id?: 'cps';
   /**
+   * Always `cursor-click`.
+   */
+  icon?: 'cursor-click';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -139,6 +154,7 @@ export type CPSCounterEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: CPSCounterSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for the Ping display, narrowed to its constant classification.
@@ -149,6 +165,10 @@ export type PingDisplayEntry = RegistryEntry & {
    */
   id?: 'ping';
   /**
+   * Always `wifi`.
+   */
+  icon?: 'wifi';
+  /**
    * Always `hud`.
    */
   kind?: 'hud';
@@ -157,10 +177,11 @@ export type PingDisplayEntry = RegistryEntry & {
    */
   category?: 'hud';
   /**
-   * Always `safe`; §11 does not list ping explicitly, and a read of the player's own responseTime cannot affect play.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: PingDisplaySettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Coordinates, narrowed to its constant classification.
@@ -170,6 +191,10 @@ export type CoordinatesEntry = RegistryEntry & {
    * Always `coordinates`.
    */
   id?: 'coordinates';
+  /**
+   * Always `compass`.
+   */
+  icon?: 'compass';
   /**
    * Always `hud`.
    */
@@ -183,6 +208,7 @@ export type CoordinatesEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: CoordinatesSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Armor status, narrowed to its constant classification.
@@ -192,6 +218,10 @@ export type ArmorStatusEntry = RegistryEntry & {
    * Always `armor_status`.
    */
   id?: 'armor_status';
+  /**
+   * Always `shield`.
+   */
+  icon?: 'shield';
   /**
    * Always `hud`.
    */
@@ -205,6 +235,7 @@ export type ArmorStatusEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: ArmorStatusSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Potion effects, narrowed to its constant classification.
@@ -214,6 +245,10 @@ export type PotionEffectsEntry = RegistryEntry & {
    * Always `potion_effects`.
    */
   id?: 'potion_effects';
+  /**
+   * Always `flask`.
+   */
+  icon?: 'flask';
   /**
    * Always `hud`.
    */
@@ -227,28 +262,34 @@ export type PotionEffectsEntry = RegistryEntry & {
    */
   hypixel_safe?: 'safe';
   defaults?: PotionEffectsSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
- * Registry entry for the VOID watermark, narrowed to its constant classification.
+ * Registry entry for the Watermark, narrowed to its constant classification.
  */
-export type VOIDWatermarkEntry = RegistryEntry & {
+export type WatermarkEntry = RegistryEntry & {
   /**
    * Always `watermark`.
    */
   id?: 'watermark';
   /**
-   * Always `hud`; it draws and reads nothing.
+   * Always `watermark`.
+   */
+  icon?: 'watermark';
+  /**
+   * Always `hud`.
    */
   kind?: 'hud';
   /**
-   * Always `visual`; it changes how the game looks rather than adding a readout, so the Mods panel tabs it under Visual (frame 244:538).
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
    */
   category?: 'visual';
   /**
-   * Always `safe`; §11 does not list it, and a mark drawn over the game cannot affect play.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: VOIDWatermarkSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Registry entry for Toggle sprint, narrowed to its constant classification.
@@ -258,6 +299,10 @@ export type ToggleSprintEntry = RegistryEntry & {
    * Always `toggle_sprint`.
    */
   id?: 'toggle_sprint';
+  /**
+   * Always `bolt`.
+   */
+  icon?: 'bolt';
   /**
    * Always `gameplay`.
    */
@@ -281,6 +326,10 @@ export type FullbrightEntry = RegistryEntry & {
    */
   id?: 'fullbright';
   /**
+   * Always `sun`.
+   */
+  icon?: 'sun';
+  /**
    * Always `gameplay`.
    */
   kind?: 'gameplay';
@@ -302,6 +351,10 @@ export type HitboxesEntry = RegistryEntry & {
    * Always `hitboxes`.
    */
   id?: 'hitboxes';
+  /**
+   * Always `cube`.
+   */
+  icon?: 'cube';
   /**
    * Always `gameplay`.
    */
@@ -325,6 +378,10 @@ export type ZoomEntry = RegistryEntry & {
    */
   id?: 'zoom';
   /**
+   * Always `zoom`.
+   */
+  icon?: 'zoom';
+  /**
    * Always `gameplay`.
    */
   kind?: 'gameplay';
@@ -333,7 +390,7 @@ export type ZoomEntry = RegistryEntry & {
    */
   category?: 'utility';
   /**
-   * Always `safe`; §11 does not list zoom explicitly, and an FOV override is the long-standing allowed Optifine behaviour.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: ZoomSettings;
@@ -347,7 +404,11 @@ export type CrosshairEntry = RegistryEntry & {
    */
   id?: 'crosshair';
   /**
-   * Always `gameplay`; §3 marks it Gameplay* because it is drawn in GL rather than HTML, but its data direction is that of an actuator.
+   * Always `crosshair`.
+   */
+  icon?: 'crosshair';
+  /**
+   * Always `gameplay`.
    */
   kind?: 'gameplay';
   /**
@@ -355,17 +416,44 @@ export type CrosshairEntry = RegistryEntry & {
    */
   category?: 'visual';
   /**
-   * Always `safe`; §11 does not list crosshair explicitly, and it is a purely cosmetic replacement of the vanilla crosshair pass.
+   * Always `safe` (§11).
    */
   hypixel_safe?: 'safe';
   defaults?: CrosshairSettings;
+};
+/**
+ * Registry entry for Direction, narrowed to its constant classification.
+ */
+export type DirectionEntry = RegistryEntry & {
+  /**
+   * Always `direction`.
+   */
+  id?: 'direction';
+  /**
+   * Always `compass`.
+   */
+  icon?: 'compass';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: DirectionSettings;
+  default_placement: FactoryHUDPlacement;
 };
 /**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the eight mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 9 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -375,7 +463,8 @@ export type HUDModId =
   | 'coordinates'
   | 'armor_status'
   | 'potion_effects'
-  | 'watermark';
+  | 'watermark'
+  | 'direction';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -390,9 +479,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 8, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 9, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 8
+ * @maxItems 9
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -590,7 +679,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 13 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 14 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -600,15 +689,16 @@ export interface Mods {
   coordinates: CoordinatesEntry;
   armor_status: ArmorStatusEntry;
   potion_effects: PotionEffectsEntry;
-  watermark: VOIDWatermarkEntry;
+  watermark: WatermarkEntry;
   toggle_sprint: ToggleSprintEntry;
   fullbright: FullbrightEntry;
   hitboxes: HitboxesEntry;
   zoom: ZoomEntry;
   crosshair: CrosshairEntry;
+  direction: DirectionEntry;
 }
 /**
- * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants.
+ * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
  */
 export interface RegistryEntry {
   id: ModId;
@@ -619,6 +709,10 @@ export interface RegistryEntry {
    * Human-readable name as it appears in the Mods panel of the Figma.
    */
   label: string;
+  /**
+   * Name of the glyph the Mods list and the quick palette draw for this mod, from `@void/ui`'s icon sheet. Carried here rather than in a table per application: the in-game overlay and the desktop launcher both need it and neither can import the other, so before this it was one hand-maintained `MOD_ICONS` object that no schema knew about. Not consumed by the game — the mod draws no icons — but the registry is where mod *identity* lives, and an icon is identity.
+   */
+  icon: string;
   /**
    * One-line explanation shown under the label in the Mods panel.
    */
@@ -631,6 +725,33 @@ export interface RegistryEntry {
    * Factory settings for this mod, used when a loadout omits it. Validates against the mod's own settings sub-schema.
    */
   defaults: {};
+  default_placement?: FactoryHUDPlacement;
+}
+/**
+ * Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset layout` restores. Anchor plus `dx`/`dy`, exactly as `loadout.json#/definitions/hud_item`, minus the `id` (it is the entry's own) and the per-item `scale` (a factory layout is always 1). The numbers are in the **overlay's own design-canvas pixels** — `VoidClient.pumpUi` fits the view to a 1300 x 820 canvas — because that is the space the page actually lays out in, and they are on a **38-42 px vertical rhythm**, which is what it takes to stack chips that are taller than that without overlapping. They are therefore NOT the tighter offsets in `crates/void-loadout`'s `defaults.rs` library or in `loadout.json`'s own `examples`, whose 18-20 px rhythm belongs to hand-authored product loadouts rather than to the factory layout. Mods that ship off (`coordinates`, `direction`) are placed too: a placement is where a widget *would* go, not whether it is drawn — the `on` setting decides that. Required on every `kind: hud` mod and forbidden on every `kind: gameplay` mod; the per-mod `<id>_entry` definitions are where that is enforced, so a HUD mod with no placement, or a gameplay mod with one, is a schema error rather than a silent default.
+ */
+export interface FactoryHUDPlacement {
+  /**
+   * Screen anchor the offsets are measured from. The anchor names a point on the viewport *and* the matching point on the widget box, which is why `dx` is negative on right-hand anchors and `dy` negative on bottom ones.
+   */
+  anchor:
+    | 'top-left'
+    | 'top'
+    | 'top-right'
+    | 'left'
+    | 'center'
+    | 'right'
+    | 'bottom-left'
+    | 'bottom'
+    | 'bottom-right';
+  /**
+   * Horizontal offset in design-canvas pixels from the anchor. Positive is right.
+   */
+  dx: number;
+  /**
+   * Vertical offset in design-canvas pixels from the anchor. Positive is down.
+   */
+  dy: number;
 }
 /**
  * Settings for the FPS display HUD mod. Reads `Minecraft.debugFPS` once per tick.
@@ -639,6 +760,18 @@ export interface FPSDisplaySettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the FPS tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the FPS tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the FPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   color?: Colour;
   /**
    * Whether to render the trailing "FPS" label after the number.
@@ -656,6 +789,18 @@ export interface KeystrokesSettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the key tiles, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the key tiles, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the key tiles — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   keybind?: Keybind;
   /**
    * Whether to render the LMB and RMB tiles under the WASD block.
@@ -688,6 +833,18 @@ export interface CPSCounterSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
+   * Ground drawn behind the CPS tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the CPS tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the CPS tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
    * Which mouse buttons to count: left only, right only, or both shown side by side.
    */
   mode?: 'left' | 'right' | 'both';
@@ -707,6 +864,18 @@ export interface PingDisplaySettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the ping tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the ping tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the ping tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   /**
    * Whether to render the trailing "ms" unit after the number.
    */
@@ -732,6 +901,18 @@ export interface CoordinatesSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
+   * Ground drawn behind the coordinates tile, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the coordinates tile, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the coordinates tile — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
    * Number of decimal places printed for X, Y and Z. Capped at 2 because that is what the wire carries: the `tick` sensor rounds the position to 2 dp before publishing it, so a third place could only ever print a zero. Widening it is a bridge change, not a settings change, and a costly one — 3 dp makes ten times as many positions distinct, and every distinct position is a HUD repaint.
    */
   decimals?: number;
@@ -751,6 +932,18 @@ export interface ArmorStatusSettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the armor row, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the armor row, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the armor row — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   /**
    * Whether armor pieces are laid out left to right or top to bottom.
    */
@@ -776,6 +969,18 @@ export interface PotionEffectsSettings {
   scale?: Scale;
   opacity?: Opacity;
   /**
+   * Ground drawn behind the effect list, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the effect list, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the effect list — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
    * Whether to print the remaining duration next to each effect.
    */
   show_duration?: boolean;
@@ -795,6 +1000,18 @@ export interface VOIDWatermarkSettings {
   on: Enabled;
   scale?: Scale;
   opacity?: Opacity;
+  /**
+   * Ground drawn behind the mark, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the mark, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the mark — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
   /**
    * Which parts of the mark are drawn: `full` is the ring plus the VOID wordmark, `mark` is the ring alone, `word` is the wordmark alone.
    */
@@ -894,6 +1111,34 @@ export interface CrosshairSettings {
   center_dot?: boolean;
 }
 /**
+ * Settings for the Direction HUD mod. Reads the same `pos.yaw` the tick sensor already sends for Coordinates, so it needs no sensor of its own — which is the whole reason it is cheap to ship. `coordinates.show_direction` is deliberately kept: that is the inline form, a suffix on the coordinate rows, and this is the standalone one a player places on its own and reads at a glance. Both are wanted, they are not duplicates of each other, and neither reads the other's settings.
+ */
+export interface DirectionSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the direction chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the direction chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the direction chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * How the facing is written. `letter` is the compass abbreviation the Coordinates mod already prints (`N`, `NE`, `SW`) and is what fits a small chip. `word` spells it out (`North`), which is what a player reading at a glance across a screen actually parses. `axis` prints the Minecraft world axis instead (`+X`, `-Z`) — not a compass reading at all, and the one a player wants while running a nether tunnel or lining up a build, because it is the notation coordinates themselves are in.
+   */
+  style?: 'letter' | 'word' | 'axis';
+  /**
+   * Whether the raw yaw angle is printed after the facing. Off by default: it is a second number on a chip whose whole job is to be read without reading, and it is only wanted by players aligning something precisely.
+   */
+  show_degrees?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -919,7 +1164,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 13 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 14 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -935,6 +1180,7 @@ export interface ModStates {
   hitboxes?: HitboxesSettings;
   zoom?: ZoomSettings;
   crosshair?: CrosshairSettings;
+  direction?: DirectionSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -1197,7 +1443,7 @@ export interface TickEvent {
   payload: TickPayload;
 }
 /**
- * All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (§6.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged.
+ * All per-tick telemetry, coalesced into one push per game tick, i.e. 20 Hz (§6.6). Every HUD mod other than keystrokes and CPS reads from this. Fields whose sensor has nothing to report are omitted rather than sent as null, so a handler must treat an absent field as unchanged. Every field is optional and absent means unchanged; the sensor coalesces, because an uncoalesced field costs a full-surface Ultralight repaint (`TickCoalescer`'s header has the measurements).
  */
 export interface TickPayload {
   /**
@@ -1221,6 +1467,44 @@ export interface TickPayload {
    * @maxItems 32
    */
   fx?: PotionEffect[];
+  /**
+   * Food saturation, the hidden half of the hunger bar. Vanilla never draws it and it is what decides whether you regenerate, which is why every competing client ships a readout for it. Value-checked only, not rate-limited: it moves on eating and on exertion, not every tick.
+   */
+  saturation?: number;
+  /**
+   * Stack size of the held item, for the item counter. Absent when the hand is empty — a count of 0 and an empty hand are different states, and the widget draws nothing rather than a zero. Value-checked; a stack size changes on use, not on a clock.
+   */
+  held_count?: number;
+  /**
+   * Horizontal ground speed in blocks per second, for the momentum readout. Horizontal on purpose: falling is not momentum a player is steering, and including it would make the number spike on every drop. Rounded to 2 dp at the sensor and rate-limited, because it changes every tick while moving and an uncoalesced field costs a full-surface repaint (see `TickCoalescer`'s header).
+   */
+  speed?: number;
+  /**
+   * JVM heap, for the memory readout. Rate-limited hard: it changes constantly, nobody reads it twenty times a second, and it is the field most able to undo the coalescing this payload exists for.
+   */
+  memory?: {
+    /**
+     * Heap in use, mebibytes.
+     */
+    used_mb: number;
+    /**
+     * Heap ceiling, mebibytes — `Runtime.maxMemory`.
+     */
+    max_mb: number;
+  };
+  /**
+   * Monotonic hit counters, and the raw material for the combo counter. NOT the combo itself: a combo is a count with a *timeout policy* on it, and the timeout is a mod setting, so deriving it here would put a UI policy in the sensor. `cps` already sets that precedent — `mods.json` records that it is derived entirely in JS from click edges and has no Java sensor. Counters rather than hit *events* because an event lost to a dropped tick leaves the combo wrong forever, whereas a counter that jumps by two is still exactly right.
+   */
+  hits?: {
+    /**
+     * Attacks the player has landed since the session began. Monotonic; never reset on the wire.
+     */
+    dealt: number;
+    /**
+     * Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.
+     */
+    taken: number;
+  };
 }
 /**
  * Player position and yaw from `EntityPlayerSP`, read once per tick. Pitch is deliberately absent: no mod in §3 uses it.

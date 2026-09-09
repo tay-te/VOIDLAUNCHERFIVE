@@ -1,0 +1,50 @@
+{
+  "$comment": "The properties every mod of a given `kind` carries, merged into each mod's own settings by `schema/build.mjs`. Declared once here so the ninth HUD widget cannot invent its own spelling of `scale`, and so a property added to the set reaches every HUD mod at once instead of being retrofitted into twenty settings pages. `{noun}` in a description is replaced with the mod's own `noun`.",
+  "hud": {
+    "$comment": "Shared by every `kind: hud` mod \u2014 the eight that own a draggable HUD item.\n\nThe first three are the set VOID already had. The three after them are the HUD chrome block, and they exist because a HUD readout is drawn over *arbitrary game pixels*: a chip that is legible on a stone wall can be unreadable on snow or on a nether ceiling, and until now the only answers a player had were `scale` and `opacity`, neither of which is about contrast.\n\nWhat this block is deliberately NOT: Lunar gives essentially every HUD mod a background colour, a border colour and per-element text colours. `design/quiet-cell-system.md` \u00a71 puts exactly that on the far side of its line \u2014 'a chip background, border or label colour per mod' is named there as what stays out, because colour in this system encodes a value or a state and is never a preference. So every property here is *structural*: on/off, or a step on a system-owned token scale. The player chooses whether a chip has a ground, never what colour that ground is. \u00a71's own list of what customisation legitimately is \u2014 'position, anchor and offset, scale, opacity, density, what is shown, format' \u2014 is the shape of this block, and `padding` is `density` under its own name.\n\nWhat is deliberately NOT in this block: `text_shadow`. It was here for one commit and removing it is the point of the note. `design/ultralight-notes.md` \u00a73 rates `text-shadow` [risky] \u2014 Ultralight's text rasteriser drops it, and on some builds it smears the glyph atlas \u2014 so the setting would have been a switch that did nothing in game, which is the exact silent failure `design/rendering-invariants.md` \u00a715 is about. \u00a73 also says the design already solves HUD legibility structurally (every readout sits on its own chip) and that the decision \"must be preserved rather than 'improved' later\". `background` above IS that chip, exposed to the player; it is the answer to legibility here, and there is no second one. \u00a73's fallback for text that genuinely cannot have a chip \u2014 a 1px outline drawn as four offset copies \u2014 is not needed, because a chip is exactly what this block offers. Do not re-add it, and do not reach for `-webkit-text-stroke` either (also unreliable in Ultralight).",
+    "on": {
+      "description": "Whether {on_description}.",
+      "$ref": "#/definitions/on"
+    },
+    "scale": {
+      "description": "Size multiplier of {noun}.",
+      "$ref": "#/definitions/scale"
+    },
+    "opacity": {
+      "description": "Alpha of {noun}.",
+      "$ref": "#/definitions/opacity"
+    },
+    "background": {
+      "description": "Ground drawn behind {noun}, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default \u2014 the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what \u00a71 names as the far side of the line.",
+      "type": "string",
+      "enum": [
+        "none",
+        "subtle",
+        "solid"
+      ],
+      "default": "none"
+    },
+    "border": {
+      "description": "Whether a hairline is drawn around {noun}, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+      "type": "boolean",
+      "default": false
+    },
+    "padding": {
+      "description": "Density of {noun} \u2014 the inset between its content and its edge, as one of three steps. `density` is named in \u00a71 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+      "type": "string",
+      "enum": [
+        "tight",
+        "normal",
+        "roomy"
+      ],
+      "default": "normal"
+    }
+  },
+  "gameplay": {
+    "$comment": "Shared by every `kind: gameplay` mod. There is exactly one: a gameplay mod mutates a client-side option and draws nothing of its own, so it has no chrome, no placement and no size \u2014 `crosshair` and `hitboxes` carry their own geometry because it is the geometry of a *world* mark, not of a HUD item.",
+    "on": {
+      "description": "Whether {on_description}.",
+      "$ref": "#/definitions/on"
+    }
+  }
+}

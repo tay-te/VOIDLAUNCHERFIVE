@@ -18,6 +18,7 @@ import {
   HudArmorStatus,
   HudCoordinates,
   HudCps,
+  HudDirection,
   HudCrosshair,
   HudFps,
   HudKeystrokes,
@@ -26,11 +27,13 @@ import {
   type HudWidgetProps,
 } from './widgets';
 import { isDebugBridge } from '@/bridge/connect';
+import { hudChrome } from './chrome';
 
 const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   fps: HudFps,
   ping: HudPing,
   coordinates: HudCoordinates,
+  direction: HudDirection,
   potion_effects: HudPotionEffects,
   armor_status: HudArmorStatus,
   keystrokes: HudKeystrokes,
@@ -90,6 +93,7 @@ const HudSlot = memo(function HudSlot({
   dy,
   scale,
   opacity,
+  chrome,
   slotProps,
   children,
 }: {
@@ -99,12 +103,14 @@ const HudSlot = memo(function HudSlot({
   dy: number;
   scale: number;
   opacity: number;
+  /** The shared chrome block as classes — see `hud/chrome.ts`. */
+  chrome: string;
   slotProps?: (id: HUDModId) => HTMLAttributes<HTMLDivElement>;
   children: ReactNode;
 }) {
   return (
     <div
-      className="hud-item"
+      className={`hud-item ${chrome}`}
       data-hud-id={id}
       style={{ ...placementStyle(anchor, dx, dy), opacity }}
       {...slotProps?.(id)}
@@ -170,6 +176,7 @@ const HudEntry = memo(function HudEntry({
       dy={live?.dy ?? place.dy}
       scale={scale}
       opacity={opacity}
+      chrome={hudChrome(settings)}
       slotProps={slotProps}
     >
       <Widget variant={editor ? 'editor' : 'compact'} />

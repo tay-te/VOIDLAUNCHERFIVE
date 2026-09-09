@@ -1,0 +1,55 @@
+{
+  "id": "armor_status",
+  "kind": "hud",
+  "category": "hud",
+  "hypixel_safe": "safe",
+  "label": "Armor status",
+  "icon": "shield",
+  "the": false,
+  "noun": "the armor row",
+  "on_description": "the armor status display is enabled",
+  "description": "Worn armor and held item with remaining durability.",
+  "settings_title": "Armor status settings",
+  "settings_description": "Settings for the Armor status HUD mod. Reads `InventoryPlayer.armorInventory` durability, pushed only when it changes.",
+  "source": "InventoryPlayer.armorInventory durability",
+  "enabled": true,
+  "default_placement": {
+    "anchor": "top-right",
+    "dx": -25,
+    "dy": 299
+  },
+  "defaults": {
+    "orientation": "horizontal",
+    "show_durability": true,
+    "show_held_item": true,
+    "warn_below": 0.5
+  },
+  "settings": {
+    "orientation": {
+      "description": "Whether armor pieces are laid out left to right or top to bottom.",
+      "type": "string",
+      "enum": [
+        "horizontal",
+        "vertical"
+      ],
+      "default": "horizontal"
+    },
+    "show_durability": {
+      "description": "Whether to print remaining durability as a number under each piece.",
+      "type": "boolean",
+      "default": true
+    },
+    "show_held_item": {
+      "description": "Whether to include the currently held item as a sixth slot.",
+      "type": "boolean",
+      "default": true
+    },
+    "warn_below": {
+      "description": "Fraction of maximum durability under which a piece's bar turns amber. A threshold on a live value, the same species as `ping.good_ms`: the point at which a player wants to be told their gear is going is a matter of how they play, not a constant. 0 never warns.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5
+    }
+  }
+}
