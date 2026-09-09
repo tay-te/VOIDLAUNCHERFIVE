@@ -413,6 +413,32 @@ connection quality · surface the input-latency number we already compute.
 titles, pack display, glint, clear glass, particles, time changer, nick hider, scrollable
 tooltips, inventory lock, kill sounds.
 
+**Wave 7 — the readouts already on the wire.** ~~PvP info, as a trade counter.~~
+
+> **Shipped 2026-09-09, one mod, no game code.** `hit_trade` is §3.1 #8's "PvP info" reduced to
+> the part that is a readout: `hits.dealt` and `hits.taken` have been on the tick payload since
+> the combo counter shipped, and only the combo read them — so the client already knew how a
+> session was going and had nowhere to say so. The whole mod is a schema entry, a chip, a widget,
+> an art module and a row in three shared tables. No sensor, no mixin, no Rust.
+>
+> **The reason this wave exists as a category** is worth more than the mod. §9's per-mod tax is
+> now low enough that the expensive part of a readout is the *sensor*, so the cheapest roster
+> additions left are the ones whose data is already being pushed twenty times a second and read
+> by nobody. That list is short and it is worth keeping: nothing else on the current
+> `tick_payload` is unread today. The next one costs a sensor field, and §9 is the estimate for
+> it.
+>
+> It is classed `safe` and it deliberately does **not** become Lunar's PvP info. §5's advice was
+> to go past that mod rather than match it; going past it here is one setting (`show_bar` — the
+> share of the session's hits that were yours, which is the comparison a player does in their
+> head), not a second screen. The stats-page version of this is Wave 4's, and it needs a store,
+> not a chip.
+>
+> **What it is not: a fight counter.** That is Combo, which owns `reset_ms` and the only timeout
+> in the registry. Two mods owning one timeout is what splitting `toggle_sneak` out of
+> `toggle_sprint` was for, so this reads the session and arms no clock — which also means it
+> repaints on a landed hit and at no other time, where Combo repaints four times a window.
+
 **Never:** §6.
 
 ---
@@ -421,8 +447,14 @@ tooltips, inventory lock, kill sounds.
 
 VOID is not thirteen mods behind ninety-eight. Strip Skyblock, modern-version and
 ornamental mods from Lunar's 98 and the 1.8.9-PvP-relevant roster is around **45**. VOID
-has 13 of them and is *ahead* on two (1% low FPS, and an HUD editor with live per-mod
-previews that neither competitor matches).
+had 13 of them when this was written and has 30 now, and is *ahead* on two (1% low FPS, and
+an HUD editor with live per-mod previews that neither competitor matches).
+
+The four gaps below were written against the thirteen. Two have closed: the cheap sweep is
+done (Waves 2, 3 and 7), and 1.7 animations shipped in Wave 6 off real 1.7.10 bytecode. Gap 3
+is the one that keeps reopening, because it is not a list — it is the standing cost of every
+mod already shipped, and the HUD chrome block is its current instalment. Gap 4 is unchanged and
+is still the only one that is not catch-up work.
 
 The real gaps are four:
 

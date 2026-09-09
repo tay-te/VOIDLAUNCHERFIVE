@@ -253,6 +253,13 @@ describe('every custom property the stylesheet reads is declared', () => {
     // `key_color` / `pressed_color`, so there is no stylesheet declaration to find. Both are
     // read with a fallback, which is what makes an unset one correct rather than blank.
     '--key-pressed-bg',
+    // The HUD density block. `packages/ingame`'s `.hud-chrome--pad-*` rules set these from the
+    // shared `padding` setting (`schema/mods/_shared.json#/hud`) and they inherit down into the
+    // widgets, so there is no declaration in this package to find. Both are read with the value
+    // that used to be written into the rule as the fallback, which is what makes an unset one
+    // correct rather than collapsed — a consumer that sets nothing draws what it always drew.
+    '--pad-hud-panel',
+    '--gap-hud-keys',
   ]);
 
   const declared = new Set<string>([

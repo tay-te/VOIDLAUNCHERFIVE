@@ -1,0 +1,50 @@
+{
+  "$comment": "Three notes, each about a decision a reader will want to reopen.\n\n**It shares Combo counter's `sword`, and that is argued rather than convenient.** `build-icons.py`'s closing rule is that no two mod glyphs may share a *silhouette* — the trap it names is drawing a second mark so close to an existing one that neither reads at 13px. Sharing an existing mark outright is a different thing and this sheet already does it twice: `compass` is Coordinates and Direction, `wifi` is Ping display and Server address. Both pairs are two readings of one subject, and so is this one: Combo is landed hits without a break, this is landed hits against taken ones. What distinguishes a tile is the label under it, which is what the grid is actually read by. The alternative was a new glyph, and the sheet's own record of what a hand-drawn near-miss costs (`tap`'s comment, four separate cases in the redraw) is the argument against inventing one for a mod that is a second view of a subject already on the sheet.\n\n**Session, not fight, and no window setting.** A fight is a count with a *timeout policy* on it, and this registry already has one mod that owns that policy — Combo, whose `reset_ms` is drawn as a depleting rule because a timeout has no still form and the alternative was an exemption from `preview.test.tsx`. Two mods owning one timeout is the shape `toggle_sneak` was split out of `toggle_sprint` to remove. So this mod answers the question Combo cannot — *over the whole session, am I ahead* — and owns no clock at all. That also means it needs no repaint of its own between hits, which Combo does.\n\n**It is not Lunar's PvP info, and the difference is the point.** `docs/mod-roster.md` §3.1 #8 calls that mod a stub with exactly two options, and §5 says the answer is to go past it rather than to match it. Going past it here is `show_bar`: two counters side by side are two numbers to compare in your head mid-fight, and the share of hits that were yours is the comparison already done. The bar is `MemoryChip`'s, which is `ArmorList`'s durability bar, which is the one meter this design draws over live game — not a new device.",
+  "id": "hit_trade",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Trade counter",
+  "icon": "sword",
+  "the": true,
+  "noun": "the trade chip",
+  "on_description": "the trade counter is enabled",
+  "description": "Hits you have landed against hits you have taken, this session.",
+  "settings_title": "Trade counter settings",
+  "settings_description": "Settings for the Trade counter HUD mod. Reads the `hits` object on the tick payload — `dealt` and `taken`, both monotonic since the client started — and does no arithmetic the sensor could have done, for the reason `bridge.json` gives for sending counters rather than events: a counter that jumps by two after a dropped tick is still exactly right, where a lost event is wrong forever.\n\nThe reading is the whole session and there is deliberately no window over it. Combo counter is the per-fight reading and owns the only timeout in the registry; this is the one you look at between games.",
+  "source": "the monotonic `hits.dealt` / `hits.taken` counters, via the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Under Combo counter in the top-left reference stack, 38 px below it on the same column rhythm, because the two are read as a pair: the fight, and the session it is part of. The same argument put Combo under Coordinates — a mod goes next to the mod it will be confused with, so the difference is visible rather than inferred.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 255
+  },
+  "defaults": {
+    "style": "traded",
+    "show_bar": false,
+    "show_label": true
+  },
+  "settings": {
+    "style": {
+      "description": "What the chip prints. `traded` — `12 / 4` — is the default because both figures are the reading: a ratio of 3 is the same number at 3/1 as at 30/10, and only one of those is a session worth reviewing. `ratio` is that comparison pre-done, which is the narrowest form that still means something and the right one for a player who already knows roughly how long they have been playing. `dealt` is the bare count of landed hits, for a player who wants the chip to be one figure wide.",
+      "type": "string",
+      "enum": [
+        "traded",
+        "ratio",
+        "dealt"
+      ],
+      "default": "traded"
+    },
+    "show_bar": {
+      "description": "Whether a fill bar is drawn under the figure, showing the share of hits in the session that were yours — `dealt / (dealt + taken)`. Off by default because the figures are the reading and the bar is the gloss on it, and a HUD that ships with both is a HUD that has decided for you. On, it is the fastest form there is: half full is an even session, and which side of half you are on is legible without reading a digit. Monochrome, like the two chips that already draw this bar: a share has no threshold, so there is no state for a colour to mark (`design/quiet-cell-system.md` §1).",
+      "type": "boolean",
+      "default": false
+    },
+    "show_label": {
+      "description": "Whether the trailing `TRADE` unit is drawn. Off makes the chip narrower at the cost of leaving `12 / 4` with nothing to say what it counts — which on a HUD that may also be carrying a combo count and a CPS pair is a real ambiguity, so this ships on.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

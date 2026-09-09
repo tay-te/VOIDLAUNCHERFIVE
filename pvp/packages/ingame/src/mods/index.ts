@@ -35,6 +35,7 @@ import combo from './combo';
 import coordinates from './coordinates';
 import cps from './cps';
 import direction from './direction';
+import hit_trade from './hit_trade';
 import item_counter from './item_counter';
 import memory from './memory';
 import momentum from './momentum';
@@ -87,6 +88,7 @@ const ART = {
   momentum,
   memory,
   server_address,
+  hit_trade,
   item_counter,
   // Wave 4 — §7's "four that change how the client feels", plus the stopwatch the `modaction`
   // input path unblocked. Four of the five draw into the world, so their art is a diagram.

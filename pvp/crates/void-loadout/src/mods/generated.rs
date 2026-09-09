@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 29 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 30 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -94,11 +94,13 @@ pub enum ModId {
     /// Removes the input interlocks 1.8 added, so a click is not swallowed by what your other
     /// hand is doing.
     OldInput,
+    /// Hits you have landed against hits you have taken, this session.
+    HitTrade,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 29] = [
+    pub const ALL: [ModId; 30] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -128,6 +130,7 @@ impl ModId {
         ModId::DamageTint,
         ModId::OldAnimations,
         ModId::OldInput,
+        ModId::HitTrade,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -162,11 +165,12 @@ impl ModId {
             ModId::DamageTint => "damage_tint",
             ModId::OldAnimations => "old_animations",
             ModId::OldInput => "old_input",
+            ModId::HitTrade => "hit_trade",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 16 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 17 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -204,11 +208,13 @@ pub enum HudModId {
     ItemCounter,
     /// A manual timer, started and zeroed from the keyboard.
     Stopwatch,
+    /// Hits you have landed against hits you have taken, this session.
+    HitTrade,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 16] = [
+    pub const ALL: [HudModId; 17] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -225,6 +231,7 @@ impl HudModId {
         HudModId::ServerAddress,
         HudModId::ItemCounter,
         HudModId::Stopwatch,
+        HudModId::HitTrade,
     ];
 
     /// Widens to the full mod id enum.
@@ -246,6 +253,7 @@ impl HudModId {
             HudModId::ServerAddress => ModId::ServerAddress,
             HudModId::ItemCounter => ModId::ItemCounter,
             HudModId::Stopwatch => ModId::Stopwatch,
+            HudModId::HitTrade => ModId::HitTrade,
         }
     }
 
@@ -406,6 +414,7 @@ impl Registry {
             HudModId::ServerAddress => self.mods.server_address.default_placement,
             HudModId::ItemCounter => self.mods.item_counter.default_placement,
             HudModId::Stopwatch => self.mods.stopwatch.default_placement,
+            HudModId::HitTrade => self.mods.hit_trade.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -856,6 +865,28 @@ pub enum OldAnimationsBlockHit {
     Vanilla,
     /// `one_seven` is the mod and is the default.
     OneSeven,
+}
+
+/// What the chip prints. `traded` — `12 / 4` — is the default because both figures are the
+/// reading: a ratio of 3 is the same number at 3/1 as at 30/10, and only one of those is a
+/// session worth reviewing. `ratio` is that comparison pre-done, which is the narrowest form
+/// that still means something and the right one for a player who already knows roughly how long
+/// they have been playing. `dealt` is the bare count of landed hits, for a player who wants the
+/// chip to be one figure wide.
+///
+/// `mods.json#/definitions/hit_trade_settings/properties/style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HitTradeStyle {
+    /// `traded` — `12 / 4` — is the default because both figures are the reading.
+    Traded,
+    /// `ratio` is that comparison pre-done, which is the narrowest form that still means
+    /// something and the right one for a player who already knows roughly how long they have
+    /// been playing.
+    Ratio,
+    /// `dealt` is the bare count of landed hits, for a player who wants the chip to be one
+    /// figure wide.
+    Dealt,
 }
 
 // ---------------------------------------------------------------------------
@@ -2787,11 +2818,97 @@ pub struct OldInputSettings {
     pub no_miss_delay: Option<bool>,
 }
 
+/// Trade counter settings.
+///
+/// Settings for the Trade counter HUD mod. Reads the `hits` object on the tick payload —
+/// `dealt` and `taken`, both monotonic since the client started — and does no arithmetic the
+/// sensor could have done, for the reason `bridge.json` gives for sending counters rather than
+/// events: a counter that jumps by two after a dropped tick is still exactly right, where a
+/// lost event is wrong forever. The reading is the whole session and there is deliberately no
+/// window over it. Combo counter is the per-fight reading and owns the only timeout in the
+/// registry; this is the one you look at between games.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HitTradeSettings {
+    /// Whether the trade counter is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the trade chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the trade chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the trade chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the trade chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the trade chip — the inset between its content and its edge, as one of five
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read. **This step drives the widget's own inset, not a box around it.** For one
+    /// release it set padding on the *slot* — the box `HudSlot` puts round the widget — while
+    /// the widget kept its own hard-coded padding underneath. With the default `background:
+    /// none` that outer box is transparent, so the setting moved an invisible edge and the
+    /// drawn chip never changed size. It passed `preview.test.tsx` because the class name on
+    /// the slot changed, which is exactly the erosion that file's own doc comment warns the
+    /// exemption list about: a gate that compares markup cannot tell a class that draws from a
+    /// class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and
+    /// `--gap-hud-keys`, the three variables every HUD surface actually reads its density from,
+    /// so the chip, the two list panels and the keycap cluster all move together and all move
+    /// at every background step. Five steps rather than three because three could not say what
+    /// players asked for at either end. `none` is the setting off — glyphs on the game with
+    /// nothing round them — which is what a player who has already turned the ground off is
+    /// after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`,
+    /// `normal` and `roomy` keep the values they had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// What the chip prints. `traded` — `12 / 4` — is the default because both figures are the
+    /// reading: a ratio of 3 is the same number at 3/1 as at 30/10, and only one of those is a
+    /// session worth reviewing. `ratio` is that comparison pre-done, which is the narrowest
+    /// form that still means something and the right one for a player who already knows roughly
+    /// how long they have been playing. `dealt` is the bare count of landed hits, for a player
+    /// who wants the chip to be one figure wide.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<HitTradeStyle>,
+
+    /// Whether a fill bar is drawn under the figure, showing the share of hits in the session
+    /// that were yours — `dealt / (dealt + taken)`. Off by default because the figures are the
+    /// reading and the bar is the gloss on it, and a HUD that ships with both is a HUD that has
+    /// decided for you. On, it is the fastest form there is: half full is an even session, and
+    /// which side of half you are on is legible without reading a digit. Monochrome, like the
+    /// two chips that already draw this bar: a share has no threshold, so there is no state for
+    /// a colour to mark (`design/quiet-cell-system.md` §1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_bar: Option<bool>,
+
+    /// Whether the trailing `TRADE` unit is drawn. Off makes the chip narrower at the cost of
+    /// leaving `12 / 4` with nothing to say what it counts — which on a HUD that may also be
+    /// carrying a combo count and a CPS pair is a real ambiguity, so this ships on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 29.
+/// Every mod VOID ships, keyed by id. Closed set of 30.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -2890,6 +3007,9 @@ pub struct ModRegistryEntries {
     /// Old input — Removes the input interlocks 1.8 added, so a click is not swallowed by what
     /// your other hand is doing.
     pub old_input: ModEntry<OldInputSettings>,
+
+    /// Trade counter — Hits you have landed against hits you have taken, this session.
+    pub hit_trade: ModEntry<HitTradeSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -2959,6 +3079,8 @@ pub struct ModStates {
     pub old_animations: Option<OldAnimationsSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub old_input: Option<OldInputSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hit_trade: Option<HitTradeSettings>,
 }
 
 impl Registry {
@@ -2994,6 +3116,7 @@ impl Registry {
             ModId::DamageTint => self.mods.damage_tint.info(),
             ModId::OldAnimations => self.mods.old_animations.info(),
             ModId::OldInput => self.mods.old_input.info(),
+            ModId::HitTrade => self.mods.hit_trade.info(),
         }
     }
 
@@ -3031,6 +3154,7 @@ impl Registry {
             ModId::DamageTint => self.mods.damage_tint.defaults_object(),
             ModId::OldAnimations => self.mods.old_animations.defaults_object(),
             ModId::OldInput => self.mods.old_input.defaults_object(),
+            ModId::HitTrade => self.mods.hit_trade.defaults_object(),
         }
     }
 }
@@ -3069,6 +3193,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::DamageTint => super::check::<DamageTintSettings>(id, value),
         ModId::OldAnimations => super::check::<OldAnimationsSettings>(id, value),
         ModId::OldInput => super::check::<OldInputSettings>(id, value),
+        ModId::HitTrade => super::check::<HitTradeSettings>(id, value),
     }
 }
 

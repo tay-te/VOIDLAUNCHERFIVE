@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 10,
+  "version": 11,
   "mods": {
     "fps": {
       "id": "fps",
@@ -651,6 +651,32 @@ export const MOD_REGISTRY_DOCUMENT = {
         "use_while_digging": false,
         "dig_while_using": false,
         "no_miss_delay": false
+      }
+    },
+    "hit_trade": {
+      "id": "hit_trade",
+      "kind": "hud",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Trade counter",
+      "icon": "sword",
+      "description": "Hits you have landed against hits you have taken, this session.",
+      "source": "the monotonic `hits.dealt` / `hits.taken` counters, via the tick sensor",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "style": "traded",
+        "show_bar": false,
+        "show_label": true
+      },
+      "default_placement": {
+        "anchor": "top-left",
+        "dx": 23,
+        "dy": 255
       }
     }
   }

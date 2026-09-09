@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 29 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 30 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -76,7 +76,8 @@ export type ModId =
   | 'hit_color'
   | 'damage_tint'
   | 'old_animations'
-  | 'old_input';
+  | 'old_input'
+  | 'hit_trade';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -865,11 +866,38 @@ export type OldInputEntry = RegistryEntry & {
   defaults?: OldInputSettings;
 };
 /**
+ * Registry entry for the Trade counter, narrowed to its constant classification.
+ */
+export type TradeCounterEntry = RegistryEntry & {
+  /**
+   * Always `hit_trade`.
+   */
+  id?: 'hit_trade';
+  /**
+   * Always `sword`.
+   */
+  icon?: 'sword';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: TradeCounterSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 17 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -887,7 +915,8 @@ export type HUDModId =
   | 'memory'
   | 'server_address'
   | 'item_counter'
-  | 'stopwatch';
+  | 'stopwatch'
+  | 'hit_trade';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -902,9 +931,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 17, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 16
+ * @maxItems 17
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -1116,7 +1145,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 29 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 30 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1148,6 +1177,7 @@ export interface Mods {
   damage_tint: DamageTintEntry;
   old_animations: OldAnimationsEntry;
   old_input: OldInputEntry;
+  hit_trade: TradeCounterEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2030,6 +2060,44 @@ export interface OldInputSettings {
   no_miss_delay?: boolean;
 }
 /**
+ * Settings for the Trade counter HUD mod. Reads the `hits` object on the tick payload — `dealt` and `taken`, both monotonic since the client started — and does no arithmetic the sensor could have done, for the reason `bridge.json` gives for sending counters rather than events: a counter that jumps by two after a dropped tick is still exactly right, where a lost event is wrong forever.
+ *
+ * The reading is the whole session and there is deliberately no window over it. Combo counter is the per-fight reading and owns the only timeout in the registry; this is the one you look at between games.
+ */
+export interface TradeCounterSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the trade chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the trade chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the trade chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   *
+   * **This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.
+   *
+   * Five steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.
+   */
+  padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
+  /**
+   * What the chip prints. `traded` — `12 / 4` — is the default because both figures are the reading: a ratio of 3 is the same number at 3/1 as at 30/10, and only one of those is a session worth reviewing. `ratio` is that comparison pre-done, which is the narrowest form that still means something and the right one for a player who already knows roughly how long they have been playing. `dealt` is the bare count of landed hits, for a player who wants the chip to be one figure wide.
+   */
+  style?: 'traded' | 'ratio' | 'dealt';
+  /**
+   * Whether a fill bar is drawn under the figure, showing the share of hits in the session that were yours — `dealt / (dealt + taken)`. Off by default because the figures are the reading and the bar is the gloss on it, and a HUD that ships with both is a HUD that has decided for you. On, it is the fastest form there is: half full is an even session, and which side of half you are on is legible without reading a digit. Monochrome, like the two chips that already draw this bar: a share has no threshold, so there is no state for a colour to mark (`design/quiet-cell-system.md` §1).
+   */
+  show_bar?: boolean;
+  /**
+   * Whether the trailing `TRADE` unit is drawn. Off makes the chip narrower at the cost of leaving `12 / 4` with nothing to say what it counts — which on a HUD that may also be carrying a combo count and a CPS pair is a real ambiguity, so this ships on.
+   */
+  show_label?: boolean;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2055,7 +2123,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 29 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 30 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2087,6 +2155,7 @@ export interface ModStates {
   damage_tint?: DamageTintSettings;
   old_animations?: OldAnimationsSettings;
   old_input?: OldInputSettings;
+  hit_trade?: TradeCounterSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.

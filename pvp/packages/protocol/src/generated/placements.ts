@@ -96,4 +96,11 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * sweep while playing.
    */
   stopwatch: { anchor: 'bottom-right', dx: -25, dy: -99 },
+  /**
+   * Under Combo counter in the top-left reference stack, 38 px below it on the same column
+   * rhythm, because the two are read as a pair: the fight, and the session it is part of. The
+   * same argument put Combo under Coordinates — a mod goes next to the mod it will be confused
+   * with, so the difference is visible rather than inferred.
+   */
+  hit_trade: { anchor: 'top-left', dx: 23, dy: 255 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

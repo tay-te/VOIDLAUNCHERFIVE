@@ -684,6 +684,87 @@ export function MemoryChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* TradeChip                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** What {@link TradeChip} prints. */
+export type TradeStyle = 'traded' | 'ratio' | 'dealt';
+
+/** Props for {@link TradeChip}. */
+export interface TradeChipProps extends Omit<HudChipProps, 'style'> {
+  /** Attacks the player has landed this session. */
+  dealt: number;
+  /** Times the player has been hit this session. */
+  taken: number;
+  /** `traded` is `12 / 4`, `ratio` is `3.0`, `dealt` is `12`. */
+  style?: TradeStyle;
+  /** Draw the share of the session's hits that were yours, as a level under the figure. */
+  showBar?: boolean;
+  /** Draw the trailing `TRADE` unit. */
+  showLabel?: boolean;
+}
+
+/**
+ * The session's hit trade — what you landed against what you took.
+ *
+ * ## Why the second figure is muted and the first is not
+ *
+ * `12 / 4` is one reading with a subject, the same shape {@link MemoryChip} draws `1024 / 4096`
+ * in and for the same reason: the number you are looking for is the first one, and the second
+ * is what makes it mean something. Drawing both at `--text-primary` would make the chip a pair
+ * of equally-weighted figures with a slash between them, which is a scoreboard — and a
+ * scoreboard invites reading it as *someone else's* number, which on a HUD carrying a combo
+ * count two rows up is a real confusion rather than a hypothetical one.
+ *
+ * ## The ratio, and the one value it cannot print
+ *
+ * A session with no hits taken has no ratio — the division is by zero, and every plausible
+ * stand-in is a lie of a different kind: `0.0` says the opposite of what happened, `∞` is not a
+ * figure a HUD should print, and clamping to the hit count silently turns the ratio style into
+ * the dealt style. So it prints the dealt count followed by a muted `/ 0`, which is the
+ * `traded` style — the honest statement being "there is nothing to divide by yet", and the
+ * honest way to say it being to show the pair the ratio would have come from. It resolves
+ * itself the first time you are hit.
+ *
+ * ## Monochrome, including the bar
+ *
+ * `design/quiet-cell-system.md` §1: colour marks a live value or a state, and a share has no
+ * threshold — there is no number at which a session becomes a bad one, only one you are on
+ * either side of. The bar is {@link HudBar}, which is the armour panel's durability bar, which
+ * is the one meter this design already draws over live game. Nothing new is invented for this.
+ */
+export function TradeChip({
+  dealt,
+  taken,
+  style = 'traded',
+  showBar = false,
+  showLabel = true,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: TradeChipProps): React.ReactElement {
+  const total = dealt + taken;
+  const share = total > 0 ? dealt / total : 0;
+  // A ratio needs something to divide by; without one the chip falls back to the pair, which
+  // is the same information without the arithmetic that cannot be done yet.
+  const ratio = style === 'ratio' && taken > 0;
+  const figure = ratio ? (dealt / taken).toFixed(1) : String(dealt);
+  // One muted run in one span, so the chip's 8px gap cannot open inside a reading — the rule
+  // `MemoryChip`'s tail follows, with `\u00a0` for the same reason `PingChip` writes `&nbsp;ms`.
+  const tail = (ratio ? '' : `\u00a0/\u00a0${taken}`) + (showLabel ? '\u00a0TRADE' : '');
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className="v-hudchip__value">
+        <span>{figure}</span>
+        {tail ? <span className="v-hudchip__unit">{tail}</span> : null}
+      </span>
+      {showBar ? <HudBar fraction={share} /> : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* ServerAddressChip                                                          */
 /* -------------------------------------------------------------------------- */
 

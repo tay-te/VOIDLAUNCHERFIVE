@@ -56,5 +56,6 @@ export const MOD_ICON_NAMES = {
   "hit_color": "droplet",
   "damage_tint": "heart-pulse",
   "old_animations": "reset",
-  "old_input": "tap"
+  "old_input": "tap",
+  "hit_trade": "sword"
 } as const satisfies Record<ModId, string>;

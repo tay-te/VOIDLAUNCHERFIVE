@@ -32,6 +32,12 @@ export const MOD_ORDER: ModId[] = [
   // Beside CPS: one counts the hand, the other counts what the hand landed, and a player
   // reading one is reading the other in the same glance.
   'combo',
+  // And beside Combo, because they are the same two counters read over two spans: Combo is the
+  // fight and owns the timeout, Trade counter is the session and owns no clock at all. They
+  // share the `sword` glyph, so the grid has to put them together — two identical marks with
+  // other tiles between them is the confusion; two identical marks side by side with different
+  // labels is a pair, which is what Coordinates and Direction already are.
+  'hit_trade',
   'toggle_sprint',
   // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
   'toggle_sneak',

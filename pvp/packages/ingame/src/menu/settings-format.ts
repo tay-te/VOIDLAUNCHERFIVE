@@ -170,6 +170,10 @@ export const SETTING_HINTS: Record<string, string> = {
   'hit_color.own_hits_only': 'Only your hits, or every flash',
   'hit_color.intensity': 'How strong, against vanilla’s own',
 
+  'hit_trade.style': 'The pair, the ratio, or your hits',
+  'hit_trade.show_bar': 'The share of hits that were yours',
+  'hit_trade.show_label': 'The TRADE unit after the figure',
+
   'hitboxes.line_width': 'Stroke width of the box',
   'hitboxes.color': 'Colour of the box',
   'hitboxes.show_eye_line': 'The ray showing where they look',

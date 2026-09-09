@@ -321,6 +321,19 @@ export interface VoidState {
   combo: number;
   /** When the combo last advanced, ms. The widget compares this against its own `reset_ms`. */
   comboAt: number;
+  /**
+   * The two monotonic hit counters as the sensor last sent them — the trade counter's reading.
+   *
+   * Kept whole rather than derived, because unlike `combo` there is no policy to apply: these
+   * *are* the session totals, and `bridge.json` sends counters precisely so a reader can take
+   * them at face value after a dropped tick. `combo` is the same two numbers with a timeout
+   * over them and lives beside this rather than being computed from it, because a timeout is a
+   * mod setting and this pair must never expire.
+   *
+   * `null` until the first `hits` arrives: zero hits dealt and no reading yet are different
+   * states, and only one of them is a chip that should draw `0 / 0`.
+   */
+  hits: { dealt: number; taken: number } | null;
   server: ServerPayload;
   cpsLeft: number;
   cpsRight: number;
@@ -418,6 +431,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   memory: null,
   combo: 0,
   comboAt: 0,
+  hits: null,
   server: { host: '', connected: false },
   cpsLeft: 0,
   cpsRight: 0,
@@ -608,6 +622,18 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     if (tick.hits !== undefined) {
       const seen = lastHits;
       lastHits = { dealt: tick.hits.dealt, taken: tick.hits.taken };
+      // The pair itself, for the trade counter. Written on first sight, unlike the combo below:
+      // a baseline is something a *derived* value needs, and these two are not derived — they
+      // are the session totals the sensor is reporting, and the first push is as true as the
+      // hundredth. Replaced only when a figure moved, so a chip subscribed to this object is
+      // not re-rendered by a tick that carried the same counters.
+      if (
+        prev.hits === null ||
+        prev.hits.dealt !== tick.hits.dealt ||
+        prev.hits.taken !== tick.hits.taken
+      ) {
+        patch.hits = { dealt: tick.hits.dealt, taken: tick.hits.taken };
+      }
       if (seen !== null) {
         let combo = prev.combo;
         if (tick.hits.taken > seen.taken) combo = 0;

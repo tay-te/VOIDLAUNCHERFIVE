@@ -229,6 +229,10 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // The facing over its angle, which is what the chip draws. Static here, live in the overlay.
   direction: () => <Numeral value="NE" unit="45°" />,
   combo: () => <Numeral value="7" unit="combo" />,
+  // The pair, which is the mod's own default style and the only one of its three a card can be
+  // read as this mod rather than as any other counter (`mods/hit_trade.tsx` makes the same
+  // argument about the grid tile, for the same reason).
+  hit_trade: () => <Numeral value="47 / 19" unit="trade" />,
   saturation: () => <Numeral value="13.7" unit="sat" />,
   momentum: () => <Numeral value="5.61" unit="bps" />,
   memory: () => <Numeral value="1462" unit="MB" />,

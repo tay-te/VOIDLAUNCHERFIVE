@@ -81,6 +81,13 @@ const ORDER = [
   // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
   // its own half. Appended, never inserted.
   'old_animations', 'old_input',
+  // Wave 7 — one HUD readout off counters the wire already carried. `hits.dealt` and
+  // `hits.taken` have been on the tick payload since the combo counter shipped and only the
+  // combo read them, which meant the client knew how a session was going and had nowhere to
+  // say so. No sensor, no Java, no Rust: the whole mod is a schema entry, a widget, an art
+  // module and a row in three shared tables, which is what §9's per-mod tax looks like once
+  // the generators exist. Appended, never inserted.
+  'hit_trade',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

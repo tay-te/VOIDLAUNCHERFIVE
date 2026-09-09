@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 29 mods.
+ * The closed registry of the 30 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -178,7 +178,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (16) — they read game state and draw -------------------------------------
+        // --- HUD mods (17) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -527,7 +527,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (16) — they read game state and draw -------------------------------------
+        // --- HUD mods (17) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -1137,7 +1137,45 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- The factory HUD layout (16) — where each widget starts ----------------------------
+        // --- HUD mods (17) — they read game state and draw -------------------------------------
+
+        // Trade counter — kind hud, pvp tab, §11 safe.
+        // Hits you have landed against hits you have taken, this session.
+        // Source: the monotonic `hits.dealt` / `hits.taken` counters, via the tick sensor.
+        mod("hit_trade", Kind.HUD, Category.PVP, "Trade counter",
+                // Whether the trade counter is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // What the chip prints. `traded` — `12 / 4` — is the default because both figures
+                // are the reading: a ratio of 3 is the same number at 3/1 as at 30/10, and only
+                // one of those is a session worth reviewing. `ratio` is that comparison pre-done,
+                // which is the narrowest form that still means something and the right one for a
+                // player who already knows roughly how long they have been playing. `dealt` is
+                // the bare count of landed hits, for a player who wants the chip to be one figure
+                // wide.
+                "style", enumOf("traded", "traded", "ratio", "dealt"),
+                // Whether a fill bar is drawn under the figure, showing the share of hits in the
+                // session that were yours — `dealt / (dealt + taken)`. Off by default because the
+                // figures are the reading and the bar is the gloss on it, and a HUD that ships
+                // with both is a HUD that has decided for you. On, it is the fastest form there
+                // is: half full is an even session, and which side of half you are on is legible
+                // without reading a digit. Monochrome, like the two chips that already draw this
+                // bar: a share has no threshold, so there is no state for a colour to mark
+                // (`design/quiet-cell-system.md` §1).
+                "show_bar", bool(false),
+                // Whether the trailing `TRADE` unit is drawn. Off makes the chip narrower at the
+                // cost of leaving `12 / 4` with nothing to say what it counts — which on a HUD
+                // that may also be carrying a combo count and a CPS pair is a real ambiguity, so
+                // this ships on.
+                "show_label", bool(true));
+
+        // --- The factory HUD layout (17) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1220,13 +1258,19 @@ public final class ModRegistry {
         // belong in the corner furthest from the crosshair, and the top-left column stays what it
         // is — the things you sweep while playing.
         place("stopwatch", "bottom-right", -25, -99);
+
+        // Trade counter: Under Combo counter in the top-left reference stack, 38 px below it on
+        // the same column rhythm, because the two are read as a pair: the fight, and the session
+        // it is part of. The same argument put Combo under Coordinates — a mod goes next to the
+        // mod it will be confused with, so the difference is visible rather than inferred.
+        place("hit_trade", "top-left", 23, 255);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 29 mod ids, in registry order. */
+    /** The 30 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

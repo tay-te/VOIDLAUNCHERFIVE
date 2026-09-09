@@ -17,6 +17,7 @@ import { HudWatermark } from './watermark';
 // The Wave 2 readouts, each in its own module — `watermark.tsx` set that precedent and
 // `mods/art.tsx` states the principle: what one mod draws lives in that mod's own file.
 import { HudCombo } from './combo';
+import { HudHitTrade } from './hit_trade';
 import { HudItemCounter } from './item_counter';
 import { HudMemory } from './memory';
 import { HudMomentum } from './momentum';
@@ -48,6 +49,7 @@ const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   keystrokes: HudKeystrokes,
   cps: HudCps,
   combo: HudCombo,
+  hit_trade: HudHitTrade,
   saturation: HudSaturation,
   momentum: HudMomentum,
   memory: HudMemory,

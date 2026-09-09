@@ -400,6 +400,23 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
   "old_animations.block_hit": [
     "vanilla",
     "one_seven"
+  ],
+  "hit_trade.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "hit_trade.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
+  ],
+  "hit_trade.style": [
+    "traded",
+    "ratio",
+    "dealt"
   ]
 } as const;
 

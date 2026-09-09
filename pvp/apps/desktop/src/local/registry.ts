@@ -172,6 +172,14 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'reset_ms', label: 'Reset after', control: 'slider', min: 500, max: 10000, step: 100, format: 'ms' },
     { key: 'show_label', label: 'Show label', control: 'switch' },
   ],
+  // Wave 7's one readout, off counters the wire already carried.
+  hit_trade: [
+    SCALE,
+    OPACITY,
+    { key: 'style', label: 'Style', control: 'select', options: ['traded', 'ratio', 'dealt'] },
+    { key: 'show_bar', label: 'Show bar', control: 'switch' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+  ],
   saturation: [
     SCALE,
     OPACITY,
@@ -346,6 +354,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'direction',
   'watermark',
   'combo',
+  'hit_trade',
   'saturation',
   'momentum',
   'memory',
