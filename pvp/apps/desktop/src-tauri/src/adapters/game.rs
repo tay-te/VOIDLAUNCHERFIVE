@@ -124,6 +124,8 @@ pub struct LaunchOptionsSeed {
     pub max_memory_mb: u32,
     pub extra_jvm_args: Vec<String>,
     pub mod_jar: Option<std::path::PathBuf>,
+    /// A server to connect to on start, from the Servers screen's Join button.
+    pub join: Option<void_core::launch::JoinTarget>,
 }
 
 pub async fn launch(
@@ -173,6 +175,7 @@ pub async fn launch(
             bridge_port: port,
             bridge_token: token,
             mod_jar: req.options.mod_jar,
+            join: req.options.join,
         },
     )
     .await?;

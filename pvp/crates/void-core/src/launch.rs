@@ -46,6 +46,73 @@ pub struct LogLine {
     pub text: String,
 }
 
+/// A server to connect to on start — 1.8.9's own `--server` / `--port`.
+///
+/// **Read out of the game rather than remembered.** `net.minecraft.client.main.Main` parses
+/// `server` and `port` alongside `username`, `uuid`, `accessToken` and the rest; when both are
+/// present the client skips the title screen and connects. So joining a server directly is a
+/// launch argument and needs no mod code at all, which is what makes it the cheap half of every
+/// social feature: "join my friend's game" is this plus knowing where they are.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JoinTarget {
+    /// Hostname or literal address. Validated by [`JoinTarget::new`].
+    host: String,
+    /// Port. 25565 unless the caller says otherwise.
+    port: u16,
+}
+
+impl JoinTarget {
+    /// A join target, or `None` when the host is not one this may put on a command line.
+    ///
+    /// **This is validation and not tidying, because the value leaves the process.** The host
+    /// arrives from a text field and is appended to a JVM argument list. A host beginning with
+    /// `-` would be read by the client's own parser as another flag rather than as a value — at
+    /// best `--server` then swallows the next argument, at worst the player has typed a flag
+    /// into a launcher. One containing whitespace splits into two arguments and shifts every
+    /// one after it.
+    ///
+    /// The character set is deliberately narrower than DNS allows: letters, digits, `.`, `-`,
+    /// `_` and `:` for an IPv6 literal. Anything else is refused rather than escaped, because a
+    /// launcher that escapes is a launcher that has to be right about the shell on three
+    /// platforms, and there is no server name this rules out that anybody has.
+    pub fn new(host: &str, port: u16) -> Option<Self> {
+        let host = host.trim();
+        if host.is_empty() || host.len() > 253 || port == 0 {
+            return None;
+        }
+        if host.starts_with('-') {
+            return None;
+        }
+        if !host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | ':'))
+        {
+            return None;
+        }
+        Some(Self { host: host.to_string(), port })
+    }
+
+    /// The validated host, trimmed.
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    /// The port, never zero.
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    /// The two arguments, in the order the client's parser expects them.
+    pub fn args(&self) -> [String; 4] {
+        [
+            "--server".to_string(),
+            self.host.clone(),
+            "--port".to_string(),
+            self.port.to_string(),
+        ]
+    }
+}
+
 /// Everything that varies per spawn.
 #[derive(Debug, Clone)]
 pub struct LaunchOptions {
@@ -63,6 +130,8 @@ pub struct LaunchOptions {
     pub bridge_token: String,
     /// The `void-client` JAR to install into `mods/`, if any.
     pub mod_jar: Option<PathBuf>,
+    /// A server to connect to on start, skipping the title screen.
+    pub join: Option<JoinTarget>,
 }
 
 /// The classpath, in order: libraries first, then the client jar.
@@ -455,7 +524,19 @@ pub async fn launch(
         options.max_memory_mb,
         &options.extra_jvm_args,
     )?;
-    let args = substitute(&template.args, &launch_variables(profile, paths, options));
+    let mut args = substitute(&template.args, &launch_variables(profile, paths, options));
+    // Appended after substitution, and deliberately not part of the template.
+    //
+    // The template is cached at `cache/args/<hash>.json` and its key covers the profile, the
+    // natives directory, the memory setting and the extra JVM arguments — nothing about which
+    // server the player clicked. Putting `--server` in there would write one player's chosen
+    // host into a file every later launch reads back, and the failure mode is the one this
+    // file's own cache note records: a launcher that goes on spawning arguments some earlier
+    // run decided. Here it would be *joining the wrong server*, silently, for as long as the
+    // cache lives.
+    if let Some(join) = &options.join {
+        args.extend(join.args());
+    }
 
     tracing::info!(
         java = %options.java.display(),
@@ -619,6 +700,7 @@ mod tests {
             bridge_port: 51234,
             bridge_token: "cafebabe".repeat(8),
             mod_jar: None,
+            join: None,
         };
         let args = substitute(&template.args, &launch_variables(&profile, &paths, &options));
 
@@ -664,5 +746,57 @@ mod tests {
 
         let after = cached_arg_template(&profile, &paths, &natives, Os::Linux, 2048, &[]).unwrap();
         assert_eq!(after.args, first.args, "a stale record must not become the command line");
+    }
+
+    #[test]
+    fn a_join_target_refuses_a_host_that_would_be_read_as_a_flag() {
+        // The value leaves the process onto a command line, and 1.8.9's own `Main` parses that
+        // line. A host beginning with `-` is not a bad hostname, it is a second flag — at best
+        // `--server` swallows the next argument, at worst a player has typed a flag into a
+        // launcher's text field and it reached the client's parser.
+        assert!(JoinTarget::new("-Xmx1G", 25565).is_none());
+        assert!(JoinTarget::new("--help", 25565).is_none());
+        // Whitespace splits one argument into two and shifts every argument after it.
+        assert!(JoinTarget::new("mc.hypixel.net --demo", 25565).is_none());
+        assert!(JoinTarget::new("mc hypixel net", 25565).is_none());
+        // And the empty cases, which are what an empty text field produces.
+        assert!(JoinTarget::new("", 25565).is_none());
+        assert!(JoinTarget::new("   ", 25565).is_none());
+        // Port 0 is not a port. It is what an unparsed field defaults to.
+        assert!(JoinTarget::new("mc.hypixel.net", 0).is_none());
+    }
+
+    #[test]
+    fn a_join_target_accepts_the_addresses_players_actually_have() {
+        for host in ["mc.hypixel.net", "na.minemen.club", "127.0.0.1", "::1", "my_server.local"] {
+            assert!(JoinTarget::new(host, 25565).is_some(), "{host} should be usable");
+        }
+        let target = JoinTarget::new("  mc.hypixel.net  ", 25566).unwrap();
+        // Trimmed, because a pasted address carries whitespace and the trim is the one piece of
+        // tidying that cannot change which server is meant.
+        assert_eq!(target.host(), "mc.hypixel.net");
+        assert_eq!(
+            target.args().to_vec(),
+            vec!["--server", "mc.hypixel.net", "--port", "25566"]
+        );
+    }
+
+    #[test]
+    fn the_join_target_never_reaches_the_argument_cache() {
+        // The failure this guards is specific and silent: the template is cached by a key that
+        // covers the profile, the natives dir, the memory setting and the extra JVM arguments —
+        // and nothing about which server was clicked. A `--server` inside the template would be
+        // written once and replayed on every later launch, joining the wrong server for as long
+        // as the cache lived. So the arguments are appended after substitution, and the template
+        // this test reads must not know about it.
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::at(dir.path());
+        let profile = profile();
+        let natives = paths.natives_dir(&profile.profile_id);
+        let template = build_arg_template(&profile, &paths, &natives, Os::Linux, 2048, &[]);
+        assert!(
+            !template.args.iter().any(|arg| arg == "--server" || arg == "--port"),
+            "the cached template must carry no per-spawn server"
+        );
     }
 }

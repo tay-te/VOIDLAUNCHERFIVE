@@ -9,6 +9,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { __resetMock, __setSpeed, __signIn, emit } from '../mocks/tauri';
+import { listen } from '../local/tauri';
 import { hypixelReady } from '../local/hypixelReady';
 import { effectiveState, enabledCount, isOn, matchesTab } from '../local/registry';
 import { useLaunch, wireLaunchEvents, formatBytes, stepLabel } from './launch';
@@ -73,6 +74,46 @@ describe('session store', () => {
     expect(useSession.getState().account?.kind).toBe('microsoft');
     expect(useSession.getState().deviceCode).toBeNull();
     stop();
+  });
+});
+
+describe('joining a server directly', () => {
+  /**
+   * `--server` / `--port` are 1.8.9's own launch arguments — `net.minecraft.client.main.Main`
+   * parses them next to `username` and `accessToken` — so joining a server is a launcher
+   * capability that needs nothing from the mod. These assert the launcher half: the host
+   * reaches the command, and an address that would be read as a flag never does.
+   */
+  it('sends the game to the server it was asked for', async () => {
+    await useSession.getState().loginOffline('Searge');
+    await useLoadouts.getState().hydrate();
+    const id = useLoadouts.getState().active!.id;
+
+    // Captured from the event rather than read off the store at the end. At `__setSpeed(0)` the
+    // mock runs its whole session inline — connect, play, close — so by the time `start` returns
+    // the game has already exited and `server` is back to null. The event is the reading; the
+    // store field is a live value with a lifetime.
+    const seen: string[] = [];
+    const stop = await listen('bridge:server', (msg) => seen.push(msg.host));
+    wireLaunchEvents();
+    await useLaunch.getState().start(id, { host: 'na.minemen.club' });
+    stop();
+    // Reported back through `bridge:server`, which is the only evidence the launcher ever has
+    // that the argument landed: the client does not acknowledge it, it just connects.
+    expect(seen).toContain('na.minemen.club');
+  });
+
+  it('refuses an address that would be read as a flag, and does not launch', async () => {
+    await useSession.getState().loginOffline('Searge');
+    await useLoadouts.getState().hydrate();
+    const id = useLoadouts.getState().active!.id;
+
+    // The realistic version of this is not an attack, it is a paste: a player copies a line out
+    // of a forum post and it starts with a dash. `--server -Xmx1G` makes the client's own parser
+    // read the next argument as the host, and the launch either fails oddly or joins nothing.
+    await useLaunch.getState().start(id, { host: '-Xmx1G' });
+    expect(useLaunch.getState().phase).toBe('idle');
+    expect(useLaunch.getState().error).toContain('not a server address');
   });
 });
 

@@ -226,12 +226,17 @@ export function ServersScreen() {
               <Toggle size="m" checked={false} label="Auto-switch loadout" disabled />
             </div>
 
+            {/* Joins the server, rather than only launching the game beside it. 1.8.9's own
+                `Main` parses `--server` and `--port`, so this is a launch argument and needs
+                nothing from the mod — which is why the button can say "Join" honestly now,
+                where before it launched to the title screen and left the player to find the
+                server themselves. */}
             <Button
               variant="accent"
               icon="play"
               block
               disabled={!active || phase !== 'idle'}
-              onClick={() => active && void start(active.id)}
+              onClick={() => active && void start(active.id, { host: detail.host })}
             >
               {active ? `Join with ${active.name}` : 'No loadout'}
             </Button>

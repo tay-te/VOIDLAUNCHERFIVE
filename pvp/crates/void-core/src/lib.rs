@@ -37,6 +37,7 @@
 //!     bridge_port: 51234,
 //!     bridge_token: "…".into(),
 //!     mod_jar: None,
+//!     join: None,
 //! })
 //! .await?;
 //! println!("exited with {}", game.wait().await?);

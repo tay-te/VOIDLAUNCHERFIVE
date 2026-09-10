@@ -356,6 +356,7 @@ async fn do_launch(
         bridge_port: server.port(),
         bridge_token: server.token().to_string(),
         mod_jar: args.mod_jar.or_else(|| config.mod_jar.clone()),
+        join: None,
     };
 
     let mut game = launch::launch(&profile, paths, &options).await?;

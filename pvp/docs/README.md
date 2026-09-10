@@ -6,6 +6,7 @@ Design and decision documents for `void-pvp`.
 |---|---|
 | [`adding-a-mod.md`](adding-a-mod.md) | **The procedure.** Six files, in order, and what is enforced at each step. Start here to add a mod. |
 | [`mod-roster.md`](mod-roster.md) | What Lunar and Badlion ship, what VOID has, what to build and in what order. §9 is the per-mod tax and what is left of it. |
+| [`launcher-roster.md`](launcher-roster.md) | The same scoring, for the launcher: what is real, what is a placeholder and how much of one, and what Friends actually needs before it can exist. |
 | [`TESTING.md`](TESTING.md) | What CI proves and what needs a real machine. |
 
 The governing contract lives outside this repo for now, in `VOIDLAUNCHERFIVE`:
@@ -14,4 +15,5 @@ The governing contract lives outside this repo for now, in `VOIDLAUNCHERFIVE`:
 
 Open questions that need their own document, from §16: cosmetics rendering and asset
 pipeline; friends/party; server pings and server-bound default loadouts; the ⌘K palette;
-code signing and notarization.
+code signing and notarization. `launcher-roster.md` §4 now carries the friends/party one in
+dependency order, with what is already built underneath it.

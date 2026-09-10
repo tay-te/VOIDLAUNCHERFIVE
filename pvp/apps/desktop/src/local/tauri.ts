@@ -39,7 +39,10 @@ export interface Cmd {
   auth_offline: [{ name: string }, Account];
 
   prepare: [{ loadoutId: string }, PrepareReport];
-  launch: [{ loadoutId: string }, LaunchReport];
+  // `server` skips the title screen: 1.8.9's own `Main` parses `--server` / `--port`, so
+  // joining directly is a launch argument rather than anything the mod has to do. `port` is
+  // optional because a host may carry its own `:port`, which Rust splits.
+  launch: [{ loadoutId: string; server?: string; port?: number }, LaunchReport];
   game_kill: [Record<string, never>, void];
   game_log_tail: [{ lines?: number }, string[]];
 

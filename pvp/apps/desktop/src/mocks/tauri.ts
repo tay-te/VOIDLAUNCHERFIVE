@@ -264,11 +264,18 @@ const commands: Record<string, (args: Args) => unknown> = {
     });
   },
 
-  launch: ({ loadoutId }) => {
+  launch: ({ loadoutId, server }) => {
     const loadout = find(String(loadoutId));
     if (!loadout) throw `No loadout called \`${loadoutId}\`.`;
     if (!state.account) throw 'Not signed in. Sign in with your Microsoft account to launch.';
     if (state.running) throw 'Minecraft is already running. Close it or use Force quit first.';
+    // The same refusal Rust makes, and it has to be here too or the preview would accept an
+    // address the real launcher rejects — which is the one way this mock earns its keep.
+    // `JoinTarget::new` is the authority; this is its shape, not a second opinion.
+    const host = server === undefined ? null : String(server).trim();
+    if (host !== null && (host === '' || host.startsWith('-') || /[^A-Za-z0-9.\-_:]/.test(host))) {
+      throw `\`${host}\` is not a server address VOID can connect to.`;
+    }
 
     state.running = true;
     state.log = [];
@@ -284,7 +291,10 @@ const commands: Record<string, (args: Args) => unknown> = {
     });
 
     const after = 400 * (MOCK_LOG_SCRIPT.length + 1);
-    later(() => emit('bridge:server', { t: 'server', host: 'mc.hypixel.net', connected: true }), after);
+    // The server the game reports is the one it was sent to, when it was sent to one. A mock
+    // that always said Hypixel would make the join argument look wired while doing nothing.
+    const landed = host ?? 'mc.hypixel.net';
+    later(() => emit('bridge:server', { t: 'server', host: landed, connected: true }), after);
     later(
       () =>
         emit('bridge:state', {
@@ -300,7 +310,7 @@ const commands: Record<string, (args: Args) => unknown> = {
           t: 'session',
           fps_avg: 142,
           played_ms: 812_000,
-          server: 'mc.hypixel.net',
+          server: landed,
           loadout: loadout.id,
         }),
       after + 200,

@@ -72,12 +72,48 @@ pub async fn prepare(
 }
 
 /// Start the bridge server, spawn the JVM, and stream `game:*` / `bridge:*` events.
+/// Minecraft's own default port, which is what a host with no `:port` means.
+const DEFAULT_PORT: u16 = 25565;
+
+/// A join target from the two optional arguments, or an error naming the host that failed.
+///
+/// **Refused rather than dropped.** A player who pressed Join on a server and got the title
+/// screen would conclude the button does not work; one who is told the address is not usable
+/// can fix it. Silently launching without the argument is the worse of the two, and it is the
+/// one that happens by default if this returns `Option`.
+fn join_target(
+    server: Option<&str>,
+    port: Option<u16>,
+) -> Result<Option<void_core::launch::JoinTarget>, Error> {
+    let Some(host) = server else { return Ok(None) };
+    // A host carrying its own `:port` is what a player pastes, so it is split here rather than
+    // demanded of the caller. Only a trailing numeric segment counts: an IPv6 literal is all
+    // colons and must not be cut in half.
+    let (host, port) = match port {
+        Some(port) => (host, port),
+        None => match host.rsplit_once(':') {
+            Some((left, right)) if right.parse::<u16>().is_ok() && !left.contains(':') => {
+                (left, right.parse::<u16>().unwrap_or(DEFAULT_PORT))
+            }
+            _ => (host, DEFAULT_PORT),
+        },
+    };
+    void_core::launch::JoinTarget::new(host, port).map(Some).ok_or_else(|| {
+        Error::Other(format!("`{host}` is not a server address VOID can connect to."))
+    })
+}
+
 pub async fn launch(
     state: &AppState,
     emitter: Arc<dyn Emitter>,
     loadout_id: &str,
+    server: Option<&str>,
+    port: Option<u16>,
 ) -> Result<LaunchReport, Error> {
     let loadout = super::loadouts::get(state, loadout_id)?;
+    // Before anything expensive: a bad address should not cost a Java probe and an install
+    // check first, and the same ordering argument `prepare` opens with applies here.
+    let join = join_target(server, port)?;
 
     let session = state.session.lock().unwrap().clone().ok_or(Error::NotSignedIn)?;
     let config = state.config()?;
@@ -121,6 +157,7 @@ pub async fn launch(
                 max_memory_mb: config.max_memory_mb,
                 extra_jvm_args: config.jvm_args.clone(),
                 mod_jar: config.mod_jar.clone(),
+                join,
             },
         },
     )
@@ -161,7 +198,7 @@ mod tests {
         let state = scratch_state();
         let id = super::super::loadouts::active(&state).unwrap().id.to_string();
         let rec: Arc<dyn Emitter> = Arc::new(Recorder::default());
-        let err = launch(&state, rec, &id).await.unwrap_err();
+        let err = launch(&state, rec, &id, None, None).await.unwrap_err();
         assert!(matches!(err, Error::NotSignedIn));
         assert!(err.to_string().starts_with("Not signed in."));
     }
@@ -170,8 +207,40 @@ mod tests {
     async fn launching_an_unknown_loadout_is_refused_before_the_account_check() {
         let state = scratch_state();
         let rec: Arc<dyn Emitter> = Arc::new(Recorder::default());
-        let err = launch(&state, rec, "nope").await.unwrap_err();
+        let err = launch(&state, rec, "nope", None, None).await.unwrap_err();
         assert!(!matches!(err, Error::NotSignedIn));
+    }
+
+    #[test]
+    fn a_pasted_address_carrying_its_own_port_is_split_rather_than_refused() {
+        // What a player pastes out of a server list. Only a trailing *numeric* segment is a
+        // port: an IPv6 literal is all colons and must not be cut in half, which is what the
+        // `!left.contains(':')` guard is for.
+        let target = join_target(Some("na.minemen.club:25566"), None).unwrap().unwrap();
+        assert_eq!(target.host(), "na.minemen.club");
+        assert_eq!(target.port(), 25566);
+
+        let plain = join_target(Some("mc.hypixel.net"), None).unwrap().unwrap();
+        assert_eq!(plain.port(), DEFAULT_PORT);
+
+        let six = join_target(Some("::1"), None).unwrap().unwrap();
+        assert_eq!(six.host(), "::1");
+        assert_eq!(six.port(), DEFAULT_PORT);
+
+        // An explicit port wins over one in the string, because the caller that passes one has
+        // a field the player filled in.
+        let explicit = join_target(Some("mc.hypixel.net"), Some(25599)).unwrap().unwrap();
+        assert_eq!(explicit.port(), 25599);
+
+        assert!(join_target(None, None).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_bad_address_is_an_error_rather_than_a_launch_without_one() {
+        // Refused, not dropped. A player who pressed Join and got the title screen would
+        // conclude the button does not work; one who is told the address is unusable can fix it.
+        let err = join_target(Some("-Xmx1G"), None).unwrap_err();
+        assert!(err.to_string().contains("not a server address"));
     }
 
     #[test]

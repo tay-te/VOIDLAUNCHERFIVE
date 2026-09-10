@@ -34,7 +34,14 @@ interface LaunchState {
   /** Live presence from `bridge:server`, shown on the Play screen. */
   server: { host: string; connected: boolean } | null;
 
-  start: (loadoutId: string) => Promise<void>;
+  /**
+   * Prepare and launch.
+   *
+   * `join` sends the game straight to a server instead of the title screen. It is a launch
+   * argument — 1.8.9's `Main` parses `--server` and `--port` — so there is nothing to wire in
+   * the mod and nothing to wait for after the window opens.
+   */
+  start: (loadoutId: string, join?: { host: string; port?: number }) => Promise<void>;
   kill: () => Promise<void>;
   dismissError: () => void;
   dismissSession: () => void;
@@ -50,7 +57,7 @@ export const useLaunch = create<LaunchState>((set, get) => ({
   lastSession: null,
   server: null,
 
-  start: async (loadoutId) => {
+  start: async (loadoutId, join) => {
     if (get().phase !== 'idle') return;
     set({ error: null, lastSession: null, progress: null, log: [] });
 
@@ -64,7 +71,12 @@ export const useLaunch = create<LaunchState>((set, get) => ({
 
     set({ phase: 'launching' });
     try {
-      const report = await invoke('launch', { loadoutId });
+      const report = await invoke(
+        'launch',
+        join === undefined
+          ? { loadoutId }
+          : { loadoutId, server: join.host, ...(join.port === undefined ? {} : { port: join.port }) },
+      );
       set({ bridgePort: report.bridge_port });
       // `phase: 'running'` is set by the `game:started` event, not here — the window
       // hides to the tray on that event, and the two must not disagree.

@@ -167,6 +167,7 @@ async fn a_full_offline_launch_reaches_the_jvm_with_the_bridge_seam_intact() {
             bridge_port: server.port(),
             bridge_token: server.token().to_string(),
             mod_jar: None,
+            join: None,
         },
     )
     .await
@@ -226,6 +227,7 @@ async fn the_mod_jar_is_installed_into_the_game_mods_directory() {
             bridge_port: 1,
             bridge_token: "x".repeat(32),
             mod_jar: Some(jar),
+            join: None,
         },
     )
     .await
