@@ -206,8 +206,11 @@ pub fn java_status(state: State<'_, AppState>) -> CmdResult<JavaStatus> {
 }
 
 #[tauri::command]
-pub async fn server_ping(host: String) -> CmdResult<PingResult> {
-    map_err(commands::servers::ping(&host).await)
+pub async fn server_ping(
+    state: State<'_, AppState>,
+    host: String,
+) -> CmdResult<PingResult> {
+    map_err(commands::servers::ping(&state, &host).await)
 }
 
 #[tauri::command]

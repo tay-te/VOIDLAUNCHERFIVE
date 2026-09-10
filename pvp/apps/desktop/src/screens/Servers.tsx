@@ -28,7 +28,7 @@ import { useEffect, useState } from 'react';
 import { TrashGlyph } from '../local/glyphs';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
-import { lastPlayed, playedTime, serverName, useServers } from '../stores/servers';
+import { lastPlayed, playedTime, serverName, typicalPing, useServers } from '../stores/servers';
 
 const TABS = ['Favourites', 'Recent', 'Browse'] as const;
 type Tab = (typeof TABS)[number];
@@ -82,6 +82,7 @@ export function ServersScreen() {
 
   const detail = servers.find((s) => s.host === selected) ?? list[0];
   const detailPing = detail ? pings[detail.host] : undefined;
+  const typical = detail ? typicalPing(detail) : null;
   const spark = bars(detailPing?.history ?? []);
 
   return (
@@ -205,7 +206,13 @@ export function ServersScreen() {
               <StatTile value={lastPlayed(detail.last_played_ms)} unit="last" />
             </div>
 
-            <GroupCaption label="Ping · this session" />
+            {/* "42 ms" answers nothing on its own — the question is whether this server is
+                usually this bad or whether it is you, right now. The baseline is the answer, and
+                it is the whole of what a sample every five minutes can honestly support. It is
+                absent rather than guessed under three samples. */}
+            <GroupCaption
+              label={typical === null ? 'Ping · this session' : `Ping · usually ${typical} ms`}
+            />
             <Sparkline values={spark.values} outliers={spark.outliers} />
 
             {detailPing?.status === 'error' ? (

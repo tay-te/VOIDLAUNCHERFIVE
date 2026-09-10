@@ -86,6 +86,16 @@ export interface ServerRecord {
   last_played_ms: number;
   played_ms: number;
   joins: number;
+  /**
+   * Recent round-trip samples in milliseconds, oldest first — a baseline, not a graph.
+   *
+   * At most twenty, and at most one every five minutes, so they span days rather than an
+   * evening. Recorded by `server_ping` itself. **Not a jitter reading**: jitter is a sub-second
+   * phenomenon and these are minutes apart; the in-game `ping.show_jitter` does that one, from
+   * the tick stream, which is the only place it can honestly be done.
+   */
+  pings?: number[];
+  last_ping_ms?: number;
 }
 
 // -------------------------------------------------------- launcher only

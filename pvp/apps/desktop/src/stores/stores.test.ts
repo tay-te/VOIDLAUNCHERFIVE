@@ -21,6 +21,7 @@ import {
   playedTime,
   pingTone,
   resumeTarget,
+  typicalPing,
 } from './servers';
 import { useSession, wireSessionEvents } from './session';
 import { useUi } from './ui';
@@ -406,6 +407,17 @@ describe('servers store', () => {
     });
     await useServers.getState().hydrate();
     expect(resumeTarget(useServers.getState().servers)?.host).toBe('na.minemen.club');
+  });
+
+  it('says "usually" only once it has a baseline, and a hiccup does not move it', () => {
+    const base = { host: 'x', favourite: true, last_played_ms: 0, played_ms: 0, joins: 0 };
+    // Two samples have a median and do not have a baseline.
+    expect(typicalPing({ ...base })).toBeNull();
+    expect(typicalPing({ ...base, pings: [40, 44] })).toBeNull();
+    // A third makes one. 40, 44, 900 has a mean of 328 and a median of 44 — and 44 is the truth,
+    // which is the whole reason this is not a mean.
+    expect(typicalPing({ ...base, pings: [40, 44, 900] })).toBe(44);
+    expect(typicalPing({ ...base, pings: [110, 40, 44, 46, 900] })).toBe(46);
   });
 
   it('pings a known host and keeps a bounded history', async () => {

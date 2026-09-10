@@ -95,6 +95,28 @@ export function lastPlayed(atMs: number, now = Date.now()): string {
 }
 
 /**
+ * What this server usually costs you, in milliseconds — the median of the kept samples.
+ *
+ * **Median and not mean**, because the distribution is exactly the one a mean is bad at: most
+ * samples sit in a narrow band and a few are a route hiccup or a laptop waking from sleep. One
+ * 900 ms outlier moves a mean of twenty by forty and moves the median by nothing, and it is the
+ * median a player means by "usually".
+ *
+ * `null` under three samples. Two numbers have a median and do not have a baseline, and a
+ * "usually" derived from one evening's pair is a figure the launcher invented.
+ *
+ * Derived here and nowhere else. Rust keeps the samples and deliberately does not summarise
+ * them: only this screen reads them, and a second implementation of one rule is kept honest by
+ * nothing.
+ */
+export function typicalPing(entry: ServerRecord): number | null {
+  const samples = entry.pings ?? [];
+  if (samples.length < 3) return null;
+  const sorted = [...samples].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? null;
+}
+
+/**
  * Where the player last actually was, or `null` when they have not been anywhere.
  *
  * **Derived, never stored.** The obvious shape is a `last_server` field somewhere, and it would

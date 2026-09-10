@@ -30,7 +30,8 @@ Working, wired to `crates/void-core` through `apps/desktop/src-tauri`, and exerc
 | **Loadout sharing** | Export and import by code, everything included | `@void/protocol`'s `share.ts` |
 | **Settings** | Java path, RAM, JVM args, theme, UI scale, keybinds, update channel | `settings_get` / `settings_set` |
 | **Server ping** | A real SLP handshake, not an ICMP guess | `server_ping` |
-| **Where you have played** | The server book — joins, playtime and last-played, written by the running game — **shipped 2026-09-10**, see §3 | `servers_*`, `void_loadout::ServerBook` |
+| **Where you have played** | The server book — joins, playtime, last-played and a ping baseline — **shipped 2026-09-10**, see §3 | `servers_*`, `void_loadout::ServerBook` |
+| **Continue where you left off** | One press back into the server you were last on | `ResumeControl`, `resumeTarget` |
 | **Updater, tray, window** | All three | `updater_check`, `tray.rs`, `window.rs` |
 
 That is a working launcher. **The gap is not features.**
@@ -142,6 +143,38 @@ the book already holds — written on every connect, and wrong the moment the se
 forgotten. It keys on `joins > 0`, not `favourite`: starring is a bookmark, and offering to
 continue somewhere the player has never been is guessing and calling it memory.
 
+### 2026-09-10 — a ping baseline, and what a five-minute sample can honestly say
+
+`42 ms` answers nothing on its own. The question a player has is **whether this server is usually
+this bad or whether it is them, right now**, and that needs a baseline. The book now keeps up to
+twenty round-trip samples per server, and the detail pane reads `Ping · usually 45 ms`.
+
+**Rate-limited to one sample per five minutes, and the limit is the feature.** The Servers screen
+sweeps every sixty seconds and the Play screen every thirty; without a limit the file would be
+rewritten twice a minute for the life of an open launcher, and the twenty samples kept would all
+come from the last ten minutes — a reading about *now*, presented as "usually". Five minutes makes
+twenty samples span a fortnight of ordinary use.
+
+**Median, not mean.** Most samples sit in a narrow band and a few are a route hiccup or a laptop
+waking from sleep. One 900 ms outlier moves a mean of twenty by forty and moves the median by
+nothing, and it is the median a player means by "usually". Absent under three samples, because two
+numbers have a median and do not have a baseline.
+
+**It is deliberately not the jitter half of `docs/mod-roster.md` §5.** Jitter is a sub-second
+phenomenon and these samples are minutes apart; what they measure is route stability across
+sessions. `ping.show_jitter` in game does the other one from the 20 Hz tick stream, which is the
+only place it can honestly be done. Claiming jitter here would have been a figure with a
+respectable name and nothing behind it.
+
+**Recorded by `server_ping` itself**, not by a second command. It is the one place in the app a
+ping happens; a `servers_record_ping` would mean every caller had to remember it, and the first
+one that forgot would leave a server with no baseline and no sign of why.
+
+**And the summary is not in Rust.** `ServerBook` keeps the samples and does not median them,
+because only the launcher's UI reads them — `typicalPing` lives in `stores/servers.ts` and nowhere
+else. A copy on the Rust side would have been a second implementation of one rule, kept honest by
+nothing. It was written there first and removed.
+
 ## 4. Friends, and the decision it actually needs
 
 Both surfaces are placeholders. Making them real is not mostly UI work, and the dependency order
@@ -174,9 +207,6 @@ launcher.
    the version. A PvP client is judged on whether it launches and what it says when it does not,
    and nothing on this page has been scored for that — including whether `LogDrawer` helps a
    player or only a developer. This is now the top row, because §16.3 was cut.
-2. **Persisted ping history.** `pings` is twelve samples in memory, gone on restart. The book is
-   the natural home for a rolling record, which turns "42 ms" into "usually 45, 120 right now" —
-   `docs/mod-roster.md` §5's *connection quality* row, arriving through the launcher rather than
-   the HUD, and the part of it neither competitor ships.
+2. ~~**Persisted ping history.**~~ Done 2026-09-10 — see §3.
 3. ~~**Server favourites out of `localStorage`.**~~ Done 2026-09-10.
 4. **Friends**, once §4's decision is made.

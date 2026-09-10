@@ -289,7 +289,7 @@ one mechanic. Nobody, on either client, ships:
 | **Fight review** | A post-fight card: hits landed / taken, mean reach, CPS through the fight, sprint-reset rate, and the fight second by second | M | **Shipped 2026-09-09**, less time-to-kill, which the client cannot know — see below. Lunar's `pvp-info` has **two settings**; it is a stub. A review screen is a page, not a renderer, and it needed no new sensor at all. |
 | **Click analytics** | Interval histogram of *your own* clicks, jitter spread, drag/butterfly detection, consistency over a session | S–M, but see below | Purely your own input, so it is unimpeachably safe. Half of it is buildable and half is blocked on a clock we do not own — the interval histogram is not the safe half. |
 | **Sprint-reset (W-tap) feedback** | The share of your landed hits that had a sprint behind them | S | **Shipped 2026-09-09** as `sprint_reset`, and smaller than M because the window turned out not to exist — see below. Lunar covers jump resets only; this stays unclaimed on both clients. |
-| **Connection quality, not a ping number** | Jitter band, packet-loss estimate, tick-skip / "the server is behind" indicator | S–M | Careful: Lunar's `ping` mod *does* have spike detection with two thresholds and rolling averages, so "we show ping spikes" is not new. Jitter distribution, loss and tick-skip **are**. We already have `net/SessionStats` and `sensor/ServerWatcher`. |
+| **Connection quality, not a ping number** | Jitter band, packet-loss estimate, tick-skip / "the server is behind" indicator | S–M | **Half shipped 2026-09-10**, in the launcher: a per-server ping *baseline*, so `42 ms` becomes `usually 45`. The jitter half is a sub-second reading and cannot come from a launcher ping — see below. Careful either way: Lunar's `ping` mod already has spike detection with two thresholds and rolling averages. |
 | **Input latency readout** | Actual input-to-action latency | M–L | **The row is wrong and the file is not what it says.** `input/InputLatency.java` measures our own *menu's* event path — see below. Neither competitor exposes anything like it, and neither do we. |
 | **Loadout as a shareable artifact** | Export/import a full loadout — mods, settings, HUD placement — by code | S–M | **Shipped 2026-09-10.** Lunar has profiles; neither has sharing. "Pure product work, no game code" held exactly, and reading the two surfaces says why it had to be — see below. |
 
@@ -393,7 +393,22 @@ one mechanic. Nobody, on either client, ships:
 > (Discord's limit for one message), and a loadout with *every* setting of *every* mod moved is
 > about 6000 — which no player has, and which is a file rather than a message.
 >
-> Connection quality is the last one left.
+> **Connection quality split, and the split is the finding.** The launcher now keeps a ping
+> baseline per server — twenty samples, one every five minutes, median — so the Servers screen
+> reads `usually 45 ms` beside the live figure. That is the useful half and it needed no mod code:
+> the question behind a ping number is *is this server usually this bad or is it me right now*,
+> and only a record answers it.
+>
+> **The jitter half cannot come from there, and saying so is the point.** Jitter is a sub-second
+> phenomenon; launcher pings are minutes apart. Twenty samples spaced five minutes apart measure
+> route stability across sessions and nothing faster, and a launcher that averaged their spread
+> and called it jitter would be publishing a figure with a respectable name and nothing behind it.
+> The in-game `ping.show_jitter` does the real one, from the 20 Hz tick stream — the only place
+> the sampling rate supports it.
+>
+> What is left of this row is therefore packet loss and tick-skip, both of which are in-game
+> readings, and neither of which is a ping number with a better name. See
+> `docs/launcher-roster.md` §3.
 
 Of Lunar's own recent additions, the ones players actually talk about are **TierTagger**
 (social status, not gameplay) and **Kill Sounds** (shareable, personality). Both are

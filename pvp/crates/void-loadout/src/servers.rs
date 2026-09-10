@@ -37,6 +37,17 @@ use serde::{Deserialize, Serialize};
 /// Minecraft's default port, which an address may carry explicitly and mean nothing by.
 const DEFAULT_PORT: u16 = 25565;
 
+/// The shortest gap between two kept ping samples.
+///
+/// The Servers screen sweeps every sixty seconds and the Play screen every thirty, so without a
+/// limit the file would be rewritten twice a minute for the life of an open launcher — and the
+/// twenty samples kept would all be from the last ten minutes, which is a reading about *now*
+/// dressed up as a baseline. Five minutes makes twenty samples span a fortnight of ordinary use.
+const PING_INTERVAL_MS: u64 = 5 * 60 * 1000;
+
+/// How many samples make the baseline.
+const PING_SAMPLES: usize = 20;
+
 /// The most servers kept. Beyond it the least recently played is dropped.
 ///
 /// A cap rather than a trust: the record is written from whatever host the game reported, so a
@@ -68,6 +79,27 @@ pub struct ServerRecord {
     /// How many times the game has connected.
     #[serde(default)]
     pub joins: u32,
+    /// Recent round-trip times in milliseconds, oldest first — the baseline, not a graph.
+    ///
+    /// **Bounded and rate-limited, and both are the design rather than thrift.** The question a
+    /// player has is "is this server usually this bad, or is it me right now", and answering it
+    /// needs samples spread over *days*, not two hundred from one evening. So
+    /// [`ServerBook::record_ping`] takes at most one every [`PING_INTERVAL_MS`], and twenty of
+    /// those is a fortnight of casual use.
+    ///
+    /// **The summary lives with the thing that draws it.** There is no `typical_ping` here: only
+    /// the launcher's UI reads these, so the median is derived once, in `stores/servers.ts`. A
+    /// copy on this side would be a second implementation of one rule, kept honest by nothing.
+    ///
+    /// **It is deliberately not a jitter reading.** Jitter is a sub-second phenomenon and these
+    /// samples are minutes apart; what they measure is route stability across sessions. The
+    /// in-game `ping.show_jitter` does the other one, from the 20 Hz tick stream, which is the
+    /// only place it can honestly be done.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pings: Vec<u16>,
+    /// When the last sample was taken, for the rate limit.
+    #[serde(default)]
+    pub last_ping_ms: u64,
 }
 
 impl ServerRecord {
@@ -80,8 +112,11 @@ impl ServerRecord {
             last_played_ms: 0,
             played_ms: 0,
             joins: 0,
+            pings: Vec::new(),
+            last_ping_ms: 0,
         }
     }
+
 
     /// Whether this record is worth keeping when the list is trimmed.
     fn pinned(&self) -> bool {
@@ -193,6 +228,27 @@ impl ServerBook {
         }
     }
 
+    /// Take a round-trip sample, if one is due. Returns whether it was kept.
+    ///
+    /// Only for a host already in the book: an unsolicited ping to somewhere the player has
+    /// neither played nor starred should not create a record, or the Servers screen's search
+    /// field would file every address anybody ever typed.
+    pub fn record_ping(&mut self, host: &str, ms: u16, now_ms: u64) -> bool {
+        let Some(entry) = self.servers.get_mut(&canonical_host(host)) else {
+            return false;
+        };
+        if entry.last_ping_ms != 0 && now_ms.saturating_sub(entry.last_ping_ms) < PING_INTERVAL_MS {
+            return false;
+        }
+        entry.last_ping_ms = now_ms;
+        entry.pings.push(ms);
+        if entry.pings.len() > PING_SAMPLES {
+            let excess = entry.pings.len() - PING_SAMPLES;
+            entry.pings.drain(0..excess);
+        }
+        true
+    }
+
     /// Keeps the book bounded, dropping the least recently played unstarred records first.
     fn trim(&mut self) {
         if self.servers.len() <= MAX_SERVERS {
@@ -296,6 +352,27 @@ mod tests {
         // The oldest unstarred ones went, not the newest.
         assert!(book.get("host0.example.com").is_none());
         assert!(book.get(&format!("host{}.example.com", MAX_SERVERS + 19)).is_some());
+    }
+
+    #[test]
+    fn a_ping_baseline_is_rate_limited_so_it_spans_days_rather_than_minutes() {
+        // Without the limit, twenty samples would all come from the ten minutes the launcher
+        // happened to be open — a reading about *now*, presented as "usually".
+        let mut book = ServerBook::default();
+        book.set_favourite("mc.hypixel.net", true);
+        assert!(book.record_ping("mc.hypixel.net", 42, 1_000));
+        assert!(!book.record_ping("mc.hypixel.net", 44, 60_000), "a minute later is not due");
+        assert!(book.record_ping("mc.hypixel.net", 48, 1_000 + PING_INTERVAL_MS));
+        assert_eq!(book.get("mc.hypixel.net").unwrap().pings, vec![42, 48]);
+    }
+
+    #[test]
+    fn a_ping_never_creates_a_record_for_a_server_nobody_asked_about() {
+        // The Servers screen pings what you type into its search field. Filing every address
+        // anybody ever typed would turn a list of your servers into a list of your typos.
+        let mut book = ServerBook::default();
+        assert!(!book.record_ping("some.random.host", 42, 1_000));
+        assert!(book.get("some.random.host").is_none());
     }
 
     #[test]

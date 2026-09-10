@@ -124,6 +124,19 @@ function serverList(): ServerRecord[] {
   );
 }
 
+/** `ServerBook::record_ping`'s rule: at most one sample per five minutes, book members only. */
+function recordPing(host: string): void {
+  const key = canonicalHost(host);
+  const entry = state.servers.get(key);
+  if (!entry) return;
+  const now = Date.now();
+  const last = entry.last_ping_ms ?? 0;
+  if (last !== 0 && now - last < 5 * 60 * 1000) return;
+  const known = MOCK_SERVERS.find((s) => s.host === key);
+  entry.last_ping_ms = now;
+  entry.pings = [...(entry.pings ?? []), known?.latency_ms ?? 60].slice(-20);
+}
+
 function serverEntry(host: string): ServerRecord {
   const key = canonicalHost(host);
   let entry = state.servers.get(key);
@@ -526,6 +539,10 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   server_ping: ({ host }) => {
+    // Recorded by the ping itself, as Rust does it — one place a ping happens, one place a
+    // sample is taken. The rate limit is the book's, so a preview left open does not fill the
+    // baseline with one minute's worth of samples.
+    recordPing(String(host));
     const known = MOCK_SERVERS.find((s) => s.host === host);
     if (!known) {
       throw `Could not reach ${host}: the browser preview cannot open a TCP socket.`;

@@ -17,8 +17,28 @@ use crate::models::PingResult;
 use crate::state::AppState;
 
 /// Minecraft SLP handshake plus a ping/pong round trip. `host` may carry a port.
-pub async fn ping(host: &str) -> Result<PingResult, Error> {
-    slp::ping(host).await
+///
+/// **The sample is recorded here rather than by a second command**, because this is the one place
+/// in the app a ping happens. A `servers_record_ping` would mean every caller had to remember to
+/// use it, and the first one that forgot would leave a server with no baseline and no sign of why.
+///
+/// The write is cheap and usually skipped: `ServerBook::record_ping` keeps at most one sample per
+/// five minutes, and refuses outright for a host that is not already in the book — so pinging
+/// whatever is typed into the search field does not file it.
+///
+/// A failure to record is logged and swallowed. The ping succeeded; the player asked for a
+/// latency, and losing one sample of a twenty-sample baseline is not worth failing that.
+pub async fn ping(state: &AppState, host: &str) -> Result<PingResult, Error> {
+    let result = slp::ping(host).await?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let ms = result.latency_ms.min(u32::from(u16::MAX)) as u16;
+    if let Err(e) = state.store.update_servers(|book| book.record_ping(host, ms, now)) {
+        tracing::warn!(%e, %host, "could not record a ping sample");
+    }
+    Ok(result)
 }
 
 /// Every server the player has played on or starred, most recently played first.
@@ -64,17 +84,19 @@ pub fn forget(state: &AppState, host: &str) -> Result<Vec<ServerRecord>, Error> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::scratch_state;
 
     #[tokio::test]
     async fn an_unroutable_host_fails_with_a_sentence_a_player_can_read() {
         // 192.0.2.0/24 is TEST-NET-1: guaranteed not to route anywhere.
-        let err = ping("192.0.2.1:25565").await.unwrap_err();
+        let state = scratch_state();
+        let err = ping(&state, "192.0.2.1:25565").await.unwrap_err();
         let text = err.to_string();
         assert!(text.starts_with("Could not reach 192.0.2.1"), "{text}");
     }
 
     #[tokio::test]
     async fn an_empty_host_is_rejected_before_any_socket_is_opened() {
-        assert!(ping("").await.is_err());
+        assert!(ping(&scratch_state(), "").await.is_err());
     }
 }
