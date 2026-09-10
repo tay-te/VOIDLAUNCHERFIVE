@@ -8,9 +8,12 @@
 
 import { create } from 'zustand';
 
+import { decodeLoadout, encodeLoadout } from '@void/protocol';
+
 import type {
   HUDItem,
   Loadout,
+  LoadoutPatch,
   LoadoutSummary,
   ModId,
   Settings,
@@ -18,6 +21,23 @@ import type {
 } from '../local/protocol';
 import { errorText, invoke, listen } from '../local/tauri';
 import { effectiveState } from '../local/registry';
+
+/** What an import did, for the panel that has to say so. */
+export type ImportOutcome =
+  | { ok: true; name: string; dropped: string[]; foreign: boolean }
+  | { ok: false; message: string };
+
+/** Why a code was refused, in the words a player needs. */
+const REFUSALS: Record<'empty' | 'prefix' | 'checksum' | 'malformed', string> = {
+  empty: 'Paste a share code first.',
+  // Named separately from `malformed` because the fix is different and obvious: they pasted
+  // something else. Telling them it is corrupt would send them back to the sender for nothing.
+  prefix: 'That does not look like a VOID share code.',
+  // The realistic corruption, and the one worth naming precisely — a code that lost its tail to
+  // a chat client's length limit looks complete to the eye.
+  checksum: 'That code is incomplete — copy the whole thing and try again.',
+  malformed: 'That code is damaged and cannot be read.',
+};
 
 interface LoadoutState {
   library: LoadoutSummary[];
@@ -47,6 +67,23 @@ interface LoadoutState {
    */
   setHudItem: (id: ModId, item: HUDItem | null) => Promise<void>;
   saveSettings: (patch: SettingsPatch) => Promise<void>;
+  /**
+   * The active loadout as a share code, or null when there is nothing to share.
+   *
+   * Synchronous and pure — `encodeLoadout` reads the loadout already in this store, so there is
+   * no round trip and nothing to fail. A "copy" button that could reject is a button a player
+   * presses twice.
+   */
+  shareCode: () => string | null;
+  /**
+   * A share code as a new loadout in the library, switched to on success.
+   *
+   * Creates and then patches rather than writing a whole loadout in one call, because that is
+   * the shape `loadouts_update` already has: Rust merges each mod over the registry defaults and
+   * validates it, which is the same reconstruction the codec's delta assumes. Sending a
+   * pre-merged loadout would be doing that arithmetic twice, in two languages.
+   */
+  importCode: (code: string) => Promise<ImportOutcome>;
   /** Apply a `bridge:state` patch from a running game (§6.1: Java is authoritative). */
   applyStatePatch: (loadoutId: string, patch: Record<string, unknown>) => void;
 }
@@ -140,6 +177,41 @@ export const useLoadouts = create<LoadoutState>((set, get) => ({
       set({ settings: await invoke('settings_set', { patch }), error: null });
     } catch (e) {
       set({ error: errorText(e) });
+    }
+  },
+
+  shareCode: () => {
+    const active = get().active;
+    return active === null ? null : encodeLoadout(active);
+  },
+
+  importCode: async (code) => {
+    const decoded = decodeLoadout(code);
+    if (!decoded.ok) return { ok: false, message: REFUSALS[decoded.reason] };
+    try {
+      // A name that says where it came from, and only when it would otherwise collide. A player
+      // importing a friend's "Sword PvP" while holding their own wants both; a player importing
+      // something they do not already have wants the name they were given.
+      const taken = new Set(get().library.map((entry) => entry.name));
+      let name = decoded.loadout.name;
+      for (let n = 2; taken.has(name); n += 1) name = `${decoded.loadout.name} (${n})`;
+
+      const created = await invoke('loadouts_create', { name, icon: decoded.loadout.icon });
+      const updated = await invoke('loadouts_update', {
+        id: created.id,
+        patch: {
+          server: decoded.loadout.server,
+          mods: decoded.loadout.mods as LoadoutPatch['mods'],
+          hud: decoded.loadout.hud,
+        },
+      });
+      set({ library: await invoke('loadouts_list'), error: null });
+      await get().switchTo(updated.id);
+      return { ok: true, name, dropped: decoded.dropped, foreign: decoded.foreign };
+    } catch (e) {
+      const message = errorText(e);
+      set({ error: message });
+      return { ok: false, message };
     }
   },
 

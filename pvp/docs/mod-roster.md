@@ -291,7 +291,7 @@ one mechanic. Nobody, on either client, ships:
 | **Sprint-reset (W-tap) feedback** | The share of your landed hits that had a sprint behind them | S | **Shipped 2026-09-09** as `sprint_reset`, and smaller than M because the window turned out not to exist — see below. Lunar covers jump resets only; this stays unclaimed on both clients. |
 | **Connection quality, not a ping number** | Jitter band, packet-loss estimate, tick-skip / "the server is behind" indicator | S–M | Careful: Lunar's `ping` mod *does* have spike detection with two thresholds and rolling averages, so "we show ping spikes" is not new. Jitter distribution, loss and tick-skip **are**. We already have `net/SessionStats` and `sensor/ServerWatcher`. |
 | **Input latency readout** | Actual input-to-action latency | M–L | **The row is wrong and the file is not what it says.** `input/InputLatency.java` measures our own *menu's* event path — see below. Neither competitor exposes anything like it, and neither do we. |
-| **Loadout as a shareable artifact** | Export/import a full loadout — mods, settings, HUD placement — by code | S–M | Lunar has profiles; neither has sharing. The Electron launcher already has a share-code system to copy from. Pure product work, no game code. |
+| **Loadout as a shareable artifact** | Export/import a full loadout — mods, settings, HUD placement — by code | S–M | **Shipped 2026-09-10.** Lunar has profiles; neither has sharing. "Pure product work, no game code" held exactly, and reading the two surfaces says why it had to be — see below. |
 
 > **Status, 2026-09-09: one of the six is shipped, and reading the other five moved three rows.**
 >
@@ -361,7 +361,39 @@ one mechanic. Nobody, on either client, ships:
 > inside §6.1 without needing an argument: every figure is a fact about your own play, after it
 > happened.
 >
-> Connection quality and loadout sharing remain.
+> **Loadout sharing shipped, in the launcher, and the roster's "no game code" was load-bearing
+> rather than incidental.** A share code has to be copied out and pasted in, and in game neither
+> is available: `bridge.json` is a closed surface of five events and eight calls with no clipboard
+> among them, and Ultralight receives no keyboard input while the HUD is up (§6.3). Building it
+> there means a new bridge call, a paste path through our own synthetic input, and a text field in
+> an engine with no native one — all to reach a code that arrives over Discord, which is where the
+> launcher already is.
+>
+> **The code carries everything, and "everything" is stated as a property rather than a list.**
+> The failure this codec was written against is a code that carries the mods and forgets what they
+> *look like* — the shared HUD chrome block, which is the half a player tuned by eye and the half
+> nobody thinks to serialise. A loadout that arrives with the right mods and the wrong chrome is
+> worse than no sharing, because it reads as the sender's HUD being broken. So the test walks the
+> registry: for every mod and every setting key it declares, the decoded loadout must resolve to
+> the same value. A setting added tomorrow is covered tonight.
+>
+> **It is a delta, and that is not a contradiction.** The code carries only what differs from the
+> factory defaults and the decoder fills the rest back in from the same registry — at one registry
+> version that reconstruction is exact, because `resolveModSettings` is `{...defaults, ...stored}`
+> on both ends. The registry version rides in the payload so a code crossing between builds is
+> *reported* rather than silently reinterpreted, and still applied: refusing outright would make
+> every code expire the next time a mod is added, which for a share feature is worse than a
+> warning.
+>
+> **No compression, deliberately.** `CompressionStream` is absent in Ultralight and recent in
+> WebKitGTK, which is what the launcher runs on Linux, and a codec whose round trip depends on a
+> browser API that might be missing at one end is a codec that loses somebody's loadout. So the
+> base64 and UTF-8 are forty lines of pure JS. The cost is size, and the size is stated rather
+> than hoped: the shipped loadout is ~500 characters, a heavily customised one is under 2000
+> (Discord's limit for one message), and a loadout with *every* setting of *every* mod moved is
+> about 6000 — which no player has, and which is a file rather than a message.
+>
+> Connection quality is the last one left.
 
 Of Lunar's own recent additions, the ones players actually talk about are **TierTagger**
 (social status, not gameplay) and **Kill Sounds** (shareable, personality). Both are
@@ -657,9 +689,9 @@ carries the bytecode for all three.
 > in lookups; a mod whose whole effect is already the default is the same failure at the scale of
 > a registry entry, and nothing in this build would have caught it.
 
-**Wave 10 — the differentiator.** ~~Sprint-reset feedback~~ · ~~Fight review~~. **Wave 10 is
-open**: connection quality and loadout sharing remain; input latency is cut and click analytics is
-halved. §5's status block carries the bytecode for all four.
+**Wave 10 — the differentiator.** ~~Sprint-reset feedback~~ · ~~Fight review~~ · ~~Loadout
+sharing~~. **Wave 10 is open**: connection quality is the last row standing; input latency is cut
+and click analytics is halved. §5's status block carries the bytecode for all five.
 
 > **Shipped 2026-09-09, one mod, and the schema change is one optional integer.** `hits` has
 > carried `dealt` and `taken` since the combo counter; `sprint_dealt` is the third — of those
@@ -725,6 +757,22 @@ halved. §5's status block carries the bytecode for all four.
 > opponent, because the client is never told who hit *it* — an opponent-scoped fight can only see
 > half of one, which is not a definition. Each of those is a figure a competitor could ship and we
 > will not.
+>
+> **And then loadout sharing, which is the only row on this page that never touches `pvp/mod/`.**
+> The codec is in `@void/protocol` because both applications could need it; the UI is in the
+> launcher because only one of them *can* have it. A share code is copied and pasted, and in game
+> `bridge.json` has no clipboard call and Ultralight takes no keyboard input while the HUD is up.
+> The roster's "pure product work, no game code" turned out to be a constraint rather than an
+> observation.
+>
+> **Its test is the shape worth copying.** "Does the code carry everything" cannot be asserted as
+> a list, because the list grows every wave and the assertion would go stale exactly when a new
+> setting stopped being carried. So it is asserted as a walk over the registry — every mod, every
+> declared key, resolved on both sides and compared. The fixture is a loadout with *every* setting
+> moved off its factory value, because a round trip over the shipped loadout would pass even if
+> the codec silently dropped a whole category nobody has customised.
+
+
 
 **Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
 graph.~~ Playtime · day counter.

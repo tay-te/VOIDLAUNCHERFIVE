@@ -44,6 +44,7 @@ import {
   matchesTab,
 } from '../local/registry';
 import { useLoadouts } from '../stores/loadouts';
+import { LoadoutShare } from '../features/LoadoutShare';
 import { useUi } from '../stores/ui';
 
 /* -------------------------------------------------------------------------- */
@@ -388,6 +389,11 @@ export function ModsScreen() {
             ))}
             {library.length === 0 ? <li className="rail__empty">No loadouts yet</li> : null}
           </ul>
+
+          {/* Under the library rather than beside a card: a code is about the *set* of loadouts
+              — one goes out, another comes in — and a control per row would have to answer
+              which one Import belonged to. */}
+          <LoadoutShare />
         </nav>
 
         <div className="modcol">

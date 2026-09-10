@@ -38,3 +38,10 @@ export {
 export * from './void-bridge.js';
 export * from './fake-void.js';
 export * from './mods.js';
+export {
+  SHARE_PREFIX,
+  encodeLoadout,
+  decodeLoadout,
+  looksLikeShareCode,
+} from './share.js';
+export type { DecodeResult } from './share.js';

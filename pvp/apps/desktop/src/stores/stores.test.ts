@@ -76,6 +76,85 @@ describe('session store', () => {
   });
 });
 
+describe('loadout share codes, end to end through the mock backend', () => {
+  /**
+   * The codec's own tests prove the string round-trips. These prove the *launcher* does: that
+   * `loadouts_create` + `loadouts_update` reassemble the loadout the code described, through the
+   * same merge Rust performs. The codec emits a delta on the assumption that the receiver merges
+   * it over the registry defaults, and this is the only place that assumption is actually tested
+   * against the thing that does the merging.
+   */
+  it('exports the active loadout and imports it back as a separate one', async () => {
+    await useLoadouts.getState().hydrate();
+    const original = useLoadouts.getState().active!;
+    expect(original).not.toBeNull();
+
+    // Something tuned by eye, in the block a naive codec forgets.
+    await useLoadouts.getState().setMod('fps', {
+      on: true,
+      scale: 1.75,
+      opacity: 0.6,
+      background: 'solid',
+      border: true,
+      padding: 'wide',
+    });
+    const tuned = useLoadouts.getState().active!;
+
+    const code = useLoadouts.getState().shareCode()!;
+    expect(code.startsWith('VOID1.')).toBe(true);
+
+    const outcome = await useLoadouts.getState().importCode(code);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.dropped).toEqual([]);
+    expect(outcome.foreign).toBe(false);
+
+    const imported = useLoadouts.getState().active!;
+    // A separate loadout, not an overwrite: the sender's id never travels, so importing your
+    // own code twice cannot eat the original.
+    expect(imported.id).not.toBe(tuned.id);
+    expect(effectiveState(imported, 'fps')).toMatchObject({
+      on: true,
+      scale: 1.75,
+      opacity: 0.6,
+      background: 'solid',
+      border: true,
+      padding: 'wide',
+    });
+  });
+
+  it('names the copy rather than colliding with the loadout it came from', async () => {
+    await useLoadouts.getState().hydrate();
+    const before = useLoadouts.getState().active!;
+    const outcome = await useLoadouts.getState().importCode(useLoadouts.getState().shareCode()!);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.name).toBe(`${before.name} (2)`);
+    expect(useLoadouts.getState().library.some((entry) => entry.name === before.name)).toBe(true);
+  });
+
+  it('refuses a bad code in the words the fix needs, and changes nothing', async () => {
+    await useLoadouts.getState().hydrate();
+    const count = useLoadouts.getState().library.length;
+
+    // Three different mistakes with three different fixes: they pasted the wrong thing, the
+    // chat client ate the tail, or there is nothing there at all. One message for all three
+    // would send a player back to the sender for a problem they could fix themselves.
+    expect(await useLoadouts.getState().importCode('')).toMatchObject({ ok: false });
+    expect(await useLoadouts.getState().importCode('here is my loadout lol')).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('does not look like'),
+    });
+    const truncated = useLoadouts.getState().shareCode()!.slice(0, -10);
+    expect(await useLoadouts.getState().importCode(truncated)).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('incomplete'),
+    });
+
+    expect(useLoadouts.getState().library).toHaveLength(count);
+  });
+});
+
 describe('loadout store', () => {
   it('hydrates the library, the active loadout and the settings together', async () => {
     await useLoadouts.getState().hydrate();
