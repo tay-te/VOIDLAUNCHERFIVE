@@ -95,6 +95,18 @@ public final class TickInput {
     public Double reach;
 
     /**
+     * How far the last hit moved you, in blocks, over the half-second after it landed. Null
+     * until one has.
+     *
+     * <p>Present only on the tick a reading completes, which is a stronger statement than the
+     * rest of this payload makes: every other field here is "the current value, when it moved",
+     * and this one is an event's result. The coalescer value-checks it like the others, so two
+     * identical knockbacks in a row publish once — which is correct, because the chip is showing
+     * a figure and not a count.</p>
+     */
+    public Double knockback;
+
+    /**
      * The main inventory, merged into one entry per distinct thing. Null to omit.
      *
      * <p>An empty tally is not the same as null and both reach the wire as an absence, which is
@@ -126,6 +138,7 @@ public final class TickInput {
         hitsTaken = null;
         hitsSprintDealt = null;
         reach = null;
+        knockback = null;
         inventory = null;
     }
 }

@@ -584,6 +584,11 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     // Monotonic, like the real thing. A hit roughly every 700 ms and a hit taken every ~5 s, so
     // a combo builds and then breaks — which is the whole behaviour the combo mod draws, and it
     // would be invisible in a fake that only ever incremented one counter.
+    // A knockback that moves, so the chip is not mistaken for a constant. It rides the taken
+    // counter's clock — a hit every five seconds — and swings between about 2.2 and 4.6, which
+    // is the band 1.8.9's impulse and drag actually produce over a ten-tick window.
+    payload.knockback = Math.round((3.4 + Math.sin(clockMs / 5000) * 1.2) * 100) / 100;
+
     // `sprint_dealt` trails `dealt` at roughly three in four, which is a plausible reset rate for
     // somebody good and, more to the point, is neither of the two figures a bug would produce: a
     // sensor reading the sprint flag after the attack gives 0, and one that never clears it gives

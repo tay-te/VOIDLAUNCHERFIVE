@@ -633,6 +633,17 @@ export interface VoidState {
    */
   fights: readonly Fight[];
   /**
+   * How far the last hit moved you, in blocks — the knockback meter.
+   *
+   * `null` until one has landed, and null is not zero: **zero is a hit that did not move you**,
+   * which is a real reading, and no reading at all is a session in which nothing has hit you.
+   *
+   * Nothing here decides when it moves. `bridge.json`'s `knockback` carries the rule — a fixed
+   * ten-tick window from the push, only for a push that came with damage — and the sensor
+   * enforces it, which is what keeps this a measurement rather than a score.
+   */
+  knockback: number | null;
+  /**
    * Distance of the last attack that landed, in blocks — the reach readout.
    *
    * `null` until one has landed, and that is the mod rather than a nicety: a reach of 0 is not a
@@ -770,6 +781,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   combo: 0,
   comboAt: 0,
   hits: null,
+  knockback: null,
   sprintHistory: [],
   liveFight: null,
   fights: [],
@@ -1066,6 +1078,11 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // Assigned straight through: the sensor has already decided that this is a landed attack's
     // distance and rounded it, and there is nothing left here to judge (see the field's note).
     if (tick.reach !== undefined && tick.reach !== prev.reach) patch.reach = tick.reach;
+    // Assigned straight through like `reach`, and for the same reason: the sensor has already
+    // decided this is a completed measurement and rounded it, and there is nothing left to judge.
+    if (tick.knockback !== undefined && tick.knockback !== prev.knockback) {
+      patch.knockback = tick.knockback;
+    }
 
     if (tick.hits !== undefined) {
       const seen = lastHits;

@@ -54,4 +54,25 @@ public abstract class EntityMixin {
             ci.cancel();
         }
     }
+
+    /**
+     * The knockback sensor's one input: the server moved us.
+     *
+     * <p>{@code Entity.setVelocityClient} is where every server-sent velocity lands —
+     * {@code ClientPlayNetworkHandler.onVelocityUpdate} resolves the entity id and calls it with
+     * the packet's three components over 8000, and it is the only caller. So this is the whole
+     * of "the server pushed you", for hits and for everything else that pushes.</p>
+     *
+     * <p><b>Not narrowed to hits here</b>, and that is deliberate: what separates a knockback
+     * from a fishing rod is {@code hurtTime} on the ticks that follow, which this instant does
+     * not know. {@code KnockbackTally} owns that rule and has a test for it; this hands over the
+     * fact and nothing else, which is the split every sensor in this mod is built on.</p>
+     */
+    @Inject(method = "setVelocityClient", at = @At("HEAD"))
+    private void void$onServerVelocity(double x, double y, double z, CallbackInfo ci) {
+        VoidClient client = VoidClient.get();
+        if (client != null) {
+            client.onServerVelocity((Entity) (Object) this);
+        }
+    }
 }

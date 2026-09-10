@@ -200,6 +200,15 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_label', label: 'Show label', control: 'switch' },
     { key: 'warn_above', label: 'Warn over', control: 'slider', min: 0, max: 6, step: 0.1, format: 'plain' },
   ],
+  // Wave 10's knockback meter. `warn_above` is `reach`'s name and `reach`'s range — both are a
+  // distance in blocks past which the figure warns, which is why the schema matched rather than
+  // invented a second name.
+  knockback: [
+    SCALE,
+    OPACITY,
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    { key: 'warn_above', label: 'Warn over', control: 'slider', min: 0, max: 6, step: 0.1, format: 'plain' },
+  ],
   // Wave 10's sprint-reset readout. `warn_below` is a *share* rather than a percentage — the
   // name is `armor_status`', `SETTING_BOUNDS` is keyed by the bare name, and the chip prints a
   // percentage from it anyway. The unit a player reads is not the unit a threshold is stored in.
@@ -423,6 +432,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'clock',
   'reach',
   'sprint_reset',
+  'knockback',
   'potion_counter',
   'block_outline',
   'nametags',

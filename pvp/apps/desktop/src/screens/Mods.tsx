@@ -249,6 +249,9 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // A hit at the edge of vanilla's own three blocks, which is the widget's own fixture. Static,
   // for the reason that fixture is: a card whose figure moved would be the mod §6.1 forbids.
   reach: () => <Numeral value="3.14" unit="blocks" />,
+  // The same shape as `reach` and deliberately a different figure, so the two cards are told
+  // apart by their numbers rather than only by their labels.
+  knockback: () => <Numeral value="3.40" unit="blocks" />,
   // A percentage rather than the `ratio` style's pair: this grid already has one card whose
   // identity is a pair (`hit_trade`), and two would have to be told apart by their labels.
   sprint_reset: () => <Numeral value="85%" unit="sprint" />,

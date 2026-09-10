@@ -533,6 +533,18 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
   "sprint_reset.style": [
     "percent",
     "ratio"
+  ],
+  "knockback.background": [
+    "bare",
+    "subtle",
+    "solid"
+  ],
+  "knockback.padding": [
+    "none",
+    "tight",
+    "normal",
+    "roomy",
+    "wide"
   ]
 } as const;
 

@@ -5,6 +5,7 @@ import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.InventoryTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
+import dev.voidpvp.client.sensor.KnockbackTally;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ReachTally;
 import dev.voidpvp.client.sensor.ServerWatcher;
@@ -484,6 +485,72 @@ class SensorsTest {
         hits.swung(HitTally.Swing.ENTITY, true, true, false, false);
         assertEquals(1, hits.dealt());
         assertEquals(0, hits.taken(), "swinging is not being hit");
+    }
+
+    @Test
+    @DisplayName("a knockback measures displacement over a fixed window, from the hit")
+    void knockbackMeasuresTheWindow() {
+        KnockbackTally kb = new KnockbackTally();
+        assertEquals(KnockbackTally.NONE, kb.blocks(), "nothing has hit yet");
+
+        // The server moves us at tick 100, from the origin, and damage confirms it next tick.
+        kb.moved(0, 0, true, 100);
+        for (long t = 101; t < 110; t++) {
+            assertFalse(kb.tick(t - 100, 0, 9, t), "the window is not over at tick " + t);
+        }
+        // Ten ticks after the push, three blocks along x and four along z: five blocks.
+        assertTrue(kb.tick(3, 4, 5, 110), "the window closes exactly ten ticks after the push");
+        assertEquals(5.0, kb.blocks(), 0.001);
+    }
+
+    @Test
+    @DisplayName("a push with no damage behind it is not a knockback")
+    void aPushWithoutDamageIsNotAKnockback() {
+        // `setVelocityClient` is every server-sent velocity, not only hits — a fishing rod, a
+        // piston, a teleport correction. Reporting one as a knockback would put a figure on the
+        // HUD for something that never hit the player.
+        KnockbackTally kb = new KnockbackTally();
+        kb.moved(0, 0, false, 10);
+        for (long t = 11; t <= 25; t++) {
+            assertFalse(kb.tick(t, 0, 0, t), "no reading should complete without damage");
+        }
+        assertEquals(KnockbackTally.NONE, kb.blocks());
+    }
+
+    @Test
+    @DisplayName("the damage may arrive a tick after the push, because nothing orders them")
+    void damageMayLandAfterTheVelocity() {
+        // Two packets, no ordering guarantee. A one-tick confirmation window would drop the
+        // reading whenever they arrived the other way round — a figure that vanishes for no
+        // reason the player can see.
+        KnockbackTally kb = new KnockbackTally();
+        kb.moved(0, 0, true, 50);
+        kb.tick(0, 0, 0, 51);
+        kb.tick(1, 0, 10, 52);
+        for (long t = 53; t < 60; t++) {
+            kb.tick(t - 50, 0, 5, t);
+        }
+        assertTrue(kb.tick(10, 0, 1, 60));
+        assertEquals(10.0, kb.blocks(), 0.001);
+    }
+
+    @Test
+    @DisplayName("a second hit inside the window restarts it rather than extending the figure")
+    void aSecondHitRestartsTheWindow() {
+        // A combo lands hits a few ticks apart. A window that kept measuring the first would
+        // report the pair as one enormous knockback — the figure would grow with the combo
+        // rather than describe a hit.
+        KnockbackTally kb = new KnockbackTally();
+        kb.moved(0, 0, true, 0);
+        kb.tick(1, 0, 9, 1);
+        kb.tick(2, 0, 8, 2);
+        // Hit again at tick 4, from two blocks along. The reading must be measured from there.
+        kb.moved(2, 0, false, 4);
+        for (long t = 5; t < 14; t++) {
+            kb.tick(2 + (t - 4) * 0.3, 0, 9, t);
+        }
+        assertTrue(kb.tick(5, 0, 9, 14));
+        assertEquals(3.0, kb.blocks(), 0.001, "measured from the second hit, not the first");
     }
 
     @Test

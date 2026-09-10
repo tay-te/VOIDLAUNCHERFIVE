@@ -1,0 +1,41 @@
+{
+  "$comment": "Three notes, and the first is the one that decided the mod.\n\n**The roster asked for a timing trainer and the game would not support one.** `docs/mod-roster.md` §3.2 #6 and §5 describe Lunar's Knockback Trainer: did your jump land in the window, how far off were you, drifting over a session. Scoring that needs a model of what the right moment *is*, and the model did not survive reading 1.8.9's own knockback:\n\n```\nif (random.nextDouble() < knockbackResistance) return;\nfloat dist = sqrt(dx*dx + dz*dz);\nvelocityX /= 2;  velocityY /= 2;  velocityZ /= 2;\nvelocityX -= dx / dist * 0.4F;\nvelocityY += 0.4F;\nvelocityZ -= dz / dist * 0.4F;\nif (velocityY > 0.4) velocityY = 0.4;\n```\n\nThe horizontal result is `yourSpeed / 2 - impulse`, so the velocity you already had is genuinely half the answer — moving into a hit takes less of it. But there is **no jump term**: `velocityY` is assigned `+0.4` and clamped whatever you were doing. Whatever a jump reset does, it is not in that method, and everything else that could explain it is a claim about `Entity.move` this mod would be asserting rather than reading.\n\n**So it measures the outcome.** A trainer that scores your timing against a rule the client has not established teaches its author's guess; one that tells you how far each hit moved you is telling you a fact, and the player learns the mechanic from the number. It is also the only version that cannot become wrong when somebody's understanding of 1.8 knockback changes. This is what §5 meant by going past Lunar rather than matching it — not a bigger settings page, a truer reading.\n\n**It shares `move` with Momentum, on this registry's own terms.** `build-icons.py` forbids two glyphs with one silhouette; sharing an existing mark is a different thing and this sheet does it four times, every one a pair of mods reading one subject — `compass` is Coordinates and Direction, `wifi` is Ping and Server address, `sword` is Combo, Trade and Reach, `bolt` is Toggle sprint and Sprint reset. Movement is one subject too: Momentum is how fast you are going under your own power, this is how far somebody else sent you.\n\n**No `window_ticks` setting.** The window is ten ticks and it is not a preference: a fixed window is what makes two hits comparable, and a player who shortened it would get smaller numbers for the same knockback and no way to know why. `bridge.json`'s `knockback` field owns the figure and states the window; a setting here would be a second opinion about a measurement.",
+  "id": "knockback",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Knockback meter",
+  "icon": "move",
+  "the": true,
+  "noun": "the knockback chip",
+  "on_description": "the knockback meter is enabled",
+  "description": "How far the last hit sent you — the half-second after it landed, in blocks.",
+  "settings_title": "Knockback settings",
+  "settings_description": "Settings for the Knockback meter HUD mod. It reads `knockback` on the tick payload — how far the last hit moved you, in blocks, over the ten ticks after the server pushed you.\n\n**Why a distance and not a timing score.** 1.8.9's knockback halves your existing velocity, subtracts a fixed impulse along the attacker's axis and assigns your vertical velocity a constant — with no jump term in it. A trainer that graded your jump timing would be grading it against a rule this client has not established. This reports what actually happened to you, which you can act on without anybody's theory in between.\n\nThe useful reading is the *comparison*: the same fight, two hits, one that moved you four blocks and one that moved you two. What made the difference is yours to find, and the figure is what makes it findable.\n\nIt draws nothing until something has hit you. Zero is a hit that did not move you — worth seeing — and no reading at all is a session in which nothing has connected.",
+  "source": "the `knockback` field, measured over a fixed window by the tick sensor",
+  "enabled": false,
+  "default_placement": {
+    "note": "Under Sprint reset, closing the top-left fight stack, 38 px below it on the same column rhythm. It is the one reading in that stack about what was done *to* you rather than by you, so it sits at the bottom where the eye stops rather than in the middle of the run of your own figures.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 369
+  },
+  "defaults": {
+    "show_label": true,
+    "warn_above": 0
+  },
+  "settings": {
+    "show_label": {
+      "description": "Whether the trailing `blocks` unit is drawn. On by default: a bare `3.40` on a HUD that may also be carrying a reach figure — the other distance in blocks on that stack — is a number you have to work out, and these two are read together.",
+      "type": "boolean",
+      "default": true
+    },
+    "warn_above": {
+      "description": "A knockback at or above this many blocks draws in the warn treatment. `0` is off and is the default.\n\nOff by default because what counts as a bad one depends entirely on the fight: a clean hit in open air moves you further than a good one against a wall, and a client that shipped a line would be claiming to know which you were in. A player who has watched their own figures for an evening knows their number, and this is where they put it.\n\n**The ceiling is 6 because `reach` already owns this name at 0-6, and they mean the same thing.** `SETTING_BOUNDS` refuses two ranges for one bare setting name, which caught this — and the right answer was the schema's rather than a rename, because both really are \"a distance in blocks past which to warn\". The range also covers the quantity: 1.8.9's impulse is 0.4 blocks per tick and horizontal drag takes it under a tenth of that inside the window, so an ordinary hit lands near 3 and a very large one near 6.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 6,
+      "default": 0
+    }
+  }
+}

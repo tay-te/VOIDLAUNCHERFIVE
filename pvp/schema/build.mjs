@@ -115,6 +115,11 @@ const ORDER = [
   // (`HitTally.sprintDealt`, and `bridge.json`'s `hits.sprint_dealt`, both cite the offsets).
   // Appended, never inserted.
   'sprint_reset',
+  // Wave 10, second: §3.2 #6 and §5's knockback trainer, built as a *meter* rather than a
+  // scorer. The timing model the row describes is not in 1.8.9's knockback method — there is no
+  // jump term in it — so the mod reports how far each hit moved you and lets the figure teach
+  // the mechanic. `schema/mods/knockback.json` quotes the method. Appended, never inserted.
+  'knockback',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

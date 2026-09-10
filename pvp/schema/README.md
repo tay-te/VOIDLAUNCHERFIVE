@@ -152,7 +152,61 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
-### 2026-09-09 (latest) — `hits.sprint_dealt`, and a bit that expires inside the method that earns it
+### 2026-09-10 (latest) — `tick_payload.knockback`, and a field that refused to be a score
+
+`mods.json` registry `version` bumped; `protocol.json` `v` unchanged — a `bridge.json` addition,
+so it crosses Java to the page and never reaches Rust.
+
+**One optional number, and the argument is entirely about what it is a number *of*.**
+`docs/mod-roster.md` §3.2 #6 and §5 both describe Lunar's Knockback Trainer: jump-timing
+feedback, a distance-from-ground graph, average timing error in ticks. Building that means
+scoring the player against a model of the correct moment — and the model did not survive reading
+1.8.9's own knockback method:
+
+```
+if (random.nextDouble() < knockbackResistance) return;
+float dist = sqrt(dx*dx + dz*dz);
+velocityX /= 2;  velocityY /= 2;  velocityZ /= 2;
+velocityX -= dx / dist * 0.4F;
+velocityY += 0.4F;
+velocityZ -= dz / dist * 0.4F;
+if (velocityY > 0.4) velocityY = 0.4;
+```
+
+The horizontal result is `yourSpeed / 2 - impulse`, so the velocity you already had is genuinely
+half the answer. But **there is no jump term**: `velocityY` is assigned `+0.4` and clamped
+whatever you were doing. Whatever a jump reset does, it is not in that method, and everything
+else that might explain it is a claim about `Entity.move` that a trainer would be asserting
+rather than reading.
+
+So the field carries the **outcome**: how far the hit moved you, over a fixed window. A player
+learns the mechanic from the figure rather than from us, and the number cannot become wrong when
+somebody's understanding of 1.8 knockback changes. That is the difference between going past a
+competitor and matching them with a bigger settings page.
+
+**The window is ten ticks and it is fixed, and both halves matter.** Distance-to-rest would
+depend on a threshold on a velocity that decays asymptotically, so the figure would describe the
+threshold rather than the hit — and a fixed window is what makes two hits *comparable*, which is
+the entire value of a trainer. A hit that ends against a wall and one that ends in open air are
+the same knockback and different distances-to-rest.
+
+**Only a push that came with damage.** `Entity.setVelocityClient` is every server-sent velocity —
+a fishing rod, a piston, a teleport correction — and it is the one place they all land, so the
+sensor cannot tell them apart at that instant. `hurtTime` on the following ticks is the
+confirmation, and the sender must allow it up to two ticks because the velocity and the damage
+are two packets with nothing ordering them. A one-tick window drops the reading whenever they
+arrive the other way round, which is a figure that vanishes for no reason the player can see.
+
+**A second hit inside an open window restarts it.** A combo lands hits a few ticks apart, and a
+window that kept measuring the first would report the pair as one enormous knockback — a figure
+that grows with the combo rather than describing a hit.
+
+**Followers:** `KnockbackTally` (the window, the confirmation and the restart, with four tests),
+`EntityMixin.void$onServerVelocity`, `TickInput`, `TickCoalescer`, `@void/protocol`'s generated
+types and `fake-void`, the store's `knockback`, and the one mod. Nothing in `crates/` reads
+`bridge.json`.
+
+### 2026-09-09 — `hits.sprint_dealt`, and a bit that expires inside the method that earns it
 
 `mods.json` registry `version` bumped; `protocol.json` `v` unchanged — a `bridge.json` addition,
 so it crosses Java to the page and never reaches Rust.

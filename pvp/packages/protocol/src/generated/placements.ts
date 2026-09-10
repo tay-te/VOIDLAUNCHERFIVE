@@ -138,4 +138,11 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * rather than during one.
    */
   sprint_reset: { anchor: 'top-left', dx: 23, dy: 331 },
+  /**
+   * Under Sprint reset, closing the top-left fight stack, 38 px below it on the same column
+   * rhythm. It is the one reading in that stack about what was done *to* you rather than by
+   * you, so it sits at the bottom where the eye stops rather than in the middle of the run of
+   * your own figures.
+   */
+  knockback: { anchor: 'top-left', dx: 23, dy: 369 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 38 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 39 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -119,11 +119,13 @@ pub enum ModId {
     /// How many of your recent hits landed with a sprint behind them — whether the W-tap is
     /// working.
     SprintReset,
+    /// How far the last hit sent you — the half-second after it landed, in blocks.
+    Knockback,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 38] = [
+    pub const ALL: [ModId; 39] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -162,6 +164,7 @@ impl ModId {
         ModId::BlockOutline,
         ModId::Nametags,
         ModId::SprintReset,
+        ModId::Knockback,
     ];
 
     /// The snake_case id used as a `loadout.mods` key and in `mods.<id>.<key>` paths.
@@ -205,11 +208,12 @@ impl ModId {
             ModId::BlockOutline => "block_outline",
             ModId::Nametags => "nametags",
             ModId::SprintReset => "sprint_reset",
+            ModId::Knockback => "knockback",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 22 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 23 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -263,11 +267,13 @@ pub enum HudModId {
     /// How many of your recent hits landed with a sprint behind them — whether the W-tap is
     /// working.
     SprintReset,
+    /// How far the last hit sent you — the half-second after it landed, in blocks.
+    Knockback,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 22] = [
+    pub const ALL: [HudModId; 23] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -290,6 +296,7 @@ impl HudModId {
         HudModId::Reach,
         HudModId::PotionCounter,
         HudModId::SprintReset,
+        HudModId::Knockback,
     ];
 
     /// Widens to the full mod id enum.
@@ -317,6 +324,7 @@ impl HudModId {
             HudModId::Reach => ModId::Reach,
             HudModId::PotionCounter => ModId::PotionCounter,
             HudModId::SprintReset => ModId::SprintReset,
+            HudModId::Knockback => ModId::Knockback,
         }
     }
 
@@ -498,6 +506,7 @@ impl Registry {
             HudModId::Reach => self.mods.reach.default_placement,
             HudModId::PotionCounter => self.mods.potion_counter.default_placement,
             HudModId::SprintReset => self.mods.sprint_reset.default_placement,
+            HudModId::Knockback => self.mods.knockback.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -4198,11 +4207,116 @@ pub struct SprintResetSettings {
     pub warn_below: Option<f64>,
 }
 
+/// Knockback settings.
+///
+/// Settings for the Knockback meter HUD mod. It reads `knockback` on the tick payload — how far
+/// the last hit moved you, in blocks, over the ten ticks after the server pushed you. **Why a
+/// distance and not a timing score.** 1.8.9's knockback halves your existing velocity,
+/// subtracts a fixed impulse along the attacker's axis and assigns your vertical velocity a
+/// constant — with no jump term in it. A trainer that graded your jump timing would be grading
+/// it against a rule this client has not established. This reports what actually happened to
+/// you, which you can act on without anybody's theory in between. The useful reading is the
+/// *comparison*: the same fight, two hits, one that moved you four blocks and one that moved
+/// you two. What made the difference is yours to find, and the figure is what makes it
+/// findable. It draws nothing until something has hit you. Zero is a hit that did not move you
+/// — worth seeing — and no reading at all is a session in which nothing has connected.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnockbackSettings {
+    /// Whether the knockback meter is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the knockback chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the knockback chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the knockback chip, as a step on the system's own scale rather than
+    /// a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over
+    /// a busy texture — and it is the default because it is what every HUD readout has always
+    /// been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla
+    /// treatment and is legible over sky and unreadable over snow, so it is a choice rather
+    /// than a default. `solid` is the opaque card ground, for a player who wants the HUD to
+    /// read as a panel. A step rather than a hex value because a per-mod background colour is
+    /// what §1 names as the far side of the line. **The step sets the widget's own ground; it
+    /// does not paint a second one behind it.** This was `background` on the *slot*, and every
+    /// widget already had a ground of its own underneath — so all three steps composited over
+    /// `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where
+    /// the slot's padding stuck out past the chip's corner. Once density moved onto the widget
+    /// the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg`
+    /// and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list
+    /// panels actually paint from. **`none` was renamed to `bare`, and the rename is the
+    /// migration.** The old value was the default *and* it drew a ground, so it never meant
+    /// what it said and no player can have chosen it deliberately: there was no way to get a
+    /// bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the
+    /// default", and the honest remap is to `subtle`, which is exactly what those players have
+    /// been looking at. Renaming rather than redefining is what makes that remap safe to run
+    /// once and never again — a stored `none` can only have been written before this, where a
+    /// redefined `none` would be indistinguishable from a player who has since chosen it.
+    /// `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's
+    /// `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which
+    /// is the same answer arrived at for free.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the knockback chip, at the system's own
+    /// `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as
+    /// `background`: the edge either separates the chip from the game or it does not, and the
+    /// one useful answer is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the knockback chip — the inset between its content and its edge, as one of
+    /// five steps. `density` is named in §1 as legitimate customisation, and it is what a
+    /// player actually means by 'make the HUD smaller' when `scale` has already made the text
+    /// too small to read. **This step drives the widget's own inset, not a box around it.** For
+    /// one release it set padding on the *slot* — the box `HudSlot` puts round the widget —
+    /// while the widget kept its own hard-coded padding underneath. With the default
+    /// `background: none` that outer box is transparent, so the setting moved an invisible edge
+    /// and the drawn chip never changed size. It passed `preview.test.tsx` because the class
+    /// name on the slot changed, which is exactly the erosion that file's own doc comment warns
+    /// the exemption list about: a gate that compares markup cannot tell a class that draws
+    /// from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel`
+    /// and `--gap-hud-keys`, the three variables every HUD surface actually reads its density
+    /// from, so the chip, the two list panels and the keycap cluster all move together and all
+    /// move at every background step. Five steps rather than three because three could not say
+    /// what players asked for at either end. `none` is the setting off — glyphs on the game
+    /// with nothing round them — which is what a player who has already turned the ground off
+    /// is after; `wide` is the panel treatment, for a HUD read at a glance across a room.
+    /// `tight`, `normal` and `roomy` keep the values they had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Whether the trailing `blocks` unit is drawn. On by default: a bare `3.40` on a HUD that
+    /// may also be carrying a reach figure — the other distance in blocks on that stack — is a
+    /// number you have to work out, and these two are read together.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+
+    /// A knockback at or above this many blocks draws in the warn treatment. `0` is off and is
+    /// the default. Off by default because what counts as a bad one depends entirely on the
+    /// fight: a clean hit in open air moves you further than a good one against a wall, and a
+    /// client that shipped a line would be claiming to know which you were in. A player who has
+    /// watched their own figures for an evening knows their number, and this is where they put
+    /// it. **The ceiling is 6 because `reach` already owns this name at 0-6, and they mean the
+    /// same thing.** `SETTING_BOUNDS` refuses two ranges for one bare setting name, which
+    /// caught this — and the right answer was the schema's rather than a rename, because both
+    /// really are "a distance in blocks past which to warn". The range also covers the
+    /// quantity: 1.8.9's impulse is 0.4 blocks per tick and horizontal drag takes it under a
+    /// tenth of that inside the window, so an ordinary hit lands near 3 and a very large one
+    /// near 6.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warn_above: Option<f64>,
+}
+
 // ---------------------------------------------------------------------------
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 38.
+/// Every mod VOID ships, keyed by id. Closed set of 39.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -4336,6 +4450,10 @@ pub struct ModRegistryEntries {
     /// Sprint reset — How many of your recent hits landed with a sprint behind them — whether
     /// the W-tap is working.
     pub sprint_reset: ModEntry<SprintResetSettings>,
+
+    /// Knockback meter — How far the last hit sent you — the half-second after it landed, in
+    /// blocks.
+    pub knockback: ModEntry<KnockbackSettings>,
 }
 
 /// Enabled state plus settings for each mod. Every key is optional: an omitted mod falls back
@@ -4423,6 +4541,8 @@ pub struct ModStates {
     pub nametags: Option<NametagsSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sprint_reset: Option<SprintResetSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knockback: Option<KnockbackSettings>,
 }
 
 impl Registry {
@@ -4467,6 +4587,7 @@ impl Registry {
             ModId::BlockOutline => self.mods.block_outline.info(),
             ModId::Nametags => self.mods.nametags.info(),
             ModId::SprintReset => self.mods.sprint_reset.info(),
+            ModId::Knockback => self.mods.knockback.info(),
         }
     }
 
@@ -4513,6 +4634,7 @@ impl Registry {
             ModId::BlockOutline => self.mods.block_outline.defaults_object(),
             ModId::Nametags => self.mods.nametags.defaults_object(),
             ModId::SprintReset => self.mods.sprint_reset.defaults_object(),
+            ModId::Knockback => self.mods.knockback.defaults_object(),
         }
     }
 }
@@ -4560,6 +4682,7 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::BlockOutline => super::check::<BlockOutlineSettings>(id, value),
         ModId::Nametags => super::check::<NametagsSettings>(id, value),
         ModId::SprintReset => super::check::<SprintResetSettings>(id, value),
+        ModId::Knockback => super::check::<KnockbackSettings>(id, value),
     }
 }
 

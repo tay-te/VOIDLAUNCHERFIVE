@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 38 mods.
+ * The closed registry of the 39 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -178,7 +178,7 @@ public final class ModRegistry {
     // =================================================================
 
     static {
-        // --- HUD mods (22) — they read game state and draw -------------------------------------
+        // --- HUD mods (23) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -589,7 +589,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (22) — they read game state and draw -------------------------------------
+        // --- HUD mods (23) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -1215,7 +1215,7 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- HUD mods (22) — they read game state and draw -------------------------------------
+        // --- HUD mods (23) — they read game state and draw -------------------------------------
 
         // Trade counter — kind hud, pvp tab, §11 safe.
         // Hits you have landed against hits you have taken, this session.
@@ -1348,7 +1348,7 @@ public final class ModRegistry {
                 // every pixel here is vanilla's.
                 "offset_y", integer(-200, 200, 0));
 
-        // --- HUD mods (22) — they read game state and draw -------------------------------------
+        // --- HUD mods (23) — they read game state and draw -------------------------------------
 
         // Reach display — kind hud, pvp tab, §11 grey.
         // How far away your last landed hit was — the swing that connected, never the one you are
@@ -1494,7 +1494,7 @@ public final class ModRegistry {
                 // of what distance means.
                 "max_distance", number(4, 64, 64));
 
-        // --- HUD mods (22) — they read game state and draw -------------------------------------
+        // --- HUD mods (23) — they read game state and draw -------------------------------------
 
         // Sprint reset — kind hud, pvp tab, §11 safe.
         // How many of your recent hits landed with a sprint behind them — whether the W-tap is
@@ -1549,7 +1549,39 @@ public final class ModRegistry {
                 // only version of this threshold that is theirs rather than ours.
                 "warn_below", number(0, 1, 0));
 
-        // --- The factory HUD layout (22) — where each widget starts ----------------------------
+        // Knockback meter — kind hud, pvp tab, §11 safe.
+        // How far the last hit sent you — the half-second after it landed, in blocks.
+        // Source: the `knockback` field, measured over a fixed window by the tick sensor.
+        mod("knockback", Kind.HUD, Category.PVP, "Knockback meter",
+                // Whether the knockback meter is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("subtle", "bare", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "none", "tight", "normal", "roomy", "wide"),
+                // Whether the trailing `blocks` unit is drawn. On by default: a bare `3.40` on a
+                // HUD that may also be carrying a reach figure — the other distance in blocks on
+                // that stack — is a number you have to work out, and these two are read together.
+                "show_label", bool(true),
+                // A knockback at or above this many blocks draws in the warn treatment. `0` is
+                // off and is the default. Off by default because what counts as a bad one depends
+                // entirely on the fight: a clean hit in open air moves you further than a good
+                // one against a wall, and a client that shipped a line would be claiming to know
+                // which you were in. A player who has watched their own figures for an evening
+                // knows their number, and this is where they put it. **The ceiling is 6 because
+                // `reach` already owns this name at 0-6, and they mean the same thing.**
+                // `SETTING_BOUNDS` refuses two ranges for one bare setting name, which caught
+                // this — and the right answer was the schema's rather than a rename, because both
+                // really are "a distance in blocks past which to warn". The range also covers the
+                // quantity: 1.8.9's impulse is 0.4 blocks per tick and horizontal drag takes it
+                // under a tenth of that inside the window, so an ordinary hit lands near 3 and a
+                // very large one near 6.
+                "warn_above", number(0, 6, 0));
+
+        // --- The factory HUD layout (23) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1669,13 +1701,19 @@ public final class ModRegistry {
         // is the one reading that needs several hits before it means anything, so it is the one a
         // player checks between fights rather than during one.
         place("sprint_reset", "top-left", 23, 331);
+
+        // Knockback meter: Under Sprint reset, closing the top-left fight stack, 38 px below it
+        // on the same column rhythm. It is the one reading in that stack about what was done *to*
+        // you rather than by you, so it sits at the bottom where the eye stops rather than in the
+        // middle of the run of your own figures.
+        place("knockback", "top-left", 23, 369);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 38 mod ids, in registry order. */
+    /** The 39 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

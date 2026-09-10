@@ -51,6 +51,7 @@ export const MOD_IDS = [
   'block_outline',
   'nametags',
   'sprint_reset',
+  'knockback',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -77,6 +78,7 @@ export const HUD_MOD_IDS = [
   'reach',
   'potion_counter',
   'sprint_reset',
+  'knockback',
 ] as const satisfies readonly HUDModId[];
 
 /** The mods an actuator Mixin reads every frame, in registry order. */

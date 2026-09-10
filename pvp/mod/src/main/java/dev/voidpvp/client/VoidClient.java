@@ -18,6 +18,7 @@ import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
 import dev.voidpvp.client.sensor.InventoryTally;
 import dev.voidpvp.client.sensor.KeyStateTracker;
+import dev.voidpvp.client.sensor.KnockbackTally;
 import dev.voidpvp.client.sensor.PotionFx;
 import dev.voidpvp.client.sensor.ReachTally;
 import dev.voidpvp.client.sensor.ServerWatcher;
@@ -30,6 +31,7 @@ import dev.voidpvp.client.ui.UiHost;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.entity.Entity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.Session;
 import net.minecraft.client.util.Window;
@@ -107,6 +109,15 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * indicator ({@code docs/mod-roster.md} §6.1) and is where that rule is tested.</p>
      */
     private final ReachTally reach = new ReachTally();
+    private final KnockbackTally knockback = new KnockbackTally();
+    /**
+     * A monotonic client tick, for the knockback window.
+     *
+     * <p>Its own counter rather than {@code MinecraftClient.ticks} or a wall clock: the window is
+     * counted in ticks because knockback decays per tick, and a millisecond window would measure
+     * a different amount of physics at 20 TPS than at a stuttering 12.</p>
+     */
+    private long clientTicks;
 
     /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
     private int lastAttackCooldownSeen;
@@ -662,6 +673,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (mc == null || mc.options == null) {
             return;
         }
+        // Before the early returns below it, so the knockback window counts real ticks even
+        // through a frame the rest of this method bails out of.
+        clientTicks++;
         // The second drain point. onRenderOverlay is the fast one but it only runs while
         // InGameHud renders, i.e. with a world loaded; this is the beat that still runs at the
         // title screen, so nothing the page posted can sit in the queue indefinitely.
@@ -1548,6 +1562,13 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             // counters, so both halves of `bridge.json`'s `hits` object are decided in one
             // plain class that `SensorsTest` can drive.
             hits.sawHurtTime(player.hurtTime);
+            // The knockback window, driven from the same place and by the same figure: the
+            // sensor needs `hurtTime` to tell a hit from a fishing rod, and this is where the
+            // client reads it once per tick.
+            if (knockback.tick(player.x, player.z, player.hurtTime, clientTicks)) {
+                double moved = knockback.blocks();
+                tickIn.knockback = moved == KnockbackTally.NONE ? null : Double.valueOf(moved);
+            }
             tickIn.hitsDealt = Integer.valueOf(hits.dealt());
             tickIn.hitsTaken = Integer.valueOf(hits.taken());
             tickIn.hitsSprintDealt = Integer.valueOf(hits.sprintDealt());
@@ -1662,6 +1683,21 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (keys.update(keyCode, pressed)) {
             bridge.emit(VoidBridge.EVENT_KEYS, keys.payload());
         }
+    }
+
+    /**
+     * {@code Entity.setVelocityClient}: the server moved an entity.
+     *
+     * <p>Filtered to the client player here rather than in the Mixin, because "which entity is
+     * ours" is a question about {@code MinecraftClient} and the Mixin is on {@code Entity} — it
+     * fires for every entity in the world, most of them somebody else's knockback.</p>
+     */
+    public void onServerVelocity(Entity entity) {
+        MinecraftClient mc = minecraft();
+        if (mc == null || mc.player == null || entity != mc.player) {
+            return;
+        }
+        knockback.moved(mc.player.x, mc.player.z, mc.player.onGround, clientTicks);
     }
 
     /** {@code KeyBinding.releaseAllKeys}: everything comes up at once. */

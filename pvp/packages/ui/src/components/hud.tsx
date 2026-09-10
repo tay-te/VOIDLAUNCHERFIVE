@@ -783,6 +783,14 @@ export interface ReachChipProps extends HudChipProps {
  * The warn treatment is {@link ItemCounterChip}'s, and marks a *value* rather than a preference
  * (`design/quiet-cell-system.md` §1): 1.8 gives about three blocks of reach, and a figure well
  * past that says the connection is behind rather than that the player is good.
+ *
+ * ## Two mods draw this, and that is reuse rather than a coincidence
+ *
+ * Knockback meter uses it too. Both are one distance in blocks with an optional threshold past
+ * which the figure warns, and they even share the unit — so a `KnockbackChip` would have been
+ * this file copied with a different export name, which is the kind of bloat that looks like
+ * thoroughness. What differs between the two mods is *what the number means* and *when it
+ * moves*, and both of those live in the sensors that produce them.
  */
 export function ReachChip({
   blocks,

@@ -75,6 +75,8 @@ public final class TickCoalescer {
     private int lastHitsDealt = Integer.MIN_VALUE;
     /** The last reach reported, or null before one was. */
     private Double lastReach;
+    /** The last knockback distance reported, or null before one was. */
+    private Double lastKnockback;
     /** The last inventory reported, or null before one was. */
     private InventoryTally lastInventory;
     /** The last held item reported, or null before one was. */
@@ -266,6 +268,17 @@ public final class TickCoalescer {
             o.add("reach", Json.number(in.reach.doubleValue()));
         }
 
+        // The knockback reading, on the same terms and for the same reason — it moves only when
+        // a window completes, so a value check is exact and a rate limit could only drop one.
+        //
+        // Two hits that moved you the same distance publish once, which is right here and would
+        // be wrong on a counter: this field is a *figure*, not a tally, and a chip showing 3.20
+        // after a hit that moved you 3.20 is showing the truth whether or not it repainted.
+        if (in.knockback != null && !in.knockback.equals(lastKnockback)) {
+            lastKnockback = in.knockback;
+            o.add("knockback", Json.number(in.knockback.doubleValue()));
+        }
+
         // What is held, value-checked: it changes on a scroll and on nothing else, so a rate
         // limit would only ever delay it.
         if (in.heldItem != null && !in.heldItem.equals(lastHeldItem)) {
@@ -305,6 +318,7 @@ public final class TickCoalescer {
         lastHitsTaken = Integer.MIN_VALUE;
         lastHitsSprintDealt = Integer.MIN_VALUE;
         lastReach = null;
+        lastKnockback = null;
         lastInventory = null;
         lastHeldItem = null;
         lastArmor = null;

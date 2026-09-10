@@ -861,6 +861,31 @@ export const MOD_REGISTRY_DOCUMENT = {
         "dx": 23,
         "dy": 331
       }
+    },
+    "knockback": {
+      "id": "knockback",
+      "kind": "hud",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Knockback meter",
+      "icon": "move",
+      "description": "How far the last hit sent you — the half-second after it landed, in blocks.",
+      "source": "the `knockback` field, measured over a fixed window by the tick sensor",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "subtle",
+        "border": false,
+        "padding": "normal",
+        "show_label": true,
+        "warn_above": 0
+      },
+      "default_placement": {
+        "anchor": "top-left",
+        "dx": 23,
+        "dy": 369
+      }
     }
   }
 } as const satisfies ModRegistryDocument;

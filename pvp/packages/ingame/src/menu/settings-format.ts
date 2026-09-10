@@ -261,6 +261,9 @@ export const SETTING_HINTS: Record<string, string> = {
   'reach.show_label': 'The blocks unit after the figure',
   'reach.warn_above': 'Where the figure turns amber',
 
+  'knockback.show_label': 'The blocks unit after the figure',
+  'knockback.warn_above': 'Where the figure turns amber',
+
   'sprint_reset.window': 'How many recent hits it averages',
   'sprint_reset.style': 'The percentage, or the pair behind it',
   'sprint_reset.show_bar': 'The rate as a level under the figure',

@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 38 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 39 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -85,7 +85,8 @@ export type ModId =
   | 'potion_counter'
   | 'block_outline'
   | 'nametags'
-  | 'sprint_reset';
+  | 'sprint_reset'
+  | 'knockback';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -1114,11 +1115,38 @@ export type SprintResetEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
+ * Registry entry for the Knockback meter, narrowed to its constant classification.
+ */
+export type KnockbackMeterEntry = RegistryEntry & {
+  /**
+   * Always `knockback`.
+   */
+  id?: 'knockback';
+  /**
+   * Always `move`.
+   */
+  icon?: 'move';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: KnockbackSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 22 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 23 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -1142,7 +1170,8 @@ export type HUDModId =
   | 'cps_graph'
   | 'reach'
   | 'potion_counter'
-  | 'sprint_reset';
+  | 'sprint_reset'
+  | 'knockback';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -1157,9 +1186,9 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 22, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 23, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 22
+ * @maxItems 23
  */
 export type HUDLayout = HUDItem[];
 /**
@@ -1374,7 +1403,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 38 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 39 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1415,6 +1444,7 @@ export interface Mods {
   block_outline: BlockOutlineEntry;
   nametags: NametagsEntry;
   sprint_reset: SprintResetEntry;
+  knockback: KnockbackMeterEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -2748,6 +2778,52 @@ export interface SprintResetSettings {
   warn_below?: number;
 }
 /**
+ * Settings for the Knockback meter HUD mod. It reads `knockback` on the tick payload — how far the last hit moved you, in blocks, over the ten ticks after the server pushed you.
+ *
+ * **Why a distance and not a timing score.** 1.8.9's knockback halves your existing velocity, subtracts a fixed impulse along the attacker's axis and assigns your vertical velocity a constant — with no jump term in it. A trainer that graded your jump timing would be grading it against a rule this client has not established. This reports what actually happened to you, which you can act on without anybody's theory in between.
+ *
+ * The useful reading is the *comparison*: the same fight, two hits, one that moved you four blocks and one that moved you two. What made the difference is yours to find, and the figure is what makes it findable.
+ *
+ * It draws nothing until something has hit you. Zero is a hit that did not move you — worth seeing — and no reading at all is a session in which nothing has connected.
+ */
+export interface KnockbackSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the knockback chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   *
+   * **The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.
+   *
+   * **`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning "I took the default", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.
+   */
+  background?: 'bare' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the knockback chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the knockback chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   *
+   * **This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.
+   *
+   * Five steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.
+   */
+  padding?: 'none' | 'tight' | 'normal' | 'roomy' | 'wide';
+  /**
+   * Whether the trailing `blocks` unit is drawn. On by default: a bare `3.40` on a HUD that may also be carrying a reach figure — the other distance in blocks on that stack — is a number you have to work out, and these two are read together.
+   */
+  show_label?: boolean;
+  /**
+   * A knockback at or above this many blocks draws in the warn treatment. `0` is off and is the default.
+   *
+   * Off by default because what counts as a bad one depends entirely on the fight: a clean hit in open air moves you further than a good one against a wall, and a client that shipped a line would be claiming to know which you were in. A player who has watched their own figures for an evening knows their number, and this is where they put it.
+   *
+   * **The ceiling is 6 because `reach` already owns this name at 0-6, and they mean the same thing.** `SETTING_BOUNDS` refuses two ranges for one bare setting name, which caught this — and the right answer was the schema's rather than a rename, because both really are "a distance in blocks past which to warn". The range also covers the quantity: 1.8.9's impulse is 0.4 blocks per tick and horizontal drag takes it under a tenth of that inside the window, so an ordinary hit lands near 3 and a very large one near 6.
+   */
+  warn_above?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -2773,7 +2849,7 @@ export interface Loadout {
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 38 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 39 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2814,6 +2890,7 @@ export interface ModStates {
   block_outline?: BlockOutlineSettings;
   nametags?: NametagSettings;
   sprint_reset?: SprintResetSettings;
+  knockback?: KnockbackSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -3156,6 +3233,20 @@ export interface TickPayload {
      */
     sprint_dealt?: number;
   };
+  /**
+   * How far the last hit moved you, in blocks, measured over the ten ticks after the server pushed you. Absent until one has landed.
+   *
+   * **It is a measurement, not a score, and that is the contract.** `docs/mod-roster.md` §3.2 #6 and §5 describe a jump-timing trainer — did the jump land in the window, how far off was it. Scoring that needs a model of the right moment, and the model did not survive reading the game: 1.8.9's `LivingEntity` knockback halves your existing velocity, subtracts a fixed 0.4 impulse along the attacker's axis, and assigns `velocityY = 0.4` clamped — with **no jump term at all**. Whatever a jump reset does, it is not in that method, and a trainer that scored timing against a rule the client has not established would be teaching its author's guess.
+   *
+   * So the sender reports the outcome. A player learns the mechanic from the figure rather than from us, and the field cannot become wrong when somebody's understanding of 1.8 knockback changes.
+   *
+   * **A fixed ten-tick window, not distance-to-rest.** "At rest" is a threshold on a velocity that decays asymptotically, so the figure would depend on the threshold rather than on the hit — and a fixed window is what makes two hits comparable, which is the whole point. A hit that ends against a wall and one that ends in open air are the same knockback and different distances-to-rest.
+   *
+   * **Only a push that came with damage.** `Entity.setVelocityClient` is every server-sent velocity — a fishing rod, a piston, a teleport correction — and `hurtTime` on the ticks that follow is what separates a hit from the rest. The sender must allow the damage to arrive up to two ticks after the velocity, because they are two packets and nothing orders them.
+   *
+   * **A second hit inside an open window restarts it.** A combo lands hits a few ticks apart, and a window that kept measuring the first would report the pair as one enormous knockback — a figure that grows with the combo rather than describing a hit.
+   */
+  knockback?: number;
   /**
    * Distance in blocks of the last attack that landed, eye to the point on the target's hitbox the ray struck. Absent until one has landed — a reach of 0 is not a point-blank swing, it is a session in which nothing has been hit, and the widget draws nothing rather than a figure nobody earned.
    *

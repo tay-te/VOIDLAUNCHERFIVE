@@ -74,6 +74,7 @@ const LIVE: readonly ModId[] = [
   'nametags',
   'reach',
   'sprint_reset',
+  'knockback',
   'potion_counter',
   'saturation',
   'momentum',

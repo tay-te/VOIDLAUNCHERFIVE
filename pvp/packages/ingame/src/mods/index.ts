@@ -42,6 +42,7 @@ import hit_trade from './hit_trade';
 import nametags from './nametags';
 import potion_counter from './potion_counter';
 import reach from './reach';
+import knockback from './knockback';
 import sprint_reset from './sprint_reset';
 import scoreboard from './scoreboard';
 import item_counter from './item_counter';
@@ -104,6 +105,7 @@ const ART = {
   potion_counter,
   reach,
   sprint_reset,
+  knockback,
   scoreboard,
   item_counter,
   // Wave 4 — §7's "four that change how the client feels", plus the stopwatch the `modaction`

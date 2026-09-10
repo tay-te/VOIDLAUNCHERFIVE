@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 38 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 39 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -270,6 +270,10 @@
         "sprint_reset": {
           "description": "Sprint reset state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/sprint_reset_settings"
+        },
+        "knockback": {
+          "description": "Knockback meter state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/knockback_settings"
         }
       }
     },
@@ -332,9 +336,9 @@
     },
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 22, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 23, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 22,
+      "maxItems": 23,
       "items": {
         "description": "One HUD item placement.",
         "$ref": "#/definitions/hud_item"

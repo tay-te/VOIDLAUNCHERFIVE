@@ -56,6 +56,11 @@ export const MOD_ORDER: ModId[] = [
   // one apart would be the confusion the `sword` run above is arranged to avoid — so the
   // ordering here is not a nicety, it is what makes the shared mark legible.
   'sprint_reset',
+  // And after it, closing the fight block: the one reading in this run about what was done *to*
+  // you rather than by you. Deliberately not beside Reach display, which draws the same shape —
+  // two tiles reading `3.14 blocks` and `3.40 blocks` side by side would be told apart only by
+  // their labels, which is the confusion the `sword` run above is arranged to avoid.
+  'knockback',
   'toggle_sprint',
   // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
   'toggle_sneak',

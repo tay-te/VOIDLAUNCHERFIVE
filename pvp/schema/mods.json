@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 38 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 39 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -59,7 +59,8 @@
         "potion_counter",
         "block_outline",
         "nametags",
-        "sprint_reset"
+        "sprint_reset",
+        "knockback"
       ],
       "additionalProperties": false,
       "properties": {
@@ -214,6 +215,10 @@
         "sprint_reset": {
           "description": "Sprint reset registry entry.",
           "$ref": "#/definitions/sprint_reset_entry"
+        },
+        "knockback": {
+          "description": "Knockback meter registry entry.",
+          "$ref": "#/definitions/knockback_entry"
         }
       }
     }
@@ -221,7 +226,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 38 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 39 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -261,12 +266,13 @@
         "potion_counter",
         "block_outline",
         "nametags",
-        "sprint_reset"
+        "sprint_reset",
+        "knockback"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 22 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 23 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
       "enum": [
         "fps",
@@ -290,7 +296,8 @@
         "cps_graph",
         "reach",
         "potion_counter",
-        "sprint_reset"
+        "sprint_reset",
+        "knockback"
       ]
     },
     "gameplay_mod_id": {
@@ -2672,6 +2679,68 @@
         }
       }
     },
+    "knockback_settings": {
+      "title": "Knockback settings",
+      "description": "Settings for the Knockback meter HUD mod. It reads `knockback` on the tick payload — how far the last hit moved you, in blocks, over the ten ticks after the server pushed you.\n\n**Why a distance and not a timing score.** 1.8.9's knockback halves your existing velocity, subtracts a fixed impulse along the attacker's axis and assigns your vertical velocity a constant — with no jump term in it. A trainer that graded your jump timing would be grading it against a rule this client has not established. This reports what actually happened to you, which you can act on without anybody's theory in between.\n\nThe useful reading is the *comparison*: the same fight, two hits, one that moved you four blocks and one that moved you two. What made the difference is yours to find, and the figure is what makes it findable.\n\nIt draws nothing until something has hit you. Zero is a hit that did not move you — worth seeing — and no reading at all is a session in which nothing has connected.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the knockback meter is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the knockback chip.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the knockback chip.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the knockback chip, as a step on the system's own scale rather than a colour. `subtle` is the card ground at low alpha — enough to hold a chip together over a busy texture — and it is the default because it is what every HUD readout has always been drawn on. `bare` is nothing at all: glyphs on the game, which is the vanilla treatment and is legible over sky and unreadable over snow, so it is a choice rather than a default. `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.\n\n**The step sets the widget's own ground; it does not paint a second one behind it.** This was `background` on the *slot*, and every widget already had a ground of its own underneath — so all three steps composited over `rgba(10,11,12,0.55)` and the visible difference between them was a two-pixel halo where the slot's padding stuck out past the chip's corner. Once density moved onto the widget the halo went and the three steps became one drawing. They resolve to `--hud-chip-bg` and `--hud-chip-bg-strong` now, the variables the chip, the editor chip and both list panels actually paint from.\n\n**`none` was renamed to `bare`, and the rename is the migration.** The old value was the default *and* it drew a ground, so it never meant what it said and no player can have chosen it deliberately: there was no way to get a bare readout at all. Every loadout on disk therefore carries `none` meaning \"I took the default\", and the honest remap is to `subtle`, which is exactly what those players have been looking at. Renaming rather than redefining is what makes that remap safe to run once and never again — a stored `none` can only have been written before this, where a redefined `none` would be indistinguishable from a player who has since chosen it. `crates/void-loadout`'s `REMAPPED_VALUES` does the remap on read; Java's `ModRegistry.clamp` already rejects an unknown enum value and keeps the default, which is the same answer arrived at for free.",
+          "type": "string",
+          "enum": [
+            "bare",
+            "subtle",
+            "solid"
+          ],
+          "default": "subtle"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the knockback chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the knockback chip — the inset between its content and its edge, as one of five steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.\n\n**This step drives the widget's own inset, not a box around it.** For one release it set padding on the *slot* — the box `HudSlot` puts round the widget — while the widget kept its own hard-coded padding underneath. With the default `background: none` that outer box is transparent, so the setting moved an invisible edge and the drawn chip never changed size. It passed `preview.test.tsx` because the class name on the slot changed, which is exactly the erosion that file's own doc comment warns the exemption list about: a gate that compares markup cannot tell a class that draws from a class that does not. The steps now resolve to `--pad-hud-chip`, `--pad-hud-panel` and `--gap-hud-keys`, the three variables every HUD surface actually reads its density from, so the chip, the two list panels and the keycap cluster all move together and all move at every background step.\n\nFive steps rather than three because three could not say what players asked for at either end. `none` is the setting off — glyphs on the game with nothing round them — which is what a player who has already turned the ground off is after; `wide` is the panel treatment, for a HUD read at a glance across a room. `tight`, `normal` and `roomy` keep the values they had.",
+          "type": "string",
+          "enum": [
+            "none",
+            "tight",
+            "normal",
+            "roomy",
+            "wide"
+          ],
+          "default": "normal"
+        },
+        "show_label": {
+          "description": "Whether the trailing `blocks` unit is drawn. On by default: a bare `3.40` on a HUD that may also be carrying a reach figure — the other distance in blocks on that stack — is a number you have to work out, and these two are read together.",
+          "type": "boolean",
+          "default": true
+        },
+        "warn_above": {
+          "description": "A knockback at or above this many blocks draws in the warn treatment. `0` is off and is the default.\n\nOff by default because what counts as a bad one depends entirely on the fight: a clean hit in open air moves you further than a good one against a wall, and a client that shipped a line would be claiming to know which you were in. A player who has watched their own figures for an evening knows their number, and this is where they put it.\n\n**The ceiling is 6 because `reach` already owns this name at 0-6, and they mean the same thing.** `SETTING_BOUNDS` refuses two ranges for one bare setting name, which caught this — and the right answer was the schema's rather than a rename, because both really are \"a distance in blocks past which to warn\". The range also covers the quantity: 1.8.9's impulse is 0.4 blocks per tick and horizontal drag takes it under a tenth of that inside the window, so an ordinary hit lands near 3 and a very large one near 6.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 0
+        }
+      }
+    },
     "fps_entry": {
       "title": "FPS display entry",
       "description": "Registry entry for the FPS display, narrowed to its constant classification.",
@@ -4339,6 +4408,51 @@
           ]
         }
       ]
+    },
+    "knockback_entry": {
+      "title": "Knockback meter entry",
+      "description": "Registry entry for the Knockback meter, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `knockback`.",
+              "const": "knockback"
+            },
+            "icon": {
+              "description": "Always `move`.",
+              "const": "move"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Knockback meter settings.",
+              "$ref": "#/definitions/knockback_settings"
+            },
+            "default_placement": {
+              "$comment": "Under Sprint reset, closing the top-left fight stack, 38 px below it on the same column rhythm. It is the one reading in that stack about what was done *to* you rather than by you, so it sits at the bottom where the eye stops rather than in the middle of the run of your own figures.",
+              "description": "Where the Knockback meter starts on an untouched HUD. Required, because the Knockback meter is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
     }
   },
   "examples": [
@@ -5187,6 +5301,31 @@
             "anchor": "top-left",
             "dx": 23,
             "dy": 331
+          }
+        },
+        "knockback": {
+          "id": "knockback",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "safe",
+          "label": "Knockback meter",
+          "icon": "move",
+          "description": "How far the last hit sent you — the half-second after it landed, in blocks.",
+          "source": "the `knockback` field, measured over a fixed window by the tick sensor",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "subtle",
+            "border": false,
+            "padding": "normal",
+            "show_label": true,
+            "warn_above": 0
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 369
           }
         }
       }

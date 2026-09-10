@@ -121,7 +121,7 @@ completeness and should not be built.
 | 3 | **Toggle sneak, first-class** | Sneak as its own toggle with its own keybind, double-tap activation | ✓ | ✓ | ~ | S | **Promote it.** `toggle_sprint.sneak_too` is a boolean where competitors ship a separate mod with a separate bind. |
 | 4 | **Freelook / Perspective** | Look around without turning the player | ✓ | ✓ | ✗ | M | **Build.** Camera-only, allowed, universally used. Note it needs a camera-detach in `GameRendererMixin` territory, not a HUD widget. |
 | 5 | **Hit color** | Recolour the red damage flash on entities you hit | ✓ | ✓ | ✗ | M | Build. Entity-render tint; genuinely helps read whether a hit landed. |
-| 6 | **Knockback / jump-reset trainer** | Tells you whether your jump landed early, late or on the tick you were hit; graphs distance-from-ground against hits; session timing-error stats | ✓ (2026) | ✗ | ✗ | M | **Build**, and go further — §5. This is Lunar's newest PvP mod and the clearest signal of where the category is going. |
+| 6 | **Knockback / jump-reset trainer** | Tells you whether your jump landed early, late or on the tick you were hit; graphs distance-from-ground against hits; session timing-error stats | ✓ (2026) | ✗ | ✗ | M | **Shipped 2026-09-10 as a *meter*, not a trainer** — the timing model this row describes is not in 1.8.9's knockback method. It reports how far each hit moved you instead. See below; `schema/mods/knockback.json` quotes the method. |
 | 7 | **Damage tint** | Vignette when low on health, optional heartbeat audio | ✓ | ✗ | ✗ | S | Build. Cheap, and "I did not notice I was at 3 hearts" is a real way to lose. |
 | 8 | **Hurt cam control** | Disable or tune the hurt-camera shake and tilt | ✓ | ✗ | ✗ | S | Build. Trivially small, immediately felt. |
 | 9 | **Snaplook** | Hold a key for a third-person look, release to snap back | ✓ | ✗ | ✗ | S* | Build **after** freelook — it is the same camera machinery with a different input mode. |
@@ -705,7 +705,7 @@ carries the bytecode for all three.
 > a registry entry, and nothing in this build would have caught it.
 
 **Wave 10 — the differentiator.** ~~Sprint-reset feedback~~ · ~~Fight review~~ · ~~Loadout
-sharing~~. **Wave 10 is open**: connection quality is the last row standing; input latency is cut
+sharing~~ · ~~Knockback trainer, as a meter~~. **Wave 10 is open**: connection quality is the last row standing; input latency is cut
 and click analytics is halved. §5's status block carries the bytecode for all five.
 
 > **Shipped 2026-09-09, one mod, and the schema change is one optional integer.** `hits` has
@@ -788,6 +788,39 @@ and click analytics is halved. §5's status block carries the bytecode for all f
 > the codec silently dropped a whole category nobody has customised.
 
 
+
+> **And the knockback trainer, which came back from the jar as a different mod.** §3.2 #6 asks
+> for jump-timing feedback: early, late, or on the tick. Scoring that needs a model of the right
+> moment, and 1.8.9's knockback method does not contain one —
+>
+> ```
+> velocityX /= 2;  velocityY /= 2;  velocityZ /= 2;
+> velocityX -= dx / dist * 0.4F;
+> velocityY += 0.4F;
+> velocityZ -= dz / dist * 0.4F;
+> if (velocityY > 0.4) velocityY = 0.4;
+> ```
+>
+> The horizontal result is `yourSpeed / 2 - impulse`, so **moving into a hit genuinely takes less
+> of it** — that much is readable and useful. But `velocityY` is assigned `+0.4` and clamped
+> whatever you were doing: **there is no jump term.** Whatever a jump reset does, it is not here,
+> and everything else that might explain it is a claim about `Entity.move` a trainer would be
+> asserting rather than reading.
+>
+> **So it ships as a meter: how far the last hit moved you, over a fixed ten-tick window.** That
+> is the fourth time this document has been corrected by the bytecode and the first time the
+> correction changed what the mod *is* rather than whether it exists. It is also the better mod.
+> A trainer that scores you against a rule the client has not established teaches its author's
+> guess; a figure teaches the mechanic, and cannot become wrong when somebody's understanding of
+> 1.8 knockback changes. That is what §5 meant by going past Lunar rather than matching them —
+> not a bigger settings page, a truer reading.
+>
+> **Two pieces of reuse worth naming, because the alternative was bloat.** The chip is
+> `ReachChip`: both mods are one distance in blocks with an optional warn threshold, down to the
+> unit, so a `KnockbackChip` would have been that component copied under a different name. And
+> `warn_above` kept `reach`'s 0-6 bounds rather than taking a new name — the generator caught the
+> collision, and the right answer was the schema's, because both really are "a distance in blocks
+> past which to warn". Fifth collision caught by that rule.
 
 **Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
 graph.~~ Playtime · day counter.
