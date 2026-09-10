@@ -286,7 +286,7 @@ one mechanic. Nobody, on either client, ships:
 
 | Idea | What it is | Cost | Why it is ours to take |
 |---|---|---|---|
-| **Fight review** | A post-fight card: hits landed / taken, average reach, CPS through the fight, sprint-reset rate, time-to-kill, where it went wrong | M–L | Lunar's `pvp-info` has **two settings**. It is a stub. We already run an Ultralight surface and a desktop launcher — a review screen is a page, not a renderer. This is the one place our architecture is straightforwardly better suited than a plain Fabric mod. |
+| **Fight review** | A post-fight card: hits landed / taken, mean reach, CPS through the fight, sprint-reset rate, and the fight second by second | M | **Shipped 2026-09-09**, less time-to-kill, which the client cannot know — see below. Lunar's `pvp-info` has **two settings**; it is a stub. A review screen is a page, not a renderer, and it needed no new sensor at all. |
 | **Click analytics** | Interval histogram of *your own* clicks, jitter spread, drag/butterfly detection, consistency over a session | S–M, but see below | Purely your own input, so it is unimpeachably safe. Half of it is buildable and half is blocked on a clock we do not own — the interval histogram is not the safe half. |
 | **Sprint-reset (W-tap) feedback** | The share of your landed hits that had a sprint behind them | S | **Shipped 2026-09-09** as `sprint_reset`, and smaller than M because the window turned out not to exist — see below. Lunar covers jump resets only; this stays unclaimed on both clients. |
 | **Connection quality, not a ping number** | Jitter band, packet-loss estimate, tick-skip / "the server is behind" indicator | S–M | Careful: Lunar's `ping` mod *does* have spike detection with two thresholds and rolling averages, so "we show ping spikes" is not new. Jitter distribution, loss and tick-skip **are**. We already have `net/SessionStats` and `sensor/ServerWatcher`. |
@@ -339,8 +339,29 @@ one mechanic. Nobody, on either client, ships:
 > screenshot everybody imagines is not**, and a client that shipped the histogram anyway would be
 > drawing the scheduler's quantisation and calling it the player's hand.
 >
-> Fight review, connection quality and loadout sharing are untouched. Fight review is still the
-> biggest of the six and the one the architecture actually favours.
+> **Fight review shipped, and it added nothing to the wire.** That is the result worth recording,
+> because the obvious build is a Java sensor that decides when a fight starts and ends and reports
+> a summary. Everything such a sensor would report was already on the tick payload — `hits.dealt`,
+> `hits.taken`, `hits.sprint_dealt`, `reach` — and the only thing it would have added is the
+> *timeout*, which is policy. This client's rule is that policy lives on the client, and
+> `bridge.json`'s `hits` already refuses to carry the combo for exactly that reason. So the whole
+> feature is a store derivation and a screen: no sensor, no message, no protocol bump.
+>
+> **Two figures on the roster's own list for this row are not on the card, and both absences are
+> the point.** *Time to kill* cannot be known: a kill is an entity being removed, and an entity is
+> also removed by a chunk unloading, a teleport or a render-distance change, and the client is
+> never told which. Reporting one from a removal would be reporting a fabrication in the figure
+> players would quote. *Damage* is the server's arithmetic — armour, enchants, absorption — and
+> the client sees only its own health, which moves for reasons that are not fights. Hits are what
+> this client can count exactly, so hits are what it counts.
+>
+> **Nothing on the card is scoped to who you fought**, and that is a definition rather than a
+> limitation. The client knows which entity its own swing hit and is never told who hit *it*, so
+> an opponent-scoped fight could only ever see half of one. It is also what keeps the screen
+> inside §6.1 without needing an argument: every figure is a fact about your own play, after it
+> happened.
+>
+> Connection quality and loadout sharing remain.
 
 Of Lunar's own recent additions, the ones players actually talk about are **TierTagger**
 (social status, not gameplay) and **Kill Sounds** (shareable, personality). Both are
@@ -636,9 +657,9 @@ carries the bytecode for all three.
 > in lookups; a mod whose whole effect is already the default is the same failure at the scale of
 > a registry entry, and nothing in this build would have caught it.
 
-**Wave 10 — the first row off §5.** ~~Sprint-reset feedback~~. **Wave 10 is open**: fight review,
-connection quality and loadout sharing remain; input latency is cut and click analytics is halved.
-§5's status block carries the bytecode for all four.
+**Wave 10 — the differentiator.** ~~Sprint-reset feedback~~ · ~~Fight review~~. **Wave 10 is
+open**: connection quality and loadout sharing remain; input latency is cut and click analytics is
+halved. §5's status block carries the bytecode for all four.
 
 > **Shipped 2026-09-09, one mod, and the schema change is one optional integer.** `hits` has
 > carried `dealt` and `taken` since the combo counter; `sprint_dealt` is the third — of those
@@ -678,6 +699,32 @@ connection quality and loadout sharing remain; input latency is cut and click an
 > suite that got run. Both are hand-maintained on purpose — `grey` gates the HYPIXEL-READY badge,
 > so joining the class should cost a reviewer's attention — but nothing checks them against each
 > other, which is the gap rather than the staleness.
+>
+> **And then fight review, which is the first thing in this document that is not a mod.** It has
+> no registry entry, no glyph, no settings page and no HUD item: it is a screen, reachable from
+> the quick palette beside Loadouts and Party. §9's per-mod tax does not apply to it at all, which
+> is worth noticing — the roster is a list of mods because that is the unit competitors ship, and
+> the one row where our architecture is plainly better suited turned out not to be a mod.
+>
+> **The build is a store derivation and a page. That is the whole of it.** Every figure the card
+> shows was already crossing the bridge; the only thing a Java sensor would have added is the
+> ten-second timeout that decides where one fight ends and the next begins, and a timeout is
+> policy. `bridge.json`'s `hits` refuses to carry the combo for that reason and the sentence
+> transfers unchanged. Nothing new reaches the wire, so nothing new can go stale on it.
+>
+> **The timeout is never applied by a timer, either.** A live fight ends when the next hit arrives
+> more than ten seconds after the last one, and a reader that wants to know whether the live one
+> is *over* asks the same exported constant. That is `combo`'s pattern one layer up — `comboAt` is
+> a timestamp the widget compares, not a value the store retracts — and it is what lets a whole
+> review screen need no clock. One test asserts the store and the screen agree, because two copies
+> of a timeout is how a fight the store has filed goes on showing as live.
+>
+> **What the card does not say is the part that took the reading.** Time-to-kill is on the
+> roster's own list for this row and the client cannot know it: a kill is an entity being removed,
+> and so is a chunk unloading. Damage is the server's arithmetic. And nothing is scoped to the
+> opponent, because the client is never told who hit *it* — an opponent-scoped fight can only see
+> half of one, which is not a definition. Each of those is a figure a competitor could ship and we
+> will not.
 
 **Wave 8 — the readouts the page computes itself.** ~~Clock.~~ ~~Click analytics, as a HUD
 graph.~~ Playtime · day counter.

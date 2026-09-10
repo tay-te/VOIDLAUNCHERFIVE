@@ -143,6 +143,7 @@ export {
   Pane,
   StatTile,
   Sparkline,
+  FightTimeline,
   GroupCaption,
   BackButton,
 } from './components/cards.js';
@@ -153,6 +154,8 @@ export type {
   PaneProps,
   StatTileProps,
   SparklineProps,
+  FightTimelineProps,
+  FightBeatMark,
   GroupCaptionProps,
 } from './components/cards.js';
 

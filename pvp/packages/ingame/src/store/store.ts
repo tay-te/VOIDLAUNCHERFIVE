@@ -68,6 +68,7 @@ export type Route =
   | { name: 'settings' }
   | { name: 'loadouts' }
   | { name: 'party' }
+  | { name: 'review' }
   | { name: 'hud-editor' };
 
 /**
@@ -239,6 +240,145 @@ let lastHits: { dealt: number; taken: number; sprintDealt: number } | null = nul
 const SPRINT_HISTORY_MAX = 40;
 const sprintHistory: boolean[] = [];
 
+/* ------------------------------------------------------------------ fight review */
+
+/**
+ * How long a fight survives without a hit in either direction, in ms — `docs/mod-roster.md` §5's
+ * "fight review", and the one policy number the whole feature turns on.
+ *
+ * **Why ten seconds, and why it is a constant rather than a setting.** Every timeout in this
+ * client so far has been a mod setting, because a mod is a thing a player switched on and can
+ * therefore be asked about. Fight review is a *screen*, and a screen has no settings page to hang
+ * a number on — so this is a choice, made here, with the reasoning in the open rather than a
+ * slider that pushes it onto somebody who has never thought about it.
+ *
+ * Ten is long enough to hold a fight together through a chase — a 1.8 pursuit across half a
+ * Bedwars island with no hits landing runs about six seconds — and short enough that two
+ * separate engagements in the same minute do not merge into one card that averages them.
+ *
+ * **The timeout is never applied by a timer.** Nothing here expires: a live fight ends when the
+ * next hit arrives more than this long after the last one, and a reader that wants to know
+ * whether the live fight is *over* asks the same question of the same constant. That is
+ * `combo`'s pattern one layer up — `comboAt` is a timestamp the widget compares, not a value the
+ * store retracts — and it is what lets fight review need no clock at all.
+ */
+export const FIGHT_QUIET_MS = 10000;
+
+/**
+ * Seconds of beats one fight keeps, and how many finished fights are kept.
+ *
+ * Three minutes is longer than any 1.8 fight that is still one fight; past it the timeline stops
+ * growing and the totals keep counting, which is the honest degradation — a card that said
+ * `47 / 19` over a truncated graph is still telling the truth about the trade.
+ *
+ * Ten fights is a session's worth of looking back without becoming a history feature. Persisting
+ * them is `net/`'s job on a day this reaches the launcher, and nothing here pretends to.
+ */
+const FIGHT_BEATS_MAX = 180;
+const FIGHTS_MAX = 10;
+
+/** One second of a fight: what you landed, what you took, and how fast you were clicking. */
+export interface FightBeat {
+  /** Whole seconds since the fight opened. */
+  t: number;
+  /** Hits landed in this second. */
+  dealt: number;
+  /** Hits taken in this second. */
+  taken: number;
+  /** Clicks per second, both hands summed, over this second. */
+  cps: number;
+}
+
+/**
+ * One engagement — the record behind the review card.
+ *
+ * Totals *and* beats, because they answer different questions and neither can be recovered from
+ * the other: the totals are exact (they are counter deltas, so a dropped tick cannot lose one),
+ * and the beats are where it went wrong. Summing the beats would give a total that drifts from
+ * the counters; deriving beats from totals is not possible at all.
+ */
+export interface Fight {
+  /** Monotonic within a session. A React key, and the only stable identity a fight has. */
+  id: number;
+  /** Wall clock at the first hit, ms. */
+  startedAt: number;
+  /** Wall clock at the most recent hit, ms. A fight is over `FIGHT_QUIET_MS` after this. */
+  lastAt: number;
+  /** Hits landed. */
+  dealt: number;
+  /** Hits taken. */
+  taken: number;
+  /** Of `dealt`, the ones delivered while sprinting — `hits.sprint_dealt`. */
+  sprintDealt: number;
+  /**
+   * The reach of each landed hit this fight, in blocks.
+   *
+   * One entry per hit the counters moved by, taking whatever `reach` reads at that moment — and
+   * that is worth stating rather than glossing, because `reach` is value-checked on the wire.
+   * Two consecutive hits at the same distance publish one update, so the second entry is the
+   * first one's figure, which is correct. What is *not* exact is two hits in one tick: the wire
+   * carries one reach for the pair, so both entries take it. The mean is right to within one
+   * swing's worth in the rare case, and the alternative is a reach *event* stream, which is the
+   * shape `bridge.json` refuses for hits and gives its reason for.
+   *
+   * Empty entries are impossible: a hit landed before the first reach ever arrived contributes
+   * nothing rather than a zero, because a reach of 0 is not a point-blank swing.
+   */
+  reaches: number[];
+  /** One entry per second, oldest first. Stops growing at `FIGHT_BEATS_MAX`. */
+  beats: FightBeat[];
+}
+
+/**
+ * The fight being fought, and the scratch that builds it.
+ *
+ * Module-level like `fpsSamples`, and reset by `resetDerivedState()` for the same reason. The
+ * live fight is *also* published to the store, as a fresh object each time it moves, because the
+ * review screen renders it while it is happening — so this is the mutable copy and the state
+ * holds a snapshot, which is the same split `clickHistory` uses.
+ */
+let liveFight: Fight | null = null;
+let nextFightId = 1;
+let fightBeatSecond = 0;
+
+/**
+ * The beat a moment falls in, creating it and any silent seconds before it.
+ *
+ * Gaps are filled rather than closed up, for the reason `clickHistory`'s own gap-fill gives: a
+ * timeline whose x-axis skips the quiet seconds is drawing a fight that did not happen, and the
+ * quiet seconds in a fight are exactly where it went wrong. Returns null once the fight has run
+ * past `FIGHT_BEATS_MAX` — the totals keep counting and the graph stops, which is the honest
+ * degradation rather than a loop that overwrites the opening.
+ */
+function beatFor(fight: Fight, now: number): FightBeat | null {
+  const t = Math.max(0, Math.floor((now - fight.startedAt) / 1000));
+  const last = fight.beats.length > 0 ? fight.beats[fight.beats.length - 1] : null;
+  if (last !== null && last.t === t) return last;
+  if (fight.beats.length >= FIGHT_BEATS_MAX) return null;
+  for (let fill = last === null ? 0 : last.t + 1; fill < t; fill += 1) {
+    if (fight.beats.length >= FIGHT_BEATS_MAX) return null;
+    fight.beats.push({ t: fill, dealt: 0, taken: 0, cps: 0 });
+  }
+  const beat: FightBeat = { t, dealt: 0, taken: 0, cps: 0 };
+  fight.beats.push(beat);
+  return beat;
+}
+
+/** A snapshot of a fight, safe to hand to React. */
+function snapshotFight(fight: Fight): Fight {
+  return { ...fight, reaches: [...fight.reaches], beats: [...fight.beats] };
+}
+
+/**
+ * Whether a fight has gone quiet — the one place `FIGHT_QUIET_MS` is applied.
+ *
+ * Exported because the review screen asks the same question about the live fight that
+ * `applyTick` asks about the last one, and two copies of a timeout is how they come apart.
+ */
+export function fightIsOver(fight: Fight, now: number): boolean {
+  return now - fight.lastAt > FIGHT_QUIET_MS;
+}
+
 /**
  * Value equality for the object-shaped `tick` fields.
  *
@@ -376,6 +516,9 @@ export function resetDerivedState(): void {
   lastSecond = 0;
   lastHits = null;
   sprintHistory.length = 0;
+  liveFight = null;
+  nextFightId = 1;
+  fightBeatSecond = 0;
 }
 
 export interface VoidState {
@@ -472,6 +615,24 @@ export interface VoidState {
    */
   sprintHistory: readonly boolean[];
   /**
+   * The fight in progress, or the last one — `docs/mod-roster.md` §5's review card.
+   *
+   * Not cleared when it goes quiet, and that is the design: a card you can only read *during*
+   * the fight is a card nobody reads. `fightIsOver` is how a reader tells a live one from a
+   * finished one, and both are worth drawing.
+   *
+   * `null` only before the first hit of a session.
+   */
+  liveFight: Fight | null;
+  /**
+   * Finished fights, newest first, at most ten.
+   *
+   * Session-only. Persisting them is `net/`'s job on the day this reaches the launcher, and the
+   * record here is deliberately the shape that would travel — totals plus beats, no references
+   * to anything that only exists in this process.
+   */
+  fights: readonly Fight[];
+  /**
    * Distance of the last attack that landed, in blocks — the reach readout.
    *
    * `null` until one has landed, and that is the mod rather than a nicety: a reach of 0 is not a
@@ -529,6 +690,16 @@ export interface VoidState {
    * so returning from the page lands on the tile you left from.
    */
   selectedMod: ModId;
+  /**
+   * Which fight the review screen is showing, by `Fight.id`, or `0` for "the newest".
+   *
+   * Navigation state rather than a route, for the same reason `selectedMod` is: the screen is
+   * the same screen whichever fight is open, and a route that carried the id would have to be
+   * corrected every time a new fight pushed the old one down the list. `0` is a real value here
+   * — ids start at 1 — so "follow the newest" is a state rather than an absence, and a player
+   * who has not picked anything keeps seeing the fight they just had.
+   */
+  selectedFight: number;
   /** `grid` or `list`. */
   layout: ModsLayout;
   paletteOpen: boolean;
@@ -554,6 +725,8 @@ export interface VoidState {
   /* -------------------------------------------------------------- UI actions */
   setRoute(route: Route): void;
   selectMod(id: ModId): void;
+  /** Show this fight on the review screen. */
+  selectFight(id: number): void;
   openMod(id: ModId): void;
   closeMod(): void;
   setLayout(layout: ModsLayout): void;
@@ -598,6 +771,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   comboAt: 0,
   hits: null,
   sprintHistory: [],
+  liveFight: null,
+  fights: [],
   reach: null,
   inventory: null,
   server: { host: '', connected: false },
@@ -610,6 +785,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   menuOpen: false,
   route: { name: 'mods' },
   selectedMod: 'keystrokes',
+  selectedFight: 0,
   layout: 'grid',
   paletteOpen: false,
   modSearch: '',
@@ -797,6 +973,28 @@ export const useVoidStore = create<VoidState>((set, get) => ({
       // A fresh array, because the widget's selector compares by identity and the entries are
       // the same objects. One allocation of at most sixty pointers, once a second.
       patch.clickHistory = [...clickHistory];
+
+      // The other half of the fight timeline, on the boundary that already exists rather than
+      // on a clock of its own. A live fight gets a beat per second whether or not a hit landed
+      // in it, which is what makes the graph's x-axis time — and the seconds with no hits are
+      // the ones a player is looking for.
+      //
+      // Guarded on the fight not having gone quiet, so the ten seconds *after* the last hit do
+      // not become ten empty columns on the end of every card. The fight is not closed here:
+      // closing is the next hit's job, above, because that is the only moment it can be known
+      // without asking a clock, and this branch has no business deciding a fight is over.
+      if (liveFight !== null && second !== fightBeatSecond && !fightIsOver(liveFight, now)) {
+        fightBeatSecond = second;
+        const beat = beatFor(liveFight, now);
+        if (beat !== null) {
+          // Both hands summed and taken over a fixed second, like the CPS graph's columns and
+          // for the same reason: a fight's clicking is one hand's story only if you already
+          // know which hand, and the review card is read after the fact.
+          beat.cps =
+            clicksPerSecond(rings.left, now, 1000) + clicksPerSecond(rings.right, now, 1000);
+          patch.liveFight = snapshotFight(liveFight);
+        }
+      }
     }
     // Only ever upwards here. This branch is the clock rather than a click — it exists to let
     // the live figures *decay* — so taking a max against it is what keeps the peak a peak.
@@ -914,6 +1112,68 @@ export const useVoidStore = create<VoidState>((set, get) => ({
           }
           patch.sprintHistory = [...sprintHistory];
         }
+
+        // -------------------------------------------------------------- the fight
+        //
+        // A fight is a run of combat with quiet on both sides of it, and this is the whole of
+        // that rule: the first hit in either direction after a gap opens one, and every hit
+        // until the next gap belongs to it. No timer, no world event, no opponent identity.
+        //
+        // **Why not scope it to an opponent.** The client does know which entity a swing
+        // resolved onto — `onAttackedEntity` already reports it for `hit_color.own_hits_only` —
+        // and scoping by it would be wrong in the case a review card is most wanted: a 2v1 is
+        // one fight, and splitting it into two cards would report two comfortable trades where
+        // the player actually lost. It would also be unable to scope the hits *taken* at all,
+        // because `taken` rides the rising edge of `hurtTime` and the client is never told who
+        // did it. A definition that can only see half the fight is not a definition.
+        //
+        // **Why hits and not damage.** Damage is the server's arithmetic — armour, enchants,
+        // absorption — and the client sees only its own health, which moves for reasons that
+        // are not fights. Hits are the thing this client can count exactly.
+        const taken = tick.hits.taken - seen.taken;
+        if (landed > 0 || taken > 0) {
+          if (liveFight === null || fightIsOver(liveFight, now)) {
+            // The previous one is finished the moment a new one starts, which is the only
+            // moment it can be *known* finished without asking a clock. Pushed newest-first so
+            // the screen reads top-down without reversing.
+            if (liveFight !== null) {
+              const closed = [snapshotFight(liveFight), ...prev.fights].slice(0, FIGHTS_MAX);
+              patch.fights = closed;
+            }
+            liveFight = {
+              id: nextFightId,
+              startedAt: now,
+              lastAt: now,
+              dealt: 0,
+              taken: 0,
+              sprintDealt: 0,
+              reaches: [],
+              beats: [],
+            };
+            nextFightId += 1;
+            fightBeatSecond = Math.floor(now / 1000);
+          }
+          liveFight.lastAt = now;
+          liveFight.dealt += landed;
+          liveFight.taken += taken;
+          liveFight.sprintDealt += sprintLanded;
+          // The reach of each hit, taking whatever the field reads now — see `Fight.reaches`
+          // for what that is exact about and what it is not. `prev.reach` rather than
+          // `patch.reach`, because a hit at the same distance as the last one publishes no
+          // update and its reach is still the last one's figure.
+          const at = patch.reach !== undefined ? patch.reach : prev.reach;
+          if (at !== null) {
+            for (let i = 0; i < landed; i += 1) liveFight.reaches.push(at);
+          }
+          // The beat this hit falls in, so a fight shorter than a second still has a timeline.
+          // The second boundary below extends it; this seeds it.
+          const beat = beatFor(liveFight, now);
+          if (beat !== null) {
+            beat.dealt += landed;
+            beat.taken += taken;
+          }
+          patch.liveFight = snapshotFight(liveFight);
+        }
       }
     }
 
@@ -970,6 +1230,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   setRoute(route) {
     set({ route });
   },
+  selectFight(id) {
+    set({ selectedFight: id });
+  },
+
   selectMod(id) {
     // Selection **only**. It used to open the properties panel as a side effect, which is what
     // made the arrow keys unusable as navigation: every step opened something. Moving the

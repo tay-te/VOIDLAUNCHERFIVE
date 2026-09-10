@@ -248,6 +248,9 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   // A hit at the edge of vanilla's own three blocks, which is the widget's own fixture. Static,
   // for the reason that fixture is: a card whose figure moved would be the mod §6.1 forbids.
   reach: () => <Numeral value="3.14" unit="blocks" />,
+  // A percentage rather than the `ratio` style's pair: this grid already has one card whose
+  // identity is a pair (`hit_trade`), and two would have to be told apart by their labels.
+  sprint_reset: () => <Numeral value="85%" unit="sprint" />,
   // The mod's own default effect, and the word a player says rather than the effect's name.
   potion_counter: () => <Numeral value="6" unit="heals" />,
   // Vanilla's own width, which is this mod's default — a card states the number a player will

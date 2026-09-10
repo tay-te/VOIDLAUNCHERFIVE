@@ -4,9 +4,17 @@
  * event shapes of `bridge.json`, not a hand-written mock.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectBridge } from '@/bridge/connect';
-import { hudItem, isModOn, modSettings, resetDerivedState, useVoidStore } from '@/store/store';
+import {
+  FIGHT_QUIET_MS,
+  fightIsOver,
+  hudItem,
+  isModOn,
+  modSettings,
+  resetDerivedState,
+  useVoidStore,
+} from '@/store/store';
 import type { KeysPayload } from '@/bridge/protocol';
 
 let dispose: () => void;
@@ -32,6 +40,16 @@ beforeEach(() => {
     menuOpen: false,
     route: { name: 'mods' },
     paletteOpen: false,
+    // `resetDerivedState()` clears the module-level scratch; these are store *state*, and the
+    // two are deliberately separate — a fight the store has published is not derivation scratch,
+    // it is a reading the review screen is drawing. Listing them here is the same contract every
+    // other field on this object is under.
+    reach: null,
+    hits: null,
+    sprintHistory: [],
+    liveFight: null,
+    fights: [],
+    selectedFight: 0,
   });
   // No timer: every test drives the clock itself.
   ({ dispose } = connectBridge({ forceFake: true, runFakeClock: false }));
@@ -286,6 +304,143 @@ describe('CPS derivation through the store', () => {
     apply(keys({ lmb: 0, rmb: 1 }));
     expect(useVoidStore.getState().cpsLeft).toBe(1);
     expect(useVoidStore.getState().cpsRight).toBe(1);
+  });
+});
+
+
+describe('fights, derived from the counters the sensor already sends', () => {
+  /**
+   * Every assertion here drives `applyTick` with `hits` and a clock, because that is the whole
+   * input: fight review adds nothing to the wire (`menu/ReviewScreen.tsx` says why), so the only
+   * way it can be wrong is in this derivation.
+   */
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-10T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('opens on the first hit in either direction and counts both', () => {
+    const apply = useVoidStore.getState().applyTick;
+    // The first `hits` establishes a baseline and counts nothing — the counters are
+    // session-monotonic, so a page that joined mid-match would otherwise open a fight
+    // containing the whole match.
+    apply({ hits: { dealt: 12, taken: 4 } });
+    expect(useVoidStore.getState().liveFight).toBeNull();
+
+    apply({ hits: { dealt: 13, taken: 4 } });
+    let fight = useVoidStore.getState().liveFight!;
+    expect(fight).not.toBeNull();
+    expect(fight.dealt).toBe(1);
+    expect(fight.taken).toBe(0);
+
+    // A hit taken belongs to the same fight, and does not open a second one.
+    vi.advanceTimersByTime(1200);
+    apply({ hits: { dealt: 13, taken: 5 } });
+    fight = useVoidStore.getState().liveFight!;
+    expect(fight.dealt).toBe(1);
+    expect(fight.taken).toBe(1);
+    expect(useVoidStore.getState().fights).toHaveLength(0);
+  });
+
+  it('counts a tick that carried two hits as two', () => {
+    // The property `bridge.json` sends counters rather than events to get. A dropped tick makes
+    // the next delta 2, and the fight is still exactly right — where a lost event would be wrong
+    // for the rest of the session.
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0 } });
+    apply({ hits: { dealt: 3, taken: 2 } });
+    const fight = useVoidStore.getState().liveFight!;
+    expect(fight.dealt).toBe(3);
+    expect(fight.taken).toBe(2);
+  });
+
+  it('files the old fight and opens a new one after ten quiet seconds', () => {
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0 } });
+    apply({ hits: { dealt: 4, taken: 1 } });
+    const first = useVoidStore.getState().liveFight!;
+    expect(useVoidStore.getState().fights).toHaveLength(0);
+
+    // One millisecond inside the window is still the same fight — the boundary is not a range.
+    vi.advanceTimersByTime(FIGHT_QUIET_MS);
+    apply({ hits: { dealt: 5, taken: 1 } });
+    expect(useVoidStore.getState().liveFight!.id).toBe(first.id);
+    expect(useVoidStore.getState().liveFight!.dealt).toBe(5);
+
+    vi.advanceTimersByTime(FIGHT_QUIET_MS + 1);
+    apply({ hits: { dealt: 6, taken: 1 } });
+    const second = useVoidStore.getState().liveFight!;
+    expect(second.id).not.toBe(first.id);
+    expect(second.dealt).toBe(1);
+    // Newest first, so the screen reads top-down without reversing.
+    expect(useVoidStore.getState().fights).toHaveLength(1);
+    expect(useVoidStore.getState().fights[0]!.id).toBe(first.id);
+    expect(useVoidStore.getState().fights[0]!.dealt).toBe(5);
+  });
+
+  it('carries sprint hits into the fight, and only the ones that landed', () => {
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0, sprint_dealt: 0 } });
+    apply({ hits: { dealt: 2, taken: 0, sprint_dealt: 2 } });
+    vi.advanceTimersByTime(800);
+    apply({ hits: { dealt: 3, taken: 0, sprint_dealt: 2 } });
+    const fight = useVoidStore.getState().liveFight!;
+    expect(fight.dealt).toBe(3);
+    expect(fight.sprintDealt).toBe(2);
+  });
+
+  it('takes the reach reading that stands, not only the ticks reach republished on', () => {
+    // `reach` is value-checked on the wire: two hits at the same distance publish one update.
+    // A fight that only recorded a reach on the ticks the field moved would under-count exactly
+    // the player whose distance is consistent, which is the opposite of the truth.
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0 } });
+    apply({ hits: { dealt: 1, taken: 0 }, reach: 3.1 });
+    vi.advanceTimersByTime(700);
+    apply({ hits: { dealt: 2, taken: 0 } });
+    vi.advanceTimersByTime(700);
+    apply({ hits: { dealt: 3, taken: 0 }, reach: 2.9 });
+    expect(useVoidStore.getState().liveFight!.reaches).toEqual([3.1, 3.1, 2.9]);
+  });
+
+  it('records no reach for a hit that landed before the first reading', () => {
+    // A reach of 0 is not a point-blank swing, it is a session in which nothing has been
+    // measured — the distinction the wire itself draws. A zero here would drag the card's mean
+    // down by a figure nobody swung.
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0 } });
+    apply({ hits: { dealt: 1, taken: 0 } });
+    expect(useVoidStore.getState().liveFight!.reaches).toEqual([]);
+  });
+
+  it('draws a timeline whose x-axis is time, gaps included', () => {
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0 } });
+    apply({ hits: { dealt: 1, taken: 0 } });
+    // Three seconds later, with nothing in between: the quiet seconds are the ones a player is
+    // looking for, so they are drawn rather than closed up.
+    vi.advanceTimersByTime(3000);
+    apply({ hits: { dealt: 1, taken: 2 } });
+    const beats = useVoidStore.getState().liveFight!.beats;
+    expect(beats.map((b) => b.t)).toEqual([0, 1, 2, 3]);
+    expect(beats[0]!.dealt).toBe(1);
+    expect(beats[3]!.taken).toBe(2);
+    expect(beats[1]).toEqual({ t: 1, dealt: 0, taken: 0, cps: 0 });
+  });
+
+  it('agrees with the screen about when a fight is over', () => {
+    // One constant, asked the same question in two places. Two copies of a timeout is how a
+    // fight that the store has filed goes on showing as live.
+    const apply = useVoidStore.getState().applyTick;
+    apply({ hits: { dealt: 0, taken: 0 } });
+    apply({ hits: { dealt: 1, taken: 0 } });
+    const fight = useVoidStore.getState().liveFight!;
+    expect(fightIsOver(fight, fight.lastAt + FIGHT_QUIET_MS)).toBe(false);
+    expect(fightIsOver(fight, fight.lastAt + FIGHT_QUIET_MS + 1)).toBe(true);
   });
 });
 

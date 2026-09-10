@@ -33,6 +33,7 @@ import { anchorShortLabel, modProperties, propertyStructure } from '@/menu/ModSe
 import { isEscape } from '@/menu/keys';
 import { LOADOUTS_FOOTER } from '@/menu/LoadoutsScreen';
 import { PARTY_FOOTER } from '@/menu/PartyScreen';
+import { REVIEW_FOOTER, fightLength } from '@/menu/ReviewScreen';
 import { EDITOR_HINT, editorHint } from '@/menu/HudEditorScreen';
 import { DEFAULT_HUD } from '@/store/hud-geometry';
 import { HUD_MOD_IDS } from '@void/protocol';
@@ -1165,6 +1166,106 @@ describe('Party screen — frame 244:1426', () => {
     expect(screen.getByText('Bedwars 4v4')).toBeTruthy();
     expect(screen.getByText('Queue with party')).toBeTruthy();
     expect(screen.getByText(PARTY_FOOTER, verbatim)).toBeTruthy();
+  });
+});
+
+describe('Fight review — docs/mod-roster.md §5', () => {
+  /** A finished fight, shaped as the store publishes one. */
+  function fight(id: number, dealt: number, taken: number, ago: number) {
+    const now = Date.now();
+    return {
+      id,
+      startedAt: now - ago - 20000,
+      lastAt: now - ago,
+      dealt,
+      taken,
+      sprintDealt: Math.floor(dealt * 0.75),
+      reaches: [3.1, 2.9, 3.0],
+      beats: [
+        { t: 0, dealt: 1, taken: 0, cps: 9 },
+        { t: 1, dealt: 0, taken: 0, cps: 7 },
+        { t: 2, dealt: 0, taken: 2, cps: 11 },
+      ],
+    };
+  }
+
+  it('says what it is waiting for rather than drawing an empty box', () => {
+    // `design/rendering-invariants.md` §15: a screen whose whole job is showing you something
+    // may not be the thing that renders blank. It is also the only instruction this screen needs.
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() => useVoidStore.setState({ liveFight: null, fights: [], selectedFight: 0 }));
+    set(() => useVoidStore.getState().setRoute({ name: 'review' }));
+    render(<App />);
+    expect(screen.getByRole('heading', { name: 'Fight review' })).toBeTruthy();
+    expect(screen.getByText(/A fight opens on the first hit/)).toBeTruthy();
+    expect(screen.getByText(REVIEW_FOOTER, verbatim)).toBeTruthy();
+  });
+
+  it('opens on the newest fight, and switches to one picked from the list', () => {
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() =>
+      useVoidStore.setState({
+        liveFight: null,
+        // Newest first, as the store files them.
+        fights: [fight(7, 12, 3, 30000), fight(6, 2, 9, 120000)],
+        selectedFight: 0,
+      }),
+    );
+    set(() => useVoidStore.getState().setRoute({ name: 'review' }));
+    const { container } = render(<App />);
+
+    // `selectedFight: 0` means "the newest", which is the fight you just had — the only reason
+    // anybody opens this screen.
+    expect(screen.getByText('4.0')).toBeTruthy();
+    expect(screen.getByText('TRADE')).toBeTruthy();
+    expect(screen.getByText('MEAN REACH')).toBeTruthy();
+
+    const rows = container.querySelectorAll('.fightrow');
+    expect(rows).toHaveLength(2);
+    fireEvent.click(rows[1]!);
+    // 2 dealt against 9 taken is 0.2 — a fight that went the other way, and a figure the first
+    // card could not have produced.
+    expect(screen.getByText('0.2')).toBeTruthy();
+  });
+
+  it('marks only the live fight, and only while it is still live', () => {
+    const now = Date.now();
+    set(() => useVoidStore.getState().applyMenu(true));
+    set(() =>
+      useVoidStore.setState({
+        liveFight: { ...fight(9, 3, 1, 0), lastAt: now },
+        fights: [fight(8, 5, 5, 60000)],
+        selectedFight: 0,
+      }),
+    );
+    set(() => useVoidStore.getState().setRoute({ name: 'review' }));
+    const { container } = render(<App />);
+    expect(container.querySelectorAll('.fightrow')).toHaveLength(2);
+    // One dot, on the fight that is happening. `design/quiet-cell-system.md` §1: the hue marks a
+    // state, and "still being fought" is the only state on this screen.
+    expect(container.querySelectorAll('.fightrow__live')).toHaveLength(1);
+
+    cleanup();
+    // The same object, gone quiet. It is still `liveFight` — the store does not retract it,
+    // because a card you can only read during the fight is a card nobody reads — but it has
+    // stopped being live, and the dot has to agree with `fightIsOver` rather than with the field
+    // name.
+    set(() =>
+      useVoidStore.setState({
+        liveFight: { ...fight(9, 3, 1, 0), lastAt: now - 30000 },
+      }),
+    );
+    const second = render(<App />);
+    expect(second.container.querySelectorAll('.fightrow__live')).toHaveLength(0);
+  });
+
+  it('prints a fight length the way a fight is quoted', () => {
+    // Seconds under a minute: `0:14` reads like a stopwatch, and a 1.8 fight is fourteen seconds
+    // far more often than it is over a minute.
+    expect(fightLength(14000)).toBe('14s');
+    expect(fightLength(59400)).toBe('59s');
+    expect(fightLength(60000)).toBe('1:00');
+    expect(fightLength(127000)).toBe('2:07');
   });
 });
 

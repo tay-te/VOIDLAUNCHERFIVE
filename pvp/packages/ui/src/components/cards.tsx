@@ -187,6 +187,102 @@ export function StatTile({
   );
 }
 
+/** One second of a fight, as {@link FightTimeline} draws it. */
+export interface FightBeatMark {
+  /** Hits landed in this second. */
+  dealt: number;
+  /** Hits taken in this second. */
+  taken: number;
+  /** Clicks per second, both hands, over this second. */
+  cps: number;
+}
+
+/** Props for {@link FightTimeline}. */
+export interface FightTimelineProps extends HTMLAttributes<HTMLDivElement> {
+  /** One entry per second, oldest first. */
+  beats: readonly FightBeatMark[];
+  /** Hits per second the tallest bar represents. Bars above it clamp. */
+  ceiling?: number;
+  /** Clicks per second the click ridge's full height represents. */
+  cpsCeiling?: number;
+}
+
+/**
+ * A fight, second by second: what you landed above the line, what you took below it.
+ *
+ * ## Why this shape and not two charts
+ *
+ * The question a review card exists to answer is *where did it go wrong*, and the answer is
+ * almost always a second where their column is tall and yours is not. Two stacked charts make
+ * that a comparison across a gap; one axis with the fight on both sides of it makes it a shape.
+ * The centre line is the mark that does the work — every second is either above it or below it
+ * at a glance, and the seconds that are empty on both sides are the pauses, which are the other
+ * thing worth seeing.
+ *
+ * ## The click ridge is behind, and deliberately faint
+ *
+ * Clicking is context, not an outcome: nobody loses a fight because their CPS dipped, they lose
+ * it because they got hit while it did. So it sits behind the bars at low contrast — present
+ * when you look for it, silent when you are reading the trade. Drawn as a per-second block
+ * rather than a line for the reason `CpsGraphChip` gives: `design/ultralight-notes.md` §7 rates
+ * inline SVG risky and a line is nothing but a stroke.
+ *
+ * ## Colour, and the one rule it is under
+ *
+ * `design/quiet-cell-system.md` §1 allows colour that marks a value or a state. Hits taken are
+ * `--warn`: not a decoration and not a preference, but the one thing on this card a player is
+ * looking for. Hits landed stay monochrome — they are the baseline the card is *about*, and
+ * inking both sides would make the axis a pair of competing hues rather than a reading.
+ *
+ * ## Plain divs, no canvas
+ *
+ * Ultralight exposes no WebGL and its 2D canvas is slow, so every chart in this design is built
+ * out of positioned boxes (§5). Heights are percentages of two fixed halves, so a fight with one
+ * hit and a fight with forty draw at the same scale and can be compared — a chart that fitted
+ * its own data would make every fight look equally intense.
+ */
+export function FightTimeline({
+  beats,
+  ceiling = 4,
+  cpsCeiling = 16,
+  className,
+  ...rest
+}: FightTimelineProps): React.ReactElement {
+  const top = Math.max(1, ceiling);
+  const clicks = Math.max(1, cpsCeiling);
+  return (
+    <div className={cx('v-fightline', className)} {...rest} aria-hidden="true">
+      {beats.map((beat, index) => (
+        <span key={index} className="v-fightline__col">
+          <span
+            className="v-fightline__ridge"
+            style={{ height: `${Math.min(100, (beat.cps / clicks) * 100)}%` }}
+          />
+          <span className="v-fightline__half v-fightline__half--up">
+            <span
+              className="v-fightline__bar v-fightline__bar--dealt"
+              // A floor on a non-zero second, so one hit is a mark rather than a hairline that
+              // reads as the axis. Zero stays zero: nothing landed, and the gap says so.
+              style={{
+                height: beat.dealt <= 0 ? 0 : `${Math.max(14, Math.min(100, (beat.dealt / top) * 100))}%`,
+              }}
+            />
+          </span>
+          <span className="v-fightline__axis" />
+          <span className="v-fightline__half v-fightline__half--down">
+            <span
+              className="v-fightline__bar v-fightline__bar--taken"
+              style={{
+                height: beat.taken <= 0 ? 0 : `${Math.max(14, Math.min(100, (beat.taken / top) * 100))}%`,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** Props for {@link Sparkline}. */
 export interface SparklineProps extends HTMLAttributes<HTMLDivElement> {
   /** Bar heights in pixels, oldest first. */

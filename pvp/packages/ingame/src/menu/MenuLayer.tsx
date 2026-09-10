@@ -44,6 +44,7 @@ import { hasTextFocus } from '@/bridge/connect';
 import { ModsScreen } from './ModsScreen';
 import { LoadoutsScreen } from './LoadoutsScreen';
 import { PartyScreen } from './PartyScreen';
+import { ReviewScreen } from './ReviewScreen';
 import { HudEditorScreen } from './HudEditorScreen';
 import { QuickPalette } from '@/palette/QuickPalette';
 
@@ -152,6 +153,7 @@ export function MenuLayer({
       )}
       {route.name === 'loadouts' && <LoadoutsScreen />}
       {route.name === 'party' && <PartyScreen />}
+      {route.name === 'review' && <ReviewScreen />}
       {editing && <HudEditorScreen />}
       {paletteOpen && <QuickPalette />}
     </div>

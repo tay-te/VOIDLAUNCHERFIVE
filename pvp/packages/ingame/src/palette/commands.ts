@@ -182,6 +182,18 @@ export function buildCommands(store: VoidState): Command[] {
       run: (s) => s.setRoute({ name: 'party' }),
     },
     {
+      id: 'open:review',
+      title: 'Fight review',
+      sub: 'Your last fights, second by second',
+      icon: 'sword',
+      section: 'also',
+      // A weight above the other two, and it is the one route on this list with a reason to be
+      // ranked: Loadouts and Party are places you go, and this is a thing that just happened.
+      // A player types `f` here within seconds of the fight it is about.
+      weight: 4,
+      run: (s) => s.setRoute({ name: 'review' }),
+    },
+    {
       id: 'open:mods',
       title: 'Mods',
       sub: 'Browse and toggle mods',

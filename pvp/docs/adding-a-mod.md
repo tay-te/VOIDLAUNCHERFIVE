@@ -225,14 +225,23 @@ cd pvp
 node schema/build.mjs --check          # the schema is its sources
 node scripts/gen-java-registry.mjs --check
 node scripts/gen-rust-mods.mjs --check
+node packages/protocol/scripts/gen.mjs  # regenerate BEFORE the rest — see below
+pnpm -r build                          # runs the Ultralight guard, and refreshes the dist
 pnpm -r typecheck
 pnpm -r test
-pnpm --filter @void/ingame build       # runs the Ultralight guard — see below
 cd crates && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-**Run the ingame build, not just the tests.** `scripts/check-ultralight.mjs` enforces 22 rules
-from `design/ultralight-notes.md` — the engine drops `text-shadow`, `backdrop-filter`,
+**`pnpm -r build` before `test`, and it is not a preference.** `apps/desktop` resolves
+`@void/protocol` through its `exports` map to `dist/`, not to `src/` — so its typecheck and its
+tests both run against whatever was last *built*. Add a mod, run `pnpm -r test`, and the launcher
+half passes: it is checking your new mod against a `MOD_IDS` that does not contain it yet. Build
+first and the two hand-written total tables in `apps/desktop/src/local/registry.ts` and
+`src/screens/Mods.tsx` fail as they are designed to. **This has already shipped a broken launcher
+build once**, in the commit that added `sprint_reset`.
+
+**The build also carries the Ultralight guard**, which is a second and unrelated reason to run
+it. `scripts/check-ultralight.mjs` enforces 22 rules from `design/ultralight-notes.md` — the engine drops `text-shadow`, `backdrop-filter`,
 `mix-blend-mode` and more — and it runs in `build`, not in `test`. A rule violation is a style
 that renders in jsdom, passes every test, and does nothing in game. That has already happened
 once: a `text_shadow` setting reached the shared HUD block and would have shipped a switch that

@@ -4990,3 +4990,130 @@ body {
 .tart__mark {
   gap: 10px;
 }
+
+/* ------------------------------------------------------------ Fight review */
+
+/* Same two-column split as Party: a list on the left at the shared list width, the reading on
+   the right in a pane. The screens are siblings and should not each invent a layout. */
+.review-panel .v-panel__body {
+  padding-top: 22px;
+}
+
+.review {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+}
+
+.review__left {
+  width: var(--list-w);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.review__pane {
+  width: var(--pane-w);
+  align-self: flex-start;
+  height: 500px;
+}
+
+/* Six readings on two rows of three. Flex with a wrap and a third-width basis, not grid:
+   `design/ultralight-notes.md` §7 rules grid out and `check-ultralight.mjs` enforces it, which
+   is how this rule was caught — it was written as a three-column grid first.
+
+   The basis is a third minus the two gaps' share, so three fit a row exactly and the fourth
+   wraps. Fixed rather than min-width driven, so the card's shape is the same for every fight and
+   the eye learns where each figure lives. */
+.review__tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.review__tiles > * {
+  flex: 0 0 calc((100% - 2 * var(--space-8)) / 3);
+  min-width: 0;
+}
+
+/* The share of the fight's hits that were yours. Monochrome — a share has no threshold, so
+   there is no state for a colour to mark. */
+.review__share {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-hairline);
+  background: var(--tint-10);
+  overflow: hidden;
+}
+
+.review__share-fill {
+  display: block;
+  height: 100%;
+  background: var(--text-primary);
+}
+
+.review__empty {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: var(--text-md-2);
+  line-height: 1.5;
+}
+
+.review__legend {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* One fight in the list. Built like `queue-row` next door rather than as a new device. */
+.fightrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-field);
+  background: var(--tint-04);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fightrow--selected {
+  background: var(--tint-08);
+}
+
+.fightrow__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fightrow__title {
+  font-size: var(--text-md-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.fightrow__meta {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* The live fight is the only thing on this screen still happening, which is a state and so may
+   carry the hue (`design/quiet-cell-system.md` §1). Everything else here is history. */
+.fightrow__live {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  flex: 0 0 auto;
+}

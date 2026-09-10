@@ -222,3 +222,74 @@
      collapse them to one and the line would read tight. Preserved, not wrapped. */
   white-space: pre;
 }
+
+/* ----------------------------------------------------------- FightTimeline */
+
+/* One column per second of a fight, hits landed above the axis and hits taken below it.
+   Fixed halves rather than a fitted scale, so two fights can be compared (see the component). */
+.v-fightline {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  height: 96px;
+  width: 100%;
+  min-width: 0;
+}
+
+.v-fightline__col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* The click ridge, behind everything and anchored to the floor: context rather than an outcome,
+   so it is present when looked for and silent when the trade is being read. */
+.v-fightline__ridge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--tint-06);
+  border-radius: 1px;
+}
+
+.v-fightline__half {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.v-fightline__half--up {
+  align-items: flex-end;
+}
+
+.v-fightline__half--down {
+  align-items: flex-start;
+}
+
+/* The mark the whole chart is read against. A hairline, not a rule: it separates two readings,
+   it is not one of them. */
+.v-fightline__axis {
+  height: 1px;
+  background: var(--tint-14);
+}
+
+.v-fightline__bar {
+  position: relative;
+  width: 100%;
+  border-radius: 1px;
+}
+
+/* Monochrome: what you landed is the baseline the card is about. */
+.v-fightline__bar--dealt {
+  background: var(--text-primary);
+}
+
+/* Amber, and it is a value rather than a decoration (§1): the seconds you were hit in are the
+   thing a player opens this card to find. */
+.v-fightline__bar--taken {
+  background: var(--warn);
+}

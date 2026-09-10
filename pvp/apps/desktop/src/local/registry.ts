@@ -200,6 +200,18 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_label', label: 'Show label', control: 'switch' },
     { key: 'warn_above', label: 'Warn over', control: 'slider', min: 0, max: 6, step: 0.1, format: 'plain' },
   ],
+  // Wave 10's sprint-reset readout. `warn_below` is a *share* rather than a percentage — the
+  // name is `armor_status`', `SETTING_BOUNDS` is keyed by the bare name, and the chip prints a
+  // percentage from it anyway. The unit a player reads is not the unit a threshold is stored in.
+  sprint_reset: [
+    SCALE,
+    OPACITY,
+    { key: 'window', label: 'Over last', control: 'slider', min: 5, max: 40, step: 1, format: 'plain' },
+    { key: 'style', label: 'Style', control: 'select', options: ['percent', 'ratio'] },
+    { key: 'show_bar', label: 'Show bar', control: 'switch' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    { key: 'warn_below', label: 'Warn under', control: 'slider', min: 0, max: 1, step: 0.05, format: 'plain' },
+  ],
   // Wave 9's sidebar customiser. `sidebar_scale` rather than `scale` because `SETTING_BOUNDS`
   // is keyed by the bare name and this mod's range is not the shared HUD block's.
   scoreboard: [
@@ -410,6 +422,7 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'cps_graph',
   'clock',
   'reach',
+  'sprint_reset',
   'potion_counter',
   'block_outline',
   'nametags',
