@@ -29,7 +29,7 @@ import { useEffect, useState } from 'react';
 import { TrashGlyph } from '../local/glyphs';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
-import { useServers } from '../stores/servers';
+import { lastPlayed, playedTime, serverName, useServers } from '../stores/servers';
 
 const TABS = ['Favourites', 'Recent', 'Browse'] as const;
 type Tab = (typeof TABS)[number];
@@ -73,8 +73,12 @@ export function ServersScreen() {
   const q = query.trim().toLowerCase();
   const list = servers.filter((s) => {
     if (tab === 'Favourites' && !s.favourite) return false;
+    // The Recent tab was a third copy of the same list until there was a record saying which
+    // servers had actually been played on. `joins > 0` is that record — a server you starred and
+    // never joined is a favourite, not a recent.
+    if (tab === 'Recent' && s.joins === 0) return false;
     if (!q) return true;
-    return s.host.includes(q) || s.name.toLowerCase().includes(q);
+    return s.host.includes(q) || serverName(s).toLowerCase().includes(q);
   });
 
   const detail = servers.find((s) => s.host === selected) ?? list[0];
@@ -165,10 +169,10 @@ export function ServersScreen() {
           <Pane>
             <div className="pane__head">
               <span className="pane__icon" aria-hidden="true">
-                {detail.name.slice(0, 2).toUpperCase()}
+                {serverName(detail).slice(0, 2).toUpperCase()}
               </span>
               <span className="pane__headtext">
-                <span className="pane__title">{detail.name}</span>
+                <span className="pane__title">{serverName(detail)}</span>
                 <span className="pane__sub">
                   {detail.host}
                   {detailPing?.result ? ` · ${detailPing.result.version}` : ''}
@@ -189,6 +193,17 @@ export function ServersScreen() {
                 value={detailPing?.result ? detailPing.result.max.toLocaleString() : '—'}
                 unit="slots"
               />
+            </div>
+
+            {/* What the game reported, not what the launcher guessed. The mod sends which host
+                it is on and how long it has been playing, and `void_core::sync::pump` folds
+                that into `servers.json` — so these two figures are the first thing on this
+                screen that is a *measurement* rather than a live probe. */}
+            <GroupCaption label="You here" />
+            <div className="stat-tiles">
+              <StatTile value={playedTime(detail.played_ms)} unit="played" />
+              <StatTile value={detail.joins > 0 ? String(detail.joins) : '—'} unit="joins" />
+              <StatTile value={lastPlayed(detail.last_played_ms)} unit="last" />
             </div>
 
             <GroupCaption label="Ping · this session" />

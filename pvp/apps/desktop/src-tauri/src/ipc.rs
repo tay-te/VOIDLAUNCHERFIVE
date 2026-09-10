@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter as _, Manager, Runtime, State};
 
+use void_loadout::ServerRecord;
+
 use crate::commands;
 use crate::error::{map_err, CmdResult};
 use crate::events::Emitter;
@@ -206,6 +208,40 @@ pub fn java_status(state: State<'_, AppState>) -> CmdResult<JavaStatus> {
 #[tauri::command]
 pub async fn server_ping(host: String) -> CmdResult<PingResult> {
     map_err(commands::servers::ping(&host).await)
+}
+
+#[tauri::command]
+pub fn servers_list(state: State<'_, AppState>) -> CmdResult<Vec<ServerRecord>> {
+    map_err(commands::servers::list(&state))
+}
+
+// Each of the three mutations answers with the whole list, like `loadouts_delete` does. The
+// caller takes the result as truth rather than patching locally, because the book is trimmed and
+// re-sorted on write and a local guess would drift the first time either happened.
+#[tauri::command]
+pub fn servers_favourite(
+    state: State<'_, AppState>,
+    host: String,
+    favourite: bool,
+) -> CmdResult<Vec<ServerRecord>> {
+    map_err(commands::servers::set_favourite(&state, &host, favourite))
+}
+
+#[tauri::command]
+pub fn servers_rename(
+    state: State<'_, AppState>,
+    host: String,
+    name: Option<String>,
+) -> CmdResult<Vec<ServerRecord>> {
+    map_err(commands::servers::rename(&state, &host, name.as_deref()))
+}
+
+#[tauri::command]
+pub fn servers_forget(
+    state: State<'_, AppState>,
+    host: String,
+) -> CmdResult<Vec<ServerRecord>> {
+    map_err(commands::servers::forget(&state, &host))
 }
 
 #[tauri::command]

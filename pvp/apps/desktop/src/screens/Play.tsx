@@ -47,7 +47,7 @@ import {
 } from '../local/watermark';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
-import { useServers } from '../stores/servers';
+import { serverName, useServers } from '../stores/servers';
 
 /** The server the Play screen quotes a ping for: the active loadout's, else Hypixel. */
 const FALLBACK_HOST = 'mc.hypixel.net';
@@ -111,7 +111,7 @@ export function PlayScreen() {
   const liveServer = useLaunch((s) => s.server);
 
   const host =
-    servers.find((s) => s.name.toLowerCase() === (active?.server ?? '').toLowerCase())?.host ??
+    servers.find((s) => serverName(s).toLowerCase() === (active?.server ?? '').toLowerCase())?.host ??
     FALLBACK_HOST;
   const shortName = host.split('.').slice(-2, -1)[0] ?? host;
   const label = shortName.charAt(0).toUpperCase() + shortName.slice(1);

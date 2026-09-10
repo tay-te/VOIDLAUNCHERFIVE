@@ -4,24 +4,30 @@
  * The Play screen's "12 ms to Hypixel" and the Servers screen's ping chips are the
  * same number from the same place: `server_ping`, a real Minecraft SLP handshake.
  *
- * TODO(integrate): the favourites list is persisted in `localStorage` rather than by
- * Rust. Scored in `docs/launcher-roster.md` §2 — a desktop app keeping its own data in the
- * webview's storage is a bug with a TODO on it, not a design. `schema/loadout.json` has a `server` slug but there is no per-server
- * schema yet (open question §16.3 — "Rust-side ping; server-bound default loadouts?").
- * When one lands, move this to `servers_list` / `servers_add` / `servers_remove`
- * commands and delete the storage code; the store's shape does not change.
+ * The list is Rust's as of 2026-09-10 — `void_loadout`'s `ServerBook`, persisted as
+ * `servers.json` beside the loadouts. It used to be a `localStorage` array, which
+ * `docs/launcher-roster.md` §2 scored as a bug with a TODO on it: a desktop app keeping its own
+ * data where a cleared cache takes it.
+ *
+ * **The playtime on each row is not written from here.** It arrives from the running game — the
+ * mod reports which host it is on and how long it has been playing, and `void_core::sync::pump`
+ * folds that in. These actions carry only what the *player* says: starred, renamed, forgotten.
+ * That split is why each command answers with the whole list and the store takes it as truth
+ * rather than patching locally: the book is trimmed and re-sorted on write, and a local guess
+ * would drift the first time either happened.
+ *
+ * Still open (§16.3): a per-server default loadout. `ServerRecord` is what it would hang on, and
+ * every field there is `serde(default)`, so adding one orphans nobody's playtime.
  */
 
 import { create } from 'zustand';
 
-import type { PingResult } from '../local/protocol';
+import type { PingResult, ServerRecord } from '../local/protocol';
+
+export type { ServerRecord };
 import { errorText, invoke } from '../local/tauri';
 
-export interface ServerEntry {
-  host: string;
-  name: string;
-  favourite: boolean;
-}
+
 
 export interface PingState {
   status: 'idle' | 'pinging' | 'ok' | 'error';
@@ -31,47 +37,18 @@ export interface PingState {
   history: number[];
 }
 
-const STORAGE_KEY = 'void.servers.v1';
-
-/** The Figma's favourites (`244:324`), used until the player edits the list. */
-const DEFAULT_SERVERS: ServerEntry[] = [
-  { host: 'mc.hypixel.net', name: 'Hypixel', favourite: true },
-  { host: 'na.minemen.club', name: 'Minemen Club NA', favourite: true },
-  { host: 'play.cubecraft.net', name: 'CubeCraft', favourite: true },
-  { host: 'eu.minemen.club', name: 'Minemen Club EU', favourite: true },
-  { host: 'pvp.land', name: 'PvP Land', favourite: true },
-];
-
-function load(): ServerEntry[] {
-  if (typeof localStorage === 'undefined') return DEFAULT_SERVERS;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SERVERS;
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as ServerEntry[]) : DEFAULT_SERVERS;
-  } catch {
-    return DEFAULT_SERVERS;
-  }
-}
-
-function save(servers: ServerEntry[]): void {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(servers));
-  } catch {
-    /* a full or blocked storage must not take the screen down */
-  }
-}
-
 interface ServersState {
-  servers: ServerEntry[];
+  servers: ServerRecord[];
   pings: Record<string, PingState>;
   selected: string | null;
+  error: string | null;
+  loading: boolean;
 
+  hydrate: () => Promise<void>;
   select: (host: string) => void;
-  add: (input: string) => void;
-  remove: (host: string) => void;
-  toggleFavourite: (host: string) => void;
+  add: (input: string) => Promise<void>;
+  remove: (host: string) => Promise<void>;
+  toggleFavourite: (host: string) => Promise<void>;
   ping: (host: string) => Promise<void>;
   pingAll: () => Promise<void>;
 }
@@ -85,39 +62,110 @@ export function nameForHost(host: string): string {
   return core.charAt(0).toUpperCase() + core.slice(1);
 }
 
+/**
+ * `2h 41m`, `41m`, or `—` for nothing.
+ *
+ * An em dash and not `0m`, because they are different states: a server you starred and have
+ * never joined has no playtime, and a server you joined and quit has almost none. Only one of
+ * those is worth a figure.
+ */
+export function playedTime(ms: number): string {
+  if (ms < 60_000) return '—';
+  const minutes = Math.round(ms / 60_000);
+  const hours = Math.floor(minutes / 60);
+  return hours === 0 ? `${minutes}m` : `${hours}h ${String(minutes % 60).padStart(2, '0')}m`;
+}
+
+/**
+ * How long ago, coarsely — `today`, `3d`, `2w`. `—` when never.
+ *
+ * Coarse on purpose: the question this answers is "is this somewhere I still play", and a
+ * timestamp to the minute invites reading it as a log. Anything inside a day is `today`, because
+ * a player who has played today knows when.
+ */
+export function lastPlayed(atMs: number, now = Date.now()): string {
+  if (atMs <= 0) return '—';
+  const days = Math.floor((now - atMs) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 14) return `${days}d`;
+  if (days < 60) return `${Math.floor(days / 7)}w`;
+  return `${Math.floor(days / 30)}mo`;
+}
+
+/** The label to draw: the player's, or the one derived from the host. */
+export function serverName(entry: ServerRecord): string {
+  const given = entry.name?.trim();
+  return given && given.length > 0 ? given : nameForHost(entry.host);
+}
+
 export const useServers = create<ServersState>((set, get) => ({
-  servers: load(),
+  servers: [],
   pings: {},
-  selected: load()[0]?.host ?? null,
+  selected: null,
+  error: null,
+  loading: true,
+
+  hydrate: async () => {
+    try {
+      const servers = await invoke('servers_list');
+      // Selection follows the list only when it has to. A hydrate that ran while the player was
+      // reading a row would otherwise move them off it — and hydrate runs again after every
+      // session, when the newly played server has jumped to the top.
+      const selected = get().selected;
+      const keep = selected !== null && servers.some((s) => s.host === selected);
+      set({
+        servers,
+        loading: false,
+        error: null,
+        selected: keep ? selected : (servers[0]?.host ?? null),
+      });
+    } catch (e) {
+      set({ error: errorText(e), loading: false });
+    }
+  },
 
   select: (host) => set({ selected: host }),
 
-  add: (input) => {
+  add: async (input) => {
     const host = input.trim().toLowerCase();
     if (!host) return;
     if (get().servers.some((s) => s.host === host)) {
       set({ selected: host });
       return;
     }
-    const servers = [...get().servers, { host, name: nameForHost(host), favourite: true }];
-    save(servers);
-    set({ servers, selected: host });
-    void get().ping(host);
+    try {
+      // Adding a server *is* starring it: there is one list, and a row exists because it was
+      // played on or starred. `servers.rs` says why two lists would be worse.
+      const servers = await invoke('servers_favourite', { host, favourite: true });
+      set({ servers, selected: host, error: null });
+      void get().ping(host);
+    } catch (e) {
+      set({ error: errorText(e) });
+    }
   },
 
-  remove: (host) => {
-    const servers = get().servers.filter((s) => s.host !== host);
-    save(servers);
-    const selected = get().selected === host ? (servers[0]?.host ?? null) : get().selected;
-    set({ servers, selected });
+  remove: async (host) => {
+    try {
+      const servers = await invoke('servers_forget', { host });
+      const selected = get().selected === host ? (servers[0]?.host ?? null) : get().selected;
+      set({ servers, selected, error: null });
+    } catch (e) {
+      set({ error: errorText(e) });
+    }
   },
 
-  toggleFavourite: (host) => {
-    const servers = get().servers.map((s) =>
-      s.host === host ? { ...s, favourite: !s.favourite } : s,
-    );
-    save(servers);
-    set({ servers });
+  toggleFavourite: async (host) => {
+    const current = get().servers.find((s) => s.host === host);
+    try {
+      const servers = await invoke('servers_favourite', {
+        host,
+        favourite: !(current?.favourite ?? false),
+      });
+      set({ servers, error: null });
+    } catch (e) {
+      set({ error: errorText(e) });
+    }
   },
 
   ping: async (host) => {

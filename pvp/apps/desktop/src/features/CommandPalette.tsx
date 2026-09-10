@@ -27,7 +27,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MOD_GRID_ORDER, MOD_REGISTRY, isOn } from '../local/registry';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
-import { useServers } from '../stores/servers';
+import { serverName, useServers } from '../stores/servers';
 import { SCREENS, SCREEN_LABELS, useUi, type Screen } from '../stores/ui';
 
 interface Result {
@@ -160,7 +160,7 @@ export function CommandPalette() {
       all.push({
         id: `server:${s.host}`,
         group: 'SERVERS',
-        title: s.name,
+        title: serverName(s),
         sub: s.host,
         icon: 'box',
         run: () => {

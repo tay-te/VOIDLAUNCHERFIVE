@@ -47,6 +47,40 @@ impl InitSource for StoreInit {
     }
 }
 
+/// Wall clock in unix milliseconds, for the server book's `last_played_ms`.
+///
+/// Wall clock and not a monotonic instant, deliberately: this figure is shown to a player as
+/// "last played", so it has to survive the process it was written in. A clock that steps
+/// backwards makes one record sort oddly, which is a cosmetic wrong answer; a monotonic reading
+/// persisted across restarts is meaningless, which is not.
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Which server a slice of playtime belongs to, if any.
+///
+/// A plain function rather than three lines inside the pump, for the reason the mod's own sensors
+/// give: the loop cannot be unit-tested and the rule can, and this rule has a case that is easy
+/// to get wrong in a way nobody notices — time spent in the main menu.
+///
+/// `reported` is `session.server`, which the mod sets to the host it is on and to `None` in the
+/// menu or a singleplayer world. `tracked` is the last connect edge from the `server` message.
+/// The report wins when it has a value because it is the more recent of the two; the edge covers
+/// the case where a report lands mid-connect with nothing in it.
+///
+/// **Returning `None` is the important half.** Menu time is real playtime for the loadout and is
+/// not time on any server, so it must not be filed under the last one — a launcher that did that
+/// would tell a player they had hours on a server they left before dinner.
+fn server_for_report(reported: Option<String>, tracked: &Option<String>) -> Option<String> {
+    reported
+        .or_else(|| tracked.clone())
+        .map(|host| host.trim().to_string())
+        .filter(|host| !host.is_empty())
+}
+
 /// Folds inbound messages into the store until the bridge closes.
 ///
 /// Errors are logged, never propagated: a bad frame from the game must not take the
@@ -56,6 +90,14 @@ pub async fn pump(server: BridgeServer, store: Store) {
     // `session.played_ms` is cumulative for the game session, but the store accumulates
     // deltas, so the running total is tracked per connection and reset on `hello`.
     let mut reported_ms: u64 = 0;
+    // Where the player is right now, from the `server` message's own connect/disconnect edges.
+    //
+    // Tracked here rather than read off each `session` report, because the two disagree in the
+    // case that matters: a report can arrive with `server: null` while the player is mid-connect,
+    // and attributing that minute to nowhere would quietly lose it. The edge is the fact; the
+    // report's own field is a snapshot of it. `session.server` is still preferred when it has a
+    // value, because it is the more recent of the two.
+    let mut current_host: Option<String> = None;
 
     loop {
         let msg = match bus.recv().await {
@@ -70,6 +112,7 @@ pub async fn pump(server: BridgeServer, store: Store) {
         match msg {
             JavaToRust::Hello { mc, mod_version, .. } => {
                 reported_ms = 0;
+                current_host = None;
                 tracing::info!(%mc, %mod_version, "mod connected");
             }
 
@@ -91,7 +134,7 @@ pub async fn pump(server: BridgeServer, store: Store) {
                 }
             }
 
-            JavaToRust::Session { fps_avg, played_ms, loadout, .. } => {
+            JavaToRust::Session { fps_avg, played_ms, server, loadout } => {
                 let delta = played_ms.saturating_sub(reported_ms);
                 reported_ms = played_ms;
                 let target = loadout.or_else(|| store.active_id().ok());
@@ -100,10 +143,36 @@ pub async fn pump(server: BridgeServer, store: Store) {
                         tracing::error!(error = %e, %id, "could not record session stats");
                     }
                 }
+
+                // The same slice of time, attributed to where it was spent. Only when there is
+                // somewhere: time in the main menu or a singleplayer world is real playtime for
+                // the loadout above and is not time on any server, and a launcher that filed it
+                // under the last one would tell a player they had played hours on a server they
+                // left before dinner.
+                if let Some(host) = server_for_report(server, &current_host) {
+                    if let Err(e) =
+                        store.update_servers(|book| book.record_session(&host, delta, now_ms()))
+                    {
+                        tracing::error!(error = %e, %host, "could not record server playtime");
+                    }
+                }
             }
 
             JavaToRust::Server { host, connected, port } => {
                 tracing::info!(%host, connected, ?port, "server presence");
+                // A connection is its own fact, separate from any playtime that follows it — a
+                // player who alt-F4s in the queue has still joined. `servers.rs` splits the two
+                // for that reason.
+                if connected && !host.is_empty() {
+                    if let Err(e) =
+                        store.update_servers(|book| book.record_join(&host, now_ms()))
+                    {
+                        tracing::error!(error = %e, %host, "could not record a server join");
+                    }
+                    current_host = Some(host);
+                } else {
+                    current_host = None;
+                }
             }
 
             // A notification, never a request: the mod has already done the thing. The
@@ -197,6 +266,31 @@ mod tests {
         let store = Store::at(dir.path());
         store.init().unwrap();
         (dir, store)
+    }
+
+    #[test]
+    fn menu_time_is_not_filed_under_the_last_server() {
+        // The case worth a test: `session.server` is null in the main menu and in singleplayer,
+        // and the connect edge has already been cleared by the `server` message that said so. A
+        // launcher that fell back further would credit a server the player left.
+        assert_eq!(server_for_report(None, &None), None);
+        assert_eq!(server_for_report(Some(String::new()), &None), None);
+        assert_eq!(server_for_report(Some("   ".into()), &None), None);
+    }
+
+    #[test]
+    fn the_report_wins_over_the_edge_and_the_edge_covers_the_gap() {
+        // The report is the more recent of the two, so a player who hopped servers between
+        // reports is credited to where they ended up.
+        assert_eq!(
+            server_for_report(Some("na.minemen.club".into()), &Some("mc.hypixel.net".into())),
+            Some("na.minemen.club".into())
+        );
+        // And a report that lands mid-connect with nothing in it still knows where it is.
+        assert_eq!(
+            server_for_report(None, &Some("mc.hypixel.net".into())),
+            Some("mc.hypixel.net".into())
+        );
     }
 
     #[test]

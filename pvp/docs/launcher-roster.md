@@ -30,6 +30,7 @@ Working, wired to `crates/void-core` through `apps/desktop/src-tauri`, and exerc
 | **Loadout sharing** | Export and import by code, everything included | `@void/protocol`'s `share.ts` |
 | **Settings** | Java path, RAM, JVM args, theme, UI scale, keybinds, update channel | `settings_get` / `settings_set` |
 | **Server ping** | A real SLP handshake, not an ICMP guess | `server_ping` |
+| **Where you have played** | The server book — joins, playtime and last-played, written by the running game — **shipped 2026-09-10**, see §3 | `servers_*`, `void_loadout::ServerBook` |
 | **Updater, tray, window** | All three | `updater_check`, `tray.rs`, `window.rs` |
 
 That is a working launcher. **The gap is not features.**
@@ -46,7 +47,7 @@ so each row says what is actually behind it.
 | **Party (in game)** | `menu/PartyScreen.tsx` | Nothing. `bridge.json` carries no party, presence or queue | L, same gate |
 | **Cosmetics** | `screens/Cosmetics.tsx` | Nothing. §16.1 leaves the render Mixin and the asset pipeline to its own doc | L |
 | **Auto-switch loadout per server** | A disabled toggle on the Servers detail pane | Nothing. `loadout.json` has a `server` slug and no per-server record to key it on | **S–M, and the best row on this page** |
-| **Server favourites** | Works | `localStorage`, with a `TODO(integrate)` | S |
+| ~~**Server favourites**~~ | Works, and is Rust's now | ~~`localStorage`~~ `servers.json` — **done 2026-09-10** | — |
 
 ## 3. Shipped
 
@@ -79,6 +80,43 @@ have been the same bug with a worse symptom, because joining the wrong server is
 is. The second half needs a backend; the first half did not, and it is the half every social
 feature eventually calls.
 
+### 2026-09-10 — presence, or the half of Friends that needs no backend
+
+**The launcher has always known where the player is. It was throwing it away.** The mod sends
+`server` on connect and `session` every sixty seconds over the bridge; `sync::pump` logged the
+first and used the second only for loadout stats. Now both land in `servers.json` — joins,
+playtime and last-played, per host.
+
+That matters beyond the Servers screen, because **this record is what a friends backend
+publishes.** §4's chain is identity, then presence, then invites; presence was the step everyone
+assumes needs a server and it did not. What is left for a backend is sending it somewhere.
+
+**One list, not two.** A server is in the book because it was played on, or starred, or both. Two
+lists — favourites and recents — would have to be reconciled every time a favourite was played,
+and every bug in that reconciliation looks like a server appearing twice.
+
+**The host had to be normalised to be an identity.** It arrives from two places that disagree
+about spelling: a launcher text field, and `MinecraftClient.serverAddress`, which is whatever the
+player typed into *the game*. `MC.Hypixel.net`, `mc.hypixel.net` and `mc.hypixel.net:25565` are
+one server, and a record keyed on the raw string is three — each holding a third of the playtime,
+which is the one number the file exists to get right. `canonical_host` lower-cases and drops an
+explicit default port and does nothing else: it deliberately does not resolve DNS, because a
+launcher that grouped by resolved address would merge every server behind one proxy.
+
+**Menu time is not server time.** `session.server` is null in the main menu and in singleplayer,
+and `server_for_report` returns `None` there rather than falling back to the last host. It is a
+plain function with its own test for the reason the mod's sensors are: the pump cannot be
+unit-tested and the rule can, and this rule is wrong in a way nobody notices — it would tell a
+player they had hours on a server they left before dinner.
+
+**A join and a minute of play are two facts.** They arrive as two messages and are recorded by
+two methods. Merging them means either counting a join per telemetry report, or not counting one
+until the first report arrives — and a player who alt-F4s in the queue has still joined.
+
+It also retired the `localStorage` favourites list, which §2 had scored as a bug with a TODO on
+it, and gave the Servers screen's **Recent** tab something to actually filter on: `joins > 0`. A
+server you starred and never joined is a favourite, not a recent.
+
 ## 4. Friends, and the decision it actually needs
 
 Both surfaces are placeholders. Making them real is not mostly UI work, and the dependency order
@@ -87,9 +125,9 @@ matters more than the estimate:
 1. **Identity.** Accounts today are `microsoft | offline` — a *Mojang* identity. The offline path
    means identity is currently "whatever name you typed", which cannot back a friends list. There
    is no VOID account. This is step zero and it is not small.
-2. **Presence.** Half of this already exists and is easy to miss: the mod reports `msg_server` and
-   `msg_session` to the launcher over the WebSocket, so the game → launcher hop is built and
-   tested. What is missing is launcher → backend.
+2. ~~**Presence.**~~ **Shipped 2026-09-10** — see §3. The game → launcher hop was already built;
+   the record it feeds now exists and is the shape a backend would publish. What is left here is
+   launcher → backend, which is step 1's problem and not this one's.
 3. **Invites, and "join my game".** The launch half shipped in §3, so this reduces to publishing
    a friend's current host and offering a button. It is the most-wanted feature and, once
    presence exists, nearly free.
@@ -108,8 +146,9 @@ launcher.
 ## 5. What to do next, in order
 
 1. **Per-server default loadout** (§16.3). The one launcher row that is a product idea rather
-   than plumbing: pick Hypixel, get your Hypixel HUD. Small, and it is the natural pair to the
-   join button that just shipped.
+   than plumbing: pick Hypixel, get your Hypixel HUD. Now nearly free: `ServerRecord` is the
+   record it hangs on and every field there is `serde(default)`, so adding one orphans nobody's
+   playtime — and the join button it pairs with already exists.
 2. **The failure surface.** Wrong Java, a 404 in the manifest, a mod jar that does not match the
    version. A PvP client is judged on whether it launches and what it says when it does not, and
    nothing on this page has been scored for that yet — including whether `LogDrawer` helps a

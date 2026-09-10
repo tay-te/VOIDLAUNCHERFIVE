@@ -39,6 +39,7 @@ import { ServersScreen } from './screens/Servers';
 import { SettingsPanel } from './screens/Settings';
 import { useLaunch, wireLaunchEvents } from './stores/launch';
 import { useLoadouts, wireLoadoutEvents } from './stores/loadouts';
+import { useServers } from './stores/servers';
 import { useSession, wireSessionEvents } from './stores/session';
 import { useUi } from './stores/ui';
 
@@ -55,12 +56,21 @@ export function App() {
   const modSetup = useUi((s) => s.modSetup);
   const hydrateSession = useSession((s) => s.hydrate);
   const hydrateLoadouts = useLoadouts((s) => s.hydrate);
+  const hydrateServers = useServers((s) => s.hydrate);
   const phase = useLaunch((s) => s.phase);
 
   useEffect(() => {
     void hydrateSession();
     void hydrateLoadouts();
-  }, [hydrateSession, hydrateLoadouts]);
+    void hydrateServers();
+  }, [hydrateSession, hydrateLoadouts, hydrateServers]);
+
+  // Again when a session ends, because that is when the playtime on every row changed and the
+  // server just played moved to the top. The launcher is the only reader of a file the *game*
+  // wrote through the bridge, so there is nothing to invalidate — only a moment to re-read.
+  useEffect(() => {
+    if (phase === 'idle') void hydrateServers();
+  }, [phase, hydrateServers]);
 
   useEffect(() => {
     // One subscription set for the whole app. Every store's events are wired here so

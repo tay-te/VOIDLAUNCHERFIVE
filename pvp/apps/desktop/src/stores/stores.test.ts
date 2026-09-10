@@ -14,7 +14,7 @@ import { hypixelReady } from '../local/hypixelReady';
 import { effectiveState, enabledCount, isOn, matchesTab } from '../local/registry';
 import { useLaunch, wireLaunchEvents, formatBytes, stepLabel } from './launch';
 import { useLoadouts, wireLoadoutEvents } from './loadouts';
-import { useServers, nameForHost, pingTone } from './servers';
+import { useServers, lastPlayed, nameForHost, playedTime, pingTone } from './servers';
 import { useSession, wireSessionEvents } from './session';
 import { useUi } from './ui';
 
@@ -336,6 +336,52 @@ describe('launch store', () => {
 });
 
 describe('servers store', () => {
+  it('starts empty and takes the book from Rust', async () => {
+    // It used to read `localStorage` at module scope, which is how a desktop app ends up with
+    // its own data in a webview's cache — `docs/launcher-roster.md` §2.
+    expect(useServers.getState().servers).toHaveLength(0);
+    await useServers.getState().hydrate();
+    expect(useServers.getState().servers.length).toBeGreaterThan(0);
+    expect(useServers.getState().selected).not.toBeNull();
+  });
+
+  it('does not move the player off the row they are reading when it re-hydrates', async () => {
+    // Hydrate runs again after every session, and after a session the server just played has
+    // jumped to the top of the list. Following the list there would scroll the player off
+    // whatever they had open.
+    await useServers.getState().hydrate();
+    useServers.getState().select('pvp.land');
+    await useServers.getState().hydrate();
+    expect(useServers.getState().selected).toBe('pvp.land');
+  });
+
+  it('forgets a server outright, playtime included', async () => {
+    // "Forget" that kept the hours would be a button that hides a row and leaves the data,
+    // which is the shape of every privacy control nobody trusts.
+    await useServers.getState().hydrate();
+    await useServers.getState().remove('pvp.land');
+    expect(useServers.getState().servers.some((s) => s.host === 'pvp.land')).toBe(false);
+    await useServers.getState().hydrate();
+    expect(useServers.getState().servers.some((s) => s.host === 'pvp.land')).toBe(false);
+  });
+
+  it('says nothing rather than zero for a server nobody has played', () => {
+    // Two different states with one obvious wrong answer between them: a starred server never
+    // joined has no playtime, and a server joined and quit has almost none. `0m` would say the
+    // first about the second, and both about neither.
+    expect(playedTime(0)).toBe('—');
+    expect(playedTime(30_000)).toBe('—');
+    expect(playedTime(41 * 60_000)).toBe('41m');
+    expect(playedTime((2 * 60 + 41) * 60_000)).toBe('2h 41m');
+
+    const now = Date.UTC(2026, 8, 10, 12, 0, 0);
+    expect(lastPlayed(0, now)).toBe('—');
+    expect(lastPlayed(now - 3600_000, now)).toBe('today');
+    expect(lastPlayed(now - 86_400_000, now)).toBe('yesterday');
+    expect(lastPlayed(now - 5 * 86_400_000, now)).toBe('5d');
+    expect(lastPlayed(now - 21 * 86_400_000, now)).toBe('3w');
+  });
+
   it('pings a known host and keeps a bounded history', async () => {
     for (let i = 0; i < 15; i += 1) {
       await useServers.getState().ping('mc.hypixel.net');
@@ -355,13 +401,17 @@ describe('servers store', () => {
     expect(useServers.getState().pings['mc.hypixel.net']?.status).toBe('ok');
   });
 
-  it('adds and removes favourites, and derives a display name', () => {
+  it('adds and removes favourites, and derives a display name', async () => {
+    // The list is Rust's now, so the store has to be hydrated before it has one — and every
+    // mutation is a round trip whose answer is the truth, because the book is trimmed and
+    // re-sorted on write.
+    await useServers.getState().hydrate();
     const before = useServers.getState().servers.length;
-    useServers.getState().add('play.example.net');
+    await useServers.getState().add('play.example.net');
     expect(useServers.getState().servers.length).toBe(before + 1);
     expect(useServers.getState().selected).toBe('play.example.net');
 
-    useServers.getState().remove('play.example.net');
+    await useServers.getState().remove('play.example.net');
     expect(useServers.getState().servers.length).toBe(before);
 
     expect(nameForHost('mc.hypixel.net')).toBe('Hypixel');

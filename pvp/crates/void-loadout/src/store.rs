@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::loadout::{Loadout, LoadoutId, LoadoutSummary};
+use crate::servers::ServerBook;
 use crate::settings::GlobalSettings;
 use crate::{defaults, Error};
 
@@ -91,6 +92,10 @@ impl Store {
 
     fn settings_path(&self) -> PathBuf {
         self.root.join("settings.json")
+    }
+
+    fn servers_path(&self) -> PathBuf {
+        self.root.join("servers.json")
     }
 
     /// Creates the store if it is not there yet, seeding the three default loadouts.
@@ -304,6 +309,43 @@ impl Store {
         loadout.stats = Some(stats);
         self.save(&loadout)
     }
+
+    /// The servers the player has played on — `servers.json`.
+    ///
+    /// An absent file is an empty book, not an error: a fresh install has played nowhere, and
+    /// that is a state rather than a failure. A *corrupt* one is still an error, because
+    /// silently replacing a file that has content with an empty one is how a player's history
+    /// disappears without anybody being told.
+    pub fn servers(&self) -> Result<ServerBook, Error> {
+        let path = self.servers_path();
+        if !path.exists() {
+            return Ok(ServerBook::default());
+        }
+        read_json(&path)
+    }
+
+    /// Writes the server book back, atomically like everything else here.
+    pub fn save_servers(&self, book: &ServerBook) -> Result<(), Error> {
+        create_dir_all(&self.root)?;
+        write_json_atomic(&self.servers_path(), book)
+    }
+
+    /// Read, change, write — the shape every caller wants and none should have to spell.
+    ///
+    /// Deliberately not a held-open handle. The book is small, the writes are rare (a join, a
+    /// telemetry report once a minute, a star), and a launcher that kept it in memory would have
+    /// to decide what happens when the game and the UI both change it. Read-modify-write against
+    /// an atomically-written file has one answer: last writer wins, and neither can see a torn
+    /// file.
+    pub fn update_servers<T>(
+        &self,
+        change: impl FnOnce(&mut ServerBook) -> T,
+    ) -> Result<T, Error> {
+        let mut book = self.servers()?;
+        let out = change(&mut book);
+        self.save_servers(&book)?;
+        Ok(out)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -439,6 +481,36 @@ fn write_json_atomic<T: serde::Serialize>(path: &Path, value: &T) -> Result<(), 
 mod tests {
     use super::*;
     use crate::mods::ModId;
+
+    #[test]
+    fn a_fresh_store_has_played_nowhere_and_says_so_without_erroring() {
+        // An absent `servers.json` is a state, not a failure — a fresh install has played
+        // nowhere. Erroring here would make the Servers screen unopenable on first run.
+        let (_dir, store) = store();
+        assert_eq!(store.servers().unwrap().list().len(), 0);
+    }
+
+    #[test]
+    fn the_server_book_survives_a_round_trip_through_the_disk() {
+        let (_dir, store) = store();
+        store
+            .update_servers(|book| {
+                book.record_join("MC.Hypixel.net:25565", 1_000);
+                book.record_session("mc.hypixel.net", 120_000, 121_000);
+                book.set_favourite("na.minemen.club", true);
+            })
+            .unwrap();
+
+        let book = store.servers().unwrap();
+        let listed = book.list();
+        assert_eq!(listed.len(), 2);
+        // Canonicalised on the way in, so the record that comes back is keyed the way every
+        // later reader will ask for it.
+        let hypixel = book.get("mc.hypixel.net").unwrap();
+        assert_eq!(hypixel.played_ms, 120_000);
+        assert_eq!(hypixel.joins, 1);
+        assert!(book.get("na.minemen.club").unwrap().favourite);
+    }
 
     fn store() -> (tempfile::TempDir, Store) {
         let dir = tempfile::tempdir().expect("tempdir");

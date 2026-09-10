@@ -69,6 +69,25 @@ export interface LoadoutPatch {
   hud?: Loadout['hud'];
 }
 
+/**
+ * A server as the launcher knows it — `void_loadout::ServerRecord`, over the wire.
+ *
+ * `name` is optional because the derivation (`mc.hypixel.net` reads as `Hypixel`) is a display
+ * rule, and a display rule that has been persisted is one that cannot be improved without a
+ * migration. Rust stores only a label the player typed; the store's `serverName` does the rest.
+ *
+ * `played_ms` and `joins` are written by the running game through `void_core::sync::pump`, not
+ * by any command here.
+ */
+export interface ServerRecord {
+  host: string;
+  name?: string | null;
+  favourite: boolean;
+  last_played_ms: number;
+  played_ms: number;
+  joins: number;
+}
+
 // -------------------------------------------------------- launcher only
 
 /**

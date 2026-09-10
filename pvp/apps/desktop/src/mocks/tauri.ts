@@ -31,6 +31,7 @@ import {
 } from './fixtures';
 import { resolveModSettings } from '@void/protocol';
 import type {
+  ServerRecord,
   Account,
   Loadout,
   LoadoutPatch,
@@ -65,6 +66,8 @@ interface MockState {
   running: boolean;
   log: string[];
   timers: ReturnType<typeof setTimeout>[];
+  /** The server book, keyed by canonical host — `void_loadout`'s `ServerBook`, in miniature. */
+  servers: Map<string, ServerRecord>;
 }
 
 const state: MockState = {
@@ -78,7 +81,58 @@ const state: MockState = {
   running: false,
   log: [],
   timers: [],
+  servers: seedServers(),
 };
+
+/**
+ * The Figma's five servers as a starred, never-played book.
+ *
+ * Never-played on purpose: a preview that shipped fake playtime would make the one number this
+ * whole feature exists to get right look wired before it was. The hours appear the first time
+ * the mock session runs, which is also when they appear in the real launcher.
+ */
+function seedServers(): Map<string, ServerRecord> {
+  const book = new Map<string, ServerRecord>();
+  for (const entry of MOCK_SERVERS) {
+    book.set(entry.host, {
+      host: entry.host,
+      name: entry.name,
+      favourite: true,
+      last_played_ms: 0,
+      played_ms: 0,
+      joins: 0,
+    });
+  }
+  return book;
+}
+
+/** `void_loadout::canonical_host`, in the shape the preview needs. */
+function canonicalHost(host: string): string {
+  const lower = host.trim().toLowerCase();
+  const cut = lower.lastIndexOf(':');
+  if (cut < 0 || lower.indexOf(':') !== cut) return lower;
+  return lower.slice(cut + 1) === '25565' ? lower.slice(0, cut) : lower;
+}
+
+/** The book as the commands answer it: most recently played first. */
+function serverList(): ServerRecord[] {
+  return [...state.servers.values()].sort(
+    (a, b) =>
+      b.last_played_ms - a.last_played_ms ||
+      Number(b.favourite) - Number(a.favourite) ||
+      a.host.localeCompare(b.host),
+  );
+}
+
+function serverEntry(host: string): ServerRecord {
+  const key = canonicalHost(host);
+  let entry = state.servers.get(key);
+  if (!entry) {
+    entry = { host: key, favourite: false, last_played_ms: 0, played_ms: 0, joins: 0 };
+    state.servers.set(key, entry);
+  }
+  return entry;
+}
 
 /** Reset between tests. Not used by the browser preview. */
 export function __resetMock(): void {
@@ -91,6 +145,7 @@ export function __resetMock(): void {
     structuredClone(DEFAULT_LOADOUT),
   ];
   state.settings = structuredClone(MOCK_SETTINGS);
+  state.servers = seedServers();
   state.running = false;
   state.log = [];
   handlers.clear();
@@ -438,6 +493,24 @@ const commands: Record<string, (args: Args) => unknown> = {
     major: 8,
     source: 'system',
   }),
+
+  servers_list: () => serverList(),
+
+  servers_favourite: ({ host, favourite }) => {
+    serverEntry(String(host)).favourite = Boolean(favourite);
+    return serverList();
+  },
+
+  servers_rename: ({ host, name }) => {
+    const label = name === null || name === undefined ? undefined : String(name).trim();
+    serverEntry(String(host)).name = label && label.length > 0 ? label : undefined;
+    return serverList();
+  },
+
+  servers_forget: ({ host }) => {
+    state.servers.delete(canonicalHost(String(host)));
+    return serverList();
+  },
 
   server_ping: ({ host }) => {
     const known = MOCK_SERVERS.find((s) => s.host === host);

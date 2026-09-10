@@ -49,6 +49,7 @@ mod error;
 pub mod keybind;
 pub mod loadout;
 pub mod mods;
+pub mod servers;
 pub mod settings;
 pub mod store;
 
@@ -63,5 +64,6 @@ pub use mods::{
     defaults_json, registry, Category, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo,
     Registry,
 };
+pub use servers::{canonical_host, ServerBook, ServerRecord};
 pub use settings::{GlobalPatch, GlobalSettings};
 pub use store::Store;

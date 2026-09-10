@@ -16,6 +16,7 @@ import { invoke as rawInvoke } from '@tauri-apps/api/core';
 import { listen as rawListen } from '@tauri-apps/api/event';
 
 import type {
+  ServerRecord,
   Account,
   DeviceCode,
   JavaStatus,
@@ -60,6 +61,13 @@ export interface Cmd {
   system_info: [Record<string, never>, SystemInfo];
   java_status: [Record<string, never>, JavaStatus];
   server_ping: [{ host: string }, PingResult];
+  // The server book — where the player has played, and for how long. Playtime is written by
+  // `void_core::sync::pump` from the running game, never by these; each mutation answers with
+  // the whole list because the book is trimmed and re-sorted on write.
+  servers_list: [Record<string, never>, ServerRecord[]];
+  servers_favourite: [{ host: string; favourite: boolean }, ServerRecord[]];
+  servers_rename: [{ host: string; name: string | null }, ServerRecord[]];
+  servers_forget: [{ host: string }, ServerRecord[]];
   open_data_dir: [Record<string, never>, string];
   updater_check: [Record<string, never>, UpdateInfo];
 
