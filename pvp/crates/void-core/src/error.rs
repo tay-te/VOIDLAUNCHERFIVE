@@ -103,6 +103,82 @@ pub enum Error {
 }
 
 impl Error {
+    /// One sentence telling the player what to do about it, or `None` when there is nothing.
+    ///
+    /// **Separate from `Display`, because these errors have two audiences and they want
+    /// different things.** The messages above are written for the CLI, where the reader is
+    /// whoever is running `void-pvp` and a path with an errno on it is exactly right. The same
+    /// text reaches the launcher's error banner, where the reader is a player who wants to know
+    /// whether to press Play again or go and do something else.
+    ///
+    /// So the technical sentence stays and this is appended to it — one message, both audiences,
+    /// and one place to fix either. The alternative was re-wording every variant at the launcher
+    /// boundary, which is two texts per error and no way to notice when they disagree.
+    ///
+    /// `None` is a real answer and not a gap: an unsupported platform is not something the
+    /// player can act on, and inventing an instruction there would be worse than silence.
+    pub fn advice(&self) -> Option<&'static str> {
+        match self {
+            // Almost always a full disk or a data folder the user cannot write to — a game
+            // install is several hundred megabytes and the errno rarely says which.
+            Error::Io { .. } | Error::BareIo(_) => {
+                Some("Check that VOID can write to its data folder and that the disk is not full.")
+            }
+            // By the time this reaches a player the downloader has already tried four times
+            // (`download::ATTEMPTS`), so "try again" is advice about a later attempt rather than
+            // a suggestion to mash the button.
+            Error::Http(_) | Error::HttpStatus { .. } => Some(
+                "Check your connection and try again. If it keeps failing, Mojang's servers may \
+                 be having trouble.",
+            ),
+            // Also post-retry, so the bytes on the server really are wrong or something on the
+            // path is rewriting them. Both are somebody else's problem and both pass.
+            Error::Sha1Mismatch { .. } => Some(
+                "A file arrived damaged four times over. That usually means a proxy or a VPN is \
+                 rewriting downloads.",
+            ),
+            Error::Json { .. } | Error::Manifest(_) => {
+                Some("Mojang's version data was not what VOID expected. Try again later.")
+            }
+            Error::Auth(_) | Error::NotSignedIn => Some("Sign in again from Settings."),
+            // The honest player-facing version of "register an Azure application": this build
+            // cannot do Microsoft sign-in at all, and no amount of retrying changes that.
+            Error::MissingClientId(_) => Some(
+                "This build has no Microsoft sign-in configured. Use Play offline, or ask \
+                 whoever built it for a client id.",
+            ),
+            Error::Java(_) => {
+                Some("Set a Java 8 path in Settings, or turn \"Find Java automatically\" back on.")
+            }
+            Error::Archive { .. } => {
+                Some("Delete VOID's data folder and press Play again to reinstall.")
+            }
+            // Nothing to do. 1.8.9 does not run here, and an instruction would be a lie.
+            Error::UnsupportedPlatform(_) => None,
+            // Both wrap an error whose own type owns the advice.
+            Error::Loadout(_) | Error::Bridge(_) => None,
+        }
+    }
+
+    /// Whether this is worth another press of Play.
+    ///
+    /// Distinct from [`Self::advice`] because a banner wants to know whether to offer a retry
+    /// button, and that is not the same question as what sentence to print — `UnsupportedPlatform`
+    /// has no advice and is certainly not retryable, and a `Java` error has advice that is not
+    /// "try again".
+    pub fn worth_retrying(&self) -> bool {
+        matches!(
+            self,
+            Error::Io { .. }
+                | Error::BareIo(_)
+                | Error::Http(_)
+                | Error::HttpStatus { .. }
+                | Error::Json { .. }
+                | Error::Manifest(_)
+                | Error::Sha1Mismatch { .. }
+        )
+    }
+
     /// Wraps an I/O error with the path it happened to.
     pub fn io(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
         Error::Io { path: path.into(), source }
@@ -116,3 +192,58 @@ impl Error {
 
 /// Shorthand for a `void-core` result.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every error a *player* can reach carries advice.
+    ///
+    /// A walk rather than a list, so a variant added tomorrow is covered tonight — and the
+    /// `match` in `advice` has no wildcard arm, so adding one is a compile error before it is a
+    /// test failure. This is the second half of that: it fails when somebody adds a variant and
+    /// answers `None` to make it compile.
+    ///
+    /// The exclusions are stated rather than skipped. `UnsupportedPlatform` has nothing to
+    /// advise — 1.8.9 does not run here — and `Loadout` and `Bridge` wrap error types that own
+    /// their own advice.
+    #[test]
+    fn every_player_facing_error_says_what_to_do() {
+        let cases: Vec<Error> = vec![
+            Error::io("/x", std::io::Error::other("disk full")),
+            Error::BareIo(std::io::Error::other("nope")),
+            Error::HttpStatus { url: "https://x/y".into(), status: 503, detail: None },
+            Error::Sha1Mismatch {
+                path: "libraries/a.jar".into(),
+                expected: "a".repeat(40),
+                actual: "b".repeat(40),
+            },
+            Error::Manifest("no 1.8.9".into()),
+            Error::Auth("xsts 2148916233".into()),
+            Error::NotSignedIn,
+            Error::MissingClientId("/cfg.json".into()),
+            Error::Java("none on PATH".into()),
+            Error::Archive { path: "natives.zip".into(), message: "truncated".into() },
+        ];
+        for case in &cases {
+            let advice = case.advice();
+            assert!(advice.is_some(), "{case} reaches a player with no advice");
+            let text = advice.unwrap();
+            // The banner shows it under one technical sentence. Two sentences of instruction is
+            // a paragraph, and a paragraph in an error banner is not read.
+            assert!(text.len() < 140, "advice is too long to be read: {text}");
+            assert!(text.ends_with('.'), "advice should be a sentence: {text}");
+        }
+    }
+
+    #[test]
+    fn what_is_worth_retrying_is_not_what_has_advice() {
+        // Two different questions, which is why they are two methods. A Java error has advice
+        // and pressing Play again will not help; an unsupported platform has neither.
+        assert!(Error::Java("none".into()).advice().is_some());
+        assert!(!Error::Java("none".into()).worth_retrying());
+        assert!(Error::UnsupportedPlatform("riscv".into()).advice().is_none());
+        assert!(!Error::UnsupportedPlatform("riscv".into()).worth_retrying());
+        assert!(Error::HttpStatus { url: "u".into(), status: 500, detail: None }.worth_retrying());
+    }
+}

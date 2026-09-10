@@ -29,9 +29,18 @@ pub enum Error {
     #[error("Could not reach {host}: {reason}")]
     Ping { host: String, reason: String },
 
-    /// Everything `void-core` reports: auth, manifests, downloads, Java, spawn. Its own
-    /// `Display` is already written for a person, so it is passed through rather than
-    /// re-worded — re-wording it here would mean two places to fix a bad message.
+    /// Everything `void-core` reports: auth, manifests, downloads, Java, spawn.
+    ///
+    /// **This used to say its `Display` was "already written for a person", and that was not
+    /// true.** Those messages are written for the CLI, whose reader is running `void-pvp` and
+    /// wants the path with the errno on it. The same text reached this banner, whose reader is a
+    /// player deciding whether to press Play again — and got
+    /// `/home/…/libraries/x.jar: sha1 mismatch (expected a1b2…, got c3d4…)`.
+    ///
+    /// Re-wording every variant here would have been the two-places-to-fix problem the old
+    /// comment was right about. So the technical sentence is still passed through and
+    /// `void_core::Error::advice` supplies a second one saying what to do — one message, both
+    /// audiences, one place to fix either. See [`map_err`].
     #[error("{0}")]
     Core(#[from] void_core::Error),
 
@@ -71,9 +80,20 @@ impl From<serde_json::Error> for Error {
 pub type CmdResult<T> = Result<T, String>;
 
 /// Log the technical error, hand the player the readable one.
+///
+/// The advice sentence is appended rather than substituted: an error banner that said only
+/// "Check your connection and try again" would be unactionable for whoever the player asks for
+/// help, and one that said only `https://…/1.8.9.json returned 503` is unactionable for the
+/// player. Both is one line longer than either and useful to both.
 pub fn map_err<T>(r: Result<T, Error>) -> CmdResult<T> {
     r.map_err(|e| {
         tracing::warn!(error = %e, "command failed");
-        e.to_string()
+        match &e {
+            Error::Core(core) => match core.advice() {
+                Some(advice) => format!("{e} — {advice}"),
+                None => e.to_string(),
+            },
+            _ => e.to_string(),
+        }
     })
 }

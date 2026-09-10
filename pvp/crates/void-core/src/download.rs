@@ -23,6 +23,48 @@ use crate::paths::Paths;
 /// How many downloads run at once (§12).
 pub const CONCURRENCY: usize = 16;
 
+/// How many times one file is fetched before the install gives up on it.
+///
+/// Four, which is three retries. Enough to ride out a dropped connection or a CDN edge having a
+/// moment; few enough that a genuinely broken file fails while the player is still watching,
+/// rather than after a minute of quiet backoff.
+const ATTEMPTS: u32 = 4;
+
+/// First retry delay in milliseconds; it doubles each time.
+///
+/// 200, 400, 800 — under a second and a half in total for a file that never succeeds. Short
+/// because the failures being ridden out are transport hiccups rather than a server asking for
+/// room, and because [`CONCURRENCY`] files are in flight, so a slow retry stalls a queue and not
+/// just itself.
+const RETRY_BASE_MS: u64 = 200;
+
+/// Whether a failure is worth another attempt.
+///
+/// **The 404 case is the one that decides the shape of this function.** A manifest promising a
+/// file the CDN does not have will promise it again in 200 ms, and retrying it means every one
+/// of a thousand missing assets burns four attempts and its backoff before the install fails —
+/// turning an error the player would have seen in two seconds into a minute of silence. So the
+/// rule is not "retry on failure", it is "retry the failures that can change".
+///
+/// - **Transport errors are transient.** A reset connection, a timeout, a truncated body: all of
+///   these are the network rather than the file. The one exception is a builder error, which is
+///   a malformed request of our own making and will be malformed again.
+/// - **429 and 5xx are transient**; 4xx otherwise is not. A rate limit and a bad gateway both
+///   pass, and a 404 or a 403 does not.
+/// - **A SHA-1 mismatch is transient**, which is the least obvious entry here and the one worth
+///   the most. The common cause is not a corrupt file on the server, it is a body that arrived
+///   short — a connection closed mid-transfer hashes wrong rather than erroring. Re-fetching
+///   fixes that. If the server really is serving the wrong bytes the attempts run out and the
+///   error the player sees names the file and both digests, which is what it did before.
+fn transient(e: &Error) -> bool {
+    match e {
+        Error::Http(err) => !err.is_builder(),
+        Error::HttpStatus { status, .. } => *status == 408 || *status == 429 || *status >= 500,
+        Error::Sha1Mismatch { .. } => true,
+        _ => false,
+    }
+}
+
 /// What the downloader reports as it works.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Progress {
@@ -85,6 +127,14 @@ impl Downloader {
     ///
     /// Fails on the first error rather than half-installing: a missing library is not
     /// something a launch can recover from, and the cache means a retry is cheap.
+    ///
+    /// **"A retry is cheap" used to mean the player pressing Play again**, and that is why
+    /// individual files are now retried here instead. 1.8.9 is about a thousand assets and forty
+    /// libraries, so at a one-in-a-thousand chance of a transient failure per file the odds of a
+    /// clean first install are around a third — and every failed attempt showed the player a
+    /// message written for a developer before asking them to try again. The cache does make the
+    /// second attempt converge, which is why this was survivable rather than broken; it is still
+    /// several presses of Play to install a game once. See [`fetch_one`].
     pub async fn fetch_all(
         &self,
         files: &[FileSpec],
@@ -138,7 +188,36 @@ impl Downloader {
         Ok(downloaded_bytes)
     }
 
+    /// Fetches one file, re-trying the failures that are worth re-trying.
+    ///
+    /// See [`transient`] for which those are. The delay doubles from [`RETRY_BASE_MS`]; with
+    /// [`ATTEMPTS`] tries that is under a second and a half of waiting in the worst case, per
+    /// file, against a download that is already running [`CONCURRENCY`] files at a time.
     async fn fetch_one(&self, spec: &FileSpec) -> Result<Outcome> {
+        let mut delay = RETRY_BASE_MS;
+        for attempt in 1..ATTEMPTS {
+            match self.fetch_once(spec).await {
+                Ok(outcome) => return Ok(outcome),
+                Err(e) if transient(&e) => {
+                    // Logged rather than swallowed: the log drawer is the failure surface, and a
+                    // player whose install took four minutes because their connection was
+                    // dropping packets should be able to see that rather than guess it.
+                    tracing::warn!(
+                        url = %spec.url,
+                        attempt,
+                        error = %e,
+                        "download failed, retrying"
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                    delay *= 2;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        self.fetch_once(spec).await
+    }
+
+    async fn fetch_once(&self, spec: &FileSpec) -> Result<Outcome> {
         let dest = self.root.join(&spec.relative_path);
 
         // Already in place and correct?
@@ -248,6 +327,47 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_failures_that_can_change_are_retried() {
+        // The rule is not "retry on failure". A manifest promising a file the CDN does not have
+        // will promise it again in 200 ms, and retrying every one of a thousand missing assets
+        // four times with backoff turns a two-second error into a minute of silence.
+        assert!(!transient(&Error::HttpStatus {
+            url: "https://example.invalid/a.jar".into(),
+            status: 404,
+            detail: None,
+        }));
+        assert!(!transient(&Error::HttpStatus {
+            url: "https://example.invalid/a.jar".into(),
+            status: 403,
+            detail: None,
+        }));
+
+        // A rate limit and a bad gateway both pass.
+        for status in [408, 429, 500, 502, 503] {
+            assert!(
+                transient(&Error::HttpStatus {
+                    url: "https://example.invalid/a.jar".into(),
+                    status,
+                    detail: None,
+                }),
+                "{status} should be retried"
+            );
+        }
+
+        // The least obvious entry, and the one worth the most: a body that arrived short hashes
+        // wrong rather than erroring, and re-fetching fixes it.
+        assert!(transient(&Error::Sha1Mismatch {
+            path: "libraries/a.jar".into(),
+            expected: "a".repeat(40),
+            actual: "b".repeat(40),
+        }));
+
+        // Nothing else. A path we cannot write is not going to become writable.
+        assert!(!transient(&Error::Manifest("no such version".into())));
+        assert!(!transient(&Error::Java("none found".into())));
+    }
 
     #[test]
     fn cache_paths_fan_out_by_the_first_two_hex_digits() {

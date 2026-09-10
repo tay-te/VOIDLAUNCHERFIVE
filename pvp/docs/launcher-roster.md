@@ -23,7 +23,7 @@ Working, wired to `crates/void-core` through `apps/desktop/src-tauri`, and exerc
 | Area | State | Where |
 |---|---|---|
 | **Sign in** | Microsoft device-code flow and an offline path | `auth_login` / `auth_offline` / `auth_current` |
-| **Install** | Manifest, libraries, assets, client jar, Legacy Fabric, Java 8, the mod jar | `prepare`, with progress events |
+| **Install** | Manifest, libraries, assets, client jar, Legacy Fabric, Java 8, the mod jar — with per-file retries as of 2026-09-10, see §3 | `prepare`, with progress events |
 | **Launch** | JVM spawn, argument cache, natives, log capture, kill | `launch`, `game_kill`, `game_log_tail` |
 | **Join a server** | `--server` / `--port` at spawn — **shipped 2026-09-10**, see §3 | `launch { server }` |
 | **Loadouts** | List, create, update, delete, switch, and the live `bridge:state` echo from a running game | `loadouts_*` |
@@ -175,6 +175,51 @@ because only the launcher's UI reads them — `typicalPing` lives in `stores/ser
 else. A copy on the Rust side would have been a second implementation of one rule, kept honest by
 nothing. It was written there first and removed.
 
+### 2026-09-10 — the failure surface, scored
+
+The row said "nothing has been scored for this". Scoring it found two things, and neither was
+where the row expected.
+
+**The banner and the crash path were already right, and are left alone.** `LaunchError` carries
+the message, an **Open log** button and a dismiss; a non-zero JVM exit already sets an error
+naming the code and pointing at the log. Both were built by somebody who had thought about it,
+and the useful thing to record is that they need nothing — a "failure surface" pass that improved
+them anyway would have been changes for the sake of the row.
+
+**The downloader had no retries at all.** `fetch_all` propagated the first error and abandoned the
+rest. 1.8.9 is about a thousand assets and forty libraries, so at a one-in-a-thousand chance of a
+transient failure per file, the odds of a clean first install are around a third — and every
+failed attempt showed a message written for a developer before asking the player to try again.
+The design converged only because the object cache made each retry cheaper and the player kept
+pressing Play. `fetch_one` now retries four times with a doubling delay.
+
+**Which failures get retried is the whole of that change.** A 404 will be a 404 in 200 ms, and
+retrying every one of a thousand missing assets four times with backoff turns an error the player
+would have seen in two seconds into a minute of silence. So the rule is not "retry on failure", it
+is *retry the failures that can change*: transport errors, 408/429/5xx, and — the least obvious
+and most valuable — **a SHA-1 mismatch**, because the common cause is a body that arrived short
+rather than a corrupt file on the server, and a connection closed mid-transfer hashes wrong rather
+than erroring.
+
+**And `void-core`'s errors were never "written for a person", whatever the comment said.**
+`apps/desktop`'s `Error::Core` claimed they were and passed them straight to the banner, so a
+player got `/home/…/libraries/x.jar: sha1 mismatch (expected a1b2…, got c3d4…)`. Those messages
+are written for the CLI, whose reader wants exactly that. The fix is not to re-word them at the
+boundary — the old comment was right that this means two texts per error and no way to notice
+when they disagree — but to add a second sentence: `Error::advice()` says what to *do*, and
+`map_err` appends it. One message, both audiences, one place to fix either.
+
+A test walks every variant a player can reach and fails if one has no advice; `advice`'s own
+`match` has no wildcard arm, so adding a variant is a compile error first and a test failure
+second. `UnsupportedPlatform` returns `None` on purpose — 1.8.9 does not run there and an
+instruction would be a lie.
+
+**No "Try again" button, deliberately.** `Error::worth_retrying` exists and the banner does not
+use it: telling the UI which errors are retryable means a structured error over the IPC boundary,
+and Play is already on screen. The method is there because the CLI and any later surface will want
+it, and because "what has advice" and "what is worth retrying" are genuinely different questions —
+a Java error has advice and pressing Play again will not help.
+
 ## 4. Friends, and the decision it actually needs
 
 Both surfaces are placeholders. Making them real is not mostly UI work, and the dependency order
@@ -203,10 +248,8 @@ launcher.
 
 ## 5. What to do next, in order
 
-1. **The failure surface.** Wrong Java, a 404 in the manifest, a mod jar that does not match
-   the version. A PvP client is judged on whether it launches and what it says when it does not,
-   and nothing on this page has been scored for that — including whether `LogDrawer` helps a
-   player or only a developer. This is now the top row, because §16.3 was cut.
+1. ~~**The failure surface.**~~ Scored and half-fixed 2026-09-10 — see §3. What is left of it is
+   an audit of `prepare`'s progress reporting, which was not looked at.
 2. ~~**Persisted ping history.**~~ Done 2026-09-10 — see §3.
 3. ~~**Server favourites out of `localStorage`.**~~ Done 2026-09-10.
 4. **Friends**, once §4's decision is made.
