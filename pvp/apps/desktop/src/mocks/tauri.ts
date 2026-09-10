@@ -349,7 +349,16 @@ const commands: Record<string, (args: Args) => unknown> = {
     // The server the game reports is the one it was sent to, when it was sent to one. A mock
     // that always said Hypixel would make the join argument look wired while doing nothing.
     const landed = host ?? 'mc.hypixel.net';
-    later(() => emit('bridge:server', { t: 'server', host: landed, connected: true }), after);
+    later(() => {
+      emit('bridge:server', { t: 'server', host: landed, connected: true });
+      // Folded into the book, exactly as `void_core::sync::pump` does with the same message.
+      // Without this the preview would emit presence and keep none of it, so every playtime
+      // figure would read `—` no matter how long the mock session ran — which would make the
+      // whole record look unwired while it was working.
+      const entry = serverEntry(landed);
+      entry.joins += 1;
+      entry.last_played_ms = Date.now();
+    }, after);
     later(
       () =>
         emit('bridge:state', {
@@ -359,17 +368,21 @@ const commands: Record<string, (args: Args) => unknown> = {
         }),
       after + 100,
     );
-    later(
-      () =>
-        emit('bridge:session', {
-          t: 'session',
-          fps_avg: 142,
-          played_ms: 812_000,
-          server: landed,
-          loadout: loadout.id,
-        }),
-      after + 200,
-    );
+    later(() => {
+      emit('bridge:session', {
+        t: 'session',
+        fps_avg: 142,
+        played_ms: 812_000,
+        server: landed,
+        loadout: loadout.id,
+      });
+      // The same slice of time, attributed where it was spent — `pump`'s `server_for_report`.
+      // A cumulative figure in the message and a delta in the book, which is the contract
+      // `ServerBook::record_session` states; the mock runs one report, so they coincide here.
+      const entry = serverEntry(landed);
+      entry.played_ms += 812_000;
+      entry.last_played_ms = Date.now();
+    }, after + 200);
     later(() => {
       state.running = false;
       emit('game:closed', {

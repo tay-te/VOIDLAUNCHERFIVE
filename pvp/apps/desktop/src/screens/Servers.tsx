@@ -22,7 +22,6 @@ import {
   ServerRow,
   Sparkline,
   StatTile,
-  Toggle,
 } from '@void/ui';
 import { useEffect, useState } from 'react';
 
@@ -228,18 +227,13 @@ export function ServersScreen() {
               </Button>
             </div>
 
-            <span className="v-spacer" />
+            {/* An "Auto-switch loadout" toggle sat here, permanently disabled, waiting on the
+                per-server default loadout of §16.3. That row was **cut on 2026-09-10**: loadouts
+                are ordinary loadouts, not server-bound ones. So the control is gone rather than
+                left disabled — a switch that will never turn on is a promise the product has
+                decided not to keep, and leaving it is how a roster grows rows nobody scored. */}
 
-            <div className="pane__row">
-              <span className="pane__rowtext">
-                <span className="pane__rowtitle">Auto-switch loadout</span>
-                <span className="pane__rowsub">
-                  {/* TODO(integrate): needs a per-server default loadout (§16.3). */}
-                  Not wired yet — needs a per-server default loadout (§16.3)
-                </span>
-              </span>
-              <Toggle size="m" checked={false} label="Auto-switch loadout" disabled />
-            </div>
+            <span className="v-spacer" />
 
             {/* Joins the server, rather than only launching the game beside it. 1.8.9's own
                 `Main` parses `--server` and `--port`, so this is a launch argument and needs

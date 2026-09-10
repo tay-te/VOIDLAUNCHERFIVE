@@ -3124,3 +3124,30 @@ hr.divider {
 .share__notice--bad {
   color: var(--hue-pvp);
 }
+
+/* --------------------------------------------------- continue on a server */
+
+/* The second CTA on the Play dock: back into the server you were last on.
+   Secondary by construction — an outline against Launch's fill — because it is the more
+   specific of the two actions and the one a player takes deliberately. `margin-left: auto`
+   is Launch's, so this sits immediately left of it rather than claiming the gap. */
+.launch--resume {
+  width: auto;
+  min-width: 150px;
+  margin-right: 10px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.launch--resume:hover {
+  background: var(--surface-raised);
+}
+
+/* Where it is going, said on the button. A destination the player cannot see is the reason
+   this is a separate control rather than a cleverer Launch. */
+.launch--resume .launch__where {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-secondary);
+}

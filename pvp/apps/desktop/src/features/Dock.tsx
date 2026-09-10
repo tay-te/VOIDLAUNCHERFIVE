@@ -32,6 +32,7 @@ import { hypixelReady } from '../local/hypixelReady';
 import { MOD_GRID_ORDER, enabledCount } from '../local/registry';
 import { formatBytes, stepLabel, useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
+import { resumeTarget, serverName, useServers } from '../stores/servers';
 import { useSession } from '../stores/session';
 import { useUi, type Screen } from '../stores/ui';
 
@@ -280,6 +281,43 @@ function CellRule({ side }: { side: 'left' | 'right' }) {
  * 852 × 92 box (see `.playdock` in `local/app.css`) rather than flowed, because the
  * frame gives each one an absolute position and a chain of gaps would not say so.
  */
+/**
+ * Back into the server you were last on, in one press.
+ *
+ * **A second control rather than a smarter Launch**, and that is the whole design. Making Launch
+ * join the last server would mean the app's primary button quietly did something different
+ * depending on history — press it expecting the title screen, arrive in somebody's Bedwars lobby.
+ * Two buttons say two things, and the one that connects names where it is going.
+ *
+ * It is absent, not disabled, when there is nowhere to resume. A disabled control is a promise
+ * that something is coming; on a fresh install there is nothing to come — the button appears the
+ * first time the player finishes a session, which is the moment it starts meaning something.
+ *
+ * The join itself is `--server` at spawn (`void_core::launch::JoinTarget`), so this costs the
+ * launcher nothing the Servers screen's Join button did not already pay.
+ */
+function ResumeControl(): ReactElement | null {
+  const active = useLoadouts((s) => s.active);
+  const servers = useServers((s) => s.servers);
+  const phase = useLaunch((s) => s.phase);
+  const start = useLaunch((s) => s.start);
+
+  const resume = resumeTarget(servers);
+  if (resume === null || active === null || phase !== 'idle') return null;
+
+  return (
+    <button
+      type="button"
+      className="launch launch--resume"
+      title={`Launch and connect to ${resume.host}`}
+      onClick={() => void start(active.id, { host: resume.host })}
+    >
+      <span className="launch__label">Continue</span>
+      <span className="launch__where">{serverName(resume)}</span>
+    </button>
+  );
+}
+
 function PlayDock(): ReactElement {
   const { active, library, switchTo } = useLoadouts();
   const openSettings = useUi((s) => s.openSettings);
@@ -291,6 +329,7 @@ function PlayDock(): ReactElement {
       <CellRule side="left" />
       <VersionPicker className="playdock__version" />
 
+      <ResumeControl />
       <LaunchControl mark />
 
       <CellRule side="right" />

@@ -14,7 +14,14 @@ import { hypixelReady } from '../local/hypixelReady';
 import { effectiveState, enabledCount, isOn, matchesTab } from '../local/registry';
 import { useLaunch, wireLaunchEvents, formatBytes, stepLabel } from './launch';
 import { useLoadouts, wireLoadoutEvents } from './loadouts';
-import { useServers, lastPlayed, nameForHost, playedTime, pingTone } from './servers';
+import {
+  useServers,
+  lastPlayed,
+  nameForHost,
+  playedTime,
+  pingTone,
+  resumeTarget,
+} from './servers';
 import { useSession, wireSessionEvents } from './session';
 import { useUi } from './ui';
 
@@ -380,6 +387,25 @@ describe('servers store', () => {
     expect(lastPlayed(now - 86_400_000, now)).toBe('yesterday');
     expect(lastPlayed(now - 5 * 86_400_000, now)).toBe('5d');
     expect(lastPlayed(now - 21 * 86_400_000, now)).toBe('3w');
+  });
+
+  it('offers to resume only somewhere the player has actually been', async () => {
+    await useServers.getState().hydrate();
+    // The seeded book is five starred servers nobody has played. Starring is a bookmark, and
+    // resuming somewhere you have never been is not resuming — a launcher that offered it would
+    // be guessing and calling it memory.
+    expect(useServers.getState().servers.every((s) => s.favourite)).toBe(true);
+    expect(resumeTarget(useServers.getState().servers)).toBeNull();
+
+    // After a session it is the server the game reported, not the loadout's advisory slug.
+    await useSession.getState().loginOffline('Searge');
+    await useLoadouts.getState().hydrate();
+    wireLaunchEvents();
+    await useLaunch.getState().start(useLoadouts.getState().active!.id, {
+      host: 'na.minemen.club',
+    });
+    await useServers.getState().hydrate();
+    expect(resumeTarget(useServers.getState().servers)?.host).toBe('na.minemen.club');
   });
 
   it('pings a known host and keeps a bounded history', async () => {

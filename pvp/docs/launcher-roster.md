@@ -46,7 +46,7 @@ so each row says what is actually behind it.
 | **Friends** | `screens/Friends.tsx`, every action disabled | `local/friends.ts` — **five hardcoded names**. No store, no command, no backend | L, and gated: see §4 |
 | **Party (in game)** | `menu/PartyScreen.tsx` | Nothing. `bridge.json` carries no party, presence or queue | L, same gate |
 | **Cosmetics** | `screens/Cosmetics.tsx` | Nothing. §16.1 leaves the render Mixin and the asset pipeline to its own doc | L |
-| **Auto-switch loadout per server** | A disabled toggle on the Servers detail pane | Nothing. `loadout.json` has a `server` slug and no per-server record to key it on | **S–M, and the best row on this page** |
+| ~~**Auto-switch loadout per server**~~ | A disabled toggle on the Servers detail pane | **Cut 2026-09-10**, by the product owner: loadouts will be ordinary loadouts, not server-bound ones. The toggle and its "needs §16.3" note should come out | — |
 | ~~**Server favourites**~~ | Works, and is Rust's now | ~~`localStorage`~~ `servers.json` — **done 2026-09-10** | — |
 
 ## 3. Shipped
@@ -117,6 +117,31 @@ It also retired the `localStorage` favourites list, which §2 had scored as a bu
 it, and gave the Servers screen's **Recent** tab something to actually filter on: `joins > 0`. A
 server you starred and never joined is a favourite, not a recent.
 
+### 2026-09-10 — continue where you left off
+
+The record's first use, and a bug fix underneath it.
+
+**The Play screen was resolving its server by name-matching a slug.** It compared
+`serverName(entry)` against the loadout's advisory `server` field — which agrees for `hypixel` by
+coincidence, picks whichever of `na.` and `eu.minemen.club` sorts first for `minemen`, and falls
+back to a hardcoded host otherwise. A launcher that keeps a record of where the player has been
+does not need to guess: the record answers, and the slug stays as the fallback for a first run,
+which is the only case it was ever right about.
+
+**Continue is a second control, not a smarter Launch.** Making the primary button join the last
+server would mean the app's main action quietly did something different depending on history —
+press it expecting the title screen, arrive in somebody's Bedwars lobby. Two buttons say two
+things, and the one that connects names where it is going.
+
+It is **absent rather than disabled** when there is nowhere to resume. A disabled control promises
+something is coming; on a fresh install there is nothing to come. The button appears the first
+time a session finishes, which is the moment it starts meaning something.
+
+**`resumeTarget` is derived, never stored.** A `last_server` field would be a second copy of what
+the book already holds — written on every connect, and wrong the moment the server it points at is
+forgotten. It keys on `joins > 0`, not `favourite`: starring is a bookmark, and offering to
+continue somewhere the player has never been is guessing and calling it memory.
+
 ## 4. Friends, and the decision it actually needs
 
 Both surfaces are placeholders. Making them real is not mostly UI work, and the dependency order
@@ -145,14 +170,13 @@ launcher.
 
 ## 5. What to do next, in order
 
-1. **Per-server default loadout** (§16.3). The one launcher row that is a product idea rather
-   than plumbing: pick Hypixel, get your Hypixel HUD. Now nearly free: `ServerRecord` is the
-   record it hangs on and every field there is `serde(default)`, so adding one orphans nobody's
-   playtime — and the join button it pairs with already exists.
-2. **The failure surface.** Wrong Java, a 404 in the manifest, a mod jar that does not match the
-   version. A PvP client is judged on whether it launches and what it says when it does not, and
-   nothing on this page has been scored for that yet — including whether `LogDrawer` helps a
-   player or only a developer.
-3. **Server favourites out of `localStorage`.** A desktop app storing its own data in the
-   webview's storage is a bug with a TODO on it.
+1. **The failure surface.** Wrong Java, a 404 in the manifest, a mod jar that does not match
+   the version. A PvP client is judged on whether it launches and what it says when it does not,
+   and nothing on this page has been scored for that — including whether `LogDrawer` helps a
+   player or only a developer. This is now the top row, because §16.3 was cut.
+2. **Persisted ping history.** `pings` is twelve samples in memory, gone on restart. The book is
+   the natural home for a rolling record, which turns "42 ms" into "usually 45, 120 right now" —
+   `docs/mod-roster.md` §5's *connection quality* row, arriving through the launcher rather than
+   the HUD, and the part of it neither competitor ships.
+3. ~~**Server favourites out of `localStorage`.**~~ Done 2026-09-10.
 4. **Friends**, once §4's decision is made.

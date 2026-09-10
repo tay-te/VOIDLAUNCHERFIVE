@@ -47,7 +47,14 @@ import {
 } from '../local/watermark';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
-import { serverName, useServers } from '../stores/servers';
+import {
+  lastPlayed,
+  nameForHost,
+  playedTime,
+  resumeTarget,
+  serverName,
+  useServers,
+} from '../stores/servers';
 
 /** The server the Play screen quotes a ping for: the active loadout's, else Hypixel. */
 const FALLBACK_HOST = 'mc.hypixel.net';
@@ -110,11 +117,20 @@ export function PlayScreen() {
   const servers = useServers((s) => s.servers);
   const liveServer = useLaunch((s) => s.server);
 
+  // Where you last actually were, then the loadout's advisory slug, then a constant.
+  //
+  // The slug match used to be first, and it was a name comparison standing in for a record:
+  // `serverName(entry)` against `loadout.server`, which agrees for `hypixel` by coincidence and
+  // picks whichever of `na.` and `eu.minemen.club` happens to sort first for `minemen`. Now that
+  // the launcher keeps a record of where the player has been, the record answers — and the slug
+  // stays as the fallback for a first run, which is the only case it was ever right about.
+  const resume = resumeTarget(servers);
   const host =
-    servers.find((s) => serverName(s).toLowerCase() === (active?.server ?? '').toLowerCase())?.host ??
+    resume?.host ??
+    servers.find((s) => serverName(s).toLowerCase() === (active?.server ?? '').toLowerCase())
+      ?.host ??
     FALLBACK_HOST;
-  const shortName = host.split('.').slice(-2, -1)[0] ?? host;
-  const label = shortName.charAt(0).toUpperCase() + shortName.slice(1);
+  const label = resume ? serverName(resume) : nameForHost(host);
 
   // One ping on mount and every 30 s — often enough to be live, rare enough that a
   // launcher left open overnight is not hammering anyone's status port.
@@ -161,6 +177,17 @@ export function PlayScreen() {
           <span className="tnum">
             {pingValue ? `${pingValue} ms to ${label}` : `pinging ${label}`}
           </span>
+          {/* What the game reported, not what the launcher assumed. Only when there is one —
+              a fresh install has played nowhere, and `0m` there would be a figure nobody
+              earned (`playedTime` draws the same distinction). */}
+          {resume && playedTime(resume.played_ms) !== '—' ? (
+            <>
+              <span className="play__dash">·</span>
+              <span className="tnum">
+                {playedTime(resume.played_ms)} there, {lastPlayed(resume.last_played_ms)}
+              </span>
+            </>
+          ) : null}
           {liveServer?.connected ? (
             <>
               <span className="play__dash">·</span>

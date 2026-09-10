@@ -16,8 +16,9 @@
  * rather than patching locally: the book is trimmed and re-sorted on write, and a local guess
  * would drift the first time either happened.
  *
- * Still open (§16.3): a per-server default loadout. `ServerRecord` is what it would hang on, and
- * every field there is `serde(default)`, so adding one orphans nobody's playtime.
+ * A per-server default loadout (§16.3) was the obvious next thing to hang here and was **cut on
+ * 2026-09-10**: loadouts are ordinary loadouts. `ServerRecord` stays deliberately thin because of
+ * it — every field on it is something the player or the game actually said.
  */
 
 import { create } from 'zustand';
@@ -91,6 +92,22 @@ export function lastPlayed(atMs: number, now = Date.now()): string {
   if (days < 14) return `${days}d`;
   if (days < 60) return `${Math.floor(days / 7)}w`;
   return `${Math.floor(days / 30)}mo`;
+}
+
+/**
+ * Where the player last actually was, or `null` when they have not been anywhere.
+ *
+ * **Derived, never stored.** The obvious shape is a `last_server` field somewhere, and it would
+ * be a second copy of a fact the book already holds — one that has to be written on every
+ * connect, and that is wrong the moment a player forgets the server it points at. The list is
+ * already sorted most-recently-played first, so this is a `find`.
+ *
+ * `joins > 0` and not `favourite`: starring a server is a bookmark, and resuming somewhere you
+ * have never been is not resuming. A launcher that offered to continue on a server the player
+ * had only ever starred would be guessing, and calling it memory.
+ */
+export function resumeTarget(servers: readonly ServerRecord[]): ServerRecord | null {
+  return servers.find((entry) => entry.joins > 0 && entry.last_played_ms > 0) ?? null;
 }
 
 /** The label to draw: the player's, or the one derived from the host. */
