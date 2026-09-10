@@ -44,8 +44,8 @@ so each row says what is actually behind it.
 
 | Screen | What exists | What is behind it | Cost to make real |
 |---|---|---|---|
-| **Friends** | `screens/Friends.tsx`, every action disabled | `local/friends.ts` — **five hardcoded names**. No store, no command, no backend | L, and gated: see §4 |
-| **Party (in game)** | `menu/PartyScreen.tsx` | Nothing. `bridge.json` carries no party, presence or queue | L, same gate |
+| **Friends** | `screens/Friends.tsx`, every action disabled, **and now empty** | No store, no command, no backend. The five hardcoded names went on 2026-09-10 — see §3 | L, and gated: see §4 |
+| **Party (in game)** | `menu/PartyScreen.tsx`, layout only | Nothing. `bridge.json` carries no party, presence or queue. Its two invented members went the same day | L, same gate |
 | **Cosmetics** | `screens/Cosmetics.tsx` | Nothing. §16.1 leaves the render Mixin and the asset pipeline to its own doc | L |
 | ~~**Auto-switch loadout per server**~~ | A disabled toggle on the Servers detail pane | **Cut 2026-09-10**, by the product owner: loadouts will be ordinary loadouts, not server-bound ones. The toggle and its "needs §16.3" note should come out | — |
 | ~~**Server favourites**~~ | Works, and is Rust's now | ~~`localStorage`~~ `servers.json` — **done 2026-09-10** | — |
@@ -219,6 +219,62 @@ use it: telling the UI which errors are retryable means a structured error over 
 and Play is already on screen. The method is there because the CLI and any later surface will want
 it, and because "what has advice" and "what is worth retrying" are genuinely different questions —
 a Java error has advice and pressing Play again will not help.
+
+### 2026-09-10 — the placeholders that had stopped being placeholders
+
+Two changes, one principle: **a placeholder may look like the thing; it may not claim to be the
+thing.**
+
+**The launcher shipped a fabricated friends list, and one of its numbers reached the main
+screen.** `local/friends.ts` exported five people — three of them "online" — taken from the Figma
+frame so the screen would render faithfully while §16.2 stayed open. Reasonable while it was a
+design artefact. Then the Play dock started printing **"3 online"** on the app's front page, with
+the caveat two clicks away on the Friends screen's own footer, so the screen disagreed with itself
+and the dock did not disagree with anything.
+
+The list is empty now and the readout is **absent rather than zero** — "0 online" is its own
+claim, that you have friends and none of them are on. The layouts stay: the component structure
+*is* the design and it is ready the day a `friends_list` command exists.
+
+**The in-game Party screen was worse, because it had no footer at all.** Two named members, two
+named invites, tab counts of 3 and 2, under a hint promising party chat and push-to-talk. Same
+fix, and the footer now says what is true. `screens.test.tsx` asserted `Searge`, `Leader` and
+`Ready`; it now asserts their *absence*, which is the thing worth pinning.
+
+**Gating the fixture behind the browser preview was the tempting middle path and it is ruled
+out** — by `IS_TAURI`'s own note, in as many words: "Never for data: the mock answers every
+command, which is the point." Fabricated data belongs in `mocks/tauri.ts` answering a command, and
+there is no command to answer. That absence was exactly what the fixture was papering over.
+
+### 2026-09-10 — a fresh install stops arriving with a library
+
+`Store::init` seeded three curated loadouts on first run — Sword PvP, Bedwars, UHC — two of them
+carrying the `server` slug that the cut §16.3 was going to key an auto-switch on. That is
+"creating loadouts for people out of the gate", and the product decision is not to.
+
+It seeds **one**, `defaults::starter`, and the interesting part is what is in it: **nothing.**
+`ModStates::default()` is empty, so every mod resolves to the factory settings its own
+`schema/mods/<id>.json` argues for — a better provenance than a list assembled in `defaults.rs`,
+because each was decided by somebody thinking about that mod. No `server`. The name is "Default",
+not a claim about what the loadout is *for*.
+
+**Zero loadouts is not an option, and the store already knew that**: `Error::LastLoadout` refuses
+to delete the last one. So the honest reading of "don't create loadouts for people" is one loadout
+that has made no decisions.
+
+**But `hud` is not empty, and the asymmetry is the whole trap.** An absent mod resolves to its
+registry default; an absent *placement* resolves to nothing, and `HudLayer` says so in as many
+words — "a mod that is on but unplaced draws nothing, and nothing says so",
+`design/rendering-invariants.md` §15. An empty `hud` would have shipped a first run whose HUD mods
+are all on and none of them visible. So every HUD mod is placed at its registry default, including
+the ones that ship off.
+
+**Six tests broke, and every one of them was a test of the seed pretending to be a test of
+something else** — the bridge handshake, the sync loop, the store's migration and cycle
+behaviour. Each now builds its own library or asserts a property instead of a name: the loadout
+cycle rings the library and returns to where it started; deleting the active one leaves a pointer
+that loads. Both were written as lists of names, and both would have broken again on the next
+change to the seed.
 
 ## 4. Friends, and the decision it actually needs
 

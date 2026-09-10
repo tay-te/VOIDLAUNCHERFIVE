@@ -9,15 +9,26 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use void_bridge::{BridgeServer, InitPayload, JavaToRust, RustToJava, StaticInit, PROTOCOL_VERSION};
-use void_loadout::{defaults, GlobalSettings, LoadoutId, ModId, StatePatch};
+use void_loadout::{defaults, GlobalSettings, Loadout, LoadoutId, ModId, StatePatch};
 
 type Client = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 /// Anything that hangs is a bug, not a slow machine: everything here is loopback.
 const PATIENCE: Duration = Duration::from_secs(5);
 
+/// The library this test hands the mod.
+///
+/// **Its own list rather than `defaults::default_library()`.** It used to be that, and the
+/// coupling broke the day a fresh install stopped seeding three loadouts: this test is about the
+/// *handshake* — that `init` carries whole loadouts rather than summaries, that the mod can
+/// switch to any of them — and a library of one cannot show that. What a new player's library
+/// contains is a product decision and belongs in `defaults.rs`'s own tests.
+fn library() -> Vec<Loadout> {
+    vec![defaults::sword_pvp(), defaults::bedwars(), defaults::uhc()]
+}
+
 fn payload() -> InitPayload {
-    let library = defaults::default_library();
+    let library = library();
     InitPayload {
         loadout: library[0].clone(),
         loadouts: library.clone(),

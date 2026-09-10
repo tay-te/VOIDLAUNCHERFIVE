@@ -202,7 +202,11 @@ async fn a_full_offline_launch_reaches_the_jvm_with_the_bridge_seam_intact() {
     let payload = <void_core::sync::StoreInit as void_bridge::InitSource>::init(
         &void_core::sync::StoreInit::new(store.clone()),
     );
-    assert_eq!(payload.loadout.id, defaults::sword_pvp().id);
+    // Whatever a fresh install seeds, rather than a named loadout: this test is about the seam
+    // between the launch and the bridge — that the JVM was pointed at the store's own state —
+    // and which loadout that is belongs to `defaults.rs`.
+    assert_eq!(payload.loadout.id, store.active_id().unwrap());
+    assert_eq!(payload.loadout.id, defaults::starter().id);
     assert_eq!(payload.settings, GlobalSettings::factory());
 }
 

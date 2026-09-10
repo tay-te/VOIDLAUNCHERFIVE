@@ -30,7 +30,10 @@ impl InitSource for StoreInit {
     fn init(&self) -> InitPayload {
         let loadout = self.store.active().unwrap_or_else(|e| {
             tracing::error!(error = %e, "cannot read the active loadout; sending the built-in default");
-            void_loadout::defaults::sword_pvp()
+            // The same loadout a fresh install gets, and deliberately not a curated one: this
+            // runs when the store is unreadable, so the player is already having a bad time and
+            // the last thing to hand them is somebody's opinionated mod set they did not pick.
+            void_loadout::defaults::starter()
         });
         // The whole library, in full: `init.loadouts` carries complete loadouts so the
         // mod can hot-swap to any of them in under a frame without asking (§8.2), and so
@@ -259,12 +262,24 @@ fn apply_hud(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use void_loadout::{Anchor, GlobalPatch, HudItem, HudModId, ModId, StatePatch};
+    use void_loadout::{defaults, Anchor, GlobalPatch, HudItem, HudModId, ModId, StatePatch};
 
+    /// A store holding the three curated loadouts.
+    ///
+    /// **Seeded explicitly rather than by `Store::init` alone.** These tests are about the sync
+    /// loop — a patch landing on disk, a hud layout replacing the stored one, `init` carrying
+    /// whole loadouts rather than summaries — and every one of them needs a library with more
+    /// than one thing in it. A fresh install seeds exactly one loadout as of 2026-09-10, which
+    /// is a product decision that belongs in `defaults.rs`'s tests and has no business deciding
+    /// what this file can assert.
     fn store() -> (tempfile::TempDir, Store) {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::at(dir.path());
         store.init().unwrap();
+        for loadout in [defaults::sword_pvp(), defaults::bedwars(), defaults::uhc()] {
+            store.save(&loadout).unwrap();
+        }
+        store.set_active(&LoadoutId::new("sword-pvp").unwrap()).unwrap();
         (dir, store)
     }
 
@@ -302,14 +317,14 @@ mod tests {
         // A launcher-side switch is visible to the next connect, not the previous one.
         store.set_active(&LoadoutId::new("uhc").unwrap()).unwrap();
         assert_eq!(source.init().loadout.id.as_str(), "uhc");
-        assert_eq!(source.init().loadouts.len(), 3);
+        assert_eq!(source.init().loadouts.len(), 4, "the three curated ones plus the starter");
     }
 
     #[test]
     fn init_carries_whole_loadouts_not_summaries() {
         let (_d, store) = store();
         let payload = StoreInit::new(store).init();
-        assert_eq!(payload.loadouts.len(), 3);
+        assert_eq!(payload.loadouts.len(), 4, "the fixture's three, plus the seeded starter");
         // The mod hot-swaps straight out of this list (§8.2), so every entry must be
         // applyable on its own — mod states and all.
         for l in &payload.loadouts {
@@ -326,9 +341,14 @@ mod tests {
         advance_active(&store).unwrap();
         let second = store.active_id().unwrap();
         assert_ne!(first, second, "the L cycle must be visible to the tray and the next launch");
-        // Three defaults, so cycling three times comes back round.
-        advance_active(&store).unwrap();
-        advance_active(&store).unwrap();
+        // Round the whole library and back to where it started. Counted from the library rather
+        // than written as a number: the fixture's three plus the seeded starter is four today,
+        // and a literal here would have to be edited every time either changes — which is how
+        // this test broke when the seed went from three loadouts to one.
+        let library = store.list_ids().unwrap().len();
+        for _ in 1..library {
+            advance_active(&store).unwrap();
+        }
         assert_eq!(store.active_id().unwrap(), first);
     }
 

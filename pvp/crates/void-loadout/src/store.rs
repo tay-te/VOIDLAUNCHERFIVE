@@ -518,23 +518,41 @@ mod tests {
         (dir, store)
     }
 
+    /// An initialised store holding the three curated loadouts, active on `sword-pvp`.
+    ///
+    /// **Seeded here rather than by `init` alone.** A fresh install seeds one neutral loadout as
+    /// of 2026-09-10, and that loadout deliberately stores no mod settings — which is exactly
+    /// what the migration tests below need a file to *have*. Coupling them to the seed made them
+    /// tests of a product decision as well as of the store, and they broke together when it
+    /// changed. What a new player's library contains is `defaults.rs`'s to assert.
+    fn seeded() -> (tempfile::TempDir, Store) {
+        let (dir, store) = store();
+        store.init().unwrap();
+        for loadout in [defaults::sword_pvp(), defaults::bedwars(), defaults::uhc()] {
+            store.save(&loadout).unwrap();
+        }
+        store.set_active(&LoadoutId::new("sword-pvp").unwrap()).unwrap();
+        (dir, store)
+    }
+
     #[test]
-    fn first_run_seeds_the_three_defaults() {
+    fn first_run_seeds_one_loadout_and_the_factory_settings() {
         let (_d, s) = store();
         assert!(s.init().unwrap(), "first init seeds");
         assert!(!s.init().unwrap(), "second init is a no-op");
 
+        // One, not three. It seeded all three curated loadouts until 2026-09-10 — see
+        // `defaults::starter` for why a fresh install stopped arriving with a library.
         let ids: Vec<String> = s.list().unwrap().iter().map(|l| l.id.to_string()).collect();
-        assert_eq!(ids, ["sword-pvp", "bedwars", "uhc"]);
-        assert_eq!(s.active_id().unwrap().as_str(), "sword-pvp");
+        assert_eq!(ids, ["default"]);
+        assert_eq!(s.active_id().unwrap().as_str(), "default");
         assert_eq!(s.settings().unwrap(), GlobalSettings::factory());
-        assert_eq!(s.summaries().unwrap().len(), 3);
+        assert_eq!(s.summaries().unwrap().len(), 1);
     }
 
     #[test]
     fn save_load_round_trips_and_switching_persists() {
-        let (_d, s) = store();
-        s.init().unwrap();
+        let (_d, s) = seeded();
 
         let mut l = s.active().unwrap();
         l.mods.set(ModId::Fullbright, {
@@ -549,8 +567,20 @@ mod tests {
         let bedwars = LoadoutId::new("bedwars").unwrap();
         s.set_active(&bedwars).unwrap();
         assert_eq!(s.active_id().unwrap(), bedwars);
-        assert_eq!(s.next_after(&bedwars).unwrap().as_str(), "uhc");
-        assert_eq!(s.next_after(&LoadoutId::new("uhc").unwrap()).unwrap().as_str(), "sword-pvp");
+
+        // The cycle is a ring over whatever the library holds, asserted as a *property* rather
+        // than as a list of names. It used to be `bedwars -> uhc -> sword-pvp`, which was a
+        // statement about the seed as much as about `next_after`, and it broke when a fresh
+        // install stopped seeding three loadouts.
+        let ids = s.list_ids().unwrap();
+        let mut at = bedwars.clone();
+        for _ in 0..ids.len() {
+            let next = s.next_after(&at).unwrap();
+            assert_ne!(next, at, "the cycle must move");
+            assert!(ids.contains(&next), "the cycle must stay inside the library");
+            at = next;
+        }
+        assert_eq!(at, bedwars, "and come back round");
     }
 
     #[test]
@@ -559,8 +589,7 @@ mod tests {
         // `deny_unknown_fields`, so before `read_loadout_json` existed, deleting a setting
         // made every loadout already on disk that carried it fail to deserialise — the player
         // opens the launcher and a loadout they built is simply gone, with a JSON error.
-        let (_d, s) = store();
-        s.init().unwrap();
+        let (_d, s) = seeded();
 
         let id = LoadoutId::new("sword-pvp").unwrap();
         let path = s.loadouts_dir().join("sword-pvp.json");
@@ -595,8 +624,7 @@ mod tests {
         // generated enum, so a value that left the schema does not degrade — it fails the whole
         // file. `background: "none"` was the shipped default and is therefore in essentially
         // every loadout ever written, which is the widest blast radius this store has.
-        let (_d, s) = store();
-        s.init().unwrap();
+        let (_d, s) = seeded();
 
         let id = LoadoutId::new("sword-pvp").unwrap();
         let path = s.loadouts_dir().join("sword-pvp.json");
@@ -629,8 +657,7 @@ mod tests {
     #[test]
     fn an_unknown_setting_that_was_never_ours_still_fails_loudly() {
         // The tolerance above is for one named list of retired keys, not for junk in general.
-        let (_d, s) = store();
-        s.init().unwrap();
+        let (_d, s) = seeded();
         let path = s.loadouts_dir().join("sword-pvp.json");
         let mut raw: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         raw["mods"]["toggle_sprint"]
@@ -644,11 +671,18 @@ mod tests {
 
     #[test]
     fn deleting_the_active_loadout_moves_the_pointer() {
-        let (_d, s) = store();
-        s.init().unwrap();
-        s.delete(&LoadoutId::new("sword-pvp").unwrap()).unwrap();
-        assert_eq!(s.active_id().unwrap().as_str(), "bedwars");
-        assert_eq!(s.list().unwrap().len(), 2);
+        let (_d, s) = seeded();
+        let before = s.list_ids().unwrap().len();
+        let gone = LoadoutId::new("sword-pvp").unwrap();
+        s.delete(&gone).unwrap();
+
+        // The property, not the name: the pointer is off the deleted loadout and onto one that
+        // still exists. Which one is the library's order, and naming it made this a test of the
+        // seed as well as of `delete`.
+        let now = s.active_id().unwrap();
+        assert_ne!(now, gone, "the pointer cannot name a loadout that is gone");
+        assert!(s.load(&now).is_ok(), "and must name one that loads");
+        assert_eq!(s.list().unwrap().len(), before - 1);
     }
 
     #[test]
@@ -666,8 +700,7 @@ mod tests {
 
     #[test]
     fn session_stats_accumulate_across_reports() {
-        let (_d, s) = store();
-        s.init().unwrap();
+        let (_d, s) = seeded();
         let id = LoadoutId::new("sword-pvp").unwrap();
         s.record_session(&id, 60_000, 140.0).unwrap();
         s.record_session(&id, 60_000, 160.0).unwrap();

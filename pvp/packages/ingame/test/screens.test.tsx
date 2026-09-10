@@ -1154,18 +1154,29 @@ describe('Loadouts screen — frame 244:1130', () => {
 });
 
 describe('Party screen — frame 244:1426', () => {
-  it('renders the members, the queue pane and the footer hint', () => {
+  it('renders the layout, says there is no backend, and invents nobody', () => {
     set(() => useVoidStore.getState().applyMenu(true));
     set(() => useVoidStore.getState().setRoute({ name: 'party' }));
     render(<App />);
     expect(screen.getByRole('heading', { name: 'Party' })).toBeTruthy();
+    // The layout is the design and stays under test: it is ready the day a party channel
+    // exists, and a screen that stopped rendering would be a different kind of wrong.
     expect(screen.getByText('In your party')).toBeTruthy();
-    expect(screen.getByText('Searge')).toBeTruthy();
-    expect(screen.getByText('Leader')).toBeTruthy();
-    expect(screen.getByText('Ready')).toBeTruthy();
     expect(screen.getByText('Bedwars 4v4')).toBeTruthy();
     expect(screen.getByText('Queue with party')).toBeTruthy();
     expect(screen.getByText(PARTY_FOOTER, verbatim)).toBeTruthy();
+
+    // And the part this test exists for now. It used to assert `Searge`, `Leader` and `Ready` —
+    // two invented party members on a screen whose footer promised push-to-talk and said nothing
+    // about none of it being real. A placeholder may look like the thing; it may not claim to
+    // *be* the thing, and a name is a claim.
+    expect(screen.queryByText('Searge')).toBeNull();
+    expect(screen.queryByText('marrow')).toBeNull();
+    // Twice over: the empty party list, and the footer. Both say it, which is the point.
+    expect(screen.getAllByText(/Parties need a backend/).length).toBeGreaterThan(0);
+    // The count is derived from the (empty) list rather than written down — it was a literal
+    // `2 of 4`, which is the part of a placeholder that reads as a fact.
+    expect(screen.getByText(/0 of 4/)).toBeTruthy();
   });
 });
 

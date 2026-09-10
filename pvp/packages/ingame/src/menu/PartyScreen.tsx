@@ -1,12 +1,18 @@
 /**
  * Overlay — Party · frame `244:1426`.
  *
- * Presentational only, deliberately. `bridge.json` is a closed surface of five
- * events and six calls, and none of them carries party, presence or queue state;
- * "Friends / Party" is still open question §16.2 (reuse VOID's Supabase, or start
- * clean). So nothing here is wired, and nothing here invents a bridge call. The
- * copy, the geometry and the interaction affordances are the frame's, so the
- * screen is ready the day a party channel exists.
+ * Presentational only, deliberately. `bridge.json` is a closed surface of five events and eight
+ * calls, and none of them carries party, presence or queue state; "Friends / Party" is still
+ * open question §16.2 (reuse VOID's Supabase, or start clean), and `docs/launcher-roster.md` §4
+ * carries the dependency order. So nothing here is wired, and nothing here invents a bridge call.
+ * The copy, the geometry and the interaction affordances are the frame's, so the screen is ready
+ * the day a party channel exists.
+ *
+ * **It used to invent the people, too** — two named party members, two named invites, and tab
+ * counts of 3 and 2 — under a footer that talked about push-to-talk and said nothing about none
+ * of it being real. The launcher's Friends screen had the same fixture and at least disagreed
+ * with itself in a footer; this one simply presented as working. The layout stays and the people
+ * are gone, which is the same call `local/friends.ts` records on the other side.
  */
 
 import { useState } from 'react';
@@ -23,23 +29,23 @@ import {
 } from '@/ui';
 import { useVoidStore } from '@/store/store';
 
-export const PARTY_FOOTER = 'Party chat  T   ·   push to talk  V   ·   R-Shift closes';
+// The footer says what is true. It used to promise party chat and push-to-talk on a screen
+// with no party channel behind it, which is the one thing a placeholder must not do.
+export const PARTY_FOOTER =
+  'Parties need a backend — none is wired yet   ·   the layout is ready   ·   R-Shift closes';
 
 const TABS = [
   { id: 'party', label: 'Party' },
-  { id: 'friends', label: 'Friends', count: 3 },
-  { id: 'requests', label: 'Requests', count: 2, countTone: 'ok' as const },
+  // No counts. They were 3 and 2, describing four hardcoded people — and a count is the part of
+  // a placeholder that reads as a fact, because it is the part that looks like it came from
+  // somewhere.
+  { id: 'friends', label: 'Friends' },
+  { id: 'requests', label: 'Requests' },
 ];
 
-const MEMBERS = [
-  { name: 'Searge', meta: 'Sword PvP  ·  1.8.9', badge: 'Leader', tone: 'accent' as const },
-  { name: 'marrow', meta: 'Sword PvP  ·  1.8.9', badge: 'Ready', tone: 'ok' as const },
-];
-
-const INVITES = [
-  { name: 'pilot_ash', meta: 'Sword duels  ·  Minemen' },
-  { name: 'nine', meta: 'In lobby  ·  Hypixel' },
-];
+/** Nobody, until there is somewhere to ask. See this file's header. */
+const MEMBERS: { name: string; meta: string; badge: string; tone: 'accent' | 'ok' }[] = [];
+const INVITES: { name: string; meta: string }[] = [];
 
 const GAMES = [
   { id: 'bedwars-4v4', title: 'Bedwars 4v4', meta: 'Hypixel  ·  avg 3:40 queue' },
@@ -71,7 +77,12 @@ export function PartyScreen() {
       >
         <div className="party">
           <div className="party__left">
-            <GroupCaption label="In your party" count="·  2 of 4" />
+            <GroupCaption label="In your party" count={`·  ${MEMBERS.length} of 4`} />
+            {MEMBERS.length === 0 ? (
+              <p className="party__empty">
+                Parties need a backend, and VOID does not run one yet.
+              </p>
+            ) : null}
             {MEMBERS.map((member) => (
               <PartyMemberRow
                 key={member.name}
@@ -82,11 +93,7 @@ export function PartyScreen() {
               />
             ))}
 
-            <GroupCaption
-              className="party__invite-cap"
-              label="Invite"
-              count="·  3 online"
-            />
+            <GroupCaption className="party__invite-cap" label="Invite" />
             {INVITES.map((invite) => (
               <InviteRow key={invite.name} name={invite.name} meta={invite.meta} />
             ))}

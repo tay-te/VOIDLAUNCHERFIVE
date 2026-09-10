@@ -5117,3 +5117,13 @@ body {
   background: var(--accent);
   flex: 0 0 auto;
 }
+
+/* The party list with nobody in it — see `menu/PartyScreen.tsx` for why there is nobody. */
+.party__empty {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}

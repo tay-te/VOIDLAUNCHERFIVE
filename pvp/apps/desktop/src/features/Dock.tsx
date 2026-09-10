@@ -350,10 +350,18 @@ function PlayDock(): ReactElement {
         ))}
       </div>
 
-      <p className="playdock__online">
-        <span className={`dot cell${online > 0 ? ' is-ok' : ''}`} aria-hidden="true" />
-        <span className="tnum">{online} online</span>
-      </p>
+      {/* Absent rather than "0 online", and absent rather than a fabricated three.
+          It printed `3 online` from a hardcoded array on the app's main screen, with the
+          caveat two clicks away on the Friends screen's footer — the one place in the
+          launcher that stated something untrue where a player would read it.
+          Zero would be its own claim: it says you have friends and none of them are on.
+          There is no friends backend, so the readout has nothing to say and says nothing. */}
+      {online > 0 ? (
+        <p className="playdock__online">
+          <span className="dot cell is-ok" aria-hidden="true" />
+          <span className="tnum">{online} online</span>
+        </p>
+      ) : null}
 
       <button
         type="button"

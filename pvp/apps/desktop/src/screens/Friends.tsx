@@ -1,10 +1,14 @@
 /**
- * Friends — `244:431`. Presentational, per the brief: no Supabase yet.
+ * Friends — `244:431`. The frame's layout, with nothing in it, because there is nothing.
  *
- * §16.2 is still open ("reuse VOID's Supabase or start clean?"), and party implies
- * presence and invites — a whole backend. So this screen renders the frame with the
- * frame's own data and every action disabled, with the import-code field carrying an
- * explicit "coming soon". Nothing here fakes a network.
+ * §16.2 is still open ("reuse VOID's Supabase or start clean?"), and party implies presence and
+ * invites — a whole backend. `docs/launcher-roster.md` §4 carries the dependency order.
+ *
+ * **This screen used to render the frame's own five people**, and the header counted them: three
+ * online, eight all, two requests. The footer said no backend was wired, which made the screen
+ * disagree with itself — and the Play dock printed the same invented three with no footer near
+ * it at all. The layout stays, because the component structure *is* the design and it is ready
+ * the day a `friends_list` command exists; the data is gone, and the counts with it.
  *
  * `FriendRow`, `GroupCaption`, `PartyMemberRow`, `Pane` and `PositionChips` are all
  * `@void/ui`'s — the party pane's row variant is the package's `compact` one, which is
@@ -19,7 +23,6 @@ import {
   GroupCaption,
   Pane,
   Panel,
-  PartyMemberRow,
   PositionChips,
   SearchBar,
 } from '@void/ui';
@@ -57,10 +60,13 @@ export function FriendsScreen() {
           <SearchBar variant="panel" narrow placeholder="Find a friend" value={query} onChange={setQuery} />
           <FilterTabs
             label="Friends list"
+            // Counted from the list rather than written down. They were 3 / 8 / 2 — three
+            // numbers describing five hardcoded people, which is how a placeholder becomes a
+            // claim. Derived, they are honest whatever the list holds.
             tabs={[
-              { id: 'Online', label: 'Online', count: 3 },
-              { id: 'All', label: 'All', count: 8 },
-              { id: 'Requests', label: 'Requests', count: 2, countTone: 'ok' },
+              { id: 'Online', label: 'Online', count: FRIENDS.filter((f) => f.online).length },
+              { id: 'All', label: 'All', count: FRIENDS.length },
+              { id: 'Requests', label: 'Requests', count: 0, countTone: 'ok' },
             ]}
             value={tab}
             onChange={(id) => setTab(id as Tab)}
@@ -75,8 +81,10 @@ export function FriendsScreen() {
     >
       <div className="split">
         <div className="list">
-          {tab === 'Requests' ? (
-            <p className="list__empty">Requests need a friends backend. Nothing to show.</p>
+          {tab === 'Requests' || FRIENDS.length === 0 ? (
+            <p className="list__empty">
+              Friends need a backend, and VOID does not run one yet. Nothing to show.
+            </p>
           ) : null}
 
           {online.length > 0 ? <GroupCaption label="Online" count={`· ${online.length}`} /> : null}
@@ -103,31 +111,11 @@ export function FriendsScreen() {
           ))}
         </div>
 
-        <Pane heading="Your party" headingAside={<span className="pane__count">2 / 4</span>}>
-          <div className="party">
-            {/* The role is the row's meta line, tinted; `badge={null}` is what asks the
-                compact variant for its trailing status dot without a label beside it. */}
-            <PartyMemberRow
-              variant="compact"
-              className="party__row party__row--leader"
-              name="Searge"
-              meta="Leader"
-              badge={null}
-              badgeTone="accent"
-            />
-            <PartyMemberRow
-              variant="compact"
-              className="party__row party__row--ready"
-              name="marrow"
-              meta="Ready"
-              badge={null}
-              badgeTone="ok"
-            />
-          </div>
-
-          <Button variant="ghost" icon="users" block disabled>
-            Invite 2 more
-          </Button>
+        {/* The party had two named members in it and a "2 / 4" count. Same problem as the
+            list, and the same answer: the pane stays, the people go. `@void/ui`'s
+            `PartyMemberRow` is what it will draw, and the in-game Party screen still uses it. */}
+        <Pane heading="Your party" headingAside={<span className="pane__count">0 / 4</span>}>
+          <p className="list__empty">Parties need the same backend. Nobody here yet.</p>
 
           <span className="v-spacer" />
 

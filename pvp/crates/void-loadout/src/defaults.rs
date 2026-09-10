@@ -1,4 +1,15 @@
-//! The three loadouts created on first run.
+//! The loadout created on first run, and three curated ones that are no longer seeded.
+//!
+//! **Only [`starter`] is created on first run, as of 2026-09-10.** It used to be all three of
+//! [`sword_pvp`], [`bedwars`] and [`uhc`] — a launcher that met a new player with three
+//! opinionated loadouts, two of them bound to a named server through the `server` slug that
+//! open question §16.3 was going to key an auto-switch on. §16.3 is cut and the seeding went
+//! with it: curated loadouts are still coming, and when they do they will be something a player
+//! *chooses*, not three rows already in their library before they have launched the game once.
+//!
+//! The three remain as functions because half the workspace uses them as fixtures — the bridge
+//! handshake test, the launch smoke test, two doc examples — and because they are the shape a
+//! curated loadout will take when there is a place to offer one from.
 //!
 //! These are the cards on the Figma **Loadouts** frame (`244:1130`,
 //! `design/screens/Overlay-Loadouts.png`): Sword PvP on Hypixel, Bedwars on Hypixel and
@@ -175,7 +186,58 @@ pub fn uhc() -> Loadout {
 /// The library created on first run, in Figma order. The first entry is the one made
 /// active.
 pub fn default_library() -> Vec<Loadout> {
-    vec![sword_pvp(), bedwars(), uhc()]
+    vec![starter()]
+}
+
+/// The one loadout a fresh install gets: **the registry, and nothing added to it.**
+///
+/// Every other loadout in this file states each mod's `on` explicitly and overrides settings,
+/// because each was a designed set. This one deliberately states nothing: `ModStates::default()`
+/// is empty, so every mod resolves to the factory settings its own schema entry argues for, and
+/// the HUD is each mod's own `default_placement`. There is no choice in it to disagree with.
+///
+/// **That is the point rather than laziness.** "Do not create loadouts for people out of the
+/// gate" cannot mean *zero* loadouts — the store's own invariant is at least one (`Error::
+/// LastLoadout` refuses to delete the last), and a launcher with nothing to launch is not a
+/// launcher. So the honest reading is one loadout that has made no decisions, and the least
+/// opinionated set available is the one the registry already ships: every mod's default is
+/// argued in its own `schema/mods/<id>.json`, by somebody thinking about that mod, which is a
+/// better provenance than a curated list assembled here.
+///
+/// **No `server`.** The slug is advisory and its one intended consumer — a per-server default
+/// loadout — was cut. A fresh loadout pointed at Hypixel would be an opinion about where the
+/// player plays, formed before they have played anywhere.
+///
+/// The name is deliberately plain. "Sword PvP" tells a player what the loadout is *for*, which
+/// is a claim this one is not making.
+pub fn starter() -> Loadout {
+    Loadout {
+        id: LoadoutId::new("default").expect("a literal id"),
+        name: "Default".to_string(),
+        icon: "sword".to_string(),
+        server: None,
+        mc: DEFAULT_MC.to_string(),
+        // Empty, which resolves to the registry's own defaults for every mod. See above.
+        mods: ModStates::default(),
+        // **Every HUD mod is placed, including the ones that ship off — and that asymmetry with
+        // `mods` is deliberate.** `mods` being empty is safe because an absent mod resolves to
+        // its registry default; an absent *placement* does not resolve to anything. The in-game
+        // `HudLayer` says so in as many words: "a mod that is on but unplaced draws nothing, and
+        // nothing says so", which `design/rendering-invariants.md` §15 files under silent
+        // failure. An empty `hud` here would ship a first run whose HUD mods are all on and none
+        // of them visible.
+        //
+        // Placing a mod that is off costs one small object and means that turning it on later
+        // puts it somewhere sensible rather than nowhere.
+        hud: HudModId::ALL
+            .iter()
+            .map(|id| {
+                let at = crate::mods::registry().default_placement(*id);
+                HudItem::new(*id, at.anchor, at.dx, at.dy)
+            })
+            .collect(),
+        stats: None,
+    }
 }
 
 #[cfg(test)]
@@ -184,16 +246,44 @@ mod tests {
     use crate::loadout::hypixel_ready;
 
     #[test]
-    fn the_three_defaults_are_valid_and_match_the_figma() {
+    fn a_fresh_install_gets_one_loadout_and_it_is_nobody_s_opinion() {
+        // The seed used to be all three curated loadouts, two of them bound to a named server.
+        // It is one, and the assertion is on the count as much as the id: "we do not create
+        // loadouts for people out of the gate" is the product decision this encodes, and a test
+        // that only checked the name would pass again the day somebody added a second.
         let lib = default_library();
-        assert_eq!(
-            lib.iter().map(|l| l.id.as_str().to_string()).collect::<Vec<_>>(),
-            ["sword-pvp", "bedwars", "uhc"]
-        );
-        for l in &lib {
+        assert_eq!(lib.len(), 1);
+        assert_eq!(lib[0].id.as_str(), "default");
+        assert!(lib[0].server.is_none(), "a fresh loadout has no opinion about where you play");
+        // Nothing overridden: every mod resolves to what its own schema entry argues for.
+        // Nothing stored for any mod: `effective` still answers, from the registry.
+        assert_eq!(lib[0].mods, ModStates::default(), "the starter stores no settings of its own");
+    }
+
+    #[test]
+    fn the_starter_places_every_hud_mod_including_the_ones_that_ship_off() {
+        // The asymmetry with `mods` is the point. An absent mod resolves to its registry
+        // default; an absent *placement* resolves to nothing, and the in-game `HudLayer` draws
+        // nothing and says nothing — `design/rendering-invariants.md` §15's silent failure. An
+        // empty `hud` would ship a first run with its HUD mods on and none of them visible.
+        let starter = starter();
+        starter.validate().unwrap();
+        assert_eq!(starter.hud.len(), HudModId::ALL.len());
+        for id in HudModId::ALL {
+            assert!(starter.hud.iter().any(|i| i.id == id), "{id} is unplaced");
+        }
+    }
+
+    #[test]
+    fn the_three_curated_loadouts_are_still_valid_even_though_nothing_seeds_them() {
+        // Kept as fixtures — half the workspace uses them — and as the shape a curated loadout
+        // will take when there is somewhere to offer one from. So they stay under test.
+        for l in [sword_pvp(), bedwars(), uhc()] {
             l.validate().unwrap_or_else(|e| panic!("{}: {e}", l.id));
             assert_eq!(l.mc, "1.8.9");
-            // Every HUD item positions a mod that is actually on.
+            // Every HUD item positions a mod that is actually on. True of a *designed* set,
+            // where a placement for an off mod would be a leftover; not true of the starter,
+            // which places everything on purpose.
             for item in &l.hud {
                 assert!(
                     l.mods.is_on(item.id.as_mod_id()),
