@@ -1792,8 +1792,9 @@ class Lab:
             f"{old_tile}->{e.volumetric_tile_size} px, {e.volumetric_samples} steps, end {old_end:.0f}->"
             f"{e.volumetric_end:.0f} m; LAB_Sun volume contribution x1.6 so shafts read",
             f"LAB_Dust: {dust['count']} emissive motes (Geometry Nodes points -> instanced icospheres, "
-            f"4-11 mm) drifting in a {dust['size'][0]:.1f} x {dust['size'][1]:.1f} x {dust['size'][2]:.1f} m "
-            f"box aligned to the sun beam {how}",
+            f"3-8 mm, shrinking to nothing toward the rim so the cloud has no edge) drifting in a "
+            f"{dust['size'][0]:.1f} x {dust['size'][1]:.1f} x {dust['size'][2]:.1f} m volume aligned to the sun "
+            f"beam {how}",
             "existing fog/wind kept: " + (", ".join(self.find_fog() + wind) or "none found")
             + (" - dust drifts along the existing wind field" if any("field" in w for w in wind) else "")]
         sec["values"] = {"fog density at floor": f"{fog['d0']} /m", "fog depth": f"{depth:.1f} m",
@@ -1893,9 +1894,18 @@ class Lab:
         o, rays = cam_rays(hero, s, 18, 11, (0.08, 0.92), (0.1, 0.9))
         depths = [fdist * f for f in (0.35, 0.55, 0.75, 0.95, 1.15)]
         grid = {}
+        bg_lit = {}
         if to_sun is not None and to_sun.z > 0:
             for (u, v, d) in rays:
                 hit = scan.cast(o, d, fdist * 1.3)
+                behind = scan.cast(o, d, 3000, "occ")      # what the mote would be seen against
+                if behind is not None:
+                    n = behind[1] if behind[1].dot(d) < 0 else -behind[1]
+                    p_bg = behind[0] + n * 0.05
+                    bg_lit[(round(u, 3), round(v, 3))] = n.dot(to_sun) > 0.05 and scan.clear(
+                        p_bg, p_bg + to_sun * 800, slack=0)
+                else:
+                    bg_lit[(round(u, 3), round(v, 3))] = True    # bright sky behind
                 for di, depth in enumerate(depths):
                     if hit and hit[2] < depth:
                         continue
@@ -1917,11 +1927,12 @@ class Lab:
             edge = sum(1 for n in nb if not n[1]) / max(1, len(nb))
             centr = 1 - 0.8 * math.hypot(u - 0.5, v - 0.5)
             foc = 1 / (1 + abs(depths[di] - fdist) / fdist)
-            score = (0.35 + edge) * centr * foc
+            dark_bg = 0.3 if bg_lit.get((u, v), True) else 1.0   # motes only read against shadow
+            score = (0.35 + edge) * centr * foc * dark_bg
             if best is None or score > best[0]:
                 best = (score, pt)
         if best is not None:
-            return best[1], "(sun-lit air next to shadow, near the focus plane)"
+            return best[1], "(sun-lit air in front of shadow, near the focus plane)"
         prac = bpy.data.objects.get("LAB_Practical")
         if prac:
             return prac.location + Vector((0, 0, 0.4)), "(no sun shaft in view: around the practical)"
@@ -1930,7 +1941,7 @@ class Lab:
     def make_dust(self, center, fdist, coll):
         size = max(1.5, 0.12 * fdist)
         box = (size, size, size * 4.0)
-        count = 320
+        count = 240
         ng = bpy.data.node_groups.new("LAB4_DustGN", "GeometryNodeTree")
         itf = ng.interface
         itf.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
@@ -1979,11 +1990,26 @@ class Lab:
         sphere.inputs["Subdivisions"].default_value = 1
         rsize = N.new("FunctionNodeRandomValue")
         rsize.data_type = "FLOAT"
-        sock(rsize.inputs, "Min", kind="VALUE").default_value = 0.004
-        sock(rsize.inputs, "Max", kind="VALUE").default_value = 0.011
+        sock(rsize.inputs, "Min", kind="VALUE").default_value = 0.003
+        sock(rsize.inputs, "Max", kind="VALUE").default_value = 0.008
         seed2 = N.new("ShaderNodeMath")
         seed2.operation = "ADD"
         seed2.inputs[1].default_value = 7
+        # soft edges: motes shrink to nothing toward the cloud's rim, so it has no visible box
+        nrm = N.new("ShaderNodeVectorMath")
+        nrm.operation = "SCALE"
+        nrm.inputs["Scale"].default_value = 2.0
+        rad = N.new("ShaderNodeVectorMath")
+        rad.operation = "LENGTH"
+        fall = N.new("ShaderNodeMapRange")
+        fall.interpolation_type = "SMOOTHSTEP"
+        fall.clamp = True
+        fall.inputs["From Min"].default_value = 0.35
+        fall.inputs["From Max"].default_value = 1.0
+        fall.inputs["To Min"].default_value = 1.0
+        fall.inputs["To Max"].default_value = 0.0
+        fscale = N.new("ShaderNodeMath")
+        fscale.operation = "MULTIPLY"
         inst = N.new("GeometryNodeInstanceOnPoints")
         setm = N.new("GeometryNodeSetMaterial")
         mat = bpy.data.materials.new("LAB4_DustMat")
@@ -1991,7 +2017,7 @@ class Lab:
         nt.nodes.remove(nt.nodes["Principled BSDF"])
         em = nt.nodes.new("ShaderNodeEmission")
         em.inputs["Color"].default_value = (*kelvin_rgb(4200), 1)
-        emit = 40.0
+        emit = 10.0
         em.inputs["Strength"].default_value = emit
         nt.links.new(em.outputs[0], nt.nodes["Material Output"].inputs["Surface"])
         setm.inputs["Material"].default_value = mat
@@ -2020,7 +2046,12 @@ class Lab:
         L(idx.outputs[0], sock(rsize.inputs, "ID"))
         L(gi.outputs[s_seed.name], seed2.inputs[0])
         L(seed2.outputs[0], sock(rsize.inputs, "Seed"))
-        L(sock(rsize.outputs, kind="VALUE"), inst.inputs["Scale"])
+        L(wrap_.outputs[0], nrm.inputs[0])
+        L(nrm.outputs[0], rad.inputs[0])
+        L(rad.outputs["Value"], fall.inputs["Value"])
+        L(sock(rsize.outputs, kind="VALUE"), fscale.inputs[0])
+        L(fall.outputs["Result"], fscale.inputs[1])
+        L(fscale.outputs[0], inst.inputs["Scale"])
         L(inst.outputs[0], setm.inputs["Geometry"])
         L(setm.outputs[0], go.inputs[0])
         for i, n in enumerate(N):
