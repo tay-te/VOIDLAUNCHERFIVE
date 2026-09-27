@@ -2279,8 +2279,10 @@ class Lab:
         ob.scale = Vector(size / 2)
         res = [int(clamp(round(v / 2.5), 4, 40)) for v in size]
         probe.resolution_x, probe.resolution_y, probe.resolution_z = res
-        if hasattr(probe, "bake_samples"):
-            probe.bake_samples = 512
+        for attr, val in (("capture_world", True), ("capture_indirect", True), ("capture_emission", True),
+                          ("bake_samples", 512)):
+            if hasattr(probe, attr):   # the Python API defaults capture_world to False (the UI turns it on)
+                setattr(probe, attr, val)
         if hasattr(probe, "capture_distance"):
             probe.capture_distance = float(max(size)) * 2
         bpy.context.view_layer.update()
