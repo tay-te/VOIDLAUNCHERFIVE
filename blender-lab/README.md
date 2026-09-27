@@ -1,6 +1,9 @@
 # MC FILM LAB
 
-A Blender script that makes a Minecraft scene stop reading as "Minecraft with shaders" and start reading as filmed. The pixel textures stay. The world gets a real camera, sculpted light, physical materials, air and a lens.
+Blender scripts that make a Minecraft scene stop reading as "Minecraft with shaders" and start reading as filmed. The pixel textures stay. The work comes in two layers:
+
+- **The floor** (`mc_shaderpack.py`, lever 0) does what a shader pack does automatically, rebuilt once as node groups you own: PBR maps, animated textures, lamps that emit light, wind, clouds.
+- **The ceiling** (`mc_film_lab.py` levers 1–5, plus `mc_looks.py`) covers what a shader pack can't do: camera, sculpted light, physical materials, air, lens, and stylization.
 
 `standin/lab_renders/` shows every step on a stand-in world (`contact_sheet.jpg` is the quick look).
 
@@ -19,7 +22,9 @@ Options live in `CONFIG` at the top of the script. You can also pass them as JSO
 | `hour` | `golden` | `golden` or `blue` |
 | `hero_structure`, `subject`, `practical_source` | auto | object names that override auto-detection |
 | `giant_mesh_policy` | `stop` | if the world is one mesh: `stop` (report, no bevel) or `mask` (bevel near-camera edges through a Geometry Nodes weight mask; still no splitting) |
-| `stages` | `all` | e.g. `"light,materials,air,lens,final"`: rebuilds those levers in place when the `_LAB` file is open. Opt-in extras: `quality`, `cycles` |
+| `stages` | `all` | e.g. `"light,materials,air,lens,final"`: rebuilds those levers in place when the `_LAB` file is open. Opt-in extras: `pack`, `look`, `quality`, `cycles` |
+| `pack` | `{}` | overrides for the shader pack, e.g. `{"labpbr_dir": "/path/to/pack", "relief": 0.5, "hdri": "sky.exr"}` (see `PACK` in `mc_shaderpack.py`) |
+| `look` | `toon+ink` | for stage `look`: any of `toon`, `ink`, `paint` joined with `+` |
 | `render` | `true` | `false` builds every lever without rendering |
 | `test` / `final` | 64 samples at 50 % / 128 samples at 100 % | render quality |
 
@@ -47,6 +52,30 @@ There are two exceptions:
 
 If your scene already has fog, wind or a compositor, the script keeps them and layers on top. Your compositor nodes stay upstream of the LAB group, and if you already have bloom it doesn't add a second one.
 
+## Lever 0: the shader pack (`"stages": "baseline,pack,..."`)
+
+Runs right after the baseline render and renders `00b_pack` from your own camera. Its collection is `LAB_00_Pack`.
+
+| part | what it does |
+|---|---|
+| PBR | Finds LabPBR maps next to each texture (`stone_n.png`, `stone_s.png`) or in `labpbr_dir`. `_n`: normal (converted from DirectX to Blender's OpenGL), AO from blue. `_s`: roughness = (1 − smoothness)², F0 → IOR, green 230–255 = metal, SSS from blue ≥ 65, emission from alpha < 255. Solid blocks without a normal map get **per-texel relief**: every pixel becomes a tiny bevelled tile, brighter pixels stand taller, fading out between 6 and 30 m from the camera. |
+| Animated textures | Vertical strips (water, lava, fire…) play at 20 ticks/s using the frametime from their `.mcmeta` file. Works whether faces map the whole strip or only frame 0. |
+| Lights | Torches and lanterns get point lights. Glowing blocks get an area light on each exposed face, so they can't leak through walls. Lights are shared per type (edit one, retune all), capped at the nearest 48 to the camera. If a light is already there (yours, or MCprep's Meshswap), the script skips it. |
+| Wind | Geometry Nodes sway: leaves flutter, grass tips move, bases stay pinned. Objects that already have a wind modifier are left alone. |
+| Sky | A cloud deck in the world shader over your sky or an HDRI. It's self-shadowed toward the sun, gets a silver lining near it, and warms at a low sun. It follows the sky texture's sun, so lever 2 re-aims it too. |
+
+Volumetric clouds are out on purpose: EEVEE's froxel fog can't resolve clouds 1–2 km away, and a world-shader deck costs nothing and matches in Cycles.
+
+Asset library: `blender -b --factory-startup --python mc_shaderpack.py -- --export mc_shaderpack_library.blend`, then add the file under Preferences > File Paths > Asset Libraries.
+
+## Stage `look`: stylization
+
+The look stage (collection `LAB_07_Look`) applies on top of the filmed shot and renders `09_look_<name>` from the hero camera.
+
+- **`toon`**: Shader to RGB banding, EEVEE only. There are three light bands measured relative to the key light, so the shot keeps its exposure. Each light keeps its colour, shadows lean cool, there's a hard specular band, and lamps are left glowing.
+- **`ink`**: Line Art outlines on Blender 5.x, with a 2.5 cm world-space pen, so lines are heavier up close. On 4.x a compositor edge ink stands in, because Line Art can't be created from Python there.
+- **`paint`**: anisotropic Kuwahara before the lens effects, so the grain sits on the "paint".
+
 ## Optional stages: `quality` and `cycles`
 
 Neither runs by default. Add them with `"stages": "quality,cycles"`.
@@ -65,6 +94,8 @@ After changing the light, re-bake the probe: select `LAB_GIProbe`, then Object D
 ## Files
 
 - `mc_film_lab.py`: the pipeline.
+- `mc_shaderpack.py`: lever 0, the shader pack. It's also runnable on its own and can export an asset library.
+- `mc_looks.py`: stylization (toon, ink, paint).
 - `build_standin_scene.py`: builds the stand-in scene used for these renders. It's a Mineways-style export (unwelded chunk meshes, 16 px textures on Closest) with procedural textures, so there are no Mojang assets. Run it with `blender -b --factory-startup --python build_standin_scene.py -- standin`.
 - `contact_sheet.py`: builds the labelled contact sheet (needs Pillow).
 - `standin/`: the stand-in `.blend`, its `_LAB` copy, textures, renders and `LAB_LOG.txt`.

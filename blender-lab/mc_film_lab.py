@@ -65,17 +65,21 @@ CONFIG = {
     "render": True,                # False = build every lever without rendering (fast set-up pass)
     "verdict_note": "",            # your own call on the renders, appended to the LAB_LOG verdict
     "cycles": {"samples": 256, "percent": 50, "time_limit": 0},   # for stage "cycles" (0 = no time limit)
+    "pack": {},                    # overrides for the shader pack (see PACK in mc_shaderpack.py), stage "pack"
+    "look": "toon+ink",            # stage "look": any of toon, ink, paint joined with "+"
 }
 
 STAGES = ["baseline", "camera", "light", "materials", "air", "lens", "final", "log"]
-EXTRA_STAGES = ["quality", "cycles"]   # opt-in: EEVEE quality pass and a Cycles comparison frame
-LEVERS = {  # key: (collection, number, colour tag)
+EXTRA_STAGES = ["pack", "look", "quality", "cycles"]   # opt-in: shader pack, stylization, EEVEE quality, Cycles
+LEVERS = {  # key: (collection, number, colour tag); order = build order, teardown runs in reverse
+    "pack": ("LAB_00_Pack", 0, "COLOR_01"),
     "camera": ("LAB_01_Camera", 1, "COLOR_05"),
     "light": ("LAB_02_Light", 2, "COLOR_02"),
     "materials": ("LAB_03_Materials", 3, "COLOR_03"),
     "air": ("LAB_04_Air", 4, "COLOR_04"),
     "lens": ("LAB_05_Lens", 5, "COLOR_06"),
     "quality": ("LAB_06_Quality", 6, "COLOR_07"),
+    "look": ("LAB_07_Look", 7, "COLOR_08"),
 }
 IS5 = bpy.app.version >= (5, 0, 0)
 LEAF_RE = re.compile(r"leaves|leaf|azalea")
@@ -218,7 +222,8 @@ class LabLog:
                 L.append(f"{k:12}: {meta[k]}")
         if d.get("summary"):
             L += ["", "SCENE AS FOUND (inspected before any change)"] + ["  " + s for s in d["summary"]]
-        order = ["baseline", "camera", "light", "materials", "air", "lens", "final", "quality", "cycles"]
+        order = ["baseline", "pack", "camera", "light", "materials", "air", "lens", "look", "final", "quality",
+                 "cycles"]
         for key in order:
             sec = d["sections"].get(key)
             if not sec:
@@ -233,7 +238,7 @@ class LabLog:
             if sec["notes"]:
                 L += ["Notes:"] + ["  ! " + n for n in sec["notes"]]
             if sec["why"]:
-                L.append("Why it reads as film, not game:")
+                L.append(sec.get("why_title", "Why it reads as film, not game:"))
                 L += ["  " + line for line in wrap(sec["why"], 68)]
         if d["renders"]:
             L += ["", "RENDERS  (display-referred metrics from the saved PNGs)", "-" * 56,
@@ -384,6 +389,14 @@ def teardown(scene, key):
             data = kind.get(dname) if (kind is not None and dname) else None
             if data is not None and data.users == 0:
                 kind.remove(data)
+    for ob in bpy.data.objects:   # enum settings a lever changed on your objects (e.g. Line Art usage)
+        if f"LAB{num}_restore" in ob:
+            for path, value in json.loads(ob[f"LAB{num}_restore"]).items():
+                try:
+                    set_path(ob, path, -1, value)
+                except (TypeError, AttributeError, ValueError):
+                    pass
+            del ob[f"LAB{num}_restore"]
     saved = json.loads(scene.get(f"LAB{num}_settings", "{}"))
     for path, value in saved.items():   # plain render settings a lever changed (not drivable)
         try:
@@ -393,6 +406,11 @@ def teardown(scene, key):
     if f"LAB{num}_settings" in scene:
         del scene[f"LAB{num}_settings"]
     prefix = f"LAB{num}_"
+    for idb in list(anim_ids()):   # plain drivers (clocks, sun direction) living on the lever's own nodes
+        ad = getattr(idb, "animation_data", None)
+        for fc in list(ad.drivers) if ad else []:
+            if f'nodes["{prefix}' in fc.data_path:
+                idb.driver_remove(fc.data_path, fc.array_index)
     trees = [(m, m.node_tree) for m in bpy.data.materials if m.node_tree]
     trees += [(w, w.node_tree) for w in bpy.data.worlds if w.node_tree]
     comp = comp_tree(scene, create=False)
@@ -628,6 +646,12 @@ def is_emissive(mat):
         if n.bl_idname == "ShaderNodeBsdfPrincipled":
             s = n.inputs["Emission Strength"]
             c = n.inputs["Emission Color"]
+            if s.is_linked and s.links[0].from_node.name.startswith("LAB0_PBR"):
+                # the shader pack drives it: emissive only if the material glowed before, or its name says so
+                e = s.links[0].from_node.inputs["Emission In"]
+                if (e.is_linked or e.default_value > 0.01) or EMIT_RE.search(mat_text(mat)):
+                    return True
+                continue
             if (s.is_linked or s.default_value > 0.01) and (c.is_linked or max(c.default_value[:3]) > 0.01):
                 return True
     return False
@@ -1449,6 +1473,17 @@ class Lab:
         dist = max(0.6, (subj["head"] - pos).length)
         e_target = 0.45 * (3.2 if golden else 0.8)
         power = clamp(4 * math.pi * e_target * dist * dist, 8.0, 800.0)
+        pack = bpy.data.collections.get(LEVERS["pack"][0])
+        near = [o for o in (pack.objects if pack else []) if o.type == "LIGHT" and (o.location - pos).length < 1.0]
+        if near:  # the pack already lights this lamp: re-expose that light for the shot instead of doubling it
+            lamp = min(near, key=lambda o: (o.location - pos).length)
+            lamp.data = lamp.data.copy()          # its own data, so the other lamps of that type keep theirs
+            lamp.data.name = "LAB2_" + lamp.name
+            switch(lamp.data, "energy", "light", on=power)
+            for i, c in enumerate(kelvin_rgb(2000 if golden else 2200)):
+                switch(lamp.data, "color", "light", on=c, index=i)
+            return lamp, (f"practical: re-exposed the pack's light at {src_name} ({lamp.name}) to {power:.0f} W, "
+                          f"~2000 K instead of adding a second lamp ({dist:.1f} m from the subject's face)")
         light = bpy.data.objects.new("LAB_Practical", bpy.data.lights.new("LAB_Practical", "POINT"))
         link(light, coll)
         light.location = pos
@@ -2242,6 +2277,39 @@ class Lab:
         switch(g, 'nodes["LAB5_Switch"].inputs[0].default_value', "lens", on=1, off=0)
         return g
 
+    # ---------------------------------------------------------------- LEVER 0 (opt-in): shader pack
+    @staticmethod
+    def sibling(name):
+        """Import mc_shaderpack / mc_looks from next to this script (works from the Text Editor too)."""
+        here = [os.path.dirname(os.path.abspath(__file__))] if os.path.isfile(__file__) else []
+        here += [os.path.dirname(bpy.path.abspath(t.filepath)) for t in bpy.data.texts if t.filepath]
+        here += [os.path.dirname(bpy.data.filepath)]
+        for d in here:
+            if os.path.isfile(os.path.join(d, name + ".py")) and d not in sys.path:
+                sys.path.insert(0, d)
+        try:
+            return __import__(name)
+        except ImportError:
+            raise RuntimeError(f"this stage needs {name}.py next to mc_film_lab.py")
+
+    def look(self):
+        looks = [x.strip() for x in self.cfg["look"].split("+") if x.strip()]
+        bad = [x for x in looks if x not in ("toon", "ink", "paint")]
+        if bad:
+            raise ValueError(f"unknown look {bad}; use toon, ink, paint joined with '+'")
+        self.sibling("mc_looks").apply(self, sys.modules[__name__], looks)
+        self.log.save()
+        hero = bpy.data.objects.get(self.cfg["hero_camera"]) or self.scene.camera
+        self.render("09_look_" + "_".join(looks), hero)
+
+    def pack(self):
+        mc_shaderpack = self.sibling("mc_shaderpack")
+        lever_coll(self.scene, "pack")
+        mc_shaderpack.apply(self, sys.modules[__name__], self.cfg.get("pack"))
+        self.log.save()
+        orig = bpy.data.objects.get(json.loads(self.scene["LAB_orig_scene"])["camera"] or "")
+        self.render("00b_pack", orig or self.scene.camera)
+
     # ---------------------------------------------------------------- optional: EEVEE quality pass
     def set_saved(self, num, path, value):
         """Change a plain scene setting and remember the user's value for teardown."""
@@ -2277,14 +2345,13 @@ class Lab:
         link(ob, coll)
         ob.location = Vector((lo + hi) / 2)
         ob.scale = Vector(size / 2)
-        res = [int(clamp(round(v / 2.5), 4, 40)) for v in size]
+        res = [int(clamp(round(v / 4.0), 4, 16)) for v in size]
         probe.resolution_x, probe.resolution_y, probe.resolution_z = res
-        for attr, val in (("capture_world", True), ("capture_indirect", True), ("capture_emission", True),
-                          ("bake_samples", 512)):
+        for attr, val in (("capture_world", True), ("capture_indirect", True), ("capture_emission", True)):
             if hasattr(probe, attr):   # the Python API defaults capture_world to False (the UI turns it on)
                 setattr(probe, attr, val)
-        if hasattr(probe, "capture_distance"):
-            probe.capture_distance = float(max(size)) * 2
+        # capture distance and bake samples stay at Blender's defaults: a 136 m capture distance with
+        # fewer samples baked a cache that blacked out every shadow
         bpy.context.view_layer.update()
         for other in bpy.context.view_layer.objects:
             other.select_set(False)
@@ -2412,9 +2479,13 @@ def run(cfg=None):
         else:
             lab.log.warn("the scene had no camera, so there is no 00_baseline render")
         bpy.ops.wm.save_mainfile()
-    needs_scan = any(k in wanted for k in ("camera", "light", "materials", "air", "quality"))
+    needs_scan = any(k in wanted for k in ("pack", "camera", "light", "materials", "air", "quality"))
     if needs_scan:
         lab.analyse()
+    if "pack" in wanted:
+        say("===== lever 0: shader pack =====")
+        lab.pack()
+        bpy.ops.wm.save_mainfile()
     steps = [("camera", lab.lever_camera), ("light", lab.lever_light), ("materials", lab.lever_materials),
              ("air", lab.lever_air), ("lens", lab.lever_lens)]
     for key, fn in steps:
@@ -2428,6 +2499,11 @@ def run(cfg=None):
                 lab.prev_png = os.path.join(lab.render_dir, prev[-1]) if prev else None
         say(f"===== lever: {key} =====")
         fn()
+        bpy.ops.wm.save_mainfile()
+    if "look" in wanted:
+        lab.scene.camera = bpy.data.objects.get(cfg["hero_camera"]) or lab.scene.camera
+        say("===== optional: look =====")
+        lab.look()
         bpy.ops.wm.save_mainfile()
     if "final" in wanted:
         lab.final()

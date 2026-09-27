@@ -167,13 +167,20 @@ def tex_gravel():
     return rgba(speckle(["#857F7C", "#6E6866", "#9A938F", "#5C5551", "#8A7E72"], 17))
 
 
-def tex_water():
+def tex_water(frames=16):
+    """Animated like Minecraft's: a vertical strip of frames (frame 0 on top) + a .mcmeta frametime."""
     r = np.random.default_rng(18)
-    img = speckle(["#2F5CBF", "#3A6BD0", "#2A50A8", "#355FC4"], 19)
-    for _ in range(6):
-        y, x = r.integers(0, 16), r.integers(0, 12)
-        img[y, x:x + r.integers(2, 5)] = hexc("#5C8BE0")
-    return rgba(img, np.full((16, 16), 0.78))
+    base = speckle(["#2F5CBF", "#3A6BD0", "#2A50A8", "#355FC4"], 19)
+    waves = [(r.integers(0, 16), r.integers(0, 16), r.integers(2, 5)) for _ in range(7)]
+    strip = []
+    for f in range(frames):
+        img = base.copy()
+        for (y, x, n) in waves:
+            yy = (y + f) % 16
+            for k in range(n):
+                img[yy, (x + k + f // 2) % 16] = hexc("#5C8BE0")
+        strip.append(img)
+    return rgba(np.concatenate(strip), np.full((16 * frames, 16), 0.78))
 
 
 def tex_glowstone():
@@ -319,7 +326,7 @@ EMISSIVE = {"glowstone": 6.0, "torch_flame": 12.0, "lantern": 5.0}
 
 
 def save_png(name, arr):
-    img = bpy.data.images.new(name + ".png", 16, 16, alpha=True)
+    img = bpy.data.images.new(name + ".png", arr.shape[1], arr.shape[0], alpha=True)
     img.pixels.foreach_set(np.flipud(arr).astype(np.float32).ravel())
     path = os.path.join(TEX, name + ".png")
     img.filepath_raw = path
@@ -329,8 +336,66 @@ def save_png(name, arr):
     return path
 
 
+# a small LabPBR resource pack for a few blocks (normal: DirectX, AO in blue, height in alpha;
+# specular: smoothness, F0 or metal id, porosity/SSS, emission) so the pack's PBR path has maps to read
+def height_of(name, rgb):
+    lum = rgb @ np.array([0.2126, 0.7152, 0.0722])
+    h = (lum - lum.min()) / max(1e-6, np.ptp(lum))
+    if name in ("stone_bricks", "mossy_stone_bricks"):
+        mortar = np.zeros((16, 16), bool)
+        for row in range(4):
+            mortar[row * 4 + 3, :] = True
+            off = 0 if row % 2 == 0 else 4
+            for jx in (off + 7, (off + 15) % 16):
+                mortar[row * 4:row * 4 + 3, jx] = True
+        h = np.where(mortar, 0.15, 0.75 + 0.25 * h)
+    elif name == "cobblestone":
+        _, edge = voronoi_cells(10, 5)
+        h = np.clip(edge / 2.2, 0, 1) ** 0.6 * (0.7 + 0.3 * h)
+    elif name == "lantern":
+        yy, xx = np.mgrid[0:16, 0:16]
+        frame = (xx < 2) | (xx > 13) | (yy < 2) | (yy > 13) | (abs(xx - 7.5) < 0.6)
+        h = np.where(frame, 1.0, 0.55)
+    return h
+
+
+def labpbr_maps(name, rgba_img):
+    rgb = rgba_img[:, :, :3]
+    h = height_of(name, rgb)
+    dx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 2.5
+    dy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 2.5          # image rows run downward (DirectX Y-)
+    n = np.dstack([-dx, -dy, np.ones_like(h)])
+    n /= np.linalg.norm(n, axis=2, keepdims=True)
+    nmap = np.dstack([n[:, :, 0] * 0.5 + 0.5, n[:, :, 1] * 0.5 + 0.5, 0.55 + 0.45 * h, h])
+    smooth = {"stone_bricks": 0.36, "mossy_stone_bricks": 0.28, "cobblestone": 0.3, "oak_planks": 0.46,
+              "oak_log": 0.22, "lantern": 0.72}[name]
+    sm = np.clip(smooth * (0.75 + 0.5 * h), 0, 1)
+    f0 = np.full((16, 16), 10 / 255.0)
+    poro = np.full((16, 16), 45 / 255.0 if name != "oak_planks" else 60 / 255.0)
+    emit = np.ones((16, 16))
+    if name == "lantern":                                        # iron frame, glass panes that glow
+        yy, xx = np.mgrid[0:16, 0:16]
+        frame = (xx < 2) | (xx > 13) | (yy < 2) | (yy > 13) | (abs(xx - 7.5) < 0.6)
+        f0 = np.where(frame, 230 / 255.0, 10 / 255.0)
+        sm = np.where(frame, 0.62, 0.95)
+        emit = np.where(frame, 1.0, 0.85)
+    smap = np.dstack([sm, f0, poro, emit])
+    return nmap, smap
+
+
+PBR_SET = {"stone_bricks", "mossy_stone_bricks", "cobblestone", "oak_planks", "oak_log", "lantern"}
+
+
 def make_material(name):
-    path = save_png(name, TEXTURES[name]())
+    arr = TEXTURES[name]()
+    path = save_png(name, arr)
+    if name == "water_still":
+        with open(path + ".mcmeta", "w") as fh:
+            fh.write('{"animation": {"frametime": 2}}\n')
+    if name in PBR_SET:
+        nmap, smap = labpbr_maps(name, arr)
+        save_png(name + "_n", nmap)
+        save_png(name + "_s", smap)
     mat = bpy.data.materials.new(name)
     if not V5:
         mat.use_nodes = True
