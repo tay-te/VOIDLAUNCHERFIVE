@@ -19,7 +19,7 @@ Options live in `CONFIG` at the top of the script. You can also pass them as JSO
 | `hour` | `golden` | `golden` or `blue` |
 | `hero_structure`, `subject`, `practical_source` | auto | object names that override auto-detection |
 | `giant_mesh_policy` | `stop` | if the world is one mesh: `stop` (report, no bevel) or `mask` (bevel near-camera edges through a Geometry Nodes weight mask; still no splitting) |
-| `stages` | `all` | e.g. `"light,materials,air,lens,final"`: rebuilds those levers in place when the `_LAB` file is open |
+| `stages` | `all` | e.g. `"light,materials,air,lens,final"`: rebuilds those levers in place when the `_LAB` file is open. Opt-in extras: `quality`, `cycles` |
 | `render` | `true` | `false` builds every lever without rendering |
 | `test` / `final` | 64 samples at 50 % / 128 samples at 100 % | render quality |
 
@@ -46,6 +46,21 @@ There are two exceptions:
 | 05 lens | Compositor group: bloom, halation, chromatic aberration, vignette and grain, all kept below the threshold of noticing. |
 
 If your scene already has fog, wind or a compositor, the script keeps them and layers on top. Your compositor nodes stay upstream of the LAB group, and if you already have bloom it doesn't add a second one.
+
+## Optional stages: `quality` and `cycles`
+
+Neither runs by default. Add them with `"stages": "quality,cycles"`.
+
+- **`quality`** (collection `LAB_06_Quality`) bakes a Light Probe Volume over what the hero camera sees. It also turns on 3 % overscan, traces rough surfaces up to 0.8, runs Fast GI at full resolution, uses 2 px volume tiles and turns on jittered DOF. It renders `07_eevee_quality`.
+- **`cycles`** renders the same frame path-traced as `08_cycles`. It uses the GPU if one is configured, and the saved scene stays on EEVEE.
+
+What the comparison showed on the stand-in, with Cycles as the reference:
+
+- **Sky leak:** plain EEVEE lets sky light fall where terrain and trees should block it. The shadow under the big tree measured 16 in EEVEE against 3.6 in Cycles (0–255 brightness). The baked probe fixes most of that.
+- **Bounce light:** EEVEE misses most of it. In Cycles, the tower's shaded face picks up warm light reflected off the sunlit ground.
+- **Low sun through haze:** Cycles dims a low sun as it crosses the haze. EEVEE's fog doesn't dim light arriving at surfaces, so the sunlit face comes out about 35 % brighter in EEVEE.
+
+After changing the light, re-bake the probe: select `LAB_GIProbe`, then Object Data > Bake Light Cache.
 
 ## Files
 
