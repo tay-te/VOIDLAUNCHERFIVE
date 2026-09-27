@@ -25,49 +25,38 @@ IS5 = bpy.app.version >= (5, 0, 0)
 
 # ============================================================================== toon
 def group_toon():
+    """Band the light the ORIGINAL shader receives: Shader to RGB of your material / albedo = lighting,
+    quantized relative to the key light, times albedo again. Dark stays dark, lit stays lit."""
     ng, gi, go = new_group("LAB7_Toon", "ShaderNodeTree", [
-        ("Albedo", "NodeSocketColor", (0.8, 0.8, 0.8, 1.0)), ("Alpha", "NodeSocketFloat", 1.0),
+        ("Shader", "NodeSocketShader", None), ("Albedo", "NodeSocketColor", (0.8, 0.8, 0.8, 1.0)),
         ("Shadow Tint", "NodeSocketColor", (0.42, 0.46, 0.68, 1.0)), ("Softness", "NodeSocketFloat", 0.08),
-        ("Specular", "NodeSocketFloat", 0.22), ("Key", "NodeSocketFloat", 1.0)], [("Shader", "NodeSocketShader")])
+        ("Key", "NodeSocketFloat", 1.0)], [("Shader", "NodeSocketShader")])
     g, I = G(ng), gi.outputs
-    diff = g.node("ShaderNodeBsdfDiffuse")
-    diff.inputs["Color"].default_value = (1, 1, 1, 1)
     s2r = g.node("ShaderNodeShaderToRGB")
-    ng.links.new(diff.outputs[0], s2r.inputs[0])
-    light = s2r.outputs["Color"]                                  # what the lights deliver here, in colour
+    ng.links.new(I["Shader"], s2r.inputs[0])
+    alb = g.vmath("MAXIMUM", I["Albedo"], (0.03, 0.03, 0.03))
+    light = g.vmath("DIVIDE", s2r.outputs["Color"], alb)          # what the lights deliver, in colour
     bw = g.node("ShaderNodeRGBToBW")
     ng.links.new(light, bw.inputs[0])
-    lum = bw.outputs[0]
-
-    # bands are fractions of the key light (a white surface in full sun), so the shot keeps its exposure:
-    # deep shadow 0.035, shadow-side 0.2, lit 0.8, hot 1.2 x key
-    rel = g.math("DIVIDE", lum, g.math("MAXIMUM", I["Key"], 0.001))
+    rel = g.math("DIVIDE", bw.outputs[0], g.math("MAXIMUM", I["Key"], 0.001))
 
     def step(edge):
         return g.maprange(rel, edge, g.math("MULTIPLY", edge, g.math("ADD", 1.0, I["Softness"])), 0.0, 1.0)
+    # bands as fractions of the key light: deep shadow 0.035, shadow side 0.2, lit 0.8, hot 1.2
     s1, s2, s3 = step(0.06), step(0.3), step(1.1)
     level = g.math("MULTIPLY", I["Key"], g.math("ADD", g.math("ADD", g.math("MULTIPLY", s1, 0.165),
                                                               g.math("MULTIPLY", s2, 0.6)),
                                                  g.math("MULTIPLY_ADD", s3, 0.4, 0.035)))
-    hue = g.vmath("DIVIDE", light, g.comb(*[g.math("MAXIMUM", lum, 0.001)] * 3))      # the light's colour, unit brightness
+    hue = g.vmath("DIVIDE", light, g.comb(*[g.math("MAXIMUM", bw.outputs[0], 0.001)] * 3))
     hue = g.vmath("MINIMUM", hue, (3.0, 3.0, 3.0))
     tone = g.mix("RGBA", s1, I["Shadow Tint"], hue)
     col = g.mix("RGBA", 1.0, g.mix("RGBA", 1.0, I["Albedo"], tone, blend="MULTIPLY"),
                 g.comb(level, level, level), blend="MULTIPLY")
-    gl = g.node("ShaderNodeBsdfGlossy")
-    gl.inputs["Roughness"].default_value = 0.25
-    s2r2 = g.node("ShaderNodeShaderToRGB")
-    ng.links.new(gl.outputs[0], s2r2.inputs[0])
-    bw2 = g.node("ShaderNodeRGBToBW")
-    ng.links.new(s2r2.outputs["Color"], bw2.inputs[0])
-    spec = g.math("MULTIPLY", g.maprange(g.math("DIVIDE", bw2.outputs[0], g.math("MAXIMUM", I["Key"], 0.001)),
-                                         0.9, 0.95, 0.0, 1.0), I["Specular"])
-    col = g.mix("RGBA", spec, col, hue, blend="ADD")
     em = g.node("ShaderNodeEmission")
     ng.links.new(col, em.inputs["Color"])
     cut = g.node("ShaderNodeMixShader")
     tr = g.node("ShaderNodeBsdfTransparent")
-    ng.links.new(I["Alpha"], cut.inputs[0])
+    ng.links.new(s2r.outputs["Alpha"], cut.inputs[0])             # cut-outs (leaves, grass) stay cut out
     ng.links.new(tr.outputs[0], cut.inputs[1])
     ng.links.new(em.outputs[0], cut.inputs[2])
     ng.links.new(cut.outputs[0], go.inputs[0])
@@ -175,12 +164,12 @@ class Look:
             node = g.node("ShaderNodeGroup", name="LAB7_Toon", label="LAB Toon")
             node.node_tree = grp
             node.inputs["Key"].default_value = key
-            for src_in, dst in (("Base Color", "Albedo"), ("Alpha", "Alpha")):
-                s = p.inputs[src_in]
-                if s.is_linked:
-                    nt.links.new(s.links[0].from_socket, node.inputs[dst])
-                else:
-                    node.inputs[dst].default_value = s.default_value
+            bc = p.inputs["Base Color"]
+            if bc.is_linked:
+                nt.links.new(bc.links[0].from_socket, node.inputs["Albedo"])
+            else:
+                node.inputs["Albedo"].default_value = bc.default_value
+            nt.links.new(surf, node.inputs["Shader"])
             mix = g.node("ShaderNodeMixShader", name="LAB7_ToonMix")
             nt.links.new(surf, mix.inputs[1])
             nt.links.new(node.outputs[0], mix.inputs[2])
@@ -188,8 +177,9 @@ class Look:
             L.switch(nt, f'nodes["{mix.name}"].inputs[0].default_value', "look", on=1.0, off=0.0)
             done.append(mat.name)
         self.sec["changes"].append(
-            f"toon shading on {len(done)} materials: Shader to RGB of a white diffuse -> 3 light bands that keep "
-            "each light's colour, shadows toward a cool tint (0.42, 0.46, 0.68), hard specular band; glowing "
+            f"toon shading on {len(done)} materials: Shader to RGB of your own shader / albedo = the light it gets, "
+            "quantized into 4 bands that keep each light's colour, shadows toward a cool tint (0.42, 0.46, 0.68); "
+            "glowing "
             f"materials untouched; bands relative to the key light ({key:.2f}); EEVEE only (no Shader to RGB in Cycles)")
 
     def ink(self):
