@@ -1,0 +1,311 @@
+/* ==========================================================================
+   The launcher illustration kit — §3 cells, §4 controls, §5 motion, redrawn for
+   the web. Every length is in `--u`, a unit that is 1/Nth of the piece's own
+   width (N = --units, set per piece), so a piece keeps its proportions from 300px
+   to 1400px wide. Flat throughout: no blur, no shadow, no gradient fill.
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ frame */
+
+.frame {
+  position: relative;
+  width: 100%;
+  container-type: inline-size;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--color-shell);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  font-weight: 400;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The crop's hairline, drawn over the content so edges clip cleanly. */
+.frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-line);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  --u: calc(100cqw / var(--units, 1000));
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* §2 label tier — uppercase, 500, tracked. */
+.label {
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--color-ink-3);
+  white-space: nowrap;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------- cell */
+
+.cell {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 30%;
+}
+
+/* ----------------------------------------------------------------- toggle
+   §4 sm: 30 × 17, knob 11, inset 3, radius 35%. ON = ink .88 track + shell knob;
+   OFF = base track + 1px white .16 + muted knob. Toggles never take a hue. */
+
+.toggle {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: calc(30 * var(--u));
+  height: calc(17 * var(--u));
+  border-radius: calc(17 * var(--u) * 0.35);
+  background: var(--color-base);
+  box-sizing: border-box;
+  border: max(1px, calc(1 * var(--u))) solid rgb(255 255 255 / 0.16);
+  transition:
+    background-color var(--t, 140ms) var(--e, var(--ease-out)) var(--d, 0ms),
+    border-color var(--t, 140ms) var(--e, var(--ease-out)) var(--d, 0ms);
+}
+
+.toggle > i {
+  position: absolute;
+  top: 50%;
+  left: calc(3 * var(--u) - max(1px, calc(1 * var(--u))));
+  width: calc(11 * var(--u));
+  height: calc(11 * var(--u));
+  margin-top: calc(-5.5 * var(--u));
+  border-radius: calc(11 * var(--u) * 0.35);
+  background: var(--color-ink-3);
+  transition:
+    transform var(--t, 140ms) var(--e, var(--ease-out)) var(--d, 0ms),
+    background-color var(--t, 140ms) var(--e, var(--ease-out)) var(--d, 0ms);
+}
+
+/* The grip: three cells on the knob's centre. */
+.toggle > i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(1 * var(--u));
+}
+
+.toggle > i > b {
+  display: block;
+  width: calc(1.6 * var(--u));
+  height: calc(1.6 * var(--u));
+  border-radius: 30%;
+  background: rgb(237 238 239 / 0.3);
+  opacity: 0;
+  transition: opacity var(--t, 140ms) var(--e, var(--ease-out)) var(--d, 0ms);
+}
+
+.toggle[data-on="true"] {
+  background: rgb(237 238 239 / 0.88);
+  border-color: transparent;
+}
+
+.toggle[data-on="true"] > i {
+  transform: translateX(calc(13 * var(--u)));
+  background: var(--color-shell);
+}
+
+.toggle[data-on="true"] > i > b {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------- chevron */
+
+.chev {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--s, calc(12 * var(--u)));
+  height: var(--s, calc(12 * var(--u)));
+  color: var(--color-ink-3);
+}
+
+/* ------------------------------------------------------------ enabled meter
+   The dock readout: a label over one cell per mod. Filled .40, empty .08 —
+   the launcher's own values. Monochrome: a count, not a setting. */
+
+.meter {
+  display: flex;
+  gap: var(--gap);
+}
+
+.meter > i {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 30%;
+  background: rgb(237 238 239 / 0.08);
+  transition: background-color 140ms var(--ease-out);
+}
+
+.meter > i[data-on="true"] {
+  background: rgb(237 238 239 / 0.4);
+}
+
+.meter > i[data-live="true"] {
+  background: var(--hue, var(--color-hue));
+  opacity: 0.95;
+}
+
+/* ------------------------------------------------------------------ picker */
+
+.picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12 * var(--u));
+  height: calc(60 * var(--u));
+  padding: 0 calc(18 * var(--u)) 0 calc(24 * var(--u));
+  border-radius: calc(14 * var(--u));
+  background: var(--color-card);
+  font-size: calc(17 * var(--u));
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.picker[data-open="true"] {
+  background: var(--color-raised);
+}
+
+/* ------------------------------------------------------------------ launch
+   §4 primary: ink fill, shell label. The working state carries its progress as
+   a fill behind the label, exactly as the launcher's `.launch--working` does. */
+
+.launch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(10 * var(--u));
+  overflow: hidden;
+  border-radius: calc(13 * var(--u));
+  background: var(--color-ink);
+  color: var(--color-shell);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color 140ms var(--ease-out),
+    color 140ms var(--ease-out),
+    transform 100ms var(--ease-in);
+}
+
+.launch::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: rgb(11 11 12 / 0.16);
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 200ms var(--ease-out);
+}
+
+.launch > * {
+  position: relative;
+}
+
+.launch[data-state="pressed"] {
+  transform: scale(0.97);
+}
+
+.launch[data-state="working"] {
+  flex-direction: column;
+  gap: calc(5 * var(--u));
+}
+
+/* Running: §4 secondary — a hairline, no fill. */
+.launch[data-state="running"] {
+  background: transparent;
+  color: var(--color-ink);
+  outline: max(1px, calc(1.2 * var(--u))) solid var(--color-line-strong);
+  outline-offset: calc(-1.2 * var(--u));
+}
+
+.launch[data-state="running"]::before {
+  opacity: 0;
+}
+
+.playmark {
+  display: flex;
+  align-items: center;
+}
+
+.playmark > i {
+  display: block;
+  width: calc(4 * var(--u));
+  border-radius: calc(1 * var(--u));
+  background: currentColor;
+}
+
+.playmark > i:nth-child(1) {
+  height: calc(12 * var(--u));
+}
+.playmark > i:nth-child(2) {
+  height: calc(8 * var(--u));
+}
+.playmark > i:nth-child(3) {
+  height: calc(4 * var(--u));
+}
+
+.kbd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(7 * var(--u));
+  background: rgb(11 11 12 / 0.12);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition:
+    background-color 100ms var(--ease-in),
+    transform 100ms var(--ease-in);
+}
+
+.kbd[data-down="true"] {
+  background: rgb(11 11 12 / 0.28);
+  transform: translateY(calc(1 * var(--u)));
+}
+
+/* ------------------------------------------------------------------- glyph */
+
+.glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.glyph text {
+  font-family: var(--font-ui);
+  fill: currentColor;
+}

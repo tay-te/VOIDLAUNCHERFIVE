@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "void-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd pvp/apps/web && npx next build && npx next start --port 5195"
+      ],
+      "port": 5195
+    }
+  ]
+}

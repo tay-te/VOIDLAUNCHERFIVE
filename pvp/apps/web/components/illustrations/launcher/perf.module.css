@@ -1,0 +1,156 @@
+/* Chapter 04 — a live frame-time histogram and one frame's budget, 1000 × 750 units.
+   Board 22 Frame time (384:8) for the chart, board 35 Frame budget (400:8) for the row. */
+
+.top {
+  position: absolute;
+  left: calc(60 * var(--u));
+  right: calc(60 * var(--u));
+  top: calc(66 * var(--u));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.figure {
+  display: flex;
+  align-items: baseline;
+  gap: calc(16 * var(--u));
+}
+
+.fps {
+  font-size: calc(150 * var(--u));
+  line-height: 0.8;
+  font-weight: 300;
+  letter-spacing: -0.035em;
+}
+
+.unit {
+  font-size: max(8px, calc(16 * var(--u)));
+}
+
+.low {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(14 * var(--u));
+  padding-bottom: calc(2 * var(--u));
+}
+
+.lowValue {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
+  font-size: calc(58 * var(--u));
+  line-height: 0.8;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: var(--color-ink-2);
+}
+
+.lowLabel {
+  font-size: max(7px, calc(12 * var(--u)));
+}
+
+/* ------------------------------------------------------------- the chart */
+
+.chartHead {
+  position: absolute;
+  left: calc(60 * var(--u));
+  right: calc(60 * var(--u));
+  top: calc(250 * var(--u));
+  display: flex;
+  justify-content: space-between;
+  font-size: max(7px, calc(12 * var(--u)));
+}
+
+.chart {
+  position: absolute;
+  left: calc(60 * var(--u));
+  top: calc(268 * var(--u));
+  width: calc(880 * var(--u));
+  height: calc(306 * var(--u));
+  overflow: visible;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.probe {
+  position: absolute;
+  top: calc(250 * var(--u));
+  transform: translateX(-50%);
+  padding: calc(6 * var(--u)) calc(9 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background: var(--color-raised);
+  color: var(--hue);
+  font-size: max(8px, calc(13 * var(--u)));
+  pointer-events: none;
+}
+
+.rule {
+  position: absolute;
+  left: calc(60 * var(--u));
+  right: calc(60 * var(--u));
+  top: calc(588 * var(--u));
+  height: 1px;
+  background: var(--color-rule);
+}
+
+.chartFoot {
+  position: absolute;
+  left: calc(60 * var(--u));
+  right: calc(60 * var(--u));
+  top: calc(604 * var(--u));
+  display: flex;
+  justify-content: space-between;
+  font-size: max(7px, calc(12 * var(--u)));
+}
+
+/* ------------------------------------------------------------ the budget */
+
+.budget {
+  position: absolute;
+  left: calc(60 * var(--u));
+  right: calc(60 * var(--u));
+  top: calc(666 * var(--u));
+}
+
+.budgetCells {
+  display: flex;
+  justify-content: space-between;
+}
+
+.budgetCells > i {
+  display: block;
+  width: calc(12.5 * var(--u));
+  height: calc(12.5 * var(--u));
+  border-radius: 30%;
+  background: var(--color-ink);
+}
+
+.budgetCells > i[data-live] {
+  background: var(--hue);
+  opacity: 0.95;
+}
+
+.voidTag {
+  position: absolute;
+  bottom: calc(100% + 12 * var(--u));
+  display: flex;
+  gap: calc(8 * var(--u));
+  font-size: max(7px, calc(12 * var(--u)));
+  color: var(--hue);
+  opacity: 0.95;
+}
+
+.budgetFoot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: calc(14 * var(--u));
+  font-size: max(7px, calc(12 * var(--u)));
+}
+
+@container (max-width: 480px) {
+  .budgetFoot {
+    visibility: hidden;
+  }
+}

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 9 9">
+  <!-- The 16-cell mark (components/Mark.tsx) on the shell fill, so it reads on
+       light and dark tab bars alike. -->
+  <rect x="-1" y="-1" width="9" height="9" rx="2" fill="#0b0b0c"/>
+  <g fill="#edeeef" fill-opacity=".9">
+    <rect x="2" y="0" width="1" height="1" rx=".3"/>
+    <rect x="3" y="0" width="1" height="1" rx=".3"/>
+    <rect x="4" y="0" width="1" height="1" rx=".3"/>
+    <rect x="5" y="1" width="1" height="1" rx=".3"/>
+    <rect x="6" y="2" width="1" height="1" rx=".3"/>
+    <rect x="6" y="3" width="1" height="1" rx=".3"/>
+    <rect x="6" y="4" width="1" height="1" rx=".3"/>
+    <rect x="5" y="5" width="1" height="1" rx=".3"/>
+    <rect x="4" y="6" width="1" height="1" rx=".3"/>
+    <rect x="3" y="6" width="1" height="1" rx=".3"/>
+    <rect x="2" y="6" width="1" height="1" rx=".3"/>
+    <rect x="1" y="5" width="1" height="1" rx=".3"/>
+    <rect x="0" y="4" width="1" height="1" rx=".3"/>
+    <rect x="0" y="3" width="1" height="1" rx=".3"/>
+    <rect x="0" y="2" width="1" height="1" rx=".3"/>
+    <rect x="1" y="1" width="1" height="1" rx=".3"/>
+  </g>
+</svg>

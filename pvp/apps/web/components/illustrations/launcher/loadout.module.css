@@ -1,0 +1,318 @@
+/* Chapter 03 — a crop of the launcher at 1000 × 750 units: the active loadout's
+   name, the loadout menu open over the dock, a 4 × 2 window onto the Mods grid,
+   and the dock's enabled readout. Coordinates are the crop's own. */
+
+.panel {
+  position: absolute;
+  left: calc(24 * var(--u));
+  top: calc(24 * var(--u));
+  width: calc(952 * var(--u));
+  height: calc(560 * var(--u));
+  border-radius: calc(20 * var(--u));
+  background: var(--color-base);
+  border: 1px solid var(--color-line-raised);
+}
+
+/* ------------------------------------------------------------- the name */
+
+.head {
+  position: absolute;
+  left: calc(64 * var(--u));
+  top: calc(70 * var(--u));
+  right: calc(64 * var(--u));
+}
+
+.eyebrow {
+  font-size: max(7px, calc(12 * var(--u)));
+}
+
+.name {
+  display: block;
+  margin-top: calc(22 * var(--u));
+  font-size: calc(100 * var(--u));
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin-top: calc(22 * var(--u));
+  font-size: max(9px, calc(20 * var(--u)));
+  font-weight: 300;
+  line-height: 1;
+  color: var(--color-ink-2);
+  white-space: nowrap;
+}
+
+.meta > b {
+  font-weight: 300;
+  color: var(--color-ink-3);
+}
+
+.swap {
+  animation: rise 140ms var(--ease-out) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(10 * var(--u)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------- the tiles */
+
+.tiles {
+  position: absolute;
+  left: calc(436 * var(--u));
+  top: calc(254 * var(--u));
+  width: calc(500 * var(--u));
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: calc(16 * var(--u));
+}
+
+.tile {
+  --t: 200ms;
+  --e: var(--ease-in);
+  display: flex;
+  flex-direction: column;
+  height: calc(146 * var(--u));
+  padding: calc(6 * var(--u));
+  border-radius: calc(13 * var(--u));
+  background: var(--color-card);
+}
+
+.tile[data-on="true"] {
+  --t: 140ms;
+  --e: var(--ease-out);
+}
+
+.well {
+  position: relative;
+  flex: 0 0 auto;
+  height: calc(88 * var(--u));
+  border-radius: calc(9 * var(--u));
+  background-color: var(--color-base);
+  /* §3 grid texture — 2-unit cells on an 8-unit step at 3.5%, as flat cells. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect x='3' y='3' width='2' height='2' rx='.6' fill='%23edeeef' fill-opacity='.05'/%3E%3C/svg%3E");
+  background-size: calc(7 * var(--u)) calc(7 * var(--u));
+  background-position: center;
+  color: var(--color-ink-2);
+  opacity: 1;
+}
+
+.art {
+  position: absolute;
+  inset: 0;
+  color: var(--color-ink-2);
+  opacity: 0.5;
+  transition:
+    color var(--t) var(--e) var(--d, 0ms),
+    opacity var(--t) var(--e) var(--d, 0ms);
+}
+
+.tile[data-on="true"] .art {
+  color: var(--hue);
+  opacity: 1;
+}
+
+.art rect {
+  transition: fill var(--t) var(--e) var(--d, 0ms);
+}
+
+.foot {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 calc(5 * var(--u)) calc(6 * var(--u));
+}
+
+/* The name runs the tile's full width; the toggle sits under its right end, on the
+   category's line, so a long label never truncates against it. */
+.foot > [data-on] {
+  position: absolute;
+  right: calc(5 * var(--u));
+  bottom: calc(5 * var(--u));
+}
+
+.tileText {
+  display: flex;
+  flex-direction: column;
+  gap: calc(9 * var(--u));
+  min-width: 0;
+  width: 100%;
+}
+
+.tileName {
+  font-size: calc(10.5 * var(--u));
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  color: var(--color-ink-3);
+  transition: color var(--t) var(--e) var(--d, 0ms);
+}
+
+.tileCat {
+  font-size: calc(7.5 * var(--u));
+  color: var(--color-ink-3);
+  transition: color var(--t) var(--e) var(--d, 0ms);
+}
+
+.tile[data-on="true"] .tileName {
+  color: var(--color-ink);
+}
+
+.tile[data-on="true"] .tileCat {
+  color: var(--hue);
+}
+
+/* Below ~560px the tile copy is under 7px — the preview and the toggle carry it. */
+@container (max-width: 560px) {
+  .tileText {
+    visibility: hidden;
+  }
+}
+
+/* --------------------------------------------------------------- the menu */
+
+.menu {
+  position: absolute;
+  left: calc(64 * var(--u));
+  bottom: calc(150 * var(--u));
+  width: calc(336 * var(--u));
+  padding: calc(8 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+}
+
+.menuHead {
+  padding: calc(14 * var(--u)) calc(14 * var(--u)) calc(12 * var(--u));
+  font-size: max(7px, calc(11 * var(--u)));
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+  border-radius: calc(11 * var(--u));
+  outline: none;
+}
+
+.list:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: calc(4 * var(--u));
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  height: calc(52 * var(--u));
+  padding: 0 calc(16 * var(--u));
+  border-radius: calc(10 * var(--u));
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-ink-2);
+  transition:
+    background-color 100ms var(--ease-in),
+    color 100ms var(--ease-in);
+}
+
+.opt:hover,
+.opt[data-probe="true"] {
+  background: var(--color-raised);
+  color: var(--color-ink);
+  transition-duration: 140ms;
+  transition-timing-function: var(--ease-out);
+}
+
+.opt[aria-selected="true"] {
+  background: var(--color-raised);
+  color: var(--color-ink);
+}
+
+.dot {
+  display: block;
+  flex: 0 0 auto;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  border-radius: 30%;
+  background: rgb(237 238 239 / 0.14);
+  transition: background-color 200ms var(--ease-in);
+}
+
+.opt[aria-selected="true"] .dot {
+  background: rgb(159 139 255 / 0.95);
+  transition: background-color 140ms var(--ease-out);
+}
+
+.optName {
+  flex: 1 1 auto;
+  font-size: max(10px, calc(19 * var(--u)));
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.optCount {
+  font-size: max(7px, calc(11 * var(--u)));
+}
+
+/* --------------------------------------------------------------- the dock */
+
+.dock {
+  position: absolute;
+  left: calc(64 * var(--u));
+  right: calc(64 * var(--u));
+  top: calc(612 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+}
+
+.loadoutPicker {
+  width: calc(220 * var(--u));
+  font-size: max(8px, calc(17 * var(--u)));
+}
+
+.versionPicker {
+  width: calc(104 * var(--u));
+  font-size: max(8px, calc(17 * var(--u)));
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--u));
+  margin-left: calc(16 * var(--u));
+  padding-top: calc(6 * var(--u));
+}
+
+.readoutLabel {
+  font-size: max(7px, calc(12 * var(--u)));
+}
+
+.hint {
+  position: absolute;
+  left: calc(64 * var(--u));
+  top: calc(706 * var(--u));
+  font-size: calc(10 * var(--u));
+  opacity: 0.8;
+}
+
+@container (max-width: 560px) {
+  .hint {
+    visibility: hidden;
+  }
+}

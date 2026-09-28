@@ -49,6 +49,7 @@ crosses to Rust — only summaries do.
 | Path | What it is |
 |---|---|
 | [`apps/desktop/`](apps/desktop/README.md) | The Tauri 2 launcher: one frameless window, tray, updater, thin `#[tauri::command]` wrappers over the crates |
+| [`apps/web/`](apps/web/README.md) | `@void/web` — the public marketing site. Next.js 16 + React 19 + Tailwind 4 on Vercel, fully prerendered; built from the site boards on the Figma promo page |
 | [`packages/ui/`](packages/ui/README.md) | `@void/ui` — the shared React components and design tokens, built twice (launcher webview, in-game Ultralight) |
 | [`packages/ingame/`](packages/ingame/README.md) | `@void/ingame` — the in-game HUD layer + Right-Shift menus; builds into the mod's resources |
 | [`packages/protocol/`](packages/protocol/README.md) | `@void/protocol` — TypeScript generated from `schema/`, plus the reference bridge shim and the fake `window.void` |
@@ -138,6 +139,7 @@ you are touching:
   change to them
 - [`crates/README.md`](crates/README.md) — the Rust side and the `void-pvp` CLI
 - [`apps/desktop/README.md`](apps/desktop/README.md) — the launcher
+- [`apps/web/README.md`](apps/web/README.md) — the marketing site
 - [`packages/protocol/README.md`](packages/protocol/README.md) — generated types, the
   bridge shim, the fake bridge
 - [`packages/ui/README.md`](packages/ui/README.md) — components, tokens, the two renderer

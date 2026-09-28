@@ -1,0 +1,335 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   VOID — the design system, as a Tailwind theme
+
+   Source of truth is `pvp/design/quiet-cell-system.md` §1–§5. The colour,
+   the fills, the cell and the motion are the contract's. The type scale and
+   the spacing are the page's own: the first build read them off the film
+   boards in Figma `RShlfbx2TfxrdleKPIry8w` (316:2), whose 1080p rhythm left
+   ~200px between every heading and its content; the product-chapters layout
+   re-derived both (see the display and spacing notes below).
+
+   Deliberately NOT derived from `design/tokens.css` or `@void/ui/tokens.css`:
+   those still carry the superseded direction (Bricolage Grotesque, backdrop
+   blur, noise overlays, accent glows), and §0 of the contract replaced all of
+   it with one family, flat fills and no effects.
+
+   SCALING. Every size here is `clamp(min, Xvw, max)` where the vw term is
+   `max ÷ 1920 × 100`, so at a 1920 viewport the page renders at exactly the
+   authored values and scales down from there with no breakpoint.
+   ========================================================================== */
+
+@theme {
+  /* ------------------------------------------------------------- §1 colour
+     The default palette is cleared on purpose. Four fill steps, three inks,
+     four category hues — if a colour is not in this list it is not in the
+     system, and `bg-red-500` should fail rather than quietly ship. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #fff;
+
+  /* Fill steps. Depth is carried by fill, never by shadow. */
+  --color-shell: #0b0b0c; /* outermost — the page ground */
+  --color-base: #131315; /* recessed surface */
+  --color-card: #191a1c; /* cards, tiles, panes — opaque, no alpha */
+  --color-raised: #212225; /* hover / selected surface */
+
+  --color-ink: #edeeef;
+  --color-ink-2: #9a9da1; /* 7.2:1 on shell — prose, body, nav */
+  /* The label tier. The contract's #626569 is 3.4:1 on shell and fails WCAG
+     AA; lifted until it passes on every fill it can sit on (shell 5.2,
+     ground 4.9, card 4.6). Proposed back to quiet-cell-system.md §1. */
+  --color-ink-3: #808387;
+
+  --color-ok: #3dd68c;
+
+  /* Category hues. `--color-hue` is the default every accent-consuming rule
+     reads; the others exist for when a section is scoped to one category. */
+  --color-hue: #9f8bff; /* HUD, and the default accent */
+  --color-hue-pvp: #ff9e7a;
+  --color-hue-visual: #7adfff;
+  --color-hue-utility: #7ae0b0;
+
+  /* Rules are ink at low alpha; borders are white at low alpha. Never a hue. */
+  --color-rule: rgb(237 238 239 / 0.08);
+  --color-rule-soft: rgb(237 238 239 / 0.07);
+  --color-rule-faint: rgb(237 238 239 / 0.05);
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-line-raised: rgb(255 255 255 / 0.07);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+  --color-line-button: rgb(255 255 255 / 0.16);
+  --color-divider: rgb(255 255 255 / 0.045);
+
+  /* §3 cell fills */
+  --color-cell-on: rgb(237 238 239 / 0.42);
+  --color-cell-off: rgb(237 238 239 / 0.18);
+  --color-cell-dim: rgb(237 238 239 / 0.14);
+  --color-cell-absent: rgb(237 238 239 / 0.08);
+  --color-cell-mark: rgb(237 238 239 / 0.9);
+  --color-cell-live: rgb(159 139 255 / 0.95);
+  --color-bar-on: rgb(237 238 239 / 0.2);
+  --color-bar-off: rgb(237 238 239 / 0.16);
+
+  /* --------------------------------------------------------------- §2 type
+     Outfit only. 300 Light, 400 Regular, 500 Medium — nothing heavier.
+     `--font-outfit` is set on <html> by next/font in app/layout.tsx. */
+  --font-ui: var(--font-outfit), system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Weights, cleared like the palette. 300 and 500 are the preloaded family;
+     400 lives in a second, non-preloaded family (next/font preloads per call,
+     not per file), so it is reached with `font-regular` below, which switches
+     family and weight together. A bare `font-normal` would silently render
+     the nearest face in the first family, which is 500 — so it does not exist. */
+  --font-weight-*: initial;
+  --font-weight-light: 300;
+  --font-weight-medium: 500;
+
+  /* Display tier — two sizes, and only two. `hero` is the h1 and is the
+     largest type on the page at every width; `section` is every h2 (the four
+     chapters, Get started, Questions, the Download close). Nothing else on
+     the page is display type. 64 / 44 at 1440, 86 / 58 at 1920. */
+  --text-hero: clamp(40px, 4.444vw, 86px);
+  --text-hero--line-height: 1.06;
+  --text-hero--letter-spacing: -0.03em;
+
+  --text-section: clamp(30px, 3.056vw, 58px);
+  --text-section--line-height: 1.12;
+  --text-section--letter-spacing: -0.02em;
+
+  /* Title tier — one size: step names, questions. */
+  --text-title: clamp(20px, 1.389vw, 26px);
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.01em;
+
+  /* Meter.tsx's readout still reads `text-column`; it is the title tier. */
+  --text-column: var(--text-title);
+  --text-column--line-height: var(--text-title--line-height);
+  --text-column--letter-spacing: var(--text-title--letter-spacing);
+
+  /* Body tier */
+  --text-subline: clamp(18px, 1.354vw, 26px);
+  --text-subline--line-height: 1.4;
+
+  --text-prose: clamp(17px, 1.146vw, 22px);
+  --text-prose--line-height: 1.55;
+
+  --text-body: clamp(16px, 1.042vw, 20px);
+  --text-body--line-height: 1.55;
+
+  --text-link: clamp(15px, 0.885vw, 17px);
+  --text-link--line-height: 1.4;
+
+  --text-button: clamp(16px, 0.938vw, 18px);
+  --text-button--line-height: 1;
+
+  --text-wordmark: clamp(19px, 1.354vw, 26px);
+  --text-wordmark--line-height: 1;
+  --text-wordmark--letter-spacing: 0.13em;
+
+  /* Label tier — UPPERCASE, 500, 0.16em */
+  --text-eyebrow: clamp(11px, 0.677vw, 13px);
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--letter-spacing: 0.16em;
+
+  --text-meta: clamp(10px, 0.625vw, 12px);
+  --text-meta--line-height: 1;
+  --text-meta--letter-spacing: 0.16em;
+
+  --text-cap: clamp(10px, 0.573vw, 11px);
+  --text-cap--line-height: 1;
+  --text-cap--letter-spacing: 0.16em;
+
+  /* -------------------------------------------------------------- spacing
+     A page rhythm, not the film's. The boards spent ~260px between a heading
+     and its content (a 1080p frame has nothing else to do with the space);
+     here a heading sits `head` above what it introduces, sections are
+     `section` apart, and the four chapters `chapter` apart. The vw term is
+     still value ÷ 1920 × 100, so 1920 renders the authored numbers.
+       at 1440: gutter 90 · section 72 (so 144 between two sections) ·
+       chapter 84 · head 48 */
+  --spacing-gutter: clamp(24px, 6.25vw, 120px);
+  --spacing-section: clamp(56px, 5vw, 96px);
+  --spacing-chapter: clamp(56px, 5.833vw, 112px);
+  --spacing-eyebrow: clamp(14px, 1.25vw, 24px);
+  --spacing-head: clamp(32px, 3.333vw, 64px);
+  --spacing-colgap: clamp(24px, 3.333vw, 64px);
+  /* Between an illustration and the copy beside it. */
+  --spacing-split: clamp(32px, 5vw, 96px);
+  --container-content: 1600px;
+  /* Prose measure: `max-w-measure`. */
+  --container-measure: 60ch;
+
+  /* -------------------------------------------------------------- shapes */
+  --radius-button: clamp(12px, 0.938vw, 18px);
+  --radius-crop: 16px;
+  --radius-nav: 10px;
+  /* §3: everything textural is a square with a 30% radius. */
+  --radius-cell: 30%;
+
+  /* -------------------------------------------------------------- §5 motion
+     Hover in 140ms ease-out, leave in 100ms ease-in, release drains over
+     200ms. Nothing on this page may take longer than the release. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* The 400 face — see the weights note in @theme. */
+@utility font-regular {
+  font-family: var(--font-outfit-regular), var(--font-ui);
+  font-weight: 400;
+}
+
+/* Touch-sized: the viewports that lose the desktop nav, and anything with a
+   coarse pointer. Tap targets reach 44px here by padding, never by type. */
+@custom-variant touch {
+  @media (max-width: 1040px), (pointer: coarse) {
+    @slot;
+  }
+}
+
+/* ------------------------------------------------------------------- base */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* The sticky header is 80px tall; anchors land clear of it. */
+    scroll-padding-top: 120px;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-shell);
+    color: var(--color-ink);
+    font-family: var(--font-ui);
+    font-weight: 300;
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------- the field
+   §3's ambient texture: 6px cells on a 40px step. Two layers share one tile
+   mask so the geometry is identical — ink at 3% at rest, and the hue where
+   the pointer is. The radial is a *mask*, not a painted gradient: it is the
+   distance falloff §5 asks for, and every visible pixel stays a flat cell. */
+
+@utility field-tile {
+  --cell-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='6' height='6' rx='1.8' fill='%23fff'/%3E%3C/svg%3E");
+  mask-image: var(--cell-tile);
+  mask-size: 40px 40px;
+}
+
+@utility field-warm {
+  --cell-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='6' height='6' rx='1.8' fill='%23fff'/%3E%3C/svg%3E");
+  mask-image: var(--cell-tile),
+    radial-gradient(circle at center, #000 0, #000 14%, transparent 62%);
+  mask-size: 40px 40px, 620px 620px;
+  mask-position: 0 0,
+    calc(var(--px, 50%) - 310px) calc(var(--py, 50%) - 310px);
+  mask-repeat: repeat, no-repeat;
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+
+/* ------------------------------------------------------------ the mark
+   Board 01's cold open: the mark builds cell by cell — 16 cells, 40ms
+   stagger, clockwise from the top row, each scaling 0.8 → 1.0 over 140ms
+   ease-out. The delay per cell is set inline from its clockwise index. */
+
+@keyframes mark-cell {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .mark-assemble rect {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* `both`: each cell holds the `from` frame through its own delay. */
+  .mark-assemble.is-in rect {
+    animation: mark-cell 140ms var(--ease-out) both;
+    animation-delay: calc(var(--n, 0) * 40ms);
+  }
+}
+
+/* ----------------------------------------------------------------- motion
+   Board motion, applied to scroll: the 8px rise over 140ms ease-out that
+   board 02 uses to set its words, on board 27's 90ms stagger.
+
+   The hidden state exists only under `html.js`, which the inline boot script
+   in <head> sets before first paint (lib/boot.ts). With JavaScript off, or
+   with reduced motion, nothing is ever hidden. */
+
+@layer components {
+  [data-reveal] {
+    transition:
+      opacity 140ms var(--ease-out),
+      transform 140ms var(--ease-out);
+    transition-delay: calc(var(--i, 0) * 90ms);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html.js [data-reveal]:not(.is-in) {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    html.js .mark-assemble:not(.is-in) rect {
+      opacity: 0;
+    }
+  }
+}
+
+/* DownloadButtons renders the desktop pair on the server. Where the boot
+   script already knows that pair is wrong for this machine, it stays
+   invisible (but keeps its space) until the client swaps it, rather than
+   flashing the wrong buttons first. */
+html[data-platform="handheld"] [data-dl-pending],
+html[data-platform="windows"] [data-dl-pending] {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  [data-reveal],
+  [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .mark-assemble rect,
+  .mark-assemble.is-in rect {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
