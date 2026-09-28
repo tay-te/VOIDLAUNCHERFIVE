@@ -25,6 +25,7 @@ under "Contract changes" in `schema/README.md` arrived exactly that way.
 |---|---|---|
 | **core** | `crates/void-core/`, `crates/void-bridge/`, `crates/void-loadout/`, `schema/`, root `Cargo.toml` | Auth → download → JVM spawn; the WS server; the loadout store, diff and persistence |
 | **desktop** | `apps/desktop/` (incl. `src-tauri/`) | The Tauri launcher: one frameless window, tray, updater, thin `#[tauri::command]` wrappers over `void-core` |
+| **web** | `apps/web/` | The public marketing site: Next.js 16 / React 19 / Tailwind 4, prerendered on Vercel, built from the site boards on the Figma promo page. It imports nothing from the workspace — the fonts and tokens it needs are copied in, not linked, so the launcher's build can never break the site |
 | **ui** | `packages/ui/`, `packages/protocol/` | Shared React components and design tokens; the generated TS types |
 | **ingame** | `packages/ingame/` | The in-game React entry: HUD + Right-Shift menus + HUD editor |
 | **mod** | `mod/` **except `mod/native/`** | The Legacy Fabric mod: Mixin sensors and actuators, the Ultralight host, the `window.void` bridge, the WS client, `VoidMenuScreen` |

@@ -1,0 +1,9 @@
+# motion/out/ is already ignored by pvp/.gitignore (`out/`): it holds ~2.6 GB of
+# rendered PNG frame sequences that the shot scripts in motion/ regenerate
+# (motion/render_final.sh, motion/cut_film.sh). The two finished cuts,
+# motion/out/final/VOID_promo_final.mp4 and motion/out/VOID_promo_preview.mp4,
+# are force-added so the films themselves are in the repo.
+
+# Blender autosave backups and Python caches
+*.blend1
+__pycache__/

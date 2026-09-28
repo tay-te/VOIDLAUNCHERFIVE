@@ -1,0 +1,1519 @@
+/* ==========================================================================
+   The in-game illustration kit — the VOID HUD and overlay menu, redrawn for
+   the web from `packages/ingame` and `packages/ui/src/styles/06-hud.css`.
+
+   Every length is `N * var(--u)`, where one `--u` is one pixel of the real
+   in-game canvas at the piece's design width (`--dw`). That keeps the
+   in-game proportions at any width; the container queries below raise the
+   scale on small frames so the type stays legible, and hide fine print.
+
+   §0 of the contract: flat. No blur, no shadow, no gradient, no blend.
+   ========================================================================== */
+
+@property --u {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 1px;
+}
+
+/* --------------------------------------------------------------- frame */
+
+.frame {
+  position: relative;
+  width: 100%;
+  container-type: inline-size;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hero {
+  aspect-ratio: 16 / 9;
+}
+
+.chapter {
+  aspect-ratio: 4 / 3;
+}
+
+.screen {
+  --dw: 1600;
+  --u: calc(100cqw / var(--dw));
+  --ink: #edeeef;
+  --ink2: #9a9da1;
+  --ink3: #626569;
+  --ok: #3dd68c;
+  --warn: #d9a93a;
+  --bad: #c05b54;
+  --hue: #9f8bff;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: clamp(10px, 1.25cqw, 18px);
+  background: #0b0b0c;
+  color: var(--ink);
+  font-size: calc(13 * var(--u));
+  line-height: 1;
+  font-weight: 400;
+}
+
+/* The window edge: a hairline, drawn above everything including the video. */
+.screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  border-radius: inherit;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  pointer-events: none;
+}
+
+.chapter .screen {
+  --dw: 960;
+}
+
+@container (max-width: 760px) {
+  .hero .screen {
+    --dw: 1120;
+  }
+}
+
+@container (max-width: 560px) {
+  .chapter .screen {
+    --dw: 760;
+  }
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ------------------------------------------------------------------ HUD */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* A HUD element toggled by its mod: gone is gone, but the change is seen. */
+.el {
+  position: absolute;
+  transition: opacity 110ms ease-out;
+}
+
+.gone {
+  opacity: 0;
+  transition-duration: 60ms;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(6 * var(--u));
+  padding: calc(7 * var(--u)) calc(10 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background: rgb(11 11 12 / 0.72);
+  white-space: nowrap;
+}
+
+.editor .chip,
+.editor .box {
+  background: rgb(11 11 12 / 0.82);
+  outline: 1px solid rgb(255 255 255 / 0.1);
+  outline-offset: -1px;
+}
+
+.big {
+  font-size: calc(15 * var(--u));
+}
+
+.val {
+  font-size: calc(13 * var(--u));
+}
+
+.unit {
+  font-size: calc(10 * var(--u));
+  color: var(--ink3);
+}
+
+.hueInk {
+  color: var(--hue);
+}
+
+.dot {
+  align-self: center;
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 30%;
+  background: var(--ok);
+  transition: background-color 200ms ease-out;
+}
+
+.dot[data-tone="warn"] {
+  background: var(--warn);
+}
+
+.dot[data-tone="bad"] {
+  background: var(--bad);
+}
+
+/* Keystrokes — 40px caps on a 5px gap, the mouse keys 62.5 wide. */
+.keys {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(5 * var(--u));
+}
+
+.krow {
+  display: flex;
+  gap: calc(5 * var(--u));
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(4 * var(--u));
+  width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+  border-radius: calc(9 * var(--u));
+  background: #212225;
+  outline: 1px solid rgb(255 255 255 / 0.1);
+  outline-offset: -1px;
+  font-size: calc(13 * var(--u));
+  font-weight: 500;
+  color: var(--ink);
+  transition:
+    background-color 80ms ease-out,
+    outline-color 80ms ease-out,
+    color 80ms ease-out;
+}
+
+.key[data-wide] {
+  width: calc(62.5 * var(--u));
+}
+
+.key[data-down] {
+  background: var(--hue);
+  outline-color: rgb(255 255 255 / 0.35);
+  color: #0b0b0c;
+}
+
+.kcps {
+  font-size: calc(10 * var(--u));
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Potion effects and armour: panels, not chips — r10, the stronger ground. */
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: calc(5 * var(--u));
+  padding: calc(8 * var(--u)) calc(10 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: rgb(11 11 12 / 0.82);
+  outline: 1px solid rgb(255 255 255 / 0.1);
+  outline-offset: -1px;
+}
+
+.potions {
+  width: calc(150 * var(--u));
+}
+
+.prow {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+}
+
+.swatch {
+  flex: none;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  border-radius: calc(3 * var(--u));
+}
+
+.pname {
+  flex: 1;
+  font-size: calc(12.5 * var(--u));
+  font-weight: 500;
+}
+
+.ptime {
+  font-size: calc(12 * var(--u));
+  color: var(--ink2);
+}
+
+.armour {
+  width: calc(168 * var(--u));
+  gap: calc(6 * var(--u));
+}
+
+.arow {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+}
+
+.aicon {
+  flex: none;
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  border-radius: 30%;
+  background: #212225;
+}
+
+.abody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(3 * var(--u));
+  min-width: 0;
+}
+
+.alabels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.alabel {
+  font-size: calc(12 * var(--u));
+  color: var(--ink2);
+}
+
+.aval {
+  font-size: calc(10 * var(--u));
+  color: var(--ink3);
+}
+
+.bar {
+  display: block;
+  position: relative;
+  height: calc(4 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: rgb(255 255 255 / 0.1);
+  overflow: hidden;
+}
+
+.barFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--ok);
+  transition:
+    width 200ms ease-out,
+    background-color 200ms ease-out;
+}
+
+.barFill[data-tone="warn"] {
+  background: var(--warn);
+}
+
+.cross {
+  width: calc(21 * var(--u));
+  height: calc(21 * var(--u));
+  transform: translate(-50%, -50%);
+  fill: rgb(237 238 239 / 0.92);
+}
+
+/* ------------------------------------------------------- overlay menu */
+
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  opacity: 1;
+  transition: opacity 110ms ease-out;
+}
+
+/* The close is 60ms on a fast-start curve (overlay.css, `.menu-layer--exiting`). */
+.shut {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 60ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    visibility 0s linear 60ms;
+}
+
+.dim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgb(11 11 12 / 0.3);
+}
+
+.panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: calc(20 * var(--u));
+  background: #0b0b0c;
+  outline: 1px solid rgb(255 255 255 / 0.07);
+  outline-offset: -1px;
+  --cols: 7;
+}
+
+.pbar {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: calc(46 * var(--u));
+  padding: 0 calc(24 * var(--u));
+}
+
+.vmark {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+}
+
+.ring {
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  opacity: 0.9;
+}
+
+.word {
+  font-size: calc(15 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.dest {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  height: calc(26 * var(--u));
+  margin-left: calc(18 * var(--u));
+  padding: 0 calc(9 * var(--u));
+  border-radius: calc(8 * var(--u));
+  outline: 1px solid rgb(255 255 255 / 0.07);
+  outline-offset: -1px;
+  font-size: calc(11 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--ink2);
+}
+
+.icon {
+  flex: none;
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dest .icon {
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+  opacity: 0.7;
+}
+
+.center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: calc(18 * var(--u));
+  transform: translate(-50%, -50%);
+}
+
+.tabs {
+  display: flex;
+  gap: calc(8 * var(--u));
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: calc(7 * var(--u));
+  height: calc(28 * var(--u));
+  padding: 0 calc(20 * var(--u));
+  border-radius: calc(9 * var(--u));
+  font-size: calc(13 * var(--u));
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: var(--ink3);
+}
+
+.tabOn {
+  background: #212225;
+  color: var(--ink);
+}
+
+.tabDot {
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  border-radius: 30%;
+  background: var(--c);
+  opacity: 0.95;
+}
+
+.seg {
+  display: flex;
+  gap: calc(6 * var(--u));
+  padding: calc(3 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background: #131315;
+}
+
+.segBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(35 * var(--u));
+  height: calc(18 * var(--u));
+  border-radius: calc(6 * var(--u));
+  color: var(--ink3);
+}
+
+.segBtn .icon {
+  width: calc(13 * var(--u));
+  height: calc(13 * var(--u));
+}
+
+.segOn {
+  background: #212225;
+  color: var(--ink);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  margin-left: auto;
+}
+
+.obtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(7 * var(--u));
+  min-width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+  padding: 0;
+  border-radius: calc(8 * var(--u));
+  border: 0;
+  outline: 1px solid rgb(255 255 255 / 0.07);
+  outline-offset: -1px;
+  background: transparent;
+  color: var(--ink3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.obtn .icon {
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+}
+
+.close {
+  margin-left: calc(36 * var(--u));
+  padding: 0 calc(6 * var(--u)) 0 calc(7 * var(--u));
+  color: var(--ink2);
+  transition:
+    background-color 100ms ease-in,
+    color 100ms ease-in;
+}
+
+.close:hover {
+  background: #212225;
+  color: var(--ink);
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  height: calc(16 * var(--u));
+  padding: 0 calc(5 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background: #191a1c;
+  outline: 1px solid rgb(255 255 255 / 0.07);
+  outline-offset: -1px;
+  font-size: calc(9 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--ink3);
+}
+
+.rule {
+  flex: none;
+  height: 1px;
+  margin: 0 calc(24 * var(--u));
+  background: rgb(237 238 239 / 0.05);
+}
+
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  align-content: start;
+  gap: calc(12 * var(--u));
+  margin: calc(16 * var(--u)) calc(24 * var(--u)) 0;
+  overflow: hidden;
+}
+
+.status {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+  height: calc(26 * var(--u));
+  margin: 0 calc(24 * var(--u));
+  border-top: 1px solid rgb(255 255 255 / 0.045);
+  font-size: calc(10 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--ink3);
+  white-space: nowrap;
+}
+
+.hint {
+  flex: none;
+  padding: 0 calc(24 * var(--u)) calc(12 * var(--u));
+  font-size: calc(9 * var(--u));
+  line-height: calc(11 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--ink3);
+  white-space: pre;
+}
+
+/* ------------------------------------------------------------ the tile */
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: calc(10 * var(--u));
+  border: 0;
+  border-radius: calc(14 * var(--u));
+  background: #191a1c;
+  outline: 1px solid rgb(255 255 255 / 0.07);
+  outline-offset: -1px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background-color 100ms ease-in;
+}
+
+button.tile {
+  cursor: pointer;
+}
+
+.tile:hover,
+.hot {
+  background: #212225;
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.well {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: calc(10 * var(--u));
+  background: #131315;
+  overflow: hidden;
+  /* The art is drawn for the 127u well of the 7-across grid and scales with
+     the well, whatever the column count. */
+  container-type: inline-size;
+  color: var(--c, var(--ink));
+  transition:
+    color 140ms ease-out,
+    opacity 140ms ease-out;
+}
+
+.tile[data-off] .well {
+  color: var(--ink2);
+  opacity: 0.5;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8 * var(--u));
+  height: calc(42 * var(--u));
+  padding-top: calc(6 * var(--u));
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  font-size: calc(14 * var(--u));
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: color 140ms ease-out;
+}
+
+.cat {
+  font-size: calc(9 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--c);
+  transition: color 140ms ease-out;
+}
+
+.tile[data-off] .name,
+.tile[data-off] .cat {
+  color: var(--ink3);
+}
+
+/* §4's sm switch: 30 × 17, knob 11 inset 3, grip of three 2px cells. */
+.sw {
+  position: relative;
+  flex: none;
+  width: calc(30 * var(--u));
+  height: calc(17 * var(--u));
+  border-radius: calc(6 * var(--u));
+  background: rgb(237 238 239 / 0.88);
+  transition: background-color 100ms ease-in;
+}
+
+.knob {
+  position: absolute;
+  top: calc(3 * var(--u));
+  left: calc(3 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(1 * var(--u));
+  width: calc(11 * var(--u));
+  height: calc(11 * var(--u));
+  border-radius: 35%;
+  background: #0b0b0c;
+  transform: translateX(calc(13 * var(--u)));
+  transition:
+    transform 80ms ease-out,
+    background-color 80ms ease-out;
+}
+
+.knob i {
+  width: calc(2 * var(--u));
+  height: calc(2 * var(--u));
+  border-radius: 30%;
+  background: rgb(237 238 239 / 0.88);
+}
+
+.tile[data-off] .sw {
+  background: #131315;
+  outline: 1px solid rgb(255 255 255 / 0.16);
+  outline-offset: -1px;
+}
+
+.tile[data-off] .knob {
+  background: var(--ink3);
+  transform: none;
+}
+
+.tile[data-off] .knob i {
+  background: #131315;
+  opacity: 0.55;
+}
+
+.sel {
+  position: absolute;
+  top: calc(8 * var(--u));
+  right: calc(8 * var(--u));
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 30%;
+  background: var(--c);
+  opacity: 0.95;
+}
+
+/* ------------------------------------------------------ tile previews */
+
+.well > * {
+  --a: calc(100cqw / 127);
+}
+
+.art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6 * var(--a));
+}
+
+.artBig {
+  font-size: calc(30 * var(--a));
+  letter-spacing: -0.02em;
+}
+
+.artUnit {
+  font-size: calc(9 * var(--a));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.artKeys {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--a));
+}
+
+.artKeys > span {
+  display: flex;
+  gap: calc(4 * var(--a));
+}
+
+.artKey {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(20 * var(--a));
+  height: calc(20 * var(--a));
+  border-radius: calc(6 * var(--a));
+  background: #212225;
+  font-size: calc(9 * var(--a));
+  font-weight: 500;
+  font-style: normal;
+}
+
+.artKey[data-wide] {
+  width: calc(30 * var(--a));
+}
+
+.artRows {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--a));
+  width: calc(108 * var(--a));
+}
+
+.artLine {
+  display: flex;
+  align-items: center;
+  gap: calc(7 * var(--a));
+  font-size: calc(9 * var(--a));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.artLine > b {
+  flex: 1;
+  font-weight: 500;
+}
+
+.artLine > span:last-child {
+  font-size: calc(11 * var(--a));
+  font-weight: 400;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+
+.artPip {
+  width: calc(9 * var(--a));
+  height: calc(9 * var(--a));
+  border-radius: 30%;
+  background: var(--p, currentColor);
+}
+
+.artArmour {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(9 * var(--a));
+}
+
+.artArmour > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(5 * var(--a));
+}
+
+.artSlot {
+  width: calc(19 * var(--a));
+  height: calc(19 * var(--a));
+  border-radius: 30%;
+  background: currentColor;
+}
+
+.artWear {
+  position: relative;
+  width: calc(19 * var(--a));
+  height: calc(5 * var(--a));
+  border-radius: calc(2 * var(--a));
+  background: rgb(237 238 239 / 0.1);
+  overflow: hidden;
+}
+
+.artWear > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ok);
+}
+
+.tile[data-off] .artWear > i,
+.tile[data-off] .artPip {
+  background: currentColor;
+}
+
+.artMeter {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--a));
+  font-size: calc(8 * var(--a));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.artCells {
+  display: flex;
+  gap: calc(3 * var(--a));
+}
+
+.artCells > i {
+  width: calc(11 * var(--a));
+  height: calc(11 * var(--a));
+  border-radius: 30%;
+  background: currentColor;
+  opacity: 0.18;
+}
+
+.artCells > i[data-on] {
+  opacity: 1;
+}
+
+.artGlyph {
+  width: calc(var(--gw) * 8 * var(--a));
+  height: calc(var(--gh) * 8 * var(--a));
+  fill: currentColor;
+}
+
+.artFrame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: calc(104 * var(--a));
+  height: calc(80 * var(--a));
+  padding-bottom: calc(10 * var(--a));
+  border-radius: calc(8 * var(--a));
+  outline: calc(1.5 * var(--a)) solid currentColor;
+  outline-offset: calc(-1.5 * var(--a));
+  font-size: calc(14 * var(--a));
+}
+
+.artFrame::before {
+  content: "";
+  position: absolute;
+  top: calc(26 * var(--a));
+  width: calc(22 * var(--a));
+  height: calc(14 * var(--a));
+  border-radius: calc(3 * var(--a));
+  outline: calc(1.5 * var(--a)) solid currentColor;
+}
+
+/* ---------------------------------------------------------- the cursor */
+
+.cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 20;
+  width: calc(13 * var(--cur, 1.6) * var(--u));
+  height: calc(17 * var(--cur, 1.6) * var(--u));
+  pointer-events: none;
+  transition:
+    transform 820ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 110ms ease-out;
+}
+
+.cursor[data-hidden] {
+  opacity: 0;
+}
+
+/* ----------------------------------------------------------- the plate */
+
+.plate {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.poseB,
+.spark {
+  opacity: 0;
+}
+
+.live .poseA {
+  animation: pose-a 1.2s steps(1, end) infinite;
+}
+
+.live .poseB {
+  animation: pose-b 1.2s steps(1, end) infinite;
+}
+
+.live .spark {
+  animation: spark 1.2s steps(1, end) infinite;
+}
+
+@keyframes pose-a {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pose-b {
+  0%,
+  55% {
+    opacity: 0;
+  }
+  56%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes spark {
+  0%,
+  57% {
+    opacity: 0;
+  }
+  58%,
+  72% {
+    opacity: 1;
+  }
+  73%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.paused .poseA,
+.paused .poseB,
+.paused .spark {
+  animation-play-state: paused;
+}
+
+/* The global reduced-motion rule shortens every animation to 1ms, which on an
+   infinite steps() loop would be a strobe. These loops are switched off. */
+@media (prefers-reduced-motion: reduce) {
+  .live .poseA,
+  .live .poseB,
+  .live .spark {
+    animation: none;
+  }
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Fine print — asides, potion names, armour figures — goes on small frames. */
+@container (max-width: 480px) {
+  .fine {
+    display: none;
+  }
+}
+
+/* ================================================================ hero */
+
+.clickable {
+  cursor: pointer;
+}
+
+.hFps {
+  left: calc(24 * var(--u));
+  top: calc(24 * var(--u));
+}
+
+.hPing {
+  left: calc(24 * var(--u));
+  top: calc(64 * var(--u));
+}
+
+.hCombo {
+  left: calc(24 * var(--u));
+  top: calc(101 * var(--u));
+}
+
+.hMem {
+  left: calc(24 * var(--u));
+  top: calc(138 * var(--u));
+}
+
+.hCross {
+  left: 50%;
+  top: 50%;
+}
+
+.hPot {
+  right: calc(24 * var(--u));
+  top: calc(24 * var(--u));
+}
+
+.hArm {
+  right: calc(24 * var(--u));
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.hKeys {
+  left: calc(24 * var(--u));
+  bottom: calc(62 * var(--u));
+}
+
+.hCps {
+  left: calc(24 * var(--u));
+  bottom: calc(24 * var(--u));
+}
+
+.hPanel {
+  left: 14%;
+  right: 14%;
+  top: 10.6%;
+  bottom: 10.6%;
+}
+
+/* The R-SHIFT key: the one real control on the game. A keycap, not a button
+   shape — it is the key the product actually uses. */
+.rshift {
+  position: absolute;
+  left: 50%;
+  bottom: calc(22 * var(--u));
+  z-index: 25;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  height: calc(30 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  border: 0;
+  border-radius: calc(8 * var(--u));
+  background: rgb(11 11 12 / 0.72);
+  outline: 1px solid rgb(255 255 255 / 0.14);
+  outline-offset: -1px;
+  color: var(--ink2);
+  font: inherit;
+  font-size: calc(11 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition:
+    background-color 100ms ease-in,
+    color 100ms ease-in;
+}
+
+.rshift::before {
+  content: "";
+  position: absolute;
+  inset: -12px -16px;
+}
+
+.rshift:hover {
+  background: #212225;
+  color: var(--ink);
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
+}
+
+.rshift[data-down] {
+  background: var(--hue);
+  outline-color: rgb(255 255 255 / 0.35);
+  color: #0b0b0c;
+  transition-duration: 80ms;
+}
+
+.rshift:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@container (max-width: 760px) {
+  .hPanel {
+    left: 8%;
+    right: 8%;
+    --cols: 5;
+  }
+}
+
+@container (max-width: 480px) {
+  .hero .screen {
+    --dw: 680;
+  }
+  .hPanel {
+    left: 4%;
+    right: 4%;
+    top: 6%;
+    bottom: 17%;
+    --cols: 4;
+  }
+  .hKeys {
+    bottom: calc(24 * var(--u));
+  }
+  .hCps {
+    display: none;
+  }
+  .armour {
+    width: calc(100 * var(--u));
+  }
+}
+
+/* Chrome that only a wide panel has room for. */
+@container (max-width: 760px) {
+  .hero .wideOnly {
+    display: none;
+  }
+}
+
+@container (max-width: 560px) {
+  .chapter .wideOnly {
+    display: none;
+  }
+}
+
+@container (max-width: 480px) {
+  .screen .midOnly {
+    display: none;
+  }
+}
+
+/* ========================================================== chapter 01 */
+
+.oPanel {
+  left: 7%;
+  right: 7%;
+  bottom: calc(16 * var(--u));
+  --cols: 5;
+}
+
+.oKeys {
+  left: calc(24 * var(--u));
+  top: calc(228 * var(--u));
+}
+
+.oArm {
+  right: calc(24 * var(--u));
+  top: calc(236 * var(--u));
+}
+
+.oCross {
+  left: 50%;
+  top: 40%;
+}
+
+@container (max-width: 560px) {
+  .oPanel {
+    left: 3%;
+    right: 3%;
+    bottom: calc(12 * var(--u));
+  }
+  .oKeys {
+    top: calc(118 * var(--u));
+  }
+  .oArm {
+    top: calc(112 * var(--u));
+  }
+  .oCross {
+    top: 38%;
+  }
+}
+
+@container (max-width: 560px) {
+  .screen .hide560 {
+    display: none;
+  }
+  /* Narrow tiles: the name gets its own line, category and switch share one. */
+  .oPanel .foot {
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: calc(6 * var(--u));
+    height: calc(50 * var(--u));
+  }
+  .oPanel .names {
+    display: contents;
+  }
+  .oPanel .name {
+    flex: 1 0 100%;
+  }
+}
+
+@container (max-width: 480px) {
+  .chapter .screen {
+    --dw: 640;
+  }
+  .hPanel .foot {
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: calc(6 * var(--u));
+    height: calc(50 * var(--u));
+  }
+  .hPanel .names {
+    display: contents;
+  }
+  .hPanel .name {
+    flex: 1 0 100%;
+  }
+  .oKeys {
+    top: calc(72 * var(--u));
+  }
+  .oArm {
+    top: calc(88 * var(--u));
+  }
+  .oCross {
+    top: 34%;
+  }
+}
+
+/* ========================================================== chapter 02 */
+
+/* The editor toolbar (07-hud-editor.css `.v-toolbar`). */
+.toolbar {
+  position: absolute;
+  top: calc(16 * var(--u));
+  left: 50%;
+  z-index: 5;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  height: calc(46 * var(--u));
+  padding: calc(6 * var(--u)) calc(8 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: #131315;
+  outline: 1px solid rgb(255 255 255 / 0.1);
+  outline-offset: -1px;
+  white-space: nowrap;
+}
+
+.tool {
+  display: flex;
+  align-items: center;
+  gap: calc(7 * var(--u));
+  height: calc(32 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  border-radius: calc(9 * var(--u));
+  font-size: calc(13 * var(--u));
+  color: var(--ink2);
+}
+
+.tool .icon {
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+}
+
+.toolOn {
+  outline: 1px solid rgb(237 238 239 / 0.2);
+  outline-offset: -1px;
+  color: var(--ink);
+}
+
+.toolDone {
+  background: var(--ink);
+  color: #0b0b0c;
+  font-weight: 500;
+}
+
+.toolDone .kbd {
+  background: rgb(11 11 12 / 0.1);
+  outline-color: rgb(11 11 12 / 0.15);
+  color: rgb(11 11 12 / 0.6);
+}
+
+/* A draggable widget. The page must still scroll on a phone, so only the
+   widgets take `touch-action: none`. */
+.widget {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+}
+
+.widget:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: calc(6 * var(--u));
+  border-radius: calc(10 * var(--u));
+}
+
+.dragging {
+  z-index: 4;
+  cursor: grabbing;
+}
+
+.settle {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glide {
+  transition: transform 820ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* §1: a drag in progress is a live value, so its handles take the hue. */
+.selection {
+  position: absolute;
+  inset: calc(-6 * var(--u));
+  border: calc(1.5 * var(--u)) dashed var(--hue);
+  border-radius: calc(10 * var(--u));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 140ms ease-out;
+}
+
+.drain {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.handle {
+  position: absolute;
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: var(--ink);
+  outline: calc(1.5 * var(--u)) solid var(--hue);
+}
+
+.handle:nth-child(1) {
+  left: calc(-5 * var(--u));
+  top: calc(-5 * var(--u));
+}
+
+.handle:nth-child(2) {
+  right: calc(-5 * var(--u));
+  top: calc(-5 * var(--u));
+}
+
+.handle:nth-child(3) {
+  left: calc(-5 * var(--u));
+  bottom: calc(-5 * var(--u));
+}
+
+.handle:nth-child(4) {
+  right: calc(-5 * var(--u));
+  bottom: calc(-5 * var(--u));
+}
+
+.label {
+  position: absolute;
+  left: calc(-7 * var(--u));
+  bottom: calc(100% + 12 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(5 * var(--u)) calc(8 * var(--u));
+  border-radius: calc(6 * var(--u));
+  background: var(--hue);
+  color: #0b0b0c;
+  font-size: calc(11 * var(--u));
+  font-weight: 500;
+  white-space: pre;
+}
+
+.label > span {
+  font-weight: 400;
+  color: rgb(11 11 12 / 0.7);
+}
+
+.below .label {
+  bottom: auto;
+  top: calc(100% + 12 * var(--u));
+}
+
+/* The nine anchors, shown while a widget is in the hand. */
+.anchor {
+  position: absolute;
+  z-index: 3;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  margin: calc(-5 * var(--u)) 0 0 calc(-5 * var(--u));
+  border-radius: 30%;
+  background: var(--hue);
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 100ms ease-in;
+}
+
+.anchorNear {
+  opacity: 0.95;
+  transition: opacity 140ms ease-out;
+}
+
+.anchors {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 140ms ease-out;
+}
+
+.anchorsOff {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
