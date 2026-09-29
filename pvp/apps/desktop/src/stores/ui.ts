@@ -9,15 +9,24 @@ import { create } from 'zustand';
 
 import type { ModId } from '../local/protocol';
 
-export const SCREENS = ['play', 'mods', 'cosmetics', 'servers', 'friends'] as const;
+/**
+ * The navbar's tabs — v1 ships PvP, Quests and Store and nothing else.
+ *
+ * PvP is home: with modpacks and servers out of v1, a separate Home tab would repeat
+ * PvP's hero, loadout map and dock. Friends is a drawer, not a screen, so it is toggled
+ * from the navbar rather than listed here.
+ */
+export const NAV_SCREENS = ['pvp', 'quests', 'store'] as const;
+
+/** Every screen value, including `mods`, which PvP's "Edit mods" opens but no tab names. */
+export const SCREENS = [...NAV_SCREENS, 'mods'] as const;
 export type Screen = (typeof SCREENS)[number];
 
 export const SCREEN_LABELS: Record<Screen, string> = {
-  play: 'Play',
+  pvp: 'PvP',
+  quests: 'Quests',
+  store: 'Store',
   mods: 'Mods',
-  cosmetics: 'Cosmetics',
-  servers: 'Servers',
-  friends: 'Friends',
 };
 
 interface UiState {
@@ -25,6 +34,8 @@ interface UiState {
   paletteOpen: boolean;
   settingsOpen: boolean;
   logOpen: boolean;
+  /** The friends drawer, toggled from the navbar's friends button. */
+  friendsOpen: boolean;
   /** Which mod the Mods grid has selected. */
   selectedMod: string;
   /**
@@ -43,6 +54,8 @@ interface UiState {
   closeSettings: () => void;
   toggleLog: () => void;
   setLogOpen: (open: boolean) => void;
+  toggleFriends: () => void;
+  setFriendsOpen: (open: boolean) => void;
   selectMod: (id: string) => void;
   /** Open a mod's setup page — navigates to Mods and pushes the sub-route. */
   openModSetup: (id: ModId) => void;
@@ -51,10 +64,11 @@ interface UiState {
 }
 
 export const useUi = create<UiState>((set, get) => ({
-  screen: 'play',
+  screen: 'pvp',
   paletteOpen: false,
   settingsOpen: false,
   logOpen: false,
+  friendsOpen: false,
   selectedMod: 'keystrokes',
   modSetup: null,
 
@@ -66,6 +80,8 @@ export const useUi = create<UiState>((set, get) => ({
   closeSettings: () => set({ settingsOpen: false }),
   toggleLog: () => set({ logOpen: !get().logOpen }),
   setLogOpen: (logOpen) => set({ logOpen }),
+  toggleFriends: () => set({ friendsOpen: !get().friendsOpen }),
+  setFriendsOpen: (friendsOpen) => set({ friendsOpen }),
   selectMod: (selectedMod) => set({ selectedMod }),
   openModSetup: (id) =>
     set({ screen: 'mods', selectedMod: id, modSetup: id, paletteOpen: false }),
