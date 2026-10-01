@@ -30,6 +30,10 @@
     },
     {
       "type": "minecraft:biome"
+    },
+    {
+      "type": "expanse:clear_of_structures",
+      "margin": 4
     }
   ]
 }

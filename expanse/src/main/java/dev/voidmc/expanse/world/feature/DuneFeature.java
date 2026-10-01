@@ -3,6 +3,8 @@ package dev.voidmc.expanse.world.feature;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.voidmc.expanse.world.StructureClearance;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderSet;
 import net.minecraft.util.Mth;
@@ -13,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.synth.SimplexNoise;
 
 /**
@@ -28,7 +31,7 @@ import net.minecraft.world.level.levelgen.synth.SimplexNoise;
  *   <li>The height fades to nothing within a dozen blocks of the biome's edge, so dunes never end in
  *       a wall of sand.</li>
  * </ul>
- * It only builds on its own sand, and never in water.
+ * It only builds on its own sand, never in water, and drifts up to buildings without burying them.
  */
 public record DuneFeature(BlockState sand, HolderSet<Biome> biomes, int maxHeight, float wavelength) implements Feature {
 	public static final MapCodec<DuneFeature> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
@@ -63,6 +66,8 @@ public record DuneFeature(BlockState sand, HolderSet<Biome> biomes, int maxHeigh
 		int z0 = origin.getZ() & ~15;
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 		boolean placed = false;
+		// Dunes drift up to buildings but not over them: full height from 14 blocks out, none within 3.
+		List<BoundingBox> buildings = StructureClearance.nearbyBoxes(level);
 		for (int dx = 0; dx < 16; dx++) {
 			for (int dz = 0; dz < 16; dz++) {
 				int x = x0 + dx;
@@ -71,7 +76,9 @@ public record DuneFeature(BlockState sand, HolderSet<Biome> biomes, int maxHeigh
 				if (!level.getBlockState(p.set(x, top - 1, z)).is(this.sand.getBlock())) {
 					continue;
 				}
-				int h = Mth.floor(this.height(n, x, z) * this.edgeWeight(level, p.set(x, top, z)));
+				float clear = buildings.isEmpty() ? 1.0F
+					: Mth.clamp((StructureClearance.distance(buildings, x, z) - 3) / 11.0F, 0.0F, 1.0F);
+				int h = Mth.floor(this.height(n, x, z) * this.edgeWeight(level, p.set(x, top, z)) * clear);
 				for (int y = 0; y < h; y++) {
 					level.setBlock(p.set(x, top + y, z), this.sand, 2);
 					placed = true;

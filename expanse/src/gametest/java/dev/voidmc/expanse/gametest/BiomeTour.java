@@ -69,6 +69,9 @@ public class BiomeTour implements FabricClientGameTest {
 					this.visit(context, world, name.trim());
 				}
 			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.structures", "true"))) {
+				this.structures(context, world);
+			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.mountains", "true"))) {
 				this.mountains(context, world);
 			}
@@ -184,6 +187,59 @@ public class BiomeTour implements FabricClientGameTest {
 
 	private static float yawToward(BlockPos from, BlockPos to) {
 		return (float) Math.toDegrees(Math.atan2(-(to.getX() - from.getX()), to.getZ() - from.getZ()));
+	}
+
+	/**
+	 * Each Expanse building, framed from its south-west corner: locate it, generate its surroundings,
+	 * read where it actually landed from its structure start, and stand back far enough to fit it all.
+	 */
+	private void structures(ClientGameTestContext context, TestSingleplayerContext world) {
+		List<String> names = world.getServer().computeOnServer(server -> server.overworld().registryAccess()
+			.lookupOrThrow(Registries.STRUCTURE).listElementIds()
+			.filter(k -> k.identifier().getNamespace().equals("expanse"))
+			.map(k -> k.identifier().getPath()).sorted().toList());
+		world.getServer().runCommand("time set noon");
+		for (String name : names) {
+			int[] shot = world.getServer().computeOnServer(server -> {
+				ServerLevel level = server.overworld();
+				var ref = level.registryAccess().lookupOrThrow(Registries.STRUCTURE)
+					.getOrThrow(ResourceKey.create(Registries.STRUCTURE, Identifier.fromNamespaceAndPath("expanse", name)));
+				var found = level.getChunkSource().getGenerator().findNearestMapStructure(level,
+					net.minecraft.core.HolderSet.direct(ref), BlockPos.ZERO, 150, false);
+				if (found == null) {
+					return null;
+				}
+				BlockPos at = found.getFirst();
+				for (int dx = -DISTANCE - 1; dx <= DISTANCE + 1; dx++) {
+					for (int dz = -DISTANCE - 1; dz <= DISTANCE + 1; dz++) {
+						level.getChunk((at.getX() >> 4) + dx, (at.getZ() >> 4) + dz);
+					}
+				}
+				var start = level.getChunk(at.getX() >> 4, at.getZ() >> 4).getStartForStructure(ref.value());
+				if (start == null || !start.isValid()) {
+					return null;
+				}
+				var box = start.getBoundingBox();
+				int tx = (box.minX() + box.maxX()) / 2;
+				int ty = box.minY() + box.getYSpan() / 2;
+				int tz = (box.minZ() + box.maxZ()) / 2;
+				int span = Math.max(box.getXSpan(), box.getZSpan());
+				int d = (int) (span * 0.8F + box.getYSpan() * 0.4F + 8);
+				int cx = tx - d;
+				int cz = tz - d;
+				int cy = Math.max(ty + box.getYSpan() / 3 + 6, level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
+				return new int[]{tx, ty, tz, cx, cy, cz};
+			});
+			if (shot == null) {
+				System.out.println("[tour] structure " + name + " not found");
+				continue;
+			}
+			System.out.println("[tour] structure " + name + " at " + shot[0] + ", " + shot[1] + ", " + shot[2]);
+			BlockPos from = new BlockPos(shot[3], shot[4], shot[5]);
+			BlockPos to = new BlockPos(shot[0], shot[1], shot[2]);
+			float pitch = (float) -Math.toDegrees(Math.atan2(shot[1] - shot[4], Math.hypot(shot[0] - shot[3], shot[2] - shot[5])));
+			this.settleShot(context, world, "structure_" + name, from, yawToward(from, to), pitch, SETTLE_MS);
+		}
 	}
 
 	/**

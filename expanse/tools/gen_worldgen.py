@@ -96,6 +96,11 @@ def water_depth(n):
     return {'type': 'minecraft:surface_water_depth_filter', 'max_water_depth': n}
 
 
+def clear(margin):
+    """Keeps a feature `margin` blocks clear of any surface structure (see ClearOfStructuresFilter)."""
+    return {'type': e('clear_of_structures'), 'margin': margin}
+
+
 def predicate(p):
     return {'type': 'minecraft:block_predicate_filter', 'predicate': p}
 
@@ -118,7 +123,7 @@ def scatter(tries, xz=7, y=3):
 
 def tree_placement(per_chunk, sapling):
     return [count(per_chunk), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-            predicate(survives(sapling if isinstance(sapling, (str, dict)) else sapling)), BIOME]
+            predicate(survives(sapling if isinstance(sapling, (str, dict)) else sapling)), BIOME, clear(3)]
 
 
 def patch_placement(frequency, tries, block_for_survival, xz=7, y=3, hm='MOTION_BLOCKING', extra=None):
@@ -315,20 +320,20 @@ def build_features(jar):
     # Dunes go down first, before anything is placed on the sand. No placement modifiers: once per
     # chunk, and the feature itself decides column by column whether it is in the dune field.
     placed('opal_dunes', e('opal_dunes'), [], 0)
-    placed('karst_pond', e('water_pond'), [rarity(5), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['lakes'])
-    placed('cloud_forest_pond', e('water_pond'), [rarity(4), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['lakes'])
+    placed('karst_pond', e('water_pond'), [rarity(5), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(10)], S['lakes'])
+    placed('cloud_forest_pond', e('water_pond'), [rarity(4), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(10)], S['lakes'])
 
-    placed('mossy_boulder', e('mossy_boulder'), [count(uniform(0, 2)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME], S['local'])
-    placed('moor_boulder', e('moor_boulder'), [count(weighted_int((0, 3), (1, 2), (2, 1))), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME], S['local'])
-    placed('limestone_boulder', e('limestone_boulder'), [count(uniform(0, 1)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME], S['local'])
-    placed('ice_boulder', e('ice_boulder'), [rarity(3), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME], S['local'])
-    placed('frost_spire', e('frost_spire'), [count(uniform(0, 2)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME], S['surface_struct'])
-    placed('blue_frost_spire', e('blue_frost_spire'), [rarity(6), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME], S['surface_struct'])
-    placed('karst_pillar', e('karst_pillar'), [rarity(2), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['surface_struct'])
-    placed('opal_arch', e('opal_arch'), [rarity(9), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['surface_struct'])
-    placed('prismite_outcrop', e('prismite_outcrop'), [count(uniform(0, 2)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['surface_struct'])
+    placed('mossy_boulder', e('mossy_boulder'), [count(uniform(0, 2)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
+    placed('moor_boulder', e('moor_boulder'), [count(weighted_int((0, 3), (1, 2), (2, 1))), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
+    placed('limestone_boulder', e('limestone_boulder'), [count(uniform(0, 1)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
+    placed('ice_boulder', e('ice_boulder'), [rarity(3), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
+    placed('frost_spire', e('frost_spire'), [count(uniform(0, 2)), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(6)], S['surface_struct'])
+    placed('blue_frost_spire', e('blue_frost_spire'), [rarity(6), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(6)], S['surface_struct'])
+    placed('karst_pillar', e('karst_pillar'), [rarity(2), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(14)], S['surface_struct'])
+    placed('opal_arch', e('opal_arch'), [rarity(9), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(18)], S['surface_struct'])
+    placed('prismite_outcrop', e('prismite_outcrop'), [count(uniform(0, 2)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(6)], S['surface_struct'])
     placed('termite_mound', e('termite_mound'), [rarity(4), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME,
-                                                 predicate(survives('minecraft:dead_bush'))], S['surface_struct'])
+                                                 predicate(survives('minecraft:dead_bush')), clear(3)], S['surface_struct'])
 
     # Waterfalls: open springs in the mountain walls, many more than vanilla's.
     placed('alpine_springs', 'minecraft:spring_water', [count(24), IN_SQUARE,
@@ -340,21 +345,21 @@ def build_features(jar):
     placed('wisteria_forest', e('wisteria_forest'), tree_placement(weighted_int((2, 4), (4, 4), (6, 1)), e('wisteria_sapling')), S['veg'])
     placed('lumen_trees', e('lumen'), tree_placement(weighted_int((5, 4), (7, 3), (9, 1)), e('lumen_sapling')), S['veg'])
     placed('willow_trees', e('willow_bayou_trees'), [count(weighted_int((2, 4), (3, 3), (5, 1))), IN_SQUARE, water_depth(2),
-                                                     heightmap('OCEAN_FLOOR'), BIOME], S['veg'])
+                                                     heightmap('OCEAN_FLOOR'), BIOME, clear(3)], S['veg'])
     placed('steppe_trees', e('steppe_trees'), tree_placement(weighted_int((0, 6), (1, 3), (2, 1)), e('baobab_sapling')), S['veg'])
     placed('cloud_forest_trees', e('cloud_forest_trees'), tree_placement(weighted_int((8, 3), (11, 2), (14, 1)), 'minecraft:jungle_sapling'), S['veg'])
     placed('palm_trees', e('palm'), [count(weighted_int((0, 3), (1, 3), (2, 2), (3, 1))), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-                                     predicate(survives(e('palm_sapling'))), BIOME], S['veg'])
+                                     predicate(survives(e('palm_sapling'))), BIOME, clear(3)], S['veg'])
     placed('moor_trees', 'minecraft:birch', [rarity(5), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-                                             predicate(survives('minecraft:birch_sapling')), BIOME], S['veg'])
+                                             predicate(survives('minecraft:birch_sapling')), BIOME, clear(3)], S['veg'])
     placed('tundra_trees', 'minecraft:spruce', [rarity(3), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-                                                predicate(survives('minecraft:spruce_sapling')), BIOME], S['veg'])
+                                                predicate(survives('minecraft:spruce_sapling')), BIOME, clear(3)], S['veg'])
     placed('alpine_trees', 'minecraft:spruce', [count(weighted_int((0, 5), (1, 2), (3, 1))), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-                                                predicate(survives('minecraft:spruce_sapling')), BIOME], S['veg'])
+                                                predicate(survives('minecraft:spruce_sapling')), BIOME, clear(3)], S['veg'])
     placed('karst_trees', 'minecraft:jungle_bush', [count(uniform(2, 4)), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
-                                                    predicate(survives('minecraft:jungle_sapling')), BIOME], S['veg'])
+                                                    predicate(survives('minecraft:jungle_sapling')), BIOME, clear(3)], S['veg'])
     placed('karst_bamboo', 'minecraft:bamboo_some_podzol', [rarity(2), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME,
-                                                            *scatter(24, 5, 2), predicate(all_of(AIR, survives('minecraft:bamboo_sapling')))], S['veg'])
+                                                            *scatter(24, 5, 2), predicate(all_of(AIR, survives('minecraft:bamboo_sapling'))), clear(3)], S['veg'])
 
     # flowers and ground cover
     placed('heather_patch', e('moor_flowers'), patch_placement(4, 48, e('heather')), S['veg'])
