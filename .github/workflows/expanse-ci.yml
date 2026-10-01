@@ -85,7 +85,9 @@ jobs:
           python3 tools/textures/gen_textures.py
           python3 tools/structures/gen_structures.py
       - name: Committed output matches the generators
-        run: git diff --exit-code --stat -- src/main/resources
+        run: |
+          git diff --exit-code --stat -- src/main/resources
+          test -z "$(git status --porcelain -- src/main/resources)"
 
   worldgen:
     name: worldgen smoke test
@@ -113,5 +115,6 @@ jobs:
       - name: Every biome and structure was found, and nothing went wrong while generating them
         run: |
           grep -c '\[dev\]   generated round' server.log
-          ! grep -E 'NOT FOUND|\[dev\] harness failed|/ERROR\]|Serialization errors|Feature order cycle' server.log
-          test "$(grep -c '\[dev\]   generated round' server.log)" -eq 24
+          ! grep -E 'NOT FOUND|placed NOTHING|\[dev\] harness failed|/ERROR\]|Serialization errors|Feature order cycle' server.log
+          # 13 biomes + 36 structures
+          test "$(grep -c '\[dev\]   generated round' server.log)" -eq 49

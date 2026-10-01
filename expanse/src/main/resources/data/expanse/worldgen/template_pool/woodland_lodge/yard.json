@@ -1,0 +1,68 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_garden",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_woodshed",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_beehives",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_smokehouse",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_arbor",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_well",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:woodland_lodge/woodland_lodge_fallen_giant",
+        "processors": "expanse:lodge",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

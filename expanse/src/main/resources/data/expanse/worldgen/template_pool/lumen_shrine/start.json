@@ -3,8 +3,17 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:lumen_shrine/lumen_shrine",
-        "processors": "expanse:mossy_stones",
+        "location": "expanse:lumen_shrine/lumen_shrine_spire",
+        "processors": "expanse:lumen_shrine",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_chapel",
+        "processors": "expanse:lumen_shrine",
         "projection": "rigid"
       },
       "weight": 1

@@ -1,0 +1,29 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_path_a",
+        "processors": "expanse:lumen_shrine",
+        "projection": "terrain_matching"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_path_b",
+        "processors": "expanse:lumen_shrine",
+        "projection": "terrain_matching"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

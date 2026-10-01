@@ -30,7 +30,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  *
  * Run headless with {@code SDL_VIDEO_FORCE_EGL=1 xvfb-run ./gradlew runClientGameTest}; screenshots land
  * in build/run/clientGameTest/screenshots. System properties: {@code expanse.tour.biomes} (comma list),
- * {@code expanse.tour.seed}, {@code expanse.tour.distance}, {@code expanse.tour.settle} (ms per shot).
+ * {@code expanse.tour.seed}, {@code expanse.tour.distance}, {@code expanse.tour.settle} (ms per shot),
+ * {@code expanse.tour.structures}, {@code expanse.tour.only} (comma list of structure names).
  */
 public class BiomeTour implements FabricClientGameTest {
 	// Software rendering under xvfb meshes chunks far slower than a GPU.
@@ -190,16 +191,21 @@ public class BiomeTour implements FabricClientGameTest {
 	}
 
 	/**
-	 * Each Expanse building, framed from its south-west corner: locate it, generate its surroundings,
-	 * read where it actually landed from its structure start, and stand back far enough to fit it all.
+	 * Each Expanse structure: locate it, generate its surroundings, read where it actually landed from its
+	 * structure start, and photograph it from whichever of eight directions has the clearest line of
+	 * sight, standing back just far enough to fit it in.
 	 */
 	private void structures(ClientGameTestContext context, TestSingleplayerContext world) {
 		List<String> names = world.getServer().computeOnServer(server -> server.overworld().registryAccess()
 			.lookupOrThrow(Registries.STRUCTURE).listElementIds()
 			.filter(k -> k.identifier().getNamespace().equals("expanse"))
 			.map(k -> k.identifier().getPath()).sorted().toList());
+		List<String> only = List.of(System.getProperty("expanse.tour.only", "").split(",")).stream().filter(n -> !n.isBlank()).toList();
 		world.getServer().runCommand("time set noon");
 		for (String name : names) {
+			if (!only.isEmpty() && !only.contains(name)) {
+				continue;
+			}
 			int[] shot = world.getServer().computeOnServer(server -> {
 				ServerLevel level = server.overworld();
 				var ref = level.registryAccess().lookupOrThrow(Registries.STRUCTURE)
@@ -210,25 +216,46 @@ public class BiomeTour implements FabricClientGameTest {
 					return null;
 				}
 				BlockPos at = found.getFirst();
-				for (int dx = -DISTANCE - 1; dx <= DISTANCE + 1; dx++) {
-					for (int dz = -DISTANCE - 1; dz <= DISTANCE + 1; dz++) {
-						level.getChunk((at.getX() >> 4) + dx, (at.getZ() >> 4) + dz);
-					}
-				}
 				var start = level.getChunk(at.getX() >> 4, at.getZ() >> 4).getStartForStructure(ref.value());
 				if (start == null || !start.isValid()) {
 					return null;
 				}
 				var box = start.getBoundingBox();
+				int reach = (Math.max(box.getXSpan(), box.getZSpan()) >> 4) / 2 + 3;
+				for (int dx = -reach; dx <= reach; dx++) {
+					for (int dz = -reach; dz <= reach; dz++) {
+						level.getChunk((at.getX() >> 4) + dx, (at.getZ() >> 4) + dz);
+					}
+				}
+				// The start piece's bottom layer is the ground course; crypts and cellars below it would
+				// otherwise drag the aim point underground.
+				int ground = start.getPieces().getFirst().getBoundingBox().minY();
+				int rise = Math.max(4, box.maxY() - ground);
 				int tx = (box.minX() + box.maxX()) / 2;
-				int ty = box.minY() + box.getYSpan() / 2;
 				int tz = (box.minZ() + box.maxZ()) / 2;
+				int ty = ground + rise * 2 / 5;
 				int span = Math.max(box.getXSpan(), box.getZSpan());
-				int d = (int) (span * 0.8F + box.getYSpan() * 0.4F + 8);
-				int cx = tx - d;
-				int cz = tz - d;
-				int cy = Math.max(ty + box.getYSpan() / 3 + 6, level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
-				return new int[]{tx, ty, tz, cx, cy, cz};
+				// Close enough to read the details, high enough (about 30 degrees down) to see over the
+				// walls into courtyards and past the trees round the edge.
+				double back = Math.max(22, span * 0.5 + rise * 0.3);
+				BlockPos target = new BlockPos(tx, ty, tz);
+				int[] best = null;
+				int fewest = Integer.MAX_VALUE;
+				for (int i = 0; i < 8; i++) {
+					// Start from the south-west so ties keep the late-morning light on the walls we see.
+					double a = Math.toRadians(225 + i * 45);
+					int cx = tx + (int) Math.round(Math.cos(a) * back);
+					int cz = tz + (int) Math.round(Math.sin(a) * back);
+					int cy = Math.max(ty + (int) (back * 0.58), level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
+					int blocked = blockedAlong(level, new BlockPos(cx, cy, cz), target);
+					if (blocked < fewest) {
+						fewest = blocked;
+						// Render far enough to draw the far side of the structure, not just the near.
+						int chunks = Mth.clamp((int) Math.ceil((back + span * 0.6) / 16) + 1, DISTANCE, 12);
+						best = new int[]{tx, ty, tz, cx, cy, cz, chunks};
+					}
+				}
+				return best;
 			});
 			if (shot == null) {
 				System.out.println("[tour] structure " + name + " not found");
@@ -238,8 +265,27 @@ public class BiomeTour implements FabricClientGameTest {
 			BlockPos from = new BlockPos(shot[3], shot[4], shot[5]);
 			BlockPos to = new BlockPos(shot[0], shot[1], shot[2]);
 			float pitch = (float) -Math.toDegrees(Math.atan2(shot[1] - shot[4], Math.hypot(shot[0] - shot[3], shot[2] - shot[5])));
+			int chunks = shot[6];
+			context.runOnClient(mc -> mc.options.renderDistance().set(chunks));
 			this.settleShot(context, world, "structure_" + name, from, yawToward(from, to), pitch, SETTLE_MS);
 		}
+		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
+	/** Solid blocks on the straight line from the camera to the target, ignoring the last few blocks. */
+	private static int blockedAlong(ServerLevel level, BlockPos from, BlockPos to) {
+		double len = Math.sqrt(from.distSqr(to));
+		int blocked = 0;
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (double t = 1; t < len - 6; t += 1) {
+			double f = t / len;
+			p.set(Mth.floor(Mth.lerp(f, from.getX(), to.getX()) + 0.5), Mth.floor(Mth.lerp(f, from.getY(), to.getY()) + 0.5),
+				Mth.floor(Mth.lerp(f, from.getZ(), to.getZ()) + 0.5));
+			if (!level.getBlockState(p).isAir() && level.getFluidState(p).isEmpty()) {
+				blocked++;
+			}
+		}
+		return blocked;
 	}
 
 	/**

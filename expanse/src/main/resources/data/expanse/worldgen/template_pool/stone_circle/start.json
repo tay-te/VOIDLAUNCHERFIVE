@@ -3,20 +3,29 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:stone_circle/stone_circle_1",
-        "processors": "expanse:mossy_stones",
+        "location": "expanse:stone_circle/stone_circle_henge",
+        "processors": "expanse:stone_circle_ring",
         "projection": "rigid"
       },
-      "weight": 1
+      "weight": 2
     },
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:stone_circle/stone_circle_2",
-        "processors": "expanse:mossy_stones",
+        "location": "expanse:stone_circle/stone_circle_barrow",
+        "processors": "expanse:stone_circle_ring",
         "projection": "rigid"
       },
-      "weight": 1
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:stone_circle/stone_circle_avenue",
+        "processors": "expanse:stone_circle_ring",
+        "projection": "rigid"
+      },
+      "weight": 2
     }
   ],
   "fallback": "minecraft:empty"

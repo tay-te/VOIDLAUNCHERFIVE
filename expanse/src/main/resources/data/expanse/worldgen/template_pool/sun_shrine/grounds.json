@@ -1,0 +1,41 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:sun_shrine/sun_shrine_oasis",
+        "processors": "expanse:sun_shrine",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:sun_shrine/sun_shrine_colonnade",
+        "processors": "expanse:sun_shrine",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:sun_shrine/sun_shrine_quarters",
+        "processors": "expanse:sun_shrine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:sun_shrine/sun_shrine_fallen_obelisk",
+        "processors": "expanse:sun_shrine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

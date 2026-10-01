@@ -1,0 +1,125 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "modifier": [
+            {
+              "type": "minecraft:exploration_map",
+              "decoration": "minecraft:target_x",
+              "destination": "#expanse:on_lighthouse_maps",
+              "skip_existing_chunks": false,
+              "zoom": 1
+            },
+            {
+              "type": "minecraft:filtered",
+              "item_filter": {
+                "predicates": {
+                  "minecraft:map_id": {}
+                }
+              },
+              "on_fail": {
+                "type": "minecraft:discard"
+              }
+            }
+          ],
+          "name": "minecraft:map",
+          "weight": 1
+        }
+      ],
+      "rolls": 1
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 6,
+              "min": 2
+            }
+          },
+          "name": "minecraft:paper",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:compass",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:spyglass",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 3,
+              "min": 1
+            }
+          },
+          "name": "minecraft:feather",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 3,
+              "min": 1
+            }
+          },
+          "name": "minecraft:ink_sac",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:map",
+          "weight": 2
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 4,
+        "min": 2
+      }
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "modifier": [
+            {
+              "type": "minecraft:set_written_book_pages",
+              "mode": "replace_all",
+              "pages": [
+                "Lamp lit at dusk, trimmed at midnight, out at dawn. Three ships passed the palm reef safely. The crabs have taken up residence under the jetty again.",
+                "The cartographer left a chart before he sailed. It marks a place far inland where they say a stone tower rises among the karst pillars. I have pinned it in the map drawer.",
+                "Storm last night. If the light ever goes out, the spare sea lanterns are under the cottage floor. Keep the jetty boat bailed."
+              ]
+            },
+            {
+              "type": "minecraft:set_book_cover",
+              "author": "Keeper Isla Tamsin",
+              "generation": 2,
+              "title": "Keeper's Logbook"
+            }
+          ],
+          "name": "minecraft:written_book"
+        }
+      ],
+      "rolls": 1
+    }
+  ],
+  "random_sequence": "expanse:chests/lighthouse_map"
+}

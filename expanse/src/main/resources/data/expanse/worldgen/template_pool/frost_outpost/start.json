@@ -3,8 +3,8 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:frost_outpost/frost_outpost",
-        "processors": "expanse:mossy_stones",
+        "location": "expanse:frost_outpost/frost_outpost_bailey",
+        "processors": "expanse:frost_outpost",
         "projection": "rigid"
       },
       "weight": 1

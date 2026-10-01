@@ -3,8 +3,8 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:sun_shrine/sun_shrine",
-        "processors": "expanse:weathered_sandstone",
+        "location": "expanse:sun_shrine/sun_shrine_ziggurat",
+        "processors": "expanse:sun_shrine",
         "projection": "rigid"
       },
       "weight": 1

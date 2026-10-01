@@ -103,17 +103,51 @@ EXPLICIT = {
     "minecraft:cobweb": {},
     "minecraft:pointed_dripstone": {"thickness": _p(["tip_merge", "tip", "frustum", "middle", "base"], "tip"),
                                     "vertical_direction": _p(["up", "down"], "up"), "waterlogged": _p(BOOL, "false")},
+    "minecraft:jigsaw": {"orientation": _p(["down_east", "down_north", "down_south", "down_west", "up_east", "up_north",
+                                             "up_south", "up_west", "west_up", "east_up", "north_up", "south_up"],
+                                            "north_up")},
+    "minecraft:lever": {"face": _p(["floor", "wall", "ceiling"], "wall"), "facing": _p(H4, "north"),
+                        "powered": _p(BOOL, "false")},
+    "minecraft:beehive": {"facing": _p(H4, "north"), "honey_level": _p(_ints(0, 5), "0")},
+    "minecraft:bee_nest": {"facing": _p(H4, "north"), "honey_level": _p(_ints(0, 5), "0")},
+    "minecraft:suspicious_sand": {"dusted": _p(_ints(0, 3), "0")},
+    "minecraft:suspicious_gravel": {"dusted": _p(_ints(0, 3), "0")},
+    "minecraft:shelf_mushroom": {"facing": _p(H4, "north"), "age": _p(_ints(0, 1), "0")},
+    "minecraft:pale_hanging_moss": {"tip": _p(BOOL, "true")},
+    "minecraft:cake": {"bites": _p(_ints(0, 6), "0")},
+    "minecraft:potatoes": {"age": _p(_ints(0, 7), "7")},
+    "minecraft:bamboo": {"age": _p(_ints(0, 1), "0"), "leaves": _p(["none", "small", "large"], "none"),
+                         "stage": _p(_ints(0, 1), "0")},
+    "minecraft:water": {"level": _p(_ints(0, 15), "0")},
+    "minecraft:target": {"power": _p(_ints(0, 15), "0")},
+    "minecraft:redstone_wall_torch": {"facing": _p(H4, "north"), "lit": _p(BOOL, "true")},
+    "minecraft:redstone_torch": {"lit": _p(BOOL, "true")},
+    "minecraft:big_dripleaf": {"facing": _p(H4, "north"), "tilt": _p(["none", "unstable", "partial", "full"], "none"),
+                               "waterlogged": _p(BOOL, "false")},
+    "expanse:wisteria_blossoms": {"tip": _p(BOOL, "true")},          # HangingMossBlock
+    "expanse:azure_wisteria_blossoms": {"tip": _p(BOOL, "true")},    # HangingMossBlock
     # mod blocks with special classes
     "expanse:spanish_moss": {"tip": _p(BOOL, "true")},               # HangingMossBlock
     "expanse:prismite_cluster": {"facing": _p(D6, "up"), "waterlogged": _p(BOOL, "false")},  # AmethystClusterBlock
     "expanse:cattail": HALF2,                                          # DoublePlantBlock
     "minecraft:amethyst_cluster": {"facing": _p(D6, "up"), "waterlogged": _p(BOOL, "false")},
 }
+# used by the small structures (RailBlock, ScaffoldingBlock, HugeMushroomBlock)
+EXPLICIT.update({
+    "minecraft:rail": {"shape": _p(["north_south", "east_west", "ascending_east", "ascending_west", "ascending_north",
+                                    "ascending_south", "south_east", "south_west", "north_west", "north_east"],
+                                   "north_south"), "waterlogged": _p(BOOL, "false")},
+    "minecraft:scaffolding": {"bottom": _p(BOOL, "false"), "distance": _p(_ints(0, 7), "7"),
+                              "waterlogged": _p(BOOL, "false")},
+    "minecraft:red_mushroom_block": {d: _p(BOOL, "true") for d in ["down", "east", "north", "south", "up", "west"]},
+    "minecraft:brown_mushroom_block": {d: _p(BOOL, "true") for d in ["down", "east", "north", "south", "up", "west"]},
+    "minecraft:mushroom_stem": {d: _p(BOOL, "true") for d in ["down", "east", "north", "south", "up", "west"]},
+})
 
 # Blocks with no properties that we use (sanity list; anything else not
 # matching a family must appear here so typos are caught).
 PLAIN = set("""
-air structure_void stone cobblestone mossy_cobblestone andesite polished_andesite diorite granite stone_bricks
+air structure_void raw_gold_block lapis_block honey_block honeycomb_block chiseled_deepslate cracked_deepslate_tiles lava_cauldron netherrack magma_block stone cobblestone mossy_cobblestone andesite polished_andesite diorite granite stone_bricks
 mossy_stone_bricks cracked_stone_bricks chiseled_stone_bricks tuff gravel coarse_dirt dirt rooted_dirt moss_block
 moss_carpet mud packed_mud mud_bricks dirt_path sand red_sand sandstone smooth_sandstone cut_sandstone
 chiseled_sandstone terracotta quartz_block smooth_quartz chiseled_quartz_block quartz_bricks glass
@@ -124,7 +158,11 @@ red_tulip orange_tulip white_tulip pink_tulip lily_pad red_mushroom brown_mushro
 smooth_stone polished_deepslate deepslate_bricks deepslate_tiles cobbled_deepslate tuff_bricks polished_tuff
 chiseled_tuff dripstone_block oak_planks spruce_planks dark_oak_planks birch_planks
 jungle_planks acacia_planks mangrove_planks cherry_planks bamboo_planks crimson_planks warped_planks
-pale_oak_planks clay coal_block iron_block gold_block emerald_block honeycomb_block
+pale_oak_planks poplar_planks clay coal_block iron_block gold_block emerald_block honeycomb_block spawner
+enchanting_table cactus_flower short_dry_grass tall_dry_grass azalea flowering_azalea mossy_stone_bricks
+cracked_stone_bricks chiseled_sandstone smooth_red_sandstone cut_red_sandstone chiseled_tuff_bricks
+lodestone note_block bricks mud_bricks packed_ice snow_block sea_lantern
+dried_kelp_block
 dried_kelp_block bamboo_mosaic firefly_bush bush tinted_glass amethyst_block budding_amethyst
 chiseled_stone_bricks cracked_deepslate_bricks prismarine dark_prismarine prismarine_bricks
 gilded_blackstone blackstone polished_blackstone polished_blackstone_bricks raw_iron_block
@@ -154,8 +192,20 @@ for _w in MOD_WOODS:
         MOD_ALLOWED.update({f"expanse:{_w}_{_s}", f"expanse:stripped_{_w}_{_s}"})
     for _s in ["stairs", "slab", "fence", "fence_gate", "door", "trapdoor", "button", "pressure_plate", "leaves"]:
         MOD_ALLOWED.add(f"expanse:{_w}_{_s}")
+MOD_ALLOWED.update({"expanse:wisteria_blossoms", "expanse:azure_wisteria_blossoms"})
+MOD_ALLOWED.update({f"expanse:{_w}_sapling" for _w in MOD_WOODS})
 for _s in ["stairs", "slab", "wall"]:
     MOD_ALLOWED.update({f"expanse:limestone_{_s}", f"expanse:limestone_brick_{_s}", f"expanse:opal_sandstone_{_s}"})
+
+# copper decoration families (chains, bars, lightning rods) share the iron/vanilla schemas
+for _ox in ["", "exposed_", "weathered_", "oxidized_"]:
+    for _wx in ["", "waxed_"]:
+        EXPLICIT[f"minecraft:{_wx}{_ox}copper_chain"] = EXPLICIT["minecraft:iron_chain"]
+        EXPLICIT[f"minecraft:{_wx}{_ox}lightning_rod"] = EXPLICIT["minecraft:lightning_rod"]
+        PLAIN.update({f"{_wx}{_ox}cut_copper", f"{_wx}{_ox}copper" if _ox else f"{_wx}copper_block",
+                      f"{_wx}{_ox}chiseled_copper"})
+# ores and stones used by the small structures (mine faces, carvings)
+PLAIN.update({"iron_ore", "coal_ore", "copper_ore", "polished_diorite", "polished_granite"})
 
 _NOT_WALL = re.compile(r"_(wall_banner|wall_torch|wall_sign|wall_hanging_sign|wall_skull|wall_head|wall_fan)$")
 PILLARS = {"minecraft:quartz_pillar", "minecraft:bone_block", "minecraft:hay_block", "minecraft:basalt",
@@ -177,11 +227,21 @@ def schema(name):
         return STAIRS
     if short.endswith("_slab"):
         return SLAB
+    if short.endswith("_wall_hanging_sign") or short.endswith("_wall_sign"):
+        return {"facing": _p(H4, "north"), "waterlogged": _p(BOOL, "false")}
+    if short.endswith("_hanging_sign"):
+        return {"attached": _p(BOOL, "false"), "rotation": _p(_ints(0, 15), "0"), "waterlogged": _p(BOOL, "false")}
+    if short.endswith("_sign"):
+        return {"rotation": _p(_ints(0, 15), "0"), "waterlogged": _p(BOOL, "false")}
+    if short.endswith("_shelf") and short != "chiseled_bookshelf":
+        return {"facing": _p(H4, "north"), "powered": _p(BOOL, "false"),
+                "side_chain": _p(["unconnected", "right", "center", "left"], "unconnected"),
+                "waterlogged": _p(BOOL, "false")}
     if short.endswith("_wall") and not _NOT_WALL.search(short):
         return WALL
     if short.endswith("_fence_gate"):
         return FENCE_GATE
-    if short.endswith("_fence") or short.endswith("glass_pane") or short == "iron_bars":
+    if short.endswith("_fence") or short.endswith("glass_pane") or short.endswith("_bars"):
         return CROSS
     if short.endswith("_trapdoor"):
         return TRAPDOOR

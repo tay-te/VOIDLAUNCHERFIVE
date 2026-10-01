@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_wing_refectory",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_wing_dormitory",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_wing_infirmary",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

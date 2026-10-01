@@ -87,12 +87,12 @@
             "type": "minecraft:set_count",
             "count": {
               "type": "minecraft:uniform",
-              "max": 4,
+              "max": 3,
               "min": 1
             }
           },
-          "name": "minecraft:orange_wool",
-          "weight": 5
+          "name": "minecraft:orange_dye",
+          "weight": 4
         },
         {
           "type": "minecraft:item",
@@ -145,28 +145,11 @@
           },
           "name": "minecraft:gold_nugget",
           "weight": 6
-        },
-        {
-          "type": "minecraft:item",
-          "modifier": {
-            "type": "minecraft:set_count",
-            "count": {
-              "type": "minecraft:uniform",
-              "max": 3,
-              "min": 1
-            }
-          },
-          "name": "minecraft:emerald",
-          "weight": 5
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:bundle"
         }
       ],
       "rolls": {
         "type": "minecraft:uniform",
-        "max": 8,
+        "max": 7,
         "min": 4
       }
     },
@@ -178,21 +161,20 @@
         },
         {
           "type": "minecraft:item",
-          "name": "minecraft:saddle",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 2,
+              "min": 1
+            }
+          },
+          "name": "minecraft:emerald",
           "weight": 3
         },
         {
           "type": "minecraft:item",
-          "modifier": {
-            "type": "minecraft:enchant_randomly",
-            "options": "#minecraft:on_random_loot"
-          },
-          "name": "minecraft:book",
-          "weight": 2
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:golden_apple"
+          "name": "minecraft:bundle"
         }
       ],
       "rolls": 1

@@ -3,8 +3,17 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:ruined_watchtower/ruined_watchtower",
-        "processors": "expanse:mossy_stones",
+        "location": "expanse:ruined_watchtower/ruined_watchtower_keep_fallen",
+        "processors": "expanse:watchtower",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:ruined_watchtower/ruined_watchtower_keep_breach",
+        "processors": "expanse:watchtower",
         "projection": "rigid"
       },
       "weight": 1

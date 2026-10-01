@@ -1,0 +1,29 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_path_a",
+        "processors": "expanse:pagoda",
+        "projection": "terrain_matching"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_path_b",
+        "processors": "expanse:pagoda",
+        "projection": "terrain_matching"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

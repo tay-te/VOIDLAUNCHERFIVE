@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:wayside_shrine_sand/wayside_shrine_sand_post",
+        "processors": "expanse:small_sand",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:wayside_shrine_sand/wayside_shrine_sand_niche",
+        "processors": "expanse:small_sand",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:wayside_shrine_sand/wayside_shrine_sand_cross",
+        "processors": "expanse:small_sand",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

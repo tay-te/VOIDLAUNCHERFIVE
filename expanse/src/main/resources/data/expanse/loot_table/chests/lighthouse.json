@@ -122,21 +122,6 @@
         },
         {
           "type": "minecraft:item",
-          "name": "minecraft:compass",
-          "weight": 2
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:spyglass",
-          "weight": 2
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:map",
-          "weight": 3
-        },
-        {
-          "type": "minecraft:item",
           "modifier": {
             "type": "minecraft:set_damage",
             "damage": {
@@ -172,21 +157,7 @@
             }
           },
           "name": "minecraft:emerald",
-          "weight": 4
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:nautilus_shell",
-          "weight": 2
-        },
-        {
-          "type": "minecraft:item",
-          "modifier": {
-            "type": "minecraft:enchant_randomly",
-            "options": "#minecraft:on_random_loot"
-          },
-          "name": "minecraft:book",
-          "weight": 2
+          "weight": 3
         },
         {
           "type": "minecraft:item",

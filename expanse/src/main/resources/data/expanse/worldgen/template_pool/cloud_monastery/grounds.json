@@ -1,0 +1,59 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_terraces",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_apiary",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_cemetery",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_belvedere",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_grotto",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cloud_monastery/cloud_monastery_washhouse",
+        "processors": "expanse:cloud_monastery",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

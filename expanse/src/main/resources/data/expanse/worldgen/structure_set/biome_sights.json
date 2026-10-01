@@ -1,0 +1,58 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 930417361,
+    "separation": 5,
+    "spacing": 12
+  },
+  "structures": [
+    {
+      "structure": "expanse:shepherd_bothy",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:mammoth_dig",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:tea_garden",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:treehouse",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:fairy_ring",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:bayou_shack",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:windpump",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:sand_colossus",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:terrace_farm",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:pilgrim_shrine",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:miners_camp",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:beach_hut",
+      "weight": 1
+    }
+  ]
+}

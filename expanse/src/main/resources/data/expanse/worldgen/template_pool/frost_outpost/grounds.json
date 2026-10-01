@@ -1,0 +1,59 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_hunters_camp",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_ice_fishing",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_cairn",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_mammoth",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_wagon",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_shrine",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

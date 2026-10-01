@@ -35,19 +35,6 @@
             "type": "minecraft:set_count",
             "count": {
               "type": "minecraft:uniform",
-              "max": 3,
-              "min": 1
-            }
-          },
-          "name": "minecraft:string",
-          "weight": 8
-        },
-        {
-          "type": "minecraft:item",
-          "modifier": {
-            "type": "minecraft:set_count",
-            "count": {
-              "type": "minecraft:uniform",
               "max": 2,
               "min": 1
             }
@@ -61,7 +48,7 @@
             "type": "minecraft:set_count",
             "count": {
               "type": "minecraft:uniform",
-              "max": 4,
+              "max": 3,
               "min": 1
             }
           },
@@ -74,7 +61,7 @@
             "type": "minecraft:set_count",
             "count": {
               "type": "minecraft:uniform",
-              "max": 7,
+              "max": 6,
               "min": 2
             }
           },
@@ -87,7 +74,7 @@
             "type": "minecraft:set_count",
             "count": {
               "type": "minecraft:uniform",
-              "max": 8,
+              "max": 7,
               "min": 2
             }
           },
@@ -135,29 +122,21 @@
         },
         {
           "type": "minecraft:item",
-          "modifier": {
-            "type": "minecraft:set_count",
-            "count": {
-              "type": "minecraft:uniform",
-              "max": 2,
-              "min": 1
-            }
-          },
           "name": "minecraft:emerald",
-          "weight": 3
+          "weight": 2
         }
       ],
       "rolls": {
         "type": "minecraft:uniform",
-        "max": 6,
-        "min": 3
+        "max": 5,
+        "min": 2
       }
     },
     {
       "entries": [
         {
           "type": "minecraft:empty",
-          "weight": 6
+          "weight": 8
         },
         {
           "type": "minecraft:item",
@@ -166,21 +145,11 @@
             "options": "#minecraft:on_random_loot"
           },
           "name": "minecraft:book",
-          "weight": 3
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:golden_apple",
           "weight": 2
         },
         {
           "type": "minecraft:item",
-          "name": "minecraft:ender_pearl",
-          "weight": 2
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:diamond"
+          "name": "minecraft:ender_pearl"
         }
       ],
       "rolls": 1

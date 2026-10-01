@@ -112,12 +112,22 @@ public final class DevHarness {
 				int radius = Integer.parseInt(structures);
 				var registry = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.STRUCTURE);
 				for (var ref : registry.listElements().filter(r -> r.key().identifier().getNamespace().equals(Expanse.MOD_ID)).toList()) {
-					var found = level.getChunkSource().getGenerator().findNearestMapStructure(level,
-						net.minecraft.core.HolderSet.direct(ref), BlockPos.ZERO, radius, false);
+					// On the server thread: the structure check cache that locating fills is not thread-safe.
+					var found = server.submit(() -> level.getChunkSource().getGenerator().findNearestMapStructure(level,
+						net.minecraft.core.HolderSet.direct(ref), BlockPos.ZERO, radius, false)).join();
 					Expanse.LOG.info("[dev] structure {} -> {}", ref.key().identifier(), found == null ? "NOT FOUND" : found.getFirst().toShortString());
 					if (found != null && Boolean.getBoolean("expanse.dev.generate")) {
 						generateAround(server, level, found.getFirst(), net.minecraft.resources.ResourceKey.create(
 							net.minecraft.core.registries.Registries.BIOME, ref.key().identifier()));
+						BlockPos at = found.getFirst();
+						Expanse.LOG.info("[dev]   placed {}", server.submit(() -> {
+							var start = level.getChunk(at.getX() >> 4, at.getZ() >> 4).getStartForStructure(ref.value());
+							if (start == null || !start.isValid()) {
+								return "NOTHING";
+							}
+							var box = start.getBoundingBox();
+							return start.getPieces().size() + " pieces, " + box.getXSpan() + "x" + box.getYSpan() + "x" + box.getZSpan();
+						}).join());
 					}
 				}
 			}

@@ -93,6 +93,19 @@
           },
           "name": "minecraft:gold_nugget",
           "weight": 6
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 5,
+        "min": 2
+      }
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 6
         },
         {
           "type": "minecraft:item",
@@ -104,39 +117,8 @@
               "min": 1
             }
           },
-          "name": "minecraft:emerald",
-          "weight": 4
-        },
-        {
-          "type": "minecraft:item",
-          "modifier": {
-            "type": "minecraft:set_count",
-            "count": {
-              "type": "minecraft:uniform",
-              "max": 3,
-              "min": 1
-            }
-          },
           "name": "minecraft:experience_bottle",
-          "weight": 4
-        },
-        {
-          "type": "minecraft:item",
-          "name": "expanse:prismite_block",
           "weight": 2
-        }
-      ],
-      "rolls": {
-        "type": "minecraft:uniform",
-        "max": 6,
-        "min": 3
-      }
-    },
-    {
-      "entries": [
-        {
-          "type": "minecraft:empty",
-          "weight": 5
         },
         {
           "type": "minecraft:item",
@@ -144,17 +126,7 @@
             "type": "minecraft:enchant_randomly",
             "options": "#minecraft:on_random_loot"
           },
-          "name": "minecraft:book",
-          "weight": 4
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:diamond"
-        },
-        {
-          "type": "minecraft:item",
-          "name": "minecraft:golden_apple",
-          "weight": 2
+          "name": "minecraft:book"
         }
       ],
       "rolls": 1

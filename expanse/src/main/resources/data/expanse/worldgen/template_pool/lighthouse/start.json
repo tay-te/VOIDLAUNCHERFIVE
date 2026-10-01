@@ -3,10 +3,17 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:lighthouse/lighthouse",
-        "processors": {
-          "processors": []
-        },
+        "location": "expanse:lighthouse/lighthouse_tower_red",
+        "processors": "expanse:lighthouse",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lighthouse/lighthouse_tower_black",
+        "processors": "expanse:lighthouse",
         "projection": "rigid"
       },
       "weight": 1

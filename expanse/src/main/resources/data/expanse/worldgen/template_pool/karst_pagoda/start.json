@@ -3,10 +3,8 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:karst_pagoda/karst_pagoda",
-        "processors": {
-          "processors": []
-        },
+        "location": "expanse:karst_pagoda/karst_pagoda_court",
+        "processors": "expanse:pagoda",
         "projection": "rigid"
       },
       "weight": 1

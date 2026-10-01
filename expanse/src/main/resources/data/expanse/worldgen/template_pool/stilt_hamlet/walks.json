@@ -1,0 +1,47 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:stilt_hamlet/stilt_hamlet_walk_short",
+        "processors": "expanse:stilt_hamlet",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:stilt_hamlet/stilt_hamlet_walk_long",
+        "processors": "expanse:stilt_hamlet",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:stilt_hamlet/stilt_hamlet_walk_landing",
+        "processors": "expanse:stilt_hamlet",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:stilt_hamlet/stilt_hamlet_walk_bend",
+        "processors": "expanse:stilt_hamlet",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

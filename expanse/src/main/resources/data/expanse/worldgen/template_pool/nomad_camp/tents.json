@@ -1,0 +1,50 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:nomad_camp/nomad_camp_yurt_family",
+        "processors": "expanse:nomad_camp",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:nomad_camp/nomad_camp_yurt_dyers",
+        "processors": "expanse:nomad_camp",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:nomad_camp/nomad_camp_yurt_story",
+        "processors": "expanse:nomad_camp",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:nomad_camp/nomad_camp_corral",
+        "processors": "expanse:nomad_camp",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:nomad_camp/nomad_camp_racks",
+        "processors": "expanse:nomad_camp",
+        "projection": "rigid"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

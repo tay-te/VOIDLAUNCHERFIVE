@@ -3,8 +3,8 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:cloud_monastery/cloud_monastery",
-        "processors": "expanse:mossy_stones",
+        "location": "expanse:cloud_monastery/cloud_monastery_abbey",
+        "processors": "expanse:cloud_monastery",
         "projection": "rigid"
       },
       "weight": 1

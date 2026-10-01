@@ -3,10 +3,8 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:stilt_hamlet/stilt_hamlet",
-        "processors": {
-          "processors": []
-        },
+        "location": "expanse:stilt_hamlet/stilt_hamlet_hub",
+        "processors": "expanse:stilt_hamlet",
         "projection": "rigid"
       },
       "weight": 1

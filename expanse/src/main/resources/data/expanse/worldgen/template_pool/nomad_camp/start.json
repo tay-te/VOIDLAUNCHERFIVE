@@ -3,10 +3,17 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "expanse:nomad_camp/nomad_camp",
-        "processors": {
-          "processors": []
-        },
+        "location": "expanse:nomad_camp/nomad_camp_firepit",
+        "processors": "expanse:nomad_camp",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:nomad_camp/nomad_camp_market",
+        "processors": "expanse:nomad_camp",
         "projection": "rigid"
       },
       "weight": 1
