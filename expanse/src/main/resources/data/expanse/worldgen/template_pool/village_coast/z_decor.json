@@ -1,0 +1,55 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_coast/lamp",
+        "processors": "expanse:zombie_village_coast",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_coast/drying_rack",
+        "processors": "expanse:zombie_village_coast",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_coast/boat",
+        "processors": "expanse:zombie_village_coast",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_coast/palm",
+        "processors": "expanse:zombie_village_coast",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:feature_pool_element",
+        "feature": "minecraft:pile_hay",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

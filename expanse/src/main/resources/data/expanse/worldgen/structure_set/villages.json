@@ -1,0 +1,38 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 930417419,
+    "separation": 8,
+    "spacing": 34
+  },
+  "structures": [
+    {
+      "structure": "expanse:village_wisteria",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:village_redwood",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:village_coast",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:village_steppe",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:village_moor",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:village_karst",
+      "weight": 1
+    },
+    {
+      "structure": "expanse:village_tundra",
+      "weight": 1
+    }
+  ]
+}

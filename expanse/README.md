@@ -215,7 +215,7 @@ every crossroads. Every structure is a jigsaw of interchangeable pieces, so no t
 processor list weathers each copy differently (moss, cracks, missing blocks, overgrowth). Each has a public
 chest and a hidden one, and most have a lore book or journal.
 
-**Landmarks.** Rare (one per 50–56 chunks of their biome) and 75–135 blocks across.
+**Landmarks.** Rare (one per 44–56 chunks of their biome) and 75–145 blocks across.
 
 | Landmark | Biome | What's there |
 |---|---|---|
@@ -223,6 +223,10 @@ chest and a hidden one, and most have a lore book or journal.
 | Cloud monastery | Cloud Forest | Three terraces up a slope: forecourt, cloister, church and a bell tower above the canopy. Wings, cemetery, apiary, grotto. Hidden study behind a bookcase; crypt with a spawner behind the altar. |
 | Temple of the Pink Sun | Opal Dunes | Five-tier ziggurat with a sun disc, half-buried by dunes. Sphinx avenue, oasis, buried colonnade. A lever opens the sun mosaic onto a shaft down to a sealed undercroft. |
 | Frostwatch Citadel | Frostbloom Tundra | Walled bailey, four towers, gatehouse with portcullis, a keep with a spiral stair up to a signal fire. Stables, smithy, inn. Ice cellar under the bear rug. |
+| Palm harbour | Palm Coast | Harbour master's house, warehouse with a crane, net loft, market stalls and a meeting bell; piers run out over the water and up the beach as boardwalks; a careened brig in the boatyard. Smugglers' hold under the office rug. |
+| Logging camp | Redwood Giants | Sawmill with a waterwheel in the mill race, a log flume on trestles dropping into the millpond, bunkhouse, cookhouse, ox barn, charcoal kilns. Payroll strongroom under the bearskin. |
+| Wisteria manor | Wisteria Vale | Stone and timber-framed house (hall, library, dining room, kitchen wing) behind a fountain forecourt; a boathouse on the lake, stables, an orangery or kitchen garden, a folly. Wine cellar under the kitchen. |
+| Caravanserai | Amber Steppe | A ruined courtyard inn with a pointed gateway, arcades and stables, half-drifted with sand that hides brushable finds; camels in the caravan camp outside. A cistern down the well. |
 
 **Buildings.** Mid-sized; one per 26–36 chunks.
 
@@ -241,6 +245,33 @@ every few minutes of travel. Each biome has its own: a shepherd's bothy, a mammo
 treehouse, a fairy ring, a bayou shack, a windpump, a sand colossus, rice terraces, a pilgrim shrine, a
 miners' camp, a beach hut. Five more travel between biomes in local materials: wayside shrines, campsites,
 wells, graveyards and summit cairns.
+
+**Villages.** Seven regional villages, built on vanilla's own village machinery. They use the same pools,
+jigsaw names, terrain-following streets, beds, bells, job sites, golems and cats, so villagers live,
+work, trade, breed and get raided exactly as in a plains village. They join `#minecraft:village`, so
+`/locate structure #minecraft:village` and explorer maps find them, and 1 in 50 is a zombie village.
+
+| Village | Biome | Villagers | Character |
+|---|---|---|---|
+| Wisteria | Wisteria Vale | plains | Timber frame and plaster under tile roofs, an orchard with beehives, wisteria trees in the lanes |
+| Redwood | Redwood Giants | taiga | Log cabins, a sawpit, a smokehouse, woodpiles |
+| Coast | Palm Coast | jungle | Thatched palm houses on stilts, a fishing jetty, drying racks, beached boats |
+| Steppe | Amber Steppe | savanna | Round ochre houses with cone roofs, market stalls, a llama and goat pen |
+| Moor | Heather Moor | plains | Rubble-stone cottages under slate, a sheep fold, dry-stone walls |
+| Karst | Jade Karst | jungle | Bamboo houses on limestone sills under jade tiles, rice paddies, stone lanterns |
+| Tundra | Frostbloom Tundra | snow | Snow-drifted spruce cabins, a longhouse, firewood stacks |
+
+Every Expanse biome has its villager type set (`world/ExpanseVillagers.java`), so a villager spawned,
+cured or (half the time, as in vanilla) born in a Jade Karst takes the jungle look.
+
+**Underground.** Three structures stand on the floors of the great cavern halls, at most one per hall,
+placed by the halls themselves (`expanse:cavern_halls`, `world/terrain/CavernHallPlacement.java`):
+
+| Structure | What's there |
+|---|---|
+| Deep mine camp | A timber headframe with a sheave wheel and a lift cage on chains, tents, a forge, ore carts on rails out to an ore face and a boarded adit (cave spiders). |
+| Deepstone ruins | A collapsed deepslate hall: column rows, broken arches, an altar with candles and soul lanterns, gravel hiding brushable finds; a crypt behind the altar. |
+| Cavern landing | A deepslate quay for the underground boats: boat shed with the old ferry, the ferryman's hut and bell, a ferry rope across. |
 
 Structures choose their sites the way a builder would (`expanse:sited_jigsaw`,
 `world/SitedJigsawStructure.java`): never on water (unless it's a stilt house or a jetty), on a cliff edge

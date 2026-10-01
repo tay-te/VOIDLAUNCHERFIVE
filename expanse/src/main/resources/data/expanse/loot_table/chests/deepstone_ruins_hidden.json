@@ -1,0 +1,181 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 6,
+              "min": 2
+            }
+          },
+          "name": "minecraft:gold_ingot",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 6,
+              "min": 2
+            }
+          },
+          "name": "minecraft:emerald",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 3,
+              "min": 1
+            }
+          },
+          "name": "minecraft:diamond",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 10,
+              "min": 4
+            }
+          },
+          "name": "minecraft:lapis_lazuli",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 3,
+              "min": 1
+            }
+          },
+          "name": "minecraft:echo_shard",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 6,
+              "min": 2
+            }
+          },
+          "name": "minecraft:amethyst_shard",
+          "weight": 5
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 5,
+              "min": 2
+            }
+          },
+          "name": "minecraft:experience_bottle",
+          "weight": 5
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:enchant_randomly",
+            "options": "#minecraft:on_random_loot"
+          },
+          "name": "minecraft:iron_sword",
+          "weight": 2
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 6,
+        "min": 3
+      }
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:enchant_randomly",
+            "options": "#minecraft:on_random_loot"
+          },
+          "name": "minecraft:book",
+          "weight": 5
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:golden_apple",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:enchanted_golden_apple"
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:music_disc_otherside"
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 2,
+        "min": 1
+      }
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": [
+            {
+              "type": "minecraft:set_written_book_pages",
+              "mode": "replace_all",
+              "pages": [
+                "The script is older than any I know. Where it can be read: 'We went down to be nearer the warm heart of the stone, and built a hall so great the dark had to make room for it.'",
+                "'We lit the candles for those who sleep below the dais. Let them burn while the hall stands.' The candles are still burning. I did not light them.",
+                "There is a stair behind the altar. I went down three steps and came back up. Someone braver may go on. Take light."
+              ]
+            },
+            {
+              "type": "minecraft:set_book_cover",
+              "author": "copied by Brother Anselm",
+              "generation": 2,
+              "title": "Rubbing from the Altar"
+            }
+          ],
+          "name": "minecraft:written_book",
+          "weight": 2
+        }
+      ],
+      "rolls": 1
+    }
+  ],
+  "random_sequence": "expanse:chests/deepstone_ruins_hidden"
+}

@@ -895,6 +895,10 @@ def build_biome_tags(jar):
     drop('is_jungle', 'jade_karst', 'cloud_forest')
     drop('has_structure/jungle_temple', 'cloud_forest')
     drop('is_hill', 'verdant_peaks')
+    # these have villages of their own (expanse:village_moor, _steppe, _tundra), not their analog's
+    drop('has_structure/village_plains', 'heather_moor')
+    drop('has_structure/village_savanna', 'amber_steppe')
+    drop('has_structure/village_snowy', 'frostbloom_tundra')
     for tag, values in sorted(tags.items()):
         data(f'minecraft/tags/worldgen/biome/{tag}.json', {'replace': False, 'values': sorted(set(values))})
     data(f'{NS}/tags/worldgen/biome/all.json', {'replace': False, 'values': [e(b) for b in sorted(ANALOGS)]})

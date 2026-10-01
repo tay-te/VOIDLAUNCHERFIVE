@@ -1,0 +1,213 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/house_small_1",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/house_small_2",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/house_small_3",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/house_medium",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/house_big",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/temple",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/library",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/farm_small",
+        "processors": "expanse:farm_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/farm_large",
+        "processors": "expanse:farm_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/pen_animals",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/meeting_point",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_armorer",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_butcher",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_cartographer",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_fisherman",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_fletcher",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_leatherworker",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_mason",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_shepherd",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_toolsmith",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_weaponsmith",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/longhouse",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 10
+    }
+  ],
+  "fallback": "expanse:village_tundra/terminators"
+}

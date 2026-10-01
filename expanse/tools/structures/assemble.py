@@ -14,6 +14,8 @@ import re
 from blocks import B, BlockState
 from builder import DIRS, OPP, rot_dir, rot_pos, rot_state, rot_vec
 
+ALWAYS = {"predicate_type": "minecraft:always_true"}
+
 
 def jigsaws_of(build):
     out = []
@@ -87,9 +89,17 @@ def shuffled(pool, rng):
     return lst
 
 
-def assemble(pools, start_pool, depth, seed, max_dist=80):
+def pool_height(pools, pid):
+    """StructureTemplatePool.getMaxSize: the tallest element's height (a feature counts as 1)."""
+    return max([1 if isinstance(e, tuple) else e.size[1] for e, _ in pools.get(pid, []) if e is not None] + [0])
+
+
+def assemble(pools, start_pool, depth, seed, max_dist=80, fallbacks=None, expansion_hack=False):
     """pools: {pool_id: [(element, weight)]}; element = Build, None (empty) or ('feature', id).
-    Returns (pieces, features)."""
+    fallbacks: {pool_id: fallback pool_id} (tried after the pool, and alone at the last depth, as
+    vanilla does); expansion_hack: raise each piece's box to fit what attaches inside it (vanilla's
+    use_expansion_hack, which villages use). Returns (pieces, features)."""
+    fallbacks = fallbacks or {}
     rng = random.Random(seed)
     start = [e for e in shuffled(pools[start_pool], rng) if e is not None][0]
     s = Placed(start, rng.randrange(4), (0, 0, 0), 0, start_pool, getattr(start, "_procs", None))
@@ -98,7 +108,7 @@ def assemble(pools, start_pool, depth, seed, max_dist=80):
     queue = [s]
     while queue:
         src = queue.pop(0)
-        if src.depth >= depth:
+        if src.depth > depth or (src.depth == depth and not fallbacks):
             continue
         js = src.jigsaws()
         rng.shuffle(js)
@@ -108,7 +118,10 @@ def assemble(pools, start_pool, depth, seed, max_dist=80):
             fx, fy, fz = DIRS[j["front"]]
             tpos = (j["wpos"][0] + fx, j["wpos"][1] + fy, j["wpos"][2] + fz)
             inside = _inside(src.box, tpos)
-            for el in shuffled(pools.get(j["pool"], []), rng):
+            cands = shuffled(pools.get(j["pool"], []), rng) if src.depth < depth else []
+            if j["pool"] in fallbacks:
+                cands += shuffled(pools.get(fallbacks[j["pool"]], []), rng)
+            for el in cands:
                 if el is None:
                     break
                 if isinstance(el, tuple):           # feature element: its own "bottom" jigsaw faces down
@@ -131,6 +144,13 @@ def assemble(pools, start_pool, depth, seed, max_dist=80):
                         lx, lz = rot_pos(t["pos"][0], t["pos"][2], r)
                         origin = (tpos[0] - lx, tpos[1] - t["pos"][1], tpos[2] - lz)
                         p = Placed(el, r, origin, src.depth + 1, j["pool"], getattr(el, "_procs", None))
+                        if expansion_hack and el.size[1] <= 16:
+                            up = max([max(pool_height(pools, q["pool"]), pool_height(pools, fallbacks.get(q["pool"])))
+                                      for q in p.jigsaws() if _inside(p.box, tuple(
+                                          q["wpos"][i] + DIRS[q["front"]][i] for i in range(3)))] + [0])
+                            if up:
+                                b0 = p.box
+                                p.box = b0[:4] + (max(b0[4], b0[1] + max(up + 1, b0[4] - b0[1])),) + b0[5:]
                         cx = (s.box[0] + s.box[3]) // 2
                         cz = (s.box[2] + s.box[5]) // 2
                         if max(abs(p.box[0] - cx), abs(p.box[3] - cx), abs(p.box[2] - cz), abs(p.box[5] - cz)) > max_dist:
@@ -185,6 +205,8 @@ def apply_processors(cells, plist, seed):
                     continue
                 rnd = random.Random(zlib.crc32(repr((pos, seed)).encode()))
                 for r in proc["rules"]:
+                    if r.get("location_predicate", ALWAYS)["predicate_type"] != "minecraft:always_true":
+                        continue                   # needs the world (e.g. a path over water): not previewed
                     if _test(r["input_predicate"], st, rnd):
                         cells[pos] = _state_of(r["output_state"])
                         break

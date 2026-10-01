@@ -1,0 +1,41 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cavern_mine_camp/cavern_mine_camp_ore_face",
+        "processors": "expanse:cavern_mine_camp",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cavern_mine_camp/cavern_mine_camp_adit",
+        "processors": "expanse:cavern_mine_camp",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cavern_mine_camp/cavern_mine_camp_depot",
+        "processors": "expanse:cavern_mine_camp",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cavern_mine_camp/cavern_mine_camp_sorting",
+        "processors": "expanse:cavern_mine_camp",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

@@ -1,0 +1,23 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:wisteria_manor/wisteria_manor_kitchen_garden",
+        "processors": "expanse:wisteria_manor",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:wisteria_manor/wisteria_manor_orangery",
+        "processors": "expanse:wisteria_manor",
+        "projection": "rigid"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

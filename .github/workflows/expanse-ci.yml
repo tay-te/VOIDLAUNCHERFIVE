@@ -117,5 +117,5 @@ jobs:
         run: |
           grep -c '\[dev\]   generated round' server.log
           ! grep -E 'NOT FOUND|placed NOTHING|\[dev\] harness failed|/ERROR\]|Serialization errors|Feature order cycle' server.log
-          # 13 biomes + 36 structures
-          test "$(grep -c '\[dev\]   generated round' server.log)" -eq 49
+          # 13 biomes + 50 structures (7 of them villages, 3 underground in the cavern halls)
+          test "$(grep -c '\[dev\]   generated round' server.log)" -eq 63

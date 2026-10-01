@@ -1,0 +1,41 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/centre_green",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/centre_well",
+        "processors": "expanse:houses_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_centre_green",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_centre_well",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

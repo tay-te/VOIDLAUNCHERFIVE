@@ -1,0 +1,209 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_house_small_1",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_house_small_2",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_house_small_3",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_house_medium",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_house_big",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/temple",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/library",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/farm_small",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/farm_large",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/pen_animals",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/meeting_point",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_armorer",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_butcher",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_cartographer",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_fisherman",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_fletcher",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_leatherworker",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_mason",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_shepherd",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_toolsmith",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/workshop_weaponsmith",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_tundra/z_longhouse",
+        "processors": "expanse:zombie_village_tundra",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 10
+    }
+  ],
+  "fallback": "expanse:village_tundra/terminators"
+}

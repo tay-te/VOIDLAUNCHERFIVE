@@ -1,0 +1,23 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:logging_camp/logging_camp_path_a",
+        "processors": "expanse:logging_camp",
+        "projection": "terrain_matching"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:logging_camp/logging_camp_path_b",
+        "processors": "expanse:logging_camp",
+        "projection": "terrain_matching"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

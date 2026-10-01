@@ -1,0 +1,215 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/house_small_1",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/house_small_2",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/house_small_3",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/house_medium",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/house_big",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/temple",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/library",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/farm_small",
+        "processors": "expanse:farm_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/farm_large",
+        "processors": "expanse:farm_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/pen_animals",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/meeting_point",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_armorer",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_cartographer",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_fisherman",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_fletcher",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_leatherworker",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_mason",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_shepherd",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_toolsmith",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/workshop_weaponsmith",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/sawpit",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_redwood/smokehouse",
+        "processors": "expanse:houses_village_redwood",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 10
+    }
+  ],
+  "fallback": "expanse:village_redwood/terminators"
+}

@@ -81,7 +81,7 @@ def lumen_tree(b, x, y, z, rng, h=12, crown=4.5):
 
 def crown_lamp(b, x, y, z):
     """Prismite crown: a glowing crystal cluster atop a tower (seen from far away at night)."""
-    b.set(x, y, z, B("glowstone"))
+    b.set(x, y, z, B("expanse:prismite_block"))
     b.set(x, y + 1, z, B("expanse:prismite_block"))
     b.set(x, y + 2, z, B("expanse:prismite_cluster", facing="up"))
     for (dx, dz, f) in ((1, 0, "east"), (-1, 0, "west"), (0, 1, "south"), (0, -1, "north")):
@@ -354,7 +354,7 @@ def ground_moon_pool():
         b.set(x, 1, z, st(rng))
         if rng.random() < 0.3:
             b.set(x, 2, z, slab("mossy_stone_brick"))
-    b.set(6, 0, 7, B("sea_lantern"))
+    b.set(6, 0, 7, B("expanse:prismite_block"))
     for (x, z) in ((2, 2), (10, 11)):
         b.set(x, 2, z, B("expanse:prismite_cluster", facing="up"))
         b.set(x, 1, z, B("expanse:prismite_block"))

@@ -173,10 +173,10 @@ def stupa():
                 b.set(x, y, z, B("polished_andesite") if y == 0 else B("calcite"))
     for y, r in ((3, 1.9), (4, 2.1), (5, 1.9), (6, 1.3)):   # dome
         for (x, z) in ring(c, c, 0, r, (15, 15)):
-            b.set(x, y, z, B("calcite") if y < 6 else B("smooth_quartz"))
+            b.set(x, y, z, B("calcite"))
     for x in range(c - 1, c + 2):                     # harmika and spire
         for z in range(c - 1, c + 2):
-            b.set(x, 7, z, B("chiseled_quartz_block") if (x, z) == (c, c) else slab("smooth_quartz"))
+            b.set(x, 7, z, B("polished_diorite") if (x, z) == (c, c) else slab("polished_diorite"))
     b.set(c, 8, c, B("gold_block"))
     b.set(c, 9, c, B("lightning_rod", facing="up"))
     # the relic box set into the plinth, hidden behind a painted panel (east face)

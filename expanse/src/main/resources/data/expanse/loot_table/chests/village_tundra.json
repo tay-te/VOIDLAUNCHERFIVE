@@ -1,0 +1,143 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 4,
+              "min": 1
+            }
+          },
+          "name": "minecraft:bread",
+          "weight": 10
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 4,
+              "min": 1
+            }
+          },
+          "name": "minecraft:emerald",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 5,
+              "min": 1
+            }
+          },
+          "name": "minecraft:iron_nugget"
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 7,
+              "min": 1
+            }
+          },
+          "name": "minecraft:potato",
+          "weight": 10
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 5,
+              "min": 1
+            }
+          },
+          "name": "minecraft:beetroot",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 7,
+              "min": 1
+            }
+          },
+          "name": "minecraft:snowball",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 2,
+              "min": 1
+            }
+          },
+          "name": "minecraft:spruce_sapling",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 3,
+              "min": 1
+            }
+          },
+          "name": "expanse:frostbloom",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 3,
+              "min": 1
+            }
+          },
+          "name": "minecraft:rabbit_hide",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:book"
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:feather"
+        },
+        {
+          "type": "minecraft:empty",
+          "weight": 2
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 8,
+        "min": 3
+      }
+    }
+  ],
+  "random_sequence": "expanse:chests/village_tundra"
+}

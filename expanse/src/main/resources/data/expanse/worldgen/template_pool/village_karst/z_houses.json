@@ -1,0 +1,209 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_house_small_1",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_house_small_2",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_house_small_3",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_house_medium",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_house_big",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/temple",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/library",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/farm_small",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/farm_large",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/pen_animals",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/meeting_point",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_armorer",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_butcher",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_cartographer",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_fisherman",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_fletcher",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_leatherworker",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_mason",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_shepherd",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_toolsmith",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/workshop_weaponsmith",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/paddy",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 5
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 10
+    }
+  ],
+  "fallback": "expanse:village_karst/terminators"
+}

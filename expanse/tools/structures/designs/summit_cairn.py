@@ -70,7 +70,7 @@ def prayer():
     b.set(c - 1, 1, c + 3, B("expanse:potted_edelweiss"))
     b.set(c + 1, 0, c + 3, pick(rng, STONE))
     b.set(c + 1, 1, c + 3, B("spruce_fence"))
-    b.sign(c + 1, 2, c + 3, "spruce", ["SUMMIT", "Sign the book,", "close the lid,", "go carefully."],
+    b.sign(c + 1, 2, c + 3, "spruce", ["", "SUMMIT", "", ""],
            rotation=0)
     b.chest(2, 0, 9, "north", HIDDEN)
     b.set(2, 1, 9, slab("smooth_stone"))
@@ -106,7 +106,7 @@ def shelter():
     b.set(10, 0, 10, B("stone_bricks"))
     b.set(10, 1, 10, B("smooth_stone_slab", type="double"))
     b.set(10, 2, 10, B("smooth_stone_slab", type="double"))
-    b.set(10, 3, 10, B("lodestone"))
+    b.set(10, 3, 10, B("chiseled_stone_bricks"))
     trail(b, [(c, c + 3), (c - 1, 10), (c, 12)], rng, PATH, width=1, fade=0.4)
     flora(b, [(x, z) for x in range(13) for z in range(13) if math.hypot(x - c, z - c) > 3.8], rng, 0.2, GROUND)
     snow_cap(b, rng, 0.35, layers=(1, 2))

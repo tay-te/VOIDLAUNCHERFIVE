@@ -34,7 +34,7 @@ PALETTES = {
         path=[("dirt_path", 6), ("coarse_dirt", 3), ("gravel", 1)],
         pots=["expanse:potted_heather", "potted_poppy", "potted_fern", "expanse:potted_edelweiss"],
         offer=["expanse:heather", "poppy", "dandelion"], candle="white_candle", icon="meditative", sign="spruce",
-        sign_lines=["Keep a light", "for those who", "walk the moor", "by night."],
+        sign_lines=["", "Keep a light", "", ""],
         places=["Moorfold", "Old Barrow", "Tarn Cross", "Redwood Hold"], tree="minecraft:spruce_checked"),
     "karst": dict(
         name="wayside_shrine_karst", biomes=["jade_karst", "wisteria_vale", "cloud_forest"], procs="small_karst",
@@ -47,7 +47,7 @@ PALETTES = {
         path=[("gravel", 4), ("expanse:limestone", 2), ("coarse_dirt", 2)],
         pots=["potted_bamboo", "potted_azure_bluet", "potted_lily_of_the_valley", "expanse:potted_wisteria_sapling"],
         offer=["azure_bluet", "lily_of_the_valley", "allium"], candle="red_candle", icon="kebab", sign="bamboo",
-        sign_lines=["Rest a while.", "The river", "will wait", "for you."],
+        sign_lines=["", "Rest a while", "", ""],
         places=["Stone Forest", "Jade Ferry", "Mist Steps", "Wisteria Bridge"], tree="minecraft:cherry_checked"),
     "sand": dict(
         name="wayside_shrine_sand", biomes=["amber_steppe", "opal_dunes", "palm_coast"], procs="small_sand",
@@ -59,7 +59,7 @@ PALETTES = {
         path=[("coarse_dirt", 4), ("gravel", 1), ("sand", 2)],
         pots=["potted_dead_bush", "potted_cactus", "potted_orange_tulip", "expanse:potted_palm_sapling"],
         offer=["dead_bush", "short_dry_grass", "orange_tulip"], candle="orange_candle", icon="wasteland", sign="acacia",
-        sign_lines=["Water is life.", "Share yours", "with the", "next traveller."],
+        sign_lines=["", "Water is life", "", ""],
         places=["Amber Well", "Opal Gate", "Palm Strand", "Sunstone"], tree="minecraft:acacia_checked"),
 }
 

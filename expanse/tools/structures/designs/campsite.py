@@ -168,7 +168,7 @@ def _cart(p, seed):
     # where the shafts hang down: the harness, and the note on a post
     b.set(10, 1, 7, B(p["fence"]))
     b.set(10, 2, 7, B(p["fence"]))
-    b.sign(10, 2, 8, p["sign"], ["Wheel broke.", "Gone for a", "wheelwright.", "DON'T TOUCH IT"], wall_facing="south")
+    b.sign(10, 2, 8, p["sign"], ["", "Back soon", "", ""], wall_facing="south")
     # the carter's overnight fire and bedroll
     b.campfire(11, 1, 10, lit=False)
     for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):

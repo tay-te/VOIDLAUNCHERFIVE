@@ -91,7 +91,7 @@ def adit_camp():
             b.set(5, y, z, B("spruce_planks") if y == 1 else B("spruce_fence"))
         b.air(3, 1, z, 4, 2, z)
         b.chest(3, 1, z, "east", HIDDEN)
-    b.sign(6, 2, 4, "spruce", ["DANGER", "bad air", "keep out", "- the foreman"], wall_facing="east")
+    b.sign(6, 2, 4, "spruce", ["", "DANGER", "bad air", ""], wall_facing="east")
     # rails out of the mouth to the ore bin
     rails(b, 7, 2, 12)
     b.barrel(7, 1, 13, "north", LOOT)
@@ -110,7 +110,7 @@ def adit_camp():
     b.set(5, 1, 11, B("stonecutter", facing="east"))
     b.set(5, 1, 12, B("grindstone", face="floor", facing="east"))
     ground_item(b, 5, 2, 10, book(BOOKS[NAME]), rotation=1)
-    claim_sign(b, 10, 8, ["PRISMITE", "CLAIM No 7", "Ore & Sons", "KEEP OUT"], 0)
+    claim_sign(b, 10, 8, ["", "CLAIM No 7", "KEEP OUT", ""], 0)
     meal_fire(b, 8, 1, 14, ["potato", "cod"], lit=True, done=(100, 0, 0, 0))
     for (x, z) in ((9, 14), (7, 14), (8, 15), (8, 13)):
         b.set(x, 0, z, pick(rng, ROCK))
@@ -159,7 +159,7 @@ def sluice():
     meal_fire(b, 5, 1, 11, ["potato"], lit=False, done=(300, 0, 0, 0))
     b.barrel(4, 1, 8, "up", LOOT)
     ground_item(b, 4, 2, 8, book(BOOKS[f"{NAME}_sluice"]), rotation=0)
-    claim_sign(b, 14, 10, ["CLAIM", "Tomas Brack", "Gold & glitter", "trespassers"], 8)
+    claim_sign(b, 14, 10, ["", "CLAIM", "T. Brack", ""], 8)
     clear(b, 2, 1, 7, 9, 2, 11)
     flora(b, [(x, z) for x in range(16) for z in range(12)], rng, 0.12, GROUND)
     return b
@@ -188,7 +188,7 @@ def collapse():
     b.set(10, 1, 11, B("spruce_fence"))
     b.set(10, 2, 11, B("spruce_fence"))
     b.item_frame(11, 2, 11, "east", item("iron_helmet"))
-    b.sign(10, 1, 12, "spruce", ["ADIT CLOSED", "after the fall", "of the 9th.", "Rest well, Ned."],
+    b.sign(10, 1, 12, "spruce", ["", "ADIT CLOSED", "", ""],
            wall_facing="south")
     b.set(4, 1, 11, B("lantern"))
     b.barrel(3, 1, 12, "up", LOOT)

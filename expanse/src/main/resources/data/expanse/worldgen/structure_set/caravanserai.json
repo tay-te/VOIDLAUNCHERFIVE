@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1847300,
+    "separation": 16,
+    "spacing": 44
+  },
+  "structures": [
+    {
+      "structure": "expanse:caravanserai",
+      "weight": 1
+    }
+  ]
+}

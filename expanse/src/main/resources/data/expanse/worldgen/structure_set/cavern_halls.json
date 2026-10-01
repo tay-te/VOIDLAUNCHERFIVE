@@ -1,0 +1,21 @@
+{
+  "placement": {
+    "type": "expanse:cavern_halls",
+    "frequency": 0.6,
+    "salt": 930417401
+  },
+  "structures": [
+    {
+      "structure": "expanse:cavern_mine_camp",
+      "weight": 3
+    },
+    {
+      "structure": "expanse:deepstone_ruins",
+      "weight": 2
+    },
+    {
+      "structure": "expanse:cavern_landing",
+      "weight": 2
+    }
+  ]
+}

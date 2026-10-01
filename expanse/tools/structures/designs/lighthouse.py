@@ -131,7 +131,7 @@ def tower(b, rng, livery):
             for y in range(g + 1, g + 5):
                 b.set(x, y, z, AIR)
     b.set(CX, g + 1, CZ, B("sea_lantern"))
-    b.set(CX, g + 2, CZ, B("glowstone"))
+    b.set(CX, g + 2, CZ, B("sea_lantern"))
     b.set(CX, g + 3, CZ, B("sea_lantern"))
     for (x, z) in ring_cells(CX, CZ, 2.6):
         if (x, z) == (CX, CZ - 2):
@@ -366,8 +366,8 @@ def shore_bonfire():
 
 
 LIVERIES = [
-    dict(a="white_concrete", c="red_terracotta", cap="red_terracotta", cap2="red_concrete", stair="spruce"),
-    dict(a="white_concrete", c="black_terracotta", cap="deepslate_tiles", cap2="polished_deepslate",
+    dict(a="calcite", c="red_terracotta", cap="red_terracotta", cap2="bricks", stair="spruce"),
+    dict(a="calcite", c="black_terracotta", cap="deepslate_tiles", cap2="polished_deepslate",
          stair="dark_oak"),
 ]
 

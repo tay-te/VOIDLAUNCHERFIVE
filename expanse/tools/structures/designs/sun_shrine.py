@@ -245,14 +245,14 @@ def sanctum(b, rng):
         for yy in range(y + 8, y + 17):
             d = math.hypot(x - 22, yy - (y + 12))
             if d <= 4.2:
-                st = B("shroomlight") if d < 1.5 else B("gold_block") if d < 2.3 else \
-                    B("yellow_terracotta") if d < 3.3 else B("orange_terracotta")
+                st = B("raw_gold_block") if d < 1.5 else B("yellow_terracotta") if d < 3.0 else \
+                    B("orange_terracotta")
                 b.set(x, yy, dz, st)
     b.set(22, y + 17, dz, B("lightning_rod", facing="up"))          # rays
-    b.set(17, y + 12, dz, B("end_rod", facing="west"))
-    b.set(27, y + 12, dz, B("end_rod", facing="east"))
-    b.set(19, y + 15, dz, B("end_rod", facing="up"))
-    b.set(25, y + 15, dz, B("end_rod", facing="up"))
+    b.set(17, y + 12, dz, B("lightning_rod", facing="west"))
+    b.set(27, y + 12, dz, B("lightning_rod", facing="east"))
+    b.set(19, y + 15, dz, B("lightning_rod", facing="up"))
+    b.set(25, y + 15, dz, B("lightning_rod", facing="up"))
 
 
 def gallery(b, rng):

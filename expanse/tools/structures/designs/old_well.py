@@ -140,7 +140,7 @@ def dry(p, seed):
     _flagstones(b, p, rng, c)
     b.set(c - 3, 0, c, pick(rng, p["stone"]))
     b.set(c - 3, 1, c, B(p["brick"]))
-    b.sign(c - 3, 1, c + 1, p["sign"], ["WELL DRY", "Do not drink.", "Do not climb", "down."],
+    b.sign(c - 3, 1, c + 1, p["sign"], ["", "WELL DRY", "", ""],
            wall_facing="south")
     ground_item(b, c - 3, 2, c, item("bone"), rotation=1)
     trail(b, [(c, c + 3), (c - 1, 9), (c, 10)], rng, p["path"], width=1, fade=0.5)

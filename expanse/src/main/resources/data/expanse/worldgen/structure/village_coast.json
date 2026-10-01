@@ -1,0 +1,77 @@
+{
+  "type": "expanse:sited_jigsaw",
+  "avoid": [
+    {
+      "other_set": "expanse:stone_circle",
+      "radius": 104
+    },
+    {
+      "other_set": "expanse:ruined_watchtower",
+      "radius": 120
+    },
+    {
+      "other_set": "expanse:woodland_lodge",
+      "radius": 112
+    },
+    {
+      "other_set": "expanse:sun_shrine",
+      "radius": 140
+    },
+    {
+      "other_set": "expanse:stilt_hamlet",
+      "radius": 120
+    },
+    {
+      "other_set": "expanse:karst_pagoda",
+      "radius": 140
+    },
+    {
+      "other_set": "expanse:lighthouse",
+      "radius": 120
+    },
+    {
+      "other_set": "expanse:lumen_shrine",
+      "radius": 112
+    },
+    {
+      "other_set": "expanse:frost_outpost",
+      "radius": 140
+    },
+    {
+      "other_set": "expanse:nomad_camp",
+      "radius": 112
+    },
+    {
+      "other_set": "expanse:cloud_monastery",
+      "radius": 140
+    },
+    {
+      "other_set": "expanse:palm_harbour",
+      "radius": 136
+    },
+    {
+      "other_set": "expanse:logging_camp",
+      "radius": 136
+    },
+    {
+      "other_set": "expanse:wisteria_manor",
+      "radius": 136
+    },
+    {
+      "other_set": "expanse:caravanserai",
+      "radius": 136
+    }
+  ],
+  "biomes": "#expanse:has_structure/village_coast",
+  "max_distance_from_center": 80,
+  "project_start_to_heightmap": "WORLD_SURFACE_WG",
+  "size": 6,
+  "spawn_overrides": {},
+  "start_height": {
+    "absolute": 0
+  },
+  "start_pool": "expanse:village_coast/start",
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin",
+  "use_expansion_hack": true
+}

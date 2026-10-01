@@ -126,8 +126,6 @@ def toadstool():
             if x not in (c - 1, c, c + 1) and rng.random() < 0.6:
                 plant(b, x, 1, z, rng.choice(GLOW), "moss_block")
     trail(b, [(c, c + 3), (c, 9), (c + 1, 12)], rng, PATH, width=2, fade=0.7)
-    b.set(c + 2, 1, 8, B(f"{L}_fence"))
-    b.sign(c + 2, 2, 8, "spruce", ["Mind the", "ring.", "Wipe your", "feet."], rotation=0)
     flora(b, [(x, z) for x in range(13) for z in range(13) if z < 9], rng, 0.25, GROUND,
           plants=("short_grass", "fern", "expanse:glowcap"))
     return b
@@ -138,7 +136,7 @@ def moonwell():
     rng = b.rng
     c = 6
     for (x, z) in ring(c, c, 0, 2.2, (13, 13)):       # basin: lit floor under a skin of water
-        b.set(x, 0, z, B("sea_lantern"))
+        b.set(x, 0, z, B("expanse:prismite_block"))
         b.set(x, 1, z, B("water", level=0))
     for (x, z) in ring(c, c, 2.2, 3.2, (13, 13)):     # rim
         b.set(x, 0, z, pick(rng, [("mossy_stone_bricks", 3), ("stone_bricks", 2)]))

@@ -44,6 +44,26 @@
     {
       "other_set": "expanse:cloud_monastery",
       "radius": 92
+    },
+    {
+      "other_set": "expanse:palm_harbour",
+      "radius": 88
+    },
+    {
+      "other_set": "expanse:logging_camp",
+      "radius": 88
+    },
+    {
+      "other_set": "expanse:wisteria_manor",
+      "radius": 88
+    },
+    {
+      "other_set": "expanse:caravanserai",
+      "radius": 88
+    },
+    {
+      "other_set": "expanse:villages",
+      "radius": 112
     }
   ],
   "biomes": "#expanse:has_structure/old_well_mud",

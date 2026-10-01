@@ -128,7 +128,7 @@ def start_firepit():
             b.set(x, y, z, B(f"{WOOD}_fence"))
     for x in range(cx - 8, cx - 1):
         for z in range(cz + 4, cz + 9):
-            b.set(x, 4, z, B("orange_wool") if x % 2 else B("yellow_wool"))
+            b.set(x, 4, z, B("orange_wool") if x % 2 else B("white_wool"))
     b.lectern(cx - 5, 1, cz + 7, "north", book())
     rug(b, cx - 6, cz + 5, cx - 4, cz + 6, 1, "red", "orange")
     b.set(cx - 7, 1, cz + 7, B("barrel", facing="up"))
@@ -249,7 +249,7 @@ def tent_family():
     rng = b.rng
     piece_in(b, 5, 1, 0, "north")
     ground(b, rng, 0, 1, 10, 11)
-    yurt(b, rng, 5, 6, 4.3, "white_wool", "red_wool", "red_wool", "white_wool", "north")
+    yurt(b, rng, 5, 6, 4.3, "white_wool", "red_wool", "white_wool", "light_gray_wool", "north")
     rug(b, 3, 5, 7, 8, 1, "red", "orange", "yellow")
     b.campfire(5, 1, 6, lit=True)
     b.set(5, 2, 6, AIR)
@@ -270,7 +270,7 @@ def tent_dyers():
     rng = b.rng
     piece_in(b, 6, 1, 0, "north")
     ground(b, rng, 0, 1, 12, 12)
-    yurt(b, rng, 6, 7, 4.8, "light_gray_wool", "blue_wool", "cyan_wool", "light_blue_wool", "north")
+    yurt(b, rng, 6, 7, 4.8, "light_gray_wool", "blue_wool", "white_wool", "light_gray_wool", "north")
     for (x, z, f) in ((3, 6, "east"), (9, 6, "west"), (4, 9, "north")):
         b.set(x, 1, z, B("loom", facing=f))
     for (x, z) in ((8, 9), (9, 8), (3, 8)):
@@ -296,7 +296,7 @@ def tent_story():
     rng = b.rng
     piece_in(b, 6, 1, 0, "north")
     ground(b, rng, 0, 1, 12, 12)
-    yurt(b, rng, 6, 7, 4.8, "white_wool", "orange_wool", "orange_wool", "yellow_wool", "north")
+    yurt(b, rng, 6, 7, 4.8, "white_wool", "orange_wool", "white_wool", "light_gray_wool", "north")
     rug(b, 4, 5, 8, 9, 1, "brown", "orange")
     for (x, z, col) in ((4, 6, "red"), (8, 6, "orange"), (4, 8, "yellow"), (8, 8, "red"), (6, 9, "brown")):
         b.cushion(x, 2, z, col, support_top=0.0625)

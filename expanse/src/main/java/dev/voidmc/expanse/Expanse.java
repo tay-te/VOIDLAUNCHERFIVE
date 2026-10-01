@@ -39,6 +39,7 @@ public class Expanse implements ModInitializer {
 		dev.voidmc.expanse.world.feature.LittleThings.init();
 		dev.voidmc.expanse.world.feature.Foliage.init();
 		dev.voidmc.expanse.world.SitedJigsawStructure.init();
+		dev.voidmc.expanse.world.ExpanseVillagers.init();
 		dev.voidmc.expanse.world.terrain.CavernHallPlacement.init();
 		// The Earth terrain: the model's density function, and the generator that pours its rivers.
 		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("terrain"),

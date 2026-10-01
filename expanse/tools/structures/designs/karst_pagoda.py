@@ -46,7 +46,7 @@ LS = "expanse:limestone"
 PL = "expanse:polished_limestone"
 CL = "expanse:chiseled_limestone"
 ML = "expanse:mossy_limestone"
-TILE = "waxed_oxidized_cut_copper"     # jade roof tiles
+TILE = "waxed_weathered_cut_copper"    # jade roof tiles (weathered: a muted green, not verdigris)
 COL = "expanse:stripped_redwood_log"
 WALL = "calcite"
 BEAM = "dark_oak_planks"
@@ -170,7 +170,7 @@ def pagoda(b, rng):
         b.fill(x0, fy + 5, z0, x1, fy + 5, z1, B(BEAM))
         last = i == len(TIERS) - 1
         flared_roof(b, x0, z0, x1, z1, fy + 5, TILE, overhang=2, stop=None if last else 1,
-                    cap=B("waxed_oxidized_cut_copper"))
+                    cap=B("waxed_weathered_cut_copper"))
     # front portal of the ground storey
     hw, fy = TIERS[0]
     for x in (CX - 1, CX, CX + 1):
@@ -178,9 +178,9 @@ def pagoda(b, rng):
     b.set(CX - 1, fy + 3, CZ - hw, stairs("dark_oak", "east", "top"))
     b.set(CX + 1, fy + 3, CZ - hw, stairs("dark_oak", "west", "top"))
     # spire
-    b.set(CX, 35, CZ, B("waxed_oxidized_copper"))
-    b.set(CX, 36, CZ, B("waxed_oxidized_copper_chain", axis="y"))
-    b.set(CX, 37, CZ, B("waxed_oxidized_copper_chain", axis="y"))
+    b.set(CX, 35, CZ, B("waxed_weathered_copper"))
+    b.set(CX, 36, CZ, B("waxed_weathered_copper_chain", axis="y"))
+    b.set(CX, 37, CZ, B("waxed_weathered_copper_chain", axis="y"))
     b.set(CX, 38, CZ, B("waxed_oxidized_lightning_rod", facing="up"))
 
     # --- storey 1: hall of incense
@@ -285,7 +285,7 @@ def pagoda(b, rng):
 
     # --- storey 5: the lantern room at the top
     b.set(23, 26, 33, B(CL))
-    b.set(23, 27, 33, B("waxed_oxidized_copper_lantern"))
+    b.set(23, 27, 33, B("waxed_weathered_copper_lantern"))
     b.item_frame(25, 27, 35, "north", "spyglass")
     b.set(25, 26, 31, B("white_candle", candles=3, lit=True))
     b.set(22, 26, 35, B("potted_bamboo"))
@@ -447,7 +447,7 @@ def court():
     # raked-gravel garden (west) and stupa garden (east) beside the pagoda
     for x in range(3, 13):
         for z in range(35, 44):
-            b.set(x, 3, z, B("gravel") if (x + z) % 3 else B("light_gray_concrete_powder"))
+            b.set(x, 3, z, B("gravel") if (x + z) % 3 else B("diorite"))
     for (x, z) in ((6, 38), (10, 41), (8, 43)):
         rock(b, x, 4, z, rng, mats=(ML, "moss_block", "mossy_cobblestone"), size=2)
     for (x, z, h) in ((37, 37, 5), (41, 40, 4), (36, 42, 3)):
@@ -479,10 +479,10 @@ def stupa(b, x, y, z, h, rng, mat="calcite"):
         for dz in (-1, 0, 1):
             b.set(x + dx, y, z + dz, B("polished_andesite") if dx or dz else B(mat))
     for k in range(1, h):
-        b.set(x, y + k, z, B(mat) if k < h - 1 else B("quartz_pillar", axis="y"))
+        b.set(x, y + k, z, B(mat) if k < h - 1 else B("calcite"))
     for dx, dz, f in ((1, 0, "west"), (-1, 0, "east"), (0, 1, "north"), (0, -1, "south")):
         b.set(x + dx, y + 1, z + dz, stairs("diorite", f))
-    b.set(x, y + h, z, B("waxed_oxidized_copper_chain", axis="y"))
+    b.set(x, y + h, z, B("waxed_weathered_copper_chain", axis="y"))
     b.set(x, y + h + 1, z, B("waxed_oxidized_lightning_rod", facing="up"))
 
 
@@ -611,8 +611,6 @@ def hall_bell_court():
     b.set(13, 4, 18, B(CL))
     b.set(13, 5, 18, B(CL))
     b.set(13, 6, 18, B(CL))
-    b.sign(13, 5, 17, "dark_oak", ["The bell wakes", "the valley;", "the drum keeps", "the hours."],
-           wall_facing="north")
     b.chest(15, 4, 22, "west", LOOT)
     b.barrel(15, 4, 21, "up")
     stone_lantern(b, 2, 4, 2, "stone_brick")
@@ -637,7 +635,7 @@ def rear_rock_garden():
     b, rng = rear_base(f"{NAME}_rear_rockgarden", 1847621)
     for x in range(2, 18):
         for z in range(3, 12):
-            b.set(x, 3, z, B("gravel") if (z % 2 or x % 5 == 0) else B("light_gray_concrete_powder"))
+            b.set(x, 3, z, B("gravel") if (z % 2 or x % 5 == 0) else B("diorite"))
     for (x, z) in ((5, 6), (10, 9), (14, 5)):
         rock(b, x, 4, z, rng, mats=(ML, "moss_block", LS, "mossy_cobblestone"), size=3)
     # the abbot's study

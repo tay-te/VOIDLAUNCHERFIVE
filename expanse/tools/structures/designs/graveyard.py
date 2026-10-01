@@ -28,10 +28,8 @@ STONE = [("cobblestone", 3), ("mossy_cobblestone", 3), ("stone", 2), ("andesite"
 GROUND = ["grass_block", "grass_block", "podzol", "coarse_dirt"]
 PATH = [("gravel", 3), ("coarse_dirt", 3), ("dirt_path", 2)]
 FLOWERS = ["poppy", "oxeye_daisy", "azure_bluet", "expanse:heather", "lily_of_the_valley"]
-EPITAPHS = [["Here lies", "Old Ysolde", "who kept", "the moor."], ["Bran", "a good dog", "", ""],
-            ["Tobias Hale", "drowned in", "the tarn.", "Rest dry."], ["Mother", "", "We remember", ""],
-            ["Unknown", "found in", "the snow.", ""], ["Aled", "drover", "home at last", ""],
-            ["Here lies", "Grandfather", "he said this", "would happen"]]
+EPITAPHS = [["", "Old Ysolde", "", ""], ["", "Bran", "a good dog", ""], ["", "Tobias Hale", "", ""],
+            ["", "Mother", "", ""], ["", "Unknown", "", ""], ["", "Aled", "drover", ""], ["", "Grandfather", "", ""]]
 
 
 def headstone(b, rng, x, z, kind, epitaph=None):

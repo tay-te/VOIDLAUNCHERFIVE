@@ -1,0 +1,41 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/centre_green",
+        "processors": "expanse:houses_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/centre_well",
+        "processors": "expanse:houses_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_centre_green",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_karst/z_centre_well",
+        "processors": "expanse:zombie_village_karst",
+        "projection": "rigid"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

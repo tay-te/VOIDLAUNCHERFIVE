@@ -1,0 +1,226 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/house_small_1",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/house_small_2",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/house_small_3",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/house_medium",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/house_big",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/temple",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/library",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/farm_small",
+        "processors": "expanse:farm_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/farm_large",
+        "processors": "expanse:farm_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 4
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/pen_animals",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/meeting_point",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_armorer",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_butcher",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_cartographer",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_fisherman",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_fletcher",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_leatherworker",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_mason",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_shepherd",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_toolsmith",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/workshop_weaponsmith",
+        "processors": "expanse:houses_village_steppe",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/market",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:village_steppe/herd_pen",
+        "processors": {
+          "processors": []
+        },
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 10
+    }
+  ],
+  "fallback": "expanse:village_steppe/terminators"
+}

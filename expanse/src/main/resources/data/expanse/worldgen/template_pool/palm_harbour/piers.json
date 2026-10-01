@@ -1,0 +1,38 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:palm_harbour/palm_harbour_pier_long",
+        "processors": "expanse:palm_harbour",
+        "projection": "terrain_matching"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:palm_harbour/palm_harbour_pier_t",
+        "processors": "expanse:palm_harbour",
+        "projection": "terrain_matching"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:palm_harbour/palm_harbour_pier_short",
+        "processors": "expanse:palm_harbour",
+        "projection": "terrain_matching"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

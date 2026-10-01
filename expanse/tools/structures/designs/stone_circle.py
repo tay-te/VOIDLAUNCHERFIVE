@@ -210,7 +210,7 @@ def entrance(b, cx, z_from, z_to, rng, sign_at=None):
     if sign_at:
         sx, sz = sign_at
         b.set(sx, 1, sz, B("spruce_fence"))
-        b.sign(sx, 2, sz, "spruce", ["Here sleep", "the old kings.", "Tread softly,", "bring flowers."],
+        b.sign(sx, 2, sz, "spruce", ["", "Here sleep", "the old kings", ""],
                rotation=0)
 
 

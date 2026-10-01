@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1847299,
+    "separation": 16,
+    "spacing": 46
+  },
+  "structures": [
+    {
+      "structure": "expanse:wisteria_manor",
+      "weight": 1
+    }
+  ]
+}

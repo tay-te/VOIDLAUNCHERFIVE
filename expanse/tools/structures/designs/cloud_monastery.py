@@ -817,9 +817,8 @@ def ground_cemetery():
     b.set(8, 1, 1, B(CH))
     b.set(6, 2, 1, B("lantern"))
     b.set(8, 2, 1, B("lantern"))
-    names = [["Brother", "Anselm", "rang the bell", "for forty years"], ["Sister", "Odile", "kept the", "garden"],
-             ["Brother", "Gregor", "fell asleep", "copying"], ["Here lies", "a novice", "who opened", "the case"],
-             ["Abbot", "Benedikt", "founder", ""], ["", "Unknown", "pilgrim", ""]]
+    names = [["", "Brother", "Anselm", ""], ["", "Sister", "Odile", ""], ["", "Brother", "Gregor", ""],
+             ["", "A novice", "", ""], ["", "Abbot", "Benedikt", ""], ["", "Unknown", "pilgrim", ""]]
     i = 0
     for z in (4, 7, 10):
         for x in (3, 5, 9, 11):

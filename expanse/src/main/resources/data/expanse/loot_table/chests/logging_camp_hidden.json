@@ -1,0 +1,174 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 8,
+              "min": 3
+            }
+          },
+          "name": "minecraft:emerald",
+          "weight": 10
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 4,
+              "min": 1
+            }
+          },
+          "name": "minecraft:gold_ingot",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 6,
+              "min": 2
+            }
+          },
+          "name": "minecraft:iron_ingot",
+          "weight": 8
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 9,
+              "min": 3
+            }
+          },
+          "name": "minecraft:gold_nugget",
+          "weight": 6
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:enchant_randomly",
+            "options": "#minecraft:on_random_loot"
+          },
+          "name": "minecraft:iron_axe",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:compass",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 4,
+              "min": 2
+            }
+          },
+          "name": "expanse:cooked_venison",
+          "weight": 4
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 6,
+        "min": 3
+      }
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:enchant_randomly",
+            "options": "#minecraft:on_random_loot"
+          },
+          "name": "minecraft:book",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": {
+            "type": "minecraft:set_count",
+            "count": {
+              "type": "minecraft:uniform",
+              "max": 2,
+              "min": 1
+            }
+          },
+          "name": "minecraft:diamond",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:golden_apple",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:diamond_axe"
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:name_tag",
+          "weight": 2
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "max": 2,
+        "min": 1
+      }
+    },
+    {
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "modifier": [
+            {
+              "type": "minecraft:set_written_book_pages",
+              "mode": "replace_all",
+              "pages": [
+                "Season's tally: forty-one logs to the pond, nine to the mill, one lost in the flume when young Pell rode it down for a bet. Pell is fine. The log is not.",
+                "We fell only the giants that lean. A standing redwood is worth more to the forest than to us, and the forest keeps a longer ledger than I do.",
+                "Wages go out on the first frost. Until then the payroll sleeps under my floor, under the bearskin, under the eye of a foreman who sleeps very lightly."
+              ]
+            },
+            {
+              "type": "minecraft:set_book_cover",
+              "author": "Foreman Halvard",
+              "generation": 2,
+              "title": "Tally of the Giants"
+            }
+          ],
+          "name": "minecraft:written_book",
+          "weight": 2
+        }
+      ],
+      "rolls": 1
+    }
+  ],
+  "random_sequence": "expanse:chests/logging_camp_hidden"
+}
