@@ -160,9 +160,9 @@ public final class TerrainModel {
 		this.plates.locate(x, z, hit);
 		PlateMap.Plate own = hit.own;
 		PlateTerrain.Raw a = s.a;
-		// Rivers wander a little either side of their course.
-		double mx = x + 5 * this.noise(N_MEANDER_X, x / 70.0, z / 70.0);
-		double mz = z + 5 * this.noise(N_MEANDER_Z, x / 70.0, z / 70.0);
+		// Rivers wander either side of their course: long swings and short wiggles.
+		double mx = x + 9 * this.noise(N_MEANDER_X, x / 110.0, z / 110.0) + 3 * this.noise(N_MEANDER_Z, x / 37.0 + 5, z / 37.0);
+		double mz = z + 9 * this.noise(N_MEANDER_Z, x / 110.0, z / 110.0) + 3 * this.noise(N_MEANDER_X, x / 37.0 - 5, z / 37.0);
 		this.terrain(own).sample(x, z, mx, mz, true, a);
 		float height = a.height;
 		float uplift = a.uplift;
@@ -182,8 +182,12 @@ public final class TerrainModel {
 			base = Mth.lerp(t, base, b.drainBase);
 		}
 
-		// Detail: rugged on mountains, calm on valley floors and the sea bed.
+		// A river is not a canal: it narrows and broadens along its course.
 		boolean river = !Float.isNaN(a.riverWater);
+		if (river) {
+			a.riverHalfWidth *= (float) (0.8 + 0.35 * this.noise(N_BED, x / 160.0 + 40, z / 160.0));
+		}
+		// Detail: rugged on mountains, calm on valley floors and the sea bed.
 		float valley = river ? Mth.clamp((a.riverDist - a.riverHalfWidth) / (12 + a.riverHalfWidth), 0, 1) : 1;
 		float amp = 1.2F + 0.045F * Math.max(0, height - 70) + 2.6F * Mth.smoothstep(Mth.clamp((uplift - 0.6F) / 1.4F, 0, 1));
 		amp *= 0.25F + 0.75F * Mth.smoothstep(valley);

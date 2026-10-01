@@ -35,9 +35,21 @@ below) on seed `8675309`.
 | ![Terrace farm](docs/gallery/structure_terrace_farm.jpg) Rice terraces (small) | ![Bayou shack](docs/gallery/structure_bayou_shack.jpg) Bayou shack (small) |
 | ![Stone circle](docs/gallery/structure_stone_circle.jpg) **Stone circle** on the moor | ![Woodland lodge](docs/gallery/structure_woodland_lodge.jpg) **Woodland lodge** in the wisteria |
 
-![Grand Scale peaks](docs/gallery/grand_scale_peaks.jpg)
+**Earth terrain**
 
-*A Grand Scale summit at y=236, seen from 45 blocks above.*
+![Earth terrain map](docs/gallery/earth_map.jpg)
+
+*24 × 24 km of the Earth terrain (`./gradlew terrainPreview -Pradius=12288 -Pstep=24`): a continent of
+several plates with collision ranges across it, coastal ranges along its western shore, an inland sea,
+open ocean with volcanic island chains, and the river network draining every basin to the sea.*
+
+| | |
+|---|---|
+| ![River](docs/gallery/earth_river_0.jpg) A river through the forest, cut into the hillside | ![River](docs/gallery/earth_river_1.jpg) Past a wisteria grove, with a sandbar |
+| ![River](docs/gallery/earth_river_2.jpg) Across the amber steppe | |
+
+The biome shots above were taken on the previous terrain; the biomes are the same, the land under them
+is now the Earth terrain's.
 
 ![Atlas](docs/gallery/atlas.jpg)
 
