@@ -36,10 +36,15 @@ public class Expanse implements ModInitializer {
 		ExpanseTab.init();
 		dev.voidmc.expanse.world.tree.ExpanseTreePlacers.init();
 		dev.voidmc.expanse.world.feature.ExpanseFeatures.init();
+		dev.voidmc.expanse.world.feature.LittleThings.init();
+		dev.voidmc.expanse.world.feature.Foliage.init();
 		dev.voidmc.expanse.world.SitedJigsawStructure.init();
+		dev.voidmc.expanse.world.terrain.CavernHallPlacement.init();
 		// The Earth terrain: the model's density function, and the generator that pours its rivers.
 		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("terrain"),
 			dev.voidmc.expanse.world.terrain.TerrainFunction.CODEC);
+		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("caverns"),
+			dev.voidmc.expanse.world.terrain.CavernFunction.CODEC);
 		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.CHUNK_GENERATOR, id("earth"),
 			dev.voidmc.expanse.world.terrain.EarthChunkGenerator.CODEC);
 		registerWoodBehaviour();

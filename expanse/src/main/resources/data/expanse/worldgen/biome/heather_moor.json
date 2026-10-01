@@ -187,7 +187,8 @@
       "minecraft:disk_sand",
       "minecraft:disk_clay",
       "minecraft:disk_gravel",
-      "minecraft:ore_emerald"
+      "minecraft:ore_emerald",
+      "expanse:river_clay"
     ],
     [
       "minecraft:ore_infested"
@@ -202,7 +203,11 @@
       "minecraft:patch_grass_meadow",
       "expanse:moor_trees",
       "expanse:heather_patch",
-      "expanse:edelweiss_patch"
+      "expanse:edelweiss_patch",
+      "expanse:moor_bracken",
+      "expanse:moor_scrub",
+      "expanse:river_reeds_temperate",
+      "expanse:river_lily_pads"
     ],
     [
       "minecraft:freeze_top_layer"

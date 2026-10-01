@@ -62,6 +62,7 @@ def expected_be(short):
              "suspicious_sand": "brushable_block", "suspicious_gravel": "brushable_block",
              "decorated_pot": "decorated_pot", "chiseled_bookshelf": "chiseled_bookshelf", "jigsaw": "jigsaw",
              "furnace": "furnace", "smoker": "smoker", "blast_furnace": "blast_furnace"}
+    fixed.update({"bee_nest": "beehive", "beehive": "beehive"})
     if short in fixed:
         return "minecraft:" + fixed[short]
     if short.endswith("_hanging_sign"):
@@ -156,6 +157,8 @@ class Ctx:
 
     def res(self, rid, folder, ext=".json"):
         ns, p = rid.split(":")
+        if ns == "minecraft":                 # vanilla's own (village pools and chests): its extracted data
+            return os.path.join(VDATA, folder, p + ext)
         if ns != "expanse":
             return None
         return os.path.join(self.data, folder, p + ext)
@@ -326,6 +329,17 @@ def check_block_entity(ctx, where, pal_entry, n, pools_seen):
         for sp in n.get("SpawnPotentials", []):
             if sp.get("data", {}).get("entity", {}).get("id") != e:
                 ctx.err(f"{where}: spawn potential differs from SpawnData")
+    if want == "minecraft:beehive":                    # BeehiveBlockEntity.Occupant: {entity_data{id}, ticks}
+        bees = n.get("bees", [])
+        if not isinstance(bees, nbt.List) or len(bees) > 3:
+            ctx.err(f"{where}: bees must be a list of at most 3 (BeehiveBlockEntity.MAX_OCCUPANTS)")
+        for bee in bees:
+            e = bee.get("entity_data", {}).get("id", "")
+            if ctx.entity_ids is not None and e.split(":")[-1] not in ctx.entity_ids:
+                ctx.err(f"{where}: bee entity {e}")
+            for k in ("ticks_in_hive", "min_ticks_in_hive"):
+                if not isinstance(bee.get(k), nbt.Int):
+                    ctx.err(f"{where}: bee {k} must be an int")
     if want == "minecraft:chiseled_bookshelf":
         occ = {i for i in range(6) if props.get(f"slot_{i}_occupied") == "true"}
         slots = {it["Slot"].v for it in n.get("Items", [])}
@@ -403,6 +417,17 @@ def check_entity(ctx, where, e, size):
             check_item_stack(ctx, where, st)
     if short == "cushion" and n.get("color") not in DYES:
         ctx.err(f"{where}: cushion colour")
+    if short in ("villager", "zombie_villager"):     # VillagerData: a VillagerType, a VillagerProfession, level
+        vd = n.get("VillagerData", {})
+        if vd.get("type") not in {f"minecraft:{t}" for t in ("desert", "jungle", "plains", "savanna", "snow",
+                                                               "swamp", "taiga")}:
+            ctx.err(f"{where}: villager type {vd.get('type')}")
+        if vd.get("profession") not in {f"minecraft:{p}" for p in (
+                "none armorer butcher cartographer cleric farmer fisherman fletcher leatherworker librarian mason "
+                "nitwit shepherd toolsmith weaponsmith").split()}:
+            ctx.err(f"{where}: villager profession {vd.get('profession')}")
+        if not isinstance(vd.get("level"), nbt.Int) or not 1 <= vd["level"].v <= 5:
+            ctx.err(f"{where}: villager level")
     if "UUID" in n and not isinstance(n["UUID"], nbt.IntArray):
         ctx.err(f"{where}: UUID must be an int array")
 
@@ -554,7 +579,11 @@ def check_processor_list(ctx, path):
                 state_ok(where + " input", ip["block_state"])
             if "probability" in ip and not 0 < ip["probability"] <= 1:
                 ctx.err(f"{where}: probability")
-            if r.get("location_predicate", {}).get("predicate_type") != "minecraft:always_true":
+            lp = r.get("location_predicate", {})
+            if lp.get("predicate_type") == "minecraft:block_match":   # e.g. a street's path over water
+                if not block_ok(lp.get("block", "x:x")):
+                    ctx.err(f"{where}: location block {lp.get('block')}")
+            elif lp.get("predicate_type") != "minecraft:always_true":
                 ctx.err(f"{where}: location predicate")
             state_ok(where + " output", r["output_state"])
             m = r.get("block_entity_modifier")
@@ -638,6 +667,7 @@ def run(data):
 
     # ---- pools
     pools = {}
+    fallbacks = {}
     for path in sorted(glob.glob(os.path.join(data, "worldgen", "template_pool", "**", "*.json"), recursive=True)):
         pid = "expanse:" + os.path.relpath(path, os.path.join(data, "worldgen", "template_pool"))[:-5].replace(
             os.sep, "/")
@@ -645,8 +675,11 @@ def run(data):
         pool = load_json(ctx, path)
         if not pool:
             continue
-        if pool.get("fallback") != "minecraft:empty":
-            ctx.err(f"{rel}: fallback {pool.get('fallback')}")
+        if pool.get("fallback") != "minecraft:empty":   # a fallback pool (villages: streets -> terminators)
+            fb = ctx.res(pool.get("fallback", "x:x"), "worldgen/template_pool")
+            if not fb or not os.path.exists(fb):
+                ctx.err(f"{rel}: fallback {pool.get('fallback')}")
+            fallbacks[pid] = pool.get("fallback")
         elems = []
         for e in pool.get("elements", []):
             el = e.get("element", {})
@@ -713,6 +746,11 @@ def run(data):
                     ctx.err(f"{loc} jigsaw@{p} (target {n['target']}) cannot attach to {el.name} in {pool}")
 
     # ---- structures
+    vtag = os.path.join(data, "..", "minecraft", "tags", "worldgen", "structure", "village.json")
+    villages = set((load_json(ctx, vtag) or {}).get("values", [])) if os.path.exists(vtag) else set()
+    for v in sorted(villages):                     # our additions to vanilla's #minecraft:village
+        if not os.path.exists(ctx.res(v, "worldgen/structure") or ""):
+            ctx.err(f"tags/worldgen/structure/village.json (minecraft): unknown structure {v}")
     salts = {}
     shared = {}     # structure id -> shared set file (sets listing structures other than their namesake)
     for sp_ in sorted(glob.glob(os.path.join(data, "worldgen", "structure_set", "*.json"))):
@@ -732,7 +770,7 @@ def run(data):
         extra = set(s) - need - {"project_start_to_heightmap", "start_jigsaw_name", "pool_aliases",
                                  "dimension_padding", "liquid_settings"}
         if s.get("type") == "expanse:sited_jigsaw":
-            extra -= {"max_relief", "allow_water", "avoid"}
+            extra -= {"max_relief", "allow_water", "avoid", "in_cavern"}
             for z in s.get("avoid", []):
                 if not 1 <= z.get("radius", 0) <= 256 or not os.path.exists(
                         ctx.res(z.get("other_set", "x:x"), "worldgen/structure_set") or ""):
@@ -759,7 +797,7 @@ def run(data):
             ctx.err(f"{rel}: biome tag missing")
         else:
             for b in t.get("values", []):
-                if b not in MOD_BIOMES:
+                if b not in MOD_BIOMES and b != "#minecraft:is_overworld":
                     ctx.err(f"{os.path.relpath(tag, data)}: unknown biome {b}")
         sp = s.get("start_pool", "x:x")
         if sp not in pools:
@@ -769,7 +807,8 @@ def run(data):
         for loc, info in infos.items():
             if info and loc.startswith(f"expanse:{name}/"):
                 tables.update(info["chests"])
-        for want in (f"expanse:chests/{name}", f"expanse:chests/{name}_hidden"):
+        village = f"expanse:{name}" in villages            # villages keep vanilla's chests, none hidden
+        for want in (f"expanse:chests/{name}",) + (() if village else (f"expanse:chests/{name}_hidden",)):
             if want not in tables:
                 ctx.err(f"{rel}: no container uses {want}")
         # offline assembly over many seeds: the start must place and its pools must be reachable
@@ -778,7 +817,9 @@ def run(data):
             placed = {}
             for seed in range(40):
                 try:
-                    ps, _ = assemble.assemble(pools, sp, s.get("size", 1), seed, s.get("max_distance_from_center", 80))
+                    ps, _ = assemble.assemble(pools, sp, s.get("size", 1), seed, s.get("max_distance_from_center", 80),
+                                              **({"fallbacks": fallbacks, "expansion_hack": True}
+                                                 if s.get("use_expansion_hack") else {}))
                 except Exception as e:  # noqa: BLE001
                     ctx.err(f"{rel}: assembly failed ({e})")
                     break
@@ -817,8 +858,11 @@ def run(data):
         rel_ = os.path.relpath(sp_, data)
         ss_ = load_json(ctx, sp_) or {}
         pl = ss_.get("placement", {})
-        if pl.get("type") != "minecraft:random_spread" or not (0 <= pl.get("separation", -1) < pl.get("spacing", 0)
-                                                                <= 4096):
+        if pl.get("type") == "expanse:cavern_halls":
+            if not isinstance(pl.get("salt"), int) or not 0 < pl.get("frequency", 1) <= 1:
+                ctx.err(f"{rel_}: bad placement {pl}")
+        elif pl.get("type") != "minecraft:random_spread" or not (0 <= pl.get("separation", -1) < pl.get("spacing", 0)
+                                                                  <= 4096):
             ctx.err(f"{rel_}: bad placement {pl}")
         if pl.get("salt") in salts:
             ctx.err(f"{rel_}: salt {pl.get('salt')} reused by {salts[pl.get('salt')]}")
@@ -833,7 +877,8 @@ def run(data):
             if not os.path.exists(ctx.res(x.get("structure", "x:x"), "worldgen/structure") or ""):
                 ctx.err(f"{rel_}: unknown structure {x.get('structure')}")
     for pool in pools_seen:
-        if pool not in pools:
+        if pool not in pools and not (pool.startswith("minecraft:") and
+                                      os.path.exists(ctx.res(pool, "worldgen/template_pool"))):
             ctx.err(f"jigsaw pool {pool} has no file")
 
     # ---- processor lists, loot, structure tags

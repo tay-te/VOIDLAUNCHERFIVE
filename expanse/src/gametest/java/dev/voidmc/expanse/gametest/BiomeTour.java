@@ -78,6 +78,9 @@ public class BiomeTour implements FabricClientGameTest {
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.rivers", "true"))) {
 				this.rivers(context, world);
 			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.caverns", "true"))) {
+				this.caverns(context, world);
+			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.mountains", "true"))) {
 				this.mountains(context, world);
 			}
@@ -423,6 +426,85 @@ public class BiomeTour implements FabricClientGameTest {
 			float pitch = (float) -Math.toDegrees(Math.atan2(to.getY() - from.getY(), Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ())));
 			this.settleShot(context, world, "river_" + i++, from, yawToward(from, to), pitch, SETTLE_MS);
 		}
+	}
+
+	/**
+	 * The underground near spawn, with night vision since nothing lights it but what grows there: the two
+	 * biggest halls seen from halfway up, and two great tunnels (one with a river) seen along their length.
+	 */
+	private void caverns(ClientGameTestContext context, TestSingleplayerContext world) {
+		List<int[]> shots = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			if (!(level.getChunkSource().getGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth)) {
+				return List.<int[]>of();
+			}
+			var caverns = earth.model(level.getChunkSource().randomState()).caverns();
+			List<int[]> halls = new java.util.ArrayList<>();
+			int[] river = null;
+			int[] tunnel = null;
+			for (int x = -1500; x <= 1500; x += 12) {
+				for (int z = -1500; z <= 1500; z += 12) {
+					var c = caverns.info(x, z);
+					if (c.hall && c.hallEdge > 25 && !c.riverFalls) {
+						halls.add(new int[]{x, z, (int) c.floor, (int) c.roof});
+					}
+					if (river == null && c.inChannel() && c.riverDist < 2 && !c.hall && c.tunnelRoof - c.riverWater > 20) {
+						river = new int[]{x, z, c.waterTop() + 4};
+					}
+					if (tunnel == null && c.tunnel && c.tunnelDist < 2 && !c.hall && !c.river && c.tunnelHeight > 26) {
+						tunnel = new int[]{x, z, (int) c.tunnelFloor + 5};
+					}
+				}
+			}
+			halls.sort((a, b) -> Integer.compare(b[3] - b[2], a[3] - a[2]));
+			List<int[]> picked = new java.util.ArrayList<>();
+			for (int[] h : halls) {
+				if (picked.stream().allMatch(p -> Math.hypot(p[0] - h[0], p[2] - h[1]) > 300)) {
+					int eye = h[2] + Math.max(6, (h[3] - h[2]) / 2);
+					picked.add(new int[]{h[0], eye, h[1], h[0] + 60, h[2] + 4, h[1] + 40});
+					if (picked.size() == 2) {
+						break;
+					}
+				}
+			}
+			for (int[] t : new int[][]{river, tunnel}) {
+				if (t == null) {
+					continue;
+				}
+				boolean wet = t == river;
+				// look along the tunnel: the direction in which its centre line carries on
+				double bestAngle = 0;
+				float bestDist = Float.MAX_VALUE;
+				for (int a = 0; a < 24; a++) {
+					double ang = a * Math.PI / 12;
+					var c = caverns.info(t[0] + (int) (Math.cos(ang) * 36), t[1] + (int) (Math.sin(ang) * 36));
+					float dist = wet ? c.riverDist : c.tunnelDist;
+					if (dist < bestDist) {
+						bestDist = dist;
+						bestAngle = ang;
+					}
+				}
+				picked.add(new int[]{t[0], t[2], t[1], t[0] + (int) (Math.cos(bestAngle) * 60), t[2] - 3, t[1] + (int) (Math.sin(bestAngle) * 60)});
+			}
+			for (int[] p : picked) {
+				for (int cx = -4; cx <= 4; cx++) {
+					for (int cz = -4; cz <= 4; cz++) {
+						level.getChunk((p[0] >> 4) + cx, (p[2] >> 4) + cz);
+					}
+				}
+			}
+			return picked;
+		});
+		world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+		int i = 0;
+		for (int[] s : shots) {
+			System.out.println("[tour] cavern at " + s[0] + ", " + s[1] + ", " + s[2] + " looking at " + s[3] + ", " + s[4] + ", " + s[5]);
+			BlockPos from = new BlockPos(s[0], s[1], s[2]);
+			BlockPos to = new BlockPos(s[3], s[4], s[5]);
+			float pitch = (float) -Math.toDegrees(Math.atan2(to.getY() - from.getY(), Math.max(1, Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ()))));
+			this.settleShot(context, world, "cavern_" + i++, from, yawToward(from, to), pitch, SETTLE_MS);
+		}
+		world.getServer().runCommand("effect clear @a minecraft:night_vision");
 	}
 
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {

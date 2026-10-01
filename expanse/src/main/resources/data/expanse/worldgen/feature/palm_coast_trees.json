@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:palm",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.06,
+      "feature": {
+        "feature": "expanse:fallen_palm",
+        "placement": []
+      }
+    }
+  ]
+}

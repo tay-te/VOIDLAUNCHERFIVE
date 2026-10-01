@@ -151,7 +151,8 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -166,7 +167,10 @@
       "minecraft:patch_pumpkin",
       "minecraft:patch_sugar_cane",
       "minecraft:patch_firefly_bush_near_water",
-      "expanse:palm_trees"
+      "expanse:palm_trees",
+      "expanse:coast_dune_grass",
+      "expanse:river_reeds_arid",
+      "expanse:river_seagrass"
     ],
     [
       "minecraft:freeze_top_layer"

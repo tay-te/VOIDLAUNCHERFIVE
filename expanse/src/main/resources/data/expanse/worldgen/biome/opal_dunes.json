@@ -172,7 +172,8 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -188,7 +189,9 @@
       "minecraft:red_mushroom_normal",
       "minecraft:patch_sugar_cane_desert",
       "minecraft:patch_pumpkin",
-      "minecraft:patch_cactus_desert"
+      "minecraft:patch_cactus_desert",
+      "expanse:river_reeds_arid",
+      "expanse:river_seagrass"
     ],
     [
       "minecraft:freeze_top_layer"

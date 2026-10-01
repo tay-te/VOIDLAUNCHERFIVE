@@ -27,6 +27,64 @@ public final class TerrainPreview {
 		int cx = args.length > 4 ? Integer.parseInt(args[4]) : 0;
 		int cz = args.length > 5 ? Integer.parseInt(args[5]) : 0;
 		TerrainModel model = TerrainModel.forSeed(TerrainModel.seedFor(seed));
+		String slice = System.getProperty("expanse.preview.slice", "");
+		if (!slice.isEmpty()) {
+			// a horizontal cut through the caverns at one height: rock grey, open space dark, river water blue
+			boolean plan = slice.equals("plan");
+			int y = plan ? 0 : Integer.parseInt(slice);
+			int cx0 = args.length > 4 ? Integer.parseInt(args[4]) : 0;
+			int cz0 = args.length > 5 ? Integer.parseInt(args[5]) : 0;
+			int size = 2 * radius / step;
+			BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
+			var caverns = model.caverns();
+			int[] open = new int[1];
+			IntStream.range(0, size).parallel().forEach(j -> {
+				for (int i = 0; i < size; i++) {
+					int x = cx0 - radius + i * step;
+					int z = cz0 - radius + j * step;
+					var info = caverns.info(x, z);
+					if (plan) {
+						// every hall's footprint (shaded by roof height) and every river, from above
+						boolean hall = info.hall && info.hallEdge > 0;
+						int rgb = 0x8A8A8A;
+						if (hall) {
+							int shade = Math.max(20, Math.min(120, (int) (info.roof - info.floor) * 2));
+							rgb = shade << 16 | (shade * 3 / 4) << 8 | shade / 2;
+							synchronized (open) {
+								open[0]++;
+							}
+						}
+						if (info.tunnel) {
+							rgb = 0x5A4632;
+						}
+						if (info.river && info.riverDist < info.riverHalfWidth + 4) {
+							rgb = 0x6E5A44;
+						}
+						if (info.river && info.riverDist < info.riverHalfWidth) {
+							rgb = info.riverFalls ? 0xFF3030 : 0x2F7FFF;
+						}
+						img.setRGB(i, j, rgb);
+						continue;
+					}
+					float inside = caverns.inside(x, y, z);
+					int rgb;
+					if (inside > 0 && info.inChannel() && y < info.waterTop() && y >= info.bed()) {
+						rgb = 0x2F7FFF;
+					} else if (inside > 0) {
+						rgb = info.hall ? 0x241C14 : 0x3A2E22;
+						synchronized (open) {
+							open[0]++;
+						}
+					} else {
+						rgb = 0x8A8A8A;
+					}
+					img.setRGB(i, j, rgb);
+				}
+			});
+			ImageIO.write(img, "png", out);
+			System.out.printf("cavern slice at y=%d: %.1f%% open -> %s%n", y, 100.0 * open[0] / (size * size), out);
+			return;
+		}
 		if (Boolean.getBoolean("expanse.preview.bench")) {
 			// one plate at a time, far apart: what a stronghold or biome search costs per plate
 			long all = System.nanoTime();

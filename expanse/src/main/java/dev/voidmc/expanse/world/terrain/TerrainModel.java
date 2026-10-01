@@ -52,6 +52,7 @@ public final class TerrainModel {
 	private final ConcurrentHashMap<Long, Entry> terrains = new ConcurrentHashMap<>();
 	private final AtomicLong clock = new AtomicLong();
 	private final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
+	private final CavernModel caverns;
 
 	private static final class Entry {
 		final CompletableFuture<PlateTerrain> terrain = new CompletableFuture<>();
@@ -79,6 +80,12 @@ public final class TerrainModel {
 		for (int i = 0; i < NOISES; i++) {
 			this.noises[i] = new SimplexNoise(random);
 		}
+		this.caverns = new CavernModel(this, seed);
+	}
+
+	/** The halls and underground rivers beneath this terrain. */
+	public CavernModel caverns() {
+		return this.caverns;
 	}
 
 	public static TerrainModel forSeed(long seed) {
@@ -261,6 +268,11 @@ public final class TerrainModel {
 			return Mth.lerp((-coast - 400) / 1100, -0.40F, -0.85F);
 		}
 		return -0.9F;
+	}
+
+	/** Whether the river's first ring of bank at (x, z) lies level with the water: about half of it, in stretches. */
+	public boolean levelShore(int x, int z) {
+		return this.noise(N_BED, x / 45.0 + 300, z / 45.0) > -0.1;
 	}
 
 	/** A riverbed block for (x, z): gravel mostly, with sand bars and clay in patches. */

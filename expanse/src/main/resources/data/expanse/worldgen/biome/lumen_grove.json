@@ -174,7 +174,8 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -192,7 +193,13 @@
       "expanse:lumen_trees",
       "expanse:lumen_floor",
       "expanse:lumen_moss",
-      "expanse:glowcap_patch"
+      "expanse:glowcap_patch",
+      "expanse:forest_floor_litter",
+      "expanse:forest_mushrooms",
+      "expanse:river_reeds_temperate",
+      "expanse:river_lily_pads",
+      "expanse:river_wet_bank",
+      "expanse:river_seagrass"
     ],
     [
       "minecraft:freeze_top_layer"

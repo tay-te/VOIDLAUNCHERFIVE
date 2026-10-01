@@ -1,0 +1,50 @@
+{
+  "type": "minecraft:weighted_random_selector",
+  "features": [
+    {
+      "data": {
+        "feature": "minecraft:sugar_cane",
+        "placement": [
+          {
+            "type": "minecraft:block_predicate_filter",
+            "predicate": {
+              "type": "minecraft:would_survive",
+              "state": "minecraft:sugar_cane"
+            }
+          }
+        ]
+      },
+      "weight": 6
+    },
+    {
+      "data": {
+        "feature": {
+          "type": "minecraft:simple_block",
+          "to_place": {
+            "id": "minecraft:tall_grass",
+            "properties": {
+              "half": "lower"
+            }
+          }
+        },
+        "placement": []
+      },
+      "weight": 3
+    },
+    {
+      "data": {
+        "feature": {
+          "type": "minecraft:simple_block",
+          "to_place": {
+            "id": "expanse:cattail",
+            "properties": {
+              "half": "lower"
+            }
+          }
+        },
+        "placement": []
+      },
+      "weight": 2
+    }
+  ]
+}

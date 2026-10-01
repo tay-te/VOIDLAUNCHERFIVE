@@ -104,6 +104,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 		return this.noise.buildTerrain(chunk, blender, randomState, structureManager, biomeManager, carverBiomeRegion, possibleBiomes)
 			.thenApply(built -> {
 				this.pourRivers(built, m);
+				this.pourUndergroundRivers(built, m.caverns());
 				return built;
 			});
 	}
@@ -124,6 +125,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				int top = c.waterTop();
 				boolean channel = c.inChannel();
 				int bed = c.bed();
+				boolean level = m.levelShore(x, z);
 				changed = true;
 				if (channel) {
 					// clear the valley floor above the water, then fill the channel
@@ -151,12 +153,84 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 							chunk.setBlockState(p, BANK);
 						}
 					}
+					// In places the first ring of bank sits level with the water instead of a block above it:
+					// a shore where reeds and sugar cane can grow. It still holds the water, which can only
+					// spread sideways into air at its own level.
+					boolean shore = level && c.riverDist < c.riverHalfWidth + 1.2F;
+					BlockState lip = chunk.getBlockState(p.set(x, top, z));
+					if (shore && !lip.isAir() && lip.getFluidState().isEmpty() && chunk.getBlockState(p.set(x, top + 1, z)).isAir()) {
+						chunk.setBlockState(p.set(x, top - 1, z), lip);
+						chunk.setBlockState(p.set(x, top, z), AIR);
+					}
 				}
 			}
 		}
 		if (changed) {
 			Heightmap.primeHeightmaps(chunk, EnumSet.of(Heightmap.Types.OCEAN_FLOOR_WG, Heightmap.Types.WORLD_SURFACE_WG));
 		}
+	}
+
+	/**
+	 * The rivers of the caverns: the same treatment as on the surface, in their tunnels. A column is only
+	 * touched where its tunnel is really open (air just above the water), so a river never fills solid rock.
+	 */
+	private void pourUndergroundRivers(ChunkAccess chunk, CavernModel caverns) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				CavernModel.Info c = caverns.info(x, z);
+				if (!c.river || c.riverFalls || c.riverDist >= c.riverHalfWidth + 2) {
+					continue;
+				}
+				int top = c.waterTop();
+				int bed = c.bed();
+				boolean channel = c.inChannel();
+				if (!chunk.getBlockState(p.set(x, top + 1, z)).isAir() && !chunk.getBlockState(p.set(x, top + 2, z)).isAir()) {
+					continue;
+				}
+				if (channel) {
+					for (int y = top; y <= top + 1; y++) {
+						BlockState s = chunk.getBlockState(p.set(x, y, z));
+						if (!s.isAir() && s.getFluidState().isEmpty()) {
+							chunk.setBlockState(p, AIR);
+						}
+					}
+					for (int y = top - 1; y >= bed && y > minY; y--) {
+						chunk.setBlockState(p.set(x, y, z), WATER);
+					}
+					BlockState under = chunk.getBlockState(p.set(x, bed - 1, z));
+					if (under.isAir() || !under.getFluidState().isEmpty()) {
+						chunk.setBlockState(p, BED[0]);
+					}
+					// where it steps down a level or pours out into a hall, let it run
+					if (this.fallsAway(caverns, x, z, top)) {
+						chunk.markPosForPostProcessing(p.set(x, top - 1, z));
+					}
+				} else {
+					for (int y = top; y >= top - 3 && y > minY; y--) {
+						BlockState s = chunk.getBlockState(p.set(x, y, z));
+						if (s.isAir() || !s.getFluidState().isEmpty()) {
+							chunk.setBlockState(p, Blocks.STONE.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private boolean fallsAway(CavernModel caverns, int x, int z, int top) {
+		int[][] around = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+		for (int[] o : around) {
+			CavernModel.Info n = caverns.info(x + o[0], z + o[1]);
+			if (n.river && (n.riverFalls || n.inChannel() && n.waterTop() < top)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private boolean stepsDown(TerrainModel m, int x, int z, int top) {
@@ -168,6 +242,14 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			}
 		}
 		return false;
+	}
+
+	@Override
+	public void applyBiomeDecoration(net.minecraft.world.level.WorldGenLevel level, ChunkAccess chunk, StructureManager structureManager) {
+		super.applyBiomeDecoration(level, chunk, structureManager);
+		if (level instanceof WorldGenRegion region) {
+			CavernLife.decorate(level, chunk, this.model(region.getLevel().getChunkSource().randomState()).caverns());
+		}
 	}
 
 	@Override

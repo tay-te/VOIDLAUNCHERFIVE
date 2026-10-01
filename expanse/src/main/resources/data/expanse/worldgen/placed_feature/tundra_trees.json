@@ -1,5 +1,5 @@
 {
-  "feature": "minecraft:spruce",
+  "feature": "expanse:tundra_spruce",
   "placement": [
     {
       "type": "minecraft:rarity_filter",

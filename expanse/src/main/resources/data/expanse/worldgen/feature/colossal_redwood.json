@@ -1,7 +1,12 @@
 {
   "type": "minecraft:tree",
   "below_trunk_provider": "minecraft:soil_beneath_tree",
-  "decorators": [],
+  "decorators": [
+    {
+      "type": "minecraft:shelf_mushroom",
+      "probability": 0.3
+    }
+  ],
   "foliage_placer": {
     "type": "expanse:clump_foliage_placer",
     "radius": 3,

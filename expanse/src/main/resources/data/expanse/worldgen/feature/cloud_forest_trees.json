@@ -18,6 +18,13 @@
         "feature": "expanse:lumen",
         "placement": []
       }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "minecraft:fallen_jungle_tree",
+        "placement": []
+      }
     }
   ]
 }

@@ -205,7 +205,8 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -225,7 +226,13 @@
       "minecraft:patch_sugar_cane",
       "minecraft:patch_firefly_bush_near_water",
       "minecraft:patch_berry_common",
-      "expanse:redwood_forest"
+      "expanse:redwood_forest",
+      "expanse:redwood_undergrowth",
+      "expanse:forest_floor_litter",
+      "expanse:river_reeds_temperate",
+      "expanse:river_lily_pads",
+      "expanse:river_wet_bank",
+      "expanse:river_seagrass"
     ],
     [
       "minecraft:freeze_top_layer"

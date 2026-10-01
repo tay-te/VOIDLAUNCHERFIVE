@@ -206,6 +206,9 @@ for _ox in ["", "exposed_", "weathered_", "oxidized_"]:
                       f"{_wx}{_ox}chiseled_copper"})
 # ores and stones used by the small structures (mine faces, carvings)
 PLAIN.update({"iron_ore", "coal_ore", "copper_ore", "polished_diorite", "polished_granite"})
+# used by the little things (gen_micro.py): cocoa on a jungle stump, badland rocks (CocoaBlock)
+EXPLICIT["minecraft:cocoa"] = {"age": _p(_ints(0, 2), "0"), "facing": _p(H4, "north")}
+PLAIN.update({"red_sandstone"})
 
 _NOT_WALL = re.compile(r"_(wall_banner|wall_torch|wall_sign|wall_hanging_sign|wall_skull|wall_head|wall_fan)$")
 PILLARS = {"minecraft:quartz_pillar", "minecraft:bone_block", "minecraft:hay_block", "minecraft:basalt",

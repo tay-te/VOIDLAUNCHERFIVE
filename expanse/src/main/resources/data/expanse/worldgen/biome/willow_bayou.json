@@ -207,7 +207,8 @@
       "minecraft:ore_lapis_buried",
       "minecraft:ore_copper",
       "minecraft:underwater_magma",
-      "minecraft:disk_clay"
+      "minecraft:disk_clay",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -231,7 +232,9 @@
       "expanse:willow_trees",
       "expanse:cattails",
       "expanse:bayou_lily_pads",
-      "expanse:bayou_fireflies"
+      "expanse:bayou_fireflies",
+      "expanse:bayou_undergrowth",
+      "expanse:river_wet_bank"
     ],
     [
       "minecraft:freeze_top_layer"

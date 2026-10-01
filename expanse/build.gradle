@@ -67,7 +67,7 @@ tasks.register('terrainPreview', JavaExec) {
 	classpath = sourceSets.gametest.runtimeClasspath
 	mainClass = 'dev.voidmc.expanse.gametest.TerrainPreview'
 	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}",
-		"-Dexpanse.preview.bench=${project.findProperty('bench') ?: 'false'}", "-Dexpanse.terrain.profile=true"
+		"-Dexpanse.preview.bench=${project.findProperty('bench') ?: 'false'}", "-Dexpanse.preview.slice=${project.findProperty('slice') ?: ''}", "-Dexpanse.terrain.profile=true"
 	args = [
 		project.findProperty('seed') ?: '8675309',
 		project.findProperty('radius') ?: '8192',

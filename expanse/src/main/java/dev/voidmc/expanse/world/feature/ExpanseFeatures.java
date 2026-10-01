@@ -15,6 +15,7 @@ public final class ExpanseFeatures {
 		register("natural_arch", NaturalArchFeature.CODEC);
 		register("crystal_outcrop", CrystalOutcropFeature.CODEC);
 		register("dunes", DuneFeature.CODEC);
+		register("template", SurfaceTemplateFeature.CODEC);
 		Registry.register(BuiltInRegistries.PLACEMENT_MODIFIER_TYPE, Expanse.id("clear_of_structures"), ClearOfStructuresFilter.CODEC);
 	}
 

@@ -26,6 +26,10 @@
         "up"
       ],
       "probability": 0.2
+    },
+    {
+      "type": "minecraft:shelf_mushroom",
+      "probability": 0.6
     }
   ],
   "log_length": {

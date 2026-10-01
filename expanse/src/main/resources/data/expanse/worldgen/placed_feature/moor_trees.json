@@ -1,5 +1,5 @@
 {
-  "feature": "minecraft:birch",
+  "feature": "expanse:moor_birch",
   "placement": [
     {
       "type": "minecraft:rarity_filter",

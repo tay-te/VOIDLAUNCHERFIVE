@@ -1,0 +1,40 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:substrate_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:calcite",
+          "minecraft:snow_block"
+        ]
+      }
+    ]
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/karst",
+  "templates": [
+    {
+      "data": "expanse:micro/limestone_rocks",
+      "weight": 5
+    },
+    {
+      "data": "expanse:micro/stump_jungle",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/spring_ring",
+      "weight": 1
+    }
+  ]
+}

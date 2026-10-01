@@ -1,0 +1,35 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/temperate",
+  "templates": [
+    {
+      "data": "expanse:micro/stump_oak",
+      "weight": 5
+    },
+    {
+      "data": "expanse:micro/mossy_rocks",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/mossy_rocks_low",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mushroom_ring",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/log_oak",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/snag_beehive",
+      "weight": 1
+    }
+  ]
+}

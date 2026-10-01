@@ -20,7 +20,7 @@
       }
     },
     {
-      "chance": 0.05,
+      "chance": 0.06,
       "feature": {
         "feature": "expanse:fallen_redwood",
         "placement": []

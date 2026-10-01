@@ -59,7 +59,8 @@ public final class SitedJigsawStructure extends Structure {
 		JigsawStructure.CODEC.forGetter(s -> s.jigsaw),
 		Codec.intRange(1, 128).optionalFieldOf("max_relief", 12).forGetter(s -> s.maxRelief),
 		Codec.BOOL.optionalFieldOf("allow_water", false).forGetter(s -> s.allowWater),
-		Avoid.CODEC.listOf().optionalFieldOf("avoid", List.of()).forGetter(s -> s.avoid)
+		Avoid.CODEC.listOf().optionalFieldOf("avoid", List.of()).forGetter(s -> s.avoid),
+		Codec.BOOL.optionalFieldOf("in_cavern", false).forGetter(s -> s.inCavern)
 	).apply(i, SitedJigsawStructure::new));
 	public static final StructureType<SitedJigsawStructure> TYPE = () -> CODEC;
 	/** How far from the start point to look: the footprint of a small structure. */
@@ -71,13 +72,15 @@ public final class SitedJigsawStructure extends Structure {
 	private final int maxRelief;
 	private final boolean allowWater;
 	private final List<Avoid> avoid;
+	private final boolean inCavern;
 
-	private SitedJigsawStructure(JigsawStructure jigsaw, int maxRelief, boolean allowWater, List<Avoid> avoid) {
+	private SitedJigsawStructure(JigsawStructure jigsaw, int maxRelief, boolean allowWater, List<Avoid> avoid, boolean inCavern) {
 		super(new StructureSettings(jigsaw.biomes(), jigsaw.spawnOverrides(), jigsaw.step(), jigsaw.terrainAdaptation()));
 		this.jigsaw = jigsaw;
 		this.maxRelief = maxRelief;
 		this.allowWater = allowWater;
 		this.avoid = List.copyOf(avoid);
+		this.inCavern = inCavern;
 	}
 
 	public static void init() {
@@ -86,11 +89,39 @@ public final class SitedJigsawStructure extends Structure {
 
 	@Override
 	protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
+		if (this.inCavern) {
+			return this.inHall(context);
+		}
 		return this.jigsaw.findGenerationPoint(context).filter(stub -> {
 			int x = stub.position().getX();
 			int z = stub.position().getZ();
 			return this.goodGround(context, x, z) && this.clearOfOthers(context, x, z);
 		});
+	}
+
+	/**
+	 * With {@code in_cavern}: built on the floor of the cavern hall whose centre lies in this chunk
+	 * ({@link dev.voidmc.expanse.world.terrain.CavernModel}), the jigsaw assembled from there; nothing
+	 * where there is no hall, or no room under its roof. Placed by {@code expanse:cavern_halls}, which
+	 * picks exactly those chunks.
+	 */
+	private Optional<GenerationStub> inHall(GenerationContext context) {
+		if (!(context.chunkGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth)) {
+			return Optional.empty();
+		}
+		var caverns = earth.model(context.randomState()).caverns();
+		var chunk = context.chunkPos();
+		var hall = caverns.hallNear(chunk.getMiddleBlockX(), chunk.getMiddleBlockZ(), 24, 24);
+		if (hall == null) {
+			return Optional.empty();
+		}
+		var centre = caverns.info(hall.x(), hall.z());
+		net.minecraft.core.BlockPos start = new net.minecraft.core.BlockPos(hall.x(), Math.round(centre.floor), hall.z());
+		var j = (dev.voidmc.expanse.mixin.JigsawStructureAccessor) (Object) this.jigsaw;
+		return net.minecraft.world.level.levelgen.structure.pools.JigsawPlacement.addPieces(context, j.expanse$startPool(), j.expanse$startJigsawName(),
+			j.expanse$maxDepth(), start, j.expanse$useExpansionHack(), Optional.empty(), j.expanse$maxDistanceFromCenter(),
+			net.minecraft.world.level.levelgen.structure.pools.alias.PoolAliasLookup.create(j.expanse$poolAliases(), start, context.seed()),
+			j.expanse$dimensionPadding(), j.expanse$liquidSettings());
 	}
 
 	private boolean goodGround(GenerationContext context, int x, int z) {

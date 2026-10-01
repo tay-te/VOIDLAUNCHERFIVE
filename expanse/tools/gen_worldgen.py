@@ -13,6 +13,11 @@ features in opposite orders):
   * every feature we add is one of OUR placed features — even when it wraps a vanilla configured
     feature — so vanilla's orderings never constrain ours;
   * ours are always appended after the analog's, in one global order (FEATURE_ORDER below).
+
+It also writes the ground cover the mod adds to VANILLA biomes (placed_feature/vanilla/, added by
+world/feature/Foliage.java). Those are separate placed features from the ones the Expanse biomes list,
+even where they place the same thing, so no addition made to both kinds of biome by Fabric can ever
+be ordered both ways round against them.
 """
 import argparse
 import copy
@@ -33,6 +38,8 @@ DEFAULT_JAR = os.path.expanduser('~/.gradle/caches/fabric-loom/26.3/minecraft-cl
 WITH_MOBS = True
 
 written = []
+# Subfolders of our worldgen data that other generators own; the clean-up at the start of a run skips them.
+FOREIGN_DIRS = {'micro'}
 
 
 def write(path, obj):
@@ -155,6 +162,91 @@ def placed(name, feat, placement, step):
     return name
 
 
+def vanilla_placed(name, feat, placement, step):
+    """A placed feature for vanilla biomes only (Foliage.java adds it); never listed by an Expanse biome."""
+    PLACED[f'vanilla/{name}'] = ({'feature': feat, 'placement': placement}, step)
+    return name
+
+
+def both(name, feat, placement, step):
+    """The same placement twice over: `name` for the Expanse biomes, `vanilla/name` for vanilla's."""
+    vanilla_placed(name, feat, copy.deepcopy(placement), step)
+    return placed(name, feat, placement, step)
+
+
+# ---- ground cover
+#
+# Undergrowth is anchored on MOTION_BLOCKING_NO_LEAVES, the ground under the canopy rather than the top
+# of it, and kept to bare soil (grass, dirt, podzol, moss, mud): leaf litter and moss carpet would
+# otherwise settle on anything with a flat top, roofs included. Whether the plant itself can live
+# there is the simple_block feature's own check.
+GROUND = 'MOTION_BLOCKING_NO_LEAVES'
+ON_SOIL = {'type': 'minecraft:matching_block_tag', 'tag': 'minecraft:substrate_overworld', 'offset': [0, -1, 0]}
+COUNT_LIKE = {'minecraft:count', 'minecraft:rarity_filter', 'minecraft:noise_threshold_count', 'minecraft:random_chance'}
+
+
+def frequency_modifiers(frequency):
+    """Patches per chunk: an int or int provider, a ready-made count/rarity/noise modifier, or a list of them."""
+    if isinstance(frequency, list):
+        return list(frequency)
+    if isinstance(frequency, dict) and frequency.get('type') in COUNT_LIKE:
+        return [frequency]
+    return [count(frequency)]
+
+
+def drifts(threshold, below, above):
+    """Patch count by vanilla's flower noise, which changes over a few hundred blocks: drifts, not a carpet."""
+    return {'type': 'minecraft:noise_threshold_count', 'noise_level': threshold, 'below_noise': below, 'above_noise': above}
+
+
+def cover(frequency, tries, xz=7, y=3, on=ON_SOIL, margin=None):
+    """Ground-cover patches. `margin` keeps a patch's anchor that far from buildings (for bushes and berries
+    that would otherwise sprout in a village street); low cover, like vanilla's, grows up to their walls."""
+    p = frequency_modifiers(frequency) + [IN_SQUARE, heightmap(GROUND), BIOME]
+    if margin is not None:
+        p.append(clear(margin))
+    p += scatter(tries, xz, y)
+    p.append(predicate(all_of(AIR, on) if on else AIR))
+    return p
+
+
+# ---- the water's edge
+#
+# Rivers are real water at their own level, so "beside water" is tested directly, never by biome. The
+# ground a bank plant stands on has water beside it either level with it or a block lower, since a
+# river runs a block below its banks.
+WATER_FLUIDS = ['minecraft:water', 'minecraft:flowing_water']
+ADJACENT = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+NEARBY = ADJACENT + [(2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+WATER_BLOCK = {'type': 'minecraft:matching_blocks', 'blocks': 'minecraft:water'}
+# Above the sea: the sea's surface (y 62) stays clear of lily pads, rivers and lakes above it do not.
+ABOVE_SEA = {'type': 'minecraft:height_range', 'min_inclusive': {'absolute': 64}, 'max_inclusive': {'below_top': 0}}
+
+
+def any_of(*ps):
+    return {'type': 'minecraft:any_of', 'predicates': list(ps)}
+
+
+def fluid_at(dx, dy, dz):
+    return {'type': 'minecraft:matching_fluids', 'fluids': WATER_FLUIDS, 'offset': [dx, dy, dz]}
+
+
+def water_beside(ring):
+    """The ground under this cell has water beside it (within `ring`), level with it or a block lower."""
+    return any_of(*[fluid_at(dx, dy, dz) for dy in (-1, -2) for dx, dz in ring])
+
+
+def shore_beside(ring):
+    """This cell is on the water and land is within `ring`: the calm margin of a river or lake."""
+    return any_of(*[{'type': 'minecraft:solid', 'offset': [dx, -1, dz]} for dx, dz in ring])
+
+
+def bank_anchors(n):
+    """`n` anchors anywhere in the chunk, kept only on or beside water. In a chunk with no river or lake
+    in it, this is where the feature stops: a couple of dozen fluid lookups per anchor, nothing more."""
+    return [count(n), IN_SQUARE, heightmap(GROUND), BIOME, predicate(water_beside(NEARBY + [(0, 0)]))]
+
+
 # ======================================================================== trees
 
 LEAVES = lambda b: state(b, distance=7, persistent=False, waterlogged=False)
@@ -186,9 +278,13 @@ def redwood_trunk(base, ra, rb, width, crown, branch):
 
 CLUMP = lambda r, h, holes=0.25: {'type': e('clump_foliage_placer'), 'radius': r, 'offset': 0, 'height': h, 'edge_hole_chance': holes}
 
-tree('redwood', 'redwood_log', redwood_trunk(14, 6, 4, 1, 0.42, 2), 'redwood_leaves', CLUMP(2, 1))
-tree('giant_redwood', 'redwood_log', redwood_trunk(24, 10, 8, 2, 0.48, 3), 'redwood_leaves', CLUMP(2, 1), TWO_LAYERS_MEGA)
-tree('colossal_redwood', 'redwood_log', redwood_trunk(32, 16, 14, 3, 0.52, 4), 'redwood_leaves', CLUMP(3, 1, 0.3), TWO_LAYERS_MEGA)
+# Bracket fungus low on the old trunks, as vanilla 26.3's poplars have it.
+SHELF_MUSHROOMS = lambda p: {'type': 'minecraft:shelf_mushroom', 'probability': p}
+tree('redwood', 'redwood_log', redwood_trunk(14, 6, 4, 1, 0.42, 2), 'redwood_leaves', CLUMP(2, 1), decorators=[SHELF_MUSHROOMS(0.2)])
+tree('giant_redwood', 'redwood_log', redwood_trunk(24, 10, 8, 2, 0.48, 3), 'redwood_leaves', CLUMP(2, 1), TWO_LAYERS_MEGA,
+     decorators=[SHELF_MUSHROOMS(0.3)])
+tree('colossal_redwood', 'redwood_log', redwood_trunk(32, 16, 14, 3, 0.52, 4), 'redwood_leaves', CLUMP(3, 1, 0.3), TWO_LAYERS_MEGA,
+     decorators=[SHELF_MUSHROOMS(0.3)])
 
 SPANISH_MOSS = state('spanish_moss', tip=True)
 
@@ -230,13 +326,27 @@ def mossy_copy(vanilla_name, ours, jar):
     return feature(ours, obj)
 
 
-def fallen(name, log, length):
+LOG_TOPPING = {'type': 'minecraft:attached_to_logs', 'block_provider': weighted_states(
+    ('minecraft:red_mushroom', 1), ('minecraft:brown_mushroom', 2), (state('minecraft:moss_carpet'), 3)),
+    'directions': ['up'], 'probability': 0.2}
+STUMP_VINES = {'type': 'minecraft:trunk_vine'}
+
+
+def fallen(name, log, length, log_decorators=(LOG_TOPPING,), stump_decorators=(STUMP_VINES,)):
+    """A vanilla-style fallen tree: a stump, and a log lying a couple of blocks off, mossy and mushroomed."""
     return feature(name, {
-        'type': 'minecraft:fallen_tree',
-        'log_decorators': [{'type': 'minecraft:attached_to_logs', 'block_provider': weighted_states(
-            ('minecraft:red_mushroom', 1), ('minecraft:brown_mushroom', 2), (state('minecraft:moss_carpet'), 3)),
-            'directions': ['up'], 'probability': 0.2}],
-        'log_length': length, 'stump_decorators': [{'type': 'minecraft:trunk_vine'}], 'trunk_provider': LOG(log)})
+        'type': 'minecraft:fallen_tree', 'log_decorators': list(log_decorators),
+        'log_length': length, 'stump_decorators': list(stump_decorators), 'trunk_provider': LOG(log)})
+
+
+# Spruce shrubs: one log with a low cushion of needles, the krummholz of the tundra and the tree line.
+feature('spruce_shrub', {
+    'type': 'minecraft:tree', 'below_trunk_provider': SOIL, 'decorators': [],
+    'foliage_placer': {'type': 'minecraft:bush_foliage_placer', 'radius': uniform(1, 2), 'offset': 1, 'height': 2},
+    'foliage_provider': LEAVES('minecraft:spruce_leaves'), 'ignore_vines': True,
+    'minimum_size': {'type': 'minecraft:two_layers_feature_size', 'limit': 0, 'lower_size': 0, 'upper_size': 0},
+    'trunk_placer': {'type': 'minecraft:straight_trunk_placer', 'base_height': 1, 'height_rand_a': 0, 'height_rand_b': 0},
+    'trunk_provider': LOG('minecraft:spruce_log')})
 
 
 def selector(name, default, *choices):
@@ -252,15 +362,26 @@ def simple(name, provider):
 
 
 def build_features(jar):
-    fallen('fallen_redwood', 'redwood_log', uniform(6, 11))
+    # Fallen trees of the local wood, at about vanilla's rate (a few in a hundred trees), as vanilla does
+    # it: one of the choices in the forest's own tree selector.
+    fallen('fallen_redwood', 'redwood_log', uniform(6, 11), log_decorators=[LOG_TOPPING, SHELF_MUSHROOMS(0.6)])
     fallen('fallen_willow', 'willow_log', uniform(4, 7))
-    selector('redwood_forest', e('giant_redwood'), (e('colossal_redwood'), 0.14), (e('redwood'), 0.35), (e('fallen_redwood'), 0.05))
-    selector('wisteria_forest', e('wisteria'), (e('azure_wisteria'), 0.25), ('minecraft:fancy_oak_bees_005', 0.08))
+    fallen('fallen_wisteria', 'wisteria_log', uniform(4, 6))
+    fallen('fallen_lumen', 'lumen_log', uniform(4, 7), log_decorators=[LOG_TOPPING, SHELF_MUSHROOMS(0.3)])
+    fallen('fallen_palm', 'palm_log', uniform(4, 6), log_decorators=[], stump_decorators=[])  # driftwood: bare
+    selector('redwood_forest', e('giant_redwood'), (e('colossal_redwood'), 0.14), (e('redwood'), 0.35), (e('fallen_redwood'), 0.06))
+    selector('wisteria_forest', e('wisteria'), (e('azure_wisteria'), 0.25), ('minecraft:fancy_oak_bees_005', 0.08), (e('fallen_wisteria'), 0.03))
     mossy_copy('mega_jungle_tree', 'mossy_mega_jungle_tree', jar)
     mossy_copy('jungle_tree', 'mossy_jungle_tree', jar)
-    selector('cloud_forest_trees', e('mossy_jungle_tree'), (e('mossy_mega_jungle_tree'), 0.35), (e('lumen'), 0.03))
+    selector('cloud_forest_trees', e('mossy_jungle_tree'), (e('mossy_mega_jungle_tree'), 0.35), (e('lumen'), 0.03),
+             ('minecraft:fallen_jungle_tree', 0.03))
     selector('steppe_trees', e('baobab'), ('minecraft:acacia', 0.3))
     selector('willow_bayou_trees', e('willow'), (e('fallen_willow'), 0.04))
+    selector('lumen_grove_trees', e('lumen'), (e('fallen_lumen'), 0.04))
+    selector('palm_coast_trees', e('palm'), (e('fallen_palm'), 0.06))
+    selector('tundra_spruce', 'minecraft:spruce', ('minecraft:fallen_spruce_tree', 0.12))
+    selector('alpine_spruce', 'minecraft:spruce', ('minecraft:fallen_spruce_tree', 0.06))
+    selector('moor_birch', 'minecraft:birch', ('minecraft:fallen_birch_tree', 0.15))
 
     # ---- ground cover
     simple('heather', state('heather'))
@@ -278,6 +399,48 @@ def build_features(jar):
                                           (state('minecraft:firefly_bush'), 1)))
     simple('steppe_grass', weighted_states((state('minecraft:short_dry_grass'), 5), (state('minecraft:tall_dry_grass', ), 3),
                                            (state('minecraft:short_grass'), 2)))
+
+    # ---- undergrowth: a few mixed patches per biome rather than a feature per plant. Vanilla's own
+    # configured features (bush, leaf_litter, wildflower, dry_grass, berry_bush, moss_patch...) are used
+    # as they are wherever one fits.
+    v = lambda block, **props: state(f'minecraft:{block}', **props)
+    FERN, LARGE_FERN, BUSH, MOSS = v('fern'), v('large_fern', half='lower'), v('bush'), v('moss_carpet')
+    GRASS, TALL_GRASS = v('short_grass'), v('tall_grass', half='lower')
+    BERRIES = v('sweet_berry_bush', age=3)
+    simple('tundra_cover', weighted_states((GRASS, 5), (MOSS, 3), (FERN, 2), (v('dead_bush'), 1)))       # lichen, sedge, twigs
+    simple('moor_bracken', weighted_states((FERN, 5), (LARGE_FERN, 3), (GRASS, 2)))
+    simple('moor_scrub', weighted_states((BUSH, 4), (BERRIES, 1)))                                         # gorse and bilberry
+    simple('vale_undergrowth', weighted_states((v('flowering_azalea'), 3), (FERN, 3), (v('azalea'), 2), (BUSH, 2)))  # the vale's floor stays open
+    simple('redwood_undergrowth', weighted_states((FERN, 6), (MOSS, 3), (BUSH, 3), (v('azalea'), 1)))     # sword fern, rhododendron
+    simple('forest_mushrooms', weighted_states((v('brown_mushroom'), 3), (v('red_mushroom'), 2)))
+    simple('bayou_undergrowth', weighted_states((FERN, 4), (GRASS, 3), (MOSS, 2), (BUSH, 2)))
+    simple('karst_undergrowth', weighted_states((FERN, 4), (LARGE_FERN, 2), (BUSH, 2)))
+    simple('cloud_forest_ferns', weighted_states((LARGE_FERN, 4), (FERN, 4), (MOSS, 2)))
+    simple('alpine_tufts', weighted_states((GRASS, 5), (FERN, 2), (BUSH, 1), (BERRIES, 1)))
+    simple('dune_grass', weighted_states((v('short_dry_grass'), 5), (v('tall_dry_grass'), 4)))
+    simple('arid_scrub', weighted_states((v('short_dry_grass'), 5), (v('tall_dry_grass'), 3), (v('dead_bush'), 2)))
+    simple('forest_undergrowth', weighted_states((BUSH, 4), (FERN, 4), (LARGE_FERN, 1)))                    # vanilla forests
+    simple('taiga_undergrowth', weighted_states((FERN, 5), (MOSS, 3), (BUSH, 2)))                         # vanilla taigas
+    simple('wet_bank', weighted_states((FERN, 5), (MOSS, 3), (LARGE_FERN, 2), (GRASS, 1)))
+
+    # ---- the water's edge: reeds (our cattails, vanilla's tall grass and sugar cane), mixed by climate.
+    # Sugar cane only takes where it can live (water level with the ground it stands on); where the
+    # bank stands a block above the river, the cattails and grass have it to themselves.
+    def plant(block_state, *placement):
+        return {'feature': {'type': 'minecraft:simple_block', 'to_place': block_state}, 'placement': list(placement)}
+    cane = {'feature': 'minecraft:sugar_cane', 'placement': [predicate(survives('minecraft:sugar_cane'))]}
+    cattail = plant(state('cattail', half='lower'))
+
+    def reeds(name, *weighted):
+        return feature(name, {'type': 'minecraft:weighted_random_selector', 'features': [{'data': d, 'weight': w} for d, w in weighted]})
+    reeds('reeds_temperate', (cattail, 6), (cane, 3), (plant(TALL_GRASS), 2))
+    reeds('reeds_warm', (cane, 6), (plant(TALL_GRASS), 3), (cattail, 2))
+    reeds('reeds_arid', (cane, 6), (plant(v('tall_dry_grass')), 3), (plant(v('short_dry_grass')), 2))
+    # Clay where the water meets the bank: in the shallows and up over the lip.
+    feature('bank_clay', {'type': 'minecraft:disk', 'state_provider': state('minecraft:clay'), 'radius': uniform(1, 3), 'half_height': 1,
+                          'target': {'type': 'minecraft:matching_blocks', 'blocks': [
+                              'minecraft:dirt', 'minecraft:grass_block', 'minecraft:coarse_dirt', 'minecraft:podzol',
+                              'minecraft:sand', 'minecraft:gravel']}})
 
     # ---- rocks, spires, arches, crystals
     feature('mossy_boulder', {'type': 'minecraft:block_blob', 'state': 'minecraft:mossy_cobblestone',
@@ -316,7 +479,7 @@ def build_features(jar):
     feature('water_pond', pond)
 
     # ======================== placements (FEATURE_ORDER is the order below)
-    S = {'lakes': 1, 'local': 2, 'surface_struct': 4, 'springs': 8, 'veg': 9}
+    S = {'lakes': 1, 'local': 2, 'surface_struct': 4, 'ores': 6, 'springs': 8, 'veg': 9}
 
     # Dunes go down first, before anything is placed on the sand. No placement modifiers: once per
     # chunk, and the feature itself decides column by column whether it is in the dune field.
@@ -344,18 +507,18 @@ def build_features(jar):
     # trees
     placed('redwood_forest', e('redwood_forest'), tree_placement(weighted_int((3, 6), (5, 3), (7, 1)), e('redwood_sapling')), S['veg'])
     placed('wisteria_forest', e('wisteria_forest'), tree_placement(weighted_int((2, 4), (4, 4), (6, 1)), e('wisteria_sapling')), S['veg'])
-    placed('lumen_trees', e('lumen'), tree_placement(weighted_int((5, 4), (7, 3), (9, 1)), e('lumen_sapling')), S['veg'])
+    placed('lumen_trees', e('lumen_grove_trees'), tree_placement(weighted_int((5, 4), (7, 3), (9, 1)), e('lumen_sapling')), S['veg'])
     placed('willow_trees', e('willow_bayou_trees'), [count(weighted_int((2, 4), (3, 3), (5, 1))), IN_SQUARE, water_depth(2),
                                                      heightmap('OCEAN_FLOOR'), BIOME, clear(3)], S['veg'])
     placed('steppe_trees', e('steppe_trees'), tree_placement(weighted_int((0, 6), (1, 3), (2, 1)), e('baobab_sapling')), S['veg'])
     placed('cloud_forest_trees', e('cloud_forest_trees'), tree_placement(weighted_int((8, 3), (11, 2), (14, 1)), 'minecraft:jungle_sapling'), S['veg'])
-    placed('palm_trees', e('palm'), [count(weighted_int((0, 3), (1, 3), (2, 2), (3, 1))), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
+    placed('palm_trees', e('palm_coast_trees'), [count(weighted_int((0, 3), (1, 3), (2, 2), (3, 1))), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
                                      predicate(survives(e('palm_sapling'))), BIOME, clear(3)], S['veg'])
-    placed('moor_trees', 'minecraft:birch', [rarity(5), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
+    placed('moor_trees', e('moor_birch'), [rarity(5), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
                                              predicate(survives('minecraft:birch_sapling')), BIOME, clear(3)], S['veg'])
-    placed('tundra_trees', 'minecraft:spruce', [rarity(3), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
+    placed('tundra_trees', e('tundra_spruce'), [rarity(3), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
                                                 predicate(survives('minecraft:spruce_sapling')), BIOME, clear(3)], S['veg'])
-    placed('alpine_trees', 'minecraft:spruce', [count(weighted_int((0, 5), (1, 2), (3, 1))), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
+    placed('alpine_trees', e('alpine_spruce'), [count(weighted_int((0, 5), (1, 2), (3, 1))), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
                                                 predicate(survives('minecraft:spruce_sapling')), BIOME, clear(3)], S['veg'])
     placed('karst_trees', 'minecraft:jungle_bush', [count(uniform(2, 4)), IN_SQUARE, water_depth(0), heightmap('OCEAN_FLOOR'),
                                                     predicate(survives('minecraft:jungle_sapling')), BIOME, clear(3)], S['veg'])
@@ -389,6 +552,61 @@ def build_features(jar):
     placed('cloud_forest_floor', e('lumen_floor'), patch_placement(1, 16, 'minecraft:fern'), S['veg'])
     placed('cloud_forest_moss', 'minecraft:moss_patch', [count(uniform(1, 3)), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['veg'])
 
+    # ======================== undergrowth and the small things (Expanse biomes)
+    # A lusher vanilla, not a different game: densities sit near vanilla's own for the same plants
+    # (patch_bush, patch_large_fern, patch_leaf_litter, wildflowers_birch_forest...), a couple of mixed
+    # patches per chunk per biome.
+    placed('boulder_rare', e('mossy_boulder'), [rarity(3), IN_SQUARE, heightmap('MOTION_BLOCKING'), BIOME, clear(4)], S['local'])
+    placed('tundra_shrubs', e('spruce_shrub'), tree_placement(weighted_int((0, 5), (1, 3), (2, 1)), 'minecraft:spruce_sapling'), S['veg'])
+    placed('alpine_shrubs', e('spruce_shrub'), tree_placement(weighted_int((0, 3), (1, 2), (2, 1)), 'minecraft:spruce_sapling'), S['veg'])
+    placed('tundra_cover', e('tundra_cover'), cover(1, 24, 6, 2), S['veg'])
+    placed('tundra_berries', 'minecraft:berry_bush', cover(rarity(8), 24, 5, 2, margin=5), S['veg'])
+    placed('moor_bracken', e('moor_bracken'), cover(drifts(0.0, 1, 3), 32, 6, 2), S['veg'])
+    placed('moor_scrub', e('moor_scrub'), cover(weighted_int((0, 1), (1, 1)), 12, 3, 1, margin=3), S['veg'])
+    placed('vale_undergrowth', e('vale_undergrowth'), cover(2, 16, 5, 2, margin=5), S['veg'])
+    placed('vale_wildflowers', 'minecraft:wildflower', cover(drifts(0.2, 0, 2), 32, 6, 2), S['veg'])
+    placed('redwood_undergrowth', e('redwood_undergrowth'), cover(3, 24, 6, 2, margin=6), S['veg'])
+    placed('forest_floor_litter', 'minecraft:leaf_litter', cover(2, 32, 7, 2), S['veg'])
+    placed('forest_mushrooms', e('forest_mushrooms'), cover(rarity(2), 16, 4, 2), S['veg'])
+    placed('bayou_undergrowth', e('bayou_undergrowth'), cover(2, 24, 6, 2), S['veg'])
+    placed('steppe_dead_bushes', 'minecraft:dead_bush', cover(2, 4, 7, 3, on=None), S['veg'])
+    placed('steppe_wildflowers', 'minecraft:wildflower', cover(drifts(0.4, 0, 2), 24, 6, 2), S['veg'])
+    placed('karst_undergrowth', e('karst_undergrowth'), cover(2, 24, 6, 2, margin=6), S['veg'])
+    placed('karst_moss', 'minecraft:moss_patch', [rarity(3), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME, clear(8)], S['veg'])
+    placed('cloud_forest_ferns', e('cloud_forest_ferns'), cover(3, 32, 6, 2), S['veg'])
+    placed('alpine_tufts', e('alpine_tufts'), cover(2, 24, 6, 2), S['veg'])
+    placed('coast_dune_grass', e('dune_grass'), cover(1, 24, 6, 2, on=None), S['veg'])
+
+    # ======================== the water's edge, in every biome a river runs through (Expanse and vanilla)
+    on_ground = {'type': 'minecraft:solid', 'offset': [0, -1, 0]}  # the bank, not the water (sand counts, for the dry country)
+    reeds_placement = lambda: bank_anchors(5) + scatter(16, 4, 1) + [predicate(all_of(AIR, on_ground, water_beside(ADJACENT)))]
+    both('river_clay', e('bank_clay'), [count(3), IN_SQUARE, heightmap(GROUND), BIOME,
+                                        predicate(all_of(fluid_at(0, -1, 0), shore_beside(ADJACENT))),
+                                        {'type': 'minecraft:offset', 'x': 0, 'y': -1, 'z': 0}], S['ores'])
+    both('river_reeds_temperate', e('reeds_temperate'), reeds_placement(), S['veg'])
+    both('river_reeds_warm', e('reeds_warm'), reeds_placement(), S['veg'])
+    both('river_reeds_arid', e('reeds_arid'), reeds_placement(), S['veg'])
+    both('river_lily_pads', 'minecraft:waterlily', [count(4), IN_SQUARE, heightmap(GROUND), BIOME,
+                                                    predicate(all_of(ABOVE_SEA, fluid_at(0, -1, 0), shore_beside(NEARBY))),
+                                                    *scatter(12, 4, 0),
+                                                    predicate(all_of(AIR, ABOVE_SEA, survives('minecraft:lily_pad'), shore_beside(NEARBY)))], S['veg'])
+    both('river_wet_bank', e('wet_bank'), bank_anchors(4) + scatter(20, 5, 2) + [predicate(all_of(AIR, ON_SOIL, water_beside(NEARBY)))], S['veg'])
+    # Seagrass on the riverbed, as vanilla's river biome has it.
+    both('river_seagrass', 'minecraft:seagrass_slightly_less_short', [
+        count(3), IN_SQUARE, heightmap('OCEAN_FLOOR'), BIOME, predicate(WATER_BLOCK),
+        count(10), {'type': 'minecraft:offset', 'x': trapezoid(-4, 4), 'y': 0, 'z': trapezoid(-4, 4)},
+        heightmap('OCEAN_FLOOR'), predicate(WATER_BLOCK)], S['veg'])
+
+    # ======================== vanilla biomes (added by Foliage.java, which names the biomes)
+    vanilla_placed('forest_undergrowth', e('forest_undergrowth'), cover(1, 20, 5, 2, margin=5), S['veg'])
+    vanilla_placed('forest_leaf_litter', 'minecraft:leaf_litter', cover(1, 32, 7, 2), S['veg'])
+    vanilla_placed('forest_mushrooms', e('forest_mushrooms'), cover(rarity(2), 16, 4, 2), S['veg'])
+    vanilla_placed('taiga_undergrowth', e('taiga_undergrowth'), cover(2, 24, 6, 2, margin=6), S['veg'])
+    vanilla_placed('plains_wildflowers', 'minecraft:wildflower', cover([drifts(0.1, 1, 4), rarity(2)], 32, 6, 2), S['veg'])
+    vanilla_placed('savanna_scrub', e('arid_scrub'), cover(2, 24, 7, 3, on=None), S['veg'])
+    vanilla_placed('badlands_scrub', e('arid_scrub'), cover(rarity(2), 24, 7, 3, on=None), S['veg'])
+    vanilla_placed('snowy_shrubs', e('spruce_shrub'), tree_placement(weighted_int((0, 4), (1, 1)), 'minecraft:spruce_sapling'), S['veg'])
+
 
 # ======================================================================== biomes
 
@@ -412,6 +630,9 @@ def biome(name, analog, jar, *, temperature=None, downfall=None, precipitation=N
         attrs.update({f'minecraft:{k}': v for k, v in attributes.items()})
     feats = [list(s) for s in b['features']] + [[] for _ in range(STEPS - len(b['features']))]
     feats = [[f for f in step if f not in drop] for step in feats]
+    unknown = [n for n in add if n not in FEATURE_ORDER]
+    if unknown:
+        raise SystemExit(f'{name}: no such placed feature for an Expanse biome: {unknown}')
     for name_ in FEATURE_ORDER:
         if name_ in add:
             feats[PLACED[name_][1]].append(e(name_))
@@ -447,7 +668,8 @@ def build_biomes(jar):
                     'visual/ambient_particles': particles('minecraft:snowflake', 0.006),
                     'audio/background_music': music('minecraft:music.overworld.snowy_slopes')},
         drop=['minecraft:trees_snowy', 'minecraft:flower_default', 'minecraft:patch_pumpkin', 'minecraft:patch_sugar_cane'],
-        add=['ice_boulder', 'frost_spire', 'blue_frost_spire', 'tundra_trees', 'frostbloom_patch'],
+        add=['ice_boulder', 'frost_spire', 'blue_frost_spire', 'tundra_trees', 'frostbloom_patch',
+             'tundra_shrubs', 'tundra_cover', 'tundra_berries', 'river_clay'],
         spawns={'creature': [(e('mammoth'), 10, 2, 4), ('minecraft:fox', 4, 2, 4)]})
 
     A['heather_moor'] = biome('heather_moor', 'meadow', jar,
@@ -456,7 +678,8 @@ def build_biomes(jar):
         attributes={'visual/sky_color': '#93aed2', 'visual/fog_color': '#c3ccd6', 'visual/fog_end_distance': 170.0,
                     'audio/background_music': music('minecraft:music.overworld.meadow')},
         drop=['minecraft:flower_meadow', 'minecraft:trees_meadow', 'minecraft:wildflowers_meadow'],
-        add=['moor_boulder', 'moor_trees', 'heather_patch', 'edelweiss_patch'],
+        add=['moor_boulder', 'moor_trees', 'heather_patch', 'edelweiss_patch', 'moor_bracken', 'moor_scrub',
+             'river_clay', 'river_reeds_temperate', 'river_lily_pads'],
         spawns={'creature': [(e('elk'), 8, 2, 4), ('minecraft:sheep', 6, 2, 4)]})
 
     A['wisteria_vale'] = biome('wisteria_vale', 'forest', jar,
@@ -465,7 +688,8 @@ def build_biomes(jar):
         attributes={'visual/sky_color': '#a3b6ff', 'visual/fog_color': '#e4d8f2', 'visual/water_fog_color': '#3f5fb8',
                     'audio/background_music': music('minecraft:music.overworld.cherry_grove')},
         drop=['minecraft:forest_flowers', 'minecraft:trees_birch_and_oak_leaf_litter', 'minecraft:flower_default', 'minecraft:patch_bush'],
-        add=['wisteria_forest', 'wisteria_floor', 'wisteria_petals', 'wisteria_leaf_litter'],
+        add=['wisteria_forest', 'wisteria_floor', 'wisteria_petals', 'wisteria_leaf_litter', 'vale_undergrowth', 'vale_wildflowers',
+             'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'],
         spawns={'creature': [('minecraft:fox', 4, 2, 3)]})
 
     A['redwood_giants'] = biome('redwood_giants', 'old_growth_spruce_taiga', jar,
@@ -474,7 +698,8 @@ def build_biomes(jar):
                     'visual/ambient_particles': particles('minecraft:spore_blossom_air', 0.0012),
                     'audio/background_music': music('minecraft:music.overworld.old_growth_taiga')},
         drop=['minecraft:trees_old_growth_spruce_taiga', 'minecraft:flower_default'],
-        add=['mossy_boulder', 'redwood_forest'],
+        add=['mossy_boulder', 'redwood_forest', 'redwood_undergrowth', 'forest_floor_litter',
+             'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'],
         spawns={'creature': [(e('elk'), 12, 2, 5)]})
 
     A['lumen_grove'] = biome('lumen_grove', 'dark_forest', jar,
@@ -485,7 +710,8 @@ def build_biomes(jar):
                     'visual/ambient_particles': particles('minecraft:firefly', 0.012),
                     'audio/background_music': music('minecraft:music.overworld.lush_caves')},
         drop=['minecraft:dark_forest_vegetation', 'minecraft:forest_flowers', 'minecraft:flower_default', 'minecraft:patch_leaf_litter'],
-        add=['lumen_trees', 'lumen_moss', 'lumen_floor', 'glowcap_patch'])
+        add=['lumen_trees', 'lumen_moss', 'lumen_floor', 'glowcap_patch', 'forest_floor_litter', 'forest_mushrooms',
+             'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'])
 
     A['willow_bayou'] = biome('willow_bayou', 'swamp', jar,
         effects={'water_color': '#4b8a6b', 'foliage_color': '#7fa64a', 'grass_color': '#6f9a48', 'dry_foliage_color': '#6b5a3a'},
@@ -493,7 +719,8 @@ def build_biomes(jar):
                     'visual/fog_end_distance': 120.0,
                     'visual/ambient_particles': particles('minecraft:firefly', 0.004)},
         drop=['minecraft:trees_swamp', 'minecraft:flower_swamp'],
-        add=['willow_trees', 'cattails', 'bayou_lily_pads', 'bayou_fireflies'],
+        add=['willow_trees', 'cattails', 'bayou_lily_pads', 'bayou_fireflies', 'bayou_undergrowth',
+             'river_clay', 'river_wet_bank'],
         spawns={'creature': [(e('capybara'), 12, 2, 4)]})
 
     A['amber_steppe'] = biome('amber_steppe', 'savanna', jar,
@@ -501,14 +728,15 @@ def build_biomes(jar):
         attributes={'visual/sky_color': '#9fc6ff', 'visual/fog_color': '#ecdcb2',
                     'audio/background_music': music('minecraft:music.overworld.badlands')},
         drop=['minecraft:trees_savanna', 'minecraft:flower_warm', 'minecraft:patch_tall_grass'],
-        add=['termite_mound', 'steppe_trees', 'steppe_grass'],
+        add=['termite_mound', 'steppe_trees', 'steppe_grass', 'steppe_dead_bushes', 'steppe_wildflowers',
+             'river_clay', 'river_reeds_warm', 'river_seagrass'],
         spawns={'creature': [(e('elk'), 4, 2, 4)]})
 
     A['opal_dunes'] = biome('opal_dunes', 'desert', jar,
         effects={'water_color': '#6fd2d8', 'grass_color': '#c9b88a', 'foliage_color': '#b4a874'},
         attributes={'visual/sky_color': '#acb4ff', 'visual/fog_color': '#f4d8e6', 'visual/water_fog_color': '#3aa4b4'},
         drop=['minecraft:flower_default'],
-        add=['opal_dunes', 'opal_arch'])
+        add=['opal_dunes', 'opal_arch', 'river_clay', 'river_reeds_arid', 'river_seagrass'])
 
     A['jade_karst'] = biome('jade_karst', 'jungle', jar,
         temperature=0.85, downfall=0.85,
@@ -517,7 +745,8 @@ def build_biomes(jar):
                     'visual/fog_end_distance': 190.0,
                     'audio/background_music': music('minecraft:music.overworld.bamboo_jungle')},
         drop=['minecraft:trees_jungle', 'minecraft:bamboo_light', 'minecraft:flower_warm'],
-        add=['karst_pond', 'limestone_boulder', 'karst_pillar', 'karst_trees', 'karst_bamboo'],
+        add=['karst_pond', 'limestone_boulder', 'karst_pillar', 'karst_trees', 'karst_bamboo', 'karst_undergrowth', 'karst_moss',
+             'river_clay', 'river_reeds_warm', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'],
         spawns={'creature': [(e('capybara'), 8, 2, 4), ('minecraft:panda', 2, 1, 2)]})
 
     A['cloud_forest'] = biome('cloud_forest', 'jungle', jar,
@@ -527,7 +756,9 @@ def build_biomes(jar):
                     'visual/fog_start_distance': 4.0, 'visual/fog_end_distance': 72.0,
                     'audio/background_music': music('minecraft:music.overworld.sparse_jungle')},
         drop=['minecraft:trees_jungle', 'minecraft:bamboo_light', 'minecraft:patch_melon'],
-        add=['cloud_forest_pond', 'cloud_forest_trees', 'cloud_forest_moss', 'cloud_forest_floor'],
+        add=['cloud_forest_pond', 'cloud_forest_trees', 'cloud_forest_moss', 'cloud_forest_floor', 'boulder_rare',
+             'cloud_forest_ferns', 'forest_mushrooms',
+             'river_clay', 'river_reeds_temperate', 'river_lily_pads', 'river_wet_bank', 'river_seagrass'],
         spawns={'creature': [(e('capybara'), 6, 1, 3)]})
 
     A['verdant_peaks'] = biome('verdant_peaks', 'jagged_peaks', jar,
@@ -535,7 +766,8 @@ def build_biomes(jar):
         effects={'grass_color': '#7fb85a', 'foliage_color': '#6aa64a', 'water_color': '#3f86e0'},
         attributes={'visual/sky_color': '#78a8ff', 'visual/fog_color': '#cfe0f5',
                     'audio/background_music': music('minecraft:music.overworld.meadow')},
-        add=['alpine_springs', 'alpine_trees', 'alpine_flowers'],
+        add=['alpine_springs', 'alpine_trees', 'alpine_flowers', 'boulder_rare', 'alpine_shrubs', 'alpine_tufts',
+             'river_clay', 'river_reeds_temperate', 'river_seagrass'],
         spawns={'creature': [(e('elk'), 6, 2, 3), ('minecraft:sheep', 4, 2, 3)]})
 
     A['prismatic_peaks'] = biome('prismatic_peaks', 'stony_peaks', jar,
@@ -543,14 +775,14 @@ def build_biomes(jar):
         attributes={'visual/sky_color': '#86b0ff', 'visual/fog_color': '#e2e8ff',
                     'visual/ambient_particles': particles('minecraft:end_rod', 0.0015),
                     'audio/background_music': music('minecraft:music.overworld.frozen_peaks')},
-        add=['prismite_outcrop', 'prismite_clusters'])
+        add=['prismite_outcrop', 'prismite_clusters', 'river_clay'])
 
     A['palm_coast'] = biome('palm_coast', 'beach', jar,
         temperature=0.9, downfall=0.6,
         effects={'water_color': '#22d0e0', 'grass_color': '#7dcf5a', 'foliage_color': '#5fbf4a'},
         attributes={'visual/sky_color': '#76c0ff', 'visual/fog_color': '#d6f0ff', 'visual/water_fog_color': '#139ab8'},
         drop=['minecraft:flower_default'],
-        add=['palm_trees'],
+        add=['palm_trees', 'coast_dune_grass', 'river_clay', 'river_reeds_arid', 'river_seagrass'],
         spawns={'creature': [(e('crab'), 10, 2, 5)]})
 
 
@@ -718,7 +950,20 @@ def build_earth(jar):
     final = json.dumps(vdf('final_density'))
     final = final.replace('"minecraft:overworld/sloped_cheese"', json.dumps(ref('terrain')))
     final = final.replace('"from_coordinate": 240', '"from_coordinate": 368').replace('"to_coordinate": 256', '"to_coordinate": 384')
-    df('final_density', json.loads(final))
+    final = json.loads(final)
+
+    # The deep halls and underground rivers (world/terrain/CavernModel.java) carve into whatever the
+    # rest of the density leaves solid; inside the interpolation, so they are sampled only at cell corners.
+    def carve(obj):
+        if isinstance(obj, dict):
+            if obj.get('type') == 'minecraft:blend_density':
+                return {**obj, 'input': {'type': 'minecraft:min', 'left': obj['input'], 'right': ref('caverns')}}
+            return {k: carve(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [carve(v) for v in obj]
+        return obj
+    df('caverns', {'type': f'{NS}:caverns'})
+    df('final_density', carve(final))
     df('preliminary_surface_level', {'type': 'minecraft:cache', 'input': terrain('height')})
     df('chunk_surface_level', {'type': 'minecraft:interpolated', 'cell_size_xz': 16, 'cell_size_y': 1, 'input': ref('preliminary_surface_level')})
 
@@ -780,8 +1025,15 @@ def main():
     args = ap.parse_args()
     jar = zipfile.ZipFile(args.jar)
 
+    # Clear what this script writes. Other generators keep their own subfolders here (micro/, written by
+    # tools/structures/gen_micro.py), which are left alone.
     for d in ['worldgen/biome', 'worldgen/feature', 'worldgen/placed_feature', 'worldgen/material_rule']:
-        shutil.rmtree(os.path.join(RES, 'data', NS, d), ignore_errors=True)
+        path = os.path.join(RES, 'data', NS, d)
+        for entry in sorted(os.listdir(path)) if os.path.isdir(path) else []:
+            if entry in FOREIGN_DIRS:
+                continue
+            target = os.path.join(path, entry)
+            shutil.rmtree(target) if os.path.isdir(target) else os.remove(target)
     shutil.rmtree(os.path.join(RES, 'data', 'minecraft', 'worldgen'), ignore_errors=True)
     shutil.rmtree(os.path.join(RES, 'data', 'minecraft', 'tags', 'worldgen'), ignore_errors=True)
     shutil.rmtree(os.path.join(RES, 'data', NS, 'tags', 'worldgen', 'biome', 'all.json'), ignore_errors=True)

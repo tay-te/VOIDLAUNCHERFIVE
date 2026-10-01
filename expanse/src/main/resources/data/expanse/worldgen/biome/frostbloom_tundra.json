@@ -202,7 +202,8 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -216,7 +217,10 @@
       "minecraft:red_mushroom_normal",
       "minecraft:patch_firefly_bush_near_water",
       "expanse:tundra_trees",
-      "expanse:frostbloom_patch"
+      "expanse:frostbloom_patch",
+      "expanse:tundra_shrubs",
+      "expanse:tundra_cover",
+      "expanse:tundra_berries"
     ],
     [
       "minecraft:freeze_top_layer"

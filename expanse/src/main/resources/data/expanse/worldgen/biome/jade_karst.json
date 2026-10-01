@@ -216,7 +216,8 @@
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
-      "minecraft:disk_gravel"
+      "minecraft:disk_gravel",
+      "expanse:river_clay"
     ],
     [],
     [
@@ -234,7 +235,13 @@
       "minecraft:vines",
       "minecraft:patch_melon",
       "expanse:karst_trees",
-      "expanse:karst_bamboo"
+      "expanse:karst_bamboo",
+      "expanse:karst_undergrowth",
+      "expanse:karst_moss",
+      "expanse:river_reeds_warm",
+      "expanse:river_lily_pads",
+      "expanse:river_wet_bank",
+      "expanse:river_seagrass"
     ],
     [
       "minecraft:freeze_top_layer"

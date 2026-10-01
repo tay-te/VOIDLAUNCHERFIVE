@@ -18,6 +18,13 @@
         "feature": "minecraft:fancy_oak_bees_005",
         "placement": []
       }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "expanse:fallen_wisteria",
+        "placement": []
+      }
     }
   ]
 }

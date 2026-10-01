@@ -84,6 +84,7 @@ jobs:
           python3 tools/gen_entities.py
           python3 tools/textures/gen_textures.py
           python3 tools/structures/gen_structures.py
+          python3 tools/structures/gen_micro.py
       - name: Committed output matches the generators
         run: |
           git diff --exit-code --stat -- src/main/resources

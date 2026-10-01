@@ -122,6 +122,19 @@ from plate tectonics and erosion rather than from noise alone:
 
   Temperature falls with altitude. Beaches meet the sea, river biomes follow the rivers, and peaks get
   peak biomes.
+- **Great tunnels and halls underground.** Beneath the land runs a network to follow (it is not open
+  space everywhere):
+  - **Great tunnels:** two families, a few hundred blocks apart, 14–28 blocks wide and up to 34 high under
+    arched roofs, rising and falling between y 12 and 44.
+  - **River tunnels:** one family carries rivers, with a channel down the middle, a dry ledge either side
+    and waterfalls where the level drops.
+  - **Halls:** rare domed caverns up to 220 blocks across and 80 high, held up by stone pillars. Every hall
+    opens off a tunnel, and some hold underground structures.
+  - **Life:** moss, glowcaps and glow-berry vines grow along the ledges and hall floors; they are what
+    lights them.
+  - **Safety:** nothing comes within 16 blocks of the ground above or lies under the sea.
+  - **Preview:** `./gradlew terrainPreview -Pslice=plan` maps them from above; `-Pslice=<y>` cuts through
+    them at one height.
 - **Vanilla where vanilla is good.** Caves, aquifers, ore veins, surface rules, carvers and structures
   are vanilla's, running on the new terrain (the generator wraps vanilla's noise generator).
 
@@ -169,6 +182,31 @@ burnable, and work as fuel.
 | **Shore Crab** | Palm Coast, vanilla beaches | Scuttles sideways, breathes underwater. Drops crab meat. |
 
 Models and textures are generated together (see Tooling below), so they cannot drift apart.
+
+### Ground cover and little things
+
+The land between structures should never be empty. Two layers fill it:
+
+- **Ground cover** (`world/feature/Foliage.java`) thickens the vanilla biomes where vanilla's is thin:
+  undergrowth and leaf litter in forests and taigas, wildflower drifts on the plains, dry grass on the
+  savannas, spruce shrubs in the snow. Every river bank in every biome gets the plants of the water's
+  edge: reeds, cattails, sugar cane, lily pads, clay and seagrass. Rivers cross every biome on the Earth
+  terrain, so this can't be left to the river biome. Low banks are levelled with the water so cane can
+  root.
+- **Little things** (`world/feature/LittleThings.java`, the `expanse:template` feature) are 42 tiny
+  hand-made templates set into the ground. They come as 28 regional groups, about one every two chunks:
+  - stumps and fallen logs in each local wood, mossy rocks, mushroom rings, a dead tree with a beehive
+    and fox dens in the woods;
+  - cairns, old walls and springs on the moors and peaks;
+  - bones and wind-cut rocks in the dry country, and driftwood on the beaches;
+  - traces of people: signposts, cold campfires, spilled hay, a broken cart wheel, a woodpile, a lantern
+    post, a stone bench;
+  - roughly one chunk in 48 hides a half-buried lost chest.
+
+  Each piece surveys its footprint before it lands. It refuses water, steep ground, logs and other
+  little things, and is bedded into the lowest column so nothing floats. A per-region processor list
+  weathers each copy and turns its flower markers into the local flower: heather on the moor, edelweiss
+  on the peaks, frostbloom in the snow.
 
 ### Structures
 
