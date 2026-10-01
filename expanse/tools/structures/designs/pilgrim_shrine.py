@@ -21,7 +21,7 @@ from small_data import BOOKS, data_for
 from smallkit import book, flag_pole, flora, ground_item, pick, ring, trail
 
 NAME = "pilgrim_shrine"
-STRUCTURE = dict(biomes=["cloud_forest"], size=1, max_distance=32, set="biome_sights")
+STRUCTURE = dict(biomes=["cloud_forest"], size=1, max_distance=32, set="biome_sights", max_relief=20)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 ROCK = [("stone", 4), ("mossy_cobblestone", 3), ("andesite", 2), ("cobblestone", 1), ("moss_block", 1)]

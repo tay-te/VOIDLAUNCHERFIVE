@@ -1,5 +1,51 @@
 {
-  "type": "minecraft:jigsaw",
+  "type": "expanse:sited_jigsaw",
+  "avoid": [
+    {
+      "other_set": "expanse:stone_circle",
+      "radius": 56
+    },
+    {
+      "other_set": "expanse:ruined_watchtower",
+      "radius": 72
+    },
+    {
+      "other_set": "expanse:woodland_lodge",
+      "radius": 64
+    },
+    {
+      "other_set": "expanse:sun_shrine",
+      "radius": 92
+    },
+    {
+      "other_set": "expanse:stilt_hamlet",
+      "radius": 72
+    },
+    {
+      "other_set": "expanse:karst_pagoda",
+      "radius": 92
+    },
+    {
+      "other_set": "expanse:lighthouse",
+      "radius": 72
+    },
+    {
+      "other_set": "expanse:lumen_shrine",
+      "radius": 64
+    },
+    {
+      "other_set": "expanse:frost_outpost",
+      "radius": 92
+    },
+    {
+      "other_set": "expanse:nomad_camp",
+      "radius": 64
+    },
+    {
+      "other_set": "expanse:cloud_monastery",
+      "radius": 92
+    }
+  ],
   "biomes": "#expanse:has_structure/old_well_sandstone",
   "max_distance_from_center": 32,
   "project_start_to_heightmap": "WORLD_SURFACE_WG",

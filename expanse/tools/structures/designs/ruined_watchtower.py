@@ -23,7 +23,7 @@ from terrain_paths import connector, path_piece, piece_in
 
 NAME = "ruined_watchtower"
 STRUCTURE = dict(biomes=["verdant_peaks", "prismatic_peaks", "heather_moor"], spacing=34, separation=11, size=2,
-                 max_distance=56)
+                 max_distance=56, max_relief=20)
 LOOT = "expanse:chests/ruined_watchtower"
 HIDDEN = "expanse:chests/ruined_watchtower_hidden"
 P_PATHS = f"expanse:{NAME}/paths"

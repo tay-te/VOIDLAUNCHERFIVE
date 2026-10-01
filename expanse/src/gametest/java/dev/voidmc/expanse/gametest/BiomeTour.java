@@ -39,6 +39,8 @@ public class BiomeTour implements FabricClientGameTest {
 	private static final int DISTANCE = Integer.getInteger("expanse.tour.distance", 6);
 	private static final int PANORAMA_DISTANCE = Integer.getInteger("expanse.tour.panorama", 10);
 	private static final String SEED = System.getProperty("expanse.tour.seed", "8675309");
+	/** Camera height over distance for structure shots: 0.58 is about 30 degrees down. */
+	private static final float STEEP = Float.parseFloat(System.getProperty("expanse.tour.steep", "0.58"));
 	private static final List<String> BIOMES = List.of(System.getProperty("expanse.tour.biomes",
 		"wisteria_vale,lumen_grove,redwood_giants,jade_karst,opal_dunes,willow_bayou,amber_steppe,heather_moor,"
 			+ "frostbloom_tundra,cloud_forest,verdant_peaks,prismatic_peaks,palm_coast").split(","));
@@ -246,7 +248,7 @@ public class BiomeTour implements FabricClientGameTest {
 					double a = Math.toRadians(225 + i * 45);
 					int cx = tx + (int) Math.round(Math.cos(a) * back);
 					int cz = tz + (int) Math.round(Math.sin(a) * back);
-					int cy = Math.max(ty + (int) (back * 0.58), level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
+					int cy = Math.max(ty + (int) (back * STEEP), level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
 					int blocked = blockedAlong(level, new BlockPos(cx, cy, cz), target);
 					if (blocked < fewest) {
 						fewest = blocked;

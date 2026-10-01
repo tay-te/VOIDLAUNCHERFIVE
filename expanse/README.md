@@ -1,8 +1,8 @@
 # `expanse/` — VOID Expanse
 
 A Fabric world-generation mod for **Minecraft 26.3** (the latest stable release, September 2026): thirteen
-biomes you won't find in vanilla, six new kinds of tree, four animals, eleven buildings, and taller
-mountains.
+biomes you won't find in vanilla, six new kinds of tree, four animals, 36 structures from wayside shrines
+to walled citadels, and taller mountains.
 
 ```
 Fabric Loader ≥ 0.19.5 · Fabric API 0.161.0+26.3 · Java 25
@@ -23,6 +23,16 @@ below) on seed `8675309`.
 | ![Prismatic Peaks](docs/gallery/prismatic_peaks.jpg) **Prismatic Peaks** | ![Frostbloom Tundra at night](docs/gallery/frostbloom_tundra_night.jpg) **Frostbloom Tundra** at night |
 | ![Cloud Forest](docs/gallery/cloud_forest.jpg) **Cloud Forest** (a monastery in the mist) | ![Amber Steppe](docs/gallery/amber_steppe.jpg) **Amber Steppe** |
 | ![Palm Coast](docs/gallery/palm_coast.jpg) **Palm Coast** | ![Animals](docs/gallery/animals.jpg) Elk and fawn, capybara, shore crab, woolly mammoth |
+
+**Structures**
+
+| | |
+|---|---|
+| ![Karst temple](docs/gallery/structure_karst_temple.jpg) **Karst temple** (landmark) | ![Frostwatch Citadel](docs/gallery/structure_frostwatch_citadel.jpg) **Frostwatch Citadel** (landmark) |
+| ![Cloud monastery](docs/gallery/structure_cloud_monastery.jpg) **Cloud monastery** (landmark) | ![Lighthouse](docs/gallery/structure_lighthouse.jpg) **Lighthouse** |
+| ![Stilt hamlet](docs/gallery/structure_stilt_hamlet.jpg) **Stilt hamlet** | ![Ruined watchtower](docs/gallery/structure_ruined_watchtower.jpg) **Ruined watchtower** |
+| ![Nomad camp](docs/gallery/structure_nomad_camp.jpg) **Nomad camp** | ![Tea garden](docs/gallery/structure_tea_garden.jpg) Tea garden (small) |
+| ![Terrace farm](docs/gallery/structure_terrace_farm.jpg) Rice terraces (small) | ![Bayou shack](docs/gallery/structure_bayou_shack.jpg) Bayou shack (small) |
 
 ![Grand Scale peaks](docs/gallery/grand_scale_peaks.jpg)
 
@@ -112,21 +122,43 @@ Models and textures are generated together (see Tooling below), so they cannot d
 
 ### Structures
 
-Eleven buildings, each with a themed loot chest:
+Three sizes, the way a real landscape has a few cathedrals, more manor houses, and a well or shrine at
+every crossroads. Every structure is a jigsaw of interchangeable pieces, so no two copies are the same. A
+processor list weathers each copy differently (moss, cracks, missing blocks, overgrowth). Each has a public
+chest and a hidden one, and most have a lore book or journal.
 
-| Structure | Biome |
+**Landmarks.** Rare (one per 50–56 chunks of their biome) and 75–135 blocks across.
+
+| Landmark | Biome | What's there |
+|---|---|---|
+| Karst temple | Jade Karst | Raised limestone court, five-storey pagoda (library, treasury, bell storey), side halls, pond garden with moon bridge, tea house, rice paddies. A secret scroll room behind the library shelves. |
+| Cloud monastery | Cloud Forest | Three terraces up a slope: forecourt, cloister, church and a bell tower above the canopy. Wings, cemetery, apiary, grotto. Hidden study behind a bookcase; crypt with a spawner behind the altar. |
+| Temple of the Pink Sun | Opal Dunes | Five-tier ziggurat with a sun disc, half-buried by dunes. Sphinx avenue, oasis, buried colonnade. A lever opens the sun mosaic onto a shaft down to a sealed undercroft. |
+| Frostwatch Citadel | Frostbloom Tundra | Walled bailey, four towers, gatehouse with portcullis, a keep with a spiral stair up to a signal fire. Stables, smithy, inn. Ice cellar under the bear rug. |
+
+**Buildings.** Mid-sized; one per 26–36 chunks.
+
+| Building | Biome |
 |---|---|
-| Stone circle | Heather Moor |
-| Ruined watchtower | peaks and moors |
-| Woodland lodge | Redwood Giants and Wisteria Vale |
-| Sun shrine | Opal Dunes |
-| Stilt hamlet | Willow Bayou |
-| Karst pagoda | Jade Karst |
-| Lighthouse | Palm Coast |
-| Lumen shrine | Lumen Grove |
-| Frost outpost | Frostbloom Tundra |
-| Nomad camp | Amber Steppe |
-| Cloud monastery | Cloud Forest |
+| Stone circle (henge, barrow or avenue, with a crypt below) | Heather Moor |
+| Ruined watchtower and its fallen outworks | Verdant Peaks, Prismatic Peaks, Heather Moor |
+| Woodland lodge with its yard | Redwood Giants, Wisteria Vale |
+| Stilt hamlet on boardwalks | Willow Bayou |
+| Lighthouse, keeper's cottage and jetty | Palm Coast |
+| Lumen shrine: a crystal spire or chapel | Lumen Grove |
+| Nomad camp: yurts, dyers, a llama corral | Amber Steppe |
+
+**Small sights.** 17 kinds, 75 variants, on two shared grids (every 12 and 14 chunks), so you pass one
+every few minutes of travel. Each biome has its own: a shepherd's bothy, a mammoth dig, a tea garden, a
+treehouse, a fairy ring, a bayou shack, a windpump, a sand colossus, rice terraces, a pilgrim shrine, a
+miners' camp, a beach hut. Five more travel between biomes in local materials: wayside shrines, campsites,
+wells, graveyards and summit cairns.
+
+Structures choose their sites the way a builder would (`expanse:sited_jigsaw`,
+`world/SitedJigsawStructure.java`): never on water (unless it's a stilt house or a jetty), on a cliff edge
+or at the bottom of a gully, and small sights keep clear of anywhere a big structure could stand. Trees,
+rock pillars, ice spires, arches and dunes in turn keep clear of every structure piece
+(`clear_of_structures` placement filter, `world/StructureClearance.java`).
 
 ### Extras
 
@@ -161,16 +193,18 @@ rather than from memory.
 | `tools/gen_worldgen.py` | Tree and terrain features, placements, the 13 biomes, surface rules, biome tags, advancements and the Grand Scale pack |
 | `tools/gen_entities.py` | Entity geometry (`models/entity/*.json`, read at runtime by `JsonEntityModels`), the texture painted onto exactly that UV layout, and the entity loot tables |
 | `tools/textures/gen_textures.py` | Every block and item texture, plus the mod icon, all drawn procedurally and deterministically |
-| `tools/structures/gen_structures.py` | The structure templates (`.nbt`), their pools, structure sets and chest loot |
+| `tools/structures/gen_structures.py` | Every structure: templates (`.nbt`) built by `designs/*.py`, template pools, processor lists, structure sets, chest loot and tags. It validates its output against vanilla's block states and can render isometric previews (`--preview DIR`). |
 
 ### How this was checked without a monitor
 
 - **Dedicated server smoke test.** Running the server with `-Dexpanse.dev.locate=6000
   -Dexpanse.dev.generate=true -Dexpanse.dev.atlas=8000:32 -Dexpanse.dev.stop=true` locates every Expanse
-  biome and generates full chunks around each one, so every feature, tree and spawn rule runs. It then
+  biome (and, with `-Dexpanse.dev.structures=120`, every structure) and generates full chunks around each one, so every feature, tree and spawn rule runs. It then
   writes an atlas, logs the share of the map each biome covers, and shuts down (`command/DevHarness.java`).
 - **Client biome tour.** `src/gametest/` is a Fabric client game test. It creates a world, flies to each
-  biome, and saves noon, ground-level and night screenshots. Run it headless with
+  biome, and saves noon, ground-level and night screenshots. It then locates every structure and photographs
+  it from whichever of eight directions has the clearest line of sight (`-Dexpanse.tour.only=a,b` limits it
+  to the named structures). Run it headless with
   `SDL_VIDEO_FORCE_EGL=1 xvfb-run ./gradlew runClientGameTest`. The EGL setting is needed because 26.3
   creates its window with SDL3 and asks for an sRGB framebuffer, and Xvfb's GLX visuals don't offer one.
 

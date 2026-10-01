@@ -731,9 +731,15 @@ def run(data):
         missing = need - set(s)
         extra = set(s) - need - {"project_start_to_heightmap", "start_jigsaw_name", "pool_aliases",
                                  "dimension_padding", "liquid_settings"}
+        if s.get("type") == "expanse:sited_jigsaw":
+            extra -= {"max_relief", "allow_water", "avoid"}
+            for z in s.get("avoid", []):
+                if not 1 <= z.get("radius", 0) <= 256 or not os.path.exists(
+                        ctx.res(z.get("other_set", "x:x"), "worldgen/structure_set") or ""):
+                    ctx.err(f"{rel}: bad avoid entry {z}")
         if missing or extra:
             ctx.err(f"{rel}: missing {sorted(missing)} extra {sorted(extra)}")
-        if s.get("type") != "minecraft:jigsaw":
+        if s.get("type") not in ("minecraft:jigsaw", "expanse:sited_jigsaw"):
             ctx.err(f"{rel}: type {s.get('type')}")
         if not (1 <= s.get("size", 0) <= 20):
             ctx.err(f"{rel}: size must be 1..20 (0 places nothing)")
@@ -797,6 +803,10 @@ def run(data):
             if pl.get("type") != "minecraft:random_spread" or not (0 <= pl.get("separation", -1) < pl.get("spacing", 0)
                                                                     <= 4096):
                 ctx.err(f"{os.path.relpath(ssp, data)}: bad placement {pl}")
+            ez = pl.get("exclusion_zone")
+            if ez is not None and (not 1 <= ez.get("chunk_count", 0) <= 16 or not os.path.exists(
+                    ctx.res(ez.get("other_set", "x:x"), "worldgen/structure_set") or "")):
+                ctx.err(f"{os.path.relpath(ssp, data)}: bad exclusion_zone {ez}")
             salt = pl.get("salt")
             if salt in salts:
                 ctx.err(f"{os.path.relpath(ssp, data)}: salt {salt} reused by {salts[salt]}")

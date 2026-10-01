@@ -36,6 +36,7 @@ public class Expanse implements ModInitializer {
 		ExpanseTab.init();
 		dev.voidmc.expanse.world.tree.ExpanseTreePlacers.init();
 		dev.voidmc.expanse.world.feature.ExpanseFeatures.init();
+		dev.voidmc.expanse.world.SitedJigsawStructure.init();
 		registerWoodBehaviour();
 		addVanillaSpawns();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> ExpanseCommands.register(dispatcher));

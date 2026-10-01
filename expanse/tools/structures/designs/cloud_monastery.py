@@ -31,7 +31,7 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "cloud_monastery"
-STRUCTURE = dict(biomes=["cloud_forest"], spacing=56, separation=22, size=4, max_distance=76)
+STRUCTURE = dict(biomes=["cloud_forest"], spacing=56, separation=22, size=4, max_distance=76, max_relief=16)
 LOOT = "expanse:chests/cloud_monastery"
 HIDDEN = "expanse:chests/cloud_monastery_hidden"
 P_WINGS = f"expanse:{NAME}/wings"

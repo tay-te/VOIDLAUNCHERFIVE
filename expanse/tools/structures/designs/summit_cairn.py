@@ -19,7 +19,7 @@ from smallkit import book, clear, flora, ground_item, pick, ring, snow_cap, trai
 
 NAME = "summit_cairn"
 STRUCTURE = dict(biomes=["verdant_peaks", "prismatic_peaks", "frostbloom_tundra"], size=1, max_distance=32,
-                 set="wayside", weight=2)
+                 set="wayside", weight=2, max_relief=20)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 STONE = [("cobblestone", 3), ("stone", 3), ("andesite", 2), ("mossy_cobblestone", 1), ("tuff", 1)]

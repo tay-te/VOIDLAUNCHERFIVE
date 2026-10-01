@@ -19,7 +19,8 @@ from lore import BOOKS
 from pieces import Piece
 
 NAME = "stone_circle"
-STRUCTURE = dict(biomes=["heather_moor"], spacing=28, separation=10, size=1, max_distance=40)
+STRUCTURE = dict(biomes=["heather_moor"], spacing=28, separation=10, size=1, max_distance=40,
+                 exclusion=("ruined_watchtower", 4))  # both stand on the moors
 LOOT = "expanse:chests/stone_circle"
 HIDDEN = "expanse:chests/stone_circle_hidden"
 CRYPT_POOL = "expanse:stone_circle/crypt"

@@ -82,7 +82,11 @@ def write_json(rel, obj):
 
 def structure_json(name, s):
     return {
-        "type": "minecraft:jigsaw",
+        # expanse:sited_jigsaw is minecraft:jigsaw that picks its site like a builder: not under water,
+        # not on a cliff edge or in a pit, and (small sights) not where a big structure could stand
+        # (world/SitedJigsawStructure.java). Structures that belong on water opt out of the water check
+        # with sited=False, as does anything placed on the sea floor.
+        "type": "expanse:sited_jigsaw",
         "biomes": f"#expanse:has_structure/{name}",
         "max_distance_from_center": s.get("max_distance", 80),
         "project_start_to_heightmap": s.get("heightmap", "WORLD_SURFACE_WG"),
@@ -93,15 +97,23 @@ def structure_json(name, s):
         "step": "surface_structures",
         "terrain_adaptation": s.get("terrain", "beard_thin"),
         "use_expansion_hack": False,
+        **({"max_relief": s["max_relief"]} if "max_relief" in s else {}),
+        **({} if sited(s) else {"allow_water": True}),
+        **({"avoid": [{"other_set": f"expanse:{n}", "radius": avoid_radius(S)} for n, S in big_structures()]}
+           if "set" in s else {}),
     }
+
+
+def sited(s):
+    return s.get("sited", s.get("heightmap") != "OCEAN_FLOOR_WG")
 
 
 def structure_set_json(name, s, salt):
-    return {
-        "placement": {"type": "minecraft:random_spread", "salt": salt, "separation": s["separation"],
-                      "spacing": s["spacing"]},
-        "structures": [{"structure": f"expanse:{name}", "weight": 1}],
-    }
+    placement = {"type": "minecraft:random_spread", "salt": salt, "separation": s["separation"],
+                 "spacing": s["spacing"]}
+    if s.get("exclusion"):
+        placement["exclusion_zone"] = {"other_set": f"expanse:{s['exclusion'][0]}", "chunk_count": s["exclusion"][1]}
+    return {"placement": placement, "structures": [{"structure": f"expanse:{name}", "weight": 1}]}
 
 
 def shared_set_json(cfg, members):
@@ -111,6 +123,21 @@ def shared_set_json(cfg, members):
     if cfg.get("exclusion"):
         pl["exclusion_zone"] = {"other_set": f"expanse:{cfg['exclusion'][0]}", "chunk_count": cfg["exclusion"][1]}
     return {"placement": pl, "structures": [{"structure": f"expanse:{n}", "weight": w} for n, w in members]}
+
+
+def big_structures():
+    """[(name, STRUCTURE)] of the structures with a set of their own."""
+    out = []
+    for name in MODULES:
+        S = getattr(importlib.import_module(f"designs.{name}"), "STRUCTURE", {})
+        if "set" not in S:
+            out.append((name, S))
+    return out
+
+
+def avoid_radius(S):
+    """How far (blocks) small sights keep from a big structure's grid point: its reach plus a margin."""
+    return S.get("max_distance", 80) + 16
 
 
 def shared_set_members(set_name):

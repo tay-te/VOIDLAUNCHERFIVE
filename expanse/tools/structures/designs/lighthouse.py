@@ -27,7 +27,7 @@ from pieces import Empty, Piece
 from terrain_paths import connector, path_piece, piece_in
 
 NAME = "lighthouse"
-STRUCTURE = dict(biomes=["palm_coast"], spacing=36, separation=12, size=3, max_distance=56)
+STRUCTURE = dict(biomes=["palm_coast"], spacing=36, separation=12, size=3, max_distance=56, sited=False)
 LOOT = "expanse:chests/lighthouse"
 MAPS = "expanse:chests/lighthouse_map"
 HIDDEN = "expanse:chests/lighthouse_hidden"

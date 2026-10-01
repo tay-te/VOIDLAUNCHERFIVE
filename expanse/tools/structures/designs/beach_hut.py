@@ -19,7 +19,7 @@ from small_data import BOOKS, data_for
 from smallkit import book, clear, flora, ground_item, hip_cap, meal_fire, pick, raft, trail
 
 NAME = "beach_hut"
-STRUCTURE = dict(biomes=["palm_coast"], size=1, max_distance=32, set="biome_sights")
+STRUCTURE = dict(biomes=["palm_coast"], size=1, max_distance=32, set="biome_sights", sited=False)
 LOOT = f"expanse:chests/{NAME}"
 HIDDEN = f"expanse:chests/{NAME}_hidden"
 P = "expanse:palm"
