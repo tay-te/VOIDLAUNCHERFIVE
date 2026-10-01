@@ -31,8 +31,8 @@ from texlib import save  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 ASSETS = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'expanse')
-DEFAULT_PREVIEW = ('/tmp/claude-0/-home-user-VOIDLAUNCHERFIVE/'
-                   '79d59971-c67c-5b44-8e8b-b806fe12b6d4/scratchpad/texture_preview.png')
+# build/ is gitignored, so the contact sheet never ends up committed.
+DEFAULT_PREVIEW = os.path.join(ROOT, 'build', 'texture_preview.png')
 GLOBAL_SEED = 0x5EED
 
 

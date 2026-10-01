@@ -272,12 +272,15 @@ def leaves_wisteria(rng, kind='wisteria'):
     """Cascading blossom racemes over a sparse green leaf layer."""
     bloom = WISTERIA[kind]
     cv = Canvas()
-    for (x, y) in _grid(rng, step=4, jitter=1):
+    for (x, y) in _grid(rng, step=5, jitter=1):
         _stamp(cv, GREEN_LEAF, x, y, off=-1, mirror=rng.random() < 0.5)
     green = cv.idx.copy()
     cv.idx[:] = -1
     # racemes: (x, y, length); tapered, pale & open at the top, deep buds at the tip
-    racemes = [(1, 0, 8), (6, 6, 7), (10, 1, 8), (14, 9, 7), (4, 12, 6), (11, 12, 5)]
+    # Dense enough that the tile reads as purple from across a valley, where mipmapping averages it:
+    # with the original six racemes a hillside of wisteria faded to grey-lavender at a distance.
+    racemes = [(1, 0, 8), (6, 6, 7), (10, 1, 8), (14, 9, 7), (4, 12, 6), (11, 12, 5),
+               (3, 4, 7), (8, 0, 6), (13, 3, 6), (8, 10, 6), (0, 9, 6), (15, 0, 5)]
     flower = np.full((16, 16), -1, int)
     for j, (px, py, L) in enumerate(racemes):
         px += int(rng.integers(0, 2))

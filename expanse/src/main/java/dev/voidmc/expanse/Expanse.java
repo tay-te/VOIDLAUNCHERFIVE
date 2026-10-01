@@ -61,7 +61,8 @@ public class Expanse implements ModInitializer {
 			fire.add(wood.leaves, 30, 60);
 		}
 		fire.add(ExpanseBlocks.AZURE_WISTERIA_LEAVES, 30, 60);
-		for (Block b : new Block[]{ExpanseBlocks.HEATHER, ExpanseBlocks.EDELWEISS, ExpanseBlocks.CATTAIL, ExpanseBlocks.SPANISH_MOSS}) {
+		for (Block b : new Block[]{ExpanseBlocks.HEATHER, ExpanseBlocks.EDELWEISS, ExpanseBlocks.CATTAIL, ExpanseBlocks.SPANISH_MOSS,
+			ExpanseBlocks.WISTERIA_BLOSSOMS, ExpanseBlocks.AZURE_WISTERIA_BLOSSOMS}) {
 			fire.add(b, 60, 100);
 		}
 	}

@@ -122,7 +122,9 @@
     "foliage_color": "#b4a874"
   },
   "features": [
-    [],
+    [
+      "expanse:opal_dunes"
+    ],
     [
       "minecraft:lake_lava_underground",
       "minecraft:lake_lava_surface"

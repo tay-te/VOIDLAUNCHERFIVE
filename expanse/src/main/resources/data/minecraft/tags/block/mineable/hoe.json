@@ -1,6 +1,8 @@
 {
   "replace": false,
   "values": [
-    "expanse:spanish_moss"
+    "expanse:spanish_moss",
+    "expanse:wisteria_blossoms",
+    "expanse:azure_wisteria_blossoms"
   ]
 }

@@ -117,19 +117,7 @@
     },
     "minecraft:visual/sky_color": "#a3b6ff",
     "minecraft:visual/fog_color": "#e4d8f2",
-    "minecraft:visual/water_fog_color": "#3f5fb8",
-    "minecraft:visual/ambient_particles": {
-      "argument": [
-        {
-          "particle": {
-            "type": "minecraft:tinted_leaves",
-            "color": -4945952
-          },
-          "probability": 0.004
-        }
-      ],
-      "modifier": "append"
-    }
+    "minecraft:visual/water_fog_color": "#3f5fb8"
   },
   "carvers": [
     "minecraft:cave",

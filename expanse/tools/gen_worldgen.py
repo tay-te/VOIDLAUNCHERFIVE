@@ -196,12 +196,16 @@ def drooping(r, canopy, chance, hang):
     return {'type': e('drooping_foliage_placer'), 'radius': r, 'offset': 0, 'canopy_height': canopy, 'hang_chance': chance, 'max_hang': hang}
 
 
+def cascade(block, probability, lo, hi):
+    return {'type': e('hanging_cascade'), 'block': block, 'probability': probability, 'length': uniform(lo, hi)}
+
+
 tree('willow', 'willow_log', crown_trunk(5, 2, 1, uniform(4, 6), uniform(2, 3), 0.15), 'willow_leaves', drooping(2, 1, 0.75, 4),
-     decorators=[hanging(SPANISH_MOSS, 0.08)])
-tree('wisteria', 'wisteria_log', crown_trunk(4, 2, 2, uniform(3, 5), uniform(2, 4), 0.35), 'wisteria_leaves', drooping(2, 1, 0.85, 5),
-     decorators=[{'type': 'minecraft:beehive', 'probability': 0.02}])
-tree('azure_wisteria', 'wisteria_log', crown_trunk(4, 2, 2, uniform(3, 5), uniform(2, 4), 0.35), 'azure_wisteria_leaves', drooping(2, 1, 0.85, 5),
-     decorators=[{'type': 'minecraft:beehive', 'probability': 0.02}])
+     decorators=[cascade(e('spanish_moss'), 0.1, 2, 5)])
+tree('wisteria', 'wisteria_log', crown_trunk(4, 2, 2, uniform(3, 5), uniform(2, 4), 0.35), 'wisteria_leaves', drooping(2, 1, 0.85, 4),
+     decorators=[cascade(e('wisteria_blossoms'), 0.3, 2, 6), {'type': 'minecraft:beehive', 'probability': 0.02}])
+tree('azure_wisteria', 'wisteria_log', crown_trunk(4, 2, 2, uniform(3, 5), uniform(2, 4), 0.35), 'azure_wisteria_leaves', drooping(2, 1, 0.85, 4),
+     decorators=[cascade(e('azure_wisteria_blossoms'), 0.3, 2, 6), {'type': 'minecraft:beehive', 'probability': 0.02}])
 tree('palm', 'palm_log', {'type': e('palm_trunk_placer'), 'base_height': 7, 'height_rand_a': 3, 'height_rand_b': 2, 'bend': uniform(1, 4)},
      'palm_leaves', {'type': e('palm_foliage_placer'), 'radius': 4, 'offset': 0, 'missing_frond_chance': 0.1}, soil=PALM_SOIL)
 # Glow lichen clings under the lumenwood canopy, so a lumen grove is lit from above at night too.
@@ -296,6 +300,7 @@ def build_features(jar):
     feature('prismite_outcrop', {'type': e('crystal_outcrop'), 'crystal': e('prismite_block'),
                                  'cluster': e('prismite_cluster'), 'base': 'minecraft:calcite',
                                  'count': uniform(3, 7), 'height': uniform(5, 13)})
+    feature('opal_dunes', {'type': e('dunes'), 'sand': e('opal_sand'), 'biomes': e('opal_dunes'), 'max_height': 9, 'wavelength': 34.0})
     feature('termite_mound', {'type': 'minecraft:block_column', 'allowed_placement': AIR, 'direction': 'up', 'prioritize_tip': True,
                               'layers': [{'height': uniform(2, 3), 'provider': state('minecraft:brown_terracotta')},
                                          {'height': uniform(1, 2), 'provider': state('minecraft:terracotta')}]})
@@ -307,6 +312,9 @@ def build_features(jar):
     # ======================== placements (FEATURE_ORDER is the order below)
     S = {'lakes': 1, 'local': 2, 'surface_struct': 4, 'springs': 8, 'veg': 9}
 
+    # Dunes go down first, before anything is placed on the sand. No placement modifiers: once per
+    # chunk, and the feature itself decides column by column whether it is in the dune field.
+    placed('opal_dunes', e('opal_dunes'), [], 0)
     placed('karst_pond', e('water_pond'), [rarity(5), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['lakes'])
     placed('cloud_forest_pond', e('water_pond'), [rarity(4), IN_SQUARE, heightmap('WORLD_SURFACE_WG'), BIOME], S['lakes'])
 
@@ -416,11 +424,6 @@ def music(sound):
     return {'default': {'max_delay': 24000, 'min_delay': 12000, 'sound': sound}}
 
 
-def argb(v):
-    """An ARGB colour as the signed int the particle codec reads."""
-    return v - (1 << 32) if v >= 1 << 31 else v
-
-
 def particles(kind, probability, **extra):
     p = {'type': kind}
     p.update(extra)
@@ -454,7 +457,6 @@ def build_biomes(jar):
         temperature=0.65, downfall=0.8,
         effects={'grass_color': '#79c06a', 'foliage_color': '#6fb35f', 'water_color': '#5f8fe6', 'dry_foliage_color': '#a77fc4'},
         attributes={'visual/sky_color': '#a3b6ff', 'visual/fog_color': '#e4d8f2', 'visual/water_fog_color': '#3f5fb8',
-                    'visual/ambient_particles': particles('minecraft:tinted_leaves', 0.004, color=argb(0xFFB487E0)),
                     'audio/background_music': music('minecraft:music.overworld.cherry_grove')},
         drop=['minecraft:forest_flowers', 'minecraft:trees_birch_and_oak_leaf_litter', 'minecraft:flower_default', 'minecraft:patch_bush'],
         add=['wisteria_forest', 'wisteria_floor', 'wisteria_petals', 'wisteria_leaf_litter'],
@@ -500,7 +502,7 @@ def build_biomes(jar):
         effects={'water_color': '#6fd2d8', 'grass_color': '#c9b88a', 'foliage_color': '#b4a874'},
         attributes={'visual/sky_color': '#acb4ff', 'visual/fog_color': '#f4d8e6', 'visual/water_fog_color': '#3aa4b4'},
         drop=['minecraft:flower_default'],
-        add=['opal_arch'])
+        add=['opal_dunes', 'opal_arch'])
 
     A['jade_karst'] = biome('jade_karst', 'jungle', jar,
         temperature=0.85, downfall=0.85,

@@ -9,7 +9,7 @@ import os
 
 from PIL import Image, ImageDraw
 
-ASSETS = "/root/mc/res/assets/minecraft"
+ASSETS = os.path.join(os.environ.get("MC_RES", "/root/mc/res"), "assets", "minecraft")
 _cache = {}
 
 FOLIAGE = (89, 174, 48)

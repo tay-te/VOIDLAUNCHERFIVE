@@ -187,6 +187,41 @@ def _draw_moss(strands, rng, tip):
     return img
 
 
+BLOSSOMS = {
+    'wisteria_blossoms': ['#3e2266', '#5a3590', '#7a4fb2', '#9a72cf', '#b892e3', '#d3b7f3', '#efe2fd'],
+    'azure_wisteria_blossoms': ['#1f2f6e', '#33509f', '#4b6cbd', '#6a8ed6', '#8eade9', '#b4cdf6', '#e0ebfe'],
+}
+
+
+def _blossom_layout(rng):
+    """Racemes for the hanging blossom block: wide clusters of florets, shared by body and tip."""
+    return [dict(x=x, ph=rng.random() * 2 * np.pi, end=int(e), shade=int(rng.integers(0, 2)))
+            for x, e in zip([2, 6, 10, 13], rng.permutation([9, 11, 13, 15]))]
+
+
+def _draw_blossoms(layout, palette, rng, tip):
+    """Hanging wisteria racemes. The body tiles vertically (florets repeat every 16 rows); the tip
+    narrows each raceme to a point, pale and open at the top of the cluster, deep buds at the end."""
+    img = blank()
+    for s in layout:
+        last = s['end'] if tip else 16
+        for y in range(last):
+            t = y / max(1, last - 1) if tip else 0.0
+            width = 3 if t < 0.55 else (2 if t < 0.85 else 1)
+            off = int(round(0.7 * np.sin(2 * np.pi * y / 16 + s['ph'])))
+            x0 = s['x'] + off - (1 if width == 3 else 0)
+            for c in range(width):
+                v = 4 + s['shade'] - (1 if (y + c) % 2 else 0)
+                if c == 0 and width > 1:
+                    v += 1                      # lit side
+                if c == width - 1 and width > 1:
+                    v -= 1
+                if tip:
+                    v -= int(round(3 * t))      # buds darken toward the end
+                put(img, x0 + c, y, palette[int(np.clip(v, 0, 6))], wrap=True)
+    return img
+
+
 def generate(rng_for):
     out = []
     for name, d in (('heather', HEATHER), ('edelweiss', EDELWEISS), ('frostbloom', FROSTBLOOM),
@@ -198,4 +233,8 @@ def generate(rng_for):
     strands = _moss_strands(np.random.default_rng(seed))
     out.append(('textures/block/spanish_moss.png', _draw_moss(strands, rng_for('spanish_moss'), tip=False), True))
     out.append(('textures/block/spanish_moss_tip.png', _draw_moss(strands, rng_for('spanish_moss_tip'), tip=True), False))
+    for name, palette in BLOSSOMS.items():
+        layout = _blossom_layout(np.random.default_rng(rng_for(name + '_layout').integers(1 << 30)))
+        out.append((f'textures/block/{name}.png', _draw_blossoms(layout, palette, rng_for(name), tip=False), True))
+        out.append((f'textures/block/{name}_tip.png', _draw_blossoms(layout, palette, rng_for(name + '_tip'), tip=True), False))
     return out

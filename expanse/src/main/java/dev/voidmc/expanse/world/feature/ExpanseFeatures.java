@@ -14,6 +14,7 @@ public final class ExpanseFeatures {
 		register("karst_pillar", KarstPillarFeature.CODEC);
 		register("natural_arch", NaturalArchFeature.CODEC);
 		register("crystal_outcrop", CrystalOutcropFeature.CODEC);
+		register("dunes", DuneFeature.CODEC);
 	}
 
 	private static void register(String name, MapCodec<? extends Feature> codec) {

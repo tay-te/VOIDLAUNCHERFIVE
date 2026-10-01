@@ -3,6 +3,16 @@
   "below_trunk_provider": "minecraft:soil_beneath_tree",
   "decorators": [
     {
+      "type": "expanse:hanging_cascade",
+      "block": "expanse:azure_wisteria_blossoms",
+      "probability": 0.3,
+      "length": {
+        "type": "minecraft:uniform",
+        "min_inclusive": 2,
+        "max_inclusive": 6
+      }
+    },
+    {
       "type": "minecraft:beehive",
       "probability": 0.02
     }
@@ -13,7 +23,7 @@
     "offset": 0,
     "canopy_height": 1,
     "hang_chance": 0.85,
-    "max_hang": 5
+    "max_hang": 4
   },
   "foliage_provider": {
     "id": "expanse:azure_wisteria_leaves",

@@ -361,6 +361,10 @@ def main():
     tags.add('block', 'minecraft:replaceable_by_mushrooms', f'{NS}:cattail')
     g.clone_block('pale_hanging_moss', 'spanish_moss', {'pale_hanging_moss': 'spanish_moss'})
     tags.add('block', 'minecraft:mineable/hoe', f'{NS}:spanish_moss')
+    for blossom in ['wisteria_blossoms', 'azure_wisteria_blossoms']:
+        g.clone_block('pale_hanging_moss', blossom, {'pale_hanging_moss': blossom})
+        tags.add('block', 'minecraft:mineable/hoe', f'{NS}:{blossom}')
+        tags.add('block', 'minecraft:bee_attractive', f'{NS}:{blossom}')
 
     # ------------------------------------------------------------ items
     for item in ['venison', 'cooked_venison', 'crab_meat', 'cooked_crab',

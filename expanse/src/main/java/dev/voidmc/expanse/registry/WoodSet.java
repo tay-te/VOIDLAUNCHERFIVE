@@ -124,7 +124,7 @@ public final class WoodSet {
 			properties = properties.lightLevel(s -> light).emissiveRendering(s -> true);
 		}
 		return ExpanseBlocks.registerWithItem(id,
-			p -> new UntintedParticleLeavesBlock(0.02F, ColorParticleOption.create(ParticleTypes.TINTED_LEAVES, particleColor),
+			p -> new UntintedParticleLeavesBlock(0.008F, ColorParticleOption.create(ParticleTypes.TINTED_LEAVES, particleColor),
 				AmbientLeavesBlockSoundPlayer.noAmbientSound(), p),
 			properties,
 			p -> p.compostable(ContextIntProviders.COMPOSTABLE_LOW));

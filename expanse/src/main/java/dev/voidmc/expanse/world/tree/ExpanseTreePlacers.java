@@ -7,6 +7,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacer;
 import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacerType;
 import net.minecraft.world.level.levelgen.feature.trunkplacers.TrunkPlacer;
+import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecoratorType;
 import net.minecraft.world.level.levelgen.feature.trunkplacers.TrunkPlacerType;
 
 public final class ExpanseTreePlacers {
@@ -19,6 +20,9 @@ public final class ExpanseTreePlacers {
 	public static final FoliagePlacerType<ClumpFoliagePlacer> CLUMP_FOLIAGE = foliage("clump_foliage_placer", ClumpFoliagePlacer.CODEC);
 	public static final FoliagePlacerType<DroopingFoliagePlacer> DROOPING_FOLIAGE = foliage("drooping_foliage_placer", DroopingFoliagePlacer.CODEC);
 	public static final FoliagePlacerType<PalmFoliagePlacer> PALM_FOLIAGE = foliage("palm_foliage_placer", PalmFoliagePlacer.CODEC);
+
+	public static final TreeDecoratorType<HangingCascadeDecorator> HANGING_CASCADE = Registry.register(BuiltInRegistries.TREE_DECORATOR_TYPE,
+		Expanse.id("hanging_cascade"), new TreeDecoratorType<>(HangingCascadeDecorator.CODEC));
 
 	private ExpanseTreePlacers() {
 	}

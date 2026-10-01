@@ -1,0 +1,117 @@
+# ---------------------------------------------------------------------------
+# VOID Expanse CI
+#
+# Three jobs:
+#
+#   build      the mod compiles and packages against Minecraft 26.3.
+#   generated  everything under src/main/resources that tools/ generates is exactly what the
+#              tools produce today. The JSON and the art are generated *and* committed, so the
+#              build never needs Python; "generated" therefore has to mean "checked", or a hand
+#              edit to a generated file drifts from its source with nothing saying so.
+#   worldgen   a dedicated server boots with the mod, finds every Expanse biome and structure,
+#              and generates full chunks round each, so every tree, terrain feature, surface rule,
+#              template and spawn table actually runs. Nothing here has a display or a GPU; the
+#              client side is checked by the biome tour (src/gametest), run by hand under xvfb.
+# ---------------------------------------------------------------------------
+name: expanse CI
+
+on:
+  push:
+    paths: ['expanse/**', '.github/workflows/expanse-ci.yml']
+  pull_request:
+    paths: ['expanse/**', '.github/workflows/expanse-ci.yml']
+
+concurrency:
+  group: expanse-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Minecraft 26.3 runs on Java 25, and so does Loom 1.18.
+  JAVA_VERSION: '25'
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expanse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: void-expanse
+          path: expanse/build/libs/*.jar
+
+  generated:
+    name: generated files are current
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expanse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pillow numpy
+      # The generators read vanilla 26.3's own files out of the client jar Loom caches, so Loom has
+      # to have fetched it first.
+      - run: ./gradlew --no-configuration-cache compileJava
+      - name: Extract vanilla resources for the structure validator
+        run: |
+          mkdir -p "$RUNNER_TEMP/mcres"
+          unzip -q ~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar 'assets/*' 'data/*' -d "$RUNNER_TEMP/mcres"
+          echo "MC_RES=$RUNNER_TEMP/mcres" >> "$GITHUB_ENV"
+      - name: Regenerate
+        run: |
+          python3 tools/gen_assets.py
+          python3 tools/gen_worldgen.py
+          python3 tools/gen_entities.py
+          python3 tools/textures/gen_textures.py
+          python3 tools/structures/gen_structures.py
+      - name: Committed output matches the generators
+        run: git diff --exit-code --stat -- src/main/resources
+
+  worldgen:
+    name: worldgen smoke test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expanse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Boot a server, visit every biome and structure, stop
+        env:
+          JAVA_TOOL_OPTIONS: >-
+            -Dexpanse.dev.locate=8000 -Dexpanse.dev.structures=120
+            -Dexpanse.dev.generate=true -Dexpanse.dev.stop=true
+        run: |
+          mkdir -p run
+          echo "eula=true" > run/eula.txt
+          printf 'online-mode=false\nlevel-seed=8675309\n' > run/server.properties
+          ./gradlew runServer --args=--nogui | tee server.log
+      - name: Every biome and structure was found, and nothing went wrong while generating them
+        run: |
+          grep -c '\[dev\]   generated round' server.log
+          ! grep -E 'NOT FOUND|\[dev\] harness failed|/ERROR\]|Serialization errors|Feature order cycle' server.log
+          test "$(grep -c '\[dev\]   generated round' server.log)" -eq 24

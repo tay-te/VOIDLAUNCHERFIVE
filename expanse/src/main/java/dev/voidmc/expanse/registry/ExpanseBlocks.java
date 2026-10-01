@@ -97,6 +97,10 @@ public final class ExpanseBlocks {
 			.pushReaction(PushReaction.POPPED),
 		p -> p.compostable(ContextIntProviders.COMPOSTABLE_LOW));
 
+	// Wisteria racemes, hung under the canopy by HangingCascadeDecorator.
+	public static final Block WISTERIA_BLOSSOMS = blossoms("wisteria_blossoms", MapColor.COLOR_PURPLE);
+	public static final Block AZURE_WISTERIA_BLOSSOMS = blossoms("azure_wisteria_blossoms", MapColor.COLOR_LIGHT_BLUE);
+
 	public static final Block POTTED_HEATHER = potted("heather", HEATHER, 0);
 	public static final Block POTTED_EDELWEISS = potted("edelweiss", EDELWEISS, 0);
 	public static final Block POTTED_FROSTBLOOM = potted("frostbloom", FROSTBLOOM, 7);
@@ -155,6 +159,13 @@ public final class ExpanseBlocks {
 			properties = properties.lightLevel(s -> light).emissiveRendering(s -> true);
 		}
 		return registerWithItem(id, factory, properties, p -> p.compostable(ContextIntProviders.COMPOSTABLE_MEDIUM));
+	}
+
+	private static Block blossoms(String id, MapColor colour) {
+		return registerWithItem(id, HangingMossBlock::new,
+			BlockBehaviour.Properties.of().ignitedByLava().mapColor(colour).noCollision().instabreak().sound(SoundType.CHERRY_LEAVES)
+				.pushReaction(PushReaction.POPPED),
+			p -> p.compostable(ContextIntProviders.COMPOSTABLE_LOW));
 	}
 
 	private static Block potted(String id, Block plant, int light) {

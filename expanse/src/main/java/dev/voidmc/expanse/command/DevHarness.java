@@ -57,12 +57,19 @@ public final class DevHarness {
 			try {
 				int min = Integer.MAX_VALUE;
 				int max = Integer.MIN_VALUE;
+				java.util.Map<String, Integer> tops = new java.util.TreeMap<>();
 				for (int dx = -2; dx <= 2; dx++) {
 					for (int dz = -2; dz <= 2; dz++) {
 						net.minecraft.world.level.chunk.LevelChunk chunk = level.getChunk(cx + dx, cz + dz);
-						int h = chunk.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, 8, 8);
-						min = Math.min(min, h);
-						max = Math.max(max, h);
+						for (int lx = 0; lx < 16; lx += 4) {
+							for (int lz = 0; lz < 16; lz += 4) {
+								int h = chunk.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, lx, lz);
+								min = Math.min(min, h);
+								max = Math.max(max, h);
+								BlockPos top = new BlockPos(chunk.getPos().getMinBlockX() + lx, h, chunk.getPos().getMinBlockZ() + lz);
+								tops.merge(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(top).getBlock()).getPath(), 1, Integer::sum);
+							}
+						}
 					}
 				}
 				net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB((cx - 2) * 16, level.getMinY(), (cz - 2) * 16,
@@ -71,7 +78,7 @@ public final class DevHarness {
 				for (net.minecraft.world.entity.Entity e : level.getEntities((net.minecraft.world.entity.Entity) null, box, e -> true)) {
 					mobs.merge(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString(), 1, Integer::sum);
 				}
-				done.complete("surface " + min + ".." + max + ", mobs " + mobs);
+				done.complete("surface " + min + ".." + max + ", mobs " + mobs + ", top blocks " + tops);
 			} catch (Throwable t) {
 				done.completeExceptionally(t);
 			}

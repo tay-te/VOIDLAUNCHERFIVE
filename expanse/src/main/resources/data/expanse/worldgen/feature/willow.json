@@ -3,20 +3,14 @@
   "below_trunk_provider": "minecraft:soil_beneath_tree",
   "decorators": [
     {
-      "type": "minecraft:attached_to_leaves",
-      "block_provider": {
-        "id": "expanse:spanish_moss",
-        "properties": {
-          "tip": "true"
-        }
-      },
-      "directions": [
-        "down"
-      ],
-      "exclusion_radius_xz": 1,
-      "exclusion_radius_y": 0,
-      "probability": 0.08,
-      "required_empty_blocks": 2
+      "type": "expanse:hanging_cascade",
+      "block": "expanse:spanish_moss",
+      "probability": 0.1,
+      "length": {
+        "type": "minecraft:uniform",
+        "min_inclusive": 2,
+        "max_inclusive": 5
+      }
     }
   ],
   "foliage_placer": {
