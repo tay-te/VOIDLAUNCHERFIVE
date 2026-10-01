@@ -8,6 +8,31 @@ mountains.
 Fabric Loader ≥ 0.19.5 · Fabric API 0.161.0+26.3 · Java 25
 ```
 
+## Gallery
+
+These are in-game screenshots, rendered headless by the client game test (see *How this was checked*
+below) on seed `8675309`.
+
+| | |
+|---|---|
+| ![Wisteria Vale](docs/gallery/wisteria_vale.jpg) **Wisteria Vale** | ![Wisteria cascades](docs/gallery/wisteria_vale_cascades.jpg) Blossom cascades |
+| ![Jade Karst](docs/gallery/jade_karst.jpg) **Jade Karst** | ![Jade Karst floor](docs/gallery/jade_karst_floor.jpg) Among the towers |
+| ![Lumen Grove](docs/gallery/lumen_grove.jpg) **Lumen Grove** | ![Lumen Grove at night](docs/gallery/lumen_grove_night.jpg) Lumen Grove at night |
+| ![Redwood Giants](docs/gallery/redwood_giants.jpg) **Redwood Giants** | ![Redwood floor](docs/gallery/redwood_giants_floor.jpg) Buttress roots |
+| ![Opal Dunes](docs/gallery/opal_dunes.jpg) **Opal Dunes** | ![Willow Bayou](docs/gallery/willow_bayou.jpg) **Willow Bayou** |
+| ![Prismatic Peaks](docs/gallery/prismatic_peaks.jpg) **Prismatic Peaks** | ![Frostbloom Tundra at night](docs/gallery/frostbloom_tundra_night.jpg) **Frostbloom Tundra** at night |
+| ![Cloud Forest](docs/gallery/cloud_forest.jpg) **Cloud Forest** (a monastery in the mist) | ![Amber Steppe](docs/gallery/amber_steppe.jpg) **Amber Steppe** |
+| ![Palm Coast](docs/gallery/palm_coast.jpg) **Palm Coast** | ![Animals](docs/gallery/animals.jpg) Elk and fawn, capybara, shore crab, woolly mammoth |
+
+![Grand Scale peaks](docs/gallery/grand_scale_peaks.jpg)
+
+*A Grand Scale summit at y=236, seen from 45 blocks above.*
+
+![Atlas](docs/gallery/atlas.jpg)
+
+*`/expanse atlas` over 16 × 16 km around spawn: wisteria in lavender, lumen groves in cyan, redwoods in
+rust, steppe in gold, opal dunes in pink.*
+
 ## What's in it
 
 ### Biomes
@@ -19,11 +44,11 @@ cells. Each one borders the vanilla biome it grew from, and no vanilla biome is 
 
 | Biome | Where it grows | What it looks like |
 |---|---|---|
-| **Wisteria Vale** | temperate forest | twisting trees hung with purple (and, one in four, blue) wisteria curtains; petals and leaf litter; lavender haze |
+| **Wisteria Vale** | temperate forest | twisting trees hung with purple (and, one in four, blue) wisteria: blossom cascades up to six blocks long under every canopy; petals and leaf litter; lavender haze |
 | **Lumen Grove** | dark forest | corkscrew lumenwood trees with leaves that glow teal; glowcaps, glow lichen, fireflies drifting all day; magical at night |
 | **Redwood Giants** | cool wet taiga | redwoods 40–75 blocks tall with buttress roots and 2×2 and 3×3 trunks; fallen logs, mossy boulders, ferns, podzol |
 | **Jade Karst** | hot and humid | Guilin-style limestone towers up to 76 blocks tall, with turf caps, bushes and hanging vines; jade-green ponds, bamboo, mist |
-| **Opal Dunes** | hot and dry | pastel opal sand, and natural stone arches banded in pink, white and pale blue |
+| **Opal Dunes** | hot and dry | wind-shaped dunes of pastel opal sand (long windward slopes, steep lee faces), and natural stone arches banded in pink, white and pale blue |
 | **Willow Bayou** | swamp | weeping willows draped in Spanish moss; cattails, lily pads, standing water and mud; capybaras |
 | **Amber Steppe** | savanna | golden grass, huge bottle-trunked baobabs and termite mounds |
 | **Heather Moor** | cool plains and meadows | purple heather, edelweiss, coarse dirt and podzol, grey boulders, lone birches; misty |
@@ -56,7 +81,7 @@ Grand Scale is a built-in data pack, **on by default**, which you can switch off
 | Tree | Shape |
 |---|---|
 | Redwood | A tall bare column. The upper crown has level branches that spiral round the trunk and get shorter as they climb, so the tree reads as a cone, with a spire of needles on top. Saplings planted 2×2 grow giants. |
-| Willow / Wisteria | A short wandering trunk opening into a ring of arching branches. Each branch carries a dome with curtains hanging from its rim. The curtains are cut so every leaf stays within six blocks of a log and never decays. |
+| Willow / Wisteria | A short wandering trunk opening into a ring of arching branches. Each branch carries a dome with curtains hanging from its rim. The curtains are cut so every leaf stays within six blocks of a log and never decays. Below them, a `hanging_cascade` decorator hangs long columns of wisteria blossoms or Spanish moss. These are a hanging plant, not leaves, so they can run far past the six-block decay limit. |
 | Palm | A trunk that bends with the square of its height, topped by drooping fronds. Palm saplings can be planted on sand. |
 | Baobab | A three-wide bottle trunk with flared roots and a short crown of thick branches carrying flat leaf pads. |
 | Lumenwood | A corkscrew trunk with a glowing canopy and glow lichen underneath. |
@@ -72,7 +97,7 @@ burnable, and work as fuel.
 | Limestone | limestone, its stairs, slab and wall; polished limestone; limestone bricks with stairs, slab and wall; chiseled limestone; mossy limestone |
 | Opal sandstone | opal sand, opal sandstone with stairs, slab and wall; smooth, cut and chiseled opal sandstone |
 | Prismite | prismite block and prismite cluster (both glow) |
-| Plants | heather, edelweiss, frostbloom (glows), glowcap (glows), cattail, Spanish moss, and potted versions |
+| Plants | heather, edelweiss, frostbloom (glows), glowcap (glows), cattail, Spanish moss, wisteria blossoms (purple and azure), and potted versions |
 
 ### Animals
 
@@ -157,8 +182,8 @@ src/main/java/dev/voidmc/expanse/
 ├── registry/                    blocks (WoodSet builds a whole tree's set), items, tree growers, creative tab
 ├── block/                       the two blocks that need their own rules (palm sapling on sand, frostbloom on snow)
 ├── world/biome/                 biome keys and BiomePlacement (where they go in the climate table)
-├── world/tree/                  5 trunk placers, 3 foliage placers
-├── world/feature/               karst pillar, natural arch, crystal outcrop
+├── world/tree/                  5 trunk placers, 3 foliage placers, the hanging-cascade decorator
+├── world/feature/               karst pillar, natural arch, crystal outcrop, dunes
 ├── entity/                      elk, mammoth, capybara, crab
 ├── mixin/                       OverworldBiomeBuilderMixin: one hook, every overworld biome entry passes through it
 └── command/                     /expanse atlas and the headless dev harness

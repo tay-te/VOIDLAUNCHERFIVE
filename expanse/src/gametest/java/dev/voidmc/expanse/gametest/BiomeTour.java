@@ -69,6 +69,9 @@ public class BiomeTour implements FabricClientGameTest {
 					this.visit(context, world, name.trim());
 				}
 			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.mountains", "true"))) {
+				this.mountains(context, world);
+			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.zoo", "true"))) {
 				this.zoo(context, world);
 			}
@@ -183,6 +186,65 @@ public class BiomeTour implements FabricClientGameTest {
 		return (float) Math.toDegrees(Math.atan2(-(to.getX() - from.getX()), to.getZ() - from.getZ()));
 	}
 
+	/**
+	 * The tallest summit within five kilometres of spawn, photographed from 155 blocks off and 45 above
+	 * its top, at a long render distance: the shot that shows what Grand Scale does.
+	 */
+	private void mountains(ClientGameTestContext context, TestSingleplayerContext world) {
+		int distance = Integer.getInteger("expanse.tour.mountain_distance", 12);
+		int[] shot = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			var generator = level.getChunkSource().getGenerator();
+			var random = level.getChunkSource().randomState();
+			int bx = 0;
+			int bz = 0;
+			int by = Integer.MIN_VALUE;
+			for (int x = -5000; x <= 5000; x += 64) {
+				for (int z = -5000; z <= 5000; z += 64) {
+					int y = generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, random);
+					if (y > by) {
+						bx = x;
+						by = y;
+						bz = z;
+					}
+				}
+			}
+			// Look down on it from above and off to one side, from whichever side is not in a fog biome:
+			// the camera's biome sets the fog, and a cloud forest beside the peak would hide the range.
+			var biomes = generator.getBiomeSource().createUncachedResolver(random);
+			int cx = bx - 110;
+			int cz = bz - 110;
+			for (int i = 0; i < 8; i++) {
+				double a = Math.PI * (1.25 + i / 4.0);
+				int tx = bx + (int) Math.round(Math.cos(a) * 155);
+				int tz = bz + (int) Math.round(Math.sin(a) * 155);
+				var b = biomes.getNoiseBiome(tx >> 2, by >> 2, tz >> 2);
+				boolean foggy = b.unwrapKey().map(k -> k.identifier().getNamespace().equals("expanse")
+					&& Set.of("cloud_forest", "lumen_grove", "willow_bayou", "heather_moor", "redwood_giants", "jade_karst").contains(k.identifier().getPath())).orElse(false);
+				if (!foggy) {
+					cx = tx;
+					cz = tz;
+					break;
+				}
+			}
+			for (int dx = -distance - 1; dx <= distance + 1; dx++) {
+				for (int dz = -distance - 1; dz <= distance + 1; dz++) {
+					level.getChunk((cx >> 4) + dx, (cz >> 4) + dz);
+				}
+			}
+			int cy = by + 45;
+			return new int[]{bx, by, bz, cx, cy, cz};
+		});
+		System.out.println("[tour] tallest summit " + shot[0] + ", " + shot[1] + ", " + shot[2]);
+		context.runOnClient(mc -> mc.options.renderDistance().set(distance));
+		world.getServer().runCommand("time set noon");
+		BlockPos from = new BlockPos(shot[3], shot[4], shot[5]);
+		BlockPos to = new BlockPos(shot[0], shot[1], shot[2]);
+		float pitch = (float) -Math.toDegrees(Math.atan2(shot[1] - shot[4], Math.hypot(shot[0] - shot[3], shot[2] - shot[5]))) + 6.0F;
+		this.settleShot(context, world, "mountains", from, yawToward(from, to), pitch, SETTLE_MS * 2);
+		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
 	/** The four animals posed on a grass stage high above the world, lit by noon sun. */
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {
 		int y = 300;
@@ -196,14 +258,18 @@ public class BiomeTour implements FabricClientGameTest {
 		world.getServer().runCommand(String.format("summon expanse:elk 6 %d 0 {NoAI:1b,Age:-24000,Rotation:[230f,0f]}", y));
 		world.getServer().runCommand(String.format("summon expanse:capybara 0 %d -2 {NoAI:1b,Rotation:[190f,0f]}", y));
 		world.getServer().runCommand(String.format("summon expanse:crab -2 %d -3 {NoAI:1b,Rotation:[90f,0f]}", y));
-		this.shoot(context, world, "zoo", 0, y + 2, -9, 0.0F, 12.0F);
+		this.shoot(context, world, "zoo", 0, y + 1, -7, 0.0F, 8.0F);
 	}
 
 	private void shoot(ClientGameTestContext context, TestSingleplayerContext world, String name, int x, int y, int z, float yaw, float pitch) {
-		world.getServer().runCommand(String.format("tp @a %d %d %d %.1f %.1f", x, y, z, Mth.wrapDegrees(yaw), pitch));
+		this.settleShot(context, world, name, new BlockPos(x, y, z), yaw, pitch, SETTLE_MS);
+	}
+
+	private void settleShot(ClientGameTestContext context, TestSingleplayerContext world, String name, BlockPos at, float yaw, float pitch, long ms) {
+		world.getServer().runCommand(String.format("tp @a %d %d %d %.1f %.1f", at.getX(), at.getY(), at.getZ(), Mth.wrapDegrees(yaw), pitch));
 		// A fixed wall-clock wait rather than waitForChunksRender: under software rendering the client
 		// never quite reaches "every chunk meshed", but it is long done with the ones in view.
-		this.settle(context, SETTLE_MS);
+		this.settle(context, ms);
 		context.takeScreenshot("expanse_" + name);
 	}
 
