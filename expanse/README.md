@@ -33,6 +33,7 @@ below) on seed `8675309`.
 | ![Stilt hamlet](docs/gallery/structure_stilt_hamlet.jpg) **Stilt hamlet** | ![Ruined watchtower](docs/gallery/structure_ruined_watchtower.jpg) **Ruined watchtower** |
 | ![Nomad camp](docs/gallery/structure_nomad_camp.jpg) **Nomad camp** | ![Tea garden](docs/gallery/structure_tea_garden.jpg) Tea garden (small) |
 | ![Terrace farm](docs/gallery/structure_terrace_farm.jpg) Rice terraces (small) | ![Bayou shack](docs/gallery/structure_bayou_shack.jpg) Bayou shack (small) |
+| ![Stone circle](docs/gallery/structure_stone_circle.jpg) **Stone circle** on the moor | ![Woodland lodge](docs/gallery/structure_woodland_lodge.jpg) **Woodland lodge** in the wisteria |
 
 ![Grand Scale peaks](docs/gallery/grand_scale_peaks.jpg)
 
