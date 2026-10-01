@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_door",
+    "expanse:willow_door",
+    "expanse:palm_door",
+    "expanse:lumen_door",
+    "expanse:baobab_door",
+    "expanse:wisteria_door"
+  ]
+}

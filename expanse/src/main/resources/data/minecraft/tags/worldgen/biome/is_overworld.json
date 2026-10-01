@@ -1,0 +1,18 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:amber_steppe",
+    "expanse:cloud_forest",
+    "expanse:frostbloom_tundra",
+    "expanse:heather_moor",
+    "expanse:jade_karst",
+    "expanse:lumen_grove",
+    "expanse:opal_dunes",
+    "expanse:palm_coast",
+    "expanse:prismatic_peaks",
+    "expanse:redwood_giants",
+    "expanse:verdant_peaks",
+    "expanse:willow_bayou",
+    "expanse:wisteria_vale"
+  ]
+}

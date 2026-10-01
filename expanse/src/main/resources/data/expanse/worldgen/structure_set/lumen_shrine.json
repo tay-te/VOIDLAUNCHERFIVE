@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1847268,
+    "separation": 9,
+    "spacing": 26
+  },
+  "structures": [
+    {
+      "structure": "expanse:lumen_shrine",
+      "weight": 1
+    }
+  ]
+}

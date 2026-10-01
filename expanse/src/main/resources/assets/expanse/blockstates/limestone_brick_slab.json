@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/limestone_brick_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/limestone_bricks"
+    },
+    "type=top": {
+      "model": "expanse:block/limestone_brick_slab_top"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_sapling",
+    "expanse:willow_sapling",
+    "expanse:palm_sapling",
+    "expanse:lumen_sapling",
+    "expanse:baobab_sapling",
+    "expanse:wisteria_sapling"
+  ]
+}

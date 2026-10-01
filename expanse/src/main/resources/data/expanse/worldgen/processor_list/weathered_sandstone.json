@@ -1,0 +1,42 @@
+{
+  "processors": [
+    {
+      "processor_type": "minecraft:rule",
+      "rules": [
+        {
+          "input_predicate": {
+            "block": "expanse:smooth_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "expanse:cut_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.08
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "expanse:smooth_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.03
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sand"
+        }
+      ]
+    }
+  ]
+}

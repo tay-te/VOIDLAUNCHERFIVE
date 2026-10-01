@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_slab",
+    "expanse:willow_slab",
+    "expanse:palm_slab",
+    "expanse:lumen_slab",
+    "expanse:baobab_slab",
+    "expanse:wisteria_slab"
+  ]
+}

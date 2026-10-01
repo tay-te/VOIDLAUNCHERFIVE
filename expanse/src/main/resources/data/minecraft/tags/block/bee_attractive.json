@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:wisteria_leaves",
+    "expanse:azure_wisteria_leaves",
+    "expanse:heather",
+    "expanse:edelweiss",
+    "expanse:frostbloom",
+    "expanse:glowcap"
+  ]
+}

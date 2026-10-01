@@ -1,0 +1,16 @@
+{
+  "type": "expanse:crystal_outcrop",
+  "crystal": "expanse:prismite_block",
+  "cluster": "expanse:prismite_cluster",
+  "base": "minecraft:calcite",
+  "count": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 3,
+    "max_inclusive": 7
+  },
+  "height": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 5,
+    "max_inclusive": 13
+  }
+}

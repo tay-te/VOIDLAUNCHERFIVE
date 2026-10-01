@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "#": [
+      "expanse:opal_sandstone",
+      "expanse:chiseled_opal_sandstone",
+      "expanse:cut_opal_sandstone"
+    ]
+  },
+  "pattern": [
+    "#  ",
+    "## ",
+    "###"
+  ],
+  "result": {
+    "count": 4,
+    "id": "expanse:opal_sandstone_stairs"
+  }
+}

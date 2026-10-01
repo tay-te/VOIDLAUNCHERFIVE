@@ -1,0 +1,29 @@
+{
+  "type": "expanse:natural_arch",
+  "layers": [
+    "expanse:opal_sandstone",
+    "expanse:smooth_opal_sandstone",
+    "minecraft:pink_terracotta",
+    "expanse:opal_sandstone",
+    "minecraft:white_terracotta",
+    "expanse:cut_opal_sandstone",
+    "minecraft:light_blue_terracotta",
+    "expanse:opal_sandstone"
+  ],
+  "band_height": 2,
+  "span": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 12,
+    "max_inclusive": 24
+  },
+  "height": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 9,
+    "max_inclusive": 17
+  },
+  "thickness": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 2,
+    "max_inclusive": 3
+  }
+}

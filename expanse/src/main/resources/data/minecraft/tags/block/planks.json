@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_planks",
+    "expanse:willow_planks",
+    "expanse:palm_planks",
+    "expanse:lumen_planks",
+    "expanse:baobab_planks",
+    "expanse:wisteria_planks"
+  ]
+}

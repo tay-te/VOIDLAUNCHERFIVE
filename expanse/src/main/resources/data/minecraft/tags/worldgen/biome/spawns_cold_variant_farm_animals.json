@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:frostbloom_tundra",
+    "expanse:prismatic_peaks",
+    "expanse:redwood_giants",
+    "expanse:verdant_peaks"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/opal_sandstone_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/opal_sandstone"
+    },
+    "type=top": {
+      "model": "expanse:block/opal_sandstone_slab_top"
+    }
+  }
+}

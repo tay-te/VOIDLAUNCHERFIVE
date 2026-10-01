@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "dev.voidmc.expanse.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"OverworldBiomeBuilderMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

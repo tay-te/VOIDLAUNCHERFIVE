@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_leaves",
+    "expanse:willow_leaves",
+    "expanse:palm_leaves",
+    "expanse:lumen_leaves",
+    "expanse:baobab_leaves",
+    "expanse:wisteria_leaves",
+    "expanse:azure_wisteria_leaves"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_log",
+    "expanse:willow_log",
+    "expanse:palm_log",
+    "expanse:lumen_log",
+    "expanse:baobab_log",
+    "expanse:wisteria_log"
+  ]
+}

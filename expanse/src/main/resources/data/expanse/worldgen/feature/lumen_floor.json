@@ -1,0 +1,32 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "expanse:glowcap"
+        },
+        "weight": 3
+      },
+      {
+        "data": {
+          "id": "minecraft:fern"
+        },
+        "weight": 3
+      },
+      {
+        "data": {
+          "id": "minecraft:short_grass"
+        },
+        "weight": 2
+      },
+      {
+        "data": {
+          "id": "minecraft:firefly_bush"
+        },
+        "weight": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,243 @@
+{
+  "parent": "expanse:expanse/root",
+  "criteria": {
+    "amber_steppe": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:amber_steppe"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "cloud_forest": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:cloud_forest"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "frostbloom_tundra": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:frostbloom_tundra"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "heather_moor": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:heather_moor"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "jade_karst": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:jade_karst"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "lumen_grove": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:lumen_grove"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "opal_dunes": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:opal_dunes"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "palm_coast": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:palm_coast"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "prismatic_peaks": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:prismatic_peaks"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "redwood_giants": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:redwood_giants"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "verdant_peaks": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:verdant_peaks"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "willow_bayou": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:willow_bayou"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "wisteria_vale": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:wisteria_vale"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    }
+  },
+  "requirements": [
+    [
+      "amber_steppe"
+    ],
+    [
+      "cloud_forest"
+    ],
+    [
+      "frostbloom_tundra"
+    ],
+    [
+      "heather_moor"
+    ],
+    [
+      "jade_karst"
+    ],
+    [
+      "lumen_grove"
+    ],
+    [
+      "opal_dunes"
+    ],
+    [
+      "palm_coast"
+    ],
+    [
+      "prismatic_peaks"
+    ],
+    [
+      "redwood_giants"
+    ],
+    [
+      "verdant_peaks"
+    ],
+    [
+      "willow_bayou"
+    ],
+    [
+      "wisteria_vale"
+    ]
+  ],
+  "display": {
+    "title": {
+      "translate": "advancements.expanse.wanderer.title"
+    },
+    "description": {
+      "translate": "advancements.expanse.wanderer.description"
+    },
+    "icon": {
+      "id": "minecraft:filled_map"
+    },
+    "frame": "challenge"
+  },
+  "rewards": {
+    "experience": 250
+  }
+}

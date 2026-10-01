@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:amber_steppe",
+    "expanse:frostbloom_tundra",
+    "expanse:opal_dunes"
+  ]
+}

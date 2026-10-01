@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_stairs",
+    "expanse:willow_stairs",
+    "expanse:palm_stairs",
+    "expanse:lumen_stairs",
+    "expanse:baobab_stairs",
+    "expanse:wisteria_stairs"
+  ]
+}

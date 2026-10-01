@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": "expanse:limestone_bricks",
+  "result": {
+    "id": "expanse:limestone_brick_stairs"
+  }
+}

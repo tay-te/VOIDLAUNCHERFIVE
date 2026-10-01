@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "expanse-gametest",
+	"version": "1.0.0",
+	"name": "VOID Expanse biome tour",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.expanse.gametest.BiomeTour"]
+	},
+	"depends": {"expanse": "*"}
+}

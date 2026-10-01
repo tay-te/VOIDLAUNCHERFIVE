@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:shearing",
+  "pools": [
+    {
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:brown_wool"
+        }
+      ],
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 2,
+        "max": 4
+      }
+    }
+  ],
+  "random_sequence": "expanse:shearing/mammoth"
+}

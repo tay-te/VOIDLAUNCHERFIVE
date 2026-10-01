@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": "expanse:opal_sandstone",
+  "result": {
+    "id": "expanse:opal_sandstone_stairs"
+  }
+}

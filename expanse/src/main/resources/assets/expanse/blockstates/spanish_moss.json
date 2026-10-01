@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "tip=false": {
+      "model": "expanse:block/spanish_moss"
+    },
+    "tip=true": {
+      "model": "expanse:block/spanish_moss_tip"
+    }
+  }
+}

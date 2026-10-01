@@ -1,0 +1,22 @@
+{
+	"schemaVersion": 1,
+	"id": "expanse",
+	"version": "${version}",
+	"name": "VOID Expanse",
+	"description": "Thirteen new biomes — wisteria vales, lumen groves, karst towers, redwood giants, opal dunes and more — with custom trees, animals and buildings, on continents and mountain ranges built to feel vast.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"icon": "assets/expanse/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["dev.voidmc.expanse.Expanse"],
+		"client": ["dev.voidmc.expanse.client.ExpanseClient"]
+	},
+	"mixins": ["expanse.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_fence",
+    "expanse:willow_fence",
+    "expanse:palm_fence",
+    "expanse:lumen_fence",
+    "expanse:baobab_fence",
+    "expanse:wisteria_fence"
+  ]
+}

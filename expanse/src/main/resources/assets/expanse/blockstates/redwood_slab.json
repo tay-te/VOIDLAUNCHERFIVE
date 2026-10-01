@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/redwood_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/redwood_planks"
+    },
+    "type=top": {
+      "model": "expanse:block/redwood_slab_top"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/slab",
+  "textures": {
+    "bottom": "expanse:block/limestone",
+    "side": "expanse:block/limestone",
+    "top": "expanse:block/limestone"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": "expanse:polished_limestone",
+  "result": {
+    "id": "expanse:limestone_bricks"
+  }
+}

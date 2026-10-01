@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "expanse:block/cattail_bottom"
+    },
+    "half=upper": {
+      "model": "expanse:block/cattail_top"
+    }
+  }
+}

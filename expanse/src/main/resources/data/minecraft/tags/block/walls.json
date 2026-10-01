@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:limestone_wall",
+    "expanse:limestone_brick_wall",
+    "expanse:opal_sandstone_wall"
+  ]
+}

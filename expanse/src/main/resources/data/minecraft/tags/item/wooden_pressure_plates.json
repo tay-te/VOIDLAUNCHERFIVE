@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_pressure_plate",
+    "expanse:willow_pressure_plate",
+    "expanse:palm_pressure_plate",
+    "expanse:lumen_pressure_plate",
+    "expanse:baobab_pressure_plate",
+    "expanse:wisteria_pressure_plate"
+  ]
+}
