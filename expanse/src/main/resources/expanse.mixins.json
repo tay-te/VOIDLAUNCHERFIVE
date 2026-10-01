@@ -3,6 +3,7 @@
 	"package": "dev.voidmc.expanse.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
+		"ChunkMapMixin",
 		"OverworldBiomeBuilderMixin"
 	],
 	"injectors": {

@@ -75,6 +75,9 @@ public class BiomeTour implements FabricClientGameTest {
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.structures", "true"))) {
 				this.structures(context, world);
 			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.rivers", "true"))) {
+				this.rivers(context, world);
+			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.mountains", "true"))) {
 				this.mountains(context, world);
 			}
@@ -292,7 +295,7 @@ public class BiomeTour implements FabricClientGameTest {
 
 	/**
 	 * The tallest summit within five kilometres of spawn, photographed from 155 blocks off and 45 above
-	 * its top, at a long render distance: the shot that shows what Grand Scale does.
+	 * its top, at a long render distance: the shot that shows what the Earth terrain does.
 	 */
 	private void mountains(ClientGameTestContext context, TestSingleplayerContext world) {
 		int distance = Integer.getInteger("expanse.tour.mountain_distance", 12);
@@ -350,6 +353,78 @@ public class BiomeTour implements FabricClientGameTest {
 	}
 
 	/** The four animals posed on a grass stage high above the world, lit by noon sun. */
+	/**
+	 * The widest rivers within two kilometres of spawn, found through the Earth terrain model, each seen
+	 * from above one bank looking along its course downstream.
+	 */
+	private void rivers(ClientGameTestContext context, TestSingleplayerContext world) {
+		List<int[]> shots = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			if (!(level.getChunkSource().getGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth)) {
+				return List.<int[]>of();
+			}
+			var model = earth.model(level.getChunkSource().randomState());
+			List<float[]> found = new java.util.ArrayList<>();
+			for (int x = -2000; x <= 2000; x += 24) {
+				for (int z = -2000; z <= 2000; z += 24) {
+					var c = model.sample(x, z);
+					if (c.inChannel() && c.riverHalfWidth > 3) {
+						found.add(new float[]{x, z, c.riverHalfWidth, c.riverWater});
+					}
+				}
+			}
+			found.sort((a, b) -> Float.compare(b[2], a[2]));
+			List<int[]> picked = new java.util.ArrayList<>();
+			for (float[] f : found) {
+				boolean far = picked.stream().allMatch(p -> Math.hypot(p[0] - f[0], p[1] - f[1]) > 600);
+				if (far) {
+					int x = (int) f[0];
+					int z = (int) f[1];
+					// downstream: toward the lower water a little way along
+					float best = Float.MAX_VALUE;
+					int dx = 1;
+					int dz = 0;
+					for (int a = 0; a < 16; a++) {
+						double ang = a * Math.PI / 8;
+						int sx = x + (int) (Math.cos(ang) * 40);
+						int sz = z + (int) (Math.sin(ang) * 40);
+						var c = model.sample(sx, sz);
+						if (c.inChannel() && c.riverWater < best) {
+							best = c.riverWater;
+							dx = (int) Math.round(Math.cos(ang) * 100);
+							dz = (int) Math.round(Math.sin(ang) * 100);
+						}
+					}
+					picked.add(new int[]{x, z, (int) f[3], dx, dz, (int) (f[2] * 2)});
+					if (picked.size() == 3) {
+						break;
+					}
+				}
+			}
+			for (int[] p : picked) {
+				for (int cx = -3; cx <= 3; cx++) {
+					for (int cz = -3; cz <= 3; cz++) {
+						level.getChunk((p[0] >> 4) + cx, (p[1] >> 4) + cz);
+					}
+				}
+			}
+			return picked;
+		});
+		world.getServer().runCommand("time set noon");
+		int i = 0;
+		for (int[] r : shots) {
+			System.out.println("[tour] river " + r[5] + " wide at " + r[0] + ", " + r[2] + ", " + r[1]);
+			// stand back upstream and above, looking down the river
+			double len = Math.hypot(r[3], r[4]);
+			int bx = r[0] - (int) (r[3] / len * 45);
+			int bz = r[1] - (int) (r[4] / len * 45);
+			BlockPos from = new BlockPos(bx, r[2] + 28, bz);
+			BlockPos to = new BlockPos(r[0] + (int) (r[3] / len * 40), r[2], r[1] + (int) (r[4] / len * 40));
+			float pitch = (float) -Math.toDegrees(Math.atan2(to.getY() - from.getY(), Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ())));
+			this.settleShot(context, world, "river_" + i++, from, yawToward(from, to), pitch, SETTLE_MS);
+		}
+	}
+
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {
 		int y = 300;
 		world.getServer().runCommand("time set noon");

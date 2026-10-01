@@ -36,12 +36,12 @@
                 "first": -0.078125,
                 "second": {
                   "type": "minecraft:range_choice",
-                  "input": "minecraft:overworld/sloped_cheese",
+                  "input": "expanse:earth/terrain",
                   "max_exclusive": 1.5625,
                   "min_inclusive": -1000000.0,
                   "when_in_range": {
                     "type": "minecraft:min",
-                    "left": "minecraft:overworld/sloped_cheese",
+                    "left": "expanse:earth/terrain",
                     "right": {
                       "type": "minecraft:mul",
                       "left": "minecraft:overworld/caves/entrances",
@@ -92,7 +92,7 @@
                                 "type": "minecraft:add",
                                 "left": {
                                   "type": "minecraft:mul",
-                                  "left": "minecraft:overworld/sloped_cheese",
+                                  "left": "expanse:earth/terrain",
                                   "right": -0.64
                                 },
                                 "right": 1.5

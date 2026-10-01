@@ -11,13 +11,13 @@
       "left": {
         "type": "minecraft:sub",
         "left": -0.225,
-        "right": "minecraft:overworld/erosion"
+        "right": "expanse:earth/erosion"
       },
       "right": {
         "type": "minecraft:max",
         "left": {
           "type": "minecraft:sub",
-          "left": "minecraft:overworld/depth",
+          "left": "expanse:earth/depth",
           "right": 0.9
         },
         "right": 0.0
@@ -41,35 +41,35 @@
       "xz_scale": 1.0,
       "y_scale": 1.0
     },
-    "surface_level": "minecraft:overworld/preliminary_surface_level"
+    "surface_level": "expanse:earth/preliminary_surface_level"
   },
   "debug_functions": [
     {
-      "function": "minecraft:overworld/final_density",
+      "function": "expanse:earth/final_density",
       "label": "N"
     },
     {
-      "function": "minecraft:overworld/temperature",
+      "function": "expanse:earth/temperature",
       "label": "T"
     },
     {
-      "function": "minecraft:overworld/vegetation",
+      "function": "expanse:earth/vegetation",
       "label": "V"
     },
     {
-      "function": "minecraft:overworld/continents",
+      "function": "expanse:earth/continents",
       "label": "C"
     },
     {
-      "function": "minecraft:overworld/erosion",
+      "function": "expanse:earth/erosion",
       "label": "E"
     },
     {
-      "function": "minecraft:overworld/depth",
+      "function": "expanse:earth/depth",
       "label": "D"
     },
     {
-      "function": "minecraft:overworld/ridges",
+      "function": "expanse:earth/ridges",
       "label": "W"
     },
     {
@@ -83,7 +83,7 @@
               "type": "minecraft:add",
               "left": {
                 "type": "minecraft:abs",
-                "input": "minecraft:overworld/ridges"
+                "input": "expanse:earth/ridges"
               },
               "right": -0.6666667
             }
@@ -95,7 +95,7 @@
       "label": "PV"
     },
     {
-      "function": "minecraft:overworld/preliminary_surface_level",
+      "function": "expanse:earth/preliminary_surface_level",
       "label": "PS"
     }
   ],
@@ -109,57 +109,57 @@
     "min_y": -64
   },
   "noise_router": {
-    "chunk_surface_level": "minecraft:overworld/chunk_surface_level",
-    "continents": "minecraft:overworld/continents",
-    "depth": "minecraft:overworld/depth",
-    "erosion": "minecraft:overworld/erosion",
-    "final_density": "minecraft:overworld/final_density",
-    "ridges": "minecraft:overworld/ridges",
-    "temperature": "minecraft:overworld/temperature",
-    "vegetation": "minecraft:overworld/vegetation"
+    "temperature": "expanse:earth/temperature",
+    "vegetation": "expanse:earth/vegetation",
+    "continents": "expanse:earth/continents",
+    "erosion": "expanse:earth/erosion",
+    "depth": "expanse:earth/depth",
+    "ridges": "expanse:earth/ridges",
+    "chunk_surface_level": "expanse:earth/chunk_surface_level",
+    "final_density": "expanse:earth/final_density"
   },
   "sea_level": 63,
   "spawn_target": [
     {
-      "minecraft:overworld/continents": [
+      "expanse:earth/continents": [
         -0.11,
         1.0
       ],
-      "minecraft:overworld/erosion": [
+      "expanse:earth/erosion": [
         -1.0,
         1.0
       ],
-      "minecraft:overworld/ridges": [
+      "expanse:earth/ridges": [
         -1.0,
         -0.16
       ],
-      "minecraft:overworld/temperature": [
+      "expanse:earth/temperature": [
         -1.0,
         1.0
       ],
-      "minecraft:overworld/vegetation": [
+      "expanse:earth/vegetation": [
         -1.0,
         1.0
       ]
     },
     {
-      "minecraft:overworld/continents": [
+      "expanse:earth/continents": [
         -0.11,
         1.0
       ],
-      "minecraft:overworld/erosion": [
+      "expanse:earth/erosion": [
         -1.0,
         1.0
       ],
-      "minecraft:overworld/ridges": [
+      "expanse:earth/ridges": [
         0.16,
         1.0
       ],
-      "minecraft:overworld/temperature": [
+      "expanse:earth/temperature": [
         -1.0,
         1.0
       ],
-      "minecraft:overworld/vegetation": [
+      "expanse:earth/vegetation": [
         -1.0,
         1.0
       ]

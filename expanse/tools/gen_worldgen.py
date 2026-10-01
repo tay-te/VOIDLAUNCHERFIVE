@@ -2,7 +2,7 @@
 """
 Generates VOID Expanse's world generation data: tree and terrain features, their placements, the
 thirteen biomes, the surface rules that dress them, the biome tags that let vanilla structures and
-mobs treat them like their vanilla cousins, and the Grand Scale terrain pack.
+mobs treat them like their vanilla cousins, and the Earth terrain pack.
 
     python3 tools/gen_worldgen.py [--jar path/to/minecraft-client.jar]
 
@@ -23,7 +23,8 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(ROOT, 'src', 'main', 'resources')
-GRAND = os.path.join(RES, 'resourcepacks', 'grand_scale')
+EARTH = os.path.join(RES, 'resourcepacks', 'earth')
+GRAND = os.path.join(RES, 'resourcepacks', 'grand_scale')  # an earlier version's pack, removed on regeneration
 NS = 'expanse'
 DEFAULT_JAR = os.path.expanduser('~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar')
 
@@ -669,62 +670,87 @@ def build_biome_tags(jar):
 
 # ======================================================================== grand scale
 
-def build_grand_scale(jar):
-    """Larger continents and climate zones, and mountains half again as high above sea level.
+def build_earth(jar):
+    """The Earth terrain: the overworld made by the expanse:earth chunk generator.
 
     Shipped as a built-in data pack (on by default, can be turned off on the world-creation screen),
-    because it changes the overworld's height: a world made without it should not gain it later.
+    because it changes how the overworld is made: a world made without it should not gain it later.
 
-    * Continents/erosion/climate: the density functions that sample those noises are re-sampled at a
-      lower frequency, so every feature of the landscape grows; ridges grow less, so ranges get longer
-      without their individual peaks turning into plateaus.
-    * Height: terrain offset above sea level is multiplied by 1.55 (below sea level it is untouched,
-      so oceans and coasts keep their shape), the overworld is raised to y=384, and the "top slide" that
-      flattens anything near the old y=256 ceiling is moved up to match.
+    * world_preset/normal: the default world type's overworld uses expanse:earth with the expanse:earth
+      noise settings. Other world types (large biomes, amplified, superflat...) are left alone.
+    * noise_settings/earth: vanilla's overworld settings with the terrain swapped out. The ground height
+      and the climate the biome source reads (continentalness, erosion, ridges) come from the terrain
+      model through expanse:terrain density functions; caves, aquifers, ore veins and surface rules
+      are vanilla's, pointed at the new terrain where they read it.
+    * The overworld is 448 tall (y -64 to 383), for mountain ranges that need the room.
     """
-    out = lambda rel, obj: write(os.path.join(GRAND, 'data', rel), obj)
-    df = lambda name: json.loads(jar.read(f'data/minecraft/worldgen/density_function/overworld/{name}.json'))
-    for name, scale in [('continents', 0.19), ('erosion', 0.19), ('ridges', 0.21)]:
-        obj = df(name)
-        obj['input']['xz_scale'] = scale
-        out(f'minecraft/worldgen/density_function/overworld/{name}.json', obj)
-    for name, scale in [('temperature', 0.2), ('vegetation', 0.2)]:
-        obj = df(name)
-        obj['xz_scale'] = scale
-        out(f'minecraft/worldgen/density_function/overworld/{name}.json', obj)
+    out = lambda rel, obj: write(os.path.join(EARTH, 'data', rel), obj)
+    vdf = lambda name: json.loads(jar.read(f'data/minecraft/worldgen/density_function/overworld/{name}.json'))
+    D = f'{NS}:earth'
+    ref = lambda name: f'{D}/{name}'
+    terrain = lambda output: {'type': f'{NS}:terrain', 'output': output}
+    df = lambda name, obj: out(f'{NS}/worldgen/density_function/earth/{name}.json', obj)
+    gradient_y = lambda at_bottom, at_top: {'type': 'minecraft:gradient', 'axis': 'y', 'from_coordinate': -64, 'from_value': at_bottom,
+                                            'to_coordinate': 384, 'to_value': at_top}
 
-    # offset' = offset + 0.55 * max(offset + 0.5, 0): untouched at and below sea level, x1.55 above it.
-    out(f'{NS}/worldgen/density_function/overworld/offset.json', {
-        'type': 'minecraft:cache', 'input': {
-            'type': 'minecraft:add', 'left': 'minecraft:overworld/offset',
-            'right': {'type': 'minecraft:mul', 'left': 0.55,
-                      'right': {'type': 'minecraft:max', 'left': {'type': 'minecraft:add', 'left': 'minecraft:overworld/offset', 'right': 0.50375},
-                                'right': 0.0}}}})
+    # The model's outputs, each cached per column (they are two-dimensional).
+    for name in ['height', 'continents', 'erosion', 'ridges']:
+        df(name, {'type': 'minecraft:cache', 'input': terrain(name)})
+    # Climate zones a little larger than vanilla's, and colder up mountains.
+    temperature = vdf('temperature')
+    temperature['xz_scale'] = 0.2
+    df('temperature', {'type': 'minecraft:add', 'left': temperature, 'right': terrain('lapse')})
+    vegetation = vdf('vegetation')
+    vegetation['xz_scale'] = 0.2
+    df('vegetation', vegetation)
+    # depth = (ground height - y) / 128: zero at the surface, as vanilla's depth is.
+    df('depth', {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 1 / 128},
+                 'right': gradient_y(64 / 128, -384 / 128)})
+    # The terrain density, in place of vanilla's "sloped_cheese": (ground height - y) / 25, so it passes
+    # vanilla's cave thresholds at the depths vanilla's does, plus a little 3D noise for texture and the
+    # odd overhang on steep ground.
+    df('terrain', {'type': 'minecraft:add',
+                   'left': {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 0.04},
+                            'right': gradient_y(64 * 0.04, -384 * 0.04)},
+                   'right': {'type': 'minecraft:mul', 'left': 'minecraft:overworld/base_3d_noise', 'right': 0.15}})
+    # Vanilla's final density (caves, entrances, noodles, pillars) round the new terrain; its top slide,
+    # which flattens anything near the old ceiling, moved up to the new one.
+    final = json.dumps(vdf('final_density'))
+    final = final.replace('"minecraft:overworld/sloped_cheese"', json.dumps(ref('terrain')))
+    final = final.replace('"from_coordinate": 240', '"from_coordinate": 368').replace('"to_coordinate": 256', '"to_coordinate": 384')
+    df('final_density', json.loads(final))
+    df('preliminary_surface_level', {'type': 'minecraft:cache', 'input': terrain('height')})
+    df('chunk_surface_level', {'type': 'minecraft:interpolated', 'cell_size_xz': 16, 'cell_size_y': 1, 'input': ref('preliminary_surface_level')})
 
-    def regrade(obj):
-        s = json.dumps(obj)
-        s = s.replace('"minecraft:overworld/offset"', f'"{NS}:overworld/offset"')
-        # Top slide: the last 16 blocks below the old ceiling now sit below the new one.
-        s = s.replace('"from_coordinate": 240', '"from_coordinate": 368').replace('"to_coordinate": 256', '"to_coordinate": 384')
-        return json.loads(s)
+    ns = json.loads(jar.read('data/minecraft/worldgen/noise_settings/overworld.json'))
+    ns['noise']['height'] = 448
+    ns['noise_router'] = {k: ref(k) for k in ['temperature', 'vegetation', 'continents', 'erosion', 'depth', 'ridges',
+                                               'chunk_surface_level', 'final_density']}
+    swap = lambda obj: json.loads(json.dumps(obj).replace('"minecraft:overworld/erosion"', json.dumps(ref('erosion')))
+                                  .replace('"minecraft:overworld/depth"', json.dumps(ref('depth')))
+                                  .replace('"minecraft:overworld/continents"', json.dumps(ref('continents')))
+                                  .replace('"minecraft:overworld/ridges"', json.dumps(ref('ridges')))
+                                  .replace('"minecraft:overworld/temperature"', json.dumps(ref('temperature')))
+                                  .replace('"minecraft:overworld/vegetation"', json.dumps(ref('vegetation')))
+                                  .replace('"minecraft:overworld/preliminary_surface_level"', json.dumps(ref('preliminary_surface_level')))
+                                  .replace('"minecraft:overworld/final_density"', json.dumps(ref('final_density'))))
+    ns['aquifers'] = swap(ns['aquifers'])
+    ns['spawn_target'] = swap(ns['spawn_target'])
+    ns['debug_functions'] = swap(ns['debug_functions'])
+    out(f'{NS}/worldgen/noise_settings/earth.json', ns)
 
-    depth = df('depth')
-    out('minecraft/worldgen/density_function/overworld/depth.json', regrade(depth))
-    psl = regrade(df('preliminary_surface_level'))
-    s = json.dumps(psl).replace('"max": 320.0', '"max": 384.0')
-    out('minecraft/worldgen/density_function/overworld/preliminary_surface_level.json', json.loads(s))
-    out('minecraft/worldgen/density_function/overworld/final_density.json', regrade(df('final_density')))
+    preset = json.loads(jar.read('data/minecraft/worldgen/world_preset/normal.json'))
+    preset['dimensions']['minecraft:overworld']['generator'] = {
+        'type': f'{NS}:earth', 'biome_source': {'type': 'minecraft:multi_noise', 'preset': 'minecraft:overworld'}, 'settings': f'{NS}:earth'}
+    out('minecraft/worldgen/world_preset/normal.json', preset)
 
     dim = json.loads(jar.read('data/minecraft/dimension_type/overworld.json'))
     dim['height'] = 448
     dim['logical_height'] = 448
     out('minecraft/dimension_type/overworld.json', dim)
-    ns = json.loads(jar.read('data/minecraft/worldgen/noise_settings/overworld.json'))
-    ns['noise']['height'] = 448
-    out('minecraft/worldgen/noise_settings/overworld.json', ns)
 
-    write(os.path.join(GRAND, 'pack.mcmeta'), {'pack': {
-        'description': 'VOID Expanse: Grand Scale — larger continents, taller mountains (overworld to y=384)',
+    write(os.path.join(EARTH, 'pack.mcmeta'), {'pack': {
+        'description': 'VOID Expanse: Earth — tectonic plates, eroded mountain ranges, rivers that run to the sea',
         'min_format': 121, 'max_format': 121}})
 
 
@@ -760,6 +786,7 @@ def main():
     shutil.rmtree(os.path.join(RES, 'data', 'minecraft', 'tags', 'worldgen'), ignore_errors=True)
     shutil.rmtree(os.path.join(RES, 'data', NS, 'tags', 'worldgen', 'biome', 'all.json'), ignore_errors=True)
     shutil.rmtree(GRAND, ignore_errors=True)
+    shutil.rmtree(EARTH, ignore_errors=True)
 
     build_features(jar)
     for name, obj in FEATURES.items():
@@ -769,7 +796,7 @@ def main():
     build_biomes(jar)
     build_surface_rules()
     build_biome_tags(jar)
-    build_grand_scale(jar)
+    build_earth(jar)
     build_advancements()
     print(f'{len(written)} files')
 

@@ -73,19 +73,56 @@ All thirteen sit within about 5 km of spawn on a typical seed. They also join th
 of the biome they grew from, so villages, temples, mineshafts and mob variants appear in them the way
 they would in that vanilla biome.
 
-### Grand Scale terrain
+### Earth terrain
 
-Grand Scale is a built-in data pack, **on by default**, which you can switch off in *Create World → More → Data Packs*:
+The overworld is made by a chunk generator of this mod's own, `expanse:earth`. It builds Earth-like land
+from plate tectonics and erosion rather than from noise alone:
 
-- Continents and erosion are sampled at 3/4 of vanilla's frequency, so land masses and mountain ranges
-  are about a third larger. Climate zones are 1.25× larger.
-- Terrain above sea level is stretched 1.55×, so the tallest peaks reach about y=330 and rise through the
-  cloud layer. Oceans and coastlines are unchanged.
-- The overworld's build limit is raised to **y=384** (from 320), and vanilla's "top slide" that flattens
-  terrain near the old ceiling is moved up to match.
+- **Tectonic plates.** The world is divided into plates about 4 km across (a jittered, domain-warped
+  Voronoi diagram). Each plate is continental or oceanic, and continental plates cluster into continents.
+  Each plate drifts, and what happens at a border depends on how the two plates move:
+  - Two continents colliding raise a mountain range along the border.
+  - A continent overriding an ocean plate raises a coastal range a little inland, above a trench.
+  - Two ocean plates colliding throw up an island arc.
+  - Ocean plates pulling apart leave a mid-ocean ridge on the sea floor.
 
-> Grand Scale changes the overworld's height, so use it on **new worlds**. Don't add it to a world that
-> was created without it.
+  A continent with no ocean beside it gets an inland sea.
+- **Erosion.** Each plate is worked out on a 32-block grid with the stream-power law of fluvial erosion,
+  solved for its steady state:
+  - Water drains from every point to the sea along a drainage tree, built by a priority flood from the
+    coast with a gentle seaward tilt, so no river ever ends in a pit.
+  - How much land drains through each point sets how steep the land there can stand. Small catchments
+    stand steep (ridges, mountain flanks); great rivers run almost flat.
+  - Heights are built up the tree from the sea, then the tree is rebuilt from the new heights, and the two
+    are repeated until they agree.
+
+  The results are sharp ridgelines, branching valleys and concave river profiles. Interior basins stay
+  low, as plains, and old worn ranges cross the continents.
+- **Rivers that reach the sea.** Wherever enough land drains through a point there is a river. Each one:
+  - widens downstream, from 3-block brooks to 30-block rivers;
+  - follows smooth curves between grid points, wandering either side;
+  - holds real water above sea level, falling stretch by stretch toward the sea in small rapids;
+  - sits in a valley floor with firm banks and a gravel, sand and clay bed.
+- **Biomes follow the land.** The climate values the biome source reads come from the terrain:
+  - continentalness from distance to the coast;
+  - erosion from how mountainous the land is;
+  - peaks and valleys from height above the nearest river.
+
+  Temperature falls with altitude. Beaches meet the sea, river biomes follow the rivers, and peaks get
+  peak biomes.
+- **Vanilla where vanilla is good.** Caves, aquifers, ore veins, surface rules, carvers and structures
+  are vanilla's, running on the new terrain (the generator wraps vanilla's noise generator).
+
+It lives in a built-in data pack, **VOID Expanse: Earth**, **on by default**, which you can switch off in
+*Create World → More → Data Packs* to get vanilla terrain with Expanse biomes. The pack also raises the
+overworld's build limit to **y=384**, for mountain ranges that need the room.
+
+> The Earth terrain changes how the overworld is made, so use it on **new worlds**. Don't add it to a
+> world that was created without it.
+
+`./gradlew terrainPreview -Pradius=8192 -Pstep=16` renders the model straight to
+`build/terrain_preview.png` in a few seconds, without starting the game. The F3 screen shows the plate,
+uplift, distance to the coast and the nearest river.
 
 ### Trees (custom trunk and foliage placers)
 
@@ -191,7 +228,7 @@ rather than from memory.
 | Script | Writes |
 |---|---|
 | `tools/gen_assets.py` | Blockstates, models, item definitions, loot tables, recipes, recipe advancements, block and item tags, lang. Each block is cloned from the vanilla block it is shaped like (oak, tuff, sandstone, poppy…). |
-| `tools/gen_worldgen.py` | Tree and terrain features, placements, the 13 biomes, surface rules, biome tags, advancements and the Grand Scale pack |
+| `tools/gen_worldgen.py` | Tree and terrain features, placements, the 13 biomes, surface rules, biome tags, advancements and the Earth terrain pack |
 | `tools/gen_entities.py` | Entity geometry (`models/entity/*.json`, read at runtime by `JsonEntityModels`), the texture painted onto exactly that UV layout, and the entity loot tables |
 | `tools/textures/gen_textures.py` | Every block and item texture, plus the mod icon, all drawn procedurally and deterministically |
 | `tools/structures/gen_structures.py` | Every structure: templates (`.nbt`) built by `designs/*.py`, template pools, processor lists, structure sets, chest loot and tags. It validates its output against vanilla's block states and can render isometric previews (`--preview DIR`). |
@@ -213,17 +250,18 @@ rather than from memory.
 
 ```
 src/main/java/dev/voidmc/expanse/
-├── Expanse.java                 entrypoint: registries, wood behaviour, vanilla spawns, Grand Scale pack
+├── Expanse.java                 entrypoint: registries, wood behaviour, vanilla spawns, Earth pack
 ├── registry/                    blocks (WoodSet builds a whole tree's set), items, tree growers, creative tab
 ├── block/                       the two blocks that need their own rules (palm sapling on sand, frostbloom on snow)
 ├── world/biome/                 biome keys and BiomePlacement (where they go in the climate table)
 ├── world/tree/                  5 trunk placers, 3 foliage placers, the hanging-cascade decorator
 ├── world/feature/               karst pillar, natural arch, crystal outcrop, dunes
+├── world/terrain/               the Earth terrain: plates, erosion, rivers, density function, chunk generator
 ├── entity/                      elk, mammoth, capybara, crab
 ├── mixin/                       OverworldBiomeBuilderMixin: one hook, every overworld biome entry passes through it
 └── command/                     /expanse atlas and the headless dev harness
 src/client/java/…/client/        JSON-driven entity models, animations, renderers
 src/gametest/                    the biome tour (not shipped)
-src/main/resources/resourcepacks/grand_scale/   the Grand Scale data pack
+src/main/resources/resourcepacks/earth/   the Earth terrain data pack
 tools/                           generators (see above)
 ```

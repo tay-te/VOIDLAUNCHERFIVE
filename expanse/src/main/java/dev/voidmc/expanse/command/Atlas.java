@@ -22,7 +22,7 @@ import net.minecraft.world.level.storage.LevelResource;
 /**
  * A map of the world as the generator sees it, without generating a single chunk: each pixel asks the
  * biome source which biome is there and the chunk generator how high the ground would stand, then
- * shades the biome's colour by height and slope. It is how this mod's biome placement and Grand Scale
+ * shades the biome's colour by height and slope. It is how this mod's biome placement and Earth terrain
  * terrain were tuned, and it is left in as {@code /expanse atlas} for anyone tuning a world of their own.
  */
 public final class Atlas {

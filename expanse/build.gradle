@@ -58,3 +58,22 @@ fabricApi {
 		clearRunDirectory = false
 	}
 }
+
+// Renders the Earth terrain model to build/terrain_preview.png without starting the game.
+//   ./gradlew terrainPreview -Pseed=8675309 -Pradius=8192 -Pstep=16
+tasks.register('terrainPreview', JavaExec) {
+	group = 'expanse'
+	description = 'Renders the Earth terrain model to build/terrain_preview.png'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.expanse.gametest.TerrainPreview'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}",
+		"-Dexpanse.preview.bench=${project.findProperty('bench') ?: 'false'}", "-Dexpanse.terrain.profile=true"
+	args = [
+		project.findProperty('seed') ?: '8675309',
+		project.findProperty('radius') ?: '8192',
+		project.findProperty('step') ?: '16',
+		layout.buildDirectory.file('terrain_preview.png').get().asFile.path,
+		project.findProperty('cx') ?: '0',
+		project.findProperty('cz') ?: '0'
+	]
+}
