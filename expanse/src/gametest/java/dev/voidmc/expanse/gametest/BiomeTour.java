@@ -247,20 +247,39 @@ public class BiomeTour implements FabricClientGameTest {
 				// walls into courtyards and past the trees round the edge.
 				double back = Math.max(22, span * 0.5 + rise * 0.3);
 				BlockPos target = new BlockPos(tx, ty, tz);
+				// A cavern-hall structure is shot from inside its hall: the camera looks for the hall's own air,
+				// lower and closer than in the open, since the dome is in the way of anything steeper.
+				boolean underground = ground < level.getHeight(Heightmap.Types.WORLD_SURFACE, tx, tz) - 24;
+				double[] reaches = underground ? new double[]{1.0, 0.8, 0.6, 0.45} : new double[]{1.0};
 				int[] best = null;
 				int fewest = Integer.MAX_VALUE;
 				for (int i = 0; i < 8; i++) {
 					// Start from the south-west so ties keep the late-morning light on the walls we see.
 					double a = Math.toRadians(225 + i * 45);
-					int cx = tx + (int) Math.round(Math.cos(a) * back);
-					int cz = tz + (int) Math.round(Math.sin(a) * back);
-					int cy = Math.max(ty + (int) (back * STEEP), level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
-					int blocked = blockedAlong(level, new BlockPos(cx, cy, cz), target);
-					if (blocked < fewest) {
-						fewest = blocked;
-						// Render far enough to draw the far side of the structure, not just the near.
-						int chunks = Mth.clamp((int) Math.ceil((back + span * 0.6) / 16) + 1, DISTANCE, 12);
-						best = new int[]{tx, ty, tz, cx, cy, cz, chunks};
+					for (double near : reaches) {
+						double b = back * near;
+						int cx = tx + (int) Math.round(Math.cos(a) * b);
+						int cz = tz + (int) Math.round(Math.sin(a) * b);
+						int cy;
+						if (underground) {
+							cy = ty + (int) (b * 0.4);
+							while (cy > ty + 2 && !(level.getBlockState(new BlockPos(cx, cy, cz)).isAir()
+								&& level.getBlockState(new BlockPos(cx, cy + 1, cz)).isAir())) {
+								cy--;
+							}
+							if (!level.getBlockState(new BlockPos(cx, cy, cz)).isAir()) {
+								continue;
+							}
+						} else {
+							cy = Math.max(ty + (int) (b * STEEP), level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) + 3);
+						}
+						int blocked = blockedAlong(level, new BlockPos(cx, cy, cz), target);
+						if (blocked < fewest) {
+							fewest = blocked;
+							// Render far enough to draw the far side of the structure, not just the near.
+							int chunks = Mth.clamp((int) Math.ceil((b + span * 0.6) / 16) + 1, DISTANCE, 12);
+							best = new int[]{tx, ty, tz, cx, cy, cz, chunks, underground ? 1 : 0};
+						}
 					}
 				}
 				return best;
@@ -275,7 +294,13 @@ public class BiomeTour implements FabricClientGameTest {
 			float pitch = (float) -Math.toDegrees(Math.atan2(shot[1] - shot[4], Math.hypot(shot[0] - shot[3], shot[2] - shot[5])));
 			int chunks = shot[6];
 			context.runOnClient(mc -> mc.options.renderDistance().set(chunks));
+			if (shot[7] == 1) {
+				world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+			}
 			this.settleShot(context, world, "structure_" + name, from, yawToward(from, to), pitch, SETTLE_MS);
+			if (shot[7] == 1) {
+				world.getServer().runCommand("effect clear @a minecraft:night_vision");
+			}
 		}
 		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
 	}

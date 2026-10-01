@@ -34,6 +34,16 @@ below) on seed `8675309`.
 | ![Nomad camp](docs/gallery/structure_nomad_camp.jpg) **Nomad camp** | ![Tea garden](docs/gallery/structure_tea_garden.jpg) Tea garden (small) |
 | ![Terrace farm](docs/gallery/structure_terrace_farm.jpg) Rice terraces (small) | ![Bayou shack](docs/gallery/structure_bayou_shack.jpg) Bayou shack (small) |
 | ![Stone circle](docs/gallery/structure_stone_circle.jpg) **Stone circle** on the moor | ![Woodland lodge](docs/gallery/structure_woodland_lodge.jpg) **Woodland lodge** in the wisteria |
+| ![Tundra village](docs/gallery/structure_village_tundra.jpg) **Tundra village** | ![Karst village](docs/gallery/structure_village_karst.jpg) **Karst village** among the towers |
+| ![Coast village](docs/gallery/structure_village_coast.jpg) **Coast village** on the dunes | ![Palm harbour](docs/gallery/structure_palm_harbour.jpg) **Palm harbour** (landmark) |
+| ![Logging camp](docs/gallery/structure_logging_camp.jpg) **Logging camp** with its millpond (landmark) | ![Caravanserai](docs/gallery/structure_caravanserai.jpg) **Caravanserai** (landmark) |
+
+**Underground**: the great cavern halls, with dripstone and the falls of the underground rivers
+
+| | |
+|---|---|
+| ![Cavern landing](docs/gallery/structure_cavern_landing.jpg) **Cavern landing** | ![Deep mine camp](docs/gallery/structure_cavern_mine_camp.jpg) **Deep mine camp** |
+| ![Deepstone ruins](docs/gallery/structure_deepstone_ruins.jpg) **Deepstone ruins** | |
 
 **Earth terrain**
 
