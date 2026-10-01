@@ -12,6 +12,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 
 /**
@@ -28,7 +29,11 @@ public final class StructureClearance {
 	private StructureClearance() {
 	}
 
-	/** Bounding boxes of surface structures with a piece in, or near, the chunk being decorated. */
+	/**
+	 * Bounding boxes of the pieces of surface structures in, or near, the chunk being decorated. Pieces,
+	 * not whole structures: a sprawling temple's overall box takes in the open ground between its
+	 * buildings, and clearing all of that would leave a bald square in the forest.
+	 */
 	public static List<BoundingBox> nearbyBoxes(WorldGenLevel level) {
 		List<BoundingBox> boxes = new ArrayList<>();
 		if (!(level instanceof WorldGenRegion region)) {
@@ -52,8 +57,13 @@ public final class StructureClearance {
 						}
 						ChunkAccess startChunk = region.getChunk(at.x(), at.z(), ChunkStatus.STRUCTURE_STARTS, false);
 						StructureStart start = startChunk == null ? null : startChunk.getStartForStructure(refs.getKey());
-						if (start != null && start.isValid() && !boxes.contains(start.getBoundingBox())) {
-							boxes.add(start.getBoundingBox());
+						if (start == null || !start.isValid()) {
+							continue;
+						}
+						for (StructurePiece piece : start.getPieces()) {
+							if (!boxes.contains(piece.getBoundingBox())) {
+								boxes.add(piece.getBoundingBox());
+							}
 						}
 					}
 				}
