@@ -1,5 +1,6 @@
 package dev.voidmc.expanse.client.mixin;
 
+import dev.voidmc.expanse.client.RealmSky;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SkyRenderer;
