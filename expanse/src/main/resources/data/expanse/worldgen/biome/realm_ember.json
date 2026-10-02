@@ -85,9 +85,9 @@
       "modifier": "overlay"
     },
     "minecraft:visual/sky_color": "#100402",
-    "minecraft:visual/fog_color": "#3a1206",
+    "minecraft:visual/fog_color": "#261612",
     "minecraft:visual/fog_start_distance": 24.0,
-    "minecraft:visual/fog_end_distance": 130.0,
+    "minecraft:visual/fog_end_distance": 150.0,
     "minecraft:visual/sky_fog_end_distance": 0.0,
     "minecraft:visual/sun_angle": 180.0,
     "minecraft:visual/moon_angle": 180.0,

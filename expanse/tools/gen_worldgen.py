@@ -880,13 +880,15 @@ def build_surface_rules():
 # own: no sun, moon, stars or clouds (turned below the horizon, behind the dark disc drawn underground), and a
 # fog that takes the far side of a realm into the dark, tinted for its character, with motes drifting in it.
 REALMS = {
-    # name: (vanilla cave biome, sky, fog, fog end, particle, probability)
-    'realm_wilds': ('lush_caves', '#05090a', '#0c1f22', 150, 'minecraft:spore_blossom_air', 0.006),
-    'realm_lush': ('lush_caves', '#060a05', '#122016', 170, 'minecraft:spore_blossom_air', 0.004),
-    'realm_dripstone': ('dripstone_caves', '#090705', '#1d1710', 170, None, 0),
-    'realm_crystal': ('dripstone_caves', '#09060c', '#1e1428', 160, 'minecraft:glow', 0.0012),
-    'realm_ember': ('dripstone_caves', '#100402', '#3a1206', 130, 'minecraft:white_ash', 0.02),
-    'realm_mere': ('lush_caves', '#03070c', '#0b1a2a', 190, None, 0),
+    # name: (vanilla cave biome, sky, fog, fog end, particle, probability). The fog colours are dark and nearly
+    # grey: night vision scales a fog colour up until its brightest channel is full, so a strong tint would turn
+    # into a neon sky; a faint one becomes a pale haze.
+    'realm_wilds': ('lush_caves', '#05090a', '#121a1a', 170, 'minecraft:spore_blossom_air', 0.006),
+    'realm_lush': ('lush_caves', '#060a05', '#141a13', 180, 'minecraft:spore_blossom_air', 0.004),
+    'realm_dripstone': ('dripstone_caves', '#090705', '#1a1714', 180, None, 0),
+    'realm_crystal': ('dripstone_caves', '#09060c', '#17141c', 170, 'minecraft:glow', 0.0012),
+    'realm_ember': ('dripstone_caves', '#100402', '#261612', 150, 'minecraft:white_ash', 0.02),
+    'realm_mere': ('lush_caves', '#03070c', '#12161b', 200, None, 0),
 }
 
 
