@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:maple_log",
+    "expanse:maple_wood",
+    "expanse:stripped_maple_log",
+    "expanse:stripped_maple_wood"
+  ]
+}

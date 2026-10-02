@@ -1,0 +1,68 @@
+{
+  "type": "minecraft:tree",
+  "below_trunk_provider": "minecraft:soil_beneath_tree",
+  "decorators": [
+    {
+      "type": "minecraft:trunk_vine"
+    },
+    {
+      "type": "minecraft:leave_vine",
+      "probability": 0.18
+    }
+  ],
+  "foliage_placer": {
+    "type": "expanse:clump_foliage_placer",
+    "radius": 2,
+    "offset": 0,
+    "height": 0,
+    "edge_hole_chance": 0.3
+  },
+  "foliage_provider": {
+    "id": "expanse:kapok_leaves",
+    "properties": {
+      "distance": "7",
+      "persistent": "false",
+      "waterlogged": "false"
+    }
+  },
+  "ignore_vines": true,
+  "minimum_size": {
+    "type": "minecraft:two_layers_feature_size",
+    "limit": 1,
+    "lower_size": 0,
+    "upper_size": 1
+  },
+  "trunk_placer": {
+    "type": "expanse:kapok_trunk_placer",
+    "base_height": 12,
+    "height_rand_a": 4,
+    "height_rand_b": 2,
+    "trunk_width": 1,
+    "buttress_count": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    },
+    "buttress_length": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 2
+    },
+    "limb_count": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 3,
+      "max_inclusive": 5
+    },
+    "limb_length": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 2,
+      "max_inclusive": 4
+    }
+  },
+  "trunk_provider": {
+    "id": "expanse:kapok_log",
+    "properties": {
+      "axis": "y"
+    }
+  }
+}

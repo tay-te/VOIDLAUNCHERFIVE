@@ -43,7 +43,10 @@ public class BiomeTour implements FabricClientGameTest {
 	private static final float STEEP = Float.parseFloat(System.getProperty("expanse.tour.steep", "0.58"));
 	private static final List<String> BIOMES = List.of(System.getProperty("expanse.tour.biomes",
 		"wisteria_vale,lumen_grove,redwood_giants,jade_karst,opal_dunes,willow_bayou,amber_steppe,heather_moor,"
-			+ "frostbloom_tundra,cloud_forest,verdant_peaks,prismatic_peaks,palm_coast").split(","));
+			+ "frostbloom_tundra,cloud_forest,verdant_peaks,prismatic_peaks,palm_coast,"
+			+ "pine_heath,larch_taiga,boreal_muskeg,maple_highlands,bluebell_woods,aspen_parkland,"
+			+ "olive_groves,monsoon_forest,ghost_gum_outback,saguaro_flats,kapok_rainforest,coral_coast,"
+			+ "volcanic_highlands,painted_canyons,salt_flats,tepui,fjordlands").split(","));
 	private static final Set<String> GLOWING = Set.of("lumen_grove", "prismatic_peaks", "frostbloom_tundra");
 	private static final Set<String> MOUNTAINS = Set.of("verdant_peaks", "prismatic_peaks");
 
@@ -564,7 +567,7 @@ public class BiomeTour implements FabricClientGameTest {
 			}
 			return picked;
 		});
-		String[] names = {"wilds", "lush", "dripstone", "crystal", "ember", "mere"};
+		String[] names = {"wilds", "lush", "dripstone", "crystal", "ember", "mere", "frozen", "roots", "fossil", "tidal", "amber", "brimstone"};
 		context.runOnClient(mc -> mc.options.renderDistance().set(12));
 		int i = 0;
 		for (int[] s : shots) {
@@ -593,6 +596,61 @@ public class BiomeTour implements FabricClientGameTest {
 		world.getServer().runCommand(String.format("summon expanse:capybara 0 %d -2 {NoAI:1b,Rotation:[190f,0f]}", y));
 		world.getServer().runCommand(String.format("summon expanse:crab -2 %d -3 {NoAI:1b,Rotation:[90f,0f]}", y));
 		this.shoot(context, world, "zoo", 0, y + 1, -7, 0.0F, 8.0F);
+		this.wildlife(context, world);
+	}
+
+	/**
+	 * The wild creatures (entity/life) posed round a little pond beside the zoo: songbirds on a fence and the
+	 * grass, butterflies at the flowers, a heron wading and an egret overhead, dragonflies over the water, an
+	 * owl on a stump, deer; then the same pond at midnight, for the owl and the firefly bushes.
+	 */
+	private void wildlife(ClientGameTestContext context, TestSingleplayerContext world) {
+		int y = 300;
+		int x = 48;
+		java.util.function.Consumer<String> run = world.getServer()::runCommand;
+		String still = "NoAI:1b,PersistenceRequired:1b";
+		run.accept("time set noon");
+		run.accept(String.format("tp @a %d %d -8 0 14", x + 11, y + 3));
+		this.settle(context, 5_000L);
+		run.accept(String.format("fill %d %d -4 %d %d 14 minecraft:grass_block", x, y - 1, x + 24, y - 1));
+		run.accept(String.format("fill %d %d 4 %d %d 10 minecraft:sand", x + 12, y - 2, x + 18, y - 2));
+		run.accept(String.format("fill %d %d 4 %d %d 10 minecraft:water", x + 12, y - 1, x + 18, y - 1));
+		run.accept(String.format("fill %d %d 6 %d %d 6 minecraft:oak_fence", x + 2, y, x + 6, y));
+		run.accept(String.format("fill %d %d 2 %d %d 2 minecraft:oak_log", x + 1, y, x + 1, y + 1));
+		for (String block : new String[]{"8 0 1 poppy", "9 0 2 dandelion", "7 0 3 cornflower", "10 0 1 allium", "11 0 4 sugar_cane",
+			"11 1 4 sugar_cane", "11 0 8 firefly_bush", "19 0 6 firefly_bush", "15 0 11 firefly_bush", "19 0 9 firefly_bush"}) {
+			String[] b = block.split(" ");
+			run.accept(String.format("setblock %d %d %s minecraft:%s", x + Integer.parseInt(b[0]), y + Integer.parseInt(b[1]), b[2], b[3]));
+		}
+		String[] creatures = {
+			// what, x, y, z (offsets from the scene's corner and the floor), data
+			"heron 15.5 -1 7.5 Variant:0,Rotation:[200f,0f]",
+			"heron 17.5 3.5 10.5 Variant:1,Flying:1b,NoGravity:1b,Rotation:[110f,0f]",
+			"owl 1.5 2 2.5 Variant:0,Resting:1b,Rotation:[200f,0f]",
+			"songbird 3.5 1.5 6.5 Variant:0,Resting:1b,Rotation:[170f,0f]",
+			"songbird 5.5 1.5 6.5 Variant:2,Resting:1b,Rotation:[200f,0f]",
+			"songbird 6.5 0 3.5 Variant:1,Rotation:[220f,0f]",
+			"songbird 4.5 0 2.5 Variant:4,Rotation:[150f,0f]",
+			"songbird 7.5 2.5 5.5 Variant:3,Flying:1b,NoGravity:1b,Rotation:[100f,0f]",
+			"butterfly 8.5 0.62 1.5 Variant:0,Resting:1b,Rotation:[160f,0f]",
+			"butterfly 9.5 1.3 2.0 Variant:2,Flying:1b,Rotation:[210f,0f]",
+			"butterfly 7.2 0.9 2.6 Variant:1,Flying:1b,Rotation:[120f,0f]",
+			"dragonfly 13.5 0.7 5.5 Variant:0,Flying:1b,Rotation:[80f,0f]",
+			"dragonfly 19.5 0.02 9.5 Variant:2,Resting:1b,Rotation:[230f,0f]",
+			"deer 21 0 3 UUID:[I;0,0,0,2],Rotation:[150f,0f]",
+			"deer 23 0 5 UUID:[I;0,0,0,3],Rotation:[170f,0f]",
+			"deer 22 0 1 Age:-24000,Rotation:[200f,0f]",
+		};
+		for (String c : creatures) {
+			String[] f = c.split(" ");
+			run.accept(String.format(java.util.Locale.ROOT, "summon expanse:%s %.2f %.2f %.2f {%s,%s}", f[0], x + Double.parseDouble(f[1]),
+				y + Double.parseDouble(f[2]), Double.parseDouble(f[3]), still, f[4]));
+		}
+		this.shoot(context, world, "wildlife", x + 11, y + 3, -8, 0.0F, 14.0F);
+		this.shoot(context, world, "wildlife_close", x + 6, y + 1, -1, 0.0F, 10.0F);
+		run.accept("time set midnight");
+		this.shoot(context, world, "wildlife_night", x + 11, y + 2, -3, 0.0F, 10.0F);
+		run.accept("time set noon");
 	}
 
 	private void shoot(ClientGameTestContext context, TestSingleplayerContext world, String name, int x, int y, int z, float yaw, float pitch) {

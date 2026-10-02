@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:olive",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:old_olive",
+        "placement": []
+      }
+    }
+  ]
+}

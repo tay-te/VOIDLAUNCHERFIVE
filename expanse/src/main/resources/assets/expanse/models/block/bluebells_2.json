@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/flowerbed_2",
+  "textures": {
+    "flowerbed": "expanse:block/bluebells",
+    "stem": "expanse:block/bluebells_stem"
+  }
+}

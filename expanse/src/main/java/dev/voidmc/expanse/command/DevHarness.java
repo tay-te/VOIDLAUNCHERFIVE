@@ -105,7 +105,7 @@ public final class DevHarness {
 			if (locate != null) {
 				int radius = Integer.parseInt(locate);
 				for (Field f : ExpanseBiomes.class.getFields()) {
-					if (!Modifier.isStatic(f.getModifiers())) {
+					if (!Modifier.isStatic(f.getModifiers()) || !(f.get(null) instanceof ResourceKey<?>)) {
 						continue;
 					}
 					@SuppressWarnings("unchecked")

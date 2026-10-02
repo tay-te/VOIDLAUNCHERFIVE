@@ -41,5 +41,13 @@ public final class ExpanseVillagers {
 		byBiome.put(ExpanseBiomes.VERDANT_PEAKS, VillagerType.TAIGA);       // jagged peaks, but green
 		byBiome.put(ExpanseBiomes.PRISMATIC_PEAKS, VillagerType.SNOW);      // stony peaks under calcite and snow
 		byBiome.put(ExpanseBiomes.PALM_COAST, VillagerType.JUNGLE);         // a warm beach under palms
+		// --- cold & temperate biomes ---
+		byBiome.put(ExpanseBiomes.MAPLE_HIGHLANDS, VillagerType.PLAINS);    // dappled forest
+		byBiome.put(ExpanseBiomes.ASPEN_PARKLAND, VillagerType.PLAINS);     // plains
+		byBiome.put(ExpanseBiomes.LARCH_TAIGA, VillagerType.SNOW);          // snowy taiga
+		byBiome.put(ExpanseBiomes.BOREAL_MUSKEG, VillagerType.TAIGA);       // taiga
+		byBiome.put(ExpanseBiomes.BLUEBELL_WOODS, VillagerType.PLAINS);     // forest
+		byBiome.put(ExpanseBiomes.PINE_HEATH, VillagerType.TAIGA);          // old growth pine taiga
+		// --- end cold & temperate biomes ---
 	}
 }

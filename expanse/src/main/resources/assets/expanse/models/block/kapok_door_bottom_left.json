@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/door_bottom_left",
+  "textures": {
+    "bottom": "expanse:block/kapok_door_bottom",
+    "top": "expanse:block/kapok_door_top"
+  }
+}

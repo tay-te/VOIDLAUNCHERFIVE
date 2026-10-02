@@ -1,6 +1,8 @@
 {
   "replace": false,
   "values": [
-    "expanse:opal_dunes"
+    "expanse:opal_dunes",
+    "expanse:saguaro_flats",
+    "expanse:salt_flats"
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "tip=false": {
+      "model": "expanse:block/glowworm_silk"
+    },
+    "tip=true": {
+      "model": "expanse:block/glowworm_silk_tip"
+    }
+  }
+}

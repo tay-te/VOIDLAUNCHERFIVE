@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "expanse:block/coral_sand"
+      },
+      {
+        "model": "expanse:block/coral_sand",
+        "y": 90
+      },
+      {
+        "model": "expanse:block/coral_sand",
+        "y": 180
+      },
+      {
+        "model": "expanse:block/coral_sand",
+        "y": 270
+      }
+    ]
+  }
+}

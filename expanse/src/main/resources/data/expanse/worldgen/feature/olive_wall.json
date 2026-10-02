@@ -1,0 +1,16 @@
+{
+  "type": "expanse:field_wall",
+  "wall": {
+    "id": "expanse:limestone_wall"
+  },
+  "mossy_wall": {
+    "id": "minecraft:mossy_cobblestone_wall"
+  },
+  "length": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 5,
+    "max_inclusive": 12
+  },
+  "moss_chance": 0.2,
+  "gap_chance": 0.12
+}

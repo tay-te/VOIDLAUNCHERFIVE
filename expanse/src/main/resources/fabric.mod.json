@@ -12,7 +12,7 @@
 		"main": ["dev.voidmc.expanse.Expanse"],
 		"client": ["dev.voidmc.expanse.client.ExpanseClient"]
 	},
-	"mixins": ["expanse.mixins.json"],
+	"mixins": ["expanse.mixins.json", {"config": "expanse.client.mixins.json", "environment": "client"}],
 	"depends": {
 		"fabricloader": ">=0.19.5",
 		"minecraft": "~26.3",

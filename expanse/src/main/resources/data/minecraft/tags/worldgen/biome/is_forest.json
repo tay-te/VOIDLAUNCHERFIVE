@@ -1,7 +1,9 @@
 {
   "replace": false,
   "values": [
+    "expanse:bluebell_woods",
     "expanse:lumen_grove",
+    "expanse:maple_highlands",
     "expanse:wisteria_vale"
   ]
 }

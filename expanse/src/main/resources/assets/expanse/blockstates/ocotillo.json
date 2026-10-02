@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "tip=false": {
+      "model": "expanse:block/ocotillo"
+    },
+    "tip=true": {
+      "model": "expanse:block/ocotillo_tip"
+    }
+  }
+}

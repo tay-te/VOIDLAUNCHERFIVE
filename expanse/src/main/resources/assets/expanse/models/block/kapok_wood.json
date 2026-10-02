@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "expanse:block/kapok_log",
+    "side": "expanse:block/kapok_log"
+  }
+}

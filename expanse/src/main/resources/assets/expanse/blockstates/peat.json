@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "expanse:block/peat"
+      },
+      {
+        "model": "expanse:block/peat",
+        "y": 90
+      },
+      {
+        "model": "expanse:block/peat",
+        "y": 180
+      },
+      {
+        "model": "expanse:block/peat",
+        "y": 270
+      }
+    ]
+  }
+}

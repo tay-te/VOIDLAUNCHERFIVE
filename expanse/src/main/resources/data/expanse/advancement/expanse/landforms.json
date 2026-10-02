@@ -1,0 +1,107 @@
+{
+  "parent": "expanse:expanse/root",
+  "criteria": {
+    "fjordlands": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:fjordlands"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "painted_canyons": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:painted_canyons"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "salt_flats": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:salt_flats"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "tepui": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:tepui"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "volcanic_highlands": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:volcanic_highlands"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    }
+  },
+  "requirements": [
+    [
+      "fjordlands"
+    ],
+    [
+      "painted_canyons"
+    ],
+    [
+      "salt_flats"
+    ],
+    [
+      "tepui"
+    ],
+    [
+      "volcanic_highlands"
+    ]
+  ],
+  "display": {
+    "title": {
+      "translate": "advancements.expanse.landforms.title"
+    },
+    "description": {
+      "translate": "advancements.expanse.landforms.description"
+    },
+    "icon": {
+      "id": "expanse:volcanic_ash"
+    },
+    "frame": "challenge"
+  },
+  "rewards": {
+    "experience": 250
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "minecraft:orange_tulip"
+        },
+        "weight": 2
+      },
+      {
+        "data": {
+          "id": "minecraft:golden_dandelion"
+        },
+        "weight": 2
+      },
+      {
+        "data": {
+          "id": "minecraft:red_tulip"
+        },
+        "weight": 1
+      }
+    ]
+  }
+}

@@ -31,12 +31,14 @@ public final class LittleThings {
 
 	public static void init() {
 		// ---- natural things, one set per region
-		add("oak_woods", Biomes.FOREST, Biomes.FLOWER_FOREST, Biomes.WINDSWEPT_FOREST, Biomes.DAPPLED_FOREST);
+		add("oak_woods", Biomes.FOREST, Biomes.FLOWER_FOREST, Biomes.WINDSWEPT_FOREST, Biomes.DAPPLED_FOREST,
+			ExpanseBiomes.MAPLE_HIGHLANDS, ExpanseBiomes.BLUEBELL_WOODS);   // + cold & temperate
 		add("birch_woods", Biomes.BIRCH_FOREST, Biomes.OLD_GROWTH_BIRCH_FOREST);
 		add("dark_woods", Biomes.DARK_FOREST);
-		add("taiga", Biomes.TAIGA, Biomes.OLD_GROWTH_PINE_TAIGA, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.SNOWY_TAIGA);
+		add("taiga", Biomes.TAIGA, Biomes.OLD_GROWTH_PINE_TAIGA, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.SNOWY_TAIGA,
+			ExpanseBiomes.LARCH_TAIGA, ExpanseBiomes.BOREAL_MUSKEG, ExpanseBiomes.PINE_HEATH);   // + cold & temperate
 		add("redwood", ExpanseBiomes.REDWOOD_GIANTS);
-		add("grassland", Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW);
+		add("grassland", Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW, ExpanseBiomes.ASPEN_PARKLAND);   // + cold & temperate
 		add("moor", ExpanseBiomes.HEATHER_MOOR, Biomes.WINDSWEPT_HILLS, Biomes.WINDSWEPT_GRAVELLY_HILLS);
 		add("peaks", ExpanseBiomes.VERDANT_PEAKS, Biomes.STONY_PEAKS);
 		add("crystal", ExpanseBiomes.PRISMATIC_PEAKS);
@@ -58,10 +60,12 @@ public final class LittleThings {
 		// ---- traces of people passing through, rarer
 		add("traces_lowland", Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.MEADOW, Biomes.FOREST, Biomes.FLOWER_FOREST,
 			Biomes.BIRCH_FOREST, Biomes.OLD_GROWTH_BIRCH_FOREST, Biomes.DAPPLED_FOREST, Biomes.CHERRY_GROVE,
-			ExpanseBiomes.HEATHER_MOOR, ExpanseBiomes.WISTERIA_VALE);
+			ExpanseBiomes.HEATHER_MOOR, ExpanseBiomes.WISTERIA_VALE,
+			ExpanseBiomes.MAPLE_HIGHLANDS, ExpanseBiomes.BLUEBELL_WOODS, ExpanseBiomes.ASPEN_PARKLAND);   // + cold & temperate
 		add("traces_north", Biomes.TAIGA, Biomes.OLD_GROWTH_PINE_TAIGA, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.SNOWY_TAIGA,
 			Biomes.SNOWY_PLAINS, Biomes.GROVE, Biomes.WINDSWEPT_HILLS, Biomes.WINDSWEPT_GRAVELLY_HILLS, Biomes.WINDSWEPT_FOREST,
-			ExpanseBiomes.REDWOOD_GIANTS, ExpanseBiomes.FROSTBLOOM_TUNDRA, ExpanseBiomes.VERDANT_PEAKS);
+			ExpanseBiomes.REDWOOD_GIANTS, ExpanseBiomes.FROSTBLOOM_TUNDRA, ExpanseBiomes.VERDANT_PEAKS,
+			ExpanseBiomes.LARCH_TAIGA, ExpanseBiomes.BOREAL_MUSKEG, ExpanseBiomes.PINE_HEATH);   // + cold & temperate
 		add("traces_warm", Biomes.SAVANNA, Biomes.SAVANNA_PLATEAU, Biomes.WINDSWEPT_SAVANNA, ExpanseBiomes.AMBER_STEPPE);
 		add("traces_wet", Biomes.SWAMP, ExpanseBiomes.WILLOW_BAYOU, Biomes.JUNGLE, Biomes.SPARSE_JUNGLE,
 			ExpanseBiomes.JADE_KARST, ExpanseBiomes.CLOUD_FOREST);
@@ -75,7 +79,9 @@ public final class LittleThings {
 			Biomes.JUNGLE, Biomes.SPARSE_JUNGLE, Biomes.BAMBOO_JUNGLE, Biomes.CHERRY_GROVE, Biomes.BEACH,
 			ExpanseBiomes.FROSTBLOOM_TUNDRA, ExpanseBiomes.HEATHER_MOOR, ExpanseBiomes.WISTERIA_VALE, ExpanseBiomes.REDWOOD_GIANTS,
 			ExpanseBiomes.LUMEN_GROVE, ExpanseBiomes.WILLOW_BAYOU, ExpanseBiomes.AMBER_STEPPE, ExpanseBiomes.OPAL_DUNES,
-			ExpanseBiomes.JADE_KARST, ExpanseBiomes.CLOUD_FOREST, ExpanseBiomes.VERDANT_PEAKS, ExpanseBiomes.PALM_COAST);
+			ExpanseBiomes.JADE_KARST, ExpanseBiomes.CLOUD_FOREST, ExpanseBiomes.VERDANT_PEAKS, ExpanseBiomes.PALM_COAST,
+			ExpanseBiomes.MAPLE_HIGHLANDS, ExpanseBiomes.ASPEN_PARKLAND, ExpanseBiomes.LARCH_TAIGA,   // + cold & temperate
+			ExpanseBiomes.BOREAL_MUSKEG, ExpanseBiomes.BLUEBELL_WOODS, ExpanseBiomes.PINE_HEATH);
 	}
 
 	@SafeVarargs

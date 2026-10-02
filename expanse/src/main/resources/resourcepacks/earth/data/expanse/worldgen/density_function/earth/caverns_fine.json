@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:interpolated",
+  "cell_size_xz": 2,
+  "cell_size_y": 2,
+  "input": {
+    "type": "expanse:caverns",
+    "output": "fine"
+  }
+}

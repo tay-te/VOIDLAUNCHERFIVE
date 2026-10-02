@@ -36,6 +36,9 @@ public final class Atlas {
 			{"expanse:amber_steppe", 0xE0B040}, {"expanse:opal_dunes", 0xF2B6D2}, {"expanse:jade_karst", 0x3FBF8F},
 			{"expanse:cloud_forest", 0x9FC9B0}, {"expanse:verdant_peaks", 0x7FD060}, {"expanse:prismatic_peaks", 0x9FB8FF},
 			{"expanse:palm_coast", 0xFFE79A},
+			// cold & temperate biomes
+			{"expanse:maple_highlands", 0xC8361E}, {"expanse:aspen_parkland", 0xE8D24A}, {"expanse:larch_taiga", 0xD8A040},
+			{"expanse:boreal_muskeg", 0x7A6A3A}, {"expanse:bluebell_woods", 0x5A6AE0}, {"expanse:pine_heath", 0xA8B898},
 			{"minecraft:ocean", 0x2850A0}, {"minecraft:deep_ocean", 0x1A3A80}, {"minecraft:cold_ocean", 0x2A4A90},
 			{"minecraft:deep_cold_ocean", 0x1A3070}, {"minecraft:lukewarm_ocean", 0x2A60B0}, {"minecraft:deep_lukewarm_ocean", 0x1F4A96},
 			{"minecraft:warm_ocean", 0x2A78C0}, {"minecraft:frozen_ocean", 0x7A90C0}, {"minecraft:deep_frozen_ocean", 0x50709C},

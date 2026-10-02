@@ -19,7 +19,13 @@
     "expanse:smooth_opal_sandstone",
     "expanse:cut_opal_sandstone",
     "expanse:chiseled_opal_sandstone",
+    "expanse:fumarole",
+    "expanse:salt_block",
     "expanse:prismite_block",
-    "expanse:prismite_cluster"
+    "expanse:prismite_cluster",
+    "expanse:icicle",
+    "expanse:amber",
+    "expanse:insect_amber",
+    "expanse:amber_spike"
   ]
 }

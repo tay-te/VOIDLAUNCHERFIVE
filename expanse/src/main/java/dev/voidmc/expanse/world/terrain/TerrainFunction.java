@@ -26,8 +26,10 @@ public record TerrainFunction(Output output) implements DensityFunction {
 		HEIGHT("height", -64, 384),
 		CONTINENTS("continents", -1, 1),
 		EROSION("erosion", -1, 1),
-		RIDGES("ridges", -1, 1),
-		LAPSE("lapse", -1, 0);
+		RIDGES("ridges", -1, 5),
+		LAPSE("lapse", -1, 0),
+		TEMPERATURE("temperature", -3, 3),
+		VEGETATION("vegetation", -3, 3);
 
 		public static final Codec<Output> CODEC = StringRepresentable.fromEnum(Output::values);
 		private final String name;
@@ -93,6 +95,8 @@ public record TerrainFunction(Output output) implements DensityFunction {
 				case EROSION -> c.erosion;
 				case RIDGES -> c.weirdness;
 				case LAPSE -> c.lapse;
+				case TEMPERATURE -> c.temperature;
+				case VEGETATION -> c.humidity;
 			};
 		}
 	}

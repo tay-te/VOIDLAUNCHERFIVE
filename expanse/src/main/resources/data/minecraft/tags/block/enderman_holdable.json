@@ -1,6 +1,8 @@
 {
   "replace": false,
   "values": [
-    "expanse:opal_sand"
+    "expanse:opal_sand",
+    "expanse:coral_sand",
+    "expanse:saguaro"
   ]
 }

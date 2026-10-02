@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/slab_top",
+  "textures": {
+    "bottom": "expanse:block/kapok_planks",
+    "side": "expanse:block/kapok_planks",
+    "top": "expanse:block/kapok_planks"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "expanse:desert_pea"
+        },
+        "weight": 4
+      },
+      {
+        "data": {
+          "id": "minecraft:golden_dandelion"
+        },
+        "weight": 1
+      }
+    ]
+  }
+}

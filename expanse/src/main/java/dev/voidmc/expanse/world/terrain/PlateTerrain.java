@@ -1,6 +1,8 @@
 package dev.voidmc.expanse.world.terrain;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import net.minecraft.util.Mth;
 
 /**
@@ -54,6 +56,17 @@ final class PlateTerrain {
 	private final float[] wander;
 	/** A small random cost per step for each node: crossing a filled basin, water takes a ragged path, not a straight one. */
 	private final float[] stepCost;
+
+	/** The plate's volcanoes, and the height of each one's summit once erosion has shaped it. */
+	private final List<Volcano> volcanoes;
+	private float[] summits = new float[0];
+
+	/**
+	 * A volcano: where it stands, how far its cone spreads and how strongly it is pushed up, its summit
+	 * crater's radius, and whether lava or a lake lies in the crater.
+	 */
+	record Volcano(double x, double z, double radius, double strength, double crater, boolean active) {
+	}
 
 	/** River pieces: quadratic curves, {@value #STRIDE} floats each (see {@link #addPiece}). */
 	private static final int STRIDE = 15;
@@ -172,6 +185,11 @@ final class PlateTerrain {
 			this.coast[k] = this.kind[k] == LAND ? toSea[k] : this.kind[k] == OCEAN ? -toLand[k] : 0;
 		}
 
+		// Volcanoes: along the arc where a continent rides over an ocean plate, at the hotspot islands, and now
+		// and then a lone hotspot far inland. Their cones go into the uplift, so erosion carves them as it
+		// carves everything else: radial valleys round a summit that rivers run down from.
+		this.volcanoes = this.findVolcanoes(model, oceanPush);
+
 		long t4 = System.nanoTime();
 		// 4. Uplift.
 		for (int k = 0; k < n; k++) {
@@ -200,7 +218,8 @@ final class PlateTerrain {
 			if (!plate.continental()) {
 				u = 0.55 + 0.35 * u; // volcanic islands: steep little cones
 			}
-			this.uplift[k] = (float) Mth.clamp(u, 0.04, 3.2);
+			u += this.volcanicUplift(x, z);
+			this.uplift[k] = (float) Mth.clamp(u, 0.04, 4.2);
 		}
 
 		long t5 = System.nanoTime();
@@ -232,6 +251,20 @@ final class PlateTerrain {
 			this.steadyState(order, count);
 		}
 		this.smoothHillslopes();
+		this.summits = new float[this.volcanoes.size()];
+		for (int v = 0; v < this.volcanoes.size(); v++) {
+			// the summit: the highest node near where the cone was pushed up
+			Volcano volcano = this.volcanoes.get(v);
+			float top = SEA;
+			int ci = (int) Math.round(volcano.x() / G) - this.i0;
+			int cj = (int) Math.round(volcano.z() / G) - this.j0;
+			for (int dj = -2; dj <= 2; dj++) {
+				for (int di = -2; di <= 2; di++) {
+					top = Math.max(top, this.at(this.height, ci + di, cj + dj));
+				}
+			}
+			this.summits[v] = top;
+		}
 
 		long t6 = System.nanoTime();
 		// 6. The sea floor.
@@ -294,6 +327,83 @@ final class PlateTerrain {
 			}
 		}
 		return false;
+	}
+
+	private List<Volcano> findVolcanoes(TerrainModel model, float[] oceanPush) {
+		List<Volcano> out = new ArrayList<>();
+		long seed = this.plate.seed();
+		if (this.plate.continental()) {
+			// the arc: a lattice of candidates a kilometre apart, kept where the coastal range rises
+			int cell = 1000;
+			int ci0 = Math.floorDiv(this.i0 * G, cell);
+			int ci1 = Math.floorDiv((this.i0 + this.w) * G, cell);
+			int cj0 = Math.floorDiv(this.j0 * G, cell);
+			int cj1 = Math.floorDiv((this.j0 + this.d) * G, cell);
+			for (int cj = cj0; cj <= cj1; cj++) {
+				for (int ci = ci0; ci <= ci1; ci++) {
+					long h = PlateMap.mix(seed ^ 0x564F_4C43L, ci, cj);
+					double x = (ci + 0.2 + 0.6 * PlateMap.unit(h)) * cell;
+					double z = (cj + 0.2 + 0.6 * PlateMap.unit(h >>> 21)) * cell;
+					int k = this.node(x, z);
+					if (k >= 0 && this.kind[k] == LAND && oceanPush[k] > 0.25F && this.coast[k] > 180 && this.coast[k] < 900
+						&& PlateMap.unit(h >>> 40) < 0.5) {
+						double u = PlateMap.unit(h >>> 7);
+						out.add(new Volcano(x, z, 320 + 180 * u, 1.8 + 0.9 * u, 26 + 22 * PlateMap.unit(h >>> 13), PlateMap.unit(h >>> 29) < 0.45));
+					}
+				}
+			}
+			// a lone hotspot far inland, now and then
+			if (PlateMap.unit(seed >>> 9) < 0.22) {
+				double x = this.plate.cx() + (PlateMap.unit(seed >>> 17) - 0.5) * 2800;
+				double z = this.plate.cz() + (PlateMap.unit(seed >>> 33) - 0.5) * 2800;
+				int k = this.node(x, z);
+				if (k >= 0 && this.kind[k] == LAND && this.coast[k] > 1100) {
+					out.add(new Volcano(x, z, 420, 2.4, 44, PlateMap.unit(seed >>> 45) < 0.5));
+				}
+			}
+		} else {
+			// each hotspot island is the top of one (see island())
+			for (int s = 0; s < 3; s++) {
+				long hs = PlateMap.mix(seed, s, 99);
+				if (PlateMap.unit(hs >>> 50) > 0.55 || PlateMap.unit(hs >>> 3) > 0.6) {
+					continue;  // a hotspot island, and most of them still smoulder
+				}
+				double hx = this.plate.cx() + (PlateMap.unit(hs) - 0.5) * 2600;
+				double hz = this.plate.cz() + (PlateMap.unit(hs >>> 21) - 0.5) * 2600;
+				double r = 130 + PlateMap.unit(hs >>> 42) * 220;
+				out.add(new Volcano(hx, hz, r * 1.15, 1.5, 18 + 0.08 * r, PlateMap.unit(hs >>> 7) < 0.5));
+			}
+		}
+		return out;
+	}
+
+	/** The cones' push: steep near the vent, spreading out over the flanks. */
+	private double volcanicUplift(double x, double z) {
+		double u = 0;
+		for (Volcano v : this.volcanoes) {
+			double d = Math.hypot(x - v.x(), z - v.z());
+			if (d < v.radius()) {
+				u = Math.max(u, v.strength() * Math.pow(1 - d / v.radius(), 1.3));
+			}
+		}
+		return u;
+	}
+
+	/** The plate's volcanoes. */
+	List<Volcano> volcanoes() {
+		return this.volcanoes;
+	}
+
+	/** Volcano {@code v}'s summit height after erosion. */
+	float summit(int v) {
+		return this.summits[v];
+	}
+
+	/** The node nearest (x, z), or -1 outside the grid. */
+	private int node(double x, double z) {
+		int i = (int) Math.round(x / G) - this.i0;
+		int j = (int) Math.round(z / G) - this.j0;
+		return i < 0 || j < 0 || i >= this.w || j >= this.d ? -1 : i + j * this.w;
 	}
 
 	private boolean island(TerrainModel model, PlateMap.Hit hit, double x, double z) {
@@ -590,8 +700,8 @@ final class PlateTerrain {
 		p[o + 8] = Math.min(p[o + 7], w2);
 		p[o + 9] = hw0;
 		p[o + 10] = hw2;
-		// bounding box, padded by the widest the channel and its banks get
-		float pad = Math.max(hw0, hw2) + 12;
+		// bounding box, padded by the widest the valley round the channel gets (and a fjord's trough)
+		float pad = Math.max(1.8F * Math.max(hw0, hw2) + 16, 62);
 		p[o + 11] = Math.min(x0, Math.min(x1, x2)) - pad;
 		p[o + 12] = Math.max(x0, Math.max(x1, x2)) + pad;
 		p[o + 13] = Math.min(z0, Math.min(z1, z2)) - pad;

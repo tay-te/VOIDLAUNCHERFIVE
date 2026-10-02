@@ -31,8 +31,13 @@ public class Expanse implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ExpanseBlocks.init();
+		dev.voidmc.expanse.registry.DeepBlocks.init();   // the world underground: icicles, amber, deeproot, glowroots, glowworm silk
+		dev.voidmc.expanse.registry.LandformBlocks.init();
+		dev.voidmc.expanse.registry.ColdBlocks.init();   // cold & temperate biomes: woods, bog, plants, bog pools
+		dev.voidmc.expanse.world.WarmLands.init();   // warm & dry biomes: woods, soils, plants, tree placers, features, villagers
 		ExpanseItems.init();
 		ExpanseEntities.init();
+		dev.voidmc.expanse.world.LivingWorld.init();   // wild life: butterflies, dragonflies, songbirds, herons, owls, deer; river fish, frogs, fireflies
 		ExpanseTab.init();
 		dev.voidmc.expanse.world.tree.ExpanseTreePlacers.init();
 		dev.voidmc.expanse.world.feature.ExpanseFeatures.init();

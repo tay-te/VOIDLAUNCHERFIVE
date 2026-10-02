@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "expanse:amber_steppe"
+    "expanse:amber_steppe",
+    "expanse:ghost_gum_outback"
   ]
 }

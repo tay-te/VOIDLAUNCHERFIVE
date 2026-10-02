@@ -341,6 +341,36 @@ def main():
     tags.both('minecraft:slabs', f'{NS}:opal_sandstone_slab')
     tags.both('minecraft:walls', f'{NS}:opal_sandstone_wall')
 
+    # ------------------------------------------------------------ heightmaps and flowing water
+    # In 26.x the heightmaps (and with them rain, snow, mob spawning and every feature placed "on the surface")
+    # count only #minecraft:blocks_motion_in_heightmap, built from #blocks_motion_no_leaves, and flowing water
+    # washes away only #washed_away_by_fluids. Our blocks in vanilla families (planks, logs, stairs, slabs,
+    # walls, sand, leaves...) come in through those families' tags; the rest are named here.
+    tags.add('block', 'minecraft:blocks_motion_no_leaves', *[f'{NS}:{b}' for b in [
+        'limestone', 'polished_limestone', 'limestone_bricks', 'chiseled_limestone', 'mossy_limestone',
+        'opal_sandstone', 'smooth_opal_sandstone', 'cut_opal_sandstone', 'chiseled_opal_sandstone', 'prismite_block',
+        'volcanic_ash', 'fumarole', 'salt_block']])
+    tags.add('block', 'minecraft:washed_away_by_fluids', *[f'{NS}:{b}' for b in [
+        'heather', 'edelweiss', 'frostbloom', 'glowcap', 'cattail', 'spanish_moss', 'wisteria_blossoms',
+        'azure_wisteria_blossoms']])
+
+    # ------------------------------------------------------------ landform biomes (registry/LandformBlocks.java)
+    g.clone_block('sand', 'volcanic_ash', {'sand': 'volcanic_ash'})
+    tags.add('block', 'minecraft:mineable/shovel', f'{NS}:volcanic_ash')
+    g.write(f'assets/{NS}/blockstates/fumarole.json', {'variants': {'': {'model': f'{NS}:block/fumarole'}}})
+    g.write(f'assets/{NS}/models/block/fumarole.json', {'parent': 'minecraft:block/cube_bottom_top', 'textures': {
+        'top': f'{NS}:block/fumarole_top', 'bottom': f'{NS}:block/fumarole_side', 'side': f'{NS}:block/fumarole_side'}})
+    g.write(f'assets/{NS}/items/fumarole.json', {'model': {'type': 'minecraft:model', 'model': f'{NS}:block/fumarole'}})
+    g.loot_self('fumarole')
+    g.items.add('fumarole')
+    g.blocks.append('fumarole')
+    tags.add('block', 'minecraft:mineable/pickaxe', f'{NS}:fumarole')
+    g.cube_all('salt_block')
+    tags.add('block', 'minecraft:mineable/pickaxe', f'{NS}:salt_block')
+    # the ground the volcanic features (tools/worldgen_landforms.py) may set fumaroles and flows into
+    tags.add('block', f'{NS}:volcanic_ground', f'{NS}:volcanic_ash', 'minecraft:tuff', 'minecraft:coarse_dirt', 'minecraft:grass_block',
+             'minecraft:dirt', 'minecraft:stone')
+
     # ------------------------------------------------------------ crystals
     g.clone_block('amethyst_block', 'prismite_block', {'amethyst_block': 'prismite_block'})
     g.clone_block('amethyst_cluster', 'prismite_cluster', {'amethyst_cluster': 'prismite_cluster'}, loot=False)
@@ -379,6 +409,16 @@ def main():
                 'type': rtype, 'category': 'food', 'cookingtime': time, 'experience': xp,
                 'ingredient': f'{NS}:{raw}', 'result': {'id': f'{NS}:{cooked}'}})
 
+    # ------------------------------------------------------------ cold & temperate biomes (tools/assets_cold.py)
+    COLD.build(wood_family, g, tags)
+
+    # ------------------------------------------------------------ the world underground (tools/assets_deep.py)
+    DEEP.build(g, tags)
+    # ------------------------------------------------------------ warm & dry biomes (tools/assets_warm.py)
+    WARM.build(wood_family, g, tags)
+    # ------------------------------------------------------------ the wild creatures' spawn eggs (tools/assets_living.py)
+    LIVING.build(g)
+
     tags.write(g)
     write_lang(g)
     print(f'{len(g.written)} files, {len(g.blocks)} blocks')
@@ -414,24 +454,35 @@ def write_lang(g):
                  ('cloud_forest', 'Cloud Forest'), ('verdant_peaks', 'Verdant Peaks'), ('prismatic_peaks', 'Prismatic Peaks'),
                  ('palm_coast', 'Palm Coast')]:
         lang[f'biome.{NS}.{b}'] = n
-    # the realms underground (gen_worldgen.py build_realm_biomes)
-    for b, n in [('realm_wilds', 'Glowcap Wilds'), ('realm_lush', 'Verdant Hollow'), ('realm_dripstone', 'Stalagmite Deeps'),
-                 ('realm_crystal', 'Geode Vaults'), ('realm_ember', 'Ember Deeps'), ('realm_mere', 'Sunless Mere')]:
+    # the landform biomes (tools/worldgen_landforms.py)
+    for b, n in [('volcanic_highlands', 'Volcanic Highlands'), ('painted_canyons', 'Painted Canyons'), ('salt_flats', 'Salt Flats'),
+                 ('tepui', 'Tepui'), ('fjordlands', 'Fjordlands')]:
         lang[f'biome.{NS}.{b}'] = n
+    # the world underground: its blocks, and the biomes of the realms and the caves between (tools/assets_deep.py)
+    DEEP.lang(lang)
     lang['commands.expanse.atlas.done'] = 'Atlas written to %s'
     lang.update({
         'advancements.expanse.root.title': 'VOID Expanse',
         'advancements.expanse.root.description': 'Set foot in a land no one has mapped',
         'advancements.expanse.wanderer.title': 'Wanderer of the Expanse',
-        'advancements.expanse.wanderer.description': 'Visit all thirteen Expanse biomes',
+        'advancements.expanse.wanderer.description': 'Visit every Expanse biome',
+        'advancements.expanse.landforms.title': 'Shaped by Fire and Ice',
+        'advancements.expanse.landforms.description': 'Stand on a volcano, in a painted canyon, on a salt flat, atop a tepui and over a fjord',
     })
     for w in WOODS:
         lang[f'tag.item.{NS}.{w}_logs'] = f'{title(w)} Logs'
         lang[f'tag.block.{NS}.{w}_logs'] = f'{title(w)} Logs'
     lang[f'tag.item.{NS}.lumen_logs'] = 'Lumenwood Logs'
     lang[f'tag.block.{NS}.lumen_logs'] = 'Lumenwood Logs'
+    COLD.lang(lang)  # cold & temperate biomes (tools/assets_cold.py)
+    WARM.lang(lang)  # warm & dry biomes (tools/assets_warm.py)
+    LIVING.lang(lang)  # the wild creatures and their sounds (tools/assets_living.py)
     g.write(f'assets/{NS}/lang/en_us.json', dict(sorted(lang.items())))
 
 
 if __name__ == '__main__':
+    import assets_cold as COLD  # noqa: E402  the cold & temperate biomes' blocks (woods, bog, plants)
+    import assets_deep as DEEP  # noqa: E402  the world underground's blocks and biome names
+    import assets_warm as WARM  # noqa: E402  the warm & dry biomes' blocks (woods, soils, plants, saguaro)
+    import assets_living as LIVING  # noqa: E402  the wild creatures' spawn eggs, names and subtitles
     main()

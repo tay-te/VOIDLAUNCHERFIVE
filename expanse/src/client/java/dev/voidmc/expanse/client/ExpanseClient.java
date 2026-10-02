@@ -34,6 +34,7 @@ public class ExpanseClient implements ClientModInitializer {
 		// Crabs are drawn turned a quarter so that walking forward looks like scuttling sideways.
 		EntityRendererRegistry.register(ExpanseEntities.CRAB,
 			c -> new AnimalRenderer<>(c, new CrabModel(c.bakeLayer(CRAB)), "crab", 0.4F, LivingEntityRenderState::new, 90.0F));
+		dev.voidmc.expanse.client.life.LivingClient.init();   // the wild creatures (entity/life)
 	}
 
 	private static ModelLayerLocation layer(String name) {

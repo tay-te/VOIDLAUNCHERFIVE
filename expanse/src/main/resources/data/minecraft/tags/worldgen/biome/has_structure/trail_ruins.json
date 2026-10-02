@@ -1,8 +1,14 @@
 {
   "replace": false,
   "values": [
+    "expanse:boreal_muskeg",
     "expanse:cloud_forest",
+    "expanse:fjordlands",
     "expanse:jade_karst",
-    "expanse:redwood_giants"
+    "expanse:kapok_rainforest",
+    "expanse:larch_taiga",
+    "expanse:pine_heath",
+    "expanse:redwood_giants",
+    "expanse:tepui"
   ]
 }

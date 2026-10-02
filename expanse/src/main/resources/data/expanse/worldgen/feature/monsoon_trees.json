@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:teak",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.12,
+      "feature": {
+        "feature": "expanse:flame_tree",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.05,
+      "feature": {
+        "feature": "expanse:fallen_teak",
+        "placement": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/inner_stairs",
+  "textures": {
+    "bottom": "expanse:block/aspen_planks",
+    "side": "expanse:block/aspen_planks",
+    "top": "expanse:block/aspen_planks"
+  }
+}

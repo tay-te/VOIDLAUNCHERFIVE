@@ -6,6 +6,14 @@
     "expanse:palm_log",
     "expanse:lumen_log",
     "expanse:baobab_log",
-    "expanse:wisteria_log"
+    "expanse:wisteria_log",
+    "expanse:maple_log",
+    "expanse:aspen_log",
+    "expanse:beech_log",
+    "expanse:pine_log",
+    "expanse:olive_log",
+    "expanse:eucalyptus_log",
+    "expanse:teak_log",
+    "expanse:kapok_log"
   ]
 }

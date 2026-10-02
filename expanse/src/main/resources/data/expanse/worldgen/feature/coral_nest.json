@@ -1,0 +1,48 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "minecraft:turtle_egg",
+          "properties": {
+            "eggs": "1",
+            "hatch": "0"
+          }
+        },
+        "weight": 1
+      },
+      {
+        "data": {
+          "id": "minecraft:turtle_egg",
+          "properties": {
+            "eggs": "2",
+            "hatch": "0"
+          }
+        },
+        "weight": 1
+      },
+      {
+        "data": {
+          "id": "minecraft:turtle_egg",
+          "properties": {
+            "eggs": "3",
+            "hatch": "0"
+          }
+        },
+        "weight": 1
+      },
+      {
+        "data": {
+          "id": "minecraft:turtle_egg",
+          "properties": {
+            "eggs": "4",
+            "hatch": "0"
+          }
+        },
+        "weight": 1
+      }
+    ]
+  }
+}

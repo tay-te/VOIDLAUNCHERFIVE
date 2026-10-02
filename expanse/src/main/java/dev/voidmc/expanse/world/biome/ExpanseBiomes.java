@@ -21,6 +21,32 @@ public final class ExpanseBiomes {
 	public static final ResourceKey<Biome> PRISMATIC_PEAKS = key("prismatic_peaks");
 	public static final ResourceKey<Biome> PALM_COAST = key("palm_coast");
 
+	// --- landform biomes (world/terrain/Landform: placed by the land itself, see BiomePlacement.landforms) ---
+	public static final ResourceKey<Biome> VOLCANIC_HIGHLANDS = key("volcanic_highlands");
+	public static final ResourceKey<Biome> PAINTED_CANYONS = key("painted_canyons");
+	public static final ResourceKey<Biome> SALT_FLATS = key("salt_flats");
+	public static final ResourceKey<Biome> TEPUI = key("tepui");
+	public static final ResourceKey<Biome> FJORDLANDS = key("fjordlands");
+	/** By landform number; index 0 is no landform. */
+	@SuppressWarnings("unchecked")
+	public static final ResourceKey<Biome>[] LANDFORMS = new ResourceKey[]{null, VOLCANIC_HIGHLANDS, PAINTED_CANYONS, SALT_FLATS, TEPUI, FJORDLANDS};
+
+	// --- cold & temperate biomes (BiomePlacement.remap; data from tools/worldgen_cold.py) ---
+	public static final ResourceKey<Biome> MAPLE_HIGHLANDS = key("maple_highlands");
+	public static final ResourceKey<Biome> ASPEN_PARKLAND = key("aspen_parkland");
+	public static final ResourceKey<Biome> LARCH_TAIGA = key("larch_taiga");
+	public static final ResourceKey<Biome> BOREAL_MUSKEG = key("boreal_muskeg");
+	public static final ResourceKey<Biome> BLUEBELL_WOODS = key("bluebell_woods");
+	public static final ResourceKey<Biome> PINE_HEATH = key("pine_heath");
+
+	// --- warm & dry biomes (BiomePlacement.remap; data from tools/worldgen_warm.py) ---
+	public static final ResourceKey<Biome> OLIVE_GROVES = key("olive_groves");
+	public static final ResourceKey<Biome> MONSOON_FOREST = key("monsoon_forest");
+	public static final ResourceKey<Biome> GHOST_GUM_OUTBACK = key("ghost_gum_outback");
+	public static final ResourceKey<Biome> SAGUARO_FLATS = key("saguaro_flats");
+	public static final ResourceKey<Biome> KAPOK_RAINFOREST = key("kapok_rainforest");
+	public static final ResourceKey<Biome> CORAL_COAST = key("coral_coast");
+
 	private ExpanseBiomes() {
 	}
 

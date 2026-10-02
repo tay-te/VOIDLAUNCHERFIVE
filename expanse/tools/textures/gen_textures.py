@@ -20,11 +20,15 @@ sys.dont_write_bytecode = True  # keep the source tree clean
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+import cold  # noqa: E402  (the cold & temperate biomes' blocks)
+import deep  # noqa: E402  the world underground's blocks
 import icon  # noqa: E402
 import items  # noqa: E402
+import landforms  # noqa: E402
 import plants  # noqa: E402
 import stone  # noqa: E402
 import woodset  # noqa: E402
+import warm  # noqa: E402  (the warm & dry biomes' blocks)
 from preview import build_sheet  # noqa: E402
 from texlib import save  # noqa: E402
 
@@ -46,6 +50,10 @@ GROUPS = {
     'plants': plants.generate,
     'items': items.generate,
     'icon': icon.generate,
+    'deep': deep.generate,
+    'landforms': landforms.generate,
+    'cold': cold.generate,
+    'warm': warm.generate,
 }
 
 

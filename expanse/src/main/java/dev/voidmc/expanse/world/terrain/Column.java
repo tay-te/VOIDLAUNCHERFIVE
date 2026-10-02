@@ -18,6 +18,16 @@ public final class Column {
 	public float weirdness;
 	/** Added to temperature: the air is colder up a mountain. */
 	public float lapse;
+	/** Temperature (with the lapse) and humidity for the biome source, on vanilla's scale. */
+	public float temperature;
+	public float humidity;
+	/** The {@link Landform} the column belongs to, which then has the biome. */
+	public int landform;
+	/** The surface of the lake or lava lying in a crater over this column (very low if none), and which it is. */
+	public float crater;
+	public boolean craterLava;
+	/** In a fjord below sea level: the sea fills it, not the river. */
+	public boolean fjord;
 	/** Diagnostics: distance from the coast (positive inland), uplift, height above the nearest river. */
 	public float coast;
 	public float uplift;
@@ -32,7 +42,7 @@ public final class Column {
 
 	/** Whether the column lies in a river channel, where the water is. */
 	public boolean inChannel() {
-		return this.nearRiver() && this.riverDist < this.riverHalfWidth;
+		return this.nearRiver() && !this.fjord && this.riverDist < this.riverHalfWidth;
 	}
 
 	/** The river's water surface as a block height: water fills every y below it. */

@@ -24,6 +24,7 @@ import copy
 import json
 import os
 import shutil
+import sys
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,7 +40,7 @@ WITH_MOBS = True
 
 written = []
 # Subfolders of our worldgen data that other generators own; the clean-up at the start of a run skips them.
-FOREIGN_DIRS = {'micro'}
+FOREIGN_DIRS = {'micro', 'living'}  # living/: tools/gen_living.py's firefly features
 
 
 def write(path, obj):
@@ -832,6 +833,9 @@ def build_surface_rules():
         cond(UNDER_FLOOR, block(top)),
         cond(stone_depth(0, True, secondary=6), block(under)))
     rules = seq(
+        *LANDFORMS.surface_rules(THIS),
+        *COLD.surface_rules(THIS),  # cold & temperate biomes (tools/worldgen_cold.py)
+        *WARM.surface_rules(THIS),  # warm & dry biomes (tools/worldgen_warm.py)
         cond(biome_is('opal_dunes'), sand_beach(e('opal_sand'), e('opal_sandstone'))),
         cond(biome_is('palm_coast'), sand_beach('minecraft:sand', 'minecraft:sandstone')),
         cond(biome_is('verdant_peaks'), seq(
@@ -874,43 +878,11 @@ def build_surface_rules():
 
 # ======================================================================== tags
 
-# The realms underground (world/terrain/CavernModel.java): each character has a biome of its own, put into the
-# chunk by the Earth generator wherever a realm is (EarthChunkGenerator.decorateBiomeResolver), never by the
-# biome source. Each is a vanilla cave biome (its features, carvers, creatures and music) under a sky of its
-# own: no sun, moon, stars or clouds (turned below the horizon, behind the dark disc drawn underground), and a
-# fog that takes the far side of a realm into the dark, tinted for its character, with motes drifting in it.
-REALMS = {
-    # name: (vanilla cave biome, sky, fog, fog end, particle, probability). The fog colours are dark and nearly
-    # grey: night vision scales a fog colour up until its brightest channel is full, so a strong tint would turn
-    # into a neon sky; a faint one becomes a pale haze.
-    'realm_wilds': ('lush_caves', '#05090a', '#121a1a', 170, 'minecraft:spore_blossom_air', 0.006),
-    'realm_lush': ('lush_caves', '#060a05', '#141a13', 180, 'minecraft:spore_blossom_air', 0.004),
-    'realm_dripstone': ('dripstone_caves', '#090705', '#1a1714', 180, None, 0),
-    'realm_crystal': ('dripstone_caves', '#09060c', '#17141c', 170, 'minecraft:glow', 0.0012),
-    'realm_ember': ('dripstone_caves', '#100402', '#261612', 150, 'minecraft:white_ash', 0.02),
-    'realm_mere': ('lush_caves', '#03070c', '#12161b', 200, None, 0),
-}
-
-
+# ---- (caverns) The world underground's biomes, the realms' and those of the caves between them, are built
+# from nothing in tools/worldgen_deep.py (no copies of vanilla's cave biomes).
 def build_realm_biomes(jar):
-    for name, (vanilla, sky, fog, end, particle, probability) in REALMS.items():
-        biome = json.loads(jar.read(f'data/minecraft/worldgen/biome/{vanilla}.json'))
-        attributes = biome.setdefault('attributes', {})
-        attributes.update({
-            'minecraft:visual/sky_color': sky,
-            'minecraft:visual/fog_color': fog,
-            'minecraft:visual/fog_start_distance': 24.0,
-            'minecraft:visual/fog_end_distance': float(end),
-            'minecraft:visual/sky_fog_end_distance': 0.0,
-            'minecraft:visual/sun_angle': 180.0,
-            'minecraft:visual/moon_angle': 180.0,
-            'minecraft:visual/star_brightness': 0.0,
-            'minecraft:visual/sunrise_sunset_color': '#00000000',
-            'minecraft:visual/cloud_color': '#00000000',
-        })
-        if particle:
-            attributes['minecraft:visual/ambient_particles'] = [{'particle': {'type': particle}, 'probability': probability}]
-        data(f'{NS}/worldgen/biome/{name}.json', biome)
+    DEEP.biomes(THIS, jar)
+# ---- (caverns) end
 
 
 def build_biome_tags(jar):
@@ -938,6 +910,7 @@ def build_biome_tags(jar):
     drop('has_structure/village_plains', 'heather_moor')
     drop('has_structure/village_savanna', 'amber_steppe')
     drop('has_structure/village_snowy', 'frostbloom_tundra')
+    DEEP.tags(THIS, tags)  # (caverns) the caves between the realms
     for tag, values in sorted(tags.items()):
         data(f'minecraft/tags/worldgen/biome/{tag}.json', {'replace': False, 'values': sorted(set(values))})
     data(f'{NS}/tags/worldgen/biome/all.json', {'replace': False, 'values': [e(b) for b in sorted(ANALOGS)]})
@@ -971,13 +944,10 @@ def build_earth(jar):
     # The model's outputs, each cached per column (they are two-dimensional).
     for name in ['height', 'continents', 'erosion', 'ridges']:
         df(name, {'type': 'minecraft:cache', 'input': terrain(name)})
-    # Climate zones a little larger than vanilla's, and colder up mountains.
-    temperature = vdf('temperature')
-    temperature['xz_scale'] = 0.2
-    df('temperature', {'type': 'minecraft:add', 'left': temperature, 'right': terrain('lapse')})
-    vegetation = vdf('vegetation')
-    vegetation['xz_scale'] = 0.2
-    df('vegetation', vegetation)
+    # Temperature and humidity come from the model too (vanilla's noises, zones a little larger, colder up
+    # mountains), so the land can know its own climate: a landform can ask for dry country or cold coasts.
+    for name in ['temperature', 'vegetation']:
+        df(name, {'type': 'minecraft:cache', 'input': terrain(name)})
     # depth = (ground height - y) / 128: zero at the surface, as vanilla's depth is.
     df('depth', {'type': 'minecraft:add', 'left': {'type': 'minecraft:mul', 'left': ref('height'), 'right': 1 / 128},
                  'right': gradient_y(64 / 128, -384 / 128)})
@@ -995,6 +965,23 @@ def build_earth(jar):
     final = final.replace('"from_coordinate": 240', '"from_coordinate": 368').replace('"to_coordinate": 256', '"to_coordinate": 384')
     final = json.loads(final)
 
+    # ---- (caverns) The underground is the Expanse's own (world/terrain/CavernModel.java): none of vanilla's
+    # noise caves (cheese, spaghetti, noodles, entrances, pillars) are left in the final density, only the
+    # terrain inside its slides; and EarthChunkGenerator runs no carvers.
+    def no_caves(obj):
+        if isinstance(obj, dict):
+            if obj.get('type') == 'minecraft:range_choice' and obj.get('input') == ref('terrain'):
+                return ref('terrain')   # the cave choice: cheese, spaghetti, entrances and pillars below the surface
+            if obj.get('type') == 'minecraft:min' and obj.get('right') == 'minecraft:overworld/caves/noodle':
+                return no_caves(obj['left'])
+            return {k: no_caves(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [no_caves(v) for v in obj]
+        return obj
+    final = no_caves(final)
+    assert 'minecraft:overworld/caves' not in json.dumps(final), 'vanilla caves left in the Earth final density'
+    # ---- (caverns) end
+
     # The deep halls and underground rivers (world/terrain/CavernModel.java) carve into whatever the
     # rest of the density leaves solid; inside the interpolation, so they are sampled only at cell corners.
     def carve(obj):
@@ -1006,7 +993,18 @@ def build_earth(jar):
             return [carve(v) for v in obj]
         return obj
     df('caverns', {'type': f'{NS}:caverns'})
-    df('final_density', carve(final))
+    # ---- (caverns) The passages, chambers, fissures and ways in are too small for those 4 x 8 x 4 cells, so
+    # they are interpolated on a 2 x 2 x 2 grid of their own and carve the finished density, before the
+    # structures' beards are added.
+    df('caverns_fine', {'type': 'minecraft:interpolated', 'cell_size_xz': 2, 'cell_size_y': 2,
+                        'input': {'type': f'{NS}:caverns', 'output': 'fine'}})
+    final = carve(final)
+    beard = final.get('right')
+    assert final['type'] == 'minecraft:add' and (beard == 'minecraft:beardifier' or isinstance(beard, dict) and beard.get('type') == 'minecraft:beardifier'), \
+        'unexpected final density shape'
+    final['left'] = {'type': 'minecraft:min', 'left': final['left'], 'right': ref('caverns_fine')}
+    df('final_density', final)
+    # ---- (caverns) end
     df('preliminary_surface_level', {'type': 'minecraft:cache', 'input': terrain('height')})
     df('chunk_surface_level', {'type': 'minecraft:interpolated', 'cell_size_xz': 16, 'cell_size_y': 1, 'input': ref('preliminary_surface_level')})
 
@@ -1025,7 +1023,8 @@ def build_earth(jar):
     ns['aquifers'] = swap(ns['aquifers'])
     # ...and kept out of the tunnels and realms, which hold only the water and lava poured into them
     df('caverns_dry', {'type': f'{NS}:caverns', 'output': 'dry'})
-    ns['aquifers']['exclusion'] = {'type': 'minecraft:max', 'left': ns['aquifers']['exclusion'], 'right': ref('caverns_dry')}
+    # (caverns) everywhere: the only open spaces underground are the model's (vanilla's lava below y -54 comes first)
+    ns['aquifers']['exclusion'] = ref('caverns_dry')
     ns['spawn_target'] = swap(ns['spawn_target'])
     ns['debug_functions'] = swap(ns['debug_functions'])
     out(f'{NS}/worldgen/noise_settings/earth.json', ns)
@@ -1046,14 +1045,18 @@ def build_earth(jar):
 
 
 def build_advancements():
-    """An Expanse tab: a root granted on entering any Expanse biome, and a challenge for seeing all thirteen."""
+    """An Expanse tab: a root granted on entering any Expanse biome, a challenge for seeing every climate biome,
+    and one for the five landforms of the Earth terrain."""
     def visit(b):
         return {'conditions': {'player': {'type': 'minecraft:entity_properties', 'entity': 'this',
                                           'predicate': {'minecraft:location': {'biomes': e(b)}}}}, 'trigger': 'minecraft:location'}
-    biomes = sorted(ANALOGS)
+    landforms = sorted(LANDFORMS.NAMES)
+    every = sorted(ANALOGS)
+    # the climate biomes, found on any overworld; the landforms need the Earth terrain and have their own
+    biomes = [b for b in every if b not in landforms]
     shutil.rmtree(os.path.join(RES, 'data', NS, 'advancement', 'expanse'), ignore_errors=True)
     data(f'{NS}/advancement/expanse/root.json', {
-        'criteria': {b: visit(b) for b in biomes}, 'requirements': [biomes],
+        'criteria': {b: visit(b) for b in every}, 'requirements': [every],
         'display': {'title': {'translate': 'advancements.expanse.root.title'}, 'description': {'translate': 'advancements.expanse.root.description'},
                     'icon': {'id': e('wisteria_sapling')}, 'background': 'minecraft:gui/advancements/backgrounds/adventure',
                     'announce_to_chat': False, 'show_toast': True}})
@@ -1062,6 +1065,12 @@ def build_advancements():
         'criteria': {b: visit(b) for b in biomes}, 'requirements': [[b] for b in biomes],
         'display': {'title': {'translate': 'advancements.expanse.wanderer.title'}, 'description': {'translate': 'advancements.expanse.wanderer.description'},
                     'icon': {'id': 'minecraft:filled_map'}, 'frame': 'challenge'},
+        'rewards': {'experience': 250}})
+    data(f'{NS}/advancement/expanse/landforms.json', {
+        'parent': e('expanse/root'),
+        'criteria': {b: visit(b) for b in landforms}, 'requirements': [[b] for b in landforms],
+        'display': {'title': {'translate': 'advancements.expanse.landforms.title'}, 'description': {'translate': 'advancements.expanse.landforms.description'},
+                    'icon': {'id': e('volcanic_ash')}, 'frame': 'challenge'},
         'rewards': {'experience': 250}})
 
 
@@ -1088,11 +1097,17 @@ def main():
     shutil.rmtree(EARTH, ignore_errors=True)
 
     build_features(jar)
+    LANDFORMS.features(THIS)
+    COLD.features(THIS, jar)  # cold & temperate biomes (tools/worldgen_cold.py)
+    WARM.features(THIS, jar)  # warm & dry biomes (tools/worldgen_warm.py)
     for name, obj in FEATURES.items():
         data(f'{NS}/worldgen/feature/{name}.json', obj)
     for name, (obj, _) in PLACED.items():
         data(f'{NS}/worldgen/placed_feature/{name}.json', obj)
     build_biomes(jar)
+    LANDFORMS.biomes(THIS, jar)
+    COLD.biomes(THIS, jar)  # cold & temperate biomes (tools/worldgen_cold.py)
+    WARM.biomes(THIS, jar)  # warm & dry biomes (tools/worldgen_warm.py)
     build_realm_biomes(jar)
     build_surface_rules()
     build_biome_tags(jar)
@@ -1102,4 +1117,9 @@ def main():
 
 
 if __name__ == '__main__':
+    THIS = sys.modules[__name__]
+    import worldgen_landforms as LANDFORMS  # noqa: E402  the landform biomes (volcanoes, ...)
+    import worldgen_deep as DEEP  # noqa: E402  (caverns) the biomes of the world underground
+    import worldgen_cold as COLD  # noqa: E402  the cold & temperate biomes (maples, aspens, larches, muskeg, ...)
+    import worldgen_warm as WARM  # noqa: E402  the warm & dry biomes (olives, teak, ghost gums, saguaros, kapoks, coral)
     main()

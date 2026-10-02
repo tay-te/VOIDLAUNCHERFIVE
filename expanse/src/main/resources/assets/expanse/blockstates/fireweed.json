@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "half=lower": {
+      "model": "expanse:block/fireweed_bottom"
+    },
+    "half=upper": {
+      "model": "expanse:block/fireweed_top"
+    }
+  }
+}

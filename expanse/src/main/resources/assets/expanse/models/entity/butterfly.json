@@ -1,0 +1,142 @@
+{
+  "texture_width": 32,
+  "texture_height": 32,
+  "parts": [
+    {
+      "name": "body",
+      "parent": "root",
+      "pivot": [
+        0,
+        23,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "cubes": [
+        {
+          "uv": [
+            0,
+            0
+          ],
+          "origin": [
+            -0.5,
+            -1,
+            -3
+          ],
+          "size": [
+            1,
+            1,
+            5
+          ],
+          "inflate": 0.0,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "name": "antennae",
+      "parent": "body",
+      "pivot": [
+        0,
+        -1,
+        -3
+      ],
+      "rotation": [
+        -35,
+        0,
+        0
+      ],
+      "cubes": [
+        {
+          "uv": [
+            22,
+            12
+          ],
+          "origin": [
+            -1.5,
+            -2,
+            0
+          ],
+          "size": [
+            3,
+            2,
+            0
+          ],
+          "inflate": 0.0,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "name": "left_wing",
+      "parent": "body",
+      "pivot": [
+        0.5,
+        -1,
+        -0.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "cubes": [
+        {
+          "uv": [
+            0,
+            6
+          ],
+          "origin": [
+            0,
+            0,
+            -3
+          ],
+          "size": [
+            5,
+            0,
+            6
+          ],
+          "inflate": 0.0,
+          "mirror": false
+        }
+      ]
+    },
+    {
+      "name": "right_wing",
+      "parent": "body",
+      "pivot": [
+        -0.5,
+        -1,
+        -0.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "cubes": [
+        {
+          "uv": [
+            0,
+            12
+          ],
+          "origin": [
+            -5,
+            0,
+            -3
+          ],
+          "size": [
+            5,
+            0,
+            6
+          ],
+          "inflate": 0.0,
+          "mirror": true
+        }
+      ]
+    }
+  ]
+}

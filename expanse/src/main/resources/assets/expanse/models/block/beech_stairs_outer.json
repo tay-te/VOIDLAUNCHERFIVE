@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/outer_stairs",
+  "textures": {
+    "bottom": "expanse:block/beech_planks",
+    "side": "expanse:block/beech_planks",
+    "top": "expanse:block/beech_planks"
+  }
+}

@@ -56,7 +56,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 		RegistryOps.retrieveGetter(Registries.BIOME)
 	).apply(i, i.stable(EarthChunkGenerator::new)));
 	/** The realms' biomes, by {@link CavernModel} character. */
-	private static final String[] REALM_BIOMES = {"realm_wilds", "realm_lush", "realm_dripstone", "realm_crystal", "realm_ember", "realm_mere"};
+	private static final String[] REALM_BIOMES = dev.voidmc.expanse.world.biome.UndergroundBiomes.REALMS;
 
 	private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 	private static final BlockState WATER = Blocks.WATER.defaultBlockState();
@@ -107,7 +107,8 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 
 	/**
 	 * The realms under the land are each one biome through and through, the biome of their character
-	 * ({@code expanse:realm_*}): a vanilla cave biome's plants, music and creatures under a sky of its own.
+	 * ({@code expanse:realm_*}, tools/worldgen_deep.py): its own music, creatures and sky; what grows there is
+	 * placed by {@link CavernLife}.
 	 */
 	@Override
 	protected BiomeResolver decorateBiomeResolver(Blender blender, ChunkAccess protoChunk, BiomeResolver biomeResolver) {
@@ -141,6 +142,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 		return this.noise.buildTerrain(chunk, blender, randomState, structureManager, biomeManager, carverBiomeRegion, possibleBiomes)
 			.thenApply(built -> {
 				this.pourRivers(built, m);
+				this.pourCraters(built, m);
 				this.pourUndergroundRivers(built, m.caverns());
 				this.pourRealmLakes(built, m.caverns());
 				return built;
@@ -157,7 +159,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 				int x = pos.getMinBlockX() + lx;
 				int z = pos.getMinBlockZ() + lz;
 				Column c = m.sample(x, z);
-				if (!c.nearRiver() || c.riverDist >= c.riverHalfWidth + 2) {
+				if (!c.nearRiver() || c.fjord || c.riverDist >= c.riverHalfWidth + 2) {
 					continue;
 				}
 				int top = c.waterTop();
@@ -255,6 +257,29 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 							chunk.setBlockState(p, Blocks.STONE.defaultBlockState());
 						}
 					}
+				}
+			}
+		}
+	}
+
+	/** Volcano craters: lava in the active ones, a lake in the sleeping ones, to the level the model gives. */
+	private void pourCraters(ChunkAccess chunk, TerrainModel m) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				Column c = m.sample(x, z);
+				if (c.crater <= c.height) {
+					continue;
+				}
+				BlockState fill = c.craterLava ? LAVA : WATER;
+				for (int y = net.minecraft.util.Mth.floor(c.crater); y > chunk.getMinY(); y--) {
+					if (!chunk.getBlockState(p.set(x, y, z)).isAir()) {
+						break;
+					}
+					chunk.setBlockState(p, fill);
 				}
 			}
 		}

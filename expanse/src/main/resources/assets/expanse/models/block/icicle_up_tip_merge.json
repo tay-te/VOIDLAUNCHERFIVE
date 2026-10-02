@@ -1,0 +1,6 @@
+{
+  "parent": "expanse:block/icicle",
+  "textures": {
+    "cross": "expanse:block/icicle_up_tip_merge"
+  }
+}

@@ -1,6 +1,10 @@
 {
   "replace": false,
   "values": [
-    "expanse:opal_sand"
+    "expanse:opal_sand",
+    "expanse:volcanic_ash",
+    "expanse:peat",
+    "expanse:red_earth",
+    "expanse:coral_sand"
   ]
 }

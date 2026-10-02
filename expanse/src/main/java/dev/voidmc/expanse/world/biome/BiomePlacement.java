@@ -35,6 +35,20 @@ import net.minecraft.world.level.biome.Climate;
  *  stony peaks                              T3                              Prismatic Peaks
  *  jagged / frozen peaks (either sign)      T2                              Verdant Peaks
  *  beach (negative weirdness; warm coasts)  T3, and T4's desert beaches     Palm Coast
+ *  snowy taiga                              T0 H2                           Pine Heath
+ *  snowy taiga (and its plateau)            T0 H3-4                         Larch Taiga
+ *  taiga                                    T0 H4                           Boreal Muskeg
+ *  forest, eroded uplands (erosion 0-3)     T1 H2                           Maple Highlands
+ *  meadow (plateau)                         T1 H2-3                         Maple Highlands
+ *  forest, lowlands (erosion 4-6)           T1 H2                           Bluebell Woods
+ *  plains                                   T2 H1                           Aspen Parkland
+ *  plains, lowlands (erosion 4-6)           T3 H2                           Olive Groves
+ *  plains, eroded uplands (erosion 0-3)     T3 H2                           Monsoon Forest
+ *  savanna / savanna plateau                T3 H0 (Amber Steppe keeps H1)   Ghost Gum Outback
+ *  badlands / wooded badlands               T4 H2-4                         Saguaro Flats
+ *  desert, inland (not the coast)           T4 H0 (Opal Dunes keeps H1-2)   Saguaro Flats
+ *  mangrove swamp                           T3-4 (erosion 6)                Kapok Rainforest
+ *  beach (positive weirdness, low slice)    T3                              Coral Coast
  * </pre>
  */
 public final class BiomePlacement {
@@ -42,10 +56,33 @@ public final class BiomePlacement {
 	}
 
 	public static Consumer<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> wrap(Consumer<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> out) {
+		landforms(out);
 		return entry -> out.accept(Pair.of(entry.getFirst(), remap(entry.getFirst(), entry.getSecond())));
 	}
 
+	/**
+	 * The landform biomes ({@link dev.voidmc.expanse.world.terrain.Landform}): one point each, at the
+	 * weirdness the Earth terrain gives that landform's columns and nowhere else, open to any temperature,
+	 * humidity, continentalness and erosion. Natural weirdness never comes near, so these points only ever
+	 * win on the landform itself; on other terrain generators they are never reached.
+	 */
+	private static void landforms(Consumer<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> out) {
+		ResourceKey<Biome>[] biomes = ExpanseBiomes.LANDFORMS;
+		Climate.Parameter any = Climate.Parameter.span(-3.0F, 3.0F);
+		for (int k = 1; k < biomes.length; k++) {
+			float w = dev.voidmc.expanse.world.terrain.Landform.weirdness(k);
+			out.accept(Pair.of(Climate.parameters(any, any, any, any, Climate.Parameter.point(0.0F), Climate.Parameter.span(w - 0.2F, w + 0.2F), 0.0F),
+				biomes[k]));
+		}
+	}
+
 	static ResourceKey<Biome> remap(Climate.ParameterPoint p, ResourceKey<Biome> b) {
+		// ---- (caverns) vanilla's cave biomes give way to the Expanse's own (UndergroundBiomes)
+		ResourceKey<Biome> underground = UndergroundBiomes.remap(b);
+		if (underground != null) {
+			return underground;
+		}
+		// ---- (caverns) end
 		int t = band(p.temperature(), -0.45F, -0.15F, 0.2F, 0.55F);
 		int h = band(p.humidity(), -0.35F, -0.1F, 0.1F, 0.3F);
 		boolean variant = p.weirdness().min() >= 0L;   // the positive half; valleys straddle zero and are left alone
@@ -66,6 +103,29 @@ public final class BiomePlacement {
 		if (!variant) {
 			return b;
 		}
+		// --- cold & temperate biomes ---
+		// The boreal belt runs dry to wet across T0: Frostbloom Tundra (H0-1), Pine Heath, Larch Taiga, Boreal
+		// Muskeg. Snowy taiga keeps its negative-weirdness half, taiga everything but T0 H4's variant half.
+		if (b == Biomes.SNOWY_TAIGA && t == 0) {
+			return h <= 2 ? ExpanseBiomes.PINE_HEATH : ExpanseBiomes.LARCH_TAIGA;
+		}
+		if (b == Biomes.TAIGA && t == 0 && h == 4) {
+			return ExpanseBiomes.BOREAL_MUSKEG;
+		}
+		// T1 H2's forest splits by erosion: the eroded uplands (bands 0-3, mountains and their foothills on
+		// the Earth terrain) go to the maples, the flat lowlands (bands 4-6) to the bluebell woods. The
+		// plateau meadows of T1 H2-3 are uplands too.
+		if (b == Biomes.FOREST && t == 1 && h == 2) {
+			return band(p.erosion(), -0.78F, -0.375F, -0.2225F, 0.05F, 0.45F, 0.55F) >= 4
+				? ExpanseBiomes.BLUEBELL_WOODS : ExpanseBiomes.MAPLE_HIGHLANDS;
+		}
+		if (b == Biomes.MEADOW && t == 1 && (h == 2 || h == 3)) {
+			return ExpanseBiomes.MAPLE_HIGHLANDS;
+		}
+		if (b == Biomes.PLAINS && t == 2 && h == 1) {
+			return ExpanseBiomes.ASPEN_PARKLAND;
+		}
+		// --- end cold & temperate biomes ---
 		if (b == Biomes.SNOWY_PLAINS) {
 			return ExpanseBiomes.FROSTBLOOM_TUNDRA;
 		}
@@ -84,6 +144,34 @@ public final class BiomePlacement {
 		if (b == Biomes.SWAMP) {
 			return ExpanseBiomes.WILLOW_BAYOU;
 		}
+		// --- warm & dry biomes ---
+		// T3 H2's plains (the variant half of the warm forest band, free) splits by erosion: the lowlands
+		// (bands 4-6) are olive groves, the eroded uplands (bands 0-3) monsoon forest.
+		if (b == Biomes.PLAINS && t == 3 && h == 2) {
+			return band(p.erosion(), -0.78F, -0.375F, -0.2225F, 0.05F, 0.45F, 0.55F) >= 4
+				? ExpanseBiomes.OLIVE_GROVES : ExpanseBiomes.MONSOON_FOREST;
+		}
+		// The driest savanna (H0, middle and plateau) is the outback. Ahead of the savanna branch below,
+		// which keeps H1 for Amber Steppe.
+		if ((b == Biomes.SAVANNA || b == Biomes.SAVANNA_PLATEAU) && h == 0) {
+			return ExpanseBiomes.GHOST_GUM_OUTBACK;
+		}
+		// Saguaros: the badlands' free variant half (badlands H2, wooded badlands H3-4; eroded badlands lives
+		// only in this half and keeps it), and the driest inland desert (T4 H0, not the coast). The desert
+		// part must stay ahead of the desert branch below, which keeps H1-2 for Opal Dunes.
+		if ((b == Biomes.BADLANDS || b == Biomes.WOODED_BADLANDS) && t == 4
+			|| b == Biomes.DESERT && t == 4 && h == 0 && band(p.continentalness(), -0.19F, -0.11F) != 1) {
+			return ExpanseBiomes.SAGUARO_FLATS;
+		}
+		// The mangroves' variant half (T3-4, erosion band 6: the flattest hot lowlands): floodplain rainforest.
+		if (b == Biomes.MANGROVE_SWAMP) {
+			return ExpanseBiomes.KAPOK_RAINFOREST;
+		}
+		// The warm beaches' variant half (the low slice puts beaches in both halves; Palm Coast has the other).
+		if (b == Biomes.BEACH && t == 3) {
+			return ExpanseBiomes.CORAL_COAST;
+		}
+		// --- end warm & dry biomes ---
 		if (b == Biomes.SAVANNA || b == Biomes.SAVANNA_PLATEAU) {
 			return ExpanseBiomes.AMBER_STEPPE;
 		}

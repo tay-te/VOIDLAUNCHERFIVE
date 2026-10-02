@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:kapok_log",
+    "expanse:kapok_wood",
+    "expanse:stripped_kapok_log",
+    "expanse:stripped_kapok_wood"
+  ]
+}

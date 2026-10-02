@@ -1,0 +1,17 @@
+{
+  "type": "expanse:plant_rows",
+  "plant": {
+    "id": "expanse:lavender"
+  },
+  "rows": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 3,
+    "max_inclusive": 5
+  },
+  "length": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 7,
+    "max_inclusive": 12
+  },
+  "spacing": 2
+}

@@ -1,0 +1,31 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:is_forest",
+    "#minecraft:is_taiga",
+    "#minecraft:is_jungle",
+    "minecraft:swamp",
+    "minecraft:mangrove_swamp",
+    "minecraft:snowy_plains",
+    {
+      "id": "expanse:willow_bayou",
+      "required": false
+    },
+    {
+      "id": "expanse:jade_karst",
+      "required": false
+    },
+    {
+      "id": "expanse:cloud_forest",
+      "required": false
+    },
+    {
+      "id": "expanse:frostbloom_tundra",
+      "required": false
+    },
+    {
+      "id": "expanse:heather_moor",
+      "required": false
+    }
+  ]
+}

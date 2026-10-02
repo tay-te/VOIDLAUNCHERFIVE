@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:disk",
+  "radius": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 1,
+    "max_inclusive": 2
+  },
+  "half_height": 1,
+  "state_provider": {
+    "id": "minecraft:obsidian"
+  },
+  "target": {
+    "type": "minecraft:matching_blocks",
+    "blocks": [
+      "minecraft:basalt",
+      "expanse:volcanic_ash"
+    ]
+  }
+}

@@ -90,8 +90,20 @@ cells. Each one borders the vanilla biome it grew from, and no vanilla biome is 
 | **Verdant Peaks** | temperate mountain peaks | mountains that are green to the summit, with alpine flowers, lone spruces and waterfalls down the walls; snowcaps only above y=300 |
 | **Prismatic Peaks** | warm stony peaks | calcite and snow, with glowing prismite crystal outcrops that sparkle at night |
 | **Palm Coast** | warm beaches | curved palms on turquoise water; shore crabs |
+| **Pine Heath** | cold dry taiga | flat-crowned Scots pines over pale lichen, juniper, cranberry, heather and pink granite boulders |
+| **Larch Taiga** | snowy taiga | golden larches among dark spruce in the snow, their gold needle litter melting the snow beneath them |
+| **Boreal Muskeg** | cold wet taiga | a misty bog: tea-brown pools, peat and red-green sphagnum hummocks, stunted black spruce, cotton grass, frogs |
+| **Maple Highlands** | cool forested uplands | domed sugar maples in scarlet and orange, golden grass, red leaf litter, fallen maples with bracket fungus |
+| **Bluebell Woods** | cool forested lowlands | a high grey-barked beech canopy over a carpet of bluebells, under a blue haze |
+| **Aspen Parkland** | temperate plains | groves of tall white aspens with gold crowns, open prairie of fireweed, wild roses and wildflowers |
+| **Olive Groves** | warm lowlands | gnarled silver-green olives and dark cypress spires, dry-stone walls, lavender in rows, poppy meadows |
+| **Monsoon Forest** | warm uplands | tall teak with layered crowns and lianas, scarlet flame trees, granite tors, a hazy golden light |
+| **Ghost Gum Outback** | hot dry savanna | red earth, leaning white ghost gums, spinifex, cathedral termite spires, Sturt's desert peas |
+| **Saguaro Flats** | hot desert and badlands | many-armed saguaros crowned with flowers, ocotillo, barrel cacti, mesquite, marigold superblooms, hoodoos |
+| **Kapok Rainforest** | hot wet lowlands | emergent kapoks up to 40 blocks with buttress roots over a jungle canopy, orchids, pitcher plants, oxbow ponds |
+| **Coral Coast** | warm beaches | coral sand and aqua water, tiered sea-almond trees, coral in the shallows, turtle nests, crabs |
 
-All thirteen sit within about 5 km of spawn on a typical seed. They also join the vanilla biome tags
+Most sit within about 5 km of spawn on a typical seed. They also join the vanilla biome tags
 of the biome they grew from, so villages, temples, mineshafts and mob variants appear in them the way
 they would in that vanilla biome.
 
@@ -131,9 +143,34 @@ from plate tectonics and erosion rather than from noise alone:
   - peaks and valleys from height above the nearest river.
 
   Temperature falls with altitude. Beaches meet the sea, river biomes follow the rivers, and peaks get
-  peak biomes.
-- **A world underground.** Beneath the land runs a network to follow (it is not open space everywhere),
-  and it leads to realms, landscapes of their own under a stone sky:
+  peak biomes. Temperature and humidity are computed by the terrain model too (vanilla's noises and
+  proportions), so the land knows its own climate.
+- **Landforms that bring their own biome.** Some land is shaped by more than rivers, and the shape decides
+  the biome (`world/terrain/Landform.java`). The terrain model tags those columns with a weirdness nothing
+  else reaches, and the biome source holds a point there for each, so they are ordinary biomes to locate,
+  structures and features:
+  - **Volcanic Highlands:** stratovolcanoes along the arcs where a continent rides over an ocean plate,
+    on the hotspot islands, and now and then alone far inland. Their uplift goes into the erosion model,
+    so rivers drain off them like real ones, and a cone with radial gullies stands on top. Some craters
+    hold lava, some a lake. The upper slopes are ash and tuff, with basalt flows edged with obsidian and
+    fumaroles breathing smoke.
+  - **Painted Canyons:** dry uplands terraced into mesas and buttes, with every cliff banded like the
+    badlands and the rivers sunk in sheer canyons.
+  - **Salt Flats:** in arid lowlands, dead-flat white salt crust with pink brine pools and salt chimneys.
+  - **Tepuis:** in the wet tropics, sheer table mountains standing out of the forest. Their tops are a
+    misty lost world, and springs pour down the cliffs.
+- **A world underground.** The underground is the Expanse's own: no vanilla noise caves, no carvers, no
+  vanilla cave biomes. Beneath the land runs a network to follow (it is not open space everywhere), from
+  small passages to great tunnels to realms, landscapes of their own under a stone sky:
+  - **Ways in:** cave mouths at the foot of hillsides and river banks, an adit running level into the hill
+    and then down; sinkholes, funnels over a shaft that drops into a chamber; ravines, where a fissure
+    breaks the surface. None opens under the sea, in a river or a lake, or on a volcano.
+  - **Passages:** three levels of winding, branching passages (a sparse network of links over a jittered
+    grid, so they fork, loop and end): a shallow one 30–50 blocks down that climbs with the land under
+    mountains, one at the depth of the great tunnels that bends to meet them wherever they pass, and a
+    deep one that comes out in the walls of the realms. Some junctions open into chambers 20–90 blocks
+    across; a few deep ones sink into bowls of lava.
+  - **Fissures:** tall narrow cracks through all the levels, some down into the lava.
   - **Great tunnels:** two families, a few hundred blocks apart, 12–24 blocks wide and up to 34 high under
     arched roofs, rising and falling between y 12 and 44.
   - **River tunnels:** one family carries rivers, with a channel down the middle, a dry ledge either side
@@ -146,24 +183,44 @@ from plate tectonics and erosion rather than from noise alone:
     - stalagmite mountains, the tallest reaching the roof as pillars;
     - inverted peaks hanging from the vault, and great hourglass columns;
     - a plateau in the middle, where an underground structure may stand.
-  - **Six characters,** each with its own vanilla cave biome (and so its music, plants and creatures):
-    - *Glowcap wilds:* moss hills under a forest of giant mushrooms, lit by the shroomlight in their gills.
-    - *Lush realms:* lush caves at realm scale: azaleas, clay ponds of dripleaf, spore blossoms, vines
-      hanging thick.
-    - *Dripstone realms:* stalagmite forests and hanging spires, terraced flowstone, still pools.
-    - *Crystal realms:* terraced mesas of calcite and tuff, crusted with amethyst and glowing prismite.
-    - *Ember realms:* the deepest, basalt and magma shores round a sea of lava.
-    - *Meres:* an underground lake with islands and stacks, beaches, and sea pickles glowing on its bed.
-  - **Light:** glowcaps, glow berries, shroomlight, sea pickles, prismite, glow lichen and lava light the
-    realms in places, so they are a dark land of lit places rather than a black void.
-  - **Dry:** aquifers are kept out of the tunnels and realms (through the aquifer `exclusion`), so their
-    water and lava lie where the model puts them.
-  - **Safety:** nothing comes within 16 blocks of the ground above or lies under the sea.
-  - **Preview:** `./gradlew terrainPreview -Pslice=plan` maps the realms from above (their floors
-    hill-shaded); `-Pslice=side -Pcx=… -Pcz=…` draws a section through the ground; `-Pslice=<y>` cuts
-    through everything at one height.
-- **Vanilla where vanilla is good.** Caves, aquifers, ore veins, surface rules, carvers and structures
-  are vanilla's, running on the new terrain (the generator wraps vanilla's noise generator).
+  - **Twelve characters, after the land above:** a realm takes its character from the climate, the sea,
+    the mountains and the volcanoes over it (with chance enough that any can turn up anywhere), and each has
+    a biome of its own (its music, creatures, fog and motes):
+    - *Glowcap Wilds:* moss hills under a forest of giant mushrooms, lit by the shroomlight in their gills.
+    - *Verdant Hollow:* moss, azaleas, clay ponds of dripleaf, spore blossoms, vines hanging thick.
+    - *Stalagmite Deeps:* stalagmite fields and hanging spires, terraced flowstone, still pools.
+    - *Geode Vaults:* terraced mesas of calcite and tuff, crusted with amethyst and glowing prismite.
+    - *Ember Deeps:* the deepest, basalt and magma shores round a sea of lava.
+    - *Sunless Mere:* an underground lake with islands and stacks, beaches, and sea pickles on its bed.
+    - *Rime Hollows* (under snow country): a frozen lake, snow and packed and blue ice, ice spikes,
+      icicles hanging from an ice-clad vault, frostblooms glowing in the snow.
+    - *Root Hollows* (under forests): giant deeproot roots coming down out of the vault and arching across
+      it, rooted earth and moss, ferns and firefly bushes, hanging roots and glowroots, lily-padded ponds.
+    - *Fossil Deeps* (under deserts and dry country): dry sand and sandstone mesas and dunes, hoodoos,
+      the bones of giants lying half buried, suspicious sand to brush round them.
+    - *Tidal Grottos* (near the coasts): flowstone terraces stepping down to a still salt lake, tide pools on
+      every step with sea pickles, seagrass and coral, kelp in the lake, glowworm silk hanging from the roof.
+    - *Amber Hollows* (under conifer woods and the steppe): glowing amber with insects caught in it, amber
+      spikes and boulders, resin, honeycomb, and pools the colour of honey.
+    - *Brimstone Vaults* (under volcanoes and mountains): basalt causeways, sulfur and its spikes, hot
+      springs whose potent sulfur erupts in geysers, lava welling up in vents.
+  - **The caves between** take after their own biomes (Mossgrown Caves, Dripstone Grottos, Echoing
+    Depths and Sulfur Seeps, where vanilla's cave biomes were) or after the land above: snow and icicles
+    under the cold lands, sand under the deserts, moss under the wet ones, bare stone elsewhere, with glow
+    lichen.
+  - **Light:** glowcaps, glow berries, shroomlight, sea pickles, prismite, amber, glowroots, glowworm silk,
+    frostblooms, magma, glow lichen and lava light the realms in places, so they are a dark land of lit
+    places rather than a black void.
+  - **Dry:** the aquifers flood nothing (through their `exclusion`), so the water and lava lie where the
+    model puts them; below y -54 every open space is lava, as in vanilla.
+  - **Safety:** apart from the ways in, nothing comes within 16 blocks of the ground above or lies under
+    the sea.
+  - **Preview:** `./gradlew terrainPreview -Pslice=plan` maps it from above (realm floors hill-shaded and
+    tinted by character, passages by level, chambers, fissures, ways in and sinkholes) and prints the
+    realms by character; `-Pslice=side -Pcx=… -Pcz=…` draws a section through the ground; `-Pslice=<y>`
+    cuts through everything at one height; `-Pslice=cavebench` times the cavern model per column.
+- **Vanilla where vanilla is good.** Aquifers, ore veins, surface rules and structures are vanilla's,
+  running on the new terrain (the generator wraps vanilla's noise generator).
 
 It lives in a built-in data pack, **VOID Expanse: Earth**, **on by default**, which you can switch off in
 *Create World → More → Data Packs* to get vanilla terrain with Expanse biomes. The pack also raises the
@@ -207,8 +264,52 @@ burnable, and work as fuel.
 | **Woolly Mammoth** | Frostbloom Tundra, vanilla snowy biomes | Peaceful until hurt, then it fights back. Shear it for brown wool, which regrows in 5 minutes. Breed with hay or wheat. |
 | **Capybara** | Willow Bayou, Jade Karst, Cloud Forest, vanilla swamps | Calm, swims, likes melon. |
 | **Shore Crab** | Palm Coast, vanilla beaches | Scuttles sideways, breathes underwater. Drops crab meat. |
+| **Deer** | Every wood in `#minecraft:is_forest` (so Wisteria Vale and Lumen Grove too), plains, cherry groves (`#expanse:habitat/deer`) | Shyer than the elk: a herd keeps 12 blocks from anyone walking upright and bolts from wolves, white tails flagged. Bucks have antlers, fawns are spotted. Breed with apples, berries, wheat or carrots; drops venison. |
 
 Models and textures are generated together (see Tooling below), so they cannot drift apart.
+
+### Wild life
+
+Small ambient creatures that make the land feel lived in (`entity/life/`, `world/LivingWorld.java`). Like
+vanilla's bat they are scenery rather than livestock: they turn up around whoever is there to see them
+and leave once nobody is.
+
+| Creature | Where and when | What it does |
+|---|---|---|
+| **Butterflies** (monarch, cabbage white, morpho, brimstone, red admiral) | By day, near flowers, on any land where rain falls (or savanna) at temperature 0.5 and up | Drift about a patch of flowers, settle on blooms with their wings slowly opening and closing, flutter off if you walk up (sneak to watch). Settle for the night and the rain. |
+| **Moths** (luna, tiger) | The same places, by night | Flutter round lanterns and torches. |
+| **Dragonflies** (azure, emerald, scarlet) | By day over open water, temperature 0.5 and up | Dart and hover over a stretch of river or pond they keep to, never more than a couple of blocks up; rest on the reeds and the bank. Glassy wings. |
+| **Songbirds** (robin, bluebird, goldfinch, cardinal, sparrow; the snow bunting in the cold) | By day on any land where rain falls, or savanna | Little flocks that hop and peck on the grass and sit on treetops, fences and walls singing; they flit off a few blocks now and then, and burst up together with an alarm call if you walk within five blocks (two, sneaking). Roost at night. |
+| **Herons and egrets** | By day in the shallows and on the banks of rivers and lakes, temperature 0.3 and up (egrets in warm country) | Stand in the water and stalk, now and then striking at fish; lift off with a croak and slow wingbeats, neck folded and legs trailing, if you come within twelve blocks, and come down further along the water. |
+| **Owls** (tawny, barn; the snowy owl in the snow) | At night on treetops in the woods (`#expanse:habitat/owls`: forests, taigas, jungles, swamps, the snow) | Hoot, turn their heads to follow you, blink, and drift silently to another tree if you come close. If one is still about by day it dozes, eyes shut. |
+
+Each has its own voice where it should: birdsong, alarm calls, owl hoots, heron croaks and wingbeats,
+synthesised by `tools/gen_living.py`. Spawn eggs for all of them are in the creative tab.
+
+**How they appear.** Vanilla spawns ambient mobs at a random height and caps them at 15 per player, shared
+with the bats in the caves, which would leave a butterfly a rare sight a hundred blocks off. So once a
+second, for each player, a small spawner looks at a couple of surface columns 20 to 48 blocks away, reads
+the ambient spawn list there (the same biome data vanilla reads) and places the first of these creatures
+whose own rules the spot meets (flowers for butterflies, shallows for herons, a treetop for an owl), up to
+16 within 48 blocks (8 butterflies, 6 dragonflies, 10 songbirds, 2 herons, 3 owls). They leave once no
+player is within 72 blocks, and slip away out of their hours when nobody is near enough to see.
+
+**Where, by tag and climate.** Every spawn is added through Fabric's biome modifications by biome tag or
+climate, never by naming a biome, so new biomes are covered as they join vanilla's tags or simply by
+their temperature and rainfall. The same goes for vanilla's own creatures, which the Earth terrain's
+rivers need in more places than vanilla puts them:
+
+- **Fish up every river.** Rivers cross every biome, but vanilla's fish only live in the river and ocean
+  biomes. Salmon (and some cod) join the cool and temperate land biomes, tropical fish the hot ones. Vanilla
+  only lets them spawn at or below sea level, and the Earth terrain's rivers run above it, so they may also
+  spawn in the top 13 blocks of any water open to the sky (`SurfaceWaterSpawnMixin`).
+- **Frogs by the water** in the wet land biomes and the river biome. Outside the swamps
+  (`#expanse:habitat/frogs_anywhere`) they spawn only within three blocks of water (`FrogSpawnMixin`), so
+  they line the banks rather than the fields.
+- **Turtles** on jungle and mangrove sandbars, **rabbits** in the plains and woods, **foxes** in the
+  broadleaf woods: places vanilla leaves without them.
+- **Fireflies.** Vanilla's firefly bush makes the fireflies (at night, or in deep shade). Clusters of them
+  now line the banks of every temperate and warm river and lake, and grow under the canopy of wet woods.
 
 ### Ground cover and little things
 
@@ -311,8 +412,9 @@ rock pillars, ice spires, arches and dunes in turn keep clear of every structure
 - `/expanse atlas [radius] [blocksPerPixel]` (needs operator level 2) writes a shaded biome-and-elevation
   map of the area to `<world>/expanse_atlas/`. It samples the generator directly, so it covers ground
   nobody has explored yet.
-- Advancements: entering any Expanse biome starts a new advancement tab, and *Wanderer of the Expanse*
-  is a challenge for visiting all thirteen biomes.
+- Advancements: entering any Expanse biome starts a new advancement tab. *Wanderer of the Expanse* is a
+  challenge for visiting every Expanse climate biome, and *Shaped by Fire and Ice* one for the five
+  landforms of the Earth terrain.
 
 ## Build
 
@@ -338,6 +440,7 @@ rather than from memory.
 | `tools/gen_assets.py` | Blockstates, models, item definitions, loot tables, recipes, recipe advancements, block and item tags, lang. Each block is cloned from the vanilla block it is shaped like (oak, tuff, sandstone, poppy…). |
 | `tools/gen_worldgen.py` | Tree and terrain features, placements, the 13 biomes, surface rules, biome tags, advancements and the Earth terrain pack |
 | `tools/gen_entities.py` | Entity geometry (`models/entity/*.json`, read at runtime by `JsonEntityModels`), the texture painted onto exactly that UV layout, and the entity loot tables |
+| `tools/gen_living.py` | The wild creatures: their models and a skin per colour variant (on gen_entities.py's machinery), spawn egg sprites, loot, synthesised sounds (`sounds.json` and `.ogg`, via ffmpeg), the firefly features and the habitat biome tags |
 | `tools/textures/gen_textures.py` | Every block and item texture, plus the mod icon, all drawn procedurally and deterministically |
 | `tools/structures/gen_structures.py` | Every structure: templates (`.nbt`) built by `designs/*.py`, template pools, processor lists, structure sets, chest loot and tags. It validates its output against vanilla's block states and can render isometric previews (`--preview DIR`). |
 
@@ -366,6 +469,7 @@ src/main/java/dev/voidmc/expanse/
 ├── world/feature/               karst pillar, natural arch, crystal outcrop, dunes
 ├── world/terrain/               the Earth terrain: plates, erosion, rivers, density function, chunk generator
 ├── entity/                      elk, mammoth, capybara, crab
+│   └── life/                    the wild creatures: butterflies, dragonflies, songbirds, herons, owls, deer
 ├── mixin/                       OverworldBiomeBuilderMixin: one hook, every overworld biome entry passes through it
 └── command/                     /expanse atlas and the headless dev harness
 src/client/java/…/client/        JSON-driven entity models, animations, renderers
