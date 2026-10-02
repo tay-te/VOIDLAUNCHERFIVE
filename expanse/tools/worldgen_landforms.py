@@ -30,11 +30,11 @@ def features(W):
                                        'target': {'type': 'minecraft:matching_block_tag', 'tag': 'expanse:volcanic_ground'}})
     W.placed('volcanic_basalt_flows', W.e('volcanic_basalt_flow'),
              [W.rarity(2)] + surface() + [{'type': 'minecraft:offset', 'x': 0, 'y': -1, 'z': 0}, W.clear(4)], S['local'])
-    W.feature('volcanic_obsidian_edge', {'type': 'minecraft:disk', 'radius': W.uniform(1, 2), 'half_height': 1,
+    W.feature('volcanic_obsidian_edge', {'type': 'minecraft:disk', 'radius': W.uniform(2, 4), 'half_height': 1,
                                          'state_provider': W.state('minecraft:obsidian'),
                                          'target': {'type': 'minecraft:matching_blocks', 'blocks': ['minecraft:basalt', ASH]}})
     W.placed('volcanic_obsidian_edges', W.e('volcanic_obsidian_edge'),
-             [W.rarity(3)] + surface() + [{'type': 'minecraft:offset', 'x': 0, 'y': -1, 'z': 0}, W.clear(4)], S['local'])
+             [W.rarity(5)] + surface() + [{'type': 'minecraft:offset', 'x': 0, 'y': -1, 'z': 0}, W.clear(4)], S['local'])
     # Tumbled blocks of tuff and basalt on the lower slopes.
     W.feature('volcanic_boulder', {'type': 'minecraft:block_blob', 'state': 'minecraft:tuff',
                                    'can_place_on': {'type': 'minecraft:matching_block_tag', 'tag': 'minecraft:forest_rock_can_place_on'}})

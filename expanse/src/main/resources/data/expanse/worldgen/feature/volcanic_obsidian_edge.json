@@ -2,8 +2,8 @@
   "type": "minecraft:disk",
   "radius": {
     "type": "minecraft:uniform",
-    "min_inclusive": 1,
-    "max_inclusive": 2
+    "min_inclusive": 2,
+    "max_inclusive": 4
   },
   "half_height": 1,
   "state_provider": {
