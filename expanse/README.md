@@ -24,6 +24,16 @@ below) on seed `8675309`.
 | ![Cloud Forest](docs/gallery/cloud_forest.jpg) **Cloud Forest** (a monastery in the mist) | ![Amber Steppe](docs/gallery/amber_steppe.jpg) **Amber Steppe** |
 | ![Palm Coast](docs/gallery/palm_coast.jpg) **Palm Coast** | ![Animals](docs/gallery/animals.jpg) Elk and fawn, capybara, shore crab, woolly mammoth |
 
+**New biomes, realms and wildlife**
+
+| | |
+|---|---|
+| ![Larch Taiga](docs/gallery/larch_taiga.jpg) **Larch Taiga** | ![Aspen Parkland](docs/gallery/aspen_parkland.jpg) **Aspen Parkland** |
+| ![Ghost Gum Outback](docs/gallery/ghost_gum_outback.jpg) **Ghost Gum Outback** | ![Saguaro Flats](docs/gallery/saguaro_flats.jpg) **Saguaro Flats** |
+| ![Olive Groves](docs/gallery/olive_groves.jpg) **Olive Groves** | ![Salt Flats](docs/gallery/salt_flats.jpg) **Salt Flats** (a landform) |
+| ![Geode Vaults](docs/gallery/realm_crystal.jpg) A crystal realm underground | ![Amber Hollows](docs/gallery/realm_amber.jpg) An amber realm |
+| ![Stalagmite Deeps](docs/gallery/realm_dripstone.jpg) A stalagmite realm | ![Wildlife](docs/gallery/wildlife.jpg) Songbirds, butterflies, egret, dragonflies |
+
 **Structures**
 
 | | |
