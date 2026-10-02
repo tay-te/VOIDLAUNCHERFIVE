@@ -52,6 +52,19 @@ public final class DevHarness {
 	private static void generateAround(MinecraftServer server, ServerLevel level, BlockPos at, ResourceKey<Biome> key) throws Exception {
 		int cx = at.getX() >> 4;
 		int cz = at.getZ() >> 4;
+		// Ask for the chunks without blocking the server thread, and wait for them here: a server thread that
+		// waits in getChunk runs other queued tasks meanwhile (the next round's among them), so rounds would
+		// nest and the server stop ticking until the watchdog took it for hung.
+		java.util.List<java.util.concurrent.CompletableFuture<?>> loading = server.submit(() -> {
+			java.util.List<java.util.concurrent.CompletableFuture<?>> futures = new java.util.ArrayList<>();
+			for (int dx = -2; dx <= 2; dx++) {
+				for (int dz = -2; dz <= 2; dz++) {
+					futures.add(level.getChunkSource().getChunkFuture(cx + dx, cz + dz, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, true));
+				}
+			}
+			return futures;
+		}).join();
+		java.util.concurrent.CompletableFuture.allOf(loading.toArray(java.util.concurrent.CompletableFuture[]::new)).get();
 		java.util.concurrent.CompletableFuture<String> done = new java.util.concurrent.CompletableFuture<>();
 		server.execute(() -> {
 			try {

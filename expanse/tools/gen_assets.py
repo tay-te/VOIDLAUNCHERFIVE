@@ -414,6 +414,10 @@ def write_lang(g):
                  ('cloud_forest', 'Cloud Forest'), ('verdant_peaks', 'Verdant Peaks'), ('prismatic_peaks', 'Prismatic Peaks'),
                  ('palm_coast', 'Palm Coast')]:
         lang[f'biome.{NS}.{b}'] = n
+    # the realms underground (gen_worldgen.py build_realm_biomes)
+    for b, n in [('realm_wilds', 'Glowcap Wilds'), ('realm_lush', 'Verdant Hollow'), ('realm_dripstone', 'Stalagmite Deeps'),
+                 ('realm_crystal', 'Geode Vaults'), ('realm_ember', 'Ember Deeps'), ('realm_mere', 'Sunless Mere')]:
+        lang[f'biome.{NS}.{b}'] = n
     lang['commands.expanse.atlas.done'] = 'Atlas written to %s'
     lang.update({
         'advancements.expanse.root.title': 'VOID Expanse',

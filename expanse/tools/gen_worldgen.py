@@ -874,6 +874,43 @@ def build_surface_rules():
 
 # ======================================================================== tags
 
+# The realms underground (world/terrain/CavernModel.java): each character has a biome of its own, put into the
+# chunk by the Earth generator wherever a realm is (EarthChunkGenerator.decorateBiomeResolver), never by the
+# biome source. Each is a vanilla cave biome (its features, carvers, creatures and music) under a sky of its
+# own: no sun, moon, stars or clouds (turned below the horizon, behind the dark disc drawn underground), and a
+# fog that takes the far side of a realm into the dark, tinted for its character, with motes drifting in it.
+REALMS = {
+    # name: (vanilla cave biome, sky, fog, fog end, particle, probability)
+    'realm_wilds': ('lush_caves', '#05090a', '#0c1f22', 150, 'minecraft:spore_blossom_air', 0.006),
+    'realm_lush': ('lush_caves', '#060a05', '#122016', 170, 'minecraft:spore_blossom_air', 0.004),
+    'realm_dripstone': ('dripstone_caves', '#090705', '#1d1710', 170, None, 0),
+    'realm_crystal': ('dripstone_caves', '#09060c', '#1e1428', 160, 'minecraft:glow', 0.0012),
+    'realm_ember': ('dripstone_caves', '#100402', '#3a1206', 130, 'minecraft:white_ash', 0.02),
+    'realm_mere': ('lush_caves', '#03070c', '#0b1a2a', 190, None, 0),
+}
+
+
+def build_realm_biomes(jar):
+    for name, (vanilla, sky, fog, end, particle, probability) in REALMS.items():
+        biome = json.loads(jar.read(f'data/minecraft/worldgen/biome/{vanilla}.json'))
+        attributes = biome.setdefault('attributes', {})
+        attributes.update({
+            'minecraft:visual/sky_color': sky,
+            'minecraft:visual/fog_color': fog,
+            'minecraft:visual/fog_start_distance': 24.0,
+            'minecraft:visual/fog_end_distance': float(end),
+            'minecraft:visual/sky_fog_end_distance': 0.0,
+            'minecraft:visual/sun_angle': 180.0,
+            'minecraft:visual/moon_angle': 180.0,
+            'minecraft:visual/star_brightness': 0.0,
+            'minecraft:visual/sunrise_sunset_color': '#00000000',
+            'minecraft:visual/cloud_color': '#00000000',
+        })
+        if particle:
+            attributes['minecraft:visual/ambient_particles'] = [{'particle': {'type': particle}, 'probability': probability}]
+        data(f'{NS}/worldgen/biome/{name}.json', biome)
+
+
 def build_biome_tags(jar):
     """Each biome joins every biome tag its analog is in, so villages, temples, mineshafts, mob variants
     and the rest treat a Wisteria Vale like the forest it grew from."""
@@ -984,6 +1021,9 @@ def build_earth(jar):
                                   .replace('"minecraft:overworld/preliminary_surface_level"', json.dumps(ref('preliminary_surface_level')))
                                   .replace('"minecraft:overworld/final_density"', json.dumps(ref('final_density'))))
     ns['aquifers'] = swap(ns['aquifers'])
+    # ...and kept out of the tunnels and realms, which hold only the water and lava poured into them
+    df('caverns_dry', {'type': f'{NS}:caverns', 'output': 'dry'})
+    ns['aquifers']['exclusion'] = {'type': 'minecraft:max', 'left': ns['aquifers']['exclusion'], 'right': ref('caverns_dry')}
     ns['spawn_target'] = swap(ns['spawn_target'])
     ns['debug_functions'] = swap(ns['debug_functions'])
     out(f'{NS}/worldgen/noise_settings/earth.json', ns)
@@ -1039,7 +1079,8 @@ def main():
             target = os.path.join(path, entry)
             shutil.rmtree(target) if os.path.isdir(target) else os.remove(target)
     shutil.rmtree(os.path.join(RES, 'data', 'minecraft', 'worldgen'), ignore_errors=True)
-    shutil.rmtree(os.path.join(RES, 'data', 'minecraft', 'tags', 'worldgen'), ignore_errors=True)
+    # (tags/worldgen/structure is gen_structures.py's: our villages joining #minecraft:village)
+    shutil.rmtree(os.path.join(RES, 'data', 'minecraft', 'tags', 'worldgen', 'biome'), ignore_errors=True)
     shutil.rmtree(os.path.join(RES, 'data', NS, 'tags', 'worldgen', 'biome', 'all.json'), ignore_errors=True)
     shutil.rmtree(GRAND, ignore_errors=True)
     shutil.rmtree(EARTH, ignore_errors=True)
@@ -1050,6 +1091,7 @@ def main():
     for name, (obj, _) in PLACED.items():
         data(f'{NS}/worldgen/placed_feature/{name}.json', obj)
     build_biomes(jar)
+    build_realm_biomes(jar)
     build_surface_rules()
     build_biome_tags(jar)
     build_earth(jar)

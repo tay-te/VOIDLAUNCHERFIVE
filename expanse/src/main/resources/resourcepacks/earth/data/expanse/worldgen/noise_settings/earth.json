@@ -7,21 +7,25 @@
       "y_scale": 0.5
     },
     "exclusion": {
-      "type": "minecraft:min",
+      "type": "minecraft:max",
       "left": {
-        "type": "minecraft:sub",
-        "left": -0.225,
-        "right": "expanse:earth/erosion"
-      },
-      "right": {
-        "type": "minecraft:max",
+        "type": "minecraft:min",
         "left": {
           "type": "minecraft:sub",
-          "left": "expanse:earth/depth",
-          "right": 0.9
+          "left": -0.225,
+          "right": "expanse:earth/erosion"
         },
-        "right": 0.0
-      }
+        "right": {
+          "type": "minecraft:max",
+          "left": {
+            "type": "minecraft:sub",
+            "left": "expanse:earth/depth",
+            "right": 0.9
+          },
+          "right": 0.0
+        }
+      },
+      "right": "expanse:earth/caverns_dry"
     },
     "fluid_level_floodedness": {
       "type": "minecraft:noise",

@@ -457,6 +457,11 @@ public class BiomeTour implements FabricClientGameTest {
 	 * The underground near spawn, with night vision since nothing lights it but what grows there: the two
 	 * biggest halls seen from halfway up, and two great tunnels (one with a river) seen along their length.
 	 */
+	/**
+	 * The world underground: for a realm of each character near spawn, a view across it from high on its
+	 * side and one from its floor; then the reveal from a tunnel mouth, and a river tunnel and a dry
+	 * tunnel. Under night vision, but one mushroom realm also as it is, by its own light.
+	 */
 	private void caverns(ClientGameTestContext context, TestSingleplayerContext world) {
 		List<int[]> shots = world.getServer().computeOnServer(server -> {
 			ServerLevel level = server.overworld();
@@ -464,31 +469,70 @@ public class BiomeTour implements FabricClientGameTest {
 				return List.<int[]>of();
 			}
 			var caverns = earth.model(level.getChunkSource().randomState()).caverns();
-			List<int[]> halls = new java.util.ArrayList<>();
+			List<int[]> picked = new java.util.ArrayList<>();
+			// a realm of each character, nearest spawn first
+			List<dev.voidmc.expanse.world.terrain.CavernModel.Hall> realms = new java.util.ArrayList<>();
+			for (int hx = -4; hx <= 4; hx++) {
+				for (int hz = -4; hz <= 4; hz++) {
+					var h = caverns.hall(hx, hz);
+					if (h.exists() && h.radius() > 80 && caverns.info(h.x(), h.z()).hall) {
+						realms.add(h);
+					}
+				}
+			}
+			realms.sort(java.util.Comparator.comparingDouble(h -> Math.hypot(h.x(), h.z())));
+			java.util.Set<Integer> themes = new java.util.HashSet<>();
+			int[] mouth = null;
+			for (var h : realms) {
+				if (!themes.add(h.theme())) {
+					continue;
+				}
+				// from high on one side, across the realm to the far side's floor
+				double a = (h.x() * 31 + h.z()) % 8 * Math.PI / 4;
+				int fx = h.x() + (int) (Math.cos(a) * h.radius() * 0.6);
+				int fz = h.z() + (int) (Math.sin(a) * h.radius() * 0.6);
+				var at = caverns.info(fx, fz);
+				int eye = (int) (at.floor + 0.6 * (at.roof - at.floor));
+				int tx = h.x() - (int) (Math.cos(a) * h.radius() * 0.5);
+				int tz = h.z() - (int) (Math.sin(a) * h.radius() * 0.5);
+				picked.add(new int[]{fx, eye, fz, tx, (int) caverns.info(tx, tz).floor + 8, tz, h.theme(), 1});
+				// from the floor beside the plateau, out across the land
+				int gx = h.x() + (int) (Math.cos(a + 1.6) * 46);
+				int gz = h.z() + (int) (Math.sin(a + 1.6) * 46);
+				var g = caverns.info(gx, gz);
+				int ox = h.x() + (int) (Math.cos(a + 1.6) * h.radius() * 0.8);
+				int oz = h.z() + (int) (Math.sin(a + 1.6) * h.radius() * 0.8);
+				picked.add(new int[]{gx, (int) Math.max(g.floor, g.liquid()) + 4, gz, ox, (int) Math.max(g.floor, g.liquid()) + 10, oz, h.theme(), 1});
+				if (h.theme() == dev.voidmc.expanse.world.terrain.CavernModel.WILDS) {
+					picked.add(new int[]{gx, (int) Math.max(g.floor, g.liquid()) + 4, gz, ox, (int) Math.max(g.floor, g.liquid()) + 10, oz, h.theme(), 0});
+				}
+				// a dry tunnel's mouth on this realm's wall
+				for (int k = 0; k < 720 && mouth == null; k++) {
+					double b = k * Math.PI / 360;
+					for (int r = (int) (h.radius() * 0.7); r < h.radius() + 40; r += 3) {
+						int mx = h.x() + (int) (Math.cos(b) * r);
+						int mz = h.z() + (int) (Math.sin(b) * r);
+						var m = caverns.info(mx, mz);
+						if (m.tunnel && m.tunnelDist < 2 && m.hallEdge < -10 && m.hallEdge > -30) {
+							mouth = new int[]{mx, (int) m.tunnelFloor + 4, mz, h.x(), (int) caverns.info(h.x(), h.z()).floor + 10, h.z(), h.theme(), 1};
+							break;
+						}
+					}
+				}
+			}
+			if (mouth != null) {
+				picked.add(mouth);
+			}
 			int[] river = null;
 			int[] tunnel = null;
-			for (int x = -1500; x <= 1500; x += 12) {
+			for (int x = -1500; x <= 1500 && (river == null || tunnel == null); x += 12) {
 				for (int z = -1500; z <= 1500; z += 12) {
 					var c = caverns.info(x, z);
-					if (c.hall && c.hallEdge > 25 && !c.riverFalls) {
-						halls.add(new int[]{x, z, (int) c.floor, (int) c.roof});
-					}
 					if (river == null && c.inChannel() && c.riverDist < 2 && !c.hall && c.tunnelRoof - c.riverWater > 20) {
 						river = new int[]{x, z, c.waterTop() + 4};
 					}
 					if (tunnel == null && c.tunnel && c.tunnelDist < 2 && !c.hall && !c.river && c.tunnelHeight > 26) {
 						tunnel = new int[]{x, z, (int) c.tunnelFloor + 5};
-					}
-				}
-			}
-			halls.sort((a, b) -> Integer.compare(b[3] - b[2], a[3] - a[2]));
-			List<int[]> picked = new java.util.ArrayList<>();
-			for (int[] h : halls) {
-				if (picked.stream().allMatch(p -> Math.hypot(p[0] - h[0], p[2] - h[1]) > 300)) {
-					int eye = h[2] + Math.max(6, (h[3] - h[2]) / 2);
-					picked.add(new int[]{h[0], eye, h[1], h[0] + 60, h[2] + 4, h[1] + 40});
-					if (picked.size() == 2) {
-						break;
 					}
 				}
 			}
@@ -509,27 +553,31 @@ public class BiomeTour implements FabricClientGameTest {
 						bestAngle = ang;
 					}
 				}
-				picked.add(new int[]{t[0], t[2], t[1], t[0] + (int) (Math.cos(bestAngle) * 60), t[2] - 3, t[1] + (int) (Math.sin(bestAngle) * 60)});
+				picked.add(new int[]{t[0], t[2], t[1], t[0] + (int) (Math.cos(bestAngle) * 60), t[2] - 3, t[1] + (int) (Math.sin(bestAngle) * 60), -1, 1});
 			}
 			for (int[] p : picked) {
-				for (int cx = -4; cx <= 4; cx++) {
-					for (int cz = -4; cz <= 4; cz++) {
+				for (int cx = -5; cx <= 5; cx++) {
+					for (int cz = -5; cz <= 5; cz++) {
 						level.getChunk((p[0] >> 4) + cx, (p[2] >> 4) + cz);
 					}
 				}
 			}
 			return picked;
 		});
-		world.getServer().runCommand("effect give @a minecraft:night_vision infinite 0 true");
+		String[] names = {"wilds", "lush", "dripstone", "crystal", "ember", "mere"};
+		context.runOnClient(mc -> mc.options.renderDistance().set(12));
 		int i = 0;
 		for (int[] s : shots) {
-			System.out.println("[tour] cavern at " + s[0] + ", " + s[1] + ", " + s[2] + " looking at " + s[3] + ", " + s[4] + ", " + s[5]);
+			String name = (s[6] < 0 ? "tunnel" : "realm_" + names[s[6]]) + (s[7] == 0 ? "_dark" : "") + "_" + i++;
+			System.out.println("[tour] " + name + " at " + s[0] + ", " + s[1] + ", " + s[2] + " looking at " + s[3] + ", " + s[4] + ", " + s[5]);
+			world.getServer().runCommand(s[7] == 1 ? "effect give @a minecraft:night_vision infinite 0 true" : "effect clear @a minecraft:night_vision");
 			BlockPos from = new BlockPos(s[0], s[1], s[2]);
 			BlockPos to = new BlockPos(s[3], s[4], s[5]);
 			float pitch = (float) -Math.toDegrees(Math.atan2(to.getY() - from.getY(), Math.max(1, Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ()))));
-			this.settleShot(context, world, "cavern_" + i++, from, yawToward(from, to), pitch, SETTLE_MS);
+			this.settleShot(context, world, "cavern_" + name, from, yawToward(from, to), pitch, SETTLE_MS);
 		}
 		world.getServer().runCommand("effect clear @a minecraft:night_vision");
+		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
 	}
 
 	private void zoo(ClientGameTestContext context, TestSingleplayerContext world) {

@@ -9,6 +9,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
@@ -48,11 +52,15 @@ import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 public final class EarthChunkGenerator extends ChunkGenerator {
 	public static final MapCodec<EarthChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
 		BiomeSource.CODEC.fieldOf("biome_source").forGetter(g -> g.biomeSource),
-		NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(g -> g.settings)
+		NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(g -> g.settings),
+		RegistryOps.retrieveGetter(Registries.BIOME)
 	).apply(i, i.stable(EarthChunkGenerator::new)));
+	/** The realms' biomes, by {@link CavernModel} character. */
+	private static final String[] REALM_BIOMES = {"realm_wilds", "realm_lush", "realm_dripstone", "realm_crystal", "realm_ember", "realm_mere"};
 
 	private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 	private static final BlockState WATER = Blocks.WATER.defaultBlockState();
+	private static final BlockState LAVA = Blocks.LAVA.defaultBlockState();
 	private static final BlockState[] BED = {Blocks.GRAVEL.defaultBlockState(), Blocks.SAND.defaultBlockState(), Blocks.CLAY.defaultBlockState()};
 	private static final BlockState BANK = Blocks.DIRT.defaultBlockState();
 
@@ -60,10 +68,14 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	private final NoiseBasedChunkGenerator noise;
 	private volatile long modelWorldSeed;
 	private volatile TerrainModel model;
+	private final List<Holder<Biome>> realms;
 
-	public EarthChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
+	public EarthChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings, HolderGetter<Biome> biomes) {
 		super(biomeSource);
 		this.settings = settings;
+		this.realms = java.util.Arrays.stream(REALM_BIOMES)
+			.map(n -> biomes.get(ResourceKey.create(Registries.BIOME, dev.voidmc.expanse.Expanse.id(n))).<Holder<Biome>>map(h -> h).orElse(null))
+			.toList();
 		this.noise = new NoiseBasedChunkGenerator(biomeSource, settings);
 	}
 
@@ -88,8 +100,33 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	}
 
 	@Override
+	public CompletableFuture<ChunkAccess> createBiomes(RandomState randomState, Blender blender, StructureManager structureManager, ChunkAccess protoChunk) {
+		this.model(randomState);
+		return super.createBiomes(randomState, blender, structureManager, protoChunk);
+	}
+
+	/**
+	 * The realms under the land are each one biome through and through, the biome of their character
+	 * ({@code expanse:realm_*}): a vanilla cave biome's plants, music and creatures under a sky of its own.
+	 */
+	@Override
 	protected BiomeResolver decorateBiomeResolver(Blender blender, ChunkAccess protoChunk, BiomeResolver biomeResolver) {
-		return BelowZeroRetrogen.getBiomeResolver(blender.getBiomeResolver(biomeResolver), protoChunk);
+		BiomeResolver base = BelowZeroRetrogen.getBiomeResolver(blender.getBiomeResolver(biomeResolver), protoChunk);
+		TerrainModel m = this.model;
+		if (m == null || this.realms.contains(null)) {
+			return base;
+		}
+		CavernModel caverns = m.caverns();
+		return (qx, qy, qz) -> {
+			int x = (qx << 2) + 2;
+			int y = (qy << 2) + 2;
+			int z = (qz << 2) + 2;
+			CavernModel.Info c = caverns.info(x, z);
+			if (c.hall && c.hallEdge > -4 && y > c.floor - 8 && y < c.roof + 4) {
+				return this.realms.get(c.theme);
+			}
+			return base.getNoiseBiome(qx, qy, qz);
+		};
 	}
 
 	@Override
@@ -105,6 +142,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 			.thenApply(built -> {
 				this.pourRivers(built, m);
 				this.pourUndergroundRivers(built, m.caverns());
+				this.pourRealmLakes(built, m.caverns());
 				return built;
 			});
 	}
@@ -217,6 +255,37 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 							chunk.setBlockState(p, Blocks.STONE.defaultBlockState());
 						}
 					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * The lakes of the realms (lava in the ember realms) and the plunge pools under their waterfalls, filled
+	 * to the level the model gives wherever the realm is open above that level.
+	 */
+	private void pourRealmLakes(ChunkAccess chunk, CavernModel caverns) {
+		ChunkPos pos = chunk.getPos();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minY = chunk.getMinY();
+		for (int lz = 0; lz < 16; lz++) {
+			for (int lx = 0; lx < 16; lx++) {
+				int x = pos.getMinBlockX() + lx;
+				int z = pos.getMinBlockZ() + lz;
+				CavernModel.Info c = caverns.info(x, z);
+				if (!c.hall || c.liquid() < c.floor - 4) {
+					continue;
+				}
+				int top = net.minecraft.util.Mth.floor(c.liquid());
+				BlockState fill = c.lava && c.lake >= c.pool ? LAVA : WATER;
+				if (!chunk.getBlockState(p.set(x, top + 1, z)).isAir()) {
+					continue;
+				}
+				for (int y = top; y > minY; y--) {
+					if (!chunk.getBlockState(p.set(x, y, z)).isAir()) {
+						break;
+					}
+					chunk.setBlockState(p, fill);
 				}
 			}
 		}

@@ -28,6 +28,42 @@ public final class TerrainPreview {
 		int cz = args.length > 5 ? Integer.parseInt(args[5]) : 0;
 		TerrainModel model = TerrainModel.forSeed(TerrainModel.seedFor(seed));
 		String slice = System.getProperty("expanse.preview.slice", "");
+		if (slice.equals("side")) {
+			// a vertical section along x at z = cz, y -64 to 256 (one pixel a block, scaled by step across):
+			// sky, land, deepslate below y 0, open space dark, lakes blue, lava orange
+			int width = 2 * radius / step;
+			int top = 256;
+			int bottom = -64;
+			BufferedImage img = new BufferedImage(width, top - bottom, BufferedImage.TYPE_INT_RGB);
+			var caverns = model.caverns();
+			IntStream.range(0, width).parallel().forEach(i -> {
+				int x = cx - radius + i * step;
+				float ground = model.sample(x, cz).height;
+				var info = caverns.info(x, cz);
+				float liquid = info.hall ? info.liquid() : -999;
+				boolean lava = info.lava && info.lake >= info.pool;
+				for (int y = bottom; y < top; y++) {
+					int rgb;
+					if (y > ground) {
+						rgb = y < 63 ? 0x3060C0 : 0xA8C8F0;
+					} else if (caverns.inside(x, y, cz) > 0) {
+						if (y < -54 || y <= liquid) {
+							rgb = y < -54 || lava ? 0xF07020 : 0x2F6FEF;
+						} else if (info.inChannel() && y < info.waterTop() && y >= info.bed()) {
+							rgb = 0x2F7FFF;
+						} else {
+							rgb = 0x1C1814;
+						}
+					} else {
+						rgb = y < 0 ? 0x4A4A52 : y > ground - 4 ? 0x6A8A40 : 0x8A8A8A;
+					}
+					img.setRGB(i, top - 1 - y, rgb);
+				}
+			});
+			ImageIO.write(img, "png", out);
+			System.out.printf("side section at z=%d, x %d..%d -> %s%n", cz, cx - radius, cx + radius, out);
+			return;
+		}
 		if (!slice.isEmpty()) {
 			// a horizontal cut through the caverns at one height: rock grey, open space dark, river water blue
 			boolean plan = slice.equals("plan");
@@ -48,8 +84,16 @@ public final class TerrainPreview {
 						boolean hall = info.hall && info.hallEdge > 0;
 						int rgb = 0x8A8A8A;
 						if (hall) {
-							int shade = Math.max(20, Math.min(120, (int) (info.roof - info.floor) * 2));
-							rgb = shade << 16 | (shade * 3 / 4) << 8 | shade / 2;
+							// the realm floor, hill-shaded from the north-west, its lakes blue (lava orange)
+							float floor = info.floor;
+							float liquid = info.liquid();
+							boolean lava = info.lava && info.lake >= info.pool;
+							float east = caverns.info(x + step, z).floor;
+							float south = caverns.info(x, z + step).floor;
+							double light = 0.62 - 0.35 * ((east - floor) + (south - floor)) / step;
+							int tone = (int) Math.max(30, Math.min(235, 60 + (floor + 60) * 1.3));
+							int shade = (int) Math.max(0, Math.min(255, tone * light * 1.4));
+							rgb = floor < liquid ? (lava ? 0xF07020 : 0x2F6FEF) : shade << 16 | (shade * 4 / 5) << 8 | shade * 3 / 5;
 							synchronized (open) {
 								open[0]++;
 							}

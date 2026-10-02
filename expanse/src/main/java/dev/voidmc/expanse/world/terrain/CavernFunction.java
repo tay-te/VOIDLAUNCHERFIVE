@@ -1,5 +1,6 @@
 package dev.voidmc.expanse.world.terrain;
 
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.util.Interval;
 import net.minecraft.util.Mth;
@@ -9,13 +10,20 @@ import net.minecraft.world.level.levelgen.densityfunction.DfRewriteRule;
 import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 
 /**
- * {@code expanse:caverns}: the {@link CavernModel}'s halls and river tunnels as a density, negative
- * inside open space and positive in the rock, on the same scale as the terrain density (a block is
- * worth 0.08). The Earth noise settings take the minimum of this and the rest of the final density, so
- * it only ever carves.
+ * {@code expanse:caverns}: the {@link CavernModel} as density functions.
+ *
+ * <ul>
+ *   <li>{@code "output": "carve"} (the default): its tunnels and realms as a density, negative inside open
+ *       space and positive in the rock, on the same scale as the terrain density (a block is worth 0.08).
+ *       The Earth noise settings take the minimum of this and the rest of the final density, so it only
+ *       ever carves.</li>
+ *   <li>{@code "output": "dry"}: 1 near any of that open space and -1 elsewhere, for the aquifers'
+ *       {@code exclusion}, which keeps them from flooding it.</li>
+ * </ul>
  */
-public record CavernFunction() implements DensityFunction {
-	public static final MapCodec<CavernFunction> CODEC = MapCodec.unit(new CavernFunction());
+public record CavernFunction(boolean dry) implements DensityFunction {
+	public static final MapCodec<CavernFunction> CODEC = Codec.STRING.optionalFieldOf("output", "carve")
+		.xmap(o -> new CavernFunction(o.equals("dry")), f -> f.dry() ? "dry" : "carve");
 
 	@Override
 	public DensitySampler compileSampler(CompileContext context) {
@@ -30,6 +38,9 @@ public record CavernFunction() implements DensityFunction {
 
 			@Override
 			public float sampleValue(SamplerContext ctx, int x, int y, int z) {
+				if (CavernFunction.this.dry) {
+					return model.dry(x, y, z) ? 1.0F : -1.0F;
+				}
 				return Mth.clamp(-0.08F * model.inside(x, y, z), -1.0F, 1.0F);
 			}
 		};

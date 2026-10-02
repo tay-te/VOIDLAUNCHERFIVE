@@ -5,6 +5,7 @@
 	"mixins": [
 		"ChunkMapMixin",
 		"JigsawStructureAccessor",
+		"MineshaftStructureMixin",
 		"OverworldBiomeBuilderMixin"
 	],
 	"injectors": {

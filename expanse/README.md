@@ -38,7 +38,7 @@ below) on seed `8675309`.
 | ![Coast village](docs/gallery/structure_village_coast.jpg) **Coast village** on the dunes | ![Palm harbour](docs/gallery/structure_palm_harbour.jpg) **Palm harbour** (landmark) |
 | ![Logging camp](docs/gallery/structure_logging_camp.jpg) **Logging camp** with its millpond (landmark) | ![Caravanserai](docs/gallery/structure_caravanserai.jpg) **Caravanserai** (landmark) |
 
-**Underground**: the great cavern halls, with dripstone and the falls of the underground rivers
+**Underground**: the realms, with dripstone and the falls of the underground rivers
 
 | | |
 |---|---|
@@ -132,19 +132,36 @@ from plate tectonics and erosion rather than from noise alone:
 
   Temperature falls with altitude. Beaches meet the sea, river biomes follow the rivers, and peaks get
   peak biomes.
-- **Great tunnels and halls underground.** Beneath the land runs a network to follow (it is not open
-  space everywhere):
-  - **Great tunnels:** two families, a few hundred blocks apart, 14–28 blocks wide and up to 34 high under
+- **A world underground.** Beneath the land runs a network to follow (it is not open space everywhere),
+  and it leads to realms, landscapes of their own under a stone sky:
+  - **Great tunnels:** two families, a few hundred blocks apart, 12–24 blocks wide and up to 34 high under
     arched roofs, rising and falling between y 12 and 44.
   - **River tunnels:** one family carries rivers, with a channel down the middle, a dry ledge either side
     and waterfalls where the level drops.
-  - **Halls:** rare domed caverns up to 220 blocks across and 80 high, held up by stone pillars. Every hall
-    opens off a tunnel, and some hold underground structures.
-  - **Life:** moss, glowcaps and glow-berry vines grow along the ledges and hall floors; they are what
-    lights them.
+  - **Realms:** about one every 1.5 km, 110 to 440 blocks across, deep in the deepslate under vaults up to
+    130 high. A dry tunnel comes out high on a realm's wall with a scree ramp down from its mouth; a river
+    pours out of its tunnel in a waterfall, into a plunge pool it has scoured. Below:
+    - hills, ridges and valleys, or terraced mesas, rising in rubble slopes to the walls;
+    - lakes in the low ground, and lava seas in the deepest realms;
+    - stalagmite mountains, the tallest reaching the roof as pillars;
+    - inverted peaks hanging from the vault, and great hourglass columns;
+    - a plateau in the middle, where an underground structure may stand.
+  - **Six characters,** each with its own vanilla cave biome (and so its music, plants and creatures):
+    - *Glowcap wilds:* moss hills under a forest of giant mushrooms, lit by the shroomlight in their gills.
+    - *Lush realms:* lush caves at realm scale: azaleas, clay ponds of dripleaf, spore blossoms, vines
+      hanging thick.
+    - *Dripstone realms:* stalagmite forests and hanging spires, terraced flowstone, still pools.
+    - *Crystal realms:* terraced mesas of calcite and tuff, crusted with amethyst and glowing prismite.
+    - *Ember realms:* the deepest, basalt and magma shores round a sea of lava.
+    - *Meres:* an underground lake with islands and stacks, beaches, and sea pickles glowing on its bed.
+  - **Light:** glowcaps, glow berries, shroomlight, sea pickles, prismite, glow lichen and lava light the
+    realms in places, so they are a dark land of lit places rather than a black void.
+  - **Dry:** aquifers are kept out of the tunnels and realms (through the aquifer `exclusion`), so their
+    water and lava lie where the model puts them.
   - **Safety:** nothing comes within 16 blocks of the ground above or lies under the sea.
-  - **Preview:** `./gradlew terrainPreview -Pslice=plan` maps them from above; `-Pslice=<y>` cuts through
-    them at one height.
+  - **Preview:** `./gradlew terrainPreview -Pslice=plan` maps the realms from above (their floors
+    hill-shaded); `-Pslice=side -Pcx=… -Pcz=…` draws a section through the ground; `-Pslice=<y>` cuts
+    through everything at one height.
 - **Vanilla where vanilla is good.** Caves, aquifers, ore veins, surface rules, carvers and structures
   are vanilla's, running on the new terrain (the generator wraps vanilla's noise generator).
 
@@ -274,8 +291,8 @@ work, trade, breed and get raided exactly as in a plains village. They join `#mi
 Every Expanse biome has its villager type set (`world/ExpanseVillagers.java`), so a villager spawned,
 cured or (half the time, as in vanilla) born in a Jade Karst takes the jungle look.
 
-**Underground.** Three structures stand on the floors of the great cavern halls, at most one per hall,
-placed by the halls themselves (`expanse:cavern_halls`, `world/terrain/CavernHallPlacement.java`):
+**Underground.** Three structures stand on the plateaus in the middle of the realms, at most one per realm,
+placed by the realms themselves (`expanse:cavern_halls`, `world/terrain/CavernHallPlacement.java`):
 
 | Structure | What's there |
 |---|---|
