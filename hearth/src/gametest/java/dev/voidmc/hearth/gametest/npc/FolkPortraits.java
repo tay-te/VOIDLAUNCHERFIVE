@@ -82,6 +82,10 @@ public class FolkPortraits implements FabricClientGameTest {
 				builder(context, world);
 				return;
 			}
+			if ("village".equals(System.getenv("HEARTH_NPC_TOUR"))) {
+				village(context, world);
+				return;
+			}
 			lineup(context, world, "lineup_1", List.of(
 				new Spec(Culture.TEMPERATE, JobType.BUILDER, false), new Spec(Culture.WISTERIA, JobType.MERCHANT, true),
 				new Spec(Culture.NORTHERN, JobType.GUARD, false), new Spec(Culture.DESERT, JobType.PRIEST, true),
@@ -116,7 +120,107 @@ public class FolkPortraits implements FabricClientGameTest {
 			faces(context, world);
 			conversation(context, world);
 			builder(context, world);
+			village(context, world);
 		}
+	}
+
+	/**
+	 * A little village put up instantly (cottages with beds, a smithy, a bakery, a reading desk, benches round a bell),
+	 * populated by the sandbox and watched through a day: morning work, the evening square, night.
+	 */
+	private void village(ClientGameTestContext context, TestSingleplayerContext world) {
+		int vx = 80;
+		world.getServer().runCommand(String.format("tp @a %d %d -20 0 30", vx, Y + 10));
+		settle(context, 5_000);
+		world.getServer().runCommand(String.format("fill %d %d -10 %d %d 30 minecraft:grass_block", vx - 24, Y - 1, vx + 24, Y - 1));
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			int[][] houses = {{-14, 4}, {-4, 10}, {8, 8}, {10, -4}};
+			for (int[] h : houses) {
+				var bp = dev.voidmc.hearth.npc.dev.SandboxBlueprints.cottage(new BlockPos(vx + h[0], Y, h[1]));
+				for (int st = 0; st < bp.stageCount(); st++) {
+					for (int i = 0; i < bp.stepCount(st); i++) {
+						bp.step(st, i, (x, y, z, state, tag) -> level.setBlock(new BlockPos(x, y, z), state, 2 | 16));
+					}
+				}
+			}
+			// The square: a bell on a post, benches, workstations under the sky.
+			level.setBlock(new BlockPos(vx, Y, 0), net.minecraft.world.level.block.Blocks.OAK_FENCE.defaultBlockState(), 3);
+			level.setBlock(new BlockPos(vx, Y + 1, 0), net.minecraft.world.level.block.Blocks.BELL.defaultBlockState(), 3);
+			for (int i = -2; i <= 2; i += 4) {
+				level.setBlock(new BlockPos(vx + i, Y, 3), net.minecraft.world.level.block.Blocks.SPRUCE_STAIRS.defaultBlockState()
+					.setValue(net.minecraft.world.level.block.StairBlock.FACING, net.minecraft.core.Direction.SOUTH), 3);
+			}
+			level.setBlock(new BlockPos(vx - 6, Y, -6), net.minecraft.world.level.block.Blocks.ANVIL.defaultBlockState(), 3);
+			level.setBlock(new BlockPos(vx - 3, Y, -6), net.minecraft.world.level.block.Blocks.SMOKER.defaultBlockState(), 3);
+			level.setBlock(new BlockPos(vx + 3, Y, -6), net.minecraft.world.level.block.Blocks.LECTERN.defaultBlockState(), 3);
+			level.setBlock(new BlockPos(vx + 6, Y, -6), net.minecraft.world.level.block.Blocks.COMPOSTER.defaultBlockState(), 3);
+			for (int x = vx + 14; x <= vx + 20; x++) {
+				for (int z = 14; z <= 22; z++) {
+					level.setBlock(new BlockPos(x, Y - 1, z), x == vx + 17 ? net.minecraft.world.level.block.Blocks.WATER.defaultBlockState()
+						: net.minecraft.world.level.block.Blocks.FARMLAND.defaultBlockState(), 3);
+					if (x != vx + 17 && (x + z) % 3 != 0) {
+						level.setBlock(new BlockPos(x, Y, z), net.minecraft.world.level.block.Blocks.WHEAT.defaultBlockState()
+							.setValue(net.minecraft.world.level.block.CropBlock.AGE, (x * 7 + z) % 8), 3);
+					}
+				}
+			}
+			NpcModule.setConfig(NpcConfig.DEFAULTS);
+			NpcSandbox.village(level, new BlockPos(vx, Y, 4), 24, Culture.TEMPERATE, RandomSource.create(42));
+		});
+		String[][] times = {{"1500", "morning"}, {"4500", "midday"}, {"11500", "evening"}, {"17500", "night"}};
+		for (String[] t : times) {
+			world.getServer().runCommand("time set " + t[0]);
+			settle(context, 30_000);
+			String who = world.getServer().computeOnServer(server -> {
+				StringBuilder sb = new StringBuilder();
+				for (Folk f : NpcModule.embodiment().entities()) {
+					if (f.brain() != null) {
+						sb.append(System.lineSeparator()).append("  ").append(f.folkName()).append(" (").append(f.brain().resident.job.getSerializedName()).append("): ")
+							.append(f.brain().describe()).append(" at ").append(f.blockPosition().toShortString());
+					}
+				}
+				return sb.toString();
+			});
+			System.out.println("[hearth npc tour] village " + t[1] + ":" + who);
+			shoot(context, world, "village_" + t[1], vx - 18, Y + 9, -16, -40.0F, 22.0F);
+			if (t[1].equals("evening")) {
+				talkForReal(context, world);
+			}
+		}
+	}
+
+	/** End to end: the server opens a conversation with a real resident, the client shows it, an option is picked. */
+	private void talkForReal(ClientGameTestContext context, TestSingleplayerContext world) {
+		Integer id = world.getServer().computeOnServer(server -> {
+			Folk f = NpcModule.embodiment().entities().stream().filter(x -> x.brain() != null && !x.isSleeping()).findFirst().orElse(null);
+			if (f == null) {
+				return null;
+			}
+			var player = server.getPlayerList().getPlayers().get(0);
+			player.teleportTo(server.overworld(), f.getX(), f.getY(), f.getZ() - 2.5, java.util.Set.of(), 0.0F, 10.0F, true);
+			return f.getId();
+		});
+		if (id == null) {
+			return;
+		}
+		settle(context, 1_500);
+		world.getServer().runOnServer(server -> {
+			var player = server.getPlayerList().getPlayers().get(0);
+			var e = server.overworld().getEntity(id);
+			if (e instanceof Folk f) {
+				NpcModule.conversations().open(player, f);
+			}
+		});
+		settle(context, 4_000);
+		context.takeScreenshot("hearth_npc_talk_greeting");
+		world.getServer().runOnServer(server -> NpcModule.conversations().choose(server.getPlayerList().getPlayers().get(0), id, "npc:about"));
+		settle(context, 5_000);
+		context.takeScreenshot("hearth_npc_talk_about");
+		world.getServer().runOnServer(server -> NpcModule.conversations().choose(server.getPlayerList().getPlayers().get(0), id, "npc:news"));
+		settle(context, 5_000);
+		context.takeScreenshot("hearth_npc_talk_news");
+		context.setScreen(() -> null);
 	}
 
 	private void lineup(ClientGameTestContext context, TestSingleplayerContext world, String name, List<Spec> specs) {
@@ -197,7 +301,7 @@ public class FolkPortraits implements FabricClientGameTest {
 				return sb.toString();
 			});
 			System.out.println("[hearth npc tour] builder " + i + ": " + progress);
-			shoot(context, world, "builder_" + i, 9.0, Y + 6.0, -4.0, 40.0F, 18.0F);
+			shoot(context, world, "builder_" + i, 13.0, Y + 7.0, -8.0, 40.0F, 14.0F);
 		}
 	}
 

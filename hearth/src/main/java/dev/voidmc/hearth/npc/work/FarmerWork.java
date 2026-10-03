@@ -40,7 +40,7 @@ final class FarmerWork implements WorkBehaviour {
 	private static final int RESCAN = 20 * 60 * 3;
 
 	private final List<BlockPos> farmland = new ArrayList<>();
-	private long scannedAt = Long.MIN_VALUE;
+	private long scannedAt = -1_000_000_000L;
 	private @Nullable BoundingBox field;
 
 	@Override
@@ -112,7 +112,8 @@ final class FarmerWork implements WorkBehaviour {
 		}
 		if (fields.isEmpty()) {
 			BlockPos c = brain.places(level).work;
-			fields.add(new BoundingBox(c.getX() - 10, c.getY() - 3, c.getZ() - 10, c.getX() + 10, c.getY() + 3, c.getZ() + 10));
+			// No farm plots (a player-built farm): tilled earth within a short walk of the job site.
+			fields.add(new BoundingBox(c.getX() - 20, c.getY() - 3, c.getZ() - 20, c.getX() + 20, c.getY() + 3, c.getZ() + 20));
 		}
 		// The nearest field first; farmers keep to one at a time.
 		BlockPos here = brain.folk.blockPosition();

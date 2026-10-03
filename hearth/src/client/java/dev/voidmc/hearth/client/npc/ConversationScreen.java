@@ -119,11 +119,11 @@ public class ConversationScreen extends Screen {
 		g.fill(x0, y0, x1, y1, PAPER);
 		g.fill(x0 + 2, y0 + 2, x1 - 2, y1 - 2, PAPER_LIGHT);
 		g.fill(x0 + 4, y0 + 4, x1 - 4, y1 - 4, PAPER);
-		for (int i = 0; i < 9; i++) {
-			int fx = x0 + 10 + (i * 97 + this.entityId * 13) % (WIDTH - 40);
-			int fy = y0 + 8 + (i * 53 + this.entityId * 7) % Math.max(1, this.panelHeight - 16);
-			g.fill(fx, fy, fx + 6 + (i % 3) * 5, fy + 1, PAPER_DARK);
-		}
+		// Age at the edges of the sheet, kept clear of the writing.
+		g.fill(x0 + 4, y0 + 4, x1 - 4, y0 + 6, PAPER_DARK);
+		g.fill(x0 + 4, y1 - 6, x1 - 4, y1 - 4, PAPER_DARK);
+		g.fill(x0 + 4, y0 + 4, x0 + 6, y1 - 4, PAPER_DARK);
+		g.fill(x1 - 6, y0 + 4, x1 - 4, y1 - 4, PAPER_DARK);
 		// Torn corners.
 		g.fill(x0 - 2, y0 - 2, x0 + 2, y0 + 2, 0);
 		g.fill(x1 - 2, y1 - 2, x1 + 2, y1 + 2, 0);

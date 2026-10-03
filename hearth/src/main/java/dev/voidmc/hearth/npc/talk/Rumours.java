@@ -47,7 +47,7 @@ public final class Rumours {
 	};
 
 	private static final Map<Long, Map<String, Optional<BlockPos>>> FOUND = new HashMap<>();
-	private static long lastSearch = Long.MIN_VALUE;
+	private static long lastSearch = -1_000_000_000L;
 
 	private Rumours() {
 	}

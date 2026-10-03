@@ -68,7 +68,7 @@ public final class FolkBrain {
 	private Activity activity = Activity.WAKE;
 	private @Nullable Task task;
 	private @Nullable ResidentPlaces places;
-	private long placesAt = Long.MIN_VALUE;
+	private long placesAt = -1_000_000_000L;
 
 	private int lastThink;
 	private int nextEvaluate;

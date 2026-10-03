@@ -52,7 +52,7 @@ and lederhosen, Breton stripes on the coast, steppe deels with side closures, mo
 the trade's marks on the outer layers (smith's leather apron and sooty arms, baker's white apron and cap, farmer's
 dungarees and straw hat, guard's mail, tabard and helmet, priest's robe and stole, scholar's robe and spectacles,
 merchant's coat with gold buttons, builder's tool belt and cap...), and age (grey hair, wrinkles, shawls and
-cardigans). Composition is about 0.1 ms; the client caches textures per look (`FolkSkins`, LRU of 384, released
+cardigans). Composition takes about 0.13 ms (measured by the unit test); the client caches textures per look (`FolkSkins`, LRU of 384, released
 after 45 s unseen). No skin assets exist.
 
 Preview sheets without the game: `HEARTH_FOLK_PREVIEW=1 ./gradlew test --tests '*SkinComposerTest*'` writes front,

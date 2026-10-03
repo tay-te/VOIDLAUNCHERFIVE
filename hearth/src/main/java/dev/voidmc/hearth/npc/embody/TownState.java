@@ -21,7 +21,7 @@ public final class TownState {
 	public final Map<UUID, Integer> builderClaims = new HashMap<>();
 	private long alarmUntil = Long.MIN_VALUE;
 	private @Nullable BlockPos alarmAt;
-	private long bellRungAt = Long.MIN_VALUE;
+	private long bellRungAt = -1_000_000_000L;
 
 	public TownState(long settlementId) {
 		this.settlementId = settlementId;
