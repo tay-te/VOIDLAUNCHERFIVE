@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "expanse:block/stripped_teak_log",
+    "side": "expanse:block/stripped_teak_log"
+  }
+}

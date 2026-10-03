@@ -1,0 +1,22 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:limestone",
+    "expanse:polished_limestone",
+    "expanse:limestone_bricks",
+    "expanse:chiseled_limestone",
+    "expanse:mossy_limestone",
+    "expanse:opal_sandstone",
+    "expanse:smooth_opal_sandstone",
+    "expanse:cut_opal_sandstone",
+    "expanse:chiseled_opal_sandstone",
+    "expanse:prismite_block",
+    "expanse:volcanic_ash",
+    "expanse:fumarole",
+    "expanse:salt_block",
+    "expanse:sphagnum_moss",
+    "expanse:amber",
+    "expanse:insect_amber",
+    "expanse:saguaro"
+  ]
+}

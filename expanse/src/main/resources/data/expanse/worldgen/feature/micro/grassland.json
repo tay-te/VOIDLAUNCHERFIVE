@@ -1,0 +1,35 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/temperate",
+  "templates": [
+    {
+      "data": "expanse:micro/boulder",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/boulders_scattered",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/snag_beehive",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/foundation_flowers",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mossy_rocks_low",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/spring_ring",
+      "weight": 1
+    }
+  ]
+}

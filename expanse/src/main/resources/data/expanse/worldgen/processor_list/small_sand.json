@@ -1,0 +1,286 @@
+{
+  "processors": [
+    {
+      "processor_type": "minecraft:rule",
+      "rules": [
+        {
+          "input_predicate": {
+            "block": "minecraft:cut_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:smooth_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.1
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "expanse:smooth_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.1
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "expanse:cut_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.08
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:acacia_log",
+              "properties": {
+                "axis": "x"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:stripped_acacia_log",
+            "properties": {
+              "axis": "x"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:acacia_log",
+              "properties": {
+                "axis": "y"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:stripped_acacia_log",
+            "properties": {
+              "axis": "y"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:acacia_log",
+              "properties": {
+                "axis": "z"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:stripped_acacia_log",
+            "properties": {
+              "axis": "z"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "expanse:baobab_log",
+              "properties": {
+                "axis": "x"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "expanse:stripped_baobab_log",
+            "properties": {
+              "axis": "x"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "expanse:baobab_log",
+              "properties": {
+                "axis": "y"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "expanse:stripped_baobab_log",
+            "properties": {
+              "axis": "y"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "expanse:baobab_log",
+              "properties": {
+                "axis": "z"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "expanse:stripped_baobab_log",
+            "properties": {
+              "axis": "z"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "expanse:palm_log",
+              "properties": {
+                "axis": "x"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "expanse:stripped_palm_log",
+            "properties": {
+              "axis": "x"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "expanse:palm_log",
+              "properties": {
+                "axis": "y"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "expanse:stripped_palm_log",
+            "properties": {
+              "axis": "y"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "expanse:palm_log",
+              "properties": {
+                "axis": "z"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 0.12
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "expanse:stripped_palm_log",
+            "properties": {
+              "axis": "z"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.3
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:short_dry_grass"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.15
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:tall_dry_grass"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.05
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:dandelion"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.2
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:air"
+        }
+      ]
+    }
+  ]
+}

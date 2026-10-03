@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "expanse:block/aspen_log_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "expanse:block/aspen_log"
+    },
+    "axis=z": {
+      "model": "expanse:block/aspen_log_horizontal",
+      "x": 90
+    }
+  }
+}

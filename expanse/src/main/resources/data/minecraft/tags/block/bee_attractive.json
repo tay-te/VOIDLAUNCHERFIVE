@@ -1,0 +1,21 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:wisteria_leaves",
+    "expanse:azure_wisteria_leaves",
+    "expanse:heather",
+    "expanse:edelweiss",
+    "expanse:frostbloom",
+    "expanse:glowcap",
+    "expanse:wisteria_blossoms",
+    "expanse:azure_wisteria_blossoms",
+    "expanse:bluebells",
+    "expanse:fireweed",
+    "expanse:olive_leaves",
+    "expanse:flame_tree_leaves",
+    "expanse:lavender",
+    "expanse:desert_pea",
+    "expanse:moth_orchid",
+    "expanse:desert_marigold"
+  ]
+}

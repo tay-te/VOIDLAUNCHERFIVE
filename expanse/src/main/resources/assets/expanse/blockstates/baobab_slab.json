@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/baobab_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/baobab_planks"
+    },
+    "type=top": {
+      "model": "expanse:block/baobab_slab_top"
+    }
+  }
+}

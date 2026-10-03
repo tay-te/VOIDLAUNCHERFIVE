@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/kapok_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/kapok_planks"
+    },
+    "type=top": {
+      "model": "expanse:block/kapok_slab_top"
+    }
+  }
+}

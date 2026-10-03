@@ -1,0 +1,125 @@
+{
+  "processors": [
+    {
+      "processor_type": "minecraft:rule",
+      "rules": [
+        {
+          "input_predicate": {
+            "block": "expanse:smooth_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.1
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "expanse:cut_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.06
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "expanse:chiseled_opal_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.05
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:cut_opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:orange_terracotta",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.08
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:smooth_opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:light_blue_terracotta",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.08
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "expanse:smooth_opal_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.2
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:dead_bush"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.25
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:short_dry_grass"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.35
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:air"
+        }
+      ]
+    },
+    {
+      "delegate": {
+        "processor_type": "minecraft:rule",
+        "rules": [
+          {
+            "block_entity_modifier": {
+              "type": "minecraft:append_loot",
+              "loot_table": "expanse:chests/sun_shrine_archaeology"
+            },
+            "input_predicate": {
+              "block": "minecraft:sand",
+              "predicate_type": "minecraft:block_match"
+            },
+            "location_predicate": {
+              "predicate_type": "minecraft:always_true"
+            },
+            "output_state": {
+              "id": "minecraft:suspicious_sand",
+              "properties": {
+                "dusted": "0"
+              }
+            }
+          }
+        ]
+      },
+      "limit": 4,
+      "processor_type": "minecraft:capped"
+    }
+  ]
+}

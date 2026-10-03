@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_slab",
+    "expanse:willow_slab",
+    "expanse:palm_slab",
+    "expanse:lumen_slab",
+    "expanse:baobab_slab",
+    "expanse:wisteria_slab",
+    "expanse:maple_slab",
+    "expanse:aspen_slab",
+    "expanse:beech_slab",
+    "expanse:pine_slab",
+    "expanse:olive_slab",
+    "expanse:eucalyptus_slab",
+    "expanse:teak_slab",
+    "expanse:kapok_slab"
+  ]
+}

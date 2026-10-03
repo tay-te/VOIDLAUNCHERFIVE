@@ -1,0 +1,35 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/north",
+  "templates": [
+    {
+      "data": "expanse:micro/stump_redwood",
+      "weight": 4
+    },
+    {
+      "data": "expanse:micro/berry_clump",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/fox_den",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mossy_rocks",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mossy_rocks_low",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/mushroom_ring",
+      "weight": 1
+    }
+  ]
+}

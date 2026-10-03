@@ -1,0 +1,214 @@
+{
+  "processors": [
+    {
+      "processor_type": "minecraft:rule",
+      "rules": [
+        {
+          "input_predicate": {
+            "block": "minecraft:mossy_cobblestone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:cobblestone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:mossy_cobblestone_slab",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:cobblestone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:moss_carpet",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:air"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:moss_block",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:coarse_dirt"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:cut_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.2
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:smooth_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.15
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.4
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:short_dry_grass"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.1
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:tall_dry_grass"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.1
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:dead_bush"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:short_grass",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 0.3
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:air"
+        }
+      ]
+    },
+    {
+      "processor_type": "minecraft:rule",
+      "rules": [
+        {
+          "input_predicate": {
+            "block": "minecraft:sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:red_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:smooth_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:smooth_red_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:cut_sandstone",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:cut_red_sandstone"
+        },
+        {
+          "input_predicate": {
+            "block": "minecraft:sand",
+            "predicate_type": "minecraft:random_block_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": "minecraft:red_sand"
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:sandstone_slab",
+              "properties": {
+                "type": "bottom",
+                "waterlogged": "false"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:red_sandstone_slab",
+            "properties": {
+              "type": "bottom",
+              "waterlogged": "false"
+            }
+          }
+        },
+        {
+          "input_predicate": {
+            "block_state": {
+              "id": "minecraft:sandstone_slab",
+              "properties": {
+                "type": "top",
+                "waterlogged": "false"
+              }
+            },
+            "predicate_type": "minecraft:random_blockstate_match",
+            "probability": 1.0
+          },
+          "location_predicate": {
+            "predicate_type": "minecraft:always_true"
+          },
+          "output_state": {
+            "id": "minecraft:red_sandstone_slab",
+            "properties": {
+              "type": "top",
+              "waterlogged": "false"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

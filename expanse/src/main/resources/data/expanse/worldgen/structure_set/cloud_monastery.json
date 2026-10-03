@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1847271,
+    "separation": 22,
+    "spacing": 56
+  },
+  "structures": [
+    {
+      "structure": "expanse:cloud_monastery",
+      "weight": 1
+    }
+  ]
+}

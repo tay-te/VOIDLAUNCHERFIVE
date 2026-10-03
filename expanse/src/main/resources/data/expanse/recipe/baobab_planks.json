@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "planks",
+  "ingredients": [
+    "#expanse:baobab_logs"
+  ],
+  "result": {
+    "count": 4,
+    "id": "expanse:baobab_planks"
+  }
+}

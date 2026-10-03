@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:larch",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "minecraft:spruce",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.08,
+      "feature": {
+        "feature": "minecraft:pine",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.04,
+      "feature": {
+        "feature": "minecraft:fallen_spruce_tree",
+        "placement": []
+      }
+    }
+  ]
+}

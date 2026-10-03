@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:boreal_muskeg",
+    "expanse:fjordlands",
+    "expanse:frostbloom_tundra",
+    "expanse:larch_taiga",
+    "expanse:maple_highlands",
+    "expanse:pine_heath",
+    "expanse:prismatic_peaks",
+    "expanse:redwood_giants",
+    "expanse:verdant_peaks",
+    "expanse:volcanic_highlands"
+  ]
+}

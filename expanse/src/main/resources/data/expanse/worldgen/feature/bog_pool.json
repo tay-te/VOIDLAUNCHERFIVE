@@ -1,0 +1,11 @@
+{
+  "type": "expanse:bog_pool",
+  "liner": "expanse:peat",
+  "rim": "expanse:sphagnum_moss",
+  "rim_chance": 0.55,
+  "radius": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 2,
+    "max_inclusive": 4
+  }
+}

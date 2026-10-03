@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:pilgrim_shrine/pilgrim_shrine_spur",
+        "processors": "expanse:small_cloud",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:pilgrim_shrine/pilgrim_shrine_cave",
+        "processors": "expanse:small_cloud",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:pilgrim_shrine/pilgrim_shrine_stupa",
+        "processors": "expanse:small_cloud",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

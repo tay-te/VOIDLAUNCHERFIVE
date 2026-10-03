@@ -1,0 +1,30 @@
+{
+  "feature": "expanse:spruce_snag",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 3
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "MOTION_BLOCKING"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "minecraft:block_predicate_filter",
+      "predicate": {
+        "type": "minecraft:would_survive",
+        "state": "minecraft:spruce_sapling"
+      }
+    },
+    {
+      "type": "expanse:clear_of_structures",
+      "margin": 3
+    }
+  ]
+}

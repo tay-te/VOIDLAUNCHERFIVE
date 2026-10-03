@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "bottom": "expanse:block/opal_sandstone_bottom",
+    "side": "expanse:block/opal_sandstone",
+    "top": "expanse:block/opal_sandstone_top"
+  }
+}

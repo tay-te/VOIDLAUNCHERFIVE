@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:wisteria",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.25,
+      "feature": {
+        "feature": "expanse:azure_wisteria",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.08,
+      "feature": {
+        "feature": "minecraft:fancy_oak_bees_005",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "expanse:fallen_wisteria",
+        "placement": []
+      }
+    }
+  ]
+}

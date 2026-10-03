@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/eucalyptus_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/eucalyptus_planks"
+    },
+    "type=top": {
+      "model": "expanse:block/eucalyptus_slab_top"
+    }
+  }
+}

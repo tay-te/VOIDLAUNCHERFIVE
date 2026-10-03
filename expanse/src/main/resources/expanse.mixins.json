@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "dev.voidmc.expanse.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ChunkMapMixin",
+		"EarthCarversMixin",
+		"FrogSpawnMixin",
+		"JigsawStructureAccessor",
+		"MineshaftStructureMixin",
+		"OverworldBiomeBuilderMixin",
+		"SurfaceWaterSpawnMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

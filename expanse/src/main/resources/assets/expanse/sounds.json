@@ -1,0 +1,45 @@
+{
+  "entity.songbird.song": {
+    "sounds": [
+      "expanse:songbird/song1",
+      "expanse:songbird/song2",
+      "expanse:songbird/song3",
+      "expanse:songbird/song4",
+      "expanse:songbird/song5",
+      "expanse:songbird/song6",
+      "expanse:songbird/song7",
+      "expanse:songbird/song8"
+    ],
+    "subtitle": "subtitles.expanse.entity.songbird.song"
+  },
+  "entity.songbird.call": {
+    "sounds": [
+      "expanse:songbird/call1",
+      "expanse:songbird/call2",
+      "expanse:songbird/call3"
+    ],
+    "subtitle": "subtitles.expanse.entity.songbird.call"
+  },
+  "entity.owl.hoot": {
+    "sounds": [
+      "expanse:owl/hoot1",
+      "expanse:owl/hoot2",
+      "expanse:owl/hoot3"
+    ],
+    "subtitle": "subtitles.expanse.entity.owl.hoot"
+  },
+  "entity.heron.croak": {
+    "sounds": [
+      "expanse:heron/croak1",
+      "expanse:heron/croak2"
+    ],
+    "subtitle": "subtitles.expanse.entity.heron.croak"
+  },
+  "entity.bird.wings": {
+    "sounds": [
+      "expanse:bird/wings1",
+      "expanse:bird/wings2"
+    ],
+    "subtitle": "subtitles.expanse.entity.bird.wings"
+  }
+}

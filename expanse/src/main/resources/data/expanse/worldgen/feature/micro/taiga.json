@@ -1,0 +1,31 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/north",
+  "templates": [
+    {
+      "data": "expanse:micro/stump_spruce",
+      "weight": 5
+    },
+    {
+      "data": "expanse:micro/berry_clump",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/mossy_rocks",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/boulders_scattered",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/fox_den",
+      "weight": 2
+    }
+  ]
+}

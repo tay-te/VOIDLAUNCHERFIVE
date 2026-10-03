@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_desert_pea": {
+      "conditions": {
+        "items": [
+          {
+            "items": "expanse:desert_pea"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipes": "expanse:red_dye_from_desert_pea"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_desert_pea"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "expanse:red_dye_from_desert_pea"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_ward_stables",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_ward_smithy",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_ward_inn",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:frost_outpost/frost_outpost_ward_barracks",
+        "processors": "expanse:frost_outpost",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

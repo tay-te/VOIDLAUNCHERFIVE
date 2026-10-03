@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:amber_steppe",
+    "expanse:aspen_parkland",
+    "expanse:dripstone_grottos",
+    "expanse:echoing_depths",
+    "expanse:frostbloom_tundra",
+    "expanse:ghost_gum_outback",
+    "expanse:mossy_caves",
+    "expanse:olive_groves",
+    "expanse:sulfur_seeps"
+  ]
+}

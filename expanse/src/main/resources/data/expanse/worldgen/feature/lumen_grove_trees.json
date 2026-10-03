@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:lumen",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.04,
+      "feature": {
+        "feature": "expanse:fallen_lumen",
+        "placement": []
+      }
+    }
+  ]
+}

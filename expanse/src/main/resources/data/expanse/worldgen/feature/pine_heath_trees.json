@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:scots_pine",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.22,
+      "feature": {
+        "feature": "expanse:young_pine",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.08,
+      "feature": {
+        "feature": "minecraft:birch",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.05,
+      "feature": {
+        "feature": "expanse:fallen_pine",
+        "placement": []
+      }
+    }
+  ]
+}

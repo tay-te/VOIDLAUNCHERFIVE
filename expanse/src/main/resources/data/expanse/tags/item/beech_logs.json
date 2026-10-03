@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:beech_log",
+    "expanse:beech_wood",
+    "expanse:stripped_beech_log",
+    "expanse:stripped_beech_wood"
+  ]
+}

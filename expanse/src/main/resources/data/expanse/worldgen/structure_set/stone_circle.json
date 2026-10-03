@@ -1,0 +1,18 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "exclusion_zone": {
+      "chunk_count": 4,
+      "other_set": "expanse:ruined_watchtower"
+    },
+    "salt": 1847261,
+    "separation": 10,
+    "spacing": 28
+  },
+  "structures": [
+    {
+      "structure": "expanse:stone_circle",
+      "weight": 1
+    }
+  ]
+}

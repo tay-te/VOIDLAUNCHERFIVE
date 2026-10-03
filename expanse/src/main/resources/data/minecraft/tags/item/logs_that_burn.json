@@ -1,0 +1,20 @@
+{
+  "replace": false,
+  "values": [
+    "#expanse:redwood_logs",
+    "#expanse:willow_logs",
+    "#expanse:palm_logs",
+    "#expanse:lumen_logs",
+    "#expanse:baobab_logs",
+    "#expanse:wisteria_logs",
+    "#expanse:maple_logs",
+    "#expanse:aspen_logs",
+    "#expanse:beech_logs",
+    "#expanse:pine_logs",
+    "expanse:deeproot",
+    "#expanse:olive_logs",
+    "#expanse:eucalyptus_logs",
+    "#expanse:teak_logs",
+    "#expanse:kapok_logs"
+  ]
+}

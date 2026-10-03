@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:giant_redwood",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.14,
+      "feature": {
+        "feature": "expanse:colossal_redwood",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:redwood",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.06,
+      "feature": {
+        "feature": "expanse:fallen_redwood",
+        "placement": []
+      }
+    }
+  ]
+}

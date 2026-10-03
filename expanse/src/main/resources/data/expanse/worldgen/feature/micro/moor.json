@@ -1,0 +1,52 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:any_of",
+    "predicates": [
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:substrate_overworld"
+      },
+      {
+        "type": "minecraft:matching_block_tag",
+        "tag": "minecraft:base_stone_overworld"
+      },
+      {
+        "type": "minecraft:matching_blocks",
+        "blocks": [
+          "minecraft:gravel",
+          "minecraft:calcite",
+          "minecraft:snow_block"
+        ]
+      }
+    ]
+  },
+  "max_relief": 2,
+  "processors": "expanse:micro/moor",
+  "templates": [
+    {
+      "data": "expanse:micro/boulder",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/boulders_scattered",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/cairn",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/old_wall",
+      "weight": 3
+    },
+    {
+      "data": "expanse:micro/mossy_rocks",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/spring_ring",
+      "weight": 1
+    }
+  ]
+}

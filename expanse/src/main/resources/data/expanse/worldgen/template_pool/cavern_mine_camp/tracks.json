@@ -1,0 +1,29 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cavern_mine_camp/cavern_mine_camp_track_a",
+        "processors": "expanse:cavern_mine_camp",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:cavern_mine_camp/cavern_mine_camp_track_b",
+        "processors": "expanse:cavern_mine_camp",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:empty_pool_element"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

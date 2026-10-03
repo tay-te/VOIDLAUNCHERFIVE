@@ -1,0 +1,31 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:limestone",
+    "expanse:limestone_stairs",
+    "expanse:limestone_slab",
+    "expanse:limestone_wall",
+    "expanse:polished_limestone",
+    "expanse:limestone_bricks",
+    "expanse:limestone_brick_stairs",
+    "expanse:limestone_brick_slab",
+    "expanse:limestone_brick_wall",
+    "expanse:chiseled_limestone",
+    "expanse:mossy_limestone",
+    "expanse:opal_sandstone",
+    "expanse:opal_sandstone_stairs",
+    "expanse:opal_sandstone_slab",
+    "expanse:opal_sandstone_wall",
+    "expanse:smooth_opal_sandstone",
+    "expanse:cut_opal_sandstone",
+    "expanse:chiseled_opal_sandstone",
+    "expanse:fumarole",
+    "expanse:salt_block",
+    "expanse:prismite_block",
+    "expanse:prismite_cluster",
+    "expanse:icicle",
+    "expanse:amber",
+    "expanse:insect_amber",
+    "expanse:amber_spike"
+  ]
+}

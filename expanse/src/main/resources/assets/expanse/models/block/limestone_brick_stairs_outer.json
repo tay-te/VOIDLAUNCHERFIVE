@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/outer_stairs",
+  "textures": {
+    "bottom": "expanse:block/limestone_bricks",
+    "side": "expanse:block/limestone_bricks",
+    "top": "expanse:block/limestone_bricks"
+  }
+}

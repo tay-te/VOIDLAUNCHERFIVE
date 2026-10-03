@@ -1,0 +1,152 @@
+{
+  "aquifers": {
+    "barrier": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_barrier",
+      "xz_scale": 1.0,
+      "y_scale": 0.5
+    },
+    "exclusion": "expanse:earth/caverns_dry",
+    "fluid_level_floodedness": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_fluid_level_floodedness",
+      "xz_scale": 1.0,
+      "y_scale": 0.67
+    },
+    "fluid_level_spread": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_fluid_level_spread",
+      "xz_scale": 1.0,
+      "y_scale": 0.7142857142857143
+    },
+    "lava": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:aquifer_lava",
+      "xz_scale": 1.0,
+      "y_scale": 1.0
+    },
+    "surface_level": "expanse:earth/preliminary_surface_level"
+  },
+  "debug_functions": [
+    {
+      "function": "expanse:earth/final_density",
+      "label": "N"
+    },
+    {
+      "function": "expanse:earth/temperature",
+      "label": "T"
+    },
+    {
+      "function": "expanse:earth/vegetation",
+      "label": "V"
+    },
+    {
+      "function": "expanse:earth/continents",
+      "label": "C"
+    },
+    {
+      "function": "expanse:earth/erosion",
+      "label": "E"
+    },
+    {
+      "function": "expanse:earth/depth",
+      "label": "D"
+    },
+    {
+      "function": "expanse:earth/ridges",
+      "label": "W"
+    },
+    {
+      "function": {
+        "type": "minecraft:mul",
+        "left": {
+          "type": "minecraft:add",
+          "left": {
+            "type": "minecraft:abs",
+            "input": {
+              "type": "minecraft:add",
+              "left": {
+                "type": "minecraft:abs",
+                "input": "expanse:earth/ridges"
+              },
+              "right": -0.6666667
+            }
+          },
+          "right": -0.33333334
+        },
+        "right": -3.0
+      },
+      "label": "PV"
+    },
+    {
+      "function": "expanse:earth/preliminary_surface_level",
+      "label": "PS"
+    }
+  ],
+  "default_block": "minecraft:stone",
+  "default_fluid": "minecraft:water",
+  "disable_mob_generation": false,
+  "legacy_random_source": false,
+  "material_rule": "minecraft:overworld",
+  "noise": {
+    "height": 448,
+    "min_y": -64
+  },
+  "noise_router": {
+    "temperature": "expanse:earth/temperature",
+    "vegetation": "expanse:earth/vegetation",
+    "continents": "expanse:earth/continents",
+    "erosion": "expanse:earth/erosion",
+    "depth": "expanse:earth/depth",
+    "ridges": "expanse:earth/ridges",
+    "chunk_surface_level": "expanse:earth/chunk_surface_level",
+    "final_density": "expanse:earth/final_density"
+  },
+  "sea_level": 63,
+  "spawn_target": [
+    {
+      "expanse:earth/continents": [
+        -0.11,
+        1.0
+      ],
+      "expanse:earth/erosion": [
+        -1.0,
+        1.0
+      ],
+      "expanse:earth/ridges": [
+        -1.0,
+        -0.16
+      ],
+      "expanse:earth/temperature": [
+        -1.0,
+        1.0
+      ],
+      "expanse:earth/vegetation": [
+        -1.0,
+        1.0
+      ]
+    },
+    {
+      "expanse:earth/continents": [
+        -0.11,
+        1.0
+      ],
+      "expanse:earth/erosion": [
+        -1.0,
+        1.0
+      ],
+      "expanse:earth/ridges": [
+        0.16,
+        1.0
+      ],
+      "expanse:earth/temperature": [
+        -1.0,
+        1.0
+      ],
+      "expanse:earth/vegetation": [
+        -1.0,
+        1.0
+      ]
+    }
+  ]
+}

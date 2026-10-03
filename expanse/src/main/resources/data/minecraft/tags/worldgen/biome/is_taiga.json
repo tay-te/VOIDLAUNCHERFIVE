@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:boreal_muskeg",
+    "expanse:fjordlands",
+    "expanse:larch_taiga",
+    "expanse:pine_heath",
+    "expanse:redwood_giants"
+  ]
+}

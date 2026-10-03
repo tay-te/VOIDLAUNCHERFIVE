@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "tip=false": {
+      "model": "expanse:block/wisteria_blossoms"
+    },
+    "tip=true": {
+      "model": "expanse:block/wisteria_blossoms_tip"
+    }
+  }
+}

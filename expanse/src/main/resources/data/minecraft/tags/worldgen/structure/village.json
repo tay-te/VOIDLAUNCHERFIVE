@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:village_wisteria",
+    "expanse:village_redwood",
+    "expanse:village_coast",
+    "expanse:village_steppe",
+    "expanse:village_moor",
+    "expanse:village_karst",
+    "expanse:village_tundra"
+  ]
+}

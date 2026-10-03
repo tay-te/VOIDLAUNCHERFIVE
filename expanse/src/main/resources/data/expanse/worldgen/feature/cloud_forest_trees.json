@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:mossy_jungle_tree",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.35,
+      "feature": {
+        "feature": "expanse:mossy_mega_jungle_tree",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "expanse:lumen",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.03,
+      "feature": {
+        "feature": "minecraft:fallen_jungle_tree",
+        "placement": []
+      }
+    }
+  ]
+}

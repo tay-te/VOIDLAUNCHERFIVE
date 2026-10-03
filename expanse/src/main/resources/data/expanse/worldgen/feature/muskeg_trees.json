@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:black_spruce",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.3,
+      "feature": {
+        "feature": "expanse:tall_black_spruce",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.2,
+      "feature": {
+        "feature": "expanse:larch",
+        "placement": []
+      }
+    }
+  ]
+}

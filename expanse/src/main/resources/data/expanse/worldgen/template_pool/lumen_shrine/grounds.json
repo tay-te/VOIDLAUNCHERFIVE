@@ -1,0 +1,50 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_glowcap_ring",
+        "processors": "expanse:lumen_shrine",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_moon_pool",
+        "processors": "expanse:lumen_shrine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_statue",
+        "processors": "expanse:lumen_shrine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_outcrop",
+        "processors": "expanse:lumen_shrine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:lumen_shrine/lumen_shrine_gate",
+        "processors": "expanse:lumen_shrine",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

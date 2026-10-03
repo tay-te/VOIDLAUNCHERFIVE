@@ -1,0 +1,47 @@
+{
+  "type": "minecraft:tree",
+  "below_trunk_provider": "minecraft:soil_beneath_tree",
+  "decorators": [
+    {
+      "type": "minecraft:shelf_mushroom",
+      "probability": 0.3
+    }
+  ],
+  "foliage_placer": {
+    "type": "expanse:clump_foliage_placer",
+    "radius": 2,
+    "offset": 0,
+    "height": 1,
+    "edge_hole_chance": 0.25
+  },
+  "foliage_provider": {
+    "id": "expanse:redwood_leaves",
+    "properties": {
+      "distance": "7",
+      "persistent": "false",
+      "waterlogged": "false"
+    }
+  },
+  "ignore_vines": true,
+  "minimum_size": {
+    "type": "minecraft:two_layers_feature_size",
+    "limit": 1,
+    "lower_size": 1,
+    "upper_size": 2
+  },
+  "trunk_placer": {
+    "type": "expanse:redwood_trunk_placer",
+    "base_height": 24,
+    "height_rand_a": 10,
+    "height_rand_b": 8,
+    "trunk_width": 2,
+    "crown_start": 0.48,
+    "max_branch_length": 3
+  },
+  "trunk_provider": {
+    "id": "expanse:redwood_log",
+    "properties": {
+      "axis": "y"
+    }
+  }
+}

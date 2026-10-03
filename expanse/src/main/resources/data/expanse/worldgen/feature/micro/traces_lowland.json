@@ -1,0 +1,43 @@
+{
+  "type": "expanse:template",
+  "ground": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:substrate_overworld"
+  },
+  "max_relief": 1,
+  "processors": "expanse:micro/temperate",
+  "templates": [
+    {
+      "data": "expanse:micro/signpost",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/hay_spill",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/wheel_post",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/old_fence",
+      "weight": 2
+    },
+    {
+      "data": "expanse:micro/campfire_spruce",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/woodpile",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/lantern_post",
+      "weight": 1
+    },
+    {
+      "data": "expanse:micro/stone_bench",
+      "weight": 1
+    }
+  ]
+}

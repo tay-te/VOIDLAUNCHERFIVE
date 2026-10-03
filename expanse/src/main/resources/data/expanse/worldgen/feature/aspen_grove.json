@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:aspen",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.08,
+      "feature": {
+        "feature": "expanse:aspen_bees",
+        "placement": []
+      }
+    },
+    {
+      "chance": 0.05,
+      "feature": {
+        "feature": "expanse:fallen_aspen",
+        "placement": []
+      }
+    }
+  ]
+}

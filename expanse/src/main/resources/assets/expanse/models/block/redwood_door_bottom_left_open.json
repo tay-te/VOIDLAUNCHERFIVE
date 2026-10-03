@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/door_bottom_left_open",
+  "textures": {
+    "bottom": "expanse:block/redwood_door_bottom",
+    "top": "expanse:block/redwood_door_top"
+  }
+}

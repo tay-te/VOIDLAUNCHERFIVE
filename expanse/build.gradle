@@ -1,0 +1,79 @@
+plugins {
+	// 26.x ships unobfuscated, so there is no mappings line: the code below is written
+	// against Mojang's own names, and Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-expanse'
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"expanse" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// A client game test, run headless (xvfb-run ./gradlew runClientGameTest), that creates a world, flies
+// to each Expanse biome and photographs it. It is how the biomes were reviewed without a monitor, and
+// it lives in its own source set so none of it ships in the mod.
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "expanse-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}
+
+// Renders the Earth terrain model to build/terrain_preview.png without starting the game.
+//   ./gradlew terrainPreview -Pseed=8675309 -Pradius=8192 -Pstep=16
+tasks.register('terrainPreview', JavaExec) {
+	group = 'expanse'
+	description = 'Renders the Earth terrain model to build/terrain_preview.png'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.expanse.gametest.TerrainPreview'
+	jvmArgs '-Djava.awt.headless=true', '-Xmx3g', "-Dexpanse.preview.borders=${project.findProperty('borders') ?: 'false'}",
+		"-Dexpanse.preview.bench=${project.findProperty('bench') ?: 'false'}", "-Dexpanse.preview.slice=${project.findProperty('slice') ?: ''}", "-Dexpanse.preview.stats=${project.findProperty('stats') ?: 'false'}", "-Dexpanse.terrain.profile=true"
+	args = [
+		project.findProperty('seed') ?: '8675309',
+		project.findProperty('radius') ?: '8192',
+		project.findProperty('step') ?: '16',
+		layout.buildDirectory.file('terrain_preview.png').get().asFile.path,
+		project.findProperty('cx') ?: '0',
+		project.findProperty('cz') ?: '0'
+	]
+}

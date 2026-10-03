@@ -1,0 +1,472 @@
+{
+  "criteria": {
+    "amber_steppe": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:amber_steppe"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "aspen_parkland": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:aspen_parkland"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "bluebell_woods": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:bluebell_woods"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "boreal_muskeg": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:boreal_muskeg"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "cloud_forest": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:cloud_forest"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "coral_coast": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:coral_coast"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "fjordlands": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:fjordlands"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "frostbloom_tundra": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:frostbloom_tundra"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "ghost_gum_outback": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:ghost_gum_outback"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "heather_moor": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:heather_moor"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "jade_karst": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:jade_karst"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "kapok_rainforest": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:kapok_rainforest"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "larch_taiga": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:larch_taiga"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "lumen_grove": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:lumen_grove"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "maple_highlands": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:maple_highlands"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "monsoon_forest": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:monsoon_forest"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "olive_groves": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:olive_groves"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "opal_dunes": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:opal_dunes"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "painted_canyons": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:painted_canyons"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "palm_coast": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:palm_coast"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "pine_heath": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:pine_heath"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "prismatic_peaks": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:prismatic_peaks"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "redwood_giants": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:redwood_giants"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "saguaro_flats": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:saguaro_flats"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "salt_flats": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:salt_flats"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "tepui": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:tepui"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "verdant_peaks": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:verdant_peaks"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "volcanic_highlands": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:volcanic_highlands"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "willow_bayou": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:willow_bayou"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    },
+    "wisteria_vale": {
+      "conditions": {
+        "player": {
+          "type": "minecraft:entity_properties",
+          "entity": "this",
+          "predicate": {
+            "minecraft:location": {
+              "biomes": "expanse:wisteria_vale"
+            }
+          }
+        }
+      },
+      "trigger": "minecraft:location"
+    }
+  },
+  "requirements": [
+    [
+      "amber_steppe",
+      "aspen_parkland",
+      "bluebell_woods",
+      "boreal_muskeg",
+      "cloud_forest",
+      "coral_coast",
+      "fjordlands",
+      "frostbloom_tundra",
+      "ghost_gum_outback",
+      "heather_moor",
+      "jade_karst",
+      "kapok_rainforest",
+      "larch_taiga",
+      "lumen_grove",
+      "maple_highlands",
+      "monsoon_forest",
+      "olive_groves",
+      "opal_dunes",
+      "painted_canyons",
+      "palm_coast",
+      "pine_heath",
+      "prismatic_peaks",
+      "redwood_giants",
+      "saguaro_flats",
+      "salt_flats",
+      "tepui",
+      "verdant_peaks",
+      "volcanic_highlands",
+      "willow_bayou",
+      "wisteria_vale"
+    ]
+  ],
+  "display": {
+    "title": {
+      "translate": "advancements.expanse.root.title"
+    },
+    "description": {
+      "translate": "advancements.expanse.root.description"
+    },
+    "icon": {
+      "id": "expanse:wisteria_sapling"
+    },
+    "background": "minecraft:gui/advancements/backgrounds/adventure",
+    "announce_to_chat": false,
+    "show_toast": true
+  }
+}

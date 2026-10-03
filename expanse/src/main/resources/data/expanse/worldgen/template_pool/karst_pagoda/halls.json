@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_hall_refectory",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_hall_dormitory",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_hall_bellcourt",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

@@ -1,0 +1,40 @@
+{
+  "type": "expanse:hoodoo",
+  "layers": [
+    {
+      "id": "minecraft:terracotta"
+    },
+    {
+      "id": "minecraft:orange_terracotta"
+    },
+    {
+      "id": "minecraft:white_terracotta"
+    },
+    {
+      "id": "minecraft:orange_terracotta"
+    },
+    {
+      "id": "minecraft:red_terracotta"
+    },
+    {
+      "id": "minecraft:smooth_red_sandstone"
+    },
+    {
+      "id": "minecraft:brown_terracotta"
+    }
+  ],
+  "band_height": 2,
+  "cap": {
+    "id": "minecraft:smooth_sandstone"
+  },
+  "height": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 6,
+    "max_inclusive": 13
+  },
+  "radius": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 1,
+    "max_inclusive": 2
+  }
+}

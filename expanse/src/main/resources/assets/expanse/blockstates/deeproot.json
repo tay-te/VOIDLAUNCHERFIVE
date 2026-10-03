@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "expanse:block/deeproot_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "expanse:block/deeproot"
+    },
+    "axis=z": {
+      "model": "expanse:block/deeproot_horizontal",
+      "x": 90
+    }
+  }
+}

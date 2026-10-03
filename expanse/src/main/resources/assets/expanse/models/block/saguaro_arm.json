@@ -1,0 +1,61 @@
+{
+  "textures": {
+    "side": "expanse:block/saguaro_side",
+    "top": "expanse:block/saguaro_top",
+    "particle": "expanse:block/saguaro_side"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        2,
+        0
+      ],
+      "to": [
+        14,
+        14,
+        2
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            2,
+            14,
+            14,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "#side",
+          "rotation": 90
+        },
+        "west": {
+          "uv": [
+            2,
+            0,
+            14,
+            2
+          ],
+          "texture": "#side",
+          "rotation": 90
+        }
+      }
+    }
+  ]
+}

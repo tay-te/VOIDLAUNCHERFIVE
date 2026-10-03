@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "minecraft:spruce",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.06,
+      "feature": {
+        "feature": "minecraft:fallen_spruce_tree",
+        "placement": []
+      }
+    }
+  ]
+}

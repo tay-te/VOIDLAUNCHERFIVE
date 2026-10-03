@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "expanse:block/volcanic_ash"
+      },
+      {
+        "model": "expanse:block/volcanic_ash",
+        "y": 90
+      },
+      {
+        "model": "expanse:block/volcanic_ash",
+        "y": 180
+      },
+      {
+        "model": "expanse:block/volcanic_ash",
+        "y": 270
+      }
+    ]
+  }
+}

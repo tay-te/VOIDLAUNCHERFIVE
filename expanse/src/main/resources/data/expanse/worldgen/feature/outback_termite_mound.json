@@ -1,0 +1,48 @@
+{
+  "type": "expanse:termite_spire",
+  "material": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "expanse:red_earth"
+        },
+        "weight": 4
+      },
+      {
+        "data": {
+          "id": "minecraft:orange_terracotta"
+        },
+        "weight": 3
+      },
+      {
+        "data": {
+          "id": "minecraft:terracotta"
+        },
+        "weight": 1
+      }
+    ]
+  },
+  "height": {
+    "type": "minecraft:uniform",
+    "min_inclusive": 3,
+    "max_inclusive": 7
+  },
+  "radius": {
+    "type": "minecraft:weighted_list",
+    "distribution": [
+      {
+        "data": 0,
+        "weight": 2
+      },
+      {
+        "data": 1,
+        "weight": 3
+      },
+      {
+        "data": 2,
+        "weight": 1
+      }
+    ]
+  }
+}

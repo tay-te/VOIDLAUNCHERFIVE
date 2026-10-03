@@ -1,0 +1,23 @@
+{
+  "feature": "expanse:micro/dark_woods",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 2
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    },
+    {
+      "type": "minecraft:biome"
+    },
+    {
+      "type": "expanse:clear_of_structures",
+      "margin": 8
+    }
+  ]
+}

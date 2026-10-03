@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:block_column",
+  "allowed_placement": {
+    "type": "minecraft:matching_block_tag",
+    "tag": "minecraft:air"
+  },
+  "direction": "up",
+  "prioritize_tip": true,
+  "layers": [
+    {
+      "height": {
+        "type": "minecraft:uniform",
+        "min_inclusive": 1,
+        "max_inclusive": 3
+      },
+      "provider": {
+        "id": "expanse:ocotillo",
+        "properties": {
+          "tip": "false"
+        }
+      }
+    },
+    {
+      "height": 1,
+      "provider": {
+        "id": "expanse:ocotillo",
+        "properties": {
+          "tip": "true"
+        }
+      }
+    }
+  ]
+}

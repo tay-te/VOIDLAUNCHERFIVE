@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_cornflower": {
+      "conditions": {
+        "items": [
+          {
+            "items": "expanse:bluebells"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipes": "expanse:blue_dye_from_bluebells"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_cornflower"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "expanse:blue_dye_from_bluebells"
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "type": "minecraft:tree",
+  "below_trunk_provider": {
+    "type": "minecraft:rule_based",
+    "rules": [
+      {
+        "if_true": {
+          "type": "minecraft:matching_blocks",
+          "blocks": [
+            "minecraft:grass_block",
+            "minecraft:podzol"
+          ]
+        },
+        "then": {
+          "id": "minecraft:dirt"
+        }
+      }
+    ]
+  },
+  "decorators": [],
+  "foliage_placer": {
+    "type": "expanse:palm_foliage_placer",
+    "radius": 4,
+    "offset": 0,
+    "missing_frond_chance": 0.1
+  },
+  "foliage_provider": {
+    "id": "expanse:palm_leaves",
+    "properties": {
+      "distance": "7",
+      "persistent": "false",
+      "waterlogged": "false"
+    }
+  },
+  "ignore_vines": true,
+  "minimum_size": {
+    "type": "minecraft:two_layers_feature_size",
+    "limit": 1,
+    "lower_size": 0,
+    "upper_size": 1
+  },
+  "trunk_placer": {
+    "type": "expanse:palm_trunk_placer",
+    "base_height": 7,
+    "height_rand_a": 3,
+    "height_rand_b": 2,
+    "bend": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 1,
+      "max_inclusive": 4
+    }
+  },
+  "trunk_provider": {
+    "id": "expanse:palm_log",
+    "properties": {
+      "axis": "y"
+    }
+  }
+}

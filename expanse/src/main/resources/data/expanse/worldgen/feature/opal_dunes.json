@@ -1,0 +1,7 @@
+{
+  "type": "expanse:dunes",
+  "sand": "expanse:opal_sand",
+  "biomes": "expanse:opal_dunes",
+  "max_height": 9,
+  "wavelength": 34.0
+}

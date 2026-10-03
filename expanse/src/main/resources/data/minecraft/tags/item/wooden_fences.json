@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_fence",
+    "expanse:willow_fence",
+    "expanse:palm_fence",
+    "expanse:lumen_fence",
+    "expanse:baobab_fence",
+    "expanse:wisteria_fence",
+    "expanse:maple_fence",
+    "expanse:aspen_fence",
+    "expanse:beech_fence",
+    "expanse:pine_fence",
+    "expanse:olive_fence",
+    "expanse:eucalyptus_fence",
+    "expanse:teak_fence",
+    "expanse:kapok_fence"
+  ]
+}

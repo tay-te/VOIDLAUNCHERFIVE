@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "minecraft:birch",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.15,
+      "feature": {
+        "feature": "minecraft:fallen_birch_tree",
+        "placement": []
+      }
+    }
+  ]
+}

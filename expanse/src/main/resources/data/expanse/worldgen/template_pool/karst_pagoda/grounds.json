@@ -1,0 +1,59 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_teahouse",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_hermitage",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_spire",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_paddy",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_koipond",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:karst_pagoda/karst_pagoda_kiln",
+        "processors": "expanse:pagoda",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "expanse:block/teak_log_top",
+    "side": "expanse:block/teak_log"
+  }
+}

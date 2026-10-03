@@ -1,0 +1,54 @@
+{
+  "type": "minecraft:add",
+  "left": {
+    "type": "minecraft:min",
+    "left": {
+      "type": "minecraft:squeeze",
+      "input": {
+        "type": "minecraft:interpolated",
+        "cell_size_xz": 4,
+        "cell_size_y": 8,
+        "input": {
+          "type": "minecraft:mul",
+          "left": {
+            "type": "minecraft:blend_density",
+            "input": {
+              "type": "minecraft:min",
+              "left": {
+                "type": "minecraft:lerp",
+                "alpha": {
+                  "type": "minecraft:gradient",
+                  "axis": "y",
+                  "from_coordinate": -64,
+                  "from_value": 0.0,
+                  "to_coordinate": -40,
+                  "to_value": 1.0
+                },
+                "first": 0.1171875,
+                "second": {
+                  "type": "minecraft:lerp",
+                  "alpha": {
+                    "type": "minecraft:gradient",
+                    "axis": "y",
+                    "from_coordinate": 368,
+                    "from_value": 1.0,
+                    "to_coordinate": 384,
+                    "to_value": 0.0
+                  },
+                  "first": -0.078125,
+                  "second": "expanse:earth/terrain"
+                }
+              },
+              "right": "expanse:earth/caverns"
+            }
+          },
+          "right": 0.64
+        }
+      }
+    },
+    "right": "expanse:earth/caverns_fine"
+  },
+  "right": {
+    "type": "minecraft:beardifier"
+  }
+}

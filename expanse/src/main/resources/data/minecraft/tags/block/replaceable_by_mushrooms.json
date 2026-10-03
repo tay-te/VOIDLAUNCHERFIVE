@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:cattail",
+    "expanse:fireweed",
+    "expanse:cotton_grass",
+    "expanse:cranberry_bush",
+    "expanse:reindeer_lichen",
+    "expanse:spinifex"
+  ]
+}

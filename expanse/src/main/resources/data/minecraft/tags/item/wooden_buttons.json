@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_button",
+    "expanse:willow_button",
+    "expanse:palm_button",
+    "expanse:lumen_button",
+    "expanse:baobab_button",
+    "expanse:wisteria_button",
+    "expanse:maple_button",
+    "expanse:aspen_button",
+    "expanse:beech_button",
+    "expanse:pine_button",
+    "expanse:olive_button",
+    "expanse:eucalyptus_button",
+    "expanse:teak_button",
+    "expanse:kapok_button"
+  ]
+}

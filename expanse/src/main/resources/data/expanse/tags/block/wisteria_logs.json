@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:wisteria_log",
+    "expanse:wisteria_wood",
+    "expanse:stripped_wisteria_log",
+    "expanse:stripped_wisteria_wood"
+  ]
+}

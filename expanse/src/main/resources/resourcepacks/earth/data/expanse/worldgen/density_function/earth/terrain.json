@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:add",
+  "left": {
+    "type": "minecraft:add",
+    "left": {
+      "type": "minecraft:mul",
+      "left": "expanse:earth/height",
+      "right": 0.04
+    },
+    "right": {
+      "type": "minecraft:gradient",
+      "axis": "y",
+      "from_coordinate": -64,
+      "from_value": 2.56,
+      "to_coordinate": 384,
+      "to_value": -15.36
+    }
+  },
+  "right": {
+    "type": "minecraft:mul",
+    "left": "minecraft:overworld/base_3d_noise",
+    "right": 0.15
+  }
+}

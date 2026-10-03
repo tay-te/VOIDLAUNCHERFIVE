@@ -1,0 +1,19 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:redwood_door",
+    "expanse:willow_door",
+    "expanse:palm_door",
+    "expanse:lumen_door",
+    "expanse:baobab_door",
+    "expanse:wisteria_door",
+    "expanse:maple_door",
+    "expanse:aspen_door",
+    "expanse:beech_door",
+    "expanse:pine_door",
+    "expanse:olive_door",
+    "expanse:eucalyptus_door",
+    "expanse:teak_door",
+    "expanse:kapok_door"
+  ]
+}

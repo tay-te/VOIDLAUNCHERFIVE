@@ -1,0 +1,32 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "minecraft:allium"
+        },
+        "weight": 2
+      },
+      {
+        "data": {
+          "id": "minecraft:lily_of_the_valley"
+        },
+        "weight": 2
+      },
+      {
+        "data": {
+          "id": "minecraft:short_grass"
+        },
+        "weight": 5
+      },
+      {
+        "data": {
+          "id": "minecraft:fern"
+        },
+        "weight": 1
+      }
+    ]
+  }
+}

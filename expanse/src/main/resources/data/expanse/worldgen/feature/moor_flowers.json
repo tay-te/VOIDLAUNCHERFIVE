@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:simple_block",
+  "to_place": {
+    "type": "minecraft:weighted",
+    "entries": [
+      {
+        "data": {
+          "id": "expanse:heather"
+        },
+        "weight": 6
+      },
+      {
+        "data": {
+          "id": "expanse:edelweiss"
+        },
+        "weight": 1
+      },
+      {
+        "data": {
+          "id": "minecraft:short_grass"
+        },
+        "weight": 3
+      }
+    ]
+  }
+}

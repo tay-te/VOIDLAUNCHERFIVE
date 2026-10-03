@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1847269,
+    "separation": 20,
+    "spacing": 50
+  },
+  "structures": [
+    {
+      "structure": "expanse:frost_outpost",
+      "weight": 1
+    }
+  ]
+}

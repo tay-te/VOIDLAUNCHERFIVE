@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "expanse:block/maple_slab"
+    },
+    "type=double": {
+      "model": "expanse:block/maple_planks"
+    },
+    "type=top": {
+      "model": "expanse:block/maple_slab_top"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "default": {
+    "feature": "expanse:eucalyptus",
+    "placement": []
+  },
+  "features": [
+    {
+      "chance": 0.08,
+      "feature": {
+        "feature": "expanse:fallen_eucalyptus",
+        "placement": []
+      }
+    }
+  ]
+}

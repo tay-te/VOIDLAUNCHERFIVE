@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:shepherd_bothy/shepherd_bothy_bothy",
+        "processors": "expanse:small_moor",
+        "projection": "rigid"
+      },
+      "weight": 3
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:shepherd_bothy/shepherd_bothy_ruin",
+        "processors": "expanse:small_moor_ruin",
+        "projection": "rigid"
+      },
+      "weight": 2
+    },
+    {
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "expanse:shepherd_bothy/shepherd_bothy_peat",
+        "processors": "expanse:small_peat",
+        "projection": "rigid"
+      },
+      "weight": 2
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

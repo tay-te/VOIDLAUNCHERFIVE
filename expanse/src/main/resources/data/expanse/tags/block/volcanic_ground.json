@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "expanse:volcanic_ash",
+    "minecraft:tuff",
+    "minecraft:coarse_dirt",
+    "minecraft:grass_block",
+    "minecraft:dirt",
+    "minecraft:stone"
+  ]
+}
