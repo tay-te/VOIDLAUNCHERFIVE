@@ -86,7 +86,8 @@ rules of PLANNING.md §7). Footings; a darker plinth course; the field face cren
 walls pilasters every six blocks with the face between them set back under a corbel table and a sloping talus at the
 foot; a wall walk along the middle at `height − 2`, stepping with the ground a block at a time (raised, never lowered,
 where the land drops); a low parapet on the town side with lanterns; flights of steps cut into the town face near the
-ends (a niche at the foot), two on long stretches; square piers closing the walk where the stretch ends, unless it runs
+ends (a niche at the foot), two on long stretches; on straight runs a blind arcade of round-headed niches along the
+town face, a lantern hung in every other one; square piers closing the walk where the stretch ends, unless it runs
 on (`join_*`, or into a `keep` rectangle). Bayou and tropical walls are timber ramparts (two rows of logs, earth
 between, a boarded walk, a railing, sharpened tops).
 

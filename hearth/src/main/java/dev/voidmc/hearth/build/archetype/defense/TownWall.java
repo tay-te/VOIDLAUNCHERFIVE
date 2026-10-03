@@ -33,7 +33,8 @@ import org.jspecify.annotations.Nullable;
  * every six blocks and the face between them set back under a corbel table, so the parapet oversails like a row of
  * machicolations; a wall walk along the middle, stepping with the ground, between the crenellated parapet and a low
  * parapet on the town side with lanterns on it; stairs up from the town side cut into the inner face at the ends of the
- * stretch (a niche at the foot); square piers closing the walk where the stretch ends, unless it runs on into a tower
+ * stretch (a niche at the foot), and on straight runs a blind arcade of round-headed niches along the town face, a
+ * lantern hung in every other one; square piers closing the walk where the stretch ends, unless it runs on into a tower
  * or another stretch. Timber cultures (bayou, tropical) build it as a rampart: two rows of logs with earth between,
  * a boarded walk and a railing.
  *
@@ -166,8 +167,26 @@ public final class TownWall implements Archetype {
 						d.set(x, top + 1, z, merlon(d, accent, body));
 					}
 				} else {
+					// the town face: on straight runs a blind arcade, round-headed niches between the pilasters
+					long along = Math.round(cell.t());
+					int pos = (int) Math.floorMod(along, bay);
+					boolean straight = cell.straightness() > 0.97;
+					boolean niche = pilasters && straight && pos != 0 && along >= 2 && c.along[n - 1] - cell.t() >= 2 && top - 1 >= g + 5;
 					for (int y = g; y <= top - 1; y++) {
+						if (niche && y >= g + 1 && y <= g + 3) {
+							boolean shoulder = y == g + 3 && (pos == 1 || pos == bay - 1) && body.has(Form.STAIRS);
+							if (shoulder) {
+								Direction toPier = pos == 1 ? cell.ahead().getOpposite() : cell.ahead();
+								d.set(x, y, z, body.stairs(toPier, Half.TOP));
+							} else {
+								d.set(x, y, z, Blocks.AIR.defaultBlockState());
+							}
+							continue;
+						}
 						d.set(x, y, z, y == g ? found.full() : y == top - 1 && accent != body ? accent.full() : body.full());
+					}
+					if (niche && pos == bay / 2 && Math.floorMod(Math.floorDiv(along, bay), 2) == 0) {
+						d.set(x, g + 3, z, dev.voidmc.hearth.build.draft.States.lantern(Lamps.lantern(d), true));
 					}
 					d.set(x, top, z, body.has(Form.WALL) ? body.wall() : body.slab(SlabType.BOTTOM));
 				}
