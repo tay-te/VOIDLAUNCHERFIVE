@@ -291,6 +291,37 @@ class LinearWorksTest {
 		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems.subList(0, Math.min(30, problems.size()))));
 	}
 
+	/** Degenerate geometry (a single column, two columns, a vertical jump) draws without throwing in every culture. */
+	@Test
+	void degenerateGeometryDrawsWithoutThrowing() {
+		SyntheticTerrain t = SyntheticTerrain.named("river", 42);
+		int[][] cases = {{0, 64, 0, 0, 64, 0}, {0, 64, 0, 1, 64, 0}, {0, 64, 0, 1, 70, 1}, {3, 64, 3, 3, 66, 9}};
+		for (Culture c : Culture.values()) {
+			for (int[] pts : cases) {
+				for (String id0 : new String[]{"infra/road", "infra/stairs", "infra/walkway", "infra/dock", "infra/bridge:arch", "infra/bridge:beam",
+					"infra/bridge:trestle", "infra/bridge:covered", "infra/bridge:rope", "infra/bridge:clapper", "infra/bridge:piers", "infra/bridge:boardwalk"}) {
+					String id = id0.contains(":") ? id0.substring(0, id0.indexOf(':')) : id0;
+					CompoundTag params = new CompoundTag();
+					if (id0.contains(":")) {
+						String make = id0.substring(id0.indexOf(':') + 1);
+						if (make.equals("boardwalk")) {
+							params.putString("kind", "boardwalk");
+						} else {
+							params.putString("make", make);
+						}
+					}
+					params.putInt("deck_y", maxY(pts) + 2);
+					params.putInt("street_y", minY(pts) - 8);
+					PlotSpec spec = linear(id, c, 3L, pts, 3, params, minY(pts) - 8, 20, 2);
+					var style = SERVICE.styles().getOrDefault(spec.style());
+					var draft = new dev.voidmc.hearth.build.draft.Draft(spec, style, new dev.voidmc.hearth.build.terrain.Site(spec, t));
+					SERVICE.registry().get(spec.archetype()).draw(draft);
+					dev.voidmc.hearth.build.blueprint.Compiler.compile(draft);
+				}
+			}
+		}
+	}
+
 	/** A long road plot (48 steps, diagonal, five wide) draws and compiles in milliseconds, like a house. */
 	@Test
 	void aLongRoadIsCheapToDraw() {

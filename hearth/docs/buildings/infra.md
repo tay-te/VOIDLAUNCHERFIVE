@@ -45,8 +45,8 @@ Params: `points` (world centreline at walking level), `width` (odd), `kind` (`st
 
 - **street** (5): setts (the foundation's cobble where it is cobbled, else the paving) with dressed kerbs of a
   contrasting stone (smooth quartz in the mediterranean and steppe, laid logs in the north); on level stretches the
-  carriageway lies half a block below the kerbs; worn patches in a village; lamps on the kerb line every 14 blocks
-  alternating sides (10 in a city); iron grates over sumps in the gutters of a town's stone streets. Timber cultures
+  carriageway lies half a block below the kerbs; worn patches in a village; lamps on the kerb line alternating sides,
+  every 20 blocks on a street laid at a camp's founding, 14 in a village or town, 10 in a city; iron grates over sumps in the gutters of a town's stone streets. Timber cultures
   (bayou, tropical): a plank boardwalk with log edges.
 - **lane** (3): a dirt lane in a hamlet (a tuft or a flower along its edges), half cobbled in a village, paved and kerbed in a city; rubble in the stone towns
   (mediterranean, moorland, maritime, desert, mesa); laid-log edges in the north ("mud and wood"), bamboo edges in the

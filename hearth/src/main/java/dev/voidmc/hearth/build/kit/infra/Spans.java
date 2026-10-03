@@ -555,6 +555,11 @@ public final class Spans {
 	 * the crowns, coped parapets with newels and lamps.
 	 */
 	public void arch(ArchStyle st) {
+		if (gapLength() < 3) {
+			// nothing worth an arch: a flat stone crossing
+			clapper();
+			return;
+		}
 		int w = waterTop();
 		int springing = w != Site.NONE ? w - 1 : Math.min(this.bed[this.ga], this.bed[this.gb]);
 		double pier = 2;
@@ -762,6 +767,10 @@ public final class Spans {
 	 * both portals, lanterns hung from the ridge.
 	 */
 	public void covered() {
+		if (this.n < 6) {
+			timber(false);
+			return;
+		}
 		profile(baseNeed(), gapLength() > 0, 2);
 		LineMat planks = LineMat.of(this.lay, Role.STILT);
 		LineMat beam = LineMat.of(this.lay, Role.BEAM);
@@ -901,6 +910,10 @@ public final class Spans {
 	 * a block or two, hand ropes from the tower tops down to rail height in the middle, hangers to the deck.
 	 */
 	public void rope() {
+		if (this.n < 5 || gapLength() < 3) {
+			timber(false);
+			return;
+		}
 		int[] need = new int[this.n];
 		int mid = (this.ga + this.gb) / 2;
 		double half = Math.max(1, (this.gb - this.ga) / 2.0);

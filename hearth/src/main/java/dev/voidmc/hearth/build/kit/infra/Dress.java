@@ -143,13 +143,14 @@ public record Dress(LineMat main, @Nullable LineMat wear, double wearShare, Line
 		return switch (kind) {
 			case STREET -> {
 				if (timber) {
-					yield new Dress(paving, null, 0, logs, EdgeKind.LOG, stepPaved, 0, false, wide && tier >= 1, tier >= 3 ? 10 : 14);
+					yield new Dress(paving, null, 0, logs, EdgeKind.LOG, stepPaved, 0, false, wide, tier >= 3 ? 10 : tier == 0 ? 20 : 14);
 				}
 				boolean logEdge = c == Culture.NORTHERN || c == Culture.TUNDRA;
 				LineMat wear = setts == found ? paving : found;
 				int sunk = tier >= 1 && setts.has(Form.SLAB) ? (wide ? 2 : 1) : 0;
+				// a main street is laid out at the founding and lit from the start (the planner does not repave it later)
 				yield new Dress(setts, tier <= 2 ? wear : null, tier <= 1 ? 0.2 : 0.1, logEdge ? logs : kerb, logEdge ? EdgeKind.LOG : EdgeKind.KERB,
-					stepPaved, sunk, false, wide && tier >= 1, tier >= 3 ? 10 : 14);
+					stepPaved, sunk, false, wide, tier >= 3 ? 10 : tier == 0 ? 20 : 14);
 			}
 			case HIGHWAY -> {
 				if (tier >= 3 && !timber) {
