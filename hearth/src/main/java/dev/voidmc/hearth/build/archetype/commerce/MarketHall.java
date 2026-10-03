@@ -170,7 +170,7 @@ public final class MarketHall implements Archetype {
 		Direction.Axis ridge = form == RoofForm.GABLE && d.chance(Math.max(0.4, h.roof().frontGable())) ? Direction.Axis.Z
 			: up[2] - up[0] >= up[3] - up[1] ? Direction.Axis.X : Direction.Axis.Z;
 		boolean cupola = d.param("cupola", true) && form != RoofForm.FLAT;
-		Storeys.Top roofTop = Storeys.roof(d, body, form, ridge, Math.max(h.roof().pitch(), 1.0), cupola ? 8 : 1);
+		Storeys.Top roofTop = Storeys.roof(d, body, form, ridge, Math.max(h.roof().pitch(), 1.0), cupola ? 8 : 1, true);
 		int skyline = roofTop.ridge();
 		int cz = (z0 + z1) / 2;
 		if (form == RoofForm.FLAT) {
@@ -333,9 +333,12 @@ public final class MarketHall implements Archetype {
 		int n = r[3] - r[1] >= 12 ? 3 : 2;
 		for (int k = 0; k < n; k++) {
 			int cz = r[1] + 2 + (int) Math.round((k + 0.5) * (r[3] - r[1] - 4) / n);
-			// a drum of three with lights, then the dome
-			Towers.shaft(d, cx - 1, cz - 1, 3, deck, deck, Tradition.ADOBE, -1);
-			top = Math.max(top, Towers.lathe(d, cx, cz, deck + 1, new double[]{1.6, 1.0, 0.4}, dome, maxH));
+			// a drum of three lifting it over the parapet, lights in it, then the dome
+			Towers.shaft(d, cx - 1, cz - 1, 3, deck, deck + 1, Tradition.ADOBE, deck + 1);
+			for (Side s : Side.of(cx - 1, cz - 1, cx + 1, cz + 1)) {
+				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(1), deck, s.z(1), Blocks.GLASS.defaultBlockState()));
+			}
+			top = Math.max(top, Towers.lathe(d, cx, cz, deck + 2, new double[]{2.0, 1.6, 0.9, 0.4}, dome, maxH));
 		}
 		return top;
 	}

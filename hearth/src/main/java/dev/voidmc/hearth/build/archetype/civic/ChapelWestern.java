@@ -382,12 +382,7 @@ final class ChapelWestern {
 			}
 		}
 		if (tier >= 3 && yb - 2 > plate + 1) {
-			for (Side s : Side.of(x0, z0, x0 + size - 1, z0 + size - 1)) {
-				if (s.out() == Dirs.BACK && front) {
-					continue;
-				}
-				Towers.clock(d, s, 2, yb - 2, false, 0);
-			}
+			Towers.clock(d, Side.of(x0, z0, x0 + size - 1, z0 + size - 1, Dirs.FRONT), 2, yb - 2, false, 0);
 		}
 		Towers.belfry(d, x0, z0, size, yb, bh, t, true);
 		int top = Towers.cap(d, x0, z0, size, yb + bh, cap, maxH);

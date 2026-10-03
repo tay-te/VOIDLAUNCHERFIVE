@@ -147,14 +147,21 @@ public final class Inn implements Archetype {
 		Side front = body.side(0, Dirs.FRONT);
 		Side back = body.side(0, Dirs.BACK);
 		int archTop = base + h0 - 1;
-		Arches.Kind ak = Arches.timber(Arches.kind(t)) ? Arches.Kind.BRACED : Arches.kind(t) == Arches.Kind.POINTED ? Arches.Kind.POINTED
+		// a stone carriage arch whatever the walls (timber over a stone arch is the coaching inn's face)
+		Arches.Kind ak = t == Tradition.KARST ? Arches.Kind.BRACKETED : Arches.kind(t) == Arches.Kind.POINTED ? Arches.Kind.POINTED
 			: Arches.Kind.ROUND;
 		Paint pierP = Arches.pierPaint(d, ak);
 		Mat wall = d.mat(Role.WALL);
 		Mat frame = d.mat(Role.FRAME);
 		if (arch) {
-			Arches.arcade(d, front, new int[]{front.index(px0 - 1), front.index(px1 + 1)}, base, archTop, ak, pierP, null);
-			Arches.arcade(d, back, new int[]{back.index(px0 - 1), back.index(px1 + 1)}, base, archTop, ak, pierP, null);
+			Paint voussoir = Arches.timber(ak) ? null : d.mat(Role.WALL_ACCENT).full();
+			Arches.arcade(d, front, new int[]{front.index(px0 - 1), front.index(px1 + 1)}, base, archTop, ak, pierP, voussoir);
+			Arches.arcade(d, back, new int[]{back.index(px0 - 1), back.index(px1 + 1)}, base, archTop, ak, pierP, voussoir);
+			// a keystone over the arch's crown and a lantern hung in the passage
+			if (!Arches.timber(ak)) {
+				d.inStage(StageKind.WALLS, () -> d.set((px0 + px1) / 2, archTop, zF, d.mat(Role.ACCENT).mainOr(Form.FULL, Blocks.CHISELED_STONE_BRICKS)
+					.defaultBlockState()));
+			}
 			d.clearBox(px0, base, zF + 1, px1, archTop - 1, zM - 1);
 			Halls.floor(d, px0, zF, px1, zM, base - 1, true);
 			try (var s = d.stage(StageKind.WALLS)) {
@@ -191,8 +198,12 @@ public final class Inn implements Archetype {
 		// --- the roof: the culture's form over the range, dormers where it is pitched
 		RoofForm form = flat ? RoofForm.FLAT : t == Tradition.KARST ? RoofForm.PAGODA
 			: h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP, RoofForm.GAMBREL);
-		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), 1);
+		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), 1, true);
 		int skyline = top.ridge();
+		if (form == RoofForm.FLAT) {
+			Halls.roofTerrace(d, body.topRect(), top.deck(), !archRight);
+			skyline = top.deck() + 3;
+		}
 
 		// --- the stair from the tap room up to the corridor (along the gable wall, climbing to the back)
 		int sx = sx0;
@@ -370,6 +381,16 @@ public final class Inn implements Archetype {
 		}
 
 		int yz0 = zM + 1;
+		if (arch && dp - 1 - yz0 >= 3) {
+			// a gallery along the yard side of the guest floor, a door out to it from the corridor's end
+			Side upBack = body.side(1, Dirs.BACK);
+			Porches.balcony(d, upBack, upBack.column(1), upBack.column(upBack.last() - 1), fy);
+			int gx = archRight ? up[2] - 1 : up[0] + 1;
+			if (Openings.isWallBlock(d, gx, fy, zM) && d.isEmpty(gx, fy, cz)) {
+				d.inStage(StageKind.OPENINGS, () -> d.door(gx, fy, zM, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.BACK,
+					net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+			}
+		}
 		if (arch && dp - 1 - yz0 >= 1) {
 			yard(d, x0, yz0, x1, dp - 1, archRight, px0, px1, base);
 			// the way from the arch into the yard and out to the street
@@ -459,7 +480,7 @@ public final class Inn implements Archetype {
 			// the stable: posts along its front, a back wall, a shed roof falling to the yard, stalls of fences
 			int sz0 = z1 - 2;
 			Mat frame = d.mat(Role.FRAME);
-			Mat boards = d.mat(Role.GABLE);
+			Mat boards = d.mat(Role.FLOOR);
 			Mat fence = d.mat(Role.RAILING);
 			int sx0 = archRight ? x0 : x0 + 4;
 			int sx1 = archRight ? x1 - 4 : x1;

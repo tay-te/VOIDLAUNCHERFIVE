@@ -76,16 +76,17 @@ public final class Bank implements Archetype {
 		Habits h = d.habits();
 		Tradition t = Tradition.of(d);
 		boolean raised = t.raised();
-		boolean portico = d.param("portico", tier >= 3 && w >= 9) && dp >= 11;
+		boolean portico = d.param("portico", tier >= 3 && w >= 9) && dp >= 10;
+		boolean deepPortico = portico && dp >= 12;
 
 		// --- the plan
 		int x0 = w >= 11 ? 1 : 0;
 		int x1 = w - 1 - x0;
 		int cx = (x0 + x1) / 2;
-		int zF = portico ? 3 : raised ? 3 : 2;
+		int zF = deepPortico ? 3 : portico ? 2 : raised ? 3 : 2;
 		int z0 = zF;
 		int z1 = dp - 1;
-		int h0 = 5;
+		int h0 = dp - zF >= 9 ? 5 : 6;
 		int h1 = maxH >= 13 ? 4 : 3;
 		boolean twoStoreys = dp - zF >= 9;
 		int base = raised ? Grounds.stiltBase(d, x0, z0, x1, z1) : Grounds.raisedBase(d, x0, x1, z0);
@@ -150,9 +151,10 @@ public final class Bank implements Archetype {
 		if (portico) {
 			int px0 = cx - (w >= 13 ? 4 : 3);
 			int px1 = cx + (w >= 13 ? 4 : 3);
-			skyline = Math.max(skyline, Portico.build(d, t, Math.max(0, px0), Math.min(w - 1, px1), z0 - 2, z0 - 1, base, h0 - 1, t != Tradition.KARST));
-			if (base >= 1 && !raised) {
-				Grounds.flight(d, px0, px1, z0 - 3, base, base);
+			int pz0 = deepPortico ? z0 - 2 : z0 - 1;
+			skyline = Math.max(skyline, Portico.build(d, t, Math.max(0, px0), Math.min(w - 1, px1), pz0, z0 - 1, base, h0 - 1, t != Tradition.KARST));
+			if (base >= 1 && !raised && pz0 - 1 >= 0) {
+				Grounds.flight(d, px0, px1, pz0 - 1, base, base);
 			}
 		} else {
 			Halls.portal(d, front, cx, base, t, tier);
@@ -169,6 +171,9 @@ public final class Bank implements Archetype {
 
 		// --- the roof: low and heavy, a string course under it
 		Halls.stringCourse(d, body.side(body.storeys() - 1, Dirs.FRONT), plate);
+		if (t != Tradition.KARST && t != Tradition.STILT) {
+			Halls.cornice(d, body.topRect(), plate);
+		}
 		RoofForm form = t == Tradition.ADOBE ? RoofForm.FLAT : t == Tradition.KARST ? RoofForm.PAGODA : t == Tradition.STEPPE ? RoofForm.HIP
 			: h.roof().pick(d.random(), RoofForm.HIP, RoofForm.HIP, RoofForm.MANSARD, RoofForm.GABLE);
 		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.min(1.0, Math.max(0.5, h.roof().pitch())), 1);

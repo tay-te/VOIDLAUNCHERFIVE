@@ -148,14 +148,17 @@ final class ChapelShrine {
 
 		// --- the double roof: a lower curved hip round the hall, a clerestory, an upper curved hip
 		Roofs.Opts o = Roofs.Opts.of(d).withPitch(1.0).withEaves(2, 1);
-		Roofs.Roof lower = Roofs.build(d, hx0, hz0, hx1, hz1, plate, RoofForm.PAGODA, Direction.Axis.X, o, false, false).roof();
 		int ux0 = hx0 + 2;
 		int ux1 = hx1 - 2;
 		int uz0 = hz0 + 2;
 		int uz1 = hz1 - 2;
-		int uplate = plate + 3;
+		int uplate = plate + 5;
+		boolean twoTier = ux1 - ux0 >= 2 && uz1 - uz0 >= 2 && uplate + 5 < maxH - 1;
+		Roofs.Roof lower = twoTier
+			? dev.voidmc.hearth.build.kit.civic.Eaves.skirt(d, hx0, hz0, hx1, hz1, ux0, uz0, ux1, uz1, plate, 2, 1.0, true, true)
+			: Roofs.build(d, hx0, hz0, hx1, hz1, plate, RoofForm.PAGODA, Direction.Axis.X, o, false, false).roof();
 		int top = lower.ridgeY;
-		if (ux1 - ux0 >= 2 && uz1 - uz0 >= 2 && uplate + 4 < maxH - 1) {
+		if (twoTier) {
 			try (var s = d.stage(StageKind.WALLS)) {
 				for (int[] c : Draft.ring(ux0, uz0, ux1, uz1)) {
 					boolean corner = (c[0] == ux0 || c[0] == ux1) && (c[1] == uz0 || c[1] == uz1);
@@ -167,7 +170,8 @@ final class ChapelShrine {
 					}
 				}
 			}
-			Roofs.Roof upper = Roofs.build(d, ux0, uz0, ux1, uz1, uplate, RoofForm.PAGODA, Direction.Axis.X, o.withEaves(1, 1), false, false).roof();
+			d.clearBox(ux0 + 1, plate, uz0 + 1, ux1 - 1, uplate - 1, uz1 - 1);
+			Roofs.Roof upper = Roofs.build(d, ux0, uz0, ux1, uz1, uplate, RoofForm.PAGODA, Direction.Axis.X, o.withEaves(2, 1), false, false).roof();
 			top = upper.ridgeY;
 			// a ridge ornament: a pearl on a post
 			int ry = upper.ridgeY + 1;
@@ -257,21 +261,27 @@ final class ChapelShrine {
 				for (int yy = Math.min(g, y) - 1; yy < y; yy++) {
 					d.set(x, yy, z, d.mat(Role.FOUNDATION).full());
 				}
-				for (int yy = y; yy <= y + 4; yy++) {
+				d.set(x, y, z, d.mat(Role.WALL_ACCENT).full());
+				for (int yy = y + 1; yy <= y + 4; yy++) {
 					d.set(x, yy, z, frame.log(Direction.Axis.Y));
 				}
 			}
+			// a tie beam, a lintel over it with the name board between, a thin curved cap with lifted ends
 			for (int x = cx - 2; x <= cx + 2; x++) {
 				d.set(x, y + 4, z, beam.log(Direction.Axis.X));
-				d.set(x, y + 5, z, roof.full());
 			}
-			d.set(cx - 3 >= 0 ? cx - 3 : cx - 2, y + 5, z, roof.stairsOrSlab(Dirs.RIGHT, Half.TOP));
-			d.set(cx + 3 < d.frontage() ? cx + 3 : cx + 2, y + 5, z, roof.stairsOrSlab(Dirs.LEFT, Half.TOP));
-			for (int x = cx - 1; x <= cx + 1; x++) {
-				d.set(x, y + 6, z, roof.slab(SlabType.BOTTOM));
-			}
-			// the name board on the beam
 			d.set(cx, y + 5, z, d.mat(Role.ACCENT).full());
+			for (int x = cx - 3; x <= cx + 3; x++) {
+				if (x < 0 || x >= d.frontage()) {
+					continue;
+				}
+				boolean end = x == cx - 3 || x == cx + 3;
+				d.set(x, y + (end ? 6 : 6), z, end ? roof.stairsOrSlab(x < cx ? Dirs.RIGHT : Dirs.LEFT, Half.BOTTOM)
+					: roof.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+				if (!end && x != cx) {
+					d.set(x, y + 5, z, x == cx - 2 || x == cx + 2 ? frame.log(Direction.Axis.Y) : beam.stairsOrSlab(x < cx ? Dirs.LEFT : Dirs.RIGHT, Half.TOP));
+				}
+			}
 		}
 	}
 

@@ -95,6 +95,10 @@ public final class Arches {
 				for (int y = y0; y < top; y++) {
 					d.set(s.x(i), y, s.z(i), pier);
 				}
+				// timber posts stand on pad stones; masonry piers on a base course
+				if (top - y0 >= 3) {
+					d.set(s.x(i), y0, s.z(i), wood ? d.mat(Role.PLINTH).full() : d.mat(Role.PLINTH).full());
+				}
 				d.set(s.x(i), top, s.z(i), wood ? course : pier);
 				if (p == piers.length - 1) {
 					continue;

@@ -4,6 +4,8 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
+import dev.voidmc.hearth.build.draft.Paint;
+import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
 import dev.voidmc.hearth.build.kit.Furniture;
@@ -84,10 +86,51 @@ final class ChapelMission {
 		int deck = Roofs.flat(d, nx0, z0, nx1, z1, plate, true);
 		// buttresses on the front corners
 		Side front = nave.side(0, Dirs.FRONT);
-		Halls.portal(d, front, cx, base, t, tier);
-		Sacred.rose(d, front, front.index(cx), base + hn - 2 > base + 4 ? base + hn - 2 : base + 4);
+		Openings.door(d, front, cx, base, 1, new Openings.DoorOpts(false, false, true));
+		// the frontispiece: the middle of the front stands a block proud to the parapet, a deep arched doorway in it
+		Mat wallM = d.mat(Role.WALL);
+		Mat acc = d.mat(Role.WALL_ACCENT);
+		int fz = z0 - 1;
+		if (fz >= 1) {
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int x = cx - 2; x <= cx + 2; x++) {
+					for (int y = Math.min(base, d.site().ground(x, fz)) - 1; y < base; y++) {
+						d.set(x, y, fz, d.mat(Role.FOUNDATION).full());
+					}
+					for (int y = base; y <= plate + 1; y++) {
+						boolean jamb = Math.abs(x - cx) == 2;
+						boolean recess = Math.abs(x - cx) <= 1 && y <= base + 2;
+						d.set(x, y, fz, recess ? Paint.of(Blocks.AIR.defaultBlockState()) : jamb && y <= base + 3 ? acc.full() : wallM.full());
+					}
+				}
+				d.set(cx - 1, base + 2, fz, acc.stairsOrSlab(Dirs.LEFT, Half.TOP));
+				d.set(cx + 1, base + 2, fz, acc.stairsOrSlab(Dirs.RIGHT, Half.TOP));
+				for (int x = cx - 1; x <= cx + 1; x++) {
+					d.set(x, base + 3, fz, acc.full());
+				}
+				d.set(cx, base + 3, fz, d.mat(Role.ACCENT).full());
+			}
+			Sacred.rose(d, front.shifted(1), front.index(cx), base + hn - 1 > base + 5 ? base + hn - 1 : base + 5);
+			// battered buttresses at the front corners, stepping down
+			for (int x : new int[]{nx0, nx1}) {
+				try (var s = d.stage(StageKind.WALLS)) {
+					for (int y = Math.min(base, d.site().ground(x, fz)) - 1; y <= base + hn - 3; y++) {
+						d.set(x, y, fz, wallM.full());
+					}
+					d.set(x, base + hn - 2, fz, acc.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+					if (fz - 1 >= 0) {
+						for (int y = Math.min(base, d.site().ground(x, fz - 1)) - 1; y <= base + 1; y++) {
+							d.set(x, y, fz - 1, wallM.full());
+						}
+						d.set(x, base + 2, fz - 1, acc.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+					}
+				}
+			}
+		} else {
+			Sacred.rose(d, front, front.index(cx), base + hn - 2 > base + 4 ? base + hn - 2 : base + 4);
+		}
 		// the bell wall over the front
-		int top = Towers.bellWall(d, front, front.index(cx), deck + 1, nw >= 9 ? 3 : 2, maxH);
+		int top = Towers.bellWall(d, front, front.index(cx), deck + 1, 3, maxH);
 		// a squat tower with a dome beside the front in towns
 		if (tower) {
 			int tx0 = right ? nx1 + 1 : nx0 - 3;
@@ -102,10 +145,12 @@ final class ChapelMission {
 			}
 		}
 		// the steps and the way in
-		if (base == 1) {
-			Grounds.flight(d, cx - 1, cx + 1, z0 - 1, base, 1);
+		int ez = z0 - 1 >= 1 ? z0 - 2 : z0 - 1;
+		if (base == 1 && ez >= 0) {
+			Grounds.flight(d, cx - 1, cx + 1, ez, base, 1);
 		}
-		Grounds.approach(d, cx, base, z0 - 1);
+		d.entrance(cx, base, z0 - 1);
+		Grounds.approach(d, cx, base, ez);
 
 		// --- inside: pews, an altar before a retablo of carved stone and candles
 		Sacred.pews(d, nx0 + 1, nx1 - 1, z0 + 3, z1 - 3, base, cx, Dirs.BACK, nw >= 9);

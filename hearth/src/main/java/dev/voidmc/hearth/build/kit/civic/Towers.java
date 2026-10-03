@@ -58,7 +58,7 @@ public final class Towers {
 	/** The cap a tradition gives its towers; {@code tall} for a landmark tower rather than a cupola. */
 	public static Cap cap(Tradition t, boolean tall) {
 		return switch (t) {
-			case TIMBER -> tall ? Cap.SPIRE : Cap.PYRAMID;
+			case TIMBER -> Cap.SPIRE;
 			case LOG -> Cap.SPIRE;
 			case ALPINE -> Cap.ONION;
 			case STONE -> tall ? Cap.SPIRE : Cap.PYRAMID;
@@ -192,9 +192,10 @@ public final class Towers {
 				return spire(d, x0, z0, size, baseY, maxTop);
 			}
 			case PYRAMID, HIP -> {
-				int e = cap == Cap.HIP ? 1 : cap == Cap.SPIRE && size >= 5 ? 0 : 1;
+				// a small pyramid stands on its own walls (no eave ring: it would read as a hat); a hip overhangs
+				int e = cap == Cap.HIP ? 1 : size <= 3 ? 0 : 1;
 				int half = size / 2 + e;
-				double want = cap == Cap.SPIRE ? 3.0 : cap == Cap.PYRAMID ? 1.25 : 0.6;
+				double want = cap == Cap.PYRAMID ? (size <= 3 ? 2.0 : 1.25) : 0.6;
 				// the apex at baseY + 1 + pitch * half, a finial above it
 				double pitch = Math.max(0.5, Math.min(want, (room - 3.0) / Math.max(1, half)));
 				Roofs.Field f = Roofs.hip(x0 - e, z0 - e, x1 + e, z1 + e, Roofs.Profile.straight(pitch));

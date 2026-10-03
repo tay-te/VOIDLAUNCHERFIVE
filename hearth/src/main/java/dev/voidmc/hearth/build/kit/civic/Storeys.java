@@ -102,6 +102,14 @@ public final class Storeys {
 	 * level (flat) and the ridge.
 	 */
 	public static Top roof(Draft d, Body b, RoofForm form, Direction.Axis axis, double pitch, int headroom) {
+		return roof(d, b, form, axis, pitch, headroom, false);
+	}
+
+	/**
+	 * {@link #roof}; with {@code dormers}, a dormer window over every other bay of the long sides that face front and
+	 * back (where the slope is long enough to take one), lighting the roof space.
+	 */
+	public static Top roof(Draft d, Body b, RoofForm form, Direction.Axis axis, double pitch, int headroom, boolean dormers) {
 		int[] tr = b.topRect();
 		int plate = b.plateY();
 		if (form == RoofForm.FLAT) {
@@ -120,7 +128,24 @@ public final class Storeys {
 		p = p >= 1.0 ? Math.floor(p) : 0.5;
 		o = o.withPitch(p);
 		RoofForm f = form == RoofForm.CROSS_GABLE ? RoofForm.GABLE : form;
-		Roofs.Built built = Roofs.build(d, tr[0], tr[1], tr[2], tr[3], plate, f, axis, o, b.partyLeft, b.partyRight);
+		Roofs.Plan plan = Roofs.plan(d, tr[0], tr[1], tr[2], tr[3], plate, f, axis, o, b.partyLeft, b.partyRight);
+		boolean canDormer = dormers && axis == Direction.Axis.X && f != RoofForm.PAGODA && f != RoofForm.GAMBREL && f != RoofForm.MANSARD
+			&& d.habits().roof().dormers() > 0 && !d.habits().roof().thatch() || dormers && d.habits().roof().thatch() && axis == Direction.Axis.X;
+		if (canDormer) {
+			int top = b.storeys() - 1;
+			for (Direction sd : new Direction[]{Dirs.FRONT, Dirs.BACK}) {
+				Side side = b.side(top, sd);
+				int n = side.length();
+				int count = Math.max(1, (n - 3) / 4);
+				for (int k = 0; k < count; k++) {
+					int i = 2 + (int) Math.round((k + 0.5) * (n - 4) / count) - 1;
+					if (i >= 2 && i <= n - 3) {
+						plan.dormer(side, side.column(i), 1, plate + 1);
+					}
+				}
+			}
+		}
+		Roofs.Built built = plan.draw(d);
 		return new Top(built.roof(), Integer.MIN_VALUE, built.roof().ridgeY);
 	}
 

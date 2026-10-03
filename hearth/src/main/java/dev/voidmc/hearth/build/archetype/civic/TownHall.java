@@ -67,7 +67,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class TownHall implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("civic/town_hall"), ArchetypeCategory.CIVIC, Set.of(), 0,
-		13, 19, 13, 19, 14, 28, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 1, 1.0);
+		13, 19, 13, 19, 14, 32, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 1, 1.0);
 
 	@Override
 	public ArchetypeInfo info() {
@@ -174,7 +174,7 @@ public final class TownHall implements Archetype {
 			case MEDITERRANEAN -> RoofForm.HIP;
 			default -> h.roof().pick(d.random(), RoofForm.HIP, RoofForm.HALF_HIP, RoofForm.GABLE, RoofForm.MANSARD);
 		};
-		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), centre || corner ? 10 : 1);
+		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), centre || corner ? 12 : 1, true);
 		int skyline = top.ridge();
 		if (form == RoofForm.FLAT) {
 			Towers.battlements(d, x0, z0, x1, z1, top.deck());
@@ -324,7 +324,7 @@ public final class TownHall implements Archetype {
 			cap = Towers.Cap.HIP;
 		}
 		int capRoom = cap == Towers.Cap.SPIRE ? 8 : cap == Towers.Cap.ONION ? 7 : cap == Towers.Cap.PAGODA ? 5 : 4;
-		int yb = Math.max(ridge + 2, plate + 4);
+		int yb = Math.max(ridge + 4, plate + 6);
 		if (yb + bh + capRoom > maxH - 1) {
 			yb = Math.max(plate + 2, maxH - 1 - bh - capRoom);
 		}
@@ -350,8 +350,9 @@ public final class TownHall implements Archetype {
 				}
 			}
 		}
+		// the clock faces the square (and the back): dials on every face read as eyes from a corner
 		for (Side s : Side.of(x0, z0, x0 + size - 1, z0 + size - 1)) {
-			if (yb - 2 > ridge || s.out() == Dirs.FRONT) {
+			if (s.out() == Dirs.FRONT || s.out() == Dirs.BACK && yb - 2 > ridge) {
 				Towers.clock(d, s, 2, yb - 2, false);
 			}
 		}

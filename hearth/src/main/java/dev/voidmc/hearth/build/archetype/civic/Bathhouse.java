@@ -204,11 +204,12 @@ public final class Bathhouse implements Archetype {
 		Facade fac = new Facade();
 		Storeys.walls(d, body, fac, 0, 0, null, true);
 		Side front = body.side(0, Dirs.FRONT);
-		Halls.portal(d, front, cx, base, t, d.tier());
+		Halls.iwan(d, front, cx, base, plate + 3, 2);
+		int ez = z0 >= 3 ? z0 - 2 : z0 - 1;
 		if (base >= 1) {
-			Grounds.flight(d, cx - 1, cx + 1, z0 - 1, base, base);
+			Grounds.flight(d, cx - 1, cx + 1, ez, base, base);
 		}
-		Grounds.approach(d, cx, base, z0 - 1);
+		Grounds.approach(d, cx, base, ez);
 		// small arched lights high in the walls
 		for (Side s : body.sides(0)) {
 			for (int i = 2; i < s.last() - 1; i += 3) {
@@ -227,28 +228,40 @@ public final class Bathhouse implements Archetype {
 		}
 		int r = Math.min((x1 - x0) / 2 - 1, (z1 - z0) / 2 - 1);
 		r = Math.min(r, 4);
-		Towers.shaft(d, cx - r, hcz - r, 2 * r + 1, deck, deck, t, -1);
+		// a drum lifts the dome clear of the parapet, lights in its faces
+		Towers.shaft(d, cx - r, hcz - r, 2 * r + 1, deck, deck + 1, t, deck + 1);
+		for (Side s : Side.of(cx - r, hcz - r, cx + r, hcz + r)) {
+			for (int i = 2; i < s.last() - 1; i += 2) {
+				int fi = i;
+				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(fi), deck, s.z(fi), Blocks.GLASS.defaultBlockState()));
+			}
+		}
 		double[] radii = r >= 4 ? new double[]{4.4, 4.2, 3.8, 3.2, 2.3, 1.0} : new double[]{3.4, 3.2, 2.6, 1.8, 0.8};
-		int top = Towers.lathe(d, cx, hcz, deck + 1, radii, stone, maxH);
-		// star-lights: glass in the dome's lower courses, in a ring
-		for (int k = 0; k < 8; k++) {
-			double a = k * Math.PI / 4;
-			int x = (int) Math.round(cx + Math.cos(a) * (radii[1] - 0.6));
-			int z = (int) Math.round(hcz + Math.sin(a) * (radii[1] - 0.6));
-			if (!d.isEmpty(x, deck + 2, z)) {
-				d.inStage(StageKind.OPENINGS, () -> d.set(x, deck + 2, z, Blocks.GLASS.defaultBlockState()));
+		int top = Towers.lathe(d, cx, hcz, deck + 2, radii, stone, maxH);
+		// star-lights: glass in the dome's courses, in rings
+		for (int ring = 1; ring <= 2; ring++) {
+			int yy = deck + 2 + ring;
+			double rr = radii[ring] - 0.7;
+			for (int k = 0; k < 8; k++) {
+				double a = k * Math.PI / 4 + ring * Math.PI / 8;
+				int x = (int) Math.round(cx + Math.cos(a) * rr);
+				int z = (int) Math.round(hcz + Math.sin(a) * rr);
+				if (!d.isEmpty(x, yy, z)) {
+					d.inStage(StageKind.OPENINGS, () -> d.set(x, yy, z, Blocks.GLASS.defaultBlockState()));
+				}
 			}
 		}
 		top = Towers.finial(d, cx, top + 1, hcz, maxH, false);
-		for (int[] c : new int[][]{{x0 + 2, z0 + 2}, {x1 - 2, z0 + 2}}) {
-			Towers.lathe(d, c[0], c[1], deck, new double[]{1.4, 0.8}, stone, maxH);
+		for (int[] c : new int[][]{{x0 + 2, z1 - 2}, {x1 - 2, z1 - 2}}) {
+			Towers.shaft(d, c[0] - 1, c[1] - 1, 3, deck, deck, t, -1);
+			Towers.lathe(d, c[0], c[1], deck + 1, new double[]{1.6, 1.0, 0.4}, stone, maxH);
 		}
 		// inside: open the hot room up into the dome, the marble platform, basins, benches, the cold pool
 		int ix0 = x0 + 1;
 		int ix1 = x1 - 1;
 		int iz0 = z0 + 1;
 		int iz1 = z1 - 1;
-		d.clearBox(cx - r + 1, plate, hcz - r + 1, cx + r - 1, plate, hcz + r - 1);
+		d.clearBox(cx - r + 1, plate, hcz - r + 1, cx + r - 1, deck + 1, hcz + r - 1);
 		Fam marble = Fam.of("minecraft:smooth_quartz|minecraft:calcite", StageKind.INTERIOR);
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int z = hcz - 1; z <= hcz + 1; z++) {

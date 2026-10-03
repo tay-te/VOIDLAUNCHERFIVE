@@ -108,19 +108,22 @@ final class ChapelWhite {
 		int splate = base + hn - 2;
 		if (dome) {
 			// a drum on the sanctuary's walls, then the dome; blue in the town's cloth where it has a blue
+			// the drum stands on the sanctuary's own walls, lit by a window in each face; the dome swells from it
 			int size = cw;
 			int dx0 = cx0;
 			int dz0 = z1 + (zc1 - z1 + 1 - size) / 2;
 			Roofs.flat(d, cx0, z1, cx1, zc1, splate, false);
-			int drumTop = Math.max(splate + 2, roof.ridgeY - 1);
-			Towers.shaft(d, dx0 + 1, dz0 + 1, size - 2, splate + 1, drumTop, t, -1);
-			for (Side s : Side.of(dx0 + 1, dz0 + 1, dx0 + size - 2, dz0 + size - 2)) {
+			int drumTop = Math.max(splate + 2, roof.ridgeY - 2);
+			Towers.shaft(d, dx0, dz0, size, splate + 1, drumTop, t, drumTop);
+			d.carve(dx0 + 1, splate, dz0 + 1, dx0 + size - 2, drumTop - 1, dz0 + size - 2);
+			for (Side s : Side.of(dx0, dz0, dx0 + size - 1, dz0 + size - 1)) {
 				int mid = s.middle();
 				int y = drumTop - 1;
 				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(mid), y, s.z(mid), d.mat(Role.GLASS).pane()));
 			}
 			Fam blue = blueDome(d);
-			int dtop = Towers.lathe(d, cx, dz0 + (size - 1) / 2.0, drumTop + 1, domeRadii(size - 2), blue, maxH);
+			int dtop = Towers.lathe(d, cx, dz0 + (size - 1) / 2.0, drumTop + 1, size >= 7 ? new double[]{3.5, 3.2, 2.6, 1.6, 0.6}
+				: new double[]{2.6, 2.2, 1.4, 0.6}, blue, maxH);
 			top = Math.max(top, Towers.finial(d, cx, dtop + 1, dz0 + (size - 1) / 2, maxH, false));
 		} else {
 			Roofs.build(d, cx0, z1 + 1, cx1, zc1, splate, RoofForm.HIP, Direction.Axis.Z, o, false, false);

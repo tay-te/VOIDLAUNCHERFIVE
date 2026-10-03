@@ -118,6 +118,52 @@ public final class Halls {
 	}
 
 	/**
+	 * An iwan: the middle of a front carried a block forward and up past the roof (to {@code top}) as a frontispiece of
+	 * {@code 2 * half + 1} columns centred on {@code col}, a tall pointed arch recessed into it with the door at its back,
+	 * jambs and a crest of the wall-accent stone. The door is registered as the main entrance. Only drawn where the row
+	 * outside is in the plot; otherwise the door alone.
+	 */
+	public static void iwan(Draft d, Side s, int col, int y, int top, int half) {
+		Openings.door(d, s, col, y, 1, new Openings.DoorOpts(false, false, true));
+		int i = s.index(col);
+		int fz = s.outZ(i, 1);
+		if (s.out() == Dirs.FRONT && fz < 1 || i - half < 0 || i + half > s.last()) {
+			return;
+		}
+		Mat wall = d.mat(Role.WALL);
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		Direction right = s.along();
+		Direction left = right.getOpposite();
+		int open = Math.max(4, Math.min(5, top - y - 2));
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int k = -half; k <= half; k++) {
+				int x = s.outX(i + k, 1);
+				int z = s.outZ(i + k, 1);
+				for (int yy = Math.min(y, d.site().ground(x, z)) - 1; yy < y; yy++) {
+					d.set(x, yy, z, d.mat(Role.FOUNDATION).full());
+				}
+				for (int yy = y; yy <= top; yy++) {
+					boolean recess = Math.abs(k) <= half - 1 && yy < y + open;
+					boolean jamb = Math.abs(k) == half;
+					d.set(x, yy, z, recess ? Paint.of(Blocks.AIR.defaultBlockState()) : jamb || yy == top ? accent.full() : wall.full());
+				}
+				// a crest of merlons on the frontispiece
+				if (Math.abs(k) % 2 == half % 2 && d.allowed(x, top + 1, z)) {
+					d.set(x, top + 1, z, accent.has(Form.SLAB) ? accent.slab(SlabType.BOTTOM) : accent.full());
+				}
+			}
+			// the pointed head of the recess: shoulders a course under its top, the apex a course above them
+			int hy = y + open - 1;
+			d.set(s.outX(i - (half - 1), 1), hy, s.outZ(i - (half - 1), 1), accent.stairsOrSlab(left, Half.TOP));
+			d.set(s.outX(i + (half - 1), 1), hy, s.outZ(i + (half - 1), 1), accent.stairsOrSlab(right, Half.TOP));
+			d.set(s.outX(i, 1), y + open, s.outZ(i, 1), Paint.of(Blocks.AIR.defaultBlockState()));
+			d.set(s.outX(i, 1), y + open + 1, s.outZ(i, 1), d.mat(Role.ACCENT).full());
+		}
+		Openings.wallLantern(d, s.shifted(1), i - half - 1, y + 1);
+		Openings.wallLantern(d, s.shifted(1), i + half + 1, y + 1);
+	}
+
+	/**
 	 * Double doors at columns {@code col, col + 1} of wall {@code s}, standing at y, under a lintel; the first double door
 	 * drawn is the main entrance when {@code main}.
 	 */
@@ -248,6 +294,74 @@ public final class Halls {
 			}
 			d.set(x, y + height, z, net.minecraft.world.level.block.Blocks.LANTERN.defaultBlockState().trySetValue(
 				net.minecraft.world.level.block.state.properties.BlockStateProperties.HANGING, false));
+		}
+	}
+
+	/**
+	 * Furniture for a flat roof inside its parapet: an awning of the town's cloth on four posts over a bench, pots along
+	 * the parapet, a VIEWPOINT under the awning. {@code r} is the roof's wall rectangle, {@code deck} its standing level.
+	 */
+	public static void roofTerrace(Draft d, int[] r, int deck, boolean right) {
+		int w = r[2] - r[0] - 1;
+		int dd = r[3] - r[1] - 1;
+		if (w < 4 || dd < 4) {
+			return;
+		}
+		Mat cloth = d.mat(Role.CLOTH);
+		int ax0 = right ? r[2] - 4 : r[0] + 1;
+		int ax1 = ax0 + 3;
+		int az0 = r[1] + 1;
+		int az1 = az0 + 2;
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] c : new int[][]{{ax0, az0}, {ax1, az0}, {ax0, az1}, {ax1, az1}}) {
+				if (!d.isEmpty(c[0], deck, c[1])) {
+					return;
+				}
+			}
+			for (int[] c : new int[][]{{ax0, az0}, {ax1, az0}, {ax0, az1}, {ax1, az1}}) {
+				d.set(c[0], deck, c[1], post(d));
+				d.set(c[0], deck + 1, c[1], post(d));
+			}
+			for (int x = ax0; x <= ax1; x++) {
+				for (int z = az0; z <= az1; z++) {
+					d.set(x, deck + 2, z, cloth.has(Form.SLAB) ? cloth.slab(SlabType.BOTTOM) : cloth.full());
+				}
+			}
+		}
+		dev.voidmc.hearth.build.kit.Furniture.chair(d, ax0 + 1, deck, az0 + 1, Dirs.BACK);
+		d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, ax0 + 2, deck, az0 + 1, Dirs.FRONT);
+		for (int x = r[0] + 2; x < r[2] - 1; x += 3) {
+			if (d.isEmpty(x, deck, r[3] - 1)) {
+				Garden.pot(d, x, deck, r[3] - 1);
+			}
+		}
+	}
+
+	/**
+	 * A cornice: a course of upside-down stairs of the wall-accent stone standing a block out from the walls of
+	 * {@code r} (a rectangle {x0, z0, x1, z1}) at height y, corners mitred by the shape resolver; only where the cell
+	 * outside is free and in the plot (or over the street, high enough).
+	 */
+	public static void cornice(Draft d, int[] r, int y) {
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		if (!accent.has(Form.STAIRS)) {
+			return;
+		}
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (Side s : Side.of(r[0], r[1], r[2], r[3])) {
+				for (int i = -1; i <= s.length(); i++) {
+					int x = s.outX(i, 1);
+					int z = s.outZ(i, 1);
+					boolean inside = i >= 0 && i < s.length();
+					if (!d.allowed(x, y, z) || !d.isEmpty(x, y, z) || !inside && (i < -1 || i > s.length())) {
+						continue;
+					}
+					if (!inside) {
+						continue;
+					}
+					d.set(x, y, z, accent.stairs(s.out().getOpposite(), Half.TOP));
+				}
+			}
 		}
 	}
 
