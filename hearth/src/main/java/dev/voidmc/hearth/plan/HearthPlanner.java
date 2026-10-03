@@ -186,12 +186,26 @@ public final class HearthPlanner implements SettlementPlanner {
 		int[] known = state.knownPlots;
 		if (!rebuild) {
 			int seen = 0;
+			java.util.Set<Integer> rebuilt = new java.util.HashSet<>();
 			for (PlotView p : plots) {
 				if (Arrays.binarySearch(known, p.id()) >= 0) {
 					seen++;
 				}
+				if (p.replaces() >= 0) {
+					rebuilt.add(p.replaces());
+				}
 			}
-			rebuild = seen != known.length;
+			if (seen != known.length) {
+				// a plot that is gone because its rebuild finished stands under the rebuild's own footprint (and its kept
+				// gaps only keep ground open): no need to rebuild a city's whole grid for it
+				int replacedAway = 0;
+				for (int id : known) {
+					if (rebuilt.contains(id) && ctx.settlement.plot(id) == null) {
+						replacedAway++;
+					}
+				}
+				rebuild = seen + replacedAway != known.length;
+			}
 		}
 		if (rebuild) {
 			ctx.occ = rebuild(ctx);

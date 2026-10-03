@@ -23,10 +23,18 @@ class GrowthDiagnostics {
 			TestSupport.useRealPlanner();
 		}
 		SimSettlement s = TestSupport.founded(System.getenv().getOrDefault("HEARTH_GROWTH", "flat"), 1);
-		for (int d = 1; d <= Integer.getInteger("hearth.test.days", 200); d++) {
+		long worst = 0;
+		int days = System.getenv("HEARTH_GROWTH_DAYS") != null ? Integer.parseInt(System.getenv("HEARTH_GROWTH_DAYS")) : 200;
+		for (int d = 1; d <= days; d++) {
 			long t0 = System.nanoTime();
-			SettlementClock.advance(s, d * SimRules.DAY);
-			long dt = System.nanoTime() - t0;
+			// hour by hour, as a live settlement nobody is near is stepped
+			long dt = 0;
+			for (int h = 1; h <= 24; h++) {
+				long h0 = System.nanoTime();
+				SettlementClock.advance(s, (d - 1) * SimRules.DAY + h * 1000L);
+				worst = Math.max(worst, System.nanoTime() - h0);
+			}
+			dt = System.nanoTime() - t0;
 			if (d % Integer.getInteger("hearth.test.every", 10) == 0 || d < 6) {
 				Map<JobType, Integer> jobs = new EnumMap<>(JobType.class);
 				for (Resident r : s.residents()) {
@@ -39,8 +47,9 @@ class GrowthDiagnostics {
 							.append(p.stalledOn() != null ? "!" + p.stalledOn().getSerializedName() : "").append(' ');
 					}
 				}
-				System.out.printf("day %3d: %3d souls, %3d beds, %s %s, plots %s, active [%s], stores %s, %.3f ms%n", d, s.population(), s.beds(),
-					s.tier().getSerializedName(), jobs, s.plotCounts(), active, s.stockpile(), dt / 1e6);
+				System.out.printf("day %3d: %3d souls, %3d beds, %s %s, plots %s, active [%s], stores %s, %.3f ms the day, worst hour step %.1f ms%n", d,
+					s.population(), s.beds(), s.tier().getSerializedName(), jobs, s.plotCounts(), active, s.stockpile(), dt / 1e6, worst / 1e6);
+				worst = 0;
 			}
 		}
 	}

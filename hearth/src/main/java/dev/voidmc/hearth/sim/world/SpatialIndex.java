@@ -31,8 +31,13 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 	private final Long2ObjectOpenHashMap<LongArrayList> cellsBySettlement = new Long2ObjectOpenHashMap<>();
 	private final Map<Long, long[]> planned = new ConcurrentHashMap<>();
 	private final Long2ObjectOpenHashMap<LongArrayList> maskChunksBySettlement = new Long2ObjectOpenHashMap<>();
+	private final Long2ObjectOpenHashMap<Map<Integer, PlotMask>> plotMasks = new Long2ObjectOpenHashMap<>();
+	private boolean updating;
 	private final int reach;
 	private final int guardMargin;
+
+	private record PlotMask(dev.voidmc.hearth.api.PlotSpec spec, Long2ObjectMap<long[]> masks) {
+	}
 
 	/**
 	 * @param reach how far around a settlement's bounds it should be found by {@link #near} (embodiment radius plus
@@ -55,7 +60,12 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 
 	/** Re-indexes everything about one settlement. */
 	public void update(SimSettlement s) {
-		remove(s.id());
+		this.updating = true;
+		try {
+			remove(s.id());
+		} finally {
+			this.updating = false;
+		}
 		LongArrayList chunks = new LongArrayList();
 		for (SimPlot p : s.plots()) {
 			BoundingBox r = p.reach();
@@ -79,13 +89,36 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 		}
 		this.cellsBySettlement.put(s.id(), cells);
 		Long2ObjectMap<long[]> masks = PlotColumns.masks();
+		// each plot's own columns are worked out once and kept: a city's re-index merges a few thousand masks instead of
+		// walking every column of every plot again each time a plot is added
+		Map<Integer, PlotMask> cache = this.plotMasks.computeIfAbsent(s.id(), k -> new java.util.HashMap<>());
+		java.util.Set<Integer> seen = new java.util.HashSet<>();
 		for (SimPlot p : s.plots()) {
 			// built ones too: a live town grows abstractly into land nobody has generated yet, and the trees and
 			// boulders world generation would put there must not stand in its streets and houses when it is
-			if (p.state() != dev.voidmc.hearth.api.PlotState.ABANDONED) {
-				PlotColumns.mark(p.spec(), this.guardMargin, masks);
+			if (p.state() == dev.voidmc.hearth.api.PlotState.ABANDONED) {
+				continue;
 			}
+			seen.add(p.id());
+			PlotMask m = cache.get(p.id());
+			if (m == null || m.spec != p.spec()) {
+				Long2ObjectMap<long[]> own = PlotColumns.masks();
+				PlotColumns.mark(p.spec(), this.guardMargin, own);
+				m = new PlotMask(p.spec(), own);
+				cache.put(p.id(), m);
+			}
+			m.masks.forEach((k, v) -> {
+				long[] into = masks.get((long) k);
+				if (into == null) {
+					masks.put((long) k, v.clone());
+				} else {
+					for (int i = 0; i < 4; i++) {
+						into[i] |= v[i];
+					}
+				}
+			});
 		}
+		cache.keySet().retainAll(seen);
 		LongArrayList maskChunks = new LongArrayList();
 		masks.forEach((k, v) -> {
 			this.planned.merge(k, v, (a, c) -> {
@@ -124,6 +157,9 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 					}
 				}
 			}
+		}
+		if (!this.updating) {
+			this.plotMasks.remove(id);
 		}
 		LongArrayList maskChunks = this.maskChunksBySettlement.remove(id);
 		if (maskChunks != null) {

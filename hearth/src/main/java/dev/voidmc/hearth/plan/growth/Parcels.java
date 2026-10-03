@@ -161,6 +161,10 @@ public final class Parcels {
 		List<Pos> positions = new ArrayList<>();
 		Occupancy occ = ctx.occ;
 		for (RoadEdge e : ctx.state.graph.edges()) {
+			if (ctx.pastDeadline()) {
+				// a live call out of time: what was gathered so far is all this call looks at
+				break;
+			}
 			boolean square = e.role == RoadEdge.Role.SQUARE;
 			int lim = square ? e.length() : Math.min(e.built, e.length());
 			if (lim < 2 || (edges != null && !edges.test(e.id))) {

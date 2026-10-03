@@ -107,6 +107,7 @@ public final class NpcModule {
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			EMBODIMENT.onServerStopped();
+			dev.voidmc.hearth.npc.talk.Rumours.clear();
 			NpcSandbox.clearAll();
 			NpcTime.setServer(null);
 		});

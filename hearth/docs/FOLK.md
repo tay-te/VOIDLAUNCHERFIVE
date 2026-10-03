@@ -122,13 +122,15 @@ at most once per 40 s per player), turn to face each other and take turns talkin
 
 **Builders** — the priority — follow this contract with the sim (ARCHITECTURE.md §5.3):
 
-1. Pick a plot in state `BUILDING` (builders spread over plots; a plot reported stalled is left for two minutes).
+1. Pick a plot in state `BUILDING` that is not `waitingForGoods()` (builders spread over plots; a plot waiting for goods
+   is left until the sim starts its stage, which it does the moment the goods are in store).
 2. The next step is `(plot.stage(), plot.step())` of the plot's blueprint, **read again at the moment of placing**.
 3. Walk within reach (4.6 blocks eye to block centre); place it with flags `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE` (no
    neighbour updates), load its block entity tag, swing, play the block's place sound and show particles. An **air
    step** breaks what is there with particles. Steps that change nothing are passed over quickly (24 per tick at most).
    A solid step is never placed into a player.
-4. Then `settlement.advanceConstruction(plot.id(), 1)`.
+4. Then `settlement.advanceConstruction(plot.id(), 1)`. A step where somebody's block entity stands (a chest, a sign, a
+   bed that is not the step's) is passed over, never built over: the same rule as the sim's applier.
 
 About one step per `builder_step_ticks` (30), as §4 says. When a stage begins, the builder first fetches materials from
 the work storage or the nearest store. **High work** (more than 3 blocks above the builder) is reached the way a
@@ -138,7 +140,8 @@ stands one below the work, works from the top while the steps stay in reach, the
 (sneaking) and takes it down top first. Every scaffold block is recorded in the settlement's `ScaffoldLedger`
 (`HearthDataKey hearth:npc/scaffolds`, saved with the settlement) and removed when the builder finishes, is
 interrupted (activity change, threat) or folded away; anything left by a crash or an unloaded chunk is cleared the next
-time the settlement is embodied. Scaffolding is never a blueprint step. If a step stays out of reach after a fair try
+time the settlement is embodied. Scaffolding is never a blueprint step. A builder who cannot reach the scaffold's column
+within 300 ticks gives up on it and does not try another scaffold for that step (it is placed from the ground, below). If a step stays out of reach after a fair try
 the builder places it from where it is (only from within 10 blocks) rather than stall the town. With nothing to build,
 builders work at their yard.
 
@@ -154,7 +157,8 @@ counter facing customers (the innkeeper also goes round the inn's tables). **For
 edge and work at a real trunk (the felling itself is the sim's: wood is abstract); **quarriers** at the rock;
 **fishers** at a dock or a bank with a rod; **herders** with the herd in their pasture; **hunters** on the edges;
 **couriers** between the gate and the square. Folk without a trade keep house. Children play; elders sit on benches.
-Labour done while embodied is recorded for the sim (`extra("npc").labour`, see docs/requests/npc.md).
+Labour done while embodied is recorded (`extra("npc").labour`) and handed to the sim with `Settlement.creditLabour`
+when the folk folds back into its record or dies (adults, not builders, whose work arrives step by step).
 
 ## 7. Conversation
 
@@ -166,10 +170,13 @@ their face drawn from their own skin and the speech written out as they say it; 
 The greeting is composed from templates (`data/hearth/hearth_dialogue/*.json`) to fit the moment: time of day,
 weather, the player's reputation (distrust, stranger, known, friend, hero), the folk's traits and mood, trade, age and
 culture, how often they have met — and, now and then, the town's news (`TownNews`, filled from `SettlementEvents`: a
-building finished, construction stalled for want of stone, a new tier, a birth or arrival, a death). Built-in options:
-"What's new in town?" (news), "Heard any rumours?" (other settlements by name, compass direction and distance; with
-Expanse loaded, its landmarks — lighthouse, pagoda, stone circle, monastery in the clouds... — found with the structure
-locator, one kind per settlement at a time, at most one search every 10 s server-wide, cached), "Tell me about
+building finished, construction stalled for want of stone, a new tier, a birth or arrival, a death, a party of settlers
+gone to found a hamlet: `news.left`, from the sim's `extra("sim").left_for` on departing settlers). Built-in options:
+"What's new in town?" (news), "Heard any rumours?" (other settlements by name, compass direction and distance: live ones
+and those the sim's atlas knows of that nobody has visited yet, from `HearthWorld.knownSites` within 2500 blocks; with
+Expanse loaded, its landmarks — lighthouse, pagoda, stone circle, monastery in the clouds... — asked of the quest
+module's asynchronous `StructureLocator`, one kind per settlement at a time, at most one request every 10 s
+server-wide, the answer kept with the settlement; never vanilla's locate on the server thread), "Tell me about
 yourself." (trade, spouse, children or parents), "Goodbye."
 
 **Adding options (other modules).** Register a `DialogueProvider` in your module's init:
@@ -202,8 +209,10 @@ specific fitting lines are preferred. Placeholders: `{player} {name} {given} {se
 ## 8. Quest markers
 
 Every `marker_refresh` ticks (a slice of folk per tick) each folk asks `HearthServices.quests()` (when present) for its
-marker for the nearest player within 32 blocks; synced through entity data and drawn above the head: gold **!** (offer),
-gold **?** (ready to hand in), grey **?** (in progress).
+marker **for each player within 32 blocks**; only changes are sent, one `hearth:npc/markers` packet per player per tick
+at most, and a player who walks away gets the marker cleared. The client keeps them by entity id (`FolkMarkers`) and
+draws them above the head: gold **!** (offer), gold **?** (ready to hand in), grey **?** (in progress). Each player sees
+their own quests; the entity-data marker is no longer used.
 
 ## 9. Threats
 

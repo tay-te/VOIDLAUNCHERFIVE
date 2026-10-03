@@ -54,6 +54,10 @@ public final class Growth {
 		order.sort(Comparator.comparingDouble((double[] o) -> -o[0]).thenComparingDouble(o -> o[1]));
 		int attempts = 0;
 		for (double[] o : order) {
+			if (ctx.pastDeadline()) {
+				// a live call out of time: the other needs wait for the next call
+				break;
+			}
 			Need need = list.get((int) o[1]);
 			Long until = ctx.state.cooldowns.get(need.key);
 			if (until != null && until > ctx.state.calls) {
