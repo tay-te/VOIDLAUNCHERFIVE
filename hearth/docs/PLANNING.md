@@ -44,7 +44,7 @@ varies). Expansive and dense-and-tall both come out of it.
 | `walled` | **dense and tall**: a wall line kept from the founding (radius 34–44), streets built through to the gates, rows of attached houses inside, rebuilt taller; farms and suburbs outside | not too steep |
 | `stilt` | boardwalks over the water, stilt houses along them, the heart on the shore | water near |
 | `cliff` | the town at a cliff's foot, dwellings cut into the face and stacked up it (pueblo, karst sills) | a cliff |
-| `mountain` | a switchback road up toward the summit (A* forbidding grades > 0.2), contour streets, terraces | steep or high relief |
+| `mountain` | a switchback road climbing toward the summit in 7-block legs, contour streets and stair streets, terraces | steep or high relief |
 | `ring` | spokes from a market ring and three planned ring roads (r = square + 15, + 24, + 24) | flat |
 
 Each layout fixes: core scale (core radius = scale · √population, ≥ 18), square half-size, main street width and kind,
@@ -82,7 +82,9 @@ layout and sets habits: landmark preferences, walkways between tall houses, stac
   **approach** (A\* to the nearest road, stairs allowed) up to the rise or summit; a lane down to the water; a new
   boardwalk; continue a fully built main road onward (within reach of the town). Road growth is capped at about
   `300 + 20 × population` blocks so a settlement that cannot place what it wants does not pave the world.
-- **Switchbacks** emerge from A\* with grades > 0.2 forbidden and cheap turns (mountain holds).
+- **Switchbacks** (mountain holds) are laid out, not searched: legs of 40 blocks along the contour, each offset uphill
+  by 7 blocks of rise over the slope, turning back at each end; graded without stairs like any road and cut where a
+  leg leaves land it can grade. (An 8-direction grid cannot hold a 0.2 grade across a 0.7 slope.)
 - **Bridges** go up whole or not at all; a road plot never paves over a column something stands on (it ends there).
 - **Walls** (`growth/Walls`): a walled town keeps its wall line from the founding (as `Cell.WALL`, main roads passing
   through as gates); a palisade on it at 28 folk, rebuilt in stone (one `replaces` project per palisade segment) at 60,
@@ -138,7 +140,7 @@ few calls (`cooldowns`, saved). While more than `4 + pop/6` plots are unbuilt on
 | walls | 310 | §3 |
 | densify | 110–290 × vertical bias | §6 |
 | stacked dwellings (signature) | 120 | §6 |
-| beauty, once housed and fed | 60 | lamps, fountain, statue on the square; gardens; parks in a city |
+| beauty, once housed and fed | 60 | lamps, fountain, statue on the square; little squares where lanes meet (town and up, `junction` plazas); gardens; parks in a city |
 
 Archetypes are taken only from what `HearthServices.blueprints().archetypes()` lists (`catalogue/Catalogue`): a
 missing one falls back to the nearest allowed one of the same category (sharing a job first, then similar size), or the
@@ -205,6 +207,7 @@ Every building plot (not infrastructure) may carry:
 | `replaces` | id of the plot this rebuilds (also the project's `replaces`) |
 | `walkway_y` | a walkway meets its front at this walking level: a door there |
 | `on_square`, `heart` | stands in the main square (the well and furniture); `heart` also marks the main plaza |
+| `junction` (plaza) | a little square on the corner where lanes meet |
 | `keep` (plaza) | int array of rectangles x0,z0,x1,z1 (inclusive) inside the plaza that stand as they are |
 | `over_road`, `passage_width` (gatehouse) | the road runs through it along `facing` |
 | `on_wall` (tower) | stands on the wall line |
@@ -228,9 +231,11 @@ handed out was not taken; plots added since are marked incrementally. It can nev
 - Thread-safe: the planner instance is stateless; per-call state is in `PlanContext`; the terrain cache
   (`terrain/Ground`) is shared per probe, bounded (`cache_tiles`), filled lazily per column; racing writers write
   identical values.
-- Cost (JUnit `PlanPerformanceTest`, towns grown past 150 folk, ~400 plots): `next` median < 0.1 ms, p90 < 2 ms,
-  max ~3 ms; calls that plan a new lane or route an approach take 2–15 ms. Founding with its A\* skeleton takes
-  50–150 ms (budgeted at 100–300 ms per town in §5.1).
+- Cost (JUnit `PlanPerformanceTest`, towns grown past 150 folk, 300–450 plots): `next` median < 0.1 ms, p90 < 2 ms,
+  max ~3 ms. While a town grows, a call that plans a lane and the streets ahead of it, or routes an approach, takes
+  2–10 ms (the worst seen in the previews: ~18 ms); approach searches are bounded (one per call, 90 000 states), so an
+  unreachable crag costs a few milliseconds, and a need that only grew a road rests for a few calls. Founding, with its
+  A\* skeleton, takes 30–150 ms (budgeted at 100–300 ms per town in §5.1).
 
 ## 11. Previews
 

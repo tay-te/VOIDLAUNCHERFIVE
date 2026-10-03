@@ -384,32 +384,45 @@ public final class Founder {
 		return e;
 	}
 
-	/** A road up the mountain to the summit (or as high as it can get) in hairpins: no stairs, a gentle grade. */
+	/**
+	 * A road up the mountain in hairpins: legs along the contour, each climbing about seven blocks at a gentle grade
+	 * (offset uphill by the rise over the slope), turning back at each end. No stairs: carts go up it. Stops where a
+	 * leg would leave the land it can grade.
+	 */
 	private static void switchback(PlanContext ctx, int from, Site site) {
 		RoadGraph.Node n = ctx.state.graph.node(from);
-		int tx = site.summitX();
-		int tz = site.summitZ();
-		double dist = Math.hypot(tx - n.x(), tz - n.z());
-		if (dist > 160 || dist < 30) {
-			double up = site.uphillAngle();
-			tx = n.x() + (int) Math.round(StrictMath.cos(up) * 120);
-			tz = n.z() + (int) Math.round(StrictMath.sin(up) * 120);
+		double slope = Math.max(0.12, site.slope());
+		double ua = site.uphillAngle();
+		double ux = StrictMath.cos(ua);
+		double uz = StrictMath.sin(ua);
+		double cx = -uz;
+		double cz = ux;
+		int legLen = 40;
+		double climb = 7;
+		double up = climb / slope;
+		int legs = (int) Math.max(2, Math.min(7, (site.summitY() - ctx.state.heartY) / climb));
+		int half = ctx.state.plazaHalf + 1;
+		java.util.List<Integer> vx = new java.util.ArrayList<>();
+		java.util.List<Integer> vz = new java.util.ArrayList<>();
+		double px = n.x() + ux * half;
+		double pz = n.z() + uz * half;
+		vx.add((int) Math.round(px));
+		vz.add((int) Math.round(pz));
+		// the first leg starts off across the slope from the square's uphill side
+		px += cx * legLen / 2.0 + ux * up / 2;
+		pz += cz * legLen / 2.0 + uz * up / 2;
+		vx.add((int) Math.round(px));
+		vz.add((int) Math.round(pz));
+		int dir = -1;
+		for (int k = 0; k < legs; k++) {
+			px += cx * legLen * dir + ux * up;
+			pz += cz * legLen * dir + uz * up;
+			vx.add((int) Math.round(px));
+			vz.add((int) Math.round(pz));
+			dir = -dir;
 		}
-		Router.Params params = new Router.Params(2, 64, 0.2, 0.2, -1, 0.6, false, 900_000);
-		int[][] path = Router.route(ctx.ground, ctx.occ, n.x(), n.z(), tx, tz, params);
-		if (path == null) {
-			return;
-		}
-		int[] xs = path[0];
-		int[] zs = path[1];
-		int start = 0;
-		Reservation sq = ctx.state.reservation("square");
-		while (sq != null && start + 1 < xs.length && sq.contains(xs[start + 1], zs[start + 1])) {
-			start++;
-		}
-		xs = java.util.Arrays.copyOfRange(xs, start, xs.length);
-		zs = java.util.Arrays.copyOfRange(zs, start, zs.length);
-		RoadEdge e = Roads.plan(ctx, from, xs, zs, RoadEdge.Role.SWITCHBACK, RoadKind.STREET, 3, 16);
+		int[][] dense = Router.densify(vx.stream().mapToInt(Integer::intValue).toArray(), vz.stream().mapToInt(Integer::intValue).toArray());
+		RoadEdge e = Roads.plan(ctx, from, dense[0], dense[1], RoadEdge.Role.SWITCHBACK, RoadKind.STREET, 3, 16);
 		if (e != null) {
 			Roads.build(ctx, e, 24, "road: the first hairpins up the mountain");
 		}
