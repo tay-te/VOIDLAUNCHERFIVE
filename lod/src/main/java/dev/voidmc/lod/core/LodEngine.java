@@ -140,11 +140,23 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	 * One frame: select, queue, upload, evict. Returns the tiles to draw, valid until the next call.
 	 */
 	public LongList update(Gpu gpu, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell) {
+		return this.update(gpu, cx, cy, cz, radius, clip, scale, pixelsPerCell, pixelsPerCell);
+	}
+
+	/** One frame, with a separate detail budget for the smooth far field ({@link LodSelector}). */
+	public LongList update(Gpu gpu, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell,
+		double farPixelsPerCell) {
+		return this.update(gpu, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, null, 1);
+	}
+
+	/** One frame, aware of the view: see {@link LodSelector#select(LodSelector.Store, double, double, double, double, double, double, double, double, LodSelector.Visibility, double)}. */
+	public LongList update(Gpu gpu, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell,
+		double farPixelsPerCell, LodSelector.Visibility visibility, double outOfView) {
 		++this.frame;
 		long nanos = this.frameNanos = System.nanoTime();
 		LongList draw = this.source == null
 			? new LongList()
-			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell);
+			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, visibility, outOfView);
 		if (nanos - this.reprioritizedNanos > REPRIORITIZE_NANOS) {
 			this.reprioritizedNanos = nanos;
 			this.reprioritize();

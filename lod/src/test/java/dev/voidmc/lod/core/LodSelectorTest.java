@@ -123,4 +123,18 @@ class LodSelectorTest {
 			assertEquals(top, TileKey.level(draw.get(i)));
 		}
 	}
+
+	@Test
+	void zoomingInRefinesOnlyWhatIsInView() {
+		FakeStore store = new FakeStore();
+		store.allReady = true;
+		// a lens four times as strong, looking along +x: only the boxes east of the camera are in view
+		double zoomed = 4 * SCALE;
+		LodSelector.Visibility east = (x0, y0, z0, x1, y1, z1) -> x1 > 0;
+		int all = new LodSelector().select(store, 0, 120, 0, 8192, 200, zoomed, 5, 3).size();
+		int aware = new LodSelector().select(store, 0, 120, 0, 8192, 200, zoomed, 5, 3, east, 0.25).size();
+		int normal = new LodSelector().select(store, 0, 120, 0, 8192, 200, SCALE, 5, 3).size();
+		assertTrue(aware < all * 0.7, "out of view stays coarse: " + aware + " of " + all);
+		assertTrue(aware > normal, "in view refines: " + aware + " vs " + normal + " unzoomed");
+	}
 }

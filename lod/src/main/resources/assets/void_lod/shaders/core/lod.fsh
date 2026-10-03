@@ -11,6 +11,7 @@ layout(location = 4) flat in float tileFade;
 #ifdef LOD_SMOOTH
 layout(location = 2) in vec3 sideColor;
 layout(location = 3) in vec4 stair;
+layout(location = 5) in float surfaceY;
 #else
 layout(location = 2) in vec3 blockPos;
 layout(location = 3) in vec2 occlusion;
@@ -19,16 +20,16 @@ layout(location = 3) in vec2 occlusion;
 layout(location = 0) out vec4 fragColor;
 
 #ifdef LOD_SMOOTH
-// How much of [y - w/2, y + w/2] lies in the risers, when the bottom r of every block of height is riser: the
-// exact box filter of the stair pattern, so the steps stay crisp where a block is pixels tall and melt into
-// their average where it is under one, with no shimmer in between.
-float riserIntegral(float y, float r) {
+// How much of [y - w/2, y + w/2] lies in the first r of each unit period: the exact box filter of a strip
+// pattern, so strips stay crisp where they are pixels wide and melt into their average share where they are
+// under one, with no shimmer in between.
+float stripIntegral(float y, float r) {
     return floor(y) * r + min(fract(y), r);
 }
 
-float riserCoverage(float y, float w, float r) {
-    w = max(w, 1e-3);
-    return (riserIntegral(y + 0.5 * w, r) - riserIntegral(y - 0.5 * w, r)) / w;
+float stripCoverage(float y, float w, float r) {
+    w = max(w, 1e-4);
+    return (stripIntegral(y + 0.5 * w, r) - stripIntegral(y - 0.5 * w, r)) / w;
 }
 #endif
 
@@ -65,6 +66,31 @@ float detail(vec2 rel, float blocksPerPixel, int first) {
     return sum;
 }
 
+#ifdef LOD_SMOOTH
+vec3 voxels(vec2 planar, int shift, vec3 top, vec3 side) {
+    int size = 1 << shift;
+    vec2 local = (planar + vec2(CameraBlockPos.xz & (size - 1))) / float(size);
+    vec2 w = fwidth(local);
+    ivec2 cell = (CameraBlockPos.xz >> shift) + ivec2(floor(local));
+    // The column's height over its centre, and how many block boundaries lie between it and its downhill
+    // neighbour along each axis: a riser shows only where the land crosses a whole block, so on gentle ground
+    // the steps follow the contours every few columns, and on steep ground every column has its own. Sized so
+    // the share of riser averages out to what the camera sees of the slope.
+    float centre = surfaceY + dot(stair.zw, (0.5 - fract(local)) * float(size));
+    vec2 drop = abs(stair.zw) * float(size);
+    vec2 crossings = floor(centre) - floor(centre - drop);
+    vec2 strip = clamp(stair.xy * crossings / max(drop, vec2(1e-3)), 0.0, 1.0);
+    // a riser faces downhill: the low side of the column along each axis
+    float cx = stripCoverage(stair.z > 0.0 ? local.x : -local.x, w.x, strip.x);
+    float cz = stripCoverage(stair.w > 0.0 ? local.y : -local.y, w.y, strip.y);
+    vec3 c = top * (1.0 - cx) * (1.0 - cz) + side * (0.6 * cx + 0.8 * cz * (1.0 - cx));
+    uint h = hash2(cell * 3 + ivec2(shift * 7919, shift * 104729));
+    float shade = float(h & 1023u) / 1023.0 - 0.5;
+    float visible = clamp(1.0 / max(max(w.x, w.y), 1e-4) - 1.0, 0.0, 1.0);
+    return c * (1.0 + 0.12 * shade * visible);
+}
+#endif
+
 #ifdef LOD_CLIP
 // Interleaved gradient noise: a dither with no visible grid, for the seam to vanilla's chunks and for cross-fades.
 float dither(vec2 p) {
@@ -85,15 +111,17 @@ void main() {
 #endif
     vec3 color = vertexColor.rgb;
 #ifdef LOD_SMOOTH
-    // Steps a block tall, each block column flat at the surface's height over its centre, as the chunks would
-    // build it: so step edges follow the block grid, zig-zagging along the contours, instead of drawing them.
-    // Where a block is under a couple of pixels, the risers' average share instead.
+    // Columns of blocks, the way Minecraft looks from far away: each column its top, and a strip of riser along
+    // each downhill edge as wide as the share of riser the camera sees there. Columns are about three pixels
+    // across at every distance (one block close in, then 2, 4, 8... blocks, blended between sizes), anchored to
+    // the world's block grid, each a shade of its own, so far land has the crunch of blocks instead of the
+    // gloss of a smooth surface. Where even a block is under a pixel, the strips melt into their average.
     vec2 planar = horizontal - CameraOffset.xz;
-    float column = stair.y + dot(stair.zw, floor(planar) + 0.5 - planar);
-    float steps = riserCoverage(column, fwidth(stair.y), stair.x);
     float blocksPerPixel = max(fwidth(planar.x), fwidth(planar.y));
-    color = mix(color, sideColor, mix(stair.x, steps, smoothstep(0.6, 0.3, blocksPerPixel)));
-    color *= 1.0 + 0.09 * detail(planar, blocksPerPixel, 1);
+    float scale = clamp(log2(blocksPerPixel * 3.0), 0.0, 10.0);
+    int s0 = int(scale);
+    color = mix(voxels(planar, s0, color, sideColor), voxels(planar, s0 + 1, color, sideColor), fract(scale));
+    color *= 1.0 + 0.07 * detail(planar, blocksPerPixel, 3);
 #else
     // Vanilla's occlusion: corners on the tops, and the lowest block of every wall where it meets the floor.
     color *= occlusion.x * mix(0.8, 1.0, clamp(occlusion.y, 0.0, 1.0));

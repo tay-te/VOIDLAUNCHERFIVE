@@ -26,6 +26,7 @@ layout(location = 4) flat out float tileFade;
 #ifdef LOD_SMOOTH
 layout(location = 2) out vec3 sideColor;
 layout(location = 3) out vec4 stair;
+layout(location = 5) out float surfaceY;
 #else
 layout(location = 2) out vec3 blockPos;
 layout(location = 3) out vec2 occlusion;
@@ -59,18 +60,24 @@ void main() {
     vec3 color;
     vec3 light = sample_lightmap(Sampler2, ivec2(0, 240)).rgb;
 #ifdef LOD_SMOOTH
-    // A stair of blocks seen from afar: tops in the top colour, risers in the side colour with Minecraft's
-    // face shading, each weighted by the area it shows the camera. From above a hillside is its grass, from
-    // across the valley mostly its risers, and a slope above the eye shows no tops at all. The fragment shader
-    // draws the risers as steps a block tall where they are still a pixel or more, and their average beyond.
+    // A stair of blocks seen from afar: tops in the top colour, risers in the side colour, each weighted by the
+    // area it shows the camera. From above a hillside is its grass, from across the valley mostly its risers,
+    // and a slope above the eye shows no tops at all. The fragment shader lays these out as columns of blocks.
     vec2 slope = vec2(decodeSlope(LodTop.a), decodeSlope(LodSide.a));
     vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
     float wt = n.y * max(toCamera.y, 0.0) + 0.002;
     float wx = abs(n.x) * max(sign(n.x) * toCamera.x, 0.0);
     float wz = abs(n.z) * max(sign(n.z) * toCamera.z, 0.0);
-    color = LodTop.rgb;
-    sideColor = LodSide.rgb * ((0.6 * wx + 0.8 * wz) / max(wx + wz, 1e-5)) * light;
-    stair = vec4((wx + wz) / (wt + wx + wz), worldY, slope);
+    float w = wt + wx + wz;
+    // The sun models the far relief: slopes toward it a little brighter, slopes away a little darker, a fifth
+    // either way at most (Minecraft's face shading already darkens the walls). The chunks have no such light, so
+    // it fades in past the first kilometre or so, where relief is all a range shows.
+    float toward = clamp(dot(n, LodSun.xyz) - LodSun.y, -0.6, 0.6);
+    float relief = 1.0 + 0.35 * LodSun.w * smoothstep(400.0, 1800.0, length(pos.xz)) * toward;
+    color = LodTop.rgb * relief;
+    sideColor = LodSide.rgb * light * relief;
+    stair = vec4(wx / w, wz / w, slope);
+    surfaceY = worldY;
 #else
     // Minecraft's own directional shading: tops full, north and south a little darker, east and west more.
     color = LodTop.rgb * (face == 0 ? 1.0 : (face <= 3 ? 0.8 : 0.6));

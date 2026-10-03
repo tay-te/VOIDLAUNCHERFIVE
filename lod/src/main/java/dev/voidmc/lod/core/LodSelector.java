@@ -30,6 +30,11 @@ public final class LodSelector {
 		void touch(long key);
 	}
 
+	/** Whether a box of the world is in view: tiles outside it need not be finer than a normal field of view asks. */
+	public interface Visibility {
+		boolean visible(double x0, double y0, double z0, double x1, double y1, double z1);
+	}
+
 	/** Levels from the top that are always fetched first, for quick coverage of the whole view. */
 	private static final int COVER_LEVELS = 2;
 
@@ -41,6 +46,11 @@ public final class LodSelector {
 	private double radius;
 	private double clip;
 	private double splitScale;
+	/** The same for tiles whose children are smooth: those are cheap enough to keep finer. */
+	private double farSplitScale;
+	private Visibility visibility;
+	/** What the split scales are multiplied by for tiles out of view: under 1 when zoomed in. */
+	private double outOfView = 1;
 	private int top;
 	private Store store;
 
@@ -54,6 +64,29 @@ public final class LodSelector {
 	 * @param pixelsPerCell the detail budget: the largest a cell may look on screen before its tile splits
 	 */
 	public LongList select(Store store, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell) {
+		return this.select(store, cx, cy, cz, radius, clip, scale, pixelsPerCell, pixelsPerCell);
+	}
+
+	/**
+	 * Selects tiles around the camera, with a separate detail budget for splits into smooth tiles: a smooth tile
+	 * is a tenth of a blocky one's cost, so the far field can afford smaller cells than the blocky band near
+	 * the chunks.
+	 */
+	public LongList select(Store store, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell,
+		double farPixelsPerCell) {
+		return this.select(store, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, null, 1);
+	}
+
+	/**
+	 * As above, with the view: zoomed in (a spyglass, a narrow field of view), the land in view gets the detail
+	 * its magnification asks for, and the land out of view only what a normal field of view would, scaled by
+	 * {@code outOfView}, instead of the whole horizon refining for a glance through a lens.
+	 */
+	public LongList select(Store store, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell,
+		double farPixelsPerCell, Visibility visibility, double outOfView) {
+		this.visibility = visibility;
+		this.outOfView = outOfView;
+		this.farSplitScale = scale / farPixelsPerCell;
 		this.store = store;
 		this.cx = cx;
 		this.cy = cy;
@@ -78,6 +111,7 @@ public final class LodSelector {
 			}
 		}
 		this.store = null;
+		this.visibility = null;
 		return this.draw;
 	}
 
@@ -102,12 +136,19 @@ public final class LodSelector {
 			return true;
 		}
 		double dy = 0;
+		int y0 = -64, y1 = 320;
 		if (this.store.heightRange(key, this.range)) {
 			dy = Math.max(0, Math.max(this.range[0] - this.cy, this.cy - this.range[1]));
+			y0 = this.range[0];
+			y1 = this.range[1];
 		}
 		double distance = Math.sqrt(horizontal * horizontal + dy * dy);
 		int cell = TileKey.cell(level);
-		boolean split = level > 0 && distance < cell * this.splitScale;
+		double splitScale = level - 1 >= TileBuilder.smoothFrom ? this.farSplitScale : this.splitScale;
+		if (this.outOfView < 1 && this.visibility != null && !this.visibility.visible(x0, y0, z0, x1, y1, z1)) {
+			splitScale *= this.outOfView;
+		}
+		boolean split = level > 0 && distance < cell * splitScale;
 		boolean ready = this.store.ready(key);
 		float priority = (float) (distance / cell);
 		if (!split) {

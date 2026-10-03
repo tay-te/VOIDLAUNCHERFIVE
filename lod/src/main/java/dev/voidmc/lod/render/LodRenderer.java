@@ -78,7 +78,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		.addAttribute("LodTile", GpuFormat.RGBA32_SINT)
 		.build();
 	public static final BindGroupLayout LOD_INFO = BindGroupLayout.builder().withUniform("LodInfo", UniformType.UNIFORM_BUFFER).build();
-	private static final int LOD_INFO_SIZE = 64 + 16 + 16;
+	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16;
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
 
@@ -123,6 +123,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private final int maxIndirect;
 	private final FrustumIntersection frustum = new FrustumIntersection();
 	private final Fades fades = new Fades();
+	private double viewX;
+	private double viewY;
+	private double viewZ;
+	/** The selection's view test: a world-space box against this frame's frustum. */
+	private final dev.voidmc.lod.core.LodSelector.Visibility visibility = (x0, y0, z0, x1, y1, z1) -> this.frustum.testAab(
+		(float) (x0 - this.viewX), (float) (y0 - this.viewY), (float) (z0 - this.viewZ),
+		(float) (x1 - this.viewX), (float) (y1 - this.viewY), (float) (z1 - this.viewZ));
 	private final Matrix4f viewProjection = new Matrix4f();
 	private final Matrix4f modelView = new Matrix4f();
 
@@ -241,7 +248,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	 * Selects, uploads and prepares this frame's draws. Runs on the render thread while the frame graph is
 	 * built, before any pass executes, so every upload lands outside a render pass.
 	 */
-	public void prepare(CameraRenderState camera, double radius, double clip, double fade, double pixelsPerCell, float[] haze) {
+	public void prepare(CameraRenderState camera, double radius, double clip, double fade, double pixelsPerCell, double farPixelsPerCell,
+		float[] haze, float[] sun) {
 		long t0 = System.nanoTime();
 		this.order.clear();
 		this.drawCount = 0;
@@ -250,10 +258,19 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		double cx = camera.pos.x;
 		double cy = camera.pos.y;
 		double cz = camera.pos.z;
+		this.viewX = cx;
+		this.viewY = cy;
+		this.viewZ = cz;
 		int height = Minecraft.getInstance().gameRenderer.mainRenderTarget().height;
 		// pixels per block at distance one: half the viewport over tan(fov / 2), which is m11 of the projection
 		double scale = 0.5 * height * Math.abs(camera.projectionMatrix.m11());
-		LongList draw = this.engine.update(this, cx, cy, cz, radius, clip, scale, pixelsPerCell);
+		this.modelView.set(camera.viewRotationMatrix);
+		this.viewProjection.set(camera.projectionMatrix).mul(this.modelView);
+		this.frustum.set(this.viewProjection, false);
+		// zoomed in past a 70 degree field of view, the land out of view keeps the detail 70 degrees would give it
+		double normal = 0.5 * height / Math.tan(Math.toRadians(35));
+		double outOfView = Math.min(1, normal / scale);
+		LongList draw = this.engine.update(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, this.visibility, outOfView);
 		long t1 = System.nanoTime();
 		this.lastEngineNanos = t1 - t0;
 		this.fades.update(draw, t1, this.engine::ready);
@@ -266,9 +283,6 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		long t3 = System.nanoTime();
 		this.lastStagingNanos = t3 - t2;
 
-		this.modelView.set(camera.viewRotationMatrix);
-		this.viewProjection.set(camera.projectionMatrix).mul(this.modelView);
-		this.frustum.set(this.viewProjection, false);
 		int bx = camera.blockPos.getX();
 		int by = camera.blockPos.getY();
 		int bz = camera.blockPos.getZ();
@@ -344,6 +358,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.info.position(64);
 		this.info.putFloat((float) clip).putFloat((float) fade).putFloat(0).putFloat(0);
 		this.info.putFloat(haze[0]).putFloat(haze[1]).putFloat(haze[2]).putFloat(haze[3]);
+		this.info.putFloat(sun[0]).putFloat(sun[1]).putFloat(sun[2]).putFloat(sun[3]);
 		this.info.flip();
 		this.infoSlice = transient_.uploadGpu(this.info, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
 		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);

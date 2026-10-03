@@ -31,7 +31,7 @@ public abstract class LevelRendererMixin {
 		ChunkSectionsToRender chunkSectionsToRender, boolean consistentDepthRequired, CallbackInfo ci) {
 		VoidLod lod = VoidLod.get();
 		if (lod != null) {
-			lod.prepare(this.levelRenderState.cameraRenderState);
+			lod.prepare(this.levelRenderState.cameraRenderState, this.levelRenderState.skyRenderState.sunAngle);
 		}
 	}
 

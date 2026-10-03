@@ -85,6 +85,43 @@ public class WorldgenSource implements TerrainSource {
 		return this.resolvers.get().getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z));
 	}
 
+	/** Per worker: a small direct-mapped cache of biomes shared by the samples of a far square. */
+	private static final class BiomeCache {
+		final long[] keys = new long[512];
+		final int[] cells = new int[512];
+		@SuppressWarnings("unchecked")
+		final Holder<Biome>[] biomes = new Holder[512];
+	}
+
+	private final ThreadLocal<BiomeCache> biomeCache = ThreadLocal.withInitial(BiomeCache::new);
+
+	/**
+	 * The biome for a sample of a cell this wide. Far out, where a cell is 8 blocks or more, the samples of each
+	 * square two cells across share one lookup: biomes change over hundreds of blocks, their borders are
+	 * softened at this scale anyway, and the lookup is a third of what a far sample costs. The lookup is the
+	 * square's first sample's own (its corner, at its height), whose column the terrain model has just worked
+	 * out, so the climate behind the biome comes from its cache.
+	 */
+	protected Holder<Biome> biome(int x, int y, int z, int cell) {
+		if (cell < 8) {
+			return this.biome(x, y, z);
+		}
+		int grid = 2 * cell;
+		int qx = Math.floorDiv(x, grid);
+		int qz = Math.floorDiv(z, grid);
+		long key = (long) qx << 32 ^ qz & 0xFFFFFFFFL;
+		BiomeCache cache = this.biomeCache.get();
+		int slot = (qx * 0x9E3779B1 ^ qz * 0x85EBCA77) >>> 23;
+		Holder<Biome> biome = cache.biomes[slot];
+		if (biome == null || cache.keys[slot] != key || cache.cells[slot] != cell) {
+			biome = this.biome(x, y, z);
+			cache.biomes[slot] = biome;
+			cache.keys[slot] = key;
+			cache.cells[slot] = cell;
+		}
+		return biome;
+	}
+
 	/**
 	 * How much of the ground here lies under snow, by vanilla's own test (the biome's temperature, falling with
 	 * height, ragged with its noise), so the snow line is where the chunks will put it. A wide cell spans a
@@ -118,7 +155,7 @@ public class WorldgenSource implements TerrainSource {
 	@Override
 	public void sample(int x, int z, int cell, ColumnSample out) {
 		int ground = this.generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, this.level, this.randomState);
-		Holder<Biome> biome = this.biome(x, ground, z);
+		Holder<Biome> biome = this.biome(x, ground, z, cell);
 		BiomeLooks.Look look = this.looks.get(biome);
 		look.fill(out);
 		out.ground = ground;

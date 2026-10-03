@@ -43,8 +43,10 @@ public final class VoidLod implements ClientModInitializer {
 
 	public final double radius = Double.parseDouble(System.getProperty("void.lod.radius", "8192"));
 	public final double detail = Double.parseDouble(System.getProperty("void.lod.detail", "5"));
-	/** How far the air carries at sea level before the haze is two thirds of the view: by default, half the radius. */
-	public final double hazeReach = Double.parseDouble(System.getProperty("void.lod.haze", String.valueOf(this.radius * 0.5)));
+	/** The same budget for the smooth far field, which is cheap enough to keep finer. */
+	public final double farDetail = Double.parseDouble(System.getProperty("void.lod.farDetail", "3"));
+	/** How far the air carries at sea level before the haze is two thirds of the view: by default, 3/4 of the radius. */
+	public final double hazeReach = Double.parseDouble(System.getProperty("void.lod.haze", String.valueOf(this.radius * 0.75)));
 	/** How fast the haze thins with height: it is a third as thick this many blocks above sea level. */
 	public static final float HAZE_SCALE_HEIGHT = 160;
 	public final int threads = Integer.getInteger("void.lod.threads",
@@ -60,6 +62,8 @@ public final class VoidLod implements ClientModInitializer {
 	private final boolean logStats = Boolean.getBoolean("void.lod.logStats");
 	/** This frame's haze for the shader, from the fog mixin: 1 / reach (0 for vanilla's fog), 1 / scale height, base y, rain. */
 	private final float[] haze = new float[4];
+	/** This frame's sun for the shader: its direction, and how much of the far relief it lights (0 at night). */
+	private final float[] sun = new float[4];
 	/** Whether this frame's fog (water, lava, blindness) ends before the chunks do, hiding the LOD entirely. */
 	private boolean fogHidesLod;
 
@@ -74,7 +78,8 @@ public final class VoidLod implements ClientModInitializer {
 		this.toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.void_lod.toggle", InputConstants.KEY_F8,
 			KeyMapping.Category.register(Identifier.fromNamespaceAndPath(ID, "lod"))));
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
-		LOGGER.info("VOID LOD: radius {} blocks, detail {} px per cell, {} worker threads", (int) this.radius, this.detail, this.threads);
+		LOGGER.info("VOID LOD: radius {} blocks, detail {} px per cell ({} far), {} worker threads", (int) this.radius, this.detail, this.farDetail,
+			this.threads);
 	}
 
 	private void tick(Minecraft mc) {
@@ -158,14 +163,19 @@ public final class VoidLod implements ClientModInitializer {
 
 	// ---- called from the mixins, on the render thread -------------------------------------------------------
 
-	public void prepare(CameraRenderState camera) {
+	public void prepare(CameraRenderState camera, float sunAngle) {
 		if (!this.active()) {
 			return;
 		}
 		if (this.renderer == null) {
 			this.renderer = new LodRenderer(this.engine);
 		}
-		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.haze);
+		// where the sun is (vanilla's sky turns it about the x axis), and how much it lights: none below the horizon
+		this.sun[0] = -(float) Math.sin(sunAngle);
+		this.sun[1] = (float) Math.cos(sunAngle);
+		this.sun[2] = 0;
+		this.sun[3] = Math.max(0, Math.min(1, this.sun[1] * 4));
+		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun);
 	}
 
 	public void draw(RenderPass pass) {

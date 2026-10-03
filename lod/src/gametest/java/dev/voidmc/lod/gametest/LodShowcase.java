@@ -24,18 +24,24 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * screenshots land in build/run/clientGameTest/screenshots. Properties (pass as -P to Gradle):
  * {@code lod.show.seed}, {@code lod.show.distance} (vanilla render distance), {@code lod.show.settle} (ms for
  * vanilla chunks), {@code lod.show.views} (how many of the views to take), {@code lod.show.width} and
- * {@code lod.show.height} (screenshot size), {@code lod.show.off} (false to skip the vanilla shots).
+ * {@code lod.show.height} (screenshot size), {@code lod.show.off} (false to skip the vanilla shots),
+ * {@code lod.show.only} (a comma-separated list of view names).
  */
 public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
 	private static final int DISTANCE = Integer.getInteger("lod.show.distance", 8);
 	private static final long SETTLE_MS = Long.getLong("lod.show.settle", 30_000L);
-	private static final int VIEWS = Integer.getInteger("lod.show.views", 7);
+	private static final int VIEWS = Integer.getInteger("lod.show.views", 10);
+	/** Only the views with these names, comma separated (all when unset). */
+	private static final String ONLY = System.getProperty("lod.show.only", "");
 	private static final int WIDTH = Integer.getInteger("lod.show.width", 1600);
 	private static final int HEIGHT = Integer.getInteger("lod.show.height", 900);
 	private static final boolean OFF = Boolean.parseBoolean(System.getProperty("lod.show.off", "true"));
 
-	private record Spot(String name, int x, int y, int z, float yaw, float pitch) {
+	private record Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
+		Spot(String name, int x, int y, int z, float yaw, float pitch) {
+			this(name, x, y, z, yaw, pitch, 70);
+		}
 	}
 
 	@Override
@@ -111,14 +117,24 @@ public class LodShowcase implements FabricClientGameTest {
 				found.add(new Spot("low0", lx, lowTop + 12, lz, toPeak, 2));
 				found.add(new Spot("low1", lx, lowTop + 12, lz, toPeak + 180, 2));
 				found.add(new Spot("air", bx, top + 420, bz, 45, 32));
+				// the far distance through a long lens: what a few kilometres away looks like up close
+				found.add(new Spot("far0", bx, top + 24, bz, 90, 4, 30));
+				found.add(new Spot("far1", lx, lowTop + 12, lz, toPeak, 2, 30));
+				found.add(new Spot("far2", bx, top + 24, bz, 0, 3, 30));
 				System.out.printf(Locale.ROOT, "[lod] high point %d,%d at y=%d; low point %d,%d at y=%d%n", bx, bz, top, lx, lz, lowTop);
 				return found;
 			});
 
+			if (!ONLY.isEmpty()) {
+				List<String> names = List.of(ONLY.split(","));
+				spots.removeIf(spot -> !names.contains(spot.name()));
+			}
 			for (int i = 0; i < Math.min(VIEWS, spots.size()); i++) {
 				Spot spot = spots.get(i);
+				context.runOnClient(mc -> mc.options.fov().set(spot.fov()));
 				world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", spot.x(), spot.y(), spot.z(), spot.yaw(), spot.pitch()));
-				boolean moved = i == 0 || !spot.name().startsWith(spots.get(i - 1).name().substring(0, 3));
+				Spot last = i == 0 ? null : spots.get(i - 1);
+				boolean moved = last == null || last.x() != spot.x() || last.y() != spot.y() || last.z() != spot.z();
 
 				if (OFF) {
 					context.runOnClient(mc -> VoidLod.get().setEnabled(false));
@@ -137,10 +153,15 @@ public class LodShowcase implements FabricClientGameTest {
 				while (System.currentTimeMillis() - start < 180_000 && calm < 3) {
 					context.waitTicks(10);
 					// done once it has drawn a while from here, holds tiles, and has nothing left to build
-					boolean idle = context.computeOnClient(mc -> {
+					String state = context.computeOnClient(mc -> {
 						var engine = VoidLod.get().engine();
-						return engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0;
+						boolean done = engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0;
+						return (done ? "done " : "busy ") + (engine.frame() - firstFrame) + " frames, " + engine.busy();
 					});
+					boolean idle = state.startsWith("done");
+					if (Boolean.getBoolean("lod.show.trace")) {
+						System.out.println("[lod] waiting: " + state);
+					}
 					calm = idle ? calm + 1 : 0;
 				}
 				long loaded = System.currentTimeMillis() - start;

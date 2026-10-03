@@ -8,6 +8,8 @@ layout(std140) uniform LodInfo {
     // Aerial haze. x: 1 / the haze's reach at the base height (0: use vanilla's fog instead), y: 1 / its scale
     // height, z: the base height (sea level), w: blocks of haze before the first (rain's)
     vec4 LodHaze;
+    // The sun: xyz its direction, w how strongly it models the far relief (0 at night)
+    vec4 LodSun;
 };
 
 #endif

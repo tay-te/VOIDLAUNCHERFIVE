@@ -84,9 +84,16 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
     shading. From above, a hillside is its grass; from across the valley it is mostly risers; above
     the eye there are no tops at all. That is what makes far terrain read as Minecraft and not as a
     smooth CG landscape.
-  * Where a block is still a couple of pixels tall, the risers are drawn as real one-block steps, each
-    block column flat at the surface's height over its centre, so step edges follow the block grid,
-    box-filtered so they melt into their average instead of shimmering.
+  * The fragment shader lays this out as **columns of blocks**, about three pixels across at every
+    distance: one block close in, then 2, 4, 8... blocks further out, blended between sizes and anchored
+    to the world's block grid. Each column shows its top, and a strip of riser on each downhill edge only
+    where the land crosses a whole block between it and its neighbour, sized so the risers average out
+    to what the camera sees. On gentle ground the steps follow the contours every few columns, on steep
+    ground every column has its own; each column is a shade of its own. Far land gets the crunch of
+    blocks that Distant Horizons gets from real block columns, with none of the geometry, box-filtered
+    so it never shimmers.
+  * Past the first kilometre or so, the sun models the relief: slopes toward it a little brighter,
+    slopes away a little darker, so a far range has shape instead of flat light.
   * Forests are a canopy raised as far as they are dense; valleys are slightly darker and ridges
     slightly lighter; colours are softened across biome borders and mottled cell by cell; rivers
     narrower than a cell are a thread of their water's colour.
@@ -121,8 +128,11 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 ```
 
 * **Screen-space-error quadtree** (`core/LodSelector`). A tile is 64×64 cells. It splits while its
-  cells would cover more than `void.lod.detail` pixels on screen. Detail follows what the eye can
-  resolve, not fixed rings, so the work per frame stays about the same however far the view reaches.
+  cells would cover more than `void.lod.detail` pixels on screen (`void.lod.farDetail` for the smooth
+  far field, which is cheap enough to keep finer). Detail follows what the eye can resolve, not fixed
+  rings, so the work per frame stays about the same however far the view reaches. Zoomed in (a
+  spyglass, a narrow field of view), only the land in view refines; the rest keeps the detail a normal
+  field of view gives it.
   While tiles load, the walk falls back to the nearest ready ancestor, and a split tile stays resident
   as its children's fallback, so you never see a hole. The top two levels are fetched first, so the
   whole horizon appears within a few tile builds.
@@ -148,7 +158,8 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 |---|---|---|
 | `void.lod.radius` | `8192` | how far the LOD reaches, in blocks |
 | `void.lod.detail` | `5` | the most pixels a cell may cover before its tile splits (lower = sharper, heavier) |
-| `void.lod.haze` | half the radius | how far the air carries at sea level (the haze is about 2/3 there) |
+| `void.lod.farDetail` | `3` | the same for the smooth far field |
+| `void.lod.haze` | 3/4 of the radius | how far the air carries at sea level (the haze is about 2/3 there) |
 | `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky |
 | `void.lod.threads` | half the cores, max 4 | worker threads |
 | `void.lod.budget` | `512` | MB of GPU memory before least-recently-used tiles are evicted |
