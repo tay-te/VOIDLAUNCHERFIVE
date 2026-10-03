@@ -10,3 +10,6 @@ dist/
 # so committing it would nest a copy of the tree inside itself. They are scratch: the work is
 # merged back through git, never through this directory.
 .claude/worktrees/
+
+# local toolchains downloaded by scripts/setup-dev (Java 25)
+.tools/
