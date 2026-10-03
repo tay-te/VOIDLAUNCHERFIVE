@@ -96,7 +96,7 @@ final class ChapelWestern {
 
 		// --- heights
 		int hn = tier <= 2 ? 6 : tier == 3 ? 7 : 8;
-		int base = raised ? stiltBase(d, nx0, zN0, nx1, zC1) : Grounds.raisedBase(d, nx0, nx1, zN0);
+		int base = raised ? Grounds.stiltBase(d, nx0, zN0, nx1, zC1) : Grounds.raisedBase(d, nx0, nx1, zN0);
 		double pitch = 1.0;
 		int eaves = Math.min(2, Math.max(1, h.roof().eaves()));
 		int plate = base + hn - 1;

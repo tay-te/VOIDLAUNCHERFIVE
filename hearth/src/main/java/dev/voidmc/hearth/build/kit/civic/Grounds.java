@@ -36,6 +36,18 @@ public final class Grounds {
 		return gentle(d, x0, 0, x1, zFront - 1, 0) ? 1 : 0;
 	}
 
+	/** The floor of a raised building: clear of the ground and water under it by a man's height (2 to 4 above the street). */
+	public static int stiltBase(Draft d, int x0, int z0, int x1, int z1) {
+		int base = 2;
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				int wy = d.site().water(x, z);
+				base = Math.max(base, Math.max(d.site().ground(x, z) + 3, wy == dev.voidmc.hearth.build.terrain.Site.NONE ? 0 : wy + 2));
+			}
+		}
+		return Math.min(base, 4);
+	}
+
 	/**
 	 * A forecourt over rows {@code 0 .. z1} between {@code x0} and {@code x1}, levelled to the street (standing level 0)
 	 * where that is gentle, and paved in the style's paving with a border; ragged edges are left to the ground.

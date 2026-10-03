@@ -231,6 +231,7 @@ public final class Towers {
 				int e = 1;
 				Roofs.Roof rr = Roofs.raster(d, f, baseY, Math.max(0, x0 - e), Math.max(-1, z0 - e), Math.min(d.frontage() - 1, x1 + e),
 					Math.min(d.depth() - 1, z1 + e), roof, trim, Habits.Ridge.FULL);
+				solidUnder(d, rr, baseY + 1, roof);
 				return finial(d, (int) Math.floor(cx), rr.ridgeY + 1, (int) Math.floor(cz), maxTop, false);
 			}
 			case DOME -> {
