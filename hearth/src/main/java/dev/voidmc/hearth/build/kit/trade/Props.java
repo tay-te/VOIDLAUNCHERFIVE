@@ -98,7 +98,9 @@ public final class Props {
 				}
 			}
 			d.set(x, y + 2, z, stone.full());
-			d.set(x + 1, y + 2, z, stone.slab(SlabType.BOTTOM));
+			if (stone.has(Form.SLAB)) {
+				d.set(x + 1, y + 2, z, stone.slab(SlabType.BOTTOM));
+			}
 		}
 	}
 

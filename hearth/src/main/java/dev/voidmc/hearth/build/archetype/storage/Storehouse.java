@@ -184,6 +184,10 @@ public final class Storehouse implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);
 		}
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 
@@ -279,7 +283,7 @@ public final class Storehouse implements Archetype {
 				}
 			}
 		}
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		int[] in = hall.inner(0);
 		for (int c = door; c < door + doorW; c++) {
 			fp.keep(c, in[1]);

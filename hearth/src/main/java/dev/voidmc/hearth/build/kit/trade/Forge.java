@@ -169,9 +169,42 @@ public final class Forge {
 				d.set(c[0], y + 2, c[1], brick.full());
 			}
 		}
-		int mid = n / 2;
-		stack(d, new int[][]{cells[mid]}, y + 3, stackTop, roof);
+		if (stackTop != Integer.MIN_VALUE) {
+			int mid = n / 2;
+			stack(d, new int[][]{cells[mid]}, y + 3, stackTop, roof);
+		}
 		return cells;
+	}
+
+	/**
+	 * The oven's back standing out of a back wall as a rounded hump of brick (the bread oven's crown seen from the yard):
+	 * over columns {@code x0..x1} in row {@code z} outside the wall, two courses and a rounded top, the wall behind it
+	 * brick, and the oven stack rising from its middle past the roof. Returns the smoking top.
+	 */
+	public static int bulge(Draft d, int x0, int x1, int z, int wallZ, int y, int stackTop, Roofs.Roof roof) {
+		Mat brick = d.mat(Role.CHIMNEY);
+		Mat footing = d.mat(Role.FOUNDATION);
+		int mid = (x0 + x1) / 2;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = x0; x <= x1; x++) {
+				int g = d.site().ground(x, z);
+				for (int yy = Math.min(y - 1, g - 1); yy < y; yy++) {
+					d.set(x, yy, z, footing.full());
+				}
+				boolean end = x == x0 || x == x1;
+				d.set(x, y, z, brick.full());
+				if (end) {
+					d.set(x, y + 1, z, brick.stairsOrSlab(x == x0 ? Dirs.RIGHT : Dirs.LEFT, Half.BOTTOM));
+				} else {
+					d.set(x, y + 1, z, brick.full());
+					d.set(x, y + 2, z, brick.stairsOrSlab(Dirs.FRONT, Half.BOTTOM));
+				}
+				for (int yy = y; yy <= y + 2; yy++) {
+					d.set(x, yy, wallZ, brick.full());
+				}
+			}
+		}
+		return stack(d, new int[][]{{mid, wallZ}, {mid, z}}, y + 3, stackTop, roof);
 	}
 
 	/**

@@ -119,12 +119,16 @@ public final class Smithy implements Archetype {
 			sideYard(d, yardLeft ? 0 : hx1 + 1, yardLeft ? side - 1 : w - 1, fz, dp - 1, yardLeft);
 		}
 		Yard.connect(d, ex, entryX, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, forge[4]) + 2);
 	}
 
 	/** Inside: the anvil before the fire, the quench trough, the smithing table, stores, racks of tools, lanterns. */
 	private static void interior(Draft d, Hall hall, int[] in, int fx, int fz0, Direction into, int bay, int bayW) {
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		for (int c = bay; c < bay + bayW; c++) {
 			fp.keep(c, in[1]);
 		}

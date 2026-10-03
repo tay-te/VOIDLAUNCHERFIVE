@@ -25,6 +25,8 @@ public final class Floorplan {
 	public final int height;
 	private final boolean[] blocked;
 	private final boolean[] reserved;
+	/** Cells with something overhead (under a stair): a piece fits there, nobody walks there. */
+	private final boolean[] low;
 	private final List<int[]> reach = new ArrayList<>();
 
 	public Floorplan(int x0, int z0, int x1, int z1, int y, int height) {
@@ -37,6 +39,7 @@ public final class Floorplan {
 		int n = (this.x1 - this.x0 + 1) * (this.z1 - this.z0 + 1);
 		this.blocked = new boolean[n];
 		this.reserved = new boolean[n];
+		this.low = new boolean[n];
 	}
 
 	public boolean inside(int x, int z) {
@@ -52,9 +55,9 @@ public final class Floorplan {
 		return inside(x, z) && !this.blocked[idx(x, z)] && !this.reserved[idx(x, z)];
 	}
 
-	/** A cell a person can stand in (not taken). */
+	/** A cell a person can stand in (not taken, headroom over it). */
 	public boolean open(int x, int z) {
-		return inside(x, z) && !this.blocked[idx(x, z)];
+		return inside(x, z) && !this.blocked[idx(x, z)] && !this.low[idx(x, z)];
 	}
 
 	/** Keeps a cell free and reachable (a door's inside cell, a stair foot). Ignored if the cell is already taken. */
@@ -111,6 +114,11 @@ public final class Floorplan {
 				boolean hole = below == null ? this.y - 1 >= d.site().ground(x, z) : below.isAir();
 				if (s != null && !s.isAir() || hole) {
 					block(x, z);
+				}
+				BlockState over = d.get(x, this.y + 1, z);
+				if (over != null && !over.isAir()
+					&& !over.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty()) {
+					this.low[idx(x, z)] = true;
 				}
 			}
 		}

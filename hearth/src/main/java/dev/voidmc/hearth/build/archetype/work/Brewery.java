@@ -50,7 +50,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class Brewery implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("work/brewery"), ArchetypeCategory.WORKPLACE, Set.of(JobType.BREWER), 0,
-		9, 13, 9, 13, 9, 15, SettlementTier.VILLAGE, Set.of(), Set.of(), List.of(), 0, 1.0);
+		9, 13, 9, 13, 11, 16, SettlementTier.VILLAGE, Set.of(), Set.of(), List.of(), 0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP, RoofForm.GAMBREL, RoofForm.PAGODA, RoofForm.SALTBOX,
 		RoofForm.FLAT};
@@ -80,8 +80,8 @@ public final class Brewery implements Archetype {
 		int hx0 = 0;
 		int hx1 = w - 1;
 		int sh = 5;
-		int storeys = !flat && d.maxHeight() >= sh + 8 ? 2 : 1;
-		int[] heights = storeys == 2 ? new int[]{sh, 2} : new int[]{sh};
+		// the brewhouse keeps low, so its kiln stands over it
+		int[] heights = new int[]{sh};
 		Hall hall = Hall.of(d, hx0, hz0, hx1, hz1, 0, heights, false, false);
 		int[] in = hall.inner(0);
 		int kx0 = kilnLeft ? 0 : w - ks;
@@ -133,6 +133,10 @@ public final class Brewery implements Archetype {
 			Yard.enclose(d, 0, 0, w - 1, hz0 - 1, gaps, Dirs.BACK);
 		}
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, d.maxHeight() - 2) + 1);
 	}
 
@@ -140,7 +144,7 @@ public final class Brewery implements Archetype {
 	private static void interior(Draft d, Hall hall, int door, int flueX, boolean wine) {
 		int[] in = hall.inner(0);
 		hall.openLoft(1);
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		fp.keep(door + 1, in[1]);
 		// the copper: two cauldrons over a fire bed by the flue (the stack rises from the corner behind)
@@ -218,7 +222,7 @@ public final class Brewery implements Archetype {
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
 		double r = (size - 1) / 2.0;
-		int wallTop = Math.min(hall.plateY() + 3, d.maxHeight() - 9);
+		int wallTop = Math.max(hall.plateY() + 2, d.maxHeight() - 9);
 		if (wallTop < 4) {
 			return;
 		}

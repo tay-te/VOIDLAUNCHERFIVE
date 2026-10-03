@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -110,8 +111,34 @@ public final class Tailor implements Archetype {
 		int win = span != null ? span[0] : door;
 		int winW = span != null ? span[1] : 0;
 		String[] palette = palette(d);
+		// an awning the length of the shop front in two of the house's dyes
+		awning(d, front, palette);
 		if (span != null) {
-			Shop.window(d, front, win, winW, 0, i -> wool(palette, i), true);
+			Shop.window(d, front, win, winW, 0, i -> wool(palette, i), false);
+		}
+		// lengths of the house's dyed cloth hung on the upper front between the windows: the tailor's sign to the street
+		for (int k = 1; k < hall.storeys(); k++) {
+			if (hall.body.height(k) < 3) {
+				continue;
+			}
+			Side s = hall.side(k, Dirs.FRONT);
+			int y = hall.floorY(k) + 2;
+			int hung = 0;
+			for (int i = 1; i < s.last() && hung < 2; i++) {
+				int ox = s.outX(i, 1);
+				int oz = s.outZ(i, 1);
+				boolean blank = dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, s.x(i), y, s.z(i))
+					&& dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, s.x(i), y - 1, s.z(i));
+				if (!blank || !d.allowed(ox, y, oz) || !d.isEmpty(ox, y, oz) || !d.isEmpty(ox, y - 1, oz) || (i + k) % 2 == 1 && hung == 0 && i < s.last() - 2) {
+					continue;
+				}
+				String colour = palette[(hung + k) % palette.length];
+				var banner = Props.block("minecraft:" + colour + "_wall_banner", Blocks.WALL_BANNER.pick(DyeColor.WHITE));
+				int bi = i;
+				d.inStage(StageKind.EXTERIOR, () -> d.set(s.outX(bi, 1), y, s.outZ(bi, 1), dev.voidmc.hearth.build.draft.States.facing(banner, Dirs.FRONT)));
+				hung++;
+				i++;
+			}
 		}
 		// a balcony off the workroom
 		if (storeys >= 2 && d.chance(Math.max(0.35, h.balcony()))) {
@@ -143,7 +170,27 @@ public final class Tailor implements Archetype {
 			dyeYard(d, hall, w, hz1 + 1, dp - 1, palette, wellWall);
 		}
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+	}
+
+	/** A striped awning of wool stairs over the whole shop front, three blocks up. */
+	private static void awning(Draft d, Side front, String[] palette) {
+		Block a = Props.block("minecraft:" + palette[0] + "_wool_stairs", Blocks.WOOL.pick(DyeColor.WHITE));
+		Block b = Props.block("minecraft:" + palette[1] + "_wool_stairs", Blocks.WOOL.pick(DyeColor.WHITE));
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int i = 0; i <= front.last(); i++) {
+				int x = front.outX(i, 1);
+				int z = front.outZ(i, 1);
+				if (!d.allowed(x, 3, z) || !d.isAbsent(x, 3, z)) {
+					continue;
+				}
+				d.set(x, 3, z, dev.voidmc.hearth.build.draft.States.stairs(i % 2 == 0 ? a : b, Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+			}
+		}
 	}
 
 	/** Three or four dye colours for this shop: the house's cloth first. */
@@ -162,7 +209,7 @@ public final class Tailor implements Archetype {
 	/** The shop below (counter, shelves of cloth, a loom), the workroom above (looms, a cutting table). */
 	private static void interior(Draft d, Hall hall, int door, int[][] wells, String[] palette) {
 		int[] in = hall.inner(0);
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		for (int x = in[0]; x <= in[2]; x++) {
 			if (!d.isEmpty(x, 0, in[1])) {

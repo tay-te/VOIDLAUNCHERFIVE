@@ -109,8 +109,8 @@ public final class Watermill implements Archetype {
 		}
 
 		// the race and the wheel
-		int r = 3;
-		int cy = 2;
+		int r = dp >= 12 && w >= 10 ? 4 : 3;
+		int cy = r - 1;
 		int cz = Math.clamp((hz0 + hz1) / 2, r + 2, dp - r - 2);
 		int z0 = cz - r - 1;
 		race(d, kerb, raceA, z0, dp - 1);
@@ -140,6 +140,10 @@ public final class Watermill implements Archetype {
 			Props.sacks(d, sx, 0, 0, wheelLeft ? Dirs.RIGHT : Dirs.LEFT, 2, true);
 		}
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 
@@ -172,7 +176,7 @@ public final class Watermill implements Archetype {
 
 	private static void interior(Draft d, Hall hall, int door, int[] flight, int inX, int cz, boolean wheelLeft) {
 		int[] in = hall.inner(0);
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		if (flight != null) {
 			fp.keep(flight[0], flight[1]);

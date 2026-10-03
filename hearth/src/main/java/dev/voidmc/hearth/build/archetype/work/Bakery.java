@@ -74,7 +74,9 @@ public final class Bakery implements Archetype {
 		int hx0 = yardLeft ? side : 0;
 		int hx1 = yardLeft ? w - 1 : w - 1 - side;
 		int hz0 = fz;
-		int hz1 = dp - 1;
+		// the oven's hump stands out of the back wall where the plot runs deep enough
+		boolean hump = dp - fz >= 7;
+		int hz1 = hump ? dp - 2 : dp - 1;
 		int sh = Math.max(4, h.walls().storeyHeight());
 		int want = Math.clamp(d.param("storeys", d.maxHeight() >= sh * 2 + 4 ? 2 : 1), 1, 2);
 		int[] heights = Hall.budget(d, hx0, hz0, hx1, hz1, 0, want == 2 ? new int[]{sh + 1, sh} : new int[]{sh + 1}, false, form, 2);
@@ -123,7 +125,11 @@ public final class Bakery implements Archetype {
 			ox = in[2] - n;
 		}
 		int stackTop = hall.roof != null ? hall.roof.ridgeY + 2 : hall.top + 2;
-		int[][] ovens = Forge.ovens(d, ox, 0, in[3], Dirs.RIGHT, Dirs.FRONT, n, stackTop, hall.roof);
+		int[][] ovens = Forge.ovens(d, ox, 0, in[3], Dirs.RIGHT, Dirs.FRONT, n, hump ? Integer.MIN_VALUE : stackTop, hall.roof);
+		if (hump) {
+			int top = Forge.bulge(d, ox, ox + n - 1, hz1 + 1, hz1, 0, stackTop, hall.roof);
+			hall.top = Math.max(hall.top, top);
+		}
 		for (int[] o : ovens) {
 			if (d.get(o[0], 0, o[1]) != null && d.get(o[0], 0, o[1]).is(Blocks.SMOKER)) {
 				d.poi(PoiType.JOB_SITE, o[0], 0, o[1] - 1, Dirs.BACK, JobType.BAKER);
@@ -147,6 +153,10 @@ public final class Bakery implements Archetype {
 			sideYard(d, hall, yardLeft ? 0 : hx1 + 1, yardLeft ? side - 1 : w - 1, hz0, dp - 1, yardLeft);
 		}
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 
@@ -161,7 +171,7 @@ public final class Bakery implements Archetype {
 
 	/** The shop and the bakehouse: counter, racks of bread, sacks of flour, the kneading board; the flour loft above. */
 	private static void interior(Draft d, Hall hall, int[] in, int door, int[][] ovens, int storeys) {
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		for (int[] o : ovens) {
 			fp.block(o[0], o[1]);

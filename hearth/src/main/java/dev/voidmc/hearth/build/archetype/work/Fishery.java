@@ -146,6 +146,10 @@ public final class Fishery implements Archetype {
 		Signs.bracket(d, front, front.index(door + 1), base + 3, "fishery", "Fish");
 		Yard.trodden(d, 0, 0, w - 1, hz0 - 1, 0);
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 
@@ -153,7 +157,7 @@ public final class Fishery implements Archetype {
 		int[] in = hall.inner(0);
 		// the loft above, open over the middle, its edge for nets and barrels
 		hall.openLoft(1, hearthX, in[3]);
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		fp.keep(backDoor, in[3]);
 		fp.block(hearthX, in[3]);

@@ -140,6 +140,10 @@ public final class Warehouse implements Archetype {
 			Signs.bracket(d, front, front.index(door + 2), 3, "warehouse", "Warehouse");
 		}
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 
@@ -152,7 +156,7 @@ public final class Warehouse implements Archetype {
 				break;
 			}
 			int[] in = hall.inner(k);
-			Floorplan fp = k > 0 ? hall.floor(k).blockHoles(d) : hall.floor(k);
+			Floorplan fp = hall.floor(k).blockHoles(d);
 			int y = fp.y;
 			if (k == 0) {
 				fp.keep(door, in[1]);

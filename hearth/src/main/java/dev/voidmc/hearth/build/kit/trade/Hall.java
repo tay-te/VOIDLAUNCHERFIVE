@@ -491,11 +491,143 @@ public final class Hall {
 			for (int[] c : new int[][]{{r[0], r[1]}, {r[2], r[1]}, {r[0], r[3]}, {r[2], r[3]}}) {
 				this.d.set(c[0], y, c[1], wall.full());
 				this.d.set(c[0], y + 1, c[1], cap.has(Form.SLAB) ? cap.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM)
-					: wall.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+					: wall.has(Form.SLAB) ? wall.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM) : cap.full());
 			}
 		}
 		this.top = Math.max(this.top, y + 1);
 		return this;
+	}
+
+	/**
+	 * Makes a flat roof a lived-on terrace, the way the desert and the pueblos use their roofs: a stair climbing the
+	 * outside of wall {@code stairSide} (LEFT or RIGHT) from its front end to a gap in the parapet, where the ground
+	 * beside the wall is free; a little room set back on the deck at the back corner across from it, with its own
+	 * parapet, a door onto the terrace and a window (where the plot's height allows); a cloth awning on poles and pots
+	 * on the parapet. Returns whether the stair was built (the terrace can be walked to).
+	 */
+	public boolean terrace(Direction stairSide, boolean room) {
+		if (this.deck == Integer.MIN_VALUE) {
+			return false;
+		}
+		int top = this.body.storeys() - 1;
+		int[] r = this.body.rect(top);
+		int deckY = this.deck;
+		boolean stair = false;
+		Direction used = stairSide;
+		// the stair: up the outside of the side wall from the front, a landing at its head and a gap in the parapet
+		for (Direction tryside : new Direction[]{stairSide, stairSide.getOpposite()}) {
+		if (stair) {
+			break;
+		}
+		Side s = this.body.side(0, tryside);
+		int rise = deckY;
+		int len = s.length();
+		int ox = s.outX(0, 1);
+		if (this.body.storeys() == 1 && len >= rise + 2 && ox >= 0 && ox < this.d.frontage()) {
+			int[] r0 = this.body.rect(0);
+			int z0 = r0[1] + 1;
+			boolean free = true;
+			for (int z = z0 - 1; z <= z0 + rise; z++) {
+				for (int y = 0; y <= Math.min(rise + 2, 3); y++) {
+					if (!this.d.isEmpty(ox, y, z) && !(y == 0 && this.d.get(ox, y, z) == null)) {
+						free = false;
+					}
+				}
+				if (z < 0 || z >= this.d.depth()) {
+					free = false;
+				}
+			}
+			if (free) {
+				Stairs.straight(this.d, ox, 0, z0, Dirs.BACK, rise, 1);
+				int lz = z0 + rise;
+				int wx = s.x(0);
+				try (var st = this.d.stage(StageKind.EXTERIOR)) {
+					// the landing beside the parapet gap, on a pier
+					Mat pier = this.d.mat(Role.WALL);
+					for (int y = Math.min(-1, this.d.site().ground(ox, lz) - 1); y < rise - 1; y++) {
+						this.d.set(ox, y, lz, pier.full());
+					}
+					this.d.set(ox, rise - 1, lz, this.d.mat(Role.PAVING).full());
+					this.d.set(ox, rise, lz, Blocks.AIR.defaultBlockState());
+					this.d.set(ox, rise + 1, lz, Blocks.AIR.defaultBlockState());
+					// the gap in the parapet
+					this.d.set(wx, deckY, lz, Blocks.AIR.defaultBlockState());
+					this.d.set(wx, deckY + 1, lz, Blocks.AIR.defaultBlockState());
+				}
+				this.d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, wx + Dirs.dx(tryside.getOpposite()), deckY, lz, Dirs.FRONT);
+				stair = true;
+				used = tryside;
+			}
+		}
+		}
+		// the room on the deck at the back corner across from the stair
+		Mat wall = this.d.mat(Role.WALL);
+		int rw = Math.min(5, r[2] - r[0] - 1);
+		int rd = Math.min(4, r[3] - r[1] - 2);
+		if (room && rw >= 3 && rd >= 3 && deckY + 5 <= this.d.maxHeight() - 1) {
+			boolean left = used == Dirs.RIGHT;
+			int x0 = left ? r[0] : r[2] - rw + 1;
+			int x1 = x0 + rw - 1;
+			int z1 = r[3];
+			int z0 = z1 - rd + 1;
+			try (var st = this.d.stage(StageKind.WALLS)) {
+				for (int[] c : Draft.ring(x0, z0, x1, z1)) {
+					for (int y = deckY; y <= deckY + 2; y++) {
+						this.d.set(c[0], y, c[1], wall.full());
+					}
+				}
+			}
+			this.d.carve(x0 + 1, deckY, z0 + 1, x1 - 1, deckY + 1, z1 - 1);
+			Roofs.flat(this.d, x0, z0, x1, z1, deckY + 2, true);
+			int cx = (x0 + x1) / 2;
+			Mat door = this.d.mat(Role.DOOR);
+			this.d.inStage(StageKind.OPENINGS, () -> this.d.door(cx, deckY, z0, door.mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
+				net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+			int wxx = left ? x1 : x0;
+			if (wxx > r[0] && wxx < r[2]) {
+				this.d.inStage(StageKind.OPENINGS, () -> this.d.set(wxx, deckY + 1, (z0 + z1) / 2, this.d.mat(Role.GLASS).pane()));
+			}
+			int up = deckY + 3;
+			try (var st = this.d.stage(StageKind.ROOF)) {
+				for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+					if (up + 2 < this.d.maxHeight()) {
+						this.d.set(c[0], up + 1, c[1], wall.full());
+					}
+				}
+			}
+			this.top = Math.max(this.top, up + 2);
+		}
+		// an awning of cloth on poles over the front of the terrace, pots along the parapet
+		Mat cloth = this.d.mat(Role.CLOTH);
+		Mat pole = woodFence(this.d);
+		int ax0 = r[0] + 1;
+		int ax1 = Math.min(r[2] - 1, ax0 + 2);
+		int az0 = r[1] + 1;
+		int az1 = Math.min(r[3] - 1, az0 + 1);
+		if (deckY + 3 < this.d.maxHeight() && ax1 > ax0 && az1 >= az0) {
+			try (var st = this.d.stage(StageKind.EXTERIOR)) {
+				for (int x = ax0; x <= ax1; x++) {
+					for (int z = az0; z <= az1; z++) {
+						if (this.d.isEmpty(x, deckY + 2, z)) {
+							this.d.set(x, deckY + 2, z, cloth.has(Form.SLAB) ? cloth.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM)
+								: cloth.full());
+						}
+					}
+				}
+				for (int[] c : new int[][]{{ax1, az1}, {ax1, az0}}) {
+					if (this.d.isEmpty(c[0], deckY, c[1])) {
+						this.d.set(c[0], deckY, c[1], pole.fence());
+						this.d.set(c[0], deckY + 1, c[1], pole.fence());
+					}
+				}
+			}
+		}
+		for (int x = r[0] + 2; x < r[2] - 1; x += 3) {
+			if (this.d.isEmpty(x, deckY + 2, r[1]) && this.d.get(x, deckY + 1, r[1]) != null) {
+				dev.voidmc.hearth.build.kit.Garden.pot(this.d, x, deckY + 2, r[1]);
+			}
+		}
+		return stair;
 	}
 
 	// ------------------------------------------------------------------------------------------------ inside

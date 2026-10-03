@@ -172,7 +172,7 @@ public final class Granary implements Archetype {
 	private static void interior(Draft d, Hall hall, int door) {
 		int[] in = hall.inner(0);
 		hall.openLoft(1);
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		int y = fp.y;
 		boolean chest = false;

@@ -24,5 +24,6 @@
   "hearth.archetype.storage.granary": "Granary",
   "hearth.archetype.storage.warehouse": "Warehouse",
   "hearth.sign.watermill": "Mill",
-  "hearth.sign.warehouse": "Warehouse"
+  "hearth.sign.warehouse": "Warehouse",
+  "hearth.sign.builders_yard": "Builders"
 }

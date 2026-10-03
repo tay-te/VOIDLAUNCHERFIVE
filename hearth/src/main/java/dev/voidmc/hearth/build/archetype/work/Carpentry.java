@@ -121,6 +121,10 @@ public final class Carpentry implements Archetype {
 		}
 		front(d, hall, w, fz, door, doorW, bamboo);
 		Yard.connect(d, ex, door, hz0 - 1);
+		if (hall.deck != Integer.MIN_VALUE) {
+			// a flat roof is a terrace: a stair up the side, a room set back, an awning
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 	}
 
@@ -136,7 +140,7 @@ public final class Carpentry implements Archetype {
 	/** Benches under the windows, the plank chest, a tool rack, a chair and a table being made. */
 	private static void interior(Draft d, Hall hall, int door, int doorW, boolean loft) {
 		int[] in = hall.inner(0);
-		Floorplan fp = hall.floor(0);
+		Floorplan fp = hall.floor(0).blockHoles(d);
 		for (int c = door; c < door + doorW; c++) {
 			fp.keep(c, in[1]);
 		}
