@@ -1,4 +1,4 @@
-package dev.voidmc.hearth.build.archetype.work;
+package dev.voidmc.hearth.build.archetype.commerce;
 
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * {@code hearth:work/market_stall}: a merchant's stall on a square or a high street. Four posts carry a striped cloth
+ * {@code hearth:commerce/market_stall}: a merchant's stall on a square or a high street. Four posts carry a striped cloth
  * awning that slopes down over the counter; the counter faces the street with wares on it and a gap at one end for the
  * merchant; crates, barrels and a chest of stock stand behind. The customer's place in front of the counter is the
  * {@code MARKET_STALL}, the merchant's behind it the {@code COUNTER}, and a barrel at the back is the merchant's job site.
@@ -42,7 +42,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * </ul>
  */
 public final class MarketStall implements Archetype {
-	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("work/market_stall"), ArchetypeCategory.COMMERCE, Set.of(JobType.MERCHANT), 0,
+	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("commerce/market_stall"), ArchetypeCategory.COMMERCE, Set.of(JobType.MERCHANT), 0,
 		4, 7, 4, 6, 4, 7, SettlementTier.HAMLET, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 0, 1.0);
 
 	@Override
@@ -120,7 +120,7 @@ public final class MarketStall implements Archetype {
 		// stock at the back: the merchant's barrel (job site), a chest, crates
 		if (zb - zc >= 3) {
 			Furniture.workstation(d, JobType.MERCHANT, x0 + 1, 0, zb, Dirs.FRONT);
-			Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:emerald", 3}, new Object[]{"minecraft:bread", 6}));
+			Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:bread", 6}, new Object[]{"minecraft:apple", 4}));
 			if (x1 - x0 >= 4) {
 				Garden.barrels(d, x0 + 2, 0, zb, Dirs.RIGHT, Math.min(2, x1 - x0 - 3));
 			}

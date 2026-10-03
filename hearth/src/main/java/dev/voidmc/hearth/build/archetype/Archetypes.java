@@ -6,7 +6,7 @@ import dev.voidmc.hearth.build.archetype.house.Hut;
 import dev.voidmc.hearth.build.archetype.house.Townhouse;
 import dev.voidmc.hearth.build.archetype.landscape.Well;
 import dev.voidmc.hearth.build.archetype.work.BuildersYard;
-import dev.voidmc.hearth.build.archetype.work.MarketStall;
+import dev.voidmc.hearth.build.archetype.commerce.MarketStall;
 
 /** Registers every archetype the build module ships. */
 public final class Archetypes {
