@@ -1,0 +1,36 @@
+{
+	"type": "personal",
+	"weight": 4,
+	"objectives": [
+		{
+			"kind": "talk"
+		}
+	],
+	"text": {
+		"title": [
+			"A word for {recipient}",
+			"News for {target}"
+		],
+		"summary": [
+			"Find {recipient} in {target}, {distance} to the {direction}, and tell them {giver}'s news."
+		],
+		"offer": [
+			"If you're going toward {target}, find {recipient} and tell them... tell them I'm well, and the baby's come. A girl."
+		],
+		"progress": [
+			"Have you seen {recipient}?"
+		],
+		"complete": [
+			"You told them? Then they'll come for the naming. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			10,
+			25
+		],
+		"reputation": 4
+	},
+	"deadline_days": 6,
+	"cooldown_days": 3
+}

@@ -1,0 +1,57 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"clay"
+		],
+		"cultures": {
+			"*": 1.0,
+			"desert": 0.4,
+			"mesa": 0.4
+		}
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Bricks for the {place}",
+			"Clay and fire"
+		],
+		"summary": [
+			"The {place} in {settlement} is waiting on bricks. Bring {count} × {item} to {giver}.",
+			"{settlement}'s kiln has gone cold and the {place} wants {count} × {item}."
+		],
+		"offer": [
+			"We fire our own bricks, but the clay pit's run dry and the {place} is only half-faced. {count} × {item} would finish it.",
+			"I need {count} × {item} for the {place}. The kiln can't keep up."
+		],
+		"progress": [
+			"Still short of bricks.",
+			"Half a wall is no wall at all."
+		],
+		"complete": [
+			"Lovely and even. The {place} will look a picture.",
+			"Thank you. The bricklayers are singing again."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

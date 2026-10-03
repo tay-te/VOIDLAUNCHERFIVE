@@ -1,0 +1,63 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"karst": 3.0
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:karst_pagoda"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Rubbing from {target}",
+				"lore": "Charcoal on paper; strange script.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Chart {target}",
+			"The pagoda among the towers"
+		],
+		"summary": [
+			"{giver} wants a rubbing from {target}, {direction} of {settlement}, {distance}. Find it and bring the rubbing back."
+		],
+		"offer": [
+			"They say the pagoda among the stone towers keeps a library older than any town. Find {target}, {direction} of here, {distance}, and take a rubbing of its stones for me."
+		],
+		"progress": [
+			"Have you found the pagoda?",
+			"Look for the tower above the towers."
+		],
+		"complete": [
+			"So it's real. Look at this script... I'll be weeks reading it."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

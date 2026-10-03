@@ -1,0 +1,68 @@
+{
+	"type": "exploration",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:stone_circle",
+				"expanse:ruined_watchtower",
+				"expanse:woodland_lodge",
+				"expanse:lumen_shrine",
+				"expanse:nomad_camp",
+				"expanse:stilt_hamlet",
+				"expanse:lighthouse"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Sketch of {target}",
+				"lore": "Rough lines in charcoal.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Chart {target}",
+			"An old place of the land"
+		],
+		"summary": [
+			"{giver} is drawing a map of the country round {settlement} and wants {target}, {direction}, {distance} out, set on it. Go there and sketch it."
+		],
+		"offer": [
+			"I'm making a map of the land, and there's a gap where {target} should be. It's {direction}, {distance}. Sketch it for me?"
+		],
+		"progress": [
+			"The map has a hole in it still.",
+			"Have you been to {target}?"
+		],
+		"complete": [
+			"Splendid. Another corner of the world on paper."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			90
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

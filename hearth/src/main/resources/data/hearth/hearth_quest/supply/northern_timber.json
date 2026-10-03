@@ -1,0 +1,58 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"wood"
+		],
+		"cultures": {
+			"northern": 2.5,
+			"tundra": 2.5,
+			"alpine": 1.0
+		}
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"carpenter",
+			"forester"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Beams for the long roof",
+			"Logs before the snow"
+		],
+		"summary": [
+			"{settlement} is raising a {place} the old way, log on log, and the woodpile is gone. Bring {count} × {item} to {giver}.",
+			"Snow is coming and the {place} in {settlement} has no roof. {count} × {item} will close it in."
+		],
+		"offer": [
+			"A {place} wants straight logs, and we've burned the last of ours for warmth. {count} × {item}, and you'll eat at our fire this winter.",
+			"The frost is in the ground already. Bring {count} × {item} and we'll have the {place} closed before the first blizzard."
+		],
+		"progress": [
+			"The roof is waiting on your logs.",
+			"Not yet? The wind is already sharp."
+		],
+		"complete": [
+			"Fine timber. The beams will stand a hundred winters.",
+			"Now we build. Come and drink with us when it's done."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

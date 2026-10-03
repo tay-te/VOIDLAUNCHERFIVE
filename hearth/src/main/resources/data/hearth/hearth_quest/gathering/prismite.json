@@ -1,0 +1,59 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"*": 1.0
+		},
+		"min_tier": "hamlet",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"mason"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"expanse:prismite_cluster"
+			],
+			"count": [
+				2,
+				4
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Glowing crystal",
+			"Prismite from the peaks"
+		],
+		"summary": [
+			"{giver} wants {count} × {item}, the glowing crystal of the prismatic peaks and the geode vaults."
+		],
+		"offer": [
+			"I've seen it once: a crystal that holds its own light. Prismite, they call it, high on the peaks or deep in the vaults. {count} × {item}?"
+		],
+		"progress": [
+			"It glows at night, look for it then."
+		],
+		"complete": [
+			"Beautiful. It will light the chapel for a hundred years."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			90
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 6,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0
+		},
+		"min_reputation": -1000
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"minecraft:desert_pyramid",
+				"minecraft:jungle_pyramid",
+				"minecraft:swamp_hut",
+				"minecraft:igloo",
+				"minecraft:trail_ruins",
+				"minecraft:pillager_outpost"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Sketch of {target}",
+				"lore": "Proof of a journey.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Chart {target}",
+			"What lies {direction}"
+		],
+		"summary": [
+			"Travellers tell of {target} {direction} of {settlement}, {distance} out. {giver} wants proof. Go and see."
+		],
+		"offer": [
+			"A traveller swore to me there's {target} {direction} of here, {distance}. I'd pay to know if it's true. Bring me back proof."
+		],
+		"progress": [
+			"Was the traveller lying?",
+			"Any sign of it?"
+		],
+		"complete": [
+			"So it's true! I owe that traveller an apology."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			100
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

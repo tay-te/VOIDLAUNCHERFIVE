@@ -1,0 +1,55 @@
+{
+	"type": "courier",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"priest",
+			"scholar"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier"
+		}
+	],
+	"text": {
+		"title": [
+			"Medicine for {target}",
+			"Herbs, and haste"
+		],
+		"summary": [
+			"There is sickness in {target}. Carry {giver}'s remedies there, {distance} to the {direction}, within {days} days."
+		],
+		"offer": [
+			"A fever's going through {target}. I've made up what remedies I can. Take them, please, and don't dawdle: two days, three at most."
+		],
+		"progress": [
+			"Every hour counts.",
+			"Have you reached {target}?"
+		],
+		"complete": [
+			"They'll live, then. You've done a kind thing."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			60
+		],
+		"items": [
+			{
+				"item": "minecraft:golden_carrot",
+				"count": [
+					2,
+					4
+				]
+			}
+		],
+		"reputation": 5
+	},
+	"deadline_days": 3,
+	"cooldown_days": 4
+}

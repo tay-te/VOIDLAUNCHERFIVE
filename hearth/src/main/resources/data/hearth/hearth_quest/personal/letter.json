@@ -1,0 +1,40 @@
+{
+	"type": "personal",
+	"weight": 6,
+	"when": {
+		"min_tier": "camp"
+	},
+	"objectives": [
+		{
+			"kind": "courier",
+			"recipient": true
+		}
+	],
+	"text": {
+		"title": [
+			"A letter to {recipient}",
+			"Words for {target}"
+		],
+		"summary": [
+			"Carry {giver}'s letter to {recipient} in {target}, {distance} to the {direction}."
+		],
+		"offer": [
+			"My dearest friend {recipient} lives in {target} now, {distance} to the {direction}. We haven't spoken since the spring. Would you take them this letter?"
+		],
+		"progress": [
+			"Has {recipient} read it yet?"
+		],
+		"complete": [
+			"You gave it to {recipient}? Then they know. Thank you, friend."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			30
+		],
+		"reputation": 4
+	},
+	"deadline_days": 5,
+	"cooldown_days": 2
+}

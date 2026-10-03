@@ -1,0 +1,68 @@
+{
+	"type": "escort",
+	"weight": 6,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"steppe": 2.5,
+			"desert": 2.0,
+			"mesa": 2.0,
+			"alpine": 1.5
+		}
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"herder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "escort",
+			"entity": "minecraft:llama",
+			"names": [
+				"Saffron",
+				"Old Dusty",
+				"Pashmina",
+				"Thistle",
+				"Qasim"
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"The caravan's last llama",
+			"{name} must reach {target}"
+		],
+		"summary": [
+			"The caravan for {target} left without {name}. Lead the {mob} there, {distance} to the {direction}."
+		],
+		"offer": [
+			"The caravan went on to {target} and left {name} behind with half the load. Will you walk {name} after them? {distance}, {direction}."
+		],
+		"progress": [
+			"Has {name} caught up with the caravan?"
+		],
+		"complete": [
+			"{name} found the caravan. The caravan master sends this, with thanks."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			100
+		],
+		"items": [
+			{
+				"item": "minecraft:leather",
+				"count": [
+					2,
+					4
+				]
+			}
+		],
+		"reputation": 6
+	},
+	"deadline_days": 4,
+	"cooldown_days": 3
+}

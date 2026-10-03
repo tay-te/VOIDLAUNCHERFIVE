@@ -1,0 +1,58 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"*": 1.0
+		},
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"scholar"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:amethyst_shard",
+				"minecraft:nautilus_shell",
+				"minecraft:glow_ink_sac",
+				"minecraft:echo_shard",
+				"minecraft:prismarine_crystals"
+			],
+			"count": [
+				2,
+				5
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Curiosities for the collection",
+			"A scholar's wish"
+		],
+		"summary": [
+			"{giver} collects the world's curiosities and wants {count} × {item}."
+		],
+		"offer": [
+			"My cabinet of curiosities has a gap that's been bothering me for years: {item}. Bring me {count}, and name your price. Well, nearly."
+		],
+		"progress": [
+			"Any luck?"
+		],
+		"complete": [
+			"Perfect. They'll have pride of place."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			90
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

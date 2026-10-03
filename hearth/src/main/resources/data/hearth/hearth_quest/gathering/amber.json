@@ -1,0 +1,61 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"*": 1.0,
+			"northern": 1.5,
+			"steppe": 1.5
+		},
+		"min_tier": "hamlet",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"expanse:amber",
+				"expanse:insect_amber"
+			],
+			"count": [
+				3,
+				6
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Amber from the hollows",
+			"Sunlight in stone"
+		],
+		"summary": [
+			"{giver} wants {count} × {item} from the amber hollows under the conifers and the steppe."
+		],
+		"offer": [
+			"There's amber deep under the pine woods, glowing like trapped sunlight. Bring me {count} × {item}; I'll pay handsomely."
+		],
+		"progress": [
+			"The hollows are deep."
+		],
+		"complete": [
+			"Look at the light in it... Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			80
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

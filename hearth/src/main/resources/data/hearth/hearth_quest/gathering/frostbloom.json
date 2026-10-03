@@ -1,0 +1,60 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"tundra": 3.0,
+			"alpine": 1.5,
+			"northern": 1.5
+		},
+		"min_tier": "camp",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"priest",
+			"tailor"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"expanse:frostbloom"
+			],
+			"count": [
+				4,
+				8
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Frostblooms for the vigil",
+			"Light in the snow"
+		],
+		"summary": [
+			"For the long-night vigil, {giver} needs {count} × {item}, the glowing flowers of the tundra."
+		],
+		"offer": [
+			"On the longest night we set frostblooms in every window. I need {count} × {item}. They glow in the snow; you can't miss them after dark."
+		],
+		"progress": [
+			"The vigil is soon."
+		],
+		"complete": [
+			"Every window will shine. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

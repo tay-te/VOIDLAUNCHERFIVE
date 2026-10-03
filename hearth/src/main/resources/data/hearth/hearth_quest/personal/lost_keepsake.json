@@ -1,0 +1,61 @@
+{
+	"type": "personal",
+	"weight": 6,
+	"sequential": true,
+	"objectives": [
+		{
+			"kind": "reach",
+			"distance": [
+				40,
+				150
+			],
+			"radius": 6,
+			"names": [
+				"the old well",
+				"the stile by the far field",
+				"the fallen oak",
+				"the stepping stones",
+				"the lone pine",
+				"the cairn on the hill"
+			],
+			"grant": {
+				"item": "minecraft:gold_nugget",
+				"name": "{giver}'s locket",
+				"lore": "Worn smooth with years of holding.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"{giver}'s lost locket",
+			"A keepsake lost"
+		],
+		"summary": [
+			"{giver} lost a locket near {target}, {direction} of {settlement}. Find it and bring it back."
+		],
+		"offer": [
+			"I've lost my mother's locket. I think it was by {target}, {direction} of here; I was there gathering, and when I got home it was gone. Would you look?"
+		],
+		"progress": [
+			"Did you find it? By {target}, I'm sure of it."
+		],
+		"complete": [
+			"My mother's locket... I thought it was gone forever. Thank you, thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"items": [
+			{
+				"item": "minecraft:cake",
+				"count": 1
+			}
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 3
+}

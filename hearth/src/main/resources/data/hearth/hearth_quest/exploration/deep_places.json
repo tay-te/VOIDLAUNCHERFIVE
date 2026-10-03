@@ -1,0 +1,60 @@
+{
+	"type": "exploration",
+	"weight": 3,
+	"when": {
+		"min_tier": "village",
+		"cultures": {
+			"*": 1.0
+		},
+		"min_reputation": 15
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"minecraft:trial_chambers",
+				"minecraft:ancient_city"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Notes from {target}",
+				"lore": "Written by lantern light.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Into the deep",
+			"Chart {target}"
+		],
+		"summary": [
+			"Below the land {direction} of {settlement}, {distance} out, lies {target}. Few come back. {giver} wants to know what is down there."
+		],
+		"offer": [
+			"There's a place down in the deep, {direction} of here. {target}. Nobody I've sent has come back. You look like you might. {distance} out."
+		],
+		"progress": [
+			"Be careful down there.",
+			"Still alive, then. Good."
+		],
+		"complete": [
+			"You went down there and came back. I'll write it all down."
+		]
+	},
+	"reward": {
+		"coin": [
+			160,
+			260
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

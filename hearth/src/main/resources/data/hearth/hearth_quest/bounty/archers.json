@@ -1,0 +1,64 @@
+{
+	"type": "bounty",
+	"weight": 6,
+	"when": {
+		"trigger": "pressure",
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"guard"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "kill",
+			"entities": [
+				"minecraft:skeleton",
+				"minecraft:stray",
+				"minecraft:bogged"
+			],
+			"count": [
+				5,
+				9
+			],
+			"night": true
+		}
+	],
+	"text": {
+		"title": [
+			"Arrows in the dark",
+			"Bones on the hill"
+		],
+		"summary": [
+			"Skeletal archers shoot at anyone out after dark in {settlement}. Put down {count} {mob}."
+		],
+		"offer": [
+			"Something's been shooting at the watch from the dark. Bones, they say. Put down {count} {mob} for us."
+		],
+		"progress": [
+			"The watch still won't go out at night."
+		],
+		"complete": [
+			"No more arrows in the night. The watch thanks you."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			80
+		],
+		"items": [
+			{
+				"item": "minecraft:arrow",
+				"count": [
+					16,
+					24
+				]
+			}
+		],
+		"reputation": 6
+	},
+	"deadline_days": 3,
+	"cooldown_days": 2
+}

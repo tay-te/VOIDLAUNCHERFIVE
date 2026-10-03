@@ -1,0 +1,60 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"maritime": 2.5,
+			"bayou": 2.5,
+			"tropical": 1.5,
+			"karst": 1.5,
+			"*": 0.5
+		},
+		"min_tier": "camp"
+	},
+	"giver": {
+		"jobs": [
+			"fisher",
+			"innkeeper"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:cod",
+				"minecraft:salmon"
+			],
+			"count": [
+				8,
+				16
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Fish for the smokehouse",
+			"The catch"
+		],
+		"summary": [
+			"{giver} needs {count} × {item} for the smokehouse before the winter."
+		],
+		"offer": [
+			"The boats came back empty three days running. Could you catch me {count} × {item}? The river's full of them upstream."
+		],
+		"progress": [
+			"The smokehouse is waiting."
+		],
+		"complete": [
+			"That'll smoke nicely. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

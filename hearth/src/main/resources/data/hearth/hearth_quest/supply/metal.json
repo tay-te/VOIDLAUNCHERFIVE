@@ -1,0 +1,52 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"metal"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"smith",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Iron for the {place}",
+			"Nails and hinges"
+		],
+		"summary": [
+			"The smith of {settlement} needs {count} × {item} to make the fittings of the {place}.",
+			"Without metal there are no hinges, nails or lanterns for the {place} in {settlement}. Bring {count} × {item}."
+		],
+		"offer": [
+			"Every door wants hinges and every beam wants nails, and my forge is empty. {count} × {item}, and I'll pay above market.",
+			"The {place} needs its ironwork and I've nothing to work. Bring {count} × {item}?"
+		],
+		"progress": [
+			"The forge is cold without that metal.",
+			"Still waiting. I've been sharpening the same knife all week."
+		],
+		"complete": [
+			"Good metal. You'll hear my hammer from the road.",
+			"That'll do nicely. The {place} gets its doors tomorrow."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

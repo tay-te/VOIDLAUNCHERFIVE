@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"tropical": 2.0,
+			"karst": 1.5
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:cloud_monastery"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Page from {target}",
+				"lore": "Vellum, damp with mist.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The monastery in the mist",
+			"Chart {target}"
+		],
+		"summary": [
+			"Somewhere {direction} of {settlement}, {distance}, a monastery stands above the cloud forest. Find {target} and bring back a page from its library."
+		],
+		"offer": [
+			"My teacher spoke of a monastery above the clouds, its bell heard but never seen. It's {direction}, {distance}. Bring me a page from its books."
+		],
+		"progress": [
+			"The mist hides a great deal.",
+			"Listen for the bell."
+		],
+		"complete": [
+			"A page from the monastery... my teacher would weep."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

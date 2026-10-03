@@ -1,0 +1,66 @@
+{
+	"type": "bounty",
+	"weight": 5,
+	"when": {
+		"trigger": "none",
+		"min_tier": "hamlet",
+		"cultures": {
+			"desert": 3.0,
+			"mesa": 2.0,
+			"steppe": 1.5
+		},
+		"min_reputation": -1000
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:husk"
+			],
+			"names": [
+				"the Dune Walker",
+				"Sand-in-the-Bones",
+				"the Thirsting One"
+			],
+			"distance": [
+				90,
+				220
+			],
+			"health": 3.0
+		}
+	],
+	"text": {
+		"title": [
+			"{name}",
+			"The thing in the dunes"
+		],
+		"summary": [
+			"A husk the herders call {name} haunts the dunes {direction} of {settlement}, {distance} out. End it."
+		],
+		"offer": [
+			"The caravans won't take the {direction} road any more, not since {name} came. It's {distance} out, by the dunes. Put it down."
+		],
+		"progress": [
+			"The caravans still go the long way round.",
+			"Have you faced it?"
+		],
+		"complete": [
+			"The {direction} road is open again. The caravan masters will drink to you."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			160
+		],
+		"reputation": 8
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

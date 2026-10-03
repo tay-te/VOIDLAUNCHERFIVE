@@ -1,0 +1,81 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"requires_mods": [
+			"expanse"
+		],
+		"min_reputation": 5
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"quarrier",
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "biome",
+			"biomes": [
+				"expanse:realm_amber",
+				"expanse:realm_brimstone",
+				"expanse:realm_crystal",
+				"expanse:realm_dripstone",
+				"expanse:realm_ember",
+				"expanse:realm_fossil",
+				"expanse:realm_frozen",
+				"expanse:realm_lush",
+				"expanse:realm_mere",
+				"expanse:realm_roots",
+				"expanse:realm_tidal",
+				"expanse:realm_wilds"
+			],
+			"target_name": "a realm under the world",
+			"label": "Go down into a realm under the world",
+			"grant": {
+				"item": "minecraft:amethyst_shard",
+				"name": "Stone from the deep realm",
+				"lore": "Still faintly warm.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The lands under the land",
+			"A realm below"
+		],
+		"summary": [
+			"{giver} believes there are whole lands beneath the stone, lit by their own light. Follow the cave mouths down until you stand in one, and bring back a stone from it."
+		],
+		"offer": [
+			"Miners talk of caves that open into lands, sky of stone, lakes, forests of mushrooms. Go down, find one of these realms, and bring me a stone from it."
+		],
+		"progress": [
+			"Follow the great tunnels down.",
+			"Have you seen them, the lands below?"
+		],
+		"complete": [
+			"Warm, and it glows... So the stories are true."
+		]
+	},
+	"reward": {
+		"coin": [
+			120,
+			200
+		],
+		"items": [
+			{
+				"item": "minecraft:torch",
+				"count": [
+					16,
+					32
+				]
+			}
+		],
+		"reputation": 7
+	},
+	"cooldown_days": 6
+}

@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"tropical": 3.0,
+			"maritime": 2.0
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:palm_harbour"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Ledger page from {target}",
+				"lore": "Salt-stained columns of figures.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The old harbour",
+			"Chart {target}"
+		],
+		"summary": [
+			"{target} lies {direction} of {settlement}, {distance} along the coast. Find it and copy the harbour master's ledger."
+		],
+		"offer": [
+			"There was a harbour once, {direction} of here, where all the trade came in. Copy me a page of its ledger and I'll know what they traded. {distance} or so."
+		],
+		"progress": [
+			"Follow the coast.",
+			"Did the ledger survive?"
+		],
+		"complete": [
+			"Pepper, silk, cocoa... we could open that trade again."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

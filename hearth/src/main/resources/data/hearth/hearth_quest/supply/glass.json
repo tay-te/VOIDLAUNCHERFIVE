@@ -1,0 +1,52 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"glass"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Glass for the windows",
+			"Panes for the {place}"
+		],
+		"summary": [
+			"The windows of the {place} in {settlement} are boarded for want of glass. Bring {count} × {item} to {giver}.",
+			"{settlement} needs {count} × {item} to glaze the {place}."
+		],
+		"offer": [
+			"The {place} is built but dark as a cellar: no glass. {count} × {item} would let the light in.",
+			"Our glassblower moved away last spring. Could you bring {count} × {item}?"
+		],
+		"progress": [
+			"The windows are still boarded.",
+			"Glass, please, before the folk forget what sun looks like."
+		],
+		"complete": [
+			"Light at last! The {place} looks twice the size.",
+			"Clear as water. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

@@ -1,0 +1,59 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"*": 1.0,
+			"wisteria": 2.0,
+			"temperate": 1.5
+		},
+		"min_tier": "camp"
+	},
+	"giver": {
+		"jobs": [
+			"baker",
+			"innkeeper",
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:honey_bottle",
+				"minecraft:honeycomb"
+			],
+			"count": [
+				4,
+				8
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Honey for the bakery",
+			"Sweet things"
+		],
+		"summary": [
+			"{giver} needs {count} × {item}. Bees nest in the blossom trees round {settlement}."
+		],
+		"offer": [
+			"The honey cakes are what everyone comes for, and my jars are empty. {count} × {item}? Smoke them first."
+		],
+		"progress": [
+			"No honey yet?"
+		],
+		"complete": [
+			"The cakes will be the best yet."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

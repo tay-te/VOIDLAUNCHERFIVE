@@ -1,0 +1,53 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"fuel"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"smith",
+			"baker",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Coal for the forge",
+			"Fuel for the kilns"
+		],
+		"summary": [
+			"The forges and kilns of {settlement} need {count} × {item} to make what the {place} needs.",
+			"{settlement} is out of fuel. Bring {count} × {item} to {giver}."
+		],
+		"offer": [
+			"No fire, no iron, no bricks, no {place}. {count} × {item} would light us up again.",
+			"The kiln is cold and the {place} waits. Bring {count} × {item}?"
+		],
+		"progress": [
+			"The fires are still out.",
+			"Cold hearths, cold hands."
+		],
+		"complete": [
+			"Now we're cooking. Literally.",
+			"The kilns are lit. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

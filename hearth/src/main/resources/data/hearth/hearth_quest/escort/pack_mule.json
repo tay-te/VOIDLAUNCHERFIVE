@@ -1,0 +1,56 @@
+{
+	"type": "escort",
+	"weight": 6,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"courier",
+			"farmer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "escort",
+			"entity": "minecraft:mule",
+			"names": [
+				"Bramble",
+				"Clover",
+				"Old Tom",
+				"Pepper",
+				"Juniper",
+				"Biscuit"
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Lead {name} to {target}",
+			"The mule and the road"
+		],
+		"summary": [
+			"Lead {name} the {mob}, laden with goods for {target}, safely there: {distance} to the {direction}. If {name} is lost, so is the quest."
+		],
+		"offer": [
+			"{name} here carries our goods for {target}, {distance} to the {direction}. The roads aren't safe to walk alone. Lead {name} there for us? Mind the wolves."
+		],
+		"progress": [
+			"Is {name} safe?",
+			"Keep {name} on the lead and off the cliffs."
+		],
+		"complete": [
+			"{name} made it! And the goods too. Well walked."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			100
+		],
+		"reputation": 6
+	},
+	"deadline_days": 4,
+	"cooldown_days": 3
+}

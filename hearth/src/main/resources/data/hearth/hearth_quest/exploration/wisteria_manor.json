@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"wisteria": 3.0,
+			"temperate": 1.5
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:wisteria_manor"
+			],
+			"grant": {
+				"item": "minecraft:pink_petals",
+				"name": "Pressed blossom from {target}",
+				"lore": "Faintly scented.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The manor under the blossom",
+			"Chart {target}"
+		],
+		"summary": [
+			"{target} stands empty {direction} of {settlement}, {distance} out. Find it and bring back a pressed flower from its garden."
+		],
+		"offer": [
+			"They say the manor's garden still blooms with no one to tend it. Bring me a flower from {target}, {direction}, {distance}, and I'll believe it."
+		],
+		"progress": [
+			"Under the blossom, they say.",
+			"Did the garden still bloom?"
+		],
+		"complete": [
+			"It's still blooming... after all these years."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

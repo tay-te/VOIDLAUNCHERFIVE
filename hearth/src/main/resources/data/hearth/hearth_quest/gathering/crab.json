@@ -1,0 +1,60 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"tropical": 3.0,
+			"maritime": 2.0,
+			"mediterranean": 1.0
+		},
+		"min_tier": "camp",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"fisher",
+			"innkeeper"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"expanse:crab_meat"
+			],
+			"count": [
+				6,
+				12
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Crabs for the pot",
+			"The tide is out"
+		],
+		"summary": [
+			"{giver} wants {count} × {item} for the pot. Shore crabs scuttle along the beaches."
+		],
+		"offer": [
+			"Crab stew's what the folk want, and my traps are empty. {count} × {item}, from the beach. They pinch."
+		],
+		"progress": [
+			"The pot is boiling and empty."
+		],
+		"complete": [
+			"Now that's a stew. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

@@ -1,0 +1,74 @@
+{
+	"type": "bounty",
+	"weight": 5,
+	"when": {
+		"trigger": "none",
+		"min_tier": "village",
+		"cultures": {
+			"*": 1.0
+		},
+		"min_reputation": 10
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:vindicator",
+				"minecraft:pillager"
+			],
+			"names": [
+				"Black Aldous",
+				"Red Wenna",
+				"Corvin the Knife"
+			],
+			"distance": [
+				90,
+				220
+			],
+			"health": 2.5
+		}
+	],
+	"text": {
+		"title": [
+			"Wanted: {name}",
+			"The outlaw {name}"
+		],
+		"summary": [
+			"An outlaw called {name} has been robbing travellers {direction} of {settlement}. The town wants them stopped. Their camp is {distance} out."
+		],
+		"offer": [
+			"We've a price on the head of {name}, who robs our carts on the {direction} road. Their camp is {distance} out. Be careful: they're no fool."
+		],
+		"progress": [
+			"{name} robbed another cart yesterday.",
+			"Still free, then?"
+		],
+		"complete": [
+			"The roads are safe again. The whole town owes you."
+		]
+	},
+	"reward": {
+		"coin": [
+			150,
+			240
+		],
+		"reputation": 10,
+		"items": [
+			{
+				"item": "minecraft:iron_ingot",
+				"count": [
+					3,
+					6
+				]
+			}
+		]
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

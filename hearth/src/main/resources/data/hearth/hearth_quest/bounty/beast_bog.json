@@ -1,0 +1,68 @@
+{
+	"type": "bounty",
+	"weight": 5,
+	"when": {
+		"trigger": "none",
+		"min_tier": "hamlet",
+		"cultures": {
+			"bayou": 3.0,
+			"tropical": 2.0,
+			"karst": 1.5,
+			"maritime": 1.0
+		},
+		"min_reputation": -1000
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:bogged",
+				"minecraft:drowned"
+			],
+			"names": [
+				"the Bog Lurker",
+				"Old Mossback",
+				"the Drowned Fiddler"
+			],
+			"distance": [
+				90,
+				220
+			],
+			"health": 3.0
+		}
+	],
+	"text": {
+		"title": [
+			"{name}",
+			"Something in the water"
+		],
+		"summary": [
+			"Something has come out of the water {direction} of {settlement}, {distance} out: {name}. Hunt it."
+		],
+		"offer": [
+			"Nets torn, a punt sunk, and that thing laughing in the reeds. {name}, they call it. It's {direction} of here, {distance} out."
+		],
+		"progress": [
+			"The fishers still won't go out.",
+			"It was seen at dusk again."
+		],
+		"complete": [
+			"The water's quiet. The fishers are out at dawn tomorrow, thanks to you."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			160
+		],
+		"reputation": 8
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

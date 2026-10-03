@@ -1,0 +1,60 @@
+{
+	"type": "exploration",
+	"weight": 4,
+	"when": {
+		"min_tier": "hamlet",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "biome",
+			"biomes": [
+				"expanse:volcanic_highlands",
+				"expanse:tepui",
+				"expanse:salt_flats",
+				"expanse:painted_canyons"
+			],
+			"target_name": "a volcano, a tepui, a salt flat or a painted canyon",
+			"label": "Stand on a volcano, a tepui, a salt flat or in a painted canyon",
+			"grant": {
+				"item": "minecraft:map",
+				"name": "Survey of strange country",
+				"lore": "Heights and bearings.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Survey strange country"
+		],
+		"summary": [
+			"{giver} is collecting surveys of the world's strangest land: a fire mountain, a table mountain, a salt flat or a painted canyon. Stand on one and bring back a survey."
+		],
+		"offer": [
+			"I collect the strange places of the world. A mountain that breathes fire, a table of stone above the forest, a plain of salt, a canyon banded like cloth. Survey any one for me."
+		],
+		"progress": [
+			"Any luck?"
+		],
+		"complete": [
+			"Wonderful. This goes in the atlas."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			160
+		],
+		"reputation": 5
+	},
+	"cooldown_days": 6
+}
