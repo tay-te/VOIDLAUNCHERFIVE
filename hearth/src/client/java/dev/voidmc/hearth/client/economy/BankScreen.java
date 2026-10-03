@@ -57,6 +57,12 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 		this.tab = view.hasBank() ? view.tab() : BankView.TAB_PROPERTY;
 	}
 
+	/** Dev tooling: choose a listed property, as a click would. */
+	void devSelect(int index) {
+		this.tab = BankView.TAB_PROPERTY;
+		this.selected = index;
+	}
+
 	@Override
 	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractBackground(g, mouseX, mouseY, a);

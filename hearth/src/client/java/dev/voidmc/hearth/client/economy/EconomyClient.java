@@ -33,5 +33,6 @@ public final class EconomyClient {
 			}
 		});
 		ClientTooltipComponentCallback.EVENT.register(data -> data instanceof PouchContents contents ? new PouchTooltip(contents) : null);
+		EconomyDevPilot.initIfRequested();
 	}
 }
