@@ -325,7 +325,8 @@ public final class TownWall implements Archetype {
 			}
 			Corridor.Cell cell = townCell(c, i);
 			if (cell == null) {
-				return null;
+				// the line runs into a tower or out of the plot: the flight must fit before it
+				break;
 			}
 			if (!ribbon.isEmpty()) {
 				Corridor.Cell prev = ribbon.get(ribbon.size() - 1);

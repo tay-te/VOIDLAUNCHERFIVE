@@ -317,7 +317,7 @@ public final class GardenPlot implements Archetype {
 			d.set(cx, y + 2, z, post.log(Direction.Axis.X).orElse(post.full()));
 		}
 		Benches.bench(d, cx, y, z, Dirs.FRONT, Dirs.RIGHT, 1, false);
-		d.poi(PoiType.VIEWPOINT, cx, y, z, Dirs.FRONT);
+		d.poi(PoiType.VIEWPOINT, cx, y, z - 1, Dirs.FRONT);
 		return y + 3;
 	}
 
@@ -531,6 +531,17 @@ public final class GardenPlot implements Archetype {
 				}
 			}
 			Benches.bench(d, x0 + 1, y, z, Dirs.FRONT, Dirs.RIGHT, 1, false);
+			// a way in to it from the walk: the plants cleared in front of the ramada and beside it
+			for (int x = l.cx() + 1; x <= x0 + 1; x++) {
+				for (int zz = z - 2; zz <= z - 1; zz++) {
+					if (d.isEmpty(x, y, zz) || d.get(x, y, zz).getBlock() instanceof net.minecraft.world.level.block.FenceBlock) {
+						continue;
+					}
+					d.remove(x, y, zz);
+					d.remove(x, y + 1, zz);
+				}
+			}
+			Garden.path(d, List.of(new int[]{x0 + 1, z - 2}, new int[]{x0 + 1, z - 1}), y);
 		}
 		return top;
 	}
@@ -611,7 +622,7 @@ public final class GardenPlot implements Archetype {
 			}
 		}
 		Benches.bench(d, l.cx(), y, z, Dirs.FRONT, Dirs.RIGHT, 1, true);
-		d.poi(PoiType.VIEWPOINT, l.cx(), y, z, Dirs.FRONT);
+		d.poi(PoiType.VIEWPOINT, l.cx(), y, z - 1, Dirs.FRONT);
 		return top;
 	}
 

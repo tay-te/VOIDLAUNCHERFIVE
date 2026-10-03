@@ -278,8 +278,13 @@ public final class Watchtower implements Archetype {
 				}
 			}
 		}
-		// the chamber and the stair up to the top along its back wall
+		// the chamber and the stair up to the top along its back wall; the flank doorways three high so a person
+		// stepping up into the chamber clears the lintel
 		Towers.shell(d, l, 0, 0, w - 1, dp - 1, chamber, t - 2);
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			d.set(0, chamber, cz, air);
+			d.set(w - 1, chamber, cz, air);
+		}
 		Stairs.straight(d, 1, chamber, dp - 2, Dirs.RIGHT, 4, 1);
 		Towers.corbels(d, l, 0, 0, w - 1, dp - 1, t - 2);
 		Towers.floor(d, l, 0, 0, w - 1, dp - 1, t - 1, !l.timber());
@@ -296,13 +301,13 @@ public final class Watchtower implements Archetype {
 			Towers.battlements(d, l, 0, 0, w - 1, dp - 1, t);
 			highest = t + 1;
 		} else {
-			highest = Towers.lookout(d, l, 0, 0, w - 1, dp - 1, t, top);
+			highest = Towers.lookout(d, l, 0, 0, w - 1, dp - 1, t, top, 0);
 		}
 		d.entrance(0, walk, cz);
 		d.entrance(w - 1, walk, cz);
 		d.poi(PoiType.DOOR, 0, walk, cz, Dirs.RIGHT);
-		d.poi(PoiType.GUARD_POST, 1, t, 1, Dirs.FRONT);
-		d.poi(PoiType.GUARD_POST, w - 2, t, 1, Dirs.BACK);
+		d.poi(PoiType.GUARD_POST, 2, t, 1, Dirs.FRONT);
+		d.poi(PoiType.GUARD_POST, w - 3, t, 1, Dirs.BACK);
 		d.poi(PoiType.VIEWPOINT, (w - 1) / 2, t, dp - 2, Dirs.BACK);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, highest + 1);
 	}

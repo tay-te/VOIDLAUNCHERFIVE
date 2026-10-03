@@ -169,12 +169,17 @@ public final class Towers {
 	 * culture's form whose eaves reach out over the parapet. Returns the roof's top y.
 	 */
 	public static int lookout(Draft d, Look l, int x0, int z0, int x1, int z1, int y, Top top) {
+		return lookout(d, l, x0, z0, x1, z1, y, top, 1);
+	}
+
+	/** {@link #lookout} with the posts set {@code inset} blocks in from the platform's edge (0: on its corners). */
+	public static int lookout(Draft d, Look l, int x0, int z0, int x1, int z1, int y, Top top, int inset) {
 		Mat post = l.post;
 		int plate = y + 3;
-		int px0 = x0 + 1;
-		int pz0 = z0 + 1;
-		int px1 = x1 - 1;
-		int pz1 = z1 - 1;
+		int px0 = x0 + inset;
+		int pz0 = z0 + inset;
+		int px1 = x1 - inset;
+		int pz1 = z1 - inset;
 		rail(d, l, x0, z0, x1, z1, y);
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int[] c : new int[][]{{px0, pz0}, {px1, pz0}, {px0, pz1}, {px1, pz1}}) {
@@ -195,7 +200,7 @@ public final class Towers {
 			case ALPINE -> 0.8;
 			default -> Math.max(hr.pitch(), 1.0);
 		};
-		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1).withPitch(pitch);
+		Roofs.Opts o = Roofs.Opts.of(d).withEaves(inset, inset).withPitch(pitch);
 		RoofForm form = top == Top.PAGODA ? RoofForm.PAGODA : RoofForm.HIP;
 		Roofs.Built b = Roofs.build(d, px0, pz0, px1, pz1, plate, form, Direction.Axis.X, o, false, false);
 		int cx = (px0 + px1) / 2;

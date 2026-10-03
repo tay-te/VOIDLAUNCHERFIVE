@@ -305,7 +305,7 @@ public final class Park implements Archetype {
 		if (bz > 0 && d.isEmpty(bx, y, bz)) {
 			d.remove(bx, y, bz);
 			Benches.bench(d, bx, y, bz, Dirs.FRONT, Dirs.RIGHT, 1, false);
-			d.poi(PoiType.VIEWPOINT, bx, y, bz, Dirs.FRONT);
+			d.poi(PoiType.VIEWPOINT, bx, y, bz - 1, Dirs.FRONT);
 			used[bx][bz] = true;
 		}
 		return y + 2;

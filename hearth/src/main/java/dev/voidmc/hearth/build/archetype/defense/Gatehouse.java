@@ -178,6 +178,7 @@ public final class Gatehouse implements Archetype {
 			for (int x : new int[]{lx1, rx0}) {
 				d.set(x, hall, 2, air);
 				d.set(x, hall + 1, 2, air);
+				d.set(x, hall + 2, 2, air);
 			}
 			if (overRoad) {
 				for (int x : new int[]{0, w - 1}) {
