@@ -1,0 +1,28 @@
+{
+  "values": [
+    "#minecraft:axes",
+    "#minecraft:pickaxes",
+    "#minecraft:shovels",
+    "#minecraft:hoes",
+    "#minecraft:swords",
+    "#minecraft:spears",
+    "#minecraft:arrows",
+    "#minecraft:head_armor",
+    "#minecraft:chest_armor",
+    "#minecraft:leg_armor",
+    "#minecraft:foot_armor",
+    "minecraft:shears",
+    "minecraft:flint_and_steel",
+    "minecraft:fishing_rod",
+    "minecraft:bow",
+    "minecraft:crossbow",
+    "minecraft:shield",
+    "minecraft:brush",
+    "minecraft:spyglass",
+    "minecraft:compass",
+    "minecraft:lead",
+    "minecraft:saddle",
+    "minecraft:name_tag",
+    "minecraft:trident"
+  ]
+}

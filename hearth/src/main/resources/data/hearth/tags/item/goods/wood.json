@@ -1,0 +1,640 @@
+{
+  "values": [
+    "#minecraft:logs",
+    "#minecraft:planks",
+    "#minecraft:wooden_slabs",
+    "#minecraft:wooden_stairs",
+    "#minecraft:wooden_fences",
+    "#minecraft:fence_gates",
+    "#minecraft:wooden_doors",
+    "#minecraft:wooden_trapdoors",
+    "#minecraft:bamboo_blocks",
+    "#minecraft:wooden_shelves",
+    "#minecraft:boats",
+    "#minecraft:signs",
+    "minecraft:stick",
+    "minecraft:bamboo",
+    "minecraft:bamboo_mosaic",
+    "minecraft:chest",
+    "minecraft:barrel",
+    "minecraft:crafting_table",
+    "minecraft:ladder",
+    "minecraft:bowl",
+    {
+      "id": "expanse:aspen_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_aspen_log",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_aspen_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_door",
+      "required": false
+    },
+    {
+      "id": "expanse:aspen_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_baobab_log",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_baobab_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_door",
+      "required": false
+    },
+    {
+      "id": "expanse:baobab_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_beech_log",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_beech_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_door",
+      "required": false
+    },
+    {
+      "id": "expanse:beech_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_eucalyptus_log",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_eucalyptus_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_door",
+      "required": false
+    },
+    {
+      "id": "expanse:eucalyptus_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_kapok_log",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_kapok_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_door",
+      "required": false
+    },
+    {
+      "id": "expanse:kapok_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_lumen_log",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_lumen_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_door",
+      "required": false
+    },
+    {
+      "id": "expanse:lumen_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_maple_log",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_maple_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_door",
+      "required": false
+    },
+    {
+      "id": "expanse:maple_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_olive_log",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_olive_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_door",
+      "required": false
+    },
+    {
+      "id": "expanse:olive_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_palm_log",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_palm_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_door",
+      "required": false
+    },
+    {
+      "id": "expanse:palm_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_pine_log",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_pine_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_door",
+      "required": false
+    },
+    {
+      "id": "expanse:pine_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_redwood_log",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_redwood_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_door",
+      "required": false
+    },
+    {
+      "id": "expanse:redwood_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_teak_log",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_teak_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_door",
+      "required": false
+    },
+    {
+      "id": "expanse:teak_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_willow_log",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_willow_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_door",
+      "required": false
+    },
+    {
+      "id": "expanse:willow_trapdoor",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_log",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_wisteria_log",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:stripped_wisteria_wood",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_planks",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_fence",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_fence_gate",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_door",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_trapdoor",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:smelting",
+  "cookingtime": 200,
+  "experience": 0.1,
+  "ingredient": "hearth:gold_crown",
+  "result": {
+    "id": "minecraft:gold_nugget",
+    "count": 2
+  }
+}

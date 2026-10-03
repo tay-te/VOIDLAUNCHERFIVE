@@ -1,0 +1,23 @@
+{
+  "values": [
+    "#minecraft:wool",
+    "#minecraft:wool_carpets",
+    "#minecraft:beds",
+    "#minecraft:banners",
+    "#minecraft:cushions",
+    "minecraft:leather",
+    "minecraft:rabbit_hide",
+    "minecraft:string",
+    "minecraft:feather",
+    "minecraft:item_frame",
+    "minecraft:painting",
+    {
+      "id": "expanse:glowworm_silk",
+      "required": false
+    },
+    {
+      "id": "expanse:cotton_grass",
+      "required": false
+    }
+  ]
+}

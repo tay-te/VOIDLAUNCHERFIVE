@@ -1,0 +1,46 @@
+{
+  "speciality": {
+    "food": 0.95,
+    "wood": 0.7,
+    "stone": 1.0,
+    "clay": 1.15,
+    "glass": 1.25,
+    "metal": 1.0,
+    "cloth": 0.9,
+    "fuel": 0.85,
+    "tools": 1.0,
+    "luxury": 1.2
+  },
+  "wares": {
+    "wood": [
+      "expanse:redwood_log|minecraft:spruce_log",
+      "expanse:pine_planks|minecraft:spruce_planks",
+      "minecraft:spruce_planks"
+    ],
+    "food": [
+      "expanse:cooked_venison|minecraft:cooked_beef",
+      "minecraft:sweet_berries",
+      "minecraft:bread",
+      "minecraft:cooked_salmon"
+    ],
+    "stone": [
+      "minecraft:cobblestone",
+      "minecraft:mossy_cobblestone",
+      "minecraft:stone_bricks"
+    ],
+    "cloth": [
+      "minecraft:leather",
+      "minecraft:brown_wool",
+      "minecraft:rabbit_hide"
+    ],
+    "tools": [
+      "minecraft:iron_axe",
+      "minecraft:bow",
+      "minecraft:iron_shovel"
+    ],
+    "fuel": [
+      "minecraft:charcoal",
+      "minecraft:coal"
+    ]
+  }
+}
