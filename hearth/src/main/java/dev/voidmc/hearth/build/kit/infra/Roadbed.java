@@ -374,7 +374,8 @@ public final class Roadbed {
 				}
 				int side = Math.floorMod(Math.floorDiv(u, sp), 2) == 0 ? 1 : -1;
 				int i = kerbLine(k, side);
-				if (i < 0) {
+				// (lamps keep a step further from the ends than kerbs: a lane's mouth is wider than its kerb line)
+				if (i < 0 || k < this.endZone + 1 || k > this.c.steps() - 2 - this.endZone) {
 					continue;
 				}
 				Course.Col col = this.cols.get(i);
@@ -444,6 +445,9 @@ public final class Roadbed {
 			boolean verge = this.dress.edgeKind() == Dress.EdgeKind.VERGE && col.ring() == 0 && !inEnd(i);
 			boolean crown = this.dress.ruts() && col.ring() > 0;
 			boolean edge = col.ring() == 0;
+			// a hamlet's dirt lane grows a tuft or a flower along its edges
+			boolean rural = edge && !inEnd(i) && this.dress.edgeKind() == Dress.EdgeKind.SAME && !this.dress.ruts()
+				&& this.dress.main().role() == Role.PATH && d.tier() <= 1;
 			int l = this.level[i];
 			if (this.lay.wet(col.x(), col.z()) || !this.lay.absent(col.x(), l, col.z())) {
 				continue;
@@ -456,7 +460,7 @@ public final class Roadbed {
 					}
 					continue;
 				}
-				if (verge && r < 0.45 || crown && r < 0.3) {
+				if (verge && r < 0.45 || crown && r < 0.3 || rural && r < 0.14) {
 					BlockState plant = Blocks.SHORT_GRASS.defaultBlockState();
 					if (r < 0.12) {
 						Block b = garden.block(Form.FULL, col.x(), l, col.z());

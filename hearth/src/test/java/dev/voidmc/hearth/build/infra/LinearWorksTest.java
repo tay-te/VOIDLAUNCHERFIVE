@@ -171,10 +171,26 @@ class LinearWorksTest {
 						problems.add(tag + p);
 					}
 					problems.addAll(levels(bp, pts, width, tag));
+					problems.addAll(bills(bp, tag));
 				}
 			}
 		}
 		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems.subList(0, Math.min(30, problems.size()))));
+	}
+
+	/** Every stage's bill of goods stays within what a builder's yard carts in one go (a few thousand units). */
+	static List<String> bills(BlueprintImpl bp, String tag) {
+		List<String> out = new ArrayList<>();
+		for (int s = 0; s < bp.stageCount(); s++) {
+			int sum = 0;
+			for (int g : bp.goods(s)) {
+				sum += g;
+			}
+			if (sum > 5000) {
+				out.add(tag + "stage " + bp.stageKind(s) + " bills " + sum + " goods");
+			}
+		}
+		return out;
 	}
 
 	/** Along the centreline the surface's top is at the planner's walking level (or half a block under it). */
@@ -262,6 +278,7 @@ class LinearWorksTest {
 					for (String p : checks) {
 						problems.add(tag + p);
 					}
+					problems.addAll(bills(bp, tag));
 					// both ends at the banks' levels: the approach roads walk straight on
 					for (String p : levels(bp, pts, width, tag)) {
 						if (p.contains("step 0 ") || p.contains("step " + (new Course(pts, width).steps() - 1) + " ")) {
@@ -272,6 +289,31 @@ class LinearWorksTest {
 			}
 		}
 		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems.subList(0, Math.min(30, problems.size()))));
+	}
+
+	/** A long road plot (48 steps, diagonal, five wide) draws and compiles in milliseconds, like a house. */
+	@Test
+	void aLongRoadIsCheapToDraw() {
+		SyntheticTerrain t = SyntheticTerrain.named("hills", 3);
+		int[][] r = Course.run(0, 0, 34, 34);
+		int[][] r2 = Course.run(34, 34, 48, 34);
+		int[] xs = new int[r[0].length + r2[0].length - 1];
+		int[] zs = new int[xs.length];
+		System.arraycopy(r[0], 0, xs, 0, r[0].length);
+		System.arraycopy(r[1], 0, zs, 0, r[1].length);
+		System.arraycopy(r2[0], 1, xs, r[0].length, r2[0].length - 1);
+		System.arraycopy(r2[1], 1, zs, r[0].length, r2[1].length - 1);
+		int[] pts = route(t, xs, zs, 0.3);
+		CompoundTag params = new CompoundTag();
+		params.putString("kind", "street");
+		long best = Long.MAX_VALUE;
+		for (int i = 0; i < 6; i++) {
+			PlotSpec spec = linear("infra/road", Culture.TEMPERATE, 500L + i, pts, 5, params, minY(pts), maxY(pts) - minY(pts) + 5, 3);
+			long t0 = System.nanoTime();
+			dev.voidmc.hearth.build.blueprint.Compiler.compile(SERVICE.draw(spec, t));
+			best = Math.min(best, System.nanoTime() - t0);
+		}
+		assertTrue(best < 150_000_000L, "a 48-step street took " + best / 1e6 + " ms");
 	}
 
 	@Test

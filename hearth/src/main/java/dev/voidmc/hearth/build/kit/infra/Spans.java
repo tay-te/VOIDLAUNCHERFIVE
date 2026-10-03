@@ -570,7 +570,8 @@ public final class Spans {
 			double hump = m0 == 1 ? r0 * Math.sqrt(Math.max(0, 1 - u * u)) : r0;
 			need[k] = Math.max(base(k), springing + (int) Math.ceil(hump) + 2);
 		}
-		profile(need, m0 > 1, 2);
+		// a street's bridge humps gently (a ramp of slabs a cart can take), a lane's and a moon bridge climb in stairs
+		profile(need, m0 > 1, st.moon() || this.c.width < 5 ? 2 : 1);
 		// the arches go where the deck clears the springing by three; the abutments run out into the water to there
 		int za = -1;
 		int zb = -1;
@@ -880,6 +881,10 @@ public final class Spans {
 				if (ring == 2 && !portal && (k - hs) % 4 == 2) {
 					Lamps.hanging(this.lay, col.x(), ridgeY - 1, col.z());
 				}
+				// a lantern hung in the head of each portal, under its gable boards
+				if (ring == 2 && portal && y + 3 < ridgeY) {
+					Lamps.hanging(this.lay, col.x(), y + 3, col.z());
+				}
 			}
 		}
 		// railings on the steps up to the portals (the house's own sides stand between them)
@@ -1050,7 +1055,9 @@ public final class Spans {
 					}
 				}
 				try (var s = this.d.stage(StageKind.FLOORS)) {
-					this.lay.set(col.x(), cell, col.z(), planks.full());
+					// a cross board of the darker timber every fourth step: the walk reads in bays, as it was laid
+					boolean tie = Math.floorMod(k + this.c.dx(0) + this.c.dz(0), 4) == 0 && wet;
+					this.lay.set(col.x(), cell, col.z(), tie ? beam.log(across(k)) : planks.full());
 				}
 			}
 		}

@@ -45,8 +45,8 @@ public final class Road implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("infra/road"), ArchetypeCategory.INFRASTRUCTURE, Set.of(), 0,
 		1, 56, 1, 56, 1, 24, SettlementTier.CAMP, Set.of(), Set.of(), List.of(), 0, 1.0);
 
-	/** Steps at each end kept plain, where a lane runs into the road it joins. */
-	public static final int END_ZONE = 3;
+	/** Steps at each end kept plain (no kerbs or sunken carriageway; lamps a step further), where a lane runs into the road it joins. */
+	public static final int END_ZONE = 2;
 
 	@Override
 	public ArchetypeInfo info() {

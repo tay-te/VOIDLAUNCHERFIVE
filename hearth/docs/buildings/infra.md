@@ -31,8 +31,8 @@ overlap, the first one built keeps its paving. The roads are drawn so that this 
   milestones and drains stand on the *kerb line* (ring 1) of roads five or more wide; lanes, alleys and paths carry
   nothing above their surface. Bridges (no frontage over water) carry parapets; docks (not access roads) carry posts and
   racks; stair streets carry walls and parapets only where the land beside stands or falls three or more.
-- **End zones.** Within three steps of either end (where a lane runs into the road it joins, and where consecutive plots
-  of one road meet) a road keeps its plain body: no kerbs, sunken carriageway or lamps.
+- **End zones.** Within two steps of either end (where a lane runs into the road it joins, and where consecutive plots
+  of one road meet) a road keeps its plain body: no kerbs or sunken carriageway; lamps keep three steps away.
 - **Houses meet the graded road.** A building's `Site` now reads the street in front at the planner's `street_y` (the
   road's walking level at its door), not at the natural ground the road was cut or filled from, so steps and paths from
   the door land on the road (shared edit, see the report).
@@ -48,7 +48,7 @@ Params: `points` (world centreline at walking level), `width` (odd), `kind` (`st
   carriageway lies half a block below the kerbs; worn patches in a village; lamps on the kerb line every 14 blocks
   alternating sides (10 in a city); iron grates over sumps in the gutters of a town's stone streets. Timber cultures
   (bayou, tropical): a plank boardwalk with log edges.
-- **lane** (3): a dirt lane in a hamlet, half cobbled in a village, paved and kerbed in a city; rubble in the stone towns
+- **lane** (3): a dirt lane in a hamlet (a tuft or a flower along its edges), half cobbled in a village, paved and kerbed in a city; rubble in the stone towns
   (mediterranean, moorland, maritime, desert, mesa); laid-log edges in the north ("mud and wood"), bamboo edges in the
   karst; planks on the bayou.
 - **alley** (3): rubble setts with a kennel down the middle.
@@ -79,7 +79,7 @@ or stairs where slabs cannot reach) and may hump above `deck_y` over arches. A V
 | covered | alpine, northern, temperate (tier ≤ 2), wisteria, karst; straight and five wide | a sill beam, posts every three, walls in the culture's manner (plaster over a board rail in a timber frame, logs laid along in the north), an arched window band with potted flowers, a gable roof with eaves in the trim, gable boards over both portals, lanterns hung from the ridge, stone abutments. |
 | rope | over a gorge (deck nine or more over the water or ground) | log towers with a lintel and a lantern at each bank, a slab deck on cross beams sagging a block or two, hand ropes from the tower tops down to rail height. |
 | clapper | moorland, maritime, steppe; short and low | rough piers every three carrying flat slabs. |
-| boardwalk | `kind=boardwalk` | planks a block over the water on piles and stringers, open at the edges (stilt houses front it). |
+| boardwalk | `kind=boardwalk` | planks a block over the water on piles and stringers, a cross board of darker timber every fourth step, open at the edges (stilt houses front it). |
 
 ### `hearth:infra/terrace` — `Terrace`
 Params: `level`, `retain_north/south/east/west` (world sides; default: the planner's rule from the land),
