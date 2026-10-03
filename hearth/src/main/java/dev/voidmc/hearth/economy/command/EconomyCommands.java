@@ -17,7 +17,7 @@ import dev.voidmc.hearth.economy.EconomyMenus;
 import dev.voidmc.hearth.economy.EconomyModule;
 import dev.voidmc.hearth.economy.SettlementLookup;
 import dev.voidmc.hearth.economy.bank.BankView;
-import dev.voidmc.hearth.economy.bank.Deposits;
+import dev.voidmc.hearth.economy.bank.DepositStore;
 import dev.voidmc.hearth.economy.coin.CoinFormat;
 import dev.voidmc.hearth.economy.coin.PlayerPurse;
 import dev.voidmc.hearth.economy.daily.SettlementEconomy;
@@ -123,7 +123,7 @@ public final class EconomyCommands {
 
 	private static int balance(CommandContext<CommandSourceStack> c, ServerPlayer player) {
 		long carried = PlayerPurse.balance(player);
-		long deposit = Deposits.balance(c.getSource().getServer(), player.getUUID());
+		long deposit = DepositStore.balance(c.getSource().getServer(), player.getUUID());
 		c.getSource().sendSuccess(() -> Component.translatable("hearth.economy.command.balance", player.getDisplayName(), CoinFormat.format(carried),
 			CoinFormat.format(deposit)), false);
 		return (int) Math.min(Integer.MAX_VALUE, carried + deposit);

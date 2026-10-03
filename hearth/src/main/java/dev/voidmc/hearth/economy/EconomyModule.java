@@ -7,7 +7,7 @@ import dev.voidmc.hearth.api.HearthDataKey;
 import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.SettlementEvents;
-import dev.voidmc.hearth.economy.bank.Deposits;
+import dev.voidmc.hearth.economy.bank.DepositStore;
 import dev.voidmc.hearth.economy.command.EconomyCommands;
 import dev.voidmc.hearth.economy.daily.SettlementEconomy;
 import dev.voidmc.hearth.economy.dialogue.EconomyDialogue;
@@ -51,7 +51,7 @@ public final class EconomyModule {
 		EconomyComponents.init();
 		EconomyItems.init();
 		EconomyMenus.init();
-		Deposits.init();
+		DepositStore.init();
 		EconomyNetwork.init();
 		CoinLootTables.init();
 

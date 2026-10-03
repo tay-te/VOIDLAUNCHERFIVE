@@ -38,7 +38,7 @@ public final class Bank {
 
 	public BankView view(ServerPlayer player) {
 		EconomyConfig.Bank cfg = EconomyModule.config().bank();
-		return new BankView(this.settlement.name(), this.tab, Deposits.balance(player.level().getServer(), player.getUUID()),
+		return new BankView(this.settlement.name(), this.tab, DepositStore.balance(player.level().getServer(), player.getUUID()),
 			PlayerPurse.balance(player), this.settlement.treasury(), countEmeralds(player), reserve(), cfg.emeraldBuyPrice(), cfg.emeraldSellPrice(),
 			this.settlement.reputation(player.getUUID()), this.hasBank, PropertyMarket.listings(this.settlement, player), this.status);
 	}
@@ -72,17 +72,17 @@ public final class Bank {
 		if (!PlayerPurse.charge(player, bits)) {
 			return Component.translatable("hearth.economy.bank.nothing_to_deposit").withStyle(ChatFormatting.DARK_RED);
 		}
-		Deposits.add(player.level().getServer(), player.getUUID(), bits);
+		DepositStore.add(player.level().getServer(), player.getUUID(), bits);
 		return Component.translatable("hearth.economy.bank.deposited", CoinFormat.format(bits)).withStyle(ChatFormatting.DARK_GREEN);
 	}
 
 	Component withdraw(ServerPlayer player, long amount) {
-		long held = Deposits.balance(player.level().getServer(), player.getUUID());
+		long held = DepositStore.balance(player.level().getServer(), player.getUUID());
 		long bits = amount == EconomyActionPayload.ALL ? held : Math.min(amount, held);
 		if (bits <= 0) {
 			return Component.translatable("hearth.economy.bank.nothing_on_deposit").withStyle(ChatFormatting.DARK_RED);
 		}
-		if (!Deposits.add(player.level().getServer(), player.getUUID(), -bits)) {
+		if (!DepositStore.add(player.level().getServer(), player.getUUID(), -bits)) {
 			return Component.translatable("hearth.economy.bank.nothing_on_deposit").withStyle(ChatFormatting.DARK_RED);
 		}
 		PlayerPurse.pay(player, bits);
