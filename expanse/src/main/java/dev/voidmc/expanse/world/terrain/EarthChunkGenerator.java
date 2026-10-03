@@ -2,6 +2,7 @@ package dev.voidmc.expanse.world.terrain;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.voidmc.expanse.world.biome.EarthBiomeSource;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -51,7 +52,7 @@ import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
  */
 public final class EarthChunkGenerator extends ChunkGenerator {
 	public static final MapCodec<EarthChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-		BiomeSource.CODEC.fieldOf("biome_source").forGetter(g -> g.biomeSource),
+		BiomeSource.CODEC.fieldOf("biome_source").forGetter(g -> ((EarthBiomeSource) g.biomeSource).source()),
 		NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(g -> g.settings),
 		RegistryOps.retrieveGetter(Registries.BIOME)
 	).apply(i, i.stable(EarthChunkGenerator::new)));
@@ -70,13 +71,14 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 	private volatile TerrainModel model;
 	private final List<Holder<Biome>> realms;
 
+	/** Generates from {@code biomeSource} with the Earth's own cave biomes in place of vanilla's ({@link EarthBiomeSource}). */
 	public EarthChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings, HolderGetter<Biome> biomes) {
-		super(biomeSource);
+		super(new EarthBiomeSource(biomeSource, biomes));
 		this.settings = settings;
 		this.realms = java.util.Arrays.stream(REALM_BIOMES)
 			.map(n -> biomes.get(ResourceKey.create(Registries.BIOME, dev.voidmc.expanse.Expanse.id(n))).<Holder<Biome>>map(h -> h).orElse(null))
 			.toList();
-		this.noise = new NoiseBasedChunkGenerator(biomeSource, settings);
+		this.noise = new NoiseBasedChunkGenerator(this.biomeSource, settings);
 	}
 
 	public Holder<NoiseGeneratorSettings> generatorSettings() {
