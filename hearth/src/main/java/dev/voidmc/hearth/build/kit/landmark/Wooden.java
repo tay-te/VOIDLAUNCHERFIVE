@@ -52,26 +52,59 @@ public final class Wooden {
 		Mat shutter = d.mat(Role.SHUTTER);
 		Mat floor = d.mat(Role.FLOOR);
 		boolean logs = d.habits().walls().kind() == WallKind.LOG;
-		// the pent skirt over the base
+		// a broad tower steps in above its stone base: the framed shaft one block narrower all round
+		int inset = t.size >= 7 ? 1 : 0;
+		int sx0 = t.x0 + inset;
+		int sz0 = t.z0 + inset;
+		int sx1 = t.x1 - inset;
+		int sz1 = t.z1 - inset;
+		Side[] shaft = Side.of(sx0, sz0, sx1, sz1);
+		// the pent skirt over the base, round the foot of the shaft
 		try (var s = d.stage(StageKind.ROOF)) {
-			Set<Long> fp = t.footprint(true);
-			for (int[] c : Shapes.around(fp)) {
-				if (!d.allowed(c[0], baseTop + 1, c[1]) || !d.isEmpty(c[0], baseTop + 1, c[1])) {
-					continue;
+			if (inset > 0) {
+				for (Side f : t.faces()) {
+					for (int i = 0; i < f.length(); i++) {
+						d.set(f.x(i), baseTop + 1, f.z(i), roof.stairsOrSlab(f.out().getOpposite(), Half.BOTTOM));
+						int ox = f.outX(i, 1);
+						int oz = f.outZ(i, 1);
+						if (d.allowed(ox, baseTop, oz) && d.isEmpty(ox, baseTop, oz)) {
+							d.set(ox, baseTop, oz, roof.stairsOrSlab(f.out().getOpposite(), Half.BOTTOM));
+						}
+					}
 				}
-				Direction in = Tower.towardShape(fp, c[0], c[1]);
-				if (in != null) {
-					d.set(c[0], baseTop + 1, c[1], roof.stairsOrSlab(in, Half.BOTTOM));
+			} else {
+				Set<Long> fp = t.footprint(true);
+				for (int[] c : Shapes.around(fp)) {
+					if (!d.allowed(c[0], baseTop + 1, c[1]) || !d.isEmpty(c[0], baseTop + 1, c[1])) {
+						continue;
+					}
+					Direction in = Tower.towardShape(fp, c[0], c[1]);
+					if (in != null) {
+						d.set(c[0], baseTop + 1, c[1], roof.stairsOrSlab(in, Half.BOTTOM));
+					}
 				}
 			}
 		}
+		if (inset > 0) {
+			// the base's top course, closing the stone stage under the skirt
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int z = t.z0 + 1; z < t.z1; z++) {
+					for (int x = t.x0 + 1; x < t.x1; x++) {
+						if (x == sx0 || x == sx1 || z == sz0 || z == sz1) {
+							d.set(x, baseTop, z, t.body.full());
+						}
+					}
+				}
+			}
+		}
+		int shaftFrom = baseTop + 1 + inset;
 		// framed stages: posts at the corners and the middle, girts, a brace in each bay
-		for (int y = baseTop + 1; y <= yb; y++) {
-			boolean girt = y == baseTop + 1 || y == yb || (y - baseTop - 1) % 6 == 0;
-			for (Side f : t.faces()) {
+		for (int y = shaftFrom; y <= yb; y++) {
+			boolean girt = y == shaftFrom || y == yb || (y - shaftFrom) % 6 == 0;
+			for (Side f : shaft) {
 				int mid = f.middle();
 				for (int i = 0; i < f.length(); i++) {
-					boolean post = f.isCorner(i) || i == mid && !logs;
+					boolean post = f.isCorner(i) || i == mid && !logs && f.length() >= 7;
 					Paint p = post ? frame.log(Direction.Axis.Y) : girt ? beam.log(f.axis()) : infill(d, f.axis());
 					try (var s = d.stage(post || girt ? StageKind.FRAME : StageKind.WALLS)) {
 						d.set(f.x(i), y, f.z(i), p);
@@ -80,11 +113,11 @@ public final class Wooden {
 			}
 		}
 		if (!logs) {
-			// braces rising from the corner posts toward the middle post in each stage
-			for (int y0 = baseTop + 2; y0 + 2 < yb; y0 += 6) {
-				for (Side f : t.faces()) {
-					int mid = f.middle();
-					for (int k = 1; k < mid && k <= 3; k++) {
+			// braces rising from the corner posts in each stage
+			for (int y0 = shaftFrom + 1; y0 + 2 < yb; y0 += 6) {
+				for (Side f : shaft) {
+					int span = Math.min(3, f.length() / 2 - 1);
+					for (int k = 1; k <= span; k++) {
 						try (var s = d.stage(StageKind.FRAME)) {
 							d.set(f.x(k), y0 + k - 1, f.z(k), frame.log(Direction.Axis.Y));
 							d.set(f.x(f.last() - k), y0 + k - 1, f.z(f.last() - k), frame.log(Direction.Axis.Y));
@@ -95,11 +128,24 @@ public final class Wooden {
 		}
 		// little lights in the framed stages
 		try (var s = d.stage(StageKind.OPENINGS)) {
-			for (int y = baseTop + 4; y + 2 < yb; y += 6) {
-				for (Side f : t.faces()) {
-					int i = logs ? f.middle() : Math.max(1, f.middle() - 1);
+			for (int y = shaftFrom + 3; y + 2 < yb; y += 6) {
+				for (Side f : shaft) {
+					int i = f.middle();
 					d.set(f.x(i), y, f.z(i), d.mat(Role.GLASS).pane());
 					d.set(f.x(i), y + 1, f.z(i), d.mat(Role.GLASS).pane());
+				}
+			}
+		}
+		if (inset > 0) {
+			// raking brackets from the shaft out under the belfry's overhang
+			try (var s = d.stage(StageKind.FRAME)) {
+				for (Side f : shaft) {
+					for (int i = 0; i < f.length(); i += 2) {
+						int ox = f.outX(i, 1);
+						int oz = f.outZ(i, 1);
+						d.set(ox, yb - 2, oz, beam.stairsOrSlab(f.out().getOpposite(), Half.TOP));
+						d.set(ox, yb - 1, oz, beam.log(f.out().getAxis()));
+					}
 				}
 			}
 		}
@@ -109,9 +155,12 @@ public final class Wooden {
 		int bx1 = t.x1 + 1;
 		int bz1 = t.z1 + 1;
 		try (var s = d.stage(StageKind.FRAME)) {
-			for (int[] c : Draft.ring(bx0, bz0, bx1, bz1)) {
-				if (d.allowed(c[0], yb, c[1])) {
-					d.set(c[0], yb, c[1], floor.full());
+			for (int z = bz0; z <= bz1; z++) {
+				for (int x = bx0; x <= bx1; x++) {
+					boolean inShaft = x > sx0 && x < sx1 && z > sz0 && z < sz1;
+					if (d.allowed(x, yb, z) && !inShaft) {
+						d.set(x, yb, z, floor.full());
+					}
 				}
 			}
 			for (Side f : Side.of(t.x0, t.z0, t.x1, t.z1)) {
