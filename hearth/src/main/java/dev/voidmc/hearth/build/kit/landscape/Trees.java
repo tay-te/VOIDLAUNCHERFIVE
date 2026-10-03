@@ -54,7 +54,7 @@ public final class Trees {
 	}
 
 	/** Context for one tree: where it may reach. */
-	private record Reach(Draft d, int bx0, int bz0, int bx1, int bz1) {
+	private record Reach(Draft d, int bx0, int bz0, int bx1, int bz1, java.util.Set<Long> placed) {
 		boolean ok(int x, int y, int z) {
 			return x >= Math.max(0, this.bx0) && x <= Math.min(this.d.frontage() - 1, this.bx1) && z >= Math.max(0, this.bz0)
 				&& z <= Math.min(this.d.depth() - 1, this.bz1) && y < this.d.maxHeight();
@@ -66,7 +66,7 @@ public final class Trees {
 	 * and inside {@code [bx0..bx1] × [bz0..bz1]}. Returns the highest y drawn.
 	 */
 	public static int tree(Draft d, int x, int y, int z, int height, Kind kind, int bx0, int bz0, int bx1, int bz1) {
-		Reach r = new Reach(d, bx0, bz0, bx1, bz1);
+		Reach r = new Reach(d, bx0, bz0, bx1, bz1, new java.util.HashSet<>());
 		height = Math.min(height, d.maxHeight() - y);
 		if (height < 3) {
 			try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -92,18 +92,63 @@ public final class Trees {
 				default -> broad(d, r, x, y, z, height, logM, leaf, seed);
 			};
 		}
+		prune(d, r.placed(), x, y, z);
 		return top;
 	}
 
-	private static void leafAt(Draft d, Reach r, int x, int y, int z, Paint leaf) {
+	/**
+	 * Removes what a crown left unattached: every placed leaf (or log, or moss) that cannot be reached from the foot of
+	 * the trunk through placed blocks sharing a face or an edge (a lump of crown cut off by the plot's edge).
+	 */
+	private static void prune(Draft d, java.util.Set<Long> placed, int x, int y, int z) {
+		java.util.Set<Long> seen = new java.util.HashSet<>();
+		java.util.ArrayDeque<Long> q = new java.util.ArrayDeque<>();
+		long start = Draft.key(x, y, z);
+		if (!placed.contains(start)) {
+			return;
+		}
+		seen.add(start);
+		q.add(start);
+		while (!q.isEmpty()) {
+			long k = q.poll();
+			int kx = Draft.keyX(k);
+			int ky = Draft.keyY(k);
+			int kz = Draft.keyZ(k);
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dy = -1; dy <= 1; dy++) {
+					for (int dz = -1; dz <= 1; dz++) {
+						int n = (dx != 0 ? 1 : 0) + (dy != 0 ? 1 : 0) + (dz != 0 ? 1 : 0);
+						if (n == 0 || n == 3) {
+							continue;
+						}
+						long nk = Draft.key(kx + dx, ky + dy, kz + dz);
+						if (placed.contains(nk) && seen.add(nk)) {
+							q.add(nk);
+						}
+					}
+				}
+			}
+		}
+		for (long k : placed) {
+			if (!seen.contains(k)) {
+				d.remove(Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k));
+			}
+		}
+	}
+
+	private static boolean leafAt(Draft d, Reach r, int x, int y, int z, Paint leaf) {
 		if (r.ok(x, y, z) && d.isAbsent(x, y, z)) {
 			d.set(x, y, z, leaf);
+			r.placed().add(Draft.key(x, y, z));
+			return true;
 		}
+		return r.ok(x, y, z) && !d.isAbsent(x, y, z);
 	}
 
 	private static void logAt(Draft d, Reach r, int x, int y, int z, Paint log) {
 		if (r.ok(x, y, z)) {
 			d.set(x, y, z, log);
+			r.placed().add(Draft.key(x, y, z));
 		}
 	}
 
@@ -125,6 +170,23 @@ public final class Trees {
 		}
 	}
 
+	/**
+	 * A crown of several lumps: a main ellipsoid and a few smaller ones pushed out from it at seeded angles, so the
+	 * outline is irregular and never a box.
+	 */
+	private static void crown(Draft d, Reach r, double cx, double cy, double cz, double rh, double rv, Paint leaf, long seed) {
+		blob(d, r, cx, cy, cz, rh * 0.8, rv * 0.85, leaf, seed, 0.25);
+		int lumps = 3 + (int) (Noise.unit(seed, 9, 9, 9) * 3);
+		for (int k = 0; k < lumps; k++) {
+			double a = (k + Noise.unit(seed, k, 1, 7) * 0.8) * (Math.PI * 2 / lumps);
+			double dist = rh * (0.45 + 0.35 * Noise.unit(seed, k, 2, 7));
+			double lx = cx + Math.cos(a) * dist;
+			double lz = cz + Math.sin(a) * dist;
+			double ly = cy + (Noise.unit(seed, k, 3, 7) - 0.45) * rv * 0.8;
+			blob(d, r, lx, ly, lz, Math.max(1.1, rh * 0.55), Math.max(1.0, rv * 0.6), leaf, seed ^ (k * 977L), 0.3);
+		}
+	}
+
 	private static int broad(Draft d, Reach r, int x, int y, int z, int h, Mat logM, Paint leaf, long seed) {
 		Paint log = logM.log(Direction.Axis.Y).orElse(logM.full());
 		int trunk = Math.max(2, (int) Math.round(h * 0.42));
@@ -142,7 +204,7 @@ public final class Trees {
 			logAt(d, r, x + Dirs.dx(dir), by, z + Dirs.dz(dir), logM.log(dir.getAxis()).orElse(logM.full()));
 			blob(d, r, x + Dirs.dx(dir) * 2, by + 1, z + Dirs.dz(dir) * 2, Math.max(1.2, rh - 1), 1.2, leaf, seed ^ b, 0.35);
 		}
-		blob(d, r, x + 0.0, cy, z + 0.0, rh, rv, leaf, seed, 0.3);
+		crown(d, r, x + 0.0, cy, z + 0.0, rh, rv, leaf, seed);
 		return Math.min(d.maxHeight() - 1, (int) Math.ceil(cy + rv));
 	}
 
@@ -203,13 +265,14 @@ public final class Trees {
 		for (Direction dir : Dirs.HORIZONTAL) {
 			for (int k = 1; k <= arm; k++) {
 				int yy = k == arm ? cy - 1 : cy;
-				leafAt(d, r, tx + Dirs.dx(dir) * k, yy, tz + Dirs.dz(dir) * k, leaf);
+				if (!leafAt(d, r, tx + Dirs.dx(dir) * k, yy, tz + Dirs.dz(dir) * k, leaf)) {
+					break;
+				}
 			}
 		}
 		for (int[] diag : new int[][]{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
-			leafAt(d, r, tx + diag[0], cy, tz + diag[1], leaf);
-			if (arm >= 3) {
-				leafAt(d, r, tx + diag[0] * 2, cy - 1, tz + diag[1] * 2, leaf);
+			if (leafAt(d, r, tx + diag[0], cy, tz + diag[1], leaf) && arm >= 3) {
+				leafAt(d, r, tx + diag[0] * 2, cy, tz + diag[1] * 2, leaf);
 			}
 		}
 		if (cy + 1 < d.maxHeight()) {
@@ -237,7 +300,7 @@ public final class Trees {
 		}
 		double rh = Math.clamp(h / 2.2, 2.0, 3.4);
 		double cy = Math.min(y + h - 1.6, fy + 1.5);
-		blob(d, r, x, cy, z, rh, Math.max(1.3, (y + h - 1 - cy)), leaf, seed, 0.35);
+		crown(d, r, x, cy, z, rh, Math.max(1.3, (y + h - 1 - cy)), leaf, seed);
 		// petals drooping below the crown's rim
 		for (int dz = -3; dz <= 3; dz++) {
 			for (int dx = -3; dx <= 3; dx++) {
@@ -271,7 +334,7 @@ public final class Trees {
 			logAt(d, r, tx, y + k, tz, log);
 		}
 		double cy = y + trunk + 0.5;
-		blob(d, r, tx, cy, tz, Math.clamp(h / 2.5, 1.6, 2.6), Math.max(1.2, (h - trunk) / 2.0), leaf, seed, 0.5);
+		crown(d, r, tx, cy, tz, Math.clamp(h / 2.5, 1.6, 2.6), Math.max(1.2, (h - trunk) / 2.0), leaf, seed);
 		return Math.min(d.maxHeight() - 1, (int) Math.ceil(cy + 1.5));
 	}
 
@@ -315,7 +378,7 @@ public final class Trees {
 		}
 		double rh = Math.clamp(h / 2.3, 2.0, 3.2);
 		double cy = y + trunk + 0.3;
-		blob(d, r, x, cy, z, rh, 1.4, leaf, seed, 0.3);
+		crown(d, r, x, cy, z, rh, 1.4, leaf, seed);
 		// moss hanging from the crown's rim: under the lowest leaf of a column, a strand one to three long
 		int rim = (int) Math.ceil(rh);
 		for (int dz = -rim; dz <= rim; dz++) {
@@ -341,6 +404,7 @@ public final class Trees {
 					k++;
 				}
 				for (int j = 1; j < k; j++) {
+					r.placed().add(Draft.key(lx, lowest - j, lz));
 					d.set(lx, lowest - j, lz, Blocks.PALE_HANGING_MOSS.defaultBlockState().trySetValue(net.minecraft.world.level.block.HangingMossBlock.TIP, j == k - 1));
 				}
 			}
