@@ -62,6 +62,8 @@ public final class SimPlot implements PlotView {
 	@Nullable Goods stalledOn;
 	long completedDay = Long.MIN_VALUE;
 
+	/** Transient: waiting only because an earlier plot has first claim on the goods (no stall of its own was announced). */
+	boolean heldBack;
 	/** Transient: when an embodied builder last advanced this plot (game time), and the blueprint facts. */
 	long lastEmbodiedAdvance = Long.MIN_VALUE;
 	@Nullable PlotFacts facts;

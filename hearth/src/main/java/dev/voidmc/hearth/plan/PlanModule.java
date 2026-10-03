@@ -31,6 +31,15 @@ public final class PlanModule {
 		planner = new HearthPlanner(STATE, config);
 		HearthServices.setPlanner(planner);
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> PlanCommands.register(dispatcher));
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> serverThread = server.getRunningThread());
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> serverThread = null);
+	}
+
+	private static volatile @Nullable Thread serverThread;
+
+	/** Whether this is the running server's main thread (live planning, time-limited) rather than a history's worker. */
+	public static boolean isServerThread() {
+		return Thread.currentThread() == serverThread;
 	}
 
 	/**

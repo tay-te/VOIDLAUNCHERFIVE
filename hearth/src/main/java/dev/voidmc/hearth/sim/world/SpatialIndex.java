@@ -80,7 +80,9 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 		this.cellsBySettlement.put(s.id(), cells);
 		Long2ObjectMap<long[]> masks = PlotColumns.masks();
 		for (SimPlot p : s.plots()) {
-			if (p.isActive()) {
+			// built ones too: a live town grows abstractly into land nobody has generated yet, and the trees and
+			// boulders world generation would put there must not stand in its streets and houses when it is
+			if (p.state() != dev.voidmc.hearth.api.PlotState.ABANDONED) {
 				PlotColumns.mark(p.spec(), this.guardMargin, masks);
 			}
 		}

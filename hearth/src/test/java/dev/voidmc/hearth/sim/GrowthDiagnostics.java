@@ -17,12 +17,17 @@ class GrowthDiagnostics {
 		if (System.getenv("HEARTH_GROWTH") == null) {
 			return;
 		}
+		if (System.getenv("HEARTH_GROWTH_REAL") != null) {
+			// the real planner and the dev catalogue, as a dev server runs them before the build module lands
+			TestSupport.boot();
+			TestSupport.useRealPlanner();
+		}
 		SimSettlement s = TestSupport.founded(System.getenv().getOrDefault("HEARTH_GROWTH", "flat"), 1);
 		for (int d = 1; d <= Integer.getInteger("hearth.test.days", 200); d++) {
 			long t0 = System.nanoTime();
 			SettlementClock.advance(s, d * SimRules.DAY);
 			long dt = System.nanoTime() - t0;
-			if (d % 10 == 0 || d < 6) {
+			if (d % Integer.getInteger("hearth.test.every", 10) == 0 || d < 6) {
 				Map<JobType, Integer> jobs = new EnumMap<>(JobType.class);
 				for (Resident r : s.residents()) {
 					jobs.merge(r.job, 1, Integer::sum);

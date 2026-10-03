@@ -201,7 +201,7 @@ public final class ChunkApplier {
 				// an unknown archetype or a generator bug: leave this plot, write the others
 				continue;
 			}
-			StepWriter.Owned owned = owned(s, p, bp, cx, cz, cur, ledger);
+			StepWriter.Owned owned = owned(s, p, bp, cx, cz, cur, ledger, refs);
 			StepWriter.Result r = StepWriter.write(bp, cx, cz, cur, target, new World(chunk), owned);
 			ledger = ledger.with(s.id(), p.id(), target);
 			placed += r.placed;
@@ -251,9 +251,28 @@ public final class ChunkApplier {
 		return n;
 	}
 
-	/** What this plot (and the plot it rebuilds) already put in this chunk, read lazily. */
-	private StepWriter.Owned owned(SimSettlement s, SimPlot p, Blueprint bp, int cx, int cz, long cur, AppliedLedger ledger) {
+	/**
+	 * What this plot (and the plot it rebuilds) already put in this chunk, read lazily — and what the settlement's other
+	 * plots here put there: the planner overlaps plots on purpose (a building on its terrace, furniture in the plaza, a
+	 * gatehouse over its road; ARCHITECTURE.md §5.3), and the applier writes both.
+	 */
+	private StepWriter.Owned owned(SimSettlement s, SimPlot p, Blueprint bp, int cx, int cz, long cur, AppliedLedger ledger, List<PlotRef> refs) {
 		return StepWriter.lazyOwned(sink -> {
+			for (PlotRef ref : refs) {
+				if (ref.settlement() != s || ref.plotId() == p.id() || ref.plotId() == p.replaces()) {
+					continue;
+				}
+				SimPlot other = s.plot(ref.plotId());
+				long otherCursor = ledger.get(s.id(), ref.plotId());
+				if (other == null || otherCursor <= Cursor.ZERO) {
+					continue;
+				}
+				try {
+					StepWriter.forApplied(this.blueprints.blueprint(other.spec(), this.terrain), cx, cz, otherCursor, sink);
+				} catch (RuntimeException ignored) {
+					// its archetype is gone
+				}
+			}
 			int old = p.replaces();
 			if (old != SimPlot.NONE) {
 				SimPlot standing = s.plot(old);

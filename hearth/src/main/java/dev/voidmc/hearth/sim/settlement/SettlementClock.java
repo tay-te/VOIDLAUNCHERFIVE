@@ -53,7 +53,7 @@ public final class SettlementClock {
 			long dayEnd = (Math.floorDiv(k.simTick, SimRules.DAY) + 1) * SimRules.DAY;
 			long sliceEnd = Math.min(end, dayEnd);
 			double days = (sliceEnd - k.simTick) / (double) SimRules.DAY;
-			produce(s, wf, days, r);
+			produce(s, wf, days, r, c.economyHandlesWages());
 			construct(s, wf, days, r, c);
 			k.simTick = sliceEnd;
 			if (sliceEnd == dayEnd) {
@@ -95,11 +95,13 @@ public final class SettlementClock {
 				frac[g] += row[g] * workerDays * factor;
 			}
 		}
-		s.clock.coinFraction += r.coin[job.ordinal()] * workerDays;
+		if (!s.ctx().economyHandlesWages()) {
+			s.clock.coinFraction += r.coin[job.ordinal()] * workerDays;
+		}
 		s.markDirty();
 	}
 
-	private static void produce(SimSettlement s, Workforce wf, double days, SimRules r) {
+	private static void produce(SimSettlement s, Workforce wf, double days, SimRules r, boolean economyWages) {
 		SimSettlement.ClockState k = s.clock;
 		double[] frac = k.fractions;
 		SimStockpile stock = s.stockpile();
@@ -125,7 +127,10 @@ public final class SettlementClock {
 					frac[g] += row[g] * n * days * factor;
 				}
 			}
-			coin += r.coin[j] * n * days;
+			if (!economyWages) {
+				// the town's own income from its trades; with the economy module its taxes and wages take this place
+				coin += r.coin[j] * n * days;
+			}
 		}
 		frac[Goods.FOOD.ordinal()] -= (wf.adults * r.foodAdult + wf.children * r.foodChild + wf.elders * r.foodElder) * days;
 		for (int g = 0; g < frac.length; g++) {
@@ -681,8 +686,15 @@ public final class SettlementClock {
 			order.add(JobType.FISHER);
 			order.add(JobType.HUNTER);
 		}
+		// with a month's food in store, the food trades take what workers are left after the other workplaces
+		boolean plenty = s.stockpile.get(Goods.FOOD) > s.population() * r.foodAdult * 30;
 		for (JobType j : JobType.values()) {
-			if (j != JobType.NONE && !order.contains(j)) {
+			if (j != JobType.NONE && !order.contains(j) && !(plenty && foodTrade(j))) {
+				order.add(j);
+			}
+		}
+		for (JobType j : JobType.values()) {
+			if (!order.contains(j) && j != JobType.NONE) {
 				order.add(j);
 			}
 		}
@@ -699,6 +711,10 @@ public final class SettlementClock {
 				filled[j]++;
 			}
 		}
+	}
+
+	private static boolean foodTrade(JobType j) {
+		return j == JobType.FARMER || j == JobType.FISHER || j == JobType.HUNTER || j == JobType.HERDER;
 	}
 
 	/** A standing plot with a free job site for this job, or none (builders without a yard work from home). */

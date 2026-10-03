@@ -579,17 +579,12 @@ public final class PlaceholderBlueprints implements BlueprintService {
 		int storeys = Math.max(1, Math.min(4, Math.min((height - 1) / 4, (s.maxHeight() - 1) / 4)));
 		int wallH = 4 * storeys;
 		groundwork(b, t, p.floor, wallH + 2);
-		int ox = s.origin().getX() + 1;
-		int oz = s.origin().getZ() + 1;
-		int ex = s.origin().getX() + s.sizeX() - 2;
-		int ez = s.origin().getZ() + s.sizeZ() - 2;
-		if (ex - ox < 2 || ez - oz < 2) {
-			// too small for a ring: build to the edges
-			ox--;
-			oz--;
-			ex++;
-			ez++;
-		}
+		// a yard ring round anything roomy; small houses (huts, rowhouses) fill their plot
+		boolean ring = s.sizeX() >= 9 && s.sizeZ() >= 9;
+		int ox = s.origin().getX() + (ring ? 1 : 0);
+		int oz = s.origin().getZ() + (ring ? 1 : 0);
+		int ex = s.origin().getX() + s.sizeX() - (ring ? 2 : 1);
+		int ez = s.origin().getZ() + s.sizeZ() - (ring ? 2 : 1);
 		Direction f = s.facing();
 		int doorX = f.getAxis() == Direction.Axis.Z ? (ox + ex) / 2 : f == Direction.WEST ? ox : ex;
 		int doorZ = f.getAxis() == Direction.Axis.X ? (oz + ez) / 2 : f == Direction.NORTH ? oz : ez;
@@ -689,6 +684,19 @@ public final class PlaceholderBlueprints implements BlueprintService {
 				b.set(foot.getX(), fy, foot.getZ(), bed.setValue(BedBlock.PART, BedPart.FOOT));
 				b.set(head.getX(), fy, head.getZ(), bed.setValue(BedBlock.PART, BedPart.HEAD));
 				b.poi(new Poi(PoiType.BED, head, f, null));
+				b.beds(1);
+				placedBeds++;
+			}
+		}
+		if (placedBeds == 0 && beds > 0 && width >= 1 && depth >= 2) {
+			// a cramped hut: one bed along the back wall, crosswise
+			BlockPos head = backWall.relative(side, Math.max(0, width / 2));
+			BlockPos foot = head.relative(side.getOpposite());
+			if (!foot.equals(inside) && !head.equals(inside)) {
+				BlockState bed = Blocks.BED.pick(DyeColor.BROWN).defaultBlockState().setValue(BedBlock.FACING, side);
+				b.set(foot.getX(), y0, foot.getZ(), bed.setValue(BedBlock.PART, BedPart.FOOT));
+				b.set(head.getX(), y0, head.getZ(), bed.setValue(BedBlock.PART, BedPart.HEAD));
+				b.poi(new Poi(PoiType.BED, head, back, null));
 				b.beds(1);
 				placedBeds++;
 			}
@@ -823,6 +831,72 @@ public final class PlaceholderBlueprints implements BlueprintService {
 		b.poi(new Poi(PoiType.MEETING_POINT, mid, f, null));
 		b.entrance(mid.relative(f, Math.max(1, (f.getAxis() == Direction.Axis.Z ? s.sizeZ() : s.sizeX()) / 2)));
 		b.colours(0x8A8A8A, 0x8A8A8A, 0);
+		return b.build();
+	}
+
+	/**
+	 * A stand-in street on exactly the corridor the planner reserved (PLANNING.md §7: the polyline's columns within
+	 * {@code (width + 0.5) / 2}): cleared above for walking (trees and boulders out of the way), filled below to the
+	 * ground, a surface by kind (planks over water), and lamp posts along streets and lanes.
+	 */
+	public static Blueprint street(PlotSpec s, TerrainProbe t) {
+		Palette p = palette(s);
+		PlaceholderBlueprint.Builder b = new PlaceholderBlueprint.Builder(s);
+		CompoundTag params = s.params();
+		int y0 = s.floorY();
+		int[] pts = params.getIntArray("points").orElse(new int[]{s.origin().getX(), y0, s.origin().getZ(), s.origin().getX(), y0, s.origin().getZ()});
+		int width = Math.max(1, params.getIntOr("width", 3));
+		String kind = params.getStringOr("kind", "lane");
+		dev.voidmc.hearth.plan.road.Polyline.Dense d = new dev.voidmc.hearth.plan.road.Polyline(pts).dense();
+		List<int[]> cells = new java.util.ArrayList<>();
+		dev.voidmc.hearth.plan.road.Polyline.corridor(pts, width, (x, z) -> cells.add(new int[]{x, d.ys()[d.nearest(x, z)], z}));
+		b.stage(StageKind.CLEAR);
+		for (int[] c : cells) {
+			for (int y = c[1]; y < c[1] + 4; y++) {
+				b.set(c[0], y, c[2], Blocks.AIR.defaultBlockState());
+			}
+		}
+		b.stage(StageKind.EARTHWORK);
+		for (int[] c : cells) {
+			int g = Math.max(t.groundY(c[0], c[2]), c[1] - 6);
+			for (int y = g; y < c[1] - 1; y++) {
+				b.set(c[0], y, c[2], Blocks.DIRT.defaultBlockState());
+			}
+		}
+		b.stage(StageKind.FOUNDATION);
+		// earth for most ways (a young camp cannot spare stone for paving); dressed stone only in a dense core's alleys
+		Block surface = switch (kind) {
+			case "highway" -> Blocks.COARSE_DIRT;
+			case "alley" -> Blocks.COBBLESTONE;
+			default -> p.path;
+		};
+		for (int[] c : cells) {
+			boolean wet = t.isWater(c[0], c[2]) && t.waterY(c[0], c[2]) >= c[1];
+			b.set(c[0], c[1] - 1, c[2], (wet ? p.planks : surface).defaultBlockState());
+		}
+		if (!kind.equals("path")) {
+			b.stage(StageKind.EXTERIOR);
+			int[] xs = d.xs();
+			int[] zs = d.zs();
+			int[] ys = d.ys();
+			for (int i = 8; i < xs.length; i += 16) {
+				int dx = xs[Math.min(xs.length - 1, i + 1)] - xs[Math.max(0, i - 1)];
+				int dz = zs[Math.min(zs.length - 1, i + 1)] - zs[Math.max(0, i - 1)];
+				// the lamp at the corridor's edge, to the right of the way
+				int ox = Math.abs(dz) >= Math.abs(dx) ? (width / 2 + 1) * Integer.signum(dz == 0 ? 1 : -dz) : 0;
+				int oz = Math.abs(dx) > Math.abs(dz) ? (width / 2 + 1) * Integer.signum(dx) : 0;
+				int x = xs[i] + ox;
+				int z = zs[i] + oz;
+				int y = ys[i];
+				if (t.isWater(x, z) || Math.abs(t.groundY(x, z) - y) > 1) {
+					continue;
+				}
+				b.set(x, y, z, Blocks.OAK_FENCE.defaultBlockState());
+				b.set(x, y + 1, z, Blocks.OAK_FENCE.defaultBlockState());
+				b.set(x, y + 2, z, Blocks.LANTERN.defaultBlockState());
+			}
+		}
+		b.colours(0x9A8A6A, 0x9A8A6A, 0);
 		return b.build();
 	}
 

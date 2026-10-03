@@ -85,6 +85,9 @@ public final class DevCatalogue implements BlueprintService {
 		if (id.equals(PlaceholderBlueprints.WELL)) {
 			return PlaceholderBlueprints.generate(spec, terrain);
 		}
+		if (id.equals(Archetypes.ROAD) || id.equals(Archetypes.STAIRS)) {
+			return PlaceholderBlueprints.street(spec, terrain);
+		}
 		if (id.equals(Archetypes.PLAZA)) {
 			return PlaceholderBlueprints.plaza(spec, terrain);
 		}

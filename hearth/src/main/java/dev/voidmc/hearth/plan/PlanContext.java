@@ -40,15 +40,24 @@ public final class PlanContext {
 	public boolean routed;
 	/** Buildings (not roads) queued since the counter was last reset: whether a need was really met. */
 	public int buildings;
+	/** {@code System.nanoTime()} after which frontage searches give up (live calls only; see {@link PlanConfig#liveTimeLimitMs}). */
+	public long deadline = Long.MAX_VALUE;
+
+	public boolean pastDeadline() {
+		return this.deadline != Long.MAX_VALUE && System.nanoTime() > this.deadline;
+	}
 
 	/**
 	 * Whether the road network may still grow: about twenty blocks of road per resident (and a few hundred to start), so
-	 * a settlement that cannot place what it wants does not lay roads for ever.
+	 * a settlement that cannot place what it wants does not lay roads for ever. The count runs a little ahead of the
+	 * people who live there now: newcomers only come while beds are free, and beds need frontage, so a cap on today's
+	 * head count alone would freeze a town whose roads have no frontage left (seen on steep harbour land).
 	 */
 	public boolean roadsMayGrow() {
 		// an expansive settlement's tracks run far between its farmsteads
 		int perHead = this.state.layout.expansive ? 45 : 20;
-		return this.state.graph.builtLength() < (this.state.layout.expansive ? 700 : 300) + perHead * this.population;
+		int ahead = Math.max(6, this.population / 5);
+		return this.state.graph.builtLength() < (this.state.layout.expansive ? 700 : 300) + perHead * (this.population + ahead);
 	}
 
 	public PlanContext(Settlement settlement, PlanState state, TerrainProbe terrain, RandomSource random, Catalogue catalogue, PlanConfig config) {

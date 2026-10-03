@@ -114,6 +114,10 @@ final class BuilderWork implements WorkBehaviour {
 		return best;
 	}
 
+	static long cursor(int stage, int step) {
+		return (long) stage << 32 | step & 0xFFFF_FFFFL;
+	}
+
 	/** Under construction with its current stage's goods in hand: a plot waiting for goods is left until they come. */
 	static boolean buildable(PlotView p) {
 		return p.state() == PlotState.BUILDING && !p.waitingForGoods();
@@ -170,6 +174,8 @@ final class BuilderWork implements WorkBehaviour {
 		private int cooldown;
 		private int waitedForStage;
 		private @Nullable Scaffold scaffold;
+		/** The step (stage and index packed) a scaffold could not be put up for. */
+		private long noScaffoldAt = -1;
 		private String doing = "building";
 
 		Build(int plotId) {
@@ -188,6 +194,10 @@ final class BuilderWork implements WorkBehaviour {
 
 			// Scaffolding: put up, climbed, come down, taken down.
 			if (this.scaffold != null && this.scaffold.done()) {
+				if (this.scaffold.gaveUp()) {
+					// no scaffold for this step again: reach it from the ground as best one can (see below)
+					this.noScaffoldAt = BuilderWork.cursor(plot.stage(), plot.step());
+				}
 				this.scaffold = null;
 			}
 			if (this.scaffold != null && this.scaffold.busy()) {
@@ -281,7 +291,7 @@ final class BuilderWork implements WorkBehaviour {
 				return Status.RUNNING;
 			}
 			double above = step.pos.getY() - folk.getY();
-			if (above > 3.0 && FolkBrain.config().scaffolding()) {
+			if (above > 3.0 && FolkBrain.config().scaffolding() && this.noScaffoldAt != BuilderWork.cursor(stage, index)) {
 				Scaffold s = Scaffold.plan(level, brain, plot.spec(), step.pos, upcoming(blueprint, stage, index), nextSolid(blueprint, stage, index, 40));
 				if (s != null) {
 					this.scaffold = s;
@@ -480,6 +490,10 @@ final class BuilderWork implements WorkBehaviour {
 		private Phase phase = Phase.GO;
 		private int timer;
 		private int jumpWait;
+		private int goTicks;
+		private boolean climbed;
+		/** Ticks a builder tries to reach the scaffold's column before giving up on it. */
+		private static final int GO_LIMIT = 300;
 
 		private Scaffold(BlockPos base, int height) {
 			this.base = base;
@@ -606,6 +620,11 @@ final class BuilderWork implements WorkBehaviour {
 			return this.phase == Phase.DONE;
 		}
 
+		/** Finished without ever standing on it: the column could not be reached. */
+		boolean gaveUp() {
+			return this.phase == Phase.DONE && this.placed.isEmpty() && this.goTicks > 0 && !this.climbed;
+		}
+
 		boolean hasBlocks() {
 			return !this.placed.isEmpty();
 		}
@@ -633,10 +652,13 @@ final class BuilderWork implements WorkBehaviour {
 			switch (this.phase) {
 				case GO -> {
 					brain.hold(new ItemStack(Items.SCAFFOLDING), ItemStack.EMPTY);
+					this.goTicks += elapsed;
 					if (brain.walk(level, this.base, 0.4, 0.65)) {
 						brain.resetWalk();
+						this.climbed = true;
 						this.phase = Phase.POLE;
-					} else if (brain.walkFailed()) {
+					} else if (brain.walkFailed() || this.goTicks > GO_LIMIT) {
+						// the column cannot be reached (or the builders jostle for it): work from the ground instead
 						brain.resetWalk();
 						this.phase = Phase.DONE;
 					}

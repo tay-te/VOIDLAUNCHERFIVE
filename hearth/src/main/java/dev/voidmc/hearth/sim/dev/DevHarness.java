@@ -154,6 +154,11 @@ public final class DevHarness {
 				}
 				for (SimSettlement t : towns) {
 					LOG.info("[hearth-dev] {}", server.submit(() -> describe(t)).join());
+					LOG.info("[hearth-dev]   {}", server.submit(() -> growth(w, t)).join());
+				}
+				LOG.info("[hearth-dev] {}; {}", server.submit(w::foundingStats).join(), server.submit(w::daughterStats).join());
+				for (String line : server.submit(() -> hamletLines(w)).join()) {
+					LOG.info("[hearth-dev] {}", line);
 				}
 			}
 		} catch (Throwable t) {
@@ -171,6 +176,89 @@ public final class DevHarness {
 		return String.format(Locale.ROOT, "#%d %s: %s %s at %s, %d souls, %d beds, %d plots %s, treasury %d, stores %s", s.id(), s.name(),
 			s.culture().getSerializedName(), s.tier().getSerializedName(), s.center().toShortString(), s.population(), s.beds(), s.plots().size(),
 			s.plotCounts(), s.treasury(), s.stockpile());
+	}
+
+	/**
+	 * How a town grew: its layout and signature (from the planner's state), plots by kind, rebuilds, and whether its
+	 * buildings stand on built roads (a door within 3 blocks of a finished road, path, plaza or square).
+	 */
+	private static String growth(SimWorld w, SimSettlement s) {
+		java.util.Map<String, Integer> kinds = new java.util.TreeMap<>();
+		int rebuilds = 0;
+		int rebuildsDone = 0;
+		int demolishing = 0;
+		int abandoned = 0;
+		List<SimPlot> ways = new ArrayList<>();
+		List<SimPlot> buildings = new ArrayList<>();
+		for (SimPlot p : s.plots()) {
+			String path = p.spec().archetype().getPath();
+			kinds.merge(path.substring(0, Math.max(0, path.indexOf('/'))), 1, Integer::sum);
+			if (p.replaces() != SimPlot.NONE || p.replacedSpec() != null) {
+				rebuilds++;
+				if (p.isStanding()) {
+					rebuildsDone++;
+				}
+			}
+			if (p.state() == PlotState.DEMOLISHING) {
+				demolishing++;
+			}
+			if (p.state() == PlotState.ABANDONED) {
+				abandoned++;
+			}
+			if (p.isStanding() && (path.startsWith("infra/") || path.equals("landscape/plaza"))) {
+				ways.add(p);
+			} else if (p.isStanding() && (path.startsWith("house/") || path.startsWith("work/") || path.startsWith("commerce/")
+				|| path.startsWith("civic/") || path.startsWith("storage/"))) {
+				buildings.add(p);
+			}
+		}
+		int onRoad = 0;
+		for (SimPlot b : buildings) {
+			List<BlockPos> doors;
+			try {
+				doors = HearthServices.blueprints().blueprint(b.spec(), w.terrain()).entrances();
+			} catch (RuntimeException e) {
+				continue;
+			}
+			search:
+			for (BlockPos d : doors) {
+				for (SimPlot r : ways) {
+					boolean[] near = {false};
+					dev.voidmc.hearth.sim.atlas.PlotColumns.forEach(r.spec(), 0, (x, z) -> {
+						if (!near[0] && Math.abs(x - d.getX()) <= 3 && Math.abs(z - d.getZ()) <= 3) {
+							near[0] = true;
+						}
+					});
+					if (near[0]) {
+						onRoad++;
+						break search;
+					}
+				}
+			}
+		}
+		String plan = "?";
+		if (HearthServices.planner() instanceof dev.voidmc.hearth.plan.HearthPlanner hp) {
+			var st = s.data(hp.key());
+			plan = st.layout.getSerializedName() + "/" + st.signature.getSerializedName();
+		}
+		return String.format(Locale.ROOT, "growth of %s: layout %s, plots by kind %s, rebuilds %d (%d finished, %d demolishing), %d abandoned; "
+			+ "%d of %d finished buildings have their door on a finished road or square; %d daughter hamlets%s", s.name(), plan, kinds, rebuilds,
+			rebuildsDone, demolishing, abandoned, onRoad, buildings.size(), s.clockState().daughters(),
+			s.clockState().parent() != 0 ? ", founded by settlers from #" + s.clockState().parent() : "");
+	}
+
+	/** The hamlets founded by settlers during the run. */
+	private static List<String> hamletLines(SimWorld w) {
+		List<String> out = new ArrayList<>();
+		for (SimSettlement s : w.settlements()) {
+			if (s.clockState().parent() != 0) {
+				SimSettlement parent = w.settlement(s.clockState().parent());
+				out.add(String.format(Locale.ROOT, "hamlet %s (%s) at %s, %d blocks from %s: %d souls, %d plots %s", s.name(), s.tier().getSerializedName(),
+					s.center().toShortString(), parent == null ? -1 : (int) Math.sqrt(parent.center().distSqr(s.center())),
+					parent == null ? "?" : parent.name(), s.population(), s.plots().size(), s.plotCounts()));
+			}
+		}
+		return out;
 	}
 
 	/** Compares the probe with the generator's own base heights, and times the generic probe against the active one. */

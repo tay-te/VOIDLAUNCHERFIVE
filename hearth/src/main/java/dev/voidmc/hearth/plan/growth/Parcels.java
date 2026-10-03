@@ -204,7 +204,7 @@ public final class Parcels {
 		List<Parcel> found = new ArrayList<>();
 		int budget = ctx.config.searchBudget();
 		for (Pos pos : positions) {
-			if (budget-- <= 0) {
+			if (budget-- <= 0 || ctx.pastDeadline()) {
 				break;
 			}
 			Parcel p = place(ctx, req, pos);

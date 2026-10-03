@@ -38,6 +38,16 @@ public final class TestSupport {
 		}
 	}
 
+	/** Swaps the placeholders for the real planner over the dev catalogue (for diagnostics). */
+	public static synchronized void useRealPlanner() {
+		var catalogue = new dev.voidmc.hearth.sim.dev.DevCatalogue(null);
+		HearthServices.setBlueprints(catalogue);
+		HearthServices.setPlanner(new dev.voidmc.hearth.plan.HearthPlanner(dev.voidmc.hearth.plan.PlanModule.STATE, dev.voidmc.hearth.plan.PlanConfig.DEFAULTS));
+		realPlanner = true;
+	}
+
+	private static boolean realPlanner;
+
 	public static SimRules rules() {
 		return SimRules.defaults();
 	}
@@ -46,7 +56,8 @@ public final class TestSupport {
 	public static History.Context context(TerrainProbe terrain) {
 		boot();
 		BoundingBox land = new BoundingBox(-1024, -2048, -1024, 1023, 4096, 1023);
-		return History.context(rules(), terrain, blueprints, planner, land);
+		return realPlanner ? History.context(rules(), terrain, HearthServices.blueprints(), HearthServices.planner(), land)
+			: History.context(rules(), terrain, blueprints, planner, land);
 	}
 
 	/** A freshly founded settlement on synthetic ground round the origin. */

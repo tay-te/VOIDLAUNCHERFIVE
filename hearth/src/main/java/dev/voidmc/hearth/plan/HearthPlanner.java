@@ -88,6 +88,9 @@ public final class HearthPlanner implements SettlementPlanner {
 		PlanState state = settlement.data(this.key);
 		state.calls++;
 		PlanContext ctx = new PlanContext(settlement, state, terrain, random, Catalogue.current(), this.config);
+		if (PlanModule.isServerThread() && this.config.liveTimeLimitMs() > 0) {
+			ctx.deadline = System.nanoTime() + this.config.liveTimeLimitMs() * 1_000_000L;
+		}
 		if (!state.founded) {
 			// a settlement the planner never laid out (an old save, a record made by hand): lay it out now
 			reconcile(ctx);

@@ -89,12 +89,26 @@ final class Hamlets {
 			return;
 		}
 		// the site may have been taken while the search went on
-		if (this.world.whyNotFound(q.best, SimWorld.FOUND_SPACING, true) != null) {
+		if (this.world.whyNotFound(q.best, SimWorld.FOUND_SPACING, true) != null || nearPending(q.best)) {
 			this.failed++;
 			return;
 		}
-		this.world.foundDaughter(q.best, null, parent, Math.min(d.settlers(), Math.max(2, parent.population() / 8)),
-			"settlers from " + parent.name() + ", which had outgrown its beds");
+		BlockPos site = q.best;
+		this.pending.add(site);
+		this.world.foundDaughterAsync(site, parent, Math.min(d.settlers(), Math.max(2, parent.population() / 8)),
+			"settlers from " + parent.name() + ", which had outgrown its beds", s -> this.pending.remove(site));
+	}
+
+	/** Sites being laid out off-thread: not registered yet, so whyNotFound cannot see them. */
+	private final java.util.List<BlockPos> pending = new java.util.ArrayList<>();
+
+	private boolean nearPending(BlockPos at) {
+		for (BlockPos p : this.pending) {
+			if (Math.abs(p.getX() - at.getX()) + Math.abs(p.getZ() - at.getZ()) < SimWorld.FOUND_SPACING * 1.4) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Scores one random spot in the distance band; false if it must wait for a region to be surveyed. */
@@ -109,7 +123,7 @@ final class Hamlets {
 			return false;
 		}
 		q.tried++;
-		if (why != null) {
+		if (why != null || nearPending(at)) {
 			return true;
 		}
 		double score = score(this.world.terrain(), x, z);

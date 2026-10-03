@@ -507,12 +507,26 @@ public final class SimSettlement implements Settlement {
 		};
 	}
 
+	/**
+	 * Tries to start a plot's current stage now: takes its goods if they are in store, otherwise marks it waiting for
+	 * them (firing {@code CONSTRUCTION_STALLED} once). For commands and tests; the clock does this as it goes.
+	 */
+	public boolean tryStartStage(int plotId) {
+		SimPlot p = this.plots.get(plotId);
+		if (p == null || !p.isActive()) {
+			return false;
+		}
+		PlotFacts f = facts(p);
+		return p.stage < f.stageCount() && (p.funded || startStage(p, f, false));
+	}
+
 	/** Takes the stage's goods if they are in store (or anyway, if forced: an embodied builder already started). */
 	boolean startStage(SimPlot p, PlotFacts f, boolean force) {
 		int[] need = f.goods()[p.stage];
 		if (!force && !this.stockpile.has(need)) {
 			int worst = this.stockpile.worstShortfall(need);
-			if (worst >= 0 && p.stalledOn == null) {
+			if (worst >= 0 && (p.stalledOn == null || p.heldBack)) {
+				p.heldBack = false;
 				p.stalledOn = Goods.VALUES[worst];
 				HearthWorld w = ctx().eventWorld();
 				if (w != null) {
@@ -521,9 +535,20 @@ public final class SimSettlement implements Settlement {
 			}
 			return false;
 		}
+		if (!force) {
+			Goods held = heldFor(p, need);
+			if (held != null) {
+				// an earlier plot is waiting for these goods: what comes in goes to it first (or a supply quest that covers
+				// its shortfall would be eaten by smaller jobs before it could start). This one waits its turn, quietly.
+				p.stalledOn = held;
+				p.heldBack = true;
+				return false;
+			}
+		}
 		this.stockpile.takeAll(need);
 		p.funded = true;
 		p.stalledOn = null;
+		p.heldBack = false;
 		if (p.state == PlotState.PLANNED) {
 			p.state = PlotState.BUILDING;
 			SimPlot old = this.plots.get(p.replaces);
@@ -538,6 +563,32 @@ public final class SimSettlement implements Settlement {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The goods {@code p} would take from the first plot ahead of it (in plot order, the order labour goes round) already
+	 * waiting for them, or null if starting {@code p} leaves that plot no worse off. The first plot in line is never held.
+	 */
+	private @Nullable Goods heldFor(SimPlot p, int[] need) {
+		for (SimPlot q : this.plots.values()) {
+			if (q == p) {
+				// nobody waiting before it: it is first in line
+				return null;
+			}
+			if (!q.isActive() || q.funded || q.stalledOn == null || q.facts == null || q.stage >= q.facts.stageCount()) {
+				continue;
+			}
+			int[] theirs = q.facts.goods()[q.stage];
+			int cap = this.stockpile.capacity(Goods.FOOD);
+			for (int g = 0; g < need.length && g < theirs.length; g++) {
+				if (need[g] > 0 && theirs[g] > 0 && this.stockpile.get(Goods.VALUES[g]) - Math.min(theirs[g], cap) < Math.min(need[g], cap)) {
+					return Goods.VALUES[g];
+				}
+			}
+			// only the first waiting plot holds goods back
+			return null;
+		}
+		return null;
 	}
 
 	/** The current stage is done: on to the next, or the whole plot. */
@@ -775,6 +826,11 @@ public final class SimSettlement implements Settlement {
 
 		public int daughters() {
 			return this.daughters;
+		}
+
+		/** The planner had nothing to propose: the clock does not ask again before this sim tick. */
+		public long noGrowthUntil() {
+			return this.noGrowthUntil;
 		}
 
 		public long parent() {
