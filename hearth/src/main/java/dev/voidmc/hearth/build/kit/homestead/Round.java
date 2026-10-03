@@ -223,6 +223,30 @@ public final class Round {
 		return r;
 	}
 
+	/**
+	 * A skirt roof round a ring: a lean-to ring from the wall out to radius {@code outer} (over a veranda), its eave a
+	 * slab course at {@code eaveY}, rising toward the wall by {@code pitch} a block. The cone over the ring stands above
+	 * it, a band of wall between them (the two-tier roof of the tropics). Returns the skirt.
+	 */
+	public static Roofs.Roof skirt(Draft d, Ring ring, double outer, int eaveY, double pitch, Mat roof) {
+		double cx = ring.cx;
+		double cz = ring.cz;
+		Roofs.Field f = (x, z) -> {
+			double rad = Math.hypot(x - cx, z - cz);
+			if (rad > outer + 0.5 || ring.inside(x, z) || ring.isWall(x, z)) {
+				return Double.NaN;
+			}
+			return 0.5 + pitch * Math.max(0, outer - rad);
+		};
+		int rx0 = Math.max(0, (int) Math.floor(cx - outer - 0.5));
+		int rx1 = Math.min(d.frontage() - 1, (int) Math.ceil(cx + outer + 0.5));
+		int rz0 = Math.max(-1, (int) Math.floor(cz - outer - 0.5));
+		int rz1 = Math.min(d.depth() - 1, (int) Math.ceil(cz + outer + 0.5));
+		try (var s = d.stage(StageKind.ROOF)) {
+			return Roofs.raster(d, f, eaveY, rx0, rz0, rx1, rz1, roof, roof, Habits.Ridge.FULL);
+		}
+	}
+
 	/** A room over the ring's floor for {@link Rooms#furnish}: the rectangle round it with the cells outside the circle blocked. */
 	public static Rooms.Room room(Ring ring, int y, int height) {
 		int x0 = ring.x0() + 1;

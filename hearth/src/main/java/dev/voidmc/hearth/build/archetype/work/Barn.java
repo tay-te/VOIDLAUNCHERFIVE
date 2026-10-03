@@ -111,14 +111,19 @@ public final class Barn implements Archetype {
 	private record Fit(RoofForm form, int groundH, int loftH) {
 	}
 
-	/** Hay stacked on a flat roof under a shade of cloth on posts, with a ladder up the side wall. */
+	/**
+	 * The flat roof of a byre in the dry country: hay stacked on the back half under a ramada (four poles, beams across
+	 * them, a lattice of slats laid over), and a ladder up the side wall to the roof, its rails standing over the
+	 * parapet.
+	 */
 	private static void roofHay(Draft d, Barns.Hall h) {
 		int deck = h.deck();
 		if (deck == Integer.MIN_VALUE || deck + 3 >= d.maxHeight()) {
 			return;
 		}
 		var fence = d.mat(Role.FENCE).has(dev.voidmc.hearth.build.style.Form.FENCE) ? d.mat(Role.FENCE) : d.mat(Role.FRAME);
-		var cloth = d.mat(Role.CLOTH);
+		var frame = d.mat(Role.FRAME);
+		var beam = d.mat(Role.BEAM);
 		int x0 = h.x0() + 1;
 		int x1 = h.x1() - 1;
 		int z0 = (h.z0() + h.z1()) / 2;
@@ -126,8 +131,12 @@ public final class Barn implements Archetype {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
-					if (Noise.unit(d.seed() ^ 0x4AF, x, 0, z) < 0.55) {
+					double u = Noise.unit(d.seed() ^ 0x4AF, x, 0, z);
+					if (u < 0.6) {
 						d.set(x, deck, z, Blocks.HAY_BLOCK.defaultBlockState());
+						if (u < 0.2 && x > x0 && x < x1 && z > z0 && z < z1) {
+							d.set(x, deck + 1, z, Blocks.HAY_BLOCK.defaultBlockState());
+						}
 					}
 				}
 			}
@@ -135,11 +144,44 @@ public final class Barn implements Archetype {
 				d.set(p[0], deck, p[1], fence.fence());
 				d.set(p[0], deck + 1, p[1], fence.fence());
 			}
-			for (int z = z0; z <= z1; z++) {
-				for (int x = x0; x <= x1; x++) {
-					d.set(x, deck + 2, z, cloth.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+			// the beams across the poles, the slats between them
+			for (int x = x0; x <= x1; x++) {
+				d.set(x, deck + 2, z0, beam.log(net.minecraft.core.Direction.Axis.X));
+				d.set(x, deck + 2, z1, beam.log(net.minecraft.core.Direction.Axis.X));
+				for (int z = z0 + 1; z < z1; z++) {
+					d.set(x, deck + 2, z, (x - x0) % 2 == 0 ? frame.trapdoor(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.TOP, false)
+						: beam.log(net.minecraft.core.Direction.Axis.Z));
 				}
 			}
+		}
+		// the roof beams' ends through the side walls under the parapet (an adobe roof shows them already)
+		if (d.habits().walls().kind() != dev.voidmc.hearth.build.style.Habits.WallKind.ADOBE) {
+			try (var s = d.stage(StageKind.FRAME)) {
+				for (int z = h.z0() + 1; z < h.z1(); z += 2) {
+					for (int x : new int[]{h.x0() - 1, h.x1() + 1}) {
+						if (x >= 0 && x < d.frontage() && z != h.z0() + 2) {
+							d.setIfAbsent(x, h.plateY() - 1, z, beam.log(net.minecraft.core.Direction.Axis.X));
+						}
+					}
+				}
+			}
+		}
+		// the ladder up the left wall (clear of the beam ends), its rails over the parapet
+		int lx = h.x0() - 1;
+		if (lx < 0) {
+			return;
+		}
+		int lz = h.z0() + 2;
+		for (int y = h.y(); y <= deck + 1; y++) {
+			if (!d.isAbsent(lx, y, lz)) {
+				return;
+			}
+		}
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int y = h.y(); y < deck + 1; y++) {
+				d.set(lx, y, lz, dev.voidmc.hearth.build.draft.States.facing(Blocks.LADDER, Dirs.LEFT));
+			}
+			d.set(lx, deck + 1, lz, fence.fence());
 		}
 	}
 

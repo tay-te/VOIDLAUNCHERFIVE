@@ -81,12 +81,18 @@ public final class RoundHouse implements Archetype {
 			base = Math.min(base, 4);
 		}
 		int wallH = stilted && !veranda ? 3 : 4;
+		// over a veranda, where the height allows: two tiers, a skirt over the veranda and a steep cone over the house
+		boolean tiers = veranda && base + 4 + r + 1 < d.maxHeight() - 1;
+		if (tiers) {
+			wallH = 5;
+			eaves = 1;
+		}
 		int plate = base + wallH - 1;
 		Mat roofMat = cover(d);
 		double pitch = 1.15;
 		// a lower cone where the plot's height is tight
 		double rr = r + eaves;
-		while (pitch > 0.6 && plate + 1 + pitch * (rr + 0.5) + 2 >= d.maxHeight()) {
+		while (!tiers && pitch > 0.6 && plate + 1 + pitch * (rr + 0.5) + 2 >= d.maxHeight()) {
 			pitch -= 0.1;
 		}
 		d.body(ring.x0(), ring.z0(), ring.x1(), ring.z1());
@@ -122,6 +128,9 @@ public final class RoundHouse implements Archetype {
 		d.entrance(doorX, base, doorZ - 1);
 		d.poi(PoiType.DOOR, doorX, base, doorZ - 1, Dirs.BACK);
 		windows(d, ring, base);
+		if (tiers) {
+			Round.skirt(d, ring, ring.r() + 2.0, base + 2, 0.5, roofMat);
+		}
 		Roofs.Roof roof = Round.cone(d, ring, plate, eaves, pitch, roofMat);
 		// inside
 		interior(d, ring, base, roof, doorX, doorZ);
