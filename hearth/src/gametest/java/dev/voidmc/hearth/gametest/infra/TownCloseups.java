@@ -65,6 +65,8 @@ public final class TownCloseups {
 		int window = args.length > 5 ? Integer.parseInt(args[5]) : 36;
 		int count = args.length > 6 ? Integer.parseInt(args[6]) : 3;
 		File out = new File(args.length > 7 ? args[7] : "build/previews/closeups");
+		int scale = args.length > 8 ? Integer.parseInt(args[8]) : 18;
+		boolean solo = args.length > 9 && Boolean.parseBoolean(args[9]);
 		out.mkdirs();
 
 		BlueprintService real = dev.voidmc.hearth.build.BuildModule.standalone();
@@ -111,12 +113,13 @@ public final class TownCloseups {
 			labels.add("heart");
 		}
 		for (String kind : new String[]{"road", "bridge", "terrace", "stairs", "dock", "walkway"}) {
-			if (!focus.equals(kind) && !focus.equals("all")) {
+			if (!focus.equals(kind) && !focus.equals("all") && !focus.startsWith(kind + "#")) {
 				continue;
 			}
+			int only = focus.startsWith(kind + "#") ? Integer.parseInt(focus.substring(kind.length() + 1)) : -1;
 			int n = 0;
 			for (PlotView p : plots) {
-				if (!p.spec().archetype().getPath().equals("infra/" + kind) || p.state() == PlotState.PLANNED) {
+				if (!p.spec().archetype().getPath().equals("infra/" + kind) || p.state() == PlotState.PLANNED || only >= 0 && p.id() != only) {
 					continue;
 				}
 				PlotSpec s = p.spec();
@@ -132,6 +135,8 @@ public final class TownCloseups {
 				}
 				foci.add(new int[]{fx, fz});
 				labels.add(kind + " #" + p.id());
+				System.out.println("  " + kind + " #" + p.id() + " " + s.sizeX() + "x" + s.sizeZ() + " facing " + s.facing().getSerializedName() + " floor " + s.floorY()
+					+ " params " + s.params());
 				if (++n >= count) {
 					break;
 				}
@@ -141,10 +146,11 @@ public final class TownCloseups {
 		String tag = cultureSpec.replace('/', '-') + "_" + terrainName.replace(':', '_') + "_s" + seed + "_d" + days;
 		for (int i = 0; i < foci.size(); i++) {
 			int[] f = foci.get(i);
-			Voxels v = scene(plots, service, terrain, f[0] - window / 2, f[1] - window / 2, window, culture);
-			BufferedImage a = renderer.render(v, new IsoRenderer.View(45, 32), 18, 2, 0);
-			BufferedImage b = renderer.render(v, new IsoRenderer.View(225, 32), 18, 2, 0);
-			File file = new File(out, "closeup_" + tag + "_" + labels.get(i).replace(" #", "") + ".png");
+			List<PlotView> drawn = solo ? plots.stream().filter(p -> p.spec().archetype().getPath().startsWith("infra/")).toList() : plots;
+			Voxels v = scene(drawn, service, terrain, f[0] - window / 2, f[1] - window / 2, window, culture);
+			BufferedImage a = renderer.render(v, new IsoRenderer.View(45, 32), scale, 2, 0);
+			BufferedImage b = renderer.render(v, new IsoRenderer.View(225, 32), scale, 2, 0);
+			File file = new File(out, "closeup_" + tag + "_" + labels.get(i).replace(" #", "") + (solo ? "_solo" : "") + ".png");
 			ImageIO.write(pair(a, b, tag + "  ·  " + labels.get(i) + " at " + f[0] + "," + f[1]), "png", file);
 			System.out.println("  -> " + file.getPath());
 		}

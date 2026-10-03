@@ -208,7 +208,7 @@ public final class Dock implements Archetype {
 			}
 			// mooring posts along the edges
 			boolean post = stone ? k % 4 == 2 : k % 3 == 1 && lay.wet(col.x(), col.z());
-			if (post && l <= top && lay.absent(col.x(), l, col.z())) {
+			if (post && l <= top && lay.empty(col.x(), l, col.z())) {
 				try (var s = d.stage(StageKind.EXTERIOR)) {
 					lay.set(col.x(), l, col.z(), stone ? found.has(Form.WALL) ? found.wall() : found.full() : pile.log(Direction.Axis.Y));
 				}

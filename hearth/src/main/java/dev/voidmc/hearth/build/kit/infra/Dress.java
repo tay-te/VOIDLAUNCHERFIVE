@@ -129,15 +129,17 @@ public record Dress(LineMat main, @Nullable LineMat wear, double wearShare, Line
 		LineMat ground = LineMat.of(lay, Role.GROUND);
 		// the edge logs: canes for the bamboo cultures (their fence role), the frame timber otherwise
 		LineMat fence = LineMat.of(lay, Role.FENCE);
-		LineMat logs = fence.has(Form.LOG) && (c == Culture.KARST || c == Culture.TROPICAL) ? fence : LineMat.of(lay, Role.FRAME);
+		LineMat logs = fence.has(Form.LOG) && c == Culture.KARST ? fence : LineMat.of(lay, Role.FRAME);
 		boolean timber = timberCulture(c) && paving.timber();
 		boolean wide = width >= 5;
 		// the street's setts: rubble where the foundation is cobbled, the paving otherwise; dressed kerbs against them
-		LineMat setts = found.mainName().contains("cobble") && found.has(Form.SLAB) ? found : paving;
+		// (the setts in one stone: a street of mixed rubble and moss reads as a ruin; wear patches bring the variety)
+		LineMat setts = found.mainName().contains("cobble") && found.has(Form.SLAB) ? found.top(1) : paving.top(2);
 		LineMat kerb = c == Culture.MEDITERRANEAN || c == Culture.STEPPE ? contrast(setts, accent, plinth, paving, found)
 			: contrast(setts, plinth, paving, accent, found);
-		LineMat stepPaved = setts.has(Form.STAIRS) ? setts : found;
-		LineMat stepStone = found.has(Form.STAIRS) ? found : plinth;
+		// steps are cut from one stone, so a climbing road reads as built
+		LineMat stepPaved = (setts.has(Form.STAIRS) ? setts : found).top(1);
+		LineMat stepStone = (found.has(Form.STAIRS) ? found : plinth).top(1);
 		return switch (kind) {
 			case STREET -> {
 				if (timber) {

@@ -17,7 +17,9 @@ gradle.projectsEvaluated {
 			p.findProperty('focus') ?: 'all',
 			p.findProperty('window') ?: '36',
 			p.findProperty('count') ?: '3',
-			p.layout.buildDirectory.dir('previews/closeups').get().asFile.path
+			p.layout.buildDirectory.dir('previews/closeups').get().asFile.path,
+			p.findProperty('scale') ?: '18',
+			p.findProperty('solo') ?: 'false'
 		]
 	}
 }
@@ -31,7 +33,7 @@ gradle.projectsEvaluated {
 		description = 'Renders large shots and side elevations of an infrastructure archetype per style'
 		classpath = p.sourceSets.gametest.runtimeClasspath
 		mainClass = 'dev.voidmc.hearth.gametest.infra.InfraShots'
-		jvmArgs '-Djava.awt.headless=true', '-Xmx3g', '-Dhearth.dev.infra.debug=' + (p.findProperty('debug') ?: 'false')
+		jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
 		args = [
 			p.findProperty('archetype') ?: 'infra/bridge',
 			p.findProperty('style') ?: 'temperate',

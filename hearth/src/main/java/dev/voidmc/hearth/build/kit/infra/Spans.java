@@ -371,7 +371,9 @@ public final class Spans {
 					continue;
 				}
 				if (posts.test(k) && !narrow) {
-					newel(col, k, newel, lamps && this.d.tier() >= 2, timberNewel);
+					// a lamp over the middle post of a long bridge only: a row of them would be a fairground
+					boolean middle = Math.abs(k - this.n / 2) <= 1 && this.n >= 12;
+					newel(col, k, newel, lamps && middle && this.d.tier() >= 2, timberNewel);
 					continue;
 				}
 				try (var s = this.d.stage(StageKind.EXTERIOR)) {
@@ -398,6 +400,18 @@ public final class Spans {
 	 * bents, stone abutments.
 	 */
 	public void timber(boolean trestle) {
+		timber(trestle, false);
+	}
+
+	/**
+	 * A timber deck on piers: as {@link #timber(boolean)}, the bents stone piers the whole width of the deck (a stone
+	 * culture's crossing on a slant, where an arch would come out jagged), newels of dressed stone over them.
+	 */
+	public void piers() {
+		timber(false, true);
+	}
+
+	private void timber(boolean trestle, boolean stonePiers) {
 		profile(baseNeed(), false, this.c.width >= 5 ? 1 : 2);
 		LineMat planks = LineMat.of(this.lay, Role.STILT);
 		LineMat beam = LineMat.of(this.lay, Role.BEAM);
@@ -417,10 +431,11 @@ public final class Spans {
 				try (var s = this.d.stage(StageKind.FRAME)) {
 					if (bent) {
 						this.lay.set(col.x(), under, col.z(), beam.log(across(k)));
-						boolean post = rim || this.c.width >= 5 && col.ring() == this.c.width / 2 && under - this.lay.ground(col.x(), col.z()) > 4;
+						boolean post = rim || stonePiers || this.c.width >= 5 && col.ring() == this.c.width / 2 && under - this.lay.ground(col.x(), col.z()) > 4;
 						if (post) {
 							for (int y = this.lay.ground(col.x(), col.z()) - 2; y < under; y++) {
-								this.lay.set(col.x(), y, col.z(), planks.log(Direction.Axis.Y));
+								this.lay.set(col.x(), y, col.z(), stonePiers ? (y == under - 1 ? LineMat.of(this.lay, Role.PLINTH) : stone).full()
+									: planks.log(Direction.Axis.Y));
 							}
 						}
 					} else if (rim || col.ring() == this.c.width / 2 && this.c.width >= 5) {
@@ -428,14 +443,14 @@ public final class Spans {
 					}
 				}
 			}
-			if (bent) {
+			if (bent && !stonePiers) {
 				bracing(k, beam, planks, trestle);
 			}
 		}
 		deck(planks, planks, true);
-		LineMat post = LineMat.of(this.lay, Role.STILT);
+		LineMat post = stonePiers ? Dress.contrast(stone, LineMat.of(this.lay, Role.PLINTH), LineMat.of(this.lay, Role.WALL_ACCENT)) : LineMat.of(this.lay, Role.STILT);
 		List<Integer> postAt = bents;
-		parapet(rail.post(), null, post, true, postAt::contains, this.d.tier() >= 1, k -> true);
+		parapet(rail.post(), null, post, !stonePiers, postAt::contains, this.d.tier() >= 1, k -> true);
 		if (this.c.width < 5) {
 			trapdoorRails(rail.has(Form.TRAPDOOR) ? rail : planks);
 		}
@@ -611,14 +626,6 @@ public final class Spans {
 			for (int i : this.byK.get(k)) {
 				soff[i] = soffit(col(i).s(), s0, a, pier, m, springing, rise, round);
 			}
-		}
-		if (Boolean.getBoolean("hearth.dev.infra.debug")) {
-			StringBuilder sb = new StringBuilder("arch: springing " + springing + " rise " + rise + " m " + m + " a " + a + " za " + za + " zb " + zb
-				+ " deckY " + this.deckY + " h:");
-			for (int k = 0; k < this.n; k++) {
-				sb.append(' ').append(this.h[k]);
-			}
-			System.out.println(sb);
 		}
 		LineMat fill = LineMat.of(this.lay, Role.FOUNDATION);
 		abutments(st.body(), fill);
@@ -814,35 +821,49 @@ public final class Spans {
 		}
 		int y = walk(hs);
 		int ridgeY = Math.min(y + 5, this.lay.topY());
+		// the walls in the culture's manner: plaster over a board rail (timber frame), logs laid along (log), boards
+		dev.voidmc.hearth.build.style.Habits.WallKind kind = this.d.style().habits().walls().kind();
+		LineMat infill = kind == dev.voidmc.hearth.build.style.Habits.WallKind.TIMBER_FRAME ? LineMat.of(this.lay, Role.WALL) : boards;
+		boolean logWalls = kind == dev.voidmc.hearth.build.style.Habits.WallKind.LOG;
 		for (int k = hs; k <= he; k++) {
 			boolean portal = k == hs || k == he;
 			boolean post = portal || (k - hs) % 3 == 0;
+			boolean braced = !post && ((k - hs) % 3 == 1 || (k - hs) % 3 == 2);
 			for (int i : this.byK.get(k)) {
 				Course.Col col = col(i);
 				int ring = Math.min(col.ring(), 2);
 				Direction in = outward(col).getOpposite();
+				Direction t = this.c.cardinal(k);
 				if (ring == 0) {
 					try (var s = this.d.stage(StageKind.WALLS)) {
+						// the sill: a beam along the deck's edge
+						this.lay.set(col.x(), y - 1, col.z(), beam.log(along(k)));
 						if (post) {
 							for (int yy = y; yy <= y + 2; yy++) {
 								this.lay.set(col.x(), yy, col.z(), frame.log(Direction.Axis.Y));
 							}
 						} else {
-							this.lay.set(col.x(), y, col.z(), boards.full());
-							this.lay.set(col.x(), y + 1, col.z(), LineMat.of(this.lay, Role.RAILING).post());
-							this.lay.set(col.x(), y + 2, col.z(), beam.log(along(k)));
+							this.lay.set(col.x(), y, col.z(), logWalls ? frame.log(along(k)) : boards.full());
+							// the window band: arched by braces off the posts, a pot of flowers on the rail between
+							if (braced && kind != dev.voidmc.hearth.build.style.Habits.WallKind.LOG) {
+								Direction toPost = (k - hs) % 3 == 1 ? t.getOpposite() : t;
+								this.lay.set(col.x(), y + 1, col.z(), beam.stairsOrSlab(toPost, Half.TOP));
+							} else if (this.d.tier() >= 1) {
+								dev.voidmc.hearth.build.kit.Garden.pot(this.d, this.lay.lx(col.x(), col.z()), y + 1 - this.lay.floorY(), this.lay.lz(col.x(), col.z()));
+							}
+							this.lay.set(col.x(), y + 2, col.z(), logWalls ? frame.log(along(k)) : infill.full());
 						}
 					}
 				}
-				// the roof: a gable across the width, ridge along the bridge
+				// the roof: a gable across the width, eaves in the trim, ridge along the bridge
 				try (var s = this.d.stage(StageKind.ROOF)) {
 					int ry = y + 3 + ring;
 					if (ring < 2) {
 						if (ry <= this.lay.topY()) {
-							this.lay.set(col.x(), ry, col.z(), roof.stairs(in, Half.BOTTOM));
+							this.lay.set(col.x(), ry, col.z(), (ring == 0 ? trim : roof).stairs(in, Half.BOTTOM));
 						}
 						if (ring == 1 && ry - 1 <= this.lay.topY()) {
-							// the underside of the upper course: a beam along over the walkway's side
+							// the tie beams under the upper course, boards over the portals
 							this.lay.set(col.x(), ry - 1, col.z(), portal ? boards.full() : beam.log(along(k)));
 						}
 					} else if (ridgeY <= this.lay.topY()) {

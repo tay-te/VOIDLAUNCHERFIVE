@@ -33,6 +33,8 @@ import net.minecraft.core.Direction;
  *   <li><b>rope</b> (gorges: a deck far above the water or ground): towers at both banks, the deck slung between them,
  *   cables and hangers.</li>
  *   <li><b>clapper</b> (moorland, maritime, steppe; short and low): rough stone piers carrying great flat slabs.</li>
+ *   <li><b>piers</b> (a stone culture's crossing on a slant or a bend): stone piers the width of the deck carrying a
+ *   timber deck, newels of dressed stone with lamps over them.</li>
  *   <li><b>boardwalk</b> ({@code kind=boardwalk}): a plank walk just over the water on piles, bending as it likes, open
  *   at the edges (stilt houses front it).</li>
  * </ul>
@@ -43,14 +45,14 @@ import net.minecraft.core.Direction;
  * levels, the rest at {@code deck_y}; default: straight across the plot), {@code width} (odd, default 3), {@code deck_y}
  * (walking level on the deck), {@code water_y} (the water's surface: the first non-water y), {@code kind} ({@code span}
  * or {@code boardwalk}), {@code road_kind} (the road it carries), {@code make} (force a make: arch, beam, trestle,
- * covered, rope, clapper).
+ * covered, rope, clapper, piers).
  */
 public final class Bridge implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("infra/bridge"), ArchetypeCategory.INFRASTRUCTURE, Set.of(), 0,
 		1, 56, 1, 56, 1, 32, SettlementTier.CAMP, Set.of(), Set.of(), List.of(), 0, 1.0);
 
 	public enum Make {
-		ARCH, BEAM, TRESTLE, COVERED, ROPE, CLAPPER, BOARDWALK
+		ARCH, BEAM, TRESTLE, COVERED, ROPE, CLAPPER, BOARDWALK, PIERS
 	}
 
 	@Override
@@ -108,6 +110,10 @@ public final class Bridge implements Archetype {
 		if (make == Make.COVERED && (!c.straight() || width < 5)) {
 			make = Make.BEAM;
 		}
+		// on a slant an arch comes out jagged: stone piers carry a timber deck instead
+		if (make == Make.ARCH && !c.straight() && !d.hasParam("make")) {
+			make = Make.PIERS;
+		}
 		int last = c.steps() - 1;
 		lay.entrance(c.dx(0), c.dy(0), c.dz(0));
 		lay.entrance(c.dx(last), c.dy(last), c.dz(last));
@@ -117,6 +123,7 @@ public final class Bridge implements Archetype {
 			case ROPE -> s.rope();
 			case CLAPPER -> s.clapper();
 			case TRESTLE -> s.timber(true);
+			case PIERS -> s.piers();
 			case BOARDWALK -> s.boardwalk();
 			default -> s.timber(false);
 		}

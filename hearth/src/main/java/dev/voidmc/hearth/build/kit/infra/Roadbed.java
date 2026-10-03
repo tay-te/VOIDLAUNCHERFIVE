@@ -42,6 +42,7 @@ public final class Roadbed {
 	private final boolean[] inside;
 	private final int endZone;
 	private final long seed;
+	private final boolean stairStreet;
 
 	/**
 	 * @param endZone     steps at each end kept plain (no kerbs, kennel, lamps): where lanes overlap the road they join
@@ -53,6 +54,7 @@ public final class Roadbed {
 		this.dress = dress;
 		this.cols = c.cols();
 		this.endZone = endZone;
+		this.stairStreet = stairStreet;
 		int n = this.cols.size();
 		this.level = new int[n];
 		this.shape = new Shape[n];
@@ -276,11 +278,16 @@ public final class Roadbed {
 		boolean log = m == this.dress.edge() && this.dress.edgeKind() == Dress.EdgeKind.LOG && col.ring() == 0;
 		switch (this.shape[i]) {
 			case STAIR -> {
-				LineMat st = m.has(Form.STAIRS) && !log ? m : this.dress.step();
+				// a flight's treads in its own stone; a road's risers in the one stone of its steps, the kerb carried up
+				// (a log edge carries on in stairs of its own wood)
+				boolean own = m.has(Form.STAIRS) && (this.stairStreet && !log || col.ring() == 0 && this.dress.edgeKind() != Dress.EdgeKind.SAME
+					&& this.dress.edgeKind() != Dress.EdgeKind.VERGE);
+				LineMat st = own ? m : this.dress.step().has(Form.STAIRS) ? this.dress.step() : m;
 				return st.stairs(this.up[i], Half.BOTTOM);
 			}
 			case HALF -> {
-				LineMat sl = m.has(Form.SLAB) && !log ? m : this.dress.step().has(Form.SLAB) ? this.dress.step() : null;
+				boolean own = m.has(Form.SLAB) && col.ring() == 0 && (this.dress.edgeKind() == Dress.EdgeKind.KERB || log);
+				LineMat sl = own ? m : this.dress.step().has(Form.SLAB) ? this.dress.step() : m.has(Form.SLAB) ? m : null;
 				if (sl != null) {
 					return sl.slab(SlabType.BOTTOM);
 				}

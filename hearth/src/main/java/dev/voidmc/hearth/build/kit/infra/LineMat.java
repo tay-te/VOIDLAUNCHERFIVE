@@ -41,6 +41,26 @@ public final class LineMat {
 		this.low = low;
 	}
 
+	/**
+	 * The same role keeping only its {@code n} heaviest materials (a street's setts without the odd smooth stone of a
+	 * wall's mix; one stone for every step of a flight).
+	 */
+	public LineMat top(int n) {
+		java.util.List<Palette.Entry> es = new java.util.ArrayList<>(this.palette.entries());
+		if (es.size() <= n) {
+			return this;
+		}
+		java.util.List<Palette.Entry> sorted = new java.util.ArrayList<>(es);
+		sorted.sort((a, b) -> Double.compare(b.weight(), a.weight()));
+		java.util.List<Palette.Entry> keep = new java.util.ArrayList<>();
+		for (Palette.Entry e : es) {
+			if (sorted.indexOf(e) < n) {
+				keep.add(e);
+			}
+		}
+		return new LineMat(this.d, this.lay, this.role, new Palette(keep), this.seed, this.low);
+	}
+
 	/** The same role with a fixed weathering (0 clean, 1 as at the foot of a wall): road surfaces are walked clean. */
 	public LineMat weathered(double lowness) {
 		return new LineMat(this.d, this.lay, this.role, this.palette, this.seed, lowness);

@@ -168,7 +168,15 @@ public final class Walkway implements Archetype {
 								lay.set(x, y, z, frame.log(Direction.Axis.Y));
 							}
 						} else {
-							lay.set(x, deck, z, wood.full());
+							// the infill in the culture's manner: plaster in a timber frame, logs laid along, boards
+							var kind = d.style().habits().walls().kind();
+							if (kind == dev.voidmc.hearth.build.style.Habits.WallKind.LOG) {
+								lay.set(x, deck, z, frame.log(t.getAxis()));
+							} else if (kind == dev.voidmc.hearth.build.style.Habits.WallKind.TIMBER_FRAME) {
+								lay.set(x, deck, z, wall.full());
+							} else {
+								lay.set(x, deck, z, wood.full());
+							}
 							lay.set(x, deck + 1, z, glass.full());
 							if (deck + 2 <= top) {
 								lay.set(x, deck + 2, z, beam.log(t.getAxis()));
