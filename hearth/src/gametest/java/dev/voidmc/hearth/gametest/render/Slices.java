@@ -36,6 +36,35 @@ public final class Slices {
 		return sb.toString();
 	}
 
+	/** A plan at height y: x across, z down the page from the back (top) to the street (bottom); POIs as letters. */
+	public static String plan(Draft d, int y) {
+		int[] b = bounds(d);
+		StringBuilder sb = new StringBuilder("plan y=" + y + "  (P job S store E entrance)\n");
+		for (int z = b[5]; z >= b[4]; z--) {
+			sb.append(String.format(Locale.ROOT, "%4d ", z));
+			for (int x = b[0]; x <= b[1]; x++) {
+				char c = glyph(d.get(x, y, z));
+				for (var p : d.pois()) {
+					if (p.x() == x && p.y() == y && p.z() == z) {
+						c = switch (p.type()) {
+							case JOB_SITE -> 'P';
+							case STORAGE -> 'S';
+							default -> c;
+						};
+					}
+				}
+				for (int[] e : d.entrances()) {
+					if (e[0] == x && e[1] == y && e[2] == z) {
+						c = 'E';
+					}
+				}
+				sb.append(c);
+			}
+			sb.append('\n');
+		}
+		return sb.toString();
+	}
+
 	private static int[] bounds(Draft d) {
 		int[] b = {Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE};
 		d.forEach((x, y, z, c) -> {
@@ -98,6 +127,16 @@ public final class Slices {
 
 	/** Prints sections for a spec. */
 	public static void print(Draft d, PlotSpec spec) {
+		String only = spec.params().getStringOr("slice", "");
+		if (!only.isEmpty()) {
+			// "z3", "x5", or "y4" (a plan)
+			if (only.charAt(0) == 'y') {
+				System.out.println(plan(d, Integer.parseInt(only.substring(1))));
+			} else {
+				System.out.println(section(d, only.charAt(0) == 'z', Integer.parseInt(only.substring(1))));
+			}
+			return;
+		}
 		for (int z = 0; z < d.depth(); z += Math.max(1, d.depth() / 3)) {
 			System.out.println(section(d, true, z));
 		}

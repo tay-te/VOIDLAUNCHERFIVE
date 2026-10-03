@@ -210,6 +210,20 @@ public final class Rooms {
 	 * @param job  a workshop's trade
 	 */
 	public static void furnish(Draft d, Room r, Type type, int beds, JobType job) {
+		// whatever is already built on the floor (a chimney breast, stairs, posts) is taken; a hole in the floor (a
+		// stairwell) cannot be stood on; a stair's top step can be walked but not furnished
+		for (int z = r.z0; z <= r.z1; z++) {
+			for (int x = r.x0; x <= r.x1; x++) {
+				BlockState s = d.get(x, r.y, z);
+				BlockState below = d.get(x, r.y - 1, z);
+				boolean hole = below != null ? below.isAir() : r.y - 1 >= d.site().ground(x, z);
+				if (s != null && !s.isAir() || hole) {
+					r.block(x, z);
+				} else if (below != null && !d.isSolid(x, r.y - 1, z)) {
+					r.keepArea(x, z, x, z);
+				}
+			}
+		}
 		List<Slot> slots = slots(d, r);
 		switch (type) {
 			case BEDROOM -> {
@@ -231,7 +245,7 @@ public final class Rooms {
 						// a chest or a bedside table at the bed's head
 						int cx = s.x - Dirs.dx(side);
 						int cz = s.z - Dirs.dz(side);
-						if (tryTake(r, new int[][]{{cx, cz}}, null)) {
+						if (tryTake(r, new int[][]{{cx, cz}}, new int[]{cx + Dirs.dx(s.into), cz + Dirs.dz(s.into)})) {
 							if (Noise.unit(d.seed(), cx, r.y, cz) < 0.5) {
 								Furniture.chest(d, cx, r.y, cz, s.into, List.of(new Object[]{"minecraft:white_wool", 2}, new Object[]{"minecraft:book", 1}));
 							} else {
@@ -392,7 +406,7 @@ public final class Rooms {
 		}
 		for (int z = az; z <= bz; z++) {
 			for (int x = ax; x <= bx; x++) {
-				if (!r.open(x, z) || !d.isEmpty(x, r.y, z)) {
+				if (!r.open(x, z) || !d.isEmpty(x, r.y, z) || !d.isSolid(x, r.y - 1, z)) {
 					return;
 				}
 			}

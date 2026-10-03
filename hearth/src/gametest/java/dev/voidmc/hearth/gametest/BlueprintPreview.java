@@ -111,7 +111,7 @@ public final class BlueprintPreview {
 				List<Future<Cell>> cells = new ArrayList<>();
 				for (Style style : styles) {
 					for (int s = 0; s < seeds; s++) {
-						long seed = 1000L * (s + 1) + 7;
+						long seed = extra.contains("seed") ? extra.getIntOr("seed", 0) + s : 1000L * (s + 1) + 7;
 						int index = s;
 						cells.add(pool.submit(() -> renderOne(service, renderer, a.info(), style, seed, index, terrain, extra, out, panels)));
 					}
@@ -179,6 +179,9 @@ public final class BlueprintPreview {
 			depth = extra.getIntOr("depth", depth);
 		}
 		Direction facing = new Direction[]{Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST}[index % 4];
+		if (extra.contains("facing")) {
+			facing = Direction.byName(extra.getStringOr("facing", "south"));
+		}
 		boolean zAxis = facing.getAxis() == Direction.Axis.Z;
 		int sizeX = zAxis ? frontage : depth;
 		int sizeZ = zAxis ? depth : frontage;
@@ -212,6 +215,8 @@ public final class BlueprintPreview {
 		CompoundTag params = extra.copy();
 		params.remove("frontage");
 		params.remove("depth");
+		params.remove("facing");
+		params.remove("seed");
 		int tier = params.contains("tier") ? params.getIntOr("tier", 2) : 2;
 		params.remove("tier");
 		return new PlotSpec(info.id(), style.id(), seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, Math.max(info.maxHeight(), 8), tier, params);
@@ -224,6 +229,19 @@ public final class BlueprintPreview {
 		SyntheticTerrain probe = new SyntheticTerrain(SyntheticTerrain.Kind.valueOf(terrain.toUpperCase(Locale.ROOT)), 42, temperature);
 		PlotSpec spec = spec(info, style, seed, index, probe, extra);
 		BlueprintImpl bp = service.compiled(spec, probe);
+		List<String> problems = dev.voidmc.hearth.build.check.BlueprintChecks.all(bp, probe);
+		if (!problems.isEmpty()) {
+			synchronized (BlueprintPreview.class) {
+				System.out.println("CHECK " + info.id().getPath() + " " + style.id().getPath() + " s" + index + " " + terrain + ": " + String.join(" | ", problems));
+			}
+		}
+		if (extra.contains("reach")) {
+			synchronized (BlueprintPreview.class) {
+				for (String ys : extra.getStringOr("reach", "0").split("/")) {
+					System.out.println(dev.voidmc.hearth.build.check.BlueprintChecks.reachMap(bp, probe, spec.floorY() + Integer.parseInt(ys)));
+				}
+			}
+		}
 		if (extra.getBooleanOr("slices", false)) {
 			synchronized (BlueprintPreview.class) {
 				System.out.println("== " + spec.archetype() + " " + style.id() + " seed " + seed + " facing " + spec.facing());

@@ -121,6 +121,9 @@ public final class Garden {
 		Mat path = d.mat(Role.PATH);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] c : cells) {
+				if (!d.isEmpty(c[0], y, c[1]) || !groundLike(d, c[0], y - 1, c[1])) {
+					continue;
+				}
 				d.set(c[0], y - 1, c[1], path.full());
 				if (d.isAbsent(c[0], y, c[1])) {
 					d.set(c[0], y, c[1], Blocks.AIR.defaultBlockState());
@@ -160,6 +163,10 @@ public final class Garden {
 				int x = cells.get(i)[0];
 				int z = cells.get(i)[1];
 				int g = groundAt(d, x, z);
+				if (!groundLike(d, x, g - 1, z) || !d.isEmpty(x, g, z)) {
+					// steps, a landing, a wall foot: the fence leaves a gap here
+					continue;
+				}
 				if (i == gateAt) {
 					d.set(x, g, z, fence.has(Form.FENCE_GATE) ? fence.gate(gateFacing, false) : Paint.of(Blocks.AIR.defaultBlockState()));
 					continue;
@@ -180,6 +187,18 @@ public final class Garden {
 				}
 			}
 		}
+	}
+
+	/** Whether the block at (x, y, z) is ground a fence or a bed can stand on (soil, fill, a path), or the natural ground. */
+	public static boolean groundLike(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		if (s == null) {
+			return y < d.site().ground(x, z);
+		}
+		Block b = s.getBlock();
+		return b == Blocks.GRASS_BLOCK || b == Blocks.DIRT || b == Blocks.COARSE_DIRT || b == Blocks.DIRT_PATH || b == Blocks.SAND || b == Blocks.RED_SAND
+			|| b == Blocks.GRAVEL || b == Blocks.PODZOL || b == Blocks.MUD || b == Blocks.FARMLAND || b == Blocks.SNOW_BLOCK || b == Blocks.MOSS_BLOCK
+			|| s.is(d.mat(Role.GROUND).main(Form.FULL)) || s.is(d.mat(Role.FILL).main(Form.FULL)) || s.is(d.mat(Role.PATH).main(Form.FULL));
 	}
 
 	/** The standing level at a column as drawn so far: on top of whatever ground or fill has been placed there. */

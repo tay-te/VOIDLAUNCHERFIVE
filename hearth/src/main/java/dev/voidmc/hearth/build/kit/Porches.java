@@ -65,9 +65,10 @@ public final class Porches {
 			}
 		}
 		// posts at the outer corners (and every third column), standing on the ground
+		int open = side.index(opening);
 		for (int i = ia; i <= ib; i++) {
 			boolean corner = i == ia || i == ib;
-			if (!corner && (i - ia) % 3 != 0) {
+			if (!corner && (i - ia) % 3 != 0 || i == open) {
 				continue;
 			}
 			int x = side.outX(i, depth);

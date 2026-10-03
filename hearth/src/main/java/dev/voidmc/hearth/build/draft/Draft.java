@@ -71,6 +71,7 @@ public final class Draft {
 	private final Set<String> missing = new java.util.TreeSet<>();
 	private @Nullable StageKind stage;
 	private int sequence;
+	private int clipped;
 	private int eaveY = Integer.MIN_VALUE;
 	private int bodyX0;
 	private int bodyZ0;
@@ -325,7 +326,27 @@ public final class Draft {
 		this.cells.remove(key(x, y, z));
 	}
 
+	/**
+	 * Whether a local position may be built on: inside the footprint and under the plot's height, or one row out over
+	 * the street at least three blocks up (eaves, signs, balconies). Placements elsewhere are dropped and counted.
+	 */
+	public boolean allowed(int x, int y, int z) {
+		if (y >= maxHeight() || x < 0 || x >= frontage() || z >= depth() || z < -1) {
+			return false;
+		}
+		return z >= 0 || y >= 3;
+	}
+
+	/** Placements dropped because they fell outside the plot (see {@link #allowed}); a generator should keep this at 0. */
+	public int clipped() {
+		return this.clipped;
+	}
+
 	private void put(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, @Nullable StageKind paintStage) {
+		if (!allowed(x, y, z)) {
+			this.clipped++;
+			return;
+		}
 		StageKind s = this.stage != null ? this.stage : paintStage != null ? paintStage : guessStage(x, y, z, state);
 		this.cells.put(key(x, y, z), new Cell(state, tag == null ? null : tag.copy(), s, this.sequence++));
 	}
@@ -461,7 +482,7 @@ public final class Draft {
 
 	/** Air in a box (carving an interior), only where nothing else has been placed. */
 	public void carve(int x0, int y0, int z0, int x1, int y1, int z1) {
-		fillIfAbsent(x0, y0, z0, x1, y1, z1, Paint.of(Blocks.AIR.defaultBlockState()));
+		fillIfAbsent(x0, y0, z0, x1, y1, z1, Paint.of(Blocks.AIR.defaultBlockState()).inStage(this.stage != null ? this.stage : StageKind.WALLS));
 	}
 
 	/** Air in a box, replacing whatever was placed there. */

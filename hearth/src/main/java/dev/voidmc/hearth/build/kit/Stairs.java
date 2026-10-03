@@ -40,8 +40,8 @@ public final class Stairs {
 					for (int h = 1; h <= 3; h++) {
 						d.set(px, py + h, pz, air);
 					}
-					// a closed string under the upper steps
-					if (i > 0 && d.isAbsent(px, py - 1, pz)) {
+					// a closed string under every step that does not stand on something already
+					if (d.isAbsent(px, py - 1, pz)) {
 						d.set(px, py - 1, pz, wood.stairs(dir.getOpposite(), Half.TOP));
 					}
 				}
@@ -51,14 +51,14 @@ public final class Stairs {
 	}
 
 	/**
-	 * A U-stair (switchback) in a 2 × (run + 2) well: up {@code first} steps toward {@code dir} on the left lane, a landing,
-	 * then back on the right lane to rise {@code rise} in all. Fits a stairwell of width 2 against a wall.
+	 * A U-stair (switchback) in a 2 × (run + 2) well: up half the rise toward {@code dir} in the first lane (x, z), a
+	 * landing two wide, then back in the lane beside it (toward {@code across}) to rise {@code rise} in all. Fits a
+	 * stairwell two wide against a wall; stacked floor over floor it makes a stair tower.
 	 */
-	public static int[] switchback(Draft d, int x, int y, int z, Direction dir, int rise) {
+	public static int[] switchback(Draft d, int x, int y, int z, Direction dir, int rise, Direction across) {
 		int first = rise / 2;
 		int second = rise - first;
 		Mat wood = d.mat(Role.FURNITURE);
-		Direction across = Dirs.right(dir);
 		int[] top = straight(d, x, y, z, dir, first, 1);
 		// landing: two cells at the top of the first flight, level with it
 		int lx = top[0];

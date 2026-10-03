@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.build.blueprint;
 
+import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.terrain.Site;
@@ -325,9 +326,14 @@ public final class ShapeResolver {
 			if (wy == Site.NONE || y >= wy || y < this.site.ground(x, z)) {
 				return;
 			}
+			StageKind stage = this.draft.cell(x, y, z).stage();
+			boolean outdoors = stage == StageKind.CLEAR || stage == StageKind.EARTHWORK || stage == StageKind.FOUNDATION || stage == StageKind.EXTERIOR;
 			if (s.isAir()) {
-				this.draft.remove(x, y, z);
-			} else if (s.hasProperty(BlockStateProperties.WATERLOGGED) && !s.getValue(BlockStateProperties.WATERLOGGED)) {
+				// clearing never drains water; carving a building's inside below the water line is deliberate
+				if (stage == StageKind.CLEAR) {
+					this.draft.remove(x, y, z);
+				}
+			} else if (outdoors && s.hasProperty(BlockStateProperties.WATERLOGGED) && !s.getValue(BlockStateProperties.WATERLOGGED)) {
 				this.draft.restate(x, y, z, s.setValue(BlockStateProperties.WATERLOGGED, true));
 			}
 		});

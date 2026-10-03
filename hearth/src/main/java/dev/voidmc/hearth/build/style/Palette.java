@@ -120,7 +120,7 @@ public final class Palette {
 			double patch = Noise.value(s, x / 2.3, y / 1.7, z / 2.3);
 			double grain = Noise.unit(s ^ 0x2545F4914F6CDD1DL, x, y, z);
 			// weight through the exponent: a 3:1 palette gives roughly 3:1 counts, clustered
-			double u = patchiness * patch + (1 - patchiness) * grain;
+			double u = uniform(patchiness * patch + (1 - patchiness) * grain, patchiness);
 			double score = Math.pow(Math.max(u, 1e-9), 1.0 / w);
 			if (score > bestScore) {
 				bestScore = score;
@@ -128,6 +128,25 @@ public final class Palette {
 			}
 		}
 		return best != null ? best : fallback;
+	}
+
+	/**
+	 * Maps a blend {@code p·A + (1-p)·B} of two roughly uniform noises back to a roughly uniform value (the blend's own
+	 * CDF), so the weighted race gives each material its share whatever the patchiness.
+	 */
+	static double uniform(double t, double p) {
+		double a = Math.max(p, 1 - p);
+		double b = Math.min(p, 1 - p);
+		if (b < 1e-6) {
+			return t;
+		}
+		if (t < b) {
+			return t * t / (2 * a * b);
+		}
+		if (t <= a) {
+			return (t - b / 2) / a;
+		}
+		return 1 - (1 - t) * (1 - t) / (2 * a * b);
 	}
 
 	/**

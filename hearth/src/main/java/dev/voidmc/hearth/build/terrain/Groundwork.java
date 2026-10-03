@@ -10,6 +10,7 @@ import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Half;
@@ -36,6 +37,7 @@ public final class Groundwork {
 	 */
 	public static void clear(Draft d, int x0, int z0, int x1, int z1, int topY) {
 		BlockState air = Blocks.AIR.defaultBlockState();
+		topY = Math.min(topY, d.maxHeight() - 1);
 		try (var s = d.stage(StageKind.CLEAR)) {
 			for (int z = Math.max(0, Math.min(z0, z1)); z <= Math.min(d.depth() - 1, Math.max(z0, z1)); z++) {
 				for (int x = Math.max(0, Math.min(x0, x1)); x <= Math.min(d.frontage() - 1, Math.max(x0, x1)); x++) {
@@ -99,6 +101,14 @@ public final class Groundwork {
 	 * naturally.
 	 */
 	public static void level(Draft d, int x0, int z0, int x1, int z1, int y) {
+		level(d, x0, z0, x1, z1, y, false);
+	}
+
+	/**
+	 * {@link #level}, optionally also filling water inside the rectangle (a yard or a square on a bank: the water is
+	 * embanked behind a stone edge and made up with earth).
+	 */
+	public static void level(Draft d, int x0, int z0, int x1, int z1, int y, boolean fillWater) {
 		Mat ground = d.mat(Role.GROUND);
 		Mat fill = d.mat(Role.FILL);
 		Mat found = d.mat(Role.FOUNDATION);
@@ -110,10 +120,22 @@ public final class Groundwork {
 		for (int z = az; z <= bz; z++) {
 			for (int x = ax; x <= bx; x++) {
 				int g = d.site().ground(x, z);
+				boolean edge = x == ax || x == bx || z == az || z == bz;
 				if (d.site().isWater(x, z)) {
+					if (!fillWater) {
+						continue;
+					}
+					// embank: stone at the edge of the water, earth within
+					boolean waterEdge = edge || d.site().isWater(x + 1, z) != d.site().isWater(x - 1, z)
+						|| d.site().isWater(x, z + 1) != d.site().isWater(x, z - 1);
+					try (var s = d.stage(StageKind.EARTHWORK)) {
+						for (int yy = g - 1; yy < y - 1; yy++) {
+							d.set(x, yy, z, waterEdge ? found.full() : fill.full());
+						}
+						d.set(x, y - 1, z, waterEdge ? found.full() : ground.full());
+					}
 					continue;
 				}
-				boolean edge = x == ax || x == bx || z == az || z == bz;
 				int outside = edgeGround(d, x, z, ax, az, bx, bz);
 				try (var s = d.stage(StageKind.EARTHWORK)) {
 					if (g < y) {
@@ -224,12 +246,44 @@ public final class Groundwork {
 		int cy = y;
 		Direction across = Dirs.right(dir);
 		int half = (width - 1) / 2;
-		for (int n = 0; n < 12; n++) {
+		boolean turned = false;
+		for (int n = 0; n < 16 && inPlot(d, cx, cz); n++) {
 			int g = d.site().ground(cx, cz);
-			if (g >= cy || !inPlot(d, cx, cz)) {
+			if (g >= cy) {
 				break;
 			}
-			// the step is at cy - 1 (its top at cy - 0.5 .. cy): a stair facing back toward the door
+			int nx = cx + Dirs.dx(dir);
+			int nz = cz + Dirs.dz(dir);
+			boolean last = g >= cy - 1;
+			if (!turned && !last && !inPlot(d, nx, nz)) {
+				// the run would leave the plot before reaching the ground: a landing here, then on along the plot
+				Direction r = Dirs.right(dir);
+				Direction l = Dirs.left(dir);
+				int roomR = 0;
+				int roomL = 0;
+				while (roomR < 16 && inPlot(d, cx + Dirs.dx(r) * (roomR + 1), cz + Dirs.dz(r) * (roomR + 1))) {
+					roomR++;
+				}
+				while (roomL < 16 && inPlot(d, cx + Dirs.dx(l) * (roomL + 1), cz + Dirs.dz(l) * (roomL + 1))) {
+					roomL++;
+				}
+				try (var st = d.stage(StageKind.EXTERIOR)) {
+					d.set(cx, cy - 1, cz, paving.full());
+					d.set(cx, cy, cz, Blocks.AIR.defaultBlockState());
+					d.set(cx, cy + 1, cz, Blocks.AIR.defaultBlockState());
+					for (int yy = g - 1; yy < cy - 1; yy++) {
+						d.set(cx, yy, cz, stone.full());
+					}
+				}
+				dir = roomR >= roomL ? r : l;
+				across = Dirs.right(dir);
+				turned = true;
+				cx += Dirs.dx(dir);
+				cz += Dirs.dz(dir);
+				cy--;
+				continue;
+			}
+			// the step is at cy - 1 (its top at cy - 0.5 .. cy): a stair facing back up the flight
 			for (int w = -half; w <= width - 1 - half; w++) {
 				int sx = cx + Dirs.dx(across) * w;
 				int sz = cz + Dirs.dz(across) * w;
@@ -237,7 +291,6 @@ public final class Groundwork {
 					continue;
 				}
 				try (var st = d.stage(StageKind.EXTERIOR)) {
-					boolean first = n == 0 && g >= cy - 1;
 					d.set(sx, cy - 1, sz, paving.has(Form.STAIRS) ? paving.stairs(dir.getOpposite(), Half.BOTTOM) : stone.stairsOrSlab(dir.getOpposite(), Half.BOTTOM));
 					d.set(sx, cy, sz, Blocks.AIR.defaultBlockState());
 					d.set(sx, cy + 1, sz, Blocks.AIR.defaultBlockState());
@@ -246,11 +299,166 @@ public final class Groundwork {
 					}
 				}
 			}
-			cx += Dirs.dx(dir);
-			cz += Dirs.dz(dir);
+			cx = nx;
+			cz = nz;
 			cy--;
 		}
 		return new int[]{cx, cy, cz};
+	}
+
+	/**
+	 * A way from a door down (or up) to the street over uneven ground: a path found through the free cells of the plot
+	 * from the entrance cell (x, z) to the front row, then laid step by step so its level changes by at most one block per
+	 * cell, with stairs where it descends, paving where it runs level, a footing under every step and a cutting where the
+	 * ground rises over it. Returns false if no free route reaches the front row.
+	 *
+	 * @param y the standing level at the entrance cell
+	 */
+	public static boolean approach(Draft d, int x, int y, int z) {
+		int w = d.frontage();
+		int dp = d.depth();
+		if (!inPlot(d, x, z)) {
+			return true;
+		}
+		// breadth-first over free cells (nothing built at the walking height) toward the front row
+		int[] prev = new int[w * dp];
+		java.util.Arrays.fill(prev, -2);
+		java.util.ArrayDeque<int[]> q = new java.util.ArrayDeque<>();
+		prev[z * w + x] = -1;
+		q.add(new int[]{x, z});
+		int end = -1;
+		while (!q.isEmpty()) {
+			int[] c = q.poll();
+			if (c[1] == 0) {
+				end = c[1] * w + c[0];
+				break;
+			}
+			// prefer heading for the street: front first
+			for (Direction dir : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
+				int nx = c[0] + Dirs.dx(dir);
+				int nz = c[1] + Dirs.dz(dir);
+				if (!inPlot(d, nx, nz) || prev[nz * w + nx] != -2 || !free(d, nx, nz, y, d.site().ground(nx, nz))) {
+					continue;
+				}
+				prev[nz * w + nx] = c[1] * w + c[0];
+				q.add(new int[]{nx, nz});
+			}
+		}
+		if (end < 0) {
+			return false;
+		}
+		java.util.List<int[]> route = new java.util.ArrayList<>();
+		for (int i = end; i != -1; i = prev[i]) {
+			route.add(0, new int[]{i % w, i / w});
+		}
+		Mat stone = d.mat(Role.FOUNDATION);
+		Mat paving = d.mat(Role.PAVING);
+		Mat path = d.mat(Role.PATH);
+		int h = y;
+		// the first cell (outside the door) must bear a person at the door's level: a landing on a footing if not
+		int[] first = route.get(0);
+		int g0 = d.site().ground(first[0], first[1]);
+		if (!d.isSolid(first[0], h - 1, first[1]) && g0 < h) {
+			try (var st = d.stage(StageKind.EXTERIOR)) {
+				d.set(first[0], h - 1, first[1], paving.full());
+				for (int yy = g0 - 1; yy < h - 1; yy++) {
+					d.set(first[0], yy, first[1], stone.full());
+				}
+			}
+		}
+		for (int k = 1; k < route.size(); k++) {
+			int[] from = route.get(k - 1);
+			int[] c = route.get(k);
+			Direction back = Dirs.of(from[0] - c[0], from[1] - c[1]);
+			int g = d.site().ground(c[0], c[1]);
+			// the ground ahead decides: descend a step, keep level, or climb a step
+			int target = Math.clamp(g, h - 1, h + 1);
+			try (var st = d.stage(StageKind.EXTERIOR)) {
+				if (d.isSolid(c[0], h - 1, c[1]) && d.isEmpty(c[0], h, c[1]) && !groundLike(d.get(c[0], h - 1, c[1]))) {
+					// a deck or a floor already there: walk on it
+					continue;
+				}
+				int top;
+				if (target < h) {
+					// a stair whose high step is a block below where we stand: one down
+					top = h - 2;
+					d.set(c[0], top, c[1], paving.has(Form.STAIRS) ? paving.stairs(back, Half.BOTTOM) : stone.stairsOrSlab(back, Half.BOTTOM));
+					h--;
+				} else if (target > h) {
+					// climbing: a step up, cut into the ground beyond
+					top = h;
+					d.set(c[0], top, c[1], paving.has(Form.STAIRS) ? paving.stairs(back.getOpposite(), Half.BOTTOM)
+						: stone.stairsOrSlab(back.getOpposite(), Half.BOTTOM));
+					h++;
+				} else {
+					top = h - 1;
+					d.set(c[0], top, c[1], g >= h - 1 && g <= h ? path.full() : paving.full());
+				}
+				for (int yy = g - 1; yy < top; yy++) {
+					d.set(c[0], yy, c[1], stone.full());
+				}
+				for (int yy = top + 1; yy <= Math.max(top + 2, g - 1); yy++) {
+					d.set(c[0], yy, c[1], Blocks.AIR.defaultBlockState());
+				}
+			}
+		}
+		// still above the street at the front row: carry on down along it, toward the lower and roomier side
+		int[] last = route.get(route.size() - 1);
+		int cx = last[0];
+		int street = d.site().ground(cx, -1);
+		if (h - street > 1) {
+			int roomL = 0;
+			int roomR = 0;
+			while (roomL < w && inPlot(d, cx - roomL - 1, 0) && free(d, cx - roomL - 1, 0, h, d.site().ground(cx - roomL - 1, 0))) {
+				roomL++;
+			}
+			while (roomR < w && inPlot(d, cx + roomR + 1, 0) && free(d, cx + roomR + 1, 0, h, d.site().ground(cx + roomR + 1, 0))) {
+				roomR++;
+			}
+			int step = roomR >= roomL ? 1 : -1;
+			Direction back = step > 0 ? Dirs.LEFT : Dirs.RIGHT;
+			int room = Math.max(roomL, roomR);
+			for (int k = 1; k <= room && h - d.site().ground(cx + step * k, -1) > 1; k++) {
+				int x1 = cx + step * k;
+				int g = d.site().ground(x1, 0);
+				try (var st = d.stage(StageKind.EXTERIOR)) {
+					d.set(x1, h - 2, 0, paving.has(Form.STAIRS) ? paving.stairs(back, Half.BOTTOM) : stone.stairsOrSlab(back, Half.BOTTOM));
+					for (int yy = g - 1; yy < h - 2; yy++) {
+						d.set(x1, yy, 0, stone.full());
+					}
+					d.set(x1, h - 1, 0, Blocks.AIR.defaultBlockState());
+					d.set(x1, h, 0, Blocks.AIR.defaultBlockState());
+				}
+				h--;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Nothing in the way where a person would walk between level y and the ground g: every cell empty, earth, or the
+	 * deck or floor they would walk on at y - 1.
+	 */
+	private static boolean free(Draft d, int x, int z, int y, int g) {
+		for (int yy = Math.min(y, g) - 1; yy <= Math.max(y, g) + 1; yy++) {
+			BlockState s = d.get(x, yy, z);
+			if (s == null || s.isAir() || groundLike(s) || yy == y - 1 && d.isSolid(x, yy, z) || yy < Math.min(y, g)) {
+				continue;
+			}
+			return false;
+		}
+		return true;
+	}
+
+	/** Earth, sand, gravel, a path: what levelling and paths lay down, which a way may be cut through or laid over. */
+	static boolean groundLike(BlockState s) {
+		if (s == null) {
+			return false;
+		}
+		Block b = s.getBlock();
+		return b == Blocks.GRASS_BLOCK || b == Blocks.DIRT || b == Blocks.COARSE_DIRT || b == Blocks.DIRT_PATH || b == Blocks.SAND || b == Blocks.RED_SAND
+			|| b == Blocks.GRAVEL || b == Blocks.PODZOL || b == Blocks.MUD || b == Blocks.SNOW_BLOCK || b == Blocks.MOSS_BLOCK || b == Blocks.ROOTED_DIRT
+			|| b == Blocks.PACKED_MUD || s.isAir();
 	}
 
 	/**

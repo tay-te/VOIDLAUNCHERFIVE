@@ -20,7 +20,8 @@ public final class Floors {
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
 				for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
-					if (d.isAbsent(x, y, z)) {
+					// boards go over anything not built yet, including ground dug out for the house
+					if (d.isEmpty(x, y, z)) {
 						d.set(x, y, z, floor.full());
 					}
 				}

@@ -147,12 +147,15 @@ final class HouseBuilder {
 			Porches.porch(d, frontWall, bx0, bx1, depth, base, 3, door == null ? bx0 : door);
 			porch = true;
 			if (door != null) {
-				// the steps go down from the gallery's opening toward the street
-				Groundwork.steps(d, door, base, bz0 - depth - 1, Dirs.FRONT, 1);
+				// a way down from the gallery's opening to the street
+				Groundwork.approach(d, door, base, bz0 - depth);
 			}
 		} else if (door != null && front >= 3 && d.chance(h.porch())) {
 			Porches.porch(d, frontWall, Math.max(bx0, door - 1), Math.min(bx1, door + 1), 2, base, 3, door);
 			porch = true;
+			Groundwork.approach(d, door, base, bz0 - 2);
+		} else if (door != null && front >= 1) {
+			Groundwork.approach(d, door, base, bz0 - 1);
 		}
 		if (!stilted && front >= 2 && d.chance(h.windows().bay())) {
 			for (Facade.Opening o : facade.openings(Dirs.FRONT)) {
