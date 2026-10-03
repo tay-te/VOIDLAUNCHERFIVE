@@ -17,7 +17,9 @@ public final class TownNews {
 	private static final int KEEP = 8;
 
 	public enum Kind {
-		FOUNDED, BUILT, STALLED, TIER, ARRIVED, DIED
+		FOUNDED, BUILT, STALLED, TIER, ARRIVED, DIED,
+		/** A party of settlers left to found a hamlet ({@code subject} is its name). */
+		LEFT
 	}
 
 	/**
@@ -33,6 +35,10 @@ public final class TownNews {
 		// The same stall reported every step is one piece of news, refreshed.
 		if (item.kind == Kind.STALLED) {
 			this.items.removeIf(i -> i.kind == Kind.STALLED && i.goods == item.goods);
+		}
+		// a party of settlers is one piece of news, not one per person
+		if (item.kind == Kind.LEFT) {
+			this.items.removeIf(i -> i.kind == Kind.LEFT && i.subject.equals(item.subject));
 		}
 		this.items.addFirst(item);
 		while (this.items.size() > KEEP) {

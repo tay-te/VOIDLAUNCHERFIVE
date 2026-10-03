@@ -82,7 +82,10 @@ layout and sets habits: landmark preferences, walkways between tall houses, stac
   road beyond the houses; route an **approach** (A\* to the nearest road, stairs allowed) up to the rise or summit; a
   lane down to the water; a new boardwalk; for farmland, run a fully built main road that ends near the edge of town
   on by 64 blocks (never in expansive layouts, which reach out along their tracks). Road growth is capped at about
-  `300 + 20 × population` blocks so a settlement that cannot place what it wants does not pave the world.
+  `300 + 20 × (population + max(6, population / 5))` blocks so a settlement that cannot place what it wants does not
+  pave the world. The cap runs a little ahead of the people living there: newcomers only come while beds are free and
+  beds need frontage, so a cap on today's head count froze towns whose roads had no frontage left (a 15-soul harbour
+  hamlet stood still for 400 days in the first integration run).
 - **Switchbacks** (mountain holds) are laid out, not searched: legs of 40 blocks along the contour, each offset uphill
   by 7 blocks of rise over the slope, turning back at each end; graded without stairs like any road and cut where a
   leg leaves land it can grade. (An 8-direction grid cannot hold a 0.2 grade across a 0.7 slope.)
@@ -133,6 +136,7 @@ few calls (`cooldowns`, saved). While more than `4 + pop/6` plots are unbuilt on
 | builders' yard (first workplace) | 1000 | crafts ring |
 | housing: residents + margin > beds + planned beds | 600 + 12/bed | site first, then the house for its band (§4), farmsteads in expansive layouts, rebuilds in dense towns |
 | food: farms feed < population | 420+ | field / orchard / pasture / paddy / terrace field by culture and land, just past the edge of town (outside the walls), round farmsteads |
+| shortage: a plot waits for goods (`PlotView.waitingForGoods`) and the stores hold under 200 stone / wood | 380 | a quarry / sawmill (the workplace for QUARRIER / FORESTER), at most two job sites per 40 souls; planned even while busy |
 | a job's workers > its workplaces | 300+ | workplace providing that job (catalogue) |
 | the program (`Program`): storehouse, fishery, carpentry, smithy, stalls, sawmill, barn, quarry, chapel, inn, bakery, bank, mills, granary, masonry, guardhouse, brewery, tailor, town hall, market hall, library, school, warehouse, manors, bathhouse | 120–330 | each with a count by population and a placement |
 | plaza | 280 | at village tier |
@@ -236,7 +240,10 @@ handed out was not taken; plots added since are marked incrementally. It can nev
   max ~3 ms. While a town grows, a call that plans a lane and the streets ahead of it, or routes an approach, takes
   2–10 ms (the worst seen in the previews: ~18 ms); approach searches are bounded (one per call, 90 000 states), so an
   unreachable crag costs a few milliseconds, and a need that only grew a road rests for a few calls. Founding, with its
-  A\* skeleton, takes 30–150 ms (budgeted at 100–300 ms per town in §5.1).
+  A\* skeleton, takes 30–150 ms (budgeted at 100–300 ms per town in §5.1). In the sim (integration, Expanse Earth terrain,
+  dev catalogue): 2830 live calls averaged 1.6 ms (93 % under 5 ms, max 15 ms) for towns up to ~600 souls; live founding
+  138 ms on average. Cities past ~1000 plots are slower (see the integration report): a call after a plot disappears
+  rebuilds the occupancy grid from every plot.
 
 ## 11. Previews
 
@@ -275,9 +282,11 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `housing_margin` | 0.1 | spare beds planned ahead of the population (at least 2) |
 | `search_budget` | 1600 | frontage places examined per placement |
 | `cache_tiles` | 4096 | terrain tiles (256 columns) cached per world |
+| `live_time_limit_ms` | 20 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
 
 Debug: `/hearth plan info` near a settlement; `-Dhearth.dev.plan.trace=true` logs every need tried, its result and
-time.
+time; `-Dhearth.dev.plan.layout=<layout>` forces every settlement founded in the run to that layout (any thread: live
+founding and histories alike; `PlanModule.devLayout`).
 
 ## 13. Tests (`src/test/java/dev/voidmc/hearth/plan`)
 

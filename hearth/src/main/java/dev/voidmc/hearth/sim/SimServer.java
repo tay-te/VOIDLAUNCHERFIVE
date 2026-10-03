@@ -53,6 +53,8 @@ public final class SimServer {
 	private final Set<ResourceKey<Level>> dimensions = new HashSet<>();
 	/** Time per tick for writing queued settlements after an autosave. */
 	private static final long SAVE_BUDGET = 1_000_000;
+	/** Time per tick for looking at sites for daughter hamlets. */
+	private static final long HAMLET_BUDGET = 200_000;
 	private int plannerCalls;
 	private long ticks;
 
@@ -235,6 +237,8 @@ public final class SimServer {
 		long applierBudget = (long) (this.rules.config.applier().budgetMs() * 1e6);
 		for (SimWorld w : this.worlds.values()) {
 			w.applier().tick(applierBudget, this.rules.config.applier().maxBlocks());
+			// sites for daughter hamlets, a few candidates a tick
+			w.tickHamlets(HAMLET_BUDGET);
 		}
 		if (this.ticks % 20 == 0) {
 			for (SimWorld w : this.worlds.values()) {

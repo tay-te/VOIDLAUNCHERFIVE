@@ -34,6 +34,8 @@ public final class Needs {
 	/** Food production in mouths fed (built, under way and queued). */
 	public int food;
 	public int unbuilt;
+	/** Plots whose builders wait for goods the stores lack ({@code PlotView.waitingForGoods}). */
+	public int waiting;
 
 	private Needs(PlanContext ctx) {
 		this.population = ctx.population;
@@ -52,6 +54,9 @@ public final class Needs {
 			boolean built = plot.state() == PlotState.BUILT || plot.state() == PlotState.ABANDONED;
 			if (plot.state() == PlotState.DEMOLISHING) {
 				continue;
+			}
+			if (plot.waitingForGoods()) {
+				this.waiting++;
 			}
 			count(ctx, plot.spec(), built);
 		}

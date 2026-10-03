@@ -14,10 +14,11 @@ import java.util.Map;
  * numbers are documented in docs/SIM.md.
  */
 public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody embody, Clock clock, Applier applier, Atlas atlas,
-	Labour labour, Production production, Population population, Storage storage, Founding founding) {
+	Labour labour, Production production, Population population, Storage storage, Founding founding, Daughters daughters) {
 
 	public static final SimConfig DEFAULTS = new SimConfig(List.of("minecraft:overworld"), false, Embody.DEFAULTS, Clock.DEFAULTS,
-		Applier.DEFAULTS, Atlas.DEFAULTS, Labour.DEFAULTS, Production.DEFAULTS, Population.DEFAULTS, Storage.DEFAULTS, Founding.DEFAULTS);
+		Applier.DEFAULTS, Atlas.DEFAULTS, Labour.DEFAULTS, Production.DEFAULTS, Population.DEFAULTS, Storage.DEFAULTS, Founding.DEFAULTS,
+		Daughters.DEFAULTS);
 
 	public static final Codec<SimConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.STRING.listOf().optionalFieldOf("dimensions", DEFAULTS.dimensions).forGetter(SimConfig::dimensions),
@@ -31,8 +32,36 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 		Production.CODEC.optionalFieldOf("production", Production.DEFAULTS).forGetter(SimConfig::production),
 		Population.CODEC.optionalFieldOf("population", Population.DEFAULTS).forGetter(SimConfig::population),
 		Storage.CODEC.optionalFieldOf("storage", Storage.DEFAULTS).forGetter(SimConfig::storage),
-		Founding.CODEC.optionalFieldOf("founding", Founding.DEFAULTS).forGetter(SimConfig::founding)
+		Founding.CODEC.optionalFieldOf("founding", Founding.DEFAULTS).forGetter(SimConfig::founding),
+		Daughters.CODEC.optionalFieldOf("daughters", Daughters.DEFAULTS).forGetter(SimConfig::daughters)
 	).apply(i, SimConfig::new));
+
+	/**
+	 * Settlers leaving a crowded town found a daughter hamlet (ARCHITECTURE.md §5.1).
+	 *
+	 * @param enabled       whether live settlements found hamlets at all (histories never do)
+	 * @param minPopulation a town smaller than this does not send settlers out
+	 * @param crowdedDays   days in a row with no free bed before a group sets out
+	 * @param cooldownDays  days between two hamlets of the same town
+	 * @param minDistance   the hamlet's site is at least this far from the town's heart (blocks)
+	 * @param maxDistance   and at most this far
+	 * @param settlers      adults who leave to found it
+	 * @param maxPerTown    hamlets one town founds at most
+	 */
+	public record Daughters(boolean enabled, int minPopulation, int crowdedDays, int cooldownDays, int minDistance, int maxDistance, int settlers,
+		int maxPerTown) {
+		public static final Daughters DEFAULTS = new Daughters(true, 30, 5, 40, 600, 2500, 4, 3);
+		public static final Codec<Daughters> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Daughters::enabled),
+			Codec.intRange(4, 10000).optionalFieldOf("min_population", DEFAULTS.minPopulation).forGetter(Daughters::minPopulation),
+			Codec.intRange(1, 1000).optionalFieldOf("crowded_days", DEFAULTS.crowdedDays).forGetter(Daughters::crowdedDays),
+			Codec.intRange(0, 10000).optionalFieldOf("cooldown_days", DEFAULTS.cooldownDays).forGetter(Daughters::cooldownDays),
+			Codec.intRange(200, 20000).optionalFieldOf("min_distance", DEFAULTS.minDistance).forGetter(Daughters::minDistance),
+			Codec.intRange(200, 20000).optionalFieldOf("max_distance", DEFAULTS.maxDistance).forGetter(Daughters::maxDistance),
+			Codec.intRange(2, 32).optionalFieldOf("settlers", DEFAULTS.settlers).forGetter(Daughters::settlers),
+			Codec.intRange(0, 64).optionalFieldOf("max_per_town", DEFAULTS.maxPerTown).forGetter(Daughters::maxPerTown)
+		).apply(i, Daughters::new));
+	}
 
 	/**
 	 * @param radius       a settlement is embodied while a player is within this many blocks of its bounds

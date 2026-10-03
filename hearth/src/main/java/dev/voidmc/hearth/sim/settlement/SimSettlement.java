@@ -321,9 +321,9 @@ public final class SimSettlement implements Settlement {
 		long from = p.cursor();
 		int remaining = steps;
 		while (remaining > 0 && p.stage < f.stageCount()) {
-			if (!p.funded) {
-				// The builder has already started: take what the stage needs, or what there is of it.
-				startStage(p, f, true);
+			if (!p.funded && !startStage(p, f, false)) {
+				// the stage's goods are not in store: it waits (stalled, waitingForGoods), and so do the builders
+				break;
 			}
 			int n = Math.min(remaining, f.stepCount()[p.stage] - p.step);
 			p.step += n;
@@ -334,9 +334,11 @@ public final class SimSettlement implements Settlement {
 				finishStage(p, f, false);
 			}
 		}
-		p.lastEmbodiedAdvance = c.gameTime();
-		c.placedByEntity(this, p, from, p.cursor());
-		markDirty();
+		if (p.cursor() != from) {
+			p.lastEmbodiedAdvance = c.gameTime();
+			c.placedByEntity(this, p, from, p.cursor());
+			markDirty();
+		}
 	}
 
 	@Override
@@ -396,6 +398,11 @@ public final class SimSettlement implements Settlement {
 
 	/** Gives up on a plot (its ground was built over); its finished stages stay as they are. */
 	public void abandonPlot(SimPlot p) {
+		abandonPlot(p, "built over");
+	}
+
+	/** Gives up on a plot; {@code why} is short and readable ("built over", "its archetype is gone"). */
+	public void abandonPlot(SimPlot p, String why) {
 		if (p.state == PlotState.ABANDONED) {
 			return;
 		}
@@ -404,10 +411,15 @@ public final class SimSettlement implements Settlement {
 		p.stalledOn = null;
 		SimPlot old = this.plots.get(p.replaces);
 		if (old != null && old.state == PlotState.DEMOLISHING) {
+			// the rebuild is off: the old building stands (and is written back where it was already cleared)
 			old.state = PlotState.BUILT;
+			if (this.ctx != null) {
+				this.ctx.progressed(this, old);
+			}
 		}
 		this.derivedDirty = true;
 		markDirty();
+		firePlotAbandoned(p, why);
 	}
 
 	/** Ticks of an entity's WORK routine that make one abstract worker-day (a folk works about nine hours a day). */
@@ -454,6 +466,13 @@ public final class SimSettlement implements Settlement {
 		return out;
 	}
 
+	private void firePlotAbandoned(SimPlot p, String why) {
+		HearthWorld w = this.ctx == null ? null : this.ctx.eventWorld();
+		if (w != null) {
+			SettlementEvents.PLOT_ABANDONED.invoker().onPlotAbandoned(w, this, p, why);
+		}
+	}
+
 	/** The plot's blueprint facts, read once. A plot whose archetype no longer exists gets none and is abandoned. */
 	public PlotFacts facts(SimPlot p) {
 		PlotFacts f = p.facts;
@@ -465,6 +484,7 @@ public final class SimSettlement implements Settlement {
 				f = new PlotFacts(0, new int[0], new int[0], new int[0][], 0, new int[JobType.values().length], false);
 				if (p.isActive()) {
 					p.state = PlotState.ABANDONED;
+					firePlotAbandoned(p, "no blueprint for " + p.spec().archetype());
 				}
 			}
 			p.facts = f;
@@ -479,10 +499,25 @@ public final class SimSettlement implements Settlement {
 	public long applicable(SimPlot p) {
 		PlotFacts f = facts(p);
 		return switch (p.state) {
-			case BUILT, DEMOLISHING -> f.complete();
+			case BUILT -> f.complete();
+			// its rebuild has begun: it comes down (the applier clears what is left of it as its chunks load)
+			case DEMOLISHING -> Cursor.ZERO;
 			case PLANNED, BUILDING -> this.embodied ? p.cursor() : Cursor.pack(p.stage, 0);
 			case ABANDONED -> Cursor.pack(Math.min(p.stage, f.stageCount()), 0);
 		};
+	}
+
+	/**
+	 * Tries to start a plot's current stage now: takes its goods if they are in store, otherwise marks it waiting for
+	 * them (firing {@code CONSTRUCTION_STALLED} once). For commands and tests; the clock does this as it goes.
+	 */
+	public boolean tryStartStage(int plotId) {
+		SimPlot p = this.plots.get(plotId);
+		if (p == null || !p.isActive()) {
+			return false;
+		}
+		PlotFacts f = facts(p);
+		return p.stage < f.stageCount() && (p.funded || startStage(p, f, false));
 	}
 
 	/** Takes the stage's goods if they are in store (or anyway, if forced: an embodied builder already started). */
@@ -490,7 +525,8 @@ public final class SimSettlement implements Settlement {
 		int[] need = f.goods()[p.stage];
 		if (!force && !this.stockpile.has(need)) {
 			int worst = this.stockpile.worstShortfall(need);
-			if (worst >= 0 && p.stalledOn == null) {
+			if (worst >= 0 && (p.stalledOn == null || p.heldBack)) {
+				p.heldBack = false;
 				p.stalledOn = Goods.VALUES[worst];
 				HearthWorld w = ctx().eventWorld();
 				if (w != null) {
@@ -499,9 +535,20 @@ public final class SimSettlement implements Settlement {
 			}
 			return false;
 		}
+		if (!force) {
+			Goods held = heldFor(p, need);
+			if (held != null) {
+				// an earlier plot is waiting for these goods: what comes in goes to it first (or a supply quest that covers
+				// its shortfall would be eaten by smaller jobs before it could start). This one waits its turn, quietly.
+				p.stalledOn = held;
+				p.heldBack = true;
+				return false;
+			}
+		}
 		this.stockpile.takeAll(need);
 		p.funded = true;
 		p.stalledOn = null;
+		p.heldBack = false;
 		if (p.state == PlotState.PLANNED) {
 			p.state = PlotState.BUILDING;
 			SimPlot old = this.plots.get(p.replaces);
@@ -509,9 +556,39 @@ public final class SimSettlement implements Settlement {
 				// the old building comes down as the new one goes up: its beds and workplaces stop counting
 				old.state = PlotState.DEMOLISHING;
 				this.derivedDirty = true;
+				// the applier clears it from loaded chunks before the new one's first blocks go in
+				ctx().progressed(this, old);
+				ctx().plotsChanged(this);
+				firePlotAbandoned(old, "rebuilt as " + p.spec().archetype().getPath());
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The goods {@code p} would take from the first plot ahead of it (in plot order, the order labour goes round) already
+	 * waiting for them, or null if starting {@code p} leaves that plot no worse off. The first plot in line is never held.
+	 */
+	private @Nullable Goods heldFor(SimPlot p, int[] need) {
+		for (SimPlot q : this.plots.values()) {
+			if (q == p) {
+				// nobody waiting before it: it is first in line
+				return null;
+			}
+			if (!q.isActive() || q.funded || q.stalledOn == null || q.facts == null || q.stage >= q.facts.stageCount()) {
+				continue;
+			}
+			int[] theirs = q.facts.goods()[q.stage];
+			int cap = this.stockpile.capacity(Goods.FOOD);
+			for (int g = 0; g < need.length && g < theirs.length; g++) {
+				if (need[g] > 0 && theirs[g] > 0 && this.stockpile.get(Goods.VALUES[g]) - Math.min(theirs[g], cap) < Math.min(need[g], cap)) {
+					return Goods.VALUES[g];
+				}
+			}
+			// only the first waiting plot holds goods back
+			return null;
+		}
+		return null;
 	}
 
 	/** The current stage is done: on to the next, or the whole plot. */
@@ -522,7 +599,13 @@ public final class SimSettlement implements Settlement {
 		p.funded = false;
 		if (p.stage >= f.stageCount()) {
 			finishPlot(p, f);
-		} else if (notify) {
+			return;
+		}
+		if (this.embodied) {
+			// builders are on site: take the next stage's goods now, or let them see at once that it waits for them
+			startStage(p, f, false);
+		}
+		if (notify) {
 			ctx().progressed(this, p);
 		}
 	}
@@ -682,8 +765,12 @@ public final class SimSettlement implements Settlement {
 			}),
 			Codec.DOUBLE.optionalFieldOf("coin_fraction", 0.0).forGetter(c -> c.coinFraction),
 			Codec.LONG.optionalFieldOf("no_growth_until", Long.MIN_VALUE).forGetter(c -> c.noGrowthUntil),
-			Codec.LONG.optionalFieldOf("days_lived", 0L).forGetter(c -> c.daysLived)
-		).apply(i, (tick, offset, rng, hunger, crowd, frac, coin, noGrowth, days) -> {
+			Codec.LONG.optionalFieldOf("days_lived", 0L).forGetter(c -> c.daysLived),
+			Codec.INT.optionalFieldOf("crowded_days", 0).forGetter(c -> c.crowdedDays),
+			Codec.LONG.optionalFieldOf("last_daughter_day", Long.MIN_VALUE).forGetter(c -> c.lastDaughterDay),
+			Codec.INT.optionalFieldOf("daughters", 0).forGetter(c -> c.daughters),
+			Codec.LONG.optionalFieldOf("parent", 0L).forGetter(c -> c.parent)
+		).apply(i, (tick, offset, rng, hunger, crowd, frac, coin, noGrowth, days, crowded, lastDaughter, daughters, parent) -> {
 			ClockState c = new ClockState(tick, offset, rng);
 			c.hungerDays = hunger;
 			c.overcrowdDays = crowd;
@@ -693,6 +780,10 @@ public final class SimSettlement implements Settlement {
 			c.coinFraction = coin;
 			c.noGrowthUntil = noGrowth;
 			c.daysLived = days;
+			c.crowdedDays = crowded;
+			c.lastDaughterDay = lastDaughter;
+			c.daughters = daughters;
+			c.parent = parent;
 			return c;
 		}));
 
@@ -707,6 +798,13 @@ public final class SimSettlement implements Settlement {
 		/** The planner had nothing to propose; do not ask again before this sim tick. */
 		long noGrowthUntil = Long.MIN_VALUE;
 		long daysLived;
+		/** Days in a row with no free bed (settlers set out for a daughter hamlet after a few). */
+		int crowdedDays;
+		long lastDaughterDay = Long.MIN_VALUE;
+		/** Hamlets founded by settlers from here. */
+		int daughters;
+		/** The settlement whose settlers founded this one, or 0. */
+		long parent;
 
 		ClockState(long simTick, long timeOffset, long rng) {
 			this.simTick = simTick;
@@ -724,6 +822,30 @@ public final class SimSettlement implements Settlement {
 
 		public long daysLived() {
 			return this.daysLived;
+		}
+
+		public int daughters() {
+			return this.daughters;
+		}
+
+		/** The planner had nothing to propose: the clock does not ask again before this sim tick. */
+		public long noGrowthUntil() {
+			return this.noGrowthUntil;
+		}
+
+		public long parent() {
+			return this.parent;
+		}
+
+		public void setParent(long id) {
+			this.parent = id;
+		}
+
+		/** A group of settlers set out from here to found a hamlet on this day. */
+		public void daughterFounded(long day) {
+			this.daughters++;
+			this.lastDaughterDay = day;
+			this.crowdedDays = 0;
 		}
 	}
 

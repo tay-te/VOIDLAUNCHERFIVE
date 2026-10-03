@@ -35,7 +35,7 @@ A quest's **status**: `OFFERED` → `ACTIVE` → `READY` (everything done, waiti
 | `biome` | the player stands in one of a set of biomes (Expanse's realms, landforms) | tracker |
 | `courier` | the sealed parcel is handed over in the destination town (to the recipient or at its board) | hand-in |
 | `escort` | the pack animal arrives alive in the destination town | tracker + death event |
-| `scout` | the player stands on a good hamlet site in the distance band | tracker |
+| `scout` | the player stands on a good hamlet site in the distance band, where the sim could found one (`HearthWorld.whyNotFound` is null) | tracker |
 | `talk` | the player passes on a message to a particular resident | conversation |
 
 Quests may be **sequential** (find the keepsake, *then* bring it back) and have a **deadline** in days. They turn in to
@@ -203,8 +203,9 @@ beats `ACTIVE`. It reads the player's few quests and the town's few offers.
   giver and town, what they said, each objective with progress (and how many of the items you carry), reward, time
   left; **Track** and **Abandon** (asks to confirm). The second tab lists finished quests.
 - **HUD tracker** (top left): the tracked quest's title and open objectives, beside a small **compass** whose needle
-  points to where the quest wants you — the place, the landmark, the destination town, or the giver's town to hand in —
-  with the distance under it.
+  points to where the quest wants you — the place, the landmark, the destination town, or the giver's town to hand in
+  (its notice board, the first `NOTICE_BOARD` point of interest of its built plots, when it has one; set when the offer
+  is posted and again when it is taken) — with the distance under it.
 - **Toasts** for a quest taken, ready to hand in, completed, failed.
 
 The client only reads the synced `PlayerQuests` and sends intents (track, abandon, accept, hand in); the server checks
@@ -223,9 +224,10 @@ everything (reach to the board, the settlement, standing, journal size).
 - **Reputation** (`Settlement.addReputation`): + the template's (or `reputation_complete`) on completion,
   `reputation_fail` on failure, `reputation_abandon` on abandoning. Templates gate on `min_reputation`; the board shows
   standing as Distrusted / Stranger / Known / Friend / Hero.
-- **Consequences**: supply goods reach the stockpile and the build resumes; a scouted site fires
-  `QuestEvents.SITE_SCOUTED` for the sim to found a hamlet there (see `docs/requests/quest.md`); `QuestEvents.COMPLETED`
-  for anyone who reacts.
+- **Consequences**: supply goods reach the stockpile and the build resumes (the sim gives the oldest stalled plot first
+  claim on what comes in); a scouted site is founded as a hamlet by settlers from the giver's town
+  (`HearthWorld.found(site, null, origin, reason)`; the player is told its name, or why it could not be founded), then
+  `QuestEvents.SITE_SCOUTED` fires; `QuestEvents.COMPLETED` for anyone who reacts.
 
 ---
 
@@ -279,7 +281,8 @@ The sandbox lives in memory until the server stops and works with or without the
 
 - **Sim** fires `SettlementEvents.CONSTRUCTION_STALLED` (→ supply), `BUILDING_COMPLETED` (→ the plot's needs and untaken
   supply offers are dropped), `RESIDENT_REMOVED` (→ their untaken offers come down); persists the `hearth:quest/board`
-  data key; gives `HearthWorld.settlementAt/nearest/settlements/day`. Wanted: a found-a-settlement hook for scouting.
+  data key; gives `HearthWorld.settlementAt/nearest/settlements/day`, `found`/`whyNotFound` (scouting) and
+  `Settlement.pois(NOTICE_BOARD)` (waypoints).
 - **Npc** opens conversations and calls `QuestDialogue`; asks `HearthServices.quests().marker(...)`; writes
   `extra.npc.traits` (list of strings), which personal gifts read.
 - **Economy** prices goods (`EconomyService.price`), formats and pays coin.

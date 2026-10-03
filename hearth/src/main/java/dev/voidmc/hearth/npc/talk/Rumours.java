@@ -1,9 +1,9 @@
 package dev.voidmc.hearth.npc.talk;
 
-import com.mojang.datafixers.util.Pair;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.npc.NpcModule;
+import dev.voidmc.hearth.npc.NpcTime;
 import dev.voidmc.hearth.npc.embody.SettlementSources;
 import dev.voidmc.hearth.npc.person.Trait;
 import java.util.ArrayList;
@@ -14,17 +14,10 @@ import java.util.Map;
 import java.util.Optional;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.core.HolderSet;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.levelgen.structure.Structure;
-import org.jspecify.annotations.Nullable;
 
 /**
  * What folk know of the wider world: the other settlements (by name, compass direction and distance) and, when VOID
@@ -58,16 +51,10 @@ public final class Rumours {
 		Map<String, String> v = Greetings.values(settlement, resident, player);
 		boolean curious = ctx.traits().contains(Trait.CURIOUS) || ctx.traits().contains(Trait.GOSSIP);
 		List<String> options = new ArrayList<>();
-		// Other settlements, nearest first.
-		List<Settlement> others = new ArrayList<>();
-		for (Settlement s : SettlementSources.all(level)) {
-			if (s.id() != settlement.id() && s.center().distSqr(settlement.center()) < 4000.0 * 4000.0) {
-				others.add(s);
-			}
-		}
-		others.sort(Comparator.comparingDouble(s -> s.center().distSqr(settlement.center())));
+		// Other settlements, nearest first: live ones, and those the atlas knows of that nobody has visited yet.
+		List<Place> others = others(level, settlement);
 		for (int i = 0; i < Math.min(others.size(), curious ? 4 : 2); i++) {
-			Settlement o = others.get(i);
+			Place o = others.get(i);
 			Map<String, String> vv = new HashMap<>(v);
 			vv.put("other", o.name());
 			vv.put("direction", direction(settlement.center(), o.center()));
@@ -82,8 +69,8 @@ public final class Rumours {
 			Map<String, Optional<BlockPos>> found = FOUND.computeIfAbsent(settlement.id(), k -> new HashMap<>());
 			searchOne(level, settlement, found, random);
 			for (String[] lm : LANDMARKS) {
-				Optional<BlockPos> pos = found.get(lm[0]);
-				if (pos != null && pos.isPresent()) {
+				Optional<BlockPos> pos = located(settlement, lm[0]);
+				if (pos.isPresent()) {
 					Map<String, String> vv = new HashMap<>(v);
 					vv.put("landmark", lm[1]);
 					vv.put("direction", direction(settlement.center(), pos.get()));
@@ -102,19 +89,53 @@ public final class Rumours {
 		return options.get(random.nextInt(options.size()));
 	}
 
-	/** Looks for one landmark kind this settlement has not looked for yet, if the server-wide search budget allows. */
-	private static void searchOne(ServerLevel level, Settlement settlement, Map<String, Optional<BlockPos>> found, RandomSource random) {
+	/** How far folk have heard of other settlements. */
+	private static final int RUMOUR_RADIUS = 2500;
+
+	private record Place(String name, BlockPos center) {
+	}
+
+	/**
+	 * Other settlements folk have heard of, nearest first: from the sim's atlas ({@code HearthWorld.knownSites}: live
+	 * towns and historic ones not yet visited; regions not yet planned are planned off-thread and known next time), plus
+	 * the dev sandbox's camps.
+	 */
+	private static List<Place> others(ServerLevel level, Settlement settlement) {
+		List<Place> out = new ArrayList<>();
+		dev.voidmc.hearth.api.HearthWorld world = dev.voidmc.hearth.api.HearthWorld.of(level);
+		java.util.Set<Long> seen = new java.util.HashSet<>();
+		seen.add(settlement.id());
+		if (world != null) {
+			for (dev.voidmc.hearth.api.HearthWorld.SiteInfo site : world.knownSites(settlement.center(), RUMOUR_RADIUS)) {
+				if (seen.add(site.settlementId())) {
+					out.add(new Place(site.name(), site.center()));
+				}
+			}
+		}
+		for (Settlement s : SettlementSources.all(level)) {
+			if (seen.add(s.id()) && s.center().distSqr(settlement.center()) < (double) RUMOUR_RADIUS * RUMOUR_RADIUS) {
+				out.add(new Place(s.name(), s.center()));
+			}
+		}
+		out.sort(Comparator.comparingDouble(p -> p.center().distSqr(settlement.center())));
+		return out;
+	}
+
+	/**
+	 * Asks for one landmark kind this settlement has not asked about yet, if the server-wide budget allows. The search is
+	 * the quest module's {@code StructureLocator}: candidates from the placement maths on a worker thread, confirmed by
+	 * asynchronous chunk loads, the answer kept with the settlement — never vanilla's locate, which generates structure
+	 * starts on the server thread and can stall it for a second.
+	 */
+	private static void searchOne(ServerLevel level, Settlement settlement, Map<String, Optional<BlockPos>> asked, RandomSource random) {
 		long now = level.getGameTime();
 		if (now - lastSearch < SEARCH_INTERVAL) {
 			return;
 		}
-		Optional<Registry<Structure>> registry = level.registryAccess().lookup(Registries.STRUCTURE);
-		if (registry.isEmpty()) {
-			return;
-		}
 		List<String[]> todo = new ArrayList<>();
 		for (String[] lm : LANDMARKS) {
-			if (!found.containsKey(lm[0])) {
+			if (!asked.containsKey(lm[0]) && dev.voidmc.hearth.quest.service.QuestStore.board(settlement)
+				.target(Identifier.fromNamespaceAndPath("expanse", lm[0])) == null) {
 				todo.add(lm);
 			}
 		}
@@ -123,15 +144,15 @@ public final class Rumours {
 		}
 		lastSearch = now;
 		String[] lm = todo.get(random.nextInt(todo.size()));
-		ResourceKey<Structure> key = ResourceKey.create(Registries.STRUCTURE, Identifier.fromNamespaceAndPath("expanse", lm[0]));
-		Optional<Holder.Reference<Structure>> holder = registry.get().get(key);
-		if (holder.isEmpty()) {
-			found.put(lm[0], Optional.empty());
-			return;
-		}
-		Pair<BlockPos, Holder<Structure>> hit = level.getChunkSource().getGenerator()
-			.findNearestMapStructure(level, HolderSet.direct(holder.get()), settlement.center(), SEARCH_RADIUS_CHUNKS, false);
-		found.put(lm[0], hit == null ? Optional.empty() : Optional.of(hit.getFirst()));
+		asked.put(lm[0], Optional.empty());
+		dev.voidmc.hearth.quest.world.StructureLocator.request(level, settlement, List.of(Identifier.fromNamespaceAndPath("expanse", lm[0])),
+			SEARCH_RADIUS_CHUNKS * 16, NpcTime.today(), id -> { });
+	}
+
+	/** Where the landmark is, if a search from this settlement found it. */
+	private static Optional<BlockPos> located(Settlement settlement, String landmark) {
+		var t = dev.voidmc.hearth.quest.service.QuestStore.board(settlement).target(Identifier.fromNamespaceAndPath("expanse", landmark));
+		return t != null && t.found() ? Optional.of(t.pos()) : Optional.empty();
 	}
 
 	/** "north", "south-east"... from one place to another. */
@@ -156,8 +177,9 @@ public final class Rumours {
 		FOUND.remove(settlementId);
 	}
 
-	public static @Nullable BlockPos known(long settlementId, String landmark) {
-		Map<String, Optional<BlockPos>> m = FOUND.get(settlementId);
-		return m == null ? null : m.getOrDefault(landmark, Optional.empty()).orElse(null);
+	/** The server stopped: what was asked belongs to that world. */
+	public static void clear() {
+		FOUND.clear();
+		lastSearch = -1_000_000_000L;
 	}
 }

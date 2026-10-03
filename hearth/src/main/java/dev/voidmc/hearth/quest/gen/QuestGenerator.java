@@ -311,7 +311,7 @@ public final class QuestGenerator {
 			ctx.data().cooldowns.put(t.id(), ctx.day() + t.cooldownDays());
 		}
 		return new QuestInstance(new UUID(random.nextLong(), random.nextLong()), t.id(), t.type(), QuestStatus.OFFERED, text, giver, s.id(),
-			s.name(), s.center(), objectives, reward, 0L, timing, rules, List.of());
+			s.name(), dev.voidmc.hearth.quest.world.QuestWorlds.turnInPos(s), objectives, reward, 0L, timing, rules, List.of());
 	}
 
 	private static boolean needsGiver(QuestTemplate t) {

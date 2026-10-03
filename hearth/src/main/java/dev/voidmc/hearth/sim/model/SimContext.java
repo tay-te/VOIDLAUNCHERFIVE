@@ -61,4 +61,21 @@ public interface SimContext {
 
 	/** The settlement changed and must be saved. */
 	void dirty(SimSettlement settlement);
+
+	/**
+	 * A crowded settlement wants to send settlers out to found a daughter hamlet. Returns whether a search for a site was
+	 * started (or is already under way); histories never found hamlets.
+	 */
+	default boolean sendSettlers(SimSettlement settlement) {
+		return false;
+	}
+
+	/**
+	 * Whether the economy module runs the treasury's daily income (taxes, passing trade, wages, upkeep on
+	 * {@code DAY_PASSED}): the clock then leaves out its own per-worker coin, so the town is not paid twice. Histories
+	 * fire no events, so they keep the clock's coin (adoption trims what it piled up).
+	 */
+	default boolean economyHandlesWages() {
+		return false;
+	}
 }

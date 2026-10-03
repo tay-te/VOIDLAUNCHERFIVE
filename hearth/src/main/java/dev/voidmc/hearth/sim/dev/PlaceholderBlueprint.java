@@ -117,6 +117,13 @@ public final class PlaceholderBlueprint implements Blueprint {
 		if (id.contains("lantern") || id.contains("chain") || id.contains("iron") || id.contains("copper")) {
 			return Goods.METAL;
 		}
+		if (id.contains("ladder")) {
+			return Goods.WOOD;
+		}
+		if (id.contains("stone") || id.contains("deepslate") || id.contains("andesite") || id.contains("cobble")) {
+			// stone bricks are dressed stone, not clay
+			return Goods.STONE;
+		}
 		if (id.contains("brick") || id.contains("terracotta") || id.contains("mud") || id.contains("clay")) {
 			return Goods.CLAY;
 		}

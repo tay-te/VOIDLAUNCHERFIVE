@@ -10,14 +10,14 @@ sim/
   SimModule, SimServer, SimConfig, LodFootprints
   settlement/  SimSettlement, SimPlot, SimStockpile, DataMap, SettlementClock, PlotFacts, Cursor, Names, PlainResidents
   model/       SimContext (what the model reaches outside itself), SimRules (the config as flat arrays)
-  world/       SimWorld (HearthWorld + SimContext), SettlementStore, SimIndex, SpatialIndex
+  world/       SimWorld (HearthWorld + SimContext), SettlementStore, SimIndex, SpatialIndex, Hamlets
   atlas/       Atlas, RegionPlan, SiteFinder, History, StructureAvoidance, PlotColumns
   terrain/     GeneratorProbe, ExpanseProbe, Probes, CultureMap, CultureVote
   gen/         SettlementFeature (hearth:settlement), WorldgenGuard   + mixin/sim/FeaturePlacerMixin
   apply/       ChunkApplier, StepWriter, AppliedLedger, ChunkLedgers
   net/         ArrivalPayload
   command/     SimCommands, AtlasMap, Report
-  dev/         DevHarness, PlaceholderBlueprints, PlaceholderBlueprint, PlaceholderPlanner
+  dev/         DevHarness, DevCatalogue, PlaceholderBlueprints, PlaceholderBlueprint, PlaceholderPlanner
 client/sim/    SimClient, ArrivalBanner
 ```
 
@@ -61,7 +61,10 @@ runs the day's business. A step catches up at most `max_catch_up_days` (30); lon
 | carpenter, mason, smith, brewer, ... | convert inputs (negative) to outputs; output shrinks with short inputs |
 
 Food eaten: adult 2, child 1, elder 1.5 a day. Fractions carry over between slices. Coin per worker per day by job
-(1 for most, merchant 8, minter 20, ...). **Trade** keeps a town from stalling forever on goods it cannot make: what the
+(1 for most, merchant 8, minter 20, ...) — only while no economy module is registered: with one, its daily books
+(taxes, passing trade, wages, upkeep on `DAY_PASSED`) are the treasury's income and the clock leaves its own coin out
+(`SimContext.economyHandlesWages`), so a town is not paid twice. Histories fire no events and keep the clock's coin;
+adoption trims an adopted town's treasury to 60 bits a head when the economy runs. **Trade** keeps a town from stalling forever on goods it cannot make: what the
 stores cannot hold is sold to passing traders at `export_share` (0.1) of its price; a stalled stage buys what it lacks
 (`import_per_day`, 96 units of each) at `import_markup` (1.5) × price, with coin first, then by bartering whatever
 overflows the stores at half value. Deliberately slow and dear: a player bringing the goods is faster.
@@ -69,7 +72,10 @@ overflows the stores at half value. Deliberately slow and dear: a player bringin
 **Construction**: labour = builders × `work_per_builder_hour` (33, what an embodied builder manages) ×
 `builder_hours_per_day`/24 (16 h), spread evenly over up to ⌈builders / `builder_share`⌉ active plots (labour left
 over by a plot that finishes or stalls flows to the others). Starting a stage takes its goods from the stockpile; if
-short, the plot stalls and `CONSTRUCTION_STALLED` fires once per episode (goods most short of, and how many). Steps
+short, the plot stalls and `CONSTRUCTION_STALLED` fires once per episode (goods most short of, and how many). **The oldest
+stall has first claim**: while a plot waits for goods, a plot after it (in plot order, the order labour goes round) may
+not start a stage that would take those goods below what the waiting plot needs; it waits too ("held back", quietly:
+no event). So goods a player sells or supplies reach the build that asked for them, not smaller jobs. Steps
 follow labour (`step = steps × labour / work`); when a stage's labour is done the next stage starts; when the last is
 done the plot is `BUILT`, its beds and jobs count, a plot it replaced is removed, and `BUILDING_COMPLETED` fires.
 
@@ -82,10 +88,27 @@ homes (the homeless move into standing houses with free beds), jobs (builders fi
 yard job sites, but never more than 2 in 5 adults, 1 while food is short — then food trades when short, then every
 workplace's trade; everyone else gathers), the tier (`TIER_CHANGED`), then `DAY_PASSED`.
 
-**Growth**: after every slice, if builders are idle (fewer active plots than they can work) the clock asks
-`planner.next(settlement, terrain, random)` — up to 4 proposals in a row, while at most one plot is stalled — and adds
-each as `PLANNED`. A null answer backs off half a day. Live, planner calls are budgeted (`planner_calls_per_tick`, 1);
-histories and explicit fast-forwards are not.
+**Growth**: after every slice, if builders are idle (fewer active plots than they can work; builders walking about as
+entities count) the clock asks `planner.next(settlement, terrain, random)` — up to 4 proposals in a row, while at most
+one plot is stalled — and adds each as `PLANNED`. A road (`infra/*`) does not count toward the 4: roads come first, the
+planner often queues a lane and then the houses along it, so the clock asks again in the same step (up to 4 roads in a
+row, without spending the per-tick budget). A null answer backs off half a day. Live, planner calls are budgeted
+(`planner_calls_per_tick`, 1); histories and explicit fast-forwards are not. Their cost is measured
+(`SettlementClock.PlannerTimings`, in `/hearth sim stats`).
+
+**Rebuilds** (`replaces`): the old plot stands until the new one's first stage is funded; then it is `DEMOLISHING`
+(its beds and job sites stop counting, `PLOT_ABANDONED` fires with "rebuilt as …"), the applier clears its blocks from
+loaded chunks before the new ones go in (§6), and it is removed from the record when the rebuild is built. If the
+rebuild is abandoned the old plot is `BUILT` again (and written back where it was cleared).
+
+**Daughter hamlets** (§5.1): a town of at least `daughters.min_population` (30) with no free bed for
+`daughters.crowded_days` (5) days in a row sends settlers out (at most `max_per_town` hamlets, `cooldown_days` apart).
+`Hamlets` looks for the site off the hot path — a few random candidates a tick (0.2 ms) 600–2500 blocks out, scored for
+gentle dry ground above the sea with water near, rejected by `whyNotFound` (which never computes a region on the server
+thread; an unsurveyed region is planned off-thread and asked about again) — and the hamlet is laid out on a worker
+thread (`SimWorld.foundDaughterAsync`), then registered on the server thread. Up to `settlers` (4) adults leave (the
+homeless first), with a share of the parent's stores and coin; `RESIDENT_REMOVED` sees `extra("sim").left_for` on them,
+so listeners can tell a departure from a death. Histories never found hamlets (they keep to their region).
 
 **Scheduling** (`SimServer`): a priority queue keyed by due tick, so a tick only touches settlements that are due.
 Embodied settlements come round every `embodied_step_interval` (20) ticks, the rest every `step_interval` (1200), a
@@ -100,7 +123,8 @@ later; it never takes the server down.
 | event | when |
 |---|---|
 | `FOUNDED` | a live settlement is founded, or a historic one adopted (after its people exist) |
-| `RESIDENT_ADDED/REMOVED` | births, settlers, deaths, emigration, and modules' own add/remove (not adoption's re-peopling) |
+| `RESIDENT_ADDED/REMOVED` | births, settlers, deaths, emigration, settlers leaving for a hamlet (`extra("sim").left_for`), and modules' own add/remove (not adoption's re-peopling) |
+| `PLOT_ABANDONED` | a plot is built over, its archetype is gone, or it comes down for its rebuild |
 | `CONSTRUCTION_STALLED` | a stage cannot start for want of goods (once per stall) |
 | `BUILDING_COMPLETED` | the last stage of a plot is done |
 | `TIER_CHANGED` | at the day boundary the population crossed a tier |
@@ -132,8 +156,13 @@ Determinism depends on the inputs: changing `density`, the age or site settings,
 changes plans for regions not yet generated, and a region half-generated under the old plan would get a different
 town in its new chunks. Adopted settlements are unaffected (they are records).
 
+A plot that was `DEMOLISHING` at day 0 (its rebuild under way) is not written at all; the rebuild's finished stages
+stand in its place.
+
 **Queries** (thread-safe): `atlas.plotsInChunk(cx, cz)`; `atlas.isPlanned(x, z)` (plots and roads, road polylines as
-strips, with `guard_margin` 3); `SimWorld.isPlanned` adds live settlements' active plots.
+strips, with `guard_margin` 3); `SimWorld.isPlanned` adds every live settlement's plots (built ones too: a live town grows
+abstractly into land nobody has generated yet, and its streets must not come up full of trees). Each plot's columns are
+cached in the spatial index, so a re-index merges masks rather than walking columns.
 
 ## 4. World generation writes history (§5.1)
 
@@ -167,10 +196,14 @@ block entities loaded from the step's tag.
   embodied**, so nothing pops in in front of a player (`SimSettlement.applicable`).
 - **Edit safety** (`StepWriter`): a step replaces only air, replaceable blocks (plants, snow layers, fluids),
   `#hearth:buildable_over` (natural ground, ores near the surface, Expanse ground, plants), non-persistent leaves, logs
-  of natural trees, and blocks this plot or the plot it rebuilds put there earlier (rebuilt lazily from the ledger and
+  of natural trees, and blocks this plot, the plot it rebuilds or another plot of the same settlement put there earlier
+  (the planner's intended overlaps: a building on its terrace, furniture in the plaza, a gatehouse over its road) (rebuilt lazily from the ledger and
   the blueprint, only when a step meets something not plainly replaceable). Never a player's blocks, never block
   entities that are not its own. A plot meeting more than 16 refusals and a quarter of its steps is abandoned (the
   planner chooses other ground).
+- **Demolition**: before writing a chunk, the applier clears what a `DEMOLISHING` plot (or the plot a started rebuild
+  replaces) left there — every block above its floor still exactly as placed becomes air (containers drop their
+  contents; foundations stay for the rebuild; a player's changes stay) — and sets its ledger cursor to zero.
 
 ## 7. Embodiment and the construction contract (§4)
 
@@ -182,12 +215,18 @@ checked: within `radius` (128) of the bounds → embodied; it stays embodied unt
 **The contract with the npc module** (both modules follow it):
 
 1. A plot has **one progress counter**, `(plot.stage(), plot.step())`.
-2. An embodied builder entity places exactly the step `(stage, step)` of its plot — `HearthServices.blueprints()
-   .blueprint(plot.spec(), world.terrain()).step(stage, step, sink)` — at the moment of placement, and then calls
-   `settlement.advanceConstruction(plotId, 1)`. The sim advances the counter (taking the stage's goods if not yet taken),
-   finishes stages and the plot, and marks those steps applied in every loaded chunk that was caught up.
+2. An embodied builder entity works only plots that are `BUILDING` and not `waitingForGoods()`, and places exactly the
+   step `(stage, step)` of its plot — `HearthServices.blueprints().blueprint(plot.spec(), world.terrain()).step(stage,
+   step, sink)` — at the moment of placement, then calls `settlement.advanceConstruction(plotId, 1)`. The sim advances
+   the counter, finishes stages and the plot, and marks those steps applied in every loaded chunk that was caught up. A
+   stage is never started short of goods: if the stage's goods are not in store the plot waits (`waitingForGoods()`,
+   the stall fires) and the step is not counted. While a settlement is embodied the clock starts the stages its
+   entity builders will need (as many plots as there are pairs of them) and takes the next stage's goods the moment a
+   stage is finished, so builders see at once whether to stay.
 3. Residents flagged with `setResidentEmbodied(id, true)` are left out of abstract labour and production (they still eat
-   and age); clear the flag when the entity goes back to being a record.
+   and age); clear the flag when the entity goes back to being a record, and report the work they did as an entity with
+   `creditLabour(id, job, ticks)` (9000 ticks of `WORK` = one worker-day at the abstract rates; builders' work arrives
+   through `advanceConstruction` instead).
 4. While an embodied builder has advanced a plot within the last 10 seconds (200 ticks), abstract labour leaves that plot
    alone and goes to the others. Abstract progress on other plots of an embodied settlement is written step by step by
    the applier as it accrues.
@@ -246,6 +285,8 @@ Written with the defaults on first run; every field optional. (Delete it to pick
 | `population.*` | 48 / 240 days, 1/60, 1/30, 0.6, 4 tents, 3 / 4 days | §2 |
 | `storage.base` / `per_storage` / `per_building` | 2000 / 2500 / 120 | |
 | `founding.residents` / `goods` / `treasury` | 5 / food 240, wood 900, stone 700, … / 200 | a new camp |
+| `daughters.enabled` / `min_population` / `crowded_days` / `cooldown_days` | true / 30 / 5 / 40 | §2 daughter hamlets |
+| `daughters.min_distance` / `max_distance` / `settlers` / `max_per_town` | 600 / 2500 / 4 / 3 | |
 
 ## 11. Commands (operator level 2)
 
@@ -286,23 +327,38 @@ JAVA_TOOL_OPTIONS="-Dhearth.dev.found=6 -Dhearth.dev.radius=4 -Dhearth.dev.simul
 | `probe=N` | compare the probe with the generator's own heights at N columns and time the probes |
 | `atlas=RADIUS` | write the atlas PNG round spawn |
 | `commands=a;b` | run commands as the server at the first settlement and log the replies |
-| `report=true` | per-subsystem timings (as `/hearth sim stats`), settlement figures, LOD footprint samples |
+| `report=true` | per-subsystem timings (as `/hearth sim stats`, plus planner `next` timings and founding cost), settlement figures, each town's growth (layout and signature, plots by kind, rebuilds, doors on finished roads), daughter hamlets, LOD footprint samples |
 | `stop=true` | shut down afterwards |
+| `fillCatalogue=true` | (with a build module registered) stand-ins for every catalogue archetype the build module lacks (§15) |
 
-**Measured** (seed 20261003, Expanse Earth terrain, placeholder blueprints and planner, this machine):
+`-Dhearth.dev.plan.layout=<layout>` (plan module) forces every settlement founded in the run to that layout.
+
+**Measured** (seed 20261003, Expanse Earth terrain, the real planner over the dev catalogue, this machine; integration
+runs of 2026-10-03). The stand-in buildings are several times smaller than real ones, so towns grow several times
+faster than they will with the build module's blueprints; the costs below are for those oversized towns.
 
 | | |
 |---|---|
-| probe (Expanse model) | 2.2–4.2 µs per column on average over a run (1.0–1.5 M columns); generic probe ~1.1 ms per column cold |
-| atlas | 12–18 ms per region on average including unsettled ones; histories 19–41 ms on average, 225 ms for a 104-soul town |
-| world generation | 0.19–0.55 ms per chunk holding history; the guard kept 10–20 k features off plots for 6 towns |
-| written vs record | 99.6–100 % of written positions hold their block after generation and application |
-| clock, hour steps | 0.002–0.016 ms per step for towns of 5–122 souls; worst single step 1.6 ms (one that plans) |
-| clock, 30-day fast-forward | 0.2–6.8 ms per town |
-| 138 settlements, 12,145 souls | the sim's work 0.017 ms per tick on average, 0.059 ms per step; server 0.26 ms per tick |
-| adoption | 4–21 ms per town |
-| restart | 6 settlements loaded, none re-adopted, 0 blocks written again, verification unchanged |
-| embodied | construction advances ~0.9 steps a second with 2 builders and appears as it accrues |
+| probe (Expanse model) | ~3 µs per column on average (7.9 M columns) |
+| atlas | 59 regions, 135 ms avg per region, 539 ms avg per history (3.8 s for a 783-soul city) — atlas workers only |
+| world generation | 0.77 ms per chunk holding history; the guard kept 640 k features off plots |
+| written vs record | 93.5–99.4 % of written positions hold their block (the rest: intended overlaps, where the later plot wins) |
+| clock, hour steps | 0.005–0.52 ms avg per step for towns of 86–852 souls (0.03 ms for a 177-soul town earlier); worst single step 25–95 ms in the first planner calls of an 800-soul city after a restart (cold terrain cache), under 2 ms otherwise |
+| planner `next` (live, incl. fast-forwards) | 20 009 calls, 1.9 ms avg; 55 % under 1 ms, 89 % under 5 ms, 42 over 20 ms (max 202 ms, before the deadline also bounded enumeration) |
+| founding | 108 ms avg to lay out a live camp on the server thread; daughter hamlets 0.9 ms on the server thread (laid out off-thread) |
+| growth over 300 days | 5 → 769 souls (camp → city, 1466 plots), 70 → 850, 193 → 837; all finished buildings' doors on a finished road or square; 29–78 rebuilds per city, 2658 blocks cleared for them; land-locked towns stop (pop = beds) and send settlers out |
+| daughter hamlets | 13 founded (15 searches, 2 found nowhere) 650–2350 blocks from their parents |
+| 57 settlements, 10 965 souls | the sim's tick work 0.13 ms per tick over a minute; restart: 57 loaded, none re-adopted |
+
+**Client tour** (`gametest/IntegrationTour`, registered in the gametest `fabric.mod.json`; run alone with
+`JAVA_TOOL_OPTIONS="-Dhearth.tour=integration" ./gradlew runClientGameTest`, `-Dhearth.tour.days=N` grows the town N days
+first, default 60): founds a camp on gentle ground near spawn (seed 20261003), grows it with the real sim and planner,
+builds it into the world, then walks a player in and photographs the arrival banner, the embodied town by day and night,
+a folk close up, builders on the plot with the most work left (progress counter and "a builder placed a step N ticks
+ago" logged), a merchant's conversation and the market (stockpile and treasury before and after a sale), a resident's
+quest offers, the notice board (the plaza's, or one placed by the well) and a supply quest for a real stalled build,
+handed in, and the build resuming. Every check is printed as `[hearth tour]`; screenshots go to
+`build/run/clientGameTest/screenshots/*hearth_int_*.png`.
 
 ## 13. LOD footprints
 
@@ -318,11 +374,16 @@ changes; the banner shows the name and "a timber-framed village of 34 souls" (cu
 fragment), fading in and out, at most once a minute per settlement. A debug screen entry `hearth:sim` shows the current
 settlement (enable it in the debug options).
 
-## 15. Placeholders
+## 15. Placeholders and the dev catalogue
 
-Until the build and plan modules are merged, `SimModule` installs `PlaceholderBlueprints` and `PlaceholderPlanner` at
-server start if nobody registered real ones: boxes on a yard ring with a door, windows, a flat roof and beds; a fenced
-builders' yard; a wheat field; a well; a storehouse; a graded street (`hearth:infra/road`, `points`/`width`/`kind`).
-They use the catalogue's archetype ids and params, so their plots stay valid when the real generators arrive. The
-placeholder planner lays one street with 9 × 9 slots on both sides and lengthens it up to 250 blocks each way; it is
-why towns top out near 125 souls in these runs.
+If no BlueprintService is registered at server start (only before the build module exists), `SimModule` installs
+`DevCatalogue`: every archetype of ARCHITECTURE.md §6.1 (the planner's `CatalogueDouble` infos) as a walkable stand-in —
+buildings of the plot's size with a door, windows, storeys joined by a ladder, beds for the archetype's bed count,
+workstations and job sites for its trades, barrels for stores, a counter for shops; the placeholder yard, well and
+wheat field; a paved plaza with lamp posts and the quest module's `hearth:notice_board` (a `NOTICE_BOARD` POI);
+streets on exactly the corridor the planner reserved (PLANNING.md §7: cleared above, filled below, an earth surface,
+lamps); and the planner's own boxes for bridges, terraces, walls, docks and gardens. With a build module registered
+and `-Dhearth.dev.fillCatalogue=true`, the build module's archetypes are used wherever it has them and stand-ins fill
+the rest, so a town can be grown end to end while the architects land archetypes one by one. In a normal run only the
+registered service is used. `PlaceholderPlanner` is installed only if no planner is registered (the plan module always
+registers one).

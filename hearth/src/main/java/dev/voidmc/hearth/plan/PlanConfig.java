@@ -22,12 +22,15 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * @param housingMargin    spare beds kept ahead of the population, as a fraction of it (at least 2)
  * @param searchBudget     most frontage positions examined per placement (bounds the cost of {@code next})
  * @param cacheTiles       terrain tiles (256 columns) kept per world for planning
+ * @param liveTimeLimitMs  a call on the server thread stops searching frontage after this long and lets the need rest
+ *                         (a cold terrain cache in a city can otherwise cost a quarter of a second); histories, on their
+ *                         own threads, are never cut short, so they stay deterministic
  */
 public record PlanConfig(double roadGrade, double stairGrade, int maxCut, int bridgeMaxLength, int slopeTolerance, int hillsideTolerance,
 	int terraceMaxHeight, int doorPathMax, int roadPlotLength, double densityScale, double verticalBias, double sprawlBias,
-	double housingMargin, int searchBudget, int cacheTiles) {
+	double housingMargin, int searchBudget, int cacheTiles, int liveTimeLimitMs) {
 
-	public static final PlanConfig DEFAULTS = new PlanConfig(0.3, 1.0, 4, 40, 3, 7, 7, 3, 48, 1.0, 1.0, 1.0, 0.1, 1600, 4096);
+	public static final PlanConfig DEFAULTS = new PlanConfig(0.3, 1.0, 4, 40, 3, 7, 7, 3, 48, 1.0, 1.0, 1.0, 0.1, 1600, 4096, 20);
 
 	public static final Codec<PlanConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.DOUBLE.optionalFieldOf("road_grade", DEFAULTS.roadGrade).forGetter(PlanConfig::roadGrade),
@@ -44,6 +47,7 @@ public record PlanConfig(double roadGrade, double stairGrade, int maxCut, int br
 		Codec.DOUBLE.optionalFieldOf("sprawl_bias", DEFAULTS.sprawlBias).forGetter(PlanConfig::sprawlBias),
 		Codec.DOUBLE.optionalFieldOf("housing_margin", DEFAULTS.housingMargin).forGetter(PlanConfig::housingMargin),
 		Codec.INT.optionalFieldOf("search_budget", DEFAULTS.searchBudget).forGetter(PlanConfig::searchBudget),
-		Codec.INT.optionalFieldOf("cache_tiles", DEFAULTS.cacheTiles).forGetter(PlanConfig::cacheTiles)
+		Codec.INT.optionalFieldOf("cache_tiles", DEFAULTS.cacheTiles).forGetter(PlanConfig::cacheTiles),
+		Codec.INT.optionalFieldOf("live_time_limit_ms", DEFAULTS.liveTimeLimitMs).forGetter(PlanConfig::liveTimeLimitMs)
 	).apply(i, PlanConfig::new));
 }

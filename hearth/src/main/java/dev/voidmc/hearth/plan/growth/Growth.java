@@ -54,6 +54,10 @@ public final class Growth {
 		order.sort(Comparator.comparingDouble((double[] o) -> -o[0]).thenComparingDouble(o -> o[1]));
 		int attempts = 0;
 		for (double[] o : order) {
+			if (ctx.pastDeadline()) {
+				// a live call out of time: the other needs wait for the next call
+				break;
+			}
 			Need need = list.get((int) o[1]);
 			Long until = ctx.state.cooldowns.get(need.key);
 			if (until != null && until > ctx.state.calls) {
@@ -98,6 +102,11 @@ public final class Growth {
 		int mouths = Math.max(pop, 3);
 		if (needs.food < mouths) {
 			list.add(new Need("food", 420 + Math.min(200, (mouths - needs.food) * 6), c -> Farms.plan(c, needs)));
+		}
+		// builders waiting on stone or timber the town hardly makes: the workplace that makes it, even while busy
+		if (needs.waiting > 0) {
+			shortage(ctx, needs, list, dev.voidmc.hearth.api.Goods.STONE, JobType.QUARRIER);
+			shortage(ctx, needs, list, dev.voidmc.hearth.api.Goods.WOOD, JobType.FORESTER);
 		}
 		if (busy) {
 			return list;
@@ -166,6 +175,20 @@ public final class Growth {
 	}
 
 	/** A workplace for a trade whose workers have nowhere to work. */
+	/** Below this much in store, with builders waiting, a town plans the workplace that makes the goods. */
+	private static final int SHORT = 200;
+
+	private static void shortage(PlanContext ctx, Needs needs, List<Need> list, dev.voidmc.hearth.api.Goods goods, JobType job) {
+		if (ctx.settlement.stockpile().get(goods) >= SHORT) {
+			return;
+		}
+		// one such workplace per forty souls is plenty
+		if (needs.slots.getOrDefault(job, 0) >= 2 * (1 + ctx.population / 40)) {
+			return;
+		}
+		list.add(new Need("short/" + goods.getSerializedName(), 380, c -> workplace(c, job)));
+	}
+
 	static boolean workplace(PlanContext ctx, JobType job) {
 		for (ArchetypeInfo info : ctx.catalogue.forJob(job, ctx.culture, ctx.tier)) {
 			if (info.category() == ArchetypeCategory.FARM) {

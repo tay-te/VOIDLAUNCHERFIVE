@@ -73,6 +73,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final LodFootprints footprints;
 	private final Long2ObjectLinkedOpenHashMap<SimSettlement> settlements = new Long2ObjectLinkedOpenHashMap<>();
 	private final DynamicOps<Tag> ops;
+	/** Treasury an adopted settlement keeps per head when the economy module runs its books (it seeds new ones at 40). */
+	static final long ADOPTED_TREASURY_PER_HEAD = 60;
 	/** Regions whose plan is being computed for adoption, and regions known to hold nobody (this session). */
 	private final LongSet adopting = new LongOpenHashSet();
 	private final LongSet unsettled = new LongOpenHashSet();
@@ -80,6 +82,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final java.util.ArrayDeque<SimSettlement> saveQueue = new java.util.ArrayDeque<>();
 	private boolean quiet;
 	private boolean fastForward;
+	private final Hamlets hamlets = new Hamlets(this);
 
 	public SimWorld(ServerLevel level, SimServer server) {
 		this.level = level;
@@ -444,6 +447,11 @@ public final class SimWorld implements HearthWorld, SimContext {
 		} finally {
 			this.quiet = false;
 		}
+		if (economyHandlesWages()) {
+			// a history piles up coin with nobody to pay (no upkeep before the world began): keep what the economy would
+			// expect of a town this size, the economy's daily books take it from there
+			s.withdraw(Math.max(0, s.treasury() - ADOPTED_TREASURY_PER_HEAD * Math.max(4, s.population())));
+		}
 		s.markDirty();
 		register(s, true);
 		this.index.markAdopted(region);
@@ -497,43 +505,186 @@ public final class SimWorld implements HearthWorld, SimContext {
 		}
 	}
 
+	/** What {@link #whyNotFound(BlockPos)} says while the land's history is still being worked out off the server thread. */
+	public static final String SURVEYING = "the land there is still being surveyed";
+
 	/**
-	 * Why a settlement cannot be founded here, or null if it can: not on water, and not within {@code spacing} blocks of
-	 * a live settlement's centre or a historic one's.
+	 * Why a settlement cannot be founded here, or null if it can: not on water, not inside or within {@code spacing}
+	 * blocks of a live settlement's heart, and not by a historic one's (its heart or its planned ground). Computes the
+	 * region's history if need be.
 	 */
 	public @Nullable String whyNotFound(BlockPos at, int spacing) {
+		return whyNotFound(at, spacing, true);
+	}
+
+	/** As above; with {@code wait} false it never computes a region on this thread and answers {@link #SURVEYING} instead. */
+	public @Nullable String whyNotFound(BlockPos at, int spacing, boolean wait) {
 		if (this.probe.isWater(at.getX(), at.getZ())) {
 			return "that is water";
 		}
 		SimSettlement near = nearest(at, spacing);
+		if (near == null) {
+			near = settlementAt(at.getX(), at.getZ(), 48);
+		}
 		if (near != null) {
 			return near.name() + " is too close";
 		}
 		if (this.atlas.enabled()) {
-			RegionPlan plan = this.atlas.plan(Atlas.region(at.getX()), Atlas.region(at.getZ()));
-			if (plan.site() != null && plan.site().center().distManhattan(at) < spacing * 1.4) {
-				return plan.site().name() + " (not yet visited) stands near here";
+			int rx = Atlas.region(at.getX());
+			int rz = Atlas.region(at.getZ());
+			RegionPlan plan = wait ? this.atlas.plan(rx, rz) : this.atlas.planIfReady(rx, rz);
+			if (plan == null) {
+				this.atlas.planAsync(rx, rz);
+				return SURVEYING;
+			}
+			if (plan.site() != null && !this.settlements.containsKey(plan.site().settlementId())) {
+				BoundingBox b = plan.bounds();
+				boolean onIt = b != null && at.getX() >= b.minX() - 48 && at.getX() <= b.maxX() + 48 && at.getZ() >= b.minZ() - 48
+					&& at.getZ() <= b.maxZ() + 48;
+				if (onIt || plan.site().center().distManhattan(at) < spacing * 1.4) {
+					return plan.site().name() + " (not yet visited) stands near here";
+				}
 			}
 		}
 		return null;
 	}
 
 	/** Spacing kept between a newly founded settlement and any other, live or historic. */
-	private static final int FOUND_SPACING = 300;
+	public static final int FOUND_SPACING = 300;
 
+	/** Never computes a region on the server thread: {@link #SURVEYING} until the land's history is known (ask again). */
 	@Override
 	public @Nullable String whyNotFound(BlockPos at) {
-		return whyNotFound(at, FOUND_SPACING);
+		return whyNotFound(at, FOUND_SPACING, false);
 	}
 
 	@Override
 	public @Nullable Settlement found(BlockPos at, @Nullable Culture culture, @Nullable Settlement parent, String reason) {
-		if (whyNotFound(at, FOUND_SPACING) != null) {
+		if (whyNotFound(at, FOUND_SPACING, true) != null) {
 			return null;
 		}
-		SimSettlement s = found(at, culture, (String) null);
-		LOG.info("hearth: {} founded{}: {}", s.name(), parent == null ? "" : " by settlers from " + parent.name(), reason);
+		SimSettlement from = parent == null ? null : this.settlements.get(parent.id());
+		// a party from the parent town when it can spare them; otherwise newcomers from the land round about
+		int party = from == null ? 0 : Math.min(3, from.population() / 8);
+		return foundDaughter(at, culture, from, party, reason);
+	}
+
+	/**
+	 * Founds a hamlet at {@code at} with {@code party} adults from {@code parent} (newcomers if there is no parent or
+	 * nobody to spare), who bring the founding goods; the parent gives up a little of its stores and coin for them. Lays
+	 * it out on this thread (the planner's founding survey and skeleton roads: 50–150 ms); {@link #foundDaughterAsync}
+	 * does that off the server thread.
+	 */
+	public SimSettlement foundDaughter(BlockPos at, @Nullable Culture culture, @Nullable SimSettlement parent, int party, String reason) {
+		long start = System.nanoTime();
+		Founding f = prepare(at, culture, null);
+		List<Resident> settlers = depart(parent, party, f);
+		SimSettlement s = create(f, settlers, parent);
+		this.daughterNanos += System.nanoTime() - start;
+		this.daughtersFounded++;
+		LOG.info("hearth: {} founded{} at {} ({} ms): {}", s.name(), parent == null ? "" : " by " + settlers.size() + " settlers from " + parent.name(),
+			s.center().toShortString(), String.format(java.util.Locale.ROOT, "%.1f", (System.nanoTime() - start) / 1e6), reason);
 		return s;
+	}
+
+	/**
+	 * As {@link #foundDaughter}, but the layout is worked out on a worker thread with a context that touches nothing but
+	 * the probe (the new record is nobody else's until it is registered, back on the server thread). The settlers leave
+	 * at once; their hamlet appears a moment later. {@code done} runs on the server thread with the hamlet.
+	 */
+	public void foundDaughterAsync(BlockPos at, SimSettlement parent, int party, String reason, java.util.function.Consumer<SimSettlement> done) {
+		long start = System.nanoTime();
+		Founding f = prepare(at, null, null);
+		List<Resident> settlers = depart(parent, party, f);
+		SimSettlement s = newRecord(f, parent);
+		var founding = rules().config.founding();
+		dev.voidmc.hearth.sim.atlas.History.Context off = new dev.voidmc.hearth.sim.atlas.History.Context(rules(), this.probe, blueprints(), planner(),
+			residents(), new BoundingBox(-30_000_000, -2048, -30_000_000, 30_000_000, 4096, 30_000_000));
+		s.bind(off);
+		long serverStart = System.nanoTime() - start;
+		java.util.concurrent.CompletableFuture.runAsync(() -> SettlementClock.found(s, off, settlers.isEmpty() ? founding.residents() : settlers.size(),
+			settlers, founding.goodsMap(), founding.treasury()), FOUNDING).whenComplete((v, t) -> this.level.getServer().execute(() -> {
+				if (t != null) {
+					LOG.error("hearth: laying out {} failed; its settlers go home to {}", f.name, parent.name(), t);
+					for (Resident r : settlers) {
+						parent.addResident(r);
+					}
+					return;
+				}
+				long t1 = System.nanoTime();
+				s.bind(this);
+				register(s, true, f);
+				this.daughterNanos += serverStart + System.nanoTime() - t1;
+				this.daughtersFounded++;
+				LOG.info("hearth: {} founded by {} settlers from {} at {} (laid out off-thread): {}", s.name(), settlers.size(), parent.name(),
+					s.center().toShortString(), reason);
+				done.accept(s);
+			}));
+	}
+
+	/** One worker for laying out hamlets founded by settlers. */
+	private static final java.util.concurrent.ExecutorService FOUNDING = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+		Thread t = new Thread(r, "hearth-founding");
+		t.setDaemon(true);
+		t.setPriority(Thread.MIN_PRIORITY);
+		return t;
+	});
+
+	/** The party leaves {@code parent} for the new place, with a share of its stores and coin. */
+	private List<Resident> depart(@Nullable SimSettlement parent, int party, Founding f) {
+		List<Resident> settlers = new ArrayList<>();
+		if (parent == null) {
+			return settlers;
+		}
+		if (party > 0) {
+			List<Resident> adults = new ArrayList<>();
+			for (Resident r : parent.residentList()) {
+				if (r.age == AgeStage.ADULT && !parent.isResidentEmbodied(r.id) && r.job != dev.voidmc.hearth.api.JobType.MINTER) {
+					adults.add(r);
+				}
+			}
+			// the homeless first: they are why the town is crowded
+			adults.sort(java.util.Comparator.comparingInt(r -> r.home == Resident.NO_PLOT ? 0 : 1));
+			for (int i = 0; i < Math.min(party, adults.size()); i++) {
+				Resident r = adults.get(i);
+				// listeners of RESIDENT_REMOVED can tell a departure from a death
+				r.extra("sim").putString("left_for", f.name);
+				parent.removeResident(r.id);
+				r.extra("sim").remove("left_for");
+				r.extra("sim").putLong("came_from", parent.id());
+				settlers.add(r);
+			}
+			var goods = rules().config.founding().goodsMap();
+			goods.forEach((g, n) -> parent.stockpile().take(g, Math.min(parent.stockpile().get(g) / 4, n / 2)));
+			parent.withdraw(Math.min(parent.treasury() / 5, rules().config.founding().treasury()));
+		}
+		parent.clockState().daughterFounded(day());
+		parent.markDirty();
+		return settlers;
+	}
+
+	private long daughterNanos;
+	private int daughtersFounded;
+
+	/** Hamlets founded by settlers (and scouted sites) this session, and the time founding them took. */
+	public String daughterStats() {
+		return String.format(java.util.Locale.ROOT, "%d hamlets founded by settlers or scouts, %.1f ms avg; %s", this.daughtersFounded,
+			this.daughtersFounded == 0 ? 0 : this.daughterNanos / 1e6 / this.daughtersFounded, this.hamlets.describe());
+	}
+
+	@Override
+	public boolean economyHandlesWages() {
+		return HearthServices.economy() != null;
+	}
+
+	@Override
+	public boolean sendSettlers(SimSettlement s) {
+		return this.settlements.get(s.id()) == s && this.hamlets.request(s);
+	}
+
+	/** Searches for daughter hamlets' sites a little at a time (from the server tick). */
+	public void tickHamlets(long budgetNanos) {
+		this.hamlets.tick(budgetNanos);
 	}
 
 	@Override
@@ -570,6 +721,14 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	/** Founds a live settlement at a spot (a command, a quest, settlers from a town that outgrew its land). */
 	public SimSettlement found(BlockPos at, @Nullable Culture culture, @Nullable String name) {
+		return create(prepare(at, culture, name), List.of(), null);
+	}
+
+	/** Who and where a settlement about to be founded is: its id and name are fixed before anyone moves. */
+	private record Founding(long id, String name, Culture culture, BlockPos center, RandomSource random) {
+	}
+
+	private Founding prepare(BlockPos at, @Nullable Culture culture, @Nullable String name) {
 		int y = this.probe.groundY(at.getX(), at.getZ());
 		BlockPos center = new BlockPos(at.getX(), y, at.getZ());
 		Culture c = culture != null ? culture
@@ -577,22 +736,51 @@ public final class SimWorld implements HearthWorld, SimContext {
 		long id = this.index.allocateId();
 		RandomSource random = RandomSource.create(id * 0x9E3779B97F4A7C15L ^ this.level.getSeed());
 		String n = name != null ? name : Names.settlement(c, random);
-		long day = day();
-		SimSettlement s = new SimSettlement(id, n, c, this.level.dimension(), center, day, SimSettlement.NO_REGION, random.nextLong());
+		return new Founding(id, n, c, center, random);
+	}
+
+	private SimSettlement newRecord(Founding f, @Nullable SimSettlement parent) {
+		SimSettlement s = new SimSettlement(f.id, f.name, f.culture, this.level.dimension(), f.center, day(), SimSettlement.NO_REGION, f.random.nextLong());
+		if (parent != null) {
+			s.clockState().setParent(parent.id());
+		}
+		return s;
+	}
+
+	private SimSettlement create(Founding f, List<Resident> settlers, @Nullable SimSettlement parent) {
+		SimSettlement s = newRecord(f, parent);
 		s.bind(this);
 		this.quiet = true;
+		long t0 = System.nanoTime();
 		try {
 			var founding = rules().config.founding();
-			SettlementClock.found(s, this, founding.residents(), founding.goodsMap(), founding.treasury());
+			SettlementClock.found(s, this, settlers.isEmpty() ? founding.residents() : settlers.size(), settlers, founding.goodsMap(),
+				founding.treasury());
 		} finally {
 			this.quiet = false;
 		}
+		this.foundings++;
+		this.foundingNanos += System.nanoTime() - t0;
+		register(s, true, f);
+		return s;
+	}
+
+	/** Puts a freshly founded record on the clock and tells everyone. */
+	private void register(SimSettlement s, boolean isNew, Founding f) {
 		s.setSimTick(simNow(s));
 		s.markDirty();
-		register(s, true);
-		LOG.info("hearth: founded {} ({}) at {}", s.name(), c.getSerializedName(), center.toShortString());
+		register(s, isNew);
+		LOG.info("hearth: founded {} ({}) at {}", s.name(), f.culture.getSerializedName(), f.center.toShortString());
 		SettlementEvents.FOUNDED.invoker().onFounded(this, s);
-		return s;
+	}
+
+	private int foundings;
+	private long foundingNanos;
+
+	/** Live settlements laid out this session and the planner's founding time (survey and skeleton roads) per town. */
+	public String foundingStats() {
+		return String.format(java.util.Locale.ROOT, "%d founded, %.1f ms avg to lay out", this.foundings,
+			this.foundings == 0 ? 0 : this.foundingNanos / 1e6 / this.foundings);
 	}
 
 	/** Runs a settlement's clock forward by {@code days} at once (a debug command and the dev harness). */

@@ -6,7 +6,7 @@ import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.sim.apply.ChunkLedgers;
 import dev.voidmc.hearth.sim.command.SimCommands;
 import dev.voidmc.hearth.sim.dev.DevHarness;
-import dev.voidmc.hearth.sim.dev.PlaceholderBlueprints;
+import dev.voidmc.hearth.sim.dev.DevCatalogue;
 import dev.voidmc.hearth.sim.dev.PlaceholderPlanner;
 import dev.voidmc.hearth.sim.gen.SettlementFeature;
 import dev.voidmc.hearth.sim.gen.WorldgenGuard;
@@ -63,8 +63,16 @@ public final class SimModule {
 		ServerLifecycleEvents.SERVER_STARTING.register(server -> {
 			// before any level exists: so world generation (spawn chunks included) can write history
 			if (!HearthServices.hasBlueprints()) {
-				Hearth.LOG.warn("hearth: no BlueprintService registered; using the sim module's placeholder buildings");
-				HearthServices.setBlueprints(new PlaceholderBlueprints());
+				// only before the build module exists: the planner's whole catalogue as walkable stand-ins
+				DevCatalogue dev = new DevCatalogue(null);
+				Hearth.LOG.warn("hearth: no BlueprintService registered; using stand-in buildings for all {} catalogue archetypes", dev.size());
+				HearthServices.setBlueprints(dev);
+			} else if (Boolean.getBoolean("hearth.dev.fillCatalogue") && !(HearthServices.blueprints() instanceof DevCatalogue)) {
+				// dev switch: the build module's archetypes where it has them, stand-ins for the rest of the catalogue
+				DevCatalogue dev = new DevCatalogue(HearthServices.blueprints());
+				Hearth.LOG.warn("hearth: hearth.dev.fillCatalogue: {} registered archetypes, stand-ins for the other {} of the catalogue", dev.realCount(),
+					dev.size() - dev.realCount());
+				HearthServices.setBlueprints(dev);
 			}
 			if (!HearthServices.hasPlanner()) {
 				Hearth.LOG.warn("hearth: no SettlementPlanner registered; using the sim module's placeholder planner");

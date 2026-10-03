@@ -67,6 +67,22 @@ public final class QuestWorlds {
 		return out;
 	}
 
+	/**
+	 * Where quests of this settlement are handed in, for the journal's waypoint: its notice board (the first
+	 * {@code NOTICE_BOARD} point of interest of its built plots) if it has one, else its heart.
+	 */
+	public static BlockPos turnInPos(Settlement s) {
+		try {
+			List<dev.voidmc.hearth.api.Poi> boards = s.pois(dev.voidmc.hearth.api.PoiType.NOTICE_BOARD);
+			if (!boards.isEmpty()) {
+				return boards.getFirst().pos();
+			}
+		} catch (RuntimeException e) {
+			// a settlement whose blueprints cannot be read (an archetype gone): its heart will do
+		}
+		return s.center();
+	}
+
 	/** The level a settlement is in, or null if that dimension is not loaded. */
 	public static @Nullable ServerLevel level(MinecraftServer server, Settlement s) {
 		return server.getLevel(s.dimension());

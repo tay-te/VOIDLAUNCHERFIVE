@@ -173,6 +173,8 @@ public final class QuestManager {
 		QuestInstance q = offer.copy();
 		q.status = QuestStatus.ACTIVE;
 		q.takenBy.clear();
+		// the board may have gone up since the offer was posted: the journal's waypoint points at it
+		q.turnInPos = QuestWorlds.turnInPos(s);
 		q.timing = offer.timing.accepted(gameTime(player), QuestWorlds.TICKS_PER_DAY);
 		q.escrow = Rewards.escrow(s, offer.reward.coin());
 		if (q.escrow < offer.reward.coin()) {
@@ -402,11 +404,32 @@ public final class QuestManager {
 		if (level != null) {
 			for (Objective o : q.objectives) {
 				if (o.kind == ObjectiveKind.SCOUT && o.data.contains(Objective.Keys.FOUND)) {
-					QuestEvents.SITE_SCOUTED.invoker().onSiteScouted(level, s, BlockPos.of(o.data.getLongOr(Objective.Keys.FOUND, 0L)), player);
+					BlockPos site = BlockPos.of(o.data.getLongOr(Objective.Keys.FOUND, 0L));
+					foundScouted(level, s, site, player);
+					QuestEvents.SITE_SCOUTED.invoker().onSiteScouted(level, s, site, player);
 				}
 			}
 		}
 		QuestEvents.COMPLETED.invoker().onCompleted(player, s, q);
+	}
+
+	/**
+	 * The scouted site becomes a hamlet: settlers from the giver's town found it there ({@code HearthWorld.found}), and
+	 * the player hears where. The sandbox's in-memory towns found nothing.
+	 */
+	private static void foundScouted(ServerLevel level, Settlement origin, BlockPos site, ServerPlayer player) {
+		dev.voidmc.hearth.api.HearthWorld world = dev.voidmc.hearth.api.HearthWorld.of(level);
+		if (world == null || world.settlement(origin.id()) == null) {
+			return;
+		}
+		Settlement hamlet = world.found(site, null, origin, "scouted by " + player.getName().getString() + " for " + origin.name());
+		if (hamlet != null) {
+			player.sendSystemMessage(Component.translatable("hearth.quest.scout.founded", origin.name(), hamlet.name(),
+				Component.literal(site.getX() + ", " + site.getZ())).withStyle(ChatFormatting.GREEN));
+		} else {
+			String why = world.whyNotFound(site);
+			player.sendSystemMessage(Component.translatable("hearth.quest.scout.refused", why == null ? "?" : why).withStyle(ChatFormatting.GRAY));
+		}
 	}
 
 	/** Completes an active quest from outside a hand-in (auto turn-in, commands). */

@@ -53,6 +53,9 @@ public class FolkPortraits implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (!dev.voidmc.hearth.gametest.Tours.wanted("folk")) {
+			return;
+		}
 		context.runOnClient(mc -> {
 			if (!mc.gui.hud.isHidden()) {
 				mc.gui.hud.toggle();

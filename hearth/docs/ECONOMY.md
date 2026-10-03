@@ -68,7 +68,10 @@ residents ───────────────────────�
   strongholds, woodland mansions, pillager outposts, igloos and camps; and when VOID Expanse is installed, its
   `expanse:chests/micro/lost_chest`, every structure chest (`expanse`) and every hidden stash (`expanse_hidden`),
   but not its archaeology (brushed) tables or map chests. Amounts per category in the config.
-- **New settlements**: on `SettlementEvents.FOUNDED`, a treasury still at 0 is seeded with 40 bits per head.
+- **New settlements**: on `SettlementEvents.FOUNDED`, a treasury still at 0 is seeded with 40 bits per head. Sim
+  settlements never are: a new camp brings the sim's `founding.treasury` (200 bits), and an adopted history keeps at most
+  60 bits a head. While this module is present the sim's clock leaves its own per-worker coin out, so these daily books
+  are the treasury's income (with the sim's export sales and import purchases on top).
 
 ## Prices
 

@@ -5,7 +5,7 @@
 	"name": "VOID Hearth tour",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.voidmc.hearth.gametest.npc.FolkPortraits"]
+		"fabric-client-gametest": ["dev.voidmc.hearth.gametest.IntegrationTour", "dev.voidmc.hearth.gametest.npc.FolkPortraits"]
 	},
 	"depends": {"hearth": "*"}
 }

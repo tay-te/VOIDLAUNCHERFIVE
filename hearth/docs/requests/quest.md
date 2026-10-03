@@ -4,6 +4,8 @@ What the quest module needs from the api or other modules, and how it works arou
 
 ## 1. Sim: a "found a settlement here" hook (scouting quests)
 
+**Done** (integration): handing in a scouting quest calls `HearthWorld.found(site, null, origin, reason)` (`QuestManager.foundScouted`); `SITE_SCOUTED` still fires afterwards. The scout objective also requires `whyNotFound(pos) == null`.
+
 **What.** A way to ask the sim to found a new hamlet, as a daughter of an existing settlement, at a site a player
 scouted.
 
@@ -27,6 +29,8 @@ package) — or the coordinator moves that event into `api/SettlementEvents` and
 
 ## 2. NPC: an escort that is a resident, not a mule
 
+**Open**: needs a companion api and npc work; the mule escort stays.
+
 **What.** A way to have a resident follow a player (embodied as `hearth:folk`) and report arrival or death.
 
 **Why.** §10 mentions escorting "a caravan to another settlement". Escorts today lead a vanilla pack animal (mule or
@@ -44,10 +48,14 @@ plus `SettlementEvents.COMPANION_ARRIVED / COMPANION_LOST`.
 
 ## 3. NPC: call the quest dialogue's `collect` only when a conversation opens
 
+**Checked** (integration): `Conversations` calls providers only when a conversation opens and after an option is picked.
+
 `QuestDialogue.collect` refreshes the settlement's board if a day has turned (cheap, once a day per settlement) and
 reads the player's quests. Please call providers when a conversation opens or after a `select`, not every frame.
 
 ## 4. API: the board's position
+
+**Done** (integration): offers and accepted quests point at the first `NOTICE_BOARD` POI (`QuestWorlds.turnInPos`), else the centre.
 
 Quests hand in at "the giver's settlement" and the journal's waypoint points at `Settlement.center()`. If a settlement
 exposed its notice board's position (a `Poi` of type `NOTICE_BOARD` from the built plaza, say through a
@@ -55,10 +63,14 @@ exposed its notice board's position (a `Poi` of type `NOTICE_BOARD` from the bui
 
 ## 5. Economy: coin names on the client
 
+**Open** (optional): no client formatter yet.
+
 Reward text is written by the server (`EconomyService.format(bits).getString()`) and stored on the quest, so the client
 needs nothing. If the economy module adds a client-side formatter with coin icons, the journal and board can use it.
 
 ## 6. Gametest entrypoint (optional)
+
+**Done differently** (integration): `IntegrationTour` takes a real supply quest from the board and hands it in; `QuestClientTour` stays as the sandbox pilot.
 
 `QuestClientTour` (client, dev only, `-Dhearth.dev.quest.tour=true`) takes screenshots of the board, journal and HUD
 in a quick-played world. A `fabric-client-gametest` entrypoint in the gametest `fabric.mod.json` would let it run under

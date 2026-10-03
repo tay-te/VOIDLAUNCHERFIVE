@@ -50,22 +50,6 @@ public final class TownState {
 		return true;
 	}
 
-	/** Plots whose construction is waiting on goods, until when (game time): builders leave them be meanwhile. */
-	private final Map<Integer, Long> stalledUntil = new HashMap<>();
-
-	public void markStalled(int plotId, long until) {
-		this.stalledUntil.put(plotId, until);
-	}
-
-	public void clearStalled(int plotId) {
-		this.stalledUntil.remove(plotId);
-	}
-
-	public boolean stalled(int plotId, long gameTime) {
-		Long until = this.stalledUntil.get(plotId);
-		return until != null && gameTime < until;
-	}
-
 	public int claimsOn(int plotId) {
 		int n = 0;
 		for (int p : this.builderClaims.values()) {

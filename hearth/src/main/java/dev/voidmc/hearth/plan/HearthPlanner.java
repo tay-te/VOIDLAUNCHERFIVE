@@ -14,6 +14,8 @@ import dev.voidmc.hearth.plan.grid.PlotGeometry;
 import dev.voidmc.hearth.plan.growth.Growth;
 import dev.voidmc.hearth.plan.layout.Districts;
 import dev.voidmc.hearth.plan.layout.Founder;
+import dev.voidmc.hearth.plan.layout.LayoutChooser;
+import dev.voidmc.hearth.plan.model.LayoutType;
 import dev.voidmc.hearth.plan.model.PlanState;
 import dev.voidmc.hearth.plan.model.QueuedProject;
 import dev.voidmc.hearth.plan.model.Reservation;
@@ -57,7 +59,7 @@ public final class HearthPlanner implements SettlementPlanner {
 		resetForFounding(state);
 		PlanContext ctx = new PlanContext(s, state, fc.terrain(), fc.random(), Catalogue.current(), this.config);
 		reconcile(ctx);
-		List<PlotSpec> out = Founder.found(ctx, fc.center(), fc.terrain().biome(fc.center().getX(), fc.center().getZ()));
+		List<PlotSpec> out = layOut(ctx, fc.center(), fc.terrain());
 		state.lastTier = s.tier();
 		state.issued.clear();
 		state.issued.addAll(out);
@@ -86,10 +88,13 @@ public final class HearthPlanner implements SettlementPlanner {
 		PlanState state = settlement.data(this.key);
 		state.calls++;
 		PlanContext ctx = new PlanContext(settlement, state, terrain, random, Catalogue.current(), this.config);
+		if (PlanModule.isServerThread() && this.config.liveTimeLimitMs() > 0) {
+			ctx.deadline = System.nanoTime() + this.config.liveTimeLimitMs() * 1_000_000L;
+		}
 		if (!state.founded) {
 			// a settlement the planner never laid out (an old save, a record made by hand): lay it out now
 			reconcile(ctx);
-			List<PlotSpec> first = Founder.found(ctx, settlement.center(), terrain.biome(settlement.center().getX(), settlement.center().getZ()));
+			List<PlotSpec> first = layOut(ctx, settlement.center(), terrain);
 			for (PlotSpec spec : first) {
 				ctx.queue(spec, -1, "founding: " + spec.archetype().getPath());
 			}
@@ -116,6 +121,22 @@ public final class HearthPlanner implements SettlementPlanner {
 		state.serial++;
 		settlement.markDirty();
 		return new GrowthProject(project.spec(), project.replaces(), project.reason());
+	}
+
+	/** Founds the layout, forcing the dev layout ({@code -Dhearth.dev.plan.layout}) on whatever thread this runs. */
+	private static List<PlotSpec> layOut(PlanContext ctx, net.minecraft.core.BlockPos center, TerrainProbe terrain) {
+		LayoutType forced = PlanModule.devLayout();
+		boolean force = forced != null && LayoutChooser.FORCED.get() == null;
+		if (force) {
+			LayoutChooser.FORCED.set(forced);
+		}
+		try {
+			return Founder.found(ctx, center, terrain.biome(center.getX(), center.getZ()));
+		} finally {
+			if (force) {
+				LayoutChooser.FORCED.remove();
+			}
+		}
 	}
 
 	/** The next queued project still worth building (an upgrade whose old plot is gone is dropped). */
@@ -165,12 +186,26 @@ public final class HearthPlanner implements SettlementPlanner {
 		int[] known = state.knownPlots;
 		if (!rebuild) {
 			int seen = 0;
+			java.util.Set<Integer> rebuilt = new java.util.HashSet<>();
 			for (PlotView p : plots) {
 				if (Arrays.binarySearch(known, p.id()) >= 0) {
 					seen++;
 				}
+				if (p.replaces() >= 0) {
+					rebuilt.add(p.replaces());
+				}
 			}
-			rebuild = seen != known.length;
+			if (seen != known.length) {
+				// a plot that is gone because its rebuild finished stands under the rebuild's own footprint (and its kept
+				// gaps only keep ground open): no need to rebuild a city's whole grid for it
+				int replacedAway = 0;
+				for (int id : known) {
+					if (rebuilt.contains(id) && ctx.settlement.plot(id) == null) {
+						replacedAway++;
+					}
+				}
+				rebuild = seen + replacedAway != known.length;
+			}
 		}
 		if (rebuild) {
 			ctx.occ = rebuild(ctx);

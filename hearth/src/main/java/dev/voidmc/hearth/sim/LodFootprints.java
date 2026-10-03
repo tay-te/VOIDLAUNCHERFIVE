@@ -35,7 +35,32 @@ import org.jspecify.annotations.Nullable;
  * </pre>
  */
 public final class LodFootprints {
-	private record Entry(long settlement, int plot, PlotSpec spec, Silhouette silhouette) {
+	/** A finished building. Its silhouette is worked out on first use, by whichever thread draws it (LOD's workers). */
+	private static final class Entry {
+		final long settlement;
+		final int plot;
+		final PlotSpec spec;
+		private volatile @Nullable Silhouette silhouette;
+
+		Entry(long settlement, int plot, PlotSpec spec) {
+			this.settlement = settlement;
+			this.plot = plot;
+			this.spec = spec;
+		}
+
+		@Nullable Silhouette silhouette(TerrainProbe terrain) {
+			Silhouette s = this.silhouette;
+			if (s == null) {
+				try {
+					s = HearthServices.blueprints().blueprint(this.spec, terrain).silhouette();
+				} catch (RuntimeException e) {
+					// an archetype that no longer exists draws nothing
+					return null;
+				}
+				this.silhouette = s;
+			}
+			return s;
+		}
 	}
 
 	/** A region's columns: per chunk, 256 × {wall, roof, eave << 16 | ridge & 0xFFFF}. */
@@ -70,24 +95,30 @@ public final class LodFootprints {
 
 	// ---------------------------------------------------------------- updates (server thread)
 
-	/** A plot finished: it now shows at the horizon. */
+	/** Per live settlement: which of its plots are drawn, and in which region (so updates never scan every region). */
+	private final Map<Long, Map<Integer, Long>> drawn = new ConcurrentHashMap<>();
+
+	/** A plot finished: it now shows at the horizon. Cheap: no blueprint is generated here (see {@link Entry}). */
 	public void built(SimSettlement s, SimPlot p) {
 		if (PlotColumns.isLine(p.spec())) {
 			return;
 		}
-		Silhouette sil;
-		try {
-			sil = HearthServices.blueprints().blueprint(p.spec(), this.terrain).silhouette();
-		} catch (RuntimeException e) {
-			return;
+		Map<Integer, Long> mine = this.drawn.computeIfAbsent(s.id(), k -> new ConcurrentHashMap<>());
+		long key = key(p.spec());
+		Long was = mine.put(p.id(), key);
+		if (was != null) {
+			Region old = this.regions.get(was);
+			if (old != null) {
+				old.live.removeIf(e -> e.settlement == s.id() && e.plot == p.id());
+				bump(old);
+			}
 		}
-		Region r = region(key(p.spec()));
-		r.live.removeIf(e -> e.settlement == s.id() && e.plot == p.id());
-		r.live.add(new Entry(s.id(), p.id(), p.spec(), sil));
+		Region r = region(key);
+		r.live.add(new Entry(s.id(), p.id(), p.spec()));
 		bump(r);
 	}
 
-	/** Re-reads a settlement's standing plots (after adoption, removals, or loading). */
+	/** Re-reads a settlement's standing plots (after adoption, removals, or loading): O(plots), no blueprints. */
 	public void refresh(SimSettlement s) {
 		if (s.originRegion() != SimSettlement.NO_REGION) {
 			this.adopted.add(s.originRegion());
@@ -96,21 +127,24 @@ public final class LodFootprints {
 				bump(r);
 			}
 		}
-		for (Region r : this.regions.values()) {
-			if (r.live.removeIf(e -> e.settlement == s.id() && (s.plot(e.plot) == null || !s.plot(e.plot).isStanding()))) {
-				bump(r);
+		Map<Integer, Long> mine = this.drawn.computeIfAbsent(s.id(), k -> new ConcurrentHashMap<>());
+		var it = mine.entrySet().iterator();
+		while (it.hasNext()) {
+			var en = it.next();
+			SimPlot p = s.plot(en.getKey());
+			if (p == null || !p.isStanding() || key(p.spec()) != en.getValue()) {
+				it.remove();
+				Region r = this.regions.get(en.getValue());
+				if (r != null) {
+					int id = en.getKey();
+					r.live.removeIf(e -> e.settlement == s.id() && e.plot == id);
+					bump(r);
+				}
 			}
 		}
 		for (SimPlot p : s.plots()) {
-			if (p.isStanding()) {
-				Region r = region(key(p.spec()));
-				boolean known = false;
-				for (Entry e : r.live) {
-					known |= e.settlement == s.id() && e.plot == p.id();
-				}
-				if (!known) {
-					built(s, p);
-				}
+			if (p.isStanding() && !mine.containsKey(p.id())) {
+				built(s, p);
 			}
 		}
 	}
@@ -166,7 +200,10 @@ public final class LodFootprints {
 		}
 		Long2ObjectOpenHashMap<int[]> chunks = new Long2ObjectOpenHashMap<>();
 		for (Entry e : r.live) {
-			paint(chunks, e.spec, e.silhouette);
+			Silhouette sil = e.silhouette(this.terrain);
+			if (sil != null) {
+				paint(chunks, e.spec, sil);
+			}
 		}
 		if (!this.adopted.contains(key) && this.atlas.enabled()) {
 			RegionPlan plan = this.atlas.plan(rx, rz);
