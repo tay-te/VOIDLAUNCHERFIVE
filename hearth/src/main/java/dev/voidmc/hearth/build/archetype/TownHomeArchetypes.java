@@ -1,6 +1,8 @@
 package dev.voidmc.hearth.build.archetype;
 
 import dev.voidmc.hearth.build.ArchetypeRegistry;
+import dev.voidmc.hearth.build.archetype.house.CliffDwelling;
+import dev.voidmc.hearth.build.archetype.house.CourtyardHouse;
 import dev.voidmc.hearth.build.archetype.house.Rowhouse;
 import dev.voidmc.hearth.build.archetype.house.Shophouse;
 import dev.voidmc.hearth.build.archetype.house.Tenement;
@@ -16,5 +18,7 @@ public final class TownHomeArchetypes {
 		registry.register(new Shophouse());
 		registry.register(new Tenement());
 		registry.register(new TowerHouse());
+		registry.register(new CliffDwelling());
+		registry.register(new CourtyardHouse());
 	}
 }

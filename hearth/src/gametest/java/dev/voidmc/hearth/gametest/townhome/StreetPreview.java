@@ -84,9 +84,13 @@ public final class StreetPreview {
 			int[] box = bounds(specs);
 			ground(world, probe, box[0] - 4, box[1] - 9, box[2] + 4, box[3] + 4, culture);
 			StringBuilder title = new StringBuilder(String.join(",", row) + " in " + style + " on " + terrain + ":");
+			// a stack is drawn and checked level by level against what the levels below built
+			BuiltProbe built = new BuiltProbe(probe);
 			for (PlotSpec spec : specs) {
-				BlueprintImpl bp = service.compiled(spec, probe);
-				for (String p : BlueprintChecks.all(bp, probe)) {
+				TerrainProbe here = extra.contains("stack") ? built : probe;
+				BlueprintImpl bp = service.compiled(spec, here);
+				built.add(bp);
+				for (String p : BlueprintChecks.all(bp, here)) {
 					System.out.println("CHECK " + spec.archetype().getPath() + " " + style + " seed " + spec.seed() + " " + spec.params() + ": " + p);
 				}
 				for (int s = 0; s < bp.stageCount(); s++) {
