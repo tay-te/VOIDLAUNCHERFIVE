@@ -2,7 +2,9 @@
 	"required": true,
 	"package": "dev.voidmc.hearth.mixin.sim",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"FeaturePlacerMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}
