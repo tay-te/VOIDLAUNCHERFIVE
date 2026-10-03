@@ -165,7 +165,9 @@ gable door and hoist. **Flat store** (desert, mesa): thick walls, a crowned para
 ### `storage/granary` (Granary.java)
 **Staddle granary** (default): a framed store on mushroom staddle stones with a sill beam, vents, a steep roof and
 approach steps. **Bins** (cultures with round plans, e.g. steppe, tropical): round mud bins with cone roofs on a stone
-platform. **Domes** (flat-roofed cultures: desert, mesa): beehive domes in a walled yard.
+platform, the largest with the door at the back (smaller ones beside it where the plot is broad enough to keep a cell
+between their eaves). **Domes** (flat-roofed cultures: desert, mesa): a cluster of touching beehive domes in a walled
+yard, the largest with the door.
 **POIs:** DOOR, STORAGE ×2–3.
 **Params:** `kind` (`staddle`, `bins`, `domes`), `roof`, `variant`.
 

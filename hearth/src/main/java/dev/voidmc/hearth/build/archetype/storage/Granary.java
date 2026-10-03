@@ -236,24 +236,13 @@ public final class Granary implements Archetype {
 			Groundwork.steps(d, gate, base, pz0 - 1, Dirs.FRONT, 1);
 			d.inStage(StageKind.EXTERIOR, () -> d.set(gate, base - 1, pz0, paving.full()));
 		}
-		// the largest bin at the back with the door, smaller ones before it
-		double big = Math.min((w - 3) / 2.0, (pz1 - pz0 - 1) / 2.0 - 0.5);
-		big = Math.max(2, Math.min(3, big));
-		double cxBig = (w - 1) / 2.0;
-		double czBig = pz1 - 1 - big;
-		int[] doorCell = bin(d, cxBig, czBig, big, base, domes, true);
-		List<double[]> small = new ArrayList<>();
-		double r = big >= 3 ? 2 : 1.5;
-		if (w >= 9) {
-			small.add(new double[]{1 + r, pz0 + 1 + r});
-			small.add(new double[]{w - 2 - r, pz0 + 1 + r});
-		} else {
-			small.add(new double[]{d.chance(0.5) ? 1 + r : w - 2 - r, pz0 + 1 + r});
-		}
-		for (double[] c : small) {
-			if (c[1] + r + 1 < czBig - big && Math.abs(c[0] - gate) > r + 0.6) {
-				bin(d, c[0], c[1], r, base, domes, false);
-			}
+		// the largest bin at the back with the door, as many smaller ones round it as fit clear of the way in
+		List<double[]> plan = layout(w, pz0, pz1, gate, domes);
+		double[] main = plan.get(0);
+		int[] doorCell = bin(d, main[0], main[1], main[2], base, domes, true);
+		for (int i = 1; i < plan.size(); i++) {
+			double[] c = plan.get(i);
+			bin(d, c[0], c[1], c[2], base, domes, false);
 		}
 		// a path to the big bin's door, sacks by it
 		if (doorCell != null) {
@@ -266,6 +255,69 @@ public final class Granary implements Archetype {
 			Props.jars(d, 1, 0, 1, Dirs.RIGHT, Math.min(2, gate - 2));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, d.maxHeight() - 1);
+	}
+
+	/**
+	 * Where the bins stand on the platform rows {@code pz0..pz1}: {cx, cz, r} for each, the main bin first (at the
+	 * back, centred on the way in). Tries the main bin from its largest radius down and keeps the plan with the most
+	 * bins: up to three smaller ones round it (domes may touch, cones keep a cell apart for their eaves), none on the
+	 * way from the steps to the main bin's door.
+	 */
+	private static List<double[]> layout(int w, int pz0, int pz1, int gate, boolean domes) {
+		double most = Math.min((w - 3) / 2.0, (pz1 - pz0 - 1) / 2.0 - 0.5);
+		most = Math.max(2, Math.min(3, most));
+		int gap = domes ? 0 : 1;
+		List<double[]> best = null;
+		for (double big = most; big >= 2 - 1e-9; big -= 0.5) {
+			double cx = (w - 1) / 2.0;
+			double cz = pz1 - 1 - big;
+			List<double[]> plan = new ArrayList<>();
+			plan.add(new double[]{cx, cz, big});
+			List<int[]> taken = new ArrayList<>(Draft.ellipseCells(cx, cz, big, big, true));
+			int doorZ = Integer.MAX_VALUE;
+			for (int[] c : taken) {
+				if (c[0] == (int) Math.round(cx)) {
+					doorZ = Math.min(doorZ, c[1]);
+				}
+			}
+			// smaller bins, front corners first, then down the sides
+			outer:
+			for (double r : new double[]{2.0, 1.5}) {
+				for (double z = pz0 + 1 + r; z <= pz1 - 1 - r; z += 0.5) {
+					for (double x : new double[]{1 + r, w - 2 - r, Math.ceil(1 + r), Math.floor(w - 2 - r)}) {
+						if (plan.size() >= 4) {
+							break outer;
+						}
+						List<int[]> disc = Draft.ellipseCells(x, z, r, r, true);
+						if (fits(disc, taken, w, pz0, pz1, gate, doorZ, gap)) {
+							plan.add(new double[]{x, z, r});
+							taken.addAll(disc);
+						}
+					}
+				}
+			}
+			if (best == null || plan.size() > best.size()) {
+				best = plan;
+			}
+		}
+		return best;
+	}
+
+	private static boolean fits(List<int[]> disc, List<int[]> taken, int w, int pz0, int pz1, int gate, int doorZ, int gap) {
+		for (int[] c : disc) {
+			if (c[0] < 1 || c[0] > w - 2 || c[1] < pz0 + 1 || c[1] > pz1 - 1) {
+				return false;
+			}
+			if (c[0] == gate && c[1] < doorZ) {
+				return false;
+			}
+			for (int[] t : taken) {
+				if (Math.max(Math.abs(t[0] - c[0]), Math.abs(t[1] - c[1])) <= gap) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	/**
