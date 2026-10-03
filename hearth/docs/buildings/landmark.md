@@ -28,8 +28,9 @@ a beam, a corbelled cornice. Panels in the style's light walling where it is mas
 the belfry in dressed stone. Crowns by culture: needle, octagonal or broach spires behind a parapet with pinnacles
 (temperate, maritime, moorland, wisteria), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
 a brick campanile (mediterranean), onion domes (alpine), curved hips (karst). Timber cultures (northern, tundra, bayou,
-tropical) raise a stone base under a pent skirt, framed stages with braces and lights, and a louvred belfry jettied out
-on brackets under stacked shingle caps or a tin pyramid. Spires and domes take copper where the roof is shingle, and on
+tropical) raise a stone base under a pent skirt and, on a seven-wide core, step the framed shaft in a block behind it
+(braces, lights) before the louvred belfry flares out two blocks on raking brackets under stacked shingle caps or a tin
+pyramid, as a northern klockstapel does. Spires and domes take copper where the roof is shingle, and on
 a share of the rest. Spiral stair from the door to the belfry (VIEWPOINT); a forecourt with a bench, a lamp and pots
 (MEETING_POINT, SEAT).
 Params: `crown` (a `Crowns.Kind` name), `clock` (boolean).
@@ -48,8 +49,8 @@ roofs below a clerestory; the nave, transept and apse roofed as one surface (val
 - **Gothic** (temperate, maritime, moorland, wisteria; any style without a manner of its own): twin west towers with
   needle spires and belfries (70 %), or low towers and a crossing tower with a great spire (30 %, flanking turrets on the
   front); three portals, the main one deep with jamb shafts, a tympanum and a gabled hood, a gallery of little arches
-  over it and a rose window; buttresses with pinnacles and flying buttresses over the aisle roofs; a flèche on the
-  crossing; ashlar walls.
+  over it and a rose window; buttresses with pinnacles and flying buttresses over the aisle roofs; a louvred flèche
+  with a needle on the crossing; ashlar walls; spires in copper on a share of them.
 - **Romanesque** (mediterranean): low tiled roofs, a campanile at a front corner, an octagonal drum and dome over the
   crossing.
 - **Baroque** (alpine): white walls with grey dressings, twin towers under copper onions, a dome over the crossing on
@@ -67,15 +68,18 @@ Five forms, by culture (param `form` overrides):
   frieze of the style's accent tiles and a low pedimented roof with acroteria, a cella with a tall door behind two columns
   in antis, a statue between braziers, candles on altars in the forecourt.
 - **dome** (desert): a walled court with arcades and a basin, a minaret with courses, slits, a corbelled balcony
-  (VIEWPOINT) and a domed upper stage; the sanctuary under a great dome on a windowed drum (copper gone turquoise on 70 %,
+  (VIEWPOINT) and a domed upper stage; the sanctuary under a great dome on a windowed drum (copper gone turquoise on 85 %,
   else the roof stone), corner turrets, a tall portal framing a deep arch, rugs and lanterns, a niche in the far wall.
 - **pyramid** (mesa, tropical): banded terraces, a stair up the front between sloped balustrades (with a landing in the
   plot at its foot), a shrine on the summit (flat roof with vigas, or a thatched hip), braziers at the corners, stelae.
 - **hall** (karst, bayou; wisteria in previews): a hall on a stone podium (or piles and a deck where the style's
   foundations are wood) behind a gateway and stone lanterns: posts and lattices, a veranda, a double eave (curved and
   lifted where the style flares), an altar with its figure, cushions, a bell.
-- **round** (steppe): a ring wall banded at its head, a round platform, a ring of columns round a round sanctuary under
-  one great cone with a gilded sun on the apex, a fire at its heart (HEARTH).
+- **round** (steppe): a sun sanctuary in the manner of the Sahel's adobe: a low ring wall banded with glazed tile at its
+  head, a gilded sun over the gate, a round platform in two steps, a crenellated adobe drum ringed by buttresses that rise
+  as pinnacles, scaffold beams (torons) bristling through the walls, a tall portal standing proud of the drum, and a
+  tapering sun tower on its roof with beams through it and a gilded sun with tiled rays on the apex; within, a ring of
+  posts, rugs round the fire under the tower (HEARTH).
 Every form: ALTAR, PRIEST job site, SEAT, MEETING_POINT, DOOR.
 
 ### Pagoda
@@ -88,15 +92,16 @@ SEAT) past a scroll room (LECTERN) and a bell to the lookout (VIEWPOINT).
 
 ### Great hall
 A long hall under a vast roof, gable to the street. Northern and tundra: log walls notched at the corners, raking braces
-leaning on them, boarded gables whose barge boards cross over the apex and end in carved dragon heads, smoke vents on the
-ridge, a porch on posts. Moorland: rubble walls with quoins and buttresses, crow-stepped gables. Alpine: a broad low roof
+leaning on them, boarded gables boarded with vertical battens and a sun-wheel light, whose barge boards cross over the apex
+and curl outward into carved dragon heads, smoke vents on the ridge, a porch on posts, banners either side of it. Moorland: rubble walls with quoins and buttresses, crow-stepped gables. Alpine: a broad low roof
 with deep eaves and a balcony across the gable. Inside: two rows of posts under tie beams, the long hearth down the middle
 (HEARTH), long tables with benches (TABLE, SEAT), the high seat on a dais under banners, mead barrels and a chest
 (STORAGE), lanterns on chains; woodpiles and a runestone outside.
 
 ### Lighthouse
 A round tower on a mound of weathered rock: a flared plinth, the livery (the style's masonry walls, or white render, in
-bands of the town's strongest cloth colour as concrete on 75 %: param `bands`), little windows climbing it, a corbelled
+bands of the town's strongest cloth colour as concrete on 75 %, red before blue before the rest: param `bands`), a door
+under a hood, little windows climbing it, a course at mid-height, the watch room's windows under a corbelled
 gallery with an iron railing round a glazed lantern room (sea lanterns), a cap and a vane. The gallery deck is on a whole
 turn of the spiral so the last step lands by the lantern room's door (VIEWPOINT). The keeper's cottage in front (bed,
 hearth and chimney, the log on a lectern, chests). Where water reaches the plot, a plank jetty on posts with mooring posts

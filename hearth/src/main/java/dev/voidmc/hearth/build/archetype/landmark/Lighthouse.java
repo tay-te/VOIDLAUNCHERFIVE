@@ -123,6 +123,16 @@ public final class Lighthouse implements Archetype {
 				d.set(wx, y + 1, wz, glass);
 			}
 		}
+		// a course at mid-height, the watch room's windows on the four faces under the gallery
+		Details.ringCourse(d, xt, zt, r, yG / 2, dress);
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (Direction dir : Dirs.HORIZONTAL) {
+				int wx = xt + Dirs.dx(dir) * r;
+				int wz = zt + Dirs.dz(dir) * r;
+				d.set(wx, yG - 4, wz, glass);
+				d.set(wx, yG - 3, wz, glass);
+			}
+		}
 		// the gallery: a corbelled ring with an iron railing, the deck over the shaft
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int[] c : Shapes.disc(xt, zt, r)) {
