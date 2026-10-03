@@ -32,6 +32,16 @@ public final class Site {
 
 	public Site(PlotSpec spec, TerrainProbe probe) {
 		this(new LocalFrame(spec), spec.floorY(), probe);
+		// a building on a terrace plot (param "terraced", PLANNING.md §8) stands on the terrace's level deck, which covers
+		// its whole footprint at its floor level: the ground there is made, not natural (outside it, the land is natural)
+		if (spec.params().getBooleanOr("terraced", false)) {
+			for (int z = 0; z < this.depth; z++) {
+				for (int x = 0; x < this.frontage; x++) {
+					this.ground[index(x, z)] = 0;
+					this.water[index(x, z)] = NONE;
+				}
+			}
+		}
 	}
 
 	public Site(LocalFrame frame, int floorY, TerrainProbe probe) {
