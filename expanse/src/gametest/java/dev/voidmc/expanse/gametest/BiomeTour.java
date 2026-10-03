@@ -521,26 +521,28 @@ public class BiomeTour implements FabricClientGameTest {
 					}
 				}
 			}
-			// A canyon's river near spawn may run in a shallow cut: of the canyon rivers round the first one,
-			// take the one deepest between its walls.
-			int[] canyon = first[dev.voidmc.expanse.world.terrain.Landform.CANYON];
-			if (canyon != null) {
+			// The canyon river or fjord nearest spawn may run in a shallow cut (a fjord's mouth is low and
+			// wooded): of the channels round the first one, take the one deepest between its walls.
+			for (int k : new int[]{dev.voidmc.expanse.world.terrain.Landform.CANYON, dev.voidmc.expanse.world.terrain.Landform.FJORD}) {
+				int[] near = first[k];
+				if (near == null) {
+					continue;
+				}
+				boolean fjord = k == dev.voidmc.expanse.world.terrain.Landform.FJORD;
 				int deepest = 0;
-				int[] best = canyon;
 				for (int dx = -800; dx <= 800; dx += 16) {
 					for (int dz = -800; dz <= 800; dz += 16) {
-						var c = model.sample(canyon[0] + dx, canyon[1] + dz);
-						if (c.landform != dev.voidmc.expanse.world.terrain.Landform.CANYON || !c.inChannel()) {
+						var c = model.sample(near[0] + dx, near[1] + dz);
+						if (fjord ? !c.fjord : c.landform != k || !c.inChannel()) {
 							continue;
 						}
-						int depth = walls(model, canyon[0] + dx, canyon[1] + dz, 40) - c.waterTop();
+						int depth = walls(model, near[0] + dx, near[1] + dz, 48) - (fjord ? 63 : c.waterTop());
 						if (depth > deepest) {
 							deepest = depth;
-							best = new int[]{canyon[0] + dx, canyon[1] + dz};
+							first[k] = new int[]{near[0] + dx, near[1] + dz};
 						}
 					}
 				}
-				first[dev.voidmc.expanse.world.terrain.Landform.CANYON] = best;
 			}
 			List<int[]> picked = new java.util.ArrayList<>();
 			for (int k = 1; k < names.length; k++) {
@@ -638,7 +640,9 @@ public class BiomeTour implements FabricClientGameTest {
 		int back = fjord ? 70 : 45;
 		int ex = at[0] - (int) (dirX * back);
 		int ez = at[1] - (int) (dirZ * back);
-		int ey = Math.max(water + 30, fjord ? (walls + water) / 2 + 24 : walls + 4);
+		// Above the trees of whatever the camera is over, should the channel bend away under it.
+		int ground = Math.max((int) model.sample(ex, ez).height, 63);
+		int ey = Math.max(Math.max(water + 30, ground + 30), fjord ? (walls + water) / 2 + 24 : walls + 4);
 		return new int[]{at[0] + (int) (dirX * 60), water, at[1] + (int) (dirZ * 60), ex, ey, ez};
 	}
 
