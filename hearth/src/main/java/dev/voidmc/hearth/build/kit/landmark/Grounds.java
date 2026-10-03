@@ -169,6 +169,11 @@ public final class Grounds {
 		}
 	}
 
+	/** Whether a cell is inside the plot's footprint. */
+	public static boolean inPlotBounds(Draft d, int x, int z) {
+		return Walls.inPlot(d, x, z);
+	}
+
 	/** Free ground or paving at standing level y with nothing on it. */
 	public static boolean standable(Draft d, int x, int y, int z) {
 		if (!Walls.inPlot(d, x, z) || !d.isAbsent(x, y, z) && !d.isEmpty(x, y, z)) {

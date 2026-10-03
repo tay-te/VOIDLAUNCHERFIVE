@@ -177,7 +177,7 @@ public final class Lighthouse implements Archetype {
 		try (var s = d.stage(StageKind.OPENINGS)) {
 			Details.arch(d, towerFront, 0, 1, 0, 3, dress, glass);
 		}
-		Openings.door(d, towerFront, xt, 0, 1, Openings.DoorOpts.MAIN);
+		Openings.door(d, towerFront, xt, 0, 1, new Openings.DoorOpts(true, true, true));
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int[] c : disc) {
 				d.set(c[0], -1, c[1], dress.full());
@@ -203,6 +203,10 @@ public final class Lighthouse implements Archetype {
 
 	/** The bands: the town's strongest cloth colour as concrete (red, blue...), or null for a plain tower. */
 	private static Paint bandPaint(Draft d) {
+		// the strongest colour the town wears, by the order lighthouses are painted in
+		String[] order = {"red", "blue", "black", "green", "cyan", "orange", "purple", "brown"};
+		Block best = null;
+		int rank = Integer.MAX_VALUE;
 		for (var e : d.mat(Role.CLOTH).palette().entries()) {
 			Block wool = e.material().block(Form.FULL);
 			Block concrete = e.material().block(Form.CONCRETE);
@@ -210,12 +214,14 @@ public final class Lighthouse implements Archetype {
 				continue;
 			}
 			String name = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(wool).getPath();
-			if (name.startsWith("white") || name.startsWith("light_gray") || name.startsWith("light_blue") || name.startsWith("yellow")) {
-				continue;
+			for (int i = 0; i < order.length; i++) {
+				if (name.equals(order[i] + "_wool") && i < rank) {
+					rank = i;
+					best = concrete;
+				}
 			}
-			return Paint.of(concrete.defaultBlockState());
 		}
-		return null;
+		return best == null ? null : Paint.of(best.defaultBlockState());
 	}
 
 	/** A mound of weathered rock round the tower's foot, highest against it, running out into any water. */

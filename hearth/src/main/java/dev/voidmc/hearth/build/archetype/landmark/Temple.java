@@ -361,7 +361,7 @@ public final class Temple implements Archetype {
 		Stone body = Stone.masonry(d);
 		Stone dress = Stone.dressing(d);
 		// the domes sheathed in copper gone turquoise, as tiled domes shine over a sand-coloured town (or in its roof stone)
-		Stone sheet = d.chance(0.7) ? Stone.copper(d) : Stone.sheet(d);
+		Stone sheet = d.chance(0.85) ? Stone.copper(d) : Stone.sheet(d);
 		Block accent = d.mat(Role.ACCENT).main(Form.FULL);
 		Paint glass = d.mat(Role.GLASS).pane();
 		int hx0 = 1;
@@ -991,124 +991,204 @@ public final class Temple implements Archetype {
 		Stone dress = Stone.dressing(d);
 		Stone found = Stone.footing(d);
 		Block accent = d.mat(Role.ACCENT).main(Form.FULL);
-		Mat frame = d.mat(Role.FRAME);
+		Block rays = States.block("minecraft:orange_glazed_terracotta", Blocks.GOLD_BLOCK);
 		int r = (Math.min(w, dp) - 1) / 2;
 		double cx = (w - 1) / 2.0;
 		double cz = dp - 1 - r;
 		int xc = (int) Math.round(cx);
 		int zcI = (int) Math.round(cz);
-		int rp = r - 2;
-		int rc = Math.max(2, rp - 3);
+		int rp = r - 2;                         // the platform
+		int rc = Math.max(2, Math.min(4, rp - 2)); // the sanctuary's foot
 		d.body(xc - rp, zcI - rp, xc + rp, zcI + rp);
 		d.entrance(xc, 0, -1);
 		Grounds.podium(d, 0, 0, w - 1, dp - 1, 0, true);
-		// the ring wall, banded at its head, a gate to the street
+		// the ring wall, banded at its head, a gate to the street under a gilded sun
 		try (var st = d.stage(StageKind.WALLS)) {
-			int k = 0;
+			int k0 = 0;
 			for (int[] c : Shapes.ring(cx, cz, r)) {
 				boolean gate = c[1] < cz && Math.abs(c[0] - cx) <= 1.01;
-				for (int y = 0; y <= 3; y++) {
-					if (gate && y <= 2) {
+				boolean post = gate && Math.abs(c[0] - cx) > 0.99;
+				int h = post ? 3 : 2;
+				for (int y = 0; y <= h; y++) {
+					if (gate && !post && y <= 2) {
 						continue;
 					}
-					boolean band = y == 3;
-					Paint p = band ? ((c[0] + c[1] & 1) == 0 && accent != null ? Paint.of(accent.defaultBlockState()) : dress.full()) : body.full();
+					Paint p = y == h ? (k0 % 4 == 0 && accent != null ? Paint.of(accent.defaultBlockState()) : dress.full()) : body.full();
 					d.set(c[0], y, c[1], p);
 				}
-				k++;
+				k0++;
 			}
+			int gz = zcI - r;
+			d.set(xc, 3, gz, dress.full());
+			d.set(xc, 4, gz, Blocks.GOLD_BLOCK.defaultBlockState());
 		}
-		// the round platform and its steps
+		// the round platform in two steps
 		try (var st = d.stage(StageKind.FOUNDATION)) {
 			for (int[] c : Shapes.disc(cx, cz, rp)) {
-				for (int y = Math.min(-1, d.site().ground(c[0], c[1]) - 1); y <= 0; y++) {
-					d.set(c[0], y, c[1], y == 0 ? dress.full() : found.full());
+				double dist = Math.hypot(c[0] - cx, c[1] - cz);
+				int topRow = dist > rp - 0.8 ? 0 : 1;
+				for (int y = Math.min(-1, d.site().ground(c[0], c[1]) - 1); y <= topRow; y++) {
+					d.set(c[0], y, c[1], y == topRow ? dress.full() : found.full());
 				}
 			}
 		}
-		int front = zcI - rp;
+		// the steps up to the platform at the front
+		int fz = zcI - rp;
 		try (var st = d.stage(StageKind.EXTERIOR)) {
 			for (int x = xc - 1; x <= xc + 1; x++) {
-				d.set(x, 0, front - 1, dress.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+				d.set(x, 0, fz - 1, dress.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+				d.set(x, 1, fz + 1, dress.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
 			}
 		}
-		// the colonnade on the platform's rim and the sanctuary within, under one cone
-		int colH = 4;
-		try (var st = d.stage(StageKind.FRAME)) {
-			int k = 0;
-			for (int[] c : Shapes.ring(cx, cz, rp - 1)) {
-				if ((c[0] + c[1] & 1) == 0 && !(c[1] < cz && Math.abs(c[0] - cx) < 0.6)) {
-					for (int y = 1; y <= colH; y++) {
-						d.set(c[0], y, c[1], frame.log(Direction.Axis.Y));
+		Stone adobe = body.crisp();
+		Mat beam = d.mat(Role.BEAM);
+		int yb = 2;
+		// the sanctuary's drum: adobe walls, buttresses carried up as pinnacles, beams bristling through the walls,
+		// a crenellated head
+		int rd = Math.max(3, rp - 2);
+		int drumH = Math.min(7, Math.max(5, top / 4));
+		List<int[]> ring = Shapes.ring(cx, cz, rd);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int[] c : ring) {
+				for (int y = yb; y < yb + drumH; y++) {
+					d.set(c[0], y, c[1], adobe.full());
+				}
+				boolean merlon = (c[0] + c[1] & 1) == 0;
+				if (merlon) {
+					d.set(c[0], yb + drumH, c[1], adobe.full());
+				}
+			}
+		}
+		int k = 0;
+		for (int[] c : ring) {
+			Direction out = Dirs.nearest(c[0] - cx, c[1] - cz);
+			int ox = c[0] + Dirs.dx(out);
+			int oz = c[1] + Dirs.dz(out);
+			boolean front = c[1] < cz && Math.abs(c[0] - cx) <= 1.5;
+			if (k++ % 3 == 0 && !front && d.isEmpty(ox, yb, oz) && Grounds.inPlotBounds(d, ox, oz)) {
+				// a buttress against the drum, its head a little cone above the parapet
+				try (var st = d.stage(StageKind.FRAME)) {
+					for (int y = yb; y <= yb + drumH; y++) {
+						d.set(ox, y, oz, adobe.full());
+					}
+					d.set(ox, yb + drumH + 1, oz, adobe.full());
+					d.set(ox, yb + drumH + 2, oz, adobe.wallOrFull());
+				}
+			} else if (!front) {
+				// torons: the ends of the scaffold beams left in the wall, in rows
+				try (var st = d.stage(StageKind.FRAME)) {
+					for (int y = yb + 2; y < yb + drumH; y += 3) {
+						if ((k & 1) == 0 && d.isEmpty(ox, y, oz) && Grounds.inPlotBounds(d, ox, oz)) {
+							d.set(ox, y, oz, beam.log(out.getAxis()));
+						}
 					}
 				}
-				d.set(c[0], colH + 1, c[1], d.mat(Role.BEAM).log(Direction.Axis.Y));
-				k++;
+			}
+		}
+		// the roof of the drum, the hall within
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int[] c : Shapes.disc(cx, cz, rd - 1)) {
+				d.set(c[0], yb + drumH - 1, c[1], d.mat(Role.ROOF).full());
+			}
+		}
+		for (int[] c : Shapes.disc(cx, cz, rd - 1)) {
+			d.carve(c[0], yb, c[1], c[0], yb + drumH - 2, c[1]);
+		}
+		// the tall portal on the front: a frame standing proud of the drum, the door in its recess
+		int doorZ = zcI;
+		for (int[] c : ring) {
+			if (c[0] == xc && c[1] < doorZ) {
+				doorZ = c[1];
 			}
 		}
 		try (var st = d.stage(StageKind.WALLS)) {
-			for (int[] c : Shapes.ring(cx, cz, rc)) {
-				boolean door = c[1] < cz && Math.abs(c[0] - cx) < 0.6;
-				for (int y = 1; y <= colH + 1; y++) {
-					if (door && y <= 2) {
-						continue;
+			for (int x = xc - 2; x <= xc + 2; x++) {
+				for (int y = yb; y <= yb + drumH + 1; y++) {
+					boolean opening = Math.abs(x - xc) <= 1 && y < yb + 4;
+					int z = doorZ - 1;
+					if (opening) {
+						d.set(x, y, z, Blocks.AIR.defaultBlockState());
+					} else {
+						d.set(x, y, z, Math.abs(x - xc) == 2 || y >= yb + drumH ? dress.full() : adobe.full());
 					}
-					d.set(c[0], y, c[1], y == colH + 1 ? dress.full() : body.full());
+				}
+				if (Math.abs(x - xc) == 2) {
+					d.set(x, yb + drumH + 2, doorZ - 1, adobe.wallOrFull());
+				}
+			}
+			d.set(xc - 1, yb + 3, doorZ - 1, dress.stairsOrSlab(Dirs.RIGHT, Half.TOP));
+			d.set(xc + 1, yb + 3, doorZ - 1, dress.stairsOrSlab(Dirs.LEFT, Half.TOP));
+			d.set(xc, yb + drumH + 2, doorZ - 1, Blocks.GOLD_BLOCK.defaultBlockState());
+		}
+		Side doorSide = new Side(Dirs.FRONT, xc, doorZ, 1);
+		try (var st = d.stage(StageKind.OPENINGS)) {
+			d.set(xc, yb + 2, doorZ, d.mat(Role.GLASS).pane());
+			d.set(xc - 1, yb, doorZ, adobe.full());
+			d.set(xc + 1, yb, doorZ, adobe.full());
+		}
+		Openings.door(d, doorSide, xc, yb, 1, Openings.DoorOpts.BACK);
+		// the sun tower rising from the drum's roof: a cone of adobe in rings, beams through it, the gilded sun on top
+		int towerBase = yb + drumH;
+		int rows = Math.max(6, Math.min(top - towerBase - 3, (int) Math.round(top * 0.45)));
+		double r0 = Math.min(2.6, rd - 1.4);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int i = 0; i < rows; i++) {
+				double rr = Math.max(0.45, r0 * (1 - i / (double) rows) + 0.25);
+				int y = towerBase + i;
+				for (int[] c : Shapes.disc(cx, cz, rr)) {
+					d.set(c[0], y, c[1], i % 4 == 3 ? dress.full() : adobe.full());
+				}
+				if (i % 3 == 1 && rr > 1.2) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int ox = xc + Dirs.dx(dir) * ((int) Math.round(rr) + 1);
+						int oz = zcI + Dirs.dz(dir) * ((int) Math.round(rr) + 1);
+						if (d.isEmpty(ox, y, oz)) {
+							d.set(ox, y, oz, beam.log(dir.getAxis()));
+						}
+					}
 				}
 			}
 		}
-		for (int[] c : Shapes.disc(cx, cz, rp - 2)) {
-			d.carve(c[0], 1, c[1], c[0], colH, c[1]);
-		}
-		int sanctFront = zcI - (int) Math.round(rc);
-		for (int[] c : Shapes.ring(cx, cz, rc)) {
-			if (c[1] < cz && Math.abs(c[0] - cx) < 0.6) {
-				sanctFront = c[1];
-			}
-		}
-		Side doorSide = new Side(Dirs.FRONT, xc, sanctFront, 1);
-		Openings.door(d, doorSide, xc, 1, 1, Openings.DoorOpts.BACK);
-		Roofs.Field cone = Roofs.cone(cx, cz, rp + 0.5, 1.0);
-		int x0 = Math.max(0, (int) Math.floor(cx - rp - 1));
-		int x1 = Math.min(w - 1, (int) Math.ceil(cx + rp + 1));
-		int z0 = Math.max(0, (int) Math.floor(cz - rp - 1));
-		int z1 = Math.min(dp - 1, (int) Math.ceil(cz + rp + 1));
-		Roofs.Roof roof = Roofs.raster(d, cone, colH, x0, z0, x1, z1, d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), Habits.Ridge.FULL);
-		Shapes.support(d, roof, d.mat(Role.ROOF).full());
-		try (var st = d.stage(StageKind.FLOORS)) {
-			for (int[] c : Shapes.disc(cx, cz, rp - 1)) {
-				d.set(c[0], colH + 1, c[1], d.mat(Role.CEILING).full());
-			}
-		}
-		// the gilded sun on the apex
-		int peak = roof.ridgeY;
+		int peak = towerBase + rows;
 		try (var st = d.stage(StageKind.ROOF)) {
-			if (peak + 3 <= top) {
-				d.set(xc, peak + 1, zcI, Blocks.GOLD_BLOCK.defaultBlockState());
-				Block sun = States.block("minecraft:orange_glazed_terracotta", Blocks.GOLD_BLOCK);
-				d.set(xc, peak + 2, zcI, sun.defaultBlockState());
-				d.set(xc, peak + 3, zcI, Details.rod());
-				peak += 3;
+			if (peak + 2 <= top) {
+				d.set(xc, peak, zcI, Blocks.GOLD_BLOCK.defaultBlockState());
+				d.set(xc, peak + 1, zcI, rays.defaultBlockState());
+				d.set(xc - 1, peak + 1, zcI, rays.defaultBlockState());
+				d.set(xc + 1, peak + 1, zcI, rays.defaultBlockState());
+				d.set(xc, peak + 2, zcI, Details.rod());
+				peak += 2;
 			}
 		}
-		// the fire at the heart, rugs, seats
+		// within: a ring of pillars, rugs, the fire under the tower, the priest's lectern
+		try (var st = d.stage(StageKind.FRAME)) {
+			int q = 0;
+			for (int[] c : Shapes.ring(cx, cz, Math.max(1.5, rd - 2.5))) {
+				boolean byLectern = c[0] == xc && (c[1] == zcI + rd - 1 || c[1] == zcI + rd - 2);
+				if (q++ % 2 == 0 && !(c[1] < cz && Math.abs(c[0] - cx) < 1.5) && !byLectern) {
+					for (int y = yb; y < yb + drumH - 1; y++) {
+						d.set(c[0], y, c[1], beam.log(Direction.Axis.Y));
+					}
+				}
+			}
+		}
 		try (var st = d.stage(StageKind.INTERIOR)) {
-			d.set(xc, 1, zcI, dress.full());
-			d.set(xc, 2, zcI, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false));
+			d.set(xc, yb - 1, zcI, dress.full());
+			d.set(xc, yb, zcI, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false));
+			Block carpet = d.mat(Role.CLOTH).mainOr(Form.CARPET, Blocks.CARPET.pick(net.minecraft.world.item.DyeColor.ORANGE));
+			for (int[] c : Shapes.ring(cx, cz, 1.6)) {
+				if (d.isEmpty(c[0], yb, c[1]) && !(c[1] < cz && c[0] == xc)) {
+					d.set(c[0], yb, c[1], carpet.defaultBlockState());
+				}
+			}
 		}
-		d.poi(PoiType.ALTAR, xc, 1, zcI - 1, Dirs.BACK);
-		d.poi(PoiType.HEARTH, xc + 1, 1, zcI, Dirs.LEFT);
-		if (rc >= 3) {
-			Furniture.workstation(d, JobType.PRIEST, xc, 1, zcI + rc - 1, Dirs.FRONT);
-			Furniture.chair(d, xc - 2, 1, zcI, Dirs.LEFT);
-			Furniture.chair(d, xc + 2, 1, zcI, Dirs.RIGHT);
-		} else {
-			// in the ambulatory behind the sanctuary, its working side along the walk
-			Furniture.workstation(d, JobType.PRIEST, xc, 1, zcI + rc + 1, Dirs.RIGHT);
-		}
-		Furniture.hangingLantern(d, xc + 1, colH + 1, zcI + 1, 0);
-		d.poi(PoiType.MEETING_POINT, xc, 0, Math.max(0, front - 2), Dirs.BACK);
-		Grounds.pave(d, xc - 1, 0, xc + 1, front - 2, 0, d.mat(Role.PATH).full());
+		d.poi(PoiType.ALTAR, xc, yb, zcI - 1, Dirs.BACK);
+		d.poi(PoiType.HEARTH, xc + 1, yb, zcI, Dirs.LEFT);
+		d.poi(PoiType.SEAT, xc - 1, yb, zcI - 1, Dirs.BACK);
+		Furniture.workstation(d, JobType.PRIEST, xc, yb, zcI + rd - 1, Dirs.FRONT);
+		Furniture.hangingLantern(d, xc - 1, yb + drumH - 1, zcI + 1, 0);
+		d.poi(PoiType.MEETING_POINT, xc, yb, doorZ - 2, Dirs.BACK);
+		Grounds.pave(d, xc - 1, 0, xc + 1, zcI - rp - 2, 0, d.mat(Role.PATH).full());
 		return Math.min(top, peak);
 	}
 }
