@@ -83,18 +83,26 @@ public final class SettlementPreview {
 	private static BlueprintService setupBlueprints(boolean forceBlocks) {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
+		// Real buildings where the build module has them, the planner's boxes for the rest of the catalogue
+		// (-Dhearth.preview.real=only plans with the real catalogue alone, as the game does).
+		BlueprintService real = null;
 		try {
-			dev.voidmc.hearth.build.BuildModule.init();
+			real = dev.voidmc.hearth.build.BuildModule.standalone();
 		} catch (Throwable t) {
 			System.out.println("build module not usable offline (" + t + "); using the planner's catalogue double");
 		}
-		if (HearthServices.hasBlueprints()) {
-			System.out.println("drawing real blueprints from " + HearthServices.blueprints().getClass().getName());
-			return HearthServices.blueprints();
+		BlueprintService service;
+		if (real == null) {
+			service = new CatalogueDouble();
+		} else if ("only".equals(System.getProperty("hearth.preview.real"))) {
+			service = real;
+		} else {
+			service = new dev.voidmc.hearth.gametest.plan.LayeredBlueprints(real, new CatalogueDouble());
 		}
-		CatalogueDouble d = new CatalogueDouble();
-		HearthServices.setBlueprints(d);
-		return d;
+		System.out.println("drawing blueprints from " + service.getClass().getSimpleName()
+			+ (real == null ? "" : " (" + real.archetypes().size() + " real archetypes)"));
+		HearthServices.setBlueprints(service);
+		return service;
 	}
 
 	private static void preview(String cultureSpec, String terrainName, long seed, int[] days, File out, BlueprintService blocks) throws Exception {
