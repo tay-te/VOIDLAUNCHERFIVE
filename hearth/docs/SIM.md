@@ -334,19 +334,21 @@ JAVA_TOOL_OPTIONS="-Dhearth.dev.found=6 -Dhearth.dev.radius=4 -Dhearth.dev.simul
 `-Dhearth.dev.plan.layout=<layout>` (plan module) forces every settlement founded in the run to that layout.
 
 **Measured** (seed 20261003, Expanse Earth terrain, the real planner over the dev catalogue, this machine; integration
-run of 2026-10-03 — see the integration report for the full log):
+runs of 2026-10-03). The stand-in buildings are several times smaller than real ones, so towns grow several times
+faster than they will with the build module's blueprints; the costs below are for those oversized towns.
 
 | | |
 |---|---|
-| probe (Expanse model) | ~3 µs per column on average (1.1 M columns) |
-| atlas | 37 regions, 78 ms avg per region, 272 ms avg per history (1035 ms for a 356-soul city) — atlas workers only |
-| world generation | 0.16 ms per chunk holding history; the guard kept 39 k features off plots for 6 towns |
-| written vs record | 94.9–99.3 % of written positions hold their block (the rest: intended overlaps, where the later plot wins) |
-| clock, hour steps | 0.001–0.09 ms avg per step for towns of 15–593 souls (0.03 ms for 177 souls); worst single step 14 ms (one that plans) |
-| planner `next` (live) | 2830 calls, 1.6 ms avg, 15 ms max; 55 % under 1 ms, 93 % under 5 ms |
-| founding | 138 ms avg to lay out a live camp (now off-thread for daughter hamlets) |
-| growth over 300 days | 5 → 240 souls (camp → city, 428 plots); 31 → 130 (village → town); all finished buildings' doors on a finished road or square; 10–31 rebuilds per town, 2689 blocks cleared for them |
-| daughter hamlets | 4 founded 855–1839 blocks from their parents |
+| probe (Expanse model) | ~3 µs per column on average (7.9 M columns) |
+| atlas | 59 regions, 135 ms avg per region, 539 ms avg per history (3.8 s for a 783-soul city) — atlas workers only |
+| world generation | 0.77 ms per chunk holding history; the guard kept 640 k features off plots |
+| written vs record | 93.5–99.4 % of written positions hold their block (the rest: intended overlaps, where the later plot wins) |
+| clock, hour steps | 0.005–0.52 ms avg per step for towns of 86–852 souls (0.03 ms for a 177-soul town earlier); worst single step 25–95 ms in the first planner calls of an 800-soul city after a restart (cold terrain cache), under 2 ms otherwise |
+| planner `next` (live, incl. fast-forwards) | 20 009 calls, 1.9 ms avg; 55 % under 1 ms, 89 % under 5 ms, 42 over 20 ms (max 202 ms, before the deadline also bounded enumeration) |
+| founding | 108 ms avg to lay out a live camp on the server thread; daughter hamlets 0.9 ms on the server thread (laid out off-thread) |
+| growth over 300 days | 5 → 769 souls (camp → city, 1466 plots), 70 → 850, 193 → 837; all finished buildings' doors on a finished road or square; 29–78 rebuilds per city, 2658 blocks cleared for them; land-locked towns stop (pop = beds) and send settlers out |
+| daughter hamlets | 13 founded (15 searches, 2 found nowhere) 650–2350 blocks from their parents |
+| 57 settlements, 10 965 souls | the sim's tick work 0.13 ms per tick over a minute; restart: 57 loaded, none re-adopted |
 
 **Client tour** (`gametest/IntegrationTour`, registered in the gametest `fabric.mod.json`; run alone with
 `JAVA_TOOL_OPTIONS="-Dhearth.tour=integration" ./gradlew runClientGameTest`, `-Dhearth.tour.days=N` grows the town N days
