@@ -21,20 +21,25 @@ VOID LOD, then this one:
 | ![valley, vanilla](docs/low0_vanilla.jpg) | ![valley, before](docs/low0_before.jpg) | ![valley, now](docs/low0_after.jpg) |
 | ![air, vanilla](docs/air_vanilla.jpg) | ![air, before](docs/air_before.jpg) | ![air, now](docs/air_after.jpg) |
 
-What changed, in short: far terrain is a smooth surface shaded the way a stair of blocks averages out,
-not 64-block stair-steps; the air hazes with distance and thins with height; walls are made of what the
-ground is made of; forests are trees close in and a canopy far out; snow lies where the chunks put it;
-colours come from the loaded textures; tiles cross-fade instead of popping.
+Through a 30° lens from the peak, the far field up close:
 
-Measured in that run (RTX 4060, Ryzen 7 5800XT shared with other work), with the view settled:
+![far field through a 30-degree lens](docs/far0_after.jpg)
 
-* The LOD's work on the render thread is **0.23–0.58 ms per frame** (selection, fades, culling, draw
-  buffers); **0.9–1.3 ms** while tiles are still streaming in, uploads capped at 4 MB a frame.
-* Its draws take **0.18–0.25 ms of GPU time** for **790–870 k quads** (timestamp queries), and the game
-  runs at 1000–1600 fps with it on.
-* **400–600 tiles** cached in **80–130 MB** of GPU memory.
-* A tile builds in **35–45 ms** on a worker; 95 % of that is the terrain source (the Earth model and the
-  biome lookup), 2 ms is meshing. The first two levels, which cover the whole horizon, are built first.
+What changed, in short: far land is drawn as columns of blocks, the way Minecraft looks from a long way
+off, instead of 64-block stair-steps or a smooth surface; the air hazes with distance and thins with
+height; walls are made of what the ground is made of; forests are trees close in and a canopy far out;
+snow lies where the chunks put it; colours come from the loaded textures; tiles cross-fade instead of
+popping.
+
+Measured in that run at 1600×900 (RTX 4060, Ryzen 7 5800XT shared with other work), view settled:
+
+* The LOD's work on the render thread is **0.2–0.4 ms per frame** (selection, fades, culling, draw
+  buffers); about 1 ms while tiles stream in, uploads capped at 4 MB a frame.
+* Its draws take **0.36–0.5 ms of GPU time** for **650 k–1 M quads** (timestamp queries); about 0.8 ms
+  through the 30° lens. The game runs at 1100–1200 fps with it on.
+* About **600 tiles** cached in **90–140 MB** of GPU memory.
+* A tile builds in **about 35 ms** on a worker, 95 % of it the terrain source (the Earth model and the
+  biome lookup). Moving two kilometres, the new view completes in **3.5 s**.
 
 The first version, on the same machine and views, never settled at these frame rates: it counted its
 cache timers in frames, so at 1500 fps it evicted and rebuilt its coarsest tiles in a loop (2,088 builds
@@ -158,7 +163,7 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 |---|---|---|
 | `void.lod.radius` | `8192` | how far the LOD reaches, in blocks |
 | `void.lod.detail` | `5` | the most pixels a cell may cover before its tile splits (lower = sharper, heavier) |
-| `void.lod.farDetail` | `3` | the same for the smooth far field |
+| `void.lod.farDetail` | same as `detail` | the same for the smooth far field (3 sharpens far silhouettes for a third more quads) |
 | `void.lod.haze` | 3/4 of the radius | how far the air carries at sea level (the haze is about 2/3 there) |
 | `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky |
 | `void.lod.threads` | half the cores, max 4 | worker threads |

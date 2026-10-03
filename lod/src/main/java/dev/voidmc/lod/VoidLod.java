@@ -43,8 +43,11 @@ public final class VoidLod implements ClientModInitializer {
 
 	public final double radius = Double.parseDouble(System.getProperty("void.lod.radius", "8192"));
 	public final double detail = Double.parseDouble(System.getProperty("void.lod.detail", "5"));
-	/** The same budget for the smooth far field, which is cheap enough to keep finer. */
-	public final double farDetail = Double.parseDouble(System.getProperty("void.lod.farDetail", "3"));
+	/**
+	 * The same budget for the smooth far field. It defaults to the near one: the shader's block columns carry the
+	 * far detail, so a finer far mesh only sharpens silhouettes, for a third more quads.
+	 */
+	public final double farDetail = Double.parseDouble(System.getProperty("void.lod.farDetail", String.valueOf(this.detail)));
 	/** How far the air carries at sea level before the haze is two thirds of the view: by default, 3/4 of the radius. */
 	public final double hazeReach = Double.parseDouble(System.getProperty("void.lod.haze", String.valueOf(this.radius * 0.75)));
 	/** How fast the haze thins with height: it is a third as thick this many blocks above sea level. */
