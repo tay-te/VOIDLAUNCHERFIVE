@@ -223,7 +223,7 @@ public final class Crowns {
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
 		double r = (x1 - x0) / 2.0;
-		Stone roofStone = Stone.of(d, Role.ROOF);
+		Stone sheet = Stone.sheet(d);
 		// the drum: an octagonal ring of the wall stone with little lights, a cornice over it
 		int drumH = 2;
 		double dr = r - 1.0;
@@ -236,7 +236,9 @@ public final class Crowns {
 		Details.ringCourse(d, cx, cz, dr, y + drumH - 1, m.dress);
 		int yb = y + drumH;
 		// the bulb: out over the drum, then in to an ogee point
-		double[] profile = {-0.7, 0.3, 0.9, 1.15, 1.1, 0.85, 0.4, -0.2, -0.9, -1.6, -2.2, -2.6};
+		double[] profile = dr >= 2
+			? new double[]{-0.7, 0.3, 0.9, 1.15, 1.1, 0.85, 0.4, -0.2, -0.9, -1.6, -2.2, -2.6}
+			: new double[]{-0.4, 0.8, 1.0, 0.5, -0.1, -0.55};
 		int rows = Math.min(profile.length, Math.max(4, top - yb - 4));
 		double[] radii = new double[rows];
 		for (int i = 0; i < rows; i++) {
@@ -247,7 +249,7 @@ public final class Crowns {
 			double v = profile[a] + (profile[b] - profile[a]) * (t - a);
 			radii[i] = Math.max(0.4, dr + v);
 		}
-		Shapes.turned(d, cx, cz, yb, radii, m.roof.full(), roofStone);
+		Shapes.turned(d, cx, cz, yb, radii, sheet.full(), sheet);
 		int yl = yb + rows;
 		// the lantern: a short post with a little onion, then a gilded ball and the rod
 		int fx = (int) Math.round(cx);
@@ -255,8 +257,8 @@ public final class Crowns {
 		Block fence = m.frame.main(Form.FENCE);
 		if (yl + 3 <= top) {
 			d.set(fx, yl, fz, fence != null ? fence.defaultBlockState() : m.dress.wallOrFull().at(fx, yl, fz));
-			d.set(fx, yl + 1, fz, m.roof.full());
-			d.set(fx, yl + 2, fz, m.roof.has(Form.SLAB) ? m.roof.slab(SlabType.BOTTOM) : m.roof.full());
+			d.set(fx, yl + 1, fz, sheet.full());
+			d.set(fx, yl + 2, fz, sheet.has(Form.SLAB) ? sheet.slab(SlabType.BOTTOM) : sheet.full());
 			return Math.max(yl + 2, Details.finial(d, fx, yl + 3, fz, true));
 		}
 		return Math.max(yl - 1, Details.finial(d, fx, yl, fz, false));
@@ -267,7 +269,7 @@ public final class Crowns {
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
 		double r = (x1 - x0) / 2.0 - 0.5;
-		Stone roofStone = Stone.of(d, Role.ROOF);
+		Stone sheet = Stone.sheet(d);
 		int drumH = r >= 3 ? 3 : 2;
 		for (int k = 0; k < drumH; k++) {
 			for (int[] c : Shapes.ring(cx, cz, r)) {
@@ -284,7 +286,7 @@ public final class Crowns {
 			double t = (double) i / radii.length;
 			radii[i] = (r + 0.2) * Math.sqrt(Math.max(0, 1 - t * t)) - 0.15;
 		}
-		Shapes.turned(d, cx, cz, yb, radii, m.roof.full(), roofStone);
+		Shapes.turned(d, cx, cz, yb, radii, sheet.full(), sheet);
 		int fx = (int) Math.round(cx);
 		int fz = (int) Math.round(cz);
 		int yl = yb + radii.length;
@@ -365,7 +367,8 @@ public final class Crowns {
 		return peak;
 	}
 
-	static boolean isCorner(int[] c, int x0, int z0, int x1, int z1) {
+	/** Whether a ring cell is a corner of the rectangle. */
+	public static boolean isCorner(int[] c, int x0, int z0, int x1, int z1) {
 		return (c[0] == x0 || c[0] == x1) && (c[1] == z0 || c[1] == z1);
 	}
 

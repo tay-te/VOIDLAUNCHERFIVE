@@ -43,18 +43,64 @@ public final class Stone {
 		new Palette.Entry(Material.of("minecraft:stone_bricks"), 3, 0, 0, 0, 0),
 		new Palette.Entry(Material.of("minecraft:mossy_stone_bricks"), 0.6, 1, 0, 0, 0)));
 
+	private static final Palette COPPER = new Palette(List.of(
+		new Palette.Entry(Material.of("minecraft:waxed_oxidized_cut_copper"), 3, 0, 0, 0, 0),
+		new Palette.Entry(Material.of("minecraft:waxed_weathered_cut_copper"), 1, 0, 0, 0, 0)));
+
 	private final Draft draft;
 	private final @Nullable Mat mat;
 	private final Palette palette;
 	private final long seed;
 	private final StageKind stage;
+	/** Only the role's main material where it cuts the form asked for (crisp quoins and courses, not speckled ones). */
+	private final boolean single;
 
 	private Stone(Draft draft, @Nullable Mat mat, Palette palette, long seed, StageKind stage) {
+		this(draft, mat, palette, seed, stage, false);
+	}
+
+	private Stone(Draft draft, @Nullable Mat mat, Palette palette, long seed, StageKind stage, boolean single) {
 		this.draft = draft;
 		this.mat = mat;
 		this.palette = palette;
 		this.seed = seed;
 		this.stage = stage;
+		this.single = single;
+	}
+
+	/** This stone laid in its main material only (falling back to the mix for cuts the main one lacks). */
+	public Stone crisp() {
+		return new Stone(this.draft, this.mat, this.palette, this.seed, this.stage, true);
+	}
+
+	/**
+	 * Sheet for domes, onions and cupolas: the roof covering where it is masonry or metal (tile, brick, slate,
+	 * sandstone), else patinated copper, as a wooden-roofed town would sheath its domes.
+	 */
+	public static Stone sheet(Draft d) {
+		Block b = d.mat(Role.ROOF).main(Form.FULL);
+		int[] goods = b == null ? new int[0] : MaterialBill.of(b);
+		boolean wood = goods.length > 0 && goods[0] == Goods.WOOD.ordinal() || d.habits().roof().thatch();
+		if (!wood) {
+			return of(d, Role.ROOF);
+		}
+		return new Stone(d, null, COPPER, Noise.hash(d.seed(), 0xC0FE), StageKind.ROOF);
+	}
+
+	/**
+	 * Ashlar for the walls of a great church: the style's own masonry walls where it has them, otherwise its dressed
+	 * plinth stone before rubble footings.
+	 */
+	public static Stone ashlar(Draft d) {
+		if (masonryWalls(d) && stony(d, Role.WALL)) {
+			return of(d, Role.WALL);
+		}
+		for (Role r : new Role[]{Role.PLINTH, Role.WALL_ACCENT, Role.FOUNDATION, Role.CHIMNEY}) {
+			if (stony(d, r)) {
+				return of(d, r);
+			}
+		}
+		return new Stone(d, null, FALLBACK, Noise.hash(d.seed(), 0x570E), StageKind.WALLS);
 	}
 
 	/** A style role as a stone. */
@@ -110,7 +156,7 @@ public final class Stone {
 	public static Stone dressing(Draft d) {
 		for (Role r : new Role[]{Role.WALL_ACCENT, Role.PLINTH, Role.FOUNDATION, Role.CHIMNEY}) {
 			if (stony(d, r)) {
-				return of(d, r);
+				return of(d, r).crisp();
 			}
 		}
 		return new Stone(d, null, FALLBACK_DRESSED, Noise.hash(d.seed(), 0x570F), StageKind.WALLS);
@@ -119,6 +165,15 @@ public final class Stone {
 	/** Footing stone: the foundation role if stony, else masonry. */
 	public static Stone footing(Draft d) {
 		return stony(d, Role.FOUNDATION) ? of(d, Role.FOUNDATION) : masonry(d);
+	}
+
+	/** A fixed material (or a mix of them, equal weights) as a stone, for the few parts a culture paints the same everywhere. */
+	public static Stone fixed(Draft d, StageKind stage, String... materials) {
+		List<Palette.Entry> entries = new java.util.ArrayList<>();
+		for (String m : materials) {
+			entries.add(new Palette.Entry(Material.of(m), 1, 0, 0, 0, 0));
+		}
+		return new Stone(d, null, new Palette(entries), Noise.hash(d.seed(), materials.length * 31L + materials[0].hashCode()), stage);
 	}
 
 	/** Whether this stone is a style role (not the fallback). */
@@ -140,6 +195,12 @@ public final class Stone {
 
 	/** The block at a position in a form (full block where the form is missing). */
 	public Block block(Form form, int x, int y, int z) {
+		if (this.single) {
+			Block b = this.palette.main().block(form);
+			if (b != null) {
+				return b;
+			}
+		}
 		if (this.mat != null) {
 			return this.mat.block(form, x, y, z);
 		}
@@ -171,25 +232,25 @@ public final class Stone {
 	}
 
 	public Paint full() {
-		return this.mat != null ? this.mat.full() : paint(Form.FULL, s -> s);
+		return this.mat != null && !this.single ? this.mat.full() : paint(Form.FULL, s -> s);
 	}
 
 	public Paint stairs(Direction facing, Half half) {
-		if (this.mat != null) {
+		if (this.mat != null && !this.single) {
 			return this.mat.stairs(facing, half);
 		}
 		return paint(Form.STAIRS, s -> s.trySetValue(BlockStateProperties.HORIZONTAL_FACING, facing).trySetValue(BlockStateProperties.HALF, half));
 	}
 
 	public Paint slab(SlabType type) {
-		if (this.mat != null) {
+		if (this.mat != null && !this.single) {
 			return this.mat.slab(type);
 		}
 		return paint(Form.SLAB, s -> s.trySetValue(BlockStateProperties.SLAB_TYPE, type));
 	}
 
 	public Paint wall() {
-		return this.mat != null ? this.mat.wall() : paint(Form.WALL, s -> s);
+		return this.mat != null && !this.single ? this.mat.wall() : paint(Form.WALL, s -> s);
 	}
 
 	/** A wall post if the stone has one, else a full block. */

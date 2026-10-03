@@ -103,15 +103,24 @@ public final class Shapes {
 					continue;
 				}
 				int bottom = r.bottomY(x, z);
+				// the highest neighbouring surface below this column's foot; level neighbours (a ridge) do not hold it up
 				int best = Integer.MIN_VALUE;
+				boolean touching = false;
 				for (Direction dir : Dirs.HORIZONTAL) {
 					int nx = x + Dirs.dx(dir);
 					int nz = z + Dirs.dz(dir);
-					if (r.covers(nx, nz)) {
-						best = Math.max(best, r.surfaceY(nx, nz));
+					if (!r.covers(nx, nz)) {
+						continue;
+					}
+					int ns = r.surfaceY(nx, nz);
+					int nb = r.bottomY(nx, nz);
+					if (ns < bottom) {
+						best = Math.max(best, ns);
+					} else if (nb < bottom) {
+						touching = true;
 					}
 				}
-				if (best == Integer.MIN_VALUE || bottom - 1 <= best) {
+				if (touching || best == Integer.MIN_VALUE || bottom - 1 <= best) {
 					continue;
 				}
 				for (int y = best + 1; y < bottom; y++) {

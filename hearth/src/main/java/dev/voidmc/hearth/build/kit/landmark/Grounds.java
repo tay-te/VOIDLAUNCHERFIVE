@@ -181,6 +181,69 @@ public final class Grounds {
 		return d.site().ground(x, z) == y && !d.site().isWater(x, z);
 	}
 
+	/**
+	 * A tree on free ground at (x, y, z): a trunk of the style's garden wood and a crown of its leaves in three layers,
+	 * every leaf touching the trunk or another leaf, kept inside the plot. Planted only where the ground bears it.
+	 */
+	public static boolean tree(Draft d, int x, int y, int z, int height) {
+		if (!standable(d, x, y, z)) {
+			return false;
+		}
+		Mat log = d.mat(Role.TREE_LOG);
+		Mat leaves = d.mat(Role.TREE_LEAVES);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			BlockState below = d.get(x, y - 1, z);
+			if (below == null || !below.is(Blocks.GRASS_BLOCK) && !below.is(Blocks.DIRT)) {
+				d.set(x, y - 1, z, Blocks.GRASS_BLOCK.defaultBlockState());
+			}
+			for (int k = 0; k < height; k++) {
+				d.set(x, y + k, z, log.log(Direction.Axis.Y).orElse(log.full()));
+			}
+			int top = y + height;
+			double[] radii = {1.8, 2.2, 1.6, 0.8};
+			java.util.Set<Long> leaf = new java.util.HashSet<>();
+			for (int k = 0; k < radii.length; k++) {
+				int yy = top - 2 + k;
+				for (int[] c : Shapes.disc(x, z, radii[k])) {
+					boolean edge = Math.hypot(c[0] - x, c[1] - z) > radii[k] - 0.7;
+					if (edge && Noise.unit(d.seed() ^ 0x7EE, c[0], yy, c[1]) < 0.3 && k != 1) {
+						continue;
+					}
+					if (Walls.inPlot(d, c[0], c[1]) && d.isEmpty(c[0], yy, c[1]) && d.allowed(c[0], yy, c[1])) {
+						d.set(c[0], yy, c[1], leaves.leaves());
+						leaf.add(Draft.key(c[0], yy, c[1]));
+					}
+				}
+			}
+			// keep only the leaves joined to the trunk face to face; the rest would hang in the air
+			java.util.Set<Long> held = new java.util.HashSet<>();
+			java.util.ArrayDeque<Long> q = new java.util.ArrayDeque<>();
+			for (int k = 0; k < height; k++) {
+				long t = Draft.key(x, y + k, z);
+				held.add(t);
+				q.add(t);
+			}
+			while (!q.isEmpty()) {
+				long c = q.poll();
+				int cx = Draft.keyX(c);
+				int cy = Draft.keyY(c);
+				int cz = Draft.keyZ(c);
+				for (int[] o : new int[][]{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}) {
+					long n = Draft.key(cx + o[0], cy + o[1], cz + o[2]);
+					if (leaf.contains(n) && held.add(n)) {
+						q.add(n);
+					}
+				}
+			}
+			for (long c : leaf) {
+				if (!held.contains(c)) {
+					d.remove(Draft.keyX(c), Draft.keyY(c), Draft.keyZ(c));
+				}
+			}
+		}
+		return true;
+	}
+
 	/** Paves a rectangle at standing level y where the ground is level with it (or already paved/filled to it). */
 	public static void pave(Draft d, int x0, int z0, int x1, int z1, int y, Paint p) {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
