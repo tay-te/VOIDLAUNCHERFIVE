@@ -48,7 +48,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *
  * <p>POIs: a MEETING_POINT before the middle, SEATs on the benches, a NOTICE_BOARD (heart plaza). Params: {@code heart}
  * (boolean: the main square, with the notice board), {@code junction} (boolean: a little square where lanes meet),
- * {@code keep} (int array of world rectangles x0,z0,x1,z1, inclusive, left as they stand).
+ * {@code keep} (int array of world rectangles x0,z0,x1,z1, inclusive, left as they stand); for previews,
+ * {@code keep_local} (string {@code x0:z0:x1:z1/...} in local coordinates).
  */
 public final class Plaza implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landscape/plaza"), ArchetypeCategory.LANDSCAPE, Set.of(), 0,
@@ -70,6 +71,17 @@ public final class Plaza implements Archetype {
 			int bx = f.localX(k[i + 2], k[i + 3]);
 			int bz = f.localZ(k[i + 2], k[i + 3]);
 			out.add(new int[]{Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz)});
+		}
+		// previews: local rectangles as "x0:z0:x1:z1/..." (the preview tool cannot pass int arrays)
+		for (String r : d.param("keep_local", "").split("/")) {
+			String[] v = r.split(":");
+			if (v.length == 4) {
+				try {
+					out.add(new int[]{Integer.parseInt(v[0]), Integer.parseInt(v[1]), Integer.parseInt(v[2]), Integer.parseInt(v[3])});
+				} catch (NumberFormatException e) {
+					// not a rectangle: ignored
+				}
+			}
 		}
 		return out;
 	}
@@ -125,6 +137,19 @@ public final class Plaza implements Archetype {
 			return in >= (this.heart ? 6 : 1);
 		}
 
+		/**
+		 * Whether a cell is on the ring a block round a kept rectangle, off its front: the planner keeps a block clear
+		 * round everything it stands on the square, so nothing it adds later lands there.
+		 */
+		boolean ringFree(int x, int z, int[] r) {
+			if (x < 0 || z < 0 || x >= this.w || z >= this.dp || kept(x, z) || this.used[x][z]) {
+				return false;
+			}
+			boolean ring = x >= r[0] - 1 && x <= r[2] + 1 && z >= r[1] - 1 && z <= r[3] + 1 && !in(r, x, z);
+			boolean front = z == r[1] - 1 && x >= r[0] && x <= r[2];
+			return ring && !front && inset(x, z) >= 2;
+		}
+
 		void take(int x, int z) {
 			if (x >= 0 && z >= 0 && x < this.w && z < this.dp) {
 				this.used[x][z] = true;
@@ -152,6 +177,17 @@ public final class Plaza implements Archetype {
 		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), ccx, ccz, period, !centreKept));
 		if (!Manner.wood(d.mat(Role.PAVING))) {
 			Paving.kerb(d, 0, 0, w - 1, dp - 1, 0);
+			// a dotted border of the inlay just inside the kerb
+			Mat inlay = Paving.inlay(d);
+			try (var s = d.stage(StageKind.EXTERIOR)) {
+				List<int[]> ring = Draft.ring(1, 1, w - 2, dp - 2);
+				for (int i = 0; i < ring.size(); i += 4) {
+					int[] c = ring.get(i);
+					if (!g.kept(c[0], c[1])) {
+						d.set(c[0], -1, c[1], inlay.full());
+					}
+				}
+			}
 		}
 		Mat band = Paving.band(d);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -176,9 +212,14 @@ public final class Plaza implements Archetype {
 			top = Math.max(top, mid[4]);
 		}
 		// benches looking at the middle on its sides and back, the notice board at its front corner
-		gather(d, g, mid);
-		if (heart || !junction) {
-			noticeBoard(d, g, mid);
+		boolean ownMiddle = mid.length > 4;
+		if (ownMiddle) {
+			gather(d, g, mid);
+			if (heart || !junction) {
+				noticeBoard(d, g, mid);
+			}
+		} else {
+			top = Math.max(top, gatherRound(d, g, mid, heart || !junction));
 		}
 		d.poi(PoiType.MEETING_POINT, (mid[0] + mid[2]) / 2, 0, Math.max(0, mid[1] - (g.free((mid[0] + mid[2]) / 2, mid[1] - 2) ? 2 : 1)), Dirs.BACK);
 		// lamps at the corners
@@ -288,6 +329,39 @@ public final class Plaza implements Archetype {
 			g.take(sp[0], sp[1]);
 			placed++;
 		}
+	}
+
+	/**
+	 * Round something the planner stood in the middle (the well, a bell): benches on the ring a block off its sides and
+	 * back looking at it, the notice board at its front-left corner turned toward the way to it, a lamp at the other
+	 * front corner. Returns the lamp's top.
+	 */
+	private static int gatherRound(Draft d, Ground g, int[] mid, boolean board) {
+		int top = 1;
+		int mx = (mid[0] + mid[2]) / 2;
+		int mz = (mid[1] + mid[3]) / 2;
+		int[][] spots = {
+			{mid[0] - 1, mz, 1}, {mid[2] + 1, mz, 3}, {mx, mid[3] + 1, 0},
+			{mid[0] - 1, mz + 1, 1}, {mid[2] + 1, mz + 1, 3}, {mx - 1, mid[3] + 1, 0}, {mx + 1, mid[3] + 1, 0}
+		};
+		for (int[] sp : spots) {
+			if (g.ringFree(sp[0], sp[1], mid)) {
+				Direction looks = Dirs.HORIZONTAL[sp[2]];
+				Benches.bench(d, sp[0], 0, sp[1], looks, Dirs.right(looks), 1, false);
+				g.take(sp[0], sp[1]);
+			}
+		}
+		if (board && g.ringFree(mid[0] - 1, mid[1] - 1, mid)) {
+			NoticeBoards.board(d, mid[0] - 1, 0, mid[1] - 1, Dirs.RIGHT);
+			g.take(mid[0] - 1, mid[1] - 1);
+		} else if (board) {
+			noticeBoard(d, g, mid);
+		}
+		if (g.ringFree(mid[2] + 1, mid[1] - 1, mid) && d.maxHeight() >= 3) {
+			top = Lamps.standard(d, mid[2] + 1, 0, mid[1] - 1, Math.min(4, d.maxHeight()), Manner.lamp(d), null);
+			g.take(mid[2] + 1, mid[1] - 1);
+		}
+		return top;
 	}
 
 	/** The notice board at a front corner of the middle, facing the way folk come in. */
