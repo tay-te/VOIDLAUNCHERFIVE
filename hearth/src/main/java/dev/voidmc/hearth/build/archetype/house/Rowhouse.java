@@ -139,7 +139,10 @@ public final class Rowhouse implements Archetype {
 		}
 		d.body(0, bz0, w - 1, bz1);
 
-		Facade facade = Facade.plan(d, body, door, 1, t.timber() && !t.eastern() ? 2 : 1, 0.75);
+		Facade facade = TownHouses.planWithDoor(d, body, door, 1, t.timber() && !t.eastern() && w >= 7 ? 2 : 1, 0.75);
+		if ((t.walls() == WallKind.TIMBER_FRAME || t.walls() == WallKind.BAMBOO || t.walls() == WallKind.PLANK) && d.chance(0.75)) {
+			facade = TownHouses.pairedPanels(facade);
+		}
 		Integer placed = HouseBuilder.doorColumn(facade);
 		if (placed != null) {
 			door = placed;
@@ -178,7 +181,7 @@ public final class Rowhouse implements Archetype {
 			if (bz0 >= 1 && w >= 6 && d.chance(Math.max(0.3, h.windows().bay()))) {
 				for (Facade.Opening o : facade.openings(Dirs.FRONT)) {
 					int i = front0.index(o.at());
-					if (o.kind() == Facade.Kind.WINDOW && i >= 1 && i + o.width() <= front0.last() && Math.abs(o.at() - door) >= 2) {
+					if (o.kind() == Facade.Kind.WINDOW && i >= 2 && i + o.width() <= front0.last() - 1 && Math.abs(o.at() - door) >= 2) {
 						Porches.bay(d, front0, o.at() - (o.width() == 1 ? 1 : 0), o.at() + o.width() - (o.width() == 1 ? 0 : 1), 0);
 						break;
 					}

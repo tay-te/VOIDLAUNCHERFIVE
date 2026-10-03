@@ -99,7 +99,11 @@ public final class Shophouse implements Archetype {
 		// the arcade: upper storeys over the pavement on piers (a covered walk along the row)
 		double arcadeChance = t.eastern() || t.raised() ? 0.75 : t.masonry() && t.flatSome() ? 0.5 : t.masonry() ? 0.25 : 0.2;
 		boolean arcade = dp >= 10 && d.param("arcade", d.chance(arcadeChance));
-		int door = TownHouses.doorColumn(d, 0, w - 1, partyL, partyR);
+		// the shop door in the middle of the front, the windows either side of it
+		int door = (w - 1) / 2;
+		if (TownHouses.misfit(d, door) > 0 && TownHouses.misfit(d, door + 1) < TownHouses.misfit(d, door) && door + 1 < w - 1) {
+			door++;
+		}
 		boolean awkward = TownHouses.misfit(d, door) > 0;
 		int setback = arcade ? 2 : dp >= 10 || awkward ? 1 : 0;
 		int back = dp - setback >= 11 ? 2 : dp - setback >= 9 ? 1 : 0;
@@ -144,7 +148,10 @@ public final class Shophouse implements Archetype {
 		}
 		d.body(0, bz0, w - 1, bz1);
 
-		Facade facade = Facade.plan(d, body, door, 1, t.timber() && !t.eastern() ? 2 : 1, 0.75);
+		Facade facade = TownHouses.planWithDoor(d, body, door, 1, t.timber() && !t.eastern() && w >= 7 ? 2 : 1, 0.75);
+		if ((t.walls() == WallKind.TIMBER_FRAME || t.walls() == WallKind.BAMBOO || t.walls() == WallKind.PLANK) && d.chance(0.75)) {
+			facade = TownHouses.pairedPanels(facade);
+		}
 		Integer placed = HouseBuilder.doorColumn(facade);
 		if (placed != null) {
 			door = placed;
@@ -207,9 +214,10 @@ public final class Shophouse implements Archetype {
 				TownHouses.hoist(d, body, roof);
 			}
 		}
-		boolean wellLeft = door > (w - 1) / 2;
+		// the stair well against one side wall at the back, the fire upstairs on the other side
+		boolean wellLeft = d.chance(0.5);
 		int[] hearth = TownHouses.chimney(d, body, roof, deck, wellLeft, h.chimney(), 1);
-		StairCore core = TownHouses.core(d, body, door, topK);
+		StairCore core = TownHouses.core(d, body, wellLeft ? w - 1 : 0, topK);
 		if (flat) {
 			int[] exit = core.bulkhead(d, deck, d.maxHeight());
 			if (exit != null) {
@@ -335,81 +343,116 @@ public final class Shophouse implements Archetype {
 	}
 
 	/**
-	 * The shop: a counter along the side wall away from the door, the merchant between it and the wall, the customers
-	 * in front of it; the merchant's barrel at the front end of his side, shelves of goods on the customers' wall.
+	 * The shop: a counter across the shop in front of the stair (the merchant behind it with the stair to the home at
+	 * his back, the customers in front of it), or along the side wall away from the stair where the shop is shallow;
+	 * the merchant's barrel and the stock chest behind the counter, shelves of goods on the customers' side.
 	 */
 	private static void shop(Draft d, Body b, StairCore core, int door) {
 		int[] r = b.rect(0);
 		int ix0 = r[0] + 1;
 		int ix1 = r[2] - 1;
 		int iz0 = r[1] + 1;
+		int iz1 = r[3] - 1;
 		int[] zr = core.zRange();
-		int iz1 = zr[0] - 1;
-		boolean doorLeft = door <= (r[0] + r[2]) / 2;
-		int mx = doorLeft ? ix1 : ix0;
-		int cx = doorLeft ? ix1 - 1 : ix0 + 1;
-		Direction toCustomer = doorLeft ? Dirs.LEFT : Dirs.RIGHT;
 		int y = b.baseY;
+		boolean coreLeft = core.x0() + core.x1() < r[0] + r[2];
 		Mat wood = d.mat(Role.FURNITURE);
-		int cz0 = iz0 + 1;
-		int cz1 = Math.min(iz1 - 1, cz0 + 2);
-		Rooms.Room room = new Rooms.Room(ix0, iz0, ix1, r[3] - 1, y, b.height(0) - 1);
+		Rooms.Room room = new Rooms.Room(ix0, iz0, ix1, iz1, y, b.height(0) - 1);
 		core.keep(room, 0);
 		room.keep(door, iz0);
-		if (cz1 < cz0 || ix1 - ix0 < 2) {
-			// no room for a counter: the merchant's barrel by the door, shelves round the walls
-			Furniture.workstation(d, JobType.MERCHANT, mx, y, iz0, Dirs.BACK);
-			d.poi(PoiType.COUNTER, mx, y, iz0 + 1, toCustomer);
-			room.block(mx, iz0);
-			room.keep(mx, iz0 + 1);
+		int zc = zr[0] - 1;
+		if (zc - iz0 >= 1) {
+			// across: from the far wall to a gap beside the stair well
+			int cx0 = coreLeft ? core.x1() + 2 : ix0;
+			int cx1 = coreLeft ? ix1 : core.x0() - 2;
+			if (cx1 - cx0 >= 1) {
+				counterRun(d, room, wood, cx0, zc, cx1, zc, y, Dirs.FRONT);
+				int mid = (cx0 + cx1 + (coreLeft ? 0 : 1)) / 2;
+				d.poi(PoiType.COUNTER, mid, y, zc + 1, Dirs.FRONT);
+				d.poi(PoiType.MARKET_STALL, mid, y, zc - 1, Dirs.BACK);
+				room.keep(mid, zc + 1);
+				room.keep(mid, zc - 1);
+				room.keep(coreLeft ? core.x1() + 1 : core.x0() - 1, zc);
+				// behind the counter, beside the well: the merchant's barrel and the stock chest against the back
+				int bx = coreLeft ? ix1 : ix0;
+				if (d.isEmpty(bx, y, iz1) && room.claim(bx, iz1)) {
+					Furniture.workstation(d, JobType.MERCHANT, bx, y, iz1, Dirs.FRONT);
+					room.keep(bx, iz1 - 1);
+				} else {
+					Furniture.workstation(d, JobType.MERCHANT, bx, y, zc + 1, Dirs.FRONT);
+				}
+				int chx = coreLeft ? ix1 - 1 : ix0 + 1;
+				if (chx != bx && d.isEmpty(chx, y, iz1) && room.claim(chx, iz1)) {
+					Furniture.chest(d, chx, y, iz1, Dirs.FRONT, List.of(new Object[]{"minecraft:paper", 12}, new Object[]{"minecraft:candle", 6},
+						new Object[]{"minecraft:bread", 4}));
+				}
+				shelves(d, room, ix0, ix1, iz0, zc - 1, door);
+				Rooms.furnish(d, room, Rooms.Type.HALL, 0, JobType.NONE);
+				return;
+			}
+		}
+		// along the side wall away from the stair: the merchant between it and the wall
+		int mx = coreLeft ? ix1 : ix0;
+		int cx = coreLeft ? ix1 - 1 : ix0 + 1;
+		int cz0 = iz0 + 1;
+		int cz1 = Math.min(iz1 - 1, cz0 + 2);
+		Direction toCustomer = coreLeft ? Dirs.LEFT : Dirs.RIGHT;
+		if (cx == door || mx == door || cz1 < cz0 || ix1 - ix0 < 2) {
+			// a narrow shop: the merchant's barrel at the back, the counter is its head
+			Furniture.workstation(d, JobType.MERCHANT, mx, y, iz1, Dirs.FRONT);
+			d.poi(PoiType.COUNTER, mx, y, iz1 - 1, Dirs.FRONT);
+			d.poi(PoiType.MARKET_STALL, mx, y, Math.max(iz0, iz1 - 2), Dirs.BACK);
+			room.block(mx, iz1);
+			room.keep(mx, iz1 - 1);
 			Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 			return;
 		}
-		try (var s = d.stage(StageKind.INTERIOR)) {
-			for (int z = cz0; z <= cz1; z++) {
-				double u = Noise.unit(d.seed() ^ 0xC0C0, cx, y, z);
-				if (u < 0.3) {
-					d.set(cx, y, z, States.facing(Blocks.BARREL, toCustomer));
-				} else {
-					d.set(cx, y, z, wood.slab(SlabType.TOP));
-					Fronts.wares(d, cx, y + 1, z, u * 0.8);
-				}
-				room.block(cx, z);
-			}
-		}
+		counterRun(d, room, wood, cx, cz0, cx, cz1, y, toCustomer);
 		int mid = (cz0 + cz1) / 2;
-		int custX = cx + Dirs.dx(toCustomer);
 		d.poi(PoiType.COUNTER, mx, y, mid, toCustomer);
-		d.poi(PoiType.MARKET_STALL, custX, y, mid, toCustomer.getOpposite());
+		d.poi(PoiType.MARKET_STALL, cx + Dirs.dx(toCustomer), y, mid, toCustomer.getOpposite());
 		room.keep(mx, mid);
-		room.keep(custX, mid);
-		// the merchant's barrel at the front end of his side, the stock chest at the far end
+		room.keep(cx + Dirs.dx(toCustomer), mid);
+		room.keep(mx, cz1 + 1);
 		Furniture.workstation(d, JobType.MERCHANT, mx, y, iz0, Dirs.BACK);
 		room.block(mx, iz0);
 		room.keep(mx, iz0 + 1);
-		if (cz1 + 1 <= iz1 && d.isEmpty(mx, y, cz1 + 1)) {
-			Furniture.chest(d, mx, y, cz1 + 1, toCustomer, List.of(new Object[]{"minecraft:paper", 12}, new Object[]{"minecraft:candle", 6},
-				new Object[]{"minecraft:bread", 4}));
-			room.block(mx, cz1 + 1);
-			room.keep(cx, cz1 + 1);
-		}
-		// shelves of goods on the customers' wall
-		int wx = doorLeft ? ix0 : ix1;
-		Block shelf = d.mat(Role.FURNITURE).main(dev.voidmc.hearth.build.style.Form.SHELF);
-		for (int z = iz0 + 1; z <= iz1; z++) {
-			if (wx == door || !room.inside(wx, z) || Math.abs(wx - custX) == 0 && z == mid) {
-				continue;
-			}
-			if ((z & 1) == 0) {
-				int zz = z;
-				Furniture.barrel(d, wx, y, zz, Direction.UP);
-				room.block(wx, zz);
-				if (shelf != null) {
-					Furniture.shelf(d, wx, y + 1, zz, toCustomer.getOpposite(), "kitchen");
+		shelves(d, room, ix0, ix1, iz0, iz1, door);
+		Rooms.furnish(d, room, Rooms.Type.HALL, 0, JobType.NONE);
+	}
+
+	/** A counter of slab tops and barrels over a straight run of cells, wares on it. */
+	private static void counterRun(Draft d, Rooms.Room room, Mat wood, int x0, int z0, int x1, int z1, int y, Direction toCustomer) {
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+				for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+					double u = Noise.unit(d.seed() ^ 0xC0C0, x, y, z);
+					if (u < 0.3) {
+						d.set(x, y, z, States.facing(Blocks.BARREL, toCustomer));
+					} else {
+						d.set(x, y, z, wood.slab(SlabType.TOP));
+						Fronts.wares(d, x, y + 1, z, u * 0.8);
+					}
+					room.block(x, z);
 				}
 			}
 		}
-		Rooms.furnish(d, room, Rooms.Type.HALL, 0, JobType.NONE);
+	}
+
+	/** Shelves of goods along the customers' side walls (barrels with a shelf over them). */
+	private static void shelves(Draft d, Rooms.Room room, int ix0, int ix1, int z0, int z1, int door) {
+		Block shelf = d.mat(Role.FURNITURE).main(dev.voidmc.hearth.build.style.Form.SHELF);
+		for (int wx : new int[]{ix0, ix1}) {
+			for (int z = z0 + 1; z <= z1; z += 2) {
+				if (!room.inside(wx, z) || !d.isEmpty(wx, room.y, z) || !room.claim(wx, z)) {
+					continue;
+				}
+				Furniture.barrel(d, wx, room.y, z, Direction.UP);
+				if (shelf != null && room.height >= 3) {
+					Furniture.shelf(d, wx, room.y + 1, z, wx == ix0 ? Dirs.RIGHT : Dirs.LEFT, "kitchen");
+				}
+			}
+		}
 	}
 
 	/** Goods set out in front of the shop: barrels, crates of produce, pots, a bench by the door. */

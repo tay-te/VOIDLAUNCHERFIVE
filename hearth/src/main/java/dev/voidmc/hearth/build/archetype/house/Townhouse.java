@@ -90,7 +90,6 @@ public final class Townhouse implements Archetype {
 		}
 		boolean frame = h.walls().kind(1) == WallKind.TIMBER_FRAME || h.walls().kind() == WallKind.TIMBER_FRAME;
 		boolean jetties = frame && walkY == Integer.MIN_VALUE && d.chance(Math.max(0.55, h.walls().jetty()));
-		boolean galleries = t.raised() && dp >= 10 && walkY == Integer.MIN_VALUE;
 		boolean pueblo = t.pueblo() && form == RoofForm.FLAT && w >= 7;
 		boolean shop = d.param("shop", d.chance(0.4));
 		int sh = Math.max(4, h.walls().storeyHeight());
@@ -101,6 +100,8 @@ public final class Townhouse implements Archetype {
 		int bx1 = cornerR && jetties ? w - 2 : w - 1;
 		int door = TownHouses.doorColumn(d, bx0, bx1, partyL, partyR);
 		boolean awkward = TownHouses.misfit(d, door) > 0;
+		// galleries on posts across the front where the street meets the floor (railed decks cannot step down to it)
+		boolean galleries = t.raised() && dp >= 10 && walkY == Integer.MIN_VALUE && !awkward;
 		int setback = galleries ? 2 : dp >= 10 || jetties || awkward || pueblo ? 1 : 0;
 		if (walkY != Integer.MIN_VALUE) {
 			setback = awkward ? 1 : 0;
@@ -133,9 +134,9 @@ public final class Townhouse implements Archetype {
 			opts = opts.withEaves(opts.eaves(), 0);
 		}
 
-		// fit the storeys and the roof under the plot's height
+		// fit the storeys and the roof under the plot's height (a pueblo has as many storeys as it can step back)
 		Body body = null;
-		int full = wanted;
+		int full = pueblo ? Math.max(2, Math.min(wanted, 1 + (bz1 - bz0 + 1 - 5) / 2)) : wanted;
 		for (int pass = 0; pass < 8; pass++) {
 			int ground = shop && walkY == Integer.MIN_VALUE ? sh + 1 : sh;
 			body = new Body(bx0, bz0, bx1, bz1, 0, TownHouses.heights(full, sh, ground, !flat), partyL, partyR);
@@ -162,8 +163,11 @@ public final class Townhouse implements Archetype {
 		}
 
 		// the facade: the door in its bay, windows over windows
-		int windowW = frame || t.walls() == WallKind.PLANK ? 2 : w >= 8 && t.masonryUpper() && d.chance(0.3) ? 2 : 1;
-		Facade facade = Facade.plan(d, body, door, 1, windowW, frame ? 0.6 : 0.7);
+		int windowW = (frame || t.walls() == WallKind.PLANK) && w >= 7 ? 2 : w >= 8 && t.masonryUpper() && d.chance(0.3) ? 2 : 1;
+		Facade facade = TownHouses.planWithDoor(d, body, door, 1, windowW, frame ? 0.6 : 0.7);
+		if ((frame || t.walls() == WallKind.BAMBOO || t.walls() == WallKind.PLANK) && d.chance(0.75)) {
+			facade = TownHouses.pairedPanels(facade);
+		}
 		Integer placed = HouseBuilder.doorColumn(facade);
 		if (placed != null) {
 			door = placed;
@@ -191,6 +195,16 @@ public final class Townhouse implements Archetype {
 		// what stands out from the upper storeys
 		List<int[]> upperKeep = new ArrayList<>();
 		character(d, body, facade, t, full, jetties, galleries, cornerL, cornerR, door, walkY);
+		// a hill town's house often opens its top storey into a loggia under the eaves
+		int loggiaK = -1;
+		if (t.masonry() && t.flatSome() && !flat && full >= 3 && !galleries && d.chance(0.5)) {
+			loggiaK = full - 1;
+			Side top = body.side(loggiaK, Dirs.FRONT);
+			Projections.arcade(d, top, 0, top.last(), body.floorY(loggiaK), body.height(loggiaK) - 1, top.length() >= 7 ? 2 : 1, true);
+			if (top.length() >= 5) {
+				Life.airing(d, top.x(1), body.floorY(loggiaK) + 1, top.z(1));
+			}
+		}
 
 		// roof
 		int topK = body.storeys() - 1;
@@ -228,7 +242,7 @@ public final class Townhouse implements Archetype {
 				Life.roofGarden(d, tr[0] + 1, tr[1] + 1, tr[2] - 1, tr[3] - 1, deck, roofExit[0], roofExit[2], false);
 			}
 		}
-		interior(d, body, roof, core, door, shop, hearth, terraceDoor, upperKeep);
+		interior(d, body, roof, core, door, shop, hearth, terraceDoor, upperKeep, loggiaK);
 
 		// the street in front and the yard behind
 		TownHouses.street(d, body, door, awkward, 0);
@@ -397,7 +411,7 @@ public final class Townhouse implements Archetype {
 
 	/** The stair kept free on every floor, each floor's rooms. */
 	private static void interior(Draft d, Body b, Roofs.Roof roof, StairCore core, int door, boolean shop, int[] hearth, int terraceDoor,
-		List<int[]> keep) {
+		List<int[]> keep, int loggiaK) {
 		int floors = b.storeys();
 		for (int k = 0; k < floors; k++) {
 			int[] r = b.rect(k);
@@ -423,6 +437,8 @@ public final class Townhouse implements Archetype {
 					room.keep(hearth[0] + (hearth[0] == r[0] + 1 ? 1 : -1), hearth[1]);
 				}
 				Rooms.furnish(d, room, shop ? Rooms.Type.WORKSHOP : Rooms.Type.KITCHEN, 0, JobType.CARPENTER);
+			} else if (k == loggiaK) {
+				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 			} else if (k == 1 && floors >= 4) {
 				// a door out onto a balcony or gallery stays reachable
 				for (int x = r[0] + 1; x <= r[2] - 1; x++) {

@@ -103,7 +103,8 @@ public final class StreetPreview {
 			double a = extra.getIntOr("yaw", 32);
 			boolean stack = extra.contains("stack");
 			// the street seen almost square on (its rhythm of fronts and rooflines), then from both ends, then behind
-			BufferedImage left = renderer.render(world, new View(stack ? 270 + 8 : 8, 14), 12, 2, 0);
+			int scale = extra.getIntOr("scale", 12);
+			BufferedImage left = renderer.render(world, new View(stack ? 270 + 8 : extra.getIntOr("eyaw", 8), extra.getIntOr("epitch", 14)), scale, 2, 0);
 			BufferedImage right = renderer.render(world, new View(stack ? 270 + a : a, 26), 11, 2, 0);
 			BufferedImage back = renderer.render(world, new View(stack ? 270 - a : -a, 26), 11, 1, 0);
 			BufferedImage behind = renderer.render(world, new View(stack ? 90 + a : 180 - a, 30), 8, 1, 0);
@@ -134,7 +135,7 @@ public final class StreetPreview {
 				int fz = side == 0 ? streetZ : streetZ + 4;
 				int floor = probe.groundY(x + frontage / 2, fz);
 				CompoundTag params = extra.copy();
-				for (String k : new String[]{"both", "corners", "frontage", "depth", "yaw", "tier", "stack"}) {
+				for (String k : new String[]{"both", "corners", "frontage", "depth", "yaw", "tier", "stack", "scale", "eyaw", "epitch"}) {
 					params.remove(k);
 				}
 				// party walls: the building's own left/right looking out of its door (facing south, its left is +x)

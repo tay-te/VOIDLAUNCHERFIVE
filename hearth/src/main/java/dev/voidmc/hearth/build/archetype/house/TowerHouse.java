@@ -257,8 +257,9 @@ public final class TowerHouse implements Archetype {
 			} else {
 				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
 			}
-			if (top && crown == Crown.LOGGIA) {
-				d.poi(PoiType.VIEWPOINT, r[0] + 1, body.floorY(k), r[1] + 1, Dirs.FRONT);
+			if (top) {
+				// the lookout: the top room's front window (the loggia, the gallery door)
+				d.poi(PoiType.VIEWPOINT, (r[0] + r[2]) / 2, body.floorY(k), r[1] + 1, Dirs.FRONT);
 			}
 		}
 		TownHouses.joists(d, body, core);

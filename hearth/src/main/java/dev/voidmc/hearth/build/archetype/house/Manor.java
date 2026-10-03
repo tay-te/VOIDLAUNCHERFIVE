@@ -208,14 +208,16 @@ public final class Manor implements Archetype {
 		int hzc = (r0[1] + r0[3]) / 2;
 		List<int[]> hearths = new ArrayList<>();
 		for (int hx : new int[]{r0[0] + 1, r0[2] - 1}) {
-			if (!d.chance(Math.max(0.5, h.chimney()))) {
+			// the library always has its fire; the dining room by the culture's habit
+			if (!hearths.isEmpty() && !d.chance(Math.max(0.5, h.chimney()))) {
 				continue;
 			}
 			int surface = roof != null && roof.covers(hx, hzc) ? roof.surfaceY(hx, hzc) : deck;
+			Furniture.hearth(d, hx, base, hzc, hx == r0[0] + 1 ? Dirs.RIGHT : Dirs.LEFT, false);
+			hearths.add(new int[]{hx, hzc});
 			if (surface == Integer.MIN_VALUE || surface + 3 >= maxH) {
 				continue;
 			}
-			Furniture.hearth(d, hx, base, hzc, hx == r0[0] + 1 ? Dirs.RIGHT : Dirs.LEFT, false);
 			if (roof != null) {
 				Chimneys.stack(d, hx, hzc, base + 2, roof, Math.min(roof.ridgeY + 2, maxH - 1));
 			} else {
@@ -229,7 +231,6 @@ public final class Manor implements Archetype {
 						net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false));
 				});
 			}
-			hearths.add(new int[]{hx, hzc});
 		}
 
 		// inside: hall and stair, library, dining room; bedrooms above; kitchen and servants in the wings

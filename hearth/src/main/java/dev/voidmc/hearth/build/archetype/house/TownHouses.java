@@ -110,6 +110,55 @@ final class TownHouses {
 		return f == RoofForm.CROSS_GABLE ? RoofForm.GABLE : f;
 	}
 
+	/** A copy of a facade plan keeping the openings a test accepts (and all its posts). */
+	static Facade filtered(Facade f, java.util.function.BiPredicate<Direction, Facade.Opening> keep) {
+		Facade out = new Facade();
+		for (Direction side : Dirs.HORIZONTAL) {
+			for (Facade.Opening o : f.openings(side)) {
+				if (keep.test(side, o)) {
+					out.add(side, o);
+				}
+			}
+			for (int p : f.posts(side)) {
+				out.post(side, p);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * A facade plan with the front door exactly at {@code door} (width {@code doorW}): the bays are planned without a
+	 * door and the windows that would crowd it are dropped, so the door stays where the street meets the floor and the
+	 * plan built round it (the hall, the stair, the steps) agrees with it.
+	 */
+	static Facade planWithDoor(Draft d, Body b, int door, int doorW, int windowW, double density) {
+		Facade f = Facade.plan(d, b, -1, 1, windowW, density);
+		Facade out = filtered(f, (side, o) -> !(side == Dirs.FRONT && o.at() + o.width() - 1 >= door - 1 && o.at() <= door + doorW));
+		out.add(Dirs.FRONT, new Facade.Opening(Facade.Kind.DOOR, door, doorW));
+		return out;
+	}
+
+	/**
+	 * A timber front framed in wide panels: every other post of the street wall left out, so its windows pair up in
+	 * panels of white infill between strong posts (a grid of posts at every bay reads as a cage of timber).
+	 */
+	static Facade pairedPanels(Facade f) {
+		Facade out = new Facade();
+		for (Direction side : Dirs.HORIZONTAL) {
+			for (Facade.Opening o : f.openings(side)) {
+				out.add(side, o);
+			}
+			List<Integer> posts = new java.util.ArrayList<>(f.posts(side));
+			java.util.Collections.sort(posts);
+			for (int i = 0; i < posts.size(); i++) {
+				if (side != Dirs.FRONT || (i & 1) == 1 || posts.size() == 1) {
+					out.post(side, posts.get(i));
+				}
+			}
+		}
+		return out;
+	}
+
 	// ------------------------------------------------------------------------------------------------- shell
 
 	/**
@@ -152,6 +201,17 @@ final class TownHouses {
 		}
 	}
 
+	/**
+	 * The column to hand {@link Openings} for an opening {@code at..at+width-1}: Openings walks a wall in its own cell
+	 * order (left to right seen from outside), which runs against the coordinate on the back and left walls, so a wide
+	 * opening there starts at its high coordinate (else it slides a cell toward the corner).
+	 */
+	static int firstCell(Side s, int at, int width) {
+		Direction a = s.along();
+		boolean positive = Dirs.dx(a) + Dirs.dz(a) > 0;
+		return positive ? at : at + width - 1;
+	}
+
 	/** The window style the culture glazes with. */
 	static Openings.WindowStyle windowStyle(Draft d, Traits t) {
 		Habits.Windows hw = d.habits().windows();
@@ -179,15 +239,24 @@ final class TownHouses {
 						continue;
 					}
 					int y = b.floorY(k);
+					int col = firstCell(s, o.at(), o.width());
 					if (o.kind() == Facade.Kind.DOOR && k == 0) {
-						Openings.door(d, s, o.at(), y, o.width(), new Openings.DoorOpts(lamp, false, true));
+						Openings.door(d, s, col, y, o.width(), new Openings.DoorOpts(lamp, false, true));
 					} else if (o.kind() != Facade.Kind.BLANK) {
 						boolean framed = d.habits().walls().kind(k) == WallKind.TIMBER_FRAME;
 						int h = framed ? (tall && k < top ? 2 : 1) : tall && (k == 1 || k < top || !t.masonryUpper()) ? 2 : 1;
 						if (k == 0 && o.kind() == Facade.Kind.DOOR) {
 							continue;
 						}
-						Openings.window(d, s, o.at(), y + 1, o.width(), Math.min(h, sh - 2), style);
+						if (framed && style == Openings.WindowStyle.DRESSED) {
+							// a framed wall's girts and posts are its relief: a flower box under some windows, no sill board
+							Habits.Windows hw = d.habits().windows();
+							boolean box = d.chance(hw.boxes());
+							Openings.window(d, s, col, y + 1, o.width(), Math.min(h, sh - 2), style,
+								new Openings.WindowOpts(d.chance(hw.shutters()), box, box, true));
+						} else {
+							Openings.window(d, s, col, y + 1, o.width(), Math.min(h, sh - 2), style);
+						}
 					}
 				}
 			}
@@ -250,7 +319,7 @@ final class TownHouses {
 			int gw = width >= 8 ? 5 : 3;
 			int col = Math.clamp((tr[0] + tr[2]) / 2 - gw / 2, tr[0] + (b.partyLeft ? 0 : 1), tr[2] - gw + (b.partyRight ? 1 : 0));
 			plan.crossGable(front, col, gw, d);
-		} else if (dormers && ridge == Direction.Axis.X && base != RoofForm.PAGODA && base != RoofForm.GAMBREL) {
+		} else if (dormers && ridge == Direction.Axis.X && base != RoofForm.PAGODA && base != RoofForm.GAMBREL && o.eaves() <= 1) {
 			for (Facade.Opening op : f.openings(Dirs.FRONT)) {
 				if (op.kind() != Facade.Kind.WINDOW || op.at() - 1 <= tr[0] || op.at() + op.width() >= tr[2]) {
 					continue;
@@ -636,15 +705,6 @@ final class TownHouses {
 			int uz = up.z(mid);
 			d.inStage(StageKind.OPENINGS, () -> Fronts.plainDoor(d, ux, ty, uz, Dirs.FRONT));
 			d.poi(PoiType.VIEWPOINT, up.outX(mid, 1), ty, up.outZ(mid, 1), Dirs.FRONT);
-			// the ladder poles poking up past the parapet: the pueblo's mark
-			int lx = up.x(up.last() - 1);
-			int lz = up.outZ(up.last() - 1, 1);
-			if (ty + 2 < d.maxHeight() && d.isEmpty(lx, ty, lz)) {
-				d.inStage(StageKind.EXTERIOR, () -> {
-					d.set(lx, ty, lz, d.mat(Role.FENCE).fence());
-					d.set(lx, ty + 1, lz, d.mat(Role.FENCE).fence());
-				});
-			}
 		}
 	}
 

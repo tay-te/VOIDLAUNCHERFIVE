@@ -134,7 +134,7 @@ public final class Tenement implements Archetype {
 		boolean shops = d.param("shops", d.chance("market".equals(d.param("district", "")) ? 0.8 : 0.35));
 
 		// the facade: many windows in a regular grid, the hall's double door in the middle
-		Facade facade = Facade.plan(d, body, door, twin && w % 2 == 0 ? 2 : 1, 1, 0.9);
+		Facade facade = TownHouses.planWithDoor(d, body, door, twin && w % 2 == 0 ? 2 : 1, 1, 0.9);
 		Integer placed = HouseBuilder.doorColumn(facade);
 		if (placed != null) {
 			door = placed;
