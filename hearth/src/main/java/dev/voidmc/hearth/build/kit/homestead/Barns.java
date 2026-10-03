@@ -183,9 +183,12 @@ public final class Barns {
 			}
 		}
 		d.carve(x0 + 1, y, z0 + 1, x1 - 1, plate, z1 - 1);
-		// the roof, its ridge along z
+		// the roof, its ridge along z (none when the hall is part of a range the caller roofs)
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
+		if (form == null) {
+			return new Hall(x0, z0, x1, z1, y, loftY, plate, null, null, deck);
+		}
 		if (form == RoofForm.FLAT) {
 			deck = Roofs.flat(d, x0, z0, x1, z1, plate, true);
 		} else {
@@ -238,6 +241,66 @@ public final class Barns {
 	/** Boards of a barn wall: the culture's planks, a weathered board here and there. */
 	private static Paint boardsFor(Draft d, Direction.Axis along, int x, int y, int z) {
 		return Sheds.boards(d, along);
+	}
+
+	/**
+	 * Cart doors in a long wall: an opening {@code doorW} wide and three high in the middle of {@code side}, posts and a
+	 * lintel, the leaves hung open against the wall, the entrance registered outside.
+	 */
+	public static void cartDoor(Draft d, Side side, int y, int doorW) {
+		Mat beam = d.mat(Role.BEAM);
+		Mat frame = d.mat(Role.FRAME);
+		Mat leaf = d.mat(Role.DOOR);
+		int mid = side.middle();
+		int half = doorW / 2;
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int i = mid - half; i <= mid + half; i++) {
+				for (int yy = y; yy <= y + 2; yy++) {
+					d.set(side.x(i), yy, side.z(i), Blocks.AIR.defaultBlockState());
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int i : new int[]{mid - half - 1, mid + half + 1}) {
+				if (i <= 0 || i >= side.last()) {
+					continue;
+				}
+				for (int yy = y; yy <= y + 3; yy++) {
+					d.set(side.x(i), yy, side.z(i), frame.log(Direction.Axis.Y));
+				}
+			}
+			for (int i = mid - half - 1; i <= mid + half + 1; i++) {
+				if (i > 0 && i < side.last()) {
+					d.set(side.x(i), y + 3, side.z(i), beam.log(side.axis()));
+				}
+			}
+		}
+		if (leaf.has(Form.TRAPDOOR)) {
+			try (var s = d.stage(StageKind.OPENINGS)) {
+				for (int sgn : new int[]{-1, 1}) {
+					for (int k = 0; k <= half; k++) {
+						int i = mid + sgn * (half + 2 + k);
+						if (i <= 0 || i >= side.last()) {
+							continue;
+						}
+						int ox = side.outX(i, 1);
+						int oz = side.outZ(i, 1);
+						if (ox < 0 || oz < 0 || ox >= d.frontage() || oz >= d.depth()) {
+							continue;
+						}
+						for (int yy = y; yy <= y + 2; yy++) {
+							if (d.isAbsent(ox, yy, oz)) {
+								d.set(ox, yy, oz, leaf.trapdoor(side.out(), Half.BOTTOM, true));
+							}
+						}
+					}
+				}
+			}
+		}
+		int ex = side.outX(mid, 1);
+		int ez = side.outZ(mid, 1);
+		d.entrance(ex, y, ez);
+		d.poi(PoiType.DOOR, ex, y, ez, side.out().getOpposite());
 	}
 
 	/**
@@ -488,7 +551,9 @@ public final class Barns {
 		if (h.roof() == null) {
 			int mid = h.midX();
 			for (int z = iz0 + 2; z < iz1; z += 4) {
-				Furniture.hangingLantern(d, mid, h.plateY(), z, 0);
+				if (d.isSolid(mid, h.plateY(), z)) {
+					Furniture.hangingLantern(d, mid, h.plateY(), z, 0);
+				}
 			}
 		}
 	}

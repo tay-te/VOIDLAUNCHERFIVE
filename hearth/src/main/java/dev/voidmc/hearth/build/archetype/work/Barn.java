@@ -167,7 +167,7 @@ public final class Barn implements Archetype {
 	}
 
 	/** Where a roof of this form over a hall {@code bw} wide with its plate at {@code plate} puts its ridge (approximately). */
-	static int ridge(Draft d, RoofForm f, int bw, int plate) {
+	public static int ridge(Draft d, RoofForm f, int bw, int plate) {
 		double pitch = d.habits().roof().pitch();
 		int eaves = Math.max(1, Math.min(2, d.habits().roof().eaves()));
 		if (f == RoofForm.GAMBREL) {

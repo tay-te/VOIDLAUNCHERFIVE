@@ -6,6 +6,7 @@ import dev.voidmc.hearth.build.archetype.farm.Orchard;
 import dev.voidmc.hearth.build.archetype.farm.Paddy;
 import dev.voidmc.hearth.build.archetype.farm.TerraceField;
 import dev.voidmc.hearth.build.archetype.farm.Pasture;
+import dev.voidmc.hearth.build.archetype.house.Farmhouse;
 import dev.voidmc.hearth.build.archetype.house.Longhouse;
 import dev.voidmc.hearth.build.archetype.house.RoundHouse;
 import dev.voidmc.hearth.build.archetype.house.StiltHouse;
@@ -23,6 +24,7 @@ public final class HomesteadArchetypes {
 		registry.register(new Paddy());
 		registry.register(new TerraceField());
 		registry.register(new Barn());
+		registry.register(new Farmhouse());
 		registry.register(new Longhouse());
 		registry.register(new RoundHouse());
 		registry.register(new StiltHouse());

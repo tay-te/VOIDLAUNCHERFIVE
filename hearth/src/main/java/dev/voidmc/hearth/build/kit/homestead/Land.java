@@ -118,6 +118,77 @@ public final class Land {
 		}
 	}
 
+	/**
+	 * Levels a yard to standing level y: high ground cut, low ground and water made up with earth, the yard surface on
+	 * top. Unlike {@link dev.voidmc.hearth.build.terrain.Groundwork#level}, dykes against standing water go only on the
+	 * plot's own edge (inside the plot a yard meets other ground the building makes good), and a retaining face of stone
+	 * holds the yard where it stands two or more above the land beyond the plot.
+	 */
+	public static void yard(Draft d, int x0, int z0, int x1, int z1, int y) {
+		Mat fill = d.mat(Role.FILL);
+		Mat ground = d.mat(Role.GROUND);
+		Mat stone = d.mat(Role.FOUNDATION);
+		int ax = Math.max(0, Math.min(x0, x1));
+		int bx = Math.min(d.frontage() - 1, Math.max(x0, x1));
+		int az = Math.max(0, Math.min(z0, z1));
+		int bz = Math.min(d.depth() - 1, Math.max(z0, z1));
+		try (var s = d.stage(StageKind.EARTHWORK)) {
+			for (int z = az; z <= bz; z++) {
+				for (int x = ax; x <= bx; x++) {
+					int g = d.site().ground(x, z);
+					boolean plotEdge = x == 0 || z == 0 || x == d.frontage() - 1 || z == d.depth() - 1;
+					int out = plotEdge ? outside(d, x, z) : g;
+					boolean wall = plotEdge && y - out >= 2;
+					if (d.site().isWater(x, z)) {
+						int wy = d.site().water(x, z);
+						for (int yy = g - 1; yy < y - 1; yy++) {
+							d.set(x, yy, z, plotEdge ? stone.full() : fill.full());
+						}
+						d.set(x, y - 1, z, plotEdge ? stone.full() : ground.full());
+						for (int yy = y; yy < wy; yy++) {
+							if (plotEdge) {
+								d.set(x, yy, z, stone.full());
+							} else {
+								d.air(x, yy, z);
+							}
+						}
+						d.drain(x, z);
+						continue;
+					}
+					if (g < y) {
+						for (int yy = g - 1; yy < y - 1; yy++) {
+							d.set(x, yy, z, wall ? stone.full() : fill.full());
+						}
+						d.set(x, y - 1, z, wall ? stone.full() : ground.full());
+					} else if (g > y) {
+						for (int yy = y; yy < g; yy++) {
+							d.set(x, yy, z, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+						}
+						d.set(x, y - 1, z, ground.full());
+					}
+				}
+			}
+		}
+	}
+
+	/** The lowest natural ground just beyond the plot next to an edge cell. */
+	private static int outside(Draft d, int x, int z) {
+		int m = Integer.MAX_VALUE;
+		if (x == 0) {
+			m = Math.min(m, d.site().ground(-1, z));
+		}
+		if (z == 0) {
+			m = Math.min(m, d.site().ground(x, -1));
+		}
+		if (x == d.frontage() - 1) {
+			m = Math.min(m, d.site().ground(x + 1, z));
+		}
+		if (z == d.depth() - 1) {
+			m = Math.min(m, d.site().ground(x, z + 1));
+		}
+		return m == Integer.MAX_VALUE ? d.site().ground(x, z) : m;
+	}
+
 	/** Whether there is water anywhere under a rectangle. */
 	public static boolean wet(Draft d, int x0, int z0, int x1, int z1) {
 		return d.site().anyWater(x0, z0, x1, z1);
