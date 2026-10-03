@@ -356,11 +356,17 @@ final class TownHouses {
 	 * up through the floors as a chimney breast. Returns the hearth cell {x, z} or null.
 	 */
 	static int[] chimney(Draft d, Body b, Roofs.Roof roof, int deck, boolean wellLeft, double chance) {
+		return chimney(d, b, roof, deck, wellLeft, chance, 0);
+	}
+
+	/** {@link #chimney} with the hearth on storey {@code hearthK} (a shop keeps its fire upstairs in the home). */
+	static int[] chimney(Draft d, Body b, Roofs.Roof roof, int deck, boolean wellLeft, double chance, int hearthK) {
 		if (!d.chance(chance)) {
 			return null;
 		}
-		int[] r = b.rect(0);
+		int[] r = b.rect(hearthK);
 		int[] tr = b.topRect();
+		int hy = b.floorY(hearthK);
 		boolean left = !wellLeft;
 		boolean party = left ? b.partyLeft : b.partyRight;
 		int wallX = left ? tr[0] : tr[2];
@@ -376,7 +382,7 @@ final class TownHouses {
 				if (surface + 2 >= d.maxHeight()) {
 					return null;
 				}
-				dev.voidmc.hearth.build.kit.Chimneys.stack(d, hx, hz, b.baseY + 2, roof, Math.min(roof.ridgeY + 1, d.maxHeight() - 1));
+				dev.voidmc.hearth.build.kit.Chimneys.stack(d, hx, hz, hy + 2, roof, Math.min(roof.ridgeY + 1, d.maxHeight() - 1));
 			}
 		} else if (deck != Integer.MIN_VALUE) {
 			if (deck + 2 >= d.maxHeight()) {
@@ -385,7 +391,7 @@ final class TownHouses {
 			Mat stone = d.mat(Role.CHIMNEY);
 			int x = party ? wallX : hx;
 			try (var s = d.stage(StageKind.ROOF)) {
-				for (int y = party ? b.plateY() - 1 : b.baseY + 2; y < deck + 1; y++) {
+				for (int y = party ? b.plateY() - 1 : hy + 2; y < deck + 1; y++) {
 					d.set(x, y, hz, stone.full());
 				}
 				d.set(x, deck + 1, hz, dev.voidmc.hearth.build.draft.States.lit(Blocks.CAMPFIRE, true)
@@ -394,7 +400,7 @@ final class TownHouses {
 		} else {
 			return null;
 		}
-		Furniture.hearth(d, hx, b.baseY, hz, left ? Dirs.RIGHT : Dirs.LEFT, false);
+		Furniture.hearth(d, hx, hy, hz, left ? Dirs.RIGHT : Dirs.LEFT, false);
 		return new int[]{hx, hz};
 	}
 

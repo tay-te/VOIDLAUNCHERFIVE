@@ -1,3 +1,5 @@
 {
-  "hearth.archetype.house.rowhouse": "Row House"
+  "hearth.archetype.house.rowhouse": "Row House",
+  "hearth.archetype.house.shophouse": "Shophouse",
+  "hearth.archetype.house.tenement": "Tenement"
 }
