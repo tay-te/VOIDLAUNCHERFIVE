@@ -144,7 +144,7 @@ public final class Openings {
 	}
 
 	/** Something drawn as wall at a position (not air, glass, a door or nothing). */
-	static boolean isWallBlock(Draft d, int x, int y, int z) {
+	public static boolean isWallBlock(Draft d, int x, int y, int z) {
 		BlockState s = d.get(x, y, z);
 		return s != null && !s.isAir() && s.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO);
 	}

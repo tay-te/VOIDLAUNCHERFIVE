@@ -36,6 +36,12 @@ final class BuildTestSupport {
 		Random r = new Random(seed * 31 + info.id().hashCode());
 		int frontage = info.minFrontage() + r.nextInt(info.maxFrontage() - info.minFrontage() + 1);
 		int depth = info.minDepth() + r.nextInt(info.maxDepth() - info.minDepth() + 1);
+		return spec(info, style, seed, facing, probe, params, frontage, depth);
+	}
+
+	/** A spec of a given size, in front of the origin, its floor at the ground just outside its front. */
+	static PlotSpec spec(ArchetypeInfo info, Identifier style, long seed, Direction facing, TerrainProbe probe, CompoundTag params, int frontage,
+		int depth) {
 		boolean zAxis = facing.getAxis() == Direction.Axis.Z;
 		int sizeX = zAxis ? frontage : depth;
 		int sizeZ = zAxis ? depth : frontage;

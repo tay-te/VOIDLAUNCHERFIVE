@@ -317,10 +317,13 @@ public final class Roofs {
 				} else if (up == null) {
 					// the ridge: lower on opposite sides, or a peak
 					y = y0 + (t + 1) / 2 - 1;
+					// a slab cap sits at the ridge's true height (top half on a whole block, bottom half on a half), so it
+					// closes the roof: a cap lifted half a block would leave a slot under it
+					SlabType cap = (t & 1) == 0 ? SlabType.TOP : SlabType.BOTTOM;
 					p = switch (ridge) {
 						case FULL, STAIRS -> roof.full();
-						case TRIM, WALL -> (t & 1) == 0 ? (trim.has(Form.SLAB) ? trim.slab(SlabType.BOTTOM) : roof.slab(SlabType.BOTTOM)) : roof.slab(SlabType.TOP);
-						default -> (t & 1) == 0 ? roof.slab(SlabType.BOTTOM) : roof.slab(SlabType.TOP);
+						case TRIM, WALL -> trim.has(Form.SLAB) ? trim.slab(cap) : roof.slab(cap);
+						default -> roof.slab(cap);
 					};
 				} else if (drop <= 1 && slabs) {
 					y = y0 + (t + 1) / 2 - 1;

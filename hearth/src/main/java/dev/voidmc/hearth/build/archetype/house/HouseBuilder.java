@@ -72,17 +72,28 @@ final class HouseBuilder {
 			front = Math.max(front, Math.min(4, dp - 6));
 		}
 		int back = dp - front >= 9 ? 1 : 0;
+		int sh = Math.max(3, h.walls().storeyHeight());
+		// on a deep plot, sometimes a lean-to outshot behind: a scullery under a roof of its own below the back eave
+		boolean outshot = !flat && !stilted && dp >= 10 && sh >= 4 && w - sideL - sideR >= 6 && form != RoofForm.PAGODA
+			&& form != RoofForm.MANSARD && d.param("outshot", d.chance(0.45));
+		if (outshot) {
+			front = Math.min(front, dp - 9);
+			back = 0;
+		}
 		int bx0 = sideL;
 		int bx1 = w - 1 - sideR;
 		int bz0 = front;
-		int bz1 = dp - 1 - back;
+		int bz1 = outshot ? dp - 5 : dp - 1 - back;
 		int bw = bx1 - bx0 + 1;
 		int bd = bz1 - bz0 + 1;
 		Direction.Axis ridge = bw >= bd ? Direction.Axis.X : Direction.Axis.Z;
 		if (!flat && d.chance(h.roof().frontGable())) {
 			ridge = Direction.Axis.Z;
 		}
-		int sh = Math.max(3, h.walls().storeyHeight());
+		if (outshot) {
+			// its roof runs on from the main roof's back slope
+			ridge = Direction.Axis.X;
+		}
 		int full = flat ? (bw * bd >= 49 ? 2 : 1) : lowPitch ? (bw * bd >= 56 ? 2 : 1) : 1;
 		full = Math.clamp(d.param("storeys", full), 1, 3);
 		boolean attic = !flat && !lowPitch;
@@ -211,8 +222,16 @@ final class HouseBuilder {
 			hearth = null;
 		}
 
+		// which way the stair inside will run (away from the hearth), so a door at the back can keep clear of it
+		boolean leftward = hearth != null ? hearth[2] == 1 : d.chance(0.5);
+		// the outshot behind, its door through the back wall
+		int[] through = null;
+		if (outshot && roof != null) {
+			through = outshot(d, body, hearth, leftward);
+		}
+
 		// stair to the floor above, rooms
-		interior(d, body, facade, roof, hearth);
+		interior(d, body, facade, roof, hearth, through, leftward);
 
 		// outside
 		garden(d, body, facade, front);
@@ -220,6 +239,115 @@ final class HouseBuilder {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : plate + 2) + 2);
+	}
+
+	/**
+	 * A lean-to outshot against the back wall: walls two blocks high under a shallow roof that starts just below the main
+	 * roof's back eave and falls to the back, the plot's last row its overhang; a door through the back wall, a window,
+	 * barrels and a chest inside. Spans the whole back or one end of it. Returns the cell inside the main room in front of
+	 * its door (to keep free), or null if there was no room for one.
+	 */
+	static int[] outshot(Draft d, Body b, int[] hearth, boolean stairLeftward) {
+		int dp = d.depth();
+		int[] r = b.rect(0);
+		int bw = r[2] - r[0] + 1;
+		int base = b.baseY;
+		int plate = b.plateY();
+		int z0 = r[3];
+		int z1 = dp - 2;
+		// the whole back, or one end of it
+		int ox0 = r[0];
+		int ox1 = r[2];
+		if (bw >= 8 && d.chance(0.6)) {
+			int ow = Math.max(5, bw / 2 + 1);
+			if (d.chance(0.5)) {
+				ox1 = ox0 + ow - 1;
+			} else {
+				ox0 = ox1 - ow + 1;
+			}
+		}
+		Mat wall = d.mat(Role.WALL);
+		Mat frame = d.mat(Role.FRAME);
+		Mat plinth = d.mat(Role.PLINTH);
+		boolean logs = d.habits().walls().kind() == WallKind.LOG;
+		Groundwork.footings(d, ox0, z0 + 1, ox1, z1, base - 1);
+		Floors.boards(d, ox0 + 1, z0 + 1, ox1 - 1, z1 - 1, base - 1);
+		// the roof first, so the walls know how high to go: its high edge a block under the main eave
+		int rx0 = Math.max(Math.max(0, r[0] - 1), ox0 - 1);
+		int rx1 = Math.min(Math.min(d.frontage() - 1, r[2] + 1), ox1 + 1);
+		Roofs.Field lean = Roofs.shed(rx0, z0 + 1, rx1, dp - 1, Dirs.FRONT, Roofs.Profile.straight(0.5));
+		int rows = dp - 1 - (z0 + 1);
+		int tTop = (int) Math.round((1 + 0.5 * rows) * 2);
+		int y0 = plate - 1 - ((tTop + 1) / 2 - 1);
+		Roofs.Roof roof = Roofs.raster(d, lean, y0, rx0, z0 + 1, rx1, dp - 1, d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), Habits.Ridge.SLAB);
+		// walls: the two ends and the back, up to the roof
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z = z0 + 1; z <= z1; z++) {
+				for (int x = ox0; x <= ox1; x++) {
+					boolean edge = x == ox0 || x == ox1 || z == z1;
+					if (!edge) {
+						continue;
+					}
+					boolean corner = (x == ox0 || x == ox1) && z == z1;
+					int top = roof.covers(x, z) ? roof.bottomY(x, z) - 1 : base + 1;
+					for (int y = base; y <= top; y++) {
+						if (corner || logs && (x == ox0 || x == ox1)) {
+							d.set(x, y, z, frame.log(Direction.Axis.Y));
+						} else if (y == base && d.habits().walls().plinth() > 0) {
+							d.set(x, y, z, plinth.full());
+						} else if (logs) {
+							d.set(x, y, z, wall.log(Direction.Axis.X).orElse(wall.full()));
+						} else {
+							d.set(x, y, z, wall.full());
+						}
+					}
+				}
+			}
+		}
+		d.carve(ox0 + 1, base, z0 + 1, ox1 - 1, base + 1, z1 - 1);
+		// a window in the back wall
+		int mid = (ox0 + ox1) / 2;
+		if (roof.covers(mid, z1) && roof.bottomY(mid, z1) - 1 >= base + 1) {
+			d.inStage(StageKind.OPENINGS, () -> d.set(mid, base + 1, z1, d.mat(Role.GLASS).pane()));
+		}
+		// the door through the main back wall: a column clear of the hearth, the stair and the corners
+		int doorX = Integer.MIN_VALUE;
+		// from the ends inward, leaving the middle of the back wall to the stair inside
+		for (int k = 0; k <= ox1 - ox0; k++) {
+			int x = k % 2 == 0 ? ox0 + 1 + k / 2 : ox1 - 1 - k / 2;
+			if (x <= Math.max(ox0, r[0]) || x >= Math.min(ox1, r[2])) {
+				continue;
+			}
+			if (hearth != null && Math.abs(x - hearth[0]) <= 1 && Math.abs(z0 - 1 - hearth[1]) <= 1) {
+				continue;
+			}
+			if (!Openings.isWallBlock(d, x, base, z0) || !Openings.isWallBlock(d, x, base + 1, z0)) {
+				continue;
+			}
+			// clear of the flight inside (or the ladder in its corner)
+			if (b.storeys() >= 2) {
+				int ix0 = r[0] + 1;
+				int ix1 = r[2] - 1;
+				int rise = b.height(0);
+				boolean run = ix1 - ix0 + 1 >= rise + 2;
+				if (run ? runCovers(ix0, ix1, stairLeftward, rise, x) : Math.abs(x - (stairLeftward ? ix0 : ix1)) <= 1) {
+					continue;
+				}
+			}
+			doorX = x;
+			break;
+		}
+		if (doorX == Integer.MIN_VALUE) {
+			return null;
+		}
+		int dx = doorX;
+		d.inStage(StageKind.OPENINGS, () -> d.door(dx, base, z0, d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR),
+			Dirs.BACK, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		// inside: a scullery's barrels and a chest along the walls
+		Rooms.Room room = new Rooms.Room(ox0 + 1, z0 + 1, ox1 - 1, z1 - 1, base, 2);
+		room.keep(dx, z0 + 1);
+		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
+		return new int[]{dx, z0 - 1};
 	}
 
 	/** The {@code roof} param (a roof form name) if given, else the chosen form. */
@@ -422,7 +550,7 @@ final class HouseBuilder {
 	}
 
 	/** Stairs to the roof storey, then each floor's rooms. */
-	static void interior(Draft d, Body b, Facade f, Roofs.Roof roof, int[] hearth) {
+	static void interior(Draft d, Body b, Facade f, Roofs.Roof roof, int[] hearth, int[] keep, boolean leftwardRun) {
 		int[] r0 = b.rect(0);
 		int ix0 = r0[0] + 1;
 		int iz0 = r0[1] + 1;
@@ -431,6 +559,9 @@ final class HouseBuilder {
 		int doorX = f.openings(Dirs.FRONT).stream().filter(o -> o.kind() == Facade.Kind.DOOR).map(Facade.Opening::at).findFirst().orElse((ix0 + ix1) / 2);
 		Rooms.Room ground = new Rooms.Room(ix0, iz0, ix1, iz1, b.baseY, b.height(0) - 1);
 		ground.keep(doorX, iz0);
+		if (keep != null) {
+			ground.keep(keep[0], keep[1]);
+		}
 		if (hearth != null) {
 			ground.block(hearth[0], hearth[1]);
 			int fx = hearth[2] == 0 ? hearth[0] + 1 : hearth[2] == 1 ? hearth[0] - 1 : hearth[0];
@@ -441,9 +572,18 @@ final class HouseBuilder {
 		if (b.storeys() >= 2) {
 			int rise = b.height(0);
 			int run = rise;
-			boolean leftward = hearth != null && hearth[2] == 1 || hearth == null && d.chance(0.5);
+			boolean leftward = leftwardRun;
 			int sz = iz1;
-			if (ix1 - ix0 + 1 >= run + 2) {
+			// a door through the back wall (to an outshot) must not open onto the flight: run the other way, or climb a
+			// ladder in the corner away from it
+			boolean blocked = false;
+			if (keep != null && keep[1] == sz) {
+				if (runCovers(ix0, ix1, leftward, rise, keep[0])) {
+					leftward = !leftward;
+				}
+				blocked = runCovers(ix0, ix1, leftward, rise, keep[0]);
+			}
+			if (ix1 - ix0 + 1 >= run + 2 && !blocked) {
 				int sx = leftward ? ix0 + 1 : ix1 - 1;
 				Direction dir = leftward ? Dirs.RIGHT : Dirs.LEFT;
 				int start = leftward ? sx : sx;
@@ -464,8 +604,11 @@ final class HouseBuilder {
 					Rooms.furnish(d, up, Rooms.Type.BEDROOM, 2, JobType.NONE);
 				}
 			} else {
-				// too narrow for a run: a ladder in the back corner
+				// too narrow for a run: a ladder in the back corner (the one away from a back door)
 				int lx = leftward ? ix0 : ix1;
+				if (keep != null && keep[1] == sz && Math.abs(keep[0] - lx) <= 1) {
+					lx = lx == ix0 ? ix1 : ix0;
+				}
 				Stairs.ladder(d, lx, iz1, b.baseY, b.floorY(1) - 1, Dirs.FRONT);
 				d.set(lx, b.floorY(1) - 1, iz1, Blocks.AIR.defaultBlockState());
 				ground.keep(lx, iz1);
@@ -486,6 +629,15 @@ final class HouseBuilder {
 		if (b.storeys() >= 2) {
 			Floors.joists(d, ix0, iz0, ix1, iz1, b.floorY(1) - 1, (ix1 - ix0) <= (iz1 - iz0) ? Direction.Axis.X : Direction.Axis.Z, 2, b.baseY);
 		}
+	}
+
+	/** Whether a straight flight along the back wall (as {@link #interior} lays it) covers column x, or its foot. */
+	private static boolean runCovers(int ix0, int ix1, boolean leftward, int rise, int x) {
+		int start = leftward ? ix0 + 1 : ix1 - 1;
+		int dir = leftward ? 1 : -1;
+		int a = start - dir;
+		int b = start + dir * rise;
+		return x >= Math.min(a, b) && x <= Math.max(a, b);
 	}
 
 	/** The room of storey k: inside the walls, as high as the walls or the roof allow. */

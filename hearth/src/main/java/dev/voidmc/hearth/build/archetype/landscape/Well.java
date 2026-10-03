@@ -172,6 +172,19 @@ public final class Well implements Archetype {
 		Mat accent = d.mat(Role.WALL_ACCENT);
 		Roofs.Field dome = Roofs.dome(cx, cz, r + 1, 0.8);
 		Roofs.Roof rr = Roofs.raster(d, dome, y, cx - r - 1, cz - r - 1, cx + r + 1, cz + r + 1, roof, accent, Habits.Ridge.FULL);
+		// a drum over the ring beam carries the dome
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dx = -r; dx <= r; dx++) {
+					if (Math.abs(dx) != r && Math.abs(dz) != r || !rr.covers(cx + dx, cz + dz)) {
+						continue;
+					}
+					for (int yy = y; yy < rr.bottomY(cx + dx, cz + dz); yy++) {
+						d.set(cx + dx, yy, cz + dz, accent.full());
+					}
+				}
+			}
+		}
 		try (var s = d.stage(StageKind.ROOF)) {
 			d.set(cx, rr.ridgeY + 1, cz, accent.has(Form.WALL) ? accent.wall() : d.mat(Role.FENCE).fence());
 		}
