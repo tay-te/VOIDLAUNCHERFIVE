@@ -45,6 +45,7 @@ public final class QuestClient {
 		ClientPlayNetworking.registerGlobalReceiver(QuestPayloads.Toast.TYPE, (payload, context) ->
 			context.client().gui.toastManager().addToast(new QuestToast(payload)));
 		HudElementRegistry.attachElementAfter(VanillaHudElements.BOSS_BAR, Hearth.id("quest/tracker"), new QuestHud());
+		QuestClientTour.install();
 	}
 
 	static boolean isJournalKey(net.minecraft.client.input.KeyEvent event) {

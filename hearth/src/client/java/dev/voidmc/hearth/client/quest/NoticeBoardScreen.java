@@ -49,6 +49,14 @@ public class NoticeBoardScreen extends Screen {
 		this.rebuildWidgets();
 	}
 
+	/** Opens the first offer for reading (the dev tour's stand-in for a click). */
+	void readFirst() {
+		if (!this.board.entries().isEmpty()) {
+			this.reading = this.board.entries().getFirst();
+			this.rebuildWidgets();
+		}
+	}
+
 	@Override
 	protected void init() {
 		this.left = (this.width - W) / 2;

@@ -117,9 +117,9 @@ public class JournalScreen extends Screen {
 		// Page edges at the outer sides.
 		g.fill(this.left + 4, this.top + H - 5, mid - 1, this.top + H - 4, QuestUi.PAPER_EDGE);
 		g.fill(mid + 1, this.top + H - 5, this.left + W - 4, this.top + H - 4, QuestUi.PAPER_EDGE);
-		// A ribbon bookmark hanging from the gutter.
-		g.fill(mid + 10, this.top - 4, mid + 14, this.top + 18, 0xFF9E2328);
-		g.fill(mid + 10, this.top + 18, mid + 12, this.top + 20, 0xFF9E2328);
+		// A ribbon bookmark hanging out below the gutter.
+		g.fill(mid - 2, this.top + H - 4, mid + 2, this.top + H + 12, 0xFF9E2328);
+		g.fill(mid - 2, this.top + H + 12, mid, this.top + H + 14, 0xFF9E2328);
 	}
 
 	@Override
