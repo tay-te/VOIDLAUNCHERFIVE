@@ -483,10 +483,11 @@ public class BiomeTour implements FabricClientGameTest {
 	}
 
 	/**
-	 * Each landform (volcano, canyon, salt pan, tepui, fjord) whole, from outside it: the nearest one to
-	 * spawn, found through the Earth terrain model; its extent from the columns the model gives that
-	 * landform, and a camera standing back past its edge, raised above it, on whichever of eight sides has
-	 * the clearest line of sight. A volcano is aimed at its summit, the rest at their middle.
+	 * Each landform (volcano, canyon, salt pan, tepui, fjord), the nearest one to spawn, found through the
+	 * Earth terrain model and framed for what makes it: a volcano looking down into its crater from above
+	 * the rim; a canyon along its gorge from the height of its rims; a fjord down its trough toward the sea,
+	 * the walls rising on both sides; a salt pan and a tepui from outside their edge, on whichever of eight
+	 * sides is clearest. Cameras stay out of the tepui's own mist, which would hide everything past 110 blocks.
 	 */
 	private void landforms(ClientGameTestContext context, TestSingleplayerContext world) {
 		int distance = Integer.getInteger("expanse.tour.landform_distance", 12);
@@ -497,14 +498,23 @@ public class BiomeTour implements FabricClientGameTest {
 				return List.<int[]>of();
 			}
 			var model = earth.model(level.getChunkSource().randomState());
-			// The nearest column of each landform, ring by ring outward from spawn.
+			// The nearest column of each landform's telling part, ring by ring outward from spawn: a crater, a
+			// canyon's river, a fjord's water, any of a salt pan or tepui.
 			int[][] first = new int[names.length][];
 			int left = names.length - 1;
 			for (int r = 0; r <= 8000 && left > 0; r += 32) {
 				for (int i = -r; i <= r && left > 0; i += 32) {
 					for (int[] p : new int[][]{{i, -r}, {i, r}, {-r, i}, {r, i}}) {
-						int k = model.sample(p[0], p[1]).landform;
-						if (k > 0 && k < names.length && first[k] == null) {
+						var c = model.sample(p[0], p[1]);
+						int k = c.crater > -100 ? dev.voidmc.expanse.world.terrain.Landform.VOLCANIC
+							: c.fjord ? dev.voidmc.expanse.world.terrain.Landform.FJORD : c.landform;
+						boolean telling = switch (k) {
+							case dev.voidmc.expanse.world.terrain.Landform.VOLCANIC -> c.crater > -100;
+							case dev.voidmc.expanse.world.terrain.Landform.CANYON -> c.inChannel();
+							case dev.voidmc.expanse.world.terrain.Landform.FJORD -> c.fjord;
+							default -> k > 0;
+						};
+						if (telling && k < names.length && first[k] == null) {
 							first[k] = p;
 							left--;
 						}
@@ -517,89 +527,17 @@ public class BiomeTour implements FabricClientGameTest {
 					System.out.println("[tour] no " + names[k] + " within 8 km");
 					continue;
 				}
-				// Its columns round the first one found, twice: the second pass centred on the first's middle.
-				double mx = first[k][0];
-				double mz = first[k][1];
-				int n = 0;
-				int reach = 0;
-				int top = Integer.MIN_VALUE;
-				int tx = 0;
-				int tz = 0;
-				long sumY = 0;
-				for (int pass = 0; pass < 2; pass++) {
-					double sx = 0;
-					double sz = 0;
-					n = 0;
-					reach = 0;
-					top = Integer.MIN_VALUE;
-					sumY = 0;
-					for (int dx = -400; dx <= 400; dx += 8) {
-						for (int dz = -400; dz <= 400; dz += 8) {
-							int x = (int) mx + dx;
-							int z = (int) mz + dz;
-							var c = model.sample(x, z);
-							if (c.landform != k) {
-								continue;
-							}
-							sx += x;
-							sz += z;
-							n++;
-							sumY += (int) c.height;
-							reach = Math.max(reach, (int) Math.hypot(dx, dz));
-							if (c.height > top) {
-								top = (int) c.height;
-								tx = x;
-								tz = z;
-							}
-						}
-					}
-					if (n == 0) {
-						break;
-					}
-					mx = sx / n;
-					mz = sz / n;
-				}
-				if (n == 0) {
+				int[] shot = switch (k) {
+					case dev.voidmc.expanse.world.terrain.Landform.VOLCANIC -> crater(model, first[k]);
+					case dev.voidmc.expanse.world.terrain.Landform.CANYON, dev.voidmc.expanse.world.terrain.Landform.FJORD -> along(model, first[k], k);
+					default -> fromOutside(model, first[k], k);
+				};
+				if (shot == null) {
 					continue;
 				}
-				int cx = (int) mx;
-				int cz = (int) mz;
-				int cy = (int) (sumY / n);
-				if (k == dev.voidmc.expanse.world.terrain.Landform.VOLCANIC) {
-					cx = tx;
-					cz = tz;
-					cy = top;
-				}
-				// Stand back past the edge, but inside the render distance; then pick the side to stand on.
-				int back = Math.max(80, Math.min(distance * 16 - 40, (int) (reach * 0.8) + 60));
-				// A cone shows best near its own height, against the sky; hollows and plateaus from above their rims.
-				int lift = k == dev.voidmc.expanse.world.terrain.Landform.VOLCANIC ? 12 + back / 10 : Math.max(top - cy, 0) + 24 + back / 5;
-				int[] best = null;
-				int bestBlocked = Integer.MAX_VALUE;
-				for (int a = 0; a < 8; a++) {
-					double ang = Math.PI * (1.25 + a / 4.0);
-					int ex = cx + (int) Math.round(Math.cos(ang) * back);
-					int ez = cz + (int) Math.round(Math.sin(ang) * back);
-					int ground = (int) model.sample(ex, ez).height;
-					int ey = Math.max(cy + lift, Math.max(ground, 63) + 20);
-					int blocked = 0;
-					for (int t = 1; t < 20; t++) {
-						double f = t / 20.0;
-						int lx = ex + (int) ((cx - ex) * f);
-						int lz = ez + (int) ((cz - ez) * f);
-						if (model.sample(lx, lz).height > ey + (cy - ey) * f) {
-							blocked++;
-						}
-					}
-					blocked = blocked * 1000 + ey;   // then the lower viewpoint: it shows the walls, not just a plan
-					if (blocked < bestBlocked) {
-						bestBlocked = blocked;
-						best = new int[]{k, cx, cy, cz, ex, ey, ez};
-					}
-				}
-				picked.add(best);
-				int midX = (best[1] + best[4]) >> 5;
-				int midZ = (best[3] + best[6]) >> 5;
+				picked.add(new int[]{k, shot[0], shot[1], shot[2], shot[3], shot[4], shot[5]});
+				int midX = (shot[0] + shot[3]) >> 5;
+				int midZ = (shot[2] + shot[5]) >> 5;
 				for (int dx = -distance - 1; dx <= distance + 1; dx++) {
 					for (int dz = -distance - 1; dz <= distance + 1; dz++) {
 						level.getChunk(midX + dx, midZ + dz);
@@ -618,6 +556,140 @@ public class BiomeTour implements FabricClientGameTest {
 			this.settleShot(context, world, "landform_" + names[l[0]], from, yawToward(from, to), pitch, SETTLE_MS * 2);
 		}
 		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
+	/** Into a crater: its middle and its rim from the crater columns round {@code at}, the camera high off the rim. */
+	private static int[] crater(dev.voidmc.expanse.world.terrain.TerrainModel model, int[] at) {
+		double sx = 0;
+		double sz = 0;
+		int n = 0;
+		float surface = 0;
+		for (int dx = -160; dx <= 160; dx += 4) {
+			for (int dz = -160; dz <= 160; dz += 4) {
+				var c = model.sample(at[0] + dx, at[1] + dz);
+				if (c.crater > -100) {
+					sx += at[0] + dx;
+					sz += at[1] + dz;
+					surface += c.crater;
+					n++;
+				}
+			}
+		}
+		if (n == 0) {
+			return null;
+		}
+		int cx = (int) (sx / n);
+		int cz = (int) (sz / n);
+		int radius = (int) Math.sqrt(n * 16 / Math.PI);
+		int rim = 0;
+		for (int a = 0; a < 16; a++) {
+			double ang = a * Math.PI / 8;
+			rim = Math.max(rim, (int) model.sample(cx + (int) (Math.cos(ang) * (radius + 4)), cz + (int) (Math.sin(ang) * (radius + 4))).height);
+		}
+		int back = radius + 60;
+		return new int[]{cx, (int) (surface / n), cz, cx - (int) (back * 0.7071), rim + 45, cz - (int) (back * 0.7071)};
+	}
+
+	/**
+	 * Along a channel, a canyon's river or a fjord's arm of the sea: which way runs downstream (toward lower
+	 * water, or for a fjord toward the coast), and a camera up that way at the height of the walls, looking
+	 * down the channel past {@code at}.
+	 */
+	private static int[] along(dev.voidmc.expanse.world.terrain.TerrainModel model, int[] at, int k) {
+		boolean fjord = k == dev.voidmc.expanse.world.terrain.Landform.FJORD;
+		var here = model.sample(at[0], at[1]);
+		float best = Float.MAX_VALUE;
+		double dirX = 1;
+		double dirZ = 0;
+		for (int a = 0; a < 16; a++) {
+			double ang = a * Math.PI / 8;
+			var c = model.sample(at[0] + (int) (Math.cos(ang) * 48), at[1] + (int) (Math.sin(ang) * 48));
+			boolean in = fjord ? c.fjord : c.inChannel();
+			float down = fjord ? c.coast : c.riverWater;
+			if (in && down < best) {
+				best = down;
+				dirX = Math.cos(ang);
+				dirZ = Math.sin(ang);
+			}
+		}
+		int walls = 0;
+		for (int a = 0; a < 16; a++) {
+			double ang = a * Math.PI / 8;
+			walls = Math.max(walls, (int) model.sample(at[0] + (int) (Math.cos(ang) * 48), at[1] + (int) (Math.sin(ang) * 48)).height);
+		}
+		int water = fjord ? 63 : here.waterTop();
+		int ex = at[0] - (int) (dirX * 70);
+		int ez = at[1] - (int) (dirZ * 70);
+		int ey = Math.max(water + 30, fjord ? (walls + water) / 2 + 24 : walls + 6);
+		return new int[]{at[0] + (int) (dirX * 70), water, at[1] + (int) (dirZ * 70), ex, ey, ez};
+	}
+
+	/**
+	 * From outside a landform: its middle from its columns round {@code at}; then on each of eight sides its
+	 * edge, and a camera standing off it. A salt pan is seen across from above, a tepui at its cliff from about
+	 * the height of its top. The side with the clearest line of sight and the lowest ground wins.
+	 */
+	private static int[] fromOutside(dev.voidmc.expanse.world.terrain.TerrainModel model, int[] at, int k) {
+		boolean tepui = k == dev.voidmc.expanse.world.terrain.Landform.TEPUI;
+		double sx = 0;
+		double sz = 0;
+		long sy = 0;
+		int n = 0;
+		int top = Integer.MIN_VALUE;
+		for (int dx = -400; dx <= 400; dx += 8) {
+			for (int dz = -400; dz <= 400; dz += 8) {
+				var c = model.sample(at[0] + dx, at[1] + dz);
+				if (c.landform == k) {
+					sx += at[0] + dx;
+					sz += at[1] + dz;
+					sy += (int) c.height;
+					top = Math.max(top, (int) c.height);
+					n++;
+				}
+			}
+		}
+		if (n == 0) {
+			return null;
+		}
+		int cx = (int) (sx / n);
+		int cz = (int) (sz / n);
+		int level = (int) (sy / n);
+		int[] best = null;
+		long bestScore = Long.MAX_VALUE;
+		for (int a = 0; a < 8; a++) {
+			double ang = Math.PI * (1.25 + a / 4.0);
+			double ux = Math.cos(ang);
+			double uz = Math.sin(ang);
+			int edge = 0;
+			while (edge < 400 && model.sample(cx + (int) (ux * edge), cz + (int) (uz * edge)).landform == k) {
+				edge += 8;
+			}
+			int standoff = tepui ? 110 : 90;
+			int ex = cx + (int) (ux * (edge + standoff));
+			int ez = cz + (int) (uz * (edge + standoff));
+			var ground = model.sample(ex, ez);
+			if (ground.landform == k) {
+				continue;   // another lobe of the same landform: the camera would stand in it
+			}
+			int inside = tepui ? 20 : Math.min(edge, 120);
+			int tx = cx + (int) (ux * (edge - inside));
+			int tz = cz + (int) (uz * (edge - inside));
+			int ty = tepui ? top - 35 : level;
+			int ey = tepui ? top + 5 : Math.max(level, Math.max((int) ground.height, 63)) + 45;
+			int blocked = 0;
+			for (int t = 1; t < 16; t++) {
+				double f = t / 20.0;   // up to three quarters of the way: a tepui's own wall is what we look at
+				if (model.sample(ex + (int) ((tx - ex) * f), ez + (int) ((tz - ez) * f)).height > ey + (ty - ey) * f) {
+					blocked++;
+				}
+			}
+			long score = blocked * 10_000L + Math.max((int) ground.height, 63);
+			if (score < bestScore) {
+				bestScore = score;
+				best = new int[]{tx, ty, tz, ex, ey, ez};
+			}
+		}
+		return best;
 	}
 
 	/** The four animals posed on a grass stage high above the world, lit by noon sun. */
