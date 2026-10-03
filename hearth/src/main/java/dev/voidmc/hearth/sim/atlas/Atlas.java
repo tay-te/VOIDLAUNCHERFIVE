@@ -64,6 +64,8 @@ public final class Atlas {
 
 	private final ResourceKey<Level> dimension;
 	private final TerrainProbe probe;
+	/** For the site survey: comparing places needs no foundation-exact ground. */
+	private final TerrainProbe survey;
 	private final @Nullable BiomeLookup biomes;
 	private final SimConfig.Atlas config;
 	private final SimRules rules;
@@ -92,6 +94,7 @@ public final class Atlas {
 		@Nullable StructureAvoidance avoidance, Function<@Nullable Holder<Biome>, Culture> culture) {
 		this.dimension = dimension;
 		this.probe = probe;
+		this.survey = probe instanceof dev.voidmc.hearth.sim.terrain.GeneratorProbe g ? g.rough() : probe;
 		this.biomes = biomes;
 		this.config = rules.config.atlas();
 		this.rules = rules;
@@ -220,7 +223,7 @@ public final class Atlas {
 		BiomeLookup lookup = this.biomes;
 		List<StructureAvoidance.Hazard> hazards = this.avoidance == null || lookup == null ? List.of()
 			: this.avoidance.hazards(minX, minZ, minX + span, minZ + span, lookup::at);
-		SiteFinder.Spot spot = SiteFinder.find(this.probe, minX, minZ, span, random, (x, z) -> StructureAvoidance.clear(hazards, x, z));
+		SiteFinder.Spot spot = SiteFinder.find(this.survey, minX, minZ, span, random, (x, z) -> StructureAvoidance.clear(hazards, x, z));
 		if (spot == null) {
 			return finish(empty(rx, rz, 0), start);
 		}

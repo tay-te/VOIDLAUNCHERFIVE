@@ -171,6 +171,14 @@ public class GeneratorProbe implements TerrainProbe {
 		return t;
 	}
 
+	/**
+	 * A cheaper view for surveys that only compare places (the atlas choosing a site): the same probe here; the Expanse
+	 * probe returns its model without the grid correction.
+	 */
+	public GeneratorProbe rough() {
+		return this;
+	}
+
 	/** Which source answers columns, for logs and the harness. */
 	public String describe() {
 		return "generator (" + this.generator.getClass().getSimpleName() + ")";

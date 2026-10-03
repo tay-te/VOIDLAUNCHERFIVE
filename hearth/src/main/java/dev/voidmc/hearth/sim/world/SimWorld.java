@@ -12,6 +12,7 @@ import dev.voidmc.hearth.api.ResidentFactory;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.api.SettlementPlanner;
 import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.sim.LodFootprints;
 import dev.voidmc.hearth.sim.SimServer;
 import dev.voidmc.hearth.sim.apply.ChunkApplier;
 import dev.voidmc.hearth.sim.atlas.Atlas;
@@ -67,6 +68,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final SimIndex index;
 	private final SpatialIndex spatial;
 	private final ChunkApplier applier;
+	private final LodFootprints footprints;
 	private final Long2ObjectLinkedOpenHashMap<SimSettlement> settlements = new Long2ObjectLinkedOpenHashMap<>();
 	private final DynamicOps<Tag> ops;
 	/** Regions whose plan is being computed for adoption, and regions known to hold nobody (this session). */
@@ -79,7 +81,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.level = level;
 		this.server = server;
 		SimRules rules = server.rules();
-		this.probe = Probes.create(level);
+		this.probe = Probes.create(level, rules.config.probeCorrection());
 		StructureAvoidance avoidance = null;
 		try {
 			avoidance = new StructureAvoidance(level, rules.config.atlas());
@@ -98,6 +100,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		var embody = rules.config.embody();
 		this.spatial = new SpatialIndex(embody.radius() + embody.hysteresis(), rules.config.atlas().guardMargin());
 		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe);
+		this.footprints = new LodFootprints(this.atlas, this.probe);
 		LOG.info("hearth: {} uses the {} probe; {} structure sets avoided", level.dimension().identifier(), this.probe.describe(),
 			avoidance == null ? 0 : avoidance.setCount());
 	}
@@ -127,6 +130,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		if (s.originRegion() != SimSettlement.NO_REGION) {
 			this.index.markAdopted(s.originRegion());
 		}
+		this.footprints.refresh(s);
 		this.server.schedule(this, s, isNew);
 	}
 
@@ -241,6 +245,11 @@ public final class SimWorld implements HearthWorld, SimContext {
 		return this.index;
 	}
 
+	/** Built plots' silhouettes by column, for VOID LOD. */
+	public LodFootprints footprints() {
+		return this.footprints;
+	}
+
 	public SettlementStore store() {
 		return this.store;
 	}
@@ -292,12 +301,16 @@ public final class SimWorld implements HearthWorld, SimContext {
 		if (this.settlements.get(s.id()) == s) {
 			this.spatial.update(s);
 			this.index.put(entry(s));
+			this.footprints.refresh(s);
 		}
 	}
 
 	@Override
 	public void progressed(SimSettlement s, SimPlot p) {
 		this.applier.enqueuePlot(p);
+		if (p.isStanding() && this.settlements.get(s.id()) == s) {
+			this.footprints.built(s, p);
+		}
 	}
 
 	@Override
@@ -447,6 +460,27 @@ public final class SimWorld implements HearthWorld, SimContext {
 		} catch (IllegalArgumentException e) {
 			return null;
 		}
+	}
+
+	/**
+	 * Why a settlement cannot be founded here, or null if it can: not on water, and not within {@code spacing} blocks of
+	 * a live settlement's centre or a historic one's.
+	 */
+	public @Nullable String whyNotFound(BlockPos at, int spacing) {
+		if (this.probe.isWater(at.getX(), at.getZ())) {
+			return "that is water";
+		}
+		SimSettlement near = nearest(at, spacing);
+		if (near != null) {
+			return near.name() + " is too close";
+		}
+		if (this.atlas.enabled()) {
+			RegionPlan plan = this.atlas.plan(Atlas.region(at.getX()), Atlas.region(at.getZ()));
+			if (plan.site() != null && plan.site().center().distManhattan(at) < spacing * 1.4) {
+				return plan.site().name() + " (not yet visited) stands near here";
+			}
+		}
+		return null;
 	}
 
 	/** Founds a live settlement at a spot (a command, a quest, settlers from a town that outgrew its land). */

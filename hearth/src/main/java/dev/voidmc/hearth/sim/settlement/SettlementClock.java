@@ -28,6 +28,8 @@ import org.jspecify.annotations.Nullable;
 public final class SettlementClock {
 	/** An embodied builder that advanced a plot this recently (ticks) keeps abstract labour off it. */
 	public static final long EMBODIED_HOLD = 200;
+	/** What a surplus fetches in barter, as a share of its price. */
+	private static final double BARTER = 0.5;
 
 	private SettlementClock() {
 	}
@@ -211,14 +213,19 @@ public final class SettlementClock {
 			return;
 		}
 		int active = 0;
+		int stalled = 0;
 		for (SimPlot p : s.plots.values()) {
 			if (p.isActive()) {
 				if (p.stalledOn != null) {
-					// short of goods already: planning more would only queue more stalls
-					return;
+					stalled++;
+				} else {
+					active++;
 				}
-				active++;
 			}
+		}
+		if (stalled >= 2) {
+			// short of goods twice over already: planning more would only queue more stalls
+			return;
 		}
 		// keep every pair of builders busy, a few proposals at a time at most
 		for (int tries = 0; tries < 4 && active < maxConcurrent(builders, r); tries++) {
@@ -248,7 +255,7 @@ public final class SettlementClock {
 		RandomSource random = s.random();
 		k.daysLived++;
 		age(s, r, day);
-		k.hungerDays = s.stockpile.get(Goods.FOOD) <= 0 ? k.hungerDays + 1 : 0;
+		k.hungerDays = s.population() > 0 && s.stockpile.get(Goods.FOOD) <= 0 ? k.hungerDays + 1 : 0;
 		deaths(s, r, random);
 		int housing = s.beds() + r.population.tentSlots();
 		k.overcrowdDays = s.population() > housing ? k.overcrowdDays + 1 : 0;
@@ -278,8 +285,9 @@ public final class SettlementClock {
 	}
 
 	/**
-	 * A stage waiting for goods the town cannot make buys them from passing traders, a cartload a day at a markup, while
-	 * the treasury allows. Slow and dear on purpose: a player bringing the goods (a supply quest) is faster.
+	 * A stage waiting for goods the town cannot make buys them from passing traders, a cartload a day at a markup: with
+	 * coin while the treasury allows, then in barter for whatever overflows its stores. Slow and dear on purpose: a player
+	 * bringing the goods (a supply quest) is faster.
 	 */
 	private static void imports(SimSettlement s, SimRules r) {
 		for (SimPlot p : s.plots.values()) {
@@ -296,11 +304,26 @@ public final class SettlementClock {
 				if (missing <= 0) {
 					continue;
 				}
-				long price = (long) Math.ceil(r.prices[g] * r.importMarkup);
-				int affordable = price <= 0 ? missing : (int) Math.min(missing, s.treasury / price);
-				if (affordable > 0) {
-					s.treasury -= affordable * price;
-					s.stockpile.addQuiet(g, affordable);
+				double unit = r.prices[g] * r.importMarkup;
+				// coin first
+				long price = (long) Math.ceil(unit);
+				int bought = price <= 0 ? missing : (int) Math.min(missing, s.treasury / price);
+				s.treasury -= bought * price;
+				// then barter what overflows the stores, at a loss
+				for (int o = 0; o < need.length && bought < missing; o++) {
+					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], s.stockpile.capacity(Goods.FOOD) / 2);
+					if (o == g || spare <= 0 || r.prices[o] <= 0) {
+						continue;
+					}
+					double worth = r.prices[o] * BARTER;
+					int units = (int) Math.min(missing - bought, Math.floor(spare * worth / unit));
+					if (units > 0) {
+						s.stockpile.takeQuiet(o, (int) Math.ceil(units * unit / worth));
+						bought += units;
+					}
+				}
+				if (bought > 0) {
+					s.stockpile.addQuiet(g, bought);
 				}
 			}
 		}
@@ -420,6 +443,8 @@ public final class SettlementClock {
 				res.bornDay = day - random.nextInt(Math.max(1, r.population.childhoodDays()));
 			}
 			s.addResident(res);
+			// settlers bring a few days' food of their own
+			s.stockpile.addQuiet(Goods.FOOD.ordinal(), (int) (r.foodAdult * 10));
 		}
 	}
 
@@ -483,6 +508,15 @@ public final class SettlementClock {
 			slots[j.ordinal()] = s.jobSlots(j);
 		}
 		slots[JobType.BUILDER.ordinal()] += r.labour.baseBuilders() + r.labour.buildersPerTen() * s.population() / 10;
+		int adults = 0;
+		for (Resident res : s.residents.values()) {
+			if (res.age == AgeStage.ADULT) {
+				adults++;
+			}
+		}
+		boolean starving = s.stockpile.get(Goods.FOOD) < s.population() * r.foodAdult;
+		// never so many builders that nobody feeds them: two in five at most, one while food is short
+		slots[JobType.BUILDER.ordinal()] = Math.min(slots[JobType.BUILDER.ordinal()], starving ? 1 : Math.max(1, adults * 2 / 5));
 		int[] filled = new int[jobs];
 		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap usedAt = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
 		List<Resident> idle = new ArrayList<>();

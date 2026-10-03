@@ -13,14 +13,16 @@ import java.util.Map;
  * The sim module's knobs, {@code config/hearth/sim.json}. Every field is optional so an old file keeps working; the
  * numbers are documented in docs/SIM.md.
  */
-public record SimConfig(List<String> dimensions, Embody embody, Clock clock, Applier applier, Atlas atlas, Labour labour,
-	Production production, Population population, Storage storage, Founding founding) {
+public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody embody, Clock clock, Applier applier, Atlas atlas,
+	Labour labour, Production production, Population population, Storage storage, Founding founding) {
 
-	public static final SimConfig DEFAULTS = new SimConfig(List.of("minecraft:overworld"), Embody.DEFAULTS, Clock.DEFAULTS,
+	public static final SimConfig DEFAULTS = new SimConfig(List.of("minecraft:overworld"), false, Embody.DEFAULTS, Clock.DEFAULTS,
 		Applier.DEFAULTS, Atlas.DEFAULTS, Labour.DEFAULTS, Production.DEFAULTS, Population.DEFAULTS, Storage.DEFAULTS, Founding.DEFAULTS);
 
 	public static final Codec<SimConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.STRING.listOf().optionalFieldOf("dimensions", DEFAULTS.dimensions).forGetter(SimConfig::dimensions),
+		// on Expanse worlds, correct the terrain model with the generator's real ground on an 8-block grid
+		Codec.BOOL.optionalFieldOf("probe_correction", DEFAULTS.probeCorrection).forGetter(SimConfig::probeCorrection),
 		Embody.CODEC.optionalFieldOf("embody", Embody.DEFAULTS).forGetter(SimConfig::embody),
 		Clock.CODEC.optionalFieldOf("clock", Clock.DEFAULTS).forGetter(SimConfig::clock),
 		Applier.CODEC.optionalFieldOf("applier", Applier.DEFAULTS).forGetter(SimConfig::applier),
@@ -159,7 +161,7 @@ public record SimConfig(List<String> dimensions, Embody embody, Clock clock, App
 	 */
 	public record Production(Map<String, Map<String, Double>> perDay, double foodAdult, double foodChild, double foodElder,
 		Map<String, Integer> coinPerDay, Map<String, Double> prices, double exportShare, double importMarkup, int importPerDay) {
-		public static final Production DEFAULTS = new Production(defaultTable(), 2.0, 1.0, 1.5, defaultCoin(), defaultPrices(), 0.25, 1.5, 96);
+		public static final Production DEFAULTS = new Production(defaultTable(), 2.0, 1.0, 1.5, defaultCoin(), defaultPrices(), 0.1, 1.5, 96);
 		public static final Codec<Production> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(Codec.STRING, Codec.DOUBLE)).optionalFieldOf("per_day", DEFAULTS.perDay)
 				.forGetter(Production::perDay),
@@ -222,7 +224,7 @@ public record SimConfig(List<String> dimensions, Embody embody, Clock clock, App
 
 		private static Map<String, Map<String, Double>> defaultTable() {
 			Map<String, Map<String, Double>> t = new LinkedHashMap<>();
-			row(t, JobType.NONE, "food", 2.5, "wood", 40, "stone", 30);
+			row(t, JobType.NONE, "food", 2.5, "wood", 12, "stone", 10, "clay", 4, "fuel", 1);
 			row(t, JobType.BUILDER, "wood", 6, "stone", 6);
 			row(t, JobType.FARMER, "food", 20);
 			row(t, JobType.FORESTER, "wood", 200, "fuel", 12);

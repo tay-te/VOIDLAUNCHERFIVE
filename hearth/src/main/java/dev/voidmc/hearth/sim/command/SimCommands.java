@@ -174,7 +174,13 @@ public final class SimCommands {
 				}
 			}
 		}
-		SimSettlement s = w.found(net.minecraft.core.BlockPos.containing(c.getSource().getPosition()), culture, null);
+		net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(c.getSource().getPosition());
+		String why = w.whyNotFound(at, 200);
+		if (why != null) {
+			c.getSource().sendFailure(Component.literal("Cannot found a settlement here: " + why));
+			return 0;
+		}
+		SimSettlement s = w.found(at, culture, null);
 		say(c.getSource(), "Founded " + s.name() + " (#" + s.id() + ", " + s.culture().getSerializedName() + ") with " + s.population() + " settlers and "
 			+ s.plots().size() + " plots planned");
 		return 1;
@@ -219,7 +225,7 @@ public final class SimCommands {
 		source.sendSuccess(() -> Component.literal("Charting the settlements of " + radius * 2 + " blocks square…"), false);
 		Thread t = new Thread(() -> {
 			try {
-				AtlasMap.Result r = AtlasMap.render(w.atlas(), w.probe(), level.getServer().getWorldPath(LevelResource.ROOT).resolve("hearth_atlas"), x, z,
+				AtlasMap.Result r = AtlasMap.render(w.atlas(), w.probe().rough(), level.getServer().getWorldPath(LevelResource.ROOT).resolve("hearth_atlas"), x, z,
 					radius, step, live);
 				level.getServer().execute(() -> source.sendSuccess(() -> Component.literal(
 					"Atlas: " + r.sites() + " settlements in " + r.regions() + " regions, " + r.millis() + " ms → " + r.image()), false));

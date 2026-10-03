@@ -44,7 +44,8 @@ import org.slf4j.LoggerFactory;
  *   -Dhearth.dev.generate=true  generate their chunks to full, let the applier finish, and check what was written
  *   -Dhearth.dev.probe=N        compare the probe with the generator's own heights at N columns, and time both probes
  *   -Dhearth.dev.atlas=RADIUS   write an atlas PNG round spawn
- *   -Dhearth.dev.report=true    log per-subsystem timings and settlement figures
+ *   -Dhearth.dev.report=true    log per-subsystem timings and settlement figures, and sample the LOD footprints
+ *   -Dhearth.dev.commands=a;b   run these commands as the server (at the first settlement found; + for spaces) and log the replies
  *   -Dhearth.dev.stop=true      then shut the server down
  * </pre>
  */
@@ -106,11 +107,21 @@ public final class DevHarness {
 			if (atlas != null) {
 				int radius = Integer.parseInt(atlas);
 				List<AtlasMap.LiveTown> live = server.submit(() -> w.settlements().stream().map(AtlasMap.LiveTown::of).toList()).join();
-				AtlasMap.Result r = AtlasMap.render(w.atlas(), w.probe(), server.getWorldPath(LevelResource.ROOT).resolve("hearth_atlas"), 0, 0, radius,
+				AtlasMap.Result r = AtlasMap.render(w.atlas(), w.probe().rough(), server.getWorldPath(LevelResource.ROOT).resolve("hearth_atlas"), 0, 0, radius,
 					Math.max(2, radius / 384), live);
 				LOG.info("[hearth-dev] atlas: {} sites in {} regions, {} ms -> {}", r.sites(), r.regions(), r.millis(), r.image());
 			}
+			String commands = System.getProperty("hearth.dev.commands");
+			if (commands != null) {
+				BlockPos at = towns.isEmpty() ? BlockPos.ZERO : towns.getFirst().center();
+				for (String command : commands.split(";")) {
+					runCommand(server, level, at, command.trim().replace('+', ' '));
+				}
+			}
 			if (Boolean.getBoolean("hearth.dev.report")) {
+				for (SimSettlement t : towns) {
+					LOG.info("[hearth-dev] {}", server.submit(() -> footprints(w, t)).join());
+				}
 				SimServer s = SimServer.current();
 				if (s != null) {
 					for (String line : server.submit(() -> Report.lines(s, w)).join()) {
@@ -125,6 +136,9 @@ public final class DevHarness {
 			LOG.error("[hearth-dev] harness failed", t);
 		}
 		if (Boolean.getBoolean("hearth.dev.stop")) {
+			// let unloads of the chunks this run forced settle first: a burst of them at shutdown overflows the stack in
+			// vanilla's mailbox draining
+			sleep(5000);
 			server.execute(() -> server.halt(false));
 		}
 	}
@@ -149,6 +163,10 @@ public final class DevHarness {
 			xs[i] = random.nextInt(8192) - 4096;
 			zs[i] = random.nextInt(8192) - 4096;
 		}
+		int[] rough = new int[n];
+		for (int i = 0; i < n; i++) {
+			rough[i] = w.probe().rough().groundY(xs[i], zs[i]);
+		}
 		long t0 = System.nanoTime();
 		int[] probe = new int[n];
 		for (int i = 0; i < n; i++) {
@@ -162,13 +180,16 @@ public final class DevHarness {
 			genericY[i] = generic.groundY(xs[i], zs[i]);
 		}
 		long genericNanos = System.nanoTime() - t0;
+		int roughNear = 0;
 		for (int i = 0; i < n; i++) {
 			int base = gen.getBaseHeight(xs[i], zs[i], Heightmap.Types.OCEAN_FLOOR_WG, level, rs);
 			int d = Math.abs(base - probe[i]);
 			diff += d;
 			exact += d == 0 ? 1 : 0;
 			near += d <= 1 ? 1 : 0;
+			roughNear += Math.abs(base - rough[i]) <= 1 ? 1 : 0;
 		}
+		LOG.info("[hearth-dev] probe without its correction: {} of {} within 1", roughNear, n);
 		LOG.info("[hearth-dev] probe {}: {} columns, {} exact, {} within 1 of the generator, mean |diff| {}; {} µs/column (generic probe {} µs/column)",
 			w.probe().describe(), n, exact, near, String.format(Locale.ROOT, "%.2f", diff / (double) n),
 			String.format(Locale.ROOT, "%.1f", probeNanos / 1e3 / n), String.format(Locale.ROOT, "%.1f", genericNanos / 1e3 / n));
@@ -337,6 +358,67 @@ public final class DevHarness {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
+	}
+
+	/** Runs a command as the server, standing at {@code at}, and logs its feedback. */
+	private static void runCommand(MinecraftServer server, ServerLevel level, BlockPos at, String command) {
+		List<String> said = new java.util.concurrent.CopyOnWriteArrayList<>();
+		net.minecraft.commands.CommandSource sink = new net.minecraft.commands.CommandSource() {
+			@Override
+			public void sendSystemMessage(net.minecraft.network.chat.Component message) {
+				said.add(message.getString());
+			}
+
+			@Override
+			public boolean acceptsSuccess() {
+				return true;
+			}
+
+			@Override
+			public boolean acceptsFailure() {
+				return true;
+			}
+
+			@Override
+			public boolean shouldInformAdmins() {
+				return false;
+			}
+		};
+		server.submit(() -> {
+			var source = server.createCommandSourceStack().withSource(sink).withLevel(level)
+				.withPosition(net.minecraft.world.phys.Vec3.atBottomCenterOf(at));
+			server.getCommands().performPrefixedCommand(source, command);
+		}).join();
+		sleep(200);
+		LOG.info("[hearth-dev] /{} ->", command);
+		for (String line : said) {
+			LOG.info("[hearth-dev]   {}", line);
+		}
+	}
+
+	/** Samples the LOD footprints at the middle of each finished house of a settlement. */
+	private static String footprints(SimWorld w, SimSettlement s) {
+		int[] out = new int[3];
+		int hit = 0;
+		int tried = 0;
+		String example = "";
+		for (SimPlot p : s.plots()) {
+			if (!p.isStanding() || dev.voidmc.hearth.sim.atlas.PlotColumns.isLine(p.spec())) {
+				continue;
+			}
+			tried++;
+			int x = p.spec().origin().getX() + p.spec().sizeX() / 2;
+			int z = p.spec().origin().getZ() + p.spec().sizeZ() / 2;
+			if (w.footprints().sample(x, z, out)) {
+				hit++;
+				if (example.isEmpty()) {
+					example = String.format(Locale.ROOT, " (e.g. %s: wall #%06X, roof #%06X, eave %d, ridge %d, region version %d)",
+						p.spec().archetype().getPath(), out[0] & 0xFFFFFF, out[1] & 0xFFFFFF, out[2] >> 16, (short) out[2],
+						w.footprints().version(Atlas.region(x), Atlas.region(z)));
+				}
+			}
+		}
+		return "LOD footprints of " + s.name() + ": " + hit + " of " + tried + " finished buildings found" + example;
 	}
 
 	/** Region of a block, for log lines. */
