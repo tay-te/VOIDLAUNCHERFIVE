@@ -9,6 +9,12 @@ import dev.voidmc.hearth.plan.model.RoadEdge;
 import dev.voidmc.hearth.plan.testing.MiniSim;
 import org.junit.jupiter.api.Test;
 
+/**
+ * A tracing tool, not a test: with {@code HEARTH_PLAN_DEBUG=1} (and optionally {@code HEARTH_PLAN_LAYOUT},
+ * {@code _CULTURE}, {@code _TERRAIN}, {@code _SEED}, {@code _DAYS}) it grows a settlement with every need traced, then
+ * prints the growth log, the road graph and the occupancy grid round the heart as text.
+ * {@code HEARTH_PLAN_DEBUG=1 ./gradlew cleanTest test --tests '*PlanDebugTest*'}
+ */
 class PlanDebugTest {
 	@Test
 	void trace() {
