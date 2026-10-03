@@ -28,18 +28,25 @@ import net.minecraft.world.entity.player.Inventory;
 public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 	private static final Identifier BACKGROUND = Hearth.id("textures/gui/economy/market.png");
 	static final int W = 276;
-	static final int H = 264;
+	static final int H = 232;
 	static final int PAGE_W = 130;
 	static final int LEFT_X = 7;
 	static final int RIGHT_X = W - 7 - PAGE_W;
-	static final int ROWS_Y = 32;
+	static final int ROWS_Y = 29;
 	static final int ROW_H = 18;
 	static final int ROWS = 5;
-	static final int FOOTER_Y = 135;
-	static final int NOTE_Y = 152;
+	static final int NOTE_Y = 127;
+	/** The wooden margins left and right of the inventory, where purse and town chest are shown. */
+	static final int PURSE_X = 6;
+	static final int CHEST_X = W - 46;
+	static final int MARGIN_Y = 153;
+	/** How long the result of a trade replaces the merchant's word, in milliseconds. */
+	static final long STATUS_MILLIS = 6000;
 
 	private int scrollSells;
 	private int scrollBuys;
+	private String lastStatus = "";
+	private long statusSince;
 
 	public MarketScreen(MarketMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, title, W, H);
@@ -54,38 +61,34 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor g, int xm, int ym) {
 		MarketView v = this.menu.view();
-		g.text(this.font, this.title, 8, 5, EconomyGui.ON_WOOD, true);
+		g.text(this.font, this.title, 8, 4, EconomyGui.ON_WOOD, true);
 		Component standing = Component.translatable("hearth.economy.screen.standing", EconomyGui.standing(v.reputation()));
-		g.text(this.font, standing, W - 8 - this.font.width(standing), 5, EconomyGui.ON_WOOD, true);
+		g.text(this.font, standing, W - 8 - this.font.width(standing), 4, EconomyGui.ON_WOOD, true);
 
 		header(g, Component.translatable("hearth.economy.screen.for_sale"), LEFT_X);
 		header(g, Component.translatable("hearth.economy.screen.wanted"), RIGHT_X);
 
-		g.text(this.font, Component.translatable("hearth.economy.screen.purse"), LEFT_X + 4, FOOTER_Y, EconomyGui.INK, false);
-		EconomyGui.coinsRight(g, this.font, LEFT_X + PAGE_W - 6, FOOTER_Y, v.balance(), EconomyGui.INK);
-		g.text(this.font, Component.translatable("hearth.economy.screen.treasury"), RIGHT_X + 4, FOOTER_Y, EconomyGui.INK, false);
-		EconomyGui.coinsRight(g, this.font, RIGHT_X + PAGE_W - 6, FOOTER_Y, v.treasury(), EconomyGui.INK);
+		EconomyGui.purseColumn(g, this.font, PURSE_X, MARGIN_Y, Component.translatable("hearth.economy.screen.purse"), v.balance());
+		EconomyGui.purseColumn(g, this.font, CHEST_X, MARGIN_Y, Component.translatable("hearth.economy.screen.chest"), v.treasury());
 
 		// the merchant's word, and what just happened
-		int noteW = W - 24;
-		List<FormattedCharSequence> lines = new ArrayList<>(this.font.split(v.note().copy().withStyle(ChatFormatting.ITALIC), noteW));
-		boolean status = !v.status().getString().isEmpty();
-		int noteLines = status ? 1 : 2;
-		for (int i = 0; i < Math.min(noteLines, lines.size()); i++) {
-			g.text(this.font, lines.get(i), 12, NOTE_Y + i * 10, EconomyGui.INK, false);
+		String status = v.status().getString();
+		if (!status.equals(this.lastStatus)) {
+			this.lastStatus = status;
+			this.statusSince = System.currentTimeMillis();
 		}
-		if (status) {
-			List<FormattedCharSequence> s = this.font.split(v.status(), noteW);
-			if (!s.isEmpty()) {
-				g.text(this.font, s.getFirst(), 12, NOTE_Y + 10, EconomyGui.INK, false);
-			}
+		boolean showStatus = !status.isEmpty() && System.currentTimeMillis() - this.statusSince < STATUS_MILLIS;
+		Component text = showStatus ? v.status() : v.note().copy().withStyle(ChatFormatting.ITALIC);
+		List<FormattedCharSequence> lines = this.font.split(text, W - 24);
+		for (int i = 0; i < Math.min(2, lines.size()); i++) {
+			g.text(this.font, lines.get(i), 12, NOTE_Y + i * 10, EconomyGui.INK, false);
 		}
 	}
 
 	private void header(GuiGraphicsExtractor g, Component text, int pageX) {
 		int w = this.font.width(text);
-		g.text(this.font, text, pageX + (PAGE_W - w) / 2, 21, EconomyGui.INK, false);
-		g.fill(pageX + 8, 30, pageX + PAGE_W - 8, 31, 0x50604020);
+		g.text(this.font, text, pageX + (PAGE_W - w) / 2, 18, EconomyGui.INK, false);
+		g.fill(pageX + 8, 27, pageX + PAGE_W - 8, 28, 0x50604020);
 	}
 
 	@Override

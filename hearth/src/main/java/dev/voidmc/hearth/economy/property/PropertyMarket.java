@@ -131,7 +131,7 @@ public final class PropertyMarket {
 		if (!player.getInventory().add(deed)) {
 			player.drop(deed, false, Prediction.SERVER_ONLY);
 		}
-		return Component.translatable("hearth.economy.property.bought", PropertyNames.building(s.archetype().getPath()), settlement.name(),
+		return Component.translatable("hearth.economy.property.bought", PropertyNames.lower(s.archetype().getPath()), settlement.name(),
 			CoinFormat.format(price)).withStyle(ChatFormatting.DARK_GREEN);
 	}
 }

@@ -341,10 +341,10 @@ def slot(dst, x, y):
 
 
 # Layout shared with MarketScreen/BankScreen (keep in step with the Java constants).
-GUI_W, GUI_H = 276, 264
-PAGE_TOP, PAGE_BOTTOM, PAGE_W = 18, 146, 130
-NOTE_TOP, NOTE_BOTTOM = 149, 172
-INV_X, INV_Y = 58, 182
+GUI_W, GUI_H = 276, 232
+PAGE_TOP, PAGE_BOTTOM, PAGE_W = 15, 121, 130
+NOTE_TOP, NOTE_BOTTOM = 124, 145
+INV_X, INV_Y = 58, 152
 
 
 def gui_panel(seed, w=GUI_W, h=GUI_H):
@@ -361,7 +361,7 @@ def gui_panel(seed, w=GUI_W, h=GUI_H):
     paste(img, parchment_rgb(rng, NOTE_BOTTOM - NOTE_TOP, w - 14), 7, NOTE_TOP)
     frame(img, 6, NOTE_TOP - 1, w - 6, NOTE_BOTTOM + 1, dark, lo, hi)
     # inventory well
-    x0, y0 = INV_X - 6, INV_Y - 5
+    x0, y0 = INV_X - 6, INV_Y - 3
     paste(img, parchment_rgb(rng, h - 5 - y0, 162 + 12), x0, y0)
     frame(img, x0 - 1, y0 - 1, x0 + 162 + 13, h - 4, dark, lo, hi)
     for r in range(3):

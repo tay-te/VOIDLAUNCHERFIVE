@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
 /** The bank counter's menu: the player's inventory as slots, everything else server-described ({@link BankView}). */
 public class BankMenu extends AbstractContainerMenu implements EconomyMenu {
 	public static final int INVENTORY_X = 58;
-	public static final int INVENTORY_Y = 182;
+	public static final int INVENTORY_Y = 152;
 	private static final double MAX_DISTANCE_SQR = 10 * 10;
 
 	private final @Nullable Bank bank;

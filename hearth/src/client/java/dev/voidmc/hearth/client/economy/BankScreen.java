@@ -5,6 +5,7 @@ import dev.voidmc.hearth.economy.bank.BankMenu;
 import dev.voidmc.hearth.economy.bank.BankView;
 import dev.voidmc.hearth.economy.coin.CoinFormat;
 import dev.voidmc.hearth.economy.net.EconomyActionPayload;
+import dev.voidmc.hearth.economy.property.PropertyNames;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,8 +36,8 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 	private static final int LEFT_X = MarketScreen.LEFT_X;
 	private static final int RIGHT_X = MarketScreen.RIGHT_X;
 	private static final int ROW_H = 18;
-	private static final int ROWS = 6;
-	private static final int ROWS_Y = 32;
+	private static final int ROWS = 5;
+	private static final int ROWS_Y = MarketScreen.ROWS_Y;
 	private static final int BTN_H = 14;
 
 	/** Deposit/withdraw amounts in bits; {@link EconomyActionPayload#ALL} for everything. */
@@ -72,20 +73,25 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 	@Override
 	protected void extractLabels(GuiGraphicsExtractor g, int xm, int ym) {
 		BankView v = this.menu.view();
-		g.text(this.font, this.title, 8, 5, EconomyGui.ON_WOOD, true);
+		g.text(this.font, this.title, 8, 4, EconomyGui.ON_WOOD, true);
+		EconomyGui.purseColumn(g, this.font, MarketScreen.PURSE_X, MarketScreen.MARGIN_Y, Component.translatable("hearth.economy.screen.purse"), v.carried());
+		EconomyGui.purseColumn(g, this.font, MarketScreen.CHEST_X, MarketScreen.MARGIN_Y, Component.translatable("hearth.economy.screen.chest"), v.treasury());
 		// tabs on the frame
 		if (v.hasBank()) {
 			int x = W - 8;
 			Component prop = Component.translatable("hearth.economy.screen.tab_property");
 			Component bank = Component.translatable("hearth.economy.screen.tab_bank");
 			x -= this.font.width(prop);
-			g.text(this.font, prop, x, 5, this.tab == BankView.TAB_PROPERTY ? 0xFFFFE9A0 : 0xFFB8A27A, true);
+			g.text(this.font, prop, x, 4, this.tab == BankView.TAB_PROPERTY ? 0xFFFFE9A0 : 0xFFB8A27A, true);
 			x -= 10 + this.font.width(bank);
-			g.text(this.font, bank, x, 5, this.tab == BankView.TAB_BANK ? 0xFFFFE9A0 : 0xFFB8A27A, true);
+			g.text(this.font, bank, x, 4, this.tab == BankView.TAB_BANK ? 0xFFFFE9A0 : 0xFFB8A27A, true);
 		}
-		List<FormattedCharSequence> s = this.font.split(v.status(), W - 24);
-		if (!s.isEmpty()) {
-			g.text(this.font, s.getFirst(), 12, MarketScreen.NOTE_Y + 5, EconomyGui.INK, false);
+		Component note = !v.status().getString().isEmpty() ? v.status()
+			: Component.translatable(this.tab == BankView.TAB_BANK && v.hasBank() ? "hearth.economy.screen.deposit_hint" : "hearth.economy.screen.property_hint")
+				.withStyle(ChatFormatting.ITALIC);
+		List<FormattedCharSequence> lines = this.font.split(note, W - 24);
+		for (int i = 0; i < Math.min(2, lines.size()); i++) {
+			g.text(this.font, lines.get(i), 12, MarketScreen.NOTE_Y + i * 10, EconomyGui.INK, false);
 		}
 	}
 
@@ -113,13 +119,13 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 
 	private void title(GuiGraphicsExtractor g, Component text, int pageX, int y0) {
 		int w = this.font.width(text);
-		g.text(this.font, text, pageX + (PAGE_W - w) / 2, y0 + 21, EconomyGui.INK, false);
-		g.fill(pageX + 8, y0 + 30, pageX + PAGE_W - 8, y0 + 31, 0x50604020);
+		g.text(this.font, text, pageX + (PAGE_W - w) / 2, y0 + 18, EconomyGui.INK, false);
+		g.fill(pageX + 8, y0 + 27, pageX + PAGE_W - 8, y0 + 28, 0x50604020);
 	}
 
 	private void account(GuiGraphicsExtractor g, BankView v, int x, int y0) {
 		title(g, Component.translatable("hearth.economy.screen.account"), x, y0);
-		int y = y0 + 36;
+		int y = y0 + 33;
 		g.text(this.font, Component.translatable("hearth.economy.screen.on_deposit"), x + 6, y, EconomyGui.INK, false);
 		EconomyGui.coinsRight(g, this.font, x + PAGE_W - 6, y, v.deposit(), EconomyGui.INK_GREEN);
 		y += 12;
@@ -129,14 +135,10 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 		g.text(this.font, Component.translatable("hearth.economy.screen.deposit"), x + 6, y, EconomyGui.INK, false);
 		y += 10;
 		amountButtons(x, y, EconomyActionPayload.DEPOSIT, v.carried());
-		y += 22;
+		y += 20;
 		g.text(this.font, Component.translatable("hearth.economy.screen.withdraw"), x + 6, y, EconomyGui.INK, false);
 		y += 10;
 		amountButtons(x, y, EconomyActionPayload.WITHDRAW, v.deposit());
-		List<FormattedCharSequence> hint = this.font.split(Component.translatable("hearth.economy.screen.deposit_hint").withStyle(ChatFormatting.ITALIC), PAGE_W - 12);
-		for (int i = 0; i < Math.min(2, hint.size()); i++) {
-			g.text(this.font, hint.get(i), x + 6, y0 + 124 + i * 10, EconomyGui.INK_FADED, false);
-		}
 	}
 
 	private void amountButtons(int x, int y, int action, long available) {
@@ -157,10 +159,10 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 
 	private void changer(GuiGraphicsExtractor g, BankView v, int x, int y0) {
 		title(g, Component.translatable("hearth.economy.screen.changer"), x, y0);
-		int y = y0 + 36;
+		int y = y0 + 34;
 		g.item(new ItemStack(Items.EMERALD), x + 6, y - 4);
 		g.text(this.font, Component.translatable("hearth.economy.screen.you_carry", v.emeralds()), x + 26, y, EconomyGui.INK, false);
-		y += 18;
+		y += 16;
 		g.text(this.font, Component.translatable("hearth.economy.screen.changer_buys"), x + 6, y, EconomyGui.INK, false);
 		EconomyGui.coinsRight(g, this.font, x + PAGE_W - 6, y, v.emeraldBuy(), EconomyGui.INK_GREEN);
 		y += 11;
@@ -171,7 +173,7 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 			EconomyActionPayload.SELL_EMERALDS, 0, 8));
 		this.buttons.add(new Button(x + 10 + bw * 2, y, bw, Component.translatable("hearth.economy.screen.all"), v.emeralds() >= 1, null,
 			EconomyActionPayload.SELL_EMERALDS, 0, EconomyActionPayload.ALL));
-		y += 22;
+		y += 19;
 		g.text(this.font, Component.translatable("hearth.economy.screen.changer_sells"), x + 6, y, EconomyGui.INK, false);
 		EconomyGui.coinsRight(g, this.font, x + PAGE_W - 6, y, v.emeraldSell(), EconomyGui.INK);
 		y += 11;
@@ -179,10 +181,8 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 			v.emeraldReserve() >= 1 && v.carried() >= v.emeraldSell(), null, EconomyActionPayload.BUY_EMERALDS, 0, 1));
 		this.buttons.add(new Button(x + 8 + bw, y, bw, Component.translatable("hearth.economy.screen.buy_n", 8),
 			v.emeraldReserve() >= 8 && v.carried() >= 8L * v.emeraldSell(), null, EconomyActionPayload.BUY_EMERALDS, 0, 8));
-		y += 18;
+		y += 16;
 		g.text(this.font, Component.translatable("hearth.economy.screen.changer_left", v.emeraldReserve()), x + 6, y, EconomyGui.INK_FADED, false);
-		g.text(this.font, Component.translatable("hearth.economy.screen.treasury"), x + 4, y0 + MarketScreen.FOOTER_Y, EconomyGui.INK, false);
-		EconomyGui.coinsRight(g, this.font, x + PAGE_W - 6, y0 + MarketScreen.FOOTER_Y, v.treasury(), EconomyGui.INK);
 	}
 
 	private void property(GuiGraphicsExtractor g, BankView v, int x0, int y0, int mx, int my) {
@@ -212,14 +212,13 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 			g.item(new ItemStack(p.built() ? Items.OAK_DOOR : Items.GRASS_BLOCK), lx + 3, y + 1);
 			int priceW = EconomyGui.coinsWidth(this.font, p.price());
 			boolean yours = p.has(BankView.PlotOffer.YOURS);
-			String name = EconomyGui.trim(this.font, name(p).getString(), PAGE_W - 34 - priceW);
+			// the icon says house or plot, so the list gives just the building
+			String name = EconomyGui.trim(this.font, building(p).getString(), PAGE_W - 34 - priceW);
 			g.text(this.font, name, lx + 22, y + 5, yours ? EconomyGui.INK_GREEN : EconomyGui.INK, false);
 			if (!yours) {
 				EconomyGui.coinsRight(g, this.font, lx + PAGE_W - 8, y + 5, p.price(), p.has(BankView.PlotOffer.LOW_STANDING) ? EconomyGui.INK_FADED : EconomyGui.INK);
 			}
 		}
-		g.text(this.font, Component.translatable("hearth.economy.screen.purse"), lx + 4, y0 + MarketScreen.FOOTER_Y, EconomyGui.INK, false);
-		EconomyGui.coinsRight(g, this.font, lx + PAGE_W - 6, y0 + MarketScreen.FOOTER_Y, v.carried(), EconomyGui.INK);
 
 		title(g, Component.translatable("hearth.economy.screen.deed"), rx, y0);
 		if (this.selected < 0) {
@@ -230,7 +229,7 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 			return;
 		}
 		BankView.PlotOffer p = plots.get(this.selected);
-		int y = y0 + 36;
+		int y = y0 + 32;
 		List<FormattedCharSequence> nameLines = this.font.split(name(p).copy().withStyle(ChatFormatting.BOLD), PAGE_W - 12);
 		for (FormattedCharSequence line : nameLines) {
 			g.text(this.font, line, rx + 6, y, EconomyGui.INK, false);
@@ -244,14 +243,14 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 		}
 		g.text(this.font, Component.translatable("hearth.economy.screen.needs_standing", p.minReputation(), v.reputation()), rx + 6, y,
 			p.has(BankView.PlotOffer.LOW_STANDING) ? EconomyGui.INK_RED : EconomyGui.INK, false);
-		y += 14;
+		y += 13;
 		if (p.has(BankView.PlotOffer.YOURS)) {
 			g.text(this.font, Component.translatable("hearth.economy.screen.yours"), rx + 6, y, EconomyGui.INK_GREEN, false);
 			return;
 		}
 		g.text(this.font, Component.translatable("hearth.economy.screen.price"), rx + 6, y, EconomyGui.INK, false);
 		EconomyGui.coinsRight(g, this.font, rx + PAGE_W - 6, y, p.price(), EconomyGui.INK);
-		y += 14;
+		y += 12;
 		boolean can = !p.has(BankView.PlotOffer.LOW_STANDING) && !p.has(BankView.PlotOffer.CANNOT_AFFORD);
 		Component why = p.has(BankView.PlotOffer.LOW_STANDING) ? Component.translatable("hearth.economy.property.standing", p.minReputation())
 			: p.has(BankView.PlotOffer.CANNOT_AFFORD) ? Component.translatable("hearth.economy.screen.cannot_afford") : null;
@@ -259,12 +258,12 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 			EconomyActionPayload.BUY_PLOT, p.plot(), 0));
 	}
 
+	private static Component building(BankView.PlotOffer p) {
+		return PropertyNames.building(p.building());
+	}
+
 	private static Component name(BankView.PlotOffer p) {
-		String path = p.building();
-		String pretty = path.substring(path.lastIndexOf('/') + 1).replace('_', ' ');
-		pretty = pretty.isEmpty() ? path : Character.toUpperCase(pretty.charAt(0)) + pretty.substring(1);
-		Component building = Component.translatableWithFallback("hearth.archetype." + path.replace('/', '.'), pretty);
-		return p.built() ? building : Component.translatable("hearth.economy.screen.plot_for", building);
+		return p.built() ? building(p) : Component.translatable("hearth.economy.screen.plot_for", PropertyNames.lower(p.building()));
 	}
 
 	@Override
@@ -273,7 +272,7 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 			double mx = event.x();
 			double my = event.y();
 			BankView v = this.menu.view();
-			if (v.hasBank() && my >= this.topPos + 3 && my < this.topPos + 15) {
+			if (v.hasBank() && my >= this.topPos + 2 && my < this.topPos + 14) {
 				int x = this.leftPos + W - 8;
 				int pw = this.font.width(Component.translatable("hearth.economy.screen.tab_property"));
 				int bw = this.font.width(Component.translatable("hearth.economy.screen.tab_bank"));

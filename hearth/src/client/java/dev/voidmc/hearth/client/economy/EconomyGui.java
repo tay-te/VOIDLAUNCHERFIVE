@@ -60,6 +60,25 @@ final class EconomyGui {
 		}
 	}
 
+	/**
+	 * A label and an amount down a narrow column (one line per coin), for the wooden margins beside the inventory:
+	 * pale text on wood, as the title is.
+	 */
+	static void purseColumn(GuiGraphicsExtractor g, Font font, int x, int y, Component label, long bits) {
+		g.text(font, label, x, y, ON_WOOD, true);
+		long[] c = Change.fewest(Math.max(0, bits));
+		int line = 0;
+		for (Coin coin : Coin.DESCENDING) {
+			long n = c[coin.ordinal()];
+			if (n > 0 || bits <= 0 && coin == Coin.BIT) {
+				int ly = y + 12 + line * 11;
+				g.blit(RenderPipelines.GUI_TEXTURED, SPRITES, x, ly - 1, 16 + coin.ordinal() * COIN_ICON, 0, COIN_ICON, COIN_ICON, 64, 64);
+				g.text(font, Long.toString(n), x + COIN_ICON + 2, ly, ON_WOOD, true);
+				line++;
+			}
+		}
+	}
+
 	/** Right-aligned at {@code right}. */
 	static void coinsRight(GuiGraphicsExtractor g, Font font, int right, int y, long bits, int color) {
 		coins(g, font, right - coinsWidth(font, bits), y, bits, color);

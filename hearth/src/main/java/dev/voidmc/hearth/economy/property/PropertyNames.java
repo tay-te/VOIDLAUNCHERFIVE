@@ -18,6 +18,12 @@ public final class PropertyNames {
 		return Component.translatableWithFallback("hearth.archetype." + path.replace('/', '.'), pretty(path));
 	}
 
+	/** The building's name inside a sentence: "for the chapel" ({@code hearth.archetype.<...>.lower}, or lower case). */
+	public static MutableComponent lower(String archetypePath) {
+		String path = archetypePath.contains(":") ? archetypePath.substring(archetypePath.indexOf(':') + 1) : archetypePath;
+		return Component.translatableWithFallback("hearth.archetype." + path.replace('/', '.') + ".lower", pretty(path).toLowerCase(Locale.ROOT));
+	}
+
 	/** {@code commerce/market_hall} → "Market hall". */
 	public static String pretty(String path) {
 		String name = path.substring(path.lastIndexOf('/') + 1).replace('_', ' ').trim();

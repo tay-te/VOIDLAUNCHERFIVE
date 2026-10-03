@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class MarketMenu extends AbstractContainerMenu implements EconomyMenu {
 	public static final int INVENTORY_X = 58;
-	public static final int INVENTORY_Y = 182;
+	public static final int INVENTORY_Y = 152;
 	/** Walk further than this from where the market was opened and it closes. */
 	private static final double MAX_DISTANCE_SQR = 10 * 10;
 

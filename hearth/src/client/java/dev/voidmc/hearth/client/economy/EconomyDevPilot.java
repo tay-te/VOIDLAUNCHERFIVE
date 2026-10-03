@@ -23,6 +23,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.network.chat.contents.TranslatableContents;
 
 /**
@@ -54,6 +55,8 @@ public final class EconomyDevPilot {
 
 	private void script() {
 		run(40, c -> {
+			c.getTutorial().setStep(TutorialSteps.NONE);
+			command(c, "gamemode survival");
 			command(c, "time set noon");
 			command(c, "weather clear");
 			String[] slots = {"hotbar.0 with hearth:copper_bit 1", "hotbar.1 with hearth:copper_bit 5", "hotbar.2 with hearth:copper_bit 20",
@@ -74,31 +77,23 @@ public final class EconomyDevPilot {
 		shot("market_karst");
 		run(5, c -> trade(c, 0, true));
 		shot("market_after_buy");
-		run(5, c -> {
-			c.player.closeContainer();
-			command(c, "hearth economy sandbox stall stone 600");
-		});
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox stall stone 600"));
 		run(10, c -> command(c, "hearth economy sandbox"));
 		shot("market_builders");
 		run(5, c -> trade(c, Market.BUY_ID_BASE, true));
 		shot("market_sold_to_builders");
-		run(5, c -> {
-			c.player.closeContainer();
-			command(c, "hearth economy sandbox desert");
-		});
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox desert"));
 		shot("market_desert");
-		run(5, c -> {
-			c.player.closeContainer();
-			command(c, "hearth economy sandbox bank");
-		});
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox bank"));
 		shot("bank");
 		run(5, c -> bank(c, EconomyActionPayload.DEPOSIT, 0, 100));
 		run(5, c -> bank(c, EconomyActionPayload.SELL_EMERALDS, 0, 4));
 		shot("bank_after_deposit_and_changer");
-		run(5, c -> {
-			c.player.closeContainer();
-			command(c, "hearth economy sandbox property");
-		});
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox property"));
 		run(SETTLE, c -> {
 			if (c.gui.screen() instanceof BankScreen screen) {
 				screen.devSelect(0);
@@ -112,13 +107,23 @@ public final class EconomyDevPilot {
 			}
 		});
 		shot("property_bought");
+		run(5, c -> c.player.closeContainer());
 		run(5, c -> {
-			c.player.closeContainer();
 			command(c, "hearth money balance");
 			command(c, "hearth market \"Sandbox Desert\" prices");
 		});
 		run(10, c -> c.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
 		shot("chat_prices");
+		run(5, c -> c.gui.setScreen(null));
+		run(5, c -> {
+			command(c, "clear @s");
+			for (String table : new String[] {"minecraft:chests/buried_treasure", "minecraft:chests/ancient_city", "minecraft:chests/shipwreck_treasure",
+				"minecraft:chests/simple_dungeon", "expanse:chests/micro/lost_chest", "expanse:chests/caravanserai_hidden"}) {
+				command(c, "loot give @s loot " + table);
+			}
+		});
+		run(SETTLE, c -> c.gui.setScreen(new InventoryScreen(c.player)));
+		shot("loot");
 		run(10, Minecraft::stop);
 	}
 
@@ -127,7 +132,8 @@ public final class EconomyDevPilot {
 	}
 
 	private void shot(String name) {
-		run(SETTLE, c -> Screenshot.takeScreenshot(c.gameRenderer.mainRenderTarget(), image -> {
+		run(SETTLE - 2, c -> c.gui.toastManager().clear());
+		run(2, c -> Screenshot.takeScreenshot(c.gameRenderer.mainRenderTarget(), image -> {
 			try {
 				Path dir = c.gameDirectory.toPath().resolve("screenshots").resolve("economy");
 				Files.createDirectories(dir);

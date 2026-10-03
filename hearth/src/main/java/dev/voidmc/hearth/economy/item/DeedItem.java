@@ -50,7 +50,7 @@ public class DeedItem extends Item {
 			return InteractionResult.FAIL;
 		}
 		if (player.getUUID().equals(plot.owner())) {
-			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.yours", PropertyNames.building(deed.building()), deed.settlementName()));
+			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.yours", PropertyNames.lower(deed.building()), deed.settlementName()));
 			return InteractionResult.SUCCESS;
 		}
 		if (!deed.contains(player.blockPosition())) {
@@ -60,7 +60,7 @@ public class DeedItem extends Item {
 		settlement.setPlotOwner(plot.id(), player.getUUID());
 		settlement.markDirty();
 		level.playSound(null, player.blockPosition(), SoundEvents.BOOK_PAGE_TURN, SoundSource.PLAYERS, 1.0F, 0.9F);
-		player.sendSystemMessage(Component.translatable("hearth.economy.deed.claimed", PropertyNames.building(deed.building()), deed.settlementName())
+		player.sendSystemMessage(Component.translatable("hearth.economy.deed.claimed", PropertyNames.lower(deed.building()), deed.settlementName())
 			.withStyle(ChatFormatting.GOLD));
 		return InteractionResult.SUCCESS;
 	}
@@ -74,7 +74,7 @@ public class DeedItem extends Item {
 			return;
 		}
 		builder.accept(Component.translatable(deed.built() ? "hearth.economy.deed.house" : "hearth.economy.deed.plot",
-			PropertyNames.building(deed.building()), deed.settlementName()).withStyle(ChatFormatting.GOLD));
+			PropertyNames.lower(deed.building()), deed.settlementName()).withStyle(ChatFormatting.GOLD));
 		builder.accept(Component.translatable("hearth.economy.deed.size", deed.sizeX(), deed.sizeZ(), deed.origin().getX(),
 			deed.origin().getY(), deed.origin().getZ()).withStyle(ChatFormatting.GRAY));
 		builder.accept(Component.translatable("hearth.economy.deed.bearer").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));

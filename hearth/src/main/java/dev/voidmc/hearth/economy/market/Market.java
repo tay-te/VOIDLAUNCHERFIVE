@@ -210,7 +210,7 @@ public final class Market {
 			return false;
 		}
 		if (roomLots <= 0) {
-			this.status = Component.translatable("hearth.economy.market.plenty", Component.translatable(g.translationKey())).withStyle(ChatFormatting.DARK_RED);
+			this.status = Component.translatable("hearth.economy.market.plenty", goodsWord(g)).withStyle(ChatFormatting.DARK_RED);
 			return false;
 		}
 		if (lots <= 0) {
@@ -237,7 +237,7 @@ public final class Market {
 		this.settlement.markDirty();
 		Component sold = Component.translatable("hearth.economy.market.sold", count, one.getHoverName(), CoinFormat.format(total));
 		this.status = (helpedBuild
-			? Component.translatable("hearth.economy.market.sold_builders", sold, PropertyNames.building(ledger.needFor[g.ordinal()]))
+			? Component.translatable("hearth.economy.market.sold_builders", sold, PropertyNames.lower(ledger.needFor[g.ordinal()]))
 			: sold.copy()).withStyle(ChatFormatting.DARK_GREEN);
 		return true;
 	}
@@ -251,8 +251,8 @@ public final class Market {
 		if (needed != null) {
 			String building = ledger.needFor[needed.ordinal()];
 			return building.isEmpty()
-				? Component.translatable("hearth.economy.market.note.builders_any", Component.translatable(needed.translationKey()))
-				: Component.translatable("hearth.economy.market.note.builders", Component.translatable(needed.translationKey()), PropertyNames.building(building));
+				? Component.translatable("hearth.economy.market.note.builders_any", goodsWord(needed))
+				: Component.translatable("hearth.economy.market.note.builders", goodsWord(needed), PropertyNames.lower(building));
 		}
 		if (this.settlement.treasury() < 50) {
 			return Component.translatable("hearth.economy.market.note.poor");
@@ -267,9 +267,14 @@ public final class Market {
 			}
 		}
 		if (plenty != null) {
-			return Component.translatable("hearth.economy.market.note.plenty", Component.translatable(plenty.translationKey()));
+			return Component.translatable("hearth.economy.market.note.plenty", goodsWord(plenty));
 		}
 		return Component.translatable(rep >= 50 ? "hearth.economy.market.note.friend" : rep < 0 ? "hearth.economy.market.note.wary" : "hearth.economy.market.note.welcome");
+	}
+
+	/** The goods' name as a word in a sentence ("timber", "fine goods"). */
+	static Component goodsWord(Goods g) {
+		return Component.translatable("hearth.economy.goods." + g.getSerializedName());
 	}
 
 	private static void give(ServerPlayer player, ItemStack one, int count) {
