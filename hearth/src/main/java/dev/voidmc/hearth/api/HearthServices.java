@@ -41,6 +41,14 @@ public final class HearthServices {
 		blueprints = service;
 	}
 
+	public static boolean hasBlueprints() {
+		return blueprints != null;
+	}
+
+	public static boolean hasPlanner() {
+		return planner != null;
+	}
+
 	public static SettlementPlanner planner() {
 		return Objects.requireNonNull(planner, "the plan module has not registered a SettlementPlanner");
 	}

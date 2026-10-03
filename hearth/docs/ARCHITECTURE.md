@@ -49,6 +49,10 @@ This document is the contract between the modules. **Read it all before you writ
 - Prefer mixin `@Accessor`/`@Invoker` (in your module's mixin config) over access wideners/class tweakers.
 - JUnit 5 tests live in `src/test/java` (plain JVM, no game bootstrap unless you call `SharedConstants.tryDetectVersion();
   Bootstrap.bootStrap();` yourself — that works for vanilla registries).
+- Shared test doubles in `api/testing/` (main source set, so tests, previews and dev commands can all use them):
+  `SyntheticTerrain` (flat, slope, steep, hills, cliff, river, coast, lake — the same ground for everyone's previews)
+  and `SimpleSettlement` (an in-memory `Settlement` with plots, residents, stockpile, treasury, data). Use them instead
+  of writing your own fakes; the real implementations come from the sim module.
 
 ---
 

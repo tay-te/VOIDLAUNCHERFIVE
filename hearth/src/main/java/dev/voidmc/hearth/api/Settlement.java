@@ -71,6 +71,15 @@ public interface Settlement {
 	boolean removeResident(UUID id);
 
 	/**
+	 * The NPC module reports which residents currently exist as entities. While a resident is embodied the sim leaves
+	 * them out of abstract labour and production (their entity does the work: a builder's placements arrive through
+	 * {@link #advanceConstruction}); when they go back to being a record, the sim counts them again.
+	 */
+	void setResidentEmbodied(UUID id, boolean embodied);
+
+	boolean isResidentEmbodied(UUID id);
+
+	/**
 	 * Records that an embodied builder placed the next {@code steps} steps of the plot's current stage in the world.
 	 * The sim advances the plot (and its stage when the stage is done) and does not re-apply those steps on chunk load.
 	 */
