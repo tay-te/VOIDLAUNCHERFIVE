@@ -4,9 +4,11 @@ import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.HearthConfig;
 import dev.voidmc.hearth.api.HearthDataKey;
 import dev.voidmc.hearth.api.HearthServices;
+import dev.voidmc.hearth.plan.model.LayoutType;
 import dev.voidmc.hearth.plan.model.PlanState;
 import dev.voidmc.hearth.plan.terrain.Ground;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The plan module: settlement layouts, roads, plots and growth decisions (ARCHITECTURE.md §5–7, docs/PLANNING.md).
@@ -29,6 +31,32 @@ public final class PlanModule {
 		planner = new HearthPlanner(STATE, config);
 		HearthServices.setPlanner(planner);
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> PlanCommands.register(dispatcher));
+	}
+
+	/**
+	 * Dev worlds: {@code -Dhearth.dev.plan.layout=walled} (any {@link LayoutType} name) forces every settlement founded in
+	 * this run to that layout, on whichever thread founds it (live founding, histories on the atlas workers). Null when
+	 * unset, as in every normal run.
+	 */
+	public static @Nullable LayoutType devLayout() {
+		return DEV_LAYOUT;
+	}
+
+	private static final @Nullable LayoutType DEV_LAYOUT = devLayoutProperty();
+
+	private static @Nullable LayoutType devLayoutProperty() {
+		String name = System.getProperty("hearth.dev.plan.layout");
+		if (name == null || name.isBlank()) {
+			return null;
+		}
+		for (LayoutType t : LayoutType.values()) {
+			if (t.getSerializedName().equals(name.trim())) {
+				Hearth.LOG.warn("hearth: every settlement founded in this run is laid out as '{}' (hearth.dev.plan.layout)", name);
+				return t;
+			}
+		}
+		Hearth.LOG.warn("hearth: unknown layout '{}' in hearth.dev.plan.layout; ignored", name);
+		return null;
 	}
 
 	public static HearthPlanner planner() {

@@ -263,6 +263,7 @@ public final class EmbodimentManager {
 			data.setLastPos(folk.isSleeping() ? brain.places(level).home : folk.blockPosition(), level.getGameTime());
 			data.setHealth(folk.getHealth() < folk.getMaxHealth() ? folk.getHealth() : -1);
 			brain.settlement.setResidentEmbodied(brain.resident.id, false);
+			creditLabour(brain);
 			brain.settlement.markDirty();
 		}
 		if (id != null) {
@@ -275,6 +276,18 @@ public final class EmbodimentManager {
 				folk.stopSleeping();
 			}
 			folk.discard();
+		}
+	}
+
+	/**
+	 * Hands the work a folk did as an entity to the sim, which credits it at its abstract rates (while embodied the sim
+	 * leaves them out of its head count). Builders are not reported: their placements arrived step by step.
+	 */
+	private static void creditLabour(FolkBrain brain) {
+		int ticks = brain.data.drainLabour();
+		// gatherers (no trade) count too, as they do in the sim's head count; children and elders do not work
+		if (ticks > 0 && brain.resident.job != dev.voidmc.hearth.api.JobType.BUILDER && brain.resident.age == AgeStage.ADULT) {
+			brain.settlement.creditLabour(brain.resident.id, brain.resident.job, ticks);
 		}
 	}
 
@@ -326,6 +339,7 @@ public final class EmbodimentManager {
 		Settlement s = brain.settlement;
 		Resident r = brain.resident;
 		s.setResidentEmbodied(r.id, false);
+		creditLabour(brain);
 		s.removeResident(r.id);
 		s.markDirty();
 		if (NpcModule.config().threats().deathMessages()) {
@@ -396,27 +410,67 @@ public final class EmbodimentManager {
 
 	// ---------------------------------------------------------------- markers and housekeeping
 
+	/** Per player: the marker last sent for each folk (entity id), so only changes travel. */
+	private final Map<UUID, it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap> markersSent = new HashMap<>();
+	private static final double MARKER_RANGE = 32.0;
+
+	/**
+	 * Quest markers, per player: each folk is looked at once every {@code marker_refresh} ticks (a slice a tick), its
+	 * marker computed for every player within 32 blocks, and only changes are sent, one packet per player per tick at
+	 * most. Players who walked away get the marker cleared.
+	 */
 	private void refreshMarkers(MinecraftServer server) {
 		int every = NpcModule.config().talk().markerRefresh();
 		QuestService quests = HearthServices.quests();
-		if (this.embodied.isEmpty()) {
+		if (this.embodied.isEmpty() || quests == null) {
 			return;
 		}
-		// A slice of the folk each tick: each is refreshed once every marker_refresh ticks.
 		int phase = (int) (this.ticks % every);
 		int i = 0;
+		Map<ServerPlayer, it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap> changes = null;
 		for (Folk f : this.embodied.values()) {
 			if (i++ % every != phase) {
 				continue;
 			}
 			FolkBrain brain = f.brain();
-			if (quests == null || brain == null || !(f.level() instanceof ServerLevel level)) {
-				f.setMarker(QuestService.Marker.NONE);
+			if (brain == null || !(f.level() instanceof ServerLevel level)) {
 				continue;
 			}
-			ServerPlayer near = (ServerPlayer) level.getNearestPlayer(f, 32.0);
-			f.setMarker(near == null || near.isSpectator() ? QuestService.Marker.NONE : quests.marker(near, brain.settlement, brain.resident));
+			for (ServerPlayer p : level.players()) {
+				it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap sent = this.markersSent.get(p.getUUID());
+				boolean near = !p.isSpectator() && p.distanceToSqr(f) < MARKER_RANGE * MARKER_RANGE;
+				byte now = near ? (byte) quests.marker(p, brain.settlement, brain.resident).ordinal() : 0;
+				byte before = sent == null ? 0 : sent.get(f.getId());
+				if (now != before) {
+					if (sent == null) {
+						sent = new it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap();
+						this.markersSent.put(p.getUUID(), sent);
+					}
+					if (now == 0) {
+						sent.remove(f.getId());
+					} else {
+						sent.put(f.getId(), now);
+					}
+					if (changes == null) {
+						changes = new HashMap<>();
+					}
+					changes.computeIfAbsent(p, k -> new it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap()).put(f.getId(), now);
+				}
+			}
 		}
+		if (changes != null) {
+			changes.forEach((p, m) -> {
+				if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(p, dev.voidmc.hearth.npc.talk.TalkPayloads.Markers.TYPE)) {
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
+						new dev.voidmc.hearth.npc.talk.TalkPayloads.Markers(m.keySet().toIntArray(), m.values().toByteArray()));
+				}
+			});
+		}
+	}
+
+	/** A player left: forget what they were sent. */
+	public void onPlayerLeft(UUID player) {
+		this.markersSent.remove(player);
 	}
 
 	private void housekeeping(MinecraftServer server) {
@@ -438,6 +492,15 @@ public final class EmbodimentManager {
 				it.remove();
 			}
 		}
+		// markers sent for folk who have since gone
+		it.unimi.dsi.fastutil.ints.IntOpenHashSet ids = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
+		for (Folk f : this.embodied.values()) {
+			ids.add(f.getId());
+		}
+		for (it.unimi.dsi.fastutil.ints.Int2ByteOpenHashMap m : this.markersSent.values()) {
+			m.keySet().removeIf(id -> !ids.contains(id));
+		}
+		this.markersSent.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);
 		if (this.towns.size() > 256) {
 			Set<Long> live = new HashSet<>();
 			for (Folk f : this.embodied.values()) {
@@ -466,5 +529,6 @@ public final class EmbodimentManager {
 		this.queue.clear();
 		this.queued.clear();
 		this.cursors.clear();
+		this.markersSent.clear();
 	}
 }

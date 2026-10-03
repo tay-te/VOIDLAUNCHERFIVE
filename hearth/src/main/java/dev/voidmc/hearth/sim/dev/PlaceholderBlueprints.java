@@ -428,7 +428,7 @@ public final class PlaceholderBlueprints implements BlueprintService {
 	}
 
 	/** Rows of wheat on farmland, watered by a channel down the middle. */
-	private static Blueprint field(PlotSpec s, TerrainProbe t) {
+	static Blueprint field(PlotSpec s, TerrainProbe t) {
 		PlaceholderBlueprint.Builder b = new PlaceholderBlueprint.Builder(s);
 		int y0 = s.floorY();
 		int ox = s.origin().getX();
@@ -558,6 +558,271 @@ public final class PlaceholderBlueprints implements BlueprintService {
 			}
 		}
 		b.colours(0x9A8A6A, 0x9A8A6A, 0);
+		return b.build();
+	}
+
+	// ---------------------------------------------------------------- the dev catalogue's stand-ins (DevCatalogue)
+
+	/**
+	 * A stand-in for any building of the catalogue: the placeholder house grown to the plot (storeys from its height
+	 * range, joined by a ladder), with {@code beds} beds spread over the floors, a workstation and job site for each of
+	 * {@code jobs} (several for a big workplace), barrels for a store, a counter for a shop.
+	 */
+	public static Blueprint building(PlotSpec s, TerrainProbe t, ArchetypeInfo info, int beds, java.util.Map<JobType, Integer> jobs, int height) {
+		Palette p = palette(s);
+		boolean stone = info.category() == ArchetypeCategory.CIVIC || info.category() == ArchetypeCategory.LANDMARK
+			|| info.category() == ArchetypeCategory.DEFENSE;
+		Block wall = stone ? Blocks.STONE_BRICKS : p.wall;
+		Block log = stone ? Blocks.POLISHED_ANDESITE : p.log;
+		PlaceholderBlueprint.Builder b = new PlaceholderBlueprint.Builder(s);
+		int y0 = s.floorY();
+		int storeys = Math.max(1, Math.min(4, Math.min((height - 1) / 4, (s.maxHeight() - 1) / 4)));
+		int wallH = 4 * storeys;
+		groundwork(b, t, p.floor, wallH + 2);
+		int ox = s.origin().getX() + 1;
+		int oz = s.origin().getZ() + 1;
+		int ex = s.origin().getX() + s.sizeX() - 2;
+		int ez = s.origin().getZ() + s.sizeZ() - 2;
+		if (ex - ox < 2 || ez - oz < 2) {
+			// too small for a ring: build to the edges
+			ox--;
+			oz--;
+			ex++;
+			ez++;
+		}
+		Direction f = s.facing();
+		int doorX = f.getAxis() == Direction.Axis.Z ? (ox + ex) / 2 : f == Direction.WEST ? ox : ex;
+		int doorZ = f.getAxis() == Direction.Axis.X ? (oz + ez) / 2 : f == Direction.NORTH ? oz : ez;
+		BlockPos door = new BlockPos(doorX, y0, doorZ);
+		Direction back = f.getOpposite();
+		Direction side = f.getClockWise();
+		BlockPos inside = door.relative(back);
+		boolean floors = storeys > 1 && ex - ox >= 4 && ez - oz >= 4;
+		BlockPos ladder = inside.relative(side, 2);
+		b.stage(StageKind.FRAME);
+		for (int y = y0; y < y0 + wallH; y++) {
+			b.set(ox, y, oz, log.defaultBlockState());
+			b.set(ex, y, oz, log.defaultBlockState());
+			b.set(ox, y, ez, log.defaultBlockState());
+			b.set(ex, y, ez, log.defaultBlockState());
+		}
+		b.stage(StageKind.WALLS);
+		for (int y = y0; y < y0 + wallH; y++) {
+			boolean windowRow = (y - y0) % 4 == 1;
+			for (int x = ox; x <= ex; x++) {
+				for (int z = oz; z <= ez; z++) {
+					boolean edge = x == ox || x == ex || z == oz || z == ez;
+					boolean corner = (x == ox || x == ex) && (z == oz || z == ez);
+					if (!edge || corner) {
+						continue;
+					}
+					boolean doorway = x == doorX && z == doorZ && y < y0 + 2;
+					boolean window = windowRow && !doorway && ((x == ox || x == ex) ? (z - oz) % 3 == 2 : (x - ox) % 3 == 2);
+					if (!doorway && !window) {
+						b.set(x, y, z, wall.defaultBlockState());
+					}
+				}
+			}
+		}
+		if (floors) {
+			for (int k = 1; k < storeys; k++) {
+				int fy = y0 + 4 * k - 1;
+				for (int x = ox + 1; x < ex; x++) {
+					for (int z = oz + 1; z < ez; z++) {
+						if (x != ladder.getX() || z != ladder.getZ()) {
+							b.set(x, fy, z, p.planks.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+		b.stage(StageKind.ROOF);
+		for (int x = ox; x <= ex; x++) {
+			for (int z = oz; z <= ez; z++) {
+				b.set(x, y0 + wallH, z, p.roof.defaultBlockState());
+			}
+		}
+		b.stage(StageKind.OPENINGS);
+		b.set(doorX, y0, doorZ, door(p.door, f, DoubleBlockHalf.LOWER));
+		b.set(doorX, y0 + 1, doorZ, door(p.door, f, DoubleBlockHalf.UPPER));
+		for (int y = y0 + 1; y < y0 + wallH; y += 4) {
+			for (int x = ox; x <= ex; x++) {
+				for (int z = oz; z <= ez; z++) {
+					boolean edge = x == ox || x == ex || z == oz || z == ez;
+					boolean corner = (x == ox || x == ex) && (z == oz || z == ez);
+					if (!edge || corner || (x == doorX && z == doorZ)) {
+						continue;
+					}
+					if ((x == ox || x == ex) ? (z - oz) % 3 == 2 : (x - ox) % 3 == 2) {
+						boolean alongX = z == oz || z == ez;
+						b.set(x, y, z, Blocks.GLASS_PANE.defaultBlockState().setValue(IronBarsBlock.EAST, alongX).setValue(IronBarsBlock.WEST, alongX)
+							.setValue(IronBarsBlock.NORTH, !alongX).setValue(IronBarsBlock.SOUTH, !alongX));
+					}
+				}
+			}
+		}
+		b.stage(StageKind.INTERIOR);
+		BlockPos inFront = door.relative(f);
+		b.poi(new Poi(PoiType.DOOR, inFront, back, null));
+		b.entrance(inFront);
+		if (floors) {
+			for (int y = y0; y < y0 + wallH - 1; y++) {
+				b.set(ladder.getX(), y, ladder.getZ(), Blocks.LADDER.defaultBlockState().setValue(net.minecraft.world.level.block.LadderBlock.FACING, back));
+			}
+		}
+		// the free cells of each floor, from the back wall forward, away from the door and the ladder
+		int depth = Math.abs(f.getAxis() == Direction.Axis.Z ? ez - oz : ex - ox) - 1;
+		int width = Math.abs(f.getAxis() == Direction.Axis.Z ? ex - ox : ez - oz) - 1;
+		BlockPos backWall = door.relative(back, Math.max(1, depth));
+		int placedBeds = 0;
+		for (int k = 0; k < (floors ? storeys : 1) && placedBeds < beds; k++) {
+			int fy = y0 + 4 * k;
+			for (int across = -(width / 2) + 1; across <= width / 2 - 1 && placedBeds < beds; across += 2) {
+				BlockPos head = backWall.relative(side, across).atY(fy);
+				BlockPos foot = head.relative(f);
+				if (depth < 3 || foot.equals(inside.atY(fy)) || head.getX() == ladder.getX() && head.getZ() == ladder.getZ()
+					|| foot.getX() == ladder.getX() && foot.getZ() == ladder.getZ()) {
+					continue;
+				}
+				BlockState bed = Blocks.BED.pick(DyeColor.values()[(int) Math.floorMod(placedBeds * 5L + s.seed(), 16L)]).defaultBlockState()
+					.setValue(BedBlock.FACING, back);
+				b.set(foot.getX(), fy, foot.getZ(), bed.setValue(BedBlock.PART, BedPart.FOOT));
+				b.set(head.getX(), fy, head.getZ(), bed.setValue(BedBlock.PART, BedPart.HEAD));
+				b.poi(new Poi(PoiType.BED, head, f, null));
+				b.beds(1);
+				placedBeds++;
+			}
+		}
+		// workstations along the side walls of the ground floor, the worker standing in front of each
+		int slot = 0;
+		for (var e : jobs.entrySet()) {
+			for (int i = 0; i < e.getValue(); i++, slot++) {
+				int along = 1 + slot / 2;
+				if (along >= depth) {
+					break;
+				}
+				Direction toWall = slot % 2 == 0 ? side : side.getOpposite();
+				BlockPos bench = inside.relative(back, along - 1).relative(toWall, Math.max(1, width / 2));
+				BlockPos stand = bench.relative(toWall.getOpposite());
+				b.set(bench.getX(), y0, bench.getZ(), workstation(e.getKey()).defaultBlockState());
+				b.poi(new Poi(PoiType.JOB_SITE, stand, toWall, e.getKey()));
+				if (e.getKey() == JobType.MERCHANT || e.getKey() == JobType.INNKEEPER || e.getKey() == JobType.MINTER) {
+					b.poi(new Poi(PoiType.COUNTER, stand, f, e.getKey()));
+				}
+			}
+		}
+		if (info.category() == ArchetypeCategory.STORAGE) {
+			for (int i = -1; i <= 1; i++) {
+				BlockPos c = backWall.relative(side, i * 2);
+				b.set(c.getX(), y0, c.getZ(), Blocks.BARREL.defaultBlockState());
+				b.poi(new Poi(PoiType.STORAGE, c.relative(f), back, null));
+			}
+		} else if (placedBeds > 0) {
+			BlockPos table = inside.relative(side.getOpposite(), 1);
+			b.set(table.getX(), y0, table.getZ(), Blocks.CRAFTING_TABLE.defaultBlockState());
+			b.poi(new Poi(PoiType.TABLE, table, f, null));
+		}
+		BlockPos torch = inside.relative(side.getOpposite(), 2);
+		b.set(torch.getX(), y0, torch.getZ(), Blocks.TORCH.defaultBlockState());
+		b.stage(StageKind.EXTERIOR);
+		b.set(inFront.getX(), y0 - 1, inFront.getZ(), p.path.defaultBlockState());
+		b.colours(stone ? 0x8A8A8A : p.wallColor, p.roofColor, wallH);
+		return b.build();
+	}
+
+	private static Block workstation(JobType job) {
+		return switch (job) {
+			case SMITH -> Blocks.ANVIL;
+			case BAKER -> Blocks.SMOKER;
+			case BREWER -> Blocks.BREWING_STAND;
+			case MASON -> Blocks.STONECUTTER;
+			case TAILOR -> Blocks.LOOM;
+			case SCHOLAR -> Blocks.LECTERN;
+			case PRIEST -> Blocks.LECTERN;
+			case FISHER -> Blocks.BARREL;
+			case HUNTER -> Blocks.SMITHING_TABLE;
+			case FORESTER, CARPENTER -> Blocks.CRAFTING_TABLE;
+			case MERCHANT, INNKEEPER, MINTER -> Blocks.BARREL;
+			case GUARD -> Blocks.GRINDSTONE;
+			case HERDER -> Blocks.COMPOSTER;
+			case FARMER -> Blocks.COMPOSTER;
+			case QUARRIER -> Blocks.STONECUTTER;
+			default -> Blocks.CRAFTING_TABLE;
+		};
+	}
+
+	/**
+	 * A stand-in square: paved, with lamp posts at the corners and the town's notice board (the quest module's
+	 * {@code hearth:notice_board}, by id; an oak sign on a post without it) a little off the middle. What the plaza
+	 * {@code keep}s (the well) stands as it is.
+	 */
+	public static Blueprint plaza(PlotSpec s, TerrainProbe t) {
+		Palette p = palette(s);
+		PlaceholderBlueprint.Builder b = new PlaceholderBlueprint.Builder(s);
+		int y0 = s.floorY();
+		int[] keep = s.params().getIntArray("keep").orElse(new int[0]);
+		java.util.function.BiPredicate<Integer, Integer> inKeep = (x, z) -> {
+			for (int i = 0; i + 3 < keep.length; i += 4) {
+				if (x >= keep[i] && x <= keep[i + 2] && z >= keep[i + 1] && z <= keep[i + 3]) {
+					return true;
+				}
+			}
+			return false;
+		};
+		b.stage(StageKind.CLEAR);
+		forFootprint(s, (x, z) -> {
+			if (!inKeep.test(x, z)) {
+				for (int y = y0; y < y0 + 4; y++) {
+					b.set(x, y, z, Blocks.AIR.defaultBlockState());
+				}
+			}
+		});
+		b.stage(StageKind.FOUNDATION);
+		forFootprint(s, (x, z) -> {
+			if (!inKeep.test(x, z)) {
+				int g = Math.max(t.groundY(x, z), y0 - 6);
+				for (int y = g; y < y0 - 1; y++) {
+					b.set(x, y, z, p.floor.defaultBlockState());
+				}
+				b.set(x, y0 - 1, z, ((x + z) & 3) == 0 ? Blocks.MOSSY_STONE_BRICKS.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState());
+			}
+		});
+		b.stage(StageKind.EXTERIOR);
+		int ox = s.origin().getX();
+		int oz = s.origin().getZ();
+		int ex = ox + s.sizeX() - 1;
+		int ez = oz + s.sizeZ() - 1;
+		for (int[] c : new int[][]{{ox, oz}, {ex, oz}, {ox, ez}, {ex, ez}}) {
+			if (!inKeep.test(c[0], c[1])) {
+				b.set(c[0], y0, c[1], Blocks.OAK_FENCE.defaultBlockState());
+				b.set(c[0], y0 + 1, c[1], Blocks.OAK_FENCE.defaultBlockState());
+				b.set(c[0], y0 + 2, c[1], Blocks.LANTERN.defaultBlockState());
+			}
+		}
+		// the board: two blocks in from the front edge, facing out to the street, beside the middle
+		Direction f = s.facing();
+		BlockPos mid = new BlockPos((ox + ex) / 2, y0, (oz + ez) / 2);
+		BlockPos boardAt = null;
+		for (int k = 0; k < 6 && boardAt == null; k++) {
+			BlockPos c = mid.relative(f, Math.max(0, (f.getAxis() == Direction.Axis.Z ? s.sizeZ() : s.sizeX()) / 2 - 2 - k)).relative(f.getClockWise(), 2);
+			if (b.inside(c.getX(), c.getZ()) && !inKeep.test(c.getX(), c.getZ()) && !inKeep.test(c.relative(f).getX(), c.relative(f).getZ())) {
+				boardAt = c;
+			}
+		}
+		if (boardAt != null) {
+			Block board = BuiltInRegistries.BLOCK.getValue(Hearth.id("notice_board"));
+			if (board != Blocks.AIR && board.defaultBlockState().hasProperty(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING)) {
+				b.set(boardAt.getX(), y0, boardAt.getZ(), board.defaultBlockState()
+					.setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, f));
+			} else {
+				b.set(boardAt.getX(), y0, boardAt.getZ(), Blocks.OAK_FENCE.defaultBlockState());
+				b.set(boardAt.getX(), y0 + 1, boardAt.getZ(), Blocks.OAK_SIGN.defaultBlockState());
+			}
+			b.poi(new Poi(PoiType.NOTICE_BOARD, boardAt, f, null));
+		}
+		b.poi(new Poi(PoiType.MEETING_POINT, mid, f, null));
+		b.entrance(mid.relative(f, Math.max(1, (f.getAxis() == Direction.Axis.Z ? s.sizeZ() : s.sizeX()) / 2)));
+		b.colours(0x8A8A8A, 0x8A8A8A, 0);
 		return b.build();
 	}
 

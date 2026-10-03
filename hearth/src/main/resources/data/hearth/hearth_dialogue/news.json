@@ -31,6 +31,12 @@
 		"Poor {other}. We buried them by the old wall.",
 		{"text": "{other} is with the hearth now. Say a word for them, if you would.", "traits": ["pious"]}
 	],
+	"news.left": [
+		"A few of ours packed up and went off to found {other}. Too many of us and not enough roofs, that's what it was.",
+		"Some of the young ones left with a cart and a plough. {other}, they're calling the place.",
+		{"text": "They've gone to found {other}. I'd have gone myself, twenty years ago.", "age": "elder"},
+		{"text": "Off to found {other}, the lot of them! I'll miss the noise.", "traits": ["sociable", "gossip"]}
+	],
 	"news.founded": [
 		"We're new here. Every stone you see, we set ourselves."
 	],

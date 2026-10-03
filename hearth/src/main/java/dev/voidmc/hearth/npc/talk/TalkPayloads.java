@@ -22,6 +22,7 @@ public final class TalkPayloads {
 		PayloadTypeRegistry.clientboundPlay().register(Show.TYPE, Show.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(Choose.TYPE, Choose.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(End.TYPE, End.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(Markers.TYPE, Markers.CODEC);
 	}
 
 	/** An option as shown: its namespaced id and label. */
@@ -63,6 +64,35 @@ public final class TalkPayloads {
 				options.add(new Option(buf.readUtf(), ComponentSerialization.STREAM_CODEC.decode(buf)));
 			}
 			return new Show(entity, open, name, title, settlement, speech, options);
+		});
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Quest markers over folk as this player should see them (each player's quests differ): only the folk whose marker
+	 * changed for them. {@code markers[i]} is the {@code QuestService.Marker} ordinal for entity {@code entities[i]}.
+	 */
+	public record Markers(int[] entities, byte[] markers) implements CustomPacketPayload {
+		public static final Type<Markers> TYPE = new Type<>(Hearth.id("npc/markers"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Markers> CODEC = StreamCodec.of((buf, p) -> {
+			buf.writeVarInt(p.entities.length);
+			for (int i = 0; i < p.entities.length; i++) {
+				buf.writeVarInt(p.entities[i]);
+				buf.writeByte(p.markers[i]);
+			}
+		}, buf -> {
+			int n = Math.min(buf.readVarInt(), 4096);
+			int[] e = new int[n];
+			byte[] m = new byte[n];
+			for (int i = 0; i < n; i++) {
+				e[i] = buf.readVarInt();
+				m[i] = buf.readByte();
+			}
+			return new Markers(e, m);
 		});
 
 		@Override

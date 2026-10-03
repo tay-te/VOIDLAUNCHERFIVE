@@ -265,7 +265,9 @@ public final class Atlas {
 				: bounds.encapsulate(reach);
 			PlotFacts f = s.facts(p);
 			int completed = switch (p.state()) {
-				case BUILT, DEMOLISHING -> f.stageCount();
+				case BUILT -> f.stageCount();
+				// its rebuild had begun by day 0: it is gone, and the rebuild's finished stages stand in its place
+				case DEMOLISHING -> 0;
 				default -> Math.min(p.stage(), f.stageCount());
 			};
 			if (completed <= 0) {

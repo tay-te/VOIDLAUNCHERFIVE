@@ -116,6 +116,10 @@ public final class NpcModule {
 				CONVERSATIONS.tick();
 			}
 		});
+		net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.LEAVE.register(player -> {
+			CONVERSATIONS.forget(player);
+			EMBODIMENT.onPlayerLeft(player.getUUID());
+		});
 		// Monsters hunt folk as they hunt villagers.
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
 			if (config.threats().hostilesTargetFolk() && entity instanceof Mob mob && huntsFolk(mob)) {
@@ -127,14 +131,12 @@ public final class NpcModule {
 		SettlementEvents.BUILDING_COMPLETED.register((world, s, plot) -> {
 			TownState town = EMBODIMENT.town(s);
 			town.news.add(new TownNews.Item(TownNews.Kind.BUILT, world.day(), Greetings.buildingName(plot.spec().archetype()), null, 0, null));
-			town.clearStalled(plot.id());
 			town.places.invalidate(plot.id());
 		});
 		SettlementEvents.CONSTRUCTION_STALLED.register((world, s, plot, goods, missing) -> {
 			TownState town = EMBODIMENT.town(s);
+			// (builders leave the plot while PlotView.waitingForGoods(); the sim starts the stage when the goods arrive)
 			town.news.add(new TownNews.Item(TownNews.Kind.STALLED, world.day(), Greetings.buildingName(plot.spec().archetype()), goods, missing, null));
-			// Builders leave a stalled plot for a couple of minutes; the sim will start the stage when goods arrive.
-			town.markStalled(plot.id(), world.level().getGameTime() + 2400);
 		});
 		SettlementEvents.TIER_CHANGED.register((world, s, from, to) -> {
 			if (to.ordinal() > from.ordinal()) {
@@ -147,7 +149,13 @@ public final class NpcModule {
 			}
 		});
 		SettlementEvents.RESIDENT_REMOVED.register((world, s, r) -> {
-			EMBODIMENT.town(s).news.add(new TownNews.Item(TownNews.Kind.DIED, world.day(), r.fullName(), null, 0, null));
+			// settlers leaving to found a hamlet are marked by the sim with where they are going
+			String leftFor = r.extra.getCompoundOrEmpty("sim").getStringOr("left_for", "");
+			if (leftFor.isEmpty()) {
+				EMBODIMENT.town(s).news.add(new TownNews.Item(TownNews.Kind.DIED, world.day(), r.fullName(), null, 0, null));
+			} else {
+				EMBODIMENT.town(s).news.add(new TownNews.Item(TownNews.Kind.LEFT, world.day(), leftFor, null, 0, null));
+			}
 			EMBODIMENT.onResidentRemoved(r.id);
 		});
 		SettlementEvents.FOUNDED.register((world, s) ->

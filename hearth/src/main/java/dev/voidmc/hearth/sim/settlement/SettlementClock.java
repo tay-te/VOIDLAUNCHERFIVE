@@ -161,6 +161,9 @@ public final class SettlementClock {
 	}
 
 	private static void construct(SimSettlement s, Workforce wf, double days, SimRules r, SimContext c) {
+		if (s.embodied() && wf.embodiedBuilders > 0) {
+			fundForEntities(s, wf.embodiedBuilders, r);
+		}
 		int builders = wf.workers[JobType.BUILDER.ordinal()];
 		if (builders == 0) {
 			return;
@@ -205,6 +208,31 @@ public final class SettlementClock {
 		}
 	}
 
+	/**
+	 * Builders walking about as entities only build plots whose current stage has its goods in hand ({@code BUILDING},
+	 * not waiting): start the stages they will need, as many plots at once as there are pairs of them, or mark the plots
+	 * waiting (which fires the stall, and the supply quest) so they leave them be.
+	 */
+	private static void fundForEntities(SimSettlement s, int builders, SimRules r) {
+		int want = maxConcurrent(builders, r);
+		int working = 0;
+		for (SimPlot p : s.plots.values()) {
+			if (working >= want) {
+				return;
+			}
+			if (!p.isActive()) {
+				continue;
+			}
+			PlotFacts f = s.facts(p);
+			if (!p.isActive() || p.stage >= f.stageCount()) {
+				continue;
+			}
+			if (p.funded || s.startStage(p, f, false)) {
+				working++;
+			}
+		}
+	}
+
 	/** Puts {@code units} of labour into a plot; returns what was left over when it ran out of work it could do. */
 	static double labour(SimSettlement s, SimPlot p, double units, SimContext c) {
 		PlotFacts f = s.facts(p);
@@ -238,7 +266,8 @@ public final class SettlementClock {
 	private static void grow(SimSettlement s, Workforce wf, SimRules r, SimContext c) {
 		SettlementPlanner planner = c.planner();
 		SimSettlement.ClockState k = s.clock;
-		int builders = wf.workers[JobType.BUILDER.ordinal()];
+		// builders walking about as entities want work too
+		int builders = wf.workers[JobType.BUILDER.ordinal()] + wf.embodiedBuilders;
 		if (planner == null || builders == 0 || k.simTick < k.noGrowthUntil) {
 			return;
 		}
@@ -257,24 +286,71 @@ public final class SettlementClock {
 			// short of goods twice over already: planning more would only queue more stalls
 			return;
 		}
-		// keep every pair of builders busy, a few proposals at a time at most
+		// keep every pair of builders busy, a few proposals at a time at most. Roads come first: planning one need often
+		// queues a lane and then the houses along it, so a road is followed by another call in the same step (the
+		// planner keeps its queue of roads short; this caps it anyway)
+		int roadsInARow = 0;
 		for (int tries = 0; tries < 4 && active < maxConcurrent(builders, r); tries++) {
-			if (!c.tryPlannerCall()) {
+			boolean afterRoad = roadsInARow > 0 && roadsInARow <= MAX_ROADS_IN_A_ROW;
+			if (!afterRoad && !c.tryPlannerCall()) {
 				return;
 			}
 			SettlementPlanner.GrowthProject project;
+			long t0 = System.nanoTime();
 			try {
 				project = planner.next(s, c.terrain(), s.random());
 			} catch (RuntimeException e) {
 				org.slf4j.LoggerFactory.getLogger("hearth").warn("planner failed for settlement {}", s.id(), e);
 				project = null;
 			}
+			PlannerTimings.record(c.eventWorld() != null, System.nanoTime() - t0);
 			if (project == null || !c.allows(s, project.spec())) {
 				k.noGrowthUntil = k.simTick + SimRules.DAY / 2;
 				return;
 			}
 			s.addPlot(project.spec(), project.replaces(), project.reason());
+			if (isRoad(project.spec()) && roadsInARow < MAX_ROADS_IN_A_ROW) {
+				roadsInARow++;
+				tries--;
+				continue;
+			}
+			roadsInARow = 0;
 			active++;
+		}
+	}
+
+	/** Roads handed out in a row before the clock stops asking within one step. */
+	static final int MAX_ROADS_IN_A_ROW = 4;
+
+	/** Infrastructure ({@code hearth:infra/*}): roads, stairs, bridges, terraces, walkways, docks. */
+	static boolean isRoad(PlotSpec spec) {
+		return spec.archetype().getPath().startsWith("infra/");
+	}
+
+	/** How long {@code planner.next} takes: live calls (the server thread) and history calls (atlas workers) apart. */
+	public static final class PlannerTimings {
+		public static final java.util.concurrent.atomic.LongAdder LIVE_CALLS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder LIVE_NANOS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.AtomicLong LIVE_MAX = new java.util.concurrent.atomic.AtomicLong();
+		/** Live calls under 1, 5, 20 ms and the rest. */
+		public static final java.util.concurrent.atomic.LongAdder[] LIVE_BUCKETS = {new java.util.concurrent.atomic.LongAdder(),
+			new java.util.concurrent.atomic.LongAdder(), new java.util.concurrent.atomic.LongAdder(), new java.util.concurrent.atomic.LongAdder()};
+		public static final java.util.concurrent.atomic.LongAdder HISTORY_CALLS = new java.util.concurrent.atomic.LongAdder();
+		public static final java.util.concurrent.atomic.LongAdder HISTORY_NANOS = new java.util.concurrent.atomic.LongAdder();
+
+		private PlannerTimings() {
+		}
+
+		static void record(boolean live, long nanos) {
+			if (live) {
+				LIVE_CALLS.increment();
+				LIVE_NANOS.add(nanos);
+				LIVE_MAX.accumulateAndGet(nanos, Math::max);
+				LIVE_BUCKETS[nanos < 1_000_000 ? 0 : nanos < 5_000_000 ? 1 : nanos < 20_000_000 ? 2 : 3].increment();
+			} else {
+				HISTORY_CALLS.increment();
+				HISTORY_NANOS.add(nanos);
+			}
 		}
 	}
 
@@ -292,6 +368,7 @@ public final class SettlementClock {
 		if ((k.overcrowdDays > r.population.overcrowdDays() || k.hungerDays > r.population.hungerDays()) && random.nextFloat() < 0.5F) {
 			emigrate(s, random);
 		}
+		crowding(s, r, c, day);
 		imports(s, r);
 		if (k.hungerDays == 0) {
 			births(s, r, c, random, day);
@@ -311,6 +388,25 @@ public final class SettlementClock {
 		HearthWorld w = c.eventWorld();
 		if (w != null) {
 			SettlementEvents.DAY_PASSED.invoker().onDayPassed(w, s, day);
+		}
+	}
+
+	/**
+	 * A town that has had no free bed for days on end sends a party of settlers out to found a daughter hamlet (§5.1).
+	 * The live world searches for the site off the hot path and founds it; histories never do (they keep to their region).
+	 */
+	private static void crowding(SimSettlement s, SimRules r, SimContext c, long day) {
+		SimSettlement.ClockState k = s.clock;
+		var d = r.config.daughters();
+		boolean crowded = s.population() >= d.minPopulation() && s.population() >= s.beds();
+		k.crowdedDays = crowded ? k.crowdedDays + 1 : 0;
+		if (!d.enabled() || k.crowdedDays < d.crowdedDays() || k.daughters >= d.maxPerTown()
+			|| k.lastDaughterDay != Long.MIN_VALUE && day - k.lastDaughterDay < d.cooldownDays()) {
+			return;
+		}
+		if (c.sendSettlers(s)) {
+			// the search is under way; if it finds nowhere, the town tries again after as many crowded days
+			k.crowdedDays = 0;
 		}
 	}
 
@@ -620,6 +716,15 @@ public final class SettlementClock {
 	 * and coin they bring. Nothing fires here; the caller fires {@code FOUNDED} once the record is registered.
 	 */
 	public static void found(SimSettlement s, SimContext c, int founders, java.util.Map<Goods, Integer> goods, long treasury) {
+		found(s, c, founders, List.of(), goods, treasury);
+	}
+
+	/**
+	 * As above, with {@code settlers} (people who left another settlement to found this one) among the founders; the rest
+	 * of the {@code founders} are newcomers from the resident factory.
+	 */
+	public static void found(SimSettlement s, SimContext c, int founders, List<Resident> settlers, java.util.Map<Goods, Integer> goods,
+		long treasury) {
 		SettlementPlanner planner = c.planner();
 		RandomSource random = s.random();
 		if (planner != null) {
@@ -632,7 +737,14 @@ public final class SettlementClock {
 		}
 		long day = Math.floorDiv(s.clock.simTick, SimRules.DAY);
 		Resident last = null;
-		for (int i = 0; i < founders; i++) {
+		for (Resident res : settlers) {
+			res.home = Resident.NO_PLOT;
+			res.work = Resident.NO_PLOT;
+			res.job = JobType.NONE;
+			s.addResident(res);
+			last = res;
+		}
+		for (int i = settlers.size(); i < founders; i++) {
 			Resident res = newResident(s, c, AgeStage.ADULT, random, null, null, day);
 			res.bornDay = day - c.rules().population.childhoodDays() - random.nextInt(Math.max(1, c.rules().population.adulthoodDays() / 2));
 			if (last != null && i % 2 == 1) {
@@ -651,6 +763,8 @@ public final class SettlementClock {
 	/** Head counts the clock integrates with, refreshed once per sim day (and whenever a step begins). */
 	static final class Workforce {
 		final int[] workers = new int[JobType.values().length];
+		/** Builders who are entities just now: their placements arrive through {@code advanceConstruction}. */
+		int embodiedBuilders;
 		int adults;
 		int children;
 		int elders;
@@ -666,6 +780,8 @@ public final class SettlementClock {
 				// embodied folk do their work as entities, not as numbers
 				if (res.age == AgeStage.ADULT && !s.isResidentEmbodied(res.id)) {
 					w.workers[res.job.ordinal()]++;
+				} else if (res.age == AgeStage.ADULT && res.job == JobType.BUILDER) {
+					w.embodiedBuilders++;
 				}
 			}
 			return w;

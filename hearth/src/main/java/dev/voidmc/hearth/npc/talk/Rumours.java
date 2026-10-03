@@ -58,16 +58,10 @@ public final class Rumours {
 		Map<String, String> v = Greetings.values(settlement, resident, player);
 		boolean curious = ctx.traits().contains(Trait.CURIOUS) || ctx.traits().contains(Trait.GOSSIP);
 		List<String> options = new ArrayList<>();
-		// Other settlements, nearest first.
-		List<Settlement> others = new ArrayList<>();
-		for (Settlement s : SettlementSources.all(level)) {
-			if (s.id() != settlement.id() && s.center().distSqr(settlement.center()) < 4000.0 * 4000.0) {
-				others.add(s);
-			}
-		}
-		others.sort(Comparator.comparingDouble(s -> s.center().distSqr(settlement.center())));
+		// Other settlements, nearest first: live ones, and those the atlas knows of that nobody has visited yet.
+		List<Place> others = others(level, settlement);
 		for (int i = 0; i < Math.min(others.size(), curious ? 4 : 2); i++) {
-			Settlement o = others.get(i);
+			Place o = others.get(i);
 			Map<String, String> vv = new HashMap<>(v);
 			vv.put("other", o.name());
 			vv.put("direction", direction(settlement.center(), o.center()));
@@ -100,6 +94,38 @@ public final class Rumours {
 			return DialogueTemplates.fill(line != null ? line : "I couldn't say.", v);
 		}
 		return options.get(random.nextInt(options.size()));
+	}
+
+	/** How far folk have heard of other settlements. */
+	private static final int RUMOUR_RADIUS = 2500;
+
+	private record Place(String name, BlockPos center) {
+	}
+
+	/**
+	 * Other settlements folk have heard of, nearest first: from the sim's atlas ({@code HearthWorld.knownSites}: live
+	 * towns and historic ones not yet visited; regions not yet planned are planned off-thread and known next time), plus
+	 * the dev sandbox's camps.
+	 */
+	private static List<Place> others(ServerLevel level, Settlement settlement) {
+		List<Place> out = new ArrayList<>();
+		dev.voidmc.hearth.api.HearthWorld world = dev.voidmc.hearth.api.HearthWorld.of(level);
+		java.util.Set<Long> seen = new java.util.HashSet<>();
+		seen.add(settlement.id());
+		if (world != null) {
+			for (dev.voidmc.hearth.api.HearthWorld.SiteInfo site : world.knownSites(settlement.center(), RUMOUR_RADIUS)) {
+				if (seen.add(site.settlementId())) {
+					out.add(new Place(site.name(), site.center()));
+				}
+			}
+		}
+		for (Settlement s : SettlementSources.all(level)) {
+			if (seen.add(s.id()) && s.center().distSqr(settlement.center()) < (double) RUMOUR_RADIUS * RUMOUR_RADIUS) {
+				out.add(new Place(s.name(), s.center()));
+			}
+		}
+		out.sort(Comparator.comparingDouble(p -> p.center().distSqr(settlement.center())));
+		return out;
 	}
 
 	/** Looks for one landmark kind this settlement has not looked for yet, if the server-wide search budget allows. */

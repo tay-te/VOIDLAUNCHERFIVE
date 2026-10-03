@@ -3,6 +3,7 @@ package dev.voidmc.hearth.sim.apply;
 import dev.voidmc.hearth.api.Blueprint;
 import dev.voidmc.hearth.api.BlueprintService;
 import dev.voidmc.hearth.api.PlotSpec;
+import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.TerrainProbe;
 import dev.voidmc.hearth.sim.settlement.Cursor;
 import dev.voidmc.hearth.sim.settlement.SimPlot;
@@ -47,6 +48,8 @@ public final class ChunkApplier {
 	}
 
 	public final LongAdder blocksPlaced = new LongAdder();
+	/** Blocks of buildings taken down for their rebuilds. */
+	public final LongAdder blocksCleared = new LongAdder();
 	public final LongAdder conflicts = new LongAdder();
 	public final LongAdder chunksApplied = new LongAdder();
 	public final LongAdder nanos = new LongAdder();
@@ -140,7 +143,43 @@ public final class ChunkApplier {
 		AppliedLedger before = ledger;
 		int placed = 0;
 		boolean unfinished = false;
-		for (PlotRef ref : this.index.refs(key)) {
+		List<PlotRef> refs = this.index.refs(key);
+		// rebuilds first: what stands of a building coming down is cleared before its replacement's blocks go in
+		for (PlotRef ref : refs) {
+			SimSettlement s = ref.settlement();
+			SimPlot p = s.plot(ref.plotId());
+			if (p == null) {
+				continue;
+			}
+			int oldId;
+			PlotSpec oldSpec;
+			if (p.state() == PlotState.DEMOLISHING) {
+				oldId = p.id();
+				oldSpec = p.spec();
+			} else if (p.replaces() != SimPlot.NONE && (p.state() == PlotState.BUILDING || p.state() == PlotState.BUILT)) {
+				oldId = p.replaces();
+				SimPlot standing = s.plot(oldId);
+				if (standing != null && standing.state() != PlotState.DEMOLISHING) {
+					continue;
+				}
+				oldSpec = standing != null ? standing.spec() : p.replacedSpec();
+			} else {
+				continue;
+			}
+			long cur = ledger.get(s.id(), oldId);
+			if (cur <= Cursor.ZERO || oldSpec == null) {
+				continue;
+			}
+			try {
+				int cleared = demolish(this.blueprints.blueprint(oldSpec, this.terrain), oldSpec, cx, cz, cur, new World(chunk));
+				placed += cleared;
+				this.blocksCleared.add(cleared);
+			} catch (RuntimeException e) {
+				// its archetype is gone: nothing of it can be told apart from the land, leave it
+			}
+			ledger = ledger.with(s.id(), oldId, Cursor.ZERO);
+		}
+		for (PlotRef ref : refs) {
 			SimSettlement s = ref.settlement();
 			SimPlot p = s.plot(ref.plotId());
 			if (p == null) {
@@ -180,6 +219,36 @@ public final class ChunkApplier {
 			this.chunksApplied.increment();
 		}
 		return unfinished ? -Math.max(1, placed) : placed;
+	}
+
+	/**
+	 * Takes down what a plot put in this chunk ({@code [0, cursor)}): every block above its floor that is still exactly as
+	 * it was placed becomes air (containers drop what they hold). Foundations and earthwork below the floor stay for the
+	 * rebuild to stand on; anything a player changed stays too.
+	 */
+	static int demolish(Blueprint bp, PlotSpec spec, int cx, int cz, long cursor, StepWriter.Blocks world) {
+		java.util.Map<Long, BlockState> last = new java.util.LinkedHashMap<>();
+		StepWriter.forApplied(bp, cx, cz, cursor, (x, y, z, state, tag) -> {
+			if (y >= spec.floorY()) {
+				last.put(BlockPos.asLong(x, y, z), state);
+			}
+		});
+		int n = 0;
+		// top down, so nothing is left hanging for a tick
+		List<Long> order = new java.util.ArrayList<>(last.keySet());
+		order.sort((a, b) -> Integer.compare(BlockPos.getY(b), BlockPos.getY(a)));
+		BlockState air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+		for (long at : order) {
+			BlockState placed = last.get(at);
+			int x = BlockPos.getX(at);
+			int y = BlockPos.getY(at);
+			int z = BlockPos.getZ(at);
+			if (!placed.isAir() && world.get(x, y, z) == placed) {
+				world.set(x, y, z, air, null);
+				n++;
+			}
+		}
+		return n;
 	}
 
 	/** What this plot (and the plot it rebuilds) already put in this chunk, read lazily. */

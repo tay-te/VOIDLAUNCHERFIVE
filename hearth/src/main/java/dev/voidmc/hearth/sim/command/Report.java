@@ -2,6 +2,7 @@ package dev.voidmc.hearth.sim.command;
 
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.sim.SimServer;
+import dev.voidmc.hearth.sim.settlement.SettlementClock.PlannerTimings;
 import dev.voidmc.hearth.sim.settlement.SimSettlement;
 import dev.voidmc.hearth.sim.terrain.GeneratorProbe;
 import dev.voidmc.hearth.sim.world.SimWorld;
@@ -25,6 +26,13 @@ public final class Report {
 		out.add(String.format(Locale.ROOT, "clock: %d steps, %.4f ms avg, %.3f ms max, %.1f sim days total, %d planner calls; sim tick work %.3f ms avg",
 			steps, ms(st.stepNanos.sum(), steps), st.maxStepNanos.get() / 1e6, st.simulatedTicks.sum() / 24000.0, st.plannerCalls.sum(),
 			ms(st.tickNanos.sum(), Math.max(1, server.ticks()))));
+		long live = PlannerTimings.LIVE_CALLS.sum();
+		var b = PlannerTimings.LIVE_BUCKETS;
+		long hist = PlannerTimings.HISTORY_CALLS.sum();
+		out.add(String.format(Locale.ROOT, "planner.next: %d live calls, %.3f ms avg, %.1f ms max (<1 ms %d, <5 ms %d, <20 ms %d, more %d); %d history calls, %.3f ms avg",
+			live, ms(PlannerTimings.LIVE_NANOS.sum(), live),
+			PlannerTimings.LIVE_MAX.get() / 1e6, b[0].sum(), b[1].sum(), b[2].sum(), b[3].sum(), hist,
+			ms(PlannerTimings.HISTORY_NANOS.sum(), hist)));
 		var a = w.atlas();
 		long plans = a.plansComputed.sum();
 		long settled = a.plansSettled.sum();
@@ -37,8 +45,8 @@ public final class Report {
 		out.add(String.format(Locale.ROOT, "worldgen: %d chunks with history, %d blocks, %.3f ms avg per chunk; guard kept %d features off plots", chunks,
 			st.featureBlocks.sum(), ms(st.featureNanos.sum(), chunks), st.guardSkips.sum()));
 		var ap = w.applier();
-		out.add(String.format(Locale.ROOT, "applier: %d chunks, %d blocks, %d refused (built over), %.1f ms total, %d queued", ap.chunksApplied.sum(),
-			ap.blocksPlaced.sum(), ap.conflicts.sum(), ap.nanos.sum() / 1e6, ap.pending()));
+		out.add(String.format(Locale.ROOT, "applier: %d chunks, %d blocks, %d cleared for rebuilds, %d refused (built over), %.1f ms total, %d queued",
+			ap.chunksApplied.sum(), ap.blocksPlaced.sum(), ap.blocksCleared.sum(), ap.conflicts.sum(), ap.nanos.sum() / 1e6, ap.pending()));
 		long adoptions = st.adoptions.sum();
 		out.add(String.format(Locale.ROOT, "adoption: %d, %.2f ms avg; saves: %d settlements written, %.1f ms on the server thread", adoptions,
 			ms(st.adoptNanos.sum(), adoptions), st.saved.sum(), st.saveNanos.sum() / 1e6));

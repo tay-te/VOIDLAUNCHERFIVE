@@ -50,6 +50,8 @@
 	"hearth.quest.escort.arrived": "%s has arrived safely in %s.",
 	"hearth.quest.escort.nospace": "There is no room here for the pack animal. Try in the open.",
 	"hearth.quest.scout.found": "Good ground, water near, and nobody's land: this would make a fine site for a hamlet.",
+	"hearth.quest.scout.founded": "Settlers from %s have set out for the site you chose. They are calling it %s (%s).",
+	"hearth.quest.scout.refused": "The settlers could not found a hamlet there after all: %s.",
 	"hearth.quest.parcel.name": "Sealed parcel for %s",
 	"hearth.quest.parcel.lore": "From %s, bound for %s",
 	"hearth.quest.journal.given": "You were given a journal to keep track of your quests (press J).",

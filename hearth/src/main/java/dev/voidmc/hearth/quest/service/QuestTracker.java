@@ -259,6 +259,12 @@ public final class QuestTracker {
 		if (!water || min == Integer.MAX_VALUE || max - min > 8 || level.getFluidState(pos.below()).is(FluidTags.WATER)) {
 			return false;
 		}
+		// and somewhere the sim will found a hamlet: clear of towns nobody has visited yet too (never blocks: a region
+		// still being surveyed answers on a later check)
+		dev.voidmc.hearth.api.HearthWorld world = dev.voidmc.hearth.api.HearthWorld.of(level);
+		if (world != null && world.whyNotFound(pos) != null) {
+			return false;
+		}
 		o.complete();
 		o.data.putLong(Objective.Keys.FOUND, pos.asLong());
 		player.sendSystemMessage(Component.translatable("hearth.quest.scout.found").withStyle(ChatFormatting.GREEN));

@@ -16,7 +16,11 @@ public final class NpcClient {
 	public static void init() {
 		EntityRendererRegistry.register(FolkEntities.FOLK, FolkRenderer::new);
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> FolkSkins.tick());
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(FolkSkins::clear));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
+			FolkSkins.clear();
+			FolkMarkers.clear();
+		}));
+		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Markers.TYPE, (payload, ctx) -> FolkMarkers.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Show.TYPE, (payload, ctx) -> {
 			Minecraft mc = ctx.client();
 			if (mc.gui.screen() instanceof ConversationScreen open && open.entityId() == payload.entity()) {

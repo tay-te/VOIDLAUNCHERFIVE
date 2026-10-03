@@ -14,6 +14,8 @@ import dev.voidmc.hearth.plan.grid.PlotGeometry;
 import dev.voidmc.hearth.plan.growth.Growth;
 import dev.voidmc.hearth.plan.layout.Districts;
 import dev.voidmc.hearth.plan.layout.Founder;
+import dev.voidmc.hearth.plan.layout.LayoutChooser;
+import dev.voidmc.hearth.plan.model.LayoutType;
 import dev.voidmc.hearth.plan.model.PlanState;
 import dev.voidmc.hearth.plan.model.QueuedProject;
 import dev.voidmc.hearth.plan.model.Reservation;
@@ -57,7 +59,7 @@ public final class HearthPlanner implements SettlementPlanner {
 		resetForFounding(state);
 		PlanContext ctx = new PlanContext(s, state, fc.terrain(), fc.random(), Catalogue.current(), this.config);
 		reconcile(ctx);
-		List<PlotSpec> out = Founder.found(ctx, fc.center(), fc.terrain().biome(fc.center().getX(), fc.center().getZ()));
+		List<PlotSpec> out = layOut(ctx, fc.center(), fc.terrain());
 		state.lastTier = s.tier();
 		state.issued.clear();
 		state.issued.addAll(out);
@@ -89,7 +91,7 @@ public final class HearthPlanner implements SettlementPlanner {
 		if (!state.founded) {
 			// a settlement the planner never laid out (an old save, a record made by hand): lay it out now
 			reconcile(ctx);
-			List<PlotSpec> first = Founder.found(ctx, settlement.center(), terrain.biome(settlement.center().getX(), settlement.center().getZ()));
+			List<PlotSpec> first = layOut(ctx, settlement.center(), terrain);
 			for (PlotSpec spec : first) {
 				ctx.queue(spec, -1, "founding: " + spec.archetype().getPath());
 			}
@@ -116,6 +118,22 @@ public final class HearthPlanner implements SettlementPlanner {
 		state.serial++;
 		settlement.markDirty();
 		return new GrowthProject(project.spec(), project.replaces(), project.reason());
+	}
+
+	/** Founds the layout, forcing the dev layout ({@code -Dhearth.dev.plan.layout}) on whatever thread this runs. */
+	private static List<PlotSpec> layOut(PlanContext ctx, net.minecraft.core.BlockPos center, TerrainProbe terrain) {
+		LayoutType forced = PlanModule.devLayout();
+		boolean force = forced != null && LayoutChooser.FORCED.get() == null;
+		if (force) {
+			LayoutChooser.FORCED.set(forced);
+		}
+		try {
+			return Founder.found(ctx, center, terrain.biome(center.getX(), center.getZ()));
+		} finally {
+			if (force) {
+				LayoutChooser.FORCED.remove();
+			}
+		}
 	}
 
 	/** The next queued project still worth building (an upgrade whose old plot is gone is dropped). */

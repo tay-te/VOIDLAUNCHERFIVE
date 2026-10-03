@@ -91,7 +91,7 @@ final class BuilderWork implements WorkBehaviour {
 		Integer claimed = brain.town.builderClaims.get(brain.resident.id);
 		if (claimed != null) {
 			PlotView p = brain.settlement.plot(claimed);
-			if (p != null && p.state() == PlotState.BUILDING && !brain.town.stalled(claimed, level.getGameTime())) {
+			if (p != null && buildable(p)) {
 				return p;
 			}
 		}
@@ -99,7 +99,7 @@ final class BuilderWork implements WorkBehaviour {
 		PlotView best = null;
 		double bestScore = Double.MAX_VALUE;
 		for (PlotView p : brain.settlement.plots()) {
-			if (p.state() != PlotState.BUILDING || brain.town.stalled(p.id(), level.getGameTime())) {
+			if (!buildable(p)) {
 				continue;
 			}
 			PlotSpec s = p.spec();
@@ -112,6 +112,11 @@ final class BuilderWork implements WorkBehaviour {
 			}
 		}
 		return best;
+	}
+
+	/** Under construction with its current stage's goods in hand: a plot waiting for goods is left until they come. */
+	static boolean buildable(PlotView p) {
+		return p.state() == PlotState.BUILDING && !p.waitingForGoods();
 	}
 
 	/** One step of a blueprint, as read. */
@@ -175,7 +180,7 @@ final class BuilderWork implements WorkBehaviour {
 		public Status tick(FolkBrain brain, ServerLevel level, int elapsed) {
 			PlotView plot = brain.settlement.plot(this.plotId);
 			Blueprint blueprint = plot == null ? null : BlueprintSource.of(level, brain.settlement, plot);
-			if (plot == null || blueprint == null || plot.state() != PlotState.BUILDING || plot.stage() >= blueprint.stageCount()) {
+			if (plot == null || blueprint == null || !buildable(plot) || plot.stage() >= blueprint.stageCount()) {
 				return finish(brain, level);
 			}
 			this.cooldown -= elapsed;
@@ -335,6 +340,11 @@ final class BuilderWork implements WorkBehaviour {
 				return false;
 			}
 			BlockState old = level.getBlockState(pos);
+			if (old.hasBlockEntity() && old.getBlock() != step.state.getBlock()) {
+				// somebody's chest, sign or bed: never built over (the sim's applier refuses the same); the step is passed
+				brain.settlement.advanceConstruction(plot.id(), 1);
+				return true;
+			}
 			ScaffoldLedger ledger = brain.settlement.data(ScaffoldLedger.KEY);
 			if (old.is(Blocks.SCAFFOLDING)) {
 				ledger.remove(brain.resident.id, pos);

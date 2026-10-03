@@ -98,6 +98,14 @@ public final class Conversations {
 		}
 	}
 
+	/** The player left the server: their conversation ends. */
+	public void forget(ServerPlayer player) {
+		Session session = this.sessions.remove(player.getUUID());
+		if (session != null && session.folk.brain() != null && session.folk.brain().engagedWith(player)) {
+			session.folk.brain().disengage();
+		}
+	}
+
 	private static boolean valid(ServerPlayer player, Folk folk) {
 		return folk.isAlive() && !folk.isRemoved() && folk.level() == player.level() && folk.distanceToSqr(player) <= RANGE * RANGE;
 	}

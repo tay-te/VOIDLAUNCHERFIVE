@@ -61,4 +61,12 @@ public interface SimContext {
 
 	/** The settlement changed and must be saved. */
 	void dirty(SimSettlement settlement);
+
+	/**
+	 * A crowded settlement wants to send settlers out to found a daughter hamlet. Returns whether a search for a site was
+	 * started (or is already under way); histories never found hamlets.
+	 */
+	default boolean sendSettlers(SimSettlement settlement) {
+		return false;
+	}
 }

@@ -57,7 +57,7 @@ public class FolkRenderer extends MobRenderer<Folk, FolkRenderState, FolkModel> 
 		state.elder = look.age() == AgeStage.ELDER;
 		state.skin = FolkSkins.get(look);
 		state.folkPose = entity.folkPose();
-		state.marker = entity.marker();
+		state.marker = FolkMarkers.of(entity.getId());
 		state.phase = (entity.getId() * 37) % 1000;
 		state.markerAttachment = state.marker == QuestService.Marker.NONE ? null
 			: new Vec3(0.0, entity.getBbHeight() + (state.nameTag != null ? 0.75 : 0.45), 0.0);

@@ -98,6 +98,7 @@ public final class Greetings {
 				case ARRIVED -> "news.arrived";
 				case DIED -> "news.died";
 				case FOUNDED -> "news.founded";
+				case LEFT -> "news.left";
 			};
 			v.put("building", item.subject());
 			v.put("other", item.subject());
