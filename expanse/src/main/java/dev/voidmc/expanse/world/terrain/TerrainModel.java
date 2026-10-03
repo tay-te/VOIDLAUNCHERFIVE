@@ -303,7 +303,9 @@ public final class TerrainModel {
 				float rim = (float) (foot + (apex - foot) * Math.pow(1 - cr / r, 1.7));
 				float floor = rim - (float) (0.55 * volcano.crater());
 				height = Math.min(height, floor + (rim - floor) * (float) Math.pow(d / cr, 2.4));
-				out.crater = floor + 0.4F * (rim - floor);
+				// One level for the whole crater, from its unruffled rim: the noise shapes the bowl, not the lake,
+				// which would otherwise stand at a different height in every column and run down itself.
+				out.crater = (float) (foot + (apex - foot) * Math.pow(1 - volcano.crater() / r, 1.7) - 0.33 * volcano.crater());
 				out.craterLava = volcano.active();
 			}
 		}

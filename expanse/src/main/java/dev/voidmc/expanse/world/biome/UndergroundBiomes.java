@@ -10,12 +10,12 @@ import org.jspecify.annotations.Nullable;
 /**
  * The biomes of the world underground (data from tools/worldgen_deep.py).
  *
- * <p>The caves between the realms take the places vanilla's cave biomes had in the overworld's biome
- * source ({@link #remap}, from {@link BiomePlacement}): lush caves become Mossgrown Caves, dripstone caves
- * Dripstone Grottos, the deep dark the Echoing Depths and sulfur caves the Sulfur Seeps. They are ours,
- * with vanilla's ores, geodes and dungeons and nothing else; what grows in them is placed by
- * {@link dev.voidmc.expanse.world.terrain.CavernLife}. (The deep dark's ancient cities and its warden go
- * with it.)
+ * <p>Under the Earth terrain the caves between the realms take the places vanilla's cave biomes have in
+ * the overworld's biome source ({@link #remap}, from {@link EarthBiomeSource}): lush caves become Mossgrown
+ * Caves, dripstone caves Dripstone Grottos, the deep dark the Echoing Depths and sulfur caves the Sulfur
+ * Seeps. They are ours, with vanilla's ores, geodes and dungeons and nothing else; what grows in them is
+ * placed by {@link dev.voidmc.expanse.world.terrain.CavernLife}. (The deep dark's ancient cities and its
+ * warden go with it.) Other worlds keep vanilla's caves and their biomes.
  *
  * <p>The realms' biomes are not in the source: the Earth generator puts them wherever a realm is, by its
  * character ({@link #REALMS}, indexed by {@link dev.voidmc.expanse.world.terrain.CavernModel} theme).

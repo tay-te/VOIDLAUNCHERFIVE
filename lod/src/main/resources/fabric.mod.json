@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "void_lod",
+	"version": "${version}",
+	"name": "VOID LOD",
+	"description": "The land past your render distance, out to the horizon: far terrain sampled straight from the world generator, drawn in one indirect draw on OpenGL or Vulkan.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.voidmc.lod.VoidLod"]
+	},
+	"mixins": ["void_lod.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"expanse": "*"
+	}
+}

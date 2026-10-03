@@ -1,0 +1,97 @@
+plugins {
+	// 26.x ships unobfuscated, so there is no mappings line: the code is written against Mojang's own
+	// names, and Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-lod'
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// The Earth terrain model, sampled directly when Expanse is present (see ExpanseSource). In the dev
+	// runs Expanse is on the classpath too, so the game tests fly over real Earth terrain.
+	compileOnly 'dev.voidmc:void-expanse'
+	localRuntime 'dev.voidmc:void-expanse'
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+		showStandardStreams = true
+	}
+}
+
+// A client game test, run headless (SDL_VIDEO_FORCE_EGL=1 xvfb-run ./gradlew runClientGameTest), that
+// creates an Earth world, climbs a mountain and photographs the view with the LOD off and on, logging
+// what each frame cost. It lives in its own source set so none of it ships in the mod.
+// Dev runs log the LOD's stats every five seconds, and take its settings from Gradle properties:
+//   ./gradlew runClient -Pvoid.lod.radius=16384 -Pvoid.lod.detail=4
+loom {
+	runs {
+		configureEach {
+			property 'void.lod.logStats', 'true'
+			['void.lod.radius', 'void.lod.detail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled'].each { key ->
+				if (project.hasProperty(key)) {
+					property key, project.property(key).toString()
+				}
+			}
+		}
+	}
+}
+
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "void-lod-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}
+
+// Times tile generation and meshing against the Earth terrain model without starting the game.
+//   ./gradlew lodBench -Pseed=8675309
+tasks.register('lodBench', JavaExec) {
+	group = 'lod'
+	description = 'Benchmarks LOD tile generation and meshing on the Earth terrain model'
+	classpath = sourceSets.gametest.runtimeClasspath
+	mainClass = 'dev.voidmc.lod.gametest.LodBench'
+	jvmArgs '-Xmx3g'
+	args = [project.findProperty('seed') ?: '8675309']
+}
