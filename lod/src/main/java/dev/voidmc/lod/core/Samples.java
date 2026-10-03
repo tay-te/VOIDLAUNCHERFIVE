@@ -18,6 +18,7 @@ final class Samples {
 	private static final long SALT_HEIGHT = 0x7A11L;
 
 	final float[] ground = new float[MAX * MAX];
+	final float[] bottom = new float[MAX * MAX];
 	final int[] top = new int[MAX * MAX];
 	final int[] side = new int[MAX * MAX];
 	final int[] soil = new int[MAX * MAX];
@@ -32,6 +33,8 @@ final class Samples {
 	final float[] canopy = new float[MAX * MAX];
 	final float[] cover = new float[MAX * MAX];
 	final int[] leaves = new int[MAX * MAX];
+	/** The crowns' colour from above: the leaves', or snow on them. */
+	final int[] leavesTop = new int[MAX * MAX];
 	final float[] crown = new float[MAX * MAX];
 	final float[] conifer = new float[MAX * MAX];
 	final int[] topMaterial = new int[MAX * MAX];
@@ -78,6 +81,7 @@ final class Samples {
 				source.sample(x, z, this.cell, s);
 				int k = this.at(i, j);
 				this.ground[k] = s.ground;
+				this.bottom[k] = s.bottom;
 				this.water[k] = s.water;
 				this.waterColor[k] = s.waterColor;
 				this.lava[k] = s.lava;
@@ -100,6 +104,7 @@ final class Samples {
 					this.side[k] = s.side;
 					this.soil[k] = s.soil;
 					this.leaves[k] = s.leaves;
+					this.leavesTop[k] = s.leavesTop < 0 ? s.leaves : s.leavesTop;
 					this.cover[k] = s.cover;
 					this.canopy[k] = s.canopy;
 					continue;
@@ -114,8 +119,11 @@ final class Samples {
 				float cover = s.cover;
 				float canopy = s.canopy;
 				this.leaves[k] = s.leaves;
+				this.leavesTop[k] = s.leavesTop < 0 ? s.leaves : s.leavesTop;
 				if (cover > 0 && canopy > 0) {
-					this.leaves[k] = Colors.vary(s.leaves, 1 + 0.1F * Colors.fbm(SALT_TONE + 13, x, z, 260, this.cell, 3), sat);
+					float shade = 1 + 0.1F * Colors.fbm(SALT_TONE + 13, x, z, 260, this.cell, 3);
+					this.leaves[k] = Colors.vary(s.leaves, shade, sat);
+					this.leavesTop[k] = Colors.vary(this.leavesTop[k], shade, sat);
 					// clearings and thickets: the biome's density is an average, not a rule
 					float patch = Colors.fbm(SALT_COVER, x, z, 380, this.cell, 4);
 					cover = Math.min(1, cover * Math.max(0, 1 + 0.85F * patch));

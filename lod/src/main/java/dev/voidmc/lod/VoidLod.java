@@ -19,7 +19,6 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +51,14 @@ public final class VoidLod implements ClientModInitializer {
 	public final double hazeReach = Double.parseDouble(System.getProperty("void.lod.haze", String.valueOf(this.radius * 0.75)));
 	/** How fast the haze thins with height: it is a third as thick this many blocks above sea level. */
 	public static final float HAZE_SCALE_HEIGHT = 160;
+	/**
+	 * How far the air carries in full rain, at any height, on top of the haze: two thirds hidden at 660 blocks
+	 * (and a fifth already at the camera, from vanilla's 160 blocks of rain fog before it), the middle distance
+	 * of vanilla's rain fog, which ends 768 blocks out. Mirrored in {@code lod.vsh}.
+	 */
+	public static final float RAIN_REACH = 660;
+	/** Vanilla's rain fog starts this many blocks behind the camera. */
+	public static final float RAIN_OFFSET = 160;
 	public final int threads = Integer.getInteger("void.lod.threads",
 		Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)));
 	private boolean enabled = Boolean.parseBoolean(System.getProperty("void.lod.enabled", "true"));
@@ -63,7 +70,7 @@ public final class VoidLod implements ClientModInitializer {
 	private int resets;
 	private int ticks;
 	private final boolean logStats = Boolean.getBoolean("void.lod.logStats");
-	/** This frame's haze for the shader, from the fog mixin: 1 / reach (0 for vanilla's fog), 1 / scale height, base y, rain. */
+	/** This frame's haze for the shader, from the fog mixin: 1 / reach (0 for vanilla's fog), 1 / scale height, base y, rain (0..1). */
 	private final float[] haze = new float[4];
 	/** This frame's sun for the shader: its direction, and how much of the far relief it lights (0 at night). */
 	private final float[] sun = new float[4];
@@ -104,8 +111,8 @@ public final class VoidLod implements ClientModInitializer {
 
 	/** The terrain source for the level the player is in, or null where there is none to be had. */
 	private TerrainSource createSource(Minecraft mc) {
-		if (mc.level == null || mc.level.dimensionType().hasCeiling() || mc.level.dimension() == Level.END) {
-			// a ceiling hides the distance; the End is islands over the void, which a heightfield cannot draw
+		if (mc.level == null || mc.level.dimensionType().hasCeiling()) {
+			// a ceiling hides the distance
 			return null;
 		}
 		var server = mc.getSingleplayerServer();
@@ -189,13 +196,13 @@ public final class VoidLod implements ClientModInitializer {
 
 	/**
 	 * Sets this frame's aerial haze: {@code reach} blocks at height {@code base} (0 for none, and vanilla's own
-	 * fog instead), plus {@code offset} blocks of haze before the first (rain's).
+	 * fog instead), and how hard it rains (0..1), which hangs a curtain of {@link #RAIN_REACH} over it.
 	 */
-	public void setHaze(float reach, float base, float offset, boolean hidden) {
+	public void setHaze(float reach, float base, float rain, boolean hidden) {
 		this.haze[0] = reach > 0 ? 1.0F / reach : 0;
 		this.haze[1] = 1.0F / HAZE_SCALE_HEIGHT;
 		this.haze[2] = base;
-		this.haze[3] = offset;
+		this.haze[3] = rain;
 		this.fogHidesLod = hidden;
 	}
 

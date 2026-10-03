@@ -13,8 +13,14 @@ import java.nio.ByteOrder;
  * tops, the colour of the risers (the surface block's side on gentle ground; soil, then rock, as the slope
  * steepens and each step gets taller), and the slope, from which the shader works out how much of each
  * the camera sees. Forests are a canopy raised over the ground as far as they are dense, their tops leaf,
- * their flanks shaded leaf. Valleys darken and ridges catch a little more light, the large-scale version
- * of the corner occlusion the blocky tiles do block by block.
+ * their flanks shaded leaf, conifers darker and spikier than broadleaf, snow on the boughs of a cold
+ * forest. Valleys darken and ridges catch a little more light, the large-scale version of the corner
+ * occlusion the blocky tiles do block by block.
+ *
+ * <p>Where some of the tile is void (between End islands), the grid stays whole, since the index buffer is
+ * shared: the vertices over the void are flagged, those next to land hang down to its underside as the
+ * island's flank, and the shader cuts out every triangle with no land at all. Such tiles are drawn with the
+ * shader variant that can discard ({@link #holes}); the rest keep early depth testing.
  */
 final class Smooth {
 	private static final int N = TileKey.TILE;
@@ -22,10 +28,15 @@ final class Smooth {
 	static final int VERTICES = V * V + 4 * V;
 	static final int INDICES = N * N * 6 + 4 * N * 6;
 	private static final int MAX = N + 1 + 2 * Samples.MAX_BORDER;
+	/** How far an island's rim hangs when the source cannot say where its underside is. */
+	private static final float RIM_DEPTH = 12;
 
 	private final TileBuilder out;
 	private final Samples s;
 	private final float[] surface = new float[MAX * MAX];
+	/** Per sample: where the ground ends below (an island's underside), and for the void, the land beside it. */
+	private final float[] under = new float[MAX * MAX];
+	private final int[] near = new int[MAX * MAX];
 	private final float[] vy = new float[V * V];
 	private final int[] vtop = new int[V * V];
 	private final int[] vside = new int[V * V];
@@ -40,6 +51,9 @@ final class Smooth {
 	private final float[] rgz = new float[R * R];
 	private final float[] rseen = new float[R * R];
 	private final boolean[] rwet = new boolean[R * R];
+	private final boolean[] rempty = new boolean[R * R];
+	/** Whether the last tile meshed has void in it: it must be drawn with the variant that cuts it out. */
+	boolean holes;
 
 	Smooth(TileBuilder out, Samples samples) {
 		this.out = out;
@@ -54,15 +68,36 @@ final class Smooth {
 		return canopy * (float) Math.sqrt(Math.min(1, cover * 1.25F)) * 0.9F;
 	}
 
-	void mesh() {
+	/**
+	 * Meshes the sampled tile. Returns the number of indices to draw it with: all of them, or none where the
+	 * tile is nothing but void. {@link #holes} says whether some of it is void, to be cut out by the shader.
+	 */
+	int mesh() {
 		Samples s = this.s;
 		int cell = s.cell;
 		int b = s.border;
+		int solid = 0;
+		boolean holes = false;
+		float lowest = Float.MAX_VALUE;
 		for (int j = -b; j < V + b; j++) {
 			for (int i = -b; i < V + b; i++) {
 				int k = s.at(i, j);
+				if (s.empty[k]) {
+					holes |= i >= 0 && j >= 0 && i < V && j < V;
+					continue;
+				}
 				this.surface[k] = s.wet(k) ? s.water[k] : s.ground[k] + blanket(s.canopy[k], s.cover[k]);
+				this.under[k] = Float.isInfinite(s.bottom[k]) ? s.ground[k] - RIM_DEPTH : s.bottom[k];
+				lowest = Math.min(lowest, this.under[k]);
+				solid++;
 			}
+		}
+		if (solid == 0) {
+			return 0;
+		}
+		this.holes = holes;
+		if (solid < (V + 2 * b) * (V + 2 * b)) {
+			this.rims(lowest);
 		}
 		float inv = 1.0F / (2 * cell);
 		// Colours for the grid and a ring of one beyond it, so they can be softened across tile edges alike.
@@ -71,6 +106,16 @@ final class Smooth {
 				int k = s.at(i, j);
 				int r = this.ring(i, j);
 				float h = this.surface[k];
+				this.rempty[r] = s.empty[k];
+				if (s.empty[k]) {
+					// the void: what hangs into it is the island's flank, its rock
+					int c = s.rock[this.near[k] >= 0 ? this.near[k] : k];
+					this.rtop[r] = c;
+					this.rside[r] = c;
+					this.rwet[r] = false;
+					this.rseen[r] = 0;
+					continue;
+				}
 				if (s.wet(k)) {
 					int c = Colors.water(s.waterColor[k], s.top[k], s.water[k] - s.ground[k], s.lava[k]);
 					this.rtop[r] = c;
@@ -87,15 +132,22 @@ final class Smooth {
 				float cover = s.cover[k];
 				// seen at an angle, crowns hide more of the floor between them than their footprint
 				float seen = s.canopy[k] > 0 ? 1 - (1 - cover) * (1 - cover) : 0;
-				int top = Colors.mix(s.top[k], s.leaves[k], seen);
-				int side = Colors.mix(this.riser(k, slope, h, cell), Colors.scale(s.leaves[k], 0.8F), seen);
+				// A canopy of conifers is dark needles, and from afar its spires show their shaded flanks even
+				// from above; broadleaf crowns are domes with their tops in the light. Snow on the boughs whitens
+				// the tops of a cold forest, a little less than up close, where it lies between the tiers.
+				float conifer = s.conifer[k];
+				int flank = Colors.scale(s.leaves[k], 0.8F - 0.12F * conifer);
+				int crowns = Colors.mix(Colors.mix(s.leaves[k], s.leavesTop[k], 0.6F), flank, 0.3F * conifer);
+				int top = Colors.mix(s.top[k], crowns, seen);
+				int side = Colors.mix(this.riser(k, slope, h, cell), flank, seen);
 
 				// valleys a little darker, ridges a little brighter; a canopy shades itself
 				float ring = 0;
 				int n = 0;
 				for (int dz = -2; dz <= 2; dz += 2) {
 					for (int dx = -2; dx <= 2; dx += 2) {
-						if ((dx != 0 || dz != 0) && Math.abs(i + dx - V / 2) <= V / 2 + s.border && Math.abs(j + dz - V / 2) <= V / 2 + s.border) {
+						if ((dx != 0 || dz != 0) && Math.abs(i + dx - V / 2) <= V / 2 + s.border && Math.abs(j + dz - V / 2) <= V / 2 + s.border
+							&& !s.empty[s.at(i + dx, j + dz)]) {
 							ring += this.surface[s.at(i + dx, j + dz)];
 							n++;
 						}
@@ -103,28 +155,30 @@ final class Smooth {
 				}
 				float cavity = (ring / Math.max(1, n) - h) / (4.0F * cell);
 				float light = 1 - 0.3F * Colors.smooth(0, 0.35F, cavity) + 0.05F * Colors.smooth(0, 0.35F, -cavity);
-				light *= 1 - 0.1F * seen;
+				light *= 1 - (0.1F + 0.08F * conifer) * seen;
 				this.rtop[r] = Colors.scale(top, light);
 				this.rside[r] = Colors.scale(side, light);
 				this.rgx[r] = gx;
 				this.rgz[r] = gz;
 				this.rwet[r] = false;
-				this.rseen[r] = seen;
+				this.rseen[r] = seen * (1 + 0.6F * conifer);
 			}
 		}
 		for (int j = 0; j < V; j++) {
 			for (int i = 0; i < V; i++) {
 				int v = i + j * V;
 				int r = this.ring(i, j);
-				this.vy[v] = this.surface[s.at(i, j)];
+				int k = s.at(i, j);
 				boolean wet = this.rwet[r];
-				// Soften colour edges over the neighbours (the same kind, land or water): a biome border, a snow
-				// line, a forest's edge become a short blend instead of following the triangles in a sawtooth.
+				boolean empty = this.rempty[r];
+				this.vy[v] = empty ? this.under[k] : this.surface[k];
+				// Soften colour edges over the neighbours (the same kind, land, water or void): a biome border, a
+				// snow line, a forest's edge become a short blend instead of following the triangles in a sawtooth.
 				float tr = 0, tg = 0, tb = 0, sr = 0, sg = 0, sb = 0, wsum = 0;
 				for (int dz = -1; dz <= 1; dz++) {
 					for (int dx = -1; dx <= 1; dx++) {
 						int o = this.ring(i + dx, j + dz);
-						if (this.rwet[o] != wet) {
+						if (this.rwet[o] != wet || this.rempty[o] != empty) {
 							continue;
 						}
 						float w = (dx == 0 ? 2 : 1) * (dz == 0 ? 2 : 1);
@@ -138,15 +192,27 @@ final class Smooth {
 						wsum += w;
 					}
 				}
-				// and a mottle of a cell, stronger under trees, where crowns and gaps alternate
+				// and a mottle of a cell, stronger under trees, where crowns and gaps alternate (conifers' spires most)
 				float mottle = 1;
-				if (!wet) {
+				if (!wet && !empty) {
 					long hash = Colors.hash(0x30771EL, s.x(i), s.z(j));
 					mottle = 1 + (Colors.unit(hash, 0) - 0.5F) * (0.08F + 0.16F * this.rseen[r]);
 				}
 				float f = mottle / wsum;
 				this.vtop[v] = Colors.rgb(tr * f, tg * f, tb * f);
 				this.vside[v] = Colors.rgb(sr * f, sg * f, sb * f);
+				if (empty) {
+					// the flank of the island next to it, falling from its rim to its underside
+					int near = this.near[k];
+					int d = near - k;
+					int dz = near < 0 ? 0 : Math.round((float) d / s.size);
+					int dx = near < 0 ? 0 : d - dz * s.size;
+					float rise = near < 0 ? 0 : (this.surface[near] - this.vy[v]) / cell;
+					this.vgx[v] = encode(dx * rise);
+					this.vgz[v] = encode(dz * rise);
+					this.vflags[v] = TileBuilder.SMOOTH | TileBuilder.EMPTY;
+					continue;
+				}
 				this.vgx[v] = wet ? 128 : encode(this.rgx[r]);
 				this.vgz[v] = wet ? 128 : encode(this.rgz[r]);
 				this.vflags[v] = wet ? TileBuilder.SMOOTH | TileBuilder.WATER : TileBuilder.SMOOTH;
@@ -169,6 +235,54 @@ final class Smooth {
 		for (int j = 0; j < V; j++) {
 			this.emit(N + j * V, skirt, N, j);
 		}
+		return INDICES;
+	}
+
+	/**
+	 * Where the tile has void, works out what each empty sample next to land stands for: the flank of that
+	 * land, hanging from its rim down to its underside. Every triangle that touches land keeps its vertices,
+	 * the empty ones pulled down to the underside of the land beside them, so an island's edge is a slope
+	 * of rock under its rim instead of a paper-thin cut; triangles with no land at all are cut out by the
+	 * shader ({@link TileBuilder#EMPTY}). For the slopes and the shading, an empty sample's surface is the
+	 * land beside it, so the island's own top stays level to its edge.
+	 */
+	private void rims(float lowest) {
+		Samples s = this.s;
+		int b = s.border;
+		for (int j = -b; j < V + b; j++) {
+			for (int i = -b; i < V + b; i++) {
+				int k = s.at(i, j);
+				if (!s.empty[k]) {
+					continue;
+				}
+				float sum = 0;
+				float under = Float.MAX_VALUE;
+				int n = 0;
+				int near = -1;
+				for (int dz = -1; dz <= 1; dz++) {
+					for (int dx = -1; dx <= 1; dx++) {
+						int x = i + dx, z = j + dz;
+						if (x < -b || z < -b || x >= V + b || z >= V + b) {
+							continue;
+						}
+						int o = s.at(x, z);
+						if (s.empty[o]) {
+							continue;
+						}
+						sum += this.surface[o];
+						under = Math.min(under, this.under[o]);
+						// the nearest land along an axis, where there is some, gives the flank its direction
+						if (near < 0 || dx == 0 || dz == 0) {
+							near = o;
+						}
+						n++;
+					}
+				}
+				this.near[k] = near;
+				this.surface[k] = n > 0 ? sum / n : lowest;
+				this.under[k] = n > 0 ? under : lowest;
+			}
+		}
 	}
 
 	private int ring(int i, int j) {
@@ -176,7 +290,9 @@ final class Smooth {
 	}
 
 	private void emit(int v, float drop, int i, int j) {
-		this.out.vertex(i, this.vy[v] - drop, j, this.vflags[v], this.vtop[v], this.vgx[v], this.vside[v], this.vgz[v]);
+		// a skirt over the void hangs nowhere: it is cut out with the void, unless land beside it holds it up
+		float y = this.vy[v] - ((this.vflags[v] & TileBuilder.EMPTY) != 0 ? 0 : drop);
+		this.out.vertex(i, y, j, this.vflags[v], this.vtop[v], this.vgx[v], this.vside[v], this.vgz[v]);
 	}
 
 	/**

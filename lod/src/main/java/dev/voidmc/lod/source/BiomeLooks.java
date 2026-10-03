@@ -4,6 +4,8 @@ import dev.voidmc.lod.core.Colors;
 import dev.voidmc.lod.core.ColumnSample;
 import dev.voidmc.lod.core.Colors;
 import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -24,6 +26,10 @@ import net.minecraft.world.level.levelgen.feature.SimpleRandomSelectorFeature;
 import net.minecraft.world.level.levelgen.feature.TreeFeature;
 import net.minecraft.world.level.levelgen.feature.WeightedPlacedFeature;
 import net.minecraft.world.level.levelgen.feature.WeightedRandomSelectorFeature;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacer;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.MegaPineFoliagePlacer;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.PineFoliagePlacer;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.SpruceFoliagePlacer;
 import net.minecraft.world.level.levelgen.placement.CountPlacement;
 import net.minecraft.world.level.levelgen.placement.NoiseThresholdCountPlacement;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
@@ -42,19 +48,20 @@ import net.minecraft.world.level.levelgen.placement.RarityFilter;
  *       ({@link TextureColors}), top face and side face apart;</li>
  *   <li>the trees: read from the biome's vegetation features. Every tree feature it places (through any
  *       nesting of random selectors) contributes its expected count per chunk (from the count, noise
- *       count and rarity placements), its height (from its trunk placer) and its leaves' colour. That gives
- *       a canopy height, a crown size and the fraction of ground the crowns cover, which is what a forest is
- *       at a distance.</li>
+ *       count and rarity placements), its height (from its trunk placer), its leaves' colour, and whether
+ *       it is a conifer (from its foliage placer). That gives a canopy height, a crown size, the fraction of
+ *       ground the crowns cover and the share of them that are cones, which is what a forest is at a
+ *       distance.</li>
  * </ul>
  *
  * <p>Every biome of the level is worked out when the source is made, on the client thread (texture colours
  * read sprite pixels), so the workers only ever read finished looks.
  */
 public final class BiomeLooks {
-	public enum Ground { GRASS, SAND, RED_SAND, BADLANDS, SNOW, SNOWCAP, MYCELIUM, STONE, MUD, GRAVEL, PODZOL }
+	public enum Ground { GRASS, SAND, RED_SAND, BADLANDS, SNOW, SNOWCAP, MYCELIUM, STONE, MUD, GRAVEL, PODZOL, END }
 
 	public record Look(Ground ground, int top, int side, int soil, int soilDepth, int rock, int[] bands, int bandHeight, int bed,
-		int waterColor, float cover, int canopy, int leaves, float crown, boolean snowy) {
+		int waterColor, float cover, int canopy, int leaves, float crown, float conifer, boolean snowy) {
 		/** Puts this look into a sample: what the ground is made of, its water's tint, and its trees. */
 		public void fill(ColumnSample out) {
 			out.top = this.top;
@@ -69,6 +76,7 @@ public final class BiomeLooks {
 			out.cover = this.cover;
 			out.leaves = this.leaves;
 			out.crown = this.crown;
+			out.conifer = this.conifer;
 		}
 	}
 
@@ -162,7 +170,9 @@ public final class BiomeLooks {
 		boolean snowy = temperature < 0.15F;
 		String path = holder.unwrapKey().map(k -> k.identifier().getPath()).orElse("");
 		Ground ground;
-		if (holder.is(BiomeTags.IS_BADLANDS)) {
+		if (holder.is(BiomeTags.IS_END)) {
+			ground = Ground.END;
+		} else if (holder.is(BiomeTags.IS_BADLANDS)) {
 			ground = Ground.BADLANDS;
 		} else if (holder.is(BiomeTags.IS_DEEP_OCEAN)) {
 			ground = Ground.GRAVEL;
@@ -233,6 +243,9 @@ public final class BiomeLooks {
 			case STONE -> {
 				top = side = soil = rock = t.top(stone, biome);
 			}
+			case END -> {
+				top = side = soil = rock = t.top(Blocks.END_STONE.defaultBlockState(), biome);
+			}
 			case MUD -> {
 				top = side = soil = t.top(Blocks.MUD.defaultBlockState(), biome);
 				rock = t.top(stone, biome);
@@ -273,7 +286,7 @@ public final class BiomeLooks {
 		}
 		int water = Colors.multiply(0xFFFFFF, biome.getWaterColor());
 		return new Look(ground, top, side, soil, soilDepth, rock, bands, bandHeight, bed, water, trees.cover(), trees.height(),
-			trees.color(), trees.crown(), snowy);
+			trees.color(), trees.crown(), trees.conifer(), snowy);
 	}
 
 	/** Accumulates the tree features a biome places, weighted by how many of each it places per chunk. */
@@ -281,6 +294,7 @@ public final class BiomeLooks {
 		private final RandomSource random = RandomSource.create(42);
 		private final Biome biome;
 		private double perChunk;
+		private double conifers;
 		private double crownArea;
 		private double height;
 		private double radius;
@@ -345,6 +359,9 @@ public final class BiomeLooks {
 			double radius = 2 + height / 7.0;
 			int leaves = this.leafColor(tree);
 			this.perChunk += count;
+			if (isConifer(tree)) {
+				this.conifers += count;
+			}
 			this.crownArea += count * Math.PI * radius * radius;
 			this.height += count * height;
 			this.radius += count * radius;
@@ -377,12 +394,43 @@ public final class BiomeLooks {
 			return this.perChunk <= 0 ? 2.5F : (float) (this.radius / this.perChunk);
 		}
 
+		float conifer() {
+			return this.perChunk <= 0 ? 0 : (float) (this.conifers / this.perChunk);
+		}
+
 		int color() {
 			if (this.perChunk <= 0) {
 				return Colors.scale(BiomeLooks.this.textures.top(Blocks.OAK_LEAVES.defaultBlockState(), this.biome), 0.82F);
 			}
 			return Colors.rgb((float) (this.r / this.perChunk), (float) (this.g / this.perChunk), (float) (this.b / this.perChunk));
 		}
+	}
+
+	/** What a modded tree's placers are called when it is a conifer. */
+	private static final List<String> CONIFER_WORDS = List.of("spruce", "pine", "fir", "conifer", "redwood", "sequoia", "larch", "cedar", "cypress",
+		"hemlock", "taiga");
+
+	/**
+	 * Whether a tree is a conifer, a cone of needles (spruce, pine, redwood) rather than a dome of leaves (oak,
+	 * birch, acacia, jungle). Vanilla's foliage placers say so by their kind; a modded tree by the names of its
+	 * placers, its trunk's included, since some mods shape the crown in the trunk placer (Expanse's redwoods).
+	 */
+	private static boolean isConifer(TreeFeature tree) {
+		FoliagePlacer foliage = tree.foliagePlacer();
+		if (foliage instanceof SpruceFoliagePlacer || foliage instanceof PineFoliagePlacer || foliage instanceof MegaPineFoliagePlacer) {
+			return true;
+		}
+		String names = tree.trunkPlacer().getClass().getSimpleName();
+		if (!foliage.getClass().getName().startsWith("net.minecraft.")) {
+			names += " " + foliage.getClass().getSimpleName();
+		}
+		names = names.toLowerCase(Locale.ROOT);
+		for (String word : CONIFER_WORDS) {
+			if (names.contains(word)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Trees placed per chunk by one placed feature, on average: its count and rarity placements multiplied. */

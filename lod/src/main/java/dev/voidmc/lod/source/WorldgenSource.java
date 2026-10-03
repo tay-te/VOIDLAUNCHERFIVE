@@ -10,10 +10,12 @@ import net.minecraft.core.QuartPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeResolver;
+import net.minecraft.world.level.NoiseColumn;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.synth.Noise;
 
@@ -22,6 +24,10 @@ import net.minecraft.world.level.levelgen.synth.Noise;
  * {@link ChunkGenerator#getBaseHeight} (which walks the noise down one column instead of filling 98,304
  * blocks) and the biome from the biome source. Works for any noise-based world, vanilla or modded; the
  * Expanse source is the fast path for Earth worlds, whose terrain model answers a column in microseconds.
+ *
+ * <p>Worlds whose generator fills with air instead of water (the End, sky islands) float over the void: there
+ * a column is read whole, for its top and the underside of the island it belongs to, and a column with no
+ * ground at all is empty. Such worlds have no sea.
  *
  * <p>Needs the server's generator and seed, so it exists in singleplayer and on a LAN host.
  */
@@ -36,6 +42,10 @@ public class WorldgenSource implements TerrainSource {
 	/** The world's material registry: shared with chunk ingestion and the renderer. */
 	protected final Materials materials;
 	protected final int seaLevel;
+	/** Whether the world has a sea at all: not where the generator fills with air. */
+	protected final boolean sea;
+	/** Islands over the void (the End): columns are read whole, for where their ground ends below. */
+	protected final boolean floating;
 	/** The world's own badlands strata, one colour per block of height, and the noise that shifts them. */
 	protected final int[] strata;
 	private final Noise strataOffset;
@@ -60,6 +70,8 @@ public class WorldgenSource implements TerrainSource {
 		this.resolvers = ThreadLocal.withInitial(() -> this.biomes.createCachingResolver(this.randomState));
 		this.looks = new BiomeLooks(level);
 		this.seaLevel = this.generator.getSeaLevel();
+		this.floating = this.generator instanceof NoiseBasedChunkGenerator noise && noise.generatorSettings().value().defaultFluid().isAir();
+		this.sea = !this.floating;
 		this.version = version;
 		int[] strata = null;
 		Noise offset = null;
@@ -85,6 +97,11 @@ public class WorldgenSource implements TerrainSource {
 
 	public Materials materials() {
 		return this.materials;
+	}
+
+	/** Whether this world's land floats over the void (the End): it has no sea for the haze to settle toward. */
+	public boolean floating() {
+		return this.floating;
 	}
 
 	/** Anything about the source worth a line in the statistics. */
@@ -154,6 +171,13 @@ public class WorldgenSource implements TerrainSource {
 		return Colors.smooth(line - soft, line + soft, y);
 	}
 
+	/** Snow on the boughs where it lies on the ground: the crowns' tops white, as far as the snow goes. */
+	protected void boughs(ColumnSample out, float snow) {
+		if (out.canopy > 0) {
+			out.leavesTop = Colors.mix(out.leaves, this.looks.snowTop, snow * 0.9F);
+		}
+	}
+
 	/** Badlands walls in the world's own strata, where it has them. */
 	protected void strata(int x, int z, ColumnSample out) {
 		if (out.bands != null && this.strata != null) {
@@ -163,15 +187,45 @@ public class WorldgenSource implements TerrainSource {
 		}
 	}
 
+	/**
+	 * Over the void, the column's top and the underside of the ground it stands on, read from the whole column:
+	 * {@code out.bottom} gets the underside. Returns the top, or the world's floor for a column with no ground.
+	 */
+	private int island(int x, int z, ColumnSample out) {
+		NoiseColumn column = this.generator.getBaseColumn(x, z, this.level, this.randomState);
+		var solid = Heightmap.Types.OCEAN_FLOOR_WG.isOpaque();
+		int floor = this.level.getMinY();
+		int y = this.level.getMaxY();
+		while (y >= floor && !solid.test(column.getBlock(y))) {
+			y--;
+		}
+		if (y < floor) {
+			return floor;
+		}
+		int under = y;
+		while (under > floor && solid.test(column.getBlock(under - 1))) {
+			under--;
+		}
+		out.bottom = under;
+		return y + 1;
+	}
+
 	@Override
 	public void sample(int x, int z, int cell, ColumnSample out) {
-		int ground = this.generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, this.level, this.randomState);
+		int ground = this.floating ? this.island(x, z, out)
+			: this.generator.getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, this.level, this.randomState);
+		if (ground <= this.level.getMinY()) {
+			// nothing at all down to the bottom of the world: the void
+			out.empty = true;
+			out.ground = ground;
+			return;
+		}
 		Holder<Biome> biome = this.biome(x, ground, z, cell);
 		BiomeLooks.Look look = this.looks.get(biome);
 		look.fill(out);
 		out.ground = ground;
 		this.strata(x, z, out);
-		if (ground < this.seaLevel) {
+		if (ground < this.seaLevel && this.sea) {
 			out.water = this.seaLevel;
 			out.top = look.bed();
 			out.canopy = 0;
@@ -187,7 +241,8 @@ public class WorldgenSource implements TerrainSource {
 			if (look.ground() == BiomeLooks.Ground.GRASS) {
 				out.side = Colors.mix(out.side, this.looks.snowSide, snow);
 			}
-		} else if (ground <= this.seaLevel + 1 && look.ground() == BiomeLooks.Ground.GRASS) {
+			this.boughs(out, snow);
+		} else if (this.sea && ground <= this.seaLevel + 1 && look.ground() == BiomeLooks.Ground.GRASS) {
 			// most shores are sand, whatever the biome inland
 			out.top = out.side = out.soil = this.looks.sand;
 		}

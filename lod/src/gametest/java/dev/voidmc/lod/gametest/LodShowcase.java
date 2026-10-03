@@ -6,19 +6,26 @@ import dev.voidmc.lod.VoidLod;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.core.Holder;
+import net.minecraft.core.QuartPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * Photographs an Earth world with the LOD off and on from a few kinds of place: a high peak looking out
  * each way, a low spot looking across the land, and the air high over the peak, logging what the LOD drew
- * and what it cost.
+ * and what it cost. Then the same land in other light and weather (dusk, night, rain, thunder), from the sea
+ * and under it, over conifer forests, and among the islands of the End.
  *
  * <p>Run with {@code ./gradlew runClientGameTest} (headless on Linux: {@code SDL_VIDEO_FORCE_EGL=1 xvfb-run});
  * screenshots land in build/run/clientGameTest/screenshots. Properties (pass as -P to Gradle):
@@ -38,11 +45,29 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int HEIGHT = Integer.getInteger("lod.show.height", 900);
 	private static final boolean OFF = Boolean.parseBoolean(System.getProperty("lod.show.off", "true"));
 
-	private record Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
+	/** A view: where the camera stands and looks, through what lens, in which dimension, at what time and weather. */
+	private record Spot(String name, String dimension, int x, int y, int z, float yaw, float pitch, int fov, int time, String weather) {
 		Spot(String name, int x, int y, int z, float yaw, float pitch) {
 			this(name, x, y, z, yaw, pitch, 70);
 		}
+
+		Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
+			this(name, "minecraft:overworld", x, y, z, yaw, pitch, fov, 6000, "clear");
+		}
+
+		/** The same view at another time of day and weather. */
+		Spot at(String name, int time, String weather) {
+			return new Spot(name, this.dimension, this.x, this.y, this.z, this.yaw, this.pitch, this.fov, time, weather);
+		}
+
+		boolean samePlace(Spot o) {
+			return o != null && o.dimension.equals(this.dimension) && o.x == this.x && o.y == this.y && o.z == this.z;
+		}
 	}
+
+	/** Biomes whose trees are mostly conifers, by name: vanilla's and Expanse's. */
+	private static final Set<String> CONIFER_BIOMES = Set.of("taiga", "snowy_taiga", "old_growth_pine_taiga", "old_growth_spruce_taiga", "grove",
+		"larch_taiga", "boreal_muskeg", "pine_heath", "redwood_giants");
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -122,6 +147,69 @@ public class LodShowcase implements FabricClientGameTest {
 				found.add(new Spot("far1", lx, lowTop + 12, lz, toPeak, 2, 30));
 				found.add(new Spot("far2", bx, top + 24, bz, 0, 3, 30));
 				System.out.printf(Locale.ROOT, "[lod] high point %d,%d at y=%d; low point %d,%d at y=%d%n", bx, bz, top, lx, lz, lowTop);
+
+				// the peak looking west, into the sunset, and east, away from it; the valley at night and in the rain
+				Spot west = found.get(1);
+				Spot east = found.get(3);
+				Spot valley = found.get(4);
+				found.add(west.at("dusk0", 12500, "clear"));
+				found.add(west.at("dusk1", 13000, "clear"));
+				found.add(east.at("dusk2", 12800, "clear"));
+				found.add(west.at("night0", 18000, "clear"));
+				found.add(valley.at("night1", 18000, "clear"));
+				found.add(west.at("rain0", 6000, "rain"));
+				found.add(valley.at("rain1", 6000, "rain"));
+				found.add(west.at("thunder0", 6000, "thunder"));
+
+				// the open sea nearest the peak: from just above the water out to sea at dusk and at night, and under it
+				int sea = level.getSeaLevel();
+				int[] deep = nearest(bx, bz, 6000, 64, (x, z) -> model.sample(x, z).height < sea - 24);
+				if (deep != null) {
+					float out = (float) Math.toDegrees(Math.atan2(-(deep[0] - bx), deep[1] - bz));
+					Spot above = new Spot("sea", deep[0], sea + 5, deep[1], out, 2);
+					found.add(above.at("sea0", 12600, "clear"));
+					found.add(above.at("sea1", 18000, "clear"));
+					found.add(new Spot("water0", deep[0], sea - 5, deep[1], out + 180, 4));
+					System.out.printf(Locale.ROOT, "[lod] open sea at %d,%d%n", deep[0], deep[1]);
+				}
+
+				// conifer forests, one temperate and one under snow, each from high enough over them that most of what
+				// is in view is the LOD's
+				BiomeResolver biomes = level.getChunkSource().getGenerator().getBiomeSource().createUncachedResolver(level.getChunkSource().randomState());
+				for (boolean snowy : new boolean[]{false, true}) {
+					int[] forest = nearest(bx, bz, 6000, 64, (x, z) -> {
+						var c = model.sample(x, z);
+						if (c.height < sea + 4 || c.nearRiver()) {
+							return false;
+						}
+						Holder<Biome> biome = biomes.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock((int) c.height), QuartPos.fromBlock(z));
+						String path = biome.unwrapKey().map(k -> k.identifier().getPath()).orElse("");
+						return CONIFER_BIOMES.contains(path) && (biome.value().getBaseTemperature() < 0.15F) == snowy;
+					});
+					if (forest != null) {
+						int ground = (int) model.sample(forest[0], forest[1]).height;
+						found.add(new Spot(snowy ? "forest1" : "forest0", forest[0], ground + 140, forest[1], 45, 24));
+						System.out.printf(Locale.ROOT, "[lod] %s conifer forest at %d,%d, y=%d%n", snowy ? "snowy" : "temperate", forest[0], forest[1], ground);
+					}
+				}
+
+				// the End's outer islands, past the void around the main island: from one island out over the others,
+				// from high above them, and from the void beside one, looking up at the undersides
+				ServerLevel end = server.getLevel(Level.END);
+				if (end != null) {
+					var generator = end.getChunkSource().getGenerator();
+					var random = end.getChunkSource().randomState();
+					for (int x = 1200; x < 4000; x += 16) {
+						int h = generator.getBaseHeight(x, 0, Heightmap.Types.OCEAN_FLOOR_WG, end, random);
+						if (h > end.getMinY() + 20) {
+							found.add(new Spot("end0", "minecraft:the_end", x, h + 20, 0, 270, 6, 70, 6000, "clear"));
+							found.add(new Spot("end1", "minecraft:the_end", x, h + 140, 0, 250, 30, 70, 6000, "clear"));
+							found.add(new Spot("end2", "minecraft:the_end", x - 48, 16, 0, 270, -24, 70, 6000, "clear"));
+							System.out.printf(Locale.ROOT, "[lod] End island at %d,0, y=%d%n", x, h);
+							break;
+						}
+					}
+				}
 				return found;
 			});
 
@@ -132,9 +220,17 @@ public class LodShowcase implements FabricClientGameTest {
 			for (int i = 0; i < Math.min(VIEWS, spots.size()); i++) {
 				Spot spot = spots.get(i);
 				context.runOnClient(mc -> mc.options.fov().set(spot.fov()));
-				world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", spot.x(), spot.y(), spot.z(), spot.yaw(), spot.pitch()));
 				Spot last = i == 0 ? null : spots.get(i - 1);
-				boolean moved = last == null || last.x() != spot.x() || last.y() != spot.y() || last.z() != spot.z();
+				boolean moved = !spot.samePlace(last);
+				boolean sky = last == null || last.time() != spot.time() || !last.weather().equals(spot.weather());
+				world.getServer().runCommand("time set " + spot.time());
+				world.getServer().runCommand("weather " + spot.weather());
+				world.getServer().runCommand(String.format(Locale.ROOT, "execute in %s run tp @a %d %d %d %.1f %.1f", spot.dimension(), spot.x(), spot.y(),
+					spot.z(), spot.yaw(), spot.pitch()));
+				if (sky && !moved) {
+					// rain and thunder take five seconds to set in, and the rain's fog a little longer
+					context.waitTicks(140);
+				}
 
 				if (OFF) {
 					context.runOnClient(mc -> VoidLod.get().setEnabled(false));
@@ -175,6 +271,24 @@ public class LodShowcase implements FabricClientGameTest {
 
 	private void shoot(ClientGameTestContext context, String name) {
 		context.takeScreenshot(TestScreenshotOptions.of("lod_" + name).withSize(WIDTH, HEIGHT));
+	}
+
+	private interface ColumnTest {
+		boolean test(int x, int z);
+	}
+
+	/** About the nearest point to (cx, cz) within {@code reach} blocks, on a grid {@code step} apart, that passes the test. */
+	private static int[] nearest(int cx, int cz, int reach, int step, ColumnTest test) {
+		for (int r = 0; r <= reach; r += step) {
+			for (int x = cx - r; x <= cx + r; x += step) {
+				for (int z = cz - r; z <= cz + r; z += step) {
+					if ((Math.abs(x - cx) == r || Math.abs(z - cz) == r) && test.test(x, z)) {
+						return new int[]{x, z};
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	private void settle(ClientGameTestContext context, long ms) {

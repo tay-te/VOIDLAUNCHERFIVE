@@ -263,7 +263,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				ByteBuffer copy = ByteBuffer.allocateDirect(Math.max(1, mesh.bytes())).order(ByteOrder.nativeOrder());
 				copy.put(mesh.vertices()).flip();
 				// the record keeps the counts; its buffer is the builder's own and is about to be reused
-				this.built.add(new Built(tile, copy, new TileBuilder.Mesh(copy, mesh.vertexCount(), mesh.indexCount(), mesh.smooth(), mesh.minY(), mesh.maxY()), ver));
+				this.built.add(new Built(tile, copy, new TileBuilder.Mesh(copy, mesh.vertexCount(), mesh.indexCount(), mesh.smooth(), mesh.minY(), mesh.maxY(), mesh.holes()), ver));
 				this.quadsBuilt.addAndGet(mesh.quads());
 			} catch (Throwable t) {
 				// a source that throws for one column should not take the worker with it
@@ -310,6 +310,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			tile.smooth = mesh.smooth();
 			tile.minY = mesh.minY();
 			tile.maxY = mesh.maxY();
+			tile.holes = mesh.holes();
 			if (mesh.vertexCount() == 0) {
 				this.waiting.poll();
 				tile.state = Tile.State.READY;

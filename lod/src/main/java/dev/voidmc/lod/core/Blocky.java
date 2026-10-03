@@ -17,12 +17,20 @@ import java.util.Arrays;
  *       each wall darkens along its lowest block, where it meets the floor.</li>
  *   <li>Trees, one crown each ({@link Trees}), on a forest floor.</li>
  * </ul>
+ *
+ * <p>Columns with no ground at all (the void between End islands) draw nothing, and the land around them
+ * reads as what it is, a slab floating over the void: walls hang from its rim down to its underside, and
+ * the underside itself is drawn, step by step, for when the camera is below it.
  */
 final class Blocky {
 	private static final int N = TileKey.TILE;
 	private static final int W = N + 2;
 	/** Six bits a channel: past where the shader's per-block grain hides the step, and it lets tops merge. */
 	private static final int COLOR_MASK = 0xFCFCFC;
+	/** The top of an empty column, and the underside of ground that goes all the way down: lower than anything. */
+	private static final int DEEP = Integer.MIN_VALUE / 4;
+	/** How far an island's rim hangs when the source cannot say where its underside is. */
+	private static final int RIM_DEPTH = 12;
 
 	private final TileBuilder out;
 	private final Samples s;
@@ -35,6 +43,8 @@ final class Blocky {
 	private final int[] side = new int[W * W];
 	private final int[] soil = new int[W * W];
 	private final int[] rock = new int[W * W];
+	/** Where the column's ground ends below: an island's underside, or {@link #DEEP}. */
+	private final int[] base = new int[W * W];
 	private final boolean[] wet = new boolean[W * W];
 	private final byte[] ao = new byte[N * N * 4];
 	private final boolean[] done = new boolean[N * N];
@@ -46,22 +56,34 @@ final class Blocky {
 	}
 
 	void mesh() {
-		this.cells();
+		boolean floating = this.cells();
 		this.occlusion();
 		this.tops();
 		this.walls(4 + 3 * this.s.cell);
+		if (floating) {
+			this.floors();
+			this.steps();
+		}
 	}
 
-	/** Each cell's top, what it is made of, and its tree. */
-	private void cells() {
+	/** Each cell's top, what it is made of, and its tree. True if any of the tile's ground floats over the void. */
+	private boolean cells() {
 		Samples s = this.s;
 		double centre = s.cell == 1 ? 0.5 : 0;
+		boolean floating = false;
 		for (int j = -1; j <= N; j++) {
 			for (int i = -1; i <= N; i++) {
 				int k = s.at(i, j);
+				this.crown[k] = -1;
+				if (s.empty[k]) {
+					this.ground[k] = this.top[k] = this.base[k] = DEEP;
+					this.wet[k] = false;
+					continue;
+				}
 				int g = (int) Math.ceil(s.ground[k] - 1e-3F);
 				this.ground[k] = g;
-				this.crown[k] = -1;
+				this.base[k] = Float.isInfinite(s.bottom[k]) ? DEEP : Math.min(g - 1, (int) Math.floor(s.bottom[k]));
+				floating |= this.base[k] != DEEP && i >= 0 && j >= 0 && i < N && j < N;
 				this.side[k] = s.side[k] & COLOR_MASK;
 				this.soil[k] = s.soil[k] & COLOR_MASK;
 				this.rock[k] = s.rock[k] & COLOR_MASK;
@@ -76,12 +98,13 @@ final class Blocky {
 				this.top[k] = g;
 				this.color[k] = s.top[k] & COLOR_MASK;
 				if (s.canopy[k] > 0) {
-					float h = Trees.crown(s.x(i) + centre, s.z(j) + centre, s.canopy[k], s.cover[k], s.crown[k], this.shade);
+					float h = Trees.crown(s.x(i) + centre, s.z(j) + centre, s.canopy[k], s.cover[k], s.crown[k], s.conifer[k], this.shade);
 					if (h >= 1) {
 						this.top[k] = g + Math.max(1, Math.round(h));
 						// one tree's leaves in full light: the looks' colour is a whole crown's, self-shading included
 						int leaves = Colors.scale(s.leaves[k], this.shade[0] * 1.15F);
-						this.color[k] = leaves & COLOR_MASK;
+						// its top as it is from above: in a cold forest, the snow on the boughs
+						this.color[k] = (s.leavesTop[k] == s.leaves[k] ? leaves : Colors.scale(s.leavesTop[k], this.shade[0] * 1.15F)) & COLOR_MASK;
 						// its flanks get Minecraft's face shading in the shader; under the crown it is darker still
 						this.crown[k] = leaves & COLOR_MASK;
 						this.under[k] = g + Math.round(this.shade[1]);
@@ -89,6 +112,7 @@ final class Blocky {
 				}
 			}
 		}
+		return floating;
 	}
 
 	/** Vanilla's corner rule: a corner with both sides above it is fully dark, else one step per occluder. */
@@ -130,6 +154,10 @@ final class Blocky {
 				}
 				int k = this.s.at(i, j);
 				int base = (i + j * N) * 4;
+				if (this.s.empty[k]) {
+					this.done[i + j * N] = true;
+					continue;
+				}
 				if (!this.uniform(i, j)) {
 					// occlusion varies across this cell: it is its own quad, shaded corner by corner
 					this.done[i + j * N] = true;
@@ -162,10 +190,10 @@ final class Blocky {
 	}
 
 	private boolean mergeable(int i, int j, int k, byte level) {
-		if (this.done[i + j * N] || !this.uniform(i, j) || this.ao[(i + j * N) * 4] != level) {
+		int o = this.s.at(i, j);
+		if (this.done[i + j * N] || this.s.empty[o] || !this.uniform(i, j) || this.ao[(i + j * N) * 4] != level) {
 			return false;
 		}
-		int o = this.s.at(i, j);
 		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k];
 	}
 
@@ -194,7 +222,8 @@ final class Blocky {
 
 	/**
 	 * A wall on every cell edge that stands above the cell beyond it, merged along runs of cells built the
-	 * same way. Edges on the tile's border also hang a skirt below the lower side.
+	 * same way. Edges on the tile's border also hang a skirt below the lower side. Over the void, the wall
+	 * hangs from the rim down to the island's underside.
 	 */
 	private void walls(int skirt) {
 		for (int dir = 0; dir < 4; dir++) {
@@ -218,8 +247,14 @@ final class Blocky {
 						int n = k + out;
 						t = this.top[k];
 						f = this.top[n];
-						b = border ? Math.min(t, f) - skirt : f;
-						has = t > b;
+						if (this.s.empty[n]) {
+							// the rim of an island: down to its underside, with no floor to darken toward
+							b = this.base[k] != DEEP ? this.base[k] : this.ground[k] - RIM_DEPTH;
+							f = b - 256;
+						} else {
+							b = Math.max(border ? Math.min(t, f) - skirt : f, this.base[k]);
+						}
+						has = !this.s.empty[k] && t > b;
 					}
 					if (runStart >= 0 && (!has || t != rt || b != rb || f != rf || !this.sameColumn(k, rk))) {
 						this.wall(dir, edge, runStart, a, rt, rb, rf, rk);
@@ -294,6 +329,94 @@ final class Blocky {
 		}
 		if (lo > b) {
 			this.band(dir, edge, a0, a1, lo, b, floor, this.s.rockAt(k, lo - 1) & COLOR_MASK);
+		}
+	}
+
+	/** The undersides of floating ground, facing down: greedy rectangles over cells that end at the same height. */
+	private void floors() {
+		Arrays.fill(this.done, false);
+		for (int j = 0; j < N; j++) {
+			for (int i = 0; i < N; i++) {
+				int k = this.s.at(i, j);
+				if (this.done[i + j * N] || this.base[k] == DEEP) {
+					continue;
+				}
+				int y = this.base[k];
+				int c = this.s.rockAt(k, y) & COLOR_MASK;
+				int w = 1;
+				while (i + w < N && this.floorMergeable(i + w, j, y, c)) {
+					w++;
+				}
+				int d = 1;
+				grow:
+				while (j + d < N) {
+					for (int a = 0; a < w; a++) {
+						if (!this.floorMergeable(i + a, j + d, y, c)) {
+							break grow;
+						}
+					}
+					d++;
+				}
+				for (int b = 0; b < d; b++) {
+					for (int a = 0; a < w; a++) {
+						this.done[i + a + (j + b) * N] = true;
+					}
+				}
+				this.out.vertex(i, y, j, TileBuilder.DOWN, c, 255, 0, 0);
+				this.out.vertex(i + w, y, j, TileBuilder.DOWN, c, 255, 0, 0);
+				this.out.vertex(i + w, y, j + d, TileBuilder.DOWN, c, 255, 0, 0);
+				this.out.vertex(i, y, j + d, TileBuilder.DOWN, c, 255, 0, 0);
+			}
+		}
+	}
+
+	private boolean floorMergeable(int i, int j, int y, int c) {
+		int o = this.s.at(i, j);
+		return !this.done[i + j * N] && this.base[o] == y && (this.s.rockAt(o, y) & COLOR_MASK) == c;
+	}
+
+	/**
+	 * The steps of an underside: where a floating column reaches lower than its neighbour, the face between
+	 * them, from the neighbour's underside down to its own, merged along runs like the walls above.
+	 */
+	private void steps() {
+		for (int dir = 0; dir < 4; dir++) {
+			boolean alongX = dir < 2;
+			int out = switch (dir) {
+				case 0 -> -W;
+				case 1 -> W;
+				case 2 -> -1;
+				default -> 1;
+			};
+			for (int row = 0; row < N; row++) {
+				int edge = dir == 0 || dir == 2 ? row : row + 1;
+				int runStart = -1;
+				int rt = 0, rb = 0, rc = 0;
+				for (int a = 0; a <= N; a++) {
+					int t = 0, b = 0, c = 0;
+					boolean has = false;
+					if (a < N) {
+						int k = alongX ? this.s.at(a, row) : this.s.at(row, a);
+						int n = k + out;
+						if (this.base[k] != DEEP && this.base[n] != DEEP) {
+							t = Math.min(this.base[n], this.ground[k]);
+							b = this.base[k];
+							c = this.s.rockAt(k, b) & COLOR_MASK;
+							has = t > b;
+						}
+					}
+					if (runStart >= 0 && (!has || t != rt || b != rb || c != rc)) {
+						this.band(dir, edge, runStart, a, rt, rb, rb - 256, rc);
+						runStart = -1;
+					}
+					if (has && runStart < 0) {
+						runStart = a;
+						rt = t;
+						rb = b;
+						rc = c;
+					}
+				}
+			}
 		}
 	}
 
