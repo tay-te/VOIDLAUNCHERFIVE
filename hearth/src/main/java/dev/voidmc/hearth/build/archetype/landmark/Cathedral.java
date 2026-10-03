@@ -583,7 +583,7 @@ public final class Cathedral implements Archetype {
 		int cz1 = p.zX1;
 		if (p.manner == Manner.ROMANESQUE || p.manner == Manner.BAROQUE && d.chance(0.5)) {
 			// an octagonal drum standing on the crossing, rising clear of the roofs, and a dome
-			int drumTop = roof.ridgeY + 2;
+			int drumTop = roof.ridgeY + 1;
 			double cx = (cx0 + cx1) / 2.0;
 			double cz = (cz0 + cz1) / 2.0;
 			double rr = (cx1 - cx0) / 2.0 - 0.5;

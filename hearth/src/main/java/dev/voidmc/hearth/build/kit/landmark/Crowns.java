@@ -107,8 +107,8 @@ public final class Crowns {
 			case ONION -> Math.max(11, Math.min(17, (int) Math.round(height * 0.33)));
 			case PYRAMID -> (int) Math.round((r + 1) * 0.75) + 3;
 			case PAGODA -> (int) Math.round(r + 2) + 3;
-			case DOME -> (r >= 3 ? 3 : 2) + (int) Math.ceil(r * 1.05) + 4;
-			case CUPOLA -> (size >= 7 ? 5 : 4) + (r >= 3 ? 3 : 2) + (int) Math.ceil(r * 1.05) + 4;
+			case DOME -> (r >= 3 ? 3 : 2) + (int) Math.ceil(r * 1.35) + 4;
+			case CUPOLA -> (size >= 7 ? 5 : 4) + (r >= 3 ? 3 : 2) + (int) Math.ceil(r * 1.35) + 4;
 			case PARAPET -> 3;
 		};
 	}
@@ -298,12 +298,13 @@ public final class Crowns {
 		}
 		Details.ringCourse(d, cx, cz, r, y + drumH - 1, m.dress);
 		int yb = y + drumH;
-		int h = (int) Math.ceil(r * 1.05) + 1;
+		// a little pointed, as the great domes are: taller than a hemisphere, the profile drawn in toward the lantern
+		int h = (int) Math.ceil(r * 1.35) + 1;
 		h = Math.min(h, top - yb - 2);
 		double[] radii = new double[Math.max(2, h)];
 		for (int i = 0; i < radii.length; i++) {
 			double t = (double) i / radii.length;
-			radii[i] = (r + 0.2) * Math.sqrt(Math.max(0, 1 - t * t)) - 0.15;
+			radii[i] = Math.max(0.45, (r + 0.2) * Math.pow(Math.max(0, 1 - t * t), 0.62) - 0.15);
 		}
 		Shapes.turned(d, cx, cz, yb, radii, sheet.full(), sheet);
 		int fx = (int) Math.round(cx);
