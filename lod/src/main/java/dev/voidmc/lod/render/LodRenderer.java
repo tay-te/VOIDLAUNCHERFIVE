@@ -1,5 +1,6 @@
 package dev.voidmc.lod.render;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.StagingBuffer;
 import com.mojang.blaze3d.vertex.TlsfAllocator;
@@ -20,6 +21,8 @@ import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.renderpearl.api.pipeline.UniformType;
 import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 import dev.voidmc.lod.core.Fades;
 import dev.voidmc.lod.core.LodEngine;
@@ -31,6 +34,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -114,6 +119,29 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		.withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
 		.build();
 
+	/**
+	 * The same four variants for drawing over a shader pack's finished picture: haze fades into what the pack
+	 * drew behind each pixel (Sampler1, a copy of its picture) instead of into vanilla's fog colour.
+	 */
+	private static final RenderPipeline[] OVER_PACK = {
+		overPack("lod", false, false), overPack("lod_clipped", false, true),
+		overPack("lod_smooth", true, false), overPack("lod_smooth_clipped", true, true),
+	};
+
+	private static RenderPipeline overPack(String name, boolean smooth, boolean clipped) {
+		RenderPipeline.Builder builder = RenderPipeline.builder(SNIPPET)
+			.withLocation(Identifier.fromNamespaceAndPath("void_lod", "pipeline/" + name + "_over_pack"))
+			.withBindGroupLayout(BindGroupLayouts.SAMPLER1)
+			.withShaderDefine("LOD_OVER_PACK");
+		if (smooth) {
+			builder.withShaderDefine("LOD_SMOOTH").withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
+		}
+		if (clipped) {
+			builder.withShaderDefine("LOD_CLIP");
+		}
+		return builder.build();
+	}
+
 	private final LodEngine engine;
 	private final GpuDevice device;
 	private final StagingBuffer staging;
@@ -138,6 +166,9 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private ByteBuffer instances = MemoryUtil.memAlloc(INSTANCE_BYTES * 1024);
 	private ByteBuffer commands = MemoryUtil.memAlloc(COMMAND_BYTES * 1024);
 	private final ByteBuffer info = MemoryUtil.memAlloc(LOD_INFO_SIZE);
+	// a copy of the shader pack's picture, for drawOver's haze
+	private GpuTexture backdrop;
+	private GpuTextureView backdropView;
 	private GpuBufferSlice instanceSlice;
 	private GpuBufferSlice commandSlice;
 	private GpuBufferSlice infoSlice;
@@ -175,7 +206,10 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			this.clipped = clipped;
 		}
 
-		RenderPipeline pipeline() {
+		RenderPipeline pipeline(boolean overPack) {
+			if (overPack) {
+				return OVER_PACK[(this.smooth ? 2 : 0) + (this.clipped ? 1 : 0)];
+			}
 			return this.smooth ? (this.clipped ? PIPELINE_SMOOTH_CLIPPED : PIPELINE_SMOOTH) : (this.clipped ? PIPELINE_CLIPPED : PIPELINE);
 		}
 	}
@@ -383,6 +417,50 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	/** Draws the prepared tiles into vanilla's main pass, after its opaque terrain. */
 	public void draw(RenderPass pass) {
+		this.draw(pass, false);
+	}
+
+	/**
+	 * Draws over {@code target}'s finished picture, for a shader pack: Iris renders the world through the pack's
+	 * own buffers and lighting, which know nothing of the LOD, so the LOD waits until the pack has written its
+	 * final image and then draws on top, tested against the depth the world left, so only sky is covered. Its
+	 * haze fades into a copy of the pack's picture, so the far land melts into the pack's own sky.
+	 */
+	public void drawOver(RenderTarget target) {
+		if (this.drawCount == 0) {
+			return;
+		}
+		GpuTexture color = target.getColorTexture();
+		int width = color.getWidth(0), height = color.getHeight(0);
+		if (this.backdrop == null || this.backdrop.getWidth(0) != width || this.backdrop.getHeight(0) != height
+			|| this.backdrop.getFormat() != color.getFormat()) {
+			this.closeBackdrop();
+			this.backdrop = this.device.createTexture("VOID LOD backdrop", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
+				color.getFormat(), width, height, 1, 1);
+			this.backdropView = this.device.createTextureView(this.backdrop);
+		}
+		CommandEncoder encoder = this.device.createCommandEncoder();
+		encoder.copyTextureToTexture(color, this.backdrop, 0, 0, 0, 0, 0, width, height);
+		try (RenderPass pass = encoder.createRenderPass(() -> "VOID LOD over the shader pack", target.getColorTextureView(), Optional.empty(),
+			target.getDepthTextureView(), OptionalDouble.empty())) {
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("Sampler1", this.backdropView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+			this.draw(pass, true);
+		}
+	}
+
+	private void closeBackdrop() {
+		if (this.backdropView != null) {
+			this.backdropView.close();
+			this.backdropView = null;
+		}
+		if (this.backdrop != null) {
+			this.backdrop.close();
+			this.backdrop = null;
+		}
+	}
+
+	private void draw(RenderPass pass, boolean overPack) {
 		if (this.drawCount == 0) {
 			return;
 		}
@@ -395,7 +473,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		pass.setUniform("Sampler2", Minecraft.getInstance().gameRenderer.lightmap(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 		pass.setVertexBuffer(1, this.instanceSlice);
 		for (Group group : this.order) {
-			pass.setPipeline(RenderSystem.getCompiledPipeline(group.pipeline()));
+			pass.setPipeline(RenderSystem.getCompiledPipeline(group.pipeline(overPack)));
 			if (group.smooth) {
 				pass.setIndexBuffer(this.gridIndices, IndexType.SHORT);
 			} else {
@@ -446,6 +524,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	@Override
 	public void close() {
+		this.closeBackdrop();
 		if (this.timer != null) {
 			this.timer.close();
 		}

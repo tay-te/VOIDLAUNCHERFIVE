@@ -19,6 +19,11 @@ layout(location = 3) in vec2 occlusion;
 
 layout(location = 0) out vec4 fragColor;
 
+#ifdef LOD_OVER_PACK
+// A copy of the shader pack's finished picture: what the pack drew behind this pixel, its own sky.
+uniform sampler2D Sampler1;
+#endif
+
 #ifdef LOD_SMOOTH
 // How much of [y - w/2, y + w/2] lies in the first r of each unit period: the exact box filter of a strip
 // pattern, so strips stay crisp where they are pixels wide and melt into their average share where they are
@@ -137,5 +142,9 @@ void main() {
     vec2 planar = horizontal - CameraOffset.xz;
     color *= 1.0 + 0.07 * detail(planar, max(fwidth(planar.x), fwidth(planar.y)), 2);
 #endif
+#ifdef LOD_OVER_PACK
+    fragColor = vec4(mix(color, texelFetch(Sampler1, ivec2(gl_FragCoord.xy), 0).rgb, vertexColor.a), 1.0);
+#else
     fragColor = vec4(mix(color, FogColor.rgb, vertexColor.a * FogColor.a), 1.0);
+#endif
 }

@@ -10,6 +10,18 @@ base {
 
 repositories {
 	mavenCentral()
+	// Sodium and Iris, for compatibility: compiled against for their APIs, and in the dev runs only on request
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
 }
 
 dependencies {
@@ -21,6 +33,17 @@ dependencies {
 	// runs Expanse is on the classpath too, so the game tests fly over real Earth terrain.
 	compileOnly 'dev.voidmc:void-expanse'
 	localRuntime 'dev.voidmc:void-expanse'
+
+	// Sodium replaces vanilla's chunk rendering and Iris its pipeline; the LOD works with both. Dev runs and
+	// game tests add them with -Psodium (Sodium) or -Piris (Sodium and Iris); nothing of either ships.
+	compileOnly "maven.modrinth:sodium:${project.sodium_version}"
+	compileOnly "maven.modrinth:iris:${project.iris_version}"
+	if (project.hasProperty('sodium') || project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:sodium:${project.sodium_version}"
+	}
+	if (project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:iris:${project.iris_version}"
+	}
 
 	testImplementation platform('org.junit:junit-bom:5.13.4')
 	testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -65,7 +88,7 @@ loom {
 	runs {
 		configureEach {
 			property 'void.lod.logStats', 'true'
-			['void.lod.radius', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom',
+			['void.lod.radius', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom', 'void.lod.overPack',
 			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace'].each { key ->
 				if (project.hasProperty(key)) {
 					property key, project.property(key).toString()

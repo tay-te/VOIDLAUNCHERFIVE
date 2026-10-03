@@ -4,6 +4,7 @@ import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import dev.voidmc.lod.VoidLod;
+import dev.voidmc.lod.compat.Shaders;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
@@ -16,9 +17,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * The two places the LOD enters vanilla's frame: it prepares (selects, uploads, builds its draw buffers)
+ * The places the LOD enters vanilla's frame: it prepares (selects, uploads, builds its draw buffers)
  * while the frame graph is assembled, before any pass runs, and it draws inside the main pass straight
- * after the opaque chunks, so the chunks' depth already rejects every LOD fragment they hide.
+ * after the opaque chunks, so the chunks' depth already rejects every LOD fragment they hide. While an
+ * Iris shader pack renders the world it draws instead once the frame graph has run and the pack has
+ * written its final picture (Iris finishes just before the model-view stack is popped).
  */
 @Mixin(LevelRenderer.class)
 public abstract class LevelRendererMixin {
@@ -41,8 +44,16 @@ public abstract class LevelRendererMixin {
 	)
 	private void voidLod$draw(ChunkSectionsToRender chunkSectionsToRender, FeatureRenderDispatcher.PreparedFrame featureFrame, RenderPass renderPass, CallbackInfo ci) {
 		VoidLod lod = VoidLod.get();
-		if (lod != null) {
+		if (lod != null && !Shaders.drawOverPack()) {
 			lod.draw(renderPass);
+		}
+	}
+
+	@Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/feature/FeatureRenderDispatcher$PreparedFrame;close()V"))
+	private void voidLod$drawOverPack(CallbackInfo ci) {
+		VoidLod lod = VoidLod.get();
+		if (lod != null && Shaders.drawOverPack()) {
+			lod.drawOverPack();
 		}
 	}
 }

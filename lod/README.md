@@ -157,6 +157,27 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every
   LOD fragment hidden by nearby terrain is rejected before it is shaded.
 
+## Sodium and Iris
+
+* **Sodium** (0.9.2 tested) replaces the chunk renderer, but its chunks still draw inside vanilla's main
+  pass, so the LOD draws right after them exactly as without it. Nothing to configure.
+* **Iris without a shader pack** renders like vanilla, and so does the LOD.
+* **Iris with a shader pack** renders the world into the pack's own buffers and lights them in the pack's
+  passes, which know nothing of the LOD: drawn in there, the LOD came out unlit and dark. So while a pack
+  is on (`compat/Shaders`), the LOD waits until the pack has written its final picture, then draws on top
+  of it in one more pass, tested against the depth the world left, so it covers only sky. Its haze fades
+  into a copy of the pack's picture rather than vanilla's fog colour, so the far land melts into the
+  pack's own sky, whatever colour that is. Costs: one screen-sized copy a frame, nothing else.
+
+  What that leaves out: the pack's lighting and shadows stay on the chunks (the LOD keeps its own sun
+  and relief), rain the pack draws in front of the far land is covered, and a pack's border fog still
+  fades the chunks' edge into sky just in front of the LOD; turn it off in the pack's settings if it has
+  the option, as for Distant Horizons.
+
+The game test runs with them: `-Psodium` adds Sodium, `-Piris` Sodium and Iris (from Modrinth's Maven,
+for dev runs only; nothing of either ships). Put a pack in `build/run/clientGameTest/shaderpacks` and
+switch it on in `config/iris.properties` to test one.
+
 ## Settings (system properties, for now)
 
 | Property | Default | |
@@ -211,7 +232,9 @@ model, but only loads it when Expanse is installed.
   server-side companion that streams tile summaries.
 * **Edits.** Builds and dug-out terrain beyond the render distance show the generated land. Ingesting
   loaded chunks over the generated tiles fixes this, using the same path as multiplayer.
-* **Shader packs.** These need Iris to know about the LOD's depth and pipeline.
+* **Shader-pack lighting on the LOD.** With a pack on, the LOD draws over the pack's picture in its own
+  style. Lighting it the pack's way needs a program in the pack for the LOD's vertices, as packs carry
+  for Distant Horizons.
 * **Block textures on the blocky tiles.** Their colours are the textures' own averages and a grain stands
   in for the detail; sampling the block atlas itself would make the seam with the chunks vanish
   entirely at close range.

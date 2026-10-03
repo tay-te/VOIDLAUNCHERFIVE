@@ -187,6 +187,13 @@ public final class VoidLod implements ClientModInitializer {
 		}
 	}
 
+	/** Draws over the shader pack's finished picture in the main target (see {@link LodRenderer#drawOver}). */
+	public void drawOverPack() {
+		if (this.active() && this.renderer != null && !this.fogHidesLod) {
+			this.renderer.drawOver(Minecraft.getInstance().gameRenderer.mainRenderTarget());
+		}
+	}
+
 	/**
 	 * Sets this frame's aerial haze: {@code reach} blocks at height {@code base} (0 for none, and vanilla's own
 	 * fog instead), plus {@code offset} blocks of haze before the first (rain's).
