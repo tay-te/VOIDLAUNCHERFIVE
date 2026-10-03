@@ -1,0 +1,186 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:dirt",
+    "#minecraft:sand",
+    "#minecraft:base_stone_overworld",
+    "#minecraft:snow",
+    "#minecraft:ice",
+    "#minecraft:flowers",
+    "#minecraft:saplings",
+    "#minecraft:replaceable",
+    "#minecraft:replaceable_by_trees",
+    "#minecraft:terracotta",
+    "minecraft:grass_block",
+    "minecraft:podzol",
+    "minecraft:mycelium",
+    "minecraft:dirt_path",
+    "minecraft:farmland",
+    "minecraft:gravel",
+    "minecraft:clay",
+    "minecraft:sandstone",
+    "minecraft:red_sandstone",
+    "minecraft:mud",
+    "minecraft:moss_block",
+    "minecraft:moss_carpet",
+    "minecraft:pale_moss_block",
+    "minecraft:pale_moss_carpet",
+    "minecraft:snow_block",
+    "minecraft:powder_snow",
+    "minecraft:calcite",
+    "minecraft:dripstone_block",
+    "minecraft:pointed_dripstone",
+    "minecraft:magma_block",
+    "minecraft:sugar_cane",
+    "minecraft:cactus",
+    "minecraft:bamboo",
+    "minecraft:pumpkin",
+    "minecraft:melon",
+    "minecraft:sweet_berry_bush",
+    "minecraft:vine",
+    "minecraft:cave_vines",
+    "minecraft:cave_vines_plant",
+    "minecraft:glow_lichen",
+    "minecraft:lily_pad",
+    "minecraft:brown_mushroom",
+    "minecraft:red_mushroom",
+    "minecraft:mushroom_stem",
+    "minecraft:brown_mushroom_block",
+    "minecraft:red_mushroom_block",
+    "minecraft:coal_ore",
+    "minecraft:iron_ore",
+    "minecraft:copper_ore",
+    "minecraft:deepslate_coal_ore",
+    "minecraft:deepslate_iron_ore",
+    "minecraft:deepslate_copper_ore",
+    "minecraft:seagrass",
+    "minecraft:tall_seagrass",
+    "minecraft:kelp",
+    "minecraft:kelp_plant",
+    "minecraft:dead_bush",
+    {
+      "id": "#expanse:volcanic_ground",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone",
+      "required": false
+    },
+    {
+      "id": "expanse:mossy_limestone",
+      "required": false
+    },
+    {
+      "id": "expanse:opal_sand",
+      "required": false
+    },
+    {
+      "id": "expanse:opal_sandstone",
+      "required": false
+    },
+    {
+      "id": "expanse:coral_sand",
+      "required": false
+    },
+    {
+      "id": "expanse:peat",
+      "required": false
+    },
+    {
+      "id": "expanse:red_earth",
+      "required": false
+    },
+    {
+      "id": "expanse:salt_block",
+      "required": false
+    },
+    {
+      "id": "expanse:sphagnum_moss",
+      "required": false
+    },
+    {
+      "id": "expanse:sphagnum_moss_carpet",
+      "required": false
+    },
+    {
+      "id": "expanse:heather",
+      "required": false
+    },
+    {
+      "id": "expanse:spinifex",
+      "required": false
+    },
+    {
+      "id": "expanse:reindeer_lichen",
+      "required": false
+    },
+    {
+      "id": "expanse:cotton_grass",
+      "required": false
+    },
+    {
+      "id": "expanse:bluebells",
+      "required": false
+    },
+    {
+      "id": "expanse:fireweed",
+      "required": false
+    },
+    {
+      "id": "expanse:lavender",
+      "required": false
+    },
+    {
+      "id": "expanse:edelweiss",
+      "required": false
+    },
+    {
+      "id": "expanse:frostbloom",
+      "required": false
+    },
+    {
+      "id": "expanse:cattail",
+      "required": false
+    },
+    {
+      "id": "expanse:spanish_moss",
+      "required": false
+    },
+    {
+      "id": "expanse:desert_marigold",
+      "required": false
+    },
+    {
+      "id": "expanse:desert_pea",
+      "required": false
+    },
+    {
+      "id": "expanse:moth_orchid",
+      "required": false
+    },
+    {
+      "id": "expanse:glowcap",
+      "required": false
+    },
+    {
+      "id": "expanse:cranberry_bush",
+      "required": false
+    },
+    {
+      "id": "expanse:saguaro",
+      "required": false
+    },
+    {
+      "id": "expanse:ocotillo",
+      "required": false
+    },
+    {
+      "id": "expanse:icicle",
+      "required": false
+    },
+    {
+      "id": "expanse:volcanic_ash",
+      "required": false
+    }
+  ]
+}
