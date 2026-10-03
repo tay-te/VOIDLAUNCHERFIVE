@@ -69,6 +69,36 @@ public final class SettlementClock {
 
 	// ---------------------------------------------------------------- goods
 
+	/**
+	 * Labour an embodied resident did as an entity, credited at the abstract rates (the clock left them out of its head
+	 * count while they were embodied). {@code workerDays} is a working day's worth of their trade per unit.
+	 */
+	static void credit(SimSettlement s, JobType job, double workerDays) {
+		if (workerDays <= 0) {
+			return;
+		}
+		SimRules r = s.ctx().rules();
+		double[] row = r.production[job.ordinal()];
+		double[] frac = s.clock.fractions;
+		SimStockpile stock = s.stockpile();
+		double factor = 1;
+		for (int g = 0; g < row.length; g++) {
+			if (row[g] < 0) {
+				double need = -row[g] * workerDays;
+				double have = stock.get(Goods.VALUES[g]) + Math.max(0, frac[g]);
+				factor = Math.min(factor, need <= 0 ? 1 : have / need);
+			}
+		}
+		factor = Math.max(0, factor);
+		for (int g = 0; g < row.length; g++) {
+			if (row[g] != 0) {
+				frac[g] += row[g] * workerDays * factor;
+			}
+		}
+		s.clock.coinFraction += r.coin[job.ordinal()] * workerDays;
+		s.markDirty();
+	}
+
 	private static void produce(SimSettlement s, Workforce wf, double days, SimRules r) {
 		SimSettlement.ClockState k = s.clock;
 		double[] frac = k.fractions;

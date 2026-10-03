@@ -7,6 +7,8 @@ import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.HearthDataKey;
 import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.Poi;
+import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.Resident;
@@ -406,6 +408,50 @@ public final class SimSettlement implements Settlement {
 		}
 		this.derivedDirty = true;
 		markDirty();
+	}
+
+	/** Ticks of an entity's WORK routine that make one abstract worker-day (a folk works about nine hours a day). */
+	private static final double WORK_TICKS_PER_DAY = 9000;
+	private @Nullable List<Poi> poiCache;
+	private int poiCacheKey = -1;
+
+	@Override
+	public void creditLabour(UUID resident, JobType job, int ticks) {
+		if (ticks > 0 && this.residents.containsKey(resident)) {
+			SettlementClock.credit(this, job, ticks / WORK_TICKS_PER_DAY);
+		}
+	}
+
+	@Override
+	public List<Poi> pois(PoiType type) {
+		// rebuilt only when the set of built plots changes; blueprints are cached by the build module
+		int key = 0;
+		for (SimPlot p : this.plots.values()) {
+			if (p.state == PlotState.BUILT) {
+				key = key * 31 + p.id() + 1;
+			}
+		}
+		if (this.poiCache == null || key != this.poiCacheKey) {
+			List<Poi> all = new ArrayList<>();
+			for (SimPlot p : this.plots.values()) {
+				if (p.state == PlotState.BUILT) {
+					try {
+						all.addAll(ctx().blueprints().blueprint(p.spec(), ctx().terrain()).pois());
+					} catch (RuntimeException e) {
+						// an archetype that no longer exists has no points of interest
+					}
+				}
+			}
+			this.poiCache = all;
+			this.poiCacheKey = key;
+		}
+		List<Poi> out = new ArrayList<>();
+		for (Poi poi : this.poiCache) {
+			if (poi.type() == type) {
+				out.add(poi);
+			}
+		}
+		return out;
 	}
 
 	/** The plot's blueprint facts, read once. A plot whose archetype no longer exists gets none and is abandoned. */

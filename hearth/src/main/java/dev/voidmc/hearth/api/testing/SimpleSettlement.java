@@ -3,6 +3,9 @@ package dev.voidmc.hearth.api.testing;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.HearthDataKey;
+import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.Poi;
+import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.PlotView;
@@ -10,11 +13,13 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.Stockpile;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -41,6 +46,8 @@ public class SimpleSettlement implements Settlement {
 	private final SimpleStockpile stockpile = new SimpleStockpile(10_000);
 	private final Map<UUID, Integer> reputation = new HashMap<>();
 	private final Map<HearthDataKey<?>, Object> data = new HashMap<>();
+	private final List<Poi> pois = new ArrayList<>();
+	private final Map<UUID, Integer> labour = new HashMap<>();
 	private int nextPlotId;
 	private long treasury;
 	private boolean embodied;
@@ -64,6 +71,16 @@ public class SimpleSettlement implements Settlement {
 
 	public void removePlot(int id) {
 		this.plots.remove(id);
+	}
+
+	/** Adds a point of interest that {@link #pois} reports (tests stand in for built plots' blueprints). */
+	public void addPoi(Poi poi) {
+		this.pois.add(poi);
+	}
+
+	/** Labour ticks credited to a resident through {@link #creditLabour}. */
+	public int creditedLabour(UUID resident) {
+		return this.labour.getOrDefault(resident, 0);
 	}
 
 	public void setBeds(int beds) {
@@ -220,6 +237,16 @@ public class SimpleSettlement implements Settlement {
 	}
 
 	@Override
+	public void creditLabour(UUID resident, JobType job, int ticks) {
+		this.labour.merge(resident, ticks, Integer::sum);
+	}
+
+	@Override
+	public List<Poi> pois(PoiType type) {
+		return this.pois.stream().filter(p -> p.type() == type).toList();
+	}
+
+	@Override
 	public void advanceConstruction(int plotId, int steps) {
 		SimplePlot plot = this.plots.get(plotId);
 		if (plot != null) {
@@ -256,6 +283,8 @@ public class SimpleSettlement implements Settlement {
 		public PlotState state = PlotState.PLANNED;
 		public int stage;
 		public int step;
+		public boolean waitingForGoods;
+		public int replaces = NONE;
 		public @Nullable UUID owner;
 
 		SimplePlot(int id, PlotSpec spec) {
@@ -286,6 +315,16 @@ public class SimpleSettlement implements Settlement {
 		@Override
 		public int step() {
 			return this.step;
+		}
+
+		@Override
+		public boolean waitingForGoods() {
+			return this.waitingForGoods;
+		}
+
+		@Override
+		public int replaces() {
+			return this.replaces;
 		}
 
 		@Override

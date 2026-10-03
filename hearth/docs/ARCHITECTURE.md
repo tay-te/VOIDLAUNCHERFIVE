@@ -194,6 +194,9 @@ Where the result goes:
 - **Abstract** completion is recorded per (plot, stage). The chunk applier writes recorded stages into chunks when they
   load, and remembers per chunk what it has applied (so it never re-applies over a player's later edits).
 - **Embodied** builders place the steps themselves; those steps count as applied.
+- **Intended overlaps.** The planner overlaps plots on purpose (PLANNING.md §4): a building on a terrace of the
+  same footprint, dwellings `stacked_on` another, plaza furniture inside its plaza, a gatehouse `over_road`, towers on
+  walls, walkways overhead, rebuilds (`replaces`). These are not "built over"; appliers write both.
 - **Edits.** Runtime application never overwrites blocks a player placed or block entities: it replaces only air,
   plants, snow, natural terrain (`#hearth:buildable_over` block tag, sim module data) and blocks of earlier stages of
   the same plot. A plot whose footprint the player has built over is abandoned and re-planned elsewhere.
@@ -269,8 +272,14 @@ The planner may only rely on archetypes in this list; architects implement them 
 
 **Defense** (`hearth:defense/...`): `palisade`, `wall`, `gatehouse`, `watchtower` (GUARD, VERTICAL).
 
+**Party walls.** `party_left` / `party_right` (and the planner's `corner_left` / `corner_right`) are the building's
+**own** left and right, looking out of its front door along `facing` (left = `facing.getCounterClockWise()`).
+
 **Infrastructure** (`hearth:infra/...`) — long, thin plots; the footprint is the bounding box, the params carry the
-geometry (world coordinates):
+geometry (world coordinates). The table below is the summary; the exact geometry the planner reserves (the dense
+centreline rule, the corridor rule, odd widths, bridge abutments at bank level with the deck at `deck_y`, `boardwalk`
+bridges, terrace `retain_*` flags, one-wide `path` roads to set-back doors, three-wide farm tracks) is specified in
+**`docs/PLANNING.md` §7, which is binding** for infrastructure blueprints:
 | id | params | builds |
 |---|---|---|
 | `road` | `points`: int array x,y,z,… (centreline at walking level), `width`, `kind` (`street`/`lane`/`alley`/`path`/`highway`) | graded surface with cut and fill, edges/curbs, steps where steep, lamps by tier |

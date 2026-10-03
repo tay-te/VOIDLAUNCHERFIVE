@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.api;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -78,6 +79,19 @@ public interface Settlement {
 	void setResidentEmbodied(UUID id, boolean embodied);
 
 	boolean isResidentEmbodied(UUID id);
+
+	/**
+	 * An embodied resident worked {@code ticks} at their trade (the NPC module reports it when the entity folds back into
+	 * its record). The sim credits it at its own abstract rates, so a town a player stands in produces as much as one
+	 * nobody is near. Builders' work arrives through {@link #advanceConstruction} instead and is not reported here.
+	 */
+	void creditLabour(UUID resident, JobType job, int ticks);
+
+	/**
+	 * Points of interest of this type in the settlement's built plots (from their blueprints), in world coordinates —
+	 * the notice board in the plaza, the meeting points, the guard posts. Cached by the sim; cheap.
+	 */
+	List<Poi> pois(PoiType type);
 
 	/**
 	 * Records that an embodied builder placed the next {@code steps} steps of the plot's current stage in the world.

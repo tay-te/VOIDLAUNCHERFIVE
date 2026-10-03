@@ -8,6 +8,8 @@ import dev.voidmc.hearth.api.HearthDataKey;
 import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.Resident;
+import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.ResidentFactory;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.api.SettlementPlanner;
@@ -514,6 +516,56 @@ public final class SimWorld implements HearthWorld, SimContext {
 			}
 		}
 		return null;
+	}
+
+	/** Spacing kept between a newly founded settlement and any other, live or historic. */
+	private static final int FOUND_SPACING = 300;
+
+	@Override
+	public @Nullable String whyNotFound(BlockPos at) {
+		return whyNotFound(at, FOUND_SPACING);
+	}
+
+	@Override
+	public @Nullable Settlement found(BlockPos at, @Nullable Culture culture, @Nullable Settlement parent, String reason) {
+		if (whyNotFound(at, FOUND_SPACING) != null) {
+			return null;
+		}
+		SimSettlement s = found(at, culture, (String) null);
+		LOG.info("hearth: {} founded{}: {}", s.name(), parent == null ? "" : " by settlers from " + parent.name(), reason);
+		return s;
+	}
+
+	@Override
+	public List<SiteInfo> knownSites(BlockPos near, int radius) {
+		List<SiteInfo> out = new ArrayList<>();
+		long r2 = (long) radius * radius;
+		for (SimSettlement s : this.settlements.values()) {
+			if (s.center().distSqr(near) <= r2) {
+				out.add(new SiteInfo(s.id(), s.name(), s.culture(), s.center(), s.tier(), true));
+			}
+		}
+		if (this.atlas.enabled()) {
+			int r0x = Atlas.region(near.getX() - radius), r1x = Atlas.region(near.getX() + radius);
+			int r0z = Atlas.region(near.getZ() - radius), r1z = Atlas.region(near.getZ() + radius);
+			for (int rx = r0x; rx <= r1x; rx++) {
+				for (int rz = r0z; rz <= r1z; rz++) {
+					RegionPlan plan = this.atlas.planIfReady(rx, rz);
+					if (plan == null) {
+						this.atlas.planAsync(rx, rz);   // known next time
+						continue;
+					}
+					RegionPlan.Site site = plan.site();
+					if (site == null || this.settlements.containsKey(site.settlementId()) || site.center().distSqr(near) > r2) {
+						continue;
+					}
+					SettlementTier tier = plan.history() != null ? plan.history().tier() : SettlementTier.CAMP;
+					out.add(new SiteInfo(site.settlementId(), site.name(), site.culture(), site.center(), tier, false));
+				}
+			}
+		}
+		out.sort(java.util.Comparator.comparingDouble(i -> i.center().distSqr(near)));
+		return out;
 	}
 
 	/** Founds a live settlement at a spot (a command, a quest, settlers from a town that outgrew its land). */

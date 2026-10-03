@@ -28,6 +28,12 @@ public final class SettlementEvents {
 			}
 		});
 
+	public static final Event<PlotAbandoned> PLOT_ABANDONED = EventFactory.createArrayBacked(PlotAbandoned.class, ls -> (w, s, p, why) -> {
+		for (PlotAbandoned l : ls) {
+			l.onPlotAbandoned(w, s, p, why);
+		}
+	});
+
 	public static final Event<TierChanged> TIER_CHANGED = EventFactory.createArrayBacked(TierChanged.class, ls -> (w, s, from, to) -> {
 		for (TierChanged l : ls) {
 			l.onTierChanged(w, s, from, to);
@@ -75,6 +81,12 @@ public final class SettlementEvents {
 	@FunctionalInterface
 	public interface ConstructionStalled {
 		void onStalled(HearthWorld world, Settlement settlement, PlotView plot, Goods goods, int missing);
+	}
+
+	/** A plot was given up: a player built over it, or its rebuild replaced it. {@code why} is short and readable. */
+	@FunctionalInterface
+	public interface PlotAbandoned {
+		void onPlotAbandoned(HearthWorld world, Settlement settlement, PlotView plot, String why);
 	}
 
 	@FunctionalInterface

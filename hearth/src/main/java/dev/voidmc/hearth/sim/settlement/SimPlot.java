@@ -122,7 +122,13 @@ public final class SimPlot implements PlotView {
 		return this.owner;
 	}
 
+	@Override
+	public boolean waitingForGoods() {
+		return !this.funded && this.stalledOn != null;
+	}
+
 	/** The plot id this one rebuilds, or {@link #NONE}. */
+	@Override
 	public int replaces() {
 		return this.replaces;
 	}

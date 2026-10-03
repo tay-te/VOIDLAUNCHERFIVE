@@ -21,6 +21,9 @@ public interface EconomyService {
 	/** "3 crowns, 4 marks, 2 bits" — however the economy module names its coins. */
 	Component format(long bits);
 
-	/** What a settlement's market charges for one of this item ({@code playerBuys}) or pays for one (not). */
+	/**
+	 * What a settlement's market charges for this stack ({@code stack.getCount()} items; {@code playerBuys}) or pays for
+	 * it (not). Priced as a lot, so cheap items are not rounded up to a whole bit each.
+	 */
 	long price(Settlement settlement, ItemStack stack, boolean playerBuys);
 }

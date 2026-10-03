@@ -45,3 +45,6 @@ __pycache__/
 
 # offline previews
 build/previews/
+
+# Minecraft logs from the offline preview tools
+/logs/
