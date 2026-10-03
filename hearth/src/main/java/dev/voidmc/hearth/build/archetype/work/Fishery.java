@@ -142,6 +142,24 @@ public final class Fishery implements Archetype {
 		if (side > 0) {
 			nets(d, netsLeft ? 0 : hx1 + 1, netsLeft ? side - 1 : w - 1, hz0, Math.min(hz1, shore - 1));
 		}
+		if (d.pois().stream().filter(p -> p.type() == PoiType.JOB_SITE).count() < 2) {
+			// a small house on dry land: the second hand mends nets by the frame, or on the step out front
+			int nx = netsLeft ? (side - 1) / 2 : (hx1 + 1 + w - 1) / 2;
+			boolean mending = false;
+			for (int z = hz0 + 1; side > 0 && z <= hz0 + 3 && !mending; z++) {
+				for (int dx : new int[]{1, -1}) {
+					if (!mending && nx + dx >= 0 && nx + dx < w && d.get(nx, 1, z) != null && d.get(nx, 1, z).is(Blocks.COBWEB)) {
+						mending = Props.site(d, nx + dx, 0, z, dx > 0 ? Dirs.LEFT : Dirs.RIGHT, JobType.FISHER);
+					}
+				}
+			}
+			for (int dx : new int[]{2, -2, 3, -3}) {
+				int x = door + dx;
+				if (!mending && x >= 0 && x < w && hz0 - 1 >= 0) {
+					mending = Props.site(d, x, base, hz0 - 1, Dirs.BACK, JobType.FISHER);
+				}
+			}
+		}
 		Side front = hall.side(0, Dirs.FRONT);
 		Signs.bracket(d, front, front.index(door + 1), base + 3, "fishery", "Fish");
 		Yard.trodden(d, 0, 0, w - 1, hz0 - 1, 0);
@@ -164,13 +182,15 @@ public final class Fishery implements Archetype {
 		fp.keep(hearthX, in[3] - 1);
 		int y = fp.y;
 		// the gutting bench (a barrel and a board) under a window, salt barrels, the chest
-		boolean bench = false;
-		for (Direction wall : new Direction[]{Dirs.LEFT, Dirs.RIGHT}) {
+		// one along each side wall (the jetty's end is a third where it reaches the water)
+		int benches = 0;
+		for (Direction wall : new Direction[]{Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
 			for (int[] c : fp.along(wall)) {
 				Direction into = wall.getOpposite();
-				if (!bench && c[1] > in[1] && fp.take(c[0], c[1], into)) {
+				if (benches < 2 && c[1] > in[1] && fp.take(c[0], c[1], into)) {
 					Props.station(d, Blocks.BARREL, c[0], y, c[1], into, JobType.FISHER);
-					bench = true;
+					benches++;
+					break;
 				}
 			}
 		}

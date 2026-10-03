@@ -376,6 +376,7 @@ public final class Windmill implements Archetype {
 			}
 		}
 		String[] wants = {"stones", "grain", "chest", "sacks", "sacks"};
+		boolean chest = false;
 		int k = 0;
 		List<int[]> cells = new ArrayList<>();
 		for (int[] c : disc) {
@@ -407,7 +408,10 @@ public final class Windmill implements Archetype {
 			switch (wants[k]) {
 				case "stones" -> Props.grindstone(d, c[0], 0, c[1], user, JobType.BAKER);
 				case "grain" -> Props.station(d, Blocks.COMPOSTER, c[0], 0, c[1], user, JobType.FARMER);
-				case "chest" -> Props.store(d, c[0], 0, c[1], user, true, List.of(new Object[]{"minecraft:wheat", 48}, new Object[]{"minecraft:bread", 8}));
+				case "chest" -> {
+					Props.store(d, c[0], 0, c[1], user, true, List.of(new Object[]{"minecraft:wheat", 48}, new Object[]{"minecraft:bread", 8}));
+					chest = true;
+				}
 				default -> Props.sacks(d, c[0], 0, c[1], Dirs.RIGHT, 1, true);
 			}
 			k++;
@@ -416,6 +420,17 @@ public final class Windmill implements Archetype {
 			// too cramped inside: the stones and the grain bin by the door outside
 			Props.grindstone(d, icx + 2, 0, fdz - 2, Dirs.BACK, JobType.BAKER);
 			Props.station(d, Blocks.COMPOSTER, icx - 2, 0, fdz - 2, Dirs.BACK, JobType.FARMER);
+		}
+		if (!chest) {
+			// no room for the flour chest inside: a barrel by the door
+			for (int[] c : new int[][]{{icx + 2, fdz - 1}, {icx - 2, fdz - 1}, {icx + 1, fdz - 2}, {icx - 1, fdz - 2}}) {
+				int ux = c[0] + (c[0] > icx ? -1 : 1);
+				if (c[1] >= 0 && d.isEmpty(c[0], 0, c[1]) && d.isEmpty(c[0], 1, c[1]) && d.isEmpty(ux, 0, c[1]) && d.isEmpty(ux, 1, c[1])) {
+					Props.store(d, c[0], 0, c[1], c[0] > icx ? Dirs.LEFT : Dirs.RIGHT, false, List.of(new Object[]{"minecraft:wheat", 48},
+						new Object[]{"minecraft:bread", 8}));
+					break;
+				}
+			}
 		}
 	}
 

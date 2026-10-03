@@ -327,7 +327,7 @@ public final class Carpentry implements Archetype {
 			if (sx + 2 <= w - 1 && d.isAbsent(sx, 0, 0) && d.isAbsent(sx + 1, 0, 0) && d.isAbsent(sx + 2, 0, 0)) {
 				Props.sawhorses(d, sx, 0, 0, Direction.Axis.X, false);
 				if (fz >= 2) {
-					d.poi(PoiType.JOB_SITE, sx + 1, 0, 1, Dirs.FRONT, JobType.CARPENTER);
+					Props.site(d, sx + 1, 0, 1, Dirs.FRONT, JobType.CARPENTER);
 				}
 			}
 		}

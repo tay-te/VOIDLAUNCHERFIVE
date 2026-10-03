@@ -73,6 +73,10 @@ public final class Storehouse implements Archetype {
 		boolean water = d.site().anyWater(1, 2, w - 2, dp - 1);
 		boolean stilts = h.plan().stilts() == Habits.Stilts.ALWAYS || water;
 		boolean raised = !flat && !stilts && d.param("raised", cold && d.chance(0.75) || logs && d.chance(0.3));
+		if (raised && dp < 9) {
+			// the steps before it and the oversail behind leave too shallow a store for a stair inside
+			raised = false;
+		}
 
 		// the body: an apron in front for the doors, a margin at the sides on broad plots
 		int front = raised || stilts ? 3 : dp >= 9 ? 2 : 1;
@@ -256,7 +260,8 @@ public final class Storehouse implements Archetype {
 		for (Direction wall : new Direction[]{Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
 			Direction from = wall == Dirs.BACK ? (door > (in[0] + in[2]) / 2 ? Dirs.LEFT : Dirs.RIGHT) : Dirs.BACK;
 			int len = wall == Dirs.BACK ? in[2] - in[0] + 1 : in[3] - in[1] + 1;
-			if (len < hall.body.height(0) + 2) {
+			int across = wall == Dirs.BACK ? in[3] - in[1] + 1 : in[2] - in[0] + 1;
+			if (len < hall.body.height(0) + 2 || across < 2) {
 				continue;
 			}
 			// a side-wall flight climbs toward the front, its foot at the back, clear of the door

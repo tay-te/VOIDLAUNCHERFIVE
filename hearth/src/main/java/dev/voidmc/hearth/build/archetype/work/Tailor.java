@@ -108,13 +108,15 @@ public final class Tailor implements Archetype {
 
 		Side front = hall.side(0, Dirs.FRONT);
 		int[] span = Shop.span(in[0], in[2], door, 3);
+		// where the stair comes down near the front (a shallow house) the way to its foot runs along the window: no sill board
+		boolean board = !(wells.length > 0 && wells[0] != null && wells[0][1] <= in[1] + 1);
 		int win = span != null ? span[0] : door;
 		int winW = span != null ? span[1] : 0;
 		String[] palette = palette(d);
 		// an awning the length of the shop front in two of the house's dyes
 		awning(d, front, palette);
 		if (span != null) {
-			Shop.window(d, front, win, winW, 0, i -> wool(palette, i), false);
+			Shop.window(d, front, win, winW, 0, i -> wool(palette, i), false, board);
 		}
 		// lengths of the house's dyed cloth hung on the upper front between the windows: the tailor's sign to the street
 		for (int k = 1; k < hall.storeys(); k++) {
@@ -261,12 +263,34 @@ public final class Tailor implements Archetype {
 			}
 		}
 		// the cloth chest
+		List<Object[]> cloth = List.of(new Object[]{"minecraft:white_wool", 24}, new Object[]{"minecraft:string", 16},
+			new Object[]{"minecraft:" + palette[0] + "_dye", 8}, new Object[]{"minecraft:" + palette[1] + "_dye", 8}, new Object[]{"minecraft:leather", 6});
+		boolean chest = false;
 		for (int[] c : fp.along(left ? Dirs.RIGHT : Dirs.LEFT)) {
 			Direction into = left ? Dirs.LEFT : Dirs.RIGHT;
 			if (c[1] > in[1] + 1 && fp.take(c[0], c[1], into)) {
-				Props.store(d, c[0], 0, c[1], into, true, List.of(new Object[]{"minecraft:white_wool", 24}, new Object[]{"minecraft:string", 16},
-					new Object[]{"minecraft:" + palette[0] + "_dye", 8}, new Object[]{"minecraft:" + palette[1] + "_dye", 8}, new Object[]{"minecraft:leather", 6}));
+				Props.store(d, c[0], 0, c[1], into, true, cloth);
+				chest = true;
 				break;
+			}
+		}
+		if (!chest) {
+			Props.storeAnywhere(d, fp, cloth);
+		}
+		// where no stair reaches a workroom above, a second loom below
+		boolean upstairs = wells.length > 0 && wells[0] != null;
+		if (!upstairs) {
+			outer:
+			for (Direction wall : new Direction[]{Dirs.BACK, Dirs.LEFT, Dirs.RIGHT}) {
+				for (int[] c : fp.along(wall)) {
+					if (looms < 2 && c[1] > in[1] && fp.take(c[0], c[1], wall.getOpposite())) {
+						Props.station(d, Blocks.LOOM, c[0], 0, c[1], wall.getOpposite(), JobType.TAILOR);
+						looms++;
+						if (looms >= 2) {
+							break outer;
+						}
+					}
+				}
 			}
 		}
 		// bolts of cloth on the walls: wool on barrels
@@ -363,7 +387,7 @@ public final class Tailor implements Archetype {
 		int vx = wellWall == Dirs.LEFT ? 1 : w - 2;
 		if (z1 - z0 >= 2 && d.isEmpty(vx, 0, z0 + 1)) {
 			Props.trough(d, vx, 0, z0 + 1, wellWall == Dirs.LEFT ? Dirs.RIGHT : Dirs.LEFT, Math.min(2, w - 4));
-			d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, vx, 0, z0, Dirs.BACK, JobType.TAILOR);
+			Props.site(d, vx, 0, z0, Dirs.BACK, JobType.TAILOR);
 		}
 	}
 }

@@ -27,6 +27,7 @@ import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -69,19 +70,12 @@ public final class Warehouse implements Archetype {
 		int hz0 = fz;
 		int hz1 = dp - 1;
 		int sh = Math.max(4, h.walls().storeyHeight());
-		int room = d.maxHeight() - 1 - (flat ? 3 : 6) - (sh + 1);
-		int upper = Math.clamp(d.param("storeys", 3) - 1, 1, 3);
-		while (upper > 1 && upper * sh > room) {
-			upper--;
-		}
-		int[] heights = new int[1 + upper + (flat ? 0 : 1)];
-		heights[0] = sh + 1;
-		for (int k = 1; k <= upper; k++) {
-			heights[k] = sh;
-		}
-		if (!flat) {
-			heights[heights.length - 1] = 2;
-		}
+		int upper = Math.clamp(d.param("storeys", 3) - 1, 0, 3);
+		int[] want = new int[1 + upper];
+		Arrays.fill(want, sh);
+		want[0] = sh + 1;
+		// as many floors as the plot's height takes under the roof, the attic for the hoist where it fits
+		int[] heights = Hall.budget(d, hx0, hz0, hx1, hz1, 0, want, true, form, 1, flat ? Direction.Axis.X : Direction.Axis.Z);
 		Hall hall = Hall.of(d, hx0, hz0, hx1, hz1, 0, heights, false, false);
 		int[] in = hall.inner(0);
 		int door = (in[0] + in[2]) / 2;

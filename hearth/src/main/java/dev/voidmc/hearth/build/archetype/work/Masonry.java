@@ -78,7 +78,7 @@ public final class Masonry implements Archetype {
 		boolean chest = false;
 		for (int x = 1; x <= w - 2; x++) {
 			int z = sz1 - 1;
-			if (x == w / 2 - 1 && !chest) {
+			if (x == w / 2 - 1 && !chest || !chest && x == w - 2) {
 				Props.store(d, x, 0, z, Dirs.FRONT, true, List.of(new Object[]{"minecraft:stone_bricks", 48}, new Object[]{"minecraft:chiseled_stone_bricks", 8},
 					new Object[]{"minecraft:smooth_stone", 32}, new Object[]{"minecraft:iron_pickaxe", 1}));
 				Props.toolRack(d, x, 2, z, Dirs.FRONT, List.of(new Object[]{"minecraft:iron_pickaxe", 1, 0}, new Object[]{"minecraft:brush", 1, 1},
@@ -87,7 +87,7 @@ public final class Masonry implements Archetype {
 			} else if ((x - 1) % 2 == 0 && cutters < 4) {
 				Props.station(d, Blocks.STONECUTTER, x, 0, z, Dirs.FRONT, JobType.MASON);
 				cutters++;
-			} else if (d.isEmpty(x, 0, z)) {
+			} else if (d.isEmpty(x, 0, z) && x + 1 != w / 2 - 1 && x + 1 <= w - 3) {
 				Props.stonePallet(d, x, 0, z, ashlar, d.mat(Role.FLOOR));
 				x++;
 			}

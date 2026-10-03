@@ -24,6 +24,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The closed building of a trade: a workshop, a store, a mill house. A {@link Body} of storeys over a rectangle,
@@ -322,8 +323,10 @@ public final class Hall {
 		this.ridge = axis;
 		if (o == null) {
 			this.form = RoofForm.FLAT;
-			this.deck = Roofs.flat(this.d, tr[0], tr[1], tr[2], tr[3], plate, true);
-			this.top = this.deck + 1;
+			// a parapet where the plot's height leaves room for one, else a plain deck
+			boolean parapet = plate + 2 <= this.d.maxHeight() - 1;
+			this.deck = Roofs.flat(this.d, tr[0], tr[1], tr[2], tr[3], plate, parapet);
+			this.top = parapet ? this.deck + 1 : plate;
 			return this;
 		}
 		this.form = form;
@@ -401,6 +404,12 @@ public final class Hall {
 	 */
 	public static int fitStoreys(Draft d, int x0, int z0, int x1, int z1, int base, int[] heights, int knee, RoofForm form, Direction.Axis axis,
 		int reserve, double minPitch) {
+		return Math.max(1, fitting(d, x0, z0, x1, z1, base, heights, knee, form, axis, reserve, minPitch));
+	}
+
+	/** As {@link #fitStoreys}, but zero when not even the first storey fits. */
+	private static int fitting(Draft d, int x0, int z0, int x1, int z1, int base, int[] heights, int knee, RoofForm form, Direction.Axis axis,
+		int reserve, double minPitch) {
 		Roofs.Opts o = Roofs.Opts.of(d);
 		double want = Math.min(minPitch, o.pitch());
 		RoofForm f = form == RoofForm.CROSS_GABLE ? RoofForm.GABLE : form;
@@ -420,7 +429,7 @@ public final class Hall {
 				return n;
 			}
 		}
-		return 1;
+		return 0;
 	}
 
 	/**
@@ -430,10 +439,30 @@ public final class Hall {
 	 * less {@code reserve}. Never fewer than one storey.
 	 */
 	public static int[] budget(Draft d, int x0, int z0, int x1, int z1, int base, int[] storeys, boolean attic, RoofForm form, int reserve) {
+		return budget(d, x0, z0, x1, z1, base, storeys, attic, form, reserve, null);
+	}
+
+	/** As {@link #budget(Draft, int, int, int, int, int, int[], boolean, RoofForm, int)} for a ridge along {@code axis} (null: either way). */
+	public static int[] budget(Draft d, int x0, int z0, int x1, int z1, int base, int[] storeys, boolean attic, RoofForm form, int reserve,
+		Direction.@Nullable Axis axis) {
 		boolean flat = form == RoofForm.FLAT || form == RoofForm.DOME || form == RoofForm.CONE;
-		Direction.Axis worst = z1 - z0 >= x1 - x0 ? Direction.Axis.X : Direction.Axis.Z;
+		Direction.Axis worst = axis != null ? axis : z1 - z0 >= x1 - x0 ? Direction.Axis.X : Direction.Axis.Z;
 		int knee = attic && !flat ? 2 : 0;
-		int n = fitStoreys(d, x0, z0, x1, z1, base, storeys, knee, form, worst, reserve, 0.75);
+		int n = fitting(d, x0, z0, x1, z1, base, storeys, knee, form, worst, reserve, 0.75);
+		if (n == 0 && knee > 0) {
+			// no room for the attic knee: the roof sits on the wall plate
+			knee = 0;
+			n = fitting(d, x0, z0, x1, z1, base, storeys, 0, form, worst, reserve, 0.75);
+		}
+		if (n == 0) {
+			// a low plot: the one storey as tall as still takes a roof (three rows at the least)
+			for (int h = storeys[0] - 1; h >= 3; h--) {
+				if (fitting(d, x0, z0, x1, z1, base, new int[]{h}, 0, form, worst, reserve, 0.5) > 0 || h == 3) {
+					return new int[]{h};
+				}
+			}
+			return new int[]{storeys[0]};
+		}
 		int[] out = new int[n + (knee > 0 ? 1 : 0)];
 		System.arraycopy(storeys, 0, out, 0, n);
 		if (knee > 0) {

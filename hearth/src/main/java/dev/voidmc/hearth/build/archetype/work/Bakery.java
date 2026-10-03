@@ -239,6 +239,9 @@ public final class Bakery implements Archetype {
 				Props.sacks(d, c[0], 0, c[1], Dirs.BACK, 1, true);
 			}
 		}
+		if (!chest) {
+			Props.storeAnywhere(d, fp, List.of(new Object[]{"minecraft:wheat", 32}, new Object[]{"minecraft:bread", 16}));
+		}
 		Rooms.Room room = fp.room();
 		Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 		// bread on shelves high on the side walls

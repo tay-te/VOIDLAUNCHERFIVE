@@ -245,6 +245,33 @@ public final class Props {
 		d.poi(PoiType.STORAGE, x + Dirs.dx(user), y, z + Dirs.dz(user), user.getOpposite());
 	}
 
+	/**
+	 * A chest against any wall of a hand-furnished floor where it still fits (the floor kept walkable), as the last
+	 * resort for a building's store. Answers whether it went in.
+	 */
+	public static boolean storeAnywhere(Draft d, Floorplan fp, List<Object[]> items) {
+		for (Direction wall : new Direction[]{Dirs.BACK, Dirs.LEFT, Dirs.RIGHT, Dirs.FRONT}) {
+			for (int[] c : fp.along(wall)) {
+				if (fp.take(c[0], c[1], wall.getOpposite())) {
+					store(d, c[0], fp.y, c[1], wall.getOpposite(), true, items);
+					return true;
+				}
+			}
+		}
+		// no wall cell left: anywhere the floor stays connected
+		for (int z = fp.z0; z <= fp.z1; z++) {
+			for (int x = fp.x0; x <= fp.x1; x++) {
+				for (Direction dir : Dirs.HORIZONTAL) {
+					if (fp.take(x, z, dir)) {
+						store(d, x, fp.y, z, dir, true, items);
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 	/** A trough of water cauldrons in a row along {@code run}. */
 	public static void trough(Draft d, int x, int y, int z, Direction run, int length) {
 		try (var s = d.stage(StageKind.EXTERIOR)) {

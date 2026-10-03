@@ -31,11 +31,16 @@ public final class Shop {
 	 * board inside at y with {@code wares} on it (cakes, wool, pots; null for none) and a cloth awning over it outside.
 	 */
 	public static void window(Draft d, Side wall, int col, int width, int y, IntFunction<BlockState> wares, boolean awning) {
+		window(d, wall, col, width, y, wares, awning, true);
+	}
+
+	/** As above; without the sill board inside when {@code board} is false (the floor along the window kept walkable). */
+	public static void window(Draft d, Side wall, int col, int width, int y, IntFunction<BlockState> wares, boolean awning, boolean board) {
 		Openings.window(d, wall, col, y + 1, width, 2, Openings.WindowStyle.PLAIN, new Openings.WindowOpts(false, false, false, true));
 		Direction in = wall.out().getOpposite();
 		Mat wood = d.mat(Role.FURNITURE);
 		try (var s = d.stage(StageKind.INTERIOR)) {
-			for (int c = 0; c < width; c++) {
+			for (int c = 0; c < width && board; c++) {
 				int i = wall.index(col) + c;
 				int x = wall.x(i) + Dirs.dx(in);
 				int z = wall.z(i) + Dirs.dz(in);

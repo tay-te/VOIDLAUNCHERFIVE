@@ -77,7 +77,7 @@ public final class Sawmill implements Archetype {
 		d.carve(sx0 + 1, 0, sz0 + 1, sx1 - 1, 3, sz1 - 1);
 		d.body(sx0, sz0, sx1, sz1);
 		d.eave(4);
-		bench(d, sx0, sx1, (sz0 + sz1) / 2);
+		bench(d, sx0, sx1, sz0 + 1, sz1 - 1);
 
 		// water at the back: a wheel on the shed's end, dipping into a race
 		boolean water = false;
@@ -105,7 +105,7 @@ public final class Sawmill implements Archetype {
 	 * The saw bench down the shed: rails carrying the log carriage, a log on it, the blade (a stonecutter) in the middle,
 	 * sawn boards stacking up beyond, the sawyer's bench and chest against the back wall.
 	 */
-	private static void bench(Draft d, int x0, int x1, int z) {
+	private static void bench(Draft d, int x0, int x1, int z, int backRow) {
 		Mat log = d.mat(Role.FRAME);
 		Mat boards = d.mat(Role.FLOOR);
 		int blade = (x0 + x1) / 2;
@@ -128,10 +128,11 @@ public final class Sawmill implements Archetype {
 				d.set(x, 1, z, boards.slab(SlabType.BOTTOM));
 			}
 		}
-		d.poi(PoiType.JOB_SITE, blade, 0, z - 1, Dirs.BACK, JobType.CARPENTER);
-		d.poi(PoiType.JOB_SITE, Math.max(x0 + 1, blade - 2), 0, z - 1, Dirs.BACK, JobType.FORESTER);
+		// the sawyers work from behind the bench, the aisle along the back
+		Props.site(d, blade, 0, z + 1, Dirs.FRONT, JobType.CARPENTER);
+		Props.site(d, Math.max(x0 + 1, blade - 2), 0, z + 1, Dirs.FRONT, JobType.FORESTER);
 		// against the back wall: the bench, the chest, a rack of saws
-		int bz = z + 1;
+		int bz = backRow - 1;
 		{
 			int cx = x0 + 1;
 			if (d.isEmpty(cx, 0, bz + 1)) {
