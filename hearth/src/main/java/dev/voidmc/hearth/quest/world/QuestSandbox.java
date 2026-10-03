@@ -70,10 +70,12 @@ public final class QuestSandbox {
 		populate(neighbour, 8, random, day);
 		neighbour.deposit(1500);
 
-		BlockPos boardPos = center.relative(facing, 2);
-		if (level.getBlockState(boardPos).canBeReplaced()) {
-			level.setBlockAndUpdate(boardPos, QuestRegistry.NOTICE_BOARD.defaultBlockState().setValue(NoticeBoardBlock.FACING, facing.getOpposite()));
-		}
+		BlockPos front = center.relative(facing, 2);
+		BlockPos boardPos = level.hasChunkAt(front)
+			? new BlockPos(front.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, front.getX(), front.getZ()), front.getZ())
+			: front;
+		// Dev tooling: the board goes in whatever stands there (grass, a sapling, low leaves).
+		level.setBlockAndUpdate(boardPos, QuestRegistry.NOTICE_BOARD.defaultBlockState().setValue(NoticeBoardBlock.FACING, facing.getOpposite()));
 		QuestManager.onStalled(level, town, new SettlementQuests.StalledNeed(plot.id(), Goods.STONE, 96, day, "cottage"));
 		QuestManager.onStalled(level, town, new SettlementQuests.StalledNeed(plot.id(), Goods.WOOD, 48, day, "cottage"));
 		QuestManager.board(level, town, true);

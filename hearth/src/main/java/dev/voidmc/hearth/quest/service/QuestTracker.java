@@ -69,6 +69,14 @@ public final class QuestTracker {
 		}
 	}
 
+	/** Runs a player's objective check now (dev harness and commands; the tick does this on its own schedule). */
+	public static void checkNow(ServerPlayer player) {
+		PlayerQuests pq = QuestStore.get(player);
+		if (!pq.active.isEmpty()) {
+			check(player, pq);
+		}
+	}
+
 	/** One player's periodic check. Works on a copy and attaches it only if something changed. */
 	private static void check(ServerPlayer player, PlayerQuests current) {
 		ServerLevel level = player.level();

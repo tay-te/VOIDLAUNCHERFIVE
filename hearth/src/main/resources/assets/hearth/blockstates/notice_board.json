@@ -1,0 +1,195 @@
+{
+	"multipart": [
+		{
+			"when": {
+				"facing": "north"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board"
+			}
+		},
+		{
+			"when": {
+				"facing": "north",
+				"papers": "1|2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_1"
+			}
+		},
+		{
+			"when": {
+				"facing": "north",
+				"papers": "2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_2"
+			}
+		},
+		{
+			"when": {
+				"facing": "north",
+				"papers": "3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_3"
+			}
+		},
+		{
+			"when": {
+				"facing": "north",
+				"papers": "4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_4"
+			}
+		},
+		{
+			"when": {
+				"facing": "east"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board",
+				"y": 90
+			}
+		},
+		{
+			"when": {
+				"facing": "east",
+				"papers": "1|2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_1",
+				"y": 90
+			}
+		},
+		{
+			"when": {
+				"facing": "east",
+				"papers": "2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_2",
+				"y": 90
+			}
+		},
+		{
+			"when": {
+				"facing": "east",
+				"papers": "3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_3",
+				"y": 90
+			}
+		},
+		{
+			"when": {
+				"facing": "east",
+				"papers": "4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_4",
+				"y": 90
+			}
+		},
+		{
+			"when": {
+				"facing": "south"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board",
+				"y": 180
+			}
+		},
+		{
+			"when": {
+				"facing": "south",
+				"papers": "1|2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_1",
+				"y": 180
+			}
+		},
+		{
+			"when": {
+				"facing": "south",
+				"papers": "2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_2",
+				"y": 180
+			}
+		},
+		{
+			"when": {
+				"facing": "south",
+				"papers": "3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_3",
+				"y": 180
+			}
+		},
+		{
+			"when": {
+				"facing": "south",
+				"papers": "4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_4",
+				"y": 180
+			}
+		},
+		{
+			"when": {
+				"facing": "west"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board",
+				"y": 270
+			}
+		},
+		{
+			"when": {
+				"facing": "west",
+				"papers": "1|2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_1",
+				"y": 270
+			}
+		},
+		{
+			"when": {
+				"facing": "west",
+				"papers": "2|3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_2",
+				"y": 270
+			}
+		},
+		{
+			"when": {
+				"facing": "west",
+				"papers": "3|4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_3",
+				"y": 270
+			}
+		},
+		{
+			"when": {
+				"facing": "west",
+				"papers": "4"
+			},
+			"apply": {
+				"model": "hearth:block/notice_board_paper_4",
+				"y": 270
+			}
+		}
+	]
+}

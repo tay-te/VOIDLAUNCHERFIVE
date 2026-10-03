@@ -133,7 +133,8 @@ public final class StructureLocator {
 			int rz0 = Math.floorDiv(cz, spacing);
 			for (int rx = rx0 - regions; rx <= rx0 + regions; rx++) {
 				for (int rz = rz0 - regions; rz <= rz0 + regions; rz++) {
-					ChunkPos chunk = spread.getPotentialStructureChunk(state.getLevelSeed(), rx, rz);
+					// The placement takes any chunk of a region and finds that region's candidate.
+					ChunkPos chunk = spread.getPotentialStructureChunk(state.getLevelSeed(), rx * spacing, rz * spacing);
 					long dx = chunk.x() - cx;
 					long dz = chunk.z() - cz;
 					if (dx * dx + dz * dz <= (long) radiusChunks * radiusChunks) {

@@ -5,6 +5,7 @@ import dev.voidmc.hearth.api.HearthConfig;
 import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.quest.command.QuestCommands;
+import dev.voidmc.hearth.quest.dev.QuestDevHarness;
 import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.model.SettlementQuests;
 import dev.voidmc.hearth.quest.net.QuestNetwork;
@@ -75,6 +76,7 @@ public final class QuestModule {
 			StructureLocator.clear();
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> QuestCommands.register(dispatcher));
+		QuestDevHarness.install();
 	}
 
 	/** {@code hearth:house/cottage} → {@code cottage}, for quest text. */

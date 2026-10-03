@@ -144,7 +144,7 @@ public final class QuestDialogue implements DialogueProvider {
 	}
 
 	private static Component rewardText(QuestInstance q) {
-		return Component.literal(q.reward.text());
+		return Component.literal(q.reward.text().isEmpty() ? "thanks" : q.reward.text());
 	}
 
 	/** Forgets a player's half-considered offer (logout). */

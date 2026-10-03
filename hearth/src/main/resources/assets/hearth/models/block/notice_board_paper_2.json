@@ -1,0 +1,90 @@
+{
+	"textures": {
+		"particle": "hearth:block/notice_board_paper",
+		"paper": "hearth:block/notice_board_paper"
+	},
+	"elements": [
+		{
+			"from": [
+				2,
+				15,
+				7.4
+			],
+			"to": [
+				8,
+				20,
+				7.4
+			],
+			"faces": {
+				"north": {
+					"texture": "#paper",
+					"uv": [
+						6,
+						0,
+						12,
+						5
+					]
+				}
+			}
+		},
+		{
+			"from": [
+				4.5,
+				18.75,
+				7.0
+			],
+			"to": [
+				5.5,
+				19.75,
+				7.4
+			],
+			"faces": {
+				"north": {
+					"texture": "#paper",
+					"uv": [
+						12,
+						8,
+						13,
+						9
+					]
+				},
+				"east": {
+					"texture": "#paper",
+					"uv": [
+						12,
+						8,
+						13,
+						9
+					]
+				},
+				"west": {
+					"texture": "#paper",
+					"uv": [
+						12,
+						8,
+						13,
+						9
+					]
+				},
+				"up": {
+					"texture": "#paper",
+					"uv": [
+						12,
+						8,
+						13,
+						9
+					]
+				},
+				"down": {
+					"texture": "#paper",
+					"uv": [
+						12,
+						8,
+						13,
+						9
+					]
+				}
+			}
+		}
+	]
+}
