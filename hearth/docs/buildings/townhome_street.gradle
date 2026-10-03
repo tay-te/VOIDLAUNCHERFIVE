@@ -1,0 +1,27 @@
+// Gradle init script: registers `streetPreview` (rows of attached town homes, a street, stacks of cliff dwellings)
+// without touching the shared build files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/townhome_street.gradle streetPreview -Prow=townhouse,shophouse -Pstyle=temperate -Pcount=6 -Pterrain=slope
+//   ./gradlew -I docs/buildings/townhome_street.gradle streetPreview -Prow=cliff_dwelling -Pstyle=mesa -Pterrain=steep -Pparams=stack=3
+//
+// Output: build/previews/street/street_*.png. See dev.voidmc.hearth.gametest.townhome.StreetPreview for the arguments.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('streetPreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders a street of attached town homes to build/previews/street/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.townhome.StreetPreview'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+			args = [
+				p.findProperty('row') ?: 'house/townhouse',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('count') ?: '5',
+				p.findProperty('terrain') ?: 'flat',
+				p.findProperty('seed') ?: '1',
+				p.layout.buildDirectory.dir('previews/street').get().asFile.path,
+				p.findProperty('params') ?: ''
+			]
+		}
+	}
+}
