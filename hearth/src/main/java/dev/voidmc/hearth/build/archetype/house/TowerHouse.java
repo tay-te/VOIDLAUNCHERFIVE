@@ -212,7 +212,7 @@ public final class TowerHouse implements Archetype {
 		// the stair: up one side from the store to the top storey (and on to the roof walk)
 		int[] r0 = body.rect(0);
 		int laneA = wellLeft ? r0[0] + 1 : r0[2] - 1;
-		StairCore core = new StairCore(body, laneA, wellLeft ? Dirs.RIGHT : Dirs.LEFT, r0[3] - 3, Dirs.BACK, 0, topK).build(d);
+		StairCore core = TownHouses.fit(new StairCore(body, laneA, wellLeft ? Dirs.RIGHT : Dirs.LEFT, r0[3] - 3, Dirs.BACK, 0, topK), body, roof).build(d);
 		int[] exit = null;
 		if (flatTop) {
 			exit = core.bulkhead(d, deck, d.maxHeight());
@@ -226,7 +226,7 @@ public final class TowerHouse implements Archetype {
 		}
 
 		// floors: the store, the hall, chambers
-		for (int k = 0; k < body.storeys(); k++) {
+		for (int k = 0; k < body.storeys() && TownHouses.reached(core, k); k++) {
 			int[] r = body.rect(k);
 			boolean top = k == topK;
 			Rooms.Room room = TownHouses.room(d, body, k, top ? roof : null);
@@ -257,7 +257,7 @@ public final class TowerHouse implements Archetype {
 			} else {
 				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
 			}
-			if (top) {
+			if (k == core.toK()) {
 				// the lookout: the top room's front window (the loggia, the gallery door)
 				d.poi(PoiType.VIEWPOINT, (r[0] + r[2]) / 2, body.floorY(k), r[1] + 1, Dirs.FRONT);
 			}

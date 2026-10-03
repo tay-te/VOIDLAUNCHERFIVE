@@ -5,6 +5,7 @@ import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.kit.Body;
+import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.style.Role;
@@ -202,6 +203,48 @@ public final class StairCore {
 		d.inStage(StageKind.OPENINGS, () -> d.door(dx, deckY, dz, d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR), out,
 			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
 		return new int[]{dx, deckY, dz + Dirs.dz(out)};
+	}
+
+	/**
+	 * Whether a roof stands clear of the flight up to storey k, so building it takes nothing off the roof: a straight
+	 * flight clears three blocks over every step and the landing three over its floor, and the arrival needs two to
+	 * stand in. A stair that would come up under the slope of a low roof stops a storey short instead.
+	 */
+	public boolean clears(Roofs.Roof roof, int k) {
+		if (roof == null || k <= this.fromK) {
+			return true;
+		}
+		int y0 = this.body.floorY(k - 1);
+		int rise = this.body.height(k - 1);
+		int first = rise / 2;
+		int second = rise - first;
+		int dz = Dirs.dz(this.climb);
+		for (int i = 0; i < first; i++) {
+			if (!over(roof, this.laneA, this.zStart + dz * i, y0 + i + 4)) {
+				return false;
+			}
+		}
+		int lz = this.zStart + dz * first;
+		int ly = y0 + first;
+		if (!over(roof, this.laneA, lz, ly + 3) || !over(roof, this.laneB, lz, ly + 3)) {
+			return false;
+		}
+		int sz = lz - dz;
+		for (int i = 0; i < second; i++) {
+			if (!over(roof, this.laneB, sz - dz * i, ly + i + 4)) {
+				return false;
+			}
+		}
+		return over(roof, this.laneB, sz - dz * second, ly + second + 2);
+	}
+
+	private static boolean over(Roofs.Roof roof, int x, int z, int y) {
+		return !roof.covers(x, z) || roof.bottomY(x, z) >= y;
+	}
+
+	/** The same well stopping at another storey. */
+	public StairCore to(int k) {
+		return new StairCore(this.body, this.laneA, Dirs.of(this.laneB - this.laneA, 0), this.zStart, this.climb, this.fromK, k);
 	}
 
 	/** Stairs facing up the climb, for callers that draw a matching extra flight. */

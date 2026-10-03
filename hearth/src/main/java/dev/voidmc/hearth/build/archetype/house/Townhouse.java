@@ -232,7 +232,7 @@ public final class Townhouse implements Archetype {
 		boolean wellLeft = door > (bx0 + bx1) / 2;
 		int[] hearth = TownHouses.chimney(d, body, roof, deck, wellLeft, h.chimney());
 		int coreTop = topK;
-		StairCore core = pueblo ? null : TownHouses.core(d, body, door, coreTop);
+		StairCore core = pueblo ? null : TownHouses.core(d, body, door, coreTop, roof);
 		int[] roofExit = null;
 		if (pueblo) {
 			TownHouses.puebloLadders(d, body, full, deck, door);
@@ -413,7 +413,7 @@ public final class Townhouse implements Archetype {
 	private static void interior(Draft d, Body b, Roofs.Roof roof, StairCore core, int door, boolean shop, int[] hearth, int terraceDoor,
 		List<int[]> keep, int loggiaK) {
 		int floors = b.storeys();
-		for (int k = 0; k < floors; k++) {
+		for (int k = 0; k < floors && TownHouses.reached(core, k); k++) {
 			int[] r = b.rect(k);
 			boolean top = k == floors - 1;
 			Rooms.Room room = TownHouses.room(d, b, k, top ? roof : null);

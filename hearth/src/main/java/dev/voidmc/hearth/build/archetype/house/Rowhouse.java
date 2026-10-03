@@ -216,7 +216,7 @@ public final class Rowhouse implements Archetype {
 		boolean wellLeft = door > (w - 1) / 2;
 		int[] hearth = TownHouses.chimney(d, body, roof, deck, wellLeft, Math.max(h.chimney(), t.masonry() && !t.flat() ? 0.6 : 0));
 		boolean pueblo = t.pueblo() && flat && body.outset(full - 1, Dirs.FRONT) != 0;
-		StairCore core = pueblo ? null : TownHouses.core(d, body, door, topK);
+		StairCore core = pueblo ? null : TownHouses.core(d, body, door, topK, roof);
 		if (pueblo) {
 			TownHouses.puebloLadders(d, body, full, deck, door);
 		} else if (flat) {
@@ -237,7 +237,7 @@ public final class Rowhouse implements Archetype {
 		}
 
 		// rooms: kitchen and parlour below, bedrooms above, one under the roof
-		for (int k = 0; k < body.storeys(); k++) {
+		for (int k = 0; k < body.storeys() && TownHouses.reached(core, k); k++) {
 			int[] r = body.rect(k);
 			boolean top = k == topK;
 			Rooms.Room room = TownHouses.room(d, body, k, top ? roof : null);

@@ -217,7 +217,7 @@ public final class Shophouse implements Archetype {
 		// the stair well against one side wall at the back, the fire upstairs on the other side
 		boolean wellLeft = d.chance(0.5);
 		int[] hearth = TownHouses.chimney(d, body, roof, deck, wellLeft, h.chimney(), 1);
-		StairCore core = TownHouses.core(d, body, wellLeft ? w - 1 : 0, topK);
+		StairCore core = TownHouses.core(d, body, wellLeft ? w - 1 : 0, topK, roof);
 		if (flat) {
 			int[] exit = core.bulkhead(d, deck, d.maxHeight());
 			if (exit != null) {
@@ -227,7 +227,7 @@ public final class Shophouse implements Archetype {
 
 		// the shop inside, the home above
 		shop(d, body, core, door);
-		for (int k = 1; k < body.storeys(); k++) {
+		for (int k = 1; k < body.storeys() && TownHouses.reached(core, k); k++) {
 			int[] r = body.rect(k);
 			boolean top = k == topK;
 			Rooms.Room room = TownHouses.room(d, body, k, top ? roof : null);

@@ -480,6 +480,14 @@ final class TownHouses {
 	 * to {@code toK}.
 	 */
 	static StairCore core(Draft d, Body b, int door, int toK) {
+		return core(d, b, door, toK, null);
+	}
+
+	/**
+	 * As {@link #core(Draft, Body, int, int)}, a storey short of the attic when the roof comes down too low over the well
+	 * for the top flight (the attic is then a loft shut under the roof, left unfurnished: see {@link #reached}).
+	 */
+	static StairCore core(Draft d, Body b, int door, int toK, Roofs.Roof roof) {
 		int[] r0 = b.rect(0);
 		int ix0 = r0[0] + 1;
 		int ix1 = r0[2] - 1;
@@ -488,7 +496,21 @@ final class TownHouses {
 		int laneA = left ? ix0 : ix1;
 		Direction across = left ? Dirs.RIGHT : Dirs.LEFT;
 		int zStart = iz1 - 2;
-		return new StairCore(b, laneA, across, zStart, Dirs.BACK, 0, toK).build(d);
+		return fit(new StairCore(b, laneA, across, zStart, Dirs.BACK, 0, toK), b, roof).build(d);
+	}
+
+	/** A stair stopped a storey short of an attic its top flight would cut the roof to reach. */
+	static StairCore fit(StairCore c, Body b, Roofs.Roof roof) {
+		int k = c.toK();
+		if (roof != null && k == b.storeys() - 1 && k > c.fromK() + 1 && !c.clears(roof, k)) {
+			return c.to(k - 1);
+		}
+		return c;
+	}
+
+	/** Whether storey k is one folk can get to (the stair reaches it, or there is no stair to reach it by). */
+	static boolean reached(StairCore core, int k) {
+		return core == null || k <= core.toK();
 	}
 
 	/** A storey's room, the stair kept, the top one carved up under the roof. */

@@ -86,9 +86,15 @@ public final class StreetPreview {
 			StringBuilder title = new StringBuilder(String.join(",", row) + " in " + style + " on " + terrain + ":");
 			// a stack is drawn and checked level by level against what the levels below built
 			BuiltProbe built = new BuiltProbe(probe);
-			for (PlotSpec spec : specs) {
+			for (int n = 0; n < specs.size(); n++) {
+				PlotSpec spec = specs.get(n);
 				TerrainProbe here = extra.contains("stack") ? built : probe;
 				BlueprintImpl bp = service.compiled(spec, here);
+				if (extra.getIntOr("plot", -1) == n) {
+					// sections through one plot of the row ("plot=N", with "slice=z0/y4/c3:0" as for blueprintPreview)
+					System.out.println("== plot " + n + " " + spec.archetype() + " seed " + spec.seed() + " " + spec.frontage() + "x" + spec.depth() + " " + spec.params());
+					dev.voidmc.hearth.gametest.render.Slices.print(service.draw(spec, here), spec);
+				}
 				built.add(bp);
 				for (String p : BlueprintChecks.all(bp, here)) {
 					System.out.println("CHECK " + spec.archetype().getPath() + " " + style + " seed " + spec.seed() + " " + spec.params() + ": " + p);
@@ -135,7 +141,7 @@ public final class StreetPreview {
 				int fz = side == 0 ? streetZ : streetZ + 4;
 				int floor = probe.groundY(x + frontage / 2, fz);
 				CompoundTag params = extra.copy();
-				for (String k : new String[]{"both", "corners", "frontage", "depth", "yaw", "tier", "stack", "scale", "eyaw", "epitch"}) {
+				for (String k : new String[]{"both", "corners", "frontage", "depth", "yaw", "tier", "stack", "scale", "eyaw", "epitch", "plot"}) {
 					params.remove(k);
 				}
 				// party walls: the building's own left/right looking out of its door (facing south, its left is +x)

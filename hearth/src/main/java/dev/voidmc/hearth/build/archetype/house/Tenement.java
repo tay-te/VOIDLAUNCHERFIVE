@@ -187,9 +187,9 @@ public final class Tenement implements Archetype {
 		StairCore core;
 		int c0 = (w - 2) / 2;
 		if (twin) {
-			core = new StairCore(body, c0, Dirs.RIGHT, iz1 - 2, Dirs.BACK, 0, topK).build(d);
+			core = TownHouses.fit(new StairCore(body, c0, Dirs.RIGHT, iz1 - 2, Dirs.BACK, 0, topK), body, roof).build(d);
 		} else {
-			core = TownHouses.core(d, body, door, topK);
+			core = TownHouses.core(d, body, door, topK, roof);
 		}
 		int[] roofExit = null;
 		if (flat) {
@@ -341,7 +341,7 @@ public final class Tenement implements Archetype {
 		int hx0 = core.x0() - 1;
 		int hx1 = core.x1() + 1;
 		int zl = core.zFoot;
-		for (int k = 0; k < b.storeys(); k++) {
+		for (int k = 0; k < b.storeys() && TownHouses.reached(core, k); k++) {
 			int[] r = b.rect(k);
 			int y = b.floorY(k);
 			boolean top = k == b.storeys() - 1;
@@ -474,7 +474,7 @@ public final class Tenement implements Archetype {
 		int wallX = wellLeft ? core.x1() + 1 : core.x0() - 1;
 		Direction into = wellLeft ? Dirs.RIGHT : Dirs.LEFT;
 		int zl = core.zFoot;
-		for (int k = 0; k < b.storeys(); k++) {
+		for (int k = 0; k < b.storeys() && TownHouses.reached(core, k); k++) {
 			int[] r = b.rect(k);
 			int y = b.floorY(k);
 			boolean top = k == b.storeys() - 1;
