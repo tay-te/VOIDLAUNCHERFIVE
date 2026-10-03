@@ -609,23 +609,32 @@ public final class Cathedral implements Archetype {
 			ct.floor(d, p.yN, dress.full());
 			peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.SPIRE, cx0, cz0, cx1, cz1, ycT + 1, p.top, mats));
 		} else if (p.manner == Manner.GOTHIC) {
-			// a flèche: a slender lantern and needle astride the crossing's ridge
+			// a flèche: a louvred lantern astride the crossing's ridge, a slender needle over it
 			int fx = p.xc;
 			int fz = (cz0 + cz1) / 2;
 			int y0 = roof.surfaceY(fx, fz) + 1;
-			if (y0 > 0 && y0 + 6 < p.top) {
+			if (y0 > 0 && y0 + 8 < p.top) {
+				Mat frame = d.mat(Role.FRAME);
+				Mat shutter = d.mat(Role.SHUTTER);
 				try (var s = d.stage(StageKind.ROOF)) {
-					Mat frame = d.mat(Role.FRAME);
-					for (int y = y0; y < y0 + 3; y++) {
-						for (int[] o : new int[][]{{-1, -1}, {1, -1}, {-1, 1}, {1, 1}}) {
-							d.set(fx + o[0], y, fz + o[1], frame.fence());
+					for (int y = y0 - 2; y < y0; y++) {
+						for (int dz = -1; dz <= 1; dz++) {
+							for (int dx = -1; dx <= 1; dx++) {
+								d.set(fx + dx, y, fz + dz, d.mat(Role.ROOF).full());
+							}
 						}
 					}
-					for (int y = y0 - 2; y < y0; y++) {
-						d.set(fx, y, fz, d.mat(Role.ROOF).full());
+					for (int y = y0; y < y0 + 3; y++) {
+						for (int[] c : Draft.ring(fx - 1, fz - 1, fx + 1, fz + 1)) {
+							boolean corner = Crowns.isCorner(c, fx - 1, fz - 1, fx + 1, fz + 1);
+							Direction out = Dirs.nearest(c[0] - fx, c[1] - fz);
+							d.set(c[0], y, c[1], corner ? frame.log(Direction.Axis.Y)
+								: shutter.has(Form.TRAPDOOR) ? shutter.trapdoor(out.getOpposite(), Half.TOP, true) : frame.fence());
+						}
+						d.set(fx, y, fz, frame.log(Direction.Axis.Y));
 					}
 				}
-				peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.OCTAGON, fx - 1, fz - 1, fx + 1, fz + 1, y0 + 3, p.top, mats));
+				peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.SPIRE, fx - 1, fz - 1, fx + 1, fz + 1, y0 + 3, p.top, mats));
 			}
 		}
 		return peak;

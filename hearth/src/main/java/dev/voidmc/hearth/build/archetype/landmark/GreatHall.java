@@ -161,12 +161,29 @@ public final class GreatHall implements Archetype {
 		Roofs.Built rb = Roofs.build(d, hx0, hz0, hx1, hz1, wallH, Habits.RoofForm.GABLE, Direction.Axis.Z, o, false, false);
 		Roofs.Roof roof = rb.roof();
 		int ridge = roof.ridgeY;
-		// the gables: boards with a light high up, or crow steps on stone
+		// the gables: vertical battens over the boards and a sun-wheel light high up (timber), or crow steps on stone
 		for (int z : new int[]{hz0, hz1}) {
-			int gy = wallH + 2;
-			if (roof.covers(xc, z) && roof.bottomY(xc, z) - 1 > gy) {
+			if (!stone) {
+				try (var s = d.stage(StageKind.WALLS)) {
+					for (int x = hx0 + 1; x < hx1; x++) {
+						if (!roof.covers(x, z) || (x - xc) % 2 != 0) {
+							continue;
+						}
+						for (int y = wallH + 1; y < roof.bottomY(x, z); y++) {
+							d.set(x, y, z, frame.log(Direction.Axis.Y));
+						}
+					}
+				}
+			}
+			int gy = wallH + 3;
+			if (roof.covers(xc, z) && roof.bottomY(xc, z) - 1 > gy + 1) {
 				try (var s = d.stage(StageKind.OPENINGS)) {
 					d.set(xc, gy, z, glass);
+					d.set(xc - 1, gy, z, glass);
+					d.set(xc + 1, gy, z, glass);
+					d.set(xc, gy - 1, z, glass);
+					d.set(xc, gy + 1, z, glass);
+					d.set(xc, gy, z, frame.log(Direction.Axis.Z));
 				}
 			}
 		}
@@ -203,6 +220,13 @@ public final class GreatHall implements Archetype {
 		if (chalet) {
 			Side up = frontWall;
 			Porches.balcony(d, up, hx0 + 1, hx1 - 1, wallH + 1);
+		}
+		// banners on the front either side of the porch
+		for (int side : new int[]{-1, 1}) {
+			int bx = xc + side * 4;
+			if (bx > hx0 && bx < hx1 && hz0 >= 1) {
+				Details.wallBanner(d, bx, 2, hz0 - 1, Dirs.FRONT, side + 1);
+			}
 		}
 		// raking braces leaning on the long walls (stone halls: buttresses)
 		for (Side s : Side.of(hx0, hz0, hx1, hz1)) {
