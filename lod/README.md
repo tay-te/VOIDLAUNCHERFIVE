@@ -157,20 +157,97 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every
   LOD fragment hidden by nearby terrain is rejected before it is shaded.
 
-## Settings (system properties, for now)
+## Settings
 
-| Property | Default | |
-|---|---|---|
-| `void.lod.radius` | `8192` | how far the LOD reaches, in blocks |
-| `void.lod.detail` | `5` | the most pixels a cell may cover before its tile splits (lower = sharper, heavier) |
-| `void.lod.farDetail` | same as `detail` | the same for the smooth far field (3 sharpens far silhouettes for a third more quads) |
-| `void.lod.haze` | 3/4 of the radius | how far the air carries at sea level (the haze is about 2/3 there) |
-| `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky |
-| `void.lod.threads` | half the cores, max 4 | worker threads |
-| `void.lod.budget` | `512` | MB of GPU memory before least-recently-used tiles are evicted |
-| `void.lod.enabled` | `true` | |
+In game: **Options → VOID LOD Settings…**, under the other buttons (it stays there with mods that replace
+Video Settings, such as Sodium); the same button at the end of **Video Settings**; or a key (unbound by
+default; Controls → Key Binds → VOID LOD). **F8** toggles the LOD.
 
-**F8** toggles the LOD in game.
+![the settings screen](docs/settings.jpg)
+
+Every change applies at once, and none needs a tile rebuilt: the reach, detail and haze from the next frame
+(the selection picks other levels of the same tiles), worker threads by starting or stopping workers (one
+told to stop finishes the tile in hand), the memory budget at the next sweep. Under the title the screen
+shows what the LOD draws and costs right now.
+
+The settings live in `config/void_lod.json`, written with the defaults on first start and again when the
+screen closes after a change. Each value is read on its own: a missing, misspelt or out-of-range one falls
+back to its default or is clamped, and the rest of the file still counts. `void.lod.*` system properties
+override the file for the session without being written back (dev runs and the game tests pass them:
+`./gradlew runClient -Pvoid.lod.detail=4`).
+
+| In the file | Property | Default | |
+|---|---|---|---|
+| `preset` | `void.lod.preset` | `high` | `low`, `medium`, `high`, `ultra` or `custom`: sets the next five together, and in the file wins over them unless it is `custom` |
+| `radius` | `void.lod.radius` | `8192` | how far the LOD reaches, in blocks (1024–32768) |
+| `detail` | `void.lod.detail` | `5` | the most pixels a cell may cover before its tile splits (lower = sharper, heavier) |
+| `farDetail` | `void.lod.farDetail` | same as `detail` | the same for the smooth far field (3 sharpens far silhouettes for a third more quads) |
+| `threads` | `void.lod.threads` | half the cores, max 4 | worker threads |
+| `budget` | `void.lod.budget` | `512` | MB of GPU memory before least-recently-used tiles are evicted |
+| `haze` | `void.lod.haze` | `0`: 3/4 of the reach | how far the air carries at sea level, in blocks (the haze is about 2/3 there) |
+| `enabled` | `void.lod.enabled` | `true` | |
+| `autoTune` | `void.lod.autoTune` | `true` (`false` in the game tests) | see below |
+| `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
+| `smoothFrom` | `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky (read at start) |
+
+### Quality presets
+
+What sets the GPU cost is the detail budget: a tile's cell count goes with its square, so 10 px per cell
+draws a quarter of the cells 5 px does. The reach costs little past a few kilometres (each doubling adds
+one coarse level of about 96 tiles) but memory and build time grow with it. Threads are capped at half the
+cores.
+
+| Preset | Meant for | Reach | Detail, near / far | Threads | GPU memory |
+|---|---|---|---|---|---|
+| Low | integrated graphics, older laptops | 4 km | 10 / 10 px | 1 | 192 MB |
+| Medium | laptop GPUs | 8 km | 7 / 7 px | 2 | 320 MB |
+| **High** (default) | desktop GPUs | 8 km | 5 / 5 px | up to 4 | 512 MB |
+| Ultra | strong desktop GPUs | 16 km | 4 / 3 px | up to 6 | 1 GB |
+
+Each preset from the 250-block peak above (1600×900, RTX 4060), settled, auto-tune off:
+
+| Preset | Tiles drawn | Quads | GPU time | Render thread |
+|---|---|---|---|---|
+| Low | 50 | 285 k | 0.25 ms | 0.24 ms |
+| Medium | 89 | 478 k | 0.31 ms | 0.24 ms |
+| High | 125 | 652 k | 0.37 ms | 0.32 ms |
+| Ultra | 253 | 1.3 M | 0.65 ms | 0.46 ms |
+
+The GPU time falls more slowly than the quads: part of it is shading the pixels the LOD covers, which no
+detail setting changes. Integrated graphics take several times as long for each; auto-tune walks down from
+whichever preset is chosen.
+
+### Auto-tune
+
+On by default (`core/AutoTune`). It keeps the LOD's GPU time (timestamp queries around its draws) under
+1.5 ms and its render-thread time under 0.5 ms a frame by coarsening the detail budget a step at a time,
+×1.2 up to ×3; only once the detail is three times coarser does it shorten the reach, to 3/4 and then 1/2.
+When there is room it refines again, step by step, back to the settings. It is fed every frame and decides
+twice a second, and is built not to hunt:
+
+* a step down needs a second over the target; a step up three seconds under it and five since the last
+  change, so finer tiles have streamed in and shown their cost;
+* a step up is taken only if its predicted cost (cell count, the square of the detail) lands under 80% of
+  the target, so the step up is never the one that goes over;
+* a step up undone within 20 s bars that step for 30 s, twice as long each time, up to eight minutes: a
+  view right at the edge settles a step down instead of flickering (in the unit tests, a machine where
+  finer detail costs far more than the model predicts sees 15 changes in 30 minutes, over the target
+  0.5% of the time);
+* render-thread time is the median of frames that streamed no tiles, so uploads (capped on their own) and
+  the odd hitch do not count;
+* while the game holds its frame cap (vsync or a frame limit) the LOD is not what holds it back, so
+  nothing is coarsened, however long a GPU idling at low clocks takes over the draws.
+
+Part of the GPU time is shading the pixels the LOD covers, which no detail budget changes, so each step
+down saves less than the one before; on a GPU where that part alone is over the target, auto-tune ends at
+its coarsest step. A new world, or a new reach, detail or preset, starts it over from the settings. Its
+state shows on the F3 screen and in the settings screen's status line.
+
+### F3
+
+Three lines on the F3 screen: tiles drawn and cached, quads, GPU memory and queued builds; GPU and
+render-thread time and workers; preset, reach, detail and auto-tune. They come with vanilla's built-in debug
+profiles, and are `void_lod` in the debug options (F3 + F6) to move or hide.
 
 ## Numbers
 
@@ -200,6 +277,9 @@ cd lod
 
 The game test takes `-Plod.show.*` properties (seed, render distance, views, screenshot size; see
 `LodShowcase`) and logs, per view, what the LOD drew and what each part of a frame cost.
+`-Plod.show.settings=true` also goes through Video Settings to the settings screen, chooses Low on it and
+photographs the view at each preset, then the F3 lines. Auto-tune is off in the game tests unless
+`-Pvoid.lod.autoTune=true`.
 
 The build includes `../expanse` as a composite build. The LOD compiles against Expanse's terrain
 model, but only loads it when Expanse is installed.

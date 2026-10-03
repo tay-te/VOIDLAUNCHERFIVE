@@ -49,6 +49,11 @@ java {
 
 test {
 	useJUnitPlatform()
+	// Minecraft's log4j setup writes logs/ into the working directory whenever a test logs a warning: keep it in build/
+	workingDir = layout.buildDirectory.dir('test-run').get().asFile
+	doFirst {
+		workingDir.mkdirs()
+	}
 	testLogging {
 		events 'failed'
 		exceptionFormat 'full'
@@ -66,7 +71,9 @@ loom {
 		configureEach {
 			property 'void.lod.logStats', 'true'
 			['void.lod.radius', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom',
-			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace'].each { key ->
+			 'void.lod.preset', 'void.lod.autoTune',
+			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace',
+			 'lod.show.settings'].each { key ->
 				if (project.hasProperty(key)) {
 					property key, project.property(key).toString()
 				}
@@ -76,11 +83,13 @@ loom {
 }
 
 // The game test's window is the size of its screenshots, so the LOD settles at the detail it will be photographed
-// at (the test framework fixes the window at its launch size).
+// at (the test framework fixes the window at its launch size). Auto-tune is off there unless asked for, so the
+// screenshots and timings show the settings as given, whatever else the machine is doing.
 loom.runs.configureEach {
 	if (it.name == 'clientGameTest') {
 		programArgs '--width', (project.findProperty('lod.show.width') ?: '1600').toString(),
 			'--height', (project.findProperty('lod.show.height') ?: '900').toString()
+		property 'void.lod.autoTune', (project.findProperty('void.lod.autoTune') ?: 'false').toString()
 	}
 }
 
