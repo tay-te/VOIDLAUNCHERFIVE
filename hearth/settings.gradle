@@ -1,0 +1,16 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'void-hearth'
+
+// Expanse is an optional partner, not a dependency: Hearth compiles against its terrain model so settlements can
+// read rivers and landforms straight from the Earth generator, and only touches those classes when Expanse is loaded.
+includeBuild('../expanse')

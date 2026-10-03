@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "hearth",
+	"version": "${version}",
+	"name": "VOID Hearth",
+	"description": "Living settlements: folk with homes, trades and routines who build and grow their towns while you are away, coin minted the Minecraft way, and quests that come from what a town actually needs.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["dev.voidmc.hearth.Hearth"],
+		"client": ["dev.voidmc.hearth.client.HearthClient"]
+	},
+	"mixins": [
+		"hearth-sim.mixins.json",
+		"hearth-npc.mixins.json",
+		"hearth-economy.mixins.json",
+		"hearth-quest.mixins.json",
+		{"config": "hearth-sim.client.mixins.json", "environment": "client"},
+		{"config": "hearth-npc.client.mixins.json", "environment": "client"},
+		{"config": "hearth-economy.client.mixins.json", "environment": "client"},
+		{"config": "hearth-quest.client.mixins.json", "environment": "client"}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"expanse": "*",
+		"void_lod": "*"
+	}
+}
