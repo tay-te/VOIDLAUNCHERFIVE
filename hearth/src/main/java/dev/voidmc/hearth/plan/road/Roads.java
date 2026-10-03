@@ -125,10 +125,16 @@ public final class Roads {
 			while (true) {
 				int cEnd = Math.min(t - 1, c + maxLen);
 				if (cEnd <= c) {
-					// a single column: borrow a neighbour so the polyline has two vertices
-					if (c + 1 < d.length()) {
+					// a single column between two other runs: the bridge or stair beside it already takes it in
+					boolean alone = e.runCount() == 1;
+					if (alone && c + 1 < d.length()) {
 						cEnd = c + 1;
-					} else if (c > 0) {
+					} else if (alone && c > 0) {
+						c--;
+						cEnd = c + 1;
+					} else if (c + 1 < d.length() && e.typeAt(c + 1) == type) {
+						cEnd = c + 1;
+					} else if (c > 0 && e.typeAt(c - 1) == type) {
 						c--;
 						cEnd = c + 1;
 					} else {
@@ -407,8 +413,14 @@ public final class Roads {
 	 */
 	public static @Nullable RoadEdge approach(PlanContext ctx, int tx, int tz, RoadEdge.Role role, RoadKind kind, int width, int margin,
 		String reason) {
-		Router.Params params = new Router.Params(1, margin, ctx.config.roadGrade(), ctx.config.stairGrade(), -1, 1.2, true, 400_000);
-		int[][] path = Router.route(ctx.ground, ctx.occ, tx, tz, tx, tz, params);
+		// one approach per call, its search bounded: an unreachable crag must not cost more than a few milliseconds
+		if (ctx.routed) {
+			return null;
+		}
+		ctx.routed = true;
+		Router.Params params = new Router.Params(1, Math.min(margin, 24), ctx.config.roadGrade(), ctx.config.stairGrade(), -1, 1.2, true, 90_000);
+		// searched from the site toward the heart, ending at the first road it reaches
+		int[][] path = Router.route(ctx.ground, ctx.occ, tx, tz, ctx.heartX(), ctx.heartZ(), params);
 		if (path == null || path[0].length < 3) {
 			return null;
 		}

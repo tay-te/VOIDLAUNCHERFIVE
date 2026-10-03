@@ -131,6 +131,19 @@ public final class Profile {
 		for (int i = 0; i < usable; i++) {
 			ys[i] = Double.isNaN(y[i]) ? Integer.MIN_VALUE : (int) Math.floor(y[i] + 0.5);
 		}
+		// never more than a block between neighbouring land columns, whatever the smoothing did beside the water
+		for (int pass = 0; pass < 2; pass++) {
+			for (int i = 1; i < usable; i++) {
+				if (ys[i] != Integer.MIN_VALUE && ys[i - 1] != Integer.MIN_VALUE) {
+					ys[i] = Math.max(ys[i - 1] - 1, Math.min(ys[i - 1] + 1, ys[i]));
+				}
+			}
+			for (int i = usable - 2; i >= 0; i--) {
+				if (ys[i] != Integer.MIN_VALUE && ys[i + 1] != Integer.MIN_VALUE) {
+					ys[i] = Math.max(ys[i + 1] - 1, Math.min(ys[i + 1] + 1, ys[i]));
+				}
+			}
+		}
 		// bridge decks: level, above the water and no lower than the banks
 		for (int i = 0; i < usable; ) {
 			if (type[i] == RoadEdge.GRADE || type[i] == RoadEdge.STAIRS) {

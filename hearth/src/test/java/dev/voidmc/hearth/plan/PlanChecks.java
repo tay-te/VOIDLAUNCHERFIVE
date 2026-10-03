@@ -167,7 +167,8 @@ final class PlanChecks {
 			Polyline.Dense d = new Polyline(pts).dense();
 			for (int i = 1; i < d.length(); i++) {
 				if (Math.abs(d.ys()[i] - d.ys()[i - 1]) > 1) {
-					out.add((road ? "road " : "stairs ") + p.id() + " jumps " + (d.ys()[i] - d.ys()[i - 1]) + " blocks at step " + i);
+					out.add((road ? "road " : "stairs ") + p.id() + " jumps " + (d.ys()[i] - d.ys()[i - 1]) + " blocks at step " + i + " "
+						+ java.util.Arrays.toString(java.util.Arrays.copyOf(pts, Math.min(pts.length, 12))) + " " + p.spec().params().getStringOr("kind", ""));
 					break;
 				}
 			}

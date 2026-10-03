@@ -86,14 +86,20 @@ public final class Router {
 			cost[s] = 0;
 			parent[s] = -1;
 			heap.push(s, heuristic(scx, scz, gcx, gcz, c, p));
+
 		}
 		int found = -1;
+		int expanded = 0;
 		while (heap.size > 0) {
 			int s = heap.pop();
 			if (closed[s]) {
 				continue;
 			}
 			closed[s] = true;
+			if (++expanded > p.maxStates / 4) {
+				// a bounded search: give up rather than flood a window with no way through
+				return null;
+			}
 			int ci = s >> 3;
 			int dir = s & 7;
 			int cx = ci % w;
@@ -152,7 +158,8 @@ public final class Router {
 				if (nc < cost[ns]) {
 					cost[ns] = nc;
 					parent[ns] = s;
-					heap.push(ns, nc + (p.toAccess ? 0 : heuristic(nx, nz, gcx, gcz, c, p)));
+					// to the nearest road: still drawn toward the goal (the heart), where the roads are
+					heap.push(ns, nc + heuristic(nx, nz, gcx, gcz, c, p));
 				}
 			}
 			if (heap.size > p.maxStates) {

@@ -36,6 +36,8 @@ public final class PlanContext {
 	public boolean joinPlanned;
 	/** Points a frontage search keeps away from, as {x, z, radius} (farmsteads keep their distance from each other). */
 	public final java.util.List<int[]> avoid = new java.util.ArrayList<>();
+	/** Whether this call has already routed an approach (one per call keeps the worst case cheap). */
+	public boolean routed;
 	/** Buildings (not roads) queued since the counter was last reset: whether a need was really met. */
 	public int buildings;
 
@@ -108,6 +110,18 @@ public final class PlanContext {
 	}
 
 	private double extent = -1;
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap waterDistances = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+
+	/** Distance to water from a column, to three blocks (memoised per call on a 3-block grid: frontage searches ask often). */
+	public int waterDistance(int x, int z) {
+		long key = ((long) Math.floorDiv(x, 3) << 32) ^ (Math.floorDiv(z, 3) & 0xFFFFFFFFL);
+		int v = this.waterDistances.getOrDefault(key, -1);
+		if (v < 0) {
+			v = dev.voidmc.hearth.plan.growth.Parcels.waterDistance(this.ground, x, z);
+			this.waterDistances.put(key, v);
+		}
+		return v;
+	}
 
 	/** The radius of the wall line a walled town keeps (0 if it has none): the town keeps inside it, farms outside. */
 	public double wallLine() {

@@ -283,11 +283,11 @@ public final class Parcels {
 				double toTop = site == null ? dist : Math.hypot(x - site.summitX(), z - site.summitZ());
 				s = g.ground(x, z) * 2.0 - toTop * 0.4 - dist * 0.05;
 			}
-			case WATER, ON_WATER -> s = -dist * 0.4 - waterDistance(g, x, z) * 3;
+			case WATER, ON_WATER -> s = -dist * 0.4 - ctx.waterDistance(x, z) * 3;
 			case EDGE -> s = -Math.abs(dist - edgeRing(ctx)) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
 			case FARMSTEAD -> s = -Math.abs(dist - core * 2.2 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 30 : 0);
 			case RICH -> s = (g.ground(x, z) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
-			case CRAFTS -> s = -Math.abs(dist - core * 0.9) - waterDistance(g, x, z) * 0.5;
+			case CRAFTS -> s = -Math.abs(dist - core * 0.9) - ctx.waterDistance(x, z) * 0.5;
 			case ANCHOR -> s = -Math.hypot(x - req.anchorX, z - req.anchorZ) * 2;
 			default -> s = -dist;
 		}
@@ -329,7 +329,7 @@ public final class Parcels {
 	}
 
 	/** Distance to water by a few probes (0 if there is water right here, 24 if none within reach). */
-	static int waterDistance(Ground g, int x, int z) {
+	public static int waterDistance(Ground g, int x, int z) {
 		if (g.isWater(x, z)) {
 			return 0;
 		}

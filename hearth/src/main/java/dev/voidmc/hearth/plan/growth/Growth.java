@@ -72,7 +72,7 @@ public final class Growth {
 					ctx.state.cooldowns.remove(need.key);
 				} else if (ctx.state.queue.size() > before) {
 					// only a road came of it: the need rests a little so roads do not run on without anything to build
-					ctx.state.cooldowns.put(need.key, ctx.state.calls + 2);
+					ctx.state.cooldowns.put(need.key, ctx.state.calls + (need.key.startsWith("landmark") ? 12 : 4));
 				}
 				return true;
 			}
