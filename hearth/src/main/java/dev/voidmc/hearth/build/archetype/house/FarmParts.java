@@ -143,6 +143,12 @@ final class FarmParts {
 		if (keep != null) {
 			room.keep(keep[0], keep[1]);
 		}
+		// where folk already stand (before a chest, at a table, at a seat) stays free
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.y() == y && room.inside(p.x(), p.z())) {
+				room.keep(p.x(), p.z());
+			}
+		}
 		// every stair's neighbours along its run stay free (its foot and the cell beyond its head)
 		for (int z = r[1] + 1; z <= r[3] - 1; z++) {
 			for (int x = r[0] + 1; x <= r[2] - 1; x++) {
@@ -206,7 +212,8 @@ final class FarmParts {
 
 	/** A cell is free yard: standable at y on ground drawn as yard. */
 	static boolean freeYard(Draft d, int x, int y, int z) {
-		return x >= 1 && z >= 1 && x < d.frontage() - 1 && z < d.depth() - 1 && Spots.standable(d, x, y, z) && d.isAbsent(x, y, z);
+		return x >= 1 && z >= 1 && x < d.frontage() - 1 && z < d.depth() - 1 && Spots.standable(d, x, y, z) && d.isAbsent(x, y, z)
+			&& !Spots.claimed(d, x, y, z);
 	}
 
 	/** A kitchen garden over a rectangle: levelled to its own ground (a little terrace on a slope), the culture's garden manner. */

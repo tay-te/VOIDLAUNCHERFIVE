@@ -1,0 +1,412 @@
+package dev.voidmc.hearth.build.homestead;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.voidmc.hearth.Hearth;
+import dev.voidmc.hearth.api.ArchetypeInfo;
+import dev.voidmc.hearth.api.Culture;
+import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.PlotSpec;
+import dev.voidmc.hearth.api.PoiType;
+import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.api.testing.SyntheticTerrain;
+import dev.voidmc.hearth.build.BlueprintServiceImpl;
+import dev.voidmc.hearth.build.BuildModule;
+import dev.voidmc.hearth.build.archetype.farm.Field;
+import dev.voidmc.hearth.build.archetype.farm.Paddy;
+import dev.voidmc.hearth.build.archetype.farm.Pasture;
+import dev.voidmc.hearth.build.archetype.farm.TerraceField;
+import dev.voidmc.hearth.build.archetype.house.Cottage;
+import dev.voidmc.hearth.build.archetype.house.Farmhouse;
+import dev.voidmc.hearth.build.archetype.house.Longhouse;
+import dev.voidmc.hearth.build.archetype.house.RoundHouse;
+import dev.voidmc.hearth.build.archetype.house.StiltHouse;
+import dev.voidmc.hearth.build.archetype.work.Barn;
+import dev.voidmc.hearth.build.blueprint.BlueprintImpl;
+import dev.voidmc.hearth.build.check.BlueprintChecks;
+import dev.voidmc.hearth.build.draft.Draft;
+import dev.voidmc.hearth.build.style.StyleRegistry;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.function.Consumer;
+import net.minecraft.SharedConstants;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.Bootstrap;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import org.junit.jupiter.api.Test;
+
+/**
+ * The homesteads and farms beyond the shared invariants: fields that are really watered, paddies that hold their water,
+ * pastures with a gate, barns with a way up to the loft, stilt houses clear of the water, longhouses round their fire,
+ * split-level cottages that open their lower storey, and every forced layout or option of the family holding the
+ * invariants in every culture.
+ */
+class HomesteadTest {
+	private static final BlueprintServiceImpl SERVICE;
+	private static final Direction[] FACINGS = {Direction.SOUTH, Direction.EAST, Direction.NORTH, Direction.WEST};
+
+	static {
+		SharedConstants.tryDetectVersion();
+		Bootstrap.bootStrap();
+		SERVICE = BuildModule.standalone();
+	}
+
+	/** A drawing and its compiled blueprint for one spec. */
+	private record Built(PlotSpec spec, TerrainProbe probe, Draft draft, BlueprintImpl bp) {
+		List<String> problems() {
+			return BlueprintChecks.all(bp, probe);
+		}
+	}
+
+	/** A spec the way the planner makes one: a size from the range by seed, the floor at the ground before the front. */
+	private static PlotSpec spec(ArchetypeInfo info, Culture c, long seed, Direction facing, TerrainProbe probe, CompoundTag params, int frontage,
+		int depth) {
+		boolean zAxis = facing.getAxis() == Direction.Axis.Z;
+		int sizeX = zAxis ? frontage : depth;
+		int sizeZ = zAxis ? depth : frontage;
+		int ox = -sizeX / 2;
+		int oz = -sizeZ / 2;
+		int fx = switch (facing) {
+			case EAST -> ox + sizeX;
+			case WEST -> ox - 1;
+			default -> ox + sizeX / 2;
+		};
+		int fz = switch (facing) {
+			case SOUTH -> oz + sizeZ;
+			case NORTH -> oz - 1;
+			default -> oz + sizeZ / 2;
+		};
+		int floor = probe.groundY(fx, fz);
+		if (probe.waterY(fx, fz) != TerrainProbe.NO_WATER) {
+			floor = Math.max(floor, probe.waterY(fx, fz) + 1);
+		}
+		return new PlotSpec(info.id(), StyleRegistry.styleId(c), seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, Math.max(info.maxHeight(), 8), 2,
+			params);
+	}
+
+	private static Built build(ArchetypeInfo info, Culture c, String terrain, long seed, Direction facing, CompoundTag params) {
+		Random r = new Random(seed * 31 + info.id().hashCode());
+		int frontage = info.minFrontage() + r.nextInt(info.maxFrontage() - info.minFrontage() + 1);
+		int depth = info.minDepth() + r.nextInt(info.maxDepth() - info.minDepth() + 1);
+		return build(info, c, terrain, seed, facing, params, frontage, depth);
+	}
+
+	private static Built build(ArchetypeInfo info, Culture c, String terrain, long seed, Direction facing, CompoundTag params, int frontage, int depth) {
+		SyntheticTerrain probe = SyntheticTerrain.named(terrain, 42);
+		PlotSpec spec = spec(info, c, seed, facing, probe, params, frontage, depth);
+		return new Built(spec, probe, SERVICE.draw(spec, probe), SERVICE.compiled(spec, probe));
+	}
+
+	private static CompoundTag params(Consumer<CompoundTag> fill) {
+		CompoundTag t = new CompoundTag();
+		fill.accept(t);
+		return t;
+	}
+
+	private static boolean water(BlockState s) {
+		return s != null && net.minecraft.world.level.material.Fluids.WATER.isSame(s.getFluidState().getType());
+	}
+
+	/** Water at (x, y, z) in the drawing, or the natural water there where the drawing leaves the cell alone. */
+	private static boolean wet(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		if (s != null) {
+			return water(s);
+		}
+		if (x < 0 || z < 0 || x >= d.frontage() || z >= d.depth()) {
+			return false;
+		}
+		int wy = d.site().water(x, z);
+		return wy != dev.voidmc.hearth.build.terrain.Site.NONE && y < wy && y >= d.site().ground(x, z);
+	}
+
+	/** Every forced value of an option, in every culture, on even and rough ground: the invariants hold. */
+	private static void everyOption(ArchetypeInfo info, String key, List<String> values, String... terrains) {
+		List<String> problems = new ArrayList<>();
+		int n = 0;
+		for (String v : values) {
+			for (String terrain : terrains) {
+				for (Culture c : Culture.values()) {
+					long seed = 1301L * (v.hashCode() & 0xff) + c.ordinal() * 7717L + terrain.length();
+					Direction facing = FACINGS[(c.ordinal() + v.length() + terrain.length()) % 4];
+					CompoundTag p = params(t -> {
+						if (v.equals("true") || v.equals("false")) {
+							t.putBoolean(key, Boolean.parseBoolean(v));
+						} else if (v.chars().allMatch(Character::isDigit)) {
+							t.putInt(key, Integer.parseInt(v));
+						} else {
+							t.putString(key, v);
+						}
+					});
+					for (String problem : build(info, c, terrain, seed, facing, p).problems()) {
+						problems.add(key + "=" + v + " " + terrain + " " + c.getSerializedName() + " seed " + seed + " " + facing.getSerializedName() + ": " + problem);
+					}
+					n++;
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), info.id() + ": " + problems.size() + " of " + n + " problems:\n  " + String.join("\n  ", problems));
+	}
+
+	@Test
+	void fieldFarmlandIsWateredWithinFourBlocks() {
+		List<String> problems = new ArrayList<>();
+		int farmland = 0;
+		for (ArchetypeInfo info : List.of(Field.INFO, TerraceField.INFO)) {
+			for (String terrain : new String[]{"flat", "slope", "hills", "steep", "river"}) {
+				for (Culture c : Culture.values()) {
+					long seed = 811L + c.ordinal() * 31L + terrain.hashCode();
+					CompoundTag p = info == TerraceField.INFO ? params(t -> t.putString("crop", "beds")) : new CompoundTag();
+					Draft d = build(info, c, terrain, seed, FACINGS[c.ordinal() % 4], p).draft();
+					List<int[]> dry = new ArrayList<>();
+					d.forEach((x, y, z, cell) -> {
+						if (!cell.state().is(Blocks.FARMLAND)) {
+							return;
+						}
+						for (int dz = -4; dz <= 4; dz++) {
+							for (int dx = -4; dx <= 4; dx++) {
+								if (wet(d, x + dx, y, z + dz) || wet(d, x + dx, y + 1, z + dz)) {
+									return;
+								}
+							}
+						}
+						dry.add(new int[]{x, y, z});
+					});
+					int[] all = {0};
+					d.forEach((x, y, z, cell) -> all[0] += cell.state().is(Blocks.FARMLAND) ? 1 : 0);
+					farmland += all[0];
+					if (!dry.isEmpty()) {
+						int[] f = dry.getFirst();
+						problems.add(info.id() + " " + terrain + " " + c.getSerializedName() + " seed " + seed + ": " + dry.size() + " of " + all[0]
+							+ " farmland dry, e.g. at " + f[0] + "," + f[1] + "," + f[2]);
+					}
+				}
+			}
+		}
+		assertTrue(farmland > 0);
+		assertTrue(problems.isEmpty(), problems.size() + " dry farmland:\n  " + String.join("\n  ", problems.subList(0, Math.min(40, problems.size()))));
+	}
+
+	/** Water cells of a drawing with an open side at their own level: air there, or natural ground lower than they are. */
+	private static List<String> leaks(Draft d) {
+		List<String> leaks = new ArrayList<>();
+		d.forEach((x, y, z, cell) -> {
+			if (!water(cell.state())) {
+				return;
+			}
+			for (Direction dir : Direction.Plane.HORIZONTAL) {
+				int nx = x + dir.getStepX();
+				int nz = z + dir.getStepZ();
+				BlockState n = d.get(nx, y, nz);
+				// natural ground holds it (the site is sampled a little way round the plot), or a block that water cannot wash away
+				boolean held = n != null ? water(n) || !n.isAir() && !n.canBeReplaced() : d.site().ground(nx, nz) > y;
+				if (!held && !wet(d, nx, y, nz)) {
+					leaks.add(x + "," + y + "," + z + " toward " + dir.getSerializedName());
+				}
+			}
+		});
+		return leaks;
+	}
+
+	private static int waterCells(Draft d) {
+		int[] n = {0};
+		d.forEach((x, y, z, cell) -> n[0] += cell.state().is(Blocks.WATER) ? 1 : 0);
+		return n[0];
+	}
+
+	@Test
+	void paddiesAndFieldsHoldTheirWater() {
+		List<String> problems = new ArrayList<>();
+		int sheets = 0;
+		for (String terrain : new String[]{"flat", "slope", "hills", "steep"}) {
+			for (Culture c : Culture.values()) {
+				for (ArchetypeInfo info : List.of(Paddy.INFO, Field.INFO, TerraceField.INFO)) {
+					if (!info.cultures().isEmpty() && !info.cultures().contains(c)) {
+						continue;
+					}
+					for (int s = 0; s < 2; s++) {
+						long seed = 4001L + s * 97L + c.ordinal() * 13L;
+						CompoundTag p = info == TerraceField.INFO ? params(t -> t.putString("crop", "beds")) : new CompoundTag();
+						Draft d = build(info, c, terrain, seed, FACINGS[(s + c.ordinal()) % 4], p).draft();
+						sheets += info == Paddy.INFO ? waterCells(d) : 0;
+						List<String> l = leaks(d);
+						if (!l.isEmpty()) {
+							problems.add(info.id() + " " + terrain + " " + c.getSerializedName() + " seed " + seed + ": water spills at " + l.size() + " cells, e.g. "
+								+ l.getFirst());
+						}
+					}
+				}
+			}
+		}
+		assertTrue(sheets > 0, "no paddy water at all");
+		assertTrue(problems.isEmpty(), problems.size() + " leaking:\n  " + String.join("\n  ", problems));
+	}
+
+	@Test
+	void pasturesAreGatedAndWatered() {
+		for (Culture c : Culture.values()) {
+			for (String terrain : new String[]{"flat", "hills"}) {
+				Built b = build(Pasture.INFO, c, terrain, 77L + c.ordinal(), Direction.SOUTH, new CompoundTag());
+				int[] gates = {0};
+				int[] water = {0};
+				b.draft().forEach((x, y, z, cell) -> {
+					BlockState s = cell.state();
+					if (s.getBlock() instanceof net.minecraft.world.level.block.FenceGateBlock) {
+						gates[0]++;
+					}
+					if (water(s) || s.is(Blocks.WATER_CAULDRON)) {
+						water[0]++;
+					}
+				});
+				assertTrue(gates[0] >= 1, "pasture in " + c + " on " + terrain + " has no gate");
+				assertTrue(water[0] >= 1, "pasture in " + c + " on " + terrain + " has no water for its beasts");
+				assertTrue(b.bp().pois().stream().anyMatch(p -> p.job() == JobType.HERDER), "pasture in " + c + " has no herder's place");
+			}
+		}
+	}
+
+	@Test
+	void barnsHaveAWayUpToTheLoft() {
+		for (Culture c : Culture.values()) {
+			for (String terrain : new String[]{"flat", "slope"}) {
+				Built b = build(Barn.INFO, c, terrain, 515L + c.ordinal() * 3L, FACINGS[c.ordinal() % 4], new CompoundTag());
+				Draft d = b.draft();
+				int[] climb = {0};
+				int[] hay = {0};
+				d.forEach((x, y, z, cell) -> {
+					BlockState s = cell.state();
+					if (s.is(Blocks.LADDER) || s.getBlock() instanceof net.minecraft.world.level.block.StairBlock && y >= 0 && y <= 3
+						&& x > 0 && x < d.frontage() - 1 && z > 1 && z < d.depth() - 1) {
+						climb[0]++;
+					}
+					if (s.is(Blocks.HAY_BLOCK) && y >= 3) {
+						hay[0]++;
+					}
+				});
+				var herder = b.bp().pois().stream().filter(p -> p.job() == JobType.HERDER).toList();
+				assertTrue(!herder.isEmpty(), "barn in " + c + " has no herder's place");
+				if (herder.stream().anyMatch(p -> p.pos().getY() >= b.spec().origin().getY() + 3)) {
+					// the herder works up in the loft: there has to be a ladder or a stair up there
+					assertTrue(climb[0] > 0, "barn in " + c + " on " + terrain + " has a loft job site but no way up");
+				}
+				assertTrue(hay[0] > 0, "barn in " + c + " on " + terrain + " stores no hay up high");
+			}
+		}
+	}
+
+	@Test
+	void stiltHousesStandClearOfTheWater() {
+		for (Culture c : new Culture[]{Culture.BAYOU, Culture.TROPICAL, Culture.MARITIME}) {
+			for (int s = 0; s < 3; s++) {
+				Built b = build(StiltHouse.INFO, c, "lake", 2024L + s * 13L + c.ordinal(), FACINGS[s], new CompoundTag());
+				Draft d = b.draft();
+				int highWater = Integer.MIN_VALUE;
+				for (int z = 0; z < d.depth(); z++) {
+					for (int x = 0; x < d.frontage(); x++) {
+						if (d.site().isWater(x, z)) {
+							highWater = Math.max(highWater, d.site().water(x, z));
+						}
+					}
+				}
+				int[] piles = {0};
+				int water = highWater;
+				d.forEach((x, y, z, cell) -> {
+					BlockState st = cell.state();
+					if (y < water && st.hasProperty(BlockStateProperties.AXIS) && st.getValue(BlockStateProperties.AXIS) == Direction.Axis.Y) {
+						piles[0]++;
+					}
+				});
+				int origin = b.spec().origin().getY();
+				for (BlockPos e : b.bp().entrances()) {
+					assertTrue(highWater == Integer.MIN_VALUE || e.getY() - origin >= highWater,
+						"stilt house in " + c + " seed " + s + " opens into the water (entrance " + (e.getY() - origin) + ", water " + highWater + ")");
+				}
+				if (highWater != Integer.MIN_VALUE) {
+					assertTrue(piles[0] >= 4, "stilt house in " + c + " seed " + s + " stands in the water without piles");
+				}
+				assertTrue(b.problems().isEmpty(), "stilt house in " + c + " on the lake: " + b.problems());
+			}
+		}
+	}
+
+	@Test
+	void longhousesLiveRoundOneFire() {
+		for (Culture c : new Culture[]{Culture.NORTHERN, Culture.TUNDRA, Culture.MOORLAND}) {
+			for (int s = 0; s < 4; s++) {
+				Built b = build(Longhouse.INFO, c, s % 2 == 0 ? "flat" : "hills", 909L + s * 5L + c.ordinal(), FACINGS[s], new CompoundTag());
+				Draft d = b.draft();
+				List<int[]> fires = new ArrayList<>();
+				d.forEach((x, y, z, cell) -> {
+					if (cell.state().is(Blocks.CAMPFIRE) && y >= -1 && y <= 2) {
+						fires.add(new int[]{x, z});
+					}
+				});
+				assertTrue(!fires.isEmpty(), "longhouse in " + c + " seed " + s + " has no fire");
+				int[] f = fires.getFirst();
+				int dp = d.depth();
+				assertTrue(f[1] > dp / 5 && f[1] < dp - dp / 5, "longhouse in " + c + " keeps its fire at an end (z " + f[1] + " of " + dp + ")");
+				assertTrue(b.bp().pois().stream().anyMatch(p -> p.type() == PoiType.HEARTH), "longhouse in " + c + " has no hearth POI");
+				assertTrue(b.bp().beds() >= 2, "longhouse in " + c + " sleeps fewer than two");
+			}
+		}
+	}
+
+	@Test
+	void splitLevelCottagesOpenTheirLowerStoreyDownhill() {
+		int split = 0;
+		List<String> problems = new ArrayList<>();
+		for (Culture c : Culture.values()) {
+			for (Direction facing : FACINGS) {
+				CompoundTag p = params(t -> t.putBoolean("split", true));
+				Built b = build(Cottage.INFO, c, "steep", 333L + c.ordinal() * 11L, facing, p, 9, 9);
+				Set<Integer> levels = new HashSet<>();
+				for (BlockPos e : b.bp().entrances()) {
+					levels.add(e.getY());
+				}
+				if (levels.size() >= 2) {
+					split++;
+				}
+				for (String problem : b.problems()) {
+					problems.add(c.getSerializedName() + " " + facing.getSerializedName() + ": " + problem);
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems));
+		assertTrue(split >= 8, "only " + split + " split-level cottages opened a door on two levels");
+	}
+
+	@Test
+	void cottagesGrowIntoTownHouses() {
+		assertEquals(Set.of(Hearth.id("house/rowhouse"), Hearth.id("house/shophouse"), Hearth.id("house/townhouse")), Set.copyOf(Cottage.INFO.upgradesTo()));
+	}
+
+	@Test
+	void everyFarmhouseLayoutHoldsTheInvariants() {
+		everyOption(Farmhouse.INFO, "layout", List.of("steading", "laithe", "court", "tun", "compound", "raised"), "flat", "slope", "hills");
+	}
+
+	@Test
+	void everyTerraceCropHoldsTheInvariants() {
+		everyOption(TerraceField.INFO, "crop", List.of("vines", "tea", "meadow", "beds"), "slope", "steep", "hills");
+	}
+
+	@Test
+	void everyLonghouseCoverAndBarnLoftHoldsTheInvariants() {
+		everyOption(Longhouse.INFO, "roof", List.of("turf", "shingle", "thatch"), "flat", "slope", "river");
+		everyOption(Barn.INFO, "loft", List.of("1", "2", "3"), "flat", "slope", "river");
+	}
+
+	@Test
+	void roundAndStiltHousesHoldTheInvariantsEitherWay() {
+		everyOption(RoundHouse.INFO, "stilts", List.of("true", "false"), "flat", "slope", "coast");
+		everyOption(StiltHouse.INFO, "side_walk", List.of("true", "false"), "lake", "coast", "river", "flat");
+	}
+}

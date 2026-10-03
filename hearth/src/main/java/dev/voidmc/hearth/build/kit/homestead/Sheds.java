@@ -19,6 +19,7 @@ import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.Half;
@@ -316,6 +317,17 @@ public final class Sheds {
 			}
 		}
 		return roof;
+	}
+
+	/** The cells a {@link #coop} at (x, z) takes: its four legs' cells, then the cell of the ramp before its hatch. */
+	public static List<int[]> coopCells(int x, int z, Direction facing) {
+		Direction across = Dirs.right(facing);
+		List<int[]> out = new java.util.ArrayList<>();
+		for (int[] c : new int[][]{{0, 0}, {1, 0}, {0, 1}, {1, 1}}) {
+			out.add(new int[]{x + Dirs.dx(across) * c[0] - Dirs.dx(facing) * c[1], z + Dirs.dz(across) * c[0] - Dirs.dz(facing) * c[1]});
+		}
+		out.add(new int[]{x + Dirs.dx(facing), z + Dirs.dz(facing)});
+		return out;
 	}
 
 	/**

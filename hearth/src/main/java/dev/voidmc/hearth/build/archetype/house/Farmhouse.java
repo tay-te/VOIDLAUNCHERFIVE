@@ -642,31 +642,43 @@ public final class Farmhouse implements Archetype {
 			Roofs.Roof gr2 = Round.cone(d, gring, gb + 2, 1, 1.0, d.mat(Role.THATCH));
 			top = Math.max(top, gr2.ridgeY + 2);
 		}
-		// the kraal: a ring of fence before the granary, a gate toward the yard
-		double kr = 2.5;
-		double kcx = gcx;
+		// the kraal: a ring of fence before the granary, a gate toward the yard; as big as the ground beside the house
+		// allows, clear of the house's wall by a block (on a narrow plot it shrinks, or the herder works by the granary)
+		int span0 = houseLeft ? ring.x1() + 2 : 1;
+		int span1 = houseLeft ? w - 2 : ring.x0() - 2;
+		double kr = Math.min(2.5, (span1 - span0) / 2.0);
+		double kcx = (span0 + span1) / 2.0;
 		double kcz = Math.max(kr + 1.5, gcz - gr - kr - 1.5);
-		Round.Ring kraal = Round.ring(kcx, kcz, kr);
-		int[] kg = kraal.cellToward(houseLeft ? Dirs.LEFT : Dirs.RIGHT);
-		Mat fence = d.mat(Role.FENCE).has(Form.FENCE) ? d.mat(Role.FENCE) : d.mat(Role.FRAME);
-		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int[] c : kraal.wall()) {
-				if (c[0] < 1 || c[1] < 2 || c[0] > w - 2 || c[1] > dp - 2) {
-					continue;
-				}
-				int y = Spots.level(d, c[0], c[1]);
-				if (!Spots.free(d, c[0], y, c[1]) || !d.isAbsent(c[0], y, c[1])) {
-					continue;
-				}
-				if (c[0] == kg[0] && c[1] == kg[1]) {
-					d.set(c[0], y, c[1], fence.gate(houseLeft ? Dirs.LEFT : Dirs.RIGHT, false));
-				} else {
-					d.set(c[0], y, c[1], fence.fence());
+		Round.Ring kraal = kr >= 1.5 ? Round.ring(kcx, kcz, kr) : null;
+		if (kraal != null && (kraal.z0() < 2 || kraal.x0() < 1 || kraal.x1() > w - 2)) {
+			kraal = null;
+		}
+		if (kraal != null) {
+			Round.Ring k = kraal;
+			int[] kg = k.cellToward(houseLeft ? Dirs.LEFT : Dirs.RIGHT);
+			Mat fence = d.mat(Role.FENCE).has(Form.FENCE) ? d.mat(Role.FENCE) : d.mat(Role.FRAME);
+			try (var s = d.stage(StageKind.EXTERIOR)) {
+				for (int[] c : k.wall()) {
+					if (c[0] < 1 || c[1] < 2 || c[0] > w - 2 || c[1] > dp - 2) {
+						continue;
+					}
+					int y = Spots.level(d, c[0], c[1]);
+					if (!Spots.free(d, c[0], y, c[1]) || !d.isAbsent(c[0], y, c[1])) {
+						continue;
+					}
+					if (c[0] == kg[0] && c[1] == kg[1]) {
+						d.set(c[0], y, c[1], fence.gate(houseLeft ? Dirs.LEFT : Dirs.RIGHT, false));
+					} else {
+						d.set(c[0], y, c[1], fence.fence());
+					}
 				}
 			}
+			int ox = kg[0] + (houseLeft ? -1 : 1);
+			Spots.job(d, ox, kg[1], houseLeft ? Dirs.RIGHT : Dirs.LEFT, JobType.HERDER);
+		} else {
+			int gz = Math.max(2, gring.z0() - 1);
+			Spots.job(d, (int) Math.round(gcx), gz, Dirs.BACK, JobType.HERDER);
 		}
-		int ox = kg[0] + (houseLeft ? -1 : 1);
-		Spots.job(d, ox, kg[1], houseLeft ? Dirs.RIGHT : Dirs.LEFT, JobType.HERDER);
 		// a cooking fire in a ring of stones between the house and the gate
 		int fx = (int) Math.round(hcx);
 		int fz = Math.max(2, ring.z0() - 2);
@@ -814,18 +826,23 @@ public final class Farmhouse implements Archetype {
 		FarmParts.yardSurface(d, x0, z0, x1, z1, 0);
 		FarmParts.yardThings(d, x0, z0 + 1, x1, z1, 0, (x1 - x0) * (z1 - z0) >= 40 && d.chance(0.5));
 		// a hen house and a dung heap in the yard's back corners where free
-		int[][] corners = {{x0 + 1, z1}, {x1 - 2, z1}, {x0 + 1, z0 + 2}, {x1 - 2, z0 + 2}};
+		// (a coop at (x, z) facing the front stands on x - 1..x, z..z + 1, its ramp at z - 1)
+		int[][] corners = {{x0 + 1, z1 - 1}, {x1, z1 - 1}, {x0 + 1, z0 + 2}, {x1, z0 + 2}};
 		boolean coop = false;
 		boolean dung = false;
 		for (int[] c : corners) {
-			if (!coop && FarmParts.freeYard(d, c[0], 0, c[1]) && FarmParts.freeYard(d, c[0] + 1, 0, c[1]) && FarmParts.freeYard(d, c[0], 0, c[1] - 1)
-				&& FarmParts.freeYard(d, c[0] + 1, 0, c[1] - 1) && FarmParts.freeYard(d, c[0], 0, c[1] - 2) && Math.abs(c[0] - gateX) > 2) {
+			boolean fits = Math.abs(c[0] - gateX) > 2;
+			for (int[] cell : Sheds.coopCells(c[0], c[1], Dirs.FRONT)) {
+				fits &= cell[0] >= x0 && cell[0] <= x1 && cell[1] >= z0 && cell[1] <= z1 && FarmParts.freeYard(d, cell[0], 0, cell[1]);
+			}
+			if (!coop && fits) {
 				Sheds.coop(d, c[0], 0, c[1], Dirs.FRONT);
 				coop = true;
 				continue;
 			}
-			if (!dung && FarmParts.freeYard(d, c[0], 0, c[1]) && FarmParts.freeYard(d, c[0] + 1, 0, c[1]) && Math.abs(c[0] - gateX) > 2) {
-				Yard.dungHeap(d, c[0], 0, c[1], Dirs.RIGHT);
+			int hx = Math.min(c[0], x1 - 1);
+			if (!dung && FarmParts.freeYard(d, hx, 0, c[1]) && FarmParts.freeYard(d, hx + 1, 0, c[1]) && Math.abs(hx - gateX) > 2) {
+				Yard.dungHeap(d, hx, 0, c[1], Dirs.RIGHT);
 				dung = true;
 			}
 		}

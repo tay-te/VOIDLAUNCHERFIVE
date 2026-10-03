@@ -27,6 +27,16 @@ public final class Spots {
 		return s.isAir() || s.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty();
 	}
 
+	/** Whether a point of interest already stands at (x, z) within a block of level y: nothing is to be built on it. */
+	public static boolean claimed(Draft d, int x, int y, int z) {
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.x() == x && p.z() == z && Math.abs(p.y() - y) <= 1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Something under foot. */
 	public static boolean floor(Draft d, int x, int y, int z) {
 		BlockState s = d.get(x, y - 1, z);

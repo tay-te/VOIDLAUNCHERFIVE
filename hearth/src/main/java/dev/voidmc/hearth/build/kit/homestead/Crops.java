@@ -71,6 +71,17 @@ public final class Crops {
 				channels.add(Math.clamp(c, c0, c1));
 			}
 		}
+		// a bed too narrow for a channel down it (a terrace's strip): sumps across it, every furrow within four of one
+		int l0 = alongX ? ax : az;
+		int l1 = alongX ? bx : bz;
+		java.util.Set<Integer> sumps = new java.util.HashSet<>();
+		if (channels.isEmpty()) {
+			int len = l1 - l0 + 1;
+			int k = (len + 8) / 9;
+			for (int i = 0; i < k && len >= 3; i++) {
+				sumps.add(Math.clamp(l0 + (int) Math.round((i + 0.5) * len / (double) k - 0.5), l0, l1));
+			}
+		}
 		// strips: the runs of rows between channels (and the bed's edges)
 		List<int[]> strips = new ArrayList<>();
 		int start = c0;
@@ -86,13 +97,57 @@ public final class Crops {
 		Mat crops = d.mat(Role.CROPS);
 		boolean warm = d.site().temperature() >= 0.85F;
 		BlockState water = Blocks.WATER.defaultBlockState();
+		// the water: the channels and sumps, less any cell beside an open edge (a terrace's drop, a cut, a step) that it
+		// would spill over; a cell left too far from the water to stay moist lies fallow rather than dry
+		int nx = bx - ax + 1;
+		int nz = bz - az + 1;
+		boolean[][] wet = new boolean[nx][nz];
+		for (int ch : channels) {
+			for (int a = l0; a <= l1; a++) {
+				wet[(alongX ? a : ch) - ax][(alongX ? ch : a) - az] = true;
+			}
+		}
+		for (int a : sumps) {
+			for (int c = c0; c <= c1; c++) {
+				wet[(alongX ? a : c) - ax][(alongX ? c : a) - az] = true;
+			}
+		}
+		for (int i = 0; i < nx; i++) {
+			for (int k = 0; k < nz; k++) {
+				if (!wet[i][k]) {
+					continue;
+				}
+				for (Direction dir : Direction.Plane.HORIZONTAL) {
+					int x = ax + i + dir.getStepX();
+					int z = az + k + dir.getStepZ();
+					boolean inside = x >= ax && x <= bx && z >= az && z <= bz;
+					if (!inside && !holds(d, x, y - 1, z)) {
+						wet[i][k] = false;
+						break;
+					}
+				}
+			}
+		}
+		boolean[][] moist = new boolean[nx][nz];
+		for (int i = 0; i < nx; i++) {
+			for (int k = 0; k < nz; k++) {
+				for (int dz = -4; dz <= 4 && !moist[i][k]; dz++) {
+					for (int dx = -4; dx <= 4 && !moist[i][k]; dx++) {
+						int ii = i + dx;
+						int kk = k + dz;
+						moist[i][k] = ii >= 0 && kk >= 0 && ii < nx && kk < nz ? wet[ii][kk]
+							: water(d, ax + ii, y - 1, az + kk) || water(d, ax + ii, y, az + kk);
+					}
+				}
+			}
+		}
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int ch : channels) {
-				for (int a = alongX ? ax : az; a <= (alongX ? bx : bz); a++) {
-					int x = alongX ? a : ch;
-					int z = alongX ? ch : a;
-					d.set(x, y - 1, z, water);
-					d.set(x, y, z, Blocks.AIR.defaultBlockState());
+			for (int i = 0; i < nx; i++) {
+				for (int k = 0; k < nz; k++) {
+					if (wet[i][k]) {
+						d.set(ax + i, y - 1, az + k, water);
+						d.set(ax + i, y, az + k, Blocks.AIR.defaultBlockState());
+					}
 				}
 			}
 		}
@@ -123,6 +178,13 @@ public final class Crops {
 				for (int a = alongX ? ax : az; a <= (alongX ? bx : bz); a++) {
 					int x = alongX ? a : c;
 					int z = alongX ? c : a;
+					if (wet[x - ax][z - az]) {
+						continue;
+					}
+					if (!moist[x - ax][z - az]) {
+						fallow(d, x, y, z);
+						continue;
+					}
 					switch (kind) {
 						case FALLOW -> fallow(d, x, y, z);
 						case PUMPKIN, MELON -> vine(d, x, y, z, c - st[0], kind == Strip.MELON, alongX);
@@ -137,6 +199,9 @@ public final class Crops {
 					for (int a = alongX ? ax : az; a <= (alongX ? bx : bz); a++) {
 						int x = alongX ? a : c;
 						int z = alongX ? c : a;
+						if (wet[x - ax][z - az] || !moist[x - ax][z - az]) {
+							continue;
+						}
 						cane(d, x, y, z, 2 + (int) (Noise.unit(d.seed() ^ 0xCA, x, 0, z) * 2));
 					}
 				}
@@ -145,6 +210,24 @@ public final class Crops {
 		// fix up the pumpkin and melon patches: each fruit sits beside a stem that reaches for it
 		attachStems(d, ax, az, bx, bz, y);
 		return new Bed(channels, strips);
+	}
+
+	/** Whether water at (x, y, z) would stay put beside this cell: something solid drawn there, or natural ground. */
+	static boolean holds(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		if (s != null) {
+			return net.minecraft.world.level.material.Fluids.WATER.isSame(s.getFluidState().getType()) || !s.isAir() && !s.canBeReplaced();
+		}
+		return d.site().ground(x, z) > y || d.site().isWater(x, z) && d.site().water(x, z) > y;
+	}
+
+	/** Water at (x, y, z): drawn there, or the natural water where the drawing leaves the cell alone. */
+	static boolean water(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		if (s != null) {
+			return net.minecraft.world.level.material.Fluids.WATER.isSame(s.getFluidState().getType());
+		}
+		return d.site().isWater(x, z) && y < d.site().water(x, z) && y >= d.site().ground(x, z);
 	}
 
 	/** Distance from column c to the nearest channel (a large number when there is none). */

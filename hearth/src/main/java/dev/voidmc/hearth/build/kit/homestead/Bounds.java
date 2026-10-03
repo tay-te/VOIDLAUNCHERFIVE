@@ -156,7 +156,9 @@ public final class Bounds {
 
 	/** A gate across the line with a post either side (stone piers in a wall, posts in a hedge or fence). */
 	private static void gate(Draft d, int x, int y, int z, Direction facing, Kind kind, Mat fence, Mat frame) {
-		d.set(x, y, z, fence.has(Form.FENCE_GATE) ? fence.gate(facing, false) : Paint.of(Blocks.AIR.defaultBlockState()));
+		// a wooden gate between stone piers where the culture's fence is a wall: its railing's wood, or the frame's
+		Mat wood = fence.has(Form.FENCE_GATE) ? fence : d.mat(Role.RAILING).has(Form.FENCE_GATE) ? d.mat(Role.RAILING) : frame;
+		d.set(x, y, z, wood.has(Form.FENCE_GATE) ? wood.gate(facing, false) : Paint.of(Blocks.AIR.defaultBlockState()));
 		d.set(x, y + 1, z, Blocks.AIR.defaultBlockState());
 		Direction across = Dirs.right(facing);
 		for (int side : new int[]{-1, 1}) {

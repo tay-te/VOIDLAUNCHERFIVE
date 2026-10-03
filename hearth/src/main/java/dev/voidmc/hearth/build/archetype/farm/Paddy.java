@@ -108,11 +108,13 @@ public final class Paddy implements Archetype {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			d.set(x, level - 2, z, Blocks.MUD.defaultBlockState());
 			if (row && u < 0.85) {
-				if (u < 0.12 && level + 1 < d.maxHeight()) {
-					// grown rice: the tall plant stands a block out of the water
-					d.set(x, level - 1, z, Blocks.TALL_SEAGRASS.defaultBlockState()
+				if (u < 0.12 && level < d.maxHeight()) {
+					// grown rice: the tall plant in a hole puddled a block deeper, its head at the surface (it holds water
+					// in both halves, so it must not stand out of the sheet or it would spill over the bunds)
+					d.set(x, level - 3, z, Blocks.MUD.defaultBlockState());
+					d.set(x, level - 2, z, Blocks.TALL_SEAGRASS.defaultBlockState()
 						.setValue(net.minecraft.world.level.block.TallSeagrassBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER));
-					d.set(x, level, z, Blocks.TALL_SEAGRASS.defaultBlockState()
+					d.set(x, level - 1, z, Blocks.TALL_SEAGRASS.defaultBlockState()
 						.setValue(net.minecraft.world.level.block.TallSeagrassBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER));
 				} else {
 					d.set(x, level - 1, z, Blocks.SEAGRASS.defaultBlockState());

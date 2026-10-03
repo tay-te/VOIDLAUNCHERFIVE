@@ -109,7 +109,12 @@ public final class Pasture implements Archetype {
 		if (dp >= 18 && d.chance(0.5)) {
 			gates.add(new int[]{0, dp / 2 + d.between(-2, 2)});
 		}
-		Bounds.around(d, 0, 0, w - 1, dp - 1, Field.boundary(d), gates);
+		// beasts need a boundary they cannot step over: a bank or nothing becomes rails
+		Bounds.Kind kind = Field.boundary(d);
+		if ((kind == Bounds.Kind.BUND || kind == Bounds.Kind.NONE) && !d.hasParam("boundary")) {
+			kind = Bounds.Kind.RAILS;
+		}
+		Bounds.around(d, 0, 0, w - 1, dp - 1, kind, gates);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, d.site().maxGround(0, 0, w - 1, dp - 1) + 8));
 	}
 
