@@ -521,6 +521,27 @@ public class BiomeTour implements FabricClientGameTest {
 					}
 				}
 			}
+			// A canyon's river near spawn may run in a shallow cut: of the canyon rivers round the first one,
+			// take the one deepest between its walls.
+			int[] canyon = first[dev.voidmc.expanse.world.terrain.Landform.CANYON];
+			if (canyon != null) {
+				int deepest = 0;
+				int[] best = canyon;
+				for (int dx = -800; dx <= 800; dx += 16) {
+					for (int dz = -800; dz <= 800; dz += 16) {
+						var c = model.sample(canyon[0] + dx, canyon[1] + dz);
+						if (c.landform != dev.voidmc.expanse.world.terrain.Landform.CANYON || !c.inChannel()) {
+							continue;
+						}
+						int depth = walls(model, canyon[0] + dx, canyon[1] + dz, 40) - c.waterTop();
+						if (depth > deepest) {
+							deepest = depth;
+							best = new int[]{canyon[0] + dx, canyon[1] + dz};
+						}
+					}
+				}
+				first[dev.voidmc.expanse.world.terrain.Landform.CANYON] = best;
+			}
 			List<int[]> picked = new java.util.ArrayList<>();
 			for (int k = 1; k < names.length; k++) {
 				if (first[k] == null) {
@@ -612,22 +633,29 @@ public class BiomeTour implements FabricClientGameTest {
 				dirZ = Math.sin(ang);
 			}
 		}
-		int walls = 0;
+		int walls = walls(model, at[0], at[1], 48);
+		int water = fjord ? 63 : here.waterTop();
+		int back = fjord ? 70 : 45;
+		int ex = at[0] - (int) (dirX * back);
+		int ez = at[1] - (int) (dirZ * back);
+		int ey = Math.max(water + 30, fjord ? (walls + water) / 2 + 24 : walls + 4);
+		return new int[]{at[0] + (int) (dirX * 60), water, at[1] + (int) (dirZ * 60), ex, ey, ez};
+	}
+
+	/** The highest ground on a circle of {@code radius} round a column: the top of a channel's walls. */
+	private static int walls(dev.voidmc.expanse.world.terrain.TerrainModel model, int x, int z, int radius) {
+		int top = 0;
 		for (int a = 0; a < 16; a++) {
 			double ang = a * Math.PI / 8;
-			walls = Math.max(walls, (int) model.sample(at[0] + (int) (Math.cos(ang) * 48), at[1] + (int) (Math.sin(ang) * 48)).height);
+			top = Math.max(top, (int) model.sample(x + (int) (Math.cos(ang) * radius), z + (int) (Math.sin(ang) * radius)).height);
 		}
-		int water = fjord ? 63 : here.waterTop();
-		int ex = at[0] - (int) (dirX * 70);
-		int ez = at[1] - (int) (dirZ * 70);
-		int ey = Math.max(water + 30, fjord ? (walls + water) / 2 + 24 : walls + 6);
-		return new int[]{at[0] + (int) (dirX * 70), water, at[1] + (int) (dirZ * 70), ex, ey, ez};
+		return top;
 	}
 
 	/**
 	 * From outside a landform: its middle from its columns round {@code at}; then on each of eight sides its
-	 * edge, and a camera standing off it. A salt pan is seen across from above, a tepui at its cliff from about
-	 * the height of its top. The side with the clearest line of sight and the lowest ground wins.
+	 * edge, and a camera standing off it. A salt pan, flat and small, is looked down on from just past its
+	 * edge; a tepui is seen at its cliff from about the height of its top. The side with the clearest line of sight and the lowest ground wins.
 	 */
 	private static int[] fromOutside(dev.voidmc.expanse.world.terrain.TerrainModel model, int[] at, int k) {
 		boolean tepui = k == dev.voidmc.expanse.world.terrain.Landform.TEPUI;
@@ -664,18 +692,18 @@ public class BiomeTour implements FabricClientGameTest {
 			while (edge < 400 && model.sample(cx + (int) (ux * edge), cz + (int) (uz * edge)).landform == k) {
 				edge += 8;
 			}
-			int standoff = tepui ? 110 : 90;
+			int standoff = tepui ? 110 : 30;
 			int ex = cx + (int) (ux * (edge + standoff));
 			int ez = cz + (int) (uz * (edge + standoff));
 			var ground = model.sample(ex, ez);
 			if (ground.landform == k) {
 				continue;   // another lobe of the same landform: the camera would stand in it
 			}
-			int inside = tepui ? 20 : Math.min(edge, 120);
+			int inside = tepui ? 20 : edge;
 			int tx = cx + (int) (ux * (edge - inside));
 			int tz = cz + (int) (uz * (edge - inside));
 			int ty = tepui ? top - 35 : level;
-			int ey = tepui ? top + 5 : Math.max(level, Math.max((int) ground.height, 63)) + 45;
+			int ey = tepui ? top + 5 : Math.max(level, Math.max((int) ground.height, 63)) + 50;
 			int blocked = 0;
 			for (int t = 1; t < 16; t++) {
 				double f = t / 20.0;   // up to three quarters of the way: a tepui's own wall is what we look at
