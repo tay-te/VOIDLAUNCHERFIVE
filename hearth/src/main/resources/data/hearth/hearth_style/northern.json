@@ -1,0 +1,53 @@
+{
+	"culture": "northern",
+	"name": "Northern: log halls of redwood and spruce on fieldstone, steep shingle roofs, deep eaves",
+	"roles": {
+		"foundation": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.5}],
+		"plinth": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.5, "low": 2, "north": 2}],
+		"wall": ["wood:expanse:redwood|wood:minecraft:spruce"],
+		"wall_accent": ["minecraft:stone_bricks"],
+		"frame": ["wood:minecraft:dark_oak"],
+		"beam": ["wood:minecraft:dark_oak"],
+		"floor": ["wood:minecraft:spruce"],
+		"ceiling": ["wood:minecraft:spruce"],
+		"roof": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 0.5}],
+		"roof_trim": ["wood:minecraft:spruce"],
+		"gable": ["wood:minecraft:spruce"],
+		"window": ["wood:minecraft:spruce"],
+		"glass": ["minecraft:glass_pane"],
+		"door": ["wood:minecraft:spruce"],
+		"shutter": ["wood:minecraft:spruce"],
+		"fence": ["wood:minecraft:spruce"],
+		"railing": ["wood:minecraft:spruce"],
+		"path": [{"m": "minecraft:coarse_dirt", "w": 2}, {"m": "minecraft:dirt_path", "w": 2}, {"m": "minecraft:podzol", "w": 1}],
+		"paving": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
+		"light": ["minecraft:lantern"],
+		"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
+		"furniture": ["wood:minecraft:spruce"],
+		"cloth": ["dye:green", "dye:brown", "dye:red"],
+		"accent": ["minecraft:chiseled_stone_bricks"],
+		"garden": ["minecraft:fern", "minecraft:lily_of_the_valley", "minecraft:poppy", "minecraft:sweet_berry_bush", "expanse:fireweed|minecraft:allium"],
+		"crops": ["minecraft:potatoes", "minecraft:carrots", "minecraft:beetroots"],
+		"hedge": ["minecraft:spruce_leaves"],
+		"tree_log": ["minecraft:spruce_log"],
+		"tree_leaves": ["minecraft:spruce_leaves"],
+		"ground": ["minecraft:grass_block"],
+		"fill": ["minecraft:dirt"],
+		"stilt": ["wood:minecraft:spruce"],
+		"thatch": ["minecraft:hay_block"]
+	},
+	"tiers": {
+		"0": {"roof": ["wood:minecraft:spruce"], "wall": ["wood:minecraft:spruce"]},
+		"3": {"roof": ["minecraft:deepslate_tiles"], "roof_trim": ["wood:minecraft:dark_oak"], "chimney": ["minecraft:stone_bricks"]}
+	},
+	"habits": {
+		"walls": {"kind": "log", "storey_height": 4, "plinth": 0, "jetty": 0.2, "post_spacing": 3, "braces": 0, "beam_ends": 0.7},
+		"roof": {"forms": {"gable": 5, "cross_gable": 1.5, "half_hip": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "dormers": 0.3, "front_gable": 0.4},
+		"windows": {"shutters": 0.5, "boxes": 0.2, "bay": 0.05, "tall": false},
+		"plan": {"stilts": "water", "tower": 0.1},
+		"yard": {"garden": "kitchen", "fence": "fence", "hedge": 0.1, "woodpile": 0.95},
+		"chimney": 0.9,
+		"porch": 0.7,
+		"balcony": 0.3
+	}
+}
