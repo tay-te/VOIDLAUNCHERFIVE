@@ -113,7 +113,7 @@ final class FarmerWork implements WorkBehaviour {
 		if (fields.isEmpty()) {
 			BlockPos c = brain.places(level).work;
 			// No farm plots (a player-built farm): tilled earth within a short walk of the job site.
-			fields.add(new BoundingBox(c.getX() - 20, c.getY() - 3, c.getZ() - 20, c.getX() + 20, c.getY() + 3, c.getZ() + 20));
+			fields.add(new BoundingBox(c.getX() - 24, c.getY() - 3, c.getZ() - 24, c.getX() + 24, c.getY() + 3, c.getZ() + 24));
 		}
 		// The nearest field first; farmers keep to one at a time.
 		BlockPos here = brain.folk.blockPosition();
