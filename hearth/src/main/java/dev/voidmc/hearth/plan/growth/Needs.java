@@ -1,0 +1,145 @@
+package dev.voidmc.hearth.plan.growth;
+
+import dev.voidmc.hearth.api.AgeStage;
+import dev.voidmc.hearth.api.ArchetypeCategory;
+import dev.voidmc.hearth.api.ArchetypeInfo;
+import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.PlotSpec;
+import dev.voidmc.hearth.api.PlotState;
+import dev.voidmc.hearth.api.PlotView;
+import dev.voidmc.hearth.api.Resident;
+import dev.voidmc.hearth.plan.PlanContext;
+import dev.voidmc.hearth.plan.catalogue.Archetypes;
+import dev.voidmc.hearth.plan.model.QueuedProject;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
+import net.minecraft.resources.Identifier;
+
+/**
+ * What a settlement has and lacks, read from its plots, residents and the planner's queue: beds against people, each
+ * trade's workers against its workplaces, food against mouths, and how many of each archetype stand or are planned.
+ */
+public final class Needs {
+	public final int population;
+	public final int adults;
+	/** Beds in finished buildings (the sim's count). */
+	public final int beds;
+	/** Beds expected from housing planned, under way or queued. */
+	public int plannedBeds;
+	public final Map<Identifier, Integer> counts = new HashMap<>();
+	public final Map<ArchetypeCategory, Integer> categories = new EnumMap<>(ArchetypeCategory.class);
+	public final Map<JobType, Integer> workers = new EnumMap<>(JobType.class);
+	public final Map<JobType, Integer> slots = new EnumMap<>(JobType.class);
+	/** Food production in mouths fed (built, under way and queued). */
+	public int food;
+	public int unbuilt;
+
+	private Needs(PlanContext ctx) {
+		this.population = ctx.population;
+		this.beds = ctx.settlement.beds();
+		int a = 0;
+		for (Resident r : ctx.settlement.residents()) {
+			if (r.age != AgeStage.CHILD) {
+				a++;
+			}
+			if (r.job != JobType.NONE) {
+				this.workers.merge(r.job, 1, Integer::sum);
+			}
+		}
+		this.adults = a;
+		for (PlotView plot : ctx.settlement.plots()) {
+			boolean built = plot.state() == PlotState.BUILT || plot.state() == PlotState.ABANDONED;
+			if (plot.state() == PlotState.DEMOLISHING) {
+				continue;
+			}
+			count(ctx, plot.spec(), built);
+		}
+		for (QueuedProject q : ctx.state.queue) {
+			count(ctx, q.spec(), false);
+		}
+	}
+
+	public static Needs of(PlanContext ctx) {
+		return new Needs(ctx);
+	}
+
+	private void count(PlanContext ctx, PlotSpec spec, boolean built) {
+		Identifier id = spec.archetype();
+		this.counts.merge(id, 1, Integer::sum);
+		ArchetypeInfo info = ctx.info(id);
+		if (info == null) {
+			return;
+		}
+		this.categories.merge(info.category(), 1, Integer::sum);
+		if (!built && info.category() != ArchetypeCategory.INFRASTRUCTURE) {
+			this.unbuilt++;
+		}
+		if (info.beds() > 0 && !built) {
+			this.plannedBeds += estimateBeds(info, spec);
+		}
+		int s = jobSlots(info, spec);
+		for (JobType j : info.jobs()) {
+			this.slots.merge(j, s, Integer::sum);
+		}
+		this.food += foodOf(id, info, spec);
+	}
+
+	public int count(Identifier id) {
+		return this.counts.getOrDefault(id, 0);
+	}
+
+	public int category(ArchetypeCategory c) {
+		return this.categories.getOrDefault(c, 0);
+	}
+
+	/** Beds a planned house will have: its archetype's minimum, more for a bigger plot, a storey's worth more if tall. */
+	public static int estimateBeds(ArchetypeInfo info, PlotSpec spec) {
+		double area = spec.sizeX() * spec.sizeZ();
+		double min = Math.max(1, info.minFrontage() * info.minDepth());
+		double scale = Math.max(1, Math.min(1.8, area / min));
+		return (int) Math.round(info.beds() * scale);
+	}
+
+	/** Workers a workplace employs: two, or more on a big plot. */
+	public static int jobSlots(ArchetypeInfo info, PlotSpec spec) {
+		if (info.jobs().isEmpty()) {
+			return 0;
+		}
+		if (info.category() == ArchetypeCategory.HOUSING) {
+			return 1;
+		}
+		if (info.category() == ArchetypeCategory.FARM) {
+			return Math.max(1, spec.sizeX() * spec.sizeZ() / 120);
+		}
+		int area = spec.sizeX() * spec.sizeZ();
+		return area >= 200 ? 4 : area >= 100 ? 3 : 2;
+	}
+
+	/** Mouths a food plot feeds. */
+	public static int foodOf(Identifier id, ArchetypeInfo info, PlotSpec spec) {
+		int area = spec.sizeX() * spec.sizeZ();
+		if (id.equals(Archetypes.FISHERY)) {
+			return 9;
+		}
+		if (id.equals(Archetypes.HUNTERS_LODGE)) {
+			return 4;
+		}
+		if (info.category() != ArchetypeCategory.FARM) {
+			return 0;
+		}
+		if (id.equals(Archetypes.PASTURE)) {
+			return Math.max(3, area / 70);
+		}
+		if (id.equals(Archetypes.ORCHARD)) {
+			return Math.max(3, area / 60);
+		}
+		return Math.max(3, area / 45);
+	}
+
+	/** Beds still wanted: the population plus a margin for growth, minus beds built and planned. */
+	public int housingDeficit(double margin) {
+		int want = this.population + Math.max(2, (int) Math.ceil(this.population * margin));
+		return want - this.beds - this.plannedBeds;
+	}
+}
