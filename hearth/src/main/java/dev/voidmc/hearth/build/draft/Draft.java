@@ -165,6 +165,20 @@ public final class Draft {
 		return options[this.random.nextInt(options.length)];
 	}
 
+	/**
+	 * Whether the local-left side (the viewer's left, standing in the street facing the front) shares a wall with a
+	 * neighbour. The plot params name the <b>building's own</b> sides, looking out of its front door (ARCHITECTURE.md
+	 * §6.1), so the viewer's left is the building's right: always read party walls through these two methods.
+	 */
+	public boolean partyLocalLeft() {
+		return param("party_right", false);
+	}
+
+	/** Whether the local-right side (the viewer's right) is a party wall; see {@link #partyLocalLeft()}. */
+	public boolean partyLocalRight() {
+		return param("party_left", false);
+	}
+
 	/** An integer param (see the archetype's Javadoc for its keys). */
 	public int param(String key, int fallback) {
 		return this.params.getIntOr(key, fallback);

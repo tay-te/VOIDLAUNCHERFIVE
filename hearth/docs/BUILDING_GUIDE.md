@@ -450,7 +450,8 @@ layout, shed, crane, stacks), `landscape/Well`.
   is wanted (`d.param("shop", d.chance(0.5))`), so the planner can pin what it needs and leave the rest to the seed.
 - Document every key in the class Javadoc: name, type, range, default.
 - Shared keys: `storeys` (int), `party_left` / `party_right` (boolean, ATTACHABLE archetypes: no windows, no eaves on
-  that side), `roof` (a `RoofForm` name), `variant` (style variant index). Per archetype: `shop` and `terrace`
+  that side — **the building's own left and right looking out of its front door**, which is the mirror of the local
+  frame's LEFT/RIGHT; always read them with `d.partyLocalLeft()` / `d.partyLocalRight()`, never `d.param("party_left")`), `roof` (a `RoofForm` name), `variant` (style variant index). Per archetype: `shop` and `terrace`
   (townhouse), `outshot` (cottage), `stripes` (market stall).
 - Infrastructure archetypes take their geometry in params (ARCHITECTURE.md §6.1).
 

@@ -43,7 +43,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * <p>Params:
  * <ul>
  *   <li>{@code storeys} (int, 3–4): full storeys under the roof (default 3 or 4 by seed)</li>
- *   <li>{@code party_left}, {@code party_right} (boolean): the side shares a wall with a neighbour (no windows, no eaves)</li>
+ *   <li>{@code party_left}, {@code party_right} (boolean): the building's own left/right side, looking out of its front
+ *   door, shares a wall with a neighbour (no windows, no eaves); read through {@code Draft.partyLocalLeft/Right}</li>
  *   <li>{@code shop} (boolean): a workroom with a shop window on the ground floor (default by seed)</li>
  * </ul>
  */
@@ -65,8 +66,8 @@ public final class Townhouse implements Archetype {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
-		boolean partyL = d.param("party_left", false);
-		boolean partyR = d.param("party_right", false);
+		boolean partyL = d.partyLocalLeft();
+		boolean partyR = d.partyLocalRight();
 		RoofForm form = HouseBuilder.roofParam(d, h.roof().pick(d.random(), FORMS));
 		if (form == RoofForm.CROSS_GABLE) {
 			form = RoofForm.GABLE;

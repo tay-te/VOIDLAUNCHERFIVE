@@ -20,5 +20,13 @@ public final class Archetypes {
 		registry.register(new BuildersYard());
 		registry.register(new MarketStall());
 		registry.register(new Well());
+		// the catalogue, one family per architect (phase 2)
+		HomesteadArchetypes.register(registry);
+		TownHomeArchetypes.register(registry);
+		TradeArchetypes.register(registry);
+		CivicArchetypes.register(registry);
+		LandmarkArchetypes.register(registry);
+		InfrastructureArchetypes.register(registry);
+		LandscapeArchetypes.register(registry);
 	}
 }
