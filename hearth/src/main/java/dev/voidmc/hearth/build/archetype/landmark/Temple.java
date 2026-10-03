@@ -146,7 +146,7 @@ public final class Temple implements Archetype {
 		int ringD = cz1 - (s + 3) + 1;
 		ringD -= (ringD & 1) == 0 ? 1 : 0;
 		int cz0 = cz1 - ringD + 1;
-		Stone body = Stone.masonry(d);
+		Stone body = Stone.ashlar(d);
 		Stone dress = Stone.dressing(d);
 		Stone found = Stone.footing(d);
 		d.body(cx0, cz0, cx1, cz1);
@@ -360,7 +360,8 @@ public final class Temple implements Archetype {
 		int top = d.maxHeight() - 1;
 		Stone body = Stone.masonry(d);
 		Stone dress = Stone.dressing(d);
-		Stone sheet = Stone.sheet(d);
+		// the domes sheathed in copper gone turquoise, as tiled domes shine over a sand-coloured town (or in its roof stone)
+		Stone sheet = d.chance(0.7) ? Stone.copper(d) : Stone.sheet(d);
 		Block accent = d.mat(Role.ACCENT).main(Form.FULL);
 		Paint glass = d.mat(Role.GLASS).pane();
 		int hx0 = 1;
@@ -414,8 +415,8 @@ public final class Temple implements Archetype {
 		}
 		// the great dome on its drum, over the middle of the hall
 		double zcH = (hz0 + hz1) / 2.0;
-		double rd = Math.min(4.5, (Math.min(hallW, hz1 - hz0 + 1) - 1) / 2.0 - 1.5);
-		int drumTop = hH + 3;
+		double rd = Math.min(5.0, (Math.min(hallW, hz1 - hz0 + 1) - 1) / 2.0 - 1.0);
+		int drumTop = hH + 4;
 		try (var st = d.stage(StageKind.WALLS)) {
 			for (int y = hH + 1; y <= drumTop; y++) {
 				for (int[] c : Shapes.ring(xc, zcH, rd)) {
@@ -458,7 +459,7 @@ public final class Temple implements Archetype {
 			}
 		}
 		// the portal: a tall frame standing proud of the front, a deep arch in it, the door at its back
-		int py = Math.min(top - 2, hH + 3);
+		int py = Math.min(top - 2, hH + 2);
 		int pz = hz0 - 1;
 		try (var st = d.stage(StageKind.WALLS)) {
 			for (int x = xc - 3; x <= xc + 3; x++) {
@@ -593,25 +594,36 @@ public final class Temple implements Archetype {
 				}
 			}
 		}
-		// the lantern stage: an open arcade on the shaft's top, a cornice, the dome
-		int yl = yBal + 1;
-		Tower lant = new Tower(x0 + 1, z0 + 1, 3, dress, dress, dress, false);
-		try (var st = d.stage(StageKind.WALLS)) {
-			for (int y = yl; y < yl + 3; y++) {
-				for (int[] c : new int[][]{{lant.x0, lant.z0}, {lant.x1, lant.z0}, {lant.x0, lant.z1}, {lant.x1, lant.z1}}) {
-					d.set(c[0], y, c[1], dress.full());
+		// courses and slits up the shaft
+		for (int y = 6; y < yBal - 3; y += 6) {
+			t.course(d, y, false);
+			for (Side f : t.faces()) {
+				if (f.out() != Dirs.BACK || y > 6) {
+					Details.slit(d, f, f.middle(), y + 2, 2, dress, null);
 				}
 			}
-			for (int[] c : Draft.ring(lant.x0, lant.z0, lant.x1, lant.z1)) {
-				d.set(c[0], yl + 3, c[1], dress.full());
-			}
-			d.set(lant.cx, yl + 3, lant.cz, dress.full());
 		}
+		// the upper shaft: a slender stage over the balcony, arched lights in each face, a corbelled cornice, the dome
+		int yl = yBal + 1;
+		Tower lant = new Tower(x0 + 1, z0 + 1, 3, dress, dress, dress, false);
+		int upH = Math.min(5, top - yl - 5);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int y = yl; y < yl + upH; y++) {
+				for (int[] c : Draft.ring(lant.x0, lant.z0, lant.x1, lant.z1)) {
+					boolean mid = c[0] == lant.cx || c[1] == lant.cz;
+					boolean light = mid && y >= yl + 1 && y <= yl + 2;
+					d.set(c[0], y, c[1], light ? Paint.of(Blocks.AIR.defaultBlockState()) : y == yl + upH - 1 ? dress.full() : body.full());
+				}
+			}
+			d.set(lant.cx, yl + upH - 1, lant.cz, dress.full());
+		}
+		lant.course(d, yl + upH - 1, false);
 		int peak;
+		int yd = yl + upH;
 		try (var st = d.stage(StageKind.ROOF)) {
-			Shapes.turned(d, lant.cx, lant.cz, yl + 4, new double[]{1.4, 1.0, 0.5}, sheet.full(), sheet);
-			peak = Math.min(top, yl + 7);
-			d.set(lant.cx, yl + 7, lant.cz, Details.rod());
+			Shapes.turned(d, lant.cx, lant.cz, yd, new double[]{1.4, 1.2, 0.7, 0.45}, sheet.full(), sheet);
+			peak = Math.min(top, yd + 4);
+			d.set(lant.cx, peak, lant.cz, Details.rod());
 		}
 		// the stair to the balcony, the door from the court
 		Side door = t.face(Dirs.BACK);
@@ -747,6 +759,7 @@ public final class Temple implements Archetype {
 			}
 		}
 		d.entrance(xc, 0, -1);
+		d.poi(PoiType.DOOR, xc, ytop, sz0 - 1, Dirs.BACK);
 		d.poi(PoiType.ALTAR, xc, ytop, sz1 - 2, Dirs.BACK);
 		Furniture.workstation(d, JobType.PRIEST, sx0 + 1, ytop, sz1 - 1, Dirs.FRONT);
 		d.poi(PoiType.VIEWPOINT, xc, ytop, tz0, Dirs.FRONT);

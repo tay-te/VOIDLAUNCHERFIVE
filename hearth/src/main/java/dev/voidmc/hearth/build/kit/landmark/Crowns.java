@@ -52,10 +52,23 @@ public final class Crowns {
 		PAGODA
 	}
 
-	/** The materials a crown is made of. */
-	public record Mats(Mat roof, Mat trim, Stone dress, Mat frame) {
+	/**
+	 * The materials a crown is made of; {@code sheet}, when not null, re-clads needles, domes and onions (copper over a
+	 * town of shingle roofs, or by choice).
+	 */
+	public record Mats(Mat roof, Mat trim, Stone dress, Mat frame, Stone sheet) {
 		public static Mats of(Draft d, Stone dress) {
-			return new Mats(d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), dress, d.mat(Role.FRAME));
+			return new Mats(d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), dress, d.mat(Role.FRAME), null);
+		}
+
+		/** With spires and domes in copper where the roof is wood, and on a share of the rest. */
+		public static Mats coppered(Draft d, Stone dress, double chance) {
+			Stone sheet = Stone.sheet(d);
+			boolean wood = !Stone.stony(d, Role.ROOF) && !d.habits().roof().thatch();
+			if (!wood && d.chance(chance)) {
+				sheet = Stone.copper(d);
+			}
+			return new Mats(d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), dress, d.mat(Role.FRAME), sheet);
 		}
 	}
 
@@ -95,7 +108,7 @@ public final class Crowns {
 			case PYRAMID -> (int) Math.round((r + 1) * 0.75) + 3;
 			case PAGODA -> (int) Math.round(r + 2) + 3;
 			case DOME -> (r >= 3 ? 3 : 2) + (int) Math.ceil(r * 1.05) + 4;
-			case CUPOLA -> 5 + (size >= 7 ? (size - 2 >= 7 ? 3 : 2) + (int) Math.ceil((size - 3) / 2.0 * 1.05) + 4 : (int) Math.round(r * 0.75) + 3);
+			case CUPOLA -> (size >= 7 ? 5 : 4) + (r >= 3 ? 3 : 2) + (int) Math.ceil(r * 1.05) + 4;
 			case PARAPET -> 3;
 		};
 	}
@@ -138,6 +151,9 @@ public final class Crowns {
 		Roofs.Field f = octagonal ? Shapes.octagon(cx, cz, r, pitch) : Shapes.pyramid(x0, z0, x1, z1, pitch);
 		Roofs.Roof roof = Roofs.raster(d, f, y, x0, z0, x1, z1, m.roof, m.trim, Habits.Ridge.FULL);
 		Shapes.support(d, roof, m.roof.full());
+		if (m.sheet != null) {
+			Shapes.reclad(d, roof, m.sheet);
+		}
 		if (octagonal && !parapet) {
 			for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
 				top0 = Math.max(top0, Details.pinnacle(d, c[0], y, c[1], 1, m.dress, false));
@@ -185,6 +201,9 @@ public final class Crowns {
 		double pitch = fit(4.5, r + 0.5, top - y - 1);
 		Roofs.Roof roof = Roofs.raster(d, Shapes.broach(x0, z0, x1, z1, pitch), y, x0, z0, x1, z1, m.roof, m.trim, Habits.Ridge.FULL);
 		Shapes.support(d, roof, m.roof.full());
+		if (m.sheet != null) {
+			Shapes.reclad(d, roof, m.sheet);
+		}
 		int fx = (x0 + x1) / 2;
 		int fz = (z0 + z1) / 2;
 		return Math.max(roof.ridgeY, Details.finial(d, fx, roof.ridgeY + 1, fz, false));
@@ -223,7 +242,7 @@ public final class Crowns {
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
 		double r = (x1 - x0) / 2.0;
-		Stone sheet = Stone.sheet(d);
+		Stone sheet = m.sheet != null ? m.sheet : Stone.sheet(d);
 		// the drum: an octagonal ring of the wall stone with little lights, a cornice over it
 		int drumH = 2;
 		double dr = r - 1.0;
@@ -269,7 +288,7 @@ public final class Crowns {
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
 		double r = (x1 - x0) / 2.0 - 0.5;
-		Stone sheet = Stone.sheet(d);
+		Stone sheet = m.sheet != null ? m.sheet : Stone.sheet(d);
 		int drumH = r >= 3 ? 3 : 2;
 		for (int k = 0; k < drumH; k++) {
 			for (int[] c : Shapes.ring(cx, cz, r)) {
@@ -298,46 +317,48 @@ public final class Crowns {
 		return Math.max(yl - 1, Details.finial(d, fx, yl, fz, false));
 	}
 
-	/** An open cupola on four posts over a deck, a bell under its roof, a little dome or pyramid on top. */
+	/**
+	 * An open cupola: posts at the corners (and mid-sides on a wide square) carrying an entablature over open arches, a
+	 * bell hung inside, and a dome on its own drum over the whole square.
+	 */
 	static int cupola(Draft d, int x0, int z0, int x1, int z1, int y, int top, Mats m) {
-		// a balustrade round the deck
+		int size = x1 - x0 + 1;
+		int postH = size >= 7 ? 4 : 3;
+		int xm = (x0 + x1) / 2;
+		int zm = (z0 + z1) / 2;
 		for (int[] c : Draft.ring(x0, z0, x1, z1)) {
-			d.set(c[0], y, c[1], m.dress.wallOrFull());
-		}
-		int ix0 = x0 + 1;
-		int iz0 = z0 + 1;
-		int ix1 = x1 - 1;
-		int iz1 = z1 - 1;
-		if (ix1 - ix0 < 2) {
-			ix0 = x0;
-			iz0 = z0;
-			ix1 = x1;
-			iz1 = z1;
-		}
-		int postH = 3;
-		for (int[] c : new int[][]{{ix0, iz0}, {ix1, iz0}, {ix0, iz1}, {ix1, iz1}}) {
-			for (int k = 0; k < postH; k++) {
-				d.set(c[0], y + k, c[1], m.dress.wallOrFull());
+			boolean corner = isCorner(c, x0, z0, x1, z1);
+			boolean mid = size >= 9 && (c[0] == xm || c[1] == zm);
+			if (corner || mid) {
+				for (int k = 0; k < postH; k++) {
+					d.set(c[0], y + k, c[1], m.dress.full());
+				}
+			} else {
+				d.set(c[0], y, c[1], m.dress.wallOrFull());
 			}
 		}
-		// the entablature ring and the roof
 		int ye = y + postH;
-		for (int[] c : Draft.ring(ix0, iz0, ix1, iz1)) {
-			d.set(c[0], ye, c[1], m.dress.full());
-		}
-		for (int z = iz0 + 1; z < iz1; z++) {
-			for (int x = ix0 + 1; x < ix1; x++) {
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
 				d.set(x, ye, z, m.dress.full());
 			}
 		}
-		Details.bell(d, (ix0 + ix1) / 2, ye - 1, (iz0 + iz1) / 2, Dirs.FRONT);
-		double r = (ix1 - ix0) / 2.0;
-		int peak;
-		if (ix1 - ix0 >= 4) {
-			peak = dome(d, ix0, iz0, ix1, iz1, ye + 1, top, m);
-		} else {
-			peak = pyramid(d, ix0, iz0, ix1, iz1, ye + 1, top, m, 1, 1.0);
+		// the arches' shoulders under the entablature, beside each post
+		if (m.dress.has(Form.STAIRS)) {
+			for (Side sd : Side.of(x0, z0, x1, z1)) {
+				for (int i = 1; i < sd.last(); i++) {
+					boolean postLeft = i - 1 == 0 || size >= 9 && sd.column(i - 1) == (sd.axis() == Direction.Axis.X ? xm : zm);
+					boolean postRight = i + 1 == sd.last() || size >= 9 && sd.column(i + 1) == (sd.axis() == Direction.Axis.X ? xm : zm);
+					if (postLeft) {
+						d.set(sd.x(i), ye - 1, sd.z(i), m.dress.stairs(sd.along().getOpposite(), Half.TOP));
+					} else if (postRight) {
+						d.set(sd.x(i), ye - 1, sd.z(i), m.dress.stairs(sd.along(), Half.TOP));
+					}
+				}
+			}
 		}
+		Details.bell(d, xm, ye - 1, zm, Dirs.FRONT);
+		int peak = size >= 5 ? dome(d, x0, z0, x1, z1, ye + 1, top, m) : pyramid(d, x0, z0, x1, z1, ye + 1, top, m, 1, 1.0);
 		return Math.max(peak, ye);
 	}
 

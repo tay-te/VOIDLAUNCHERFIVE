@@ -93,7 +93,8 @@ public final class BellTower implements Archetype {
 		} else {
 			masonry(d, t, yb, yc, fr.outX(door, 1), fr.outZ(door, 1));
 		}
-		int peak = Crowns.crown(d, crown, cs[0], cs[1], cs[2], cs[3], yc + 1, top, Crowns.Mats.of(d, dress));
+		int peak = Crowns.crown(d, crown, cs[0], cs[1], cs[2], cs[3], yc + 1, top, crown == Crowns.Kind.STAVE || crown == Crowns.Kind.PAGODA
+			|| crown == Crowns.Kind.PYRAMID ? Crowns.Mats.of(d, dress) : Crowns.Mats.coppered(d, dress, 0.4));
 
 		// the door, the stair, the belfry and its bells
 		Grounds.door(d, fr, door, 0, dress);
@@ -221,6 +222,6 @@ public final class BellTower implements Archetype {
 				return Stone.of(d, Role.ROOF);
 			}
 		}
-		return Stone.masonry(d);
+		return Stone.panel(d);
 	}
 }

@@ -87,6 +87,22 @@ public final class Stone {
 		return new Stone(d, null, COPPER, Noise.hash(d.seed(), 0xC0FE), StageKind.ROOF);
 	}
 
+	/** Patinated copper sheet. */
+	public static Stone copper(Draft d) {
+		return new Stone(d, null, COPPER, Noise.hash(d.seed(), 0xC0FF), StageKind.ROOF);
+	}
+
+	/**
+	 * The walling of a tower's panels between its piers: the style's own walls wherever they are masonry or render of
+	 * any kind (white plaster between stone piers in a timber-framing town), else its masonry.
+	 */
+	public static Stone panel(Draft d) {
+		if (stony(d, Role.WALL)) {
+			return of(d, Role.WALL);
+		}
+		return masonry(d);
+	}
+
 	/**
 	 * Ashlar for the walls of a great church: the style's own masonry walls where it has them, otherwise its dressed
 	 * plinth stone before rubble footings.

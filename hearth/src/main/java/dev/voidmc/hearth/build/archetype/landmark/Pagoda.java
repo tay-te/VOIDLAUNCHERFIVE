@@ -69,7 +69,7 @@ public final class Pagoda implements Archetype {
 		int top = d.maxHeight() - 1;
 		int xc = (w - 1) / 2;
 		// the pagoda's base and its tiers: as broad as the court allows, five tiers or seven
-		int base = w >= 19 && dp >= 21 ? 9 : 7;
+		int base = w >= 17 && dp >= 19 ? 9 : 7;
 		int podiumH = 2;
 		int tiers = d.param("tiers", top - podiumH - 9 >= 7 * TH && d.chance(0.5) ? 7 : 5);
 		tiers = tiers >= 7 && top - podiumH - 9 >= 7 * TH ? 7 : 5;
@@ -78,7 +78,7 @@ public final class Pagoda implements Archetype {
 			int shrink = tiers == 7 ? (k >= 5 ? 4 : k >= 2 ? 2 : 0) : (k >= 4 ? 4 : k >= 2 ? 2 : 0);
 			widths[k] = Math.max(5, base - shrink);
 		}
-		int back = 3;                       // the eaves and a walk behind
+		int back = 2;                       // the eaves behind
 		int zc = dp - 1 - back - base / 2;
 		int pz0 = zc - base / 2 - 2;        // the podium's front edge
 		d.body(xc - base / 2, zc - base / 2, xc + base / 2, zc + base / 2);
@@ -289,9 +289,9 @@ public final class Pagoda implements Archetype {
 			}
 		}
 		// the pond and the moon bridge across it, where the court is deep enough
-		int pondZ0 = 4;
+		int pondZ0 = 2;
 		int pondZ1 = pondZ0 + 2;
-		boolean pond = zEnd - pondZ1 >= 3;
+		boolean pond = zEnd - pondZ1 >= 2;
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] c : way) {
 				if (pond && c[1] >= pondZ0 - 1 && c[1] <= pondZ1 + 1) {
@@ -373,8 +373,8 @@ public final class Pagoda implements Archetype {
 			}
 		}
 		for (int[] c : new int[][]{{1, 1}, {w - 2, 1}, {1, zEnd - 2}, {w - 2, zEnd - 2}}) {
-			if (c[1] > 0 && Math.abs(c[0] - xc) > 3 && w >= 17) {
-				Grounds.tree(d, c[0], 0, c[1], 3);
+			if (c[1] > 0 && Math.abs(c[0] - xc) > 4 && w >= 17 && (c[1] < pondZ0 - 1 || c[1] > pondZ1 + 1 || !pond)) {
+				Grounds.tree(d, c[0], 0, c[1], 4);
 			}
 		}
 		for (int z = 1; z < zEnd; z++) {

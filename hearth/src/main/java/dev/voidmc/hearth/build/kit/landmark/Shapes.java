@@ -132,6 +132,48 @@ public final class Shapes {
 		}
 	}
 
+	/**
+	 * Re-clads a rasterised roof in another sheet (copper over a spire the town roofs in shingles): every block of the
+	 * roof's columns between its foot and its surface that is not the sheet already is replaced by the sheet's block of
+	 * the same cut and orientation.
+	 */
+	public static void reclad(Draft d, Roofs.Roof r, Stone sheet) {
+		for (int z = r.z0; z <= r.z1; z++) {
+			for (int x = r.x0; x <= r.x1; x++) {
+				if (!r.covers(x, z)) {
+					continue;
+				}
+				for (int y = r.bottomY(x, z) - 1; y <= r.surfaceY(x, z) + 1; y++) {
+					recladCell(d, x, y, z, sheet);
+				}
+			}
+		}
+	}
+
+	/** Re-clads one cell if it holds a stair, slab or full block of a roof covering (leaves rods, logs, lanterns alone). */
+	public static void recladCell(Draft d, int x, int y, int z, Stone sheet) {
+		Draft.Cell c = d.cell(x, y, z);
+		if (c == null || c.state().isAir() || c.stage() != StageKind.ROOF) {
+			return;
+		}
+		var st = c.state();
+		var b = st.getBlock();
+		Paint p;
+		if (b instanceof net.minecraft.world.level.block.StairBlock) {
+			p = sheet.stairs(st.getValue(net.minecraft.world.level.block.StairBlock.FACING), st.getValue(net.minecraft.world.level.block.StairBlock.HALF));
+		} else if (b instanceof net.minecraft.world.level.block.SlabBlock) {
+			p = sheet.slab(st.getValue(net.minecraft.world.level.block.SlabBlock.TYPE));
+		} else if (st.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)
+			&& !(b instanceof net.minecraft.world.level.block.RotatedPillarBlock) && b != Blocks.GOLD_BLOCK) {
+			p = sheet.full();
+		} else {
+			return;
+		}
+		try (var sc = d.stage(StageKind.ROOF)) {
+			d.set(x, y, z, p);
+		}
+	}
+
 	// ------------------------------------------------------------------------------------------------ turned solids
 
 	/**

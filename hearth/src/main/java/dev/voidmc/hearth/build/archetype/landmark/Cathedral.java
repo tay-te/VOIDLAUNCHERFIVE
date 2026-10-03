@@ -202,7 +202,7 @@ public final class Cathedral implements Archetype {
 		p.yA = p.top >= 32 ? 6 : 5;
 		p.yN = Math.max(p.yA + p.a + 6, (int) Math.round(p.top * (p.manner == Manner.ROMANESQUE ? 0.33 : 0.37)));
 		p.pitch = switch (p.manner) {
-			case GOTHIC -> 1.5;
+			case GOTHIC -> 1.4;
 			case ROMANESQUE -> 0.6;
 			case BAROQUE -> 1.0;
 		};
@@ -211,7 +211,7 @@ public final class Cathedral implements Archetype {
 			case "twin" -> Towers.TWIN;
 			case "crossing" -> Towers.CROSSING;
 			case "campanile" -> Towers.CAMPANILE;
-			default -> p.manner == Manner.ROMANESQUE ? Towers.CAMPANILE : p.manner == Manner.GOTHIC && d.chance(0.35) ? Towers.CROSSING : Towers.TWIN;
+			default -> p.manner == Manner.ROMANESQUE ? Towers.CAMPANILE : p.manner == Manner.GOTHIC && d.chance(0.3) ? Towers.CROSSING : Towers.TWIN;
 		};
 		if (p.cloister) {
 			p.clX0 = p.cloisterRight ? p.bR : 0;
@@ -555,7 +555,7 @@ public final class Cathedral implements Archetype {
 	private static int towers(Draft d, Plan p, Stone body, Stone dress, Roofs.Roof roof) {
 		int peak = roof.ridgeY;
 		Stone base = Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
-		Crowns.Mats mats = Crowns.Mats.of(d, dress);
+		Crowns.Mats mats = p.manner == Manner.ROMANESQUE ? Crowns.Mats.of(d, dress) : Crowns.Mats.coppered(d, dress, 0.35);
 		Crowns.Kind westCrown = switch (p.manner) {
 			case GOTHIC -> p.towers == Towers.CROSSING ? Crowns.Kind.PARAPET : d.chance(0.5) ? Crowns.Kind.SPIRE : Crowns.Kind.OCTAGON;
 			case BAROQUE -> Crowns.Kind.ONION;

@@ -63,14 +63,14 @@ public final class ClockTower implements Archetype {
 		int cz0 = (dp - clockSize + 1) / 2;
 		int sx0 = cx0 + 1 + (piers ? 1 : 0);
 		int sz0 = cz0 + 1 + (piers ? 1 : 0);
-		Stone body = Stone.masonry(d);
+		Stone body = Stone.panel(d);
 		Stone dress = Stone.dressing(d);
 		Stone base = Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
 		Tower shaft = new Tower(sx0, sz0, core, body, dress, base, piers);
 		Tower clock = new Tower(cx0, cz0, clockSize, body, dress, base, false);
 		// the bell chamber stands back behind a gallery on the clock stage's deck where there is room for one
-		boolean gallery = clockSize >= 9;
-		int belSize = gallery ? clockSize - 4 : shaftOuter;
+		boolean gallery = clockSize >= 11;
+		int belSize = gallery ? clockSize - 4 : clockSize - 2;
 		int bo = (clockSize - belSize) / 2;
 		Tower bel = new Tower(cx0 + bo, cz0 + bo, belSize, dress, dress, base, false);
 		d.body(cx0, cz0, cx0 + clockSize - 1, cz0 + clockSize - 1);
@@ -149,7 +149,8 @@ public final class ClockTower implements Archetype {
 		bel.openings(d, ycC + 1, ycB - ycC - 2, bel.size >= 7 && d.chance(0.5) ? Tower.Opening.TRIFORA : Tower.Opening.ARCH, true, null);
 		bel.band(d, ycB - 1);
 		bel.cornice(d, ycB);
-		int peak = Crowns.crown(d, crown, bel.x0, bel.z0, bel.x1, bel.z1, ycB + 1, top, Crowns.Mats.of(d, dress));
+		int peak = Crowns.crown(d, crown, bel.x0, bel.z0, bel.x1, bel.z1, ycB + 1, top, crown == Crowns.Kind.STAVE || crown == Crowns.Kind.PAGODA
+			|| crown == Crowns.Kind.PYRAMID ? Crowns.Mats.of(d, dress) : Crowns.Mats.coppered(d, dress, 0.45));
 
 		// the door, floors, the stair, the clock room and the bells
 		Grounds.door(d, fr, door, 0, dress);

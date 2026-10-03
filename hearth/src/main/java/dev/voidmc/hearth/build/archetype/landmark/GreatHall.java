@@ -151,7 +151,7 @@ public final class GreatHall implements Archetype {
 		}
 
 		// the roof: steep in the north, broad and low in the mountains; gables filled in the style's manner
-		double pitch = chalet ? 0.6 : stone ? 1.0 : 1.25;
+		double pitch = chalet ? 0.6 : stone ? 1.0 : 1.5;
 		int eaves = chalet ? 2 : 1;
 		Roofs.Opts o = Roofs.Opts.of(d).withPitch(pitch).withEaves(eaves, chalet ? 2 : 1);
 		double half = hw / 2.0 + eaves;
@@ -281,27 +281,33 @@ public final class GreatHall implements Archetype {
 	 */
 	private static void dragons(Draft d, Roofs.Roof roof, int x0, int x1, int xc, int z, Mat trim, Mat frame) {
 		int ridge = roof.surfaceY(xc, z);
-		if (ridge == Integer.MIN_VALUE || ridge + 3 >= d.maxHeight() || !d.allowed(xc, ridge + 1, z)) {
+		if (ridge == Integer.MIN_VALUE || ridge + 4 >= d.maxHeight() || !d.allowed(xc, ridge + 1, z)) {
 			return;
 		}
 		try (var s = d.stage(StageKind.ROOF)) {
+			// where the boards cross over the apex
+			d.set(xc, ridge + 1, z, trim.full());
 			for (int side : new int[]{-1, 1}) {
-				// the board climbing from the far side crosses the apex and rises beyond it
+				Direction out = side < 0 ? Dirs.LEFT : Dirs.RIGHT;
+				// the neck: each board carries its slope on past the ridge, a stair rising outward
 				for (int k = 1; k <= 2; k++) {
-					int x = xc + side * k;
-					int y = ridge + k;
-					d.set(x, y, z, frame.log(Direction.Axis.Y));
+					d.set(xc + side * k, ridge + 1 + k, z, trim.stairsOrSlab(out, Half.BOTTOM));
+					d.set(xc + side * k, ridge + k, z, trim.stairsOrSlab(out.getOpposite(), Half.TOP));
 				}
+				// the head: a crown block, a snout reaching outward, a jaw hanging under it
 				int hx = xc + side * 3;
-				int hy = ridge + 2;
-				Direction outward = side < 0 ? Dirs.LEFT : Dirs.RIGHT;
-				if (d.allowed(hx, hy, z)) {
-					// the head: a snout of stairs looking outward, a jaw under it
-					d.set(hx, hy, z, trim.stairsOrSlab(outward.getOpposite(), Half.TOP));
-					d.set(hx, hy + 1, z, trim.stairsOrSlab(outward.getOpposite(), Half.BOTTOM));
+				int hy = ridge + 3;
+				if (!d.allowed(hx, hy + 1, z)) {
+					continue;
+				}
+				d.set(hx, hy, z, trim.full());
+				d.set(hx, hy + 1, z, trim.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
+				int sx = xc + side * 4;
+				if (d.allowed(sx, hy, z)) {
+					d.set(sx, hy, z, trim.stairsOrSlab(out.getOpposite(), Half.TOP));
+					d.set(sx, hy - 1, z, frame.has(Form.TRAPDOOR) ? frame.trapdoor(out.getOpposite(), Half.TOP, true) : trim.slab(SlabType.TOP));
 				}
 			}
-			d.set(xc, ridge + 1, z, frame.log(Direction.Axis.Y));
 		}
 	}
 
