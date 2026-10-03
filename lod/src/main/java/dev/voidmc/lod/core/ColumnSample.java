@@ -41,6 +41,20 @@ public final class ColumnSample {
 	public int leaves;
 	/** A crown's radius in blocks. */
 	public float crown;
+	/** The share of the trees that are conifers (spruce, pine: cones) rather than broadleaf (oak, birch: domes). */
+	public float conifer;
+	/**
+	 * The blocks the faces are made of, as ids from the source's material registry (0: unknown, drawn untextured):
+	 * the top and side of the surface block, the soil, the rock, the leaves. Colours above stay the truth for
+	 * what each looks like from afar; the ids let close tiles draw the textures themselves.
+	 */
+	public int topMaterial;
+	public int sideMaterial;
+	public int soilMaterial;
+	public int rockMaterial;
+	public int leavesMaterial;
+	/** No ground at all in this column: the void between End islands. Nothing is drawn over it. */
+	public boolean empty;
 
 	public void clear() {
 		this.ground = 0;
@@ -59,6 +73,13 @@ public final class ColumnSample {
 		this.cover = 0;
 		this.leaves = 0x3A5F1C;
 		this.crown = 2.5F;
+		this.conifer = 0;
+		this.topMaterial = 0;
+		this.sideMaterial = 0;
+		this.soilMaterial = 0;
+		this.rockMaterial = 0;
+		this.leavesMaterial = 0;
+		this.empty = false;
 	}
 
 	/** The rock at height {@code y} (already shifted by the band offset): the band there, or the plain rock. */

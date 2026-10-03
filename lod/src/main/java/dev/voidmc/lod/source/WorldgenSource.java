@@ -33,6 +33,8 @@ public class WorldgenSource implements TerrainSource {
 	/** One resolver per worker: the caching ones keep per-thread state. */
 	protected final ThreadLocal<BiomeResolver> resolvers;
 	protected final BiomeLooks looks;
+	/** The world's material registry: shared with chunk ingestion and the renderer. */
+	protected final Materials materials;
 	protected final int seaLevel;
 	/** The world's own badlands strata, one colour per block of height, and the noise that shifts them. */
 	protected final int[] strata;
@@ -46,6 +48,11 @@ public class WorldgenSource implements TerrainSource {
 	public static final java.util.concurrent.atomic.AtomicLongArray TIMES = new java.util.concurrent.atomic.AtomicLongArray(3);
 
 	public WorldgenSource(ServerLevel level, long version) {
+		this(level, version, new Materials());
+	}
+
+	public WorldgenSource(ServerLevel level, long version, Materials materials) {
+		this.materials = materials;
 		this.level = level;
 		this.generator = level.getChunkSource().getGenerator();
 		this.randomState = level.getChunkSource().randomState();
@@ -57,13 +64,13 @@ public class WorldgenSource implements TerrainSource {
 		int[] strata = null;
 		Noise offset = null;
 		try {
-			MaterialSystemAccessor materials = (MaterialSystemAccessor) this.randomState.surfaceSystem();
-			BlockState[] bands = materials.voidLod$clayBands();
+			MaterialSystemAccessor system = (MaterialSystemAccessor) this.randomState.surfaceSystem();
+			BlockState[] bands = system.voidLod$clayBands();
 			strata = new int[bands.length];
 			for (int i = 0; i < bands.length; i++) {
 				strata[i] = this.looks.colorOf(bands[i]);
 			}
-			offset = materials.voidLod$clayBandsOffsetNoise();
+			offset = system.voidLod$clayBandsOffsetNoise();
 		} catch (RuntimeException e) {
 			// a generator without vanilla's material system: the looks' own strata stand in
 		}
@@ -74,6 +81,10 @@ public class WorldgenSource implements TerrainSource {
 	@Override
 	public long version() {
 		return this.version;
+	}
+
+	public Materials materials() {
+		return this.materials;
 	}
 
 	/** Anything about the source worth a line in the statistics. */

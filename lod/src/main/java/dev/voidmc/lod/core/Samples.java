@@ -33,6 +33,13 @@ final class Samples {
 	final float[] cover = new float[MAX * MAX];
 	final int[] leaves = new int[MAX * MAX];
 	final float[] crown = new float[MAX * MAX];
+	final float[] conifer = new float[MAX * MAX];
+	final int[] topMaterial = new int[MAX * MAX];
+	final int[] sideMaterial = new int[MAX * MAX];
+	final int[] soilMaterial = new int[MAX * MAX];
+	final int[] rockMaterial = new int[MAX * MAX];
+	final int[] leavesMaterial = new int[MAX * MAX];
+	final boolean[] empty = new boolean[MAX * MAX];
 
 	private final ColumnSample sample = new ColumnSample();
 	private final boolean variation;
@@ -80,6 +87,13 @@ final class Samples {
 				this.bandHeight[k] = Math.max(1, s.bandHeight);
 				this.bandOffset[k] = s.bandOffset;
 				this.crown[k] = s.crown;
+				this.conifer[k] = s.conifer;
+				this.topMaterial[k] = s.topMaterial;
+				this.sideMaterial[k] = s.sideMaterial;
+				this.soilMaterial[k] = s.soilMaterial;
+				this.rockMaterial[k] = s.rockMaterial;
+				this.leavesMaterial[k] = s.leavesMaterial;
+				this.empty[k] = s.empty;
 
 				if (!this.variation) {
 					this.top[k] = s.top;
