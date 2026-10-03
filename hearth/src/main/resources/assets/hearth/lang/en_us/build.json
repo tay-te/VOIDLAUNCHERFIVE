@@ -1,1 +1,13 @@
-{}
+{
+  "hearth.build.command.built": "Built %s in %s: %s blocks (planned in %s ms, placed in %s ms). Again:",
+  "hearth.build.command.unknown_archetype": "No archetype called %s",
+  "hearth.build.command.unknown_style": "No style called %s (use a culture name such as temperate, or auto)",
+  "hearth.build.command.nothing_to_undo": "Nothing to undo",
+  "hearth.build.command.undone": "Put back %s blocks",
+  "hearth.archetype.house.hut": "Hut",
+  "hearth.archetype.house.cottage": "Cottage",
+  "hearth.archetype.house.townhouse": "Town House",
+  "hearth.archetype.work.builders_yard": "Builder's Yard",
+  "hearth.archetype.commerce.market_stall": "Market Stall",
+  "hearth.archetype.landscape.well": "Well"
+}

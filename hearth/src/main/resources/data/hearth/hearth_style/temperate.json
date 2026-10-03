@@ -1,0 +1,82 @@
+{
+	"culture": "temperate",
+	"name": "Temperate: timber frame and plaster on a stone plinth, shingle roofs, cottage gardens",
+	"roles": {
+		"foundation": [
+			{"m": "minecraft:cobblestone", "w": 3},
+			{"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 1.5},
+			{"m": "minecraft:stone", "w": 1},
+			{"m": "minecraft:andesite", "w": 0.6}
+		],
+		"plinth": [
+			{"m": "minecraft:stone_bricks", "w": 3},
+			{"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5},
+			{"m": "minecraft:cracked_stone_bricks", "w": 0.6, "low": 1}
+		],
+		"wall": [
+			{"m": "minecraft:mushroom_stem", "w": 3},
+			{"m": "minecraft:smooth_quartz", "w": 2, "high": 1},
+			{"m": "minecraft:calcite", "w": 0.6, "low": 1}
+		],
+		"wall_accent": ["minecraft:stone_bricks"],
+		"frame": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"beam": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"floor": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:oak", "w": 1}],
+		"ceiling": ["wood:minecraft:spruce"],
+		"roof": [{"m": "wood:minecraft:spruce", "w": 4}, {"m": "wood:minecraft:dark_oak", "w": 1.5}],
+		"roof_trim": ["wood:minecraft:dark_oak"],
+		"gable": [{"m": "minecraft:mushroom_stem", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}],
+		"window": ["wood:minecraft:spruce"],
+		"glass": ["minecraft:glass_pane"],
+		"door": ["wood:minecraft:spruce"],
+		"shutter": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+		"fence": ["wood:minecraft:oak"],
+		"railing": ["wood:minecraft:dark_oak"],
+		"path": [{"m": "minecraft:dirt_path", "w": 4}, {"m": "minecraft:coarse_dirt", "w": 1}, {"m": "minecraft:gravel", "w": 0.6}],
+		"paving": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:mossy_stone_bricks", "w": 1}, {"m": "minecraft:cobblestone", "w": 1}],
+		"light": ["minecraft:lantern"],
+		"chimney": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:stone_bricks", "w": 1}],
+		"furniture": ["wood:minecraft:spruce"],
+		"cloth": ["dye:red", "dye:white", "dye:light_blue"],
+		"accent": ["minecraft:chiseled_stone_bricks"],
+		"garden": ["minecraft:poppy", "minecraft:dandelion", "minecraft:cornflower", "minecraft:oxeye_daisy", "minecraft:azure_bluet", "minecraft:allium", "minecraft:rose_bush", "minecraft:peony"],
+		"crops": ["minecraft:wheat", "minecraft:carrots", "minecraft:potatoes", "minecraft:beetroots"],
+		"hedge": ["minecraft:oak_leaves"],
+		"tree_log": ["minecraft:oak_log"],
+		"tree_leaves": ["minecraft:oak_leaves"],
+		"ground": ["minecraft:grass_block"],
+		"fill": ["minecraft:dirt"],
+		"stilt": ["wood:minecraft:spruce"],
+		"thatch": ["minecraft:hay_block"]
+	},
+	"tiers": {
+		"0": {
+			"wall": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mushroom_stem", "w": 1}],
+			"roof": ["wood:minecraft:oak"],
+			"plinth": ["minecraft:cobblestone"]
+		},
+		"3": {
+			"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:cracked_deepslate_tiles", "w": 0.4}],
+			"roof_trim": ["minecraft:deepslate_bricks"],
+			"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 1}],
+			"chimney": ["minecraft:stone_bricks"]
+		}
+	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "brick nogging", "w": 1, "roles": {"wall": [{"m": "minecraft:bricks", "w": 4}], "gable": ["minecraft:bricks"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]}},
+		{"name": "ochre plaster", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.3, "low": 1}], "gable": ["minecraft:smooth_sandstone"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:mangrove", "w": 1}]}},
+		{"name": "rubble stone", "w": 1, "roles": {"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.8, "low": 2, "north": 1.5}], "gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone", "w": 1}], "wall_accent": ["minecraft:stone_bricks"], "frame": ["wood:minecraft:spruce"], "beam": ["wood:minecraft:spruce"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0, "jetty": 0}}},
+		{"name": "thatched", "w": 0.8, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "forms": {"gable": 3, "half_hip": 3, "hip": 1}, "ridge": "full", "dormers": 0.3}}}
+	],
+	"habits": {
+		"walls": {"kind": "timber_frame", "storey_height": 4, "plinth": 1, "jetty": 0.6, "post_spacing": 3, "braces": 0.35, "beam_ends": 0.6},
+		"roof": {"forms": {"gable": 3, "cross_gable": 3, "half_hip": 1.5, "hip": 0.5}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "slab", "dormers": 0.6},
+		"windows": {"shutters": 0.3, "boxes": 0.55, "bay": 0.3, "tall": true},
+		"plan": {"stilts": "water", "tower": 0.1},
+		"yard": {"garden": "cottage", "fence": "fence", "hedge": 0.3, "woodpile": 0.6},
+		"chimney": 0.85,
+		"porch": 0.4,
+		"balcony": 0.2
+	}
+}
