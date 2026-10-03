@@ -340,7 +340,7 @@ public final class Field implements Archetype {
 				if (below != null && below.getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
 					continue;
 				}
-				Spots.at(d, PoiType.JOB_SITE, xz[0], b.level(), xz[1], into, JobType.FARMER);
+				Spots.onGround(d, PoiType.JOB_SITE, xz[0], b.level(), xz[1], into, JobType.FARMER);
 			}
 		}
 	}

@@ -72,6 +72,13 @@ public final class Spots {
 		return false;
 	}
 
+	/** A stand on a path or on the ground (not on a step, a wall's coping or a sill): its floor is earth, path or farmland. */
+	public static boolean onGround(Draft d, PoiType type, int x, int y, int z, Direction facing, JobType job) {
+		BlockState below = d.get(x, y - 1, z);
+		boolean ground = below == null ? y - 1 < d.site().ground(x, z) : dev.voidmc.hearth.build.kit.Garden.groundLike(d, x, y - 1, z);
+		return ground && at(d, type, x, y, z, facing, job);
+	}
+
 	/** Registers a point of interest at an exact cell if it is standable. */
 	public static boolean at(Draft d, PoiType type, int x, int y, int z, Direction facing, JobType job) {
 		if (standable(d, x, y, z)) {
