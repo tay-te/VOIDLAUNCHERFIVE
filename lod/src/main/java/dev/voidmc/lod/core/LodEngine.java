@@ -21,8 +21,9 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>Workers take jobs in priority order (coarse coverage first, then smallest screen error), and the
  *       queue is re-sorted a few times a second so a turning, moving camera gets what it is looking at
  *       now, not what it wanted when the job was queued.</li>
- *   <li>A job nobody has asked for in {@link #STALE_FRAMES} frames is dropped unbuilt: flying fast never
- *       leaves the workers grinding through terrain long behind.</li>
+ *   <li>A job the last {@link #STALE_FRAMES} selections did not ask for is dropped unbuilt: flying fast,
+ *       or the first frames of a world before any height is known, never leave the workers grinding
+ *       through terrain nobody will see.</li>
  *   <li>Uploads are bounded per frame by the renderer's staging space; what does not fit waits, so a
  *       burst of finished tiles costs a few frames a little each instead of one frame a lot.</li>
  *   <li>Workers run at minimum priority and leave cores for the game: the server thread, the chunk
@@ -38,7 +39,13 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		void free(Tile tile);
 	}
 
-	static final int STALE_FRAMES = 90;
+	/**
+	 * A job survives only while the latest selections still ask for it. Measured in frames, not time: the
+	 * selection is the truth, and a tile it stopped asking for is never worth building, however slowly
+	 * frames are coming (at world load they can come at a few a minute, while the first selections, made
+	 * before any tile's height is known, ask for far more detail than the settled view needs).
+	 */
+	static final int STALE_FRAMES = 3;
 	private static final int REPRIORITIZE_FRAMES = 15;
 	private static final int EVICT_FRAMES = 30;
 	private static final int KEEP_FRAMES = 1200;
