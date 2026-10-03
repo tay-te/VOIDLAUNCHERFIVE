@@ -29,7 +29,7 @@ class LodEngineTest {
 
 	private static final TerrainSource HILLS = (x, z, cell, out) -> {
 		out.ground = 64 + (int) (40 * Math.sin(x / 300.0) * Math.cos(z / 250.0));
-		out.groundColor = 0x60A040;
+		out.top = 0x60A040;
 		if (out.ground < 63) {
 			out.water = 63;
 		}

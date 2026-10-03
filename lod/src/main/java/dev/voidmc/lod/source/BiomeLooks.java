@@ -1,16 +1,21 @@
 package dev.voidmc.lod.source;
 
+import dev.voidmc.lod.core.Colors;
+import dev.voidmc.lod.core.ColumnSample;
+import dev.voidmc.lod.core.Colors;
+import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.util.valueproviders.IntProvider;
-import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.RandomBooleanSelectorFeature;
@@ -24,82 +29,241 @@ import net.minecraft.world.level.levelgen.placement.NoiseThresholdCountPlacement
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.placement.PlacementModifier;
 import net.minecraft.world.level.levelgen.placement.RarityFilter;
-import net.minecraft.world.level.material.MapColor;
 
 /**
- * What a biome looks like from a long way off, worked out once per biome from the biome itself rather
- * than from a hand-kept table, so modded biomes look right without anyone describing them:
+ * What a biome looks like from a long way off, worked out once per biome, from the biome itself and from the
+ * textures actually loaded rather than from a hand-kept table, so modded biomes and resource packs look
+ * right without anyone describing them:
  *
  * <ul>
- *   <li>the ground: sand, terracotta, snow, mycelium or grass in the biome's own tint, from its tags,
- *       temperature and rainfall;</li>
+ *   <li>the ground: which blocks make the surface, the soil under it and the rock under that (grass on dirt
+ *       on stone, sand on sandstone, snow, mycelium, banded terracotta), from the biome's tags, key,
+ *       temperature and rainfall; and each block's colour from its own textures and tint
+ *       ({@link TextureColors}), top face and side face apart;</li>
  *   <li>the trees: read from the biome's vegetation features. Every tree feature it places (through any
  *       nesting of random selectors) contributes its expected count per chunk (from the count, noise
- *       count and rarity placements), its height (from its trunk placer), its crown (from its foliage
- *       placer) and its leaves' colour. That gives a canopy height and the fraction of ground it covers,
- *       which is what a forest is at a distance.</li>
+ *       count and rarity placements), its height (from its trunk placer) and its leaves' colour. That gives
+ *       a canopy height, a crown size and the fraction of ground the crowns cover, which is what a forest is
+ *       at a distance.</li>
  * </ul>
+ *
+ * <p>Every biome of the level is worked out when the source is made, on the client thread (texture colours
+ * read sprite pixels), so the workers only ever read finished looks.
  */
 public final class BiomeLooks {
-	public enum Ground { GRASS, SAND, RED_SAND, TERRACOTTA, SNOW, MYCELIUM, STONE, MUD }
+	public enum Ground { GRASS, SAND, RED_SAND, BADLANDS, SNOW, SNOWCAP, MYCELIUM, STONE, MUD, GRAVEL, PODZOL }
 
-	public record Look(Ground ground, int groundColor, int waterColor, float cover, int canopy, int canopyColor, boolean snowy) {
+	public record Look(Ground ground, int top, int side, int soil, int soilDepth, int rock, int[] bands, int bandHeight, int bed,
+		int waterColor, float cover, int canopy, int leaves, float crown, boolean snowy) {
+		/** Puts this look into a sample: what the ground is made of, its water's tint, and its trees. */
+		public void fill(ColumnSample out) {
+			out.top = this.top;
+			out.side = this.side;
+			out.soil = this.soil;
+			out.soilDepth = this.soilDepth;
+			out.rock = this.rock;
+			out.bands = this.bands;
+			out.bandHeight = this.bandHeight;
+			out.waterColor = this.waterColor;
+			out.canopy = this.canopy;
+			out.cover = this.cover;
+			out.leaves = this.leaves;
+			out.crown = this.crown;
+		}
 	}
 
-	private static final int SAND = 0xD9CC9A;
-	private static final int RED_SAND = 0xB8642A;
-	private static final int TERRACOTTA = 0x9A5A3A;
-	private static final int SNOW = 0xF4F8FA;
-	private static final int MYCELIUM = 0x76666C;
-	private static final int STONE = 0x7D7D7D;
-	private static final int MUD = 0x4C4552;
-
-	private final Map<Holder<Biome>, Look> looks = new ConcurrentHashMap<>();
+	private final Map<Biome, Look> looks = new IdentityHashMap<>();
 	private final LevelAccessor level;
+	private final TextureColors textures = new TextureColors();
+	private final Biome anyBiome;
+	public final int snowTop;
+	public final int snowSide;
+	public final int stone;
+	public final int sand;
+	public final int sandstone;
+	public final int gravel;
+	public final int dirt;
+	public final int salt;
+	public final int basalt;
+	public final int lava;
+	public final int[] badlandsBands;
 
 	public BiomeLooks(LevelAccessor level) {
 		this.level = level;
+		var registry = level.registryAccess().lookupOrThrow(Registries.BIOME);
+		Biome first = null;
+		for (Holder.Reference<Biome> holder : registry.listElements().toList()) {
+			if (first == null) {
+				first = holder.value();
+			}
+			this.looks.put(holder.value(), this.compute(holder));
+		}
+		this.anyBiome = first;
+		this.snowTop = this.top(Blocks.SNOW.defaultBlockState());
+		this.snowSide = this.side(Blocks.GRASS_BLOCK.defaultBlockState().setValue(BlockStateProperties.SNOWY, true));
+		this.stone = this.top(Blocks.STONE.defaultBlockState());
+		this.sand = this.top(Blocks.SAND.defaultBlockState());
+		this.sandstone = this.side(Blocks.SANDSTONE.defaultBlockState());
+		this.gravel = this.top(Blocks.GRAVEL.defaultBlockState());
+		this.dirt = this.top(Blocks.DIRT.defaultBlockState());
+		this.salt = Colors.mix(this.top(Blocks.CALCITE.defaultBlockState()), this.top(Blocks.CONCRETE_POWDER.white().defaultBlockState()), 0.3F);
+		this.basalt = this.top(Blocks.BASALT.defaultBlockState());
+		this.lava = this.top(Blocks.LAVA.defaultBlockState()) == 0x7F7F7F ? 0xD96F21 : this.top(Blocks.LAVA.defaultBlockState());
+		this.badlandsBands = this.badlands();
 	}
 
 	public Look get(Holder<Biome> biome) {
-		Look look = this.looks.get(biome);
+		Look look = this.looks.get(biome.value());
 		if (look == null) {
-			look = this.compute(biome);
-			this.looks.put(biome, look);
+			// a biome the registry did not list when the source was made: work it out now, once
+			synchronized (this) {
+				look = this.looks.get(biome.value());
+				if (look == null) {
+					look = this.compute(biome);
+					this.looks.put(biome.value(), look);
+				}
+			}
 		}
 		return look;
+	}
+
+	private int top(BlockState state) {
+		return this.textures.top(state, this.anyBiome());
+	}
+
+	/** The top face of an untinted block, from its textures. Client thread only: for sources being made. */
+	public int colorOf(BlockState state) {
+		return this.top(state);
+	}
+
+	private int side(BlockState state) {
+		return this.textures.side(state, this.anyBiome());
+	}
+
+	private Biome anyBiome() {
+		return this.anyBiome != null ? this.anyBiome : this.looks.keySet().iterator().next();
+	}
+
+	/** Vanilla's badlands strata: mostly plain terracotta, banded orange, yellow, brown, red, white and grey. */
+	private int[] badlands() {
+		int t = this.top(Blocks.TERRACOTTA.defaultBlockState());
+		int o = this.top(Blocks.DYED_TERRACOTTA.orange().defaultBlockState());
+		int y = this.top(Blocks.DYED_TERRACOTTA.yellow().defaultBlockState());
+		int b = this.top(Blocks.DYED_TERRACOTTA.brown().defaultBlockState());
+		int r = this.top(Blocks.DYED_TERRACOTTA.red().defaultBlockState());
+		int w = this.top(Blocks.DYED_TERRACOTTA.white().defaultBlockState());
+		int g = this.top(Blocks.DYED_TERRACOTTA.lightGray().defaultBlockState());
+		return new int[]{t, o, o, t, y, t, t, b, t, r, t, o, w, g, t, o, t, t, y, y, t, r, b, t, o, t, w, t};
 	}
 
 	private Look compute(Holder<Biome> holder) {
 		Biome biome = holder.value();
 		float temperature = biome.getBaseTemperature();
 		boolean snowy = temperature < 0.15F;
+		String path = holder.unwrapKey().map(k -> k.identifier().getPath()).orElse("");
 		Ground ground;
 		if (holder.is(BiomeTags.IS_BADLANDS)) {
-			ground = Ground.TERRACOTTA;
-		} else if (holder.is(BiomeTags.IS_BEACH) || !biome.hasPrecipitation() && temperature > 1.0F) {
+			ground = Ground.BADLANDS;
+		} else if (holder.is(BiomeTags.IS_DEEP_OCEAN)) {
+			ground = Ground.GRAVEL;
+		} else if (holder.is(BiomeTags.IS_BEACH) || holder.is(BiomeTags.IS_OCEAN)) {
 			ground = Ground.SAND;
-		} else if (holder.is(BiomeTags.IS_OCEAN) || holder.is(BiomeTags.IS_RIVER)) {
+		} else if (holder.is(BiomeTags.IS_RIVER)) {
+			// a river biome is sand under its water only: its banks are grass, or snow where it freezes
+			ground = snowy ? Ground.SNOW : Ground.GRASS;
+		} else if (path.contains("desert") || !biome.hasPrecipitation() && temperature > 1.0F) {
 			ground = Ground.SAND;
-		} else if (snowy && !holder.is(BiomeTags.IS_TAIGA) && !holder.is(BiomeTags.IS_FOREST)) {
-			ground = Ground.SNOW;
-		} else if (holder.unwrapKey().map(k -> k.identifier().getPath().contains("mushroom")).orElse(false)) {
+		} else if (path.contains("mushroom")) {
 			ground = Ground.MYCELIUM;
+		} else if (path.contains("mangrove")) {
+			ground = Ground.MUD;
+		} else if (path.contains("stony") || path.contains("stone_")) {
+			ground = Ground.STONE;
+		} else if (path.contains("gravel")) {
+			ground = Ground.GRAVEL;
+		} else if (snowy && (path.contains("peak") || path.contains("slope") || path.contains("glacier"))) {
+			ground = Ground.SNOWCAP;
+		} else if (snowy) {
+			ground = Ground.SNOW;
+		} else if (path.contains("old_growth") && (holder.is(BiomeTags.IS_TAIGA) || path.contains("taiga"))) {
+			ground = Ground.PODZOL;
 		} else {
 			ground = Ground.GRASS;
 		}
-		int groundColor = switch (ground) {
-			// the grass texture is grey under its tint and about two thirds as bright as the tint itself
-			case GRASS -> scale(biome.getGrassColor(0, 0), 0.72F);
-			case SAND -> SAND;
-			case RED_SAND -> RED_SAND;
-			case TERRACOTTA -> TERRACOTTA;
-			case SNOW -> SNOW;
-			case MYCELIUM -> MYCELIUM;
-			case STONE -> STONE;
-			case MUD -> MUD;
+
+		BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState();
+		BlockState dirt = Blocks.DIRT.defaultBlockState();
+		BlockState stone = Blocks.STONE.defaultBlockState();
+		int top, side, soil, rock, soilDepth = 3, bandHeight = 2;
+		int[] bands = null;
+		TextureColors t = this.textures;
+		switch (ground) {
+			case SAND -> {
+				top = side = soil = t.top(Blocks.SAND.defaultBlockState(), biome);
+				rock = t.side(Blocks.SANDSTONE.defaultBlockState(), biome);
+			}
+			case RED_SAND -> {
+				top = side = soil = t.top(Blocks.RED_SAND.defaultBlockState(), biome);
+				rock = t.side(Blocks.RED_SANDSTONE.defaultBlockState(), biome);
+			}
+			case BADLANDS -> {
+				// red sand lies on the level tops; the slopes and walls are the strata
+				side = soil = rock = t.top(Blocks.TERRACOTTA.defaultBlockState(), biome);
+				top = Colors.mix(t.top(Blocks.RED_SAND.defaultBlockState(), biome), side, 0.35F);
+				bands = this.badlandsBands != null ? this.badlandsBands : this.badlands();
+				soilDepth = 0;
+			}
+			case SNOW -> {
+				top = t.top(Blocks.SNOW.defaultBlockState(), biome);
+				side = t.side(grass.setValue(BlockStateProperties.SNOWY, true), biome);
+				soil = t.top(dirt, biome);
+				rock = t.top(stone, biome);
+			}
+			case SNOWCAP -> {
+				top = side = soil = t.top(Blocks.SNOW_BLOCK.defaultBlockState(), biome);
+				rock = t.top(stone, biome);
+				soilDepth = 2;
+			}
+			case MYCELIUM -> {
+				top = t.top(Blocks.MYCELIUM.defaultBlockState(), biome);
+				side = t.side(Blocks.MYCELIUM.defaultBlockState(), biome);
+				soil = t.top(dirt, biome);
+				rock = t.top(stone, biome);
+			}
+			case STONE -> {
+				top = side = soil = rock = t.top(stone, biome);
+			}
+			case MUD -> {
+				top = side = soil = t.top(Blocks.MUD.defaultBlockState(), biome);
+				rock = t.top(stone, biome);
+			}
+			case GRAVEL -> {
+				top = side = soil = t.top(Blocks.GRAVEL.defaultBlockState(), biome);
+				rock = t.top(stone, biome);
+			}
+			case PODZOL -> {
+				// old growth taiga: podzol, coarse dirt, moss and grass in patches
+				top = Colors.mix(t.top(Blocks.PODZOL.defaultBlockState(), biome), t.top(grass, biome), 0.45F);
+				side = Colors.mix(t.side(Blocks.PODZOL.defaultBlockState(), biome), t.side(grass, biome), 0.45F);
+				soil = t.top(dirt, biome);
+				rock = t.top(stone, biome);
+			}
+			default -> {
+				top = t.top(grass, biome);
+				side = t.side(grass, biome);
+				soil = t.top(dirt, biome);
+				rock = t.top(stone, biome);
+			}
+		}
+		int bed = switch (ground) {
+			case SAND, RED_SAND, BADLANDS, GRAVEL, MUD -> top;
+			default -> t.top(Blocks.GRAVEL.defaultBlockState(), biome);
 		};
-		Trees trees = new Trees(scale(biome.getFoliageColor(), 0.62F));
+		if (holder.is(BiomeTags.IS_RIVER)) {
+			bed = t.top(Blocks.SAND.defaultBlockState(), biome);
+		}
+
+		Trees trees = new Trees(biome);
 		var steps = biome.getGenerationSettings().features();
 		int vegetal = GenerationStep.Decoration.VEGETAL_DECORATION.ordinal();
 		if (steps.size() > vegetal) {
@@ -107,22 +271,25 @@ public final class BiomeLooks {
 				trees.visit(placed.value(), 1.0, 0);
 			}
 		}
-		return new Look(ground, groundColor, scale(biome.getWaterColor(), 0.78F), trees.cover(), trees.height(), trees.color(), snowy);
+		int water = Colors.multiply(0xFFFFFF, biome.getWaterColor());
+		return new Look(ground, top, side, soil, soilDepth, rock, bands, bandHeight, bed, water, trees.cover(), trees.height(),
+			trees.color(), trees.crown(), snowy);
 	}
 
 	/** Accumulates the tree features a biome places, weighted by how many of each it places per chunk. */
 	private final class Trees {
 		private final RandomSource random = RandomSource.create(42);
-		private final int tint;
+		private final Biome biome;
 		private double perChunk;
 		private double crownArea;
 		private double height;
+		private double radius;
 		private double r;
 		private double g;
 		private double b;
 
-		Trees(int tint) {
-			this.tint = tint;
+		Trees(Biome biome) {
+			this.biome = biome;
 		}
 
 		void visit(PlacedFeature placed, double weight, int depth) {
@@ -180,23 +347,21 @@ public final class BiomeLooks {
 			this.perChunk += count;
 			this.crownArea += count * Math.PI * radius * radius;
 			this.height += count * height;
-			this.r += count * ((leaves >> 16) & 0xFF);
-			this.g += count * ((leaves >> 8) & 0xFF);
-			this.b += count * (leaves & 0xFF);
+			this.radius += count * radius;
+			this.r += count * Colors.r(leaves);
+			this.g += count * Colors.g(leaves);
+			this.b += count * Colors.b(leaves);
 		}
 
 		private int leafColor(TreeFeature tree) {
+			BlockState state;
 			try {
-				BlockState state = tree.foliageProvider().value().getState(BiomeLooks.this.level, this.random, BlockPos.ZERO);
-				MapColor color = state.getMapColor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
-				// tinted leaves report the generic plant colour: those take the biome's foliage colour
-				if (color == MapColor.PLANT || color == MapColor.GRASS || color == MapColor.NONE) {
-					return this.tint;
-				}
-				return scale(color.col, 0.85F);
+				state = tree.foliageProvider().value().getState(BiomeLooks.this.level, this.random, BlockPos.ZERO);
 			} catch (RuntimeException e) {
-				return this.tint;
+				state = Blocks.OAK_LEAVES.defaultBlockState();
 			}
+			// leaves shade each other: a crown is darker than one leaf block in full light
+			return Colors.scale(BiomeLooks.this.textures.top(state, this.biome), 0.82F);
 		}
 
 		float cover() {
@@ -208,11 +373,15 @@ public final class BiomeLooks {
 			return this.perChunk <= 0 ? 0 : (int) Math.round(this.height / this.perChunk);
 		}
 
+		float crown() {
+			return this.perChunk <= 0 ? 2.5F : (float) (this.radius / this.perChunk);
+		}
+
 		int color() {
 			if (this.perChunk <= 0) {
-				return this.tint;
+				return Colors.scale(BiomeLooks.this.textures.top(Blocks.OAK_LEAVES.defaultBlockState(), this.biome), 0.82F);
 			}
-			return (int) (this.r / this.perChunk) << 16 | (int) (this.g / this.perChunk) << 8 | (int) (this.b / this.perChunk);
+			return Colors.rgb((float) (this.r / this.perChunk), (float) (this.g / this.perChunk), (float) (this.b / this.perChunk));
 		}
 	}
 
@@ -233,24 +402,5 @@ public final class BiomeLooks {
 
 	private static double mean(IntProvider p) {
 		return (p.minInclusive() + p.maxInclusive()) / 2.0;
-	}
-
-	static int scale(int rgb, float f) {
-		int r = Math.min(255, (int) (((rgb >> 16) & 0xFF) * f));
-		int g = Math.min(255, (int) (((rgb >> 8) & 0xFF) * f));
-		int b = Math.min(255, (int) ((rgb & 0xFF) * f));
-		return r << 16 | g << 8 | b;
-	}
-
-	static int snow() {
-		return SNOW;
-	}
-
-	static int stone() {
-		return STONE;
-	}
-
-	static int sand() {
-		return SAND;
 	}
 }

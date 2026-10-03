@@ -119,7 +119,11 @@ public final class LodSelector {
 			this.store.want(key, level >= this.top - COVER_LEVELS + 1 ? -level : priority);
 			return false;
 		}
-		if (!ready && level >= this.top - COVER_LEVELS + 1) {
+		if (ready) {
+			// a split tile is its children's fallback: keep it while they show, or losing one of them would
+			// leave a hole until the parent was built again
+			this.store.touch(key);
+		} else if (level >= this.top - COVER_LEVELS + 1) {
 			this.store.want(key, -level);
 		}
 		int mark = this.draw.size();

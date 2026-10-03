@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import dev.voidmc.lod.core.LodEngine;
 import dev.voidmc.lod.core.TerrainSource;
+import dev.voidmc.lod.core.TileBuilder;
 import dev.voidmc.lod.render.LodRenderer;
 import dev.voidmc.lod.source.WorldgenSource;
 import java.util.Locale;
@@ -18,6 +19,7 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,8 +30,10 @@ import org.slf4j.LoggerFactory;
  * a chunk (and from Expanse's terrain model directly, when the world is an Earth world), so the view is
  * complete the moment a world loads, not once someone has walked it. Settings are system properties for
  * now: {@code void.lod.radius} (blocks, default 8192), {@code void.lod.detail} (the most pixels a cell may
- * cover before its tile splits, default 5), {@code void.lod.threads}, {@code void.lod.budget} (MB of GPU
- * memory, default 512) and {@code void.lod.enabled}. F8 toggles it.
+ * cover before its tile splits, default 5), {@code void.lod.haze} (how far the air carries at sea level,
+ * default half the radius), {@code void.lod.smoothFrom} (the first level drawn smooth, default 2),
+ * {@code void.lod.threads}, {@code void.lod.budget} (MB of GPU memory, default 512) and
+ * {@code void.lod.enabled}. F8 toggles it.
  */
 public final class VoidLod implements ClientModInitializer {
 	public static final String ID = "void_lod";
@@ -39,6 +43,10 @@ public final class VoidLod implements ClientModInitializer {
 
 	public final double radius = Double.parseDouble(System.getProperty("void.lod.radius", "8192"));
 	public final double detail = Double.parseDouble(System.getProperty("void.lod.detail", "5"));
+	/** How far the air carries at sea level before the haze is two thirds of the view: by default, half the radius. */
+	public final double hazeReach = Double.parseDouble(System.getProperty("void.lod.haze", String.valueOf(this.radius * 0.5)));
+	/** How fast the haze thins with height: it is a third as thick this many blocks above sea level. */
+	public static final float HAZE_SCALE_HEIGHT = 160;
 	public final int threads = Integer.getInteger("void.lod.threads",
 		Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)));
 	private boolean enabled = Boolean.parseBoolean(System.getProperty("void.lod.enabled", "true"));
@@ -50,6 +58,10 @@ public final class VoidLod implements ClientModInitializer {
 	private int resets;
 	private int ticks;
 	private final boolean logStats = Boolean.getBoolean("void.lod.logStats");
+	/** This frame's haze for the shader, from the fog mixin: 1 / reach (0 for vanilla's fog), 1 / scale height, base y, rain. */
+	private final float[] haze = new float[4];
+	/** Whether this frame's fog (water, lava, blindness) ends before the chunks do, hiding the LOD entirely. */
+	private boolean fogHidesLod;
 
 	public static VoidLod get() {
 		return instance;
@@ -84,7 +96,8 @@ public final class VoidLod implements ClientModInitializer {
 
 	/** The terrain source for the level the player is in, or null where there is none to be had. */
 	private TerrainSource createSource(Minecraft mc) {
-		if (mc.level == null || mc.level.dimensionType().hasCeiling()) {
+		if (mc.level == null || mc.level.dimensionType().hasCeiling() || mc.level.dimension() == Level.END) {
+			// a ceiling hides the distance; the End is islands over the void, which a heightfield cannot draw
 			return null;
 		}
 		var server = mc.getSingleplayerServer();
@@ -152,21 +165,48 @@ public final class VoidLod implements ClientModInitializer {
 		if (this.renderer == null) {
 			this.renderer = new LodRenderer(this.engine);
 		}
-		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail);
+		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.haze);
 	}
 
 	public void draw(RenderPass pass) {
-		if (this.active() && this.renderer != null) {
+		if (this.active() && this.renderer != null && !this.fogHidesLod) {
 			this.renderer.draw(pass);
 		}
+	}
+
+	/**
+	 * Sets this frame's aerial haze: {@code reach} blocks at height {@code base} (0 for none, and vanilla's own
+	 * fog instead), plus {@code offset} blocks of haze before the first (rain's).
+	 */
+	public void setHaze(float reach, float base, float offset, boolean hidden) {
+		this.haze[0] = reach > 0 ? 1.0F / reach : 0;
+		this.haze[1] = 1.0F / HAZE_SCALE_HEIGHT;
+		this.haze[2] = base;
+		this.haze[3] = offset;
+		this.fogHidesLod = hidden;
 	}
 
 	public String stats() {
 		LodEngine e = this.engine;
 		LodRenderer r = this.renderer;
 		long built = e.tilesBuilt.get();
-		return String.format(Locale.ROOT, "LOD %s: %d tiles drawn, %,d quads, %d cached, %d queued, %d built (%.2f ms avg), GPU %.1f MB, prepare %.2f ms",
-			this.active() ? "on" : "off", r == null ? 0 : r.lastTiles, r == null ? 0 : r.lastQuads, e.tileCount(), e.queued(), built,
-			built == 0 ? 0 : e.buildNanos.get() / 1e6 / built, e.gpuBytes() / 1048576.0, r == null ? 0 : r.lastPrepareNanos / 1e6);
+		StringBuilder out = new StringBuilder(String.format(Locale.ROOT,
+			"LOD %s: %d cached, %d queued, %d built (%.2f ms avg, %.2f sampling), GPU %.1f MB",
+			this.active() ? "on" : "off", e.tileCount(), e.queued(), built, built == 0 ? 0 : e.buildNanos.get() / 1e6 / built,
+			built == 0 ? 0 : TileBuilder.SAMPLE_NANOS.get() / 1e6 / built, e.gpuBytes() / 1048576.0));
+		if (r != null) {
+			out.append(String.format(Locale.ROOT,
+				" | %d tiles drawn, %,d quads, prepare %.2f ms (engine %.2f, staging %.2f, buffers %.2f), GPU draw %.2f ms",
+				r.lastTiles, r.lastQuads, r.lastPrepareNanos / 1e6, r.lastEngineNanos / 1e6, r.lastStagingNanos / 1e6,
+				r.lastBufferNanos / 1e6, r.gpuMillis));
+		}
+		if (WorldgenSource.TIMING) {
+			out.append(String.format(Locale.ROOT, " | source: model %.1f s, biomes %.1f s, total %.1f s",
+				WorldgenSource.TIMES.get(0) / 1e9, WorldgenSource.TIMES.get(1) / 1e9, WorldgenSource.TIMES.get(2) / 1e9));
+		}
+		if (e.source() instanceof WorldgenSource w) {
+			out.append(w.diagnostics());
+		}
+		return out.toString();
 	}
 }

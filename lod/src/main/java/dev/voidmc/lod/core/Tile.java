@@ -17,7 +17,13 @@ public final class Tile {
 	public volatile long wantedFrame;
 	/** The last frame the selection drew this tile or fell back on it. */
 	public long usedFrame;
+	/** When the selection last drew, kept or wanted this tile. */
+	public long usedNanos;
+	/** Quads, or their equivalent for a smooth tile: for the statistics. */
 	public int quads;
+	public int vertices;
+	public int indices;
+	public boolean smooth;
 	public int minY;
 	public int maxY;
 	/** The renderer's handle on the uploaded mesh. */
@@ -32,6 +38,6 @@ public final class Tile {
 	}
 
 	public int bytes() {
-		return this.quads * TileBuilder.QUAD_BYTES;
+		return this.vertices * TileBuilder.VERTEX_BYTES;
 	}
 }

@@ -5,7 +5,9 @@
 	"client": [
 		"CameraMixin",
 		"FogRendererMixin",
-		"LevelRendererMixin"
+		"LevelRendererMixin",
+		"MaterialSystemAccessor",
+		"SpriteContentsAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

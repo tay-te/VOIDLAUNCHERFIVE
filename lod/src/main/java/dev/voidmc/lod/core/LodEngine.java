@@ -24,8 +24,10 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>A job the last {@link #STALE_FRAMES} selections did not ask for is dropped unbuilt: flying fast,
  *       or the first frames of a world before any height is known, never leave the workers grinding
  *       through terrain nobody will see.</li>
- *   <li>Uploads are bounded per frame by the renderer's staging space; what does not fit waits, so a
- *       burst of finished tiles costs a few frames a little each instead of one frame a lot.</li>
+ *   <li>Uploads are bounded per frame, by bytes and by the renderer's staging space; what does not fit
+ *       waits, so a burst of finished tiles costs a few frames a little each instead of one frame a lot.</li>
+ *   <li>Everything but job staleness is timed in seconds, not frames, so the engine behaves the same at
+ *       30 frames a second and at 2000: a tile nobody draws, wants or falls back on stays 30 s.</li>
  *   <li>Workers run at minimum priority and leave cores for the game: the server thread, the chunk
  *       builders and the render thread come first.</li>
  * </ul>
@@ -46,9 +48,19 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	 * before any tile's height is known, ask for far more detail than the settled view needs).
 	 */
 	static final int STALE_FRAMES = 3;
-	private static final int REPRIORITIZE_FRAMES = 15;
-	private static final int EVICT_FRAMES = 30;
-	private static final int KEEP_FRAMES = 1200;
+	/**
+	 * The rest is measured in time, so it means the same at 30 frames a second and at 2000: how often the queue
+	 * is re-sorted and the cache swept, and how long a tile nobody has drawn or wanted stays on the GPU.
+	 */
+	private static final long REPRIORITIZE_NANOS = 250_000_000L;
+	private static final long EVICT_NANOS = 500_000_000L;
+	private static final long KEEP_NANOS = 30_000_000_000L;
+	/**
+	 * Mesh bytes handed to the GPU per frame at most (one tile always goes, however big). 4 MB a frame is
+	 * 240 MB a second at 60 fps, far more than the workers produce, yet small enough that a burst of finished
+	 * tiles never costs one frame milliseconds of copying.
+	 */
+	private static final long UPLOAD_BYTES_PER_FRAME = 4L << 20;
 
 	private record Job(Tile tile, float priority, long order) implements Comparable<Job> {
 		@Override
@@ -58,7 +70,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		}
 	}
 
-	private record Built(Tile tile, ByteBuffer vertices, int quads, int minY, int maxY, long version) {
+	private record Built(Tile tile, ByteBuffer vertices, TileBuilder.Mesh mesh, long version) {
 	}
 
 	private final Long2ObjectOpenHashMap<Tile> tiles = new Long2ObjectOpenHashMap<>();
@@ -71,6 +83,10 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private volatile TerrainSource source;
 	private volatile long version;
 	private volatile long frame;
+	/** The time of the current frame, and when the queue was last re-sorted and the cache last swept. */
+	private long frameNanos;
+	private long reprioritizedNanos;
+	private long evictedNanos;
 	private volatile boolean running = true;
 	private long gpuBytes;
 	private long budgetBytes;
@@ -80,6 +96,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	public final AtomicLong buildNanos = new AtomicLong();
 	public final AtomicLong quadsBuilt = new AtomicLong();
 	public final AtomicLong jobsDropped = new AtomicLong();
+	/** Built meshes thrown away (their tile was dropped or reset meanwhile), and ready tiles evicted. */
+	public long resultsDiscarded;
+	public long evictedReady;
 
 	public LodEngine(int threads, long budgetBytes) {
 		this.budgetBytes = budgetBytes;
@@ -121,15 +140,18 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	 * One frame: select, queue, upload, evict. Returns the tiles to draw, valid until the next call.
 	 */
 	public LongList update(Gpu gpu, double cx, double cy, double cz, double radius, double clip, double scale, double pixelsPerCell) {
-		long now = ++this.frame;
+		++this.frame;
+		long nanos = this.frameNanos = System.nanoTime();
 		LongList draw = this.source == null
 			? new LongList()
 			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell);
-		if (now % REPRIORITIZE_FRAMES == 0) {
+		if (nanos - this.reprioritizedNanos > REPRIORITIZE_NANOS) {
+			this.reprioritizedNanos = nanos;
 			this.reprioritize();
 		}
 		this.drainBuilt(gpu);
-		if (now % EVICT_FRAMES == 0) {
+		if (nanos - this.evictedNanos > EVICT_NANOS) {
+			this.evictedNanos = nanos;
 			this.evict(gpu);
 		}
 		return draw;
@@ -177,6 +199,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			this.tiles.put(key, tile);
 		}
 		tile.wantedFrame = this.frame;
+		tile.usedNanos = this.frameNanos;
 		tile.priority = priority;
 		if (tile.state == Tile.State.QUEUED && !tile.inQueue) {
 			tile.inQueue = true;
@@ -189,6 +212,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		Tile tile = this.tiles.get(key);
 		if (tile != null) {
 			tile.usedFrame = this.frame;
+			tile.usedNanos = this.frameNanos;
 		}
 	}
 
@@ -226,7 +250,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				TileBuilder.Mesh mesh = builder.build(src, tile.key);
 				ByteBuffer copy = ByteBuffer.allocateDirect(Math.max(1, mesh.bytes())).order(ByteOrder.nativeOrder());
 				copy.put(mesh.vertices()).flip();
-				this.built.add(new Built(tile, copy, mesh.quads(), mesh.minY(), mesh.maxY(), ver));
+				// the record keeps the counts; its buffer is the builder's own and is about to be reused
+				this.built.add(new Built(tile, copy, new TileBuilder.Mesh(copy, mesh.vertexCount(), mesh.indexCount(), mesh.smooth(), mesh.minY(), mesh.maxY()), ver));
 				this.quadsBuilt.addAndGet(mesh.quads());
 			} catch (Throwable t) {
 				// a source that throws for one column should not take the worker with it
@@ -258,16 +283,22 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		while ((b = this.built.poll()) != null) {
 			this.waiting.add(b);
 		}
-		while ((b = this.waiting.peek()) != null) {
+		long budget = UPLOAD_BYTES_PER_FRAME;
+		while ((b = this.waiting.peek()) != null && budget > 0) {
 			Tile tile = b.tile();
 			if (b.version() != this.version || tile.state != Tile.State.BUILDING) {
 				this.waiting.poll();
+				this.resultsDiscarded++;
 				continue;
 			}
-			tile.quads = b.quads();
-			tile.minY = b.minY();
-			tile.maxY = b.maxY();
-			if (b.quads() == 0) {
+			TileBuilder.Mesh mesh = b.mesh();
+			tile.quads = mesh.quads();
+			tile.vertices = mesh.vertexCount();
+			tile.indices = mesh.indexCount();
+			tile.smooth = mesh.smooth();
+			tile.minY = mesh.minY();
+			tile.maxY = mesh.maxY();
+			if (mesh.vertexCount() == 0) {
 				this.waiting.poll();
 				tile.state = Tile.State.READY;
 				continue;
@@ -278,6 +309,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				tile.state = Tile.State.BUILDING;
 				break;
 			}
+			budget -= b.mesh().bytes();
 			this.waiting.poll();
 		}
 	}
@@ -299,13 +331,14 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			long idle = now - Math.max(tile.usedFrame, tile.wantedFrame);
 			boolean drop = switch (tile.state) {
 				case QUEUED -> idle > STALE_FRAMES && !tile.inQueue;
-				case READY -> idle > KEEP_FRAMES || over && idle > 2;
+				case READY -> this.frameNanos - tile.usedNanos > KEEP_NANOS || over && idle > 2;
 				case DEAD -> true;
 				default -> false;
 			};
 			if (drop) {
 				if (tile.state == Tile.State.READY) {
 					this.gpuBytes -= tile.bytes();
+					this.evictedReady++;
 				}
 				if (tile.gpu != null) {
 					gpu.free(tile);

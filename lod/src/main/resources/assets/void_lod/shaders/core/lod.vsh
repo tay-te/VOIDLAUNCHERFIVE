@@ -7,34 +7,98 @@
 #include <minecraft:sample_lightmap.glsl>
 #include <void_lod:lodinfo.glsl>
 
-// Per vertex: x and z in cells from the tile's corner, y in blocks, face (0 up, 2/3 north/south,
-// 4/5 west/east, +8 for water). Per tile (one instance each): its corner in blocks and its level.
+// Per vertex: x and z in cells from the tile's corner, y in eighths of a block, flags (face in the low three
+// bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east; +8 for water), then two colours. Blocky faces use the
+// first, with ambient occlusion (tops) or height above the floor (walls) in its alpha. Smooth vertices carry
+// the colour of the tops and of the risers, with the slope along x and z in the two alphas.
+// Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
+// -n fading out, in 255ths).
 layout(location = 0) in ivec4 LodPos;
-layout(location = 1) in vec4 LodColor;
-layout(location = 2) in ivec4 LodTile;
+layout(location = 1) in vec4 LodTop;
+layout(location = 2) in vec4 LodSide;
+layout(location = 3) in ivec4 LodTile;
 
 uniform sampler2D Sampler2;
 
-layout(location = 0) out float sphericalVertexDistance;
-layout(location = 1) out float cylindricalVertexDistance;
-layout(location = 2) out vec4 vertexColor;
-layout(location = 3) out vec2 horizontal;
+layout(location = 0) out vec4 vertexColor;
+layout(location = 1) out vec2 horizontal;
+layout(location = 4) flat out float tileFade;
+#ifdef LOD_SMOOTH
+layout(location = 2) out vec3 sideColor;
+layout(location = 3) out vec4 stair;
+#else
+layout(location = 2) out vec3 blockPos;
+layout(location = 3) out vec2 occlusion;
+#endif
+
+float decodeSlope(float a) {
+    float e = floor(a * 255.0 + 0.5) - 128.0;
+    return e * abs(e) / 2048.0;
+}
+
+// The optical depth of the air between the camera and a point, for haze that thins with height: dense in the
+// valleys, thin over the peaks, so a far range stands clear above the haze that fills the land in front of it.
+float haze(vec3 pos, float worldY) {
+    float cameraY = float(CameraBlockPos.y) - CameraOffset.y;
+    float k = (worldY - cameraY) * LodHaze.y;
+    float along = abs(k) < 1e-3 ? 1.0 - 0.5 * k : (1.0 - exp(-k)) / k;
+    float density = exp(clamp((LodHaze.z - cameraY) * LodHaze.y, -8.0, 4.0));
+    return 1.0 - exp(-(length(pos) + LodHaze.w) * LodHaze.x * density * along);
+}
 
 void main() {
     // Integer arithmetic until the camera is subtracted, so the far edge of the world keeps its precision.
     int cell = 1 << LodTile.z;
-    ivec3 rel = ivec3(LodTile.x + LodPos.x * cell, LodPos.y, LodTile.y + LodPos.z * cell) - CameraBlockPos;
-    vec3 pos = vec3(rel) + CameraOffset;
+    float worldY = float(LodPos.y) * 0.125;
+    ivec2 rel = ivec2(LodTile.x + LodPos.x * cell, LodTile.y + LodPos.z * cell) - CameraBlockPos.xz;
+    vec3 pos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) + CameraOffset;
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
+    vec3 toCamera = normalize(-pos);
 
     int face = LodPos.w & 7;
+    vec3 color;
+    vec3 light = sample_lightmap(Sampler2, ivec2(0, 240)).rgb;
+#ifdef LOD_SMOOTH
+    // A stair of blocks seen from afar: tops in the top colour, risers in the side colour with Minecraft's
+    // face shading, each weighted by the area it shows the camera. From above a hillside is its grass, from
+    // across the valley mostly its risers, and a slope above the eye shows no tops at all. The fragment shader
+    // draws the risers as steps a block tall where they are still a pixel or more, and their average beyond.
+    vec2 slope = vec2(decodeSlope(LodTop.a), decodeSlope(LodSide.a));
+    vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
+    float wt = n.y * max(toCamera.y, 0.0) + 0.002;
+    float wx = abs(n.x) * max(sign(n.x) * toCamera.x, 0.0);
+    float wz = abs(n.z) * max(sign(n.z) * toCamera.z, 0.0);
+    color = LodTop.rgb;
+    sideColor = LodSide.rgb * ((0.6 * wx + 0.8 * wz) / max(wx + wz, 1e-5)) * light;
+    stair = vec4((wx + wz) / (wt + wx + wz), worldY, slope);
+#else
     // Minecraft's own directional shading: tops full, north and south a little darker, east and west more.
-    float shade = face == 0 ? 1.0 : (face <= 3 ? 0.8 : 0.62);
-    // Full sky light, through the lightmap: the LOD darkens at dusk and night exactly as the chunks do.
-    vec4 daylight = sample_lightmap(Sampler2, ivec2(0, 240));
-    vertexColor = vec4(LodColor.rgb * shade, 1.0) * vec4(daylight.rgb, 1.0);
+    color = LodTop.rgb * (face == 0 ? 1.0 : (face <= 3 ? 0.8 : 0.6));
+    vec3 normal = face == 0 ? vec3(0.0, 1.0, 0.0) : face == 2 ? vec3(0.0, 0.0, -1.0) : face == 3 ? vec3(0.0, 0.0, 1.0)
+        : face == 4 ? vec3(-1.0, 0.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    // just inside the block the face belongs to, so floor() names that block
+    blockPos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) - 0.5 * normal;
+    occlusion = face == 0 ? vec2(LodTop.a, 64.0) : vec2(1.0, LodTop.a * 255.0);
+#endif
 
-    sphericalVertexDistance = fog_spherical_distance(pos);
-    cylindricalVertexDistance = fog_cylindrical_distance(pos);
+    // Full sky light, through the lightmap: the LOD darkens at dusk and night exactly as the chunks do.
+    color *= light;
+
+    if ((LodPos.w & 8) != 0) {
+        // Water at a low angle mirrors the sky. Only out past the chunks, where vanilla's own water ends.
+        float fresnel = pow(1.0 - max(toCamera.y, 0.0), 5.0);
+        float past = clamp((length(pos.xz) - LodClip.x) / max(LodClip.x, 96.0), 0.0, 1.0);
+        color = mix(color, FogColor.rgb, fresnel * 0.6 * past);
+    }
+
+    float cylindrical = fog_cylindrical_distance(pos);
+    float fog;
+    if (LodHaze.x > 0.0) {
+        fog = max(haze(pos, worldY), linear_fog_value(cylindrical, FogRenderDistanceStart, FogRenderDistanceEnd));
+    } else {
+        fog = total_fog_value(fog_spherical_distance(pos), cylindrical, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd);
+    }
+    vertexColor = vec4(color, fog);
     horizontal = pos.xz;
+    tileFade = float(LodTile.w) / 255.0;
 }

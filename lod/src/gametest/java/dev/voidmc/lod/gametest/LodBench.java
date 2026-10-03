@@ -28,13 +28,14 @@ public final class LodBench {
 		TerrainModel model = TerrainModel.forSeed(TerrainModel.seedFor(seed));
 		TerrainSource source = (x, z, cell, out) -> {
 			Column c = model.sample(x, z);
-			out.ground = (int) Math.ceil(c.height);
+			out.ground = c.height;
 			if (c.inChannel()) {
 				out.water = c.waterTop();
 			} else if (out.ground < 63) {
 				out.water = 63;
 			}
-			out.groundColor = out.ground > 160 ? 0xF0F0F0 : 0x5A8A3A;
+			out.top = out.ground > 160 ? 0xF0F0F0 : 0x5A8A3A;
+			out.side = 0x7F6B42;
 			if (Boolean.getBoolean("lod.bench.trees")) {
 				out.canopy = 10;
 				out.cover = 0.6F;
@@ -75,10 +76,13 @@ public final class LodBench {
 				warm.build(source, tiles.get(i));
 			}
 			AtomicLong quads = new AtomicLong();
+			AtomicLong bytes = new AtomicLong();
 			long t0 = System.nanoTime();
 			TileBuilder one = new TileBuilder();
 			for (int i = 0; i < tiles.size(); i++) {
-				quads.addAndGet(one.build(source, tiles.get(i)).quads());
+				TileBuilder.Mesh mesh = one.build(source, tiles.get(i));
+				quads.addAndGet(mesh.quads());
+				bytes.addAndGet(mesh.bytes());
 			}
 			long single = System.nanoTime() - t0;
 
@@ -96,7 +100,7 @@ public final class LodBench {
 			}
 			System.out.printf(Locale.ROOT,
 				"radius %5.0f m: %4d tiles (%s), select %.2f ms | %,d quads = %.1f MB | build %.0f ms on 1 thread (%.2f ms/tile), %.0f ms on %d%n",
-				radius, tiles.size(), perLevel.toString().trim(), selectNanos / 1e6, quads.get(), quads.get() * TileBuilder.QUAD_BYTES / 1048576.0,
+				radius, tiles.size(), perLevel.toString().trim(), selectNanos / 1e6, quads.get(), bytes.get() / 1048576.0,
 				single / 1e6, single / 1e6 / tiles.size(), parallel / 1e6, threads);
 		}
 	}
