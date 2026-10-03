@@ -57,6 +57,17 @@ public final class Housing {
 				return grew;
 			}
 		}
+		// fill in near the heart before spreading out along the main roads
+		if (!layout.expansive && ctx.distanceToHeart(site.x0 + site.sizeX / 2, site.z0 + site.sizeZ / 2) > ctx.coreRadius() * Growth.reach(Placement.HOME)
+			&& Expand.town(ctx)) {
+			grew = true;
+			Parcels.Parcel nearer = Parcels.best(ctx, new Parcels.Request(probe, Placement.HOME, District.Kind.RESIDENTIAL), null);
+			if (nearer != null && (!Parcels.stillClear(ctx, site) || ctx.distanceToHeart(nearer.x0, nearer.z0) < ctx.distanceToHeart(site.x0, site.z0))) {
+				site = nearer;
+			} else if (!Parcels.stillClear(ctx, site)) {
+				return true;
+			}
+		}
 		// dense towns rebuild a crowded core taller before they sprawl
 		if (site.zone >= 2 && (layout.dense || vertical > 1.2) && ctx.tier.ordinal() >= SettlementTier.VILLAGE.ordinal()
 			&& Upgrades.plan(ctx, needs, true)) {
@@ -119,12 +130,12 @@ public final class Housing {
 			} else if (id.equals(Archetypes.COTTAGE)) {
 				w *= switch (zone) {
 					case 0 -> layout.dense ? 0.15 : tier.ordinal() >= SettlementTier.TOWN.ordinal() ? 0.3 : 0.9;
-					case 1 -> 1.6;
+					case 1 -> layout.dense ? 0.35 : 1.6;
 					case 2 -> 1.3;
 					default -> 0.8;
 				};
 			} else if (id.equals(Archetypes.ROWHOUSE)) {
-				w *= zone == 0 ? 2.2 : zone == 1 && layout.dense ? 1.0 : zone == 1 ? 0.25 : 0;
+				w *= zone == 0 ? 2.2 : zone == 1 && layout.dense ? 2.4 : zone == 1 ? 0.25 : 0;
 			} else if (id.equals(Archetypes.TOWNHOUSE)) {
 				w *= (zone == 0 ? 2.6 : zone == 1 && layout.dense ? 1.2 : 0) * vertical;
 			} else if (id.equals(Archetypes.TENEMENT)) {
@@ -132,7 +143,8 @@ public final class Housing {
 			} else if (id.equals(Archetypes.SHOPHOUSE)) {
 				w *= main && zone <= 1 ? 1.6 : 0;
 			} else if (id.equals(Archetypes.FARMHOUSE)) {
-				w *= (zone >= 3 ? 1.6 : zone == 2 ? 0.5 : 0) * (layout.expansive ? 2 : 1);
+				// farmhouses belong out among the fields, never in a town's streets
+				w *= layout.dense ? 0 : layout.expansive ? (zone >= 2 ? 3 : 0.4) : zone >= 3 ? 1.2 : 0;
 			} else if (id.equals(Archetypes.MANOR) || id.equals(Archetypes.STILT_HOUSE)) {
 				w = 0;
 			} else if (id.equals(Archetypes.TOWER_HOUSE)) {

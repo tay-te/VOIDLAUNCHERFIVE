@@ -204,6 +204,11 @@ public final class HearthPlanner implements SettlementPlanner {
 				Polyline.corridor(e.line().points(), e.width, (x, z) -> occ.mark(x, z, Cell.PLANNED_ROAD));
 			}
 		}
+		for (RoadEdge e : state.graph.edges()) {
+			if (e.role == RoadEdge.Role.WALL_LINE) {
+				dev.voidmc.hearth.plan.growth.Walls.markLine(occ, e);
+			}
+		}
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
 		for (PlotView p : plots) {

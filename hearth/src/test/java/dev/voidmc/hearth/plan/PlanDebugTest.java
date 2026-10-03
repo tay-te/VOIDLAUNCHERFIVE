@@ -16,8 +16,10 @@ class PlanDebugTest {
 			return;
 		}
 		Growth.trace = true;
+		String layout = System.getenv("HEARTH_PLAN_LAYOUT");
+		dev.voidmc.hearth.plan.layout.LayoutChooser.FORCED.set(layout == null ? null : dev.voidmc.hearth.plan.model.LayoutType.valueOf(layout));
 		MiniSim sim = Plans.grow(Culture.valueOf(System.getenv().getOrDefault("HEARTH_PLAN_CULTURE", "TEMPERATE")),
-			System.getenv().getOrDefault("HEARTH_PLAN_TERRAIN", "hills"), 1, Integer.parseInt(System.getenv().getOrDefault("HEARTH_PLAN_DAYS", "30")));
+			System.getenv().getOrDefault("HEARTH_PLAN_TERRAIN", "hills"), Long.parseLong(System.getenv().getOrDefault("HEARTH_PLAN_SEED", "1")), Integer.parseInt(System.getenv().getOrDefault("HEARTH_PLAN_DAYS", "30")));
 		for (String s : sim.log()) {
 			System.out.println(s);
 		}
@@ -42,6 +44,8 @@ class PlanDebugTest {
 						case Cell.PLANNED_ROAD -> ':';
 						case Cell.SETBACK -> ',';
 						case Cell.RESERVED -> 'r';
+						case Cell.WALL -> 'W';
+						case Cell.LANDSCAPE -> 'l';
 						default -> '?';
 					});
 				}

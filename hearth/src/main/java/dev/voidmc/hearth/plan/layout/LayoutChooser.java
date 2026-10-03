@@ -18,6 +18,9 @@ import org.jspecify.annotations.Nullable;
  * outright (ARCHITECTURE.md §7.1) and pulls the layout toward it.
  */
 public final class LayoutChooser {
+	/** Forces the layout chosen on this thread (previews and tests), or null for the normal choice. */
+	public static final ThreadLocal<LayoutType> FORCED = new ThreadLocal<>();
+
 	private LayoutChooser() {
 	}
 
@@ -26,6 +29,11 @@ public final class LayoutChooser {
 
 	public static Choice choose(Culture culture, Site site, @Nullable ResourceKey<Biome> biome, RandomSource random) {
 		Signature signature = signature(culture, site, biome);
+		LayoutType forced = FORCED.get();
+		if (forced != null) {
+			random.nextDouble();
+			return new Choice(forced, signature);
+		}
 		Map<LayoutType, Double> w = new EnumMap<>(LayoutType.class);
 		for (LayoutType t : LayoutType.values()) {
 			w.put(t, cultureWeight(culture, t) * landWeight(t, site));

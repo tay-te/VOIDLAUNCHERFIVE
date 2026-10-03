@@ -4,10 +4,12 @@ import dev.voidmc.hearth.plan.PlanContext;
 import dev.voidmc.hearth.plan.grid.Cell;
 import dev.voidmc.hearth.plan.model.LayoutType;
 import dev.voidmc.hearth.plan.model.RoadEdge;
+import dev.voidmc.hearth.plan.model.RoadGraph;
 import dev.voidmc.hearth.plan.model.RoadKind;
 import dev.voidmc.hearth.plan.model.Site;
 import dev.voidmc.hearth.plan.road.Polyline;
 import dev.voidmc.hearth.plan.road.Roads;
+import dev.voidmc.hearth.plan.road.Router;
 import dev.voidmc.hearth.plan.terrain.Ground;
 import org.jspecify.annotations.Nullable;
 
@@ -24,6 +26,9 @@ public final class Expand {
 
 	/** Grows the network toward where a placement wants to go; true if a road was queued. */
 	public static boolean toward(PlanContext ctx, Parcels.Placement placement) {
+		if (!ctx.roadsMayGrow()) {
+			return false;
+		}
 		Site site = ctx.state.site;
 		switch (placement) {
 			case RISE -> {
@@ -54,26 +59,163 @@ public final class Expand {
 		return town(ctx);
 	}
 
-	/** Grows the town itself: a lane near the heart, or the next stretch of the shortest main road. */
+	/**
+	 * Grows the town itself. A compact town fills in before it spreads: a lane branching off a street near the heart
+	 * comes first while there is room for one within the core, the main roads are lengthened while their ends are still
+	 * near, and only then does the town reach out along them. A linear town lengthens its main street first.
+	 */
 	public static boolean town(PlanContext ctx) {
+		if (!ctx.roadsMayGrow()) {
+			return false;
+		}
 		LayoutType layout = ctx.state.layout;
+		double core = ctx.coreRadius();
 		Branch branch = bestBranch(ctx, false);
 		RoadEdge arm = shortestArm(ctx);
-		double branchDist = branch == null ? Double.MAX_VALUE : branch.distance;
 		double armDist = arm == null ? Double.MAX_VALUE : armFrontier(ctx, arm);
-		double armBias = switch (layout) {
-			case LINEAR -> 0.55;
-			case FARMSTEADS, MOUNTAIN, RING -> 0.75;
-			case WALLED, HILLSIDE, CLIFF -> 1.35;
-			default -> 1.0;
+		double laneReach = switch (layout) {
+			case LINEAR -> 0.6;
+			case WALLED, HILLSIDE, CLIFF -> 1.5;
+			case FARMSTEADS -> 0.8;
+			default -> 1.2;
 		};
-		if (arm != null && armDist * armBias <= branchDist) {
-			return extendArm(ctx, arm, "road: the main street grows outward");
+		double armReach = switch (layout) {
+			case LINEAR -> 2.6;
+			case WALLED -> 1.0;
+			default -> 1.4;
+		};
+		// a lane planned ahead (its mouth kept open) is built first, nearest the heart first
+		RoadEdge planned = Grid.nearestPlanned(ctx, core * laneReach + 12);
+		if (planned != null) {
+			return buildLane(ctx, planned);
 		}
-		if (branch != null && walkBranch(ctx, branch)) {
+		if (branch != null && branch.distance < core * laneReach && walkBranch(ctx, branch)) {
 			return true;
 		}
-		return arm != null && extendArm(ctx, arm, "road: the main street grows outward");
+		// a dead-end lane near the heart runs on into open ground
+		if (extendLane(ctx, core * laneReach + 16)) {
+			return true;
+		}
+		if (arm != null && armDist < core * armReach && extendArm(ctx, arm, "road: the main street grows outward")) {
+			return true;
+		}
+		if (branch != null && (arm == null || branch.distance <= armDist) && walkBranch(ctx, branch)) {
+			return true;
+		}
+		planned = Grid.nearestPlanned(ctx, Double.MAX_VALUE);
+		if (planned != null && (arm == null || ctx.distanceToHeart(planned.dense().xs()[0], planned.dense().zs()[0]) < armDist)) {
+			return buildLane(ctx, planned);
+		}
+		if (arm != null && extendArm(ctx, arm, "road: the main street grows outward")) {
+			return true;
+		}
+		return extendLane(ctx, Double.MAX_VALUE) || continueArm(ctx);
+	}
+
+	/**
+	 * Lengthens the dead-end lane (or stub) nearest the heart: walks on from its end, the way it was heading, into open
+	 * ground, and builds the new stretch as a lane continuing it.
+	 */
+	static boolean extendLane(PlanContext ctx, double maxDistance) {
+		RoadEdge best = null;
+		double bestD = maxDistance;
+		for (RoadEdge e : ctx.state.graph.edges()) {
+			if ((e.role != RoadEdge.Role.LANE && e.role != RoadEdge.Role.STAIR) || !e.fullyBuilt() || e.length() < 6) {
+				continue;
+			}
+			if (ctx.state.graph.node(e.to).kind() != RoadGraph.NodeKind.END) {
+				continue;
+			}
+			Polyline.Dense d = e.dense();
+			int n = d.length();
+			double dist = ctx.distanceToHeart(d.xs()[n - 1], d.zs()[n - 1]) + ctx.hash(d.xs()[n - 1], d.zs()[n - 1], 71) * 3;
+			if (dist >= bestD) {
+				continue;
+			}
+			int heading = Roads.heading(d.xs()[n - 1] - d.xs()[Math.max(0, n - 5)], d.zs()[n - 1] - d.zs()[Math.max(0, n - 5)]);
+			if (probe(ctx, d.xs()[n - 1], d.zs()[n - 1], heading, 1, 10) < 10) {
+				continue;
+			}
+			bestD = dist;
+			best = e;
+		}
+		if (best == null) {
+			return false;
+		}
+		Polyline.Dense d = best.dense();
+		int n = d.length();
+		int heading = Roads.heading(d.xs()[n - 1] - d.xs()[Math.max(0, n - 5)], d.zs()[n - 1] - d.zs()[Math.max(0, n - 5)]);
+		boolean[] joined = new boolean[1];
+		int maxLen = (int) Math.round(ctx.state.layout.laneLength * (0.7 + 0.4 * ctx.hash(d.xs()[n - 1], d.zs()[n - 1], 73)));
+		int[][] path = Roads.walk(ctx, d.xs()[n - 1], d.zs()[n - 1], heading, 1, maxLen, Roads.Mode.STRAIGHT, 10, 1, joined);
+		RoadEdge next = path[0].length < 10 ? null : Roads.plan(ctx, best.to, path[0], path[1], best.role, best.kind, best.width, 8);
+		// either way the end is no longer a dead end to try again
+		markClosed(ctx, best);
+		if (next == null) {
+			return false;
+		}
+		next.parent = best.id;
+		next.parentIndex = n - 1;
+		Roads.build(ctx, next, next.length(), "road: the " + best.kind.getSerializedName() + " runs on");
+		Grid.planAhead(ctx, next, 0, next.length());
+		return true;
+	}
+
+	private static void markClosed(PlanContext ctx, RoadEdge e) {
+		RoadGraph g = ctx.state.graph;
+		RoadGraph.Node end = g.node(e.to);
+		e.to = g.addNode(end.x(), end.y(), end.z(), RoadGraph.NodeKind.JUNCTION).id();
+	}
+
+	/**
+	 * When every main road is built to its planned end, the one whose end is nearest the heart runs on: a new arm
+	 * routed onward the way it was heading, so the town's roads keep reaching out to new farmland.
+	 */
+	static boolean continueArm(PlanContext ctx) {
+		RoadEdge best = null;
+		// out to farmland within reach of the town, not across the world
+		double bestD = Math.max(160, ctx.extent() * 1.8 + 60);
+		for (RoadEdge e : ctx.state.graph.edges()) {
+			if ((e.role != RoadEdge.Role.ARM && e.role != RoadEdge.Role.TRACK) || !e.fullyBuilt()
+				|| ctx.state.graph.node(e.to).kind() != RoadGraph.NodeKind.END) {
+				continue;
+			}
+			Polyline.Dense d = e.dense();
+			double dist = ctx.distanceToHeart(d.xs()[d.length() - 1], d.zs()[d.length() - 1]);
+			if (dist < bestD) {
+				bestD = dist;
+				best = e;
+			}
+		}
+		if (best == null) {
+			return false;
+		}
+		Polyline.Dense d = best.dense();
+		int n = d.length();
+		double angle = StrictMath.atan2(d.zs()[n - 1] - d.zs()[Math.max(0, n - 12)], d.xs()[n - 1] - d.xs()[Math.max(0, n - 12)]);
+		int tx = d.xs()[n - 1] + (int) Math.round(StrictMath.cos(angle) * 140);
+		int tz = d.zs()[n - 1] + (int) Math.round(StrictMath.sin(angle) * 140);
+		Router.Params params = new Router.Params(4, 40, ctx.config.roadGrade() * 0.85, ctx.config.roadGrade() * 1.1, 9, 4, false, 400_000, 0.5);
+		int[][] path = Router.route(ctx.ground, ctx.occ, d.xs()[n - 1], d.zs()[n - 1], tx, tz, params);
+		markClosed(ctx, best);
+		if (path == null) {
+			return false;
+		}
+		RoadEdge next = Roads.plan(ctx, best.to, path[0], path[1], best.role, best.kind, best.width, 16);
+		if (next == null) {
+			return false;
+		}
+		next.parent = best.id;
+		next.parentIndex = n - 1;
+		return extendArm(ctx, next, "road: the road runs on beyond the town");
+	}
+
+	/** Builds a planned lane whole, then plans the lanes that will leave it in turn. */
+	static boolean buildLane(PlanContext ctx, RoadEdge lane) {
+		RoadEdge parent = lane.parent >= 0 ? ctx.state.graph.edge(lane.parent) : null;
+		Roads.build(ctx, lane, lane.length(), "road: a new " + lane.kind.getSerializedName() + (parent == null ? "" : " off the " + describe(parent)));
+		Grid.planAhead(ctx, lane, 0, lane.length());
+		return true;
 	}
 
 	/** Builds the next stretch of an arm (or ring) planned at founding. */
@@ -81,6 +223,7 @@ public final class Expand {
 		int step = e.role == RoadEdge.Role.TRACK ? 48 : e.role == RoadEdge.Role.RING ? 40 : 28;
 		int before = e.built;
 		Roads.build(ctx, e, e.built + step, reason);
+		Grid.planAhead(ctx, e, before, e.built);
 		return e.built > before;
 	}
 
@@ -141,6 +284,7 @@ public final class Expand {
 			if (outward) {
 				spacing = Math.max(spacing, 30);
 			}
+			double outwardFrom = Math.max(core * 1.4, ctx.extent() + 16);
 			Polyline.Dense d = e.dense();
 			int lim = Math.min(e.built, d.length());
 			int fromStart = Math.max(10, spacing / 2);
@@ -166,12 +310,12 @@ public final class Expand {
 					int mx = d.xs()[i] + Roads.DX[heading] * 8;
 					int mz = d.zs()[i] + Roads.DZ[heading] * 8;
 					double dist = ctx.distanceToHeart(mx, mz);
-					if (outward && dist < core * 1.1) {
+					if (outward && dist < outwardFrom) {
 						continue;
 					}
 					double grade = Math.abs(g.surface(mx, mz) - g.surface(d.xs()[i], d.zs()[i])) / 8.0;
 					boolean contour = layout.terraces && grade < ctx.config.roadGrade() && ctx.state.site != null && ctx.state.site.slope() > 0.12;
-					double score = outward ? -Math.abs(dist - core * 1.6) : -dist;
+					double score = outward ? -Math.abs(dist - outwardFrom) : -dist;
 					score -= grade > ctx.config.stairGrade() ? 1000 : grade > ctx.config.roadGrade() ? (layout.terraces ? 4 : 25) : 0;
 					if (layout.terraces && e.role == RoadEdge.Role.STAIR && grade < ctx.config.roadGrade()) {
 						score += 12;
@@ -235,6 +379,8 @@ public final class Expand {
 		if (lane == null) {
 			return false;
 		}
+		lane.parent = parent.id;
+		lane.parentIndex = b.index;
 		if (stairShare(lane) > 0.5) {
 			// mostly steps: it is a stair street; later lanes branch off it along the contour
 			lane = ctx.state.graph.replaceRole(lane.id, RoadEdge.Role.STAIR);
@@ -247,10 +393,11 @@ public final class Expand {
 			}
 		}
 		Roads.build(ctx, lane, lane.length(), "road: a new " + kind.getSerializedName() + " off the " + describe(parent));
+		Grid.planAhead(ctx, lane, 0, lane.length());
 		return true;
 	}
 
-	private static double stairShare(RoadEdge e) {
+	static double stairShare(RoadEdge e) {
 		int stairs = 0;
 		for (int r = 0; r < e.runCount(); r++) {
 			if (e.runType(r) == RoadEdge.STAIRS) {
@@ -298,7 +445,10 @@ public final class Expand {
 		if (branch != null) {
 			return track(ctx, branch, far);
 		}
-		return best != null && extendArm(ctx, best, "road: the road runs on");
+		if (best != null && extendArm(ctx, best, "road: the road runs on")) {
+			return true;
+		}
+		return continueArm(ctx);
 	}
 
 	private static boolean track(PlanContext ctx, Branch b, boolean far) {
@@ -317,6 +467,8 @@ public final class Expand {
 		if (track == null) {
 			return false;
 		}
+		track.parent = parent.id;
+		track.parentIndex = b.index;
 		Roads.build(ctx, track, Math.min(track.length(), far ? 64 : track.length()), "road: a farm track off the " + describe(parent));
 		return true;
 	}

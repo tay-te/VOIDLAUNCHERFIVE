@@ -40,7 +40,7 @@ public final class PlanRenderer {
 
 	public PlanRenderer(Scene scene, int maxSize) {
 		this.scene = scene;
-		this.s = Math.max(2, Math.min(7, maxSize / Math.max(scene.w, scene.d)));
+		this.s = Math.max(2, Math.min(8, maxSize / Math.max(scene.w, scene.d)));
 	}
 
 	public BufferedImage render(Settlement settlement, PlanState state, Catalogue catalogue, String title, boolean blocks) {
@@ -62,6 +62,26 @@ public final class PlanRenderer {
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 		List<PlotView> plots = new ArrayList<>(settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
+		// what the plan holds for later: the square and kept lots (hatched), planned streets (dotted)
+		for (dev.voidmc.hearth.plan.model.Reservation r : state.reservations) {
+			for (int z = r.z0(); z <= r.z1(); z++) {
+				for (int x = r.x0(); x <= r.x1(); x++) {
+					if (((x + z) & 3) == 0 || x == r.x0() || x == r.x1() || z == r.z0() || z == r.z1()) {
+						cell(img, x, z, r.tag().equals("square") ? 0xD8D2C2 : 0xB8B0D0);
+					}
+				}
+			}
+		}
+		for (dev.voidmc.hearth.plan.model.RoadEdge e : state.graph.edges()) {
+			Polyline.Dense dd = e.dense();
+			boolean wall = e.role == dev.voidmc.hearth.plan.model.RoadEdge.Role.WALL_LINE;
+			if (!e.emits() && !wall) {
+				continue;
+			}
+			for (int i = wall ? 0 : Math.max(0, e.built); i < dd.length(); i += 2) {
+				cell(img, dd.xs()[i], dd.zs()[i], wall ? 0x8A8478 : 0xE8E0C8);
+			}
+		}
 		if (!blocks) {
 			// ground layer: terraces, farms, plazas, roads; then buildings
 			for (PlotView p : plots) {
@@ -88,9 +108,10 @@ public final class PlanRenderer {
 			}
 		}
 		// district names
-		g.setFont(new Font(Font.SERIF, Font.ITALIC, 13));
+		g.setFont(new Font(Font.SERIF, Font.ITALIC, 12));
 		for (District d : state.districts) {
-			if (d.kind() == District.Kind.FARMS || !sc.inside(d.x(), d.z())) {
+			if (d.kind() == District.Kind.FARMS || d.kind() == District.Kind.MARKET || !sc.inside(d.x(), d.z())
+				|| Math.hypot(d.x() - state.heartX, d.z() - state.heartZ) < state.plazaHalf + 14) {
 				continue;
 			}
 			label(g, d.kind().getSerializedName().toUpperCase(), d.x(), d.z(), new Color(0x4A3A2A), new Color(255, 255, 255, 120));

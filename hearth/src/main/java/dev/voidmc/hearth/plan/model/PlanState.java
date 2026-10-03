@@ -130,7 +130,7 @@ public final class PlanState {
 		s.layout = LayoutType.byName(t.getStringOr("layout", "crossroads"));
 		s.signature = Signature.byName(t.getStringOr("signature", "none"));
 		s.site = t.getCompound("site").map(Site::load).orElse(null);
-		int[] heart = t.getIntArray("heart").orElse(new int[5]);
+		int[] heart = Nbt.ints(t, "heart").orElse(new int[5]);
 		s.heartX = heart[0];
 		s.heartY = heart[1];
 		s.heartZ = heart[2];
@@ -139,13 +139,13 @@ public final class PlanState {
 		s.graph = RoadGraph.load(t.getCompoundOrEmpty("roads"));
 		for (Tag d : t.getListOrEmpty("districts")) {
 			d.asCompound().ifPresent(c -> {
-				int[] at = c.getIntArray("at").orElse(new int[2]);
+				int[] at = Nbt.ints(c, "at").orElse(new int[2]);
 				s.districts.add(new District(District.Kind.byName(c.getStringOr("kind", "residential")), at[0], at[1], c.getDoubleOr("weight", 1)));
 			});
 		}
 		CompoundTag rs = t.getCompoundOrEmpty("reserved");
 		for (String key : rs.keySet().stream().sorted().toList()) {
-			rs.getIntArray(key).ifPresent(p -> s.reservations.add(Reservation.unpack(key, p)));
+			Nbt.ints(rs, key).ifPresent(p -> s.reservations.add(Reservation.unpack(key, p)));
 		}
 		for (Tag q : t.getListOrEmpty("queue")) {
 			q.asCompound().ifPresent(c -> s.queue.add(QueuedProject.load(c)));
@@ -159,7 +159,7 @@ public final class PlanState {
 				s.lastTier = st;
 			}
 		}
-		int[] wall = t.getIntArray("wall").orElse(new int[2]);
+		int[] wall = Nbt.ints(t, "wall").orElse(new int[2]);
 		s.wallStage = wall[0];
 		s.wallRadius = wall.length > 1 ? wall[1] : 0;
 		s.serial = t.getLongOr("serial", 0);

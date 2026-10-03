@@ -58,7 +58,12 @@ public final class Founder {
 		state.heartX = hx;
 		state.heartZ = hz;
 		state.heartY = g.surface(hx, hz);
-		state.plazaHalf = state.layout.plazaHalf;
+		// the square stays on dry land: smaller where the water comes close
+		int half = state.layout.plazaHalf;
+		while (half > 3 && wet(g, hx, hz, half)) {
+			half--;
+		}
+		state.plazaHalf = half;
 		state.founded = true;
 		// the square, held open from the start: a green round the well, a paved plaza later
 		int h = state.plazaHalf;
@@ -68,7 +73,14 @@ public final class Founder {
 		squareEdge(ctx, heart.id());
 
 		skeleton(ctx, heart.id());
+		// the side lanes of the first stretches, planned ahead so the first houses keep their mouths open
+		for (RoadEdge e : new ArrayList<>(state.graph.edges())) {
+			if (e.built > 0) {
+				dev.voidmc.hearth.plan.growth.Grid.planAhead(ctx, e, 0, e.built);
+			}
+		}
 		heartFeature(ctx);
+		dev.voidmc.hearth.plan.growth.Lots.reserve(ctx);
 		// the first needs: the builders' yard, homes for whoever founded it, a field
 		int rounds = 3 + ctx.population / 3;
 		for (int i = 0; i < rounds; i++) {
@@ -82,6 +94,17 @@ public final class Founder {
 		}
 		state.queue.clear();
 		return out;
+	}
+
+	private static boolean wet(Ground g, int hx, int hz, int half) {
+		for (int z = hz - half; z <= hz + half; z++) {
+			for (int x = hx - half; x <= hx + half; x++) {
+				if (g.isWater(x, z)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** The square's edge as a road-network edge: plots front onto the square along it. Clockwise, one in from the edge. */
@@ -141,22 +164,33 @@ public final class Founder {
 		Site site = state.site;
 		LayoutType layout = state.layout;
 		double contour = site.contourAngle();
-		double base = site.slope() > 0.06 ? contour : snapCardinal(ctx.random.nextDouble() * Math.PI * 2) + (ctx.random.nextDouble() - 0.5) * 0.35;
+		// streets square to the compass on easy ground (plots are square to it too); along the contour on a real slope
+		double jitter = (ctx.random.nextDouble() - 0.5) * 0.2;
+		double base = site.slope() > 0.15 ? contour : snapCardinal(site.slope() > 0.04 ? contour : ctx.random.nextDouble() * Math.PI * 2) + jitter;
 		int width = layout.armWidth;
 		RoadKind kind = layout.armKind;
 		switch (layout) {
 			case CROSSROADS, WALLED -> {
-				double len = layout == LayoutType.WALLED ? 130 : 200;
-				arm(ctx, heart, base, len + 40 * ctx.random.nextDouble(), width, kind, RoadEdge.Role.ARM, 30);
-				arm(ctx, heart, base + Math.PI, len + 40 * ctx.random.nextDouble(), width, kind, RoadEdge.Role.ARM, 30);
+				boolean walled = layout == LayoutType.WALLED;
+				double len = walled ? 130 : 200;
+				// a walled town builds its two main streets right through to where its gates will be
+				int first = walled ? 44 : 30;
+				arm(ctx, heart, base, len + 40 * ctx.random.nextDouble(), width, kind, RoadEdge.Role.ARM, first);
+				arm(ctx, heart, base + Math.PI, len + 40 * ctx.random.nextDouble(), width, kind, RoadEdge.Role.ARM, first);
 				boolean tee = layout == LayoutType.CROSSROADS && ctx.random.nextDouble() < 0.25;
-				arm(ctx, heart, base + Math.PI / 2, len * 0.8, width, kind, RoadEdge.Role.ARM, 18);
+				arm(ctx, heart, base + Math.PI / 2, len * 0.8, width, kind, RoadEdge.Role.ARM, walled ? 40 : 18);
 				if (!tee) {
-					arm(ctx, heart, base - Math.PI / 2, len * 0.8, width, kind, RoadEdge.Role.ARM, 18);
+					arm(ctx, heart, base - Math.PI / 2, len * 0.8, width, kind, RoadEdge.Role.ARM, walled ? 40 : 18);
+				}
+				if (layout == LayoutType.WALLED) {
+					dev.voidmc.hearth.plan.growth.Walls.reserveLine(ctx, heart);
 				}
 			}
 			case LINEAR -> {
 				double along = site.hasWater() && site.waterDistance() < 64 ? site.waterAxis() : base;
+				if (Math.abs(along - snapCardinal(along)) < 0.35) {
+					along = snapCardinal(along) + jitter;
+				}
 				arm(ctx, heart, along, 300, width, kind, RoadEdge.Role.ARM, 36);
 				arm(ctx, heart, along + Math.PI, 300, width, kind, RoadEdge.Role.ARM, 36);
 				if (site.hasWater() && site.waterDistance() < 64) {
@@ -241,24 +275,71 @@ public final class Founder {
 		}
 		boolean stairs = Roads.rules(ctx, role).stairs();
 		Router.Params params = new Router.Params(length > 90 ? 4 : 2, 48, ctx.config.roadGrade() * 0.85,
-			stairs ? ctx.config.stairGrade() * 0.8 : ctx.config.roadGrade() * 1.1, 9, role == RoadEdge.Role.TRACK ? 3 : 5, false, 600_000);
-		int[][] path = Router.route(g, ctx.occ, n.x(), n.z(), tx, tz, params);
-		if (path == null) {
-			return null;
-		}
-		int[] xs = path[0];
-		int[] zs = path[1];
-		// begin on the square's edge rather than its middle
-		int start = 0;
-		if (n.kind() == RoadGraph.NodeKind.HEART) {
-			Reservation sq = ctx.state.reservation("square");
-			while (sq != null && start + 1 < xs.length && sq.contains(xs[start + 1], zs[start + 1])) {
-				start++;
+			stairs ? ctx.config.stairGrade() * 0.8 : ctx.config.roadGrade() * 1.1, 9, role == RoadEdge.Role.TRACK ? 3 : 5, false, 600_000,
+			role == RoadEdge.Role.TRACK ? 0.25 : ctx.state.layout.terraces ? 0.35 : 0.7);
+		// from the heart, a main street leaves the middle of a side of the square at right angles and runs straight for
+		// a while before the land is allowed to bend it
+		int[] lead = null;
+		int sx = n.x();
+		int sz = n.z();
+		if (n.kind() == RoadGraph.NodeKind.HEART && role != RoadEdge.Role.TRACK) {
+			int h = Roads.cardinal(StrictMath.cos(angle), StrictMath.sin(angle));
+			int dx = Roads.DX[h];
+			int dz = Roads.DZ[h];
+			// from the square's edge, but never so near the middle that the street's width reaches the well
+			int half = Math.max(ctx.state.plazaHalf, width / 2 + 3);
+			int run = (int) Math.min(36, length / 3);
+			double limit = stairs ? ctx.config.stairGrade() * 0.8 : ctx.config.roadGrade();
+			int k = 0;
+			double prev = g.smooth(n.x() + dx * half, n.z() + dz * half);
+			while (k < run) {
+				int x = n.x() + dx * (half + k + 1);
+				int z = n.z() + dz * (half + k + 1);
+				double here = g.smooth(x, z);
+				byte c = ctx.occ.get(x, z);
+				if (g.isWater(x, z) || Math.abs(here - prev) > limit + 0.05 || !(c == Cell.FREE || c == Cell.PLANNED_ROAD)) {
+					break;
+				}
+				prev = here;
+				k++;
+			}
+			if (k >= 8) {
+				lead = new int[]{n.x() + dx * half, n.z() + dz * half, n.x() + dx * (half + k), n.z() + dz * (half + k)};
+				sx = lead[2];
+				sz = lead[3];
 			}
 		}
-		if (start > 0) {
-			xs = java.util.Arrays.copyOfRange(xs, start, xs.length);
-			zs = java.util.Arrays.copyOfRange(zs, start, zs.length);
+		int[][] path = Router.route(g, ctx.occ, sx, sz, tx, tz, params);
+		if (path == null && lead == null) {
+			return null;
+		}
+		int[] xs;
+		int[] zs;
+		if (lead != null) {
+			int[][] straight = Router.densify(new int[]{lead[0], lead[2]}, new int[]{lead[1], lead[3]});
+			if (path == null) {
+				xs = straight[0];
+				zs = straight[1];
+			} else {
+				xs = Roads.concat(java.util.Arrays.copyOf(straight[0], straight[0].length - 1), path[0]);
+				zs = Roads.concat(java.util.Arrays.copyOf(straight[1], straight[1].length - 1), path[1]);
+			}
+		} else {
+			xs = path[0];
+			zs = path[1];
+			// begin on the square's edge rather than its middle
+			int start = 0;
+			if (n.kind() == RoadGraph.NodeKind.HEART) {
+				Reservation sq = ctx.state.reservation("square");
+				while (sq != null && start + 1 < xs.length && (sq.contains(xs[start + 1], zs[start + 1])
+					|| Math.max(Math.abs(xs[start] - n.x()), Math.abs(zs[start] - n.z())) < width / 2 + 3)) {
+					start++;
+				}
+			}
+			if (start > 0) {
+				xs = java.util.Arrays.copyOfRange(xs, start, xs.length);
+				zs = java.util.Arrays.copyOfRange(zs, start, zs.length);
+			}
 		}
 		RoadEdge e = Roads.plan(ctx, from, xs, zs, role, kind, width, 12);
 		if (e != null && build > 0) {

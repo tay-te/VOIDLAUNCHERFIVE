@@ -11,7 +11,10 @@ import dev.voidmc.hearth.plan.catalogue.Archetypes;
 import dev.voidmc.hearth.plan.catalogue.Catalogue;
 import dev.voidmc.hearth.plan.grid.Cell;
 import dev.voidmc.hearth.plan.model.LayoutType;
+import dev.voidmc.hearth.plan.grid.Occupancy;
 import dev.voidmc.hearth.plan.model.QueuedProject;
+import dev.voidmc.hearth.plan.model.RoadEdge;
+import dev.voidmc.hearth.plan.model.RoadKind;
 import dev.voidmc.hearth.plan.road.Polyline;
 import dev.voidmc.hearth.plan.road.Roads;
 import dev.voidmc.hearth.plan.road.Router;
@@ -22,6 +25,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A town wall (or a village palisade): a ring round the built-up town at a margin, its line pushed out past anything
@@ -40,6 +44,14 @@ public final class Walls {
 			return false;
 		}
 		LayoutType layout = ctx.state.layout;
+		if (line(ctx) != null) {
+			// a walled town: a palisade on its line as a village, rebuilt in stone as a town
+			ArchetypeInfo wall = ctx.catalogue.info(Archetypes.WALL);
+			ArchetypeInfo pal = ctx.catalogue.info(Archetypes.PALISADE);
+			boolean stone = wall != null && Catalogue.allowed(wall, ctx.culture, ctx.tier) && ctx.population >= 60;
+			boolean palisade = ctx.state.wallStage == 0 && pal != null && Catalogue.allowed(pal, ctx.culture, ctx.tier) && ctx.population >= 28;
+			return stone || palisade;
+		}
 		boolean walledCulture = Growth.isCulture(ctx, Culture.TEMPERATE, Culture.MEDITERRANEAN, Culture.DESERT, Culture.WISTERIA, Culture.MESA,
 			Culture.MARITIME);
 		boolean stone = ctx.tier.ordinal() >= SettlementTier.TOWN.ordinal() && ctx.population >= 70
@@ -59,6 +71,10 @@ public final class Walls {
 	}
 
 	static boolean plan(PlanContext ctx) {
+		RoadEdge line = line(ctx);
+		if (line != null) {
+			return planOnLine(ctx, line);
+		}
 		boolean stone = ctx.tier.ordinal() >= SettlementTier.TOWN.ordinal() && ctx.catalogue.has(Archetypes.WALL);
 		Identifier archetype = stone ? Archetypes.WALL : Archetypes.PALISADE;
 		int width = stone ? 3 : 1;
@@ -188,6 +204,151 @@ public final class Walls {
 		return true;
 	}
 
+	/** The wall line a walled town kept from its founding, or null. */
+	static @Nullable RoadEdge line(PlanContext ctx) {
+		for (RoadEdge e : ctx.state.graph.edges()) {
+			if (e.role == RoadEdge.Role.WALL_LINE) {
+				return e;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Keeps a walled town's wall line from the founding: a closed ring round the heart at a radius a town of a hundred
+	 * and fifty folk fills, wavering a little, drawn in where water or a drop makes a natural edge. The line shows as
+	 * wall in the grid at once, so streets end at it and houses keep inside it; the main roads pass through where the
+	 * gates will be.
+	 */
+	public static void reserveLine(PlanContext ctx, int heart) {
+		var n = ctx.state.graph.node(heart);
+		int points = 36;
+		double base = 34 + 10 * ctx.random.nextDouble();
+		int[] vx = new int[points + 1];
+		int[] vz = new int[points + 1];
+		double phase = ctx.random.nextDouble() * Math.PI * 2;
+		for (int i = 0; i < points; i++) {
+			double a = i * 2 * Math.PI / points;
+			double r = base * (1 + 0.1 * StrictMath.sin(2 * a + phase) + 0.06 * StrictMath.sin(3 * a + phase * 1.7));
+			int x = n.x() + (int) Math.round(StrictMath.cos(a) * r);
+			int z = n.z() + (int) Math.round(StrictMath.sin(a) * r);
+			for (int k = 0; k < 8 && (ctx.ground.isWater(x, z) || ctx.ground.slope(x, z, 2) > 1.2); k++) {
+				r -= 3;
+				x = n.x() + (int) Math.round(StrictMath.cos(a) * r);
+				z = n.z() + (int) Math.round(StrictMath.sin(a) * r);
+			}
+			vx[i] = x;
+			vz[i] = z;
+		}
+		vx[points] = vx[0];
+		vz[points] = vz[0];
+		int[][] dense = Router.densify(vx, vz);
+		int[] ys = new int[dense[0].length];
+		for (int i = 0; i < ys.length; i++) {
+			ys[i] = ctx.ground.ground(dense[0][i], dense[1][i]);
+		}
+		Polyline poly = Polyline.fromDense(dense[0], ys, dense[1], 0, ys.length - 1);
+		RoadEdge e = ctx.state.graph.addEdge(heart, heart, RoadEdge.Role.WALL_LINE, RoadKind.PATH, 3, poly, new int[0]);
+		markLine(ctx.occ, e);
+	}
+
+	/** Shows a wall line in the grid, except where roads cross it (the gates). */
+	public static void markLine(Occupancy occ, RoadEdge line) {
+		Polyline.corridor(line.line().points(), line.width, (x, z) -> {
+			byte c = occ.get(x, z);
+			if (c == Cell.FREE || c == Cell.SETBACK) {
+				occ.set(x, z, Cell.WALL);
+			}
+		});
+	}
+
+	/** Builds the wall on its line: a palisade first, then stone in its place, with gatehouses and towers. */
+	private static boolean planOnLine(PlanContext ctx, RoadEdge line) {
+		ArchetypeInfo wallInfo = ctx.catalogue.info(Archetypes.WALL);
+		boolean stone = ctx.population >= 60 && wallInfo != null && Catalogue.allowed(wallInfo, ctx.culture, ctx.tier);
+		if (stone && ctx.state.wallStage == 1) {
+			// the palisade is rebuilt in stone, segment by segment
+			int n = 0;
+			for (PlotView p : ctx.settlement.plots()) {
+				PlotSpec s = p.spec();
+				if (!s.archetype().equals(Archetypes.PALISADE)) {
+					continue;
+				}
+				int[] pts = s.params().getIntArray("points").orElse(null);
+				if (pts == null) {
+					continue;
+				}
+				PlotSpec wall = Specs.wall(ctx, Archetypes.WALL, pts, 3, 8);
+				CompoundTag params = wall.params();
+				params.putInt("replaces", p.id());
+				wall = new PlotSpec(wall.archetype(), wall.style(), wall.seed(), wall.origin(), wall.sizeX(), wall.sizeZ(), wall.facing(),
+					wall.maxHeight(), wall.tier(), params);
+				ctx.queue(wall, p.id(), "defence: the palisade is rebuilt as a stone wall");
+				n++;
+			}
+			gatesAndTowers(ctx, line);
+			ctx.state.wallStage = 2;
+			return n > 0;
+		}
+		Polyline.Dense d = line.dense();
+		int n = d.length();
+		Identifier archetype = stone ? Archetypes.WALL : Archetypes.PALISADE;
+		int width = stone ? 3 : 1;
+		int segments = 0;
+		int i = 0;
+		while (i < n) {
+			if (ctx.occ.get(d.xs()[i], d.zs()[i]) != Cell.WALL) {
+				i++;
+				continue;
+			}
+			int j = i;
+			while (j < n && ctx.occ.get(d.xs()[j], d.zs()[j]) == Cell.WALL && j - i < ctx.config.roadPlotLength()) {
+				j++;
+			}
+			if (j - i >= 3) {
+				int[] pts = Polyline.fromDense(d.xs(), d.ys(), d.zs(), i, j - 1).points();
+				ctx.queue(Specs.wall(ctx, archetype, pts, width, stone ? 8 : 5), -1,
+					stone ? "defence: the town wall" : "defence: a palisade on the town's wall line");
+				segments++;
+			}
+			i = j;
+		}
+		if (stone) {
+			gatesAndTowers(ctx, line);
+		}
+		ctx.state.wallStage = stone ? 2 : 1;
+		double sum = 0;
+		for (int k = 0; k < n; k++) {
+			sum += ctx.distanceToHeart(d.xs()[k], d.zs()[k]);
+		}
+		ctx.state.wallRadius = (int) Math.round(sum / Math.max(1, n));
+		return segments > 0;
+	}
+
+	/** Gatehouses where main roads cross the wall line, towers along it about every forty blocks. */
+	private static void gatesAndTowers(PlanContext ctx, RoadEdge line) {
+		ArchetypeInfo tower = ctx.catalogue.resolve(Archetypes.WATCHTOWER, ctx.culture, ctx.tier);
+		ArchetypeInfo gate = ctx.catalogue.resolve(Archetypes.GATEHOUSE, ctx.culture, ctx.tier);
+		Polyline.Dense d = line.dense();
+		int[][] dense = {d.xs(), d.zs()};
+		int since = 0;
+		boolean wasRoad = false;
+		for (int i = 0; i < d.length(); i++) {
+			byte c = ctx.occ.get(d.xs()[i], d.zs()[i]);
+			boolean road = Cell.isAccess(c) || c == Cell.PLANNED_ROAD;
+			if (road && !wasRoad && gate != null) {
+				placeGate(ctx, gate, dense, i);
+				since = 0;
+			}
+			wasRoad = road;
+			since++;
+			if (tower != null && since >= 40 && c == Cell.WALL) {
+				placeTower(ctx, tower, d.xs()[i], d.zs()[i]);
+				since = 0;
+			}
+		}
+	}
+
 	private static int sector(int dx, int dz) {
 		double a = StrictMath.atan2(dz, dx);
 		if (a < 0) {
@@ -218,7 +379,7 @@ public final class Walls {
 			return;
 		}
 		var e = ctx.state.graph.edge(at[0]);
-		if (e.role != dev.voidmc.hearth.plan.model.RoadEdge.Role.ARM) {
+		if (e.role != RoadEdge.Role.ARM) {
 			return;
 		}
 		Polyline.Dense d = e.dense();

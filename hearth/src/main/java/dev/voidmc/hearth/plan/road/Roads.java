@@ -74,7 +74,13 @@ public final class Roads {
 	 * them and marks their corridors.
 	 */
 	public static void build(PlanContext ctx, RoadEdge e, int upTo, String reason) {
-		upTo = Math.min(upTo, e.length());
+		upTo = Math.min(upTo, Math.min(e.length(), e.limit));
+		// never pave over something standing: the road ends where its way is blocked
+		int blocked = firstBlocked(ctx, e, Math.max(0, e.built - 1), upTo);
+		if (blocked >= 0) {
+			e.limit = Math.max(e.built, blocked - 1);
+			upTo = Math.min(upTo, e.limit);
+		}
 		if (!e.emits() || upTo <= e.built) {
 			e.built = Math.max(e.built, upTo);
 			return;
@@ -142,6 +148,29 @@ public final class Roads {
 			}
 		}
 		e.built = Math.max(e.built, upTo);
+	}
+
+	/** The first dense index in [from, to) whose corridor takes a column something already stands on, or -1. */
+	private static int firstBlocked(PlanContext ctx, RoadEdge e, int from, int to) {
+		Polyline.Dense d = e.dense();
+		int r = e.width / 2;
+		for (int i = from; i < to; i++) {
+			int x = d.xs()[i];
+			int z = d.zs()[i];
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dx = -r; dx <= r; dx++) {
+					if (dx * dx + dz * dz * 1.0 >= (e.width + 0.5) * (e.width + 0.5) / 4.0) {
+						continue;
+					}
+					byte c = ctx.occ.get(x + dx, z + dz);
+					if (Cell.isSolid(c) && c != Cell.WALL || c == Cell.WALL && !Cell.isAccess(ctx.occ.get(x, z))
+						&& ctx.occ.get(x, z) != Cell.PLANNED_ROAD) {
+						return i;
+					}
+				}
+			}
+		}
+		return -1;
 	}
 
 	private static int[] points(Polyline.Dense d, int a, int b, int deck, boolean boardwalk) {
@@ -248,16 +277,20 @@ public final class Roads {
 				byte code = ctx.occ.get(nx, nz);
 				boolean access = Cell.isAccess(code);
 				boolean wet = g.isWater(nx, nz);
-				double cost = Math.abs(turn) * 2.5 + angle(nd, dir) * 1.5;
+				// a lane keeps its heading unless the slope really asks it to bend
+				double cost = Math.abs(turn) * 2.5 + angle(nd, dir) * (mode == Mode.STRAIGHT ? 5.0 : 1.5);
 				boolean join = false;
 				if (step <= skip) {
 					if (!access && !Cell.isBuildable(code) && code != Cell.PLANNED_ROAD) {
 						continue;
 					}
-				} else if (access) {
+				} else if (access || code == Cell.PLANNED_ROAD && ctx.joinPlanned) {
 					join = true;
 					cost -= 100;
 				} else if (!Cell.isBuildable(code) && code != Cell.PLANNED_ROAD) {
+					continue;
+				} else if (!corridorClear(ctx, nx, nz, halfWidth)) {
+					// the lane's own width must fit, not just its centreline
 					continue;
 				}
 				if (mode == Mode.WATER) {
@@ -317,6 +350,18 @@ public final class Roads {
 		return new int[][]{Arrays.copyOf(xs, n), Arrays.copyOf(zs, n)};
 	}
 
+	private static boolean corridorClear(PlanContext ctx, int x, int z, int halfWidth) {
+		for (int dz = -halfWidth; dz <= halfWidth; dz++) {
+			for (int dx = -halfWidth; dx <= halfWidth; dx++) {
+				byte c = ctx.occ.get(x + dx, z + dz);
+				if (!Cell.isBuildable(c) && c != Cell.PLANNED_ROAD && !Cell.isAccess(c)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	/** Whether another road runs within {@code clearance} to either side of a lane heading {@code d} at (x, z). */
 	private static boolean alongside(PlanContext ctx, int x, int z, int d, int halfWidth, int clearance) {
 		int px = -DZ[d];
@@ -324,7 +369,7 @@ public final class Roads {
 		for (int side = -1; side <= 1; side += 2) {
 			for (int k = halfWidth + 2; k <= clearance; k++) {
 				byte c = ctx.occ.get(x + side * px * k, z + side * pz * k);
-				if (Cell.isAccess(c)) {
+				if (Cell.isAccess(c) || c == Cell.PLANNED_ROAD && ctx.joinPlanned) {
 					return true;
 				}
 			}
@@ -391,7 +436,7 @@ public final class Roads {
 		return e;
 	}
 
-	static int[] concat(int[] a, int[] b) {
+	public static int[] concat(int[] a, int[] b) {
 		int[] r = Arrays.copyOf(a, a.length + b.length);
 		System.arraycopy(b, 0, r, a.length, b.length);
 		return r;

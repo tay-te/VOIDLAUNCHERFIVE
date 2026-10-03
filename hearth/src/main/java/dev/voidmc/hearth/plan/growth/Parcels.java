@@ -282,12 +282,17 @@ public final class Parcels {
 				s = g.ground(x, z) * 2.0 - toTop * 0.4 - dist * 0.05;
 			}
 			case WATER, ON_WATER -> s = -dist * 0.4 - waterDistance(g, x, z) * 3;
-			case EDGE -> s = -Math.abs(dist - Math.max(core * 1.3, ctx.extent() + 14)) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
+			case EDGE -> s = -Math.abs(dist - edgeRing(ctx)) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
 			case FARMSTEAD -> s = -Math.abs(dist - core * 3.0 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 20 : 0);
 			case RICH -> s = (g.ground(x, z) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
 			case CRAFTS -> s = -Math.abs(dist - core * 0.9) - waterDistance(g, x, z) * 0.5;
 			case ANCHOR -> s = -Math.hypot(x - req.anchorX, z - req.anchorZ) * 2;
 			default -> s = -dist;
+		}
+		// the square's frontage is kept for the buildings that make a square: hall, chapel, inn, bank, shops
+		if (e.role == RoadEdge.Role.SQUARE && req.placement != Placement.CENTRAL && req.placement != Placement.CIVIC
+			&& req.placement != Placement.MAIN && !req.info.jobs().contains(dev.voidmc.hearth.api.JobType.MERCHANT)) {
+			s -= 60;
 		}
 		if (req.district != null && !ctx.state.districts.isEmpty()) {
 			District d = ctx.district(x, z);
@@ -295,11 +300,25 @@ public final class Parcels {
 				s += d.kind() == req.district ? 18 : d.kind() == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
 			}
 		}
+		// a walled town keeps its town inside the wall line and its farms and yards outside
+		double wall = ctx.wallLine();
+		if (wall > 0) {
+			boolean inside = dist < wall - 2;
+			boolean outer = req.placement == Placement.EDGE || req.placement == Placement.FARMSTEAD || req.info.category() == ArchetypeCategory.FARM;
+			s += outer ? (inside ? -80 : 0) : (inside ? 45 : 0);
+		}
 		if (req.info.flags().contains(SiteFlag.VERTICAL)) {
 			// towers where they read from afar
 			s += (g.ground(x, z) - ctx.state.heartY) * 0.4;
 		}
 		return s + ctx.hash(x, z, 7) * core * 0.08;
+	}
+
+	/** Where the edge of town is: just past the houses and workshops, or past the wall line of a walled town. */
+	static double edgeRing(PlanContext ctx) {
+		double ring = Math.max(ctx.coreRadius() * 1.3, ctx.extent() + 14);
+		double wall = ctx.wallLine();
+		return wall > 0 ? Math.max(wall + 10, ring * 0.8) : ring;
 	}
 
 	/** Distance to water by a few probes (0 if there is water right here, 24 if none within reach). */
@@ -507,6 +526,15 @@ public final class Parcels {
 		}
 		corners(occ, p);
 		return true;
+	}
+
+	/** Whether a parcel found earlier is still free and still has its road (a road planned since may cross it). */
+	public static boolean stillClear(PlanContext ctx, Parcel p) {
+		if (!ctx.occ.isFree(p.x0, p.z0, p.x1(), p.z1())) {
+			return false;
+		}
+		int[] e = p.entrance();
+		return p.doorGap > 0 || Cell.isAccess(ctx.occ.get(e[0], e[1]));
 	}
 
 	/** The rectangle {x0, z0, sizeX, sizeZ} of a plot whose front row is centred on (qx, qz), facing {@code facing}. */
@@ -735,8 +763,8 @@ public final class Parcels {
 			return;
 		}
 		Ground g = ctx.ground;
-		for (int z = p.z0 + oz; z <= p.z1() + oz; z += 2) {
-			for (int x = p.x0 + ox; x <= p.x1() + ox; x += 2) {
+		for (int z = p.z0 + oz; z <= p.z1() + oz; z++) {
+			for (int x = p.x0 + ox; x <= p.x1() + ox; x++) {
 				if (g.isWater(x, z) != g.isWater(x - ox, z - oz)) {
 					return;
 				}

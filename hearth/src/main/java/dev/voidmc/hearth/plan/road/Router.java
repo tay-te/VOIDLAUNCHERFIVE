@@ -29,7 +29,15 @@ public final class Router {
 	 * @param toAccess    end at the first road, bridge or plaza column reached instead of at the goal
 	 */
 	public record Params(int cell, int margin, double roadGrade, double stairGrade, double waterCost, double turnCost, boolean toAccess,
-		int maxStates) {
+		int maxStates, double straightCost, int clearance) {
+		public Params(int cell, int margin, double roadGrade, double stairGrade, double waterCost, double turnCost, boolean toAccess, int maxStates) {
+			this(cell, margin, roadGrade, stairGrade, waterCost, turnCost, toAccess, maxStates, 0, 1);
+		}
+
+		public Params(int cell, int margin, double roadGrade, double stairGrade, double waterCost, double turnCost, boolean toAccess, int maxStates,
+			double straightCost) {
+			this(cell, margin, roadGrade, stairGrade, waterCost, turnCost, toAccess, maxStates, straightCost, 2);
+		}
 	}
 
 	/** The fine path from start to goal as {@code [xs, zs]}, or null if there is none within the window. */
@@ -58,7 +66,7 @@ public final class Router {
 		int scz = Math.floorDiv(sz, c) - z0;
 		int gcx = Math.floorDiv(gx, c) - x0;
 		int gcz = Math.floorDiv(gz, c) - z0;
-		classify(ground, occ, x0, z0, w, scx, scz, c, height, info);
+		classify(ground, occ, x0, z0, w, scx, scz, c, p.clearance, height, info);
 		for (int d = 0; d < 8; d++) {
 			int s = ((scz * w) + scx) * 8 + d;
 			cost[s] = 0;
@@ -90,7 +98,7 @@ public final class Router {
 					continue;
 				}
 				int ni = nz * w + nx;
-				classify(ground, occ, x0, z0, w, nx, nz, c, height, info);
+				classify(ground, occ, x0, z0, w, nx, nz, c, p.clearance, height, info);
 				if (info[ni] == 3) {
 					continue;
 				}
@@ -115,6 +123,12 @@ public final class Router {
 				}
 				if (!first) {
 					step += Math.abs(turn) * p.turnCost * (Math.abs(turn) == 2 ? 2.5 : 1);
+				}
+				if (p.straightCost > 0 && !p.toAccess && (nx != gcx || nz != gcz)) {
+					// keep heading for the goal: a main road runs true unless the land turns it
+					int want = headingTo(gcx - cx, gcz - cz);
+					int off = Math.abs(nd - want) & 7;
+					step += Math.min(off, 8 - off) * p.straightCost * c;
 				}
 				int ns = ni * 8 + nd;
 				double nc = cost[s] + step;
@@ -178,13 +192,19 @@ public final class Router {
 		return new int[][]{ox, oz};
 	}
 
+	private static int headingTo(int dx, int dz) {
+		double a = StrictMath.atan2(dz, dx);
+		return ((int) Math.round(a / (Math.PI / 4)) + 8) & 7;
+	}
+
 	private static double heuristic(int x, int z, int gx, int gz, int c, Params p) {
 		double dx = Math.abs(x - gx);
 		double dz = Math.abs(z - gz);
 		return c * (Math.max(dx, dz) + 0.41421356 * Math.min(dx, dz));
 	}
 
-	private static void classify(Ground ground, Occupancy occ, int x0, int z0, int w, int cx, int cz, int c, double[] height, byte[] info) {
+	private static void classify(Ground ground, Occupancy occ, int x0, int z0, int w, int cx, int cz, int c, int clearance, double[] height,
+		byte[] info) {
 		int ci = cz * w + cx;
 		if (info[ci] != 0) {
 			return;
@@ -202,10 +222,11 @@ public final class Router {
 		} else {
 			info[ci] = 3;
 		}
-		if (c > 1 && info[ci] != 3) {
-			// a coarse cell is blocked if its footprint holds a building
-			for (int dz = -c / 2; dz < c - c / 2 && info[ci] != 3; dz++) {
-				for (int dx = -c / 2; dx < c - c / 2; dx++) {
+		int r = Math.max(clearance, c / 2);
+		if (r > 0 && info[ci] != 3) {
+			// blocked if anything stands within the road's half width (or the coarse cell's footprint)
+			for (int dz = -r; dz <= r && info[ci] != 3; dz++) {
+				for (int dx = -r; dx <= r; dx++) {
 					byte b = occ.get(bx + dx, bz + dz);
 					if (!Cell.isAccess(b) && b != Cell.FREE && b != Cell.SETBACK && b != Cell.PLANNED_ROAD) {
 						info[ci] = 3;

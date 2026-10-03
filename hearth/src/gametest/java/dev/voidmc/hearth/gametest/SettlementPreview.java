@@ -97,7 +97,12 @@ public final class SettlementPreview {
 		return d;
 	}
 
-	private static void preview(String cultureName, String terrainName, long seed, int[] days, File out, BlueprintService blocks) throws Exception {
+	private static void preview(String cultureSpec, String terrainName, long seed, int[] days, File out, BlueprintService blocks) throws Exception {
+		// culture[/layout]: a layout after a slash forces it (to see each layout on the same land)
+		String cultureName = cultureSpec.contains("/") ? cultureSpec.substring(0, cultureSpec.indexOf('/')) : cultureSpec;
+		String layoutName = cultureSpec.contains("/") ? cultureSpec.substring(cultureSpec.indexOf('/') + 1) : null;
+		dev.voidmc.hearth.plan.layout.LayoutChooser.FORCED.set(layoutName == null ? null
+			: dev.voidmc.hearth.plan.model.LayoutType.valueOf(layoutName.toUpperCase(Locale.ROOT)));
 		Culture culture = Culture.valueOf(cultureName.toUpperCase(Locale.ROOT));
 		TerrainProbe terrain;
 		BlockPos center;
@@ -116,7 +121,7 @@ public final class SettlementPreview {
 		HearthPlanner planner = new HearthPlanner(PlanModule.STATE, PlanConfig.DEFAULTS);
 		long t0 = System.nanoTime();
 		MiniSim sim = new MiniSim(culture, terrain, seed, planner, center);
-		String tag = cultureName + "_" + terrainName.replace(':', '_') + "_s" + seed;
+		String tag = cultureSpec.replace('/', '-') + "_" + terrainName.replace(':', '_') + "_s" + seed;
 		for (int day : days) {
 			sim.run(day - sim.day());
 			PlanState state = sim.settlement.data(PlanModule.STATE);
@@ -133,6 +138,10 @@ public final class SettlementPreview {
 			z1 = Math.max(z1, center.getZ() + 80);
 			Scene scene = new Scene(terrain, x0, z0, x1 - x0 + 1, z1 - z0 + 1);
 			scene.addSettlement(sim.settlement, terrain, Catalogue.current(), blocks);
+			// the isometric view keeps to the town itself: its buildings, not the fields and tracks round it
+			int[] town = townBounds(sim.settlement, center);
+			Scene townScene = new Scene(terrain, town[0], town[1], town[2] - town[0] + 1, town[3] - town[1] + 1);
+			townScene.addSettlement(sim.settlement, terrain, Catalogue.current(), blocks);
 			int roads = state.graph.builtLength();
 			String title = String.format(Locale.ROOT, "%s on %s  ·  %s layout%s  ·  day %d  ·  %d folk (%s)  ·  %d plots  ·  %d blocks of road",
 				cap(cultureName), terrainName, state.layout.getSerializedName(),
@@ -140,8 +149,8 @@ public final class SettlementPreview {
 				sim.day(), sim.settlement.population(), sim.settlement.tier().getSerializedName(), sim.settlement.plots().size(), roads);
 			File plan = new File(out, "settlement_" + tag + "_d" + day + "_plan.png");
 			File iso = new File(out, "settlement_" + tag + "_d" + day + "_iso.png");
-			ImageIO.write(new PlanRenderer(scene, 1400).render(sim.settlement, state, Catalogue.current(), title, blocks != null), "png", plan);
-			ImageIO.write(new IsoRenderer(scene, 1800).render(title), "png", iso);
+			ImageIO.write(new PlanRenderer(scene, 1500).render(sim.settlement, state, Catalogue.current(), title, blocks != null), "png", plan);
+			ImageIO.write(new IsoRenderer(townScene, 1900).render(title), "png", iso);
 			System.out.printf(Locale.ROOT, "%-14s %-10s seed %d day %3d: %-10s %-12s pop %3d %-7s plots %3d roads %5d  planner %.1f ms total, %d calls, slowest %.2f ms -> %s%n",
 				cultureName, terrainName, seed, sim.day(), state.layout.getSerializedName(), state.signature.getSerializedName(), sim.settlement.population(),
 				sim.settlement.tier().getSerializedName(), sim.settlement.plots().size(), roads, sim.plannerNanos / 1e6, sim.calls, sim.slowestNext / 1e6,
@@ -150,6 +159,32 @@ public final class SettlementPreview {
 		// the growth log: every project and why, next to the images
 		java.nio.file.Files.write(new File(out, "settlement_" + tag + "_log.txt").toPath(), sim.log());
 		System.out.printf(Locale.ROOT, "  (%.1f s)%n", (System.nanoTime() - t0) / 1e9);
+	}
+
+	/** The box round the town's buildings (not its farms, tracks or walls far out), with a margin, at least 120 blocks across. */
+	private static int[] townBounds(dev.voidmc.hearth.api.Settlement s, BlockPos center) {
+		int x0 = center.getX() - 60;
+		int z0 = center.getZ() - 60;
+		int x1 = center.getX() + 60;
+		int z1 = center.getZ() + 60;
+		for (PlotView p : s.plots()) {
+			var info = Catalogue.current().info(p.spec().archetype());
+			if (info == null || info.category() == dev.voidmc.hearth.api.ArchetypeCategory.FARM
+				|| info.category() == dev.voidmc.hearth.api.ArchetypeCategory.INFRASTRUCTURE
+				|| info.flags().contains(dev.voidmc.hearth.api.ArchetypeInfo.SiteFlag.OUTSKIRTS) && info.category() != dev.voidmc.hearth.api.ArchetypeCategory.DEFENSE) {
+				continue;
+			}
+			var sp = p.spec();
+			x0 = Math.min(x0, sp.origin().getX() - 16);
+			z0 = Math.min(z0, sp.origin().getZ() - 16);
+			x1 = Math.max(x1, sp.origin().getX() + sp.sizeX() + 16);
+			z1 = Math.max(z1, sp.origin().getZ() + sp.sizeZ() + 16);
+		}
+		x0 = Math.max(x0, center.getX() - 260);
+		z0 = Math.max(z0, center.getZ() - 260);
+		x1 = Math.min(x1, center.getX() + 260);
+		z1 = Math.min(z1, center.getZ() + 260);
+		return new int[]{x0, z0, x1, z1};
 	}
 
 	private static float temperature(Culture c) {

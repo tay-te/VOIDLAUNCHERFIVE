@@ -33,8 +33,8 @@ public final class Program {
 	private static final Predicate<PlanContext> NO_RIVER = NEAR_RIVER.negate();
 
 	public static final List<Entry> ENTRIES = List.of(
-		new Entry(Archetypes.BUILDERS_YARD, 0, p -> p < 70 ? 1 : p < 150 ? 2 : 3, 1000, Placement.MAIN, District.Kind.CRAFTS, ALWAYS),
-		new Entry(Archetypes.STOREHOUSE, 5, p -> 1 + p / 35, 330, Placement.HOME, District.Kind.MARKET, ALWAYS),
+		new Entry(Archetypes.BUILDERS_YARD, 0, p -> p < 80 ? 1 : p < 180 ? 2 : 3, 1000, Placement.CRAFTS, District.Kind.CRAFTS, ALWAYS),
+		new Entry(Archetypes.STOREHOUSE, 5, p -> 1 + p / 35, 330, Placement.CRAFTS, District.Kind.MARKET, ALWAYS),
 		new Entry(Archetypes.FISHERY, 4, p -> 1 + p / 45, 320, Placement.WATER, District.Kind.HARBOUR, NEAR_WATER),
 		new Entry(Archetypes.CARPENTRY, 8, p -> 1 + p / 120, 250, Placement.CRAFTS, District.Kind.CRAFTS, ALWAYS),
 		new Entry(Archetypes.SMITHY, 10, p -> 1 + p / 90, 250, Placement.CRAFTS, District.Kind.CRAFTS, ALWAYS),
@@ -49,7 +49,7 @@ public final class Program {
 		new Entry(Archetypes.BANK, 30, p -> 1, 260, Placement.CENTRAL, District.Kind.MARKET, ALWAYS),
 		new Entry(Archetypes.WATERMILL, 26, p -> 1, 180, Placement.WATER, District.Kind.CRAFTS, NEAR_RIVER),
 		new Entry(Archetypes.WINDMILL, 26, p -> 1 + p / 160, 170, Placement.EDGE, District.Kind.FARMS, NO_RIVER),
-		new Entry(Archetypes.GRANARY, 24, p -> 1 + p / 90, 180, Placement.HOME, District.Kind.MARKET, ALWAYS),
+		new Entry(Archetypes.GRANARY, 24, p -> 1 + p / 90, 180, Placement.CRAFTS, District.Kind.FARMS, ALWAYS),
 		new Entry(Archetypes.MASONRY, 28, p -> 1, 180, Placement.CRAFTS, District.Kind.CRAFTS, ALWAYS),
 		new Entry(Archetypes.GUARDHOUSE, 32, p -> 1 + p / 70, 160, Placement.MAIN, null, ALWAYS),
 		new Entry(Archetypes.BREWERY, 40, p -> 1, 140, Placement.CRAFTS, District.Kind.CRAFTS, ALWAYS),

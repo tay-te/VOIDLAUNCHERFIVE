@@ -14,13 +14,13 @@ public enum LayoutType implements StringRepresentable {
 	/** Expansive: a small hamlet heart and farmsteads strung for hundreds of blocks along tracks. */
 	FARMSTEADS("farmsteads", true, false, 5.0, 5, 3, RoadKind.PATH, 34, 70, new int[]{2, 4, 8}, 0.2, false),
 	/** A cross of main streets with a square where they meet, lanes branching into blocks. */
-	CROSSROADS("crossroads", false, false, 3.4, 7, 5, RoadKind.STREET, 26, 56, new int[]{1, 2, 4}, 0.8, true),
+	CROSSROADS("crossroads", false, false, 3.4, 8, 5, RoadKind.STREET, 26, 56, new int[]{1, 2, 4}, 0.8, true),
 	/** One long main street along a river, a coast or a ridge, lanes down to the water. */
 	LINEAR("linear", false, false, 3.6, 6, 5, RoadKind.STREET, 24, 44, new int[]{1, 2, 4}, 0.8, true),
 	/** Contour streets stepping up a slope, joined by stair streets; plots on terraces. */
 	HILLSIDE("hillside", false, true, 3.0, 5, 3, RoadKind.STREET, 22, 60, new int[]{0, 1, 3}, 1.2, true),
 	/** Tight and tall inside a wall ring: rows of townhouses on narrow frontages, alleys, a market square. */
-	WALLED("walled", false, true, 2.5, 6, 5, RoadKind.STREET, 20, 40, new int[]{0, 1, 2}, 1.6, true),
+	WALLED("walled", false, true, 2.5, 7, 5, RoadKind.STREET, 20, 40, new int[]{0, 1, 2}, 1.6, true),
 	/** Boardwalks over the water, stilt houses along them, docks; the heart on the shore. */
 	STILT("stilt", false, false, 3.2, 4, 3, RoadKind.LANE, 22, 48, new int[]{1, 2, 3}, 0.6, false),
 	/** Stacked up a cliff or a stone stack: sills, stair streets and walkways, a town below and one on top. */

@@ -32,6 +32,18 @@ public final class PlanContext {
 	public final SettlementTier tier;
 	public final int population;
 	public Occupancy occ;
+	/** While planning streets ahead: a new lane that meets a planned (unbuilt) road joins it, as it would a built one. */
+	public boolean joinPlanned;
+	/** Buildings (not roads) queued since the counter was last reset: whether a need was really met. */
+	public int buildings;
+
+	/**
+	 * Whether the road network may still grow: about twenty blocks of road per resident (and a few hundred to start), so
+	 * a settlement that cannot place what it wants does not lay roads for ever.
+	 */
+	public boolean roadsMayGrow() {
+		return this.state.graph.builtLength() < 300 + 20 * this.population;
+	}
 
 	public PlanContext(Settlement settlement, PlanState state, TerrainProbe terrain, RandomSource random, Catalogue catalogue, PlanConfig config) {
 		this.settlement = settlement;
@@ -93,8 +105,35 @@ public final class PlanContext {
 
 	private double extent = -1;
 
+	/** The radius of the wall line a walled town keeps (0 if it has none): the town keeps inside it, farms outside. */
+	public double wallLine() {
+		if (this.wallLine < 0) {
+			double r = 0;
+			for (var e : this.state.graph.edges()) {
+				if (e.role == dev.voidmc.hearth.plan.model.RoadEdge.Role.WALL_LINE) {
+					var d = e.dense();
+					double sum = 0;
+					for (int i = 0; i < d.length(); i++) {
+						sum += distanceToHeart(d.xs()[i], d.zs()[i]);
+					}
+					r = sum / Math.max(1, d.length());
+				}
+			}
+			this.wallLine = r;
+		}
+		return this.wallLine;
+	}
+
+	private double wallLine = -1;
+
 	/** 0 core, 1 inner town, 2 outskirts, 3 beyond: the density band a column lies in. */
 	public int zone(int x, int z) {
+		double wall = wallLine();
+		if (wall > 0) {
+			// a walled town is all town inside its wall
+			double w = distanceToHeart(x, z) / wall;
+			return w < 0.5 ? 0 : w < 1.0 ? 1 : w < 1.6 ? 2 : 3;
+		}
 		double d = distanceToHeart(x, z) / coreRadius();
 		if (d < 0.55) {
 			return 0;
@@ -128,6 +167,9 @@ public final class PlanContext {
 	/** Queues a project behind those already decided. */
 	public void queue(PlotSpec spec, int replaces, String reason) {
 		this.state.queue.add(new QueuedProject(spec, replaces, reason));
+		if (!spec.archetype().getPath().startsWith("infra/")) {
+			this.buildings++;
+		}
 	}
 
 	public long nextSeed() {

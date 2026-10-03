@@ -38,15 +38,10 @@ public final class Upgrades {
 	}
 
 	public static boolean plan(PlanContext ctx, Needs needs, boolean forHousing) {
-		Set<Integer> replacing = new HashSet<>();
-		for (QueuedProject q : ctx.state.queue) {
-			if (q.replaces() >= 0) {
-				replacing.add(q.replaces());
-			}
-		}
+		Set<Integer> replacing = replacing(ctx);
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
-		int maxZone = ctx.tier == SettlementTier.CITY ? 1 : 0;
+		int maxZone = ctx.tier == SettlementTier.CITY ? 2 : ctx.tier == SettlementTier.TOWN ? 1 : 0;
 		PlotView best = null;
 		ArchetypeInfo bestTarget = null;
 		double bestD = Double.MAX_VALUE;
@@ -57,7 +52,8 @@ public final class Upgrades {
 			PlotSpec s = p.spec();
 			int cx = s.origin().getX() + s.sizeX() / 2;
 			int cz = s.origin().getZ() + s.sizeZ() / 2;
-			if (ctx.zone(cx, cz) > maxZone) {
+			double wall = ctx.wallLine();
+			if (wall > 0 ? ctx.distanceToHeart(cx, cz) > wall : ctx.zone(cx, cz) > maxZone) {
 				continue;
 			}
 			ArchetypeInfo target = target(ctx, s);
@@ -76,6 +72,23 @@ public final class Upgrades {
 		}
 		List<PlotView> batch = batch(ctx, best, bestTarget, plots, replacing);
 		return rebuild(ctx, batch, bestTarget);
+	}
+
+	/** Plots already being replaced: by a queued project, or by a plot handed out but not built yet. */
+	static Set<Integer> replacing(PlanContext ctx) {
+		Set<Integer> out = new HashSet<>();
+		for (QueuedProject q : ctx.state.queue) {
+			if (q.replaces() >= 0) {
+				out.add(q.replaces());
+			}
+		}
+		for (PlotView p : ctx.settlement.plots()) {
+			int r = p.spec().params().getIntOr("replaces", -1);
+			if (r >= 0) {
+				out.add(r);
+			}
+		}
+		return out;
 	}
 
 	/** What a house could be rebuilt as: a taller archetype it upgrades to, allowed here and fitting its ground. */
@@ -293,10 +306,8 @@ public final class Upgrades {
 		if (k < 3 || k >= 9 || ctx.occ.get(x, z) != Cell.BUILDING) {
 			return null;
 		}
-		Set<Integer> replacing = new HashSet<>(batchIds);
-		for (QueuedProject q : ctx.state.queue) {
-			replacing.add(q.replaces());
-		}
+		Set<Integer> replacing = replacing(ctx);
+		replacing.addAll(batchIds);
 		for (PlotView p : ctx.settlement.plots()) {
 			PlotSpec s = p.spec();
 			if (x < s.origin().getX() || x >= s.origin().getX() + s.sizeX() || z < s.origin().getZ() || z >= s.origin().getZ() + s.sizeZ()) {

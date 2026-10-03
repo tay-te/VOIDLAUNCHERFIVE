@@ -32,6 +32,8 @@ import net.minecraft.util.RandomSource;
  */
 public final class MiniSim {
 	private static final int UNITS_PER_BUILDER_DAY = 330;
+	private static final double GROWTH_RATE = 0.028;
+	private static final int CAPACITY = 220;
 	private static final String[] NAMES = {"Ada", "Bram", "Cora", "Dain", "Edda", "Finn", "Gwen", "Hal", "Ivy", "Jory", "Kit", "Lene"};
 
 	public final SimpleSettlement settlement;
@@ -42,6 +44,7 @@ public final class MiniSim {
 	private final Map<Integer, Integer> progress = new java.util.HashMap<>();
 	private final List<String> log = new ArrayList<>();
 	private int day;
+	private double growth;
 	/** Total time spent in planner calls, nanoseconds, and the slowest call. */
 	public long plannerNanos;
 	public long slowestNext;
@@ -148,11 +151,12 @@ public final class MiniSim {
 			if (project == null) {
 				break;
 			}
-			this.settlement.addPlot(project.spec());
+			var plot = this.settlement.addPlot(project.spec());
 			if (!project.spec().archetype().getPath().startsWith("infra/")) {
 				active++;
 			}
-			this.log.add("day " + this.day + ": " + project.reason() + " [" + project.spec().archetype().getPath() + "]");
+			this.log.add("day " + this.day + ": #" + plot.id() + " " + project.reason() + " [" + project.spec().archetype().getPath() + "]"
+				+ (project.replaces() >= 0 ? " replaces #" + project.replaces() : ""));
 		}
 	}
 
@@ -167,13 +171,20 @@ public final class MiniSim {
 		return beds;
 	}
 
+	/**
+	 * Logistic growth toward a city of about 220, limited by free beds: a hamlet at a month, a town by the fourth month,
+	 * a city by the sixth, which matches the ages the atlas gives settlements (0–400 days).
+	 */
 	private void grow() {
 		int pop = this.settlement.population();
 		int free = this.settlement.beds() - pop;
-		if (free <= 0) {
+		this.growth += Math.max(0.15, GROWTH_RATE * pop * (1 - pop / (double) CAPACITY));
+		int arrivals = Math.min(free, (int) this.growth);
+		if (arrivals <= 0) {
+			this.growth = Math.min(this.growth, 3);
 			return;
 		}
-		int arrivals = Math.min(free, 1 + pop / 30);
+		this.growth -= arrivals;
 		for (int i = 0; i < arrivals; i++) {
 			addResident(JobType.NONE);
 		}

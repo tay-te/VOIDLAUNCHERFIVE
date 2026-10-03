@@ -66,11 +66,11 @@ public record Site(int heartX, int heartY, int heartZ, float gradX, float gradZ,
 	}
 
 	public static Site load(CompoundTag t) {
-		int[] heart = t.getIntArray("heart").orElse(new int[3]);
-		int[] water = t.getIntArray("water_at").orElse(new int[3]);
-		int[] rise = t.getIntArray("rise").orElse(new int[3]);
-		int[] summit = t.getIntArray("summit").orElse(new int[3]);
-		int[] headland = t.getIntArray("headland").orElse(null);
+		int[] heart = Nbt.ints(t, "heart").orElse(new int[3]);
+		int[] water = Nbt.ints(t, "water_at").orElse(new int[3]);
+		int[] rise = Nbt.ints(t, "rise").orElse(new int[3]);
+		int[] summit = Nbt.ints(t, "summit").orElse(new int[3]);
+		int[] headland = Nbt.ints(t, "headland").orElse(null);
 		WaterKind kind;
 		try {
 			kind = WaterKind.valueOf(t.getStringOr("water", "NONE"));

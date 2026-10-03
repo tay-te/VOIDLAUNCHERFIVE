@@ -48,6 +48,9 @@ public final class RoadGraph {
 	public RoadEdge replaceRole(int id, RoadEdge.Role role) {
 		RoadEdge e = this.edges.get(id);
 		RoadEdge n = new RoadEdge(e.id, e.from, e.to, role, e.kind, e.width, e.line(), e.runs(), e.built, e.junctions());
+		n.parent = e.parent;
+		n.parentIndex = e.parentIndex;
+		n.limit = e.limit;
 		this.edges.set(id, n);
 		return n;
 	}
@@ -83,7 +86,7 @@ public final class RoadGraph {
 
 	static RoadGraph load(CompoundTag t) {
 		RoadGraph g = new RoadGraph();
-		int[] ns = t.getIntArray("nodes").orElse(new int[0]);
+		int[] ns = Nbt.ints(t, "nodes").orElse(new int[0]);
 		NodeKind[] kinds = NodeKind.values();
 		for (int i = 0; i + 3 < ns.length; i += 4) {
 			g.addNode(ns[i], ns[i + 1], ns[i + 2], kinds[Math.min(kinds.length - 1, Math.max(0, ns[i + 3]))]);

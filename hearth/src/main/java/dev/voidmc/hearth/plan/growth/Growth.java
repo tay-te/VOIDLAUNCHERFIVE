@@ -59,13 +59,21 @@ public final class Growth {
 			if (until != null && until > ctx.state.calls) {
 				continue;
 			}
+			long t0 = System.nanoTime();
+			int before = ctx.state.queue.size();
+			ctx.buildings = 0;
 			boolean met = need.plan.test(ctx);
 			if (trace) {
-				dev.voidmc.hearth.Hearth.LOG.info("[plan] {} pop {} {}: {} ({})", ctx.settlement.name(), ctx.population, need.key, met ? "planned" : "no room",
-					(int) o[0]);
+				dev.voidmc.hearth.Hearth.LOG.info("[plan] {} pop {} {}: {} ({}) {} us", ctx.settlement.name(), ctx.population, need.key,
+					met ? "planned" : "no room", (int) o[0], (System.nanoTime() - t0) / 1000);
 			}
 			if (met) {
-				ctx.state.cooldowns.remove(need.key);
+				if (ctx.buildings > 0) {
+					ctx.state.cooldowns.remove(need.key);
+				} else if (ctx.state.queue.size() > before) {
+					// only a road came of it: the need rests a little so roads do not run on without anything to build
+					ctx.state.cooldowns.put(need.key, ctx.state.calls + 2);
+				}
 				return true;
 			}
 			ctx.state.cooldowns.put(need.key, ctx.state.calls + 4 + ctx.random.nextInt(5));
@@ -118,6 +126,7 @@ public final class Growth {
 			if (have < want) {
 				Identifier id = info.id();
 				list.add(new Need("program/" + id.getPath(), e.priority() - have * 15, c -> {
+					Lots.release(c, e.id());
 					if (id.equals(Archetypes.CHAPEL)) {
 						return Landmarks.chapel(c, info, "faith: the village raises its chapel on the rise");
 					}
@@ -167,7 +176,8 @@ public final class Growth {
 			}
 			Placement placement = info.flags().contains(SiteFlag.WATERFRONT) ? Placement.WATER
 				: info.flags().contains(SiteFlag.OUTSKIRTS) ? Placement.EDGE
-				: info.flags().contains(SiteFlag.CENTRAL) ? Placement.CENTRAL : Placement.CRAFTS;
+				: info.flags().contains(SiteFlag.CENTRAL) ? Placement.CENTRAL
+				: info.flags().contains(SiteFlag.ATTACHABLE) ? Placement.MAIN : Placement.CRAFTS;
 			if (placeBuilding(ctx, info, placement, District.Kind.CRAFTS, "work: the " + job.getSerializedName() + "s need a "
 				+ Build.shortName(info), null)) {
 				return true;
@@ -188,6 +198,19 @@ public final class Growth {
 			p = null;
 		}
 		boolean grew = false;
+		// in town, make room near the heart (a new lane) rather than settle far out along a main road
+		if (p != null && wantsCentre(placement) && ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.coreRadius() * reach(placement)
+			&& !ctx.state.layout.expansive) {
+			if (Expand.town(ctx)) {
+				grew = true;
+				Parcels.Parcel q = Parcels.best(ctx, req, null);
+				// the new road may run through the old site, so it only stands if it is still clear
+				if (!Parcels.stillClear(ctx, p) || q != null && acceptable(ctx, placement, q)
+					&& ctx.distanceToHeart(q.x0 + q.sizeX / 2, q.z0 + q.sizeZ / 2) < ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2)) {
+					p = q != null && acceptable(ctx, placement, q) ? q : null;
+				}
+			}
+		}
 		if (p == null) {
 			grew = Expand.toward(ctx, placement);
 			if (grew) {
@@ -200,8 +223,29 @@ public final class Growth {
 		if (p == null) {
 			return grew;
 		}
+		if (trace) {
+			dev.voidmc.hearth.Hearth.LOG.info("[plan]   {} at {},{} {}x{} facing {} edge {} ({}) dist {}", info.id().getPath(), p.x0, p.z0, p.sizeX, p.sizeZ,
+				p.facing, p.edge, ctx.state.graph.edge(p.edge).role, (int) ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2));
+		}
 		Build.building(ctx, info, p, reason, params);
 		return true;
+	}
+
+	private static boolean wantsCentre(Placement placement) {
+		return switch (placement) {
+			case HOME, CENTRAL, CIVIC, MAIN, CRAFTS -> true;
+			default -> false;
+		};
+	}
+
+	/** How far out (in core radii) a placement accepts a site before the planner makes room nearer the heart. */
+	static double reach(Placement placement) {
+		return switch (placement) {
+			case CENTRAL -> 0.6;
+			case CIVIC, MAIN -> 0.8;
+			case HOME -> 0.95;
+			default -> 1.2;
+		};
 	}
 
 	/** Rejects a place that misses the point of its placement (a rise that is not raised, an edge in the core). */
@@ -211,7 +255,7 @@ public final class Growth {
 		return switch (placement) {
 			case RISE, SUMMIT -> ctx.state.site == null || p.floorY >= ctx.state.heartY + Math.min(4, (ctx.state.site.riseY() - ctx.state.heartY) / 2)
 				|| d < core;
-			case EDGE -> d > core * 0.8;
+			case EDGE -> d > core * 0.8 && (ctx.wallLine() <= 0 || d > ctx.wallLine());
 			case FARMSTEAD -> d > core * 1.5;
 			case WATER -> Parcels.waterDistance(ctx.ground, p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) <= 9
 				|| p.sizeX * p.sizeZ > 0 && d < core * 0.5;

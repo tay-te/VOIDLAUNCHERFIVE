@@ -149,7 +149,7 @@ public final class Landmarks {
 		}
 		for (PlotView plot : ctx.settlement.plots()) {
 			PlotSpec old = plot.spec();
-			if (!old.archetype().equals(Archetypes.CHAPEL) || plot.state() != PlotState.BUILT) {
+			if (!old.archetype().equals(Archetypes.CHAPEL) || plot.state() != PlotState.BUILT || Upgrades.replacing(ctx).contains(plot.id())) {
 				continue;
 			}
 			int x0 = Math.min(close.x0(), old.origin().getX());
