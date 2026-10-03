@@ -1,1 +1,7 @@
-{}
+{
+  "hearth.archetype.landscape.lamp_post": "Lamp Post",
+  "hearth.archetype.defense.palisade": "Palisade",
+  "hearth.archetype.defense.wall": "Town Wall",
+  "hearth.archetype.defense.watchtower": "Watchtower",
+  "hearth.archetype.defense.gatehouse": "Gatehouse"
+}
