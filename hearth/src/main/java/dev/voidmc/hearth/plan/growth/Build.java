@@ -36,7 +36,8 @@ public final class Build {
 			// from the column next to the road to the one in front of the door
 			int ax = ent[0] - sx * (p.doorGap - 1);
 			int az = ent[1] - sz * (p.doorGap - 1);
-			int[] pts = {ax, p.streetY, az, ent[0], p.floorY, ent[1]};
+			// level with the street: steps up to a raised door are the building's own
+			int[] pts = {ax, p.streetY, az, ent[0], p.streetY, ent[1]};
 			Roads.issue(ctx, Specs.road(ctx, Archetypes.ROAD, pts, 1, RoadKind.PATH), "path to the door of " + shortName(info));
 		}
 		CompoundTag params = extra == null ? new CompoundTag() : extra.copy();

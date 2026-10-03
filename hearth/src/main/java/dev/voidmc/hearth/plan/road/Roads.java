@@ -260,6 +260,7 @@ public final class Roads {
 		int z = sz;
 		int d = dir;
 		double h0 = g.smooth(sx, sz);
+		int wetSteps = 0;
 		joined[0] = false;
 		double stairGrade = ctx.config.stairGrade();
 		for (int step = 1; step <= maxLen; step++) {
@@ -339,8 +340,13 @@ public final class Roads {
 				}
 				break;
 			}
-			if (mode == Mode.WATER && step > skip + 3 && !g.isWater(x, z)) {
-				break;
+			if (mode == Mode.WATER) {
+				// over the water until it reaches land again (the walk may start ashore and run out to it)
+				if (g.isWater(x, z)) {
+					wetSteps++;
+				} else if (wetSteps >= 4) {
+					break;
+				}
 			}
 			if (step > skip + 3 && clearance > 0 && alongside(ctx, x, z, d, halfWidth, clearance)) {
 				n--;

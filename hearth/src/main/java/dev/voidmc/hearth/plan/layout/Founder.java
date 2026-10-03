@@ -315,6 +315,10 @@ public final class Founder {
 				sz = lead[3];
 			}
 		}
+		// farm tracks follow field edges: square to the compass, turning now and then
+		if (role == RoadEdge.Role.TRACK) {
+			params = params.cardinalOnly();
+		}
 		int[][] path = Router.route(g, ctx.occ, sx, sz, tx, tz, params);
 		if (path == null && lead == null) {
 			return null;

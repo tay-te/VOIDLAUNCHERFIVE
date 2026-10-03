@@ -34,6 +34,8 @@ public final class PlanContext {
 	public Occupancy occ;
 	/** While planning streets ahead: a new lane that meets a planned (unbuilt) road joins it, as it would a built one. */
 	public boolean joinPlanned;
+	/** Points a frontage search keeps away from, as {x, z, radius} (farmsteads keep their distance from each other). */
+	public final java.util.List<int[]> avoid = new java.util.ArrayList<>();
 	/** Buildings (not roads) queued since the counter was last reset: whether a need was really met. */
 	public int buildings;
 
@@ -42,7 +44,9 @@ public final class PlanContext {
 	 * a settlement that cannot place what it wants does not lay roads for ever.
 	 */
 	public boolean roadsMayGrow() {
-		return this.state.graph.builtLength() < 300 + 20 * this.population;
+		// an expansive settlement's tracks run far between its farmsteads
+		int perHead = this.state.layout.expansive ? 45 : 20;
+		return this.state.graph.builtLength() < (this.state.layout.expansive ? 700 : 300) + perHead * this.population;
 	}
 
 	public PlanContext(Settlement settlement, PlanState state, TerrainProbe terrain, RandomSource random, Catalogue catalogue, PlanConfig config) {

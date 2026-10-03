@@ -123,7 +123,19 @@ public final class Farms {
 	/** A farmstead site at least 50 blocks from any other farmhouse. */
 	private static Parcels.@Nullable Parcel spacedFarmstead(PlanContext ctx, Parcels.Request req) {
 		List<int[]> houses = farmhouses(ctx);
-		for (Parcels.Parcel p : Parcels.find(ctx, req, null, 12)) {
+		for (int[] h : houses) {
+			ctx.avoid.add(new int[]{h[0], h[1], 50});
+		}
+		List<Parcels.Parcel> found;
+		try {
+			found = Parcels.find(ctx, req, null, 12);
+		} finally {
+			ctx.avoid.clear();
+		}
+		if (Growth.trace) {
+			dev.voidmc.hearth.Hearth.LOG.info("[plan]   farmstead sites: {} (core {})", found.size(), (int) ctx.coreRadius());
+		}
+		for (Parcels.Parcel p : found) {
 			boolean far = true;
 			for (int[] h : houses) {
 				if (Math.hypot(h[0] - p.x0, h[1] - p.z0) < 50) {

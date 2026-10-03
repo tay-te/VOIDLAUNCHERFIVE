@@ -109,7 +109,7 @@ public final class Expand {
 		if (arm != null && extendArm(ctx, arm, "road: the main street grows outward")) {
 			return true;
 		}
-		return extendLane(ctx, Double.MAX_VALUE) || continueArm(ctx);
+		return extendLane(ctx, Double.MAX_VALUE) || !ctx.state.layout.expansive && continueArm(ctx);
 	}
 
 	/**
@@ -172,6 +172,10 @@ public final class Expand {
 	 * routed onward the way it was heading, so the town's roads keep reaching out to new farmland.
 	 */
 	static boolean continueArm(PlanContext ctx) {
+		if (ctx.state.layout.expansive) {
+			// an expansive settlement reaches out along its tracks, not by lengthening its village street
+			return false;
+		}
 		RoadEdge best = null;
 		// out to farmland within reach of the town, not across the world
 		double bestD = Math.max(160, ctx.extent() * 1.8 + 60);
@@ -422,7 +426,7 @@ public final class Expand {
 	/** Out into the farmland: the next stretch of a track or arm, or a new track off one beyond the town. */
 	static boolean outward(PlanContext ctx, boolean far) {
 		double core = ctx.coreRadius();
-		double target = core * (far ? 3.0 * ctx.config.sprawlBias() : 1.4);
+		double target = far ? core * 2.2 * ctx.config.sprawlBias() : Parcels.edgeRing(ctx);
 		RoadEdge best = null;
 		double bestD = Double.MAX_VALUE;
 		for (RoadEdge e : ctx.state.graph.edges()) {
@@ -439,13 +443,15 @@ public final class Expand {
 			}
 		}
 		Branch branch = bestBranch(ctx, true);
-		if (best != null && (branch == null || bestD < 40)) {
-			return extendArm(ctx, best, far ? "road: the track runs out to the farmsteads" : "road: the road runs out past the fields");
+		String reason = far ? "road: the track runs out to the farmsteads" : "road: the road runs out past the fields";
+		boolean preferTrack = branch != null && (best == null || bestD >= 40);
+		if (preferTrack && track(ctx, branch, far)) {
+			return true;
 		}
-		if (branch != null) {
-			return track(ctx, branch, far);
+		if (best != null && extendArm(ctx, best, reason)) {
+			return true;
 		}
-		if (best != null && extendArm(ctx, best, "road: the road runs on")) {
+		if (!preferTrack && branch != null && track(ctx, branch, far)) {
 			return true;
 		}
 		return continueArm(ctx);
@@ -522,15 +528,22 @@ public final class Expand {
 					double nx = side < 0 ? tz : -tz;
 					double nz = side < 0 ? -tx : tx;
 					int heading = Roads.cardinal(nx, nz);
+					// open, shallow water ahead (a shore road may be a few blocks from it)
 					int wet = 0;
-					for (int k = 3; k <= 14; k++) {
+					int firstWet = -1;
+					boolean blocked = false;
+					for (int k = 3; k <= 22 && !blocked; k++) {
 						int px = d.xs()[i] + Roads.DX[heading] * k;
 						int pz = d.zs()[i] + Roads.DZ[heading] * k;
-						if (ctx.ground.isWater(px, pz) && ctx.occ.get(px, pz) == Cell.FREE && ctx.ground.depth(px, pz) <= 7) {
+						byte c = ctx.occ.get(px, pz);
+						if (!Cell.isBuildable(c) && c != Cell.PLANNED_ROAD) {
+							blocked = true;
+						} else if (ctx.ground.isWater(px, pz) && ctx.ground.depth(px, pz) <= 7) {
 							wet++;
+							firstWet = firstWet < 0 ? k : firstWet;
 						}
 					}
-					if (wet < 10) {
+					if (blocked || wet < 10 || firstWet > 10) {
 						continue;
 					}
 					double dist = ctx.distanceToHeart(d.xs()[i], d.zs()[i]);

@@ -29,7 +29,18 @@ public final class Router {
 	 * @param toAccess    end at the first road, bridge or plaza column reached instead of at the goal
 	 */
 	public record Params(int cell, int margin, double roadGrade, double stairGrade, double waterCost, double turnCost, boolean toAccess,
-		int maxStates, double straightCost, int clearance) {
+		int maxStates, double straightCost, int clearance, boolean cardinal) {
+		public Params(int cell, int margin, double roadGrade, double stairGrade, double waterCost, double turnCost, boolean toAccess, int maxStates,
+			double straightCost, int clearance) {
+			this(cell, margin, roadGrade, stairGrade, waterCost, turnCost, toAccess, maxStates, straightCost, clearance, false);
+		}
+
+		/** The same search moving only east, west, north and south (farm tracks along field edges). */
+		public Params cardinalOnly() {
+			return new Params(this.cell, this.margin, this.roadGrade, this.stairGrade, this.waterCost, this.turnCost, this.toAccess, this.maxStates,
+				0, this.clearance, true);
+		}
+
 		public Params(int cell, int margin, double roadGrade, double stairGrade, double waterCost, double turnCost, boolean toAccess, int maxStates) {
 			this(cell, margin, roadGrade, stairGrade, waterCost, turnCost, toAccess, maxStates, 0, 1);
 		}
@@ -68,6 +79,9 @@ public final class Router {
 		int gcz = Math.floorDiv(gz, c) - z0;
 		classify(ground, occ, x0, z0, w, scx, scz, c, p.clearance, height, info);
 		for (int d = 0; d < 8; d++) {
+			if (p.cardinal && (d & 1) == 1) {
+				continue;
+			}
 			int s = ((scz * w) + scx) * 8 + d;
 			cost[s] = 0;
 			parent[s] = -1;
@@ -91,6 +105,9 @@ public final class Router {
 			}
 			for (int turn = -2; turn <= 2; turn++) {
 				int nd = (dir + turn + 8) & 7;
+				if (p.cardinal && (nd & 1) == 1) {
+					continue;
+				}
 				boolean first = parent[s] == -1;
 				int nx = cx + DX[nd];
 				int nz = cz + DZ[nd];

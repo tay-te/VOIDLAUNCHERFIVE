@@ -285,7 +285,7 @@ public final class Parcels {
 			}
 			case WATER, ON_WATER -> s = -dist * 0.4 - waterDistance(g, x, z) * 3;
 			case EDGE -> s = -Math.abs(dist - edgeRing(ctx)) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
-			case FARMSTEAD -> s = -Math.abs(dist - core * 3.0 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 20 : 0);
+			case FARMSTEAD -> s = -Math.abs(dist - core * 2.2 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 30 : 0);
 			case RICH -> s = (g.ground(x, z) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
 			case CRAFTS -> s = -Math.abs(dist - core * 0.9) - waterDistance(g, x, z) * 0.5;
 			case ANCHOR -> s = -Math.hypot(x - req.anchorX, z - req.anchorZ) * 2;
@@ -312,6 +312,11 @@ public final class Parcels {
 		if (req.info.flags().contains(SiteFlag.VERTICAL)) {
 			// towers where they read from afar
 			s += (g.ground(x, z) - ctx.state.heartY) * 0.4;
+		}
+		for (int[] a : ctx.avoid) {
+			if (Math.abs(x - a[0]) < a[2] && Math.abs(z - a[1]) < a[2] && Math.hypot(x - a[0], z - a[1]) < a[2]) {
+				s -= 500;
+			}
 		}
 		return s + ctx.hash(x, z, 7) * core * 0.08;
 	}
@@ -390,7 +395,9 @@ public final class Parcels {
 		ArchetypeInfo info = req.info;
 		Occupancy occ = ctx.occ;
 		Direction facing = pos.facing;
-		int doorMax = ctx.config.doorPathMax();
+		// out among the fields a farmstead may stand well back from its track, at the end of a drive
+		boolean rural = ctx.state.graph.edge(pos.edge).role == RoadEdge.Role.TRACK;
+		int doorMax = rural ? Math.max(ctx.config.doorPathMax(), 7) : ctx.config.doorPathMax();
 		Parcel p = null;
 		for (int push = 0; push <= doorMax; push++) {
 			int qx = pos.qx - facing.getStepX() * push;

@@ -40,9 +40,20 @@ public final class Housing {
 				return true;
 			}
 		}
-		if ((layout == LayoutType.FARMSTEADS || ctx.state.signature.fieldFan) && ctx.population >= 6
-			&& ctx.random.nextDouble() < (layout == LayoutType.FARMSTEADS ? 0.5 : 0.15) && Farms.farmstead(ctx)) {
-			return true;
+		if ((layout == LayoutType.FARMSTEADS || ctx.state.signature.fieldFan) && ctx.population >= 6) {
+			// an expansive settlement keeps a small hamlet at its heart and spreads its homes as farmsteads
+			int core = 0;
+			for (var p : ctx.settlement.plots()) {
+				ArchetypeInfo info = ctx.info(p.spec().archetype());
+				if (info != null && info.category() == ArchetypeCategory.HOUSING
+					&& ctx.distanceToHeart(p.spec().origin().getX(), p.spec().origin().getZ()) < ctx.coreRadius()) {
+					core++;
+				}
+			}
+			double chance = layout == LayoutType.FARMSTEADS ? (core >= 6 + ctx.population / 14 ? 0.95 : 0.45) : 0.15;
+			if (ctx.random.nextDouble() < chance && Farms.farmstead(ctx)) {
+				return true;
+			}
 		}
 		ArchetypeInfo probe = generic(ctx);
 		if (probe == null) {
