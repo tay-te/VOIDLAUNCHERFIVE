@@ -1,0 +1,66 @@
+{
+	"type": "bounty",
+	"weight": 5,
+	"when": {
+		"trigger": "none",
+		"min_tier": "hamlet",
+		"cultures": {
+			"tundra": 3.0,
+			"alpine": 2.0,
+			"northern": 1.5
+		},
+		"min_reputation": -1000
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:stray"
+			],
+			"names": [
+				"the Frostwight",
+				"Old Rime",
+				"the Pale Archer"
+			],
+			"distance": [
+				90,
+				220
+			],
+			"health": 3.0
+		}
+	],
+	"text": {
+		"title": [
+			"{name} of the snows",
+			"Hunt the {name}"
+		],
+		"summary": [
+			"A frozen archer, {name}, haunts the snowfields {direction} of {settlement}. Hunt it down, {distance} out."
+		],
+		"offer": [
+			"You can hear its bowstring in a blizzard. {name}, we call it. It lairs {direction} of here, {distance} out. Bring it down."
+		],
+		"progress": [
+			"The snowfields are still not safe.",
+			"Watch for its arrows in the white."
+		],
+		"complete": [
+			"The snowfields are ours again. You'll always have a place at our fire."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			160
+		],
+		"reputation": 8
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

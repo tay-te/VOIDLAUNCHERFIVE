@@ -1,0 +1,47 @@
+{
+	"type": "courier",
+	"weight": 5,
+	"when": {
+		"min_tier": "village"
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"tailor",
+			"smith"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier",
+			"recipient": true
+		}
+	],
+	"text": {
+		"title": [
+			"Samples for a buyer in {target}",
+			"A bargain to be struck"
+		],
+		"summary": [
+			"Carry {giver}'s trade samples to {recipient}, a buyer in {target}, {distance} to the {direction}."
+		],
+		"offer": [
+			"If {recipient} in {target} likes what I make, there's a standing order in it. Take them my samples? {distance}, to the {direction}."
+		],
+		"progress": [
+			"Has {recipient} seen the samples?"
+		],
+		"complete": [
+			"An order! You've made my year. Here, take your share."
+		]
+	},
+	"reward": {
+		"coin": [
+			35,
+			55
+		],
+		"reputation": 3
+	},
+	"deadline_days": 4,
+	"cooldown_days": 3
+}

@@ -1,0 +1,52 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"cloth"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"tailor",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Cloth for the {place}",
+			"Wool and hide"
+		],
+		"summary": [
+			"The {place} in {settlement} needs {count} × {item} for its hangings, beds and awnings.",
+			"{giver} needs {count} × {item} to finish the {place}."
+		],
+		"offer": [
+			"A house without curtains, beds without blankets: the {place} needs {count} × {item}.",
+			"I'm sewing awnings for the {place} and I've run out. {count} × {item}, please."
+		],
+		"progress": [
+			"Still short of cloth.",
+			"My needle is idle."
+		],
+		"complete": [
+			"Soft and warm. The {place} will be a home now.",
+			"Beautiful. I'll have it all stitched by the week's end."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

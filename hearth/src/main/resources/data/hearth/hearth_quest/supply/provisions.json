@@ -1,0 +1,53 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"food"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"baker",
+			"innkeeper",
+			"farmer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Food for the builders",
+			"Feeding the work crews"
+		],
+		"summary": [
+			"The builders of the {place} in {settlement} work on empty bellies. Bring {count} × {item} to {giver}.",
+			"{settlement}'s stores are bare and the crew building the {place} are hungry. {count} × {item} would feed them."
+		],
+		"offer": [
+			"You can't raise a roof on an empty stomach. {count} × {item} for the crew, and the {place} gets built.",
+			"The harvest was poor and the builders are grumbling. Could you bring {count} × {item}?"
+		],
+		"progress": [
+			"The crew are still hungry.",
+			"Any food would help."
+		],
+		"complete": [
+			"Bless you. They'll work till dark on that.",
+			"The crew send their thanks, between mouthfuls."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

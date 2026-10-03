@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"steppe": 3.0,
+			"desert": 2.0
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:caravanserai"
+			],
+			"grant": {
+				"item": "minecraft:brick",
+				"name": "Gate stamp of {target}",
+				"lore": "A clay seal from the arch.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The inn on the old road",
+			"Chart {target}"
+		],
+		"summary": [
+			"{target}, the ruined inn of the old caravan road, lies {direction} of {settlement}, {distance} out. Bring back a stamp from its gate."
+		],
+		"offer": [
+			"Every caravan once stopped at {target}. If it still stands, we could open the road again. {direction}, {distance}. Bring me its gate stamp."
+		],
+		"progress": [
+			"The road is long.",
+			"Is it still standing?"
+		],
+		"complete": [
+			"Then the road can live again. I'll tell the caravan masters."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

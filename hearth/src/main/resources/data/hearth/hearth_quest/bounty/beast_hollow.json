@@ -1,0 +1,67 @@
+{
+	"type": "bounty",
+	"weight": 5,
+	"when": {
+		"trigger": "none",
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"desert": 0,
+			"tundra": 0,
+			"bayou": 0.5
+		},
+		"min_reputation": -1000
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:zombie"
+			],
+			"names": [
+				"Grimsby the Hollow",
+				"Old Mag of the Mire",
+				"the Hollow Man"
+			],
+			"distance": [
+				90,
+				220
+			],
+			"health": 3.0
+		}
+	],
+	"text": {
+		"title": [
+			"The thing in the woods: {name}",
+			"{name}"
+		],
+		"summary": [
+			"Something that was once a man haunts the land {direction} of {settlement}: {name}. Find it, {distance} out, and put it to rest."
+		],
+		"offer": [
+			"There's a dead thing walking {direction} of here, {distance} out. The old folk call it {name}. It took the Ashby boy's dog. End it."
+		],
+		"progress": [
+			"{name} still walks.",
+			"Have you found it yet? It was seen again last night."
+		],
+		"complete": [
+			"Then it's over. We'll light a candle for whoever it was."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			160
+		],
+		"reputation": 8
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

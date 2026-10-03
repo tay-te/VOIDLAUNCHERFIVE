@@ -1,0 +1,48 @@
+{
+	"type": "courier",
+	"weight": 10,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"courier",
+			"innkeeper"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier"
+		}
+	],
+	"text": {
+		"title": [
+			"A parcel for {target}",
+			"Sealed and bound for {target}"
+		],
+		"summary": [
+			"Carry a sealed parcel from {settlement} to {target}, {distance} to the {direction}, and hand it to {recipient} or leave it at their notice board."
+		],
+		"offer": [
+			"This needs to get to {target}, {direction} of here, {distance}. Our courier's laid up with a bad leg. Will you take it?"
+		],
+		"progress": [
+			"Has the parcel reached {target}?",
+			"They'll be wondering where it is in {target}."
+		],
+		"complete": [
+			"Delivered? Splendid. Here's your fee.",
+			"Word came back that it arrived safe. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			25,
+			45
+		],
+		"reputation": 3
+	},
+	"deadline_days": 4,
+	"cooldown_days": 1
+}

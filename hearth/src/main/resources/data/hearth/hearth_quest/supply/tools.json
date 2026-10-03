@@ -1,0 +1,53 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"tools"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"smith",
+			"carpenter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Tools for the crew",
+			"Broken axes, idle hands"
+		],
+		"summary": [
+			"Half the tools of the {place}'s crew are broken. Bring {count} × {item} to {giver} in {settlement}.",
+			"{settlement} needs {count} × {item} so the {place} can go on."
+		],
+		"offer": [
+			"We've worn our tools to the haft on the {place}. {count} × {item} would put the crew back to work.",
+			"A builder without tools is just a person standing about. {count} × {item}, please."
+		],
+		"progress": [
+			"Still waiting on those tools.",
+			"We're digging with spoons."
+		],
+		"complete": [
+			"Fine tools. The {place} will be finished in no time.",
+			"These will last us years. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

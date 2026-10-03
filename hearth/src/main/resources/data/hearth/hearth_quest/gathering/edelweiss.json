@@ -1,0 +1,61 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"alpine": 3.0,
+			"moorland": 3.0
+		},
+		"min_tier": "camp",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"tailor",
+			"priest",
+			"farmer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"expanse:edelweiss",
+				"expanse:heather"
+			],
+			"count": [
+				6,
+				10
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Flowers from the heights",
+			"Heather and edelweiss"
+		],
+		"summary": [
+			"{giver} wants {count} × {item} from the high pastures and the moor."
+		],
+		"offer": [
+			"We wreathe the doors for the summer fair. {count} × {item}, from the heights. It's a fine walk, at least."
+		],
+		"progress": [
+			"The fair is coming."
+		],
+		"complete": [
+			"Lovely. The doors will look a picture."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

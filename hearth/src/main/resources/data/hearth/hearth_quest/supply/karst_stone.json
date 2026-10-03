@@ -1,0 +1,57 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"stone"
+		],
+		"cultures": {
+			"karst": 3.0,
+			"mesa": 1.0
+		}
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"quarrier"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Limestone for the sills",
+			"Stone for the terraces of {settlement}"
+		],
+		"summary": [
+			"The houses of {settlement} sit on limestone sills cut into the towers. The {place} wants {count} × {item} for its sill and steps.",
+			"A new terrace climbs the stone in {settlement}, and it needs {count} × {item} to hold the {place}."
+		],
+		"offer": [
+			"Every house here stands on a shelf we cut and build up. The {place}'s shelf is half-made: {count} × {item}, and we will raise it.",
+			"The terraces go up one ledge at a time, and we are out of stone for the next. {count} × {item}, please."
+		],
+		"progress": [
+			"The ledge is waiting.",
+			"Bring the stone when you can; the mountain is patient."
+		],
+		"complete": [
+			"The ledge will hold. Come back and see the {place} when it stands.",
+			"Good stone. The terrace climbs again."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

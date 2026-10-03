@@ -1,0 +1,58 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"wood"
+		],
+		"cultures": {
+			"*": 1.0,
+			"northern": 0.4,
+			"tundra": 0.4
+		}
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"carpenter",
+			"forester"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Timber for the {place}",
+			"Beams wanted in {settlement}"
+		],
+		"summary": [
+			"The {place} in {settlement} stands half-raised: the builders ran out of timber. Bring {count} × {item} to {giver} and the work goes on.",
+			"{settlement} needs timber for its {place}. {count} × {item} will see the frame finished."
+		],
+		"offer": [
+			"We've the walls of the {place} up to the sills and not a beam left to roof it. {count} × {item} would get us going again, and I'll pay above market.",
+			"The yard's bare. If you could fetch {count} × {item}, the {place} gets its frame by the week's end."
+		],
+		"progress": [
+			"Still short of timber, I'm afraid. Every log helps.",
+			"The saws are idle until the timber comes."
+		],
+		"complete": [
+			"That's the timber! Hear that? The saws are going again.",
+			"Good, sound wood. The {place} will be roofed before the rain."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

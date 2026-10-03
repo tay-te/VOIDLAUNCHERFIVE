@@ -1,0 +1,53 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"luxury"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"priest",
+			"scholar",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Finery for the {place}",
+			"The last touches"
+		],
+		"summary": [
+			"The {place} in {settlement} is built but bare. {giver} needs {count} × {item} to finish it properly.",
+			"{settlement} wants {count} × {item} for the {place}'s finishing."
+		],
+		"offer": [
+			"It stands, but it isn't finished: a {place} should be a thing of beauty. {count} × {item} would do it.",
+			"The folk have built well; now it needs care. Bring {count} × {item}?"
+		],
+		"progress": [
+			"It still looks unfinished.",
+			"Soon, I hope."
+		],
+		"complete": [
+			"Now that is a {place} to be proud of.",
+			"Perfect. The whole town will come to look."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

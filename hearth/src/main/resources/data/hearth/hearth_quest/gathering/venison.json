@@ -1,0 +1,63 @@
+{
+	"type": "gathering",
+	"weight": 6,
+	"when": {
+		"cultures": {
+			"northern": 2.0,
+			"temperate": 1.5,
+			"moorland": 1.5,
+			"alpine": 1.5,
+			"wisteria": 1.0
+		},
+		"min_tier": "camp",
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"innkeeper",
+			"hunter",
+			"baker"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"expanse:venison"
+			],
+			"count": [
+				8,
+				14
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Venison for the feast",
+			"The hunt"
+		],
+		"summary": [
+			"{giver} is planning a feast in {settlement} and needs {count} × {item}. Deer and elk graze the woods and moors."
+		],
+		"offer": [
+			"We've a wedding at the end of the week and nothing for the spit. {count} × {item}, if you can hunt it. Elk are skittish: go quiet."
+		],
+		"progress": [
+			"The feast is coming up fast."
+		],
+		"complete": [
+			"That'll roast beautifully. You're invited, of course."
+		]
+	},
+	"reward": {
+		"coin": [
+			15,
+			35
+		],
+		"market_premium": 1.3,
+		"reputation": 3
+	},
+	"cooldown_days": 3
+}

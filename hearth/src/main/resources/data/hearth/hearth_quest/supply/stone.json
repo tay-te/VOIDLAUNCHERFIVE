@@ -1,0 +1,57 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"stone"
+		],
+		"cultures": {
+			"*": 1.0,
+			"karst": 0.4
+		}
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"quarrier"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Stone for the {place}",
+			"The masons are idle"
+		],
+		"summary": [
+			"The masons of {settlement} have laid the last stone they had into the {place}. Bring {count} × {item} to {giver}.",
+			"{settlement} is short of stone for its {place}: {count} × {item} will do."
+		],
+		"offer": [
+			"The footings of the {place} are in, but we've no stone for the walls. {count} × {item}, and I'll pay you well over what the market gives.",
+			"Our quarry's flooded and the {place} stands half-built. Could you bring {count} × {item}?"
+		],
+		"progress": [
+			"Still waiting on that stone.",
+			"The mortar's drying in the tub. Stone, please!"
+		],
+		"complete": [
+			"Good square stone. The {place} will outlast us all.",
+			"Thank you. The walls go up again tomorrow."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

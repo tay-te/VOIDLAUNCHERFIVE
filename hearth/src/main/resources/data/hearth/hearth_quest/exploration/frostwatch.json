@@ -1,0 +1,65 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"tundra": 3.0,
+			"alpine": 1.5,
+			"northern": 1.5
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:frost_outpost"
+			],
+			"grant": {
+				"item": "minecraft:white_banner",
+				"name": "Banner scrap from {target}",
+				"lore": "Frost-stiff wool.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The citadel in the snow",
+			"Chart {target}"
+		],
+		"summary": [
+			"{target} stands {direction} of {settlement}, {distance} out, abandoned to the ice. Find it and bring back proof you stood in its keep."
+		],
+		"offer": [
+			"My grandmother's people held {target} until the cold drove them out. It's {direction}, {distance}. Bring me something from the keep, so I know it still stands."
+		],
+		"progress": [
+			"The citadel is far, and the cold is cruel.",
+			"Dress warmly."
+		],
+		"complete": [
+			"It still stands. Grandmother would be glad."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

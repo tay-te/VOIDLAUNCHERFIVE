@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"desert": 3.0,
+			"mesa": 1.5
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:sun_shrine"
+			],
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "Rubbing of the sun disc",
+				"lore": "Taken at {target}.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The Temple of the Pink Sun",
+			"Chart {target}"
+		],
+		"summary": [
+			"The dunes {direction} of {settlement} hide {target}, {distance} out. Find it and bring back a rubbing of the sun disc."
+		],
+		"offer": [
+			"When the wind shifts the dunes, a golden disc shows {direction} of here. {target}, the old songs say. Bring me a rubbing of it, {distance} out."
+		],
+		"progress": [
+			"The sand moves; keep looking.",
+			"Have the dunes shown it to you?"
+		],
+		"complete": [
+			"The sun disc... it's as the songs said."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

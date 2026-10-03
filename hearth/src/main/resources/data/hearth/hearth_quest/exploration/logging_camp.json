@@ -1,0 +1,64 @@
+{
+	"type": "exploration",
+	"weight": 5,
+	"when": {
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"northern": 3.0,
+			"alpine": 1.5
+		},
+		"min_reputation": -1000,
+		"requires_mods": [
+			"expanse"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "explore",
+			"structures": [
+				"expanse:logging_camp"
+			],
+			"grant": {
+				"item": "minecraft:writable_book",
+				"name": "Payroll book of {target}",
+				"lore": "Names, wages, and sawdust.",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The camp among the giants",
+			"Chart {target}"
+		],
+		"summary": [
+			"{target} stands {direction} of {settlement} among the giant trees, {distance} out. Bring back its payroll book."
+		],
+		"offer": [
+			"My father worked {target}, {direction} of here among the redwoods. Bring me the payroll book; his name should be in it. {distance} out."
+		],
+		"progress": [
+			"The giants make a person feel small.",
+			"Found it yet?"
+		],
+		"complete": [
+			"There. 'T. Marlow, sawyer.' That's him. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 6
+	},
+	"cooldown_days": 5
+}

@@ -1,0 +1,41 @@
+{
+	"type": "personal",
+	"weight": 8,
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$gift",
+			"count": 1
+		}
+	],
+	"text": {
+		"title": [
+			"A gift for {giver}",
+			"Something {giver} would love"
+		],
+		"summary": [
+			"{giver} of {settlement} has been longing for {count} × {item}. Bring it to them.",
+			"It's {giver}'s name day soon, and nothing would please them more than {count} × {item}."
+		],
+		"offer": [
+			"Oh, don't laugh, but what I'd really love is {count} × {item}. I'd make it worth your while.",
+			"My name day's coming. Do you know what I'd like most in the world? {count} × {item}. Silly, isn't it?"
+		],
+		"progress": [
+			"Did you find it?",
+			"I keep thinking about it."
+		],
+		"complete": [
+			"Oh! You remembered! Thank you, truly.",
+			"It's perfect. You're very kind."
+		]
+	},
+	"reward": {
+		"coin": [
+			10,
+			30
+		],
+		"reputation": 5
+	},
+	"cooldown_days": 2
+}

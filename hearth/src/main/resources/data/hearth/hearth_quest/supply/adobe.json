@@ -1,0 +1,58 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"clay"
+		],
+		"cultures": {
+			"desert": 3.0,
+			"mesa": 3.0,
+			"steppe": 1.5,
+			"bayou": 1.0
+		}
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Mud brick before the wind",
+			"Adobe for the {place}"
+		],
+		"summary": [
+			"The walls of the {place} in {settlement} need {count} × {item} before the dry wind comes and cracks what is half-built.",
+			"{settlement} builds in earth and sun. The {place} wants {count} × {item}."
+		],
+		"offer": [
+			"We lay mud brick in the cool of the morning, but we have none left for the {place}. {count} × {item}, and the roof terrace goes on.",
+			"The wind will crack an unfinished wall. Bring {count} × {item}, quickly if you can."
+		],
+		"progress": [
+			"The wall is waiting under its cloth.",
+			"Bring the bricks before the wind turns."
+		],
+		"complete": [
+			"Good, dry, true. The {place} will be cool all summer.",
+			"Thank you. Sit in the shade with us when it is done."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 0
+}

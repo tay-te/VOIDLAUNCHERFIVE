@@ -1,0 +1,49 @@
+{
+	"type": "scouting",
+	"weight": 4,
+	"when": {
+		"min_tier": "village",
+		"min_reputation": 10
+	},
+	"giver": {
+		"council_only": true
+	},
+	"objectives": [
+		{
+			"kind": "scout",
+			"distance": [
+				600,
+				2500
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"A site for a new hamlet",
+			"Room to grow"
+		],
+		"summary": [
+			"{settlement} has outgrown its land. Find a good site for a new hamlet {distance} from here: gentle ground, water near, and well clear of any other town. Stand on it, then report back."
+		],
+		"offer": [
+			"We've more folk than fields. Some of the young ones want to found a hamlet of their own. Find them a good site: flat ground, water close by, {distance} from here and clear of other towns."
+		],
+		"progress": [
+			"Found anywhere promising?",
+			"Water, flat ground, and room."
+		],
+		"complete": [
+			"That sounds a fine place. The settlers will set out as soon as the weather turns."
+		]
+	},
+	"reward": {
+		"coin": [
+			150,
+			240
+		],
+		"reputation": 10
+	},
+	"deadline_days": 8,
+	"cooldown_days": 10,
+	"repeatable": true
+}

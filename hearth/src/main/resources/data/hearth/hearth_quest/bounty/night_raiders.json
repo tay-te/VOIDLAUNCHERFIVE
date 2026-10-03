@@ -1,0 +1,66 @@
+{
+	"type": "bounty",
+	"weight": 10,
+	"when": {
+		"trigger": "pressure",
+		"min_tier": "camp"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"builder",
+			"farmer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "kill",
+			"entity": "monster",
+			"count": [
+				8,
+				14
+			],
+			"night": true
+		}
+	],
+	"text": {
+		"title": [
+			"Monsters at the walls",
+			"Long nights in {settlement}"
+		],
+		"summary": [
+			"Monsters prowl round {settlement} every night. Kill {count} of them near the town after dark.",
+			"The folk of {settlement} bar their doors at dusk. Thin out the monsters: kill {count} near town at night."
+		],
+		"offer": [
+			"They come every night now, scratching at the shutters. Kill {count} of them near the town after dark and I'll see you paid.",
+			"We've lost two sheep and nearly lost a child. Clear the monsters from round {settlement} at night: {count} of them."
+		],
+		"progress": [
+			"Still hearing them at night.",
+			"Keep at it. The town's sleeping better already."
+		],
+		"complete": [
+			"Quiet nights at last. Thank you.",
+			"The children played outside after dark yesterday. That's your doing."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			70
+		],
+		"items": [
+			{
+				"item": "minecraft:arrow",
+				"count": [
+					8,
+					16
+				]
+			}
+		],
+		"reputation": 6
+	},
+	"deadline_days": 3,
+	"cooldown_days": 1
+}

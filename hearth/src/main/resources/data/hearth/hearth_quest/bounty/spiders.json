@@ -1,0 +1,65 @@
+{
+	"type": "bounty",
+	"weight": 5,
+	"when": {
+		"trigger": "none",
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"farmer",
+			"herder",
+			"guard"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "kill",
+			"entities": [
+				"minecraft:spider",
+				"minecraft:cave_spider"
+			],
+			"count": [
+				6,
+				10
+			],
+			"radius": 160
+		}
+	],
+	"text": {
+		"title": [
+			"Webs in the orchard",
+			"Too many legs"
+		],
+		"summary": [
+			"Spiders have been nesting round {settlement}. Kill {count} {mob} within a short walk of the town."
+		],
+		"offer": [
+			"There are webs in the orchard and the herd won't graze the far field. Kill {count} {mob} round {settlement}, would you?"
+		],
+		"progress": [
+			"Still finding webs.",
+			"Fewer webs, but not none."
+		],
+		"complete": [
+			"Not a web in sight. The cows are grazing the far field again."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			55
+		],
+		"items": [
+			{
+				"item": "minecraft:string",
+				"count": [
+					4,
+					8
+				]
+			}
+		],
+		"reputation": 4
+	},
+	"cooldown_days": 4
+}
