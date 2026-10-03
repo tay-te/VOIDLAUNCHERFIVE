@@ -265,11 +265,13 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				tile.state = Tile.State.READY;
 				continue;
 			}
+			// BUILT before the hand-off: a GPU may report the upload done before upload() even returns
+			tile.state = Tile.State.BUILT;
 			if (!gpu.upload(tile, b.vertices())) {
+				tile.state = Tile.State.BUILDING;
 				break;
 			}
 			this.waiting.poll();
-			tile.state = Tile.State.BUILT;
 		}
 	}
 
@@ -337,6 +339,22 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			}
 		}
 		return true;
+	}
+
+	/** Why the engine is not idle, for tests and the debug screen. */
+	public String busy() {
+		int queued = 0, building = 0, built = 0;
+		for (Tile tile : this.tiles.values()) {
+			switch (tile.state) {
+				case QUEUED -> queued += this.frame - tile.wantedFrame <= 1 ? 1 : 0;
+				case BUILDING -> building++;
+				case BUILT -> built++;
+				default -> {
+				}
+			}
+		}
+		return "jobs " + this.queue.size() + ", results " + this.built.size() + ", waiting " + this.waiting.size()
+			+ ", wanted-queued " + queued + ", building " + building + ", uploading " + built;
 	}
 
 	@Override

@@ -59,6 +59,14 @@ test {
 // A client game test, run headless (SDL_VIDEO_FORCE_EGL=1 xvfb-run ./gradlew runClientGameTest), that
 // creates an Earth world, climbs a mountain and photographs the view with the LOD off and on, logging
 // what each frame cost. It lives in its own source set so none of it ships in the mod.
+loom {
+	runs {
+		configureEach {
+			property 'void.lod.logStats', 'true'
+		}
+	}
+}
+
 fabricApi {
 	configureTests {
 		createSourceSet = true

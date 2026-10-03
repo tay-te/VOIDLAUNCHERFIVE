@@ -47,6 +47,9 @@ public final class VoidLod implements ClientModInitializer {
 	private ClientLevel level;
 	private long sourceVersion;
 	private KeyMapping toggle;
+	private int resets;
+	private int ticks;
+	private final boolean logStats = Boolean.getBoolean("void.lod.logStats");
 
 	public static VoidLod get() {
 		return instance;
@@ -71,7 +74,11 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		if (mc.level != this.level) {
 			this.level = mc.level;
+			this.resets++;
 			this.engine.reset(this.createSource(mc), this.gpu());
+		}
+		if (this.logStats && ++this.ticks % 100 == 0) {
+			LOGGER.info("{} | resets {}, dropped {}, frame {}", this.stats(), this.resets, this.engine.jobsDropped.get(), this.engine.frame());
 		}
 	}
 
