@@ -86,6 +86,25 @@ class SkinComposerTest {
 	}
 
 	@Test
+	void composingIsCheap() {
+		RandomSource random = RandomSource.create(11);
+		Culture[] cultures = Culture.values();
+		JobType[] jobs = JobType.values();
+		// Warm up, then time a crowd.
+		for (int i = 0; i < 200; i++) {
+			SkinComposer.compose(new FolkLook(random.nextInt(), cultures[i % cultures.length], jobs[i % jobs.length], AgeStage.ADULT, i % 2 == 0));
+		}
+		long t = System.nanoTime();
+		int n = 2000;
+		for (int i = 0; i < n; i++) {
+			SkinComposer.compose(new FolkLook(random.nextInt(), cultures[i % cultures.length], jobs[i % jobs.length], AgeStage.ADULT, i % 2 == 0));
+		}
+		double ms = (System.nanoTime() - t) / 1e6 / n;
+		System.out.printf("SkinComposer: %.3f ms per skin%n", ms);
+		assertTrue(ms < 2.0, "composing a skin should take well under a frame: " + ms + " ms");
+	}
+
+	@Test
 	void eldersAreGreyer() {
 		int g = Genome.pack(3, 2, 1, 0, 0, false, 2);
 		int[] adult = SkinComposer.compose(new FolkLook(g, Culture.TEMPERATE, JobType.NONE, AgeStage.ADULT, false));

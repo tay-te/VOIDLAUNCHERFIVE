@@ -65,6 +65,11 @@ public final class NpcModule {
 		return config;
 	}
 
+	/** Replaces the settings at runtime (dev tools and game tests: faster builders, fewer folk). */
+	public static void setConfig(NpcConfig newConfig) {
+		config = newConfig;
+	}
+
 	public static EmbodimentManager embodiment() {
 		return EMBODIMENT;
 	}

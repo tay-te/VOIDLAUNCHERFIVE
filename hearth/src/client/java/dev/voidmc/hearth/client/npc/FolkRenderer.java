@@ -95,8 +95,13 @@ public class FolkRenderer extends MobRenderer<Folk, FolkRenderState, FolkModel> 
 	@Override
 	public Vec3 getRenderOffset(FolkRenderState state) {
 		Vec3 offset = super.getRenderOffset(state);
+		float s = state.isBaby ? state.ageScale : 1.0F;
 		if (state.folkPose == FolkPose.SIT) {
-			return offset.add(0.0, -0.55 * (state.isBaby ? state.ageScale : 1.0F), 0.0);
+			return offset.add(0.0, -0.55 * s, 0.0);
+		}
+		if (state.folkPose == FolkPose.TEND || state.folkPose == FolkPose.COWER) {
+			// As the player model does when crouching.
+			return offset.add(0.0, -2.0 / 16.0 * s, 0.0);
 		}
 		return offset;
 	}

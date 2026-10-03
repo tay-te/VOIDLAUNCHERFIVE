@@ -127,12 +127,8 @@ public final class EmbodimentManager {
 	private void consider(ServerLevel level, Settlement settlement, NpcConfig.Embodiment cfg) {
 		TownState town = town(settlement);
 		town.places.refresh(level, settlement, 2);
-		List<ServerPlayer> players = new ArrayList<>();
-		for (ServerPlayer p : level.players()) {
-			if (!p.isSpectator()) {
-				players.add(p);
-			}
-		}
+		// Spectators count: an admin watching a town should see its people.
+		List<ServerPlayer> players = level.players();
 		List<EmbodimentSelector.Candidate> candidates = new ArrayList<>(settlement.population());
 		double nearestWish = Double.MAX_VALUE;
 		for (Resident r : settlement.residents()) {
@@ -227,6 +223,8 @@ public final class EmbodimentManager {
 		bind(level, folk, settlement, resident, town);
 		folk.snapTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, level.getRandom().nextFloat() * 360.0F, 0.0F);
 		if (!level.addFreshEntity(folk)) {
+			this.embodied.remove(resident.id, folk);
+			settlement.setResidentEmbodied(resident.id, false);
 			return null;
 		}
 		if (where.bed() != null && level.getBlockState(where.bed()).getBlock() instanceof net.minecraft.world.level.block.AbstractBedBlock) {

@@ -25,12 +25,18 @@ public class FolkModel extends HumanoidModel<FolkRenderState> {
 	public void setupAnim(FolkRenderState state) {
 		boolean sitting = state.folkPose == FolkPose.SIT;
 		boolean wasPassenger = state.isPassenger;
+		boolean wasCrouching = state.isCrouching;
 		if (sitting) {
 			// The vanilla riding pose is a good seated pose.
 			state.isPassenger = true;
 		}
+		if (state.folkPose == FolkPose.TEND || state.folkPose == FolkPose.COWER) {
+			// Bent to the ground: the vanilla crouch, arms reaching down.
+			state.isCrouching = true;
+		}
 		super.setupAnim(state);
 		state.isPassenger = wasPassenger;
+		state.isCrouching = wasCrouching;
 		float t = state.ageInTicks + state.phase;
 		float still = 1.0F - Math.min(1.0F, state.walkAnimationSpeed * 2.0F);
 
@@ -100,25 +106,16 @@ public class FolkModel extends HumanoidModel<FolkRenderState> {
 				this.head.xRot += Mth.sin(t * 0.33F) * 0.06F;
 			}
 			case TEND -> {
-				this.body.xRot = 0.55F;
-				this.head.xRot = 0.8F;
-				this.head.y += 2.5F;
-				this.body.y += 1.5F;
-				this.head.z -= 2.5F;
-				this.rightArm.y += 1.5F;
-				this.leftArm.y += 1.5F;
-				this.rightArm.z -= 2.0F;
-				this.leftArm.z -= 2.0F;
-				this.rightArm.xRot = -1.0F + Mth.sin(t * 0.25F) * 0.35F;
-				this.leftArm.xRot = -0.8F;
+				this.head.xRot = 0.7F;
+				this.rightArm.xRot = -0.5F + Mth.sin(t * 0.25F) * 0.35F;
+				this.leftArm.xRot = -0.3F;
 			}
 			case COWER -> {
-				this.rightArm.xRot = -2.6F;
-				this.leftArm.xRot = -2.6F;
+				this.rightArm.xRot = -2.4F;
+				this.leftArm.xRot = -2.4F;
 				this.rightArm.zRot = 0.5F;
 				this.leftArm.zRot = -0.5F;
 				this.head.xRot = 0.7F;
-				this.body.xRot = 0.35F;
 			}
 			case CHEER -> {
 				float b = Math.abs(Mth.sin(t * 0.4F));

@@ -118,6 +118,19 @@ final class BuilderWork implements WorkBehaviour {
 	private record Step(int stage, int index, BlockPos pos, BlockState state, @Nullable CompoundTag tag) {
 	}
 
+	/** The next solid steps of the stage, in order. */
+	private static List<BlockPos> nextSolid(Blueprint blueprint, int stage, int index, int max) {
+		List<BlockPos> out = new ArrayList<>();
+		for (int i = index; i < blueprint.stepCount(stage) && out.size() < max; i++) {
+			blueprint.step(stage, i, (x, y, z, state, tag) -> {
+				if (!state.isAir()) {
+					out.add(new BlockPos(x, y, z));
+				}
+			});
+		}
+		return out;
+	}
+
 	/** Where the rest of this stage and the next two will put solid blocks. */
 	private static java.util.Set<Long> upcoming(Blueprint blueprint, int stage, int index) {
 		java.util.Set<Long> out = new java.util.HashSet<>();
@@ -255,14 +268,16 @@ final class BuilderWork implements WorkBehaviour {
 				}
 				return Status.RUNNING;
 			}
-			// On top of a scaffold that no longer reaches: down and take it away first.
+			// On top of a scaffold that no longer reaches: up a few more if the work is overhead, else down and away.
 			if (this.scaffold != null) {
-				this.scaffold.dismantle();
+				if (!this.scaffold.raiseFor(level, step.pos, upcoming(blueprint, stage, index))) {
+					this.scaffold.dismantle();
+				}
 				return Status.RUNNING;
 			}
 			double above = step.pos.getY() - folk.getY();
 			if (above > 3.0 && FolkBrain.config().scaffolding()) {
-				Scaffold s = Scaffold.plan(level, brain, plot.spec(), step.pos, upcoming(blueprint, stage, index));
+				Scaffold s = Scaffold.plan(level, brain, plot.spec(), step.pos, upcoming(blueprint, stage, index), nextSolid(blueprint, stage, index, 40));
 				if (s != null) {
 					this.scaffold = s;
 					return Status.RUNNING;
@@ -450,7 +465,7 @@ final class BuilderWork implements WorkBehaviour {
 		private enum Phase { GO, POLE, TOP, DOWN, TEARDOWN, DONE }
 
 		private final BlockPos base;
-		private final int height;
+		private int height;
 		private final List<BlockPos> placed = new ArrayList<>();
 		private Phase phase = Phase.GO;
 		private int timer;
@@ -465,7 +480,8 @@ final class BuilderWork implements WorkBehaviour {
 		 * Finds a clear column near the target: not on any block the next stages will place (so the scaffold is never in
 		 * the building's way), outside the plot's footprint if one will do.
 		 */
-		static @Nullable Scaffold plan(ServerLevel level, FolkBrain brain, PlotSpec spec, BlockPos target, java.util.Set<Long> upcoming) {
+		static @Nullable Scaffold plan(ServerLevel level, FolkBrain brain, PlotSpec spec, BlockPos target, java.util.Set<Long> upcoming,
+			List<BlockPos> next) {
 			BlockPos best = null;
 			int bestHeight = 0;
 			double bestScore = Double.MAX_VALUE;
@@ -489,7 +505,10 @@ final class BuilderWork implements WorkBehaviour {
 					}
 					boolean inside = x >= spec.origin().getX() && x < spec.origin().getX() + spec.sizeX() && z >= spec.origin().getZ()
 						&& z < spec.origin().getZ() + spec.sizeZ();
-					double score = ring + (inside ? 3 : 0) + ground.distSqr(brain.folk.blockPosition()) * 0.001;
+					// Above all, a column from whose top the most of the coming steps can be reached in order: one
+					// climb then serves a whole course of wall instead of one block.
+					int served = served(new Vec3(x + 0.5, feet + brain.folk.getEyeHeight(), z + 0.5), next);
+					double score = -served * 4 + ring + (inside ? 3 : 0) + ground.distSqr(brain.folk.blockPosition()) * 0.001;
 					if (score < bestScore) {
 						best = ground;
 						bestHeight = h;
@@ -514,6 +533,17 @@ final class BuilderWork implements WorkBehaviour {
 			return null;
 		}
 
+		private static int served(Vec3 eye, List<BlockPos> next) {
+			int n = 0;
+			for (BlockPos p : next) {
+				if (eye.distanceToSqr(Vec3.atCenterOf(p)) > REACH * REACH) {
+					break;
+				}
+				n++;
+			}
+			return n;
+		}
+
 		private static boolean inTheWay(BlockPos ground, int h, java.util.Set<Long> upcoming) {
 			for (int i = 0; i < h; i++) {
 				if (upcoming.contains(ground.above(i).asLong())) {
@@ -536,6 +566,30 @@ final class BuilderWork implements WorkBehaviour {
 
 		boolean busy() {
 			return this.phase == Phase.GO || this.phase == Phase.POLE || this.phase == Phase.DOWN || this.phase == Phase.TEARDOWN;
+		}
+
+		/** Builds the column higher when the next work is above it and still within arm's length sideways. */
+		boolean raiseFor(ServerLevel level, BlockPos target, java.util.Set<Long> upcoming) {
+			if (this.phase != Phase.TOP) {
+				return false;
+			}
+			double dx = target.getX() + 0.5 - (this.base.getX() + 0.5);
+			double dz = target.getZ() + 0.5 - (this.base.getZ() + 0.5);
+			int want = target.getY() - 1 - this.base.getY();
+			if (dx * dx + dz * dz > 3.2 * 3.2 || want <= this.height || want > 24) {
+				return false;
+			}
+			for (int y = this.height; y < want + 2; y++) {
+				BlockPos p = this.base.above(y);
+				BlockState s = level.getBlockState(p);
+				if (!s.isAir() && !s.canBeReplaced() || upcoming.contains(p.asLong())) {
+					return false;
+				}
+			}
+			this.height = want;
+			this.phase = Phase.POLE;
+			this.timer = 0;
+			return true;
 		}
 
 		boolean done() {
