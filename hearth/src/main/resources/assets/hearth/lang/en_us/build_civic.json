@@ -1,1 +1,12 @@
-{}
+{
+  "hearth.archetype.commerce.market_hall": "Market Hall",
+  "hearth.archetype.commerce.inn": "Inn",
+  "hearth.archetype.commerce.bank": "Bank",
+  "hearth.archetype.civic.chapel": "Chapel",
+  "hearth.archetype.civic.town_hall": "Town Hall",
+  "hearth.archetype.civic.library": "Library",
+  "hearth.archetype.civic.school": "School",
+  "hearth.archetype.civic.bathhouse": "Bathhouse",
+  "hearth.archetype.civic.guardhouse": "Guardhouse",
+  "hearth.build.civic.notices": "Notices"
+}
