@@ -3,7 +3,6 @@ package dev.voidmc.hearth.quest.gen;
 import dev.voidmc.hearth.quest.model.QuestReward;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.resources.Identifier;
 
 /** Writes a reward out for the client: "2 marks, 4 bits · 3 × Bread · +4 standing". */
 public final class RewardText {
@@ -27,9 +26,5 @@ public final class RewardText {
 	/** The reward with its text filled in. */
 	public static QuestReward withText(QuestReward reward, GameFacts facts) {
 		return reward.withText(describe(reward, facts));
-	}
-
-	static String itemName(Identifier id, GameFacts facts) {
-		return facts.itemName(id);
 	}
 }
