@@ -4,7 +4,6 @@ import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
 import dev.voidmc.hearth.api.JobType;
-import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
@@ -26,7 +25,6 @@ import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
-import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -46,7 +44,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:commerce/inn}: the coaching inn on the main road. Its range along the street holds the tap room (the bar
@@ -72,7 +69,7 @@ public final class Inn implements Archetype {
 		11, 15, 11, 15, 11, 17, SettlementTier.VILLAGE, Set.of(), Set.of(), List.of(), 2, 1.0);
 
 	/** Inn names: a translation key suffix and the English of the sign's two lines. */
-	static final String[][] NAMES = {
+	public static final String[][] NAMES = {
 		{"red_lion", "The Red", "Lion"}, {"golden_goose", "The Golden", "Goose"}, {"green_man", "The Green", "Man"},
 		{"wheatsheaf", "The", "Wheatsheaf"}, {"plough", "The", "Plough"}, {"bell", "The Bell", "Inn"},
 		{"crown", "The Crown", "Inn"}, {"white_hart", "The White", "Hart"}, {"rising_sun", "The Rising", "Sun"},
@@ -127,7 +124,7 @@ public final class Inn implements Archetype {
 		Grounds.forecourt(d, 0, w - 1, zF - 1, !t.raised());
 		int doorX = (tx0 + tx1) / 2;
 		// the stair climbs along the tap room's outer end; the door must not open onto its foot
-		int sx0 = archRight || !arch ? tx0 : tx1;
+		int sx0 = archRight ? tx0 : tx1;
 		Facade fac = Facade.plan(d, body, doorX, 1, 1, 0.7);
 		Integer placed = doorOf(fac);
 		if (placed == null || placed == sx0 || placed < tx0 || placed > tx1) {
@@ -189,7 +186,8 @@ public final class Inn implements Archetype {
 		Openings.door(d, front, doorX, base, 1, new Openings.DoorOpts(true, true, true));
 		// a side door from the arch into the tap room
 		Side arcSide = Side.of(part, zF, part, zM, archRight ? Dirs.RIGHT : Dirs.LEFT);
-		int sideDoorZ = zM - 2;
+		// at the passage's back end, clear of the kegs racked along the partition
+		int sideDoorZ = zM - 1;
 		if (arch) {
 			d.inStage(StageKind.OPENINGS, () -> d.door(part, base, sideDoorZ, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR),
 				archRight ? Dirs.LEFT : Dirs.RIGHT, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
@@ -271,6 +269,7 @@ public final class Inn implements Archetype {
 		if (d.isEmpty(hx, base, iz1 - 1)) {
 			tap.keep(hx, iz1 - 1);
 		}
+		int seats = 0;
 		for (int z = iz0 + 2; z <= iz1 - 1; z += 3) {
 			for (int x = Math.min(tx0, tx1) + 1; x <= Math.max(tx0, tx1) - 1; x += 3) {
 				if (!tap.claim(x, z)) {
@@ -282,7 +281,18 @@ public final class Inn implements Archetype {
 					int cz2 = z + Dirs.dz(dir);
 					if (d.isEmpty(cx2, base, cz2) && tap.claim(cx2, cz2)) {
 						Furniture.chair(d, cx2, base, cz2, dir);
+						seats++;
 					}
+				}
+			}
+		}
+		// a tap room too cramped for a table still has a settle or two against its walls
+		for (int z = iz1; z >= iz0 && seats < 2; z--) {
+			for (int x = Math.min(tx0, tx1); x <= Math.max(tx0, tx1) && seats < 2; x++) {
+				Direction wallward = z == iz1 ? Dirs.BACK : x == tx0 ? Dirs.LEFT : x == tx1 ? Dirs.RIGHT : null;
+				if (wallward != null && d.isEmpty(x, base, z) && d.isEmpty(x, base + 1, z) && tap.claim(x, z)) {
+					Furniture.chair(d, x, base, z, wallward);
+					seats++;
 				}
 			}
 		}
@@ -528,9 +538,5 @@ public final class Inn implements Archetype {
 			Garden.waterButt(d, ax, base, z0);
 		}
 		Garden.barrels(d, archRight ? x0 + 1 : x1 - 1, base, z0, archRight ? Dirs.RIGHT : Dirs.LEFT, 1);
-	}
-
-	static SlabType slab() {
-		return SlabType.BOTTOM;
 	}
 }

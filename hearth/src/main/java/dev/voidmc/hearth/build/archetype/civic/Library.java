@@ -20,7 +20,6 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
-import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -239,10 +238,22 @@ public final class Library implements Archetype {
 				}
 			}
 		}
-		// the reading floor: tables with chairs down the middle, lecterns at the ends
+		// the reading floor: the lecterns at the back (the scholars' places), tables with chairs down the middle
+		int lz = iz1 - 1;
+		int lecterns = 0;
+		for (int x : new int[]{cx - 1, cx + 1, cx - 2, cx + 2, cx}) {
+			if (lecterns < 2 && d.isEmpty(x, base, lz) && d.isEmpty(x, base, lz - 1) && d.isEmpty(x, base + 1, lz - 1)) {
+				int fx = x;
+				d.inStage(StageKind.INTERIOR, () -> d.set(fx, base, lz, States.facing(Blocks.LECTERN, Dirs.FRONT),
+					BlockEntities.lectern("A History of the Town", "The Scholar", List.of("In the beginning there was a hearth."))));
+				d.poi(PoiType.JOB_SITE, x, base, lz - 1, Dirs.BACK, JobType.SCHOLAR);
+				d.poi(PoiType.LECTERN, x, base, lz - 1, Dirs.BACK);
+				lecterns++;
+			}
+		}
 		int rx0 = ix0 + 2;
 		int rx1 = ix1 - 2;
-		for (int z = iz0 + 2; z <= iz1 - 3; z += 3) {
+		for (int z = iz0 + 2; z <= lz - 3; z += 3) {
 			for (int x = rx0 + (rx1 - rx0) % 2; x <= rx1; x += Math.max(2, rx1 - rx0)) {
 				if (d.isEmpty(x, base, z)) {
 					Furniture.table(d, x, base, z);
@@ -254,16 +265,6 @@ public final class Library implements Archetype {
 						}
 					}
 				}
-			}
-		}
-		int lz = iz1 - 1;
-		for (int x : new int[]{cx - 1, cx + 1}) {
-			if (d.isEmpty(x, base, lz) && d.isEmpty(x, base, lz - 1)) {
-				int fx = x;
-				d.inStage(StageKind.INTERIOR, () -> d.set(fx, base, lz, States.facing(Blocks.LECTERN, Dirs.FRONT),
-					BlockEntities.lectern("A History of the Town", "The Scholar", List.of("In the beginning there was a hearth."))));
-				d.poi(PoiType.JOB_SITE, x, base, lz - 1, Dirs.BACK, JobType.SCHOLAR);
-				d.poi(PoiType.LECTERN, x, base, lz - 1, Dirs.BACK);
 			}
 		}
 		Furniture.chest(d, ix1, gy, iz1, Dirs.LEFT, List.of(new Object[]{"minecraft:paper", 32}, new Object[]{"minecraft:book", 8},

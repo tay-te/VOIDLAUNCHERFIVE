@@ -3,7 +3,6 @@ package dev.voidmc.hearth.build.archetype.civic;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
-import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.StageKind;
@@ -11,7 +10,6 @@ import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
-import dev.voidmc.hearth.build.draft.Noise;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
@@ -20,8 +18,6 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
-import dev.voidmc.hearth.build.kit.Walls;
-import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Baths;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -41,7 +37,6 @@ import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
@@ -133,9 +128,9 @@ public final class Bathhouse implements Archetype {
 		int px1 = ix1 - 3;
 		int pz0 = iz0 + 3;
 		int pz1 = iz1 - 4;
+		d.poi(PoiType.MEETING_POINT, cx, base, iz0 + 1, Dirs.BACK);
 		if (px1 - px0 >= 1 && pz1 - pz0 >= 2) {
 			Baths.pool(d, px0, pz0, px1, pz1, base, 2);
-			d.poi(PoiType.MEETING_POINT, cx, base, pz0 - 2, Dirs.BACK);
 			// columns at the pool's corners and along its sides
 			Mat accent = d.mat(Role.WALL_ACCENT);
 			try (var s = d.stage(StageKind.WALLS)) {
@@ -436,6 +431,7 @@ public final class Bathhouse implements Archetype {
 		}
 		// the changing room: benches, pegs, towels
 		Baths.bench(d, x0 + 1, base, z0 + 1, Dirs.BACK, 2, Dirs.RIGHT);
+		d.poi(PoiType.MEETING_POINT, cx, base, z0 + 2, Dirs.BACK);
 		Furniture.chest(d, x1 - 1, base, z0 + 1, Dirs.LEFT, List.of(new Object[]{"minecraft:white_wool", 12}, new Object[]{"minecraft:birch_log", 4}));
 		Halls.lanternUnder(d, cx, base, z0 + 2, 1);
 		// the plunge pool and the woodpile outside

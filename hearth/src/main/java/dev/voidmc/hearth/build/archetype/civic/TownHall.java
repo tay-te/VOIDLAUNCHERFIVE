@@ -10,8 +10,6 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
-import dev.voidmc.hearth.build.draft.Mat;
-import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Chimneys;
 import dev.voidmc.hearth.build.kit.Facade;
@@ -20,10 +18,8 @@ import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Porches;
-import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
-import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -41,8 +37,6 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:civic/town_hall}: the seat of a town's council on its square. An open loggia of arches along the
@@ -221,9 +215,26 @@ public final class TownHall implements Archetype {
 		if (!raised && Groundwork.surface(d, cx + 3, fz) == 0 && cx + 3 < w) {
 			Towers.flagpole(d, centre ? x0 : cx + 3, 0, fz, 5, Dirs.FRONT, arms.field(), arms.layers());
 		}
-		int nbx = doorX + 2;
-		if (d.isEmpty(nbx, base, iz - 1) && d.isSolid(nbx, base - 1, iz - 1)) {
-			Signs.noticeBoard(d, nbx, base, iz - 1, Dirs.FRONT);
+		// the notice board in the loggia beside the door (or, failing room there, in the forecourt by the steps)
+		boolean board = false;
+		for (int off : new int[]{2, -2, 3, -3, 4, -4}) {
+			int nbx = doorX + off;
+			if (nbx > x0 && nbx < x1 && d.isEmpty(nbx, base, iz - 1) && d.isEmpty(nbx, base + 1, iz - 1) && d.isSolid(nbx, base - 1, iz - 1)
+				&& d.isEmpty(nbx, base, iz - 2) && d.isEmpty(nbx, base + 1, iz - 2)) {
+				Signs.noticeBoard(d, nbx, base, iz - 1, Dirs.FRONT);
+				board = true;
+				break;
+			}
+		}
+		if (!board) {
+			for (int x = 1; x < w - 1 && !board; x++) {
+				int bz = Math.max(1, z0 - 2);
+				if (Math.abs(x - cx) > 2 && d.isEmpty(x, 0, bz) && d.isEmpty(x, 1, bz) && Groundwork.surface(d, x, bz) == 0
+					&& d.isEmpty(x, 0, bz - 1)) {
+					Signs.noticeBoard(d, x, 0, bz, Dirs.FRONT);
+					board = true;
+				}
+			}
 		}
 		if (base >= 1 && !raised) {
 			Grounds.flight(d, x0, x1, z0 - 1, base, base);

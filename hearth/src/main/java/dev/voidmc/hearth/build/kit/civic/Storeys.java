@@ -117,6 +117,16 @@ public final class Storeys {
 			return new Top(null, deck, deck + 1);
 		}
 		Roofs.Opts o = Roofs.Opts.of(d);
+		int span0 = axis == Direction.Axis.X ? tr[3] - tr[1] + 1 : tr[2] - tr[0] + 1;
+		if (form == RoofForm.HIP || form == RoofForm.PAGODA || form == RoofForm.MANSARD) {
+			span0 = Math.min(tr[3] - tr[1] + 1, tr[2] - tr[0] + 1);
+		}
+		// no room under the plot's height for even a low roof: a flat one behind a parapet (or bare, at the very least)
+		if (plate + 1 + 0.5 * (span0 / 2.0 + o.eaves()) + 1 > d.maxHeight() - 1) {
+			boolean parapet = plate + 2 <= d.maxHeight() - 1;
+			int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, parapet);
+			return new Top(null, deck, deck + (parapet ? 1 : 0));
+		}
 		int span = axis == Direction.Axis.X ? tr[3] - tr[1] + 1 : tr[2] - tr[0] + 1;
 		if (form == RoofForm.HIP || form == RoofForm.PAGODA || form == RoofForm.MANSARD) {
 			span = Math.min(tr[3] - tr[1] + 1, tr[2] - tr[0] + 1);

@@ -5,7 +5,6 @@ import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
-import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;

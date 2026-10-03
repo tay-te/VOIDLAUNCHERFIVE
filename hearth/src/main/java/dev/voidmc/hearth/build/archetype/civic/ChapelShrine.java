@@ -6,14 +6,12 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
-import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
-import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
 import dev.voidmc.hearth.build.kit.civic.Sacred;
@@ -229,6 +227,9 @@ final class ChapelShrine {
 		}
 		if (w - tx1 >= 4 && dp - tz0 >= 6) {
 			bellPavilion(d, tx1 + 1, tz0 + 1, maxH);
+		} else {
+			// the temple bell hangs in the porch, under the eave beam
+			Towers.bell(d, cx - 2, plate - 1, hz0, Direction.Axis.X);
 		}
 		for (int[] r : new int[][]{{0, 1, cx - 3, tz0 - 1}, {cx + 3, 1, w - 1, tz0 - 1}}) {
 			if (r[2] - r[0] >= 1) {
@@ -329,9 +330,5 @@ final class ChapelShrine {
 		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1).withPitch(1.0);
 		Roofs.build(d, x0, z0, x0 + 2, z0 + 2, g + 4, RoofForm.PAGODA, Direction.Axis.X, o, false, false);
 		d.poi(PoiType.MEETING_POINT, x0 + 1, g, z0 + 1, Dirs.FRONT);
-	}
-
-	static Paint none() {
-		return Paint.of(Blocks.AIR.defaultBlockState());
 	}
 }

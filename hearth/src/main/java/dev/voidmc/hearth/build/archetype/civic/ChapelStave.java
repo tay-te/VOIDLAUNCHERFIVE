@@ -23,7 +23,6 @@ import dev.voidmc.hearth.build.terrain.Groundwork;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * The northern stave church: a tall nave of upright staves under a very steep shingle roof, wrapped at its foot in a
@@ -310,9 +309,5 @@ final class ChapelStave {
 				}
 			}
 		}
-	}
-
-	static SlabType slab() {
-		return SlabType.BOTTOM;
 	}
 }

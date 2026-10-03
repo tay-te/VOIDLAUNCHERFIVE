@@ -15,7 +15,6 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
-import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
@@ -36,7 +35,6 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
@@ -207,7 +205,12 @@ public final class Guardhouse implements Archetype {
 			int rx = stairLeft ? ix1 : ix0;
 			bunks.keepArea(rx, iz0, rx, iz0 + 3);
 			bunks.keep(rx, iz0 + 4 <= up[3] - 1 ? iz0 + 4 : iz0 - 1);
-			bunks.keep(rx, iz0 - 1 >= up[1] + 1 ? iz0 - 1 : iz0);
+			// the roof stair's foot: from in front of it, or (against the front wall) from beside its first step
+			if (iz0 - 1 >= up[1] + 1) {
+				bunks.keep(rx, iz0 - 1);
+			} else {
+				bunks.keep(rx + (rx == ix0 ? 1 : -1), iz0);
+			}
 		}
 		Rooms.furnish(d, bunks, Rooms.Type.BEDROOM, (up[2] - up[0] - 1) * (up[3] - up[1] - 1) >= 20 ? 3 : 2, JobType.NONE);
 

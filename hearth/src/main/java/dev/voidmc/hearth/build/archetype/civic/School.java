@@ -3,7 +3,6 @@ package dev.voidmc.hearth.build.archetype.civic;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
-import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.StageKind;

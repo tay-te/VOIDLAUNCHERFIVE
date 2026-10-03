@@ -4,12 +4,9 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
-import dev.voidmc.hearth.build.draft.Paint;
-import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
 import dev.voidmc.hearth.build.kit.Floors;
-import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Porches;
@@ -32,7 +29,6 @@ import dev.voidmc.hearth.build.terrain.Groundwork;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.Half;
 
 /**
  * The parish chapel of the timber, stone, alpine, tundra and raised traditions: a long nave under a steep gable facing the
@@ -392,14 +388,5 @@ final class ChapelWestern {
 			Openings.wallLantern(d, f, 4, base + 2);
 		}
 		return top;
-	}
-
-	/** Unused helper kept for symmetry with the other schemes. */
-	static Paint air() {
-		return Paint.of(States.of(Blocks.AIR));
-	}
-
-	static Half half(boolean top) {
-		return top ? Half.TOP : Half.BOTTOM;
 	}
 }

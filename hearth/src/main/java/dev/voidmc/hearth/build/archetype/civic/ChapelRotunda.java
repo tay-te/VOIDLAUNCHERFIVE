@@ -5,11 +5,7 @@ import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Paint;
-import dev.voidmc.hearth.build.kit.Furniture;
-import dev.voidmc.hearth.build.kit.Garden;
-import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
-import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Sacred;
 import dev.voidmc.hearth.build.kit.civic.Towers;
@@ -21,7 +17,6 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.Half;
 
@@ -149,6 +144,7 @@ final class ChapelRotunda {
 			peak = r2r.ridgeY;
 		}
 		int topY = Towers.finial(d, (int) Math.round(cx), peak + 1, (int) Math.round(cz), maxH, false);
+
 		// a gabled porch on posts before the door
 		int px = doorX;
 		try (var s = d.stage(StageKind.FRAME)) {
@@ -166,8 +162,21 @@ final class ChapelRotunda {
 		}
 		d.carve(px - 1, base, zPorch, px + 1, base + 2, dz - 1);
 		Roofs.Field porch = Roofs.gable(px - 2, zPorch - 1, px + 2, dz, Direction.Axis.Z, Roofs.Profile.straight(1.0));
-		Roofs.raster(d, porch, base + 3, Math.max(0, px - 2), Math.max(0, zPorch - 1), Math.min(w - 1, px + 2), dz - 1, d.mat(Role.ROOF),
-			d.mat(Role.ROOF_TRIM), Habits.Ridge.SLAB);
+		Roofs.Roof pr = Roofs.raster(d, porch, base + 3, Math.max(0, px - 2), Math.max(0, zPorch - 1), Math.min(w - 1, px + 2), dz - 1,
+			d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), Habits.Ridge.SLAB);
+		// the bell in a little cote on the porch's gable
+		dev.voidmc.hearth.build.kit.Side pf = dev.voidmc.hearth.build.kit.Side.of(px - 1, zPorch, px + 1, dz - 1, Dirs.FRONT);
+		int apex = pr.surfaceY(px, zPorch);
+		if (apex != Integer.MIN_VALUE) {
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int x = px - 1; x <= px + 1; x++) {
+					for (int y = base + 3; y < apex; y++) {
+						d.set(x, y, zPorch, wall.full());
+					}
+				}
+			}
+			topY = Math.max(topY, Towers.bellCote(d, pf, 1, apex, maxH));
+		}
 		if (base >= 1) {
 			Grounds.flight(d, px - 1, px + 1, zPorch - 1, base, base);
 		}

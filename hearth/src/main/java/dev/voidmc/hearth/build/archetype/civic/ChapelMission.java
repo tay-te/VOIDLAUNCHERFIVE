@@ -8,7 +8,6 @@ import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Facade;
-import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
@@ -195,9 +194,5 @@ final class ChapelMission {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top, deck + 2) + 2);
-	}
-
-	static Half half() {
-		return Half.BOTTOM;
 	}
 }
