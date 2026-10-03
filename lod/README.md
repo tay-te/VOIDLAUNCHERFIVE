@@ -7,6 +7,28 @@ sampled straight from the world generator and drawn in one indirect draw on Open
 Fabric Loader ≥ 0.19.5 · Fabric API 0.161.0+26.3 · Java 25 · optional: VOID Expanse
 ```
 
+## In game
+
+From a 250-block peak on an Expanse Earth world (seed 8675309, render distance 8). The first
+column is vanilla; the second adds VOID LOD:
+
+| Vanilla | With VOID LOD |
+|---|---|
+| ![view 0, LOD off](docs/view0_off.png) | ![view 0, LOD on](docs/view0_on.png) |
+| ![view 1, LOD off](docs/view1_off.png) | ![view 1, LOD on](docs/view1_on.png) |
+
+The LOD shows snow on the range above Expanse's own snow line, rivers in their valleys,
+blossom-pink forests, and banded canyon walls, out to 8 km.
+
+Measured in that run (headless, software OpenGL on 4 CPU cores, so these are CPU numbers; any GPU
+draws this far faster):
+
+* The view completes **2.4–2.8 s** after the LOD is switched on.
+* The LOD's work on the render thread is **0.30–0.34 ms per frame**: selection, culling, and
+  building the draw buffers.
+* **389 tiles** built, **80.6 MB** of GPU memory; **66 tiles / 344 k quads** drawn after frustum
+  culling, in one indirect draw.
+
 ## Why it is built this way
 
 Distant Horizons and Voxy both get their far terrain from **chunks**: Voxy only from chunks someone
