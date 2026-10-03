@@ -158,7 +158,8 @@ public final class ChunkApplier {
 			Blueprint bp;
 			try {
 				bp = this.blueprints.blueprint(p.spec(), this.terrain);
-			} catch (IllegalArgumentException e) {
+			} catch (RuntimeException e) {
+				// an unknown archetype or a generator bug: leave this plot, write the others
 				continue;
 			}
 			StepWriter.Owned owned = owned(s, p, bp, cx, cz, cur, ledger);

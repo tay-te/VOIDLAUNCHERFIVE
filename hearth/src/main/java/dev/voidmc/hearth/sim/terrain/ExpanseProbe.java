@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The fast path for Expanse's Earth worlds: the terrain model answers a column (ground, rivers with their own water
- * level, coasts, crater lakes, climate with the lapse rate) in a couple of microseconds against the hundreds a noise walk
+ * level, coasts, crater lakes) in a couple of microseconds against the hundreds a noise walk
  * costs, which is what lets the atlas survey a region and a history plan a town in a fraction of a second.
  *
  * <p>The model's height is the surface before the generator adds its 3D noise and interpolates density between 4 × 8
@@ -93,7 +93,7 @@ public final class ExpanseProbe extends GeneratorProbe {
 		}
 		out.ground = ground;
 		out.water = water;
-		out.temperature = c.temperature;
+		// the model's temperature is the biome source's climate parameter, not a biome temperature: leave it to the biome
 		return river || water != NO_WATER;
 	}
 

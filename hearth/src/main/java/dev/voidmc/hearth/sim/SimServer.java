@@ -36,6 +36,7 @@ import org.jspecify.annotations.Nullable;
  * until it is not.
  */
 public final class SimServer {
+	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("hearth");
 	private static volatile @Nullable SimServer current;
 
 	private final MinecraftServer server;
@@ -43,9 +44,13 @@ public final class SimServer {
 	private final Map<ResourceKey<Level>, SimWorld> worlds = new ConcurrentHashMap<>();
 	private final PriorityQueue<Due> queue = new PriorityQueue<>();
 	private final Map<SimSettlement, Long> nextDue = new IdentityHashMap<>();
+	/** What a sim day of each settlement costs to step, smoothed: how much catch-up fits in a tick. */
+	private final Map<SimSettlement, Double> nanosPerDay = new IdentityHashMap<>();
 	private final Map<SimWorld, Set<SimSettlement>> embodied = new IdentityHashMap<>();
 	private final Stats stats = new Stats();
 	private final Set<ResourceKey<Level>> dimensions = new HashSet<>();
+	/** Time per tick for writing queued settlements after an autosave. */
+	private static final long SAVE_BUDGET = 1_000_000;
 	private int plannerCalls;
 	private long ticks;
 
@@ -194,9 +199,28 @@ public final class SimServer {
 				continue;
 			}
 			long target = d.world.simNow(d.settlement);
+			// a settlement far behind catches up only as many days as this tick's budget has room for
+			long left = budget - (System.nanoTime() - tickStart);
+			double perDay = this.nanosPerDay.getOrDefault(d.settlement, 50_000.0);
+			long days = Math.max(1, Math.min(c.maxCatchUpDays(), (long) (left / perDay)));
+			long capped = Math.min(target, d.settlement.simTick() + days * SimRules.DAY);
 			long t0 = System.nanoTime();
-			long simulated = SettlementClock.advance(d.settlement, target);
+			long simulated;
+			try {
+				simulated = SettlementClock.advance(d.settlement, capped);
+			} catch (RuntimeException e) {
+				// a bug in a listener, the planner or a blueprint must not take the server down: log it, try again later
+				LOG.error("hearth: stepping settlement {} ({}) failed; retrying in a minute", d.settlement.id(), d.settlement.name(), e);
+				long retry = this.ticks + 1200;
+				this.nextDue.put(d.settlement, retry);
+				this.queue.add(new Due(retry, this.seq++, d.world, d.settlement));
+				continue;
+			}
 			long dt = System.nanoTime() - t0;
+			if (simulated >= SimRules.DAY / 4) {
+				double measured = dt / (simulated / (double) SimRules.DAY);
+				this.nanosPerDay.put(d.settlement, perDay * 0.7 + measured * 0.3);
+			}
 			this.stats.steps.increment();
 			this.stats.stepNanos.add(dt);
 			this.stats.maxStepNanos.accumulateAndGet(dt, Math::max);
@@ -214,6 +238,16 @@ public final class SimServer {
 			for (SimWorld w : this.worlds.values()) {
 				presence(w);
 			}
+		}
+		// autosaves are written a slice at a time
+		long saveStart = System.nanoTime();
+		int saved = 0;
+		for (SimWorld w : this.worlds.values()) {
+			saved += w.saveSome(SAVE_BUDGET);
+		}
+		if (saved > 0) {
+			this.stats.saved.add(saved);
+			this.stats.saveNanos.add(System.nanoTime() - saveStart);
 		}
 		this.stats.tickNanos.add(System.nanoTime() - tickStart);
 	}

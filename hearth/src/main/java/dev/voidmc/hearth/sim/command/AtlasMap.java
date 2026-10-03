@@ -99,6 +99,7 @@ public final class AtlasMap {
 		int r1x = Atlas.region(x0 + size * step);
 		int r1z = Atlas.region(z0 + size * step);
 		List<Runnable> labels = new ArrayList<>();
+		List<LiveTown> liveTowns = live;
 		for (int rx = r0x; rx <= r1x; rx++) {
 			for (int rz = r0z; rz <= r1z; rz++) {
 				regions++;
@@ -124,7 +125,14 @@ public final class AtlasMap {
 				gfx.drawOval(sx - ring, sz - ring, ring * 2, ring * 2);
 				String label = site.name() + " (" + site.culture().getSerializedName() + ", " + site.age() + "d"
 					+ (plan.history() == null ? "" : ", " + plan.history().population()) + ")";
-				labels.add(() -> text(gfx, label, sx + ring + 2, sz + 4));
+				boolean adopted = false;
+				for (LiveTown town : liveTowns) {
+					adopted |= town.name().equals(site.name()) && town.cx() == site.center().getX() && town.cz() == site.center().getZ();
+				}
+				if (!adopted) {
+					// adopted towns are labelled with their live figures below
+					labels.add(() -> text(gfx, label, sx + ring + 2, sz + 4));
+				}
 			}
 		}
 		for (LiveTown town : live) {
@@ -137,7 +145,7 @@ public final class AtlasMap {
 			}
 			int sx = (town.cx() - x0) / step;
 			int sz = (town.cz() - z0) / step;
-			labels.add(() -> text(gfx, "* " + town.name() + " (" + town.population() + ")", sx + 4, sz - 6));
+			labels.add(() -> text(gfx, town.name() + " (" + town.culture().getSerializedName() + ", " + town.population() + " souls)", sx + 10, sz + 4));
 		}
 		labels.forEach(Runnable::run);
 		gfx.dispose();

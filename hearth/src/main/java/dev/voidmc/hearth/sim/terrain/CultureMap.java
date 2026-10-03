@@ -130,7 +130,7 @@ public final class CultureMap implements Function<Holder<Biome>, Culture> {
 		}
 		if (is(biome, BiomeTags.IS_BEACH, ConventionalBiomeTags.IS_BEACH) || is(biome, BiomeTags.IS_OCEAN, ConventionalBiomeTags.IS_OCEAN)
 			|| is(biome, null, ConventionalBiomeTags.IS_STONY_SHORES)) {
-			return t >= 0.8F ? Culture.TROPICAL : t < 0.15F ? Culture.TUNDRA : Culture.MARITIME;
+			return t > 0.9F ? Culture.TROPICAL : t < 0.15F ? Culture.TUNDRA : Culture.MARITIME;
 		}
 		if (is(biome, null, ConventionalBiomeTags.IS_SNOWY_PLAINS) || t < 0.15F && !is(biome, BiomeTags.IS_TAIGA, ConventionalBiomeTags.IS_TAIGA)) {
 			return Culture.TUNDRA;

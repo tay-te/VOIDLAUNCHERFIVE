@@ -75,7 +75,9 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final LongSet adopting = new LongOpenHashSet();
 	private final LongSet unsettled = new LongOpenHashSet();
 	private final Map<UUID, Long> playerIn = new HashMap<>();
+	private final java.util.ArrayDeque<SimSettlement> saveQueue = new java.util.ArrayDeque<>();
 	private boolean quiet;
+	private boolean fastForward;
 
 	public SimWorld(ServerLevel level, SimServer server) {
 		this.level = level;
@@ -293,7 +295,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	@Override
 	public boolean tryPlannerCall() {
-		return this.server.tryPlannerCall();
+		// an explicit fast-forward plans as much as it needs; the clock shares one call per tick
+		return this.fastForward || this.server.tryPlannerCall();
 	}
 
 	@Override
@@ -326,19 +329,49 @@ public final class SimWorld implements HearthWorld, SimContext {
 	// ---------------------------------------------------------------- life cycle
 
 	/** Writes every changed settlement (on the game's save). */
+	/**
+	 * The game is saving. A flushing save (shutdown, {@code /save-all flush}) writes every changed settlement now; an
+	 * autosave only queues them, and {@link #saveSome} writes the queue a slice per tick, so a server with hundreds of
+	 * towns never stalls a tick encoding them all at once.
+	 */
 	public int save(boolean flush) {
+		if (!flush) {
+			for (SimSettlement s : this.settlements.values()) {
+				if (s.isDirty() && !this.saveQueue.contains(s)) {
+					this.saveQueue.add(s);
+				}
+			}
+			return 0;
+		}
+		this.saveQueue.clear();
 		int n = 0;
 		for (SimSettlement s : this.settlements.values()) {
 			if (s.isDirty()) {
-				this.store.save(s, this.ops);
-				this.index.put(entry(s));
+				saveNow(s);
 				n++;
 			}
 		}
-		if (flush) {
-			this.store.flush();
+		this.store.flush();
+		return n;
+	}
+
+	/** Writes queued settlements until the budget is spent; returns how many. */
+	public int saveSome(long budgetNanos) {
+		long start = System.nanoTime();
+		int n = 0;
+		while (!this.saveQueue.isEmpty() && System.nanoTime() - start < budgetNanos) {
+			SimSettlement s = this.saveQueue.poll();
+			if (s.isDirty() && this.settlements.get(s.id()) == s) {
+				saveNow(s);
+				n++;
+			}
 		}
 		return n;
+	}
+
+	private void saveNow(SimSettlement s) {
+		this.store.save(s, this.ops);
+		this.index.put(entry(s));
 	}
 
 	/** A chunk finished loading: write what is owed to it, and adopt the history it belongs to. */
@@ -487,7 +520,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 	public SimSettlement found(BlockPos at, @Nullable Culture culture, @Nullable String name) {
 		int y = this.probe.groundY(at.getX(), at.getZ());
 		BlockPos center = new BlockPos(at.getX(), y, at.getZ());
-		Culture c = culture != null ? culture : HearthServices.culture(this.probe.biomeHolder(at.getX(), at.getZ()));
+		Culture c = culture != null ? culture
+			: dev.voidmc.hearth.sim.terrain.CultureVote.at(at.getX(), at.getZ(), this.probe::biomeHolder, b -> HearthServices.culture(b));
 		long id = this.index.allocateId();
 		RandomSource random = RandomSource.create(id * 0x9E3779B97F4A7C15L ^ this.level.getSeed());
 		String n = name != null ? name : Names.settlement(c, random);
@@ -514,10 +548,15 @@ public final class SimWorld implements HearthWorld, SimContext {
 		long start = System.nanoTime();
 		s.addTimeOffset(days * SimRules.DAY);
 		long target = simNow(s);
-		while (s.simTick() < target) {
-			if (SettlementClock.advance(s, target) <= 0) {
-				break;
+		this.fastForward = true;
+		try {
+			while (s.simTick() < target) {
+				if (SettlementClock.advance(s, target) <= 0) {
+					break;
+				}
 			}
+		} finally {
+			this.fastForward = false;
 		}
 		for (SimPlot p : s.plots()) {
 			this.applier.enqueuePlot(p);

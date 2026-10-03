@@ -415,8 +415,8 @@ public final class SimSettlement implements Settlement {
 		if (f == null) {
 			try {
 				f = PlotFacts.of(p.spec(), ctx().blueprints(), ctx().terrain());
-			} catch (IllegalArgumentException e) {
-				LOG.warn("settlement {} plot {}: {}; abandoning it", this.id, p.id(), e.getMessage());
+			} catch (RuntimeException e) {
+				LOG.warn("settlement {} plot {} ({}): no blueprint ({}); abandoning it", this.id, p.id(), p.spec().archetype(), e.toString());
 				f = new PlotFacts(0, new int[0], new int[0], new int[0][], 0, new int[JobType.values().length], false);
 				if (p.isActive()) {
 					p.state = PlotState.ABANDONED;

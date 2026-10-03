@@ -41,9 +41,12 @@ import org.slf4j.LoggerFactory;
  *   -Dhearth.dev.radius=R       search R regions out from spawn for them (default 3)
  *   -Dhearth.dev.simulate=DAYS  then run each of them DAYS sim days forward
  *   -Dhearth.dev.bench=true     time ordinary clock steps (an hour of sim time each) per settlement
- *   -Dhearth.dev.generate=true  generate their chunks to full, let the applier finish, and check what was written
+ *   -Dhearth.dev.generate=true  generate their chunks to full, let the applier finish, check what was written, and draw
+ *                               a top-down map of the real blocks to {@code <world>/hearth_atlas/town_<name>.png}
  *   -Dhearth.dev.probe=N        compare the probe with the generator's own heights at N columns, and time both probes
  *   -Dhearth.dev.atlas=RADIUS   write an atlas PNG round spawn
+ *   -Dhearth.dev.scale=N        found N more live settlements on a grid, age them 30-300 days, then let the server run
+ *                               a minute and log its tick time and the clock's share of it
  *   -Dhearth.dev.report=true    log per-subsystem timings and settlement figures, and sample the LOD footprints
  *   -Dhearth.dev.commands=a;b   run these commands as the server (at the first settlement found; + for spaces) and log the replies
  *   -Dhearth.dev.stop=true      then shut the server down
@@ -83,6 +86,10 @@ public final class DevHarness {
 			String found = System.getProperty("hearth.dev.found");
 			if (found != null) {
 				towns = found(server, w, Integer.parseInt(found), Integer.getInteger("hearth.dev.radius", 3));
+			}
+			String scale = System.getProperty("hearth.dev.scale");
+			if (scale != null) {
+				scale(server, w, Integer.parseInt(scale));
 			}
 			String days = System.getProperty("hearth.dev.simulate");
 			if (days != null) {
@@ -299,6 +306,8 @@ public final class DevHarness {
 			sleep(50);
 		}
 		String check = server.submit(() -> verify(level, w, s)).join();
+		String picture = server.submit(() -> snapshot(level, s, b)).join();
+		LOG.info("[hearth-dev] {}", picture);
 		server.submit(() -> {
 			for (int cx = c0x; cx <= c1x; cx++) {
 				for (int cz = c0z; cz <= c1z; cz++) {
@@ -307,6 +316,55 @@ public final class DevHarness {
 			}
 		}).join();
 		LOG.info("[hearth-dev] generated {} chunks of {} in {} ms; {}", (c1x - c0x + 1) * (c1z - c0z + 1), s.name(), genMs, check);
+	}
+
+	/** Draws the settlement from above, block by block as the world holds it, shaded by height. */
+	private static String snapshot(ServerLevel level, SimSettlement s, BoundingBox b) {
+		int x0 = b.minX() - 16;
+		int z0 = b.minZ() - 16;
+		int w = b.maxX() - b.minX() + 33;
+		int h = b.maxZ() - b.minZ() + 33;
+		int scale = Math.max(1, Math.min(4, 1024 / Math.max(w, h)));
+		java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w * scale, h * scale, java.awt.image.BufferedImage.TYPE_INT_RGB);
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int[][] heights = new int[w][h];
+		for (int dx = 0; dx < w; dx++) {
+			for (int dz = 0; dz < h; dz++) {
+				LevelChunk chunk = level.getChunkSource().getChunkNow((x0 + dx) >> 4, (z0 + dz) >> 4);
+				heights[dx][dz] = chunk == null ? Integer.MIN_VALUE : chunk.getHeight(Heightmap.Types.WORLD_SURFACE, (x0 + dx) & 15, (z0 + dz) & 15);
+			}
+		}
+		for (int dx = 0; dx < w; dx++) {
+			for (int dz = 0; dz < h; dz++) {
+				int y = heights[dx][dz];
+				int rgb = 0x202020;
+				if (y != Integer.MIN_VALUE) {
+					p.set(x0 + dx, y, z0 + dz);
+					var state = level.getBlockState(p);
+					rgb = state.getMapColor(level, p).calculateARGBColor(net.minecraft.world.level.material.MapColor.Brightness.NORMAL) & 0xFFFFFF;
+					int north = dz > 0 && heights[dx][dz - 1] != Integer.MIN_VALUE ? heights[dx][dz - 1] : y;
+					float shade = y > north ? 1.15F : y < north ? 0.8F : 1.0F;
+					int r = Math.min(255, (int) (((rgb >> 16) & 0xFF) * shade));
+					int g = Math.min(255, (int) (((rgb >> 8) & 0xFF) * shade));
+					int bl = Math.min(255, (int) ((rgb & 0xFF) * shade));
+					rgb = r << 16 | g << 8 | bl;
+				}
+				for (int sx = 0; sx < scale; sx++) {
+					for (int sz = 0; sz < scale; sz++) {
+						img.setRGB(dx * scale + sx, dz * scale + sz, rgb);
+					}
+				}
+			}
+		}
+		try {
+			java.nio.file.Path dir = level.getServer().getWorldPath(LevelResource.ROOT).resolve("hearth_atlas");
+			java.nio.file.Files.createDirectories(dir);
+			java.nio.file.Path file = dir.resolve("town_" + s.name().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_") + ".png");
+			javax.imageio.ImageIO.write(img, "png", file.toFile());
+			return "snapshot of " + s.name() + " -> " + file;
+		} catch (java.io.IOException e) {
+			return "snapshot of " + s.name() + " failed: " + e;
+		}
 	}
 
 	/** For every plot, the share of its written steps (by the chunk ledgers) that the world really holds. */
@@ -358,6 +416,59 @@ public final class DevHarness {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
+	}
+
+	/** Many settlements at once: found them, age them, then measure the server running with all of them. */
+	private static void scale(MinecraftServer server, SimWorld w, int count) {
+		long start = System.nanoTime();
+		List<SimSettlement> made = new ArrayList<>();
+		RandomSource random = RandomSource.create(7);
+		int side = (int) Math.ceil(Math.sqrt(count * 1.6));
+		for (int i = 0; i < side * side && made.size() < count; i++) {
+			int gx = i % side - side / 2;
+			int gz = i / side - side / 2;
+			BlockPos at = new BlockPos(gx * 640 + 320, 0, gz * 640 + 320);
+			SimSettlement s = server.submit(() -> w.whyNotFound(at, 300) == null ? w.found(at, null, null) : null).join();
+			if (s != null) {
+				made.add(s);
+			}
+		}
+		long foundMs = (System.nanoTime() - start) / 1_000_000;
+		long simStart = System.nanoTime();
+		int days = 0;
+		for (SimSettlement s : made) {
+			int d = 30 + random.nextInt(271);
+			days += d;
+			server.submit(() -> w.simulate(s, d)).join();
+		}
+		long simMs = (System.nanoTime() - simStart) / 1_000_000;
+		int pop = server.submit(() -> w.settlements().stream().mapToInt(SimSettlement::population).sum()).join();
+		LOG.info("[hearth-dev] scale: founded {} settlements in {} ms, aged them {} sim days in all in {} ms; {} settlements, {} souls in the world",
+			made.size(), foundMs, days, simMs, server.submit(() -> w.settlements().size()).join(), pop);
+		SimServer s = SimServer.current();
+		if (s == null) {
+			return;
+		}
+		long steps0 = s.stats().steps.sum();
+		long stepNanos0 = s.stats().stepNanos.sum();
+		long tickNanos0 = s.stats().tickNanos.sum();
+		long ticks0 = s.ticks();
+		long worst = 0;
+		double msptSum = 0;
+		int samples = 0;
+		for (int i = 0; i < 60; i++) {
+			sleep(1000);
+			double mspt = server.getAverageTickTimeNanos() / 1e6;
+			msptSum += mspt;
+			samples++;
+			worst = Math.max(worst, (long) (mspt * 1000));
+		}
+		long steps = s.stats().steps.sum() - steps0;
+		long ticks = s.ticks() - ticks0;
+		LOG.info("[hearth-dev] scale: over {} ticks: server {} ms/tick average (worst 1 s average {} ms); the sim's tick work {} ms/tick; {} steps, {} ms per step",
+			ticks, String.format(Locale.ROOT, "%.2f", msptSum / samples), String.format(Locale.ROOT, "%.2f", worst / 1000.0),
+			String.format(Locale.ROOT, "%.4f", (s.stats().tickNanos.sum() - tickNanos0) / 1e6 / Math.max(1, ticks)), steps,
+			String.format(Locale.ROOT, "%.4f", steps == 0 ? 0 : (s.stats().stepNanos.sum() - stepNanos0) / 1e6 / steps));
 	}
 
 	/** Runs a command as the server, standing at {@code at}, and logs its feedback. */

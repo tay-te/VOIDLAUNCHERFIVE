@@ -228,7 +228,8 @@ public final class Atlas {
 			return finish(empty(rx, rz, 0), start);
 		}
 		Holder<Biome> biome = lookup == null ? null : lookup.at(spot.x(), spot.z());
-		Culture c = this.culture.apply(biome);
+		Culture c = lookup == null ? this.culture.apply(null)
+			: dev.voidmc.hearth.sim.terrain.CultureVote.at(spot.x(), spot.z(), lookup::at, this.culture);
 		int age = (int) Math.round(this.config.maxAgeDays() * Math.pow(random.nextDouble(), this.config.ageSkew()));
 		String name = Names.settlement(c, random);
 		BlockPos center = new BlockPos(spot.x(), this.probe.groundY(spot.x(), spot.z()), spot.z());
