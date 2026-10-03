@@ -33,6 +33,14 @@ below) on seed `8675309`.
 | ![Olive Groves](docs/gallery/olive_groves.jpg) **Olive Groves** | ![Salt Flats](docs/gallery/salt_flats.jpg) **Salt Flats** (a landform) |
 | ![Geode Vaults](docs/gallery/realm_crystal.jpg) A crystal realm underground | ![Amber Hollows](docs/gallery/realm_amber.jpg) An amber realm |
 | ![Stalagmite Deeps](docs/gallery/realm_dripstone.jpg) A stalagmite realm | ![Wildlife](docs/gallery/wildlife.jpg) Songbirds, butterflies, egret, dragonflies |
+| ![Maple Highlands](docs/gallery/maple_highlands.jpg) **Maple Highlands** | ![Bluebell Woods](docs/gallery/bluebell_woods_floor.jpg) **Bluebell Woods** under the beeches |
+
+**Landforms**
+
+| | |
+|---|---|
+| ![Volcano](docs/gallery/landform_volcano.jpg) A volcano's lava lake (**Volcanic Highlands**) | ![Fjord](docs/gallery/landform_fjord.jpg) An arm of the sea between the walls (**Fjordlands**) |
+| ![Tepui](docs/gallery/landform_tepui.jpg) A **tepui**, its springs pouring down the cliff | ![Canyon](docs/gallery/landform_canyon.jpg) A river down the **Painted Canyons** |
 
 **Structures**
 
