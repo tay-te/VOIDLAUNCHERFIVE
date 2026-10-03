@@ -155,8 +155,10 @@ public final class Round {
 	 * the roof's underside; a finial at the point (a clay pot where the culture works clay, a post and a ball of thatch
 	 * elsewhere). Covered in {@code roof} (the culture's roofing, or its thatch). Returns the roof.
 	 */
-	public static Roofs.Roof cone(Draft d, Ring ring, int plate, int eaves, double pitch, Mat roof) {
+	public static Roofs.Roof cone(Draft d, Ring ring, int plate, int eaves, double pitchIn, Mat roof) {
 		double rr = ring.r + eaves;
+		// a covering laid in whole blocks (bales of thatch) steps a block per ring, so each course rests on the one below
+		double pitch = Math.min(1.0, pitchIn);
 		// a deep eave flares out gently over a veranda (a curved skirt) so folk walk upright beneath it
 		boolean flare = eaves >= 2;
 		java.util.function.DoubleUnaryOperator prof = dist -> flare ? 1 + (dist <= 2 ? 0.5 * dist : 1 + pitch * (dist - 2)) : 1 + pitch * dist;

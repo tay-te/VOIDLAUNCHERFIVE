@@ -72,6 +72,7 @@ final class FarmParts {
 		Integer door = HouseBuilder.doorColumn(facade);
 		Groundwork.footings(d, x0, z0, x1, z1, y - 1);
 		HouseBuilder.shell(d, body, facade);
+		dev.voidmc.hearth.build.kit.homestead.Logs.sill(d, x0, z0, x1, z1, y);
 		HouseBuilder.openings(d, body, facade, true);
 		Side front = body.side(0, Dirs.FRONT);
 		if (porch && door != null && z0 >= 2 && d.chance(Math.max(0.35, h.porch()))) {
@@ -112,6 +113,11 @@ final class FarmParts {
 	 * bedroom corner on its ground floor, keeping the door's inside cell and every stair's foot and head free.
 	 */
 	static void ensureBeds(Draft d, Body b, Integer door, int min) {
+		ensureBeds(d, b, door, min, null);
+	}
+
+	/** {@link #ensureBeds} keeping one more cell free (a back door's inside cell). */
+	static void ensureBeds(Draft d, Body b, Integer door, int min, int[] keep) {
 		int[] r = b.rect(0);
 		int count = 0;
 		for (int k = 0; k < b.storeys(); k++) {
@@ -133,6 +139,9 @@ final class FarmParts {
 		dev.voidmc.hearth.build.kit.Rooms.Room room = new dev.voidmc.hearth.build.kit.Rooms.Room(r[0] + 1, r[1] + 1, r[2] - 1, r[3] - 1, y, b.height(0) - 1);
 		if (door != null) {
 			room.keep(door, r[1] + 1);
+		}
+		if (keep != null) {
+			room.keep(keep[0], keep[1]);
 		}
 		// every stair's neighbours along its run stay free (its foot and the cell beyond its head)
 		for (int z = r[1] + 1; z <= r[3] - 1; z++) {
