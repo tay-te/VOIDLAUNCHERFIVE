@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "void-lod-gametest",
+	"version": "1.0.0",
+	"name": "VOID LOD showcase",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.lod.gametest.LodShowcase"]
+	},
+	"depends": {"void_lod": "*"}
+}

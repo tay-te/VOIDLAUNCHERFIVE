@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "dev.voidmc.lod.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"CameraMixin",
+		"FogRendererMixin",
+		"LevelRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

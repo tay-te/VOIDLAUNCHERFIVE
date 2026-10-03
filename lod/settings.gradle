@@ -1,0 +1,16 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'void-lod'
+
+// Expanse is an optional partner, not a dependency: VOID LOD compiles against its terrain model so it can
+// sample the Earth generator directly, and only touches those classes when Expanse is loaded.
+includeBuild('../expanse')
