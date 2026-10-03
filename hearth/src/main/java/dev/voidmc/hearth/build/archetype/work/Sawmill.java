@@ -180,21 +180,24 @@ public final class Sawmill implements Archetype {
 		Mat log = d.mat(Role.FRAME);
 		Mat tree = d.mat(Role.TREE_LOG);
 		int depth = sz0 - 1;
-		// two log piles either side of the cart track, lying across
-		int len = Math.min(4, Math.max(2, depth - 2));
-		if (gate - 2 >= 2) {
-			Props.logPile(d, 1, 0, 1, Direction.Axis.Z, len, Math.min(3, gate - 2), 3, log);
-			d.poi(PoiType.JOB_SITE, Math.min(3, gate - 2) + 1, 0, 1, Dirs.LEFT, JobType.FORESTER);
+		// two log piles either side of the cart track, their ends to the street, pyramids up to three high
+		int deep = Math.max(2, Math.min(5, depth - 2));
+		// round timber from the forest (the frame material where the style names no log: a stone-framed culture)
+		Mat logs = tree.has(dev.voidmc.hearth.build.style.Form.LOG) ? tree : log;
+		int ll = Math.min(4, gate - 2);
+		if (ll >= 2) {
+			Props.logPile(d, 1, 0, 1, Direction.Axis.X, ll, deep, 3, logs);
+			Props.site(d, ll + 1, 0, 1 + deep / 2, Dirs.LEFT, JobType.FORESTER);
 		}
 		int rx = gate + 2;
-		int rw = Math.min(3, w - 2 - rx);
-		if (rw >= 1) {
-			Props.logPile(d, rx, 0, 1, Direction.Axis.Z, len, rw, 3, tree.has(dev.voidmc.hearth.build.style.Form.LOG) ? tree : log);
+		int rl = Math.min(4, w - 2 - rx);
+		if (rl >= 1) {
+			Props.logPile(d, rx, 0, 1, Direction.Axis.X, rl, deep, 3, logs);
 		}
 		// a log cart on the track before the shed
 		int cz = sz0 - 2;
 		if (cz >= 2 && d.isEmpty(gate, 0, cz) && d.isEmpty(gate - 1, 0, cz) && d.isEmpty(gate + 1, 0, cz) && d.isEmpty(gate, 0, cz - 1)) {
-			Props.cart(d, gate, 0, cz, Dirs.FRONT, log.log(Direction.Axis.Z).at(gate, 1, cz));
+			Props.cart(d, gate, 0, cz, Dirs.FRONT, logs.log(Direction.Axis.Z).at(gate, 1, cz));
 		}
 		// boards and a chopping block by the shed
 		if (depth >= 5) {

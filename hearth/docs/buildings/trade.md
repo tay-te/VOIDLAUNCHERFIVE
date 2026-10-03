@@ -106,7 +106,8 @@ STORAGE (cloth chest), TABLE (cutting tables), VIEWPOINT (balcony/terrace, some)
 ### `work/sawmill` (Sawmill.java)
 A long saw shed on posts across the back of the yard, boarded at the back: the saw bench on the front row (a
 stonecutter for the blade, the log carriage on rails), an aisle, stores along the back row. Logs on bearers in
-pyramids, a loaded log cart, a chopping block, stickered boards, a fence and wide gate. Where water runs at the back of
+pyramids up to three high with their ends to the street (the style's tree logs: baobab on the steppe, birch in the
+north), a loaded log cart, a chopping block, stickered boards, a fence and wide gate. Where water runs at the back of
 the plot a water wheel on the shed's end drives the saw.
 **POIs:** JOB_SITE FORESTER ×2 (log carriage, log piles), JOB_SITE CARPENTER ×2 (saw, bench), STORAGE.
 **Params:** `roof`, `variant`.
@@ -142,7 +143,8 @@ when the floor is too cramped). Ground-floor pieces move outside by the door whe
 ### `work/watermill` (Watermill.java)
 A stout two-floor mill house with stone lower walls beside a stone-kerbed race from the water behind; the wheel
 (radius 4 on plots 12+ deep and 10+ wide, else 3) turns in the race, its axle through the wall to the stones.
-Sacks in, flour out; the loft stores meal. Storeys budgeted under the roof.
+Sacks in, flour out; the loft stores meal, and where the front wall has room a loading door high in it with a hoist
+beam and a sack of flour on its chain marks the mill from the street side. Storeys budgeted under the roof.
 **POIs:** DOOR, JOB_SITE BAKER ×2 (millstones), JOB_SITE FARMER (grain bin), STORAGE ×4–5.
 **Params:** `roof`, `variant`.
 

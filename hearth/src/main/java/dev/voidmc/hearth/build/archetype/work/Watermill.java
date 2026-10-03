@@ -14,6 +14,7 @@ import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
+import dev.voidmc.hearth.build.kit.trade.Lifts;
 import dev.voidmc.hearth.build.kit.trade.Mills;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Signs;
@@ -132,6 +133,9 @@ public final class Watermill implements Archetype {
 		});
 
 		interior(d, hall, door, flight, inX, cz, wheelLeft);
+		if (hall.storeys() >= 2 && hall.roof != null) {
+			mealDoor(d, hall, door);
+		}
 		Side front = hall.side(0, Dirs.FRONT);
 		Signs.bracket(d, front, front.index(door + (wheelLeft ? 1 : -1)), 3, "watermill", "Mill");
 		Yard.trodden(d, 0, 0, w - 1, hz0 - 1, 0);
@@ -145,6 +149,38 @@ public final class Watermill implements Archetype {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
+	}
+
+	/**
+	 * The top floor's loading door in the front wall (in the gable where it faces the street) over the street door, a
+	 * hoist beam above it with a sack of flour on its chain: what tells the street this is the mill, from the side the
+	 * wheel is not on.
+	 */
+	private static void mealDoor(Draft d, Hall hall, int door) {
+		// the highest floor with room in its front wall, over the street door or the nearest blank wall beside it
+		for (int k = hall.storeys() - 1; k >= 1; k--) {
+			Side wall = hall.side(k, Dirs.FRONT);
+			int y = hall.floorY(k);
+			for (int off : new int[]{0, 1, -1, 2, -2}) {
+				int i = wall.index(door) + off;
+				if (i <= 0 || i >= wall.last()) {
+					continue;
+				}
+				int x = wall.x(i);
+				int z = wall.z(i);
+				int top = hall.roof.covers(x, z) ? hall.roof.bottomY(x, z) : d.maxHeight();
+				if (top - y < 3 || !dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x, y, z)
+					|| !dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x, y + 1, z)) {
+					continue;
+				}
+				var leaf = d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR);
+				d.inStage(StageKind.OPENINGS, () -> d.door(x, y, z, leaf, Dirs.FRONT, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+				if (y + 2 < top) {
+					Lifts.hoist(d, wall, i, y + 2, 2, Math.max(3, y - 1), Blocks.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE).defaultBlockState());
+				}
+				return;
+			}
+		}
 	}
 
 	/** The race: two wide, stone floor and kerb, water two deep, closed at its head by a sluice wall. */
