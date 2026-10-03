@@ -1,0 +1,78 @@
+{
+  "values": [
+    "#minecraft:candles",
+    "#minecraft:dyes",
+    "#minecraft:glazed_terracotta",
+    "#minecraft:small_flowers",
+    "#minecraft:decorated_pot_sherds",
+    "minecraft:book",
+    "minecraft:paper",
+    "minecraft:writable_book",
+    "minecraft:ink_sac",
+    "minecraft:glow_ink_sac",
+    "minecraft:honey_bottle",
+    "minecraft:honeycomb",
+    "minecraft:diamond",
+    "minecraft:amethyst_shard",
+    "minecraft:lapis_lazuli",
+    "minecraft:quartz",
+    "minecraft:redstone",
+    "minecraft:glowstone_dust",
+    "minecraft:bookshelf",
+    "minecraft:lectern",
+    "minecraft:map",
+    "minecraft:clock",
+    "minecraft:ender_pearl",
+    "minecraft:experience_bottle",
+    "minecraft:music_disc_cat",
+    "minecraft:music_disc_13",
+    {
+      "id": "expanse:amber",
+      "required": false
+    },
+    {
+      "id": "expanse:insect_amber",
+      "required": false
+    },
+    {
+      "id": "expanse:prismite_cluster",
+      "required": false
+    },
+    {
+      "id": "expanse:lavender",
+      "required": false
+    },
+    {
+      "id": "expanse:heather",
+      "required": false
+    },
+    {
+      "id": "expanse:edelweiss",
+      "required": false
+    },
+    {
+      "id": "expanse:desert_marigold",
+      "required": false
+    },
+    {
+      "id": "expanse:frostbloom",
+      "required": false
+    },
+    {
+      "id": "expanse:salt_block",
+      "required": false
+    },
+    {
+      "id": "expanse:moth_orchid",
+      "required": false
+    },
+    {
+      "id": "expanse:bluebells",
+      "required": false
+    },
+    {
+      "id": "expanse:fireweed",
+      "required": false
+    }
+  ]
+}

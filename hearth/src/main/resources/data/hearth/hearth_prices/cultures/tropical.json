@@ -1,0 +1,36 @@
+{
+  "speciality": {
+    "food": 0.8,
+    "wood": 0.75,
+    "stone": 1.2,
+    "clay": 1.0,
+    "glass": 1.1,
+    "metal": 1.35,
+    "cloth": 1.15,
+    "fuel": 1.1,
+    "tools": 1.0,
+    "luxury": 0.85
+  },
+  "wares": {
+    "wood": [
+      "expanse:palm_planks|minecraft:jungle_planks",
+      "minecraft:jungle_log",
+      "minecraft:bamboo_block"
+    ],
+    "food": [
+      "minecraft:melon_slice",
+      "minecraft:cocoa_beans",
+      "minecraft:cooked_cod",
+      "expanse:cooked_crab|minecraft:cooked_salmon"
+    ],
+    "luxury": [
+      "minecraft:lime_dye",
+      "minecraft:cyan_dye",
+      "minecraft:book"
+    ],
+    "cloth": [
+      "minecraft:lime_wool",
+      "minecraft:string"
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "speciality": {
+    "food": 1.3,
+    "wood": 1.4,
+    "stone": 0.8,
+    "clay": 0.85,
+    "glass": 0.7,
+    "metal": 1.0,
+    "cloth": 1.1,
+    "fuel": 1.2,
+    "tools": 1.0,
+    "luxury": 0.85
+  },
+  "wares": {
+    "stone": [
+      "minecraft:sandstone",
+      "minecraft:cut_sandstone",
+      "minecraft:smooth_sandstone",
+      "expanse:opal_sandstone|minecraft:red_sandstone"
+    ],
+    "glass": [
+      "minecraft:sand",
+      "minecraft:glass",
+      "minecraft:glass_pane"
+    ],
+    "clay": [
+      "minecraft:terracotta",
+      "minecraft:orange_terracotta",
+      "minecraft:mud_bricks"
+    ],
+    "food": [
+      "minecraft:bread",
+      "minecraft:cooked_rabbit",
+      "minecraft:melon_slice"
+    ],
+    "luxury": [
+      "minecraft:green_dye",
+      "minecraft:red_dye",
+      "minecraft:yellow_dye"
+    ],
+    "cloth": [
+      "minecraft:orange_wool",
+      "minecraft:red_carpet",
+      "minecraft:leather"
+    ]
+  }
+}

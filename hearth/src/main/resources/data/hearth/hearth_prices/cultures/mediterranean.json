@@ -1,0 +1,43 @@
+{
+  "speciality": {
+    "food": 0.85,
+    "wood": 1.15,
+    "stone": 0.85,
+    "clay": 0.75,
+    "glass": 1.0,
+    "metal": 1.1,
+    "cloth": 1.0,
+    "fuel": 1.0,
+    "tools": 1.0,
+    "luxury": 0.9
+  },
+  "wares": {
+    "stone": [
+      "minecraft:polished_diorite",
+      "minecraft:calcite",
+      "minecraft:stone_bricks",
+      "minecraft:smooth_sandstone"
+    ],
+    "clay": [
+      "minecraft:terracotta",
+      "minecraft:orange_terracotta",
+      "minecraft:bricks",
+      "minecraft:decorated_pot"
+    ],
+    "wood": [
+      "expanse:olive_planks|minecraft:oak_planks",
+      "expanse:olive_log|minecraft:oak_log"
+    ],
+    "food": [
+      "minecraft:bread",
+      "minecraft:apple",
+      "minecraft:cooked_cod",
+      "minecraft:beetroot_soup"
+    ],
+    "luxury": [
+      "minecraft:honey_bottle",
+      "minecraft:book",
+      "minecraft:candle"
+    ]
+  }
+}

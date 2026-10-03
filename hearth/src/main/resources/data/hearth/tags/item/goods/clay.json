@@ -1,0 +1,24 @@
+{
+  "values": [
+    "#minecraft:terracotta",
+    "minecraft:clay_ball",
+    "minecraft:clay",
+    "minecraft:brick",
+    "minecraft:bricks",
+    "minecraft:brick_slab",
+    "minecraft:brick_stairs",
+    "minecraft:brick_wall",
+    "minecraft:mud",
+    "minecraft:packed_mud",
+    "minecraft:mud_bricks",
+    "minecraft:mud_brick_slab",
+    "minecraft:mud_brick_stairs",
+    "minecraft:mud_brick_wall",
+    "minecraft:flower_pot",
+    "minecraft:decorated_pot",
+    {
+      "id": "expanse:red_earth",
+      "required": false
+    }
+  ]
+}

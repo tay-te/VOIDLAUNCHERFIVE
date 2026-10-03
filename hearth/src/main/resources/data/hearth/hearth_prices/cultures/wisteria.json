@@ -1,0 +1,42 @@
+{
+  "speciality": {
+    "food": 1.0,
+    "wood": 0.8,
+    "stone": 1.1,
+    "clay": 0.85,
+    "glass": 1.0,
+    "metal": 1.2,
+    "cloth": 0.9,
+    "fuel": 1.1,
+    "tools": 1.0,
+    "luxury": 0.8
+  },
+  "wares": {
+    "wood": [
+      "expanse:wisteria_planks|minecraft:cherry_planks",
+      "expanse:wisteria_log|minecraft:cherry_log",
+      "minecraft:cherry_planks"
+    ],
+    "food": [
+      "minecraft:bread",
+      "minecraft:sweet_berries",
+      "minecraft:cooked_salmon",
+      "minecraft:cookie"
+    ],
+    "clay": [
+      "minecraft:terracotta",
+      "minecraft:white_terracotta",
+      "minecraft:bricks"
+    ],
+    "cloth": [
+      "minecraft:purple_wool",
+      "minecraft:pink_wool",
+      "minecraft:purple_carpet"
+    ],
+    "luxury": [
+      "expanse:wisteria_blossoms|minecraft:pink_petals",
+      "minecraft:purple_dye",
+      "minecraft:candle"
+    ]
+  }
+}

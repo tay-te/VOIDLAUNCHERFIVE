@@ -1,0 +1,35 @@
+{
+  "speciality": {
+    "food": 0.8,
+    "wood": 0.8,
+    "stone": 1.4,
+    "clay": 0.75,
+    "glass": 1.2,
+    "metal": 1.25,
+    "cloth": 1.05,
+    "fuel": 1.0,
+    "tools": 1.0,
+    "luxury": 0.95
+  },
+  "wares": {
+    "wood": [
+      "expanse:willow_planks|minecraft:mangrove_planks",
+      "minecraft:mangrove_log",
+      "minecraft:mangrove_planks"
+    ],
+    "clay": [
+      "minecraft:mud_bricks",
+      "minecraft:packed_mud",
+      "minecraft:mud"
+    ],
+    "food": [
+      "minecraft:cooked_cod",
+      "minecraft:mushroom_stew",
+      "expanse:cooked_crab|minecraft:cooked_salmon"
+    ],
+    "luxury": [
+      "minecraft:candle",
+      "minecraft:honey_bottle"
+    ]
+  }
+}

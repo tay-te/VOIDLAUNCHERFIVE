@@ -1,0 +1,42 @@
+{
+  "speciality": {
+    "food": 0.8,
+    "wood": 1.1,
+    "stone": 0.9,
+    "clay": 1.0,
+    "glass": 0.95,
+    "metal": 1.0,
+    "cloth": 1.0,
+    "fuel": 1.0,
+    "tools": 1.0,
+    "luxury": 1.0
+  },
+  "wares": {
+    "food": [
+      "minecraft:cooked_cod",
+      "minecraft:cooked_salmon",
+      "minecraft:dried_kelp",
+      "expanse:cooked_crab|minecraft:tropical_fish"
+    ],
+    "cloth": [
+      "minecraft:string",
+      "minecraft:white_wool",
+      "minecraft:leather"
+    ],
+    "stone": [
+      "minecraft:stone_bricks",
+      "minecraft:cobblestone",
+      "minecraft:smooth_stone"
+    ],
+    "tools": [
+      "minecraft:fishing_rod",
+      "minecraft:iron_axe",
+      "minecraft:shears"
+    ],
+    "luxury": [
+      "minecraft:book",
+      "minecraft:candle",
+      "minecraft:ink_sac"
+    ]
+  }
+}

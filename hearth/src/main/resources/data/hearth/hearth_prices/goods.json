@@ -1,0 +1,85 @@
+{
+  "units": {
+    "food": 1.0,
+    "wood": 0.125,
+    "stone": 0.1,
+    "clay": 0.4,
+    "glass": 0.4,
+    "metal": 6.0,
+    "cloth": 1.0,
+    "fuel": 1.0,
+    "tools": 10.0,
+    "luxury": 2.0
+  },
+  "defaults": {
+    "food": 0.8,
+    "wood": 0.3,
+    "stone": 0.15,
+    "clay": 0.5,
+    "glass": 0.5,
+    "metal": 4.0,
+    "cloth": 1.0,
+    "fuel": 1.0,
+    "tools": 15.0,
+    "luxury": 5.0
+  },
+  "untagged": 0.25,
+  "rarity": {
+    "common": 1.0,
+    "uncommon": 4.0,
+    "rare": 12.0,
+    "epic": 40.0
+  },
+  "wares": {
+    "food": [
+      "minecraft:bread",
+      "minecraft:baked_potato",
+      "minecraft:cooked_cod"
+    ],
+    "wood": [
+      "minecraft:oak_planks",
+      "minecraft:oak_log",
+      "minecraft:stick"
+    ],
+    "stone": [
+      "minecraft:cobblestone",
+      "minecraft:stone_bricks",
+      "minecraft:stone"
+    ],
+    "clay": [
+      "minecraft:bricks",
+      "minecraft:terracotta",
+      "minecraft:clay_ball"
+    ],
+    "glass": [
+      "minecraft:glass",
+      "minecraft:glass_pane",
+      "minecraft:sand"
+    ],
+    "metal": [
+      "minecraft:iron_ingot",
+      "minecraft:copper_ingot",
+      "minecraft:lantern"
+    ],
+    "cloth": [
+      "minecraft:white_wool",
+      "minecraft:leather",
+      "minecraft:string"
+    ],
+    "fuel": [
+      "minecraft:charcoal",
+      "minecraft:coal"
+    ],
+    "tools": [
+      "minecraft:iron_pickaxe",
+      "minecraft:iron_axe",
+      "minecraft:iron_shovel",
+      "minecraft:shears"
+    ],
+    "luxury": [
+      "minecraft:book",
+      "minecraft:candle",
+      "minecraft:paper"
+    ]
+  }
+}

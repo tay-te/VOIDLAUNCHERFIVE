@@ -1,0 +1,42 @@
+{
+  "speciality": {
+    "food": 1.25,
+    "wood": 1.4,
+    "stone": 0.85,
+    "clay": 0.65,
+    "glass": 0.9,
+    "metal": 0.85,
+    "cloth": 1.1,
+    "fuel": 1.0,
+    "tools": 1.0,
+    "luxury": 0.9
+  },
+  "wares": {
+    "clay": [
+      "minecraft:terracotta",
+      "minecraft:red_terracotta",
+      "minecraft:orange_terracotta",
+      "minecraft:white_terracotta"
+    ],
+    "metal": [
+      "minecraft:gold_ingot",
+      "minecraft:gold_nugget",
+      "minecraft:iron_ingot"
+    ],
+    "stone": [
+      "minecraft:red_sandstone",
+      "minecraft:cut_red_sandstone",
+      "minecraft:smooth_red_sandstone"
+    ],
+    "food": [
+      "minecraft:bread",
+      "minecraft:cooked_rabbit",
+      "minecraft:cooked_beef"
+    ],
+    "luxury": [
+      "minecraft:red_dye",
+      "minecraft:orange_dye",
+      "minecraft:brown_dye"
+    ]
+  }
+}

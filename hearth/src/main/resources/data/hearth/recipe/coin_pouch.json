@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "S": "minecraft:string",
+    "L": "minecraft:leather"
+  },
+  "pattern": [
+    " S ",
+    "L L",
+    " L "
+  ],
+  "result": {
+    "id": "hearth:coin_pouch"
+  }
+}

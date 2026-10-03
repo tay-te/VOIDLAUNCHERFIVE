@@ -1,0 +1,14 @@
+{
+  "values": [
+    "#minecraft:coal_ores",
+    "minecraft:coal",
+    "minecraft:charcoal",
+    "minecraft:coal_block",
+    "minecraft:dried_kelp_block",
+    "minecraft:blaze_rod",
+    {
+      "id": "expanse:peat",
+      "required": false
+    }
+  ]
+}
