@@ -323,7 +323,7 @@ public final class ShapeResolver {
 	private void water() {
 		each((x, y, z, s) -> {
 			int wy = this.site.water(x, z);
-			if (wy == Site.NONE || y >= wy || y < this.site.ground(x, z)) {
+			if (wy == Site.NONE || y >= wy || y < this.site.ground(x, z) || this.draft.drained(x, z)) {
 				return;
 			}
 			StageKind stage = this.draft.cell(x, y, z).stage();

@@ -73,7 +73,8 @@ public final class Hut implements Archetype {
 		boolean flat = form == RoofForm.FLAT;
 		boolean water = d.site().anyWater(0, 0, w - 1, dp - 1);
 		boolean stilted = h.plan().stilts() == Habits.Stilts.ALWAYS || water;
-		int front = dp >= 7 || stilted ? 2 : dp >= 6 ? 1 : 0;
+		// a stilted hut wants a porch in front; on a shallow plot it gets a stair along its front instead
+		int front = dp >= 7 ? 2 : dp >= 6 || stilted ? 1 : 0;
 		int bx0 = w >= 7 ? 1 : 0;
 		int bx1 = w >= 7 ? w - 2 : w - 1;
 		int bz0 = front;
@@ -99,8 +100,10 @@ public final class Hut implements Archetype {
 		HouseBuilder.shell(d, body, facade);
 		HouseBuilder.openings(d, body, facade, !stilted);
 		if (stilted && front >= 1) {
-			Side fw = body.side(0, Dirs.FRONT);
-			Porches.porch(d, fw, bx0, bx1, 1, base, 3, door);
+			if (front >= 2) {
+				Side fw = body.side(0, Dirs.FRONT);
+				Porches.porch(d, fw, bx0, bx1, 1, base, 3, door);
+			}
 			Groundwork.approach(d, door, base, bz0 - 1);
 		}
 		Roofs.Roof roof = null;
@@ -223,9 +226,8 @@ public final class Hut implements Archetype {
 				d.set(c[0], y, c[1], wall.full());
 			}
 		}
-		// inside: a hearth (campfire) in the middle, a bed against the back, a chest and a bench
-		d.inStage(StageKind.INTERIOR, () -> d.set(ax, 0, az, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false)));
-		d.poi(PoiType.HEARTH, ax, 0, az - 1, Dirs.BACK);
+		// inside: a hearth (campfire) in the middle, a bed against the back, a chest and a bench; a small hut has no room
+		// for a fire in the middle, so its fire goes wherever is left once the bed is in
 		Rooms.Room room = new Rooms.Room(x0 + 1, z0 + 1, x1 - 1, z1 - 1, 0, 3);
 		for (int z = z0 + 1; z <= z1 - 1; z++) {
 			for (int x = x0 + 1; x <= x1 - 1; x++) {
@@ -234,9 +236,43 @@ public final class Hut implements Archetype {
 				}
 			}
 		}
-		room.block(ax, az);
 		room.keep(doorX, dz + 1);
-		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		int[] fire = null;
+		if (r >= 3 && room.claim(ax, az)) {
+			fire = new int[]{ax, az};
+			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		} else {
+			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
+			// the free cell nearest the middle, toward the back
+			List<int[]> spots = new java.util.ArrayList<>();
+			for (int[] c : disc) {
+				if (!contains(ring, c) && d.isAbsent(c[0], 0, c[1])) {
+					spots.add(c);
+				}
+			}
+			spots.sort(java.util.Comparator.comparingDouble(c -> Math.hypot(c[0] - cx, c[1] - cz) - 0.1 * c[1]));
+			for (int[] c : spots) {
+				if (room.claim(c[0], c[1])) {
+					fire = c;
+					break;
+				}
+			}
+		}
+		if (fire != null) {
+			int fx = fire[0];
+			int fz = fire[1];
+			d.inStage(StageKind.INTERIOR, () -> d.set(fx, 0, fz, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false)));
+			// tended from the open side nearest the door
+			Direction tend = Dirs.FRONT;
+			for (Direction dir : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
+				int[] n = {fx + Dirs.dx(dir), fz + Dirs.dz(dir)};
+				if (contains(disc, n) && !contains(ring, n) && d.isAbsent(n[0], 0, n[1])) {
+					tend = dir;
+					break;
+				}
+			}
+			d.poi(PoiType.HEARTH, fx + Dirs.dx(tend), 0, fz + Dirs.dz(tend), tend.getOpposite());
+		}
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		// a path to the door, a garden bed by it
 		if (dz >= 1) {

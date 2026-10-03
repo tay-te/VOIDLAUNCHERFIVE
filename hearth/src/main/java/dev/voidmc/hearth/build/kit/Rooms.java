@@ -40,6 +40,8 @@ public final class Rooms {
 		public final int height;
 		private final boolean[] blocked;
 		private final boolean[] reserved;
+		/** Cells with something overhead (the underside of a stair): furniture fits, nobody walks there. */
+		private final boolean[] low;
 		private final List<int[]> reach = new ArrayList<>();
 
 		public Room(int x0, int z0, int x1, int z1, int y, int height) {
@@ -52,6 +54,7 @@ public final class Rooms {
 			int n = (this.x1 - this.x0 + 1) * (this.z1 - this.z0 + 1);
 			this.blocked = new boolean[n];
 			this.reserved = new boolean[n];
+			this.low = new boolean[n];
 		}
 
 		public boolean inside(int x, int z) {
@@ -83,6 +86,14 @@ public final class Rooms {
 			return this;
 		}
 
+		/**
+		 * Claims one free cell for something the caller builds itself (a hearth), if the room stays connected; the
+		 * cell is then taken. Answers whether it was.
+		 */
+		public boolean claim(int x, int z) {
+			return tryTake(this, new int[][]{{x, z}}, null);
+		}
+
 		/** Marks a cell as taken by something already built (a chimney breast, a post). */
 		public Room block(int x, int z) {
 			if (inside(x, z)) {
@@ -96,7 +107,7 @@ public final class Rooms {
 		}
 
 		boolean open(int x, int z) {
-			return inside(x, z) && !this.blocked[idx(x, z)];
+			return inside(x, z) && !this.blocked[idx(x, z)] && !this.low[idx(x, z)];
 		}
 
 		public int width() {
@@ -217,10 +228,19 @@ public final class Rooms {
 				BlockState s = d.get(x, r.y, z);
 				BlockState below = d.get(x, r.y - 1, z);
 				boolean hole = below != null ? below.isAir() : r.y - 1 >= d.site().ground(x, z);
-				if (s != null && !s.isAir() || hole) {
+				BlockState over = d.get(x, r.y + 1, z);
+				boolean through = s != null && (s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock
+					|| s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty());
+				if (s != null && !s.isAir() && through && !hole) {
+					// a ladder, a carpet: walked through, never furnished
+					r.keepArea(x, z, x, z);
+				} else if (s != null && !s.isAir() || hole) {
 					r.block(x, z);
 				} else if (below != null && !d.isSolid(x, r.y - 1, z)) {
 					r.keepArea(x, z, x, z);
+				} else if (over != null && !over.isAir()
+					&& !over.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).isEmpty()) {
+					r.low[r.idx(x, z)] = true;
 				}
 			}
 		}

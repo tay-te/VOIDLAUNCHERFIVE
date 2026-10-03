@@ -129,11 +129,27 @@ public final class Slices {
 	public static void print(Draft d, PlotSpec spec) {
 		String only = spec.params().getStringOr("slice", "");
 		if (!only.isEmpty()) {
-			// "z3", "x5", or "y4" (a plan)
-			if (only.charAt(0) == 'y') {
-				System.out.println(plan(d, Integer.parseInt(only.substring(1))));
-			} else {
-				System.out.println(section(d, only.charAt(0) == 'z', Integer.parseInt(only.substring(1))));
+			// "z3", "x5", or "y4" (a plan), several joined with '/'
+			for (String one : only.split("/")) {
+				if (one.charAt(0) == 'y') {
+					System.out.println(plan(d, Integer.parseInt(one.substring(1))));
+				} else if (one.charAt(0) == 'c') {
+					// a column listing: "c3:0" (x:z)
+					String[] xz = one.substring(1).split(":");
+					int cx = Integer.parseInt(xz[0]);
+					int cz = Integer.parseInt(xz[1]);
+					int[] b = bounds(d);
+					StringBuilder sb = new StringBuilder("column x=" + cx + " z=" + cz + System.lineSeparator());
+					for (int y = b[3]; y >= b[2]; y--) {
+						var cell = d.cell(cx, y, cz);
+						if (cell != null) {
+							sb.append(String.format(Locale.ROOT, "%4d %s %s%n", y, cell.stage(), cell.state()));
+						}
+					}
+					System.out.println(sb);
+				} else {
+					System.out.println(section(d, one.charAt(0) == 'z', Integer.parseInt(one.substring(1))));
+				}
 			}
 			return;
 		}

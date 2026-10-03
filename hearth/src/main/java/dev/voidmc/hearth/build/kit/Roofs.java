@@ -639,7 +639,7 @@ public final class Roofs {
 			}
 			for (int i = 0; i < this.dormers.size(); i++) {
 				int[] dm = this.dormers.get(i);
-				dormerWalls(d, r, this.dormerSides.get(i), dm[0], dm[1], dm[2]);
+				dormerWalls(d, r, this.dormerSides.get(i), dm[0], dm[1], dm[2], this.main, this.field);
 			}
 			if (this.opts.brackets && this.deep >= 1) {
 				brackets(d, b, this.wx0, this.wz0, this.wx1, this.wz1);
@@ -883,6 +883,15 @@ public final class Roofs {
 
 	/** Builds the walls and window of a dormer after the roof has been rasterised over it. */
 	public static void dormerWalls(Draft d, Roof r, Side side, int col, int width, int sillY) {
+		dormerWalls(d, r, side, col, width, sillY, null, null);
+	}
+
+	/**
+	 * {@link #dormerWalls}, the cheeks running back only as far as the dormer's roof stands proud of the main roof's
+	 * slope ({@code main} the roof without the dormer, {@code merged} with it); never on into the attic.
+	 */
+	static void dormerWalls(Draft d, Roof r, Side side, int col, int width, int sillY, @org.jspecify.annotations.Nullable Field main,
+		@org.jspecify.annotations.Nullable Field merged) {
 		int floorY = sillY;
 		int i0 = side.index(col);
 		Mat wall = d.mat(Role.GABLE);
@@ -906,6 +915,12 @@ public final class Roofs {
 				int z = side.z(i) + Dirs.dz(in) * k;
 				int under = r.bottomY(x, z);
 				if (under == Integer.MIN_VALUE || under <= floorY) {
+					break;
+				}
+				// beside the dormer, a block outward: is its roof raised there too? if not, the cheek has met the slope
+				int ox = x + Dirs.dx(side.along()) * (i == i0 - 1 ? -1 : 1);
+				int oz = z + Dirs.dz(side.along()) * (i == i0 - 1 ? -1 : 1);
+				if (main != null && merged != null && !(merged.h(x, z) > main.h(x, z) + 0.25) && !(merged.h(ox, oz) > main.h(ox, oz) + 0.25)) {
 					break;
 				}
 				for (int y = floorY; y < under; y++) {

@@ -78,7 +78,13 @@ public final class Townhouse implements Archetype {
 		// the body: the whole frontage; a step back from the street for the jetties to come forward over
 		int full = Math.clamp(d.param("storeys", d.chance(0.45) ? 4 : 3), 2, 5);
 		boolean jetties = timber && d.chance(Math.max(0.5, h.walls().jetty()));
-		int setback = dp >= 10 || jetties ? 1 : 0;
+		// the door: to one side, on whichever side the street outside stands nearest the floor
+		int pref = partyL && !partyR ? w - 2 : partyR && !partyL ? 1 : d.chance(0.5) ? 1 : w - 2;
+		int alt = pref == 1 ? w - 2 : 1;
+		int door = misfit(d, alt) < misfit(d, pref) ? alt : pref;
+		// a street that is not level with the floor at the door: a row in front for steps up or down to it
+		boolean awkward = misfit(d, door) > 0;
+		int setback = dp >= 10 || jetties || awkward ? 1 : 0;
 		int back = dp - setback >= 12 ? 2 : dp - setback >= 10 ? 1 : 0;
 		int bz0 = setback;
 		int bz1 = dp - 1 - back;
@@ -105,18 +111,18 @@ public final class Townhouse implements Archetype {
 			ridge = Direction.Axis.Z;
 		}
 
-		// the facade: a door to one side, windows in bays; a wide shop window on the ground floor
-		int door = (partyL ? bx1 - 1 : bx0 + 1) + (w >= 7 ? 0 : 0);
-		if (!partyL && !partyR) {
-			door = d.chance(0.5) ? bx0 + 1 : bx1 - 1;
+		// the facade: the door, windows in bays; a wide shop window on the ground floor
+		Facade facade = Facade.plan(d, body, door, 1, 1, 0.75);
+		Integer placed = HouseBuilder.doorColumn(facade);
+		if (placed != null) {
+			door = placed;
 		}
-		Facade facade = Facade.plan(d, body, door, shop && w >= 7 ? 1 : 1, 1, 0.75);
 		int plate = body.plateY();
 		d.eave(plate);
 
 		// ground and shell
 		Groundwork.footings(d, bx0, bz0, bx1, bz1, -1);
-		if (setback > 0) {
+		if (setback > 0 && !awkward && d.site().maxGround(0, 0, w - 1, bz0 - 1) - d.site().minGround(0, 0, w - 1, bz0 - 1) <= 1) {
 			Groundwork.level(d, 0, 0, w - 1, bz0 - 1, 0);
 		}
 		HouseBuilder.shell(d, body, facade);
@@ -170,7 +176,9 @@ public final class Townhouse implements Archetype {
 
 		interior(d, body, facade, roof, door, shop, cx, cz);
 		// the street front: steps if the floor stands above the pavement, a bench, a lantern
-		if (setback > 0) {
+		if (awkward) {
+			Groundwork.approach(d, door, 0, bz0 - 1);
+		} else if (setback > 0) {
 			int g = d.site().ground(door, bz0 - 1);
 			if (g < 0) {
 				Groundwork.steps(d, door, 0, bz0 - 1, Dirs.FRONT, 1);
@@ -184,6 +192,13 @@ public final class Townhouse implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : plate + 3) + 2);
+	}
+
+	/** How far the street in front of column x stands from the floor, beyond the step up a doorway allows (0 if fine). */
+	private static int misfit(Draft d, int x) {
+		int wy = d.site().water(x, -1);
+		int s = Math.max(d.site().ground(x, -1), wy == dev.voidmc.hearth.build.terrain.Site.NONE ? Integer.MIN_VALUE : wy);
+		return s > 0 ? s : s < -1 ? -1 - s : 0;
 	}
 
 	/** A shop window: the ground floor's front glazed two wide beside the door under a cloth awning. */

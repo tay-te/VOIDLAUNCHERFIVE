@@ -133,6 +133,14 @@ public final class Groundwork {
 							d.set(x, yy, z, waterEdge ? found.full() : fill.full());
 						}
 						d.set(x, y - 1, z, waterEdge ? found.full() : ground.full());
+						// water standing above the new level: a dyke along the edge, drained within
+						int wy = d.site().water(x, z);
+						for (int yy = y; yy < wy; yy++) {
+							d.set(x, yy, z, edge ? found.full() : Paint.of(air));
+						}
+						if (wy > y - 1) {
+							d.drain(x, z);
+						}
 					}
 					continue;
 				}
@@ -337,7 +345,7 @@ public final class Groundwork {
 			for (Direction dir : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
 				int nx = c[0] + Dirs.dx(dir);
 				int nz = c[1] + Dirs.dz(dir);
-				if (!inPlot(d, nx, nz) || prev[nz * w + nx] != -2 || !free(d, nx, nz, y, d.site().ground(nx, nz))) {
+				if (!inPlot(d, nx, nz) || prev[nz * w + nx] != -2 || !free(d, nx, nz, y, surface(d, nx, nz))) {
 					continue;
 				}
 				prev[nz * w + nx] = c[1] * w + c[0];
@@ -357,7 +365,7 @@ public final class Groundwork {
 		int h = y;
 		// the first cell (outside the door) must bear a person at the door's level: a landing on a footing if not
 		int[] first = route.get(0);
-		int g0 = d.site().ground(first[0], first[1]);
+		int g0 = surface(d, first[0], first[1]);
 		if (!d.isSolid(first[0], h - 1, first[1]) && g0 < h) {
 			try (var st = d.stage(StageKind.EXTERIOR)) {
 				d.set(first[0], h - 1, first[1], paving.full());
@@ -365,12 +373,20 @@ public final class Groundwork {
 					d.set(first[0], yy, first[1], stone.full());
 				}
 			}
+		} else if (g0 > h) {
+			// cut into rising ground: paving at the door's level, the earth above taken away
+			try (var st = d.stage(StageKind.EXTERIOR)) {
+				d.set(first[0], h - 1, first[1], paving.full());
+				for (int yy = h; yy <= Math.max(h + 1, g0 - 1); yy++) {
+					d.set(first[0], yy, first[1], Blocks.AIR.defaultBlockState());
+				}
+			}
 		}
 		for (int k = 1; k < route.size(); k++) {
 			int[] from = route.get(k - 1);
 			int[] c = route.get(k);
 			Direction back = Dirs.of(from[0] - c[0], from[1] - c[1]);
-			int g = d.site().ground(c[0], c[1]);
+			int g = surface(d, c[0], c[1]);
 			// the ground ahead decides: descend a step, keep level, or climb a step
 			int target = Math.clamp(g, h - 1, h + 1);
 			try (var st = d.stage(StageKind.EXTERIOR)) {
@@ -402,37 +418,83 @@ public final class Groundwork {
 				}
 			}
 		}
-		// still above the street at the front row: carry on down along it, toward the lower and roomier side
+		// not yet at the street's level at the front row: carry on down (or up) along it, toward the roomier side; the
+		// last step lands level with the street, or a block above it (one step down)
 		int[] last = route.get(route.size() - 1);
 		int cx = last[0];
-		int street = d.site().ground(cx, -1);
-		if (h - street > 1) {
+		if (!atStreet(d, cx, h)) {
+			boolean up = street(d, cx) > h;
 			int roomL = 0;
 			int roomR = 0;
-			while (roomL < w && inPlot(d, cx - roomL - 1, 0) && free(d, cx - roomL - 1, 0, h, d.site().ground(cx - roomL - 1, 0))) {
+			while (roomL < w && inPlot(d, cx - roomL - 1, 0) && free(d, cx - roomL - 1, 0, h, surface(d, cx - roomL - 1, 0))) {
 				roomL++;
 			}
-			while (roomR < w && inPlot(d, cx + roomR + 1, 0) && free(d, cx + roomR + 1, 0, h, d.site().ground(cx + roomR + 1, 0))) {
+			while (roomR < w && inPlot(d, cx + roomR + 1, 0) && free(d, cx + roomR + 1, 0, h, surface(d, cx + roomR + 1, 0))) {
 				roomR++;
 			}
 			int step = roomR >= roomL ? 1 : -1;
-			Direction back = step > 0 ? Dirs.LEFT : Dirs.RIGHT;
+			Direction ahead = step > 0 ? Dirs.RIGHT : Dirs.LEFT;
 			int room = Math.max(roomL, roomR);
-			for (int k = 1; k <= room && h - d.site().ground(cx + step * k, -1) > 1; k++) {
+			for (int k = 1; k <= room; k++) {
 				int x1 = cx + step * k;
-				int g = d.site().ground(x1, 0);
+				int g = surface(d, x1, 0);
 				try (var st = d.stage(StageKind.EXTERIOR)) {
-					d.set(x1, h - 2, 0, paving.has(Form.STAIRS) ? paving.stairs(back, Half.BOTTOM) : stone.stairsOrSlab(back, Half.BOTTOM));
-					for (int yy = g - 1; yy < h - 2; yy++) {
+					// a stair down has its top a block below the level we stand on; a stair up stands at our level
+					int top = up ? h : h - 2;
+					Direction face = up ? ahead : ahead.getOpposite();
+					d.set(x1, top, 0, paving.has(Form.STAIRS) ? paving.stairs(face, Half.BOTTOM) : stone.stairsOrSlab(face, Half.BOTTOM));
+					for (int yy = g - 1; yy < top; yy++) {
 						d.set(x1, yy, 0, stone.full());
 					}
-					d.set(x1, h - 1, 0, Blocks.AIR.defaultBlockState());
-					d.set(x1, h, 0, Blocks.AIR.defaultBlockState());
+					for (int yy = top + 1; yy <= Math.max(top + 2, g - 1); yy++) {
+						d.set(x1, yy, 0, Blocks.AIR.defaultBlockState());
+					}
 				}
-				h--;
+				h += up ? 1 : -1;
+				if (atStreet(d, x1, h)) {
+					break;
+				}
 			}
 		}
 		return true;
+	}
+
+	/** The street's standing level in front of column x (on the water where it is wet). */
+	private static int street(Draft d, int x) {
+		int wy = d.site().water(x, -1);
+		return Math.max(d.site().ground(x, -1), wy == Site.NONE ? Integer.MIN_VALUE : wy);
+	}
+
+	/** Standing at level h on the front row at x, the street in front can be stepped onto (level, or a step down). */
+	private static boolean atStreet(Draft d, int x, int h) {
+		int s = street(d, x);
+		return h == s || h == s + 1;
+	}
+
+	/**
+	 * The standing level on the ground as the draft leaves it so far: the natural ground, raised by fill or a retaining
+	 * wall laid on it (earthwork or foundation), or lowered by a cutting.
+	 */
+	public static int surface(Draft d, int x, int z) {
+		int natural = d.site().ground(x, z);
+		int g = natural;
+		for (int k = 0; k < 64; k++) {
+			Draft.Cell c = d.cell(x, g, z);
+			if (c == null || c.state().isAir() || c.stage() != StageKind.EARTHWORK && c.stage() != StageKind.FOUNDATION) {
+				break;
+			}
+			g++;
+		}
+		if (g == natural) {
+			for (int k = 0; k < 64; k++) {
+				Draft.Cell c = d.cell(x, g - 1, z);
+				if (c == null || !c.state().isAir() || c.stage() != StageKind.EARTHWORK) {
+					break;
+				}
+				g--;
+			}
+		}
+		return g;
 	}
 
 	/**

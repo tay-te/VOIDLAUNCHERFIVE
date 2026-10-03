@@ -35,7 +35,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * four posts in the desert) with a windlass beam and a bucket on a chain over the water, benches facing it, a trough,
  * flowers in pots and a lantern on a post at a corner.
  *
- * <p>Registers a MEETING_POINT at the curb. Params: none.
+ * <p>Registers a MEETING_POINT at the curb and an entrance at the middle of the street front. Params: none.
  */
 public final class Well implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landscape/well"), ArchetypeCategory.LANDSCAPE, Set.of(), 0,
@@ -54,6 +54,8 @@ public final class Well implements Archetype {
 		int cx = (w - 1) / 2;
 		int cz = (dp - 1) / 2;
 		boolean big = w >= 7 && dp >= 7;
+		// folk come in from the street at the middle of the front
+		d.entrance(cx, 0, -1);
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		// paving round the well, ragged at the edge
 		Mat paving = d.mat(Role.PAVING);

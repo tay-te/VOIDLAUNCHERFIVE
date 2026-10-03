@@ -69,6 +69,7 @@ public final class Draft {
 	private final List<int[]> entrances = new ArrayList<>();
 	private final Map<Role, Mat> mats = new EnumMap<>(Role.class);
 	private final Set<String> missing = new java.util.TreeSet<>();
+	private final it.unimi.dsi.fastutil.longs.LongOpenHashSet drained = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	private @Nullable StageKind stage;
 	private int sequence;
 	private int clipped;
@@ -338,6 +339,18 @@ public final class Draft {
 	}
 
 	/** Placements dropped because they fell outside the plot (see {@link #allowed}); a generator should keep this at 0. */
+	/**
+	 * Marks a column as drained: water standing there is pumped out behind a dyke, so nothing built in it is
+	 * waterlogged. The drafter must place air (or blocks) over every water cell it wants dry.
+	 */
+	public void drain(int x, int z) {
+		this.drained.add(key(x, 0, z));
+	}
+
+	public boolean drained(int x, int z) {
+		return this.drained.contains(key(x, 0, z));
+	}
+
 	public int clipped() {
 		return this.clipped;
 	}

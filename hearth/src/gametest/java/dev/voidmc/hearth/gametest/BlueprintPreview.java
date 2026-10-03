@@ -118,7 +118,14 @@ public final class BlueprintPreview {
 				}
 				List<Cell> done = new ArrayList<>();
 				for (Future<Cell> f : cells) {
-					done.add(f.get());
+					try {
+						done.add(f.get());
+					} catch (java.util.concurrent.ExecutionException e) {
+						// never leave the pool's threads holding the JVM open
+						pool.shutdownNow();
+						e.getCause().printStackTrace();
+						System.exit(1);
+					}
 				}
 				count += done.size();
 				writeSheet(done, styles.size(), seeds, out.resolve("sheet_" + slug(a.info().id()) + "_" + terrain + ".png"),
