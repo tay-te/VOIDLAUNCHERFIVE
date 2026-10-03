@@ -346,15 +346,4 @@ public final class SimServer {
 	public long ticks() {
 		return this.ticks;
 	}
-
-	/** Players currently counted inside a settlement (for commands). */
-	public static int playersIn(SimWorld w, long settlement) {
-		int n = 0;
-		for (Map.Entry<UUID, Long> e : w.playerPresence().entrySet()) {
-			if (e.getValue() == settlement) {
-				n++;
-			}
-		}
-		return n;
-	}
 }

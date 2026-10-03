@@ -151,8 +151,4 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 	public int indexedChunks() {
 		return this.plotsByChunk.size();
 	}
-
-	public @Nullable LongArrayList chunksOf(long settlement) {
-		return this.chunksBySettlement.get(settlement);
-	}
 }

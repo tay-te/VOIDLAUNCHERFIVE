@@ -1,6 +1,5 @@
 package dev.voidmc.hearth.sim.settlement;
 
-import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.voidmc.hearth.api.Culture;
@@ -744,16 +743,5 @@ public final class SimSettlement implements Settlement {
 			m.merge(p.state, 1, Integer::sum);
 		}
 		return m;
-	}
-
-	/** For the planner's sake, pairs of (plot, facts) of everything standing. */
-	public List<Pair<SimPlot, PlotFacts>> standing() {
-		List<Pair<SimPlot, PlotFacts>> l = new ArrayList<>();
-		for (SimPlot p : this.plots.values()) {
-			if (p.isStanding()) {
-				l.add(Pair.of(p, facts(p)));
-			}
-		}
-		return l;
 	}
 }

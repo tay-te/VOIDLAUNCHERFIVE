@@ -594,9 +594,4 @@ public final class DevHarness {
 		}
 		return "LOD footprints of " + s.name() + ": " + hit + " of " + tried + " finished buildings found" + example;
 	}
-
-	/** Region of a block, for log lines. */
-	static String region(BlockPos p) {
-		return Atlas.region(p.getX()) + "," + Atlas.region(p.getZ()) + " " + ChunkPos.containing(p);
-	}
 }
