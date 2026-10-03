@@ -38,7 +38,7 @@
 	},
 	"base_weight": 2,
 	"variants": [
-		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:white_concrete", "w": 1}], "gable": ["minecraft:smooth_quartz"], "window": ["minecraft:smooth_quartz"], "door": ["wood:minecraft:warped"], "shutter": ["wood:minecraft:warped"], "cloth": ["dye:blue", "dye:white", "dye:light_blue"]}},
+		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:white_concrete", "w": 5}, {"m": "minecraft:smooth_quartz", "w": 0.6}], "gable": ["minecraft:smooth_quartz"], "window": ["minecraft:smooth_quartz"], "door": ["wood:minecraft:warped"], "shutter": ["wood:minecraft:warped"], "cloth": ["dye:blue", "dye:white", "dye:light_blue"]}},
 		{"name": "mud brick", "w": 1, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:packed_mud", "w": 1}], "gable": ["minecraft:mud_bricks"], "window": ["minecraft:mud_bricks"], "roof": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}], "roof_trim": ["minecraft:mud_bricks"], "plinth": ["minecraft:mud_bricks"], "wall_accent": ["minecraft:packed_mud"], "frame": ["wood:minecraft:spruce"], "beam": ["wood:minecraft:spruce"]}},
 		{"name": "red sandstone", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_red_sandstone", "w": 3}, {"m": "minecraft:red_sandstone", "w": 1, "low": 1.5}], "gable": ["minecraft:smooth_red_sandstone"], "window": ["minecraft:smooth_red_sandstone"], "roof": ["minecraft:smooth_red_sandstone"], "roof_trim": ["minecraft:cut_red_sandstone"], "wall_accent": ["minecraft:cut_red_sandstone"], "plinth": ["minecraft:cut_red_sandstone"], "foundation": ["minecraft:red_sandstone"]}}
 	],

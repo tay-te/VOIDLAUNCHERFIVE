@@ -99,6 +99,12 @@ public final class Townhouse implements Archetype {
 			heights[full] = 1;
 		}
 		Body body = new Body(bx0, bz0, bx1, bz1, 0, heights, partyL, partyR);
+		// a flat-roofed house often steps its top storey back from the street behind a roof terrace
+		int bd = bz1 - bz0 + 1;
+		boolean terraced = flat && full >= 3 && bd >= 9 && d.param("terrace", d.chance(0.7));
+		if (terraced) {
+			body.setback(full - 1, Dirs.FRONT, bd >= 11 ? 3 : 2);
+		}
 		if (jetties) {
 			body.jetty(1, Dirs.FRONT);
 			if (full >= 3 && bz0 - 2 >= -1) {
@@ -129,6 +135,45 @@ public final class Townhouse implements Archetype {
 		HouseBuilder.openings(d, body, facade, true);
 		if (shop) {
 			shopFront(d, body, door);
+		}
+		int terraceDoor = Integer.MIN_VALUE;
+		if (terraced) {
+			int ty = Roofs.terrace(d, body.rect(full - 2), body.rect(full - 1), body.floorY(full - 1) - 1);
+			// a door out from the top storey, a pergola of posts and cloth over part of the terrace, pots on the parapet
+			Side up = body.side(full - 1, Dirs.FRONT);
+			int mid = up.middle();
+			int tx = up.x(mid);
+			terraceDoor = tx;
+			int tz = up.z(mid);
+			d.inStage(StageKind.OPENINGS, () -> d.door(tx, ty, tz, d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR,
+				net.minecraft.world.level.block.Blocks.SPRUCE_DOOR), Dirs.FRONT, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+			int[] lower = body.rect(full - 2);
+			int[] upper = body.rect(full - 1);
+			int pz0 = lower[1] + 1;
+			int pz1 = upper[1] - 1;
+			var fence = d.mat(Role.FENCE);
+			var cloth = d.mat(Role.CLOTH);
+			int px0 = tx + 2 <= lower[2] - 2 ? tx + 2 : lower[0] + 1;
+			int px1 = Math.min(lower[2] - 1, px0 + 2);
+			if (pz1 >= pz0 && px1 > px0 && (px0 > tx + 1 || px1 < tx - 1)) {
+				try (var s = d.stage(StageKind.EXTERIOR)) {
+					for (int x = px0; x <= px1; x += Math.max(1, px1 - px0)) {
+						d.set(x, ty, pz0, fence.fence());
+						d.set(x, ty + 1, pz0, fence.fence());
+					}
+					for (int x = px0; x <= px1; x++) {
+						for (int z = pz0; z <= pz1; z++) {
+							d.set(x, ty + 2, z, cloth.slab(SlabType.BOTTOM));
+						}
+					}
+				}
+			}
+			for (int x = lower[0] + 1; x < lower[2]; x += 2) {
+				if (d.chance(0.5)) {
+					Garden.pot(d, x, ty + 2, lower[1]);
+				}
+			}
+			d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, tx, ty, pz0, Dirs.FRONT);
 		}
 		// beam ends under each jetty, balconies on the upper floors
 		if (full >= 3 && d.chance(h.balcony())) {
@@ -174,7 +219,7 @@ public final class Townhouse implements Archetype {
 			cx = Integer.MIN_VALUE;
 		}
 
-		interior(d, body, facade, roof, door, shop, cx, cz);
+		interior(d, body, facade, roof, door, shop, cx, cz, terraceDoor);
 		// the street front: steps if the floor stands above the pavement, a bench, a lantern
 		if (awkward) {
 			Groundwork.approach(d, door, 0, bz0 - 1);
@@ -231,7 +276,7 @@ public final class Townhouse implements Archetype {
 	}
 
 	/** The stair well at the back, and every floor's rooms around it. */
-	private static void interior(Draft d, Body b, Facade f, Roofs.Roof roof, int door, boolean shop, int hx, int hz) {
+	private static void interior(Draft d, Body b, Facade f, Roofs.Roof roof, int door, boolean shop, int hx, int hz, int terraceDoor) {
 		int[] r0 = b.rect(0);
 		int ix0 = r0[0] + 1;
 		int ix1 = r0[2] - 1;
@@ -262,6 +307,9 @@ public final class Townhouse implements Archetype {
 				continue;
 			}
 			// the well's cells stay free; its foot and its head must be reachable
+			if (top && terraceDoor != Integer.MIN_VALUE) {
+				room.keep(terraceDoor, r[1] + 1);
+			}
 			room.keepArea(laneA, wellZ0, laneB, iz1);
 			room.keep(laneB, wellZ0 - 1);
 			room.keep(laneA, wellZ0 - 1);

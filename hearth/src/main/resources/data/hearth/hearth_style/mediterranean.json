@@ -4,7 +4,7 @@
 	"roles": {
 		"foundation": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:polished_andesite", "w": 1}],
-		"wall": [{"m": "minecraft:white_concrete", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 0.4}],
+		"wall": [{"m": "minecraft:white_concrete", "w": 5}, {"m": "minecraft:smooth_quartz", "w": 0.6}, {"m": "minecraft:calcite", "w": 0.15, "low": 1}],
 		"wall_accent": [{"m": "minecraft:smooth_quartz", "w": 2}],
 		"frame": ["wood:minecraft:dark_oak"],
 		"beam": ["wood:minecraft:dark_oak"],
