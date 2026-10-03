@@ -42,6 +42,17 @@ public final class Site {
 				}
 			}
 		}
+		// the street in front is where the planner graded its road (param "street_y", PLANNING.md §8), cut or filled from
+		// the natural ground: steps and paths from the door go down (or up) to it, not to the land that was there
+		if (spec.params().contains("street_y")) {
+			int street = spec.params().getIntOr("street_y", floorY) - floorY;
+			for (int z = -MARGIN; z < 0; z++) {
+				for (int x = -MARGIN; x < this.frontage + MARGIN; x++) {
+					this.ground[index(x, z)] = street;
+					this.water[index(x, z)] = NONE;
+				}
+			}
+		}
 	}
 
 	public Site(LocalFrame frame, int floorY, TerrainProbe probe) {
