@@ -36,6 +36,11 @@
 		"stilt": ["wood:expanse:palm|wood:minecraft:jungle"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "jungle boards", "w": 1, "roles": {"wall": ["wood:minecraft:jungle"], "gable": ["wood:minecraft:jungle"]}},
+		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full"}}}
+	],
 	"habits": {
 		"walls": {"kind": "plank", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.4},
 		"roof": {"forms": {"hip": 5, "gable": 1, "half_hip": 1}, "pitch": 1.0, "eaves": 2, "gable_overhang": 1, "ridge": "slab", "dormers": 0.0},

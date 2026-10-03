@@ -10,7 +10,7 @@
 		"beam": ["wood:minecraft:dark_oak"],
 		"floor": ["wood:minecraft:spruce"],
 		"ceiling": ["wood:minecraft:spruce"],
-		"roof": [{"m": "wood:minecraft:dark_oak", "w": 4}, {"m": "wood:minecraft:spruce", "w": 0.5}],
+		"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 2}],
 		"roof_trim": ["wood:minecraft:spruce"],
 		"gable": ["wood:minecraft:spruce"],
 		"window": ["wood:minecraft:spruce"],
@@ -40,6 +40,12 @@
 		"0": {"roof": ["wood:minecraft:spruce"], "wall": ["wood:minecraft:spruce"]},
 		"3": {"roof": ["minecraft:deepslate_tiles"], "roof_trim": ["wood:minecraft:dark_oak"], "chimney": ["minecraft:stone_bricks"]}
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "falu red", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:birch"], "window": ["wood:minecraft:birch"], "shutter": ["wood:minecraft:birch"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}]}, "habits": {"walls": {"kind": "plank"}}},
+		{"name": "weathered grey", "w": 0.8, "roles": {"wall": ["wood:minecraft:pale_oak"], "gable": ["wood:minecraft:pale_oak"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}]}},
+		{"name": "birch trim", "w": 1, "roles": {"window": ["wood:minecraft:birch"], "shutter": ["wood:minecraft:birch"], "door": ["wood:minecraft:birch"], "roof": [{"m": "wood:minecraft:spruce", "w": 1}]}}
+	],
 	"habits": {
 		"walls": {"kind": "log", "storey_height": 4, "plinth": 0, "jetty": 0.2, "post_spacing": 3, "braces": 0, "beam_ends": 0.7},
 		"roof": {"forms": {"gable": 5, "cross_gable": 1.5, "half_hip": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "dormers": 0.3, "front_gable": 0.4},

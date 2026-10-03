@@ -300,7 +300,9 @@ public final class Roofs {
 					Direction dir = Dirs.HORIZONTAL[k];
 					int n = r.halfHeight(x + Dirs.dx(dir), z + Dirs.dz(dir));
 					edge[k] = n == Integer.MIN_VALUE;
-					nv[k] = n == Integer.MIN_VALUE ? 0 : n;
+					// beyond the roof's edge counts as level: an edge is where a roof ends, not a ridge (a lean-to's
+					// high side against its wall)
+					nv[k] = n == Integer.MIN_VALUE ? t : n;
 					max = Math.max(max, nv[k]);
 					low = Math.min(low, nv[k]);
 				}

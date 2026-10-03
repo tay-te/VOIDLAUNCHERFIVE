@@ -36,6 +36,12 @@
 		"stilt": ["wood:expanse:baobab|wood:minecraft:acacia"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "red ochre", "w": 1, "roles": {"wall": [{"m": "minecraft:orange_terracotta", "w": 2}, {"m": "minecraft:terracotta", "w": 1}], "gable": ["minecraft:orange_terracotta"]}},
+		{"name": "lime white", "w": 1, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 1}], "gable": ["minecraft:white_terracotta"]}},
+		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full"}}}
+	],
 	"habits": {
 		"walls": {"kind": "plaster", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.6},
 		"roof": {"forms": {"cone": 4, "hip": 3, "gable": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "slab", "dormers": 0.0, "brackets": false},

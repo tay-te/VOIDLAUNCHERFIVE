@@ -4,7 +4,7 @@
 	"roles": {
 		"foundation": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:polished_andesite", "w": 1}],
-		"wall": [{"m": "minecraft:white_concrete", "w": 3}, {"m": "minecraft:calcite", "w": 2}, {"m": "minecraft:smooth_quartz", "w": 1}],
+		"wall": [{"m": "minecraft:white_concrete", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 0.4}],
 		"wall_accent": [{"m": "minecraft:smooth_quartz", "w": 2}],
 		"frame": ["wood:minecraft:dark_oak"],
 		"beam": ["wood:minecraft:dark_oak"],
@@ -36,6 +36,12 @@
 		"stilt": ["wood:minecraft:dark_oak"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "ochre", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.3, "low": 1}], "gable": ["minecraft:smooth_sandstone"], "chimney": ["minecraft:smooth_sandstone"], "shutter": ["wood:minecraft:dark_oak"]}},
+		{"name": "rose", "w": 0.8, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 3}], "gable": ["minecraft:white_terracotta"], "chimney": ["minecraft:white_terracotta"], "shutter": ["wood:minecraft:warped"]}},
+		{"name": "field stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:granite", "w": 0.25}], "gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}], "chimney": ["minecraft:stone_bricks"], "wall_accent": ["minecraft:stone_bricks"]}, "habits": {"walls": {"kind": "stone", "plinth": 0}}}
+	],
 	"habits": {
 		"walls": {"kind": "plaster", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.3},
 		"roof": {"forms": {"hip": 3, "gable": 3, "flat": 1.5}, "pitch": 0.5, "eaves": 1, "gable_overhang": 0, "ridge": "slab", "dormers": 0.0, "parapet": true, "brackets": false},

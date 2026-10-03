@@ -262,7 +262,10 @@ public final class BlueprintPreview {
 			case NORTH -> 225;
 			default -> 315;
 		};
-		String label = culture.getSerializedName() + " s" + index + " " + spec.frontage() + "x" + spec.depth() + " " + spec.facing().getSerializedName();
+		int variant = spec.params().contains("variant") ? spec.params().getIntOr("variant", -1)
+			: style.pickVariant(dev.voidmc.hearth.build.draft.Noise.hash(spec.seed(), 0x7A1A));
+		String label = culture.getSerializedName() + " s" + index + " " + spec.frontage() + "x" + spec.depth() + " " + spec.facing().getSerializedName()
+			+ (variant >= 0 ? " · " + style.variants().get(variant).name() : "");
 		BufferedImage front = renderer.render(world, new View(yaw, 30), 16, 2, 0);
 		if (panels) {
 			BufferedImage back = renderer.render(world, new View(yaw + 180, 30), 16, 2, 0);

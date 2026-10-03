@@ -36,6 +36,12 @@
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "red boards", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:birch"], "window": ["wood:minecraft:birch"]}, "habits": {"walls": {"kind": "plank"}}},
+		{"name": "harbour stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}], "gable": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0}}},
+		{"name": "yellow plaster", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 3}], "gable": ["minecraft:smooth_sandstone"]}}
+	],
 	"habits": {
 		"walls": {"kind": "plaster", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.2},
 		"roof": {"forms": {"gable": 6, "cross_gable": 1, "hip": 0.5}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "trim", "dormers": 0.5, "brackets": false},

@@ -36,6 +36,11 @@
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "dark boards", "w": 1, "roles": {"gable": ["wood:minecraft:dark_oak"], "roof": ["wood:minecraft:spruce"]}},
+		{"name": "slate roof", "w": 1, "roles": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 0.4}], "roof_trim": ["minecraft:polished_deepslate"]}}
+	],
 	"habits": {
 		"walls": {"kind": "plaster", "upper": "plank", "storey_height": 4, "plinth": 1, "jetty": 0.3, "post_spacing": 3, "braces": 0, "beam_ends": 0.8},
 		"roof": {"forms": {"gable": 6, "half_hip": 1}, "pitch": 0.5, "eaves": 2, "gable_overhang": 2, "ridge": "full", "dormers": 0.0, "front_gable": 0.85},

@@ -36,6 +36,12 @@
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "white", "w": 1, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 3}], "gable": ["minecraft:white_terracotta"]}},
+		{"name": "rust", "w": 1, "roles": {"wall": [{"m": "minecraft:orange_terracotta", "w": 2}, {"m": "minecraft:red_terracotta", "w": 0.5}], "gable": ["minecraft:orange_terracotta"]}},
+		{"name": "red sandstone", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_red_sandstone", "w": 3}, {"m": "minecraft:red_sandstone", "w": 1}], "gable": ["minecraft:smooth_red_sandstone"]}}
+	],
 	"habits": {
 		"walls": {"kind": "adobe", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.8},
 		"roof": {"forms": {"flat": 10}, "pitch": 1.0, "eaves": 0, "gable_overhang": 0, "ridge": "slab", "dormers": 0.0, "parapet": true, "brackets": false},

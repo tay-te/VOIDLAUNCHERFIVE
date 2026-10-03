@@ -452,6 +452,6 @@ public final class Garden {
 
 	/** A garden palette's blocks, for callers that want to pick their own plants. */
 	public static Palette palette(Draft d) {
-		return d.style().palette(Role.GARDEN, d.tier());
+		return d.style().palette(Role.GARDEN, d.tier(), d.variant());
 	}
 }

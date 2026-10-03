@@ -59,12 +59,28 @@ class StylesTest {
 		List<String> missing = new ArrayList<>();
 		for (Culture c : Culture.values()) {
 			Style s = styles.get(StyleRegistry.styleId(c));
-			for (int tier = 0; tier <= 4; tier++) {
-				for (var e : NEEDS.entrySet()) {
-					Palette p = s.palette(e.getKey(), tier);
-					for (Form f : e.getValue()) {
-						if (!p.has(f)) {
-							missing.add(c.getSerializedName() + " tier " + tier + " " + e.getKey().key() + ":" + f);
+			for (int v = -1; v < s.variants().size(); v++) {
+				boolean thatch = s.habits(v).roof().thatch();
+				String where = c.getSerializedName() + (v >= 0 ? " (" + s.variants().get(v).name() + ")" : "");
+				for (int tier = 0; tier <= 4; tier++) {
+					for (var e : NEEDS.entrySet()) {
+						Role role = thatch && e.getKey() == Role.ROOF ? Role.THATCH : e.getKey();
+						Palette p = s.palette(role, tier, v);
+						for (Form f : e.getValue()) {
+							if (!p.has(f)) {
+								missing.add(where + " tier " + tier + " " + role.key() + ":" + f);
+							}
+						}
+					}
+					// every role resolves to some block at all (a misspelt id resolves to nothing)
+					for (Role role : Role.values()) {
+						Palette p = s.palette(role, tier, v);
+						boolean any = false;
+						for (Form f : Form.values()) {
+							any |= p.has(f);
+						}
+						if (!any) {
+							missing.add(where + " tier " + tier + " " + role.key() + " resolves to nothing");
 						}
 					}
 				}

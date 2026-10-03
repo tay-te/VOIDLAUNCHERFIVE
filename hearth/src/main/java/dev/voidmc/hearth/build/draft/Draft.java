@@ -64,6 +64,8 @@ public final class Draft {
 	private final int tier;
 	private final RandomSource random;
 	private final CompoundTag params;
+	/** The style variant this building wears (-1 the base dressing). */
+	private final int variant;
 	private final Long2ObjectOpenHashMap<Cell> cells = new Long2ObjectOpenHashMap<>();
 	private final List<LocalPoi> pois = new ArrayList<>();
 	private final List<int[]> entrances = new ArrayList<>();
@@ -87,6 +89,7 @@ public final class Draft {
 		this.tier = Math.clamp(spec.tier(), 0, 4);
 		this.random = new LegacyRandomSource(Noise.hash(spec.seed(), 0x5EED));
 		this.params = spec.params();
+		this.variant = this.params.contains("variant") ? this.params.getIntOr("variant", -1) : style.pickVariant(Noise.hash(spec.seed(), 0x7A1A));
 		this.bodyX0 = 0;
 		this.bodyZ0 = 0;
 		this.bodyX1 = frontage() - 1;
@@ -104,7 +107,12 @@ public final class Draft {
 	}
 
 	public Habits habits() {
-		return this.style.habits();
+		return this.style.habits(this.variant);
+	}
+
+	/** The style variant (-1 the base dressing); forced with the param {@code variant}. */
+	public int variant() {
+		return this.variant;
 	}
 
 	public Site site() {
@@ -182,7 +190,9 @@ public final class Draft {
 	public Mat mat(Role role) {
 		return this.mats.computeIfAbsent(role, r -> {
 			long seed = Noise.hash(this.spec.seed(), 0xA11 + r.ordinal());
-			var palette = this.style.palette(r, this.tier);
+			// a thatched roof is laid in the thatch, its ridge too
+			Role source = (r == Role.ROOF || r == Role.ROOF_TRIM) && habits().roof().thatch() ? Role.THATCH : r;
+			var palette = this.style.palette(source, this.tier, this.variant);
 			return new Mat(this, r, r.perBuilding() ? palette.chooseOne(seed) : palette, seed);
 		});
 	}

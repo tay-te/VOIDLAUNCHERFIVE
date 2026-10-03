@@ -36,6 +36,12 @@
 		"stilt": ["wood:minecraft:mangrove"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "rust roof", "w": 1, "roles": {"roof": [{"m": "minecraft:exposed_cut_copper", "w": 2}, {"m": "minecraft:cut_copper", "w": 1}]}},
+		{"name": "cypress dark", "w": 1, "roles": {"wall": ["wood:minecraft:dark_oak"], "gable": ["wood:minecraft:dark_oak"]}},
+		{"name": "shingle roof", "w": 1, "roles": {"roof": ["wood:minecraft:spruce"], "roof_trim": ["wood:minecraft:dark_oak"]}}
+	],
 	"habits": {
 		"walls": {"kind": "plank", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.3},
 		"roof": {"forms": {"gable": 3, "hip": 2, "shed": 0.5}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "slab", "dormers": 0.0, "brackets": false},

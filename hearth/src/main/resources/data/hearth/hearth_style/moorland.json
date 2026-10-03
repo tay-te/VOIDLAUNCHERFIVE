@@ -36,6 +36,11 @@
 		"stilt": ["wood:minecraft:spruce"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 1}], "gable": ["minecraft:smooth_quartz"]}, "habits": {"walls": {"kind": "plaster", "plinth": 1}}},
+		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full", "forms": {"gable": 3, "half_hip": 2}}}}
+	],
 	"habits": {
 		"walls": {"kind": "stone", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0},
 		"roof": {"forms": {"gable": 6, "cross_gable": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "trim", "dormers": 0.25, "brackets": false},

@@ -34,7 +34,11 @@ import org.jspecify.annotations.Nullable;
  *     "roof":  [{"m": "wood:expanse:wisteria|wood:minecraft:cherry"}]
  *   },
  *   "tiers": { "0": { "roof": "minecraft:hay_block" }, "3": { "wall": "minecraft:smooth_quartz" } },
- *   "habits": { ... see Habits ... }
+ *   "habits": { ... see Habits ... },
+ *   "base_weight": 2,                       // optional: the base dressing's weight among the variants (default 1)
+ *   "variants": [                           // optional: fashions chosen per building by seed
+ *     {"name": "brick nogging", "w": 1, "roles": {"wall": "minecraft:bricks"}, "habits": {"roof": {"pitch": 1.2}}}
+ *   ]
  * }
  * </pre>
  *
@@ -68,8 +72,37 @@ public final class StyleLoader {
 				tiers.put(t, roles(e.getValue().getAsJsonObject()));
 			}
 		}
-		Habits habits = json.has("habits") ? Habits.parse(json.getAsJsonObject("habits")) : Habits.DEFAULT;
-		return new Style(id, culture, name, base, tiers, habits);
+		JsonObject habitsJson = json.has("habits") ? json.getAsJsonObject("habits") : new JsonObject();
+		Habits habits = Habits.parse(habitsJson);
+		List<Style.Variant> variants = new ArrayList<>();
+		if (json.has("variants")) {
+			for (JsonElement e : json.getAsJsonArray("variants")) {
+				JsonObject v = e.getAsJsonObject();
+				String vname = v.has("name") ? v.get("name").getAsString() : "variant " + variants.size();
+				double w = v.has("w") ? v.get("w").getAsDouble() : 1.0;
+				Map<Role, Palette> roles = v.has("roles") ? roles(v.getAsJsonObject("roles")) : Map.of();
+				Habits vh = v.has("habits") ? Habits.parse(mergeHabits(habitsJson, v.getAsJsonObject("habits"))) : habits;
+				variants.add(new Style.Variant(vname, w, roles, vh));
+			}
+		}
+		double baseWeight = json.has("base_weight") ? json.get("base_weight").getAsDouble() : 1.0;
+		return new Style(id, culture, name, base, tiers, habits, baseWeight, variants);
+	}
+
+	/** A variant's habits over the base's: each section ("walls", "roof", ...) merged key by key, values replaced whole. */
+	private static JsonObject mergeHabits(JsonObject base, JsonObject over) {
+		JsonObject out = base.deepCopy();
+		for (Map.Entry<String, JsonElement> e : over.entrySet()) {
+			if (e.getValue().isJsonObject() && out.has(e.getKey()) && out.get(e.getKey()).isJsonObject()) {
+				JsonObject section = out.getAsJsonObject(e.getKey());
+				for (Map.Entry<String, JsonElement> k : e.getValue().getAsJsonObject().entrySet()) {
+					section.add(k.getKey(), k.getValue().deepCopy());
+				}
+			} else {
+				out.add(e.getKey(), e.getValue().deepCopy());
+			}
+		}
+		return out;
 	}
 
 	public static Style parse(Identifier id, Reader reader) {

@@ -36,6 +36,12 @@
 		"stilt": ["wood:minecraft:dark_oak"],
 		"thatch": ["minecraft:hay_block"]
 	},
+	"base_weight": 2,
+	"variants": [
+		{"name": "white walls, grey tiles", "w": 1.2, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:calcite", "w": 0.5}], "gable": ["minecraft:smooth_quartz"], "roof": ["minecraft:deepslate_tiles"], "roof_trim": ["minecraft:polished_deepslate"]}, "habits": {"walls": {"kind": "timber_frame", "braces": 0}}},
+		{"name": "red lacquer", "w": 1, "roles": {"frame": ["wood:minecraft:mangrove"], "beam": ["wood:minecraft:mangrove"], "railing": ["wood:minecraft:mangrove"], "window": ["wood:minecraft:mangrove"]}},
+		{"name": "teak boards", "w": 0.8, "roles": {"wall": ["wood:minecraft:jungle"], "gable": ["wood:minecraft:jungle"], "roof": ["minecraft:deepslate_tiles"], "roof_trim": ["minecraft:polished_deepslate"]}, "habits": {"walls": {"kind": "plank"}}}
+	],
 	"habits": {
 		"walls": {"kind": "bamboo", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.5},
 		"roof": {"forms": {"pagoda": 6, "hip": 1}, "pitch": 1.0, "eaves": 2, "gable_overhang": 1, "ridge": "full", "flare": true, "dormers": 0.0, "brackets": true},
