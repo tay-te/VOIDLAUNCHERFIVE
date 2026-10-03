@@ -33,6 +33,14 @@ below) on seed `8675309`.
 | ![Olive Groves](docs/gallery/olive_groves.jpg) **Olive Groves** | ![Salt Flats](docs/gallery/salt_flats.jpg) **Salt Flats** (a landform) |
 | ![Geode Vaults](docs/gallery/realm_crystal.jpg) A crystal realm underground | ![Amber Hollows](docs/gallery/realm_amber.jpg) An amber realm |
 | ![Stalagmite Deeps](docs/gallery/realm_dripstone.jpg) A stalagmite realm | ![Wildlife](docs/gallery/wildlife.jpg) Songbirds, butterflies, egret, dragonflies |
+| ![Maple Highlands](docs/gallery/maple_highlands.jpg) **Maple Highlands** | ![Bluebell Woods](docs/gallery/bluebell_woods_floor.jpg) **Bluebell Woods** under the beeches |
+
+**Landforms**
+
+| | |
+|---|---|
+| ![Volcano](docs/gallery/landform_volcano.jpg) A volcano's lava lake (**Volcanic Highlands**) | ![Fjord](docs/gallery/landform_fjord.jpg) An arm of the sea between the walls (**Fjordlands**) |
+| ![Tepui](docs/gallery/landform_tepui.jpg) A **tepui**, its springs pouring down the cliff | ![Canyon](docs/gallery/landform_canyon.jpg) A river down the **Painted Canyons** |
 
 **Structures**
 
@@ -169,8 +177,10 @@ from plate tectonics and erosion rather than from noise alone:
   - **Salt Flats:** in arid lowlands, dead-flat white salt crust with pink brine pools and salt chimneys.
   - **Tepuis:** in the wet tropics, sheer table mountains standing out of the forest. Their tops are a
     misty lost world, and springs pour down the cliffs.
-- **A world underground.** The underground is the Expanse's own: no vanilla noise caves, no carvers, no
-  vanilla cave biomes. Beneath the land runs a network to follow (it is not open space everywhere), from
+- **A world underground.** Under the Earth terrain the underground is the Expanse's own: no vanilla noise
+  caves, no carvers, no vanilla cave biomes. (Other world types, such as Large Biomes, Amplified or a world
+  with the Earth pack switched off, keep vanilla's caves with their lush caves, dripstone and deep dark.)
+  Beneath the land runs a network to follow (it is not open space everywhere), from
   small passages to great tunnels to realms, landscapes of their own under a stone sky:
   - **Ways in:** cave mouths at the foot of hillsides and river banks, an adit running level into the hill
     and then down; sinkholes, funnels over a shaft that drops into a chamber; ravines, where a fissure
@@ -215,7 +225,8 @@ from plate tectonics and erosion rather than from noise alone:
     - *Brimstone Vaults* (under volcanoes and mountains): basalt causeways, sulfur and its spikes, hot
       springs whose potent sulfur erupts in geysers, lava welling up in vents.
   - **The caves between** take after their own biomes (Mossgrown Caves, Dripstone Grottos, Echoing
-    Depths and Sulfur Seeps, where vanilla's cave biomes were) or after the land above: snow and icicles
+    Depths and Sulfur Seeps, where vanilla's cave biomes would be; `world/biome/EarthBiomeSource.java` swaps
+    them in for the Earth generator alone) or after the land above: snow and icicles
     under the cold lands, sand under the deserts, moss under the wet ones, bare stone elsewhere, with glow
     lichen.
   - **Light:** glowcaps, glow berries, shroomlight, sea pickles, prismite, amber, glowroots, glowworm silk,
@@ -460,10 +471,14 @@ rather than from memory.
   -Dexpanse.dev.generate=true -Dexpanse.dev.atlas=8000:32 -Dexpanse.dev.stop=true` locates every Expanse
   biome (and, with `-Dexpanse.dev.structures=120`, every structure) and generates full chunks around each one, so every feature, tree and spawn rule runs. It then
   writes an atlas, logs the share of the map each biome covers, and shuts down (`command/DevHarness.java`).
-- **Client biome tour.** `src/gametest/` is a Fabric client game test. It creates a world, flies to each
-  biome, and saves noon, ground-level and night screenshots. It then locates every structure and photographs
-  it from whichever of eight directions has the clearest line of sight (`-Dexpanse.tour.only=a,b` limits it
-  to the named structures). Run it headless with
+  It also logs which cave biomes the world has (the Expanse's under the Earth terrain, vanilla's elsewhere),
+  and `-Dexpanse.dev.visit=X,Z;X,Z` generates full chunks round chosen places and logs what grows there.
+- **Client biome tour.** `src/gametest/` is a Fabric client game test. It creates a world, maps the biomes
+  for 6 km round spawn, flies to the middle of each biome's largest patch (not its nearest sliver), and
+  saves noon, ground-level and night screenshots. It then locates every structure and photographs it from
+  whichever of eight directions has the clearest line of sight (`-Dexpanse.tour.only=a,b` limits it to the
+  named structures), and stands back from the nearest volcano, canyon, salt pan, tepui and fjord to take
+  each one whole. Run it headless with
   `SDL_VIDEO_FORCE_EGL=1 xvfb-run ./gradlew runClientGameTest`. The EGL setting is needed because 26.3
   creates its window with SDL3 and asks for an sRGB framebuffer, and Xvfb's GLX visuals don't offer one.
 
@@ -474,7 +489,7 @@ src/main/java/dev/voidmc/expanse/
 ├── Expanse.java                 entrypoint: registries, wood behaviour, vanilla spawns, Earth pack
 ├── registry/                    blocks (WoodSet builds a whole tree's set), items, tree growers, creative tab
 ├── block/                       the two blocks that need their own rules (palm sapling on sand, frostbloom on snow)
-├── world/biome/                 biome keys and BiomePlacement (where they go in the climate table)
+├── world/biome/                 biome keys, BiomePlacement (where they go in the climate table), EarthBiomeSource
 ├── world/tree/                  5 trunk placers, 3 foliage placers, the hanging-cascade decorator
 ├── world/feature/               karst pillar, natural arch, crystal outcrop, dunes
 ├── world/terrain/               the Earth terrain: plates, erosion, rivers, density function, chunk generator

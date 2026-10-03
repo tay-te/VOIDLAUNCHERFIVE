@@ -3,6 +3,7 @@ package dev.voidmc.expanse.command;
 import com.mojang.datafixers.util.Pair;
 import dev.voidmc.expanse.Expanse;
 import dev.voidmc.expanse.world.biome.ExpanseBiomes;
+import dev.voidmc.expanse.world.biome.UndergroundBiomes;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -12,6 +13,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 
 /**
  * Headless checks for development, off unless asked for on the command line:
@@ -21,6 +23,7 @@ import net.minecraft.world.level.biome.Biome;
  *   -Dexpanse.dev.locate=RADIUS         log the distance from the origin to each Expanse biome
  *   -Dexpanse.dev.structures=CHUNKS     locate each Expanse structure (and, with .generate, build it)
  *   -Dexpanse.dev.generate=true         generate full chunks round each biome/structure found
+ *   -Dexpanse.dev.visit=X,Z[;X,Z...]     generate full chunks round each of these places
  *   -Dexpanse.dev.stop=true             then shut the server down
  * </pre>
  *
@@ -34,7 +37,7 @@ public final class DevHarness {
 	public static void install() {
 		String atlas = System.getProperty("expanse.dev.atlas");
 		String locate = System.getProperty("expanse.dev.locate");
-		if (atlas == null && locate == null && System.getProperty("expanse.dev.structures") == null) {
+		if (atlas == null && locate == null && System.getProperty("expanse.dev.structures") == null && System.getProperty("expanse.dev.visit") == null) {
 			return;
 		}
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -104,6 +107,12 @@ public final class DevHarness {
 		try {
 			if (locate != null) {
 				int radius = Integer.parseInt(locate);
+				// Whose caves this world has: the Expanse's under the Earth terrain, vanilla's anywhere else.
+				for (ResourceKey<Biome> key : java.util.List.of(Biomes.LUSH_CAVES, Biomes.DRIPSTONE_CAVES, Biomes.DEEP_DARK, Biomes.SULFUR_CAVES,
+					UndergroundBiomes.MOSSY_CAVES, UndergroundBiomes.DRIPSTONE_GROTTOS, UndergroundBiomes.ECHOING_DEPTHS, UndergroundBiomes.SULFUR_SEEPS)) {
+					Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(h -> h.is(key), BlockPos.ZERO, 2000, 32, 32);
+					Expanse.LOG.info("[dev] cave biome {} -> {}", key.identifier(), found == null ? "none within 2000" : found.getFirst().toShortString());
+				}
 				for (Field f : ExpanseBiomes.class.getFields()) {
 					if (!Modifier.isStatic(f.getModifiers()) || !(f.get(null) instanceof ResourceKey<?>)) {
 						continue;
@@ -142,6 +151,19 @@ public final class DevHarness {
 							return start.getPieces().size() + " pieces, " + box.getXSpan() + "x" + box.getYSpan() + "x" + box.getZSpan();
 						}).join());
 					}
+				}
+			}
+			String visit = System.getProperty("expanse.dev.visit");
+			if (visit != null) {
+				for (String place : visit.split(";")) {
+					String[] xz = place.split(",");
+					int x = Integer.parseInt(xz[0].trim());
+					int z = Integer.parseInt(xz[1].trim());
+					int y = level.getChunkSource().getGenerator().getBaseHeight(x, z, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG,
+						level, level.getChunkSource().randomState());
+					ResourceKey<Biome> key = level.getUncachedNoiseBiome(x >> 2, y >> 2, z >> 2).unwrapKey().orElseThrow();
+					Expanse.LOG.info("[dev] visit {}, {}, {} ({})", x, y, z, key.identifier());
+					generateAround(server, level, new BlockPos(x, y, z), key);
 				}
 			}
 			if (atlas != null) {

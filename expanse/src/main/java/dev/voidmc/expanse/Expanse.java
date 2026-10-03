@@ -53,6 +53,8 @@ public class Expanse implements ModInitializer {
 			dev.voidmc.expanse.world.terrain.CavernFunction.CODEC);
 		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.CHUNK_GENERATOR, id("earth"),
 			dev.voidmc.expanse.world.terrain.EarthChunkGenerator.CODEC);
+		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.BIOME_SOURCE, id("earth"),
+			dev.voidmc.expanse.world.biome.EarthBiomeSource.CODEC);
 		registerWoodBehaviour();
 		addVanillaSpawns();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> ExpanseCommands.register(dispatcher));

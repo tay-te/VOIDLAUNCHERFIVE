@@ -77,12 +77,6 @@ public final class BiomePlacement {
 	}
 
 	static ResourceKey<Biome> remap(Climate.ParameterPoint p, ResourceKey<Biome> b) {
-		// ---- (caverns) vanilla's cave biomes give way to the Expanse's own (UndergroundBiomes)
-		ResourceKey<Biome> underground = UndergroundBiomes.remap(b);
-		if (underground != null) {
-			return underground;
-		}
-		// ---- (caverns) end
 		int t = band(p.temperature(), -0.45F, -0.15F, 0.2F, 0.55F);
 		int h = band(p.humidity(), -0.35F, -0.1F, 0.1F, 0.3F);
 		boolean variant = p.weirdness().min() >= 0L;   // the positive half; valleys straddle zero and are left alone
