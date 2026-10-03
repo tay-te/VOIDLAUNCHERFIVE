@@ -1,1 +1,12 @@
-{}
+{
+  "hearth.archetype.house.farmhouse": "Farmhouse",
+  "hearth.archetype.house.longhouse": "Longhouse",
+  "hearth.archetype.house.round_house": "Round House",
+  "hearth.archetype.house.stilt_house": "Stilt House",
+  "hearth.archetype.farm.field": "Field",
+  "hearth.archetype.farm.orchard": "Orchard",
+  "hearth.archetype.farm.pasture": "Pasture",
+  "hearth.archetype.farm.paddy": "Paddy",
+  "hearth.archetype.farm.terrace_field": "Terrace Field",
+  "hearth.archetype.work.barn": "Barn"
+}

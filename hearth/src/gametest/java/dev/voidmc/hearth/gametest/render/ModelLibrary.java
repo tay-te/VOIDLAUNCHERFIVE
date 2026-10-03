@@ -428,8 +428,13 @@ public final class ModelLibrary {
 		if (path.contains("spruce_leaves")) {
 			return 0x619961;
 		}
-		if (path.endsWith("leaves") || path.equals("vine")) {
+		// vanilla tints only these leaves with the foliage colour; cherry, azalea and pale oak keep their own
+		if (path.equals("oak_leaves") || path.equals("jungle_leaves") || path.equals("acacia_leaves") || path.equals("dark_oak_leaves")
+			|| path.equals("mangrove_leaves") || path.equals("vine")) {
 			return 0x6AA62E;
+		}
+		if (path.endsWith("leaves")) {
+			return -1;
 		}
 		if (path.equals("water") || path.contains("water_cauldron")) {
 			return 0x3F76E4;
