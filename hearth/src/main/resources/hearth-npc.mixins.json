@@ -2,7 +2,9 @@
 	"required": true,
 	"package": "dev.voidmc.hearth.mixin.npc",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"MobAccessor"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}

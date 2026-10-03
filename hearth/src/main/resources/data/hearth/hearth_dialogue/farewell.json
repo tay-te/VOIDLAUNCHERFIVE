@@ -1,0 +1,34 @@
+{
+	"farewell": [
+		"Safe travels.",
+		"Take care of yourself.",
+		{
+			"text": "Mind the dark on your way.",
+			"time": "night"
+		},
+		{
+			"text": "Come back soon, {player}!",
+			"rep": [
+				20,
+				100
+			]
+		},
+		{
+			"text": "Right. Back to it.",
+			"traits": [
+				"industrious",
+				"grumpy"
+			]
+		},
+		{
+			"text": "Bye! Bye! Come and play later!",
+			"age": "child"
+		},
+		{
+			"text": "May the hearth light your way.",
+			"traits": [
+				"pious"
+			]
+		}
+	]
+}

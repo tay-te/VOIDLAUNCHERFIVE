@@ -1,0 +1,22 @@
+{
+	"rumour.settlement": [
+		"There's a town called {other}, about {distance} blocks {direction} of here.",
+		"Follow the road {direction} a good {distance} blocks and you'll come to {other}.",
+		"{other} lies {direction}, {distance} blocks or so. Friendly enough, if you don't haggle.",
+		{"text": "My cousin lives in {other}, {direction} of here. Tell her I said hello.", "traits": ["sociable", "gossip", "generous"]},
+		{"text": "{other}? {direction}, about {distance} blocks. Bad bread, worse beer.", "traits": ["grumpy"]},
+		{"text": "The couriers say {other}, {distance} blocks {direction}, is growing fast.", "jobs": ["courier", "merchant"]}
+	],
+	"rumour.landmark": [
+		"They say there's a {landmark} out {direction}, maybe {distance} blocks.",
+		"Travellers talk of a {landmark}, {distance} blocks {direction} of here.",
+		{"text": "There's a {landmark} {direction} of here, {distance} blocks off. I've always wanted to see it.", "traits": ["curious", "dreamy"]},
+		{"text": "Stay away from the {landmark} {direction} of here. Nothing good comes of poking at old places.", "traits": ["cautious", "pious"]},
+		{"text": "A {landmark}, {distance} blocks {direction}. Bring back a tale and I'll buy you a drink.", "traits": ["brave", "sociable"]}
+	],
+	"rumour.none": [
+		"I've never been further than the edge of the fields, truth be told.",
+		"Couldn't tell you what's out there. Ask a courier.",
+		{"text": "Out there? Wolves, mostly. And worse at night.", "traits": ["cautious"]}
+	]
+}

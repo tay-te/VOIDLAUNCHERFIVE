@@ -1,0 +1,399 @@
+package dev.voidmc.hearth.npc.entity;
+
+import dev.voidmc.hearth.api.AgeStage;
+import dev.voidmc.hearth.api.Culture;
+import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.QuestService;
+import dev.voidmc.hearth.npc.NpcModule;
+import dev.voidmc.hearth.npc.look.FolkLook;
+import dev.voidmc.hearth.npc.routine.FolkBrain;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * {@code hearth:folk}: a resident made flesh. The {@link dev.voidmc.hearth.api.Resident} record is the person; this
+ * entity is a view of them that exists only near players, is never saved with the chunk (its type is {@code noSave}),
+ * and writes what happened back into the record when it goes away.
+ *
+ * <p>Everything the client needs to draw them is synced: name, appearance genome, culture, job, age, sex, the quest
+ * marker above their head and the pose they are in. Behaviour lives in a server-side {@link FolkBrain}, attached by the
+ * embodiment manager when it binds the entity to a resident.
+ */
+public class Folk extends PathfinderMob {
+	private static final EntityDataAccessor<String> DATA_RESIDENT = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.STRING);
+	private static final EntityDataAccessor<String> DATA_NAME = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.STRING);
+	private static final EntityDataAccessor<Integer> DATA_APPEARANCE = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.INT);
+	/** Culture, job, age stage and sex packed into one int: they change together and rarely. */
+	private static final EntityDataAccessor<Integer> DATA_LOOK = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Byte> DATA_MARKER = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.BYTE);
+	private static final EntityDataAccessor<Byte> DATA_POSE = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.BYTE);
+
+	private @Nullable FolkBrain brain;
+	private long settlementId = Long.MIN_VALUE;
+	/** Set once the entity has been folded back into its record, so removal does not fold it twice. */
+	private boolean folded;
+
+	public Folk(EntityType<? extends Folk> type, Level level) {
+		super(type, level);
+		this.setPersistenceRequired();
+		this.setCanPickUpLoot(false);
+		if (this.getNavigation() instanceof FolkNavigation nav) {
+			nav.setCanOpenDoors(true);
+			nav.setCanFloat(true);
+		}
+	}
+
+	public static AttributeSupplier.Builder createAttributes() {
+		return PathfinderMob.createMobAttributes()
+			.add(Attributes.MAX_HEALTH, 20.0)
+			.add(Attributes.MOVEMENT_SPEED, 0.5)
+			.add(Attributes.FOLLOW_RANGE, 48.0)
+			.add(Attributes.ATTACK_DAMAGE, 3.0)
+			.add(Attributes.STEP_HEIGHT, 1.0);
+	}
+
+	@Override
+	protected PathNavigation createNavigation(Level level) {
+		return new FolkNavigation(this, level);
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+		super.defineSynchedData(entityData);
+		entityData.define(DATA_RESIDENT, "");
+		entityData.define(DATA_NAME, "");
+		entityData.define(DATA_APPEARANCE, 0);
+		entityData.define(DATA_LOOK, packLook(Culture.TEMPERATE, JobType.NONE, AgeStage.ADULT, false));
+		entityData.define(DATA_MARKER, (byte) 0);
+		entityData.define(DATA_POSE, (byte) 0);
+	}
+
+	@Override
+	protected void registerGoals() {
+		// Behaviour is the brain's (FolkBrain), driven from customServerAiStep; the goal selector only keeps the
+		// vanilla door handling and swimming, which hook into navigation.
+		this.goalSelector.addGoal(0, new net.minecraft.world.entity.ai.goal.FloatGoal(this));
+		this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.OpenDoorGoal(this, true));
+	}
+
+	// ---------------------------------------------------------------- identity
+
+	/** Binds this entity to a resident: what it shows and who it is. Server only. */
+	public void setIdentity(UUID resident, String name, int appearance, Culture culture, JobType job, AgeStage age, boolean female) {
+		this.entityData.set(DATA_RESIDENT, resident.toString());
+		this.entityData.set(DATA_NAME, name);
+		this.entityData.set(DATA_APPEARANCE, appearance);
+		this.entityData.set(DATA_LOOK, packLook(culture, job, age, female));
+		this.refreshDimensions();
+	}
+
+	public @Nullable UUID residentId() {
+		String s = this.entityData.get(DATA_RESIDENT);
+		if (s.isEmpty()) {
+			return null;
+		}
+		try {
+			return UUID.fromString(s);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
+	public String folkName() {
+		return this.entityData.get(DATA_NAME);
+	}
+
+	public int appearance() {
+		return this.entityData.get(DATA_APPEARANCE);
+	}
+
+	public Culture culture() {
+		int v = this.entityData.get(DATA_LOOK) & 31;
+		Culture[] all = Culture.values();
+		return v < all.length ? all[v] : Culture.TEMPERATE;
+	}
+
+	public JobType job() {
+		int v = this.entityData.get(DATA_LOOK) >>> 5 & 31;
+		JobType[] all = JobType.values();
+		return v < all.length ? all[v] : JobType.NONE;
+	}
+
+	public AgeStage ageStage() {
+		int v = this.entityData.get(DATA_LOOK) >>> 10 & 3;
+		AgeStage[] all = AgeStage.values();
+		return v < all.length ? all[v] : AgeStage.ADULT;
+	}
+
+	public boolean female() {
+		return (this.entityData.get(DATA_LOOK) >>> 12 & 1) != 0;
+	}
+
+	public FolkLook look() {
+		return new FolkLook(appearance(), culture(), job(), ageStage(), female());
+	}
+
+	private static int packLook(Culture culture, JobType job, AgeStage age, boolean female) {
+		return culture.ordinal() | job.ordinal() << 5 | age.ordinal() << 10 | (female ? 1 : 0) << 12;
+	}
+
+	public QuestService.Marker marker() {
+		int v = this.entityData.get(DATA_MARKER);
+		QuestService.Marker[] all = QuestService.Marker.values();
+		return v >= 0 && v < all.length ? all[v] : QuestService.Marker.NONE;
+	}
+
+	public void setMarker(QuestService.Marker marker) {
+		if (marker() != marker) {
+			this.entityData.set(DATA_MARKER, (byte) marker.ordinal());
+		}
+	}
+
+	public FolkPose folkPose() {
+		return FolkPose.byId(this.entityData.get(DATA_POSE));
+	}
+
+	public void setFolkPose(FolkPose pose) {
+		if (folkPose() != pose) {
+			this.entityData.set(DATA_POSE, (byte) pose.ordinal());
+		}
+	}
+
+	public long settlementId() {
+		return this.settlementId;
+	}
+
+	public void setSettlementId(long id) {
+		this.settlementId = id;
+	}
+
+	public @Nullable FolkBrain brain() {
+		return this.brain;
+	}
+
+	public void setBrain(@Nullable FolkBrain brain) {
+		this.brain = brain;
+	}
+
+	public boolean isFolded() {
+		return this.folded;
+	}
+
+	public void markFolded() {
+		this.folded = true;
+	}
+
+	@Override
+	public boolean isBaby() {
+		return ageStage() == AgeStage.CHILD;
+	}
+
+	@Override
+	public float getAgeScale() {
+		return isBaby() ? 0.62F : 1.0F;
+	}
+
+	@Override
+	public void onSyncedDataUpdated(EntityDataAccessor<?> accessor) {
+		super.onSyncedDataUpdated(accessor);
+		if (DATA_LOOK.equals(accessor)) {
+			this.refreshDimensions();
+		}
+	}
+
+	@Override
+	protected Component getTypeName() {
+		String name = folkName();
+		return name.isEmpty() ? super.getTypeName() : Component.literal(name);
+	}
+
+	// ---------------------------------------------------------------- sleeping without touching the bed
+
+	/**
+	 * Lies down in a bed. Unlike {@link #startSleeping} this leaves the bed block alone (no occupied flag), so folding a
+	 * sleeping folk away, or a chunk unloading under them, never leaves a bed marked as taken.
+	 */
+	public void sleepIn(BlockPos bed) {
+		BlockState state = this.level().getBlockState(bed);
+		if (this.isPassenger()) {
+			this.stopRiding();
+		}
+		this.getNavigation().stop();
+		double height = 0.5625;
+		this.setPos(bed.getX() + 0.5, bed.getY() + height + 0.125, bed.getZ() + 0.5);
+		this.setPose(Pose.SLEEPING);
+		this.setSleepingPos(bed);
+		this.setDeltaMovement(Vec3.ZERO);
+		if (state.hasProperty(BedBlock.FACING)) {
+			Direction facing = state.getValue(BedBlock.FACING);
+			this.setYRot(facing.toYRot());
+		}
+		this.needsSync = true;
+	}
+
+	@Override
+	public void stopSleeping() {
+		Optional<BlockPos> bed = this.getSleepingPos();
+		this.clearSleepingPos();
+		this.setPose(Pose.STANDING);
+		bed.ifPresent(pos -> {
+			// Stand up beside the bed.
+			BlockPos stand = FolkSpots.standableNear(this.level(), pos, 2);
+			if (stand != null) {
+				this.setPos(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+			} else {
+				this.setPos(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
+			}
+		});
+	}
+
+	@Override
+	public boolean startSleeping(BlockPos bedPosition) {
+		sleepIn(bedPosition);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- behaviour
+
+	@Override
+	protected void customServerAiStep(ServerLevel level) {
+		super.customServerAiStep(level);
+		if (this.brain != null) {
+			this.brain.tick(level);
+		} else if (this.tickCount > 40 && !this.folded) {
+			// An entity nobody manages (summoned by command, loaded from an old save): adopt it or let it go.
+			NpcModule.embodiment().adoptStray(level, this);
+		}
+	}
+
+	@Override
+	protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+		if (!this.isAlive() || this.isSleeping() && !player.isShiftKeyDown()) {
+			return InteractionResult.PASS;
+		}
+		if (player instanceof ServerPlayer sp) {
+			NpcModule.conversations().open(sp, this);
+		}
+		return InteractionResult.SUCCESS;
+	}
+
+	@Override
+	public boolean hurtServer(ServerLevel level, DamageSource source, float damage) {
+		boolean hurt = super.hurtServer(level, source, damage);
+		if (hurt && this.brain != null) {
+			this.brain.onHurt(level, source);
+		}
+		return hurt;
+	}
+
+	@Override
+	public void die(DamageSource source) {
+		super.die(source);
+		if (this.level() instanceof ServerLevel level) {
+			NpcModule.embodiment().onDeath(level, this, source);
+		}
+	}
+
+	@Override
+	public void onRemoval(Entity.RemovalReason reason) {
+		super.onRemoval(reason);
+		if (this.level() instanceof ServerLevel level && reason != Entity.RemovalReason.KILLED && !this.folded) {
+			NpcModule.embodiment().onRemoved(level, this);
+		}
+	}
+
+	@Override
+	public boolean removeWhenFarAway(double distSqr) {
+		return false;
+	}
+
+	@Override
+	public void checkDespawn() {
+		// The embodiment manager decides when folk come and go.
+	}
+
+	@Override
+	protected void dropCustomDeathLoot(ServerLevel level, DamageSource source, boolean killedByPlayer) {
+		// Their tools and bread are theirs; nothing drops.
+	}
+
+	@Override
+	protected void dropEquipment(ServerLevel level) {
+	}
+
+	@Override
+	public boolean canBeLeashed() {
+		return false;
+	}
+
+	@Override
+	public @Nullable SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, EntitySpawnReason reason,
+		@Nullable SpawnGroupData groupData) {
+		SpawnGroupData data = super.finalizeSpawn(level, difficulty, reason, groupData);
+		this.setLeftHanded(this.random.nextFloat() < 0.1F);
+		return data;
+	}
+
+	// ---------------------------------------------------------------- sounds: people, not villagers
+
+	@Override
+	public int getAmbientSoundInterval() {
+		return 400;
+	}
+
+	@Override
+	protected @Nullable SoundEvent getAmbientSound() {
+		return null;
+	}
+
+	@Override
+	protected SoundEvent getHurtSound(DamageSource source) {
+		return SoundEvents.PLAYER_HURT;
+	}
+
+	@Override
+	protected SoundEvent getDeathSound() {
+		return SoundEvents.PLAYER_DEATH;
+	}
+
+	@Override
+	public float getVoicePitch() {
+		float base = female() ? 1.12F : 0.95F;
+		if (isBaby()) {
+			base += 0.25F;
+		} else if (ageStage() == AgeStage.ELDER) {
+			base -= 0.08F;
+		}
+		return base + (this.random.nextFloat() - 0.5F) * 0.08F;
+	}
+}
