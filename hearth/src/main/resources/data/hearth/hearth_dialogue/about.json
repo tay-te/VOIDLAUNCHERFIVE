@@ -1,0 +1,47 @@
+{
+	"about": [
+		"I'm {name}. I'm the {job} here in {settlement}.",
+		"Name's {given}. {job}, by trade.",
+		{"text": "I'm {given}. I don't have a trade yet. Mum says I will when I'm bigger.", "age": "child"},
+		{"text": "{name}. I've been in {settlement} longer than the well.", "age": "elder"},
+		{"text": "{given}'s the name. I keep the {job}'s hours and the {job}'s worries.", "traits": ["grumpy"]},
+		{"text": "I'm {given}! I'm the {job}, and I love it.", "traits": ["cheerful"]},
+		{"text": "Oh, I'm... {given}. The {job}.", "traits": ["shy"]}
+	],
+	"about.job": [
+		{"text": "I build. Houses, walls, the odd bridge. Every block goes where the plan says.", "jobs": ["builder"]},
+		{"text": "The fields keep this town fed. I keep the fields.", "jobs": ["farmer"]},
+		{"text": "I walk the woods and bring back timber. Plant two for every one I fell.", "jobs": ["forester"]},
+		{"text": "Stone's in my bones. I cut it from the hill.", "jobs": ["quarrier"]},
+		{"text": "Up before the gulls, out on the water.", "jobs": ["fisher"]},
+		{"text": "Sheep, goats, the odd stubborn cow. They're good company.", "jobs": ["herder"]},
+		{"text": "I track game in the hills. Quiet work.", "jobs": ["hunter"]},
+		{"text": "Tables, doors, carts, cradles. If it's wood, I make it.", "jobs": ["carpenter"]},
+		{"text": "Bricks, dressed stone, glass. The town's bones and skin.", "jobs": ["mason"]},
+		{"text": "Tools, nails, hinges, and the dies the mint strikes coin with.", "jobs": ["smith"]},
+		{"text": "Bread at dawn, pies by noon. I'm the reason this town smells so good.", "jobs": ["baker"]},
+		{"text": "Ale, cider, a little something stronger for winter.", "jobs": ["brewer"]},
+		{"text": "I keep the inn. Beds for travellers and the best stories in town.", "jobs": ["innkeeper"]},
+		{"text": "I keep the stall. Buy low, sell fair, that's my motto.", "jobs": ["merchant"]},
+		{"text": "I strike the coin and keep the treasury. Every bit is accounted for.", "jobs": ["minter"]},
+		{"text": "I keep the watch. Nothing comes through that gate without me knowing.", "jobs": ["guard"]},
+		{"text": "I tend the altar and the people who come to it.", "jobs": ["priest"]},
+		{"text": "I read, I write, I remember. Somebody has to.", "jobs": ["scholar"]},
+		{"text": "Letters, parcels, gossip. I carry them all between the towns.", "jobs": ["courier"]},
+		{"text": "Wool to thread, thread to cloth, cloth to coats.", "jobs": ["tailor"]},
+		{"text": "No trade, these days. I keep the house and mind everyone's business.", "jobs": ["none"]}
+	],
+	"about.spouse": [
+		"My {spouse} and I have been together for years.",
+		{"text": "{spouse}? Oh, we argue like cats, but I'd be lost without them.", "traits": ["grumpy"]},
+		{"text": "Have you met my {spouse}? The finest person in {settlement}.", "traits": ["cheerful", "generous"]}
+	],
+	"about.children": [
+		"Our little ones keep us busy: {children}.",
+		{"text": "{children}. Mine, all of them, and every one a handful.", "traits": ["grumpy", "lazy"]}
+	],
+	"about.parents": [
+		{"text": "My mum and dad are {other}.", "age": "child"},
+		"I'm the child of {other}."
+	]
+}

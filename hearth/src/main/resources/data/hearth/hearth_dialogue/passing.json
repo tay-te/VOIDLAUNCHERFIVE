@@ -1,0 +1,17 @@
+{
+	"passing": [
+		{"text": "Morning, {player}!", "time": "morning"},
+		{"text": "Afternoon, {player}.", "time": "day"},
+		{"text": "Evening, {player}.", "time": "evening"},
+		{"text": "Late again, {player}?", "time": "night"},
+		"Hello, {player}!",
+		"Good to see you, {player}.",
+		{"text": "Oi, {player}! Come and see me later.", "traits": ["sociable", "gossip"]},
+		{"text": "{player}.", "traits": ["grumpy", "shy"]},
+		{"text": "{player}! Lovely day for it!", "traits": ["cheerful"], "weather": "clear"},
+		{"text": "Bit wet, {player}! Get inside!", "weather": "rain"},
+		{"text": "{player}! Watch this!", "age": "child"},
+		{"text": "Bless you, {player}.", "age": "elder"},
+		{"text": "Our hero, {player}! Welcome back!", "rep": [70, 100]}
+	]
+}

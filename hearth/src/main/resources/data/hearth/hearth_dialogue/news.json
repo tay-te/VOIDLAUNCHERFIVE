@@ -1,0 +1,44 @@
+{
+	"news.built": [
+		"Have you seen the new {building}? Finished just now.",
+		"They've finished the {building}. Took long enough!",
+		{"text": "The {building} is done, and a fine job we made of it, if I say so myself.", "jobs": ["builder", "carpenter", "mason"]},
+		{"text": "A new {building}! {settlement} is coming up in the world.", "traits": ["cheerful"]},
+		{"text": "Another {building}. More hammering at dawn, I suppose.", "traits": ["grumpy", "lazy"]},
+		{"text": "Everyone's talking about the new {building}. Go and look!", "traits": ["gossip", "sociable"]}
+	],
+	"news.stalled": [
+		"Building's stopped. We're short of {goods}.",
+		"The builders are sat on their hands for want of {goods}. If you've any to sell, the town would pay well.",
+		{"text": "No {goods}, no walls. We need about {amount} more.", "jobs": ["builder", "mason", "carpenter"]},
+		{"text": "If someone brought us {goods}, the whole town would thank them.", "traits": ["generous", "cheerful"]},
+		{"text": "{goods}, {goods}, {goods}. That's all anyone talks about.", "traits": ["grumpy"]},
+		{"text": "Short of {goods}, they say. A clever trader could make a fortune.", "traits": ["greedy"]}
+	],
+	"news.tier": [
+		"Did you hear? {settlement} is a {tier} now!",
+		"We're a proper {tier} these days. Imagine that.",
+		{"text": "A {tier}! My grandmother wouldn't believe it.", "age": "elder"},
+		{"text": "A {tier} means more mouths and more noise. Still, I suppose it's progress.", "traits": ["grumpy"]}
+	],
+	"news.arrived": [
+		"There's a new face in town: {other}.",
+		"{other} has come to live with us. Say hello if you see them.",
+		{"text": "A baby! {other}, they're calling it. Isn't that lovely?", "traits": ["cheerful", "sociable", "generous"]}
+	],
+	"news.died": [
+		"We lost {other}. The town's quieter for it.",
+		"Poor {other}. We buried them by the old wall.",
+		{"text": "{other} is with the hearth now. Say a word for them, if you would.", "traits": ["pious"]}
+	],
+	"news.founded": [
+		"We're new here. Every stone you see, we set ourselves."
+	],
+	"news.none": [
+		"Nothing much happens here, and that's how we like it.",
+		"Same as ever. Bread, work, sleep.",
+		{"text": "Quiet times. Too quiet, if you ask me.", "traits": ["curious", "brave"]},
+		{"text": "Not a whisper of news. I'll have to make some up.", "traits": ["gossip"]},
+		{"text": "The crops are in and the roof doesn't leak. What more is there?", "jobs": ["farmer"]}
+	]
+}
