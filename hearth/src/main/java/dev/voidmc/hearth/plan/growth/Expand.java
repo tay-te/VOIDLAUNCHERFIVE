@@ -109,7 +109,7 @@ public final class Expand {
 		if (arm != null && extendArm(ctx, arm, "road: the main street grows outward")) {
 			return true;
 		}
-		return extendLane(ctx, Double.MAX_VALUE) || !ctx.state.layout.expansive && continueArm(ctx);
+		return extendLane(ctx, Double.MAX_VALUE);
 	}
 
 	/**
@@ -118,7 +118,8 @@ public final class Expand {
 	 */
 	static boolean extendLane(PlanContext ctx, double maxDistance) {
 		RoadEdge best = null;
-		double bestD = maxDistance;
+		// lanes run on within the planned town; beyond it the main roads and tracks reach out instead
+		double bestD = Math.min(maxDistance, Math.max(Grid.reach(ctx) * 1.5, Parcels.edgeRing(ctx)));
 		for (RoadEdge e : ctx.state.graph.edges()) {
 			if ((e.role != RoadEdge.Role.LANE && e.role != RoadEdge.Role.STAIR) || !e.fullyBuilt() || e.length() < 6) {
 				continue;
@@ -177,8 +178,8 @@ public final class Expand {
 			return false;
 		}
 		RoadEdge best = null;
-		// out to farmland within reach of the town, not across the world
-		double bestD = Math.max(160, ctx.extent() * 1.8 + 60);
+		// only a road that ends about where the town's edge is runs on, and not far: farmland within reach, not the world
+		double bestD = Parcels.edgeRing(ctx) + 40;
 		for (RoadEdge e : ctx.state.graph.edges()) {
 			if ((e.role != RoadEdge.Role.ARM && e.role != RoadEdge.Role.TRACK) || !e.fullyBuilt()
 				|| ctx.state.graph.node(e.to).kind() != RoadGraph.NodeKind.END) {
@@ -197,8 +198,8 @@ public final class Expand {
 		Polyline.Dense d = best.dense();
 		int n = d.length();
 		double angle = StrictMath.atan2(d.zs()[n - 1] - d.zs()[Math.max(0, n - 12)], d.xs()[n - 1] - d.xs()[Math.max(0, n - 12)]);
-		int tx = d.xs()[n - 1] + (int) Math.round(StrictMath.cos(angle) * 140);
-		int tz = d.zs()[n - 1] + (int) Math.round(StrictMath.sin(angle) * 140);
+		int tx = d.xs()[n - 1] + (int) Math.round(StrictMath.cos(angle) * 64);
+		int tz = d.zs()[n - 1] + (int) Math.round(StrictMath.sin(angle) * 64);
 		Router.Params params = new Router.Params(4, 40, ctx.config.roadGrade() * 0.85, ctx.config.roadGrade() * 1.1, 9, 4, false, 400_000, 0.5);
 		int[][] path = Router.route(ctx.ground, ctx.occ, d.xs()[n - 1], d.zs()[n - 1], tx, tz, params);
 		markClosed(ctx, best);

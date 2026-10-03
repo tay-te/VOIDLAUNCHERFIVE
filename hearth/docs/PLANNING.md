@@ -78,9 +78,10 @@ layout and sets habits: landmark preferences, walkways between tall houses, stac
   they meet, closing blocks. Beyond the planned core only the mouths are kept (16-block stubs). Lanes are built (issued)
   only when their frontage is needed, nearest the heart first.
 - **Growth moves** when no frontage is left where a building wants to go: build a planned lane; walk a new lane at a
-  good spacing; lengthen a dead-end lane; extend a main road; run a farm track off a road beyond the houses; route an
-  **approach** (A\* to the nearest road, stairs allowed) up to the rise or summit; a lane down to the water; a new
-  boardwalk; continue a fully built main road onward (within reach of the town). Road growth is capped at about
+  good spacing; lengthen a dead-end lane (within 1.5× the planned core); extend a main road; run a farm track off a
+  road beyond the houses; route an **approach** (A\* to the nearest road, stairs allowed) up to the rise or summit; a
+  lane down to the water; a new boardwalk; for farmland, run a fully built main road that ends near the edge of town
+  on by 64 blocks (never in expansive layouts, which reach out along their tracks). Road growth is capped at about
   `300 + 20 × population` blocks so a settlement that cannot place what it wants does not pave the world.
 - **Switchbacks** (mountain holds) are laid out, not searched: legs of 40 blocks along the contour, each offset uphill
   by 7 blocks of rise over the slope, turning back at each end; graded without stairs like any road and cut where a
