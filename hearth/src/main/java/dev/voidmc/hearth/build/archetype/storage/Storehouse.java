@@ -47,7 +47,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * Stilt cultures raise any of them on stilts with a gallery. Inside, chests and barrels line the walls, sacks and hay
  * stand about, and a stair climbs to the loft where there is room for one.
  *
- * <p>Storage: every chest. Params: {@code roof} (a roof form name), {@code raised} (boolean), {@code variant}.
+ * <p>Storage: every chest. Params: {@code roof} (a roof form name), {@code raised} (boolean; only on plots 9+ deep with
+ * a pitched roof and no stilts, where the steps, the oversail and an inside stair fit), {@code variant}.
  */
 public final class Storehouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("storage/storehouse"), ArchetypeCategory.STORAGE, Set.of(), 0,

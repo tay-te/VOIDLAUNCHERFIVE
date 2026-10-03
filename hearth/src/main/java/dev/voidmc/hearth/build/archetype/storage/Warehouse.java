@@ -41,7 +41,8 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
  * paved apron with a cart drawn up; a cart shed leans against its side on a broad plot. Inside, racks of barrels in two
  * tiers line the walls and crates fill the middle, a turning stair climbs floor by floor, every floor a store.
  *
- * <p>Storage: the chests on every floor. Params: {@code roof}, {@code storeys} (2–3), {@code variant}.
+ * <p>Storage: the chests on every floor. Params: {@code roof}, {@code storeys} (1–4 floors under the attic, default 3;
+ * fewer where the plot's height will not take them), {@code variant}.
  */
 public final class Warehouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("storage/warehouse"), ArchetypeCategory.STORAGE, Set.of(), 0,
