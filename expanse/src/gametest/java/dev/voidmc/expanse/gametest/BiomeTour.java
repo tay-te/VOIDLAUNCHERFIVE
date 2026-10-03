@@ -49,6 +49,12 @@ public class BiomeTour implements FabricClientGameTest {
 			+ "volcanic_highlands,painted_canyons,salt_flats,tepui,fjordlands").split(","));
 	private static final Set<String> GLOWING = Set.of("lumen_grove", "prismatic_peaks", "frostbloom_tundra");
 	private static final Set<String> MOUNTAINS = Set.of("verdant_peaks", "prismatic_peaks");
+	/** How far round spawn the biome map reaches, and its grid. */
+	private static final int MAP_RADIUS = Integer.getInteger("expanse.tour.map_radius", 6000);
+	private static final int MAP_STEP = 64;
+
+	/** Grid cells (packed x, z indices) of each biome near spawn: built on the first visit. */
+	private java.util.Map<ResourceKey<Biome>, Set<Long>> biomeMap;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -87,6 +93,9 @@ public class BiomeTour implements FabricClientGameTest {
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.mountains", "true"))) {
 				this.mountains(context, world);
 			}
+			if (Boolean.parseBoolean(System.getProperty("expanse.tour.landforms", "true"))) {
+				this.landforms(context, world);
+			}
 			if (Boolean.parseBoolean(System.getProperty("expanse.tour.zoo", "true"))) {
 				this.zoo(context, world);
 			}
@@ -101,11 +110,18 @@ public class BiomeTour implements FabricClientGameTest {
 		boolean mountain = MOUNTAINS.contains(name);
 		Spot spot = world.getServer().computeOnServer(server -> {
 			ServerLevel level = server.overworld();
-			Pair<BlockPos, Holder<Biome>> hit = level.findClosestBiome3d(h -> h.is(key), BlockPos.ZERO, 12000, 32, 64);
-			if (hit == null) {
-				return null;
+			if (this.biomeMap == null) {
+				this.biomeMap = biomeMap(level);
 			}
-			BlockPos heart = heart(level, key, hit.getFirst());
+			BlockPos near = biggestPatch(this.biomeMap.get(key));
+			if (near == null) {
+				Pair<BlockPos, Holder<Biome>> hit = level.findClosestBiome3d(h -> h.is(key), BlockPos.ZERO, 12000, 32, 64);
+				if (hit == null) {
+					return null;
+				}
+				near = hit.getFirst();
+			}
+			BlockPos heart = heart(level, key, near);
 			// Generate the neighbourhood here, on the server thread, before the client asks for it:
 			// the integrated server cannot keep up generating while the CPU is also rasterising.
 			int radius = (mountain ? PANORAMA_DISTANCE : DISTANCE) + 1;
@@ -147,9 +163,92 @@ public class BiomeTour implements FabricClientGameTest {
 	}
 
 	/**
-	 * Locating a biome finds its nearest edge. For a photograph we want its middle, on dry land: score
-	 * points on a grid round the hit by how much of their surroundings is the biome; height only breaks
-	 * ties, so a biome that also covers hills is shown on its lowlands, where its features are.
+	 * The biomes round spawn on a coarse grid, each read at the height of the ground (the Earth model's,
+	 * where there is one). Locating a biome finds its nearest sliver, which may be a strip along a mountain's
+	 * flank; this map lets a visit go to where the biome is widest instead.
+	 */
+	private static java.util.Map<ResourceKey<Biome>, Set<Long>> biomeMap(ServerLevel level) {
+		var generator = level.getChunkSource().getGenerator();
+		var random = level.getChunkSource().randomState();
+		var model = generator instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth ? earth.model(random) : null;
+		var biomes = generator.getBiomeSource().createUncachedResolver(random);
+		java.util.Map<ResourceKey<Biome>, Set<Long>> map = new java.util.HashMap<>();
+		int n = MAP_RADIUS / MAP_STEP;
+		for (int i = -n; i <= n; i++) {
+			for (int j = -n; j <= n; j++) {
+				int x = i * MAP_STEP;
+				int z = j * MAP_STEP;
+				int y = model == null ? 80 : Math.max((int) model.sample(x, z).height, 63);
+				var b = biomes.getNoiseBiome(x >> 2, y >> 2, z >> 2).unwrapKey();
+				if (b.isPresent()) {
+					map.computeIfAbsent(b.get(), k -> new java.util.HashSet<>()).add(pack(i, j));
+				}
+			}
+		}
+		return map;
+	}
+
+	private static long pack(int i, int j) {
+		return (long) i << 32 | (j & 0xFFFFFFFFL);
+	}
+
+	/**
+	 * The middle of a biome's largest patch on the map: of the cells of its largest connected piece, the one
+	 * with the most of the biome round it (nearer spawn on a tie). Null if the biome is not on the map.
+	 */
+	private static BlockPos biggestPatch(Set<Long> cells) {
+		if (cells == null || cells.isEmpty()) {
+			return null;
+		}
+		Set<Long> seen = new java.util.HashSet<>();
+		List<Long> best = List.of();
+		for (long start : cells) {
+			if (!seen.add(start)) {
+				continue;
+			}
+			List<Long> piece = new java.util.ArrayList<>();
+			java.util.ArrayDeque<Long> open = new java.util.ArrayDeque<>(List.of(start));
+			while (!open.isEmpty()) {
+				long c = open.pop();
+				piece.add(c);
+				int i = (int) (c >> 32);
+				int j = (int) c;
+				for (long next : new long[]{pack(i + 1, j), pack(i - 1, j), pack(i, j + 1), pack(i, j - 1)}) {
+					if (cells.contains(next) && seen.add(next)) {
+						open.push(next);
+					}
+				}
+			}
+			if (piece.size() > best.size()) {
+				best = piece;
+			}
+		}
+		long middle = best.get(0);
+		long bestScore = Long.MIN_VALUE;
+		for (long c : best) {
+			int i = (int) (c >> 32);
+			int j = (int) c;
+			int around = 0;
+			for (int di = -2; di <= 2; di++) {
+				for (int dj = -2; dj <= 2; dj++) {
+					if (cells.contains(pack(i + di, j + dj))) {
+						around++;
+					}
+				}
+			}
+			long score = (long) around * 1_000_000 - ((long) i * i + (long) j * j);
+			if (score > bestScore) {
+				bestScore = score;
+				middle = c;
+			}
+		}
+		return new BlockPos((int) (middle >> 32) * MAP_STEP, 64, (int) middle * MAP_STEP);
+	}
+
+	/**
+	 * A map cell or a located hit is only near the biome's middle. For a photograph we want its middle, on
+	 * dry land: score points on a grid round it by how much of their surroundings is the biome; height only
+	 * breaks ties, so a biome that also covers hills is shown on its lowlands, where its features are.
 	 */
 	private static BlockPos heart(ServerLevel level, ResourceKey<Biome> key, BlockPos near) {
 		var generator = level.getChunkSource().getGenerator();
@@ -380,6 +479,144 @@ public class BiomeTour implements FabricClientGameTest {
 		BlockPos to = new BlockPos(shot[0], shot[1], shot[2]);
 		float pitch = (float) -Math.toDegrees(Math.atan2(shot[1] - shot[4], Math.hypot(shot[0] - shot[3], shot[2] - shot[5]))) + 6.0F;
 		this.settleShot(context, world, "mountains", from, yawToward(from, to), pitch, SETTLE_MS * 2);
+		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
+	}
+
+	/**
+	 * Each landform (volcano, canyon, salt pan, tepui, fjord) whole, from outside it: the nearest one to
+	 * spawn, found through the Earth terrain model; its extent from the columns the model gives that
+	 * landform, and a camera standing back past its edge, raised above it, on whichever of eight sides has
+	 * the clearest line of sight. A volcano is aimed at its summit, the rest at their middle.
+	 */
+	private void landforms(ClientGameTestContext context, TestSingleplayerContext world) {
+		int distance = Integer.getInteger("expanse.tour.landform_distance", 12);
+		String[] names = {null, "volcano", "canyon", "salt_pan", "tepui", "fjord"};
+		List<int[]> shots = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			if (!(level.getChunkSource().getGenerator() instanceof dev.voidmc.expanse.world.terrain.EarthChunkGenerator earth)) {
+				return List.<int[]>of();
+			}
+			var model = earth.model(level.getChunkSource().randomState());
+			// The nearest column of each landform, ring by ring outward from spawn.
+			int[][] first = new int[names.length][];
+			int left = names.length - 1;
+			for (int r = 0; r <= 8000 && left > 0; r += 32) {
+				for (int i = -r; i <= r && left > 0; i += 32) {
+					for (int[] p : new int[][]{{i, -r}, {i, r}, {-r, i}, {r, i}}) {
+						int k = model.sample(p[0], p[1]).landform;
+						if (k > 0 && k < names.length && first[k] == null) {
+							first[k] = p;
+							left--;
+						}
+					}
+				}
+			}
+			List<int[]> picked = new java.util.ArrayList<>();
+			for (int k = 1; k < names.length; k++) {
+				if (first[k] == null) {
+					System.out.println("[tour] no " + names[k] + " within 8 km");
+					continue;
+				}
+				// Its columns round the first one found, twice: the second pass centred on the first's middle.
+				double mx = first[k][0];
+				double mz = first[k][1];
+				int n = 0;
+				int reach = 0;
+				int top = Integer.MIN_VALUE;
+				int tx = 0;
+				int tz = 0;
+				long sumY = 0;
+				for (int pass = 0; pass < 2; pass++) {
+					double sx = 0;
+					double sz = 0;
+					n = 0;
+					reach = 0;
+					top = Integer.MIN_VALUE;
+					sumY = 0;
+					for (int dx = -400; dx <= 400; dx += 8) {
+						for (int dz = -400; dz <= 400; dz += 8) {
+							int x = (int) mx + dx;
+							int z = (int) mz + dz;
+							var c = model.sample(x, z);
+							if (c.landform != k) {
+								continue;
+							}
+							sx += x;
+							sz += z;
+							n++;
+							sumY += (int) c.height;
+							reach = Math.max(reach, (int) Math.hypot(dx, dz));
+							if (c.height > top) {
+								top = (int) c.height;
+								tx = x;
+								tz = z;
+							}
+						}
+					}
+					if (n == 0) {
+						break;
+					}
+					mx = sx / n;
+					mz = sz / n;
+				}
+				if (n == 0) {
+					continue;
+				}
+				int cx = (int) mx;
+				int cz = (int) mz;
+				int cy = (int) (sumY / n);
+				if (k == dev.voidmc.expanse.world.terrain.Landform.VOLCANIC) {
+					cx = tx;
+					cz = tz;
+					cy = top;
+				}
+				// Stand back past the edge, but inside the render distance; then pick the side to stand on.
+				int back = Math.max(80, Math.min(distance * 16 - 40, (int) (reach * 0.8) + 60));
+				// A cone shows best near its own height, against the sky; hollows and plateaus from above their rims.
+				int lift = k == dev.voidmc.expanse.world.terrain.Landform.VOLCANIC ? 12 + back / 10 : Math.max(top - cy, 0) + 24 + back / 5;
+				int[] best = null;
+				int bestBlocked = Integer.MAX_VALUE;
+				for (int a = 0; a < 8; a++) {
+					double ang = Math.PI * (1.25 + a / 4.0);
+					int ex = cx + (int) Math.round(Math.cos(ang) * back);
+					int ez = cz + (int) Math.round(Math.sin(ang) * back);
+					int ground = (int) model.sample(ex, ez).height;
+					int ey = Math.max(cy + lift, Math.max(ground, 63) + 20);
+					int blocked = 0;
+					for (int t = 1; t < 20; t++) {
+						double f = t / 20.0;
+						int lx = ex + (int) ((cx - ex) * f);
+						int lz = ez + (int) ((cz - ez) * f);
+						if (model.sample(lx, lz).height > ey + (cy - ey) * f) {
+							blocked++;
+						}
+					}
+					blocked = blocked * 1000 + ey;   // then the lower viewpoint: it shows the walls, not just a plan
+					if (blocked < bestBlocked) {
+						bestBlocked = blocked;
+						best = new int[]{k, cx, cy, cz, ex, ey, ez};
+					}
+				}
+				picked.add(best);
+				int midX = (best[1] + best[4]) >> 5;
+				int midZ = (best[3] + best[6]) >> 5;
+				for (int dx = -distance - 1; dx <= distance + 1; dx++) {
+					for (int dz = -distance - 1; dz <= distance + 1; dz++) {
+						level.getChunk(midX + dx, midZ + dz);
+					}
+				}
+			}
+			return picked;
+		});
+		context.runOnClient(mc -> mc.options.renderDistance().set(distance));
+		world.getServer().runCommand("time set noon");
+		for (int[] l : shots) {
+			BlockPos to = new BlockPos(l[1], l[2], l[3]);
+			BlockPos from = new BlockPos(l[4], l[5], l[6]);
+			System.out.println("[tour] " + names[l[0]] + " at " + to.toShortString() + ", seen from " + from.toShortString());
+			float pitch = (float) -Math.toDegrees(Math.atan2(to.getY() - from.getY(), Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ())));
+			this.settleShot(context, world, "landform_" + names[l[0]], from, yawToward(from, to), pitch, SETTLE_MS * 2);
+		}
 		context.runOnClient(mc -> mc.options.renderDistance().set(DISTANCE));
 	}
 
