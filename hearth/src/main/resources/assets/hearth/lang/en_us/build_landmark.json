@@ -1,1 +1,9 @@
-{}
+{
+  "hearth.archetype.landmark.bell_tower": "Bell Tower",
+  "hearth.archetype.landmark.great_hall": "Great Hall",
+  "hearth.archetype.landmark.cathedral": "Cathedral",
+  "hearth.archetype.landmark.temple": "Temple",
+  "hearth.archetype.landmark.lighthouse": "Lighthouse",
+  "hearth.archetype.landmark.pagoda": "Pagoda",
+  "hearth.archetype.landmark.clock_tower": "Clock Tower"
+}

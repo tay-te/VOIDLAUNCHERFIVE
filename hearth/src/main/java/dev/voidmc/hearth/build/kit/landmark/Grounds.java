@@ -1,0 +1,206 @@
+package dev.voidmc.hearth.build.kit.landmark;
+
+import dev.voidmc.hearth.api.PoiType;
+import dev.voidmc.hearth.api.StageKind;
+import dev.voidmc.hearth.build.draft.Dirs;
+import dev.voidmc.hearth.build.draft.Draft;
+import dev.voidmc.hearth.build.draft.Mat;
+import dev.voidmc.hearth.build.draft.Noise;
+import dev.voidmc.hearth.build.draft.Paint;
+import dev.voidmc.hearth.build.kit.Furniture;
+import dev.voidmc.hearth.build.kit.Garden;
+import dev.voidmc.hearth.build.kit.Openings;
+import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.Walls;
+import dev.voidmc.hearth.build.style.Form;
+import dev.voidmc.hearth.build.style.Role;
+import dev.voidmc.hearth.build.terrain.Groundwork;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Half;
+
+/**
+ * The ground a landmark stands on and the way folk come to it: masonry footings down to firm ground, a podium levelled
+ * and paved round the building with stone edges where it stands above the land, an arched doorway, and a forecourt
+ * between the building and the street with benches, lamps and planting.
+ */
+public final class Grounds {
+	private Grounds() {
+	}
+
+	/**
+	 * Footings under a rectangle of walls on floor block row {@code floorBlockY}: masonry under the outline down below the
+	 * ground (through water to the bed), the inside made up with fill or dug out to the floor.
+	 */
+	public static void footings(Draft d, int x0, int z0, int x1, int z1, int floorBlockY) {
+		Stone found = Stone.footing(d);
+		Mat fill = d.mat(Role.FILL);
+		BlockState air = Blocks.AIR.defaultBlockState();
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				if (!Walls.inPlot(d, x, z)) {
+					continue;
+				}
+				boolean edge = x == x0 || x == x1 || z == z0 || z == z1;
+				int g = d.site().ground(x, z);
+				if (edge) {
+					try (var s = d.stage(StageKind.FOUNDATION)) {
+						for (int y = Math.min(floorBlockY, g - 2); y <= floorBlockY; y++) {
+							d.set(x, y, z, found.full());
+						}
+					}
+				} else {
+					try (var s = d.stage(StageKind.EARTHWORK)) {
+						for (int y = Math.max(g - 1, floorBlockY - 12); y < floorBlockY; y++) {
+							d.set(x, y, z, fill.full());
+						}
+						for (int y = floorBlockY + 1; y < g; y++) {
+							d.set(x, y, z, air);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * A podium: the rectangle levelled to standing level y and paved, with a masonry edge (a plinth course and its
+	 * footing) wherever it stands above the land beyond, and a cut held by a retaining wall where the land rises over
+	 * it. Water inside is embanked and filled.
+	 */
+	public static void podium(Draft d, int x0, int z0, int x1, int z1, int y, boolean pave) {
+		Groundwork.level(d, x0, z0, x1, z1, y, true);
+		Stone edge = Stone.footing(d);
+		Mat paving = d.mat(Role.PAVING);
+		int ax = Math.max(0, x0);
+		int bx = Math.min(d.frontage() - 1, x1);
+		int az = Math.max(0, z0);
+		int bz = Math.min(d.depth() - 1, z1);
+		for (int z = az; z <= bz; z++) {
+			for (int x = ax; x <= bx; x++) {
+				boolean border = x == ax || x == bx || z == az || z == bz;
+				int g = d.site().ground(x, z);
+				if (border && g < y) {
+					try (var s = d.stage(StageKind.FOUNDATION)) {
+						for (int yy = g - 1; yy < y; yy++) {
+							d.set(x, yy, z, edge.full());
+						}
+					}
+				}
+				if (pave && d.isEmpty(x, y, z)) {
+					try (var s = d.stage(StageKind.EXTERIOR)) {
+						d.set(x, y - 1, z, border && g < y ? edge.full() : paving.full());
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * An arched doorway on a wall: a door at cell i standing on row y under a round head (a transom of glass in the arch),
+	 * dressed jambs and voussoirs, a lamp beside it; registers the entrance and the DOOR point.
+	 */
+	public static void door(Draft d, Side f, int i, int y, Stone dress) {
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			Details.arch(d, f, i, 1, y, 3, dress, d.mat(Role.GLASS).pane());
+		}
+		Openings.door(d, f, f.column(i), y, 1, Openings.DoorOpts.MAIN);
+	}
+
+	/** A double doorway (two leaves) at cells i, i + 1 under a round head shouldered by stairs. */
+	public static void doubleDoor(Draft d, Side f, int i, int y, Stone dress) {
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			Details.arch(d, f, i, 2, y, 3, dress, d.mat(Role.GLASS).pane());
+		}
+		Openings.door(d, f, f.column(i), y, 2, Openings.DoorOpts.MAIN);
+	}
+
+	/**
+	 * The forecourt between a building's front {@code outer[1]} and the street: the way from the door (column doorX,
+	 * standing level y) to the street, laid with steps where the levels differ; paving round the foot where the ground is
+	 * level with it; a bench, a lamp post and planting either side.
+	 */
+	public static void forecourt(Draft d, int[] outer, int doorX, int y) {
+		forecourt(d, outer, doorX, y, outer[1] - 1);
+	}
+
+	/** {@link #forecourt} with the entrance cell's row given (a door set back in a recess between piers). */
+	public static void forecourt(Draft d, int[] outer, int doorX, int y, int entranceZ) {
+		int front = outer[1];
+		Mat paving = d.mat(Role.PAVING);
+		// the way to the street first, so nothing is put in its path
+		if (entranceZ >= 0) {
+			Groundwork.approach(d, doorX, y, entranceZ);
+		}
+		// an apron of paving round the building's foot, where the ground meets it
+		for (int z = Math.max(0, outer[1] - 1); z <= Math.min(d.depth() - 1, outer[3] + 1); z++) {
+			for (int x = Math.max(0, outer[0] - 1); x <= Math.min(d.frontage() - 1, outer[2] + 1); x++) {
+				boolean inside = x >= outer[0] && x <= outer[2] && z >= outer[1] && z <= outer[3];
+				if (inside || !d.isEmpty(x, y, z) || !d.isAbsent(x, y - 1, z)) {
+					continue;
+				}
+				if (d.site().ground(x, z) == y && !d.site().isWater(x, z)) {
+					try (var s = d.stage(StageKind.EXTERIOR)) {
+						d.set(x, y - 1, z, paving.full());
+					}
+				}
+			}
+		}
+		// either side of the way: a bench facing the street and a lamp post, flowers in pots
+		if (front >= 2) {
+			int z = Math.max(0, front - 2);
+			for (int side : new int[]{-1, 1}) {
+				int bx = doorX + side * 2;
+				if (bx < 0 || bx >= d.frontage() || !standable(d, bx, y, z)) {
+					continue;
+				}
+				if (side < 0) {
+					Furniture.chair(d, bx, y, z, Dirs.BACK);
+					d.poi(PoiType.SEAT, bx, y, z, Dirs.FRONT);
+				} else {
+					Garden.lampPost(d, bx, y, z, 2, null);
+				}
+				int px = bx + side;
+				if (px >= 0 && px < d.frontage() && standable(d, px, y, z) && Noise.unit(d.seed(), px, y, z) < 0.7) {
+					Garden.pot(d, px, y, z);
+				}
+			}
+		}
+	}
+
+	/** Free ground or paving at standing level y with nothing on it. */
+	public static boolean standable(Draft d, int x, int y, int z) {
+		if (!Walls.inPlot(d, x, z) || !d.isAbsent(x, y, z) && !d.isEmpty(x, y, z)) {
+			return false;
+		}
+		BlockState below = d.get(x, y - 1, z);
+		if (below != null) {
+			return !below.isAir() && d.isSolid(x, y - 1, z);
+		}
+		return d.site().ground(x, z) == y && !d.site().isWater(x, z);
+	}
+
+	/** Paves a rectangle at standing level y where the ground is level with it (or already paved/filled to it). */
+	public static void pave(Draft d, int x0, int z0, int x1, int z1, int y, Paint p) {
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int z = Math.max(0, z0); z <= Math.min(d.depth() - 1, z1); z++) {
+				for (int x = Math.max(0, x0); x <= Math.min(d.frontage() - 1, x1); x++) {
+					if (d.isEmpty(x, y, z) && (d.site().ground(x, z) == y || d.isSolid(x, y - 1, z)) && !d.site().isWater(x, z)) {
+						d.set(x, y - 1, z, p);
+					}
+				}
+			}
+		}
+	}
+
+	/** The direction from a cell toward the street-facing outside of a building (for benches facing out). */
+	public static Direction out(Side s) {
+		return s.out();
+	}
+
+	/** Sets a stair step paint for a raised threshold. */
+	public static Paint step(Stone st, Direction up) {
+		return st.has(Form.STAIRS) ? st.stairs(up, Half.BOTTOM) : st.full();
+	}
+}
