@@ -46,7 +46,7 @@ public final class Grid {
 			}
 		}
 		LayoutType layout = ctx.state.layout;
-		int spacing = e.role == RoadEdge.Role.STAIR ? 9 : layout.laneSpacing;
+		int spacing = e.role == RoadEdge.Role.STAIR ? stairSpacing(e) : layout.laneSpacing;
 		Polyline.Dense d = e.dense();
 		int lim = Math.min(to, d.length() - 6);
 		int start = Math.max(Math.max(10, spacing / 2), from);
@@ -69,6 +69,18 @@ public final class Grid {
 				i += spacing - 1;
 			}
 		}
+	}
+
+	/**
+	 * Along a stair street, terrace streets leave about every seven blocks of height: that is a row of houses with a
+	 * storey of retaining wall below the next street up.
+	 */
+	static int stairSpacing(RoadEdge e) {
+		Polyline.Dense d = e.dense();
+		int n = d.length();
+		double rise = Math.abs(d.ys()[n - 1] - d.ys()[0]);
+		double grade = rise / Math.max(1, n - 1);
+		return (int) Math.max(9, Math.min(26, Math.round(7 / Math.max(0.05, grade))));
 	}
 
 	/** Walks and reserves one lane leaving a street at a dense index on one side; null if there is no room. */

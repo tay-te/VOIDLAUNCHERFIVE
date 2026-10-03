@@ -61,6 +61,9 @@ public final class Build {
 		if (p.terrace) {
 			params.putBoolean("terraced", true);
 		}
+		if (p.cut) {
+			params.putBoolean("cut_into_slope", true);
+		}
 		if (info.flags().contains(SiteFlag.ATTACHABLE) && !params.contains("party_left")) {
 			params.putBoolean("party_left", false);
 			params.putBoolean("party_right", false);

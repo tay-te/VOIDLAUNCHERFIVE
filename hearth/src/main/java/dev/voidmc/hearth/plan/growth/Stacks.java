@@ -90,7 +90,9 @@ public final class Stacks {
 					return null;
 				}
 				int g = ctx.ground.ground(x, z);
-				if (g > floor + 1 || g < floor - ctx.config.terraceMaxHeight()) {
+				// behind: open ground no higher than the new floor, or rock the dwelling is cut into (cliff towns)
+				boolean intoRock = Parcels.cutsIn(ctx) && g <= floor + below.maxHeight() + 12;
+				if (g > floor + 1 && !intoRock || g < floor - ctx.config.terraceMaxHeight()) {
 					return null;
 				}
 			}

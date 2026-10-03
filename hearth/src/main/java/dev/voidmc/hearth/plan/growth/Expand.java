@@ -280,7 +280,7 @@ public final class Expand {
 				default -> {
 				}
 			}
-			int spacing = e.role == RoadEdge.Role.STAIR ? 9 : layout.laneSpacing;
+			int spacing = e.role == RoadEdge.Role.STAIR ? Grid.stairSpacing(e) : layout.laneSpacing;
 			if (outward) {
 				spacing = Math.max(spacing, 30);
 			}

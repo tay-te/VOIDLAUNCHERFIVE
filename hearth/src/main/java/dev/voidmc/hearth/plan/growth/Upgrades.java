@@ -42,9 +42,8 @@ public final class Upgrades {
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
 		int maxZone = ctx.tier == SettlementTier.CITY ? 2 : ctx.tier == SettlementTier.TOWN ? 1 : 0;
-		PlotView best = null;
-		ArchetypeInfo bestTarget = null;
-		double bestD = Double.MAX_VALUE;
+		List<PlotView> candidates = new ArrayList<>();
+		List<Double> distances = new ArrayList<>();
 		for (PlotView p : plots) {
 			if (p.state() != PlotState.BUILT || p.owner() != null || replacing.contains(p.id())) {
 				continue;
@@ -56,22 +55,27 @@ public final class Upgrades {
 			if (wall > 0 ? ctx.distanceToHeart(cx, cz) > wall : ctx.zone(cx, cz) > maxZone) {
 				continue;
 			}
-			ArchetypeInfo target = target(ctx, s);
-			if (target == null) {
+			if (target(ctx, s) == null) {
 				continue;
 			}
-			double d = ctx.distanceToHeart(cx, cz) + ctx.hash(cx, cz, 31) * 6;
-			if (d < bestD) {
-				bestD = d;
-				best = p;
-				bestTarget = target;
+			candidates.add(p);
+			distances.add(ctx.distanceToHeart(cx, cz) + ctx.hash(cx, cz, 31) * 6);
+		}
+		// nearest the heart first; a few tries, since a house may have no room to grow into its new size
+		Integer[] order = new Integer[candidates.size()];
+		for (int i = 0; i < order.length; i++) {
+			order[i] = i;
+		}
+		java.util.Arrays.sort(order, Comparator.comparingDouble(distances::get));
+		for (int k = 0; k < Math.min(6, order.length); k++) {
+			PlotView first = candidates.get(order[k]);
+			ArchetypeInfo target = target(ctx, first.spec());
+			List<PlotView> batch = batch(ctx, first, target, plots, replacing);
+			if (rebuild(ctx, batch, target)) {
+				return true;
 			}
 		}
-		if (best == null) {
-			return false;
-		}
-		List<PlotView> batch = batch(ctx, best, bestTarget, plots, replacing);
-		return rebuild(ctx, batch, bestTarget);
+		return false;
 	}
 
 	/** Plots already being replaced: by a queued project, or by a plot handed out but not built yet. */
@@ -105,7 +109,7 @@ public final class Upgrades {
 			}
 			int front = s.frontage();
 			int depth = s.depth();
-			if (front + 3 < t.minFrontage() || depth + 4 < t.minDepth()) {
+			if (front < t.minFrontage() || depth + 3 < t.minDepth()) {
 				continue;
 			}
 			// prefer the tallest the tier allows
@@ -226,7 +230,7 @@ public final class Upgrades {
 		for (int i = 0; i < batch.size(); i++) {
 			PlotView p = batch.get(i);
 			PlotSpec old = p.spec();
-			int[] r = fit(rects.get(i), facing, target, alongX, ascending);
+			int[] r = fit(deepen(ctx, rects.get(i), facing, target.minDepth()), facing, target, alongX, ascending);
 			if (r == null) {
 				continue;
 			}
@@ -382,6 +386,36 @@ public final class Upgrades {
 	}
 
 	/** Clamps a rectangle to the target's frontage and depth ranges (shrinking from the right and the back), or null. */
+	/** Deepens a rectangle at the back (away from the street) into open ground until it is {@code depth} deep, if it can. */
+	private static int[] deepen(PlanContext ctx, int[] r, Direction facing, int depth) {
+		int[] o = r.clone();
+		boolean alongX = facing.getAxis() == Direction.Axis.Z;
+		int have = alongX ? o[3] - o[1] + 1 : o[2] - o[0] + 1;
+		for (int k = have; k < depth; k++) {
+			int[] n = o.clone();
+			switch (facing) {
+				case NORTH -> n[3]++;
+				case SOUTH -> n[1]--;
+				case WEST -> n[2]++;
+				default -> n[0]--;
+			}
+			int x0 = facing == Direction.WEST ? n[2] : facing == Direction.EAST ? n[0] : n[0];
+			int x1 = facing == Direction.WEST ? n[2] : facing == Direction.EAST ? n[0] : n[2];
+			int z0 = facing == Direction.NORTH ? n[3] : facing == Direction.SOUTH ? n[1] : n[1];
+			int z1 = facing == Direction.NORTH ? n[3] : facing == Direction.SOUTH ? n[1] : n[3];
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					byte c = ctx.occ.get(x, z);
+					if (c != Cell.FREE && c != Cell.SETBACK || ctx.ground.isWater(x, z)) {
+						return o;
+					}
+				}
+			}
+			o = n;
+		}
+		return o;
+	}
+
 	private static int @Nullable [] fit(int[] r, Direction facing, ArchetypeInfo t, boolean alongX, boolean ascending) {
 		int[] o = r.clone();
 		int front = alongX ? o[2] - o[0] + 1 : o[3] - o[1] + 1;

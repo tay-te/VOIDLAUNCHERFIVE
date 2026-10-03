@@ -69,6 +69,70 @@ public final class Scene {
 		}
 	}
 
+	private Scene(int x0, int z0, int w, int d, int sea) {
+		this.x0 = x0;
+		this.z0 = z0;
+		this.w = w;
+		this.d = d;
+		this.sea = sea;
+		int n = w * d;
+		this.ground = new int[n];
+		this.water = new int[n];
+		this.temperature = new float[n];
+		this.blocks = new LongArrayList[n];
+		this.surface = new int[n];
+		this.level = new int[n];
+	}
+
+	/**
+	 * The scene turned a quarter at a time so its low side faces the isometric viewer (who looks from the +x +z
+	 * corner): a town on a slope is seen from below, climbing away, not hidden behind its own hill.
+	 */
+	public Scene facingDownhill() {
+		double best = Double.MAX_VALUE;
+		int turns = 0;
+		Scene s = this;
+		Scene pick = this;
+		for (int k = 0; k < 4; k++) {
+			double near = 0;
+			for (int x = 0; x < s.w; x++) {
+				near += s.ground[(s.d - 1) * s.w + x];
+			}
+			for (int z = 0; z < s.d; z++) {
+				near += s.ground[z * s.w + s.w - 1];
+			}
+			near /= s.w + s.d;
+			if (near < best - 0.5) {
+				best = near;
+				pick = s;
+				turns = k;
+			}
+			s = s.turned();
+		}
+		return pick;
+	}
+
+	/** The scene turned a quarter clockwise (seen from above): column (x, z) moves to (d - 1 - z, x). */
+	private Scene turned() {
+		Scene r = new Scene(this.x0, this.z0, this.d, this.w, this.sea);
+		for (int z = 0; z < this.d; z++) {
+			for (int x = 0; x < this.w; x++) {
+				int from = z * this.w + x;
+				int nx = this.d - 1 - z;
+				int nz = x;
+				int to = nz * r.w + nx;
+				r.ground[to] = this.ground[from];
+				r.water[to] = this.water[from];
+				r.temperature[to] = this.temperature[from];
+				r.blocks[to] = this.blocks[from];
+				r.surface[to] = this.surface[from];
+				r.level[to] = this.level[from];
+			}
+		}
+		r.blockCount = this.blockCount;
+		return r;
+	}
+
 	public boolean inside(int x, int z) {
 		return x >= this.x0 && z >= this.z0 && x < this.x0 + this.w && z < this.z0 + this.d;
 	}

@@ -158,7 +158,7 @@ public final class Growth {
 		}
 		if (deficit <= 0 && needs.food >= mouths && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
 			int beauty = needs.category(ArchetypeCategory.LANDSCAPE);
-			if (beauty < 1 + pop / 7) {
+			if (beauty < 2 + pop / 15) {
 				list.add(new Need("beauty", 60, c -> Beauty.plan(c, needs)));
 			}
 		}

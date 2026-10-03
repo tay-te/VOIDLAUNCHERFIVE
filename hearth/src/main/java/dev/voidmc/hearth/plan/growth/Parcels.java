@@ -111,6 +111,8 @@ public final class Parcels {
 		public int zone;
 		public int gap;
 		public int backGap;
+		/** Cut into the slope behind (cliff dwellings): the ground rises past the roof at the back. */
+		public boolean cut;
 		public double score;
 
 		public int x1() {
@@ -514,6 +516,14 @@ public final class Parcels {
 					fits = true;
 				}
 			}
+			if (!fits && hillside && cutsIn(ctx)) {
+				// a cliff dwelling: its front stands at the street, its back is cut into the rising rock
+				int[] front = frontRange(g, p);
+				if (front[1] - front[0] <= tol && front[1] - streetY <= tol && streetY - front[0] <= tol + 2 && p.lo >= streetY - tol) {
+					p.cut = true;
+					fits = true;
+				}
+			}
 			if (!fits) {
 				boolean terraces = req.allowTerrace && (ctx.state.layout.terraces || hillside || relief <= tol + 3);
 				int needed = Math.max(cut, fill);
@@ -526,6 +536,38 @@ public final class Parcels {
 		}
 		corners(occ, p);
 		return true;
+	}
+
+	/** Whether this settlement cuts its dwellings into slopes: cliff towns, mountain holds, pueblos and karst towns. */
+	static boolean cutsIn(PlanContext ctx) {
+		return switch (ctx.state.layout) {
+			case CLIFF, MOUNTAIN -> true;
+			default -> ctx.state.signature.stacks;
+		};
+	}
+
+	/** Lowest and highest ground in the front half of a parcel (the street side). */
+	private static int[] frontRange(Ground g, Parcel p) {
+		Parcel f = new Parcel();
+		f.facing = p.facing;
+		f.x0 = p.x0;
+		f.z0 = p.z0;
+		f.sizeX = p.sizeX;
+		f.sizeZ = p.sizeZ;
+		int half = Math.max(1, p.depth() / 2);
+		switch (p.facing) {
+			case NORTH -> f.sizeZ = half;
+			case SOUTH -> {
+				f.z0 = p.z1() - half + 1;
+				f.sizeZ = half;
+			}
+			case WEST -> f.sizeX = half;
+			default -> {
+				f.x0 = p.x1() - half + 1;
+				f.sizeX = half;
+			}
+		}
+		return dryRange(g, f);
 	}
 
 	/** Whether a parcel found earlier is still free and still has its road (a road planned since may cross it). */

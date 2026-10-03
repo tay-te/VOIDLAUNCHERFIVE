@@ -191,7 +191,7 @@ final class PlanChecks {
 		List<String> out = new ArrayList<>();
 		for (PlotView p : sorted(s)) {
 			PlotSpec sp = p.spec();
-			if (!building(sp, c) || sp.params().getBooleanOr("terraced", false) || sp.params().contains("stacked_on")
+			if (!building(sp, c) || sp.params().getBooleanOr("terraced", false) || sp.params().contains("stacked_on") || sp.params().getBooleanOr("cut_into_slope", false)
 				|| Archetypes.isPlazaFurniture(sp.archetype()) || sp.archetype().equals(Archetypes.PLAZA) || sp.params().contains("replaces")) {
 				continue;
 			}

@@ -55,6 +55,12 @@ public final class Founder {
 			hx = foot[0];
 			hz = foot[1];
 		}
+		// a square needs ground it can stand on: off a cliff face or a crag, to the nearest easier ground
+		if (g.slope(hx, hz, 3) > 0.8 || g.range(hx - 6, hz - 6, hx + 6, hz + 6, 2)[1] - g.range(hx - 6, hz - 6, hx + 6, hz + 6, 2)[0] > 10) {
+			int[] easy = easierGround(g, hx, hz);
+			hx = easy[0];
+			hz = easy[1];
+		}
 		state.heartX = hx;
 		state.heartZ = hz;
 		state.heartY = g.surface(hx, hz);
@@ -351,11 +357,11 @@ public final class Founder {
 	/** A stair street straight up (or down) the slope from a node. */
 	private static @Nullable RoadEdge stair(PlanContext ctx, int from, double angle, double length, int build) {
 		RoadGraph.Node n = ctx.state.graph.node(from);
-		int tx = n.x() + (int) Math.round(StrictMath.cos(angle) * length);
-		int tz = n.z() + (int) Math.round(StrictMath.sin(angle) * length);
-		Router.Params params = new Router.Params(2, 24, ctx.config.roadGrade(), ctx.config.stairGrade(), -1, 3, false, 300_000);
-		int[][] path = Router.route(ctx.ground, ctx.occ, n.x(), n.z(), tx, tz, params);
-		if (path == null) {
+		// a stair street goes straight up the fall line from the middle of the square's side
+		int heading = Roads.cardinal(StrictMath.cos(angle), StrictMath.sin(angle));
+		boolean[] joined = new boolean[1];
+		int[][] path = Roads.walk(ctx, n.x(), n.z(), heading, ctx.state.plazaHalf + 1, (int) length, Roads.Mode.STRAIGHT, 8, 1, joined);
+		if (path[0].length < ctx.state.plazaHalf + 10) {
 			return null;
 		}
 		int[] xs = path[0];
@@ -472,6 +478,29 @@ public final class Founder {
 		if (e != null) {
 			Roads.build(ctx, e, e.length(), "road: the boardwalk out over the water");
 		}
+	}
+
+	/** The nearest spot within 48 blocks where a square of thirteen would stand on fairly even, dry ground. */
+	private static int[] easierGround(Ground g, int hx, int hz) {
+		int[] best = {hx, hz};
+		double bestScore = Double.MAX_VALUE;
+		for (int r = 4; r <= 48; r += 4) {
+			for (int a = 0; a < 24; a++) {
+				double ang = a * Math.PI / 12;
+				int x = hx + (int) Math.round(StrictMath.cos(ang) * r);
+				int z = hz + (int) Math.round(StrictMath.sin(ang) * r);
+				if (g.isWater(x, z)) {
+					continue;
+				}
+				int[] range = g.range(x - 6, z - 6, x + 6, z + 6, 2);
+				double score = (range[1] - range[0]) * 4 + r * 0.3;
+				if (score < bestScore) {
+					bestScore = score;
+					best = new int[]{x, z};
+				}
+			}
+		}
+		return best;
 	}
 
 	/** The foot of the cliff near the heart: down the face until the ground levels out. */
