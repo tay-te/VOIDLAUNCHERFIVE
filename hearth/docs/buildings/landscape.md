@@ -136,6 +136,11 @@ from the entrances in every culture on flat, slope and hills.
 
 ## How the pieces meet the planner
 
+- **One dressing for a town's defences.** Wall stretches, palisades, towers and gatehouses take their materials from
+  the style's base dressing chosen by the culture, not by each plot's seed (`Manner.fort`, through the small shared
+  addition `Draft.mat(Role, variant, seed)`), so a ring of eight stretches never comes out half whitewashed and half
+  sandstone. Roofs of towers still follow each plot's variant.
+
 - **Plaza furniture.** The well (and later stalls, lamps, fountain, statue) are separate plots inside the plaza; the
   plaza leaves the `keep` rectangles untouched (it removes its own drawing there) and keeps its tall pieces out of the
   ring where the planner adds furniture later. Furniture archetypes build on top of the paving, never below it.

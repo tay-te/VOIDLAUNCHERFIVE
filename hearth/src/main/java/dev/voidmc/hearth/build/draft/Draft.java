@@ -212,6 +212,17 @@ public final class Draft {
 	}
 
 	/**
+	 * A style role in a given variant (-1 the base dressing) chosen and mixed by the given seed rather than this
+	 * building's: for works raised in pieces by several plots that must match one another (a town wall's stretches, its
+	 * towers and its gates). Not cached.
+	 */
+	public Mat mat(Role role, int variant, long seed) {
+		Role source = (role == Role.ROOF || role == Role.ROOF_TRIM) && this.style.habits(variant).roof().thatch() ? Role.THATCH : role;
+		var palette = this.style.palette(source, this.tier, variant);
+		return new Mat(this, role, role.perBuilding() ? palette.chooseOne(seed) : palette, seed);
+	}
+
+	/**
 	 * Declares the main body of the building (local rectangle). Used to tell which way a wall faces when mixing materials
 	 * (moss on the north side). Defaults to the whole footprint.
 	 */

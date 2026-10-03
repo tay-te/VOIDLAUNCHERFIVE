@@ -41,14 +41,15 @@ public final class Towers {
 
 	/** The materials of a fortification in this style. */
 	public record Look(Mat body, Mat quoin, Mat found, Mat floor, Mat post, boolean timber) {
+		/** The fortification dressing of the culture (see {@link Manner#fort}): a town's towers and gates match its wall. */
 		public static Look of(Draft d) {
 			boolean timber = Manner.timberForts(d);
-			Mat body = timber ? d.mat(Role.WALL) : Manner.masonry(d);
-			Mat accent = d.mat(Role.WALL_ACCENT);
+			Mat body = timber ? Manner.fort(d, Role.WALL) : Manner.fortMasonry(d);
+			Mat accent = Manner.fort(d, Role.WALL_ACCENT);
 			Mat quoin = Manner.wood(accent) || timber ? body : accent;
-			Mat found = Manner.wood(d.mat(Role.FOUNDATION)) && !timber ? body : d.mat(Role.FOUNDATION);
-			Mat floor = d.mat(Role.FLOOR);
-			Mat post = timber ? d.mat(Role.FRAME) : d.mat(Role.BEAM);
+			Mat found = Manner.wood(Manner.fort(d, Role.FOUNDATION)) && !timber ? body : Manner.fort(d, Role.FOUNDATION);
+			Mat floor = Manner.fort(d, Role.FLOOR);
+			Mat post = timber ? Manner.fort(d, Role.FRAME) : Manner.fort(d, Role.BEAM);
 			return new Look(body, quoin, found, floor, post, timber);
 		}
 	}

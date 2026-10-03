@@ -99,12 +99,13 @@ public final class TownWall implements Archetype {
 		boolean timber = Manner.timberForts(d);
 		boolean capStart = !c.open(true);
 		boolean capEnd = !c.open(false);
-		Mat body = Manner.masonry(d);
-		Mat found = d.mat(Role.FOUNDATION);
-		Mat accent = Manner.wood(d.mat(Role.WALL_ACCENT)) ? body : d.mat(Role.WALL_ACCENT);
-		Mat walk = Manner.wood(d.mat(Role.PAVING)) && !timber ? body : d.mat(Role.PAVING);
-		Mat log = d.mat(Role.TREE_LOG);
-		Mat fence = d.mat(Role.FENCE);
+		// every stretch of a town's wall wears the same stone, whatever variant its plot's seed picks
+		Mat body = Manner.fortMasonry(d);
+		Mat found = Manner.fort(d, Role.FOUNDATION);
+		Mat accent = Manner.wood(Manner.fort(d, Role.WALL_ACCENT)) ? body : Manner.fort(d, Role.WALL_ACCENT);
+		Mat walk = Manner.wood(Manner.fort(d, Role.PAVING)) && !timber ? body : Manner.fort(d, Role.PAVING);
+		Mat log = Manner.fort(d, Role.TREE_LOG);
+		Mat fence = Manner.fort(d, Role.FENCE);
 		boolean pilasters = !timber && h >= 7 && d.param("corbels", true);
 		int bay = 6;
 		for (Corridor.Cell cell : c.cells) {
@@ -282,7 +283,7 @@ public final class TownWall implements Archetype {
 		int x = cell.x();
 		int z = cell.z();
 		Paint logs = log.log(Direction.Axis.Y).orElse(log.full());
-		Paint fill = d.mat(Role.FILL).full();
+		Paint fill = Manner.fort(d, Role.FILL).full();
 		if (pier) {
 			for (int y = g; y <= top + 1; y++) {
 				d.set(x, y, z, logs);

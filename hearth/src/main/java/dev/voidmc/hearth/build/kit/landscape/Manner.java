@@ -102,6 +102,31 @@ public final class Manner {
 
 	/** Whether this culture's fortifications are timber (no stone in its building palette: bayou, tropical). */
 	public static boolean timberForts(Draft d) {
-		return wood(d.mat(Role.PLINTH)) && wood(d.mat(Role.FOUNDATION));
+		return wood(fort(d, Role.PLINTH)) && wood(fort(d, Role.FOUNDATION));
+	}
+
+	/**
+	 * A role as every fortification of the culture wears it: the style's base dressing, chosen and mixed by the culture
+	 * rather than by the plot, so the stretches of one town wall, its towers and its gates match whatever variant each
+	 * plot's seed would have picked.
+	 */
+	public static Mat fort(Draft d, Role role) {
+		return d.mat(role, -1, dev.voidmc.hearth.build.draft.Noise.hash(0xF0A7L + culture(d).ordinal() * 131L, role.ordinal()));
+	}
+
+	/** The masonry of fortifications ({@link #masonry} in the base dressing, see {@link #fort}). */
+	public static Mat fortMasonry(Draft d) {
+		WallKind k = d.style().habits(-1).walls().kind();
+		boolean earth = k == WallKind.ADOBE || k == WallKind.STONE || culture(d) == Culture.STEPPE;
+		Mat wall = fort(d, Role.WALL);
+		if (earth && !wood(wall)) {
+			return wall;
+		}
+		Mat plinth = fort(d, Role.PLINTH);
+		if (!wood(plinth)) {
+			return plinth;
+		}
+		Mat found = fort(d, Role.FOUNDATION);
+		return wood(found) ? plinth : found;
 	}
 }
