@@ -12,6 +12,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -81,8 +82,8 @@ final class ChapelMission {
 				Sacred.buttress(d, s, s.index(bays[k]), base, base + 1);
 			}
 		}
-		// the flat roof behind its parapet, vigas showing (the roof kit's adobe habit)
-		int deck = Roofs.flat(d, nx0, z0, nx1, z1, plate, true);
+		// the flat roof behind its parapet, the beam ends showing
+		int deck = Adobe.roof(d, nx0, z0, nx1, z1, plate, true, false);
 		// buttresses on the front corners
 		Side front = nave.side(0, Dirs.FRONT);
 		Openings.door(d, front, cx, base, 1, new Openings.DoorOpts(false, false, true));

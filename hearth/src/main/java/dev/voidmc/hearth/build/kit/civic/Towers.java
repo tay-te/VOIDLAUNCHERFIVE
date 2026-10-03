@@ -192,6 +192,19 @@ public final class Towers {
 				return spire(d, x0, z0, size, baseY, maxTop);
 			}
 			case PYRAMID, HIP -> {
+				if (room < 4) {
+					// no room under the plot's height for a pyramid: a flat cap of slabs, a block in the middle
+					try (var st = d.stage(StageKind.ROOF)) {
+						for (int z = z0; z <= z1; z++) {
+							for (int x = x0; x <= x1; x++) {
+								if (d.allowed(x, baseY + 1, z)) {
+									d.set(x, baseY + 1, z, roof.slab(SlabType.BOTTOM));
+								}
+							}
+						}
+					}
+					return baseY + 1;
+				}
 				// a small pyramid stands on its own walls (no eave ring: it would read as a hat); a hip overhangs
 				int e = cap == Cap.HIP ? 1 : size <= 3 ? 0 : 1;
 				int half = size / 2 + e;

@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
 import dev.voidmc.hearth.build.kit.civic.Signs;
@@ -51,7 +52,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class Guardhouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("civic/guardhouse"), ArchetypeCategory.CIVIC, Set.of(JobType.GUARD), 2,
-		7, 11, 7, 11, 8, 14, SettlementTier.VILLAGE, Set.of(), Set.of(), List.of(), 4, 1.0);
+		7, 11, 7, 11, 8, 18, SettlementTier.VILLAGE, Set.of(), Set.of(), List.of(), 4, 1.0);
 
 	@Override
 	public ArchetypeInfo info() {
@@ -75,7 +76,8 @@ public final class Guardhouse implements Archetype {
 		int z0 = zF;
 		int z1 = dp - 1;
 		int base = raised ? Grounds.stiltBase(d, x0, z0, x1, z1) : 0;
-		Body body = new Body(x0, z0, x1, z1, base, new int[]{4, 4}, false, false);
+		// on stilts the barracks storey is a little lower, so a roof still fits over it
+		Body body = new Body(x0, z0, x1, z1, base, new int[]{4, raised ? 3 : 4}, false, false);
 		if (!flat && !raised && d.chance(0.6)) {
 			body.jetty(1, Dirs.FRONT);
 		}
@@ -94,6 +96,9 @@ public final class Guardhouse implements Archetype {
 		}
 		// slit windows below, ordinary ones above
 		Storeys.windows(d, body, fac, 1, 1, 2);
+		if (Adobe.is(d)) {
+			Adobe.screens(d, body, 1);
+		}
 		for (Side s : body.sides(0)) {
 			for (Facade.Opening o : fac.openings(s.out())) {
 				if (o.kind() == Facade.Kind.WINDOW && s.contains(o.at()) && !s.isCorner(s.index(o.at()))) {
@@ -144,12 +149,17 @@ public final class Guardhouse implements Archetype {
 			}
 		} else {
 			RoofForm form = t == Tradition.KARST ? RoofForm.PAGODA : h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.HALF_HIP);
-			top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), 1);
+			// the roof leaves room over its ridge for the alarm bell's turret
+			top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), 6);
 			skyline = top.ridge();
 			// a sentry box beside the door: two posts and a hood
 			int bx = door + (door > x0 + 1 ? -2 : 2);
 			if (!raised && z0 >= 1 && bx >= 0 && bx < w) {
 				sentryBox(d, bx, base, z0 - 1);
+			}
+			// the alarm bell in a turret on the ridge
+			if (top.roof() != null && x1 - x0 >= 6) {
+				skyline = Math.max(skyline, ChapelWestern.turret(d, t, cx, (z0 + z1) / 2 - 1, plate, top.roof().ridgeY, d.maxHeight()));
 			}
 		}
 

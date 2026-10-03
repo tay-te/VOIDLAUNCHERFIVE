@@ -21,6 +21,7 @@ import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -166,11 +167,21 @@ public final class TownHall implements Archetype {
 			case ADOBE -> RoofForm.FLAT;
 			case KARST -> RoofForm.PAGODA;
 			case MEDITERRANEAN -> RoofForm.HIP;
-			default -> h.roof().pick(d.random(), RoofForm.HIP, RoofForm.HALF_HIP, RoofForm.GABLE, RoofForm.MANSARD);
+			default -> h.roof().pick(d.random(), RoofForm.HIP, RoofForm.HALF_HIP, RoofForm.GABLE, RoofForm.HIP);
 		};
-		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), centre || corner ? 12 : 1, true);
+		Storeys.Top top;
+		if (t == Tradition.ADOBE) {
+			// a crested parapet, the beam ends in a row, a shaded terrace on the roof; screens before the chamber's windows
+			int[] tr = body.topRect();
+			int deck = Adobe.roof(d, tr[0], tr[1], tr[2], tr[3], plate, true, !centre);
+			top = new Storeys.Top(null, deck, deck + 2);
+			Halls.roofTerrace(d, tr, deck, !cornerRight);
+			Adobe.screens(d, body, body.storeys() - 1);
+		} else {
+			top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), centre || corner ? 12 : 1, true);
+		}
 		int skyline = top.ridge();
-		if (form == RoofForm.FLAT) {
+		if (form == RoofForm.FLAT && t != Tradition.ADOBE) {
 			Towers.battlements(d, x0, z0, x1, z1, top.deck());
 		}
 

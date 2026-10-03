@@ -18,6 +18,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Baths;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -214,7 +215,7 @@ public final class Bathhouse implements Archetype {
 				Openings.window(d, s, s.column(i), base + 2, 1, 1, Openings.WindowStyle.ARCHED, new Openings.WindowOpts(false, false, false, true));
 			}
 		}
-		int deck = Roofs.flat(d, x0, z0, x1, z1, plate, true);
+		int deck = Adobe.roof(d, x0, z0, x1, z1, plate, true, false);
 		// the hot room's dome in the middle, star-lights in it; little domes over the corners
 		int hcz = (z0 + z1) / 2 + 1;
 		Fam stone = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);

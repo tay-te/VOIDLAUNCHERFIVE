@@ -21,6 +21,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -156,6 +157,12 @@ public final class Bank implements Archetype {
 			if (base >= 1 && !raised && pz0 - 1 >= 0) {
 				Grounds.flight(d, px0, px1, pz0 - 1, base, base);
 			}
+		} else if (!raised && z0 - 1 >= 1 && x1 - x0 >= 8) {
+			// a smaller bank still has its door of state: two columns and a pediment framing it (an aedicule)
+			skyline = Math.max(skyline, Portico.build(d, t, cx - 2, cx + 2, z0 - 1, z0 - 1, base, Math.min(4, h0 - 1), t != Tradition.KARST));
+			if (base >= 1) {
+				Grounds.flight(d, cx - 2, cx + 2, z0 - 2, base, base);
+			}
 		} else {
 			Halls.portal(d, front, cx, base, t, tier);
 			if (base >= 1 && !raised) {
@@ -171,18 +178,29 @@ public final class Bank implements Archetype {
 
 		// --- the roof: low and heavy, a string course under it
 		Halls.stringCourse(d, body.side(body.storeys() - 1, Dirs.FRONT), plate);
-		if (t != Tradition.KARST && t != Tradition.STILT) {
+		if (t != Tradition.KARST && t != Tradition.STILT && t != Tradition.ADOBE) {
 			Halls.cornice(d, body.topRect(), plate);
 		}
-		RoofForm form = t == Tradition.ADOBE ? RoofForm.FLAT : t == Tradition.KARST ? RoofForm.PAGODA : t == Tradition.STEPPE ? RoofForm.HIP
-			: h.roof().pick(d.random(), RoofForm.HIP, RoofForm.HIP, RoofForm.MANSARD, RoofForm.GABLE);
-		Storeys.Top top = Storeys.roof(d, body, form, Direction.Axis.X, Math.min(1.0, Math.max(0.5, h.roof().pitch())), 1);
+		// a bank's roof is low and hipped behind its cornice, whatever the houses round it do
+		RoofForm form = t == Tradition.ADOBE ? RoofForm.FLAT : t == Tradition.KARST ? RoofForm.PAGODA : RoofForm.HIP;
+		Storeys.Top top;
+		if (t == Tradition.ADOBE) {
+			// a parapet crested over the door, the beam ends in a row; latticed screens before the upper windows
+			int[] tr = body.topRect();
+			int deck = Adobe.roof(d, tr[0], tr[1], tr[2], tr[3], plate, plate + 3 <= maxH - 1, true);
+			top = new Storeys.Top(null, deck, deck + 2);
+			if (twoStoreys) {
+				Adobe.screens(d, body, 1);
+			}
+		} else {
+			top = Storeys.roof(d, body, form, Direction.Axis.X, Math.min(1.0, Math.max(0.5, h.roof().pitch())), 1);
+		}
 		skyline = Math.max(skyline, top.ridge());
 		if (form == RoofForm.FLAT) {
-			// a balustrade and a little dome over the strongroom
-			Fam dome = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
-			if (dome != null) {
-				skyline = Math.max(skyline, Towers.lathe(d, cx, (z0 + z1) / 2.0, top.deck(), new double[]{2.1, 1.8, 1.2, 0.5}, dome, maxH));
+			// a little dome on a drum of lights over the strongroom
+			int dz = Math.min(z1 - 3, Math.max(z0 + 3, (z0 + z1) / 2 + 1));
+			if (top.deck() + 6 <= maxH - 1 && x1 - x0 >= 6) {
+				skyline = Math.max(skyline, Adobe.dome(d, cx, dz, top.deck(), 1, maxH));
 			}
 		}
 

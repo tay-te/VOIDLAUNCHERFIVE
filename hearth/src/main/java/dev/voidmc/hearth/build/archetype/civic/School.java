@@ -19,9 +19,11 @@ import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
+import dev.voidmc.hearth.build.kit.civic.Portico;
 import dev.voidmc.hearth.build.kit.civic.Storeys;
 import dev.voidmc.hearth.build.kit.civic.Towers;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
@@ -76,8 +78,9 @@ public final class School implements Archetype {
 		int zF = raised ? 3 : 2;
 		int z0 = zF;
 		int z1 = dp - 1;
-		int hh = 5;
+		// a lofty schoolroom where the plot's height allows: tall windows let the light far in
 		int base = raised ? Grounds.stiltBase(d, x0, z0, x1, z1) : 0;
+		int hh = maxH - base >= 13 ? 6 : 5;
 		Body body = new Body(x0, z0, x1, z1, base, new int[]{hh}, false, false);
 		d.body(x0, z0, x1, z1);
 		int plate = body.plateY();
@@ -93,13 +96,22 @@ public final class School implements Archetype {
 		for (Side s : body.sides(0)) {
 			for (Facade.Opening o : fac.openings(s.out())) {
 				if (o.kind() == Facade.Kind.WINDOW && s.contains(o.at()) && s.contains(o.at() + o.width() - 1)) {
-					Openings.window(d, s, o.at(), base + 1, o.width(), 2, style);
+					Adobe.window(d, s, o.at(), base + 1, o.width(), hh - 3, style);
 				}
 			}
 		}
 		Side front = body.side(0, Dirs.FRONT);
 		Integer door = fac.openings(Dirs.FRONT).stream().filter(o -> o.kind() == Facade.Kind.DOOR).map(Facade.Opening::at).findFirst().orElse(cx);
-		Openings.door(d, front, door, base, 1, new Openings.DoorOpts(true, true, true));
+		// the way in: a colonnade along the front in the south (a shaded porch to wait in), a porched door elsewhere
+		boolean colonnade = (t == Tradition.ADOBE || t == Tradition.MEDITERRANEAN || t == Tradition.STEPPE) && !raised && z0 - 1 >= 1 && bw >= 7;
+		if (colonnade) {
+			Openings.door(d, front, door, base, 1, new Openings.DoorOpts(true, true, true));
+			Portico.build(d, t, x0, x1, z0 - 1, z0 - 1, base, 3, true);
+		} else if (!raised && z0 - 1 >= 1) {
+			Halls.portal(d, front, door, base, t, tier);
+		} else {
+			Openings.door(d, front, door, base, 1, new Openings.DoorOpts(true, true, true));
+		}
 
 		// --- the roof and its bell turret
 		RoofForm form = t == Tradition.ADOBE ? RoofForm.FLAT : t == Tradition.KARST ? RoofForm.PAGODA

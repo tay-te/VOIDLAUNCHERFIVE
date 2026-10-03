@@ -25,6 +25,7 @@ import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -171,6 +172,9 @@ public final class Inn implements Archetype {
 		}
 		// ground-floor windows away from the arch; every window above
 		Storeys.windows(d, body, fac, 1, 1, 2);
+		if (Adobe.is(d)) {
+			Adobe.screens(d, body, 1);
+		}
 		for (Side s : body.sides(0)) {
 			for (Facade.Opening o : fac.openings(s.out())) {
 				if (o.kind() != Facade.Kind.WINDOW || !s.contains(o.at())) {
@@ -179,7 +183,7 @@ public final class Inn implements Archetype {
 				boolean nearArch = arch && (s.axis() == Direction.Axis.X && o.at() + o.width() >= px0 - 1 && o.at() <= px1 + 1
 					|| s.out() == (archRight ? Dirs.RIGHT : Dirs.LEFT));
 				if (!nearArch) {
-					Openings.window(d, s, o.at(), base + 1, o.width(), Math.min(2, h0 - 2), Openings.WindowStyle.DRESSED);
+					Adobe.window(d, s, o.at(), base + 1, o.width(), Math.min(2, h0 - 2), Openings.WindowStyle.DRESSED);
 				}
 			}
 		}

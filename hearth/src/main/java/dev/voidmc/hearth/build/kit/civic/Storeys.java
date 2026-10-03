@@ -84,7 +84,10 @@ public final class Storeys {
 						continue;
 					}
 					int height = Math.min(h, sh - 2);
-					if (height >= 1) {
+					if (height >= 1 && Adobe.is(d)) {
+						// no window boxes on the dry south's public buildings: screens and sills (Adobe.screens)
+						Openings.window(d, s, o.at(), b.floorY(k) + 1, o.width(), height, style, new Openings.WindowOpts(false, false, true, true));
+					} else if (height >= 1) {
 						Openings.window(d, s, o.at(), b.floorY(k) + 1, o.width(), height, style);
 					}
 				}
@@ -113,7 +116,7 @@ public final class Storeys {
 		int[] tr = b.topRect();
 		int plate = b.plateY();
 		if (form == RoofForm.FLAT) {
-			int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, true);
+			int deck = Adobe.is(d) ? Adobe.roof(d, tr[0], tr[1], tr[2], tr[3], plate, true, false) : Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, true);
 			return new Top(null, deck, deck + 1);
 		}
 		Roofs.Opts o = Roofs.Opts.of(d);
@@ -124,7 +127,8 @@ public final class Storeys {
 		// no room under the plot's height for even a low roof: a flat one behind a parapet (or bare, at the very least)
 		if (plate + 1 + 0.5 * (span0 / 2.0 + o.eaves()) + 1 > d.maxHeight() - 1) {
 			boolean parapet = plate + 2 <= d.maxHeight() - 1;
-			int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, parapet);
+			int deck = Adobe.is(d) ? Adobe.roof(d, tr[0], tr[1], tr[2], tr[3], plate, parapet, false)
+				: Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, parapet);
 			return new Top(null, deck, deck + (parapet ? 1 : 0));
 		}
 		int span = axis == Direction.Axis.X ? tr[3] - tr[1] + 1 : tr[2] - tr[0] + 1;
@@ -141,12 +145,14 @@ public final class Storeys {
 		Roofs.Plan plan = Roofs.plan(d, tr[0], tr[1], tr[2], tr[3], plate, f, axis, o, b.partyLeft, b.partyRight);
 		boolean canDormer = dormers && axis == Direction.Axis.X && f != RoofForm.PAGODA && f != RoofForm.GAMBREL && f != RoofForm.MANSARD
 			&& d.habits().roof().dormers() > 0 && !d.habits().roof().thatch() || dormers && d.habits().roof().thatch() && axis == Direction.Axis.X;
-		if (canDormer) {
+		// a dormer only reads on a slope steep and long enough to take it; on a low roof it rides above the slope to the ridge
+		if (canDormer && p >= 1.0 && half >= 7) {
 			int top = b.storeys() - 1;
 			for (Direction sd : new Direction[]{Dirs.FRONT, Dirs.BACK}) {
 				Side side = b.side(top, sd);
 				int n = side.length();
-				int count = Math.max(1, (n - 3) / 4);
+				// spaced well apart, so a run of the main slope shows between them (crowded dormers read as a broken roof)
+				int count = Math.max(1, (n - 2) / 7);
 				for (int k = 0; k < count; k++) {
 					int i = 2 + (int) Math.round((k + 0.5) * (n - 4) / count) - 1;
 					if (i >= 2 && i <= n - 3) {

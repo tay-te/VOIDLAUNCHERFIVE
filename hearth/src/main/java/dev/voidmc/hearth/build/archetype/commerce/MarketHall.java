@@ -21,6 +21,7 @@ import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -160,6 +161,9 @@ public final class MarketHall implements Archetype {
 		Walls.storey(d, body, 1, fac);
 		d.carve(up[0] + 1, body.floorY(1), up[1] + 1, up[2] - 1, plate - 1, up[3] - 1);
 		Storeys.windows(d, body, fac, 1, 1, h1 >= 5 ? 3 : 2);
+		if (Adobe.is(d)) {
+			Adobe.screens(d, body, 1);
+		}
 		if (jetty && d.chance(h.walls().beamEnds())) {
 			Walls.beamEnds(d, body, 1, fac, Dirs.FRONT);
 		}
@@ -329,15 +333,12 @@ public final class MarketHall implements Archetype {
 			return top;
 		}
 		int cx = (r[0] + r[2]) / 2;
-		int n = r[3] - r[1] >= 12 ? 3 : 2;
+		// as many as stand clear of each other (a dome is five across)
+		int n = Math.max(1, Math.min(3, (r[3] - r[1] - 1) / 6));
 		for (int k = 0; k < n; k++) {
-			int cz = r[1] + 2 + (int) Math.round((k + 0.5) * (r[3] - r[1] - 4) / n);
+			int cz = r[1] + (int) Math.round((k + 0.5) * (r[3] - r[1]) / n);
 			// a drum of three lifting it over the parapet, lights in it, then the dome
-			Towers.shaft(d, cx - 1, cz - 1, 3, deck, deck + 1, Tradition.ADOBE, deck + 1);
-			for (Side s : Side.of(cx - 1, cz - 1, cx + 1, cz + 1)) {
-				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(1), deck, s.z(1), Blocks.GLASS.defaultBlockState()));
-			}
-			top = Math.max(top, Towers.lathe(d, cx, cz, deck + 2, new double[]{2.0, 1.6, 0.9, 0.4}, dome, maxH));
+			top = Math.max(top, Adobe.dome(d, cx, cz, deck, 1, maxH));
 		}
 		return top;
 	}

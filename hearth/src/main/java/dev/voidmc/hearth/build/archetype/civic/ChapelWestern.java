@@ -334,6 +334,10 @@ final class ChapelWestern {
 		if (yb + bh + 3 > maxH - 1) {
 			yb = Math.max(plate + 2, maxH - 1 - bh - 3);
 		}
+		if (yb + bh + 3 > maxH - 1) {
+			// a squat belfry rather than a cap cut off by the plot's height
+			bh = Math.max(2, maxH - 1 - 3 - yb);
+		}
 		Towers.belfry(d, x0, z0, 3, yb, bh, t, true);
 		Towers.Cap cap = t == Tradition.ALPINE || d.style().culture() == dev.voidmc.hearth.api.Culture.TUNDRA ? Towers.Cap.ONION
 			: t == Tradition.STILT ? Towers.Cap.PYRAMID : Towers.Cap.SPIRE;
