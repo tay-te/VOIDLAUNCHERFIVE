@@ -43,6 +43,7 @@ import org.jspecify.annotations.Nullable;
  *   /hearth atlas [radius]      a PNG map of regions, historic sites and live towns round you
  *   /hearth plot info           the plot you stand on
  *   /hearth sim stats           clock, applier and world generation timings
+ *   /hearth sim embody &lt;id&gt;     hold a settlement embodied with nobody near (or let it go), to test the embodied paths
  * </pre>
  */
 public final class SimCommands {
@@ -72,7 +73,8 @@ public final class SimCommands {
 			.then(Commands.literal("plot").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Commands.literal("info").executes(SimCommands::plotInfo)))
 			.then(Commands.literal("sim").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-				.then(Commands.literal("stats").executes(SimCommands::stats))));
+				.then(Commands.literal("stats").executes(SimCommands::stats))
+				.then(Commands.literal("embody").then(Commands.argument("id", LongArgumentType.longArg()).executes(SimCommands::embody)))));
 	}
 
 	private static SimWorld world(CommandSourceStack source) throws CommandSyntaxException {
@@ -263,6 +265,18 @@ public final class SimCommands {
 		}
 		c.getSource().sendFailure(Component.literal("No plot here"));
 		return 0;
+	}
+
+	private static int embody(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		SimWorld w = world(c.getSource());
+		SimSettlement s = pick(c, w, LongArgumentType.getLong(c, "id"));
+		SimServer server = SimServer.current();
+		if (server == null) {
+			throw NO_WORLD.create();
+		}
+		boolean pinned = server.togglePinned(s);
+		say(c.getSource(), s.name() + (pinned ? " is held embodied (within a second)" : " is let go: embodied only while players are near"));
+		return 1;
 	}
 
 	private static int stats(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

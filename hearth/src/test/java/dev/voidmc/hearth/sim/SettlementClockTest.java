@@ -71,6 +71,27 @@ class SettlementClockTest {
 	}
 
 	@Test
+	void embodiedSettlementsBuildStepByStepWhereNoBuilderIs() {
+		SimSettlement s = TestSupport.founded("flat", 12);
+		s.setEmbodied(true);
+		long before = 0;
+		for (SimPlot p : s.plots()) {
+			before += p.cursor();
+		}
+		// a second of real time at a time, as the clock steps an embodied settlement
+		long t = 0;
+		for (int i = 0; i < 100; i++) {
+			t += 20;
+			SettlementClock.advance(s, t);
+		}
+		long after = 0;
+		for (SimPlot p : s.plots()) {
+			after += p.cursor();
+		}
+		assertTrue(after > before, "abstract labour goes on, step by step, in an embodied settlement");
+	}
+
+	@Test
 	void advanceConstructionWalksStagesAndFinishes() {
 		SimSettlement s = TestSupport.founded("flat", 6);
 		SimPlot p = null;

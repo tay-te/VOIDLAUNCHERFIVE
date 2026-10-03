@@ -147,7 +147,7 @@ public final class SettlementClock {
 				if (!p.isActive()) {
 					continue;
 				}
-				if (s.embodied() && now - p.lastEmbodiedAdvance < EMBODIED_HOLD) {
+				if (s.embodied() && p.lastEmbodiedAdvance != Long.MIN_VALUE && now - p.lastEmbodiedAdvance < EMBODIED_HOLD) {
 					// an embodied builder is on it: abstract labour goes elsewhere
 					continue;
 				}

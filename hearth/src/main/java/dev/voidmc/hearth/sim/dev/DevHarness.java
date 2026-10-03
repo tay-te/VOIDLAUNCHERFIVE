@@ -47,6 +47,8 @@ import org.slf4j.LoggerFactory;
  *   -Dhearth.dev.atlas=RADIUS   write an atlas PNG round spawn
  *   -Dhearth.dev.scale=N        found N more live settlements on a grid, age them 30-300 days, then let the server run
  *                               a minute and log its tick time and the clock's share of it
+ *   -Dhearth.dev.embody=SECONDS hold each settlement embodied (chunks loaded) that long and log construction placed step by
+ *                               step as it accrues
  *   -Dhearth.dev.report=true    log per-subsystem timings and settlement figures, and sample the LOD footprints
  *   -Dhearth.dev.commands=a;b   run these commands as the server (at the first settlement found; + for spaces) and log the replies
  *   -Dhearth.dev.stop=true      then shut the server down
@@ -108,6 +110,21 @@ public final class DevHarness {
 			if (Boolean.getBoolean("hearth.dev.generate")) {
 				for (SimSettlement s : towns) {
 					generate(server, level, w, s);
+				}
+			}
+			String embody = System.getProperty("hearth.dev.embody");
+			if (embody != null) {
+				// and a camp founded just now, which has everything still to build
+				for (int i = 0; i < 20; i++) {
+					BlockPos at = new BlockPos(200 + i * 97, 0, 150 - i * 53);
+					SimSettlement fresh = server.submit(() -> w.whyNotFound(at, 300) == null ? w.found(at, null, null) : null).join();
+					if (fresh != null) {
+						towns.add(fresh);
+						break;
+					}
+				}
+				for (SimSettlement s : towns) {
+					embody(server, level, w, s, Integer.parseInt(embody));
 				}
 			}
 			String atlas = System.getProperty("hearth.dev.atlas");
@@ -469,6 +486,52 @@ public final class DevHarness {
 			ticks, String.format(Locale.ROOT, "%.2f", msptSum / samples), String.format(Locale.ROOT, "%.2f", worst / 1000.0),
 			String.format(Locale.ROOT, "%.4f", (s.stats().tickNanos.sum() - tickNanos0) / 1e6 / Math.max(1, ticks)), steps,
 			String.format(Locale.ROOT, "%.4f", steps == 0 ? 0 : (s.stats().stepNanos.sum() - stepNanos0) / 1e6 / steps));
+	}
+
+	/** Holds a settlement embodied with its chunks loaded, and watches its construction appear step by step. */
+	private static void embody(MinecraftServer server, ServerLevel level, SimWorld w, SimSettlement s, int seconds) {
+		BoundingBox b = server.submit(s::bounds).join();
+		List<long[]> chunks = new ArrayList<>();
+		server.submit(() -> {
+			for (int cx = b.minX() >> 4; cx <= b.maxX() >> 4; cx++) {
+				for (int cz = b.minZ() >> 4; cz <= b.maxZ() >> 4; cz++) {
+					level.setChunkForced(cx, cz, true);
+					chunks.add(new long[]{cx, cz});
+				}
+			}
+			SimServer.current().togglePinned(s);
+		}).join();
+		long blocks0 = w.applier().blocksPlaced.sum();
+		long chunks0 = w.applier().chunksApplied.sum();
+		String before = server.submit(() -> progress(s)).join();
+		List<String> samples = new ArrayList<>();
+		for (int i = 0; i < seconds; i++) {
+			sleep(1000);
+			if (i % Math.max(1, seconds / 6) == 0) {
+				long placed = w.applier().blocksPlaced.sum() - blocks0;
+				samples.add(server.submit(() -> (s.embodied() ? "embodied" : "abstract") + " " + progress(s)).join() + " +" + placed);
+			}
+		}
+		String check = server.submit(() -> verify(level, w, s)).join();
+		server.submit(() -> {
+			SimServer.current().togglePinned(s);
+			for (long[] c : chunks) {
+				level.setChunkForced((int) c[0], (int) c[1], false);
+			}
+		}).join();
+		LOG.info("[hearth-dev] embodied {} for {} s: {} -> {}; applier wrote {} blocks in {} chunk passes; {}", s.name(), seconds, before,
+			String.join(" | ", samples), w.applier().blocksPlaced.sum() - blocks0, w.applier().chunksApplied.sum() - chunks0, check);
+	}
+
+	/** The active plots' progress counters, e.g. "#7 3:120 #9 1:4". */
+	private static String progress(SimSettlement s) {
+		StringBuilder b = new StringBuilder();
+		for (SimPlot p : s.plots()) {
+			if (p.isActive()) {
+				b.append('#').append(p.id()).append(' ').append(Cursor.toString(p.cursor())).append(' ');
+			}
+		}
+		return b.isEmpty() ? "(nothing under construction)" : b.toString().trim();
 	}
 
 	/** Runs a command as the server, standing at {@code at}, and logs its feedback. */

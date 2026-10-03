@@ -47,6 +47,8 @@ public final class SimServer {
 	/** What a sim day of each settlement costs to step, smoothed: how much catch-up fits in a tick. */
 	private final Map<SimSettlement, Double> nanosPerDay = new IdentityHashMap<>();
 	private final Map<SimWorld, Set<SimSettlement>> embodied = new IdentityHashMap<>();
+	/** Settlements held embodied with nobody near ({@code /hearth sim embody}): to test the embodied paths. */
+	private final Set<SimSettlement> pinned = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 	private final Stats stats = new Stats();
 	private final Set<ResourceKey<Level>> dimensions = new HashSet<>();
 	/** Time per tick for writing queued settlements after an autosave. */
@@ -279,6 +281,11 @@ public final class SimServer {
 			}
 		}
 		w.playerPresence().keySet().removeIf(id -> w.level().getServer().getPlayerList().getPlayer(id) == null);
+		for (SimSettlement s : this.pinned) {
+			if (w.settlement(s.id()) == s) {
+				now.add(s);
+			}
+		}
 		for (SimSettlement s : was) {
 			if (!now.contains(s)) {
 				s.setEmbodied(false);
@@ -307,6 +314,15 @@ public final class SimServer {
 		int dx = Math.max(0, Math.max(b.minX() - x, x - b.maxX()));
 		int dz = Math.max(0, Math.max(b.minZ() - z, z - b.maxZ()));
 		return (int) Math.sqrt((double) dx * dx + (double) dz * dz);
+	}
+
+	/** Holds a settlement embodied whether or not anyone is near (or lets it go); returns whether it is now pinned. */
+	public boolean togglePinned(SimSettlement s) {
+		if (this.pinned.remove(s)) {
+			return false;
+		}
+		this.pinned.add(s);
+		return true;
 	}
 
 	/** Settlements currently embodied in a world (for commands). */
