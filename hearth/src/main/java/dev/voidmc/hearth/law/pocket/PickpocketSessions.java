@@ -184,12 +184,18 @@ public final class PickpocketSessions {
 			if (done >= 0) {
 				give(player, s, settlement, done);
 			}
-			if (!s.model.caught() && s.age % 20 == 0 && !Witnesses.find(player.level(), player, 0.0).stream()
-				.allMatch(w -> w.folk().resident().id.equals(s.resident))) {
-				// someone else saw the hand go in
-				caught(player, s, settlement, folk, true);
-				it.remove();
-				continue;
+			if (!s.model.caught() && s.age % 20 == 0) {
+				List<Witnesses.Witness> seen = Witnesses.find(player.level(), player, 0.0);
+				if (seen.stream().anyMatch(w -> !w.folk().resident().id.equals(s.resident))) {
+					// someone else saw the hand go in
+					caught(player, s, settlement, folk, true);
+					it.remove();
+					continue;
+				}
+				if (!seen.isEmpty()) {
+					// the mark half-turned and glimpsed something
+					s.model.alarm(0.35);
+				}
 			}
 			if (s.model.caught()) {
 				it.remove();

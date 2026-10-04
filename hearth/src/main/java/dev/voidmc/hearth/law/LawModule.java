@@ -72,6 +72,7 @@ public final class LawModule {
 		registerBehaviours();
 		registerEvents();
 		HearthServices.setLaw(new LawServiceImpl());
+		dev.voidmc.hearth.law.dev.LawDevHarness.init();
 	}
 
 	/** Reads {@code config/hearth/law.json} again. */

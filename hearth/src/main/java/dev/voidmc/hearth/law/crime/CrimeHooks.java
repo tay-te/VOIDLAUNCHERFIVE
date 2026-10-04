@@ -237,6 +237,11 @@ public final class CrimeHooks {
 							.withStyle(ChatFormatting.GOLD));
 					}
 				}
+				// the client already swung the door: put both halves back as the server has them
+				player.connection.send(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(level, lock.pos()));
+				if (lock.door()) {
+					player.connection.send(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(level, lock.pos().above()));
+				}
 				return InteractionResult.FAIL;
 			}
 		}

@@ -36,6 +36,18 @@ public final class PickpocketModel {
 		this.liftSeconds = liftSeconds(weight);
 	}
 
+	/** Something startled the mark (they turned and glimpsed the thief): awareness jumps. */
+	public void alarm(double amount) {
+		if (this.caught) {
+			return;
+		}
+		this.awareness = Math.min(1.0, this.awareness + Math.max(0, amount));
+		if (this.awareness >= 1.0) {
+			this.caught = true;
+			this.lifting = -1;
+		}
+	}
+
 	public void cancelLift() {
 		this.lifting = -1;
 		this.liftProgress = 0;

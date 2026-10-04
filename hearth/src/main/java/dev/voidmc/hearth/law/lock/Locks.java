@@ -105,7 +105,7 @@ public final class Locks {
 			case NOBLE -> 3 + bonus;
 			case LAW -> 4;
 			case COMMERCE -> path.endsWith("bank") || path.contains("counting_house") ? 4 : 2 + bonus;
-			case CIVIC -> path.contains("town_hall") || path.contains("courthouse") ? 3 : 2;
+			case CIVIC -> path.contains("town_hall") || path.contains("courthouse") || isGuardhouse(path) ? 3 : 2;
 			case WORKPLACE, STORAGE, DEFENSE, LANDMARK, FARM -> 2;
 			case EXTRACTION, UNDERGROUND -> 1;
 			case INFRASTRUCTURE, LANDSCAPE -> 0;
@@ -140,6 +140,11 @@ public final class Locks {
 		};
 	}
 
+	/** The guardhouse and watch house, which hold cells. */
+	static boolean isGuardhouse(String path) {
+		return path.endsWith("guardhouse") || path.endsWith("watch_house");
+	}
+
 	/** Buildings anyone may walk into at any hour: inns, taverns, hostels, chapels and temples. */
 	static boolean isOpenHouse(String path) {
 		return path.endsWith("inn") || path.endsWith("tavern") || path.endsWith("hostel") || path.endsWith("caravanserai") || path.endsWith("chapel")
@@ -159,6 +164,9 @@ public final class Locks {
 			return false;
 		}
 		int minute = Law.minuteOfDay(level);
+		if (isGuardhouse(path)) {
+			return true; // where the cells are: always locked (the guards have keys and folk pass doors anyway)
+		}
 		return switch (category) {
 			case LAW -> true;
 			case HOUSING, NOBLE -> Law.within(minute, cfg.nightStart(), cfg.nightEnd());
