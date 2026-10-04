@@ -562,6 +562,8 @@ public final class DevHarness {
 			int reps = 200;
 			long total = 0;
 			long max = 0;
+			long plannerNanos = SettlementClock.PlannerTimings.LIVE_NANOS.sum();
+			long plannerCalls = SettlementClock.PlannerTimings.LIVE_CALLS.sum();
 			for (int i = 0; i < reps; i++) {
 				s.addTimeOffset(1200);
 				long t0 = System.nanoTime();
@@ -570,8 +572,12 @@ public final class DevHarness {
 				total += dt;
 				max = Math.max(max, dt);
 			}
-			return String.format(Locale.ROOT, "%s (%d souls, %d plots): %.4f ms per hour-step avg, %.3f ms max over %d steps (%.1f sim days)", s.name(),
-				s.population(), s.plots().size(), total / 1e6 / reps, max / 1e6, reps, reps * 1200 / (double) SimRules.DAY);
+			long planner = SettlementClock.PlannerTimings.LIVE_NANOS.sum() - plannerNanos;
+			long calls = SettlementClock.PlannerTimings.LIVE_CALLS.sum() - plannerCalls;
+			return String.format(Locale.ROOT,
+				"%s (%d souls, %d plots, %d sites): %.4f ms per hour-step avg, %.3f ms max over %d steps (%.1f sim days); without the planner's %d calls (%.1f ms) %.4f ms",
+				s.name(), s.population(), s.plots().size(), s.land().sites().size(), total / 1e6 / reps, max / 1e6, reps, reps * 1200 / (double) SimRules.DAY,
+				calls, planner / 1e6, (total - planner) / 1e6 / reps);
 		}).join();
 		LOG.info("[hearth-dev] bench {}", result);
 	}
