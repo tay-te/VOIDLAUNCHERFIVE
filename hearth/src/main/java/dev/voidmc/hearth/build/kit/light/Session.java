@@ -86,6 +86,17 @@ final class Session {
 	final int[] placed = new int[Fixture.Kind.values().length];
 	/** Every fixture placed, in order. */
 	final List<Fixture> log = new ArrayList<>();
+	/** Where the walk starts (entrances, the street row), and the entrances: kept for the next round. */
+	private final List<BlockPos> starts;
+	private final List<BlockPos> entrances;
+	/** The drawing's height range when the grid was read (the grid's box follows it). */
+	private final int drawnY0;
+	private final int drawnY1;
+	/** The height range of the parts this pass placed. */
+	private int placedY0 = Integer.MAX_VALUE;
+	private int placedY1 = Integer.MIN_VALUE;
+	/** Whether a part placed changed how light spreads (the field is then flooded afresh for another round). */
+	private boolean spreadChanged;
 
 	Session(Draft d, LightRules.Family family, int x0, int z0, int x1, int z1, @Nullable List<int[]> onlyCells) {
 		this(d, family, x0, z0, x1, z1, onlyCells, List.of());
@@ -114,25 +125,58 @@ final class Session {
 		this.m = new Manner(d);
 		this.family = family;
 		this.yards = family == LightRules.Family.BUILDING || family == LightRules.Family.FARM;
+		// one pass over the drawing: its height range, the doorways and gates to keep clear, the columns a work builds in
 		int[] yr = {Integer.MAX_VALUE, Integer.MIN_VALUE};
+		int w = d.frontage();
+		int dp = d.depth();
+		boolean works = family == LightRules.Family.WORKS;
+		BitSet built = works ? new BitSet(w * dp) : null;
 		d.forEach((x, y, z, c) -> {
 			yr[0] = Math.min(yr[0], y);
 			yr[1] = Math.max(yr[1], y);
+			BlockState st = c.state();
+			Block b = st.getBlock();
+			if (b instanceof DoorBlock && st.getValue(DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
+				|| b instanceof FenceGateBlock) {
+				for (int dx = -1; dx <= 1; dx++) {
+					for (int dz = -1; dz <= 1; dz++) {
+						if (dx == 0 || dz == 0) {
+							this.keep.add(BlockPos.asLong(x + dx, y, z + dz));
+							this.keep.add(BlockPos.asLong(x + dx, y + 1, z + dz));
+						}
+					}
+				}
+			}
+			if (built != null && x >= 0 && z >= 0 && x < w && z < dp && !st.isAir()) {
+				built.set(z * w + x);
+			}
 		});
 		if (yr[0] == Integer.MAX_VALUE) {
 			yr[0] = 0;
 			yr[1] = 0;
 		}
 		Site site = d.site();
-		int w = d.frontage();
-		int dp = d.depth();
 		this.g = new Grid(new Grid.Source() {
 			@Override
 			public BlockState at(int x, int y, int z) {
 				Draft.Cell c = d.cell(x, y, z);
-				if (c != null) {
-					return c.state();
-				}
+				return c != null ? c.state() : natural(x, y, z);
+			}
+
+			@Override
+			public BlockState drawn(int x, int y, int z) {
+				Draft.Cell c = d.cell(x, y, z);
+				return c != null ? c.state() : null;
+			}
+
+			@Override
+			public boolean paint(Grid.Painter sink) {
+				d.forEach((x, y, z, c) -> sink.put(x, y, z, c.state()));
+				return true;
+			}
+
+			@Override
+			public BlockState natural(int x, int y, int z) {
 				if (y < site.ground(x, z)) {
 					return Blocks.STONE.defaultBlockState();
 				}
@@ -171,47 +215,17 @@ final class Session {
 		for (int[] c : extraStarts) {
 			starts.add(new BlockPos(c[0], c[1], c[2]));
 		}
+		this.starts = starts;
+		this.entrances = entrances;
+		this.drawnY0 = yr[0];
+		this.drawnY1 = yr[1];
 		this.sp = new Spaces(this.g, starts);
 		this.lf = new LightField(this.g);
-		List<LightRules.Need> all = LightRules.needs(this.sp, entrances, LightRules.Context.of(family, d.tier(), d.maxHeight() - 1));
-		if (onlyCells != null) {
-			LongOpenHashSet only = new LongOpenHashSet();
-			for (int[] c : onlyCells) {
-				only.add(BlockPos.asLong(c[0], c[1], c[2]));
-			}
-			List<LightRules.Need> sub = new ArrayList<>();
-			for (LightRules.Need n : all) {
-				if (only.contains(BlockPos.asLong(n.x(), n.y(), n.z()))) {
-					sub.add(n);
-				}
-			}
-			all = sub;
-		}
-		this.needs = all;
+		this.needs = needs(onlyCells);
 		this.needMin = new byte[this.g.volume()];
 		this.needKind = new byte[this.g.volume()];
-		for (LightRules.Need n : this.needs) {
-			int i = this.g.index(n.x(), n.y(), n.z());
-			if (n.min() > this.needMin[i]) {
-				this.needMin[i] = (byte) n.min();
-				this.needKind[i] = (byte) n.kind().ordinal();
-			}
-		}
-		// keep doorways, the cells either side of them and where folk work clear
-		d.forEach((x, y, z, c) -> {
-			Block b = c.state().getBlock();
-			boolean lower = !(b instanceof DoorBlock) || c.state().getValue(DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER;
-			if ((b instanceof DoorBlock || b instanceof FenceGateBlock) && lower) {
-				for (int dx = -1; dx <= 1; dx++) {
-					for (int dz = -1; dz <= 1; dz++) {
-						if (dx == 0 || dz == 0) {
-							this.keep.add(BlockPos.asLong(x + dx, y, z + dz));
-							this.keep.add(BlockPos.asLong(x + dx, y + 1, z + dz));
-						}
-					}
-				}
-			}
-		});
+		indexNeeds();
+		// keep doorways (above), the cells either side of them and where folk work clear
 		for (int[] e : d.entrances()) {
 			for (int dy = -2; dy <= 1; dy++) {
 				this.keep.add(BlockPos.asLong(e[0], e[1] + dy, e[2]));
@@ -247,18 +261,84 @@ final class Session {
 				}
 			}
 		}
-		if (family == LightRules.Family.WORKS) {
+		if (works) {
 			this.colW = w;
-			this.columns = new BitSet(w * dp);
-			d.forEach((x, y, z, c) -> {
-				if (x >= 0 && z >= 0 && x < w && z < dp && !c.state().isAir()) {
-					this.columns.set(z * w + x);
-				}
-			});
+			this.columns = built;
 		} else {
 			this.columns = null;
 			this.colW = 0;
 		}
+	}
+
+	/**
+	 * The next round over the same draft: the grid and the light already hold what the last pass placed (it set both as
+	 * it went), so only where folk stand and what each cell needs are read again (a bracket or a post can roof a cell or
+	 * give a step). The doorways, points of interest, keep rectangles and built columns are the same: fixtures add none.
+	 */
+	private Session(Session prev) {
+		this.d = prev.d;
+		this.m = prev.m;
+		this.family = prev.family;
+		this.yards = prev.yards;
+		this.g = prev.g;
+		this.keep.addAll(prev.keep);
+		this.nearPoi.addAll(prev.nearPoi);
+		this.keepRects.addAll(prev.keepRects);
+		this.columns = prev.columns;
+		this.colW = prev.colW;
+		this.starts = prev.starts;
+		this.entrances = prev.entrances;
+		this.drawnY0 = prev.drawnY0;
+		this.drawnY1 = prev.drawnY1;
+		this.sp = new Spaces(this.g, this.starts);
+		this.lf = prev.lf;
+		this.needs = needs(null);
+		this.needMin = new byte[this.g.volume()];
+		this.needKind = new byte[this.g.volume()];
+		indexNeeds();
+	}
+
+	/**
+	 * The session for the next round: this one's grid and light carried on when reading the draft afresh would give the
+	 * same (every part placed inside the drawing's height range, none changing how light spreads), else a fresh read.
+	 */
+	Session next(int x0, int z0, int x1, int z1) {
+		if (this.spreadChanged || this.placedY0 < this.drawnY0 || this.placedY1 > this.drawnY1) {
+			return new Session(this.d, this.family, x0, z0, x1, z1, null);
+		}
+		return new Session(this);
+	}
+
+	private List<LightRules.Need> needs(@Nullable List<int[]> onlyCells) {
+		List<LightRules.Need> all = LightRules.needs(this.sp, this.entrances, LightRules.Context.of(this.family, this.d.tier(), this.d.maxHeight() - 1));
+		if (onlyCells != null) {
+			LongOpenHashSet only = new LongOpenHashSet();
+			for (int[] c : onlyCells) {
+				only.add(BlockPos.asLong(c[0], c[1], c[2]));
+			}
+			List<LightRules.Need> sub = new ArrayList<>();
+			for (LightRules.Need n : all) {
+				if (only.contains(BlockPos.asLong(n.x(), n.y(), n.z()))) {
+					sub.add(n);
+				}
+			}
+			all = sub;
+		}
+		return all;
+	}
+
+	private void indexNeeds() {
+		BitSet asked = new BitSet(this.g.volume());
+		for (LightRules.Need n : this.needs) {
+			int i = this.g.index(n.x(), n.y(), n.z());
+			asked.set(i);
+			if (n.min() > this.needMin[i]) {
+				this.needMin[i] = (byte) n.min();
+				this.needKind[i] = (byte) n.kind().ordinal();
+			}
+		}
+		// every question the pass asks of a fixture is about cells that need light: probes report only those
+		this.lf.interest(asked);
 	}
 
 	// ============================================================================================ queries
@@ -479,7 +559,19 @@ final class Session {
 			try (var s = this.d.stage(stage)) {
 				this.d.set(p.x(), p.y(), p.z(), p.state());
 			}
+			if (!LightField.sameForLight(this.g.at(p.x(), p.y(), p.z()), p.state())) {
+				// a part that changes how light spreads (a slab cap, a stand): what single emitters give must be read again
+				this.lf.forget();
+				this.spreadChanged = true;
+			}
+			this.placedY0 = Math.min(this.placedY0, p.y());
+			this.placedY1 = Math.max(this.placedY1, p.y());
+			if (!this.d.allowed(p.x(), p.y(), p.z())) {
+				// the draft drops what falls outside the plot, the grid does not: read the draft afresh next round
+				this.spreadChanged = true;
+			}
 			this.g.set(p.x(), p.y(), p.z(), p.state());
+			this.lf.changed(p.x(), p.y(), p.z());
 		}
 		for (int[] e : f.emitters) {
 			this.lf.add(e[0], e[1], e[2], e[3]);
@@ -809,19 +901,36 @@ final class Session {
 
 	/** How many of the room's unmet cells a set of fixtures would light. */
 	private int litBy(List<Fixture> set, Room r, int kinds) {
-		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap best = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
+		// the brightest any of the set gives per cell, down to the least light a room cell needs (every cell of a room
+		// needs the room's light, so nothing dimmer can light one)
+		if (this.multi == null) {
+			this.multi = new byte[this.g.volume()];
+		}
+		byte[] best = this.multi;
+		IntArrayList touched = this.multiTouched;
 		for (Fixture f : set) {
 			for (int[] e : f.emitters) {
-				this.lf.probe(e[0], e[1], e[2], e[3], (i, l) -> best.merge(i, l, Math::max));
+				this.lf.probe(e[0], e[1], e[2], e[3], LightRules.ROOM, (i, l) -> {
+					if (best[i] == 0) {
+						touched.add(i);
+					}
+					if (l > best[i]) {
+						best[i] = (byte) l;
+					}
+				});
 			}
 		}
 		int lit = 0;
 		for (int k = 0; k < r.cells.size(); k++) {
 			int i = r.cells.getInt(k);
-			if (unmet(i) && best.get(i) >= this.needMin[i]) {
+			if (unmet(i) && best[i] >= this.needMin[i]) {
 				lit++;
 			}
 		}
+		for (int t = 0; t < touched.size(); t++) {
+			best[touched.getInt(t)] = 0;
+		}
+		touched.clear();
 		return lit;
 	}
 

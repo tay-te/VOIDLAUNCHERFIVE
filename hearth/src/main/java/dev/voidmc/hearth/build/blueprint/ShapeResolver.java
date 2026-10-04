@@ -84,12 +84,11 @@ public final class ShapeResolver {
 	}
 
 	private void each(Visit v) {
-		List<long[]> list = new ArrayList<>();
-		this.draft.forEach((x, y, z, c) -> list.add(new long[]{Draft.key(x, y, z)}));
-		for (long[] k : list) {
-			int x = Draft.keyX(k[0]);
-			int y = Draft.keyY(k[0]);
-			int z = Draft.keyZ(k[0]);
+		// a snapshot of the keys (the visit may add and remove cells), in the draft's order
+		for (long k : this.draft.keys()) {
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
 			BlockState s = at(x, y, z);
 			if (s != null) {
 				v.visit(x, y, z, s);

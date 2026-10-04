@@ -272,9 +272,11 @@ public final class BlueprintPreview {
 				out.resolve(slug(info.id())).resolve(culture.getSerializedName() + "_s" + index + "_" + terrain + "_night.png"),
 				info.id() + "  " + label + "  " + terrain + "  by night");
 		}
-		BufferedImage front = renderer.render(world, new View(yaw, 30), 16, 2, 0);
+		// -Dhearth.preview.px=24 renders the corner views larger (pixels per block; default 16)
+		int px = Integer.getInteger("hearth.preview.px", 16);
+		BufferedImage front = renderer.render(world, new View(yaw, 30), px, 2, 0);
 		if (panels) {
-			BufferedImage back = renderer.render(world, new View(yaw + 180, 30), 16, 2, 0);
+			BufferedImage back = renderer.render(world, new View(yaw + 180, 30), px, 2, 0);
 			List<BufferedImage> cuts = new ArrayList<>();
 			List<String> cutLabels = new ArrayList<>();
 			int sh = style.habits().walls().storeyHeight();
