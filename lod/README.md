@@ -93,10 +93,24 @@ in about two microseconds. The whole horizon is there the moment the world loads
 ## How it looks like Minecraft from far away
 
 The LOD's job is to draw what the chunks would look like if the render distance reached the horizon, at
-a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuilder`):
+a fraction of the cost.
 
-* **Blocky tiles, next to the chunks** (`core/Blocky`, levels 0 and 1, where a block is still a few
-  pixels). A flat top per cell and walls between cells, built the way the chunks are:
+* **Real blocks at every distance** (`core/Blocky`). Every tile is made of block columns: a flat top per
+  cell and walls between cells, one block a cell next to the chunks, then 2, 4, 8 ... blocks a cell further
+  out, so a cell stays a few pixels across wherever it is. Far land has the silhouette, the steps and the
+  face shading of Minecraft terrain, not of a smooth surface with blocks painted on: the earlier smooth far
+  field (still there, `void.lod.smoothFrom`) read as a 3D model from a few kilometres out, its table
+  mountains as streaked curtains and its forests as carpet. The same telephoto view, smooth far field
+  above, block columns below:
+
+  ![the far field, smooth and in blocks](docs/far_blocks.jpg)
+
+  What keeps that affordable: from level 2 on, a vertex is 8 bytes instead of 16 (position, face, colour in
+  5 bits a channel, occlusion and light, `TileBuilder.COMPACT_BYTES`), since out there a texture and the
+  lowest block of a wall are under a pixel; heights are rounded to a quarter of a cell, a step under a
+  pixel, so level neighbours merge; and wall bands thinner than a quarter of a cell (a grass rim, a few
+  blocks of soil, thin strata) are left out. At 16 km on Ultra that is about 400 to 600 MB of GPU memory and
+  1 to 2 ms of GPU time on an RTX 4060; High is half that. Built the way the chunks are:
   * Walls are made of what the ground is made of: the surface block's side for the top block (grass
     side, snowy grass, sand), then soil, then rock, or the world's own badlands strata, read from its
     `MaterialSystem`, so canyon walls are striped exactly as the chunks stripe them.
@@ -124,31 +138,16 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
     begin at the bottom edge):
 
     ![blocky tiles before and after block textures](docs/seam_textures.jpg)
-* **Smooth tiles, everywhere else** (`core/Smooth`, level 2 and up, where a block is under a pixel or
-  two). A blocky mesh with 64-block cells is giant stair-steps; these tiles are a continuous heightfield
-  instead, and each vertex says what a stair of blocks *averages* to there:
-  * the colour of the tops, the colour of the risers (the surface block's side on gentle ground, soil
-    and then rock as the slope steepens and each step gets taller), and the slope;
-  * the shader weights tops and risers by how much of each faces the camera, with Minecraft's face
-    shading. From above, a hillside is its grass; from across the valley it is mostly risers; above
-    the eye there are no tops at all. That is what makes far terrain read as Minecraft and not as a
-    smooth CG landscape.
-  * The fragment shader lays this out as **columns of blocks**, about three pixels across at every
-    distance: one block close in, then 2, 4, 8... blocks further out, blended between sizes and anchored
-    to the world's block grid. Each column shows its top, and a strip of riser on each downhill edge only
-    where the land crosses a whole block between it and its neighbour, sized so the risers average out
-    to what the camera sees. On gentle ground the steps follow the contours every few columns, on steep
-    ground every column has its own; each column is a shade of its own. Far land gets the crunch of
-    blocks that Distant Horizons gets from real block columns, with none of the geometry, box-filtered
-    so it never shimmers.
-  * Past the first kilometre or so, the sun models the relief: slopes toward it a little brighter,
-    slopes away a little darker, so a far range has shape instead of flat light.
-  * Forests are a canopy raised as far as they are dense: conifer forests darker, their tops showing
-    their spires' shaded flanks and a stronger mottle, broadleaf forests rounder and lighter; a cold
-    forest's tops partly white with snow, its flanks not. Valleys are slightly darker and ridges slightly
-    lighter; colours are softened across biome borders and mottled cell by cell; rivers narrower than a
-    cell are a thread of their water's colour.
-  * Every smooth tile has the same topology, so they all share one index buffer: 70 KB a tile.
+* **Light from the land itself** (`core/Horizons`, `core/Heights`). Every vertex carries the land's horizon
+  along the four axes, from its tile's own samples nearby and the height grids of the coarser tiles further
+  out, to 8 km: a sweep per row with an upper convex hull, a few milliseconds a tile. Minecraft's sun crosses
+  the sky from east to west straight over the zenith, so the east and west horizons are exactly where the
+  sun goes behind the land: the shader casts every mountain's shadow, at any time of day, with nothing
+  rebuilt as the sun moves. All four together say how much of the sky a column sees, so valleys and the
+  floors of canyons darken and ridges stay open. The chunks have neither, so both come in past them. Late
+  in the day, looking toward the sun:
+
+  ![evening light on the far land](docs/evening_light.jpg)
 * **Colours from the textures actually loaded** (`source/TextureColors`, `source/BiomeLooks`): each block
   face is the average of the sprites its model draws, in linear light like a mipmap, layered (grass side
   = dirt with its tinted fringe), with the block's own tint for the biome through vanilla's
@@ -167,8 +166,14 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   seam disappears; misty biomes (Expanse's cloud forest, fjords) thicken it; the land melts into the sky at
   the LOD's edge. Rain hangs a curtain over it that does not thin with height, as dense as vanilla's
   rain fog (two thirds by 660 blocks), so in a downpour the far land goes as it does in vanilla, from a
-  valley or a peak. Dusk and night darken the LOD through vanilla's own lightmap and haze it toward
-  vanilla's fog colour, as the chunks are; under water, in lava or blind, the LOD is not drawn at all.
+  valley or a peak. Dusk and night darken the LOD through vanilla's own lightmap; under water, in lava or
+  blind, the LOD is not drawn at all.
+* **Haze in the colour of the sky in each direction** (`lod.vsh`, `mixin/FogRendererMixin`). Vanilla gives
+  the whole frame one fog colour, pulled toward the sunset's colour as far as the camera faces the sun. The
+  LOD works that colour out for each vertex's direction from vanilla's own inputs, scaled so the direction
+  the camera faces is exactly vanilla's colour (night, weather and dimension included), and adds the glow
+  vanilla paints over the horizon toward the sun. At dusk the land toward the sun sinks into the glow and
+  the land away from it into the blue, where the sky behind it is those colours.
 * **The End and other floating land**: where the generator fills with air instead of water, a column
   is read whole for its top and the underside of its island, and a column with no ground is empty.
   Close in, islands are slabs: walls hang from the rim to the underside, and the underside is drawn
@@ -186,13 +191,12 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
  TerrainSource ──▶ TileBuilder ──▶ LodEngine ──▶ LodRenderer ──▶ vanilla main pass
  (Expanse model,   (sample the     (quadtree      (TLSF arena, fades,  (after opaque chunks,
   or any noise      grid, mesh      selection,     per-tile instance    same depth buffer)
-  generator)        blocky or       workers,       buffer, indirect
-                    smooth)         uploads)       draws)
+  generator)        in blocks,      workers,       buffer, indirect
+                    light it)       uploads)       draws)
 ```
 
 * **Screen-space-error quadtree** (`core/LodSelector`). A tile is 64×64 cells. It splits while its
-  cells would cover more than `void.lod.detail` pixels on screen (`void.lod.farDetail` for the smooth
-  far field, which is cheap enough to keep finer). Detail follows what the eye can resolve, not fixed
+  cells would cover more than `void.lod.detail` pixels on screen. Detail follows what the eye can resolve, not fixed
   rings, so the work per frame stays about the same however far the view reaches. Zoomed in (a
   spyglass, a narrow field of view), only the land in view refines; the rest keeps the detail a normal
   field of view gives it.
@@ -205,8 +209,9 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   is timed in seconds, not frames, so it behaves the same at 30 fps and at 2000.
 * **Few draws** (`render/LodRenderer`):
   * Meshes live in Mojang's TLSF `UberGpuBuffer` heaps, the same allocator the chunk renderer uses.
-    Vertices are 16 bytes: tile-relative 16-bit position, flags, two RGBA8 colours (on a blocky face,
-    its colour and its material id).
+    Next to the chunks a vertex is 16 bytes: tile-relative 16-bit position and flags, with the light in
+    their spare high bytes, then two RGBA8 colours (its colour and its material id). Further out it is 8
+    bytes, in heaps of its own.
   * Each frame, the visible tiles (frustum-culled per tile against their real height range) become one
     instance buffer and one `drawIndexedIndirect` per heap and kind of tile.
   * Only tiles in the seam with the chunks, or fading, use the shader variant with `discard`; the rest
@@ -328,7 +333,7 @@ override the file for the session without being written back (dev runs and the g
 | `enabled` | `void.lod.enabled` | `true` | |
 | `autoTune` | `void.lod.autoTune` | `true` (`false` in the game tests) | see below |
 | `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
-| `smoothFrom` | `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky (read at start) |
+| `smoothFrom` | `void.lod.smoothFrom` | `10` (none) | the first level drawn as the smooth far field instead of blocks (read at start) |
 | | `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
 | | `void.lod.overPack` | `true` | with an Iris shader pack, draw over the pack's picture (`false`: inside its buffers, to compare) |
 
@@ -447,12 +452,3 @@ model, but only loads it when Expanse is installed.
   for every column it reads, so an End tile takes several times as long to build as an Earth tile (150
   to 260 ms against 40 to 70 in the showcase runs; the horizon fills in about 40 s). Reading a tile's
   columns through one noise chunk would fix it.
-* **Stepped skylines.** Far ridges meet the sky in smooth curves, where Distant Horizons' real block
-  columns step. Tried in the shader: just in front of where a convex ridge turns away from the eye, cut
-  the uphill half of each block column above its top, so the skyline steps column by column (cutting
-  anywhere else would show the inside of the hill). It cost nothing measurable, even with `discard` in
-  every smooth tile, but changed only 70 to 200 scattered pixels of a 1600×900 frame: the shader's
-  columns are about three pixels across, so their steps are one or two pixels tall and read as aliasing,
-  not as steps. Steps that show need geometry at the cell scale (pairs of grid vertices collapsed into
-  flat-topped columns with walls between, which the shared index buffer allows), at the price of the
-  smooth far field's detail, so it was set aside.
