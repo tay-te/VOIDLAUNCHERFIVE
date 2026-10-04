@@ -368,8 +368,34 @@ public final class CrimeHooks {
 				if (s != null) {
 					CrimeDesk.commit(level, killer, s, Offence.THEFT, animal.blockPosition(), owner.resident(), animalValue(), 0.5, null);
 				}
+			} else if (owner == null) {
+				Settlement lord = huntingGround(level, animal.blockPosition());
+				if (lord != null) {
+					CrimeDesk.commit(level, killer, lord, Offence.POACHING, animal.blockPosition(), null, animalValue(), 0.4, null);
+				}
 			}
 		}
+	}
+
+	/**
+	 * The settlement whose lord's game this is, or null: wild animals within the territory of a town with a keep, castle,
+	 * palace or hunting lodge belong to its lord, and killing them is poaching.
+	 */
+	static @Nullable Settlement huntingGround(ServerLevel level, BlockPos pos) {
+		HearthWorld world = HearthWorld.of(level);
+		if (world == null) {
+			return null;
+		}
+		Settlement s = world.nearest(pos, 2000);
+		if (s == null || s.territoryRadius() <= 0 || s.center().distSqr(pos) > (double) s.territoryRadius() * s.territoryRadius()) {
+			return null;
+		}
+		for (PlotView p : s.plots()) {
+			if (p.state() == PlotState.BUILT && OwnerRules.category(p.spec().archetype()) == ArchetypeCategory.NOBLE) {
+				return s;
+			}
+		}
+		return null;
 	}
 
 	/** What a penned animal is worth to its owners. */

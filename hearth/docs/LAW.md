@@ -58,6 +58,7 @@ your own property). Opening someone's chest shows the owner above the panel, and
 | Crime | Detected when | Noise |
 |---|---|---|
 | theft | items leave an owned container (`TheftWatch`), crops are broken or berries picked in an owned plot, a container is smashed (its contents), an owned animal is killed or put on a lead | 0.05–0.6 |
+| poaching | killing a wild animal within the territory (`Settlement.territoryRadius`) of a town with a keep, castle, palace or hunting lodge (`NOBLE`): the lord's game | 0.4 |
 | pickpocketing | caught in the minigame, seen by a bystander, or missed later | 0 |
 | lockpicking | seen at the lock, or the picked lock is found later | 0.1–0.15 |
 | trespass | inside a home at night, a shop or workshop after hours, or the jail; warned first, a crime if still there 6 s later and seen | 0 |

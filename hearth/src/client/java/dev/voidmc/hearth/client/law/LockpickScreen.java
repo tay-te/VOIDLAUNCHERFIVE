@@ -53,6 +53,8 @@ public class LockpickScreen extends Screen {
 	private Component message = Component.empty();
 	private int closeIn = -1;
 	private boolean finished;
+	/** Dev tour: hold the pose set by {@link #devPose} for a screenshot. */
+	private boolean frozen;
 
 	public LockpickScreen(LawPayloads.LockpickStart start) {
 		super(Component.translatable("hearth.law.lockpick.title"));
@@ -117,7 +119,7 @@ public class LockpickScreen extends Screen {
 		float dt = Math.min(0.05F, (now - this.lastNanos) / 1.0e9F);
 		this.lastNanos = now;
 		this.flash = Math.max(0, this.flash - dt * 1.5F);
-		if (this.finished) {
+		if (this.finished || this.frozen) {
 			return;
 		}
 		double dx = mouseX - cx();
@@ -277,6 +279,18 @@ public class LockpickScreen extends Screen {
 		}
 		g.centeredText(this.font, Component.translatable("hearth.law.lockpick.help"), cx, this.top + HEIGHT - 20, LawGui.TEXT_DIM);
 		g.centeredText(this.font, Component.translatable("hearth.law.lockpick.help2"), cx, this.top + HEIGHT - 10, LawGui.TEXT_DIM);
+	}
+
+	/** Dev tour: forces the pick off the sweet spot under tension until it strains this much, then holds still. */
+	void devPose(float give, float strain) {
+		LockpickModel.Spec spec = this.model.spec();
+		float sweet = spec.sweet()[Math.min(this.model.setPins(), spec.pins() - 1)];
+		float off = spec.tolerance() + spec.falloff() * (1 - give);
+		float target = sweet + off <= LockpickModel.ARC ? sweet + off : sweet - off;
+		for (int i = 0; i < 400 && (Math.abs(this.model.pick() - target) > 0.5F || this.model.strain() < strain); i++) {
+			this.model.tick(target, Math.abs(this.model.pick() - target) <= 0.5F, 0.02F);
+		}
+		this.frozen = true;
 	}
 
 	static int tierColor(int tier) {

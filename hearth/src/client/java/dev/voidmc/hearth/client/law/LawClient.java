@@ -56,6 +56,7 @@ public final class LawClient {
 				ScreenEvents.afterExtract(screen).register(ContainerOwnerOverlay::draw);
 			}
 		});
+		LawClientTour.install();
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> {
 			LawHud.reset();
 			ContainerOwnerOverlay.reset();
