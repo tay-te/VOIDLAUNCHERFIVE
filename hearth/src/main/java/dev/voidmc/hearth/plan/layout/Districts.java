@@ -27,7 +27,8 @@ public final class Districts {
 		list.clear();
 		int hx = ctx.heartX();
 		int hz = ctx.heartZ();
-		double core = ctx.coreRadius();
+		// laid out for the city the town is becoming, so the quarters hold as it grows
+		double core = ctx.coreRadiusAt(Math.max(150, ctx.population));
 		Site site = ctx.state.site;
 		Ground g = ctx.ground;
 		list.add(new District(District.Kind.MARKET, hx, hz, 1.25));
@@ -57,6 +58,7 @@ public final class Districts {
 		if (ctx.config.living().nobility()) {
 			int[] hill = dev.voidmc.hearth.plan.society.Nobility.hill(ctx);
 			list.add(new District(District.Kind.CASTLE, hill[0], hill[1], 0.55));
+			dev.voidmc.hearth.plan.society.Nobility.reserveHill(ctx);
 		}
 		double lowAngle = highAngle + Math.PI;
 		if (site != null && site.hasWater() && site.waterDistance() < core * 2) {

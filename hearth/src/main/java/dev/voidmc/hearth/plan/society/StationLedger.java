@@ -35,6 +35,8 @@ public final class StationLedger {
 	private final List<List<Resident>> waiting = new ArrayList<>();
 	/** Household heads named on homes not built yet. */
 	private final Set<String> named = new HashSet<>();
+	/** Homes as {x, z, station ordinal}: what a new home's neighbours would be. */
+	private final List<int[]> homes = new ArrayList<>();
 
 	private StationLedger() {
 		for (int i = 0; i < STATIONS.length; i++) {
@@ -60,6 +62,7 @@ public final class StationLedger {
 			if (f.station != null) {
 				l.supply[f.station.ordinal()] += f.beds;
 				byPlot.put(p.id(), f.station);
+				l.homes.add(new int[]{p.spec().origin().getX() + p.spec().sizeX() / 2, p.spec().origin().getZ() + p.spec().sizeZ() / 2, f.station.ordinal()});
 				if (f.head != null && p.state() != PlotState.BUILT) {
 					l.named.add(f.head);
 				}
@@ -102,6 +105,50 @@ public final class StationLedger {
 			l.demand[Station.PEASANT.ordinal()] = dependants;
 		}
 		return l;
+	}
+
+	/**
+	 * How a spot suits a new home of a station by its neighbours (within 22 blocks): like draws like, so quarters form;
+	 * a few points for each home of the same station, some taken off for each of a very different one (no hovel beside
+	 * a manor). Capped, so a quarter is a tendency, not a wall.
+	 */
+	public double neighbourhood(Station s, int x, int z) {
+		double score = 0;
+		int rank = rank(s);
+		for (int[] h : this.homes) {
+			int dx = h[0] - x;
+			int dz = h[1] - z;
+			if (dx * dx + dz * dz > 22 * 22) {
+				continue;
+			}
+			Station o = STATIONS[h[2]];
+			if (o == s) {
+				score += 5;
+			} else if (Math.abs(rank(o) - rank) >= 2) {
+				score -= 4;
+			}
+		}
+		return Math.max(-24, Math.min(30, score));
+	}
+
+	/** Rough standing for neighbourliness: 0 the poor, 1 peasants, 2 artisans and the like, 3 merchants, 4 gentry and lord. */
+	private static int rank(Station s) {
+		return switch (s) {
+			case POOR -> 0;
+			case PEASANT -> 1;
+			case ARTISAN, CLERGY, SCHOLAR, OFFICIAL -> 2;
+			case MERCHANT -> 3;
+			case GENTRY, LORD -> 4;
+		};
+	}
+
+	/** Beds short over all stations: each station's shortfall that is above nothing, summed. */
+	public int totalShortfall(double margin) {
+		double sum = 0;
+		for (Station s : STATIONS) {
+			sum += Math.max(0, shortfall(s, margin));
+		}
+		return (int) Math.round(sum);
 	}
 
 	/** Beds a station is short of, with the housing margin on its need. */

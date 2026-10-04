@@ -157,7 +157,9 @@ public final class HearthPlanner implements SettlementPlanner {
 	}
 
 	private static void onTier(PlanContext ctx, SettlementTier from, SettlementTier to) {
-		if (to.ordinal() >= SettlementTier.TOWN.ordinal() && ctx.state.districts.isEmpty()) {
+		// with housing by station the quarters are drawn at village tier, so a town's social map forms as it grows
+		SettlementTier at = ctx.config.living().stations() ? SettlementTier.VILLAGE : SettlementTier.TOWN;
+		if (to.ordinal() >= at.ordinal() && ctx.state.districts.isEmpty()) {
 			Districts.plan(ctx);
 		}
 	}

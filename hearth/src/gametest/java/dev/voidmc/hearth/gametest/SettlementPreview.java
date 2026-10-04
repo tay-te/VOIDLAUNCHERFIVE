@@ -86,8 +86,10 @@ public final class SettlementPreview {
 		// Real buildings where the build module has them, the planner's boxes for the rest of the catalogue
 		// (-Dhearth.preview.real=only plans with the real catalogue alone, as the game does).
 		BlueprintService real = null;
+		// HEARTH_PREVIEW_BOXES=1: the planner's boxes only, coloured by category and homes by station (the social map)
+		boolean boxes = System.getenv("HEARTH_PREVIEW_BOXES") != null && !forceBlocks;
 		try {
-			real = dev.voidmc.hearth.build.BuildModule.standalone();
+			real = boxes ? null : dev.voidmc.hearth.build.BuildModule.standalone();
 		} catch (Throwable t) {
 			System.out.println("build module not usable offline (" + t + "); using the planner's catalogue double");
 		}
@@ -139,6 +141,14 @@ public final class SettlementPreview {
 			int z0 = Math.max(b.minZ() - margin, center.getZ() - 450);
 			int x1 = Math.min(b.maxX() + margin, center.getX() + 450);
 			int z1 = Math.min(b.maxZ() + margin, center.getZ() + 450);
+			// the territory's sites, so the workings and the land that feeds the town show
+			for (var site : sim.settlement.sites()) {
+				var a = site.area();
+				x0 = Math.min(x0, Math.max(a.minX() - 8, center.getX() - 450));
+				z0 = Math.min(z0, Math.max(a.minZ() - 8, center.getZ() - 450));
+				x1 = Math.max(x1, Math.min(a.maxX() + 8, center.getX() + 450));
+				z1 = Math.max(z1, Math.min(a.maxZ() + 8, center.getZ() + 450));
+			}
 			// at least a 160-block square round the heart, so young hamlets show their land
 			x0 = Math.min(x0, center.getX() - 80);
 			z0 = Math.min(z0, center.getZ() - 80);
@@ -159,6 +169,10 @@ public final class SettlementPreview {
 			File iso = new File(out, "settlement_" + tag + "_d" + day + "_iso.png");
 			ImageIO.write(new PlanRenderer(scene, 1500).render(sim.settlement, state, Catalogue.current(), title, blocks != null), "png", plan);
 			ImageIO.write(new IsoRenderer(townScene.facingDownhill(), 1900).render(title), "png", iso);
+			// the town itself, close up: its quarters and who lives in them
+			File townPlan = new File(out, "settlement_" + tag + "_d" + day + "_town.png");
+			ImageIO.write(new PlanRenderer(townScene, 1500).render(sim.settlement, state, Catalogue.current(), title, blocks != null), "png", townPlan);
+			System.out.println("  " + stations(sim));
 			System.out.printf(Locale.ROOT, "%-14s %-10s seed %d day %3d: %-10s %-12s pop %3d %-7s plots %3d roads %5d  planner %.1f ms total, %d calls, slowest %.2f ms -> %s%n",
 				cultureName, terrainName, seed, sim.day(), state.layout.getSerializedName(), state.signature.getSerializedName(), sim.settlement.population(),
 				sim.settlement.tier().getSerializedName(), sim.settlement.plots().size(), roads, sim.plannerNanos / 1e6, sim.calls, sim.slowestNext / 1e6,
@@ -191,6 +205,41 @@ public final class SettlementPreview {
 		double r = d.isEmpty() ? 60 : d.get((int) Math.min(d.size() - 1, Math.floor(d.size() * 0.85)));
 		int half = (int) Math.max(60, Math.min(240, r * 1.15 + 16));
 		return new int[]{center.getX() - half, center.getZ() - half, center.getX() + half, center.getZ() + half};
+	}
+
+	/** Who lives in the town, by station, and the beds of their homes: the social geography as numbers. */
+	private static String stations(MiniSim sim) {
+		int[] folk = new int[dev.voidmc.hearth.api.Station.values().length];
+		int[] beds = new int[folk.length];
+		int[] homes = new int[folk.length];
+		int fitting = 0;
+		for (dev.voidmc.hearth.api.Resident r : sim.settlement.residents()) {
+			dev.voidmc.hearth.api.Station s = dev.voidmc.hearth.plan.society.Stations.of(r, sim.settlement.tier());
+			folk[s.ordinal()]++;
+			var home = r.home >= 0 ? sim.settlement.plot(r.home) : null;
+			if (home != null && dev.voidmc.hearth.plan.society.Stations.home(home.spec(), Catalogue.current().info(home.spec().archetype())) == s) {
+				fitting++;
+			}
+		}
+		for (PlotView p : sim.settlement.plots()) {
+			var info = Catalogue.current().info(p.spec().archetype());
+			dev.voidmc.hearth.api.Station s = dev.voidmc.hearth.plan.society.Stations.home(p.spec(), info);
+			if (s != null) {
+				homes[s.ordinal()]++;
+				beds[s.ordinal()] += dev.voidmc.hearth.plan.growth.Needs.estimateBeds(info, p.spec());
+			}
+		}
+		StringBuilder sb = new StringBuilder("stations (folk/homes/beds):");
+		for (dev.voidmc.hearth.api.Station s : dev.voidmc.hearth.api.Station.values()) {
+			if (folk[s.ordinal()] + homes[s.ordinal()] > 0) {
+				sb.append(' ').append(s.getSerializedName()).append(' ').append(folk[s.ordinal()]).append('/').append(homes[s.ordinal()]).append('/')
+					.append(beds[s.ordinal()]);
+			}
+		}
+		sb.append("  ·  in a home of their station: ").append(fitting).append('/').append(sim.settlement.population());
+		sb.append("  ·  capacity ").append(dev.voidmc.hearth.plan.resource.Territory.estimateCapacity(sim.settlement.sites(),
+			dev.voidmc.hearth.plan.PlanConfig.DEFAULTS.living()));
+		return sb.toString();
 	}
 
 	private static float temperature(Culture c) {

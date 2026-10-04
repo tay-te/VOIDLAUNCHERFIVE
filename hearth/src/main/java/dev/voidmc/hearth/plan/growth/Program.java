@@ -213,7 +213,7 @@ public final class Program {
 			.sited(near(48, Archetypes.LIBRARY, Archetypes.UNIVERSITY)),
 		e(Archetypes.CONVENT, 130, p -> 1, 115, Placement.QUIET, null, SOCIAL),
 		e(Archetypes.UNIVERSITY, 160, p -> 1, 145, Placement.CIVIC, District.Kind.CIVIC, SOCIAL),
-		e(Archetypes.OBSERVATORY, 170, p -> 1, 100, Placement.SUMMIT, District.Kind.CIVIC, SOCIAL),
+		e(Archetypes.OBSERVATORY, 170, p -> 1, 100, Placement.RISE, District.Kind.CIVIC, SOCIAL),
 		e(Archetypes.HERMIT_HUT, 60, p -> 1, 40, Placement.QUIET, null, SOCIAL)
 	);
 

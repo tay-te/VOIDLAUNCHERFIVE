@@ -81,7 +81,7 @@ public final class Growth {
 					ctx.state.cooldowns.remove(need.key);
 				} else if (ctx.state.queue.size() > before) {
 					// only a road came of it: the need rests a little so roads do not run on without anything to build
-					ctx.state.cooldowns.put(need.key, ctx.state.calls + (need.key.startsWith("landmark") ? 12 : 4));
+					ctx.state.cooldowns.put(need.key, ctx.state.calls + (farOff(need.key) ? 12 : 4));
 				}
 				return true;
 			}
@@ -93,6 +93,12 @@ public final class Growth {
 		return false;
 	}
 
+	/** Needs whose buildings stand apart (a landmark on the summit, a monastery on quiet ground): their roads are long. */
+	private static boolean farOff(String key) {
+		return key.startsWith("landmark") || key.endsWith("observatory") || key.endsWith("monastery") || key.endsWith("convent")
+			|| key.endsWith("hermit_hut") || key.startsWith("noble/");
+	}
+
 	static List<Need> needs(PlanContext ctx, Needs needs) {
 		List<Need> list = new ArrayList<>();
 		int pop = ctx.population;
@@ -101,9 +107,25 @@ public final class Growth {
 		boolean busy = needs.unbuilt > 4 + pop / 6;
 
 		int capacity = ctx.territory().capacity();
-		int deficit = needs.housingDeficit(ctx.config.housingMargin(), capacity);
+		int short_ = needs.housingDeficit(ctx.config.housingMargin(), capacity);
+		int social = 0;
+		if (ctx.config.living().stations()) {
+			// households in a home not of their station (a peasant family in a townhouse) want one of their own, within what
+			// the land can carry
+			// homes for households living in another station's home use a little slack over the town's beds (a fifth), never
+			// past what the land can carry: the sim moves families into homes of their station, and the homes they leave
+			// take newcomers
+			int roof = (int) Math.ceil(pop * (1 + ctx.config.housingMargin()) + Math.max(4, pop * 0.2));
+			if (capacity > 0) {
+				roof = Math.min(roof, Math.max(pop, capacity) + 4);
+			}
+			int ceiling = roof - needs.beds - needs.plannedBeds;
+			social = Math.max(0, Math.min(needs.stations(ctx).totalShortfall(ctx.config.housingMargin()), ceiling));
+		}
+		int deficit = Math.max(short_, social);
 		if (deficit > 0) {
-			list.add(new Need("housing", 600 + Math.min(300, deficit * 12), c -> Housing.plan(c, needs, deficit)));
+			double priority = short_ > 0 ? 600 + Math.min(300, short_ * 12) : 240 + Math.min(160, social * 4);
+			list.add(new Need("housing", priority, c -> Housing.plan(c, needs, deficit)));
 		}
 		int mouths = Math.max(pop, 3);
 		if (needs.food < mouths) {
@@ -355,9 +377,20 @@ public final class Growth {
 	private static boolean acceptable(PlanContext ctx, Parcels.Request req, Parcels.Parcel p) {
 		if (req.placement() == Placement.SITED && req.siting() != null) {
 			Siting s = req.siting();
+			double d = ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2);
+			// a workshop of the outskirts (a tannery, a smelter, a kiln) stands at the edge of the town it is becoming, wherever
+			// its inputs are, so the streets do not grow round it
+			if (req.info().flags().contains(SiteFlag.OUTSKIRTS) && d < futureEdge(ctx)) {
+				return false;
+			}
 			return Math.hypot(p.x0 + p.sizeX / 2.0 - s.x(), p.z0 + p.sizeZ / 2.0 - s.z()) <= s.maxDistance() + Math.max(p.sizeX, p.sizeZ) / 2.0 + 8;
 		}
 		return acceptable(ctx, req.placement(), p);
+	}
+
+	/** Where the edge of the town will be once it has grown (at least a town of a hundred): the industrial edge. */
+	public static double futureEdge(PlanContext ctx) {
+		return Math.max(Parcels.edgeRing(ctx) * 0.85, ctx.coreRadiusAt(Math.max(100, (int) (ctx.population * 1.6))) * 1.25);
 	}
 
 	private static boolean acceptable(PlanContext ctx, Placement placement, Parcels.Parcel p) {

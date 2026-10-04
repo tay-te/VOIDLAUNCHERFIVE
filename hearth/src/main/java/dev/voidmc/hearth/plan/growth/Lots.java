@@ -17,7 +17,7 @@ import net.minecraft.resources.Identifier;
  * same way; see {@link Landmarks}.)
  */
 public final class Lots {
-	private static final List<Identifier> KEPT = List.of(Archetypes.TOWN_HALL, Archetypes.MARKET_HALL);
+	private static final List<Identifier> KEPT = List.of(Archetypes.TOWN_HALL, Archetypes.MARKET_HALL, Archetypes.COURTHOUSE);
 
 	private Lots() {
 	}
@@ -30,16 +30,19 @@ public final class Lots {
 		}
 		for (Identifier id : KEPT) {
 			ArchetypeInfo info = ctx.catalogue.info(id);
-			if (info == null || !info.suits(ctx.culture)) {
+			if (info == null || !info.suits(ctx.culture) || id.equals(Archetypes.COURTHOUSE) && !ctx.config.living().law()) {
 				continue;
 			}
 			int f = info.minFrontage() + (info.maxFrontage() - info.minFrontage()) * 2 / 3;
 			int d = info.minDepth() + (info.maxDepth() - info.minDepth()) * 2 / 3;
-			Parcels.Request req = new Parcels.Request(info, id.equals(Archetypes.TOWN_HALL) ? Placement.CIVIC : Placement.CENTRAL, null, 1, f, d,
+			Parcels.Request req = new Parcels.Request(info, id.equals(Archetypes.MARKET_HALL) ? Placement.CENTRAL : Placement.CIVIC, null, 1, f, d,
 				false, 0, 0);
-			// on the square, or on a main street at the corner of it
+			// on the square, or on a main street at the corner of it; smaller if the square is small
 			Parcels.Parcel p = Parcels.best(ctx, req, e -> e == square || ctx.state.graph.edge(e).role == RoadEdge.Role.ARM);
 			if (p == null) {
+				p = Parcels.best(ctx, req.withSize(info.minFrontage(), info.minDepth()), e -> e == square || ctx.state.graph.edge(e).role == RoadEdge.Role.ARM);
+			}
+			if (p == null || ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.state.plazaHalf + 34) {
 				continue;
 			}
 			if (Growth.trace) {

@@ -14,7 +14,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
  * the probe on a coarse grid round a settlement and names a resource site per cell where the land clearly gives
  * something — fertile flats by water, open pasture, woods (by climate and a coarse noise, since synthetic land has no
  * trees), exposed rock on steep ground, ore in high broken hills, clay on river banks, sand on warm shores, salt on hot
- * flats, fish in wide water. Capacities and regrowth are plausible round numbers (a fertile site feeds some forty
+ * flats, fish in wide water. Capacities and regrowth are plausible round numbers (a fertile site feeds some fifteen
  * folk). Deterministic for a probe and centre; no chunks, no biomes needed.
  */
 public final class MiniSurvey {
@@ -135,13 +135,14 @@ public final class MiniSurvey {
 			return ResourceSite.Kind.STONE;
 		}
 		double forest = forest(t.seed(), cx, cz);
-		if (temp > 0.15F && temp < 1.6F && forest > 0.58) {
+		if (temp > 0.15F && temp < 1.6F && forest > 0.62) {
 			return ResourceSite.Kind.WOODS;
 		}
+		// the best of the open land only: a survey names fields worth working, not every meadow
 		if (relief <= 5 && temp > 0.25F && temp < 1.3F) {
-			return h < 0.7 ? ResourceSite.Kind.FERTILE : ResourceSite.Kind.PASTURE;
+			return h < 0.45 ? ResourceSite.Kind.FERTILE : h < 0.65 ? ResourceSite.Kind.PASTURE : null;
 		}
-		if (relief <= 9) {
+		if (relief <= 9 && h < 0.3) {
 			return ResourceSite.Kind.PASTURE;
 		}
 		return null;
@@ -157,19 +158,19 @@ public final class MiniSurvey {
 		switch (kind) {
 			case FERTILE -> {
 				capacity = 2400;
-				regen = (float) (70 + 40 * h);
+				regen = (float) (26 + 18 * h);
 				y[Goods.GRAIN.ordinal()] = 18;
 				y[Goods.PRODUCE.ordinal()] = 6;
 			}
 			case PASTURE -> {
 				capacity = 1600;
-				regen = (float) (30 + 20 * h);
+				regen = (float) (12 + 10 * h);
 				y[Goods.MEAT.ordinal()] = 8;
 				y[Goods.WOOL.ordinal()] = 6;
 			}
 			case FISH -> {
 				capacity = 1800;
-				regen = (float) (40 + 30 * h);
+				regen = (float) (16 + 14 * h);
 				y[Goods.FISH.ordinal()] = 14;
 			}
 			case WOODS -> {

@@ -146,6 +146,7 @@ public final class Stations {
 			return Math.max(0.7, 3.4 - i * 0.9);
 		}
 		boolean special = id.equals(Archetypes.HOVEL) || id.equals(Archetypes.SHACK) || id.equals(Archetypes.CROFT) || id.equals(Archetypes.MERCHANT_HOUSE)
+			|| id.equals(Archetypes.FARMHOUSE)
 			|| id.equals(Archetypes.RECTORY) || id.equals(Archetypes.SCRIBE_HOUSE) || id.equals(Archetypes.REEVE_HOUSE) || id.equals(Archetypes.MANOR)
 			|| id.equals(Archetypes.HERMIT_HUT);
 		if (special) {

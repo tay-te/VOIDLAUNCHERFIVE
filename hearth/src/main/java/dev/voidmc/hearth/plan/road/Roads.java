@@ -31,7 +31,7 @@ public final class Roads {
 	public static Profile.Rules rules(PlanContext ctx, RoadEdge.Role role) {
 		var cfg = ctx.config;
 		boolean stairs = switch (role) {
-			case TRACK, SWITCHBACK, BOARDWALK, RING -> false;
+			case TRACK, SWITCHBACK, BOARDWALK, RING, HAUL -> false;
 			case ARM -> ctx.state.layout.terraces;
 			default -> true;
 		};
@@ -504,6 +504,9 @@ public final class Roads {
 	 * short), planned from a junction there and built whole. One such route per call, like an approach.
 	 */
 	public static @Nullable RoadEdge haul(PlanContext ctx, int tx, int tz, RoadEdge.Role role, RoadKind kind, int width, boolean stairs, String reason) {
+		if (role == RoadEdge.Role.HAUL ? !ctx.haulMayGrow() : !ctx.roadsMayGrow()) {
+			return null;
+		}
 		double d = ctx.distanceToHeart(tx, tz);
 		int cell = d < 70 ? 1 : d < 170 ? 2 : 4;
 		Router.Params params = new Router.Params(cell, cell == 1 ? 20 : 32, ctx.config.roadGrade(), stairs ? ctx.config.stairGrade() : ctx.config.roadGrade(),

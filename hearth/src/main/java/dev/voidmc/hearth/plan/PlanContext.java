@@ -57,7 +57,15 @@ public final class PlanContext {
 		// an expansive settlement's tracks run far between its farmsteads
 		int perHead = this.state.layout.expansive ? 45 : 20;
 		int ahead = Math.max(6, this.population / 5);
-		return this.state.graph.builtLength() < (this.state.layout.expansive ? 700 : 300) + perHead * (this.population + ahead);
+		return this.state.graph.townLength() < (this.state.layout.expansive ? 700 : 300) + perHead * (this.population + ahead);
+	}
+
+	/**
+	 * Whether another cart track out to a working may be laid: they lie outside the town's own budget but have one of
+	 * their own (a few hundred blocks, more as the town grows), so a town never paves its whole territory.
+	 */
+	public boolean haulMayGrow() {
+		return this.state.graph.haulLength() < 360 + 6 * this.population;
 	}
 
 	public PlanContext(Settlement settlement, PlanState state, TerrainProbe terrain, RandomSource random, Catalogue catalogue, PlanConfig config) {
@@ -93,7 +101,12 @@ public final class PlanContext {
 	 * core), scaled by the config.
 	 */
 	public double coreRadius() {
-		return Math.max(18, this.state.layout.coreScale * Math.sqrt(Math.max(6, this.population)) * this.config.densityScale());
+		return coreRadiusAt(this.population);
+	}
+
+	/** The core's radius the town will have at a population: what things meant to stay outside it plan for. */
+	public double coreRadiusAt(int population) {
+		return Math.max(18, this.state.layout.coreScale * Math.sqrt(Math.max(6, population)) * this.config.densityScale());
 	}
 
 	/**
@@ -229,6 +242,8 @@ public final class PlanContext {
 	}
 
 	private dev.voidmc.hearth.plan.resource.@Nullable Territory territory;
+	/** Housing by station as this call last read it (set when {@code Needs.stations} is first asked), or null. */
+	public dev.voidmc.hearth.plan.society.@Nullable StationLedger ledger;
 	/** The {@code local} materials every plot of this call gets instead of the territory's (a deep town: its realm's). */
 	public net.minecraft.nbt.@Nullable CompoundTag localOverride;
 

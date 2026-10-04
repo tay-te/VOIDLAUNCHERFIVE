@@ -36,7 +36,7 @@ public final class PlanRenderer {
 	private final Scene scene;
 	private final int s;
 	private final int header = 34;
-	private final int footer = 46;
+	private final int footer = 62;
 
 	public PlanRenderer(Scene scene, int maxSize) {
 		this.scene = scene;
@@ -82,6 +82,7 @@ public final class PlanRenderer {
 				cell(img, dd.xs()[i], dd.zs()[i], wall ? 0x8A8478 : 0xE8E0C8);
 			}
 		}
+		drawSites(g, settlement);
 		if (!blocks) {
 			// ground layer: terraces, farms, plazas, roads; then buildings
 			for (PlotView p : plots) {
@@ -104,6 +105,18 @@ public final class PlanRenderer {
 				ArchetypeInfo info = catalogue.info(p.spec().archetype());
 				if (info != null && info.category() != ArchetypeCategory.INFRASTRUCTURE && !Archetypes.isLinear(p.spec().archetype())) {
 					outline(g, p.spec(), p.state() == PlotState.BUILT);
+					// who lives there: a station tab in the middle of each home's roof
+					dev.voidmc.hearth.api.Station st = dev.voidmc.hearth.plan.society.Stations.home(p.spec(), info);
+					if (st != null) {
+						PlotSpec sp = p.spec();
+						int cx = (sp.origin().getX() + sp.sizeX() / 2 - this.scene.x0) * this.s;
+						int cz = (sp.origin().getZ() + sp.sizeZ() / 2 - this.scene.z0) * this.s + this.header;
+						int r = Math.max(3, this.s * 2);
+						g.setColor(new Color(Palette.station(st)));
+						g.fillRect(cx - r, cz - r, 2 * r, 2 * r);
+						g.setColor(new Color(0x2A2018));
+						g.drawRect(cx - r, cz - r, 2 * r, 2 * r);
+					}
 				}
 			}
 		}
@@ -134,7 +147,7 @@ public final class PlanRenderer {
 		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
 		g.drawString(title, 10, 22);
 		legend(g, height - this.footer + 6, width);
-		scaleBar(g, width - 140, height - this.footer + 30);
+		scaleBar(g, width - 140, height - this.footer + 40);
 		g.dispose();
 		return img;
 	}
@@ -252,10 +265,20 @@ public final class PlanRenderer {
 			}
 			return;
 		}
-		if (info.category() != ArchetypeCategory.FARM && !id.equals(Archetypes.PLAZA) && !id.equals(Archetypes.PARK) && !id.equals(Archetypes.GARDEN)) {
+		if (info.category() == ArchetypeCategory.EXTRACTION) {
+			drawWorking(img, p, info);
+			return;
+		}
+		if (info.category() != ArchetypeCategory.FARM && !id.equals(Archetypes.PLAZA) && !id.equals(Archetypes.PARK) && !id.equals(Archetypes.GARDEN)
+			&& !id.equals(Archetypes.FESTIVAL_GROUND) && !id.equals(Archetypes.CEMETERY)) {
 			return;
 		}
 		int roof = Palette.roof(id, info);
+		if (id.equals(Archetypes.FESTIVAL_GROUND)) {
+			roof = 0xA8C878;
+		} else if (id.equals(Archetypes.CEMETERY)) {
+			roof = 0x6E8A5E;
+		}
 		for (int z = z0; z <= z1; z++) {
 			for (int x = x0; x <= x1; x++) {
 				int c = roof;
@@ -286,11 +309,17 @@ public final class PlanRenderer {
 		var id = sp.archetype();
 		ArchetypeInfo info = catalogue.info(id);
 		if (info == null || Archetypes.isLinear(id) || id.equals(Archetypes.WALKWAY) || id.equals(Archetypes.TERRACE)
-			|| info.category() == ArchetypeCategory.FARM || id.equals(Archetypes.PLAZA) || id.equals(Archetypes.PARK) || id.equals(Archetypes.GARDEN)) {
+			|| info.category() == ArchetypeCategory.FARM || id.equals(Archetypes.PLAZA) || id.equals(Archetypes.PARK) || id.equals(Archetypes.GARDEN)
+			|| info.category() == ArchetypeCategory.EXTRACTION || id.equals(Archetypes.FESTIVAL_GROUND) || id.equals(Archetypes.CEMETERY)) {
 			return;
 		}
 		boolean built = p.state() == PlotState.BUILT;
 		int roof = Palette.roof(id, info);
+		dev.voidmc.hearth.api.Station station = dev.voidmc.hearth.plan.society.Stations.home(sp, info);
+		if (station != null) {
+			// homes by who lives in them: the social geography at a glance
+			roof = Palette.station(station);
+		}
 		int x0 = sp.origin().getX();
 		int z0 = sp.origin().getZ();
 		int x1 = x0 + sp.sizeX() - 1;
@@ -320,6 +349,67 @@ public final class PlanRenderer {
 		cell(img, dx, dz, 0x2A1A10);
 	}
 
+	/** The territory's resource sites: dashed outlines in the kind's colour, the kind named. */
+	private void drawSites(Graphics2D g, Settlement settlement) {
+		Font font = g.getFont();
+		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
+		for (dev.voidmc.hearth.api.ResourceSite site : settlement.sites()) {
+			var a = site.area();
+			if (!this.scene.inside(a.minX(), a.minZ()) && !this.scene.inside(a.maxX(), a.maxZ())) {
+				continue;
+			}
+			int px = (a.minX() - this.scene.x0) * this.s;
+			int py = (a.minZ() - this.scene.z0) * this.s + this.header;
+			Color c = new Color(Palette.site(site.kind()));
+			g.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), 200));
+			g.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1, new float[]{6, 4}, 0));
+			g.drawRect(px + 2, py + 2, a.getXSpan() * this.s - 4, a.getZSpan() * this.s - 4);
+			String name = site.kind().getSerializedName() + " " + site.id();
+			g.setColor(new Color(255, 255, 255, 170));
+			int tw = g.getFontMetrics().stringWidth(name);
+			g.fillRect(px + 4, py + 4, tw + 4, 12);
+			g.setColor(c.darker());
+			g.drawString(name, px + 6, py + 14);
+		}
+		g.setFont(font);
+		g.setStroke(new BasicStroke(1));
+	}
+
+	/** A working on the land: a quarry's benches, a mine's adit, a shaft's headframe, a pit, a woodlot's rows. */
+	private void drawWorking(BufferedImage img, PlotView p, ArchetypeInfo info) {
+		PlotSpec sp = p.spec();
+		var id = sp.archetype();
+		boolean planned = p.state() != PlotState.BUILT && p.step() == 0 && p.stage() == 0;
+		int x0 = sp.origin().getX();
+		int z0 = sp.origin().getZ();
+		int x1 = x0 + sp.sizeX() - 1;
+		int z1 = z0 + sp.sizeZ() - 1;
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				int ring = Math.min(Math.min(x - x0, x1 - x), Math.min(z - z0, z1 - z));
+				int c;
+				if (id.equals(Archetypes.QUARRY_PIT)) {
+					c = Palette.shade(0xB0ACA4, 1.0 - Math.min(0.45, ring / 2 * 0.09));
+				} else if (id.equals(Archetypes.MINE)) {
+					boolean axis = sp.facing().getAxis() == net.minecraft.core.Direction.Axis.Z ? Math.abs(x - (x0 + x1) / 2) <= 1 : Math.abs(z - (z0 + z1) / 2) <= 1;
+					c = axis ? 0x2A2420 : ring == 0 ? 0x6A5A48 : 0x8C7C66;
+				} else if (id.equals(Archetypes.SHAFT)) {
+					c = ring <= 1 ? 0x5A4630 : 0x141210;
+				} else if (id.equals(Archetypes.CLAY_PIT)) {
+					c = ring == 0 ? 0x8A6A50 : ((x + z) & 3) == 0 ? 0x7A9AB0 : 0xB07A5A;
+				} else if (id.equals(Archetypes.SAND_PIT)) {
+					c = ring == 0 ? 0xB0A070 : 0xE4D49C;
+				} else {
+					c = (x - x0) % 3 == 1 && (z - z0) % 3 == 1 ? 0x1E4A1A : 0x6A8A4A;
+				}
+				if (planned) {
+					c = Palette.lerp(c, 0xFFFFFF, 0.5);
+				}
+				cell(img, x, z, c);
+			}
+		}
+	}
+
 	private void outline(Graphics2D g, PlotSpec sp, boolean built) {
 		int px = (sp.origin().getX() - this.scene.x0) * this.s;
 		int py = (sp.origin().getZ() - this.scene.z0) * this.s + this.header;
@@ -347,14 +437,21 @@ public final class PlanRenderer {
 
 	private void legend(Graphics2D g, int y, int width) {
 		g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
-		String[] names = {"house", "row/town house", "tall", "work", "trade", "civic", "landmark", "farm", "street", "lane", "path", "stairs", "bridge", "terrace", "wall"};
-		int[] colors = {0xB0583A, 0x9A3E2E, 0x74302A, 0x6A5236, 0x8E3B66, 0x3E5A82, 0xD0A030, 0xDDBE55, 0xC4BEB0, 0xCCBC9C, 0xB89C6C, 0xB4ACA0, 0x84643E,
-			Palette.TERRACE, 0x6C6C66};
+		String[] names = {"poor", "peasant", "artisan", "merchant", "clergy", "scholar", "official", "gentry", "lord", "work", "trade", "civic", "law",
+			"landmark", "working", "farm", "street", "lane", "path", "bridge", "wall"};
+		int[] colors = {Palette.station(dev.voidmc.hearth.api.Station.POOR), Palette.station(dev.voidmc.hearth.api.Station.PEASANT),
+			Palette.station(dev.voidmc.hearth.api.Station.ARTISAN), Palette.station(dev.voidmc.hearth.api.Station.MERCHANT),
+			Palette.station(dev.voidmc.hearth.api.Station.CLERGY), Palette.station(dev.voidmc.hearth.api.Station.SCHOLAR),
+			Palette.station(dev.voidmc.hearth.api.Station.OFFICIAL), Palette.station(dev.voidmc.hearth.api.Station.GENTRY),
+			Palette.station(dev.voidmc.hearth.api.Station.LORD), 0x6A5236, 0x8E3B66, 0x3E5A82, 0x4A3A5A, 0xD0A030, 0xB0ACA4, 0xDDBE55, 0xC4BEB0, 0xCCBC9C,
+			0xB89C6C, 0x84643E, 0x6C6C66};
 		int x = 10;
 		for (int i = 0; i < names.length; i++) {
 			int tw = g.getFontMetrics().stringWidth(names[i]);
 			if (x + tw + 22 > width - 150) {
-				break;
+				// a second row
+				x = 10;
+				y += 17;
 			}
 			g.setColor(new Color(colors[i]));
 			g.fillRect(x, y, 12, 12);

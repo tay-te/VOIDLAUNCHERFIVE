@@ -178,7 +178,7 @@ public final class Housing {
 		if (home.siting != null) {
 			req = req.sited(home.siting);
 		}
-		return station == null ? req : req.withSizeBias(Stations.sizeBias(station));
+		return station == null ? req : req.withSizeBias(Stations.sizeBias(station)).forStation(station);
 	}
 
 	/** The house used to find where the next home goes: the station's own, else a plain detached house of the culture. */

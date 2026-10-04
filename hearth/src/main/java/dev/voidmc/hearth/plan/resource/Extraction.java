@@ -163,7 +163,7 @@ public final class Extraction {
 			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance() || accessNear(ctx, target[0], target[1], 14)) {
 				return false;
 			}
-			return Roads.haul(ctx, target[0], target[1], RoadEdge.Role.TRACK, RoadKind.PATH, 3, false,
+			return Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, false,
 				"road: a cart track out to the " + site.kind().getSerializedName() + " for the " + Build.shortName(use)) != null;
 		}
 		Build.building(ctx, use, best, reason(use, site), params(ctx, use, site, best));
@@ -193,8 +193,8 @@ public final class Extraction {
 		if (Math.hypot(cx - target[0], cz - target[1]) > reach(info) + Math.max(p.sizeX, p.sizeZ) / 2.0 + 6) {
 			return false;
 		}
-		// a working stands out of town: never in the core where the houses are
-		if (ctx.distanceToHeart(cx, cz) < ctx.coreRadius() * 0.9 && ctx.zone(cx, cz) <= 1) {
+		// a working stands out of town, beyond where the streets will reach
+		if (ctx.distanceToHeart(cx, cz) < minDistance(ctx) * 0.85) {
 			return false;
 		}
 		if (face != null) {
@@ -274,8 +274,9 @@ public final class Extraction {
 	 * under the town is built over, and no one quarries the market square.
 	 */
 	static double minDistance(PlanContext ctx) {
-		double core = ctx.coreRadius();
-		return Math.max(core * 1.1, Math.min(ctx.extent() + 6, core * 1.9));
+		// planned for the town it is becoming (at least a town of a hundred), so it is not soon swallowed by its streets
+		double future = ctx.coreRadiusAt(Math.max(150, ctx.population * 2));
+		return Math.max(future * 1.35 + 8, Math.min(ctx.extent() + 10, future * 2.2));
 	}
 
 	/**

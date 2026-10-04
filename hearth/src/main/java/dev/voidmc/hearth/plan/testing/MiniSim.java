@@ -301,8 +301,14 @@ public final class MiniSim {
 			held.merge(r.job, 1, Integer::sum);
 		}
 		int pop = this.settlement.population();
+		boolean village = this.settlement.tier().ordinal() >= SettlementTier.VILLAGE.ordinal();
 		for (Resident r : this.settlement.residents()) {
 			if (r.job != JobType.NONE) {
+				continue;
+			}
+			// as in the sim, some find no trade and live by gathering and day labour: the poor of a village and up
+			if (village && ((r.appearance >>> 16) & 0xFF) < 56) {
+				r.station = Station.POOR;
 				continue;
 			}
 			if (held.getOrDefault(JobType.BUILDER, 0) < Math.max(1, pop / 6)) {
@@ -311,12 +317,19 @@ public final class MiniSim {
 				r.station = Station.of(r.job);
 				continue;
 			}
-			for (JobType j : JobType.values()) {
-				if (j != JobType.NONE && j != JobType.BUILDER && slots.getOrDefault(j, 0) > held.getOrDefault(j, 0)) {
-					r.job = j;
-					held.merge(j, 1, Integer::sum);
-					r.station = Station.of(j);
-					break;
+			// as the sim does: the workshops' and the town's trades first, then the land's (fields always want hands)
+			for (int pass = 0; pass < 2 && r.job == JobType.NONE; pass++) {
+				for (JobType j : JobType.values()) {
+					boolean land = j == JobType.FARMER || j == JobType.HERDER || j == JobType.FISHER || j == JobType.HUNTER;
+					if (j == JobType.NONE || j == JobType.BUILDER || land != (pass == 1)) {
+						continue;
+					}
+					if (slots.getOrDefault(j, 0) > held.getOrDefault(j, 0)) {
+						r.job = j;
+						held.merge(j, 1, Integer::sum);
+						r.station = Station.of(j);
+						break;
+					}
 				}
 			}
 		}

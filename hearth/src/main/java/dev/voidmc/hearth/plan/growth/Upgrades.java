@@ -38,6 +38,9 @@ public final class Upgrades {
 	}
 
 	public static boolean plan(PlanContext ctx, Needs needs, boolean forHousing) {
+		if (ctx.config.living().stations()) {
+			needs.stations(ctx);
+		}
 		Set<Integer> replacing = replacing(ctx);
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
@@ -55,8 +58,17 @@ public final class Upgrades {
 			if (wall > 0 ? ctx.distanceToHeart(cx, cz) > wall : ctx.zone(cx, cz) > maxZone) {
 				continue;
 			}
-			if (target(ctx, s) == null) {
+			ArchetypeInfo t = target(ctx, s);
+			if (t == null) {
 				continue;
+			}
+			// rebuilding a house for another station turns its household out: only where its own station has room to spare
+			if (ctx.ledger != null) {
+				dev.voidmc.hearth.api.Station from = dev.voidmc.hearth.plan.society.Stations.home(s, ctx.info(s.archetype()));
+				if (from != null && from != dev.voidmc.hearth.plan.society.Stations.inferred(t.id())
+					&& ctx.ledger.shortfall(from, ctx.config.housingMargin()) > 1.5) {
+					continue;
+				}
 			}
 			candidates.add(p);
 			distances.add(ctx.distanceToHeart(cx, cz) + ctx.hash(cx, cz, 31) * 6);
@@ -76,6 +88,31 @@ public final class Upgrades {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Who a rebuilt house is for: of the stations it suits (a townhouse: merchants, or artisans, scholars and officials, or
+	 * rooms for the poor in a city), the one shortest of homes; the house's own station if none is short.
+	 */
+	static dev.voidmc.hearth.api.Station rebuildStation(PlanContext ctx, ArchetypeInfo target) {
+		dev.voidmc.hearth.api.Station own = dev.voidmc.hearth.plan.society.Stations.inferred(target.id());
+		if (ctx.ledger == null) {
+			return own;
+		}
+		dev.voidmc.hearth.api.Station best = own;
+		double bestShort = ctx.ledger.shortfall(own, ctx.config.housingMargin());
+		for (dev.voidmc.hearth.api.Station s : dev.voidmc.hearth.api.Station.values()) {
+			if (s == dev.voidmc.hearth.api.Station.LORD || s == dev.voidmc.hearth.api.Station.GENTRY
+				|| dev.voidmc.hearth.plan.society.Stations.affinity(s, target.id()) < 0.45) {
+				continue;
+			}
+			double sf = ctx.ledger.shortfall(s, ctx.config.housingMargin());
+			if (sf > 0.5 && sf > bestShort + 1) {
+				best = s;
+				bestShort = sf;
+			}
+		}
+		return best;
 	}
 
 	/** Plots already being replaced: by a queued project, or by a plot handed out but not built yet. */
@@ -102,6 +139,7 @@ public final class Upgrades {
 			return null;
 		}
 		ArchetypeInfo best = null;
+		double bestScore = Double.NEGATIVE_INFINITY;
 		for (Identifier id : info.upgradesTo()) {
 			ArchetypeInfo t = ctx.catalogue.info(id);
 			if (t == null || !Catalogue.allowed(t, ctx.culture, ctx.tier) || t.category() != ArchetypeCategory.HOUSING) {
@@ -112,9 +150,18 @@ public final class Upgrades {
 			if (front < t.minFrontage() || depth + 3 < t.minDepth()) {
 				continue;
 			}
-			// prefer the tallest the tier allows
-			if (best == null || t.maxHeight() > best.maxHeight()) {
+			// prefer the tallest the tier allows; with housing by station, the house of the station shortest of homes
+			double score = t.maxHeight();
+			if (ctx.ledger != null) {
+				double sf = ctx.ledger.shortfall(dev.voidmc.hearth.plan.society.Stations.inferred(t.id()), ctx.config.housingMargin());
+				score = sf * 4 + t.maxHeight() * 0.1;
+				if (sf <= 0) {
+					score -= 200;
+				}
+			}
+			if (best == null || score > bestScore) {
 				best = t;
+				bestScore = score;
 			}
 		}
 		return best;
@@ -242,6 +289,9 @@ public final class Upgrades {
 				}
 			}
 			params.putInt("replaces", p.id());
+			if (ctx.config.living().stations()) {
+				params.putString("station", rebuildStation(ctx, target).getSerializedName());
+			}
 			boolean attach = target.flags().contains(SiteFlag.ATTACHABLE);
 			if (attach) {
 				params.putBoolean("party_left", i > 0 && party[i - 1]);

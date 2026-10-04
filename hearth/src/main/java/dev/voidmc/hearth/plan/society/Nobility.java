@@ -41,6 +41,8 @@ import org.jspecify.annotations.Nullable;
 public final class Nobility {
 	/** The reservation kept round the keep for the castle (its bailey until then). */
 	public static final String CLOSE = "castle";
+	/** The castle hill held from town tier until the keep is raised on it. */
+	public static final String HILL = "castle_hill";
 
 	private Nobility() {
 	}
@@ -146,7 +148,7 @@ public final class Nobility {
 				return true;
 			}
 			if (ctx.distanceToHeart(w.center().getX(), w.center().getZ()) < ctx.config.living().haulMaxDistance()
-				&& Roads.haul(ctx, w.center().getX(), w.center().getZ(), RoadEdge.Role.TRACK, RoadKind.PATH, 3, false,
+				&& Roads.haul(ctx, w.center().getX(), w.center().getZ(), RoadEdge.Role.HAUL, RoadKind.PATH, 3, false,
 				"road: a track out to the lord's hunting woods") != null) {
 				return true;
 			}
@@ -164,7 +166,9 @@ public final class Nobility {
 		}
 		Ground g = ctx.ground;
 		double core = ctx.coreRadius();
-		double reach = Math.max(70, core * 2.2);
+		// within reach of the city the town is becoming, and out of the streets it already has
+		double reach = Math.max(80, ctx.coreRadiusAt(150) * 2.2);
+		double outOf = Math.max(ctx.state.plazaHalf + 14, core * 0.7);
 		Site site = ctx.state.site;
 		List<int[]> candidates = new ArrayList<>();
 		if (site != null) {
@@ -182,7 +186,7 @@ public final class Nobility {
 		double bestScore = Double.NEGATIVE_INFINITY;
 		for (int[] c : candidates) {
 			double d = ctx.distanceToHeart(c[0], c[1]);
-			if (d > reach + 30 || d < ctx.state.plazaHalf + 14) {
+			if (d > reach + 30 || d < outOf) {
 				continue;
 			}
 			double score = commanding(ctx, c[0], c[1]) - d * 0.06;
@@ -208,8 +212,19 @@ public final class Nobility {
 			|| g.isWater(x - half, z + half) || g.isWater(x + half, z - half)) {
 			return Double.NEGATIVE_INFINITY;
 		}
-		byte c = ctx.occ.get(x, z);
-		if (!(c == Cell.FREE || c == Cell.SETBACK || c == Cell.PLANNED_ROAD)) {
+		// the castle's ground must be mostly open still
+		int open = 0;
+		int all = 0;
+		for (int dz = -half; dz <= half; dz += 3) {
+			for (int dx = -half; dx <= half; dx += 3) {
+				byte c = ctx.occ.get(x + dx, z + dz);
+				all++;
+				if (c == Cell.FREE || c == Cell.SETBACK || c == Cell.PLANNED_ROAD) {
+					open++;
+				}
+			}
+		}
+		if (open * 10 < all * 8) {
 			return Double.NEGATIVE_INFINITY;
 		}
 		double around = 0;
@@ -221,6 +236,21 @@ public final class Nobility {
 		return (h - ctx.state.heartY) * 1.0 + prominence * 1.6 - (range[1] - range[0]) * 0.8;
 	}
 
+	/**
+	 * Holds the castle hill (open ground only) from town tier, so the lord's keep finds it free when he raises it. Called
+	 * when the districts are laid out.
+	 */
+	public static void reserveHill(PlanContext ctx) {
+		if (ctx.state.reservation(HILL) != null || seatSpec(ctx) != null) {
+			return;
+		}
+		int[] hill = hill(ctx);
+		ArchetypeInfo future = future(ctx);
+		int half = (future == null ? 23 : future.minFrontage()) / 2 + 3;
+		ctx.state.reservations.add(new Reservation(HILL, hill[0] - half, hill[1] - half, hill[0] + half, hill[1] + half, Cell.RESERVED));
+		ctx.occ.markRect(hill[0] - half, hill[1] - half, hill[0] + half, hill[1] + half, Cell.RESERVED);
+	}
+
 	/** The keep, on the castle hill, at the front of a close kept for the castle; a cart road up to it first. */
 	private static boolean keep(PlanContext ctx) {
 		ArchetypeInfo keep = ctx.catalogue.info(Archetypes.KEEP);
@@ -228,6 +258,41 @@ public final class Nobility {
 			return false;
 		}
 		int[] hill = hill(ctx);
+		// the hill was held for this: open it to the keep's search (and hold it again if the keep does not fit yet)
+		Reservation held = ctx.state.reservation(HILL);
+		if (held != null) {
+			ctx.state.removeReservation(HILL);
+			ctx.occ.clearRect(held.x0(), held.z0(), held.x1(), held.z1(), Cell.RESERVED);
+		}
+		if (placeKeep(ctx, keep, hill)) {
+			return true;
+		}
+		if (held != null) {
+			ctx.state.reservations.add(held);
+			ctx.occ.markRect(held.x0(), held.z0(), held.x1(), held.z1(), Cell.RESERVED);
+		}
+		// no frontage up there yet: a cart road up to the hill's foot on the town's side (steps only where it must)
+		int[] foot = held == null ? hill : foot(ctx, held);
+		if (Roads.haul(ctx, foot[0], foot[1], RoadEdge.Role.APPROACH, RoadKind.LANE, 3, false, "road: the way up to the castle hill") != null) {
+			return true;
+		}
+		ctx.routed = false;
+		return Roads.haul(ctx, foot[0], foot[1], RoadEdge.Role.APPROACH, RoadKind.LANE, 3, true, "road: the stair up to the castle hill") != null;
+	}
+
+	/** Just outside the held hill on the side facing the heart: where the road up to it ends. */
+	private static int[] foot(PlanContext ctx, Reservation r) {
+		int cx = (r.x0() + r.x1()) / 2;
+		int cz = (r.z0() + r.z1()) / 2;
+		int dx = ctx.heartX() - cx;
+		int dz = ctx.heartZ() - cz;
+		if (Math.abs(dx) >= Math.abs(dz)) {
+			return new int[]{dx > 0 ? r.x1() + 2 : r.x0() - 2, cz};
+		}
+		return new int[]{cx, dz > 0 ? r.z1() + 2 : r.z0() - 2};
+	}
+
+	private static boolean placeKeep(PlanContext ctx, ArchetypeInfo keep, int[] hill) {
 		ArchetypeInfo future = future(ctx);
 		Siting siting = Siting.near(hill[0], hill[1], 30).withHeight(0.6);
 		String reason = "nobility: the lord raises his keep on the most commanding ground";
@@ -251,15 +316,9 @@ public final class Nobility {
 			return true;
 		}
 		if (Growth.trace) {
-			dev.voidmc.hearth.Hearth.LOG.info("[plan]   keep: hill {},{} (heart {},{}) occ {} big {} small {}", hill[0], hill[1], ctx.heartX(), ctx.heartZ(),
-				Cell.name(ctx.occ.get(hill[0], hill[1])), future != null, p);
+			dev.voidmc.hearth.Hearth.LOG.info("[plan]   keep: hill {},{} (heart {},{}) no frontage yet", hill[0], hill[1], ctx.heartX(), ctx.heartZ());
 		}
-		// no frontage up there yet: a cart road up the hill (steps only where it must)
-		if (Roads.haul(ctx, hill[0], hill[1], RoadEdge.Role.APPROACH, RoadKind.LANE, 3, false, "road: the way up to the castle hill") != null) {
-			return true;
-		}
-		ctx.routed = false;
-		return Roads.haul(ctx, hill[0], hill[1], RoadEdge.Role.APPROACH, RoadKind.LANE, 3, true, "road: the stair up to the castle hill") != null;
+		return false;
 	}
 
 	private static Parcels.@Nullable Parcel near(PlanContext ctx, Parcels.@Nullable Parcel p, int[] at, double within) {

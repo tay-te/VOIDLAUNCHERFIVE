@@ -169,6 +169,7 @@ public final class Needs {
 	public StationLedger stations(PlanContext ctx) {
 		if (this.stations == null) {
 			this.stations = StationLedger.of(ctx);
+			ctx.ledger = this.stations;
 		}
 		return this.stations;
 	}

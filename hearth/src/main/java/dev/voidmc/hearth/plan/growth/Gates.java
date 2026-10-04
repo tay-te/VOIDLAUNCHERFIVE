@@ -110,7 +110,8 @@ public final class Gates {
 	/** A toll gate across a main road a little way out of town, where nothing stands beside it. */
 	private static boolean tollGate(PlanContext ctx, ArchetypeInfo info) {
 		List<int[]> existing = ctx.territory().positions(Archetypes.TOLL_GATE);
-		double from = Math.max(Parcels.edgeRing(ctx), ctx.wallLine()) + 22;
+		// out where the town will end, not where it ends today: a toll gate is not soon a gate in the middle of the streets
+		double from = Math.max(Math.max(Parcels.edgeRing(ctx), Growth.futureEdge(ctx)), ctx.wallLine()) + 22;
 		// the longest roads first: the trade roads
 		List<RoadEdge> arms = new ArrayList<>();
 		for (RoadEdge e : ctx.state.graph.edges()) {

@@ -73,7 +73,7 @@ public final class Expand {
 	public static boolean toward(PlanContext ctx, dev.voidmc.hearth.plan.growth.Siting siting) {
 		if (nearestAccess(ctx, siting.x(), siting.z(), 24) > 20 && ctx.distanceToHeart(siting.x(), siting.z()) > ctx.coreRadius()) {
 			int[] at = freeNear(ctx, siting.x(), siting.z());
-			if (at != null && Roads.haul(ctx, at[0], at[1], RoadEdge.Role.TRACK, RoadKind.PATH, 3, false, "road: a track out to the works") != null) {
+			if (at != null && Roads.haul(ctx, at[0], at[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, false, "road: a cart track out to the works") != null) {
 				return true;
 			}
 		}
@@ -364,7 +364,7 @@ public final class Expand {
 				case BOARDWALK -> {
 					continue;
 				}
-				case TRACK -> {
+				case TRACK, HAUL -> {
 					if (!outward) {
 						continue;
 					}
@@ -506,6 +506,7 @@ public final class Expand {
 			case STAIR -> "stair street";
 			case SWITCHBACK -> "switchback road";
 			case TRACK -> "track";
+			case HAUL -> "cart track";
 			case SQUARE -> "square";
 			default -> e.kind.getSerializedName();
 		};
