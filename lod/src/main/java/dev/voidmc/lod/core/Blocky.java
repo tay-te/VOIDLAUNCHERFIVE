@@ -166,11 +166,12 @@ final class Blocky {
 			return false;
 		}
 		int o = this.s.at(i, j);
-		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k];
+		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k] && this.out.sameLight(o, k);
 	}
 
 	private void top(int i, int j, int w, int d, int k, int a0, int a1, int a2, int a3) {
 		int flags = this.wet[k] ? TileBuilder.UP | TileBuilder.WATER : TileBuilder.UP;
+		this.out.light(k);
 		int y = this.top[k];
 		int c = this.color[k];
 		int b0 = ao(a0), b1 = ao(a1), b2 = ao(a2), b3 = ao(a3);
@@ -238,7 +239,7 @@ final class Blocky {
 	}
 
 	private boolean sameColumn(int a, int b) {
-		if (this.wet[a] != this.wet[b]) {
+		if (this.wet[a] != this.wet[b] || !this.out.sameLight(a, b)) {
 			return false;
 		}
 		if (this.wet[a]) {
@@ -253,6 +254,7 @@ final class Blocky {
 
 	/** One run of wall, from {@code t} down to {@code b}, in the bands its column is made of. */
 	private void wall(int dir, int edge, int a0, int a1, int t, int b, int floor, int k) {
+		this.out.light(k);
 		if (this.wet[k]) {
 			this.band(dir, edge, a0, a1, t, b, floor, this.color[k]);
 			return;

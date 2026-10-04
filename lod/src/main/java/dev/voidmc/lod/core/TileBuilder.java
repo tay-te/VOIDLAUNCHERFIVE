@@ -23,9 +23,10 @@ import java.nio.ByteOrder;
  * costs no allocation beyond the copy handed to the renderer.
  *
  * <p>Vertex format, {@value #VERTEX_BYTES} bytes: {@code short x, y, z, flags}, then two RGBA8 colours. x and z
- * are in cells from the tile's corner (0..TILE), y in eighths of a block. The low three bits of flags are
- * the face ({@link #UP}, {@link #SMOOTH}, or a wall: 2 north, 3 south, 4 west, 5 east), and {@link #WATER} marks
- * water. A blocky face carries its colour in the first RGBA (alpha: ambient occlusion on tops, height
+ * are in cells from the tile's corner (0..TILE) in their low byte, y in eighths of a block. The low three bits of
+ * flags are the face ({@link #UP}, {@link #SMOOTH}, or a wall: 2 north, 3 south, 4 west, 5 east), and {@link #WATER}
+ * marks water. The high bytes of x, z and flags carry the light ({@link Horizons}): the sun's horizon to the east
+ * and to the west, and how much of the sky the land around hides. A blocky face carries its colour in the first RGBA (alpha: ambient occlusion on tops, height
  * above the floor on walls); a smooth vertex carries the colour of the tops and of the risers, with the
  * surface's slope in the two alphas.
  */
@@ -37,6 +38,8 @@ public final class TileBuilder {
 
 	/** Time all builders have spent asking terrain sources about columns: the rest of a build is meshing. */
 	public static final java.util.concurrent.atomic.AtomicLong SAMPLE_NANOS = new java.util.concurrent.atomic.AtomicLong();
+	/** Time all builders have spent working out horizons ({@link Horizons}). */
+	public static final java.util.concurrent.atomic.AtomicLong LIGHT_NANOS = new java.util.concurrent.atomic.AtomicLong();
 
 	/** The first level drawn smooth; the levels below it are blocky. */
 	public static volatile int smoothFrom = Integer.getInteger("void.lod.smoothFrom", 2);
@@ -44,6 +47,12 @@ public final class TileBuilder {
 	private final Samples samples;
 	private final Blocky blocky;
 	private final Smooth smooth;
+	private final Horizons horizons = new Horizons();
+	/** Whether this build has horizons, and the light the next vertices carry ({@link #light}). */
+	private boolean lit;
+	private int lightX;
+	private int lightZ;
+	private int lightFlags;
 	private ByteBuffer out = ByteBuffer.allocateDirect(128 * 1024).order(ByteOrder.nativeOrder());
 	private int vertices;
 	private int minY;
@@ -60,8 +69,16 @@ public final class TileBuilder {
 		this.smooth = new Smooth(this, this.samples);
 	}
 
-	/** Samples and meshes tile {@code key}. The result stays valid until the next call. */
+	/** Samples and meshes tile {@code key}, unlit. The result stays valid until the next call. */
 	public Mesh build(TerrainSource source, long key) {
+		return this.build(source, key, null);
+	}
+
+	/**
+	 * Samples and meshes tile {@code key}, lit by the land around it as {@code heights} knows it (null: unlit), and
+	 * leaves its own heights there for the tiles after it. The result stays valid until the next call.
+	 */
+	public Mesh build(TerrainSource source, long key, Heights heights) {
 		int level = TileKey.level(key);
 		this.begin();
 		boolean smooth = level >= smoothFrom;
@@ -69,6 +86,15 @@ public final class TileBuilder {
 		long t0 = System.nanoTime();
 		this.samples.sample(source, key, smooth, smooth ? 2 : 1);
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
+		this.lit = heights != null;
+		if (this.lit) {
+			if (smooth) {
+				heights.put(key, this.cornerGrid());
+			}
+			long t1 = System.nanoTime();
+			this.horizons.compute(this.samples, heights, level, smooth ? TileKey.TILE + 1 : TileKey.TILE);
+			LIGHT_NANOS.addAndGet(System.nanoTime() - t1);
+		}
 		if (smooth) {
 			this.smooth.mesh();
 			indices = Smooth.INDICES;
@@ -87,6 +113,41 @@ public final class TileBuilder {
 		return this.samples;
 	}
 
+	/** This smooth tile's surface on its corners, for {@link Heights}. */
+	private short[] cornerGrid() {
+		Samples s = this.samples;
+		short[] grid = new short[Heights.V * Heights.V];
+		for (int j = 0; j < Heights.V; j++) {
+			for (int i = 0; i < Heights.V; i++) {
+				int k = s.at(i, j);
+				grid[i + j * Heights.V] = s.empty[k] ? Heights.NONE : Heights.clamp(Heights.surface(s.ground[k], s.water[k], s.canopy[k], s.cover[k]));
+			}
+		}
+		return grid;
+	}
+
+	/**
+	 * The light the vertices after this carry, from sample {@code k}'s horizons: the sun's horizon east and west
+	 * and the sky's occlusion, in the spare high bytes of x, z and flags. Unlit builds leave them zero.
+	 */
+	void light(int k) {
+		if (!this.lit) {
+			return;
+		}
+		this.lightX = this.horizons.east[k] << 8;
+		this.lightZ = this.horizons.west[k] << 8;
+		this.lightFlags = this.horizons.occlusion[k] << 8;
+	}
+
+	/** Whether two samples' light is close enough for their faces to merge into one. */
+	boolean sameLight(int a, int b) {
+		if (!this.lit) {
+			return true;
+		}
+		Horizons h = this.horizons;
+		return h.east[a] >> 2 == h.east[b] >> 2 && h.west[a] >> 2 == h.west[b] >> 2 && h.occlusion[a] >> 3 == h.occlusion[b] >> 3;
+	}
+
 	/** The index buffer every smooth mesh is drawn with (16-bit triangles), to upload once. */
 	public static ByteBuffer smoothIndices() {
 		return Smooth.indices();
@@ -97,6 +158,7 @@ public final class TileBuilder {
 	}
 
 	private void begin() {
+		this.lightX = this.lightZ = this.lightFlags = 0;
 		this.out.clear();
 		this.vertices = 0;
 		this.minY = Integer.MAX_VALUE;
@@ -112,7 +174,7 @@ public final class TileBuilder {
 		}
 		int y8 = Math.max(-32768, Math.min(32767, Math.round(y * 8)));
 		ByteBuffer b = this.out;
-		b.putShort((short) x).putShort((short) y8).putShort((short) z).putShort((short) flags);
+		b.putShort((short) (x | this.lightX)).putShort((short) y8).putShort((short) (z | this.lightZ)).putShort((short) (flags | this.lightFlags));
 		b.put((byte) (top >> 16)).put((byte) (top >> 8)).put((byte) top).put((byte) topAlpha);
 		b.put((byte) (side >> 16)).put((byte) (side >> 8)).put((byte) side).put((byte) sideAlpha);
 		this.vertices++;

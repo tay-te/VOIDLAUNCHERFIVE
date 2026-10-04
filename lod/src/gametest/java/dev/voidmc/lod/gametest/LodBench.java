@@ -79,12 +79,46 @@ public final class LodBench {
 			AtomicLong bytes = new AtomicLong();
 			long t0 = System.nanoTime();
 			TileBuilder one = new TileBuilder();
-			for (int i = 0; i < tiles.size(); i++) {
-				TileBuilder.Mesh mesh = one.build(source, tiles.get(i));
+			long[][] faces = new long[TileKey.MAX_LEVEL + 1][2];
+			dev.voidmc.lod.core.Heights heights = Boolean.getBoolean("lod.bench.light") ? new dev.voidmc.lod.core.Heights() : null;
+			long light0 = TileBuilder.LIGHT_NANOS.get(), sample0 = TileBuilder.SAMPLE_NANOS.get();
+			// coarse to fine, the order the game builds them in
+			long[] order = new long[tiles.size()];
+			for (int i = 0; i < order.length; i++) {
+				order[i] = tiles.get(i);
+			}
+			java.util.Arrays.sort(order);
+			for (int i = order.length - 1; i >= 0; i--) {
+				TileBuilder.Mesh mesh = one.build(source, order[i], heights);
 				quads.addAndGet(mesh.quads());
 				bytes.addAndGet(mesh.bytes());
+				if (Boolean.getBoolean("lod.bench.faces") && !mesh.smooth()) {
+					java.nio.ByteBuffer v = mesh.vertices();
+					int lvl = TileKey.level(order[i]);
+					for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+						int face = v.getShort(q * 4 * TileBuilder.VERTEX_BYTES + 6) & 7;
+						faces[lvl][face == 0 ? 0 : 1]++;
+					}
+				}
+			}
+			if (Boolean.getBoolean("lod.bench.faces")) {
+				for (int l = 0; l <= TileKey.MAX_LEVEL; l++) {
+					if (levels[l] > 0) {
+						System.out.printf(Locale.ROOT, "  L%d: %.0f tops, %.0f walls a tile%n", l, faces[l][0] / (double) levels[l], faces[l][1] / (double) levels[l]);
+					}
+				}
 			}
 			long single = System.nanoTime() - t0;
+			if (heights != null) {
+				// again, every grid in place: what the sweeps alone cost
+				long l1 = TileBuilder.LIGHT_NANOS.get();
+				for (int i = order.length - 1; i >= 0; i--) {
+					one.build(source, order[i], heights);
+				}
+				System.out.printf(Locale.ROOT, "  light, warm: %.1f ms a tile%n", (TileBuilder.LIGHT_NANOS.get() - l1) / 1e6 / tiles.size());
+				System.out.printf(Locale.ROOT, "  light: %.1f ms a tile, %d lookups went coarser; sampling %.1f ms a tile%n",
+					(TileBuilder.LIGHT_NANOS.get() - light0) / 1e6 / tiles.size(), heights.coarser.get(), (TileBuilder.SAMPLE_NANOS.get() - sample0) / 1e6 / tiles.size());
+			}
 
 			int threads = Runtime.getRuntime().availableProcessors();
 			ThreadLocal<TileBuilder> builders = ThreadLocal.withInitial(TileBuilder::new);

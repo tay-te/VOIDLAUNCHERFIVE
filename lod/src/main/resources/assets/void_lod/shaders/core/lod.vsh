@@ -7,8 +7,10 @@
 #include <minecraft:sample_lightmap.glsl>
 #include <void_lod:lodinfo.glsl>
 
-// Per vertex: x and z in cells from the tile's corner, y in eighths of a block, flags (face in the low three
-// bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east; +8 for water), then two colours. Blocky faces use the
+// Per vertex: x and z in cells from the tile's corner (low bytes), y in eighths of a block, flags (face in the low
+// three bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east; +8 for water), then two colours. The high bytes of
+// x, z and flags are the light (Horizons): the sun's horizon to the east and to the west, in 255ths of a right
+// angle, and how much of the sky the land around hides. Blocky faces use the
 // first, with ambient occlusion (tops) or height above the floor (walls) in its alpha. Smooth vertices carry
 // the colour of the tops and of the risers, with the slope along x and z in the two alphas.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
@@ -51,7 +53,7 @@ void main() {
     // Integer arithmetic until the camera is subtracted, so the far edge of the world keeps its precision.
     int cell = 1 << LodTile.z;
     float worldY = float(LodPos.y) * 0.125;
-    ivec2 rel = ivec2(LodTile.x + LodPos.x * cell, LodTile.y + LodPos.z * cell) - CameraBlockPos.xz;
+    ivec2 rel = ivec2(LodTile.x + (LodPos.x & 255) * cell, LodTile.y + (LodPos.z & 255) * cell) - CameraBlockPos.xz;
     vec3 pos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) + CameraOffset;
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
     vec3 toCamera = normalize(-pos);
@@ -90,6 +92,17 @@ void main() {
 
     // Full sky light, through the lightmap: the LOD darkens at dusk and night exactly as the chunks do.
     color *= light;
+
+    // The land's own light, which the chunks do not have, so it comes in past them: the shadows mountains cast
+    // and the sky a valley does not see. The sun crosses from east to west over the zenith, so it is behind the
+    // land wherever its elevation is under the horizon on its side; the edge is softened by a couple of degrees,
+    // as wide as the sun and the haze make it.
+    float beyond = smoothstep(LodClip.x, LodClip.x + 384.0, length(pos.xz));
+    float sunElevation = asin(clamp(LodSun.y, -1.0, 1.0));
+    float horizon = float(((LodSun.x > 0.0 ? LodPos.x : LodPos.z) >> 8) & 255) * (1.5707963 / 255.0);
+    float sunlit = smoothstep(horizon - 0.03, horizon + 0.03, sunElevation);
+    float skyHidden = float((LodPos.w >> 8) & 255) / 255.0;
+    color *= mix(1.0, mix(0.55, 1.0, sunlit), LodSun.w * beyond) * (1.0 - 0.6 * skyHidden * beyond);
 
     if ((LodPos.w & 8) != 0) {
         // Water at a low angle mirrors the sky. Only out past the chunks, where vanilla's own water ends.

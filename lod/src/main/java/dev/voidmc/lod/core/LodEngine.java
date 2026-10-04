@@ -88,6 +88,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private int workerNames;
 	private final AtomicLong order = new AtomicLong();
 	private volatile TerrainSource source;
+	/** The source's heights, at every level, for the tiles' lighting: one per source. */
+	private volatile Heights heights;
 	private volatile long version;
 	private volatile long frame;
 	/** The time of the current frame, and when the queue was last re-sorted and the cache last swept. */
@@ -152,6 +154,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		}
 		this.tiles.clear();
 		this.gpuBytes = 0;
+		this.heights = source == null ? null : new Heights();
 		this.source = source;
 	}
 
@@ -282,7 +285,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			tile.state = Tile.State.BUILDING;
 			long t0 = System.nanoTime();
 			try {
-				TileBuilder.Mesh mesh = builder.build(src, tile.key);
+				TileBuilder.Mesh mesh = builder.build(src, tile.key, this.heights);
 				ByteBuffer copy = ByteBuffer.allocateDirect(Math.max(1, mesh.bytes())).order(ByteOrder.nativeOrder());
 				copy.put(mesh.vertices()).flip();
 				// the record keeps the counts; its buffer is the builder's own and is about to be reused

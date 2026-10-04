@@ -39,7 +39,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * vanilla chunks), {@code lod.show.views} (how many of the views to take), {@code lod.show.width} and
  * {@code lod.show.height} (screenshot size), {@code lod.show.off} (false to skip the vanilla shots),
  * {@code lod.show.only} (a comma-separated list of view names), {@code lod.show.settings} (true to also
- * photograph the settings screen and a preset chosen on it, applied live, plus the F3 lines).
+ * photograph the settings screen and a preset chosen on it, applied live, plus the F3 lines), {@code lod.show.time}
+ * (the time of day in ticks, 6000 by default).
  */
 public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
@@ -52,6 +53,8 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int HEIGHT = Integer.getInteger("lod.show.height", 900);
 	private static final boolean OFF = Boolean.parseBoolean(System.getProperty("lod.show.off", "true"));
 	private static final boolean SETTINGS = Boolean.getBoolean("lod.show.settings");
+	/** The time of day, in ticks (6000 noon, 12500 a low evening sun, 23500 a low morning one). */
+	private static final int TIME = Integer.getInteger("lod.show.time", 6000);
 
 	private record Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
 		Spot(String name, int x, int y, int z, float yaw, float pitch) {
@@ -82,7 +85,7 @@ public class LodShowcase implements FabricClientGameTest {
 			world.getServer().runCommand("gamerule advance_time false");
 			world.getServer().runCommand("gamerule advance_weather false");
 			world.getServer().runCommand("weather clear");
-			world.getServer().runCommand("time set 6000");
+			world.getServer().runCommand("time set " + TIME);
 			world.getServer().runCommand("gamemode spectator @a");
 
 			List<Spot> spots = world.getServer().computeOnServer(server -> {
