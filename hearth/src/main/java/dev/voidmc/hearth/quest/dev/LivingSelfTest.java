@@ -197,6 +197,10 @@ final class LivingSelfTest {
 		if (q == null) {
 			return;
 		}
+		// a fake player loads no chunks, and entities in a freshly forced chunk load a few ticks later: the camp is moved
+		// into the town's held ground, where its band can be found at once
+		BlockPos camp = this.town.center().offset(20, 0, 12);
+		QuestStore.edit(this.player, pq -> pq.get(q.id).objectives.getFirst().pos = new BlockPos(camp.getX(), Objective.SURFACE_Y, camp.getZ()));
 		Objective o = QuestStore.get(this.player).get(q.id).objectives.getFirst();
 		standAt(o.pos);
 		QuestTracker.checkNow(this.player);
@@ -209,6 +213,14 @@ final class LivingSelfTest {
 			}
 		}
 		QuestInstance after = QuestStore.get(this.player).get(q.id);
+		if (after == null || after.status != QuestStatus.READY) {
+			Hearth.LOG.info("[quest selftest] band: status {}, progress {}/{}, members {}", after == null ? "gone" : after.status,
+				after == null ? -1 : after.objectives.getFirst().progress, after == null ? -1 : after.objectives.getFirst().count,
+				band.stream().map(id -> {
+					Entity e = this.level.getEntity(id);
+					return e == null ? "missing" : e.getType().toShortString() + (e.isAlive() ? " alive " + ((LivingEntity) e).getHealth() : " dead");
+				}).toList());
+		}
 		check(after != null && after.status == QuestStatus.READY, "beating the band readies the quest");
 		QuestManager.handIn(this.player, this.town, null);
 		unstand(o.pos);

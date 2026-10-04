@@ -274,7 +274,7 @@ everything (reach to the board, the settlement, standing, journal size).
 
 - Server-authoritative, per player. The tracker looks at each online player once every `tracker_interval` ticks
   (staggered), checking only their own quests (at most `max_active`): positions against targets, deadlines, a beast's
-  lair, an escort's arrival. Kills arrive as events. A board refresh is about 0.2 ms (measured on the dev server).
+  lair, an escort's arrival. Kills arrive as events. A forced board refresh of a 16-folk town with all 129 templates takes about 0.4 ms (measured on the dev server).
 - Settlement data is small and bounded (8 needs, 12 happenings, 24 located targets); player history is capped at 40.
 - Nothing loads chunks except the landmark confirmation (asynchronous, a few chunks per search, once per structure per
   town) and a beast raised in the chunk the player is standing near.
@@ -367,9 +367,9 @@ The sandbox lives in memory until the server stops and works with or without the
   couriers needing a destination, exploration queuing a search then binding, treasury caps, determinism, expiry and
   cooldowns; objective progress (kills by kind, place and time; arrivals; sequential steps; deadlines; scouting band),
   emerald fallback and escrow, save round trips.
-- Dedicated-server self-test of the whole loop as a fake player (36 phase 2 checks: supply into the stockpile, courier,
+- Dedicated-server self-test of the whole loop as a fake player (76 checks, all passing on 2026-10-03; 36 from phase 2: supply into the stockpile, courier,
   bounty with real kills, keepsake, escort, abandon, landmark search, refresh timing; and the living world's
-  `LivingSelfTest`: a contract into the stores, a real fire put out by the brigade, props and a dig with a pickaxe for a
+  40 in `LivingSelfTest`: a contract into the stores, a real fire put out by the brigade, props and a dig with a pickaxe for a
   collapse, a bandit camp raised and beaten, a market thief yielding and the purse brought back, a donation into the
   treasury, a new quarry prospected in real rock, a caravan train on the lead and a robbery reported to the law, the wanted
   refused work and offered a way to clear their name):
