@@ -114,7 +114,14 @@ public class LightTour implements FabricClientGameTest {
 				world.getServer().runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 30", bx, -40, -20));
 				settle(context, 3_000);
 				List<Shot> lit = world.getServer().computeOnServer(server -> build(server.overworld(), sub, bx, 0, false));
-				List<Shot> dark = BEFORE ? world.getServer().computeOnServer(server -> build(server.overworld(), sub, bx, 80, true)) : List.of();
+				// the unlit twin 80 blocks south, photographed from the same cameras
+				List<Shot> dark = new ArrayList<>();
+				if (BEFORE) {
+					world.getServer().computeOnServer(server -> build(server.overworld(), sub, bx, 80, true));
+					for (Shot s : lit) {
+						dark.add(new Shot(s.view(), s.x(), s.y(), s.z() + 80, s.yaw(), s.pitch()));
+					}
+				}
 				String base = "hearth_light_" + name + "_" + sub.culture().getSerializedName();
 				photograph(context, world, base, lit);
 				photograph(context, world, base, dark, "_before");
@@ -178,7 +185,8 @@ public class LightTour implements FabricClientGameTest {
 
 	/**
 	 * The street view (from the front left, a little up, looking at the middle of the house) and, per storey with rooms
-	 * (the two largest), a view from a corner of its biggest room at eye height across to the room's far side.
+	 * (the two largest), a view from the front of its biggest room down its length at eye height (the unlit twin is seen
+	 * from the same cameras).
 	 */
 	private static List<Shot> cameras(BlueprintImpl bp, LightCheck.Result res, int ground) {
 		List<Shot> out = new ArrayList<>();
@@ -220,9 +228,9 @@ public class LightTour implements FabricClientGameTest {
 				bx = Math.max(bx, (int) c[0]);
 				bz = Math.max(bz, (int) c[1]);
 			}
-			// the corner toward the street (south) and the left; the camera on the room cell nearest it, a step in
-			double kx = ax + 1.0;
-			double kz = bz - 1.0;
+			// from the front of the room (the street side, south) down its length to the back, at eye height
+			double kx = (ax + bx + 1) / 2.0;
+			double kz = bz + 0.5;
 			long[] cam = room.get(0);
 			double best = Double.MAX_VALUE;
 			for (long[] c : room) {
@@ -232,7 +240,7 @@ public class LightTour implements FabricClientGameTest {
 					cam = c;
 				}
 			}
-			out.add(look("room_y" + (y - ground), cam[0] + 0.5, y, cam[1] + 0.5, bx + 0.5, y + 0.4, az + 0.5));
+			out.add(look("room_y" + (y - ground), cam[0] + 0.5, y, cam[1] + 0.5, kx, y + 1.0, az + 0.5));
 			taken++;
 		}
 		return out;

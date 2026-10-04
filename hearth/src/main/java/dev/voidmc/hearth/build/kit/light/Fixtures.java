@@ -264,6 +264,12 @@ final class Fixtures {
 			if (Math.abs(x - cx) > radius || Math.abs(z - cz) > radius) {
 				continue;
 			}
+			// in a room too low to hang a lantern, one set on the floor in a corner where it is in nobody's way
+			if (r.height < 4 && !s.m.torches && cornerOk(s, x, y, z)) {
+				Fixture l = new Fixture(Fixture.Kind.LAMP, 1.25);
+				l.part(x, y, z, standing(s), StageKind.INTERIOR);
+				out.add(l);
+			}
 			Fixture ce = ceiling(s, x, y, z, hang);
 			if (ce != null) {
 				out.add(new Fixture(ce.kind, 1.15).copyFrom(ce));
@@ -306,6 +312,32 @@ final class Fixtures {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * A room's corner a lantern may stand in: walls (or furniture) on two sides at feet and head height, a sturdy floor,
+	 * no door, bed, job site or stair beside it, and the way round the room still open without it.
+	 */
+	private static boolean cornerOk(Session s, int x, int y, int z) {
+		if (!s.free(x, y, z) || !Session.sturdyAbove(s.g.at(x, y - 1, z)) || s.nearPoi.contains(net.minecraft.core.BlockPos.asLong(x, y, z))) {
+			return false;
+		}
+		boolean[] wall = new boolean[4];
+		int k = 0;
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			BlockState feet = s.g.at(nx, y, nz);
+			Block b = feet.getBlock();
+			if (b instanceof DoorBlock || b instanceof FenceGateBlock || b instanceof StairBlock || b instanceof net.minecraft.world.level.block.BedBlock
+				|| b instanceof net.minecraft.world.level.block.LadderBlock || s.g.at(x, y - 1, z).getBlock() instanceof StairBlock) {
+				return false;
+			}
+			wall[k++] = !Spaces.passable(feet) && !Spaces.passable(s.g.at(nx, y + 1, nz));
+		}
+		// two walls meeting (not two opposite: that is a corridor)
+		boolean corner = wall[0] && wall[1] || wall[1] && wall[2] || wall[2] && wall[3] || wall[3] && wall[0];
+		return corner && !cuts(s, x, y, z);
 	}
 
 	private static boolean nearUnmet(Session s, int x, int y, int z, int radius) {
