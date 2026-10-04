@@ -61,6 +61,7 @@ class LearningArchetypesTest {
 
 	static {
 		REQUIRED.put("civic/shrine", EnumSet.of(PoiType.ALTAR));
+		REQUIRED.put("work/alchemist_tower", EnumSet.of(PoiType.JOB_SITE, PoiType.LECTERN, PoiType.BED, PoiType.STORAGE, PoiType.VIEWPOINT, PoiType.DOOR));
 	}
 
 	static List<ArchetypeInfo> family() {
