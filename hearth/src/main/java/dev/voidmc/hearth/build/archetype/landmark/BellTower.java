@@ -229,6 +229,8 @@ public final class BellTower implements Archetype {
 			case MARITIME -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.BROACH, Crowns.Kind.OCTAGON, Crowns.Kind.PARAPET);
 			case DESERT, MESA, STEPPE -> d.pick(Crowns.Kind.DOME, Crowns.Kind.PARAPET, Crowns.Kind.CUPOLA);
 			case WISTERIA -> d.pick(Crowns.Kind.BROACH, Crowns.Kind.OCTAGON, Crowns.Kind.PYRAMID);
+			// a Bohemian town's tower: the gallery with its corner pinnacles round a needle
+			case TEMPERATE -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.SPIRE, Crowns.Kind.OCTAGON);
 			default -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.OCTAGON, Crowns.Kind.BROACH, Crowns.Kind.SPIRE, Crowns.Kind.PARAPET);
 		};
 	}

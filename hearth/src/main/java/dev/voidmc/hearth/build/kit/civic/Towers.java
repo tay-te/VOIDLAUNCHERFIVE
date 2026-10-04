@@ -251,14 +251,8 @@ public final class Towers {
 			case DOME -> {
 				Fam dome = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
 				if (Tradition.of(d) == Tradition.ADOBE) {
-					// the dry south domes its towers in its accent (glazed tile where the style has it) when it cuts stairs
-					for (Role role : new Role[]{Role.ACCENT, Role.WALL_ACCENT}) {
-						Fam f = Fam.of(d, role, Form.FULL, StageKind.ROOF);
-						if (f != null && f.has(Form.STAIRS)) {
-							dome = f;
-							break;
-						}
-					}
+					// the dry south domes its towers in its accent (glazed tile where the style has it), else in lime
+					dome = Adobe.domeSheet(d);
 				}
 				var rows = dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, size / 2.0 - 0.4));
 				int top = stack(d, cx, cz, baseY + 1, rows, dome != null ? dome : Fam.of("minecraft:smooth_sandstone", StageKind.ROOF), maxTop);

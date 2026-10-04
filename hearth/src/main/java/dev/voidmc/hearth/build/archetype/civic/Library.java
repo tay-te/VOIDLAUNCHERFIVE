@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Fam;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
@@ -157,7 +158,7 @@ public final class Library implements Archetype {
 				int ry = top.deck() + 1;
 				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(2), ry, s.z(2), d.mat(Role.GLASS).pane()));
 			}
-			Fam dome = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
+			Fam dome = Adobe.is(d) ? Adobe.domeSheet(d) : Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
 			if (dome != null) {
 				skyline = Math.max(skyline, Towers.lathe(d, cx, cz, top.deck() + 2, new double[]{2.6, 2.3, 1.7, 0.9}, dome, maxH));
 			}

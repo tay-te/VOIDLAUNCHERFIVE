@@ -216,17 +216,7 @@ public final class Adobe {
 	public static int dome(Draft d, int cx, int cz, int deck, int r, int maxH) {
 		// the dome in the style's accent where it cuts into stairs (glazed and coloured where the style says so), else the
 		// dressed stone, else the roof's
-		Fam fam = null;
-		for (Role role : new Role[]{Role.ACCENT, Role.WALL_ACCENT, Role.ROOF}) {
-			Fam f = Fam.of(d, role, Form.FULL, StageKind.ROOF);
-			if (f != null && f.has(Form.STAIRS)) {
-				fam = f;
-				break;
-			}
-		}
-		if (fam == null) {
-			fam = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
-		}
+		Fam fam = domeSheet(d);
 		if (fam == null) {
 			return deck;
 		}
@@ -239,6 +229,25 @@ public final class Adobe {
 		// the dome a cell wider than its drum all round, laid outline by outline
 		int top = Towers.stack(d, cx, cz, deck + 2, dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, r + 1), fam, maxH);
 		return Math.max(top, Towers.finial(d, cx, top + 1, cz, maxH, false));
+	}
+
+	/**
+	 * What the dry south covers its domes in: the accent where it cuts stairs (a glazed or coloured tile), else the dressed
+	 * stone where that does; else lime: whitewashed domes over walls of the earth's own colour, as the oases and missions
+	 * build them (a dome in the walls' own stone vanishes against them). Null only where nothing at all cuts.
+	 */
+	public static Fam domeSheet(Draft d) {
+		for (Role role : new Role[]{Role.ACCENT, Role.WALL_ACCENT}) {
+			Fam f = Fam.of(d, role, Form.FULL, StageKind.ROOF);
+			if (f != null && f.has(Form.STAIRS)) {
+				return f;
+			}
+		}
+		Fam lime = Fam.of("minecraft:smooth_quartz", StageKind.ROOF);
+		if (lime != null && lime.has(Form.STAIRS)) {
+			return lime;
+		}
+		return Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
 	}
 
 	/** A date palm: a slender trunk leaning nowhere, a crown of fronds drooping round it. */
