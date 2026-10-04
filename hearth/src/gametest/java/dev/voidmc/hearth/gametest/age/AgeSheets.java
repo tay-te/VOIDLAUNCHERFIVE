@@ -172,7 +172,7 @@ public final class AgeSheets {
 		float temperature = culture == Culture.TUNDRA ? -0.3F : culture == Culture.ALPINE || culture == Culture.NORTHERN ? 0.3F : 0.8F;
 		SyntheticTerrain probe = new SyntheticTerrain(SyntheticTerrain.Kind.valueOf(terrain.toUpperCase(Locale.ROOT)), 42, temperature);
 		CompoundTag params = extra.copy();
-		for (String k : new String[]{"levels", "back", "yaw", "scale", "name", "cell", "anyCulture", "cut", "pitch"}) {
+		for (String k : new String[]{"levels", "back", "yaw", "scale", "name", "cell", "anyCulture", "cut", "pitch", "list"}) {
 			params.remove(k);
 		}
 		if (mode.equals("decay")) {
@@ -192,8 +192,30 @@ public final class AgeSheets {
 		Voxels world = PreviewScene.build(bp, spec, probe, 3, culture);
 		if (mode.equals("dress") && !col.equals("none")) {
 			Dressings.Kind kind = Dressings.Kind.byName(col);
-			for (Dressings.Step st : Dressings.steps(spec, bp, kind, 0)) {
-				world.set(st.pos().getX(), st.pos().getY(), st.pos().getZ(), st.state());
+			var dsteps = Dressings.steps(spec, bp, kind, 0, probe);
+			if (extra.getBooleanOr("list", false)) {
+				synchronized (AgeSheets.class) {
+					System.out.println("DRESS " + a.id().getPath() + " " + culture.getSerializedName() + " " + col + ": " + dsteps.size() + " steps");
+					var f = new dev.voidmc.hearth.build.blueprint.LocalFrame(spec);
+					for (Dressings.Step st : dsteps) {
+						System.out.println("   " + f.localX(st.pos().getX(), st.pos().getZ()) + "," + (st.pos().getY() - spec.floorY()) + ","
+							+ f.localZ(st.pos().getX(), st.pos().getZ()) + " " + st.state());
+					}
+				}
+			}
+			for (Dressings.Step st : dsteps) {
+				var p = st.pos();
+				if (st.state().getBlock() instanceof net.minecraft.world.level.block.AbstractBannerBlock banner) {
+					// the offline renderer draws no block entities: a banner is drawn as its cloth, two blocks long, against the wall
+					var cloth = dev.voidmc.hearth.build.kit.age.Trimmings.dyed(banner.getColor(), "_wool").defaultBlockState();
+					world.set(p.getX(), p.getY(), p.getZ(), cloth);
+					var below = world.get(p.getX(), p.getY() - 1, p.getZ());
+					if (below == null || below.isAir()) {
+						world.set(p.getX(), p.getY() - 1, p.getZ(), cloth);
+					}
+					continue;
+				}
+				world.set(p.getX(), p.getY(), p.getZ(), st.state());
 			}
 		}
 		if (extra.contains("cut")) {
