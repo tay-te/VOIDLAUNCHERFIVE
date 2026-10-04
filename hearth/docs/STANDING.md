@@ -213,9 +213,11 @@ player once per `track_interval` (20) ticks, staggered (a spatial lookup, a titl
 is one comparison every 100 ticks unless news is due; drift is a pass over a town's ledger once a sim day, and announces
 only entries whose rounded number changes.
 
-Measured on the dev server (4 Expanse Earth towns, real atlas, this machine): **62–76 µs per deed** including gossip
-routing over the atlas, 94 deliveries in 1.6–1.9 ms, a day passing in every town 0.8–0.9 ms (2000 deeds of 40 players
-in their ledgers and memories). Unit test: 500 deeds with gossip over 41 towns well under a second.
+Measured on the dev server (4 Expanse Earth towns, real atlas, this machine): **62–84 µs per deed** including gossip
+routing over the atlas, 94–272 deliveries in 1.4–1.9 ms, a day passing in every town 0.8–0.9 ms (2000 deeds of 40 players
+in their ledgers and memories). Unit test: 500 deeds with gossip over 41 towns well under a second. On that world a
+raid repelled in Plumvale reached Torheim (2826 blocks) after 3 days at +14.8 and Thornfield (3530) after 4 at +6.6,
+moving their standing by +7 and +3; a second server run read back what the first saved.
 
 ## 12. Seeing it work
 
