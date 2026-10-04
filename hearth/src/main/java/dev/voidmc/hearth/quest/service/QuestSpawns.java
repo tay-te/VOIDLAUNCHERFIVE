@@ -312,8 +312,8 @@ public final class QuestSpawns {
 	}
 
 	/**
-	 * Takes a quest's creatures back when it ends: a beast, an ambush and a culprit vanish (they were the quest's), pack
-	 * animals are let off their leads.
+	 * Takes a quest's creatures back when it ends: a beast, an ambush, a culprit and a loaded caravan vanish (they were the
+	 * quest's), a lone pack animal is let off its lead.
 	 */
 	public static void release(MinecraftServer server, QuestInstance q) {
 		for (Objective o : q.objectives) {
@@ -321,13 +321,16 @@ public final class QuestSpawns {
 			if (o.entity != null && o.data.getBooleanOr(Objective.Keys.SPAWNED, false)) {
 				ids.add(o.entity);
 			}
+			// a loaded caravan goes back to its master: its cargo is not left on the road for the taking
+			boolean cargo = !o.data.getStringOr(Objective.Keys.CARGO, "").isEmpty();
 			for (UUID id : ids) {
 				for (ServerLevel level : server.getAllLevels()) {
 					Entity e = level.getEntity(id);
 					if (e == null) {
 						continue;
 					}
-					if (e.entityTags().contains(ROLE_BEAST) || e.entityTags().contains(ROLE_AMBUSH) || e.entityTags().contains(ROLE_CULPRIT)) {
+					if (e.entityTags().contains(ROLE_BEAST) || e.entityTags().contains(ROLE_AMBUSH) || e.entityTags().contains(ROLE_CULPRIT)
+						|| (cargo && e.entityTags().contains(ROLE_ESCORT))) {
 						e.discard();
 					} else if (e instanceof Leashable leashable && leashable.isLeashed()) {
 						leashable.dropLeash();

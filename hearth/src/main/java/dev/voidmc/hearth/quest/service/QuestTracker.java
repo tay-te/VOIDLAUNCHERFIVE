@@ -93,10 +93,13 @@ public final class QuestTracker {
 				reasons.add(Component.translatable("hearth.quest.reason.deadline"));
 				continue;
 			}
+			if (takeAway(level, q)) {
+				dirty = true;
+			}
 			if (q.status != QuestStatus.ACTIVE) {
 				continue;
 			}
-			boolean changed = takeAway(level, q);
+			boolean changed = false;
 			if (level.dimension() == Level.OVERWORLD) {
 				for (Objective o : QuestProgress.onPosition(q, pos, biome -> inBiome(level, pos, biome))) {
 					changed = true;
@@ -225,12 +228,18 @@ public final class QuestTracker {
 				other.complete();
 			}
 		}
+		boolean cargo = !o.data.getStringOr(Objective.Keys.CARGO, "").isEmpty();
 		for (UUID id : QuestSpawns.members(o)) {
-			if (level.getEntity(id) instanceof net.minecraft.world.entity.Leashable leashable && leashable.isLeashed()) {
+			Entity member = level.getEntity(id);
+			if (cargo && member != null) {
+				// the train is unloaded and stabled at the destination: its cargo is delivered, not left for the taking
+				level.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, member.getX(), member.getY() + 0.5, member.getZ(), 8, 0.4, 0.4, 0.4, 0.02);
+				member.discard();
+			} else if (member instanceof net.minecraft.world.entity.Leashable leashable && leashable.isLeashed()) {
 				leashable.dropLeash();
 			}
 		}
-		if (e instanceof net.minecraft.world.entity.Leashable leashable && leashable.isLeashed()) {
+		if (!e.isRemoved() && e instanceof net.minecraft.world.entity.Leashable leashable && leashable.isLeashed()) {
 			leashable.dropLeash();
 		}
 		player.sendSystemMessage(Component.translatable("hearth.quest.escort.arrived", o.data.getStringOr(Objective.Keys.NAME, "?"), dest.name())
@@ -302,7 +311,7 @@ public final class QuestTracker {
 		if (entity.entityTags().contains(QuestSpawns.TAG)) {
 			Optional<UUID> quest = QuestSpawns.questOf(entity);
 			Optional<UUID> owner = QuestSpawns.ownerOf(entity);
-			ServerPlayer player = owner.map(id -> server.getPlayerList().getPlayer(id)).orElse(null);
+			ServerPlayer player = owner.map(id -> owner(server, id, killerPlayer)).orElse(null);
 			if (killerPlayer != null && quest.isPresent()) {
 				reportKill(level, killerPlayer, entity, player, quest.get());
 			}
@@ -674,7 +683,8 @@ public final class QuestTracker {
 			return true;
 		}
 		Optional<UUID> quest = QuestSpawns.questOf(entity);
-		ServerPlayer owner = QuestSpawns.ownerOf(entity).map(id -> level.getServer().getPlayerList().getPlayer(id)).orElse(null);
+		ServerPlayer attacker = source.getEntity() instanceof ServerPlayer p ? p : null;
+		ServerPlayer owner = QuestSpawns.ownerOf(entity).map(id -> owner(level.getServer(), id, attacker)).orElse(null);
 		if (owner == null || quest.isEmpty()) {
 			return true;
 		}
@@ -814,6 +824,19 @@ public final class QuestTracker {
 		}
 		int size = Math.max(1, Math.max(o.count, o.data.getIntOr(Objective.Keys.CARAVAN, 1)));
 		LawBridge.report(offence, killer, s, victim.blockPosition(), null, o.data.getLongOr(Objective.Keys.VALUE, 0L) / size, drover);
+	}
+
+	/**
+	 * The player a quest creature belongs to: online, or the one acting on it now (a fake player — a server-side automaton
+	 * or the self-test — is not in the player list).
+	 */
+	private static @org.jspecify.annotations.Nullable ServerPlayer owner(MinecraftServer server, UUID id,
+		@org.jspecify.annotations.Nullable ServerPlayer acting) {
+		ServerPlayer online = server.getPlayerList().getPlayer(id);
+		if (online != null) {
+			return online;
+		}
+		return acting != null && acting.getUUID().equals(id) ? acting : null;
 	}
 
 	/** Gives the item an objective grants (stolen goods recovered from a culprit). */

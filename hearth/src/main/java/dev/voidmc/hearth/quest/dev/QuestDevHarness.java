@@ -53,8 +53,9 @@ import org.jspecify.annotations.Nullable;
  *
  * It founds a sandbox town at spawn and, as a fake player, takes and finishes a supply quest (and checks the goods
  * reach the stockpile), a courier run to the neighbouring hamlet, a spider bounty with real kills, a lost keepsake,
- * an escort, and abandons one to see the coin go home; it queues landmark searches and checks what they found; and it
- * times board refreshes. Every check logs PASS or FAIL. Run with
+ * an escort, and abandons one to see the coin go home; it queues landmark searches and checks what they found; it
+ * times board refreshes; and it runs the living world's checks ({@link LivingSelfTest}: contracts, fire, collapse,
+ * bandits, a thief, a donation, prospecting, a caravan, the wanted). Every check logs PASS or FAIL. Run with
  * {@code JAVA_TOOL_OPTIONS="-Dhearth.dev.quest.selftest=true -Dhearth.dev.quest.stop=true" ./gradlew runServer}.
  */
 public final class QuestDevHarness {
@@ -93,6 +94,8 @@ public final class QuestDevHarness {
 					forceSpawn(s, true);
 				} else if (ticks == START) {
 					loop(s);
+				} else if (ticks == START + 2 && town != null) {
+					new LivingSelfTest(s.overworld(), town, QuestDevHarness::check).run();
 				} else if (ticks == START + 5) {
 					escortStart(s);
 				} else if (ticks == START + 80) {
@@ -168,8 +171,13 @@ public final class QuestDevHarness {
 			pq = QuestStore.get(player);
 			check(pq.get(stone.id) == null && pq.completed(stone.template) == 1, "handing in completes the supply quest");
 			check(t.stockpile().get(Goods.STONE) == before + o.count * units, "the stone reached the stockpile: +" + (t.stockpile().get(Goods.STONE) - before));
-			check(board.needs.stream().noneMatch(n -> n.goods() == Goods.STONE), "the stone need is met");
-			check(countItem(player, Items.EMERALD) > 0, "paid in emeralds without the economy module: " + countItem(player, Items.EMERALD));
+			check(board.needs.stream().noneMatch(n -> n.goods() == Goods.STONE && !n.contract()), "the stone need is met");
+			if (dev.voidmc.hearth.api.HearthServices.economy() == null) {
+				check(countItem(player, Items.EMERALD) > 0, "paid in emeralds without the economy module: " + countItem(player, Items.EMERALD));
+			} else {
+				check(dev.voidmc.hearth.api.HearthServices.economy().balance(player) > 0, "paid in coin through the economy module: "
+					+ dev.voidmc.hearth.api.HearthServices.economy().balance(player));
+			}
 			check(t.reputation(player.getUUID()) > 0, "standing rose: " + t.reputation(player.getUUID()));
 		}
 
@@ -292,6 +300,13 @@ public final class QuestDevHarness {
 		}
 		QuestTracker.checkNow(player);
 		QuestInstance q = QuestStore.get(player).get(escortQuest.id);
+		if (q == null || q.status != QuestStatus.READY) {
+			Objective o = q == null ? null : q.objectives.getFirst();
+			Entity mule = o == null || o.entity == null ? null : level.getEntity(o.entity);
+			Hearth.LOG.info("[quest selftest] escort: quest {} status {}, objective {}, mule {}; history {}", escortQuest.id,
+				q == null ? "gone" : q.status, o == null ? "-" : o.data, mule == null ? "missing" : mule.blockPosition().toShortString(),
+				QuestStore.get(player).history.stream().limit(3).map(r -> r.title() + ":" + r.outcome()).toList());
+		}
 		check(q != null && q.status == QuestStatus.READY, "the mule's arrival at " + escortDest.name() + " readies the escort");
 		QuestManager.handIn(player, t, null);
 		check(QuestStore.get(player).get(escortQuest.id) == null, "the escort is handed in");

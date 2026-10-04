@@ -358,7 +358,8 @@ public final class QuestGenerator {
 		ints.put("pressure", Math.max(1, ctx.data().pressure));
 
 		Resident giverRes = chooseGiver(t, s, random);
-		if (giverRes == null && (t.type() == QuestType.PERSONAL || needsGiver(t))) {
+		if (giverRes == null && (t.type() == QuestType.PERSONAL || t.type() == QuestType.CRIME || needsGiver(t))) {
+			// a personal request needs its person; a fence's work needs a fence (the council does not hire robbers)
 			return null;
 		}
 		QuestInstance.Giver giver = giverRes == null

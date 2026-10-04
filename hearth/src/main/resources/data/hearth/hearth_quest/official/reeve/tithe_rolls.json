@@ -22,7 +22,7 @@
 			"Errand for the reeve"
 		],
 		"summary": [
-			"The reeve of {settlement}, {giver}, needs the tithe rolls carried to {target}, {distance} to the {direction}."
+			"{giver} of {settlement} needs the tithe rolls carried to {target}, {distance} to the {direction}."
 		],
 		"offer": [
 			"Every season the rolls go to {target} to be checked against theirs, and every season my courier finds a reason to be ill. Will you carry them? {distance}, {direction}."

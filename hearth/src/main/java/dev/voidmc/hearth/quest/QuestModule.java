@@ -70,6 +70,7 @@ public final class QuestModule {
 		});
 
 		dev.voidmc.hearth.quest.service.LivingQuests.register();
+		dev.voidmc.hearth.quest.service.HueAndCry.register();
 		ServerLifecycleEvents.SERVER_STARTING.register(dev.voidmc.hearth.quest.service.GameFactsImpl::setServer);
 
 		ServerTickEvents.END_SERVER_TICK.register(QuestTracker::tick);

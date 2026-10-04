@@ -120,5 +120,11 @@
 	"hearth.quest.heed.call": "[!] %s",
 	"hearth.quest.heed.answer": "[I'll help]",
 	"hearth.quest.poster.wanted": "WANTED",
-	"hearth.quest.poster.outlaw": "OUTLAW"
+	"hearth.quest.poster.outlaw": "OUTLAW",
+	"hearth.quest.cry.fire.0": "Fire! Fire! Bring water!",
+	"hearth.quest.cry.fire.1": "Buckets! Get buckets, it's spreading!",
+	"hearth.quest.cry.fire.2": "Help! The roof's alight!",
+	"hearth.quest.cry.collapse.0": "The gallery's down! There are men under there!",
+	"hearth.quest.cry.collapse.1": "Shovels! Bring timber for props!",
+	"hearth.quest.cry.collapse.2": "Can you hear them? Dig, dig!"
 }
