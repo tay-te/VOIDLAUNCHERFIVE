@@ -147,7 +147,7 @@ public final class Longhouse implements Archetype {
 			return Cover.THATCH;
 		}
 		boolean grassy = d.mat(Role.GROUND).main(Form.FULL) == Blocks.GRASS_BLOCK;
-		return grassy && d.chance(stone ? 0.35 : 0.4) ? Cover.TURF : Cover.SHINGLE;
+		return grassy && d.chance(stone ? 0.35 : 0.55) ? Cover.TURF : Cover.SHINGLE;
 	}
 
 	/** Footings under the bowed outline, the floor boarded, the ground in front levelled to the street. */
