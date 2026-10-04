@@ -695,7 +695,8 @@ final class HouseBuilder {
 				}
 			}
 		}
-		// a pueblo's ladder up its front to the roof, its rails over the parapet; a horno in the yard
+		// a pueblo's ladder up its front to the roof, its rails over the parapet; a horno in the yard (its vigas come with
+		// the flat roof)
 		if (t.pueblo()) {
 			Side front = b.side(0, Dirs.FRONT);
 			int[] r0 = b.rect(0);
