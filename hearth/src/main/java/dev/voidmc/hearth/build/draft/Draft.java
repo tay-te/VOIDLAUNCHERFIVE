@@ -83,6 +83,13 @@ public final class Draft {
 	private final Set<String> missing = new java.util.TreeSet<>();
 	private final it.unimi.dsi.fastutil.longs.LongOpenHashSet drained = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	private @Nullable StageKind stage;
+	/**
+	 * The construction campaign placements belong to (0 unless an archetype raises itself in several, see
+	 * {@link #phase(int)}), and each placement's campaign where it is not 0.
+	 */
+	private int phase;
+	private int maxPhase;
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap phases = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
 	private int sequence;
 	private int clipped;
 	private int eaveY = Integer.MIN_VALUE;
@@ -428,6 +435,35 @@ public final class Draft {
 		return this.stage;
 	}
 
+	/**
+	 * Places everything until the returned scope is closed in construction campaign {@code n} (0 is the default). A great
+	 * building raised over months is built in campaigns, each one a whole run of stages: a castle's curtain and towers
+	 * (clearing, footings, walls, roofs), then its gatehouse, then its keep, then its hall... so a castle half built
+	 * looks like one, and no stage asks for more goods than a town can store. The compiler orders steps by campaign, then
+	 * by stage kind within it. Each campaign must stand on the ground or on what earlier campaigns built.
+	 */
+	public StageScope phase(int n) {
+		int previous = this.phase;
+		this.phase = Math.max(0, n);
+		this.maxPhase = Math.max(this.maxPhase, this.phase);
+		return () -> this.phase = previous;
+	}
+
+	/** The construction campaign of a placement (0 where none was set, or nothing is placed). */
+	public int phaseOf(int x, int y, int z) {
+		return this.phases.getOrDefault(key(x, y, z), 0);
+	}
+
+	/** The last construction campaign used (0 for a building raised in one). */
+	public int maxPhase() {
+		return this.maxPhase;
+	}
+
+	/** Makes the last campaign current: what the compiler adds after the archetype (lighting) goes in with it. */
+	public void toLastPhase() {
+		this.phase = this.maxPhase;
+	}
+
 	/** A stage scope; closing it restores the stage that was current before. */
 	@FunctionalInterface
 	public interface StageScope extends AutoCloseable {
@@ -500,6 +536,7 @@ public final class Draft {
 	/** Forgets a placement (the world is left as it is there). */
 	public void remove(int x, int y, int z) {
 		this.cells.remove(key(x, y, z));
+		this.phases.remove(key(x, y, z));
 	}
 
 	/**
@@ -536,7 +573,13 @@ public final class Draft {
 			return;
 		}
 		StageKind s = this.stage != null ? this.stage : paintStage != null ? paintStage : guessStage(x, y, z, state);
-		this.cells.put(key(x, y, z), new Cell(state, tag == null ? null : tag.copy(), s, this.sequence++));
+		long k = key(x, y, z);
+		this.cells.put(k, new Cell(state, tag == null ? null : tag.copy(), s, this.sequence++));
+		if (this.phase != 0) {
+			this.phases.put(k, this.phase);
+		} else if (!this.phases.isEmpty()) {
+			this.phases.remove(k);
+		}
 	}
 
 	private StageKind guessStage(int x, int y, int z, BlockState s) {
@@ -630,6 +673,10 @@ public final class Draft {
 		Cell below = this.cells.get(key(x, y - 1, z));
 		StageKind s = below != null ? below.stage : guessStage(x, y, z, state);
 		this.cells.put(k, new Cell(state, null, s, this.sequence++));
+		int ph = below != null ? phaseOf(x, y - 1, z) : this.phase;
+		if (ph != 0) {
+			this.phases.put(k, ph);
+		}
 	}
 
 	/**

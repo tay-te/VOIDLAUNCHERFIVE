@@ -1,1 +1,7 @@
-{}
+{
+	"hearth.archetype.noble.keep": "Keep",
+	"hearth.archetype.noble.castle": "Castle",
+	"hearth.archetype.noble.palace": "Palace",
+	"hearth.archetype.noble.hunting_lodge": "Hunting Lodge",
+	"hearth.archetype.noble.stables": "Stables"
+}
