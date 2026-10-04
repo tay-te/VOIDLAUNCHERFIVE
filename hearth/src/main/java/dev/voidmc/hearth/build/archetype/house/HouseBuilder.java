@@ -232,6 +232,8 @@ final class HouseBuilder {
 
 		// stair to the floor above, rooms
 		interior(d, body, facade, roof, hearth, through, leftward);
+		// a loft too low for a bed leaves the household sleeping downstairs
+		FarmParts.ensureBeds(d, body, door, 2, through);
 
 		// outside
 		garden(d, body, facade, front);

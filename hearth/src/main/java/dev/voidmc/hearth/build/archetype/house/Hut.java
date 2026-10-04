@@ -63,6 +63,8 @@ public final class Hut implements Archetype {
 		RoofForm form = HouseBuilder.roofParam(d, h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.HALF_HIP, RoofForm.FLAT, RoofForm.PAGODA,
 			RoofForm.SHED));
 		square(d, form);
+		// log walls peeled, the bark left on the corners (a northern hut reads warm, not dark)
+		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
 	}
 
 	/** A square hut: one room under a gable, hip, flat or curved roof. */
@@ -98,6 +100,7 @@ public final class Hut implements Archetype {
 		d.eave(plate);
 		HouseBuilder.ground(d, body, front, stilted);
 		HouseBuilder.shell(d, body, facade);
+		dev.voidmc.hearth.build.kit.homestead.Logs.sill(d, bx0, bz0, bx1, bz1, base);
 		HouseBuilder.openings(d, body, facade, !stilted);
 		if (stilted && front >= 1) {
 			if (front >= 2) {
@@ -110,12 +113,13 @@ public final class Hut implements Archetype {
 		int topY;
 		if (flat) {
 			topY = Roofs.flat(d, bx0, bz0, bx1, bz1, plate, true);
-			Mat wood = d.mat(Role.FURNITURE);
 			// a ladder up the back wall to the roof
 			if (bz1 + 1 < dp) {
 				dev.voidmc.hearth.build.kit.Stairs.ladder(d, (bx0 + bx1) / 2, bz1 + 1, base, topY, Dirs.BACK);
 			}
 			Garden.pot(d, bx0 + 1, topY, bz0 + 1);
+			flatDress(d, bx0, bz0, bx1, bz1, base, topY, door, stilted);
+			topY += 2;
 		} else {
 			Direction.Axis ridge = bx1 - bx0 >= bz1 - bz0 ? Direction.Axis.X : Direction.Axis.Z;
 			roof = Roofs.build(d, bx0, bz0, bx1, bz1, plate, form, ridge, Roofs.Opts.of(d), false, false).roof();
@@ -138,6 +142,76 @@ public final class Hut implements Archetype {
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, topY + 2);
 	}
 
+	/**
+	 * What keeps a flat-roofed hut from being a box: the parapet's corners raised a course and capped (the soft massing of
+	 * mud building), a shade of poles and slabs before the door, a bread oven against a side wall, pots at the door.
+	 */
+	private static void flatDress(Draft d, int x0, int z0, int x1, int z1, int base, int deck, int door, boolean stilted) {
+		Mat wall = d.mat(Role.WALL);
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		if (deck + 2 < d.maxHeight()) {
+			try (var s = d.stage(StageKind.ROOF)) {
+				for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+					d.set(c[0], deck + 1, c[1], wall.full());
+					d.set(c[0], deck + 2, c[1], accent.has(Form.SLAB) ? accent.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM)
+						: wall.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+				}
+			}
+		}
+		if (stilted) {
+			return;
+		}
+		// the shade: two poles before the door, a roof of slabs back to the wall
+		Mat pole = d.mat(Role.FRAME);
+		int zf = z0 - 2;
+		if (zf >= 0 && door - 1 > x0 - 1 && door + 1 < x1 + 1 && base + 3 < d.maxHeight()) {
+			boolean clear = true;
+			for (int x = door - 1; x <= door + 1; x++) {
+				for (int z = zf; z < z0; z++) {
+					clear &= dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z);
+				}
+			}
+			if (clear) {
+				try (var s = d.stage(StageKind.FRAME)) {
+					for (int x : new int[]{door - 1, door + 1}) {
+						d.set(x, base, zf, pole.log(Direction.Axis.Y));
+						d.set(x, base + 1, zf, pole.log(Direction.Axis.Y));
+						d.set(x, base + 2, zf, pole.log(Direction.Axis.Y));
+					}
+				}
+				try (var s = d.stage(StageKind.ROOF)) {
+					for (int x = door - 1; x <= door + 1; x++) {
+						for (int z = zf; z < z0; z++) {
+							d.set(x, base + 3, z, pole.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM).orElse(pole.full()));
+						}
+					}
+				}
+			}
+		}
+		// a bread oven against the side wall where there is room
+		Mat clay = d.mat(Role.CHIMNEY);
+		for (int x : new int[]{x0 - 1, x1 + 1}) {
+			int z = (z0 + z1) / 2;
+			if (x >= 0 && x < d.frontage() && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z)
+				&& dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z + 1) && d.isAbsent(x, base, z + 1) && z + 1 < z1) {
+				try (var s = d.stage(StageKind.EXTERIOR)) {
+					d.set(x, base, z, States.facing(Blocks.SMOKER, x < x0 ? Dirs.LEFT : Dirs.RIGHT));
+					d.set(x, base, z + 1, clay.full());
+					d.set(x, base + 1, z, clay.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM).orElse(clay.full()));
+					d.set(x, base + 1, z + 1, clay.stairsOrSlab(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
+				}
+				break;
+			}
+		}
+		// pots either side of the door
+		for (int x : new int[]{door - 1, door + 1}) {
+			int z = z0 - 1;
+			if (z >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z)) {
+				d.inStage(StageKind.EXTERIOR, () -> d.set(x, base, z, States.of(Blocks.DECORATED_POT)));
+			}
+		}
+	}
+
 	/** One room: a bed, a hearth, a chest, a bench, a lantern. */
 	private static void furnish(Draft d, int x0, int z0, int x1, int z1, int y, int door, Roofs.Roof roof, Habits h) {
 		Rooms.Room room = new Rooms.Room(x0, z0, x1, z1, y, 3);
@@ -146,139 +220,71 @@ public final class Hut implements Archetype {
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 	}
 
-	/** A round hut: a ring wall of plaster and posts under a cone roof, a door to the street, a hearth in the middle. */
+	/**
+	 * A round hut: a ring wall on a plinth with peeled posts at the quarters and a band of the culture's colour under a
+	 * cone of thatch or tile with a pot on its point; a door to the street; inside a bed, a fire and a chest.
+	 */
 	private static void round(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
-		Habits h = d.habits();
-		double r = Math.min(w, dp) >= 7 ? 3.0 : 2.0;
+		double r = 2.0;
 		double cx = (w - 1) / 2.0;
-		double cz = dp - 1 - r;
-		int wallH = 3;
-		Mat wall = d.mat(Role.WALL);
-		Mat frame = d.mat(Role.FRAME);
-		Mat plinth = d.mat(Role.PLINTH);
+		double cz = dp - 1 - r - 1;
+		if (cz - r - 1 < 0) {
+			cz = r + 1;
+		}
+		dev.voidmc.hearth.build.kit.homestead.Round.Ring ring = dev.voidmc.hearth.build.kit.homestead.Round.ring(cx, cz, r);
+		int base = 0;
+		int plate = 2;
+		d.body(ring.x0(), ring.z0(), ring.x1(), ring.z1());
+		d.eave(plate);
 		Mat floor = d.mat(Role.FLOOR);
-		List<int[]> ring = Draft.ellipseCells(cx, cz, r, r, false);
-		List<int[]> disc = Draft.ellipseCells(cx, cz, r, r, true);
-		int x0 = (int) Math.floor(cx - r);
-		int z0 = (int) Math.floor(cz - r);
-		int x1 = (int) Math.ceil(cx + r);
-		int z1 = (int) Math.ceil(cz + r);
-		d.body(x0, z0, x1, z1);
-		// footings and floor
-		for (int[] c : disc) {
-			boolean edge = contains(ring, c);
+		for (int[] c : ring.disc()) {
+			boolean edge = ring.isWall(c[0], c[1]);
 			int g = d.site().ground(c[0], c[1]);
 			try (var s = d.stage(StageKind.FOUNDATION)) {
 				for (int y = Math.min(-1, g - 2); y <= -1; y++) {
 					d.set(c[0], y, c[1], edge ? d.mat(Role.FOUNDATION).full() : floor.full());
 				}
 			}
-		}
-		// the ring wall: a plinth course, plaster above, posts where the ring turns
-		for (int[] c : ring) {
-			boolean post = isTurn(ring, c);
-			for (int y = 0; y < wallH; y++) {
-				d.set(c[0], y, c[1], y == 0 ? plinth.full() : post ? frame.log(Direction.Axis.Y) : wall.full());
+			if (!edge) {
+				try (var s = d.stage(StageKind.EARTHWORK)) {
+					for (int y = 0; y < g; y++) {
+						d.set(c[0], y, c[1], Blocks.AIR.defaultBlockState());
+					}
+				}
 			}
 		}
-		for (int[] c : disc) {
-			if (!contains(ring, c)) {
-				d.carve(c[0], 0, c[1], c[0], wallH + 3, c[1]);
-			}
-		}
-		// door at the front of the ring, windows to the sides
-		int doorX = (int) Math.round(cx);
-		int doorZ = z0;
-		for (int[] c : ring) {
-			if (c[0] == doorX && c[1] < doorZ + 1) {
-				doorZ = c[1];
-			}
-		}
-		int dz = doorZ;
+		dev.voidmc.hearth.build.kit.homestead.Round.walls(d, ring, base, plate);
+		int[] door = ring.cellToward(Dirs.FRONT);
+		int doorX = door[0];
+		int dz = door[1];
 		d.inStage(StageKind.OPENINGS, () -> d.door(doorX, 0, dz, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT, DoorHingeSide.LEFT));
 		d.entrance(doorX, 0, dz - 1);
 		d.poi(PoiType.DOOR, doorX, 0, dz - 1, Dirs.BACK);
-		for (int[] c : ring) {
-			boolean side = Math.abs(c[1] - cz) < 0.6 && Math.abs(c[0] - cx) > r - 0.6;
-			boolean back = Math.abs(c[0] - cx) < 0.6 && c[1] > cz + r - 0.6;
-			if (side || back) {
-				d.set(c[0], 1, c[1], h.windows().lattice() ? d.mat(Role.SHUTTER).trapdoor(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.BOTTOM, true)
-					: d.mat(Role.GLASS).pane());
+		for (Direction dir : new Direction[]{Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
+			int[] c = ring.cellToward(dir);
+			if (c != null) {
+				d.inStage(StageKind.OPENINGS, () -> d.set(c[0], 1, c[1], d.habits().windows().lattice()
+					? d.mat(Role.SHUTTER).trapdoor(dir.getOpposite(), net.minecraft.world.level.block.state.properties.Half.BOTTOM, true) : d.mat(Role.GLASS).pane()));
 			}
 		}
-		// the cone roof from a block outside the ring up to a point
-		Roofs.Field cone = Roofs.cone(cx, cz, r + 1, 1.0);
-		int rx0 = Math.max(0, x0 - 1);
-		int rz0 = Math.max(-1, z0 - 1);
-		int rx1 = Math.min(w - 1, x1 + 1);
-		int rz1 = Math.min(dp - 1, z1 + 1);
-		Roofs.Roof roof = Roofs.raster(d, cone, wallH - 1, rx0, rz0, rx1, rz1, d.mat(Role.ROOF), d.mat(Role.ROOF_TRIM), Habits.Ridge.FULL);
-		// a finial at the apex
-		int ax = (int) Math.round(cx);
-		int az = (int) Math.round(cz);
-		d.inStage(StageKind.ROOF, () -> d.set(ax, roof.ridgeY + 1, az, frame.fence()));
-		// fill the gap between the ring top and the roof
-		for (int[] c : ring) {
-			int under = roof.bottomY(c[0], c[1]);
-			for (int y = wallH; y < under; y++) {
-				d.set(c[0], y, c[1], wall.full());
-			}
+		double pitch = 1.1;
+		while (pitch > 0.6 && plate + 1 + pitch * (r + 1.5) + 2 >= d.maxHeight()) {
+			pitch -= 0.1;
 		}
-		// inside: a hearth (campfire) in the middle, a bed against the back, a chest and a bench; a small hut has no room
-		// for a fire in the middle, so its fire goes wherever is left once the bed is in
-		Rooms.Room room = new Rooms.Room(x0 + 1, z0 + 1, x1 - 1, z1 - 1, 0, 3);
-		for (int z = z0 + 1; z <= z1 - 1; z++) {
-			for (int x = x0 + 1; x <= x1 - 1; x++) {
-				if (!contains(disc, new int[]{x, z}) || contains(ring, new int[]{x, z})) {
-					room.block(x, z);
-				}
-			}
-		}
+		Mat cover = d.habits().roof().thatch() || d.chance(0.3) ? d.mat(Role.THATCH) : d.mat(Role.ROOF);
+		Roofs.Roof roof = dev.voidmc.hearth.build.kit.homestead.Round.cone(d, ring, plate, 1, pitch, cover);
+		Rooms.Room room = dev.voidmc.hearth.build.kit.homestead.Round.room(ring, 0, 2);
 		room.keep(doorX, dz + 1);
-		int[] fire = null;
-		if (r >= 3 && room.claim(ax, az)) {
-			fire = new int[]{ax, az};
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
-		} else {
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
-			// the free cell nearest the middle, toward the back
-			List<int[]> spots = new java.util.ArrayList<>();
-			for (int[] c : disc) {
-				if (!contains(ring, c) && d.isAbsent(c[0], 0, c[1])) {
-					spots.add(c);
-				}
-			}
-			spots.sort(java.util.Comparator.comparingDouble(c -> Math.hypot(c[0] - cx, c[1] - cz) - 0.1 * c[1]));
-			for (int[] c : spots) {
-				if (room.claim(c[0], c[1])) {
-					fire = c;
-					break;
-				}
-			}
-		}
-		if (fire != null) {
-			int fx = fire[0];
-			int fz = fire[1];
-			d.inStage(StageKind.INTERIOR, () -> d.set(fx, 0, fz, States.lit(Blocks.CAMPFIRE, true).trySetValue(BlockStateProperties.SIGNAL_FIRE, false)));
-			// tended from the open side nearest the door
-			Direction tend = Dirs.FRONT;
-			for (Direction dir : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
-				int[] n = {fx + Dirs.dx(dir), fz + Dirs.dz(dir)};
-				if (contains(disc, n) && !contains(ring, n) && d.isAbsent(n[0], 0, n[1])) {
-					tend = dir;
-					break;
-				}
-			}
-			d.poi(PoiType.HEARTH, fx + Dirs.dx(tend), 0, fz + Dirs.dz(tend), tend.getOpposite());
-		}
+		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		dev.voidmc.hearth.build.kit.homestead.Round.fire(d, ring, room, 0);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
-		// a path to the door, a garden bed by it
 		if (dz >= 1) {
+			Groundwork.approach(d, doorX, 0, dz - 1);
 			Garden.path(d, Garden.line(doorX, dz - 1, doorX, 0), 0);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, roof.ridgeY + 3);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 3));
 	}
 
 	private static boolean contains(List<int[]> cells, int[] c) {
