@@ -34,10 +34,10 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  *                  furnaces
  *   DRESSED_STONE  cut stone: stone bricks (mossy, cracked, chiseled), deepslate and tuff bricks and tiles, smooth and
  *                  polished stone, cut, smooth and chiseled sandstone, quartz, purpur, prismarine bricks
- *   BRICK          fired clay: bricks, nether bricks, terracotta (dyed and glazed + DYE), flower pots, decorated pots
+ *   BRICK          fired clay: bricks, nether bricks, terracotta (coloured and glazed + DYE), flower pots, decorated pots
  *   CLAY           raw clay, sun-dried mud and render: clay, packed mud, mud bricks, plaster (and the mushroom stem
  *                  the styles lay as white plaster)
- *   SAND           sand (red too), gravel, concrete and its powder (+ DYE)
+ *   SAND           sand (red too), gravel, concrete and its powder (+ DYE, but white: render)
  *   GLASS          glass and panes (stained + DYE)
  *   METAL          iron, copper and gold (gold + LUXURY), bars, chains, anvils, cauldrons, bells, rails, hoppers,
  *                  iron doors and trapdoors, brewing stands; hanging signs WOOD + METAL; smithing tables WOOD + METAL;
@@ -46,7 +46,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  *   CANDLES        candles, one per candle in the block (dyed + DYE); the invisible light block (a lamp kept burning
  *                  out of sight); jack o'lanterns PRODUCE + CANDLES; candle cakes FOOD + CANDLES
  *   FUEL           torches, coal blocks; campfires LOGS + FUEL
- *   CLOTH          wool, carpets, banners (coloured + DYE)
+ *   CLOTH          wool, carpets, banners (coloured + DYE; white is wool's own colour)
  *   BOOKS          bookshelves and lecterns: WOOD + BOOKS
  *   WAX            honeycomb blocks; beehives WOOD + WAX
  *   GRAIN          hay bales, thatch
@@ -112,7 +112,8 @@ public final class MaterialBill {
 	private static int[] classify(Block b) {
 		String p = BuiltInRegistries.BLOCK.getKey(b).getPath();
 		BlockState s = b.defaultBlockState();
-		boolean dyed = dyed(p);
+		// white is the stuff's own colour or a whitewash (white wool, white render, white terracotta): no dye
+		boolean dyed = dyed(p) && !p.startsWith("white_");
 		if (p.equals("light")) {
 			return one(Goods.CANDLES);
 		}
@@ -171,10 +172,10 @@ public final class MaterialBill {
 		}
 		// cloth
 		if (p.endsWith("_bed")) {
-			return dyed && !p.startsWith("white") ? three(Goods.CLOTH, Goods.WOOD, Goods.DYE) : two(Goods.CLOTH, Goods.WOOD);
+			return dyed ? three(Goods.CLOTH, Goods.WOOD, Goods.DYE) : two(Goods.CLOTH, Goods.WOOD);
 		}
 		if (p.endsWith("_wool") || p.endsWith("_carpet") || p.endsWith("_banner")) {
-			return dyed && !p.startsWith("white") ? two(Goods.CLOTH, Goods.DYE) : one(Goods.CLOTH);
+			return dyed ? two(Goods.CLOTH, Goods.DYE) : one(Goods.CLOTH);
 		}
 		// fired clay
 		if (p.contains("terracotta")) {

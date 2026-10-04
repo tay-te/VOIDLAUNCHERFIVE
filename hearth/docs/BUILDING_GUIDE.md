@@ -585,7 +585,8 @@ family's rule still needs, as a builder would, in this order:
    of candles (2 in a poor house, 3 in an ordinary one, 4 in a fine one); otherwise the fewest ceiling lanterns, evenly
    along the room's middle (over the table when there is one; on chains in tall rooms; a wheel of four lanterns, or of
    candles round a lantern in the north, in halls 7 high; rows of lanterns in the eastern cultures). Then the dark
-   corners: unlit candles already there are lit, candles on furniture, a lantern on a chest or counter, sconces on
+   corners: unlit candles already there are lit, candles on furniture, a lantern on a chest or counter, a lantern set
+   on the floor under the eaves (or, in a room too low to hang one, in a corner out of everyone's way), sconces on
    the walls, and only then light under a rug (glowstone or shroomlight swapped for the floor block, a carpet of the
    house's cloth over it);
 3. **ground** (porches, galleries, yards): lanterns under the roof, on the posts that are there, on the house walls,
@@ -599,7 +600,8 @@ never where anyone walks or bumps their head (lanterns hang above head height), 
 something. They are drawn in stage INTERIOR inside and EXTERIOR outside, supports first. When a pass puts up something
 with a body (a bracket, a post, a brazier's stand) it runs again on what that made (at most three passes). A road is
 never touched; a linear work is lit only in columns it already builds in. `lighting=none` in the params skips the
-pass (previews and timing only).
+pass (previews and timing only). The pass costs a few milliseconds for a house, 20 to 30 for a hall and about 165 for
+a cathedral, once per blueprint (the service caches them).
 
 How each culture lights (`Manner`): the iron lantern on an iron chain everywhere on the surface (a copper lantern's
 flame is green, a soul lantern's blue); torches on the walls in the north, the tundra and the tropics; candles
@@ -647,6 +649,12 @@ lights were used. `HEARTH_LIGHT_TIMING=1` runs `LightTimingTest` (the pass's cos
 them, the check without the pass); add `HEARTH_LIGHT_TRACE=x,y,z` to follow one local cell through the pass's phases
 and `HEARTH_LIGHT_REACH=<y>` to compare what the pass and the check count as walked to. Run them with
 `./gradlew test --rerun --tests '*LightSurveyTest*'` (`--rerun`: environment variables are not test inputs).
+
+In the game: `JAVA_TOOL_OPTIONS="-Dhearth.tour=light" ./gradlew runClientGameTest` (take a game slot first) builds the
+cottage, townhouse, tenement, inn, chapel, cathedral, smithy, longhouse and courtyard house on a superflat world at
+midnight, each lit and unlit (`lighting=none`), and photographs both from the same cameras: the street, and the front of
+the biggest room on the two main floors. `-Dhearth.light.only=cottage,inn` narrows it. Screenshots:
+`build/run/clientGameTest/screenshots/*hearth_light_*` (`_before`: unlit).
 
 ### The bill of goods
 
