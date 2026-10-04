@@ -79,7 +79,7 @@ record CaravanView(long id, long from, long to, int[] cargo, long value, long de
 
 ## 4. Economy: where the purse lives
 
-**Done** (integration 3): agreed at `Resident.extra("economy").purse`; `EconomyService.purse/householdWealth` are in the api. With the economy registered the sim's `Stations` stands aside: the economy's `StationRule` is the only one that moves stations.
+**Done** (integration 3): agreed at `Resident.extra("economy").purse`; `EconomyService.purse/householdWealth` are in the api. With the economy registered, its `StationRule` moves stations by purse, and the sim only sets the station of a changed trade. The trades' income still reaches the treasury, since the economy pays wages out of it.
 
 **Agreement asked**: the economy module keeps a resident's purse at `Resident.extra("economy").purse` (a `long`, bits).
 `sim/settlement/Stations` reads it (constants `Stations.PURSE_MODULE` / `PURSE_KEY`) to move a household's

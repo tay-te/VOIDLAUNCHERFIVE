@@ -71,7 +71,7 @@ givers are repaid into their bank accounts).
 
 ## 3. Station follows the purse (npc/sim, plan)
 
-**Done** (integration 3): the economy is the only one that moves stations. The sim's `Stations` stands aside while an economy is registered; the npc module only follows a change of trade.
+**Done** (integration 3): the economy's purse rule is the only one that moves stations up and down. While an economy is registered, the sim only gives a household the station of a newly changed trade, and the npc module only follows a change of trade. Also: with the economy, the trades' income (`production.coin`) still reaches the treasury, so wages can be paid. Without it every treasury ran dry and every household fell to poor. Stations still read mostly poor in young, poor towns (purses stay thin): an open balance question for the economy.
 
 **What.** The economy moves `Resident.station` on `DAY_PASSED`, per household (everyone sharing a home plot): one rung up
 the ladder poor → peasant → artisan → merchant → gentry (gentry only at town tier and up) when the household holds
