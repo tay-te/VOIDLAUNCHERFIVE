@@ -48,6 +48,8 @@ public final class Fixture {
 	final List<int[]> emitters = new ArrayList<>();
 	final double cost;
 	double bonus;
+	/** For the last resort: what it was put there for ("room", "door", "dark", "pocket"). */
+	String why = "";
 
 	Fixture(Kind kind, double cost) {
 		this.kind = kind;
@@ -75,6 +77,28 @@ public final class Fixture {
 		this.emitters.addAll(o.emitters);
 		this.bonus = o.bonus;
 		return this;
+	}
+
+	/**
+	 * Whether the fitting puts up something with a body where there was air (a bracket, a post, a stand, a cap): it can
+	 * roof the cells under it or give folk a step, which changes what the light rule asks. Lanterns, chains, candles,
+	 * torches, carpets and light blocks change nothing; a glowing floor block takes a floor block's place.
+	 */
+	boolean shapes() {
+		for (Part p : this.parts) {
+			var b = p.state().getBlock();
+			if (this.kind == Kind.GLOW || b instanceof net.minecraft.world.level.block.LanternBlock || b instanceof net.minecraft.world.level.block.ChainBlock
+				|| b instanceof net.minecraft.world.level.block.CandleBlock || b instanceof net.minecraft.world.level.block.BaseTorchBlock
+				|| b instanceof net.minecraft.world.level.block.LightBlock || b instanceof net.minecraft.world.level.block.CarpetBlock) {
+				continue;
+			}
+			return true;
+		}
+		return false;
+	}
+
+	public String why() {
+		return this.why;
 	}
 
 	public Kind kind() {

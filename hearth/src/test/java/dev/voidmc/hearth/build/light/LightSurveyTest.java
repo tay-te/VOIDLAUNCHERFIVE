@@ -41,6 +41,7 @@ class LightSurveyTest {
 			int n = 0;
 			int bad = 0;
 			int[] kinds = new int[dev.voidmc.hearth.build.kit.light.Fixture.Kind.values().length];
+			java.util.TreeMap<String, Integer> hiddenWhy = new java.util.TreeMap<>();
 			String example = null;
 			for (String terrain : LightSupport.TERRAINS) {
 				for (Culture c : Culture.values()) {
@@ -50,9 +51,11 @@ class LightSurveyTest {
 						SyntheticTerrain probe = SyntheticTerrain.named(terrain, 42);
 						PlotSpec spec = LightSupport.spec(info, StyleRegistry.styleId(c), seed, facing, probe, new CompoundTag());
 						dev.voidmc.hearth.build.draft.Draft draft = LightSupport.SERVICE.draw(spec, probe);
-						int[] placed = dev.voidmc.hearth.build.kit.light.AutoLighter.light(draft);
-						for (int k = 0; k < placed.length; k++) {
-							kinds[k] += placed[k];
+						for (var fx : dev.voidmc.hearth.build.kit.light.AutoLighter.lightLogged(draft)) {
+							kinds[fx.kind().ordinal()]++;
+							if (!fx.why().isEmpty()) {
+								hiddenWhy.merge(fx.why(), 1, Integer::sum);
+							}
 						}
 						BlueprintImpl bp = dev.voidmc.hearth.build.blueprint.Compiler.compile(draft);
 						LightCheck.Result r = LightCheck.evaluate(bp, probe);
@@ -69,7 +72,7 @@ class LightSurveyTest {
 								a[1] += e.getValue();
 							}
 							if (example == null) {
-								example = c.getSerializedName() + " " + terrain + " s" + s + " " + here;
+								example = info.id().getPath() + "," + c.getSerializedName() + "," + terrain + "," + seed + "," + facing.getSerializedName() + ",0 " + here;
 							}
 						}
 					}
@@ -87,6 +90,9 @@ class LightSurveyTest {
 				if (kinds[k.ordinal()] > 0) {
 					sb.append(String.format(Locale.ROOT, " %s %.1f", k.name().toLowerCase(Locale.ROOT), kinds[k.ordinal()] / (double) n));
 				}
+			}
+			if (!hiddenWhy.isEmpty()) {
+				sb.append("  hidden for ").append(hiddenWhy);
 			}
 			if (example != null) {
 				sb.append("   e.g. ").append(example);

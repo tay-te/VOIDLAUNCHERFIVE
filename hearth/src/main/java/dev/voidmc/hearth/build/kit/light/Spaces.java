@@ -50,12 +50,33 @@ public final class Spaces {
 	private final BitSet reached = new BitSet();
 	private final int[] roofAbove;
 
+	/** Columns folk may walk in: the plot and {@value #WALK_MARGIN} round it (the ground a draft knows exactly). */
+	public static final int WALK_MARGIN = 4;
+	private final boolean[] near;
+
 	public Spaces(Grid g, List<BlockPos> starts) {
 		this.g = g;
+		this.near = new boolean[g.sx * g.sz];
+		for (int z = 0; z < g.sz; z++) {
+			for (int x = 0; x < g.sx; x++) {
+				if (!g.plot[z * g.sx + x]) {
+					continue;
+				}
+				for (int dz = -WALK_MARGIN; dz <= WALK_MARGIN; dz++) {
+					for (int dx = -WALK_MARGIN; dx <= WALK_MARGIN; dx++) {
+						int nx = x + dx;
+						int nz = z + dz;
+						if (nx >= 0 && nz >= 0 && nx < g.sx && nz < g.sz) {
+							this.near[nz * g.sx + nx] = true;
+						}
+					}
+				}
+			}
+		}
 		for (int y = 0; y < g.sy; y++) {
 			for (int z = 0; z < g.sz; z++) {
 				for (int x = 0; x < g.sx; x++) {
-					if (walkableAt(g.x0 + x, g.y0 + y, g.z0 + z)) {
+					if (this.near[z * g.sx + x] && walkableAt(g.x0 + x, g.y0 + y, g.z0 + z)) {
 						this.walkable.set((y * g.sz + z) * g.sx + x);
 					}
 				}
@@ -102,10 +123,16 @@ public final class Spaces {
 			&& shape.max(Direction.Axis.Y) <= 0.2;
 	}
 
-	/** A block a person can stand on. */
+	/**
+	 * A block a person can stand on: not a fence, a wall or a gate, nor the small things set on furniture (candles, a
+	 * lantern, a flower pot, a cake, a skull) — a candle stood on a table makes no step up onto it.
+	 */
 	public static boolean standable(BlockState s) {
 		Block b = s.getBlock();
-		if (s.isAir() || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock) {
+		if (s.isAir() || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof net.minecraft.world.level.block.CandleBlock
+			|| b instanceof LanternBlock || b instanceof net.minecraft.world.level.block.FlowerPotBlock || b instanceof net.minecraft.world.level.block.CakeBlock
+			|| b instanceof net.minecraft.world.level.block.CandleCakeBlock || b instanceof net.minecraft.world.level.block.AbstractSkullBlock
+			|| b instanceof net.minecraft.world.level.block.SeaPickleBlock) {
 			return false;
 		}
 		if (b instanceof LiquidBlock) {

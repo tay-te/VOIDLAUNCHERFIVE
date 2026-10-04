@@ -1,6 +1,5 @@
 package dev.voidmc.hearth.build.kit.landmark;
 
-import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.blueprint.MaterialBill;
 import dev.voidmc.hearth.build.draft.Draft;
@@ -79,8 +78,7 @@ public final class Stone {
 	 */
 	public static Stone sheet(Draft d) {
 		Block b = d.mat(Role.ROOF).main(Form.FULL);
-		int[] goods = b == null ? new int[0] : MaterialBill.of(b);
-		boolean wood = goods.length > 0 && goods[0] == Goods.WOOD.ordinal() || d.habits().roof().thatch();
+		boolean wood = b != null && MaterialBill.timber(b) || d.habits().roof().thatch();
 		if (!wood) {
 			return of(d, Role.ROOF);
 		}
@@ -131,8 +129,7 @@ public final class Stone {
 		if (b == null) {
 			return false;
 		}
-		int[] goods = MaterialBill.of(b);
-		return goods.length > 0 && (goods[0] == Goods.STONE.ordinal() || goods[0] == Goods.CLAY.ordinal());
+		return MaterialBill.masonry(b);
 	}
 
 	/** Whether the style builds its walls in masonry or render (stone, brick, plaster, adobe). */

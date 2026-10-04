@@ -11,7 +11,7 @@ import java.util.List;
  * towns, and the lanes behind them, are dangerous at night).
  *
  * <p>A road plot does not know where its neighbours' lamps stand, so its rule is about its own: in a village or larger,
- * every walkable cell of the surface within half a spacing of one of its lamps (the reach the rhythm promises each
+ * every walkable cell of the surface within half a spacing (in steps) of one of its lamps (the reach the rhythm promises each
  * lamp) is never dark. A camp's street is exempt: its light is the brazier at the heart of the camp.
  */
 public final class RoadLight {
@@ -41,7 +41,7 @@ public final class RoadLight {
 		for (int y = g.y0; y < g.y0 + g.sy; y++) {
 			for (int z = g.z0; z < g.z0 + g.sz; z++) {
 				for (int x = g.x0; x < g.x0 + g.sx; x++) {
-					if (g.placed(x, y, z) && g.inPlot(x, z) && g.at(x, y, z).getLightEmission() > 0) {
+					if (g.placed(x, y, z) && g.inPlot(x, z) && g.at(x, y, z).getLightEmission() >= 14) {
 						lamps.add(new int[]{x, y, z});
 					}
 				}
@@ -58,7 +58,7 @@ public final class RoadLight {
 						continue;
 					}
 					for (int[] l : lamps) {
-						if (Math.max(Math.abs(l[0] - x), Math.abs(l[2] - z)) <= reach && y <= l[1] && l[1] - y <= 4) {
+						if (Math.abs(l[0] - x) + Math.abs(l[2] - z) <= reach && y <= l[1] && l[1] - y <= 4) {
 							out.add(new LightRules.Need(x, y, z, LightRules.NEVER_DARK, kind));
 							break;
 						}

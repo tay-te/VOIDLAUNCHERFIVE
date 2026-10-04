@@ -71,7 +71,11 @@ public final class NightPanels {
 		for (int k = 0; k < floors.size(); k++) {
 			int floor = floors.get(k);
 			int next = k + 1 < floors.size() ? floors.get(k + 1) : Integer.MAX_VALUE;
-			Voxels c = world.cut(floor + 1, (x, y, z, st) -> y == floor + 2 && (st.getLightEmission() > 0 || st.getBlock() instanceof net.minecraft.world.level.block.ChainBlock));
+			int ceilingCap = Math.min(next - 1, floor + 7);
+			// the floor's walls to head height, and its lights hung above (lanterns, chains, the brackets and wheels they hang from)
+			Voxels c = world.cut(floor + 1, (x, y, z, st) -> y <= ceilingCap && (st.getLightEmission() > 0
+				|| st.getBlock() instanceof net.minecraft.world.level.block.ChainBlock
+				|| st.getBlock() instanceof net.minecraft.world.level.block.FenceBlock && hangsLight(world, x, y, z)));
 			// hidden light blocks shown as lime markers
 			for (var e : new ArrayList<>(c.all().long2ObjectEntrySet())) {
 				if (e.getValue().is(Blocks.LIGHT)) {
@@ -109,6 +113,17 @@ public final class NightPanels {
 			+ fixtures(bp) + "   (lime: hidden light blocks; red/orange/magenta: dark room/door/ground cells)";
 		Files.createDirectories(file.getParent());
 		ImageIO.write(panel(front, back, cuts, labels, title, status), "png", file.toFile());
+	}
+
+	/** A bracket or a wheel's arm: a fence with a lantern under it, or beside one that has. */
+	private static boolean hangsLight(Voxels w, int x, int y, int z) {
+		for (int[] o : new int[][]{{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+			BlockState below = w.get(x + o[0], y - 1, z + o[1]);
+			if (below != null && below.getLightEmission() > 0 && (o[0] == 0 && o[1] == 0 || below.getBlock() instanceof net.minecraft.world.level.block.LanternBlock)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** What gives light in a blueprint, counted by block. */

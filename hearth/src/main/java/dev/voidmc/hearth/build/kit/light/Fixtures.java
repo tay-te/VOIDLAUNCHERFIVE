@@ -64,6 +64,10 @@ final class Fixtures {
 					continue;
 				}
 				double dd = (x - fx) * (x - fx) + (z - fz) * (z - fz);
+				if ("table".equals(s.surface(x, r.y, z))) {
+					// over the table, where a builder hangs it
+					dd -= 0.9;
+				}
 				if (dd >= bestD) {
 					continue;
 				}
@@ -161,6 +165,43 @@ final class Fixtures {
 	}
 
 	// ------------------------------------------------------------------------------------------- the fill
+
+	/**
+	 * Candles for a small room's design: on each piece of furniture in or round it (a table, a barrel, a counter, a
+	 * shelf), as many as a house of its standing burns (two in a poor one, three in an ordinary one, four in a fine one).
+	 */
+	static void candleSpots(Session s, Session.Room r, List<Fixture> out) {
+		int y = r.y;
+		int most = s.d.tier() <= 1 ? 2 : s.d.tier() == 2 ? 3 : 4;
+		for (int z = r.az - 1; z <= r.bz + 1; z++) {
+			for (int x = r.ax - 1; x <= r.bx + 1; x++) {
+				String surface = s.surface(x, y, z);
+				if (surface == null || !inOrBeside(s, r, x, z)) {
+					continue;
+				}
+				BlockState above = s.g.at(x, y + 1, z);
+				boolean plate = Session.isPlate(above) && s.g.placed(x, y + 1, z);
+				if (!plate && !s.free(x, y + 1, z) || s.sp.walkable(x, y + 1, z) && s.sp.reached(x, y + 1, z) && cuts(s, x, y + 1, z)) {
+					continue;
+				}
+				Fixture c = new Fixture(Fixture.Kind.CANDLES, surface.equals("table") ? 0.7 : 0.85);
+				c.part(x, y + 1, z, Session.candles(s.m.candle(x, y + 1, z), most), StageKind.INTERIOR);
+				out.add(c);
+			}
+		}
+	}
+
+	/** Whether a column is one of the room's cells or next to one. */
+	private static boolean inOrBeside(Session s, Session.Room r, int x, int z) {
+		for (int[] o : new int[][]{{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+			int nx = x + o[0];
+			int nz = z + o[1];
+			if (s.g.contains(nx, r.y, nz) && r.cells.contains(s.g.index(nx, r.y, nz))) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	/** Candidates for a room's dark corner at (cx, cz), within {@code radius} of it. */
 	static void roomFill(Session s, Session.Room r, int cx, int cz, int radius, List<Fixture> out) {
@@ -329,7 +370,7 @@ final class Fixtures {
 					int wz = z + Dirs.dz(dir);
 					Direction outward = dir.getOpposite();
 					// a lantern on a bracket at lintel height, else at head height when nothing is there to bump into
-					for (int ly : new int[]{ey + 2, ey + 1, ey + 3}) {
+					for (int ly : new int[]{ey + 2, ey + 1, ey + 3, ey + 4}) {
 						if (s.wallAt(wx, ly + 1, wz, outward) && s.solidOk(x, ly + 1, z) && s.hungOk(x, ly, z)) {
 							Fixture f = new Fixture(Fixture.Kind.SCONCE, ly == ey + 2 ? 1.0 : 1.15);
 							f.part(x, ly + 1, z, fence(s, x, ly + 1, z), StageKind.EXTERIOR);
@@ -339,10 +380,9 @@ final class Fixtures {
 							break;
 						}
 					}
-					if (s.m.torches) {
-						int ty = ey + 2;
+					for (int ty = ey + 2; ty <= ey + 3; ty++) {
 						if (s.wallAt(wx, ty, wz, outward) && s.free(x, ty, z) && !s.sp.walkable(x, ty, z)) {
-							Fixture f = new Fixture(Fixture.Kind.TORCH, 1.0);
+							Fixture f = new Fixture(Fixture.Kind.TORCH, s.m.torches ? 1.0 : 1.5);
 							f.part(x, ty, z, States.wallTorch(s.m.torch, outward), StageKind.EXTERIOR);
 							f.bonus = beside ? 0.12 : 0;
 							out.add(f);
@@ -354,16 +394,26 @@ final class Fixtures {
 					eave.bonus = beside || over ? 0.1 : 0;
 					out.add(eave);
 				}
-				for (int ly = ey; ly <= ey + 2; ly++) {
+				// posts and yard lamps at the door's level, or up on the ground above it (a door at the foot of a bank)
+				for (int ly = ey; ly <= ey + 4; ly++) {
 					Fixture top = postTop(s, x, ly, z);
 					if (top != null) {
 						out.add(top);
 					}
 				}
 				if (!over && Math.max(Math.abs(dx), Math.abs(dz)) <= 2) {
-					Fixture y = yard(s, x, ey, z);
-					if (y != null) {
-						out.add(y);
+					for (int yy = ey; yy <= ey + 3; yy++) {
+						Fixture y = yard(s, x, yy, z, true);
+						if (y != null) {
+							out.add(y);
+						}
+						if (s.m.yard == Manner.Yard.TIKI) {
+							// a tiki torch burns a step dimmer than a lantern: a lantern on a post where the torch falls short
+							Fixture post = yard(s, x, yy, z, true, Manner.Yard.POST, 1.45);
+							if (post != null) {
+								out.add(post);
+							}
+						}
 					}
 				}
 			}
@@ -461,13 +511,26 @@ final class Fixtures {
 	 * under its little cap, a tiki torch. Only where it blocks no way through, no door and no work.
 	 */
 	static @Nullable Fixture yard(Session s, int x, int y, int z) {
+		return yard(s, x, y, z, false);
+	}
+
+	/**
+	 * {@link #yard(Session, int, int, int)}; {@code byDoor} for a door's lamp: it may stand beside the door or the gate
+	 * (next to their points, never on them) and on the plot's street edge, where a gate's lamp post stands.
+	 */
+	static @Nullable Fixture yard(Session s, int x, int y, int z, boolean byDoor) {
+		return yard(s, x, y, z, byDoor, s.m.yard, 1.3);
+	}
+
+	/** A yard light of the given kind (a door in a torch-lit culture may still get a lantern on a post where a torch is too dim). */
+	static @Nullable Fixture yard(Session s, int x, int y, int z, boolean byDoor, Manner.Yard kind, double cost) {
 		if (!s.yards || !s.sp.walkable(x, y, z) || !s.sp.reached(x, y, z) || !s.g.inPlot(x, z) || s.sp.roofed(x, y, z)) {
 			return null;
 		}
-		if (x <= 0 || z <= 0 || x >= s.d.frontage() - 1 || z >= s.d.depth() - 1) {
+		if (x <= 0 || z < (byDoor ? 0 : 1) || x >= s.d.frontage() - 1 || z >= s.d.depth() - 1) {
 			return null;
 		}
-		for (int yy = y; yy < y + 3; yy++) {
+		for (int yy = y; yy < y + 3 && !byDoor; yy++) {
 			if (s.nearPoi.contains(net.minecraft.core.BlockPos.asLong(x, yy, z))) {
 				return null;
 			}
@@ -478,7 +541,7 @@ final class Fixtures {
 			|| fb instanceof net.minecraft.world.level.block.LiquidBlock || !Session.sturdyAbove(floor)) {
 			return null;
 		}
-		int tall = switch (s.m.yard) {
+		int tall = switch (kind) {
 			case POST, TIKI -> 3;
 			case BRAZIER -> 2;
 			case STONE_LANTERN -> 3;
@@ -491,8 +554,8 @@ final class Fixtures {
 		if (cuts(s, x, y, z)) {
 			return null;
 		}
-		Fixture f = new Fixture(Fixture.Kind.YARD, 1.3);
-		switch (s.m.yard) {
+		Fixture f = new Fixture(Fixture.Kind.YARD, cost);
+		switch (kind) {
 			case POST -> {
 				f.part(x, y, z, fence(s, x, y, z), StageKind.EXTERIOR);
 				f.part(x, y + 1, z, fence(s, x, y + 1, z), StageKind.EXTERIOR);
@@ -610,6 +673,29 @@ final class Fixtures {
 			}
 		}
 		return best;
+	}
+
+	/**
+	 * A lit recess: the block under a standing cell (built or natural ground, in the plot) swapped for the culture's
+	 * glowing block, for a cell with no air beside it to hide a light in (the foot of a ladder in a shaft). Never in the
+	 * ceiling of a room below.
+	 */
+	static @Nullable Fixture recess(Session s, int x, int y, int z, int min) {
+		if (!s.g.inPlot(x, z) || !s.g.contains(x, y - 1, z) || !s.d.allowed(x, y - 1, z)) {
+			return null;
+		}
+		BlockState floor = s.g.at(x, y - 1, z);
+		Draft.Cell fc = s.d.cell(x, y - 1, z);
+		if (!floor.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)
+			|| floor.getLightEmission() > 0 || fc != null && fc.tag() != null || s.sp.walkable(x, y - 3, z)) {
+			return null;
+		}
+		Fixture f = new Fixture(Fixture.Kind.GLOW, 3.0);
+		f.part(x, y - 1, z, s.m.glow.defaultBlockState(), fc == null ? StageKind.FOUNDATION : fc.stage());
+		if (!s.satisfiesTarget(f, x, y, z, min)) {
+			return null;
+		}
+		return f;
 	}
 
 	private static boolean hiddenOk(Session s, int x, int y, int z) {

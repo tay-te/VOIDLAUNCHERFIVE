@@ -58,7 +58,7 @@ import org.jspecify.annotations.Nullable;
  * walks or bumps their head (lanterns hang above head height); everything hangs from or stands on something.
  */
 final class Session {
-	static final int MARGIN = 6;
+	static final int MARGIN = LightRules.MARGIN;
 	private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 
 	final Draft d;
@@ -88,6 +88,28 @@ final class Session {
 	final List<Fixture> log = new ArrayList<>();
 
 	Session(Draft d, LightRules.Family family, int x0, int z0, int x1, int z1, @Nullable List<int[]> onlyCells) {
+		this(d, family, x0, z0, x1, z1, onlyCells, List.of());
+	}
+
+	/** A pass over one room only (for {@link Lighting#room}): its cells at its floor, walked from themselves. */
+	static Session forRoom(Draft d, int x0, int z0, int x1, int z1, int floorY) {
+		List<int[]> cells = new ArrayList<>();
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				cells.add(new int[]{x, floorY, z});
+			}
+		}
+		return new Session(d, LightRules.family(d.spec().archetype()), x0, z0, x1, z1, cells, cells);
+	}
+
+	/** Lights the rooms among the needs (design, then fill), nothing else. */
+	void lightRooms() {
+		if (!this.needs.isEmpty() && unmetCount() > 0) {
+			rooms();
+		}
+	}
+
+	Session(Draft d, LightRules.Family family, int x0, int z0, int x1, int z1, @Nullable List<int[]> onlyCells, List<int[]> extraStarts) {
 		this.d = d;
 		this.m = new Manner(d);
 		this.family = family;
@@ -135,7 +157,7 @@ final class Session {
 			public Direction plusZ() {
 				return Dirs.BACK;
 			}
-		}, x0 - MARGIN, Math.min(yr[0], 0) - 2, z0 - MARGIN, x1 + MARGIN, Math.max(yr[1], 0) + 4, z1 + MARGIN);
+		}, x0 - MARGIN, Math.min(yr[0], 0) - LightRules.BELOW, z0 - MARGIN, x1 + MARGIN, Math.max(yr[1], 0) + LightRules.ABOVE, z1 + MARGIN);
 		List<BlockPos> starts = new ArrayList<>();
 		List<BlockPos> entrances = new ArrayList<>();
 		for (int[] e : d.entrances()) {
@@ -146,9 +168,12 @@ final class Session {
 		for (int x = 0; x < w; x++) {
 			starts.add(new BlockPos(x, Math.max(site.ground(x, -1), 0), -1));
 		}
+		for (int[] c : extraStarts) {
+			starts.add(new BlockPos(c[0], c[1], c[2]));
+		}
 		this.sp = new Spaces(this.g, starts);
 		this.lf = new LightField(this.g);
-		List<LightRules.Need> all = LightRules.needs(this.sp, entrances, LightRules.Context.of(family, d.tier()));
+		List<LightRules.Need> all = LightRules.needs(this.sp, entrances, LightRules.Context.of(family, d.tier(), d.maxHeight() - 1));
 		if (onlyCells != null) {
 			LongOpenHashSet only = new LongOpenHashSet();
 			for (int[] c : onlyCells) {
@@ -175,7 +200,8 @@ final class Session {
 		// keep doorways, the cells either side of them and where folk work clear
 		d.forEach((x, y, z, c) -> {
 			Block b = c.state().getBlock();
-			if (b instanceof DoorBlock || b instanceof FenceGateBlock) {
+			boolean lower = !(b instanceof DoorBlock) || c.state().getValue(DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER;
+			if ((b instanceof DoorBlock || b instanceof FenceGateBlock) && lower) {
 				for (int dx = -1; dx <= 1; dx++) {
 					for (int dz = -1; dz <= 1; dz++) {
 						if (dx == 0 || dz == 0) {
@@ -476,6 +502,7 @@ final class Session {
 	static final long[] TIME = new long[5];
 
 	void run() {
+		trace("start");
 		if (this.needs.isEmpty() || unmetCount() == 0) {
 			return;
 		}
@@ -483,15 +510,32 @@ final class Session {
 		doors();
 		long t1 = System.nanoTime();
 		rooms();
+		trace("rooms");
 		long t2 = System.nanoTime();
 		ground();
+		trace("ground");
 		long t3 = System.nanoTime();
 		last();
+		trace("last");
 		long t4 = System.nanoTime();
 		TIME[1] += t1 - t0;
 		TIME[2] += t2 - t1;
 		TIME[3] += t3 - t2;
 		TIME[4] += t4 - t3;
+	}
+
+	/** Debugging: a local cell to follow through the pass ({@link AutoLighter#trace}). */
+	private void trace(String phase) {
+		int[] c = AutoLighter.trace;
+		if (c == null) {
+			return;
+		}
+		boolean in = this.g.contains(c[0], c[1], c[2]);
+		int i = in ? this.g.index(c[0], c[1], c[2]) : -1;
+		System.out.println("TRACE " + phase + " cell " + c[0] + "," + c[1] + "," + c[2] + " in " + in + (in ? " light " + this.lf.atIndex(i) + " need "
+			+ this.needMin[i] + " kind " + this.needKind[i] + " walkable " + this.sp.walkable(c[0], c[1], c[2]) + " reached " + this.sp.reached(c[0], c[1], c[2])
+			+ " roofed " + this.sp.roofed(c[0], c[1], c[2]) + " enclosed " + this.sp.enclosed(c[0], c[1], c[2]) + " below " + this.g.at(c[0], c[1] - 1, c[2]) : "")
+			+ " needs " + this.needs.size() + " placed " + this.log.size());
 	}
 
 	// ---------------------------------------------------------------------------------------------- doors
@@ -640,6 +684,10 @@ final class Session {
 	 */
 	private void design(Room r) {
 		int roomBit = bit(LightRules.Kind.ROOM);
+		// a small room is lit by candles where it has a table, a barrel, a counter or a shelf to stand them on
+		if (r.cells.size() <= 24 && candles(r, roomBit)) {
+			return;
+		}
 		boolean longX = r.width() >= r.length();
 		int along = longX ? r.width() : r.length();
 		int across = longX ? r.length() : r.width();
@@ -697,6 +745,53 @@ final class Session {
 				place(f);
 			}
 		}
+	}
+
+	/** Lights a small room with one or two groups of candles on its furniture, if that is enough; true if done. */
+	private boolean candles(Room r, int roomBit) {
+		List<Fixture> spots = new ArrayList<>();
+		Fixtures.candleSpots(this, r, spots);
+		if (spots.isEmpty()) {
+			return false;
+		}
+		int before = unmetIn(r);
+		int enough = (int) Math.ceil(before * 0.9);
+		Fixture one = null;
+		int oneLit = -1;
+		for (Fixture f : spots) {
+			int lit = litBy(List.of(f), r, roomBit);
+			if (lit > oneLit || lit == oneLit && one != null && f.cost < one.cost) {
+				one = f;
+				oneLit = lit;
+			}
+		}
+		if (oneLit >= enough && oneLit > 0) {
+			place(one);
+			return true;
+		}
+		List<Fixture> pair = null;
+		int pairLit = -1;
+		for (int i = 0; i < spots.size(); i++) {
+			for (int j = i + 1; j < spots.size(); j++) {
+				Fixture a = spots.get(i);
+				Fixture b = spots.get(j);
+				if (a.parts.get(0).x() == b.parts.get(0).x() && a.parts.get(0).z() == b.parts.get(0).z()) {
+					continue;
+				}
+				int lit = litBy(List.of(a, b), r, roomBit);
+				if (lit > pairLit) {
+					pair = List.of(a, b);
+					pairLit = lit;
+				}
+			}
+		}
+		if (pair != null && pairLit >= enough && pairLit > 0) {
+			for (Fixture f : pair) {
+				place(f);
+			}
+			return true;
+		}
+		return false;
 	}
 
 	private static boolean overlaps(List<Fixture> set, Fixture f) {
@@ -832,6 +927,7 @@ final class Session {
 		// a cell given up on is lit by the last resort; take it out of the ground pass's search
 		Fixture f = Fixtures.hidden(this, n.x(), n.y(), n.z(), n.min());
 		if (f != null) {
+			f.why = "ground";
 			place(f);
 		}
 	}
@@ -860,6 +956,15 @@ final class Session {
 				return;
 			}
 			Fixture f = Fixtures.hidden(this, worst.x(), worst.y(), worst.z(), worst.min());
+			if (f != null) {
+				f.why = worst.kind() == LightRules.Kind.DARK && !this.sp.reached(worst.x(), worst.y(), worst.z()) ? "pocket" : worst.kind().label();
+			} else {
+				// no air beside it to hide a light in (the foot of a ladder in a shaft): a lit recess in its floor
+				f = Fixtures.recess(this, worst.x(), worst.y(), worst.z(), worst.min());
+				if (f != null) {
+					f.why = "recess";
+				}
+			}
 			if (f == null) {
 				// nowhere to hide a light next to it: give up on this cell (the check will say so)
 				this.needMin[this.g.index(worst.x(), worst.y(), worst.z())] = 0;

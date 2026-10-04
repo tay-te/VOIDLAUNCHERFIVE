@@ -6,6 +6,7 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -25,13 +26,18 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  *   <tr><td>mediterranean</td><td>copper</td><td>lantern on a bracket</td><td>white, yellow</td><td>lamp post</td><td>wheel of lanterns</td></tr>
  *   <tr><td>desert, mesa</td><td>copper</td><td>lantern on a bracket</td><td>orange, yellow, red</td><td>brazier</td><td>wheel of lanterns</td></tr>
  *   <tr><td>steppe</td><td>iron</td><td>lantern on a bracket</td><td>yellow, brown</td><td>brazier</td><td>wheel of lanterns</td></tr>
- *   <tr><td>karst, wisteria</td><td>iron</td><td>lantern on a bracket</td><td>red / magenta, pink</td><td>stone lantern</td><td>lanterns in a row</td></tr>
+ *   <tr><td>karst, wisteria</td><td>iron</td><td>lantern on a bracket</td><td>red, white / white, red, brown</td><td>stone lantern</td><td>lanterns in a row</td></tr>
  *   <tr><td>bayou</td><td>iron</td><td>lantern on a bracket</td><td>tallow, yellow</td><td>lamp post</td><td>wheel of lanterns</td></tr>
- *   <tr><td>tropical</td><td>iron</td><td>torches</td><td>yellow, lime</td><td>tiki torch</td><td>wheel of lanterns</td></tr>
+ *   <tr><td>tropical</td><td>iron</td><td>torches</td><td>yellow, orange, brown</td><td>tiki torch</td><td>wheel of lanterns</td></tr>
  * </table>
  *
- * A style whose {@code light} role names a lantern other than the iron one (a soul lantern, a copper one, an Expanse
- * lamp) keeps it. Copper is always waxed: a blueprint must not weather out of true (repairs compare blocks).
+ * A style whose {@code light} role names a lantern other than the iron one (a soul lantern, a copper one) keeps it.
+ * Copper is always waxed: a blueprint must not weather out of true (repairs compare blocks).
+ *
+ * <p><b>The surface burns only what folk burn</b> (lanterns, candles, torches, fires; glowstone or shroomlight hidden
+ * under a rug): Expanse's glowing blocks (amber, glowcaps, prismite, lumenwood) belong to the realms underground, so a
+ * surface style naming an Expanse lamp gets the iron lantern. Only the deep settlements ({@code deep/...} archetypes and
+ * the {@code deep} styles) light with the realm's glow: amber hidden in their floors.
  */
 public final class Manner {
 	public enum Yard {
@@ -56,14 +62,18 @@ public final class Manner {
 	public final boolean rows;
 	/** What is hidden under a rug or set into a floor. */
 	public final Block glow;
+	/** An underground settlement (the realms may glow; the surface never does). */
+	public final boolean deep;
 	private final Draft d;
 
 	public Manner(Draft d) {
 		this.d = d;
 		Culture c = d.style().culture() == null ? Culture.TEMPERATE : d.style().culture();
 		this.culture = c;
+		this.deep = deep(d);
 		Block styleLantern = d.mat(Role.LIGHT).mainOr(Form.FULL, Blocks.LANTERN);
-		if (!styleLantern.defaultBlockState().hasProperty(BlockStateProperties.HANGING)) {
+		if (!styleLantern.defaultBlockState().hasProperty(BlockStateProperties.HANGING)
+			|| !this.deep && !"minecraft".equals(BuiltInRegistries.BLOCK.getKey(styleLantern).getNamespace())) {
 			styleLantern = Blocks.LANTERN;
 		}
 		Block copper = States.block("minecraft:waxed_copper_lantern", Blocks.LANTERN);
@@ -92,9 +102,9 @@ public final class Manner {
 			case MESA -> candles(DyeColor.ORANGE, DyeColor.RED, DyeColor.WHITE);
 			case STEPPE -> candles(DyeColor.YELLOW, DyeColor.BROWN, DyeColor.ORANGE);
 			case KARST -> candles(DyeColor.RED, DyeColor.WHITE, DyeColor.YELLOW);
-			case WISTERIA -> candles(DyeColor.MAGENTA, DyeColor.PINK, DyeColor.WHITE);
+			case WISTERIA -> candles(DyeColor.WHITE, DyeColor.RED, DyeColor.BROWN);
 			case BAYOU -> candles(null, DyeColor.YELLOW, DyeColor.GREEN);
-			case TROPICAL -> candles(DyeColor.YELLOW, DyeColor.LIME, DyeColor.ORANGE);
+			case TROPICAL -> candles(DyeColor.YELLOW, DyeColor.ORANGE, DyeColor.BROWN);
 		};
 		this.yard = switch (c) {
 			case NORTHERN, TUNDRA, DESERT, MESA, STEPPE -> Yard.BRAZIER;
@@ -104,10 +114,15 @@ public final class Manner {
 		};
 		this.candleWheel = c == Culture.NORTHERN || c == Culture.TUNDRA;
 		this.rows = c == Culture.KARST || c == Culture.WISTERIA;
-		this.glow = switch (c) {
+		this.glow = this.deep ? States.block("expanse:amber", Blocks.SHROOMLIGHT) : switch (c) {
 			case DESERT, MESA, STEPPE, MEDITERRANEAN, TROPICAL, BAYOU, KARST, WISTERIA -> Blocks.SHROOMLIGHT;
 			default -> Blocks.GLOWSTONE;
 		};
+	}
+
+	/** Whether a draft is an underground settlement's: a {@code deep/} archetype, or a {@code deep} style. */
+	public static boolean deep(Draft d) {
+		return d.spec().archetype().getPath().startsWith("deep/") || d.style().id().getPath().startsWith("deep");
 	}
 
 	private static Block[] candles(DyeColor plain, DyeColor a, DyeColor b) {

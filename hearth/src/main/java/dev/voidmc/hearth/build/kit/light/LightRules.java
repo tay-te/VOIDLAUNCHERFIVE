@@ -15,8 +15,9 @@ import net.minecraft.resources.Identifier;
  *   <tr><td>{@link Family#BUILDING}</td><td>homes, workplaces, commerce, civic, storage, landmarks, gatehouses and
  *   watchtowers</td><td>every walkable cell in a room (roofed and walled all round) reached from a door at block light
  *   <b>≥ 8</b>; every walkable cell of the plot reached from the street or a door, and every sealed pocket under its
- *   roofs, at <b>≥ 1</b> (never 0: hostile mobs spawn only at 0); outside every entrance <b>≥ 8</b> (a lamp at every
- *   door)</td></tr>
+ *   roofs, at <b>≥ 1</b> (never 0: hostile mobs spawn only at 0; in the open air only cells a mob could spawn in
+ *   count, so the stairs of a roof one could step onto from a hillside need no lamp); outside every entrance
+ *   <b>≥ 8</b> (a lamp at every door)</td></tr>
  *   <tr><td>{@link Family#SQUARE}</td><td>plazas</td><td>lamp-lit to the tier's standard, as a street: every cell within
  *   half a lamp spacing of one of its own lamps never dark (the rest of a square is lit by the lamp posts, the fountain
  *   and the stalls the planner stands on it, which are plots of their own); under any roof never dark</td></tr>
@@ -42,6 +43,12 @@ import net.minecraft.resources.Identifier;
 public final class LightRules {
 	private LightRules() {
 	}
+
+	/** Columns read round the plot (light reaching out and back in, ways round the outside). */
+	public static final int MARGIN = 8;
+	/** Blocks read above the highest block of the building and below its lowest (or its floor). */
+	public static final int ABOVE = 6;
+	public static final int BELOW = 2;
 
 	/** The light a room needs: where folk live and work, comfortable to read by (and well above spawning light). */
 	public static final int ROOM = 8;
@@ -99,10 +106,14 @@ public final class LightRules {
 	public record Need(int x, int y, int z, int min, Kind kind) {
 	}
 
-	/** Extra facts some families need. */
-	public record Context(Family family, int tier, String roadKind, int roadWidth) {
-		public static Context of(Family f, int tier) {
-			return new Context(f, tier, "", 0);
+	/**
+	 * Extra facts the rules need: the family, the plot's tier, and the highest standing level inside the plot's height
+	 * (a cell above it, on the very top of a roof that fills the plot's height, belongs to the sky: nothing may be built
+	 * there to light it).
+	 */
+	public record Context(Family family, int tier, int topY) {
+		public static Context of(Family f, int tier, int topY) {
+			return new Context(f, tier, topY);
 		}
 	}
 
@@ -128,7 +139,7 @@ public final class LightRules {
 		for (int y = g.y0; y < g.y0 + g.sy; y++) {
 			for (int z = g.z0; z < g.z0 + g.sz; z++) {
 				for (int x = g.x0; x < g.x0 + g.sx; x++) {
-					if (!g.inPlot(x, z) || !sp.walkable(x, y, z) || sp.wet(x, y, z) || doorCells.contains(BlockPos.asLong(x, y, z))) {
+					if (y > ctx.topY() || !g.inPlot(x, z) || !sp.walkable(x, y, z) || sp.wet(x, y, z) || doorCells.contains(BlockPos.asLong(x, y, z))) {
 						continue;
 					}
 					boolean reached = sp.reached(x, y, z);
@@ -136,13 +147,33 @@ public final class LightRules {
 					boolean enclosed = roofed && sp.enclosed(x, y, z);
 					if (enclosed && reached && !sp.doorway(x, y, z)) {
 						out.add(new Need(x, y, z, ROOM, Kind.ROOM));
-					} else if (enclosed || reached && (f.plotNeverDark() || roofed)) {
+					} else if (enclosed && !reached && open(g, x, y, z) || reached && (roofed || f.plotNeverDark() && spawnable(g, x, y, z))) {
 						out.add(new Need(x, y, z, NEVER_DARK, Kind.DARK));
 					}
 				}
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * Whether a hostile mob could spawn standing in this cell, by the game's rules (NaturalSpawner): the block under it
+	 * lets mobs spawn on it (a sturdy top face: not a stair, a bottom slab, glass or leaves) and the cell itself is no
+	 * full block, no fluid, nothing that forbids spawning inside. Open-air cells where nothing can spawn (the stairs of a
+	 * roof one could walk up from a hillside) need no light; under a roof every standing cell does.
+	 */
+	static boolean spawnable(Grid g, int x, int y, int z) {
+		var below = g.at(x, y - 1, z);
+		var feet = g.at(x, y, z);
+		return below.isValidSpawn(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO, net.minecraft.world.entity.EntityTypes.ZOMBIE)
+			&& net.minecraft.world.level.NaturalSpawner.isValidEmptySpawnBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO, feet,
+				feet.getFluidState(), net.minecraft.world.entity.EntityTypes.ZOMBIE);
+	}
+
+	/** Feet and head in the open air of a pocket (not a shutter's or a hatch's cell): where something could stand. */
+	static boolean open(Grid g, int x, int y, int z) {
+		var feet = g.at(x, y, z);
+		return (feet.isAir() || feet.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) && g.at(x, y + 1, z).isAir();
 	}
 
 	/** Whether a door stands next to a cell (a real door, not an open way onto a square or a field). */
