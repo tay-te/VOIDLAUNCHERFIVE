@@ -116,6 +116,10 @@ public final class Caravans {
 			if (!cfg.embodied() || spawned) {
 				continue;
 			}
+			// a party counts against the server's folk cap like any other embodied people
+			if (NpcModule.embodiment().count() + liveEntities() + cfg.guards() + cfg.traders() + cfg.animals() > emb.maxPerServer()) {
+				continue;
+			}
 			BlockPos at = j.at(j.progress(now, cfg.speed()));
 			if (!level.isLoaded(at) || !level.isPositionEntityTicking(at) || nearestPlayer(level, at) > emb.spawnRadius()) {
 				continue;
@@ -129,6 +133,14 @@ public final class Caravans {
 				spawned = true;
 			}
 		}
+	}
+
+	private int liveEntities() {
+		int n = 0;
+		for (CaravanParty p : this.parties.values()) {
+			n += p.size();
+		}
+		return n;
 	}
 
 	private static double nearestPlayer(ServerLevel level, BlockPos at) {

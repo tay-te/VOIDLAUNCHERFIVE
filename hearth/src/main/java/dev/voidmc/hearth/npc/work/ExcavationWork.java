@@ -361,10 +361,9 @@ final class ExcavationWork implements WorkBehaviour {
 		}
 	}
 
-	/** Standing on top of the block to be cut: they would fall into their own cut. */
+	/** Standing over the block to be cut (their middle above it): they would fall into their own cut. */
 	static boolean standingOn(Folk folk, BlockPos pos) {
-		AABB feet = folk.getBoundingBox().move(0, -0.2, 0);
-		return feet.intersects(new AABB(pos)) && !folk.getBoundingBox().intersects(new AABB(pos));
+		return BlockPos.containing(folk.getX(), folk.getY() - 0.2, folk.getZ()).equals(pos);
 	}
 
 	private static boolean inside(Folk folk, BuilderWork.Step step) {
@@ -384,7 +383,7 @@ final class ExcavationWork implements WorkBehaviour {
 		double bestD = Double.MAX_VALUE;
 		for (Poi face : Extraction.workFaces(bp)) {
 			BlockPos p = face.pos();
-			if (p.equals(target.above()) || !level.isLoaded(p) || !FolkSpots.standable(level, p)) {
+			if (over(p, target) || !level.isLoaded(p) || !FolkSpots.standable(level, p)) {
 				continue;
 			}
 			Vec3 eye = new Vec3(p.getX() + 0.5, p.getY() + folk.getEyeHeight(), p.getZ() + 0.5);
@@ -401,7 +400,12 @@ final class ExcavationWork implements WorkBehaviour {
 			return best;
 		}
 		BlockPos any = BuilderWork.standFor(level, target, folk);
-		return any != null && any.equals(target.above()) ? null : any;
+		return any != null && over(any, target) ? null : any;
+	}
+
+	/** A spot on top of the cut itself. */
+	private static boolean over(BlockPos stand, BlockPos cut) {
+		return stand.equals(cut.above());
 	}
 
 	static NpcConfig.Gathering config() {

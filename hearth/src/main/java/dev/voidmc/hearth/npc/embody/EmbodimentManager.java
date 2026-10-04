@@ -13,6 +13,7 @@ import dev.voidmc.hearth.npc.entity.FolkEntities;
 import dev.voidmc.hearth.npc.entity.FolkSpots;
 import dev.voidmc.hearth.npc.person.NpcData;
 import dev.voidmc.hearth.npc.person.Office;
+import dev.voidmc.hearth.npc.person.Stations;
 import dev.voidmc.hearth.npc.service.Escorts;
 import dev.voidmc.hearth.npc.place.ResidentPlaces;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
@@ -136,6 +137,9 @@ public final class EmbodimentManager {
 		boolean offices = town.officesChanged();
 		for (Resident r : settlement.residents()) {
 			Folk f = this.embodied.get(r.id);
+			if (f != null && Stations.sync(r)) {
+				settlement.markDirty();
+			}
 			if (f != null && (offices || f.station() != r.station)) {
 				// a household rose or fell, or an office changed hands: dress them for it
 				f.setStanding(r.station, town.office(settlement, r));
@@ -274,6 +278,9 @@ public final class EmbodimentManager {
 
 	/** Attaches an entity to a resident: identity, health, brain, bookkeeping. */
 	public void bind(ServerLevel level, Folk folk, Settlement settlement, Resident resident, TownState town) {
+		if (Stations.sync(resident)) {
+			settlement.markDirty();
+		}
 		folk.setIdentity(resident.id, resident.fullName(), resident.appearance, settlement.culture(), resident.job, resident.age, resident.female,
 			resident.station, town.office(settlement, resident));
 		folk.setSettlementId(settlement.id());
