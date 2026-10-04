@@ -3,16 +3,19 @@
 The plan module (`dev.voidmc.hearth.plan`) decides where everything in a settlement goes: the square, the streets,
 every plot, and what is built next. It implements `SettlementPlanner` (ARCHITECTURE.md §5–7) and is registered in
 `PlanModule.init()`. This document is the planner's half of the contract with the build module (the params every plot
-carries, above all the infrastructure geometry) and with the sim (state, determinism, cost).
+carries, above all the infrastructure geometry) and with the sim (state, determinism, cost). Phase 3, the living world
+(§14), adds housing by station and the quarters it makes, the lord's seat on the castle hill, workings on the
+territory's resource sites with the workshops of the chains by their inputs, local materials, carrying capacity, the law,
+social and civic buildings, and deep towns in the realms.
 
 ```
 found(ctx)                       next(settlement, terrain, random)
-  survey the site                  bring the occupancy grid up to date with the plots
-  choose layout + signature        tier risen? lay out districts
+  survey the site                  bring the occupancy grid up to date with the plots (each level on its own)
+  choose layout + signature        tier risen? lay out districts (village tier with stations), hold the castle hill
   hold the square, the well        queue empty? plan the most urgent need that fits
   plan the skeleton roads           (roads first, then what stands on them)
-  plan the side lanes ahead        hand out the next queued project
-  keep lots for hall and market
+  keep lots for hall, market, court hand out the next queued project (the deep town's when the surface has none)
+  plan the side lanes ahead
   plan the first needs
 ```
 
@@ -118,7 +121,9 @@ each floor meeting the street at its own door (a row steps down a hill), with pa
 The **square** is held open from the founding (a green with the well), paved at village tier (its `keep` lists what
 stands in it), and furnished — market stalls round it, lamps at the corners, fountain and statue — two blocks in from
 its edge, off the mouths of streets. Its frontage is kept for hall, chapel, inn, bank and shops. **Lots** for the town
-hall and market hall are reserved on the square (or a main street at its corner) at founding and released when built.
+hall, market hall and courthouse are reserved on the square (or a main street at its corner, within 34 blocks of it) at
+founding, before the side lanes are planned, smaller if the square is small, looked for again while the town is below
+town tier if none was free, and released when built.
 The **chapel** goes on the rise with a close kept round it for the cathedral or temple a city raises in its place.
 
 **Overlaps the planner allows** (everything else is a bug, see the tests): a building on a terrace (same footprint); a
@@ -134,11 +139,16 @@ few calls (`cooldowns`, saved). While more than `4 + pop/6` plots are unbuilt on
 | Need | Priority | How |
 |---|---|---|
 | builders' yard (first workplace) | 1000 | crafts ring |
-| housing: residents + margin > beds + planned beds | 600 + 12/bed | site first, then the house for its band (§4), farmsteads in expansive layouts, rebuilds in dense towns |
+| housing: residents + margin > beds + planned beds (capped by the carrying capacity) | 600 + 12/bed | the station shortest of homes (§14.1), its quarter and placement first, then the house for its band (§4) and station, farmsteads in expansive layouts, rebuilds in dense towns |
+| housing: families in a home not of their station (within a fifth of slack, never past the capacity) | 240 + 4/bed | as above |
 | food: farms feed < population | 420+ | field / orchard / pasture / paddy / terrace field by culture and land, just past the edge of town (outside the walls), round farmsteads |
-| shortage: a plot waits for goods (`PlotView.waitingForGoods`) and the stores hold under 200 stone / wood | 380 | a quarry / sawmill (the workplace for QUARRIER / FORESTER), at most two job sites per 40 souls; planned even while busy |
+| shortage: a plot waits for goods (`PlotView.waitingForGoods`) and the stores run low of a good the chains make (stone, wood, logs, dressed stone, brick, glass, metal, fuel, candles) | 380 | the workplace of the chain's last step, else of what feeds it (a quarry pit on a stone site, else the quarry; a kiln, then a clay pit…), at most two job sites per 40 souls; planned even while busy |
 | a job's workers > its workplaces | 300+ | workplace providing that job (catalogue) |
-| the program (`Program`): storehouse, fishery, carpentry, smithy, stalls, sawmill, barn, quarry, chapel, inn, bakery, bank, mills, granary, masonry, guardhouse, brewery, tailor, town hall, market hall, library, school, warehouse, manors, bathhouse | 120–330 | each with a count by population and a placement |
+| the program (`Program`): storehouse, fishery, carpentry, smithy, stalls, sawmill, barn, quarry, chapel, inn, bakery, bank, mills, granary, masonry, guardhouse, brewery, tailor, town hall, market hall, library, school, warehouse, manors, bathhouse; the workings and the chains' workshops (§14.3); the law and social buildings (§14.4) | 40–330 | each with a count by population and a placement, a siting by its inputs, or its own planner (workings at their sites, square furniture) |
+| a lot on the square for the hall or the court, none found yet (below town tier) | 335 | `Lots` |
+| the lord's keep (town), castle or palace (city), stables, gardens, hunting lodge | 90–265 | §14.2 |
+| watch houses at the gates, toll gates on the roads in | 120–150 | §14.4 |
+| the deep town: found it, grow it | 190 / 210 | §14.5 |
 | plaza | 280 | at village tier |
 | landmark (town ≥ 80 folk, a second at city) | 230 | signature's choice; summit/rise, headland, square; cathedral/temple replaces the chapel |
 | docks | 150 | piers 8–16 long off roads at the water, 14 apart |
@@ -149,7 +159,8 @@ few calls (`cooldowns`, saved). While more than `4 + pop/6` plots are unbuilt on
 
 Archetypes are taken only from what `HearthServices.blueprints().archetypes()` lists (`catalogue/Catalogue`): a
 missing one falls back to the nearest allowed one of the same category (sharing a job first, then similar size), or the
-need is skipped. Without a build module the §6.1 defaults (`catalogue/DefaultCatalogue`) stand in.
+need is skipped. The phase 3 buildings (LIVING_WORLD §8.5) are asked for exactly or not at all. Without a build module
+the §6.1 and §8.5 defaults (`catalogue/DefaultCatalogue`) stand in.
 
 ## 6. Verticality
 
@@ -216,13 +227,24 @@ Every building plot (not infrastructure) may carry:
 | `keep` (plaza) | int array of rectangles x0,z0,x1,z1 (inclusive) inside the plaza that stand as they are |
 | `over_road`, `passage_width` (gatehouse) | the road runs through it along `facing` |
 | `on_wall` (tower) | stands on the wall line |
+| `station` (homes) | the `Station` the home is for (§14.1); `lord` on the keep, castle or palace |
+| `household` (homes) | `job` (the family's trade), and `head` (a resident id) and `name` when a family is waiting for it |
+| `local` (every plot) | role → material from the territory's woods and rock (§14.3), the realm's for deep plots |
+| `site`, `kind`, `rock`, `face`, `depth`, `length`, `speciality`, `realm_below` (workings) | §14.3 and LIVING_WORLD §8.5 |
+| `realm` (deep plots, their roads included) | the realm id; `origin.y` is the realm floor (§14.5) |
+| `top_y`, `bottom_y`, `deep_facing`, `deep_street_y`, `character` (`deep/lift`) | the lift's head on the street, its foot on the realm floor, its lower door |
+
+`district` values: `market`, `civic`, `crafts`, `rich`, `residential`, `farms`, `harbour`, and with stations `poor` and
+`castle`. Clay and sand pits may take in up to a third of their footprint of water at the bank.
 
 ## 9. State (`model/PlanState`, key `hearth:plan/state`, settlement scope)
 
 One compound: version, layout, signature, site survey, heart and square, the road graph (nodes as an int array;
 edges with role, kind, width, polyline points, runs `(start, type, deck)`, built count, limit, junction indices,
-parent edge), districts (seed + weight), reservations (square, lots, the chapel's close), the project queue (specs,
-`replaces`, reasons), the specs handed out last call, last tier, wall stage and radius, counters, need cooldowns.
+parent edge), districts (seed + weight), reservations (square, lots, the chapel's close, the castle hill, the castle's
+close), the project queue (specs, `replaces`, reasons), the specs handed out last call, last tier, wall stage and
+radius, counters, need cooldowns, the castle hill, and the deep town's own plan state (`deep`, nested, with its realm
+id).
 Int arrays are read back from NBT or JSON alike. A city's plan is a few kilobytes.
 
 The **occupancy grid** (16×16 byte tiles, `grid/Occupancy`) is not saved: it is rebuilt from the plots, the planned
@@ -254,7 +276,13 @@ handed out was not taken; plots added since are marked incrementally. It can nev
 ./gradlew settlementPreview -Pculture=alpine -Pterrain=earth:1200:-800 -Pseed=8675309   # Expanse Earth terrain
 ```
 
-`culture[/layout]` forces a layout; terrains are the synthetic kinds or `earth[:x:z]`. Writes
+`culture[/layout]` forces a layout; terrains are the synthetic kinds (`steep+realm`: with a realm under it, for a deep
+town), `earth[:x:z]`, or `earthdeep[:x:z]` (a town on Earth terrain over the realm nearest (x, z), read from Expanse's
+cavern model). `HEARTH_PREVIEW_BOXES=1` draws the planner's boxes only (homes coloured by station, the social map).
+Phase 3 previews add `_town.png` (the town close up), `_deep.png` and `_deep_iso.png` (the deep town on its realm's
+floor), resource sites outlined on the plan (what is quarried, mined, dug and felled named; the land that feeds the town
+faint) and a line of figures per age: folk, homes and beds by station, families in a home of their station, sites by
+kind, capacity. Writes
 `build/previews/settlement_<culture>_<terrain>_s<seed>_d<day>_plan.png` (hill-shaded plan: roads by kind, stairs
 striped, bridges in timber, plots by category, pale while unbuilt, the square and kept lots hatched, planned streets
 dotted, labels on the buildings that make the place) and `_iso.png` (isometric overview of the town, turned so it is
@@ -282,6 +310,17 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `housing_margin` | 0.1 | spare beds planned ahead of the population (at least 2) |
 | `search_budget` | 1600 | frontage places examined per placement |
 | `cache_tiles` | 4096 | terrain tiles (256 columns) cached per world |
+| `stations` | true | housing by station and the quarters (§14.1); off: homes by density alone, as in phase 2 |
+| `extraction` | true | workings on the territory's sites (§14.3) |
+| `haul_max_distance` | 320 | farthest a site may lie and still be worked |
+| `carrying_capacity` | true | plan beds only for what the territory feeds |
+| `trade_margin` | 1.25 | how far past what its land feeds trade lets a town grow |
+| `local_materials` | true | the `local` param on every plot |
+| `law_buildings`, `gallows`, `toll_gates` | true | the law's buildings; a server can drop the gallows or the toll gates |
+| `social_buildings` | true | taverns, playhouses, infirmaries, almshouses, monasteries, the thieves' den… |
+| `nobility` | true | the castle hill, the keep, the castle or palace, stables, gardens, the lodge |
+| `deep_towns`, `deep_share` | true, 0.25 | deep towns, and the share of the town they house |
+| `prevailing_wind` | −1 | degrees clockwise from north the wind blows from; negative: one per world from its seed |
 | `live_time_limit_ms` | 20 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
 
 Debug: `/hearth plan info` near a settlement; `-Dhearth.dev.plan.trace=true` logs every need tried, its result and
@@ -295,4 +334,158 @@ allowances, no building on a road, every door on a road (or path, plaza, square 
 terraced (or cut in), sizes within archetype ranges, nothing in water that cannot be. `PlanDeterminismTest`: same seed →
 same plots, on another thread too; state round trip through NBT and JSON. `PlanPerformanceTest`: §10.
 `RoadGeometryTest`: polyline reproduction, corridor widths, stairs on steep ground, bridges over rivers.
-`CatalogueFallbackTest`: only registered archetypes, with fallbacks.
+`CatalogueFallbackTest`: only registered archetypes, with fallbacks; the §8.5 buildings never stood in for.
+`StationHousingTest`: homes name their station and household, families live in homes of their station, the poor live
+farther out than the merchants, the keep stands on the castle hill, and with stations off homes are as before.
+`ResourcePlanTest`: workings on sites of their kind with their params, out of town, cart tracks out to them, workshops by
+their inputs, local materials on (nearly) every plot, the capacity estimate, nothing dug with extraction off.
+`DeepTownTest`: a mining town over a realm founds a deep town (one lift, deep plots with `realm` on the realm floor in the
+realm's materials, the hall, dwellings), each level sound on its own, the same town above and below for the same seed,
+the deep plan surviving the codec. `PlanInvariantsTest` also grows a mining town over a realm (each level checked on its
+own, the deep one over its realm floor) and a walled desert town with its palace.
+
+## 14. The living world (LIVING_WORLD.md §7.2, §8)
+
+Phase 3 makes the plan a place shaped by the people in it and the land that feeds it. Every switch below is in
+`plan.json` (§12); with all of them off the planner plans as in phase 2.
+
+### 14.1 Housing by station and the social geography (`society/*`, `growth/Housing`)
+
+Each household has a `Station` (`Resident.station`, kept by the npc module): poor, peasant, artisan, merchant, clergy,
+scholar, official, gentry, lord. The **station ledger** (`society/StationLedger`, once per call) counts the beds each
+station needs (its adults, with the children and elders spread over the stations as the adults are), the beds of the
+homes built, under way and queued for it (a home's `station` param, else what its archetype is built for:
+`Stations.inferred`), which families live in a home not of their station, and the commonest trade of each station.
+
+Housing is then two needs in one: **beds short** (population + margin over beds, as before, with the territory's
+carrying capacity as a ceiling, §14.3) at 600+, and **homes of the wrong station** (the stations' shortfalls summed,
+within a fifth of slack over the town's beds and never past the capacity) at 240+. The planner draws the station to
+build for by its shortfall and plans its home where that station lives:
+
+| Station | Homes asked for (best first, falling back) | Where (placement, quarter) |
+|---|---|---|
+| poor | `house/hovel`, `shack`, `hut`, rooms in a `tenement` (a third of a city's poor) | `HOVELS`: the edge of town, downwind, low ground, near the tannery and the fields — inside along the wall in a walled town; the poor quarter |
+| peasant | `croft`, `cottage`, `farmhouse` (peasants only), the culture's own house | `CROFTS`: the edge by the fields (inside the wall's foot in a walled town); farmsteads in expansive layouts |
+| artisan | `shophouse` (the house over the workshop), `rowhouse`, `cottage` | `MAIN`: the high street, the crafts quarter by the water |
+| merchant | `merchant_house`, `townhouse`, `courtyard_house`, `shophouse` | `CENTRAL`: by the market and the square |
+| clergy | `rectory` | by the chapel (or temple, convent, monastery) |
+| scholar | `scribe_house`, `townhouse` | by the library, university or school |
+| official | `reeve_house`, `townhouse` | by the town hall, the court, the guardhouse, the keep |
+| gentry | `manor`, `courtyard_house`, `tower_house` | `RICH`: high ground on the hill, the rich quarter |
+| lord | the seat (§14.2) | the castle hill |
+
+The house itself is still chosen by the density band (rows in the core, the culture's detached house in the inner
+town, farmhouses at the edge, stilts over the water, cliff dwellings on steep ground), weighted by how well each suits
+the station (`Stations.affinity`): a station's own home most, plain houses some, another station's home hardly at all.
+A station's homes are smaller or larger within their archetype's range (`sizeBias`), rougher or finer (`finish` −1 for
+the poor to +2 for the lord) and lower or taller (`storeys`).
+
+**Quarters.** With stations on, the districts are drawn at village tier (not town), for the city the town is becoming
+(the core radius at 150 folk), adding the **poor quarter** (downwind at the edge, on the low side) and the **castle
+hill** (§14.2). A home's frontage score gains strongly in its own quarter and loses in the hill, the castle hill and the
+poor quarter if it is not theirs (the market for the poor), and the **neighbourhood** draws like to like: +5 for each
+home of the same station within 22 blocks, −4 for each two ranks away (no hovel beside a manor), capped. Rebuilds
+(`Upgrades`) keep a short station's families in place (a house is rebuilt for another station only where its own has
+room to spare), are rebuilt for the station that suits the new house and is shortest of homes, and carry `station` and
+`household`.
+
+Every home carries `station` and, when the ledger knows one, `household`: `job` (the family's trade, or the station's
+commonest), and, when a family is waiting for a home of its station, `head` (its resident id) and `name`. The sim is
+asked to move families into homes of their station (requests/p3-plan.md).
+
+### 14.2 The lord and his seat (`society/Nobility`)
+
+At village tier (with the districts) the **castle hill** is chosen once and kept (`PlanState.castleHill`): the most
+commanding ground within reach of the future city (its core at 150 folk × 2.2, out of today's streets): height over the
+heart, plus 1.6 × its prominence over the land 28 blocks round, less its own unevenness, dry and still four-fifths open
+over a castle's width. It is held (`castle_hill` reservation, open ground only) until the town is a town; then the
+**keep** (`noble/keep`, 265) goes up on it with a **close** kept round it big enough for the castle (`castle`
+reservation), its frontage reached by a cart road up the hill (stairs only if it must). At city tier (170 folk) the
+**castle** (`noble/castle`), or in the cultures that build them the **palace** (`noble/palace`), replaces the keep over
+the keep and its close. Beside the seat: **stables** and the lord's **gardens**; out at the edge of a wood, his
+**hunting lodge**. The seat carries `station: lord`.
+
+### 14.3 The land that feeds the town (`resource/*`)
+
+**Territory** (`resource/Territory`, once per call) reads `Settlement.sites()` (the sim's survey): sites in id order,
+the workable ones of a kind nearest first within reach (`haul_max_distance`, and the territory's radius), the
+**carrying capacity** (the food the FERTILE, PASTURE and FISH sites regrow a day over 2 a head, × `trade_margin`, + 6;
+0 = unbounded when nothing is known), the **prevailing wind** (from the config or one per world from its seed, mostly
+westerly) and how far downwind a column lies, and the **local materials**.
+
+**Workings** (`resource/Extraction`): a quarry pit on the town's rock (16 folk), the logging camp at the wood's edge
+nearest the town (8), a mine into an ore hill — a shaft (`extract/shaft`) where the ore lies under flat ground (30), a
+clay pit on the bank (28), a sand pit (55), the salt works on the pans (18), woodlots (`extract/plantation`) behind the
+camp (70). Each stands on the part of its site out of town (beyond 1.9 × the core the town will have at 150 folk, or
+past its houses), fronting a road; if no road comes near the site, a **cart track** (`HAUL` role: no stairs unless the
+hill demands them, frontage only for what belongs out there, and a budget of its own, 360 + 6 a head, outside the
+town's road budget) runs out to it first. A mine wants a hillside: its footprint runs uphill from the portal (the
+ground rises at least five blocks to its back). A working names its `site`, `kind`, `rock`, `face`, and `depth` or
+`length`; a built (dug-out) working frees its site for the next. The job route (`job/miner` …) and the shortage route
+(builders waiting on stone) go through the same code; with no survey the phase 2 quarry and sawmill stand in.
+
+**The chains' workshops** stand by their inputs (the `SITED` placement with a `Siting`: an anchor and weights for the
+water, the wind, the edge, height and main streets): the sawmill by the logging camp and the water, the charcoal kiln
+by the camp (and the smelter), the smelter by the mine, downwind, the brick kiln by the clay pit, the glassworks by the
+sand pit or the kiln, the mason's yard by the quarry, the tannery and the dye works at the downwind edge by water; a
+workshop of the outskirts never stands within the town's future edge. Butchers, chandlers and the counting house keep
+to the market. Shortages now follow the chains: builders waiting on dressed stone plan a mason's yard, on brick a kiln
+then a clay pit, on glass a glassworks, on metal a smelter then a mine, on candles a chandler then an apiary.
+
+**Local materials** (`resource/Materials`): every plot gets `local` (role → material in the style syntax) from the
+nearest wood and rock the town works: the species of its woods (birch on a birch hillside, redwood in the giants'
+valley, wisteria in the vale…) for `frame`, `beam`, `floor` (and `wall` in the timber cultures), its rock (limestone in
+the karst, opal sandstone in the dunes, sandstone, red sandstone, tuff, deepslate below y 0, andesite or granite in the
+mountains) for `foundation`, `plinth`, `paving` (and `wall` in moorland, desert and mesa). With no survey, the land at
+the heart decides.
+
+### 14.4 Law, social life and the ways in (`growth/Program`, `growth/Gates`, `growth/Lots`)
+
+| Building | From | Where |
+|---|---|---|
+| `law/pillory` | 24 folk | in the square, as its furniture |
+| `law/courthouse` | 75 | on the square: a **lot** kept for it at founding beside the hall's and the market hall's (looked for again while the town is small if none was free) |
+| `law/jail` | 66 | by the court (or the hall, the guardhouse) |
+| `law/gallows` | 95 (`gallows` switch) | in the square |
+| `law/watch_house` | village, 30 | at every gate: beside a walled town's gatehouses inside the wall, or where each main road meets the edge |
+| `law/toll_gate` | town, 80 (`toll_gates`) | across the two longest main roads, past the town's future edge, over the road like a gatehouse |
+| `commerce/tavern` | 30, one per 80 | the high street and the market |
+| `commerce/hostel`, `commerce/caravanserai` (its cultures), `commerce/caravan_yard` | 40 / 70 / 75 | `GATEWAY`: on a main road where it meets the edge of town |
+| `civic/cemetery` | 25 | by the chapel, raised, toward the edge |
+| `landscape/festival_ground` | 40 | at the edge by the fields |
+| `civic/shrine` | 12, one per 70 | on the roads in |
+| `noble/stables` | 50 | by the inn |
+| `civic/infirmary`, `civic/orphanage` | 70 / 120 | by the convent or the chapel |
+| `civic/almshouse` | 80 | by the chapel, in the poor quarter (houses the poor) |
+| `civic/monastery`, `civic/convent` | 90 / 130 | `QUIET`: raised ground apart beyond the edge (outside the walls), reached by a lane of its own |
+| `civic/playhouse` | 100 | the high street by the market |
+| `commerce/thieves_den` | 100 | `HIDDEN`: a lane or alley of the poor quarter, never a main street |
+| `civic/tilt_yard` | 110 | by the lord's seat, toward the edge |
+| `work/alchemist_tower` | 120 | by the library or university |
+| `civic/university`, `civic/observatory` | 160 / 170 | the civic quarter / the rise |
+| `house/hermit_hut` | 60 | `QUIET`, alone |
+
+The §8.5 buildings are asked for exactly as registered: a missing one is skipped, never stood in for by another of its
+category (a monastery never falls back to a library). Homes by station fall back to the houses that exist.
+
+### 14.5 Deep towns (`deep/*`)
+
+When a settlement at village tier or more has a mine or shaft at work over a realm (`UndergroundProbe.realm` under it),
+or a working mine and a realm under its territory, the planner founds a **deep town** (`deep/found`, 190): a spot on the
+realm floor about twenty blocks out from its wall, level, near the mine; the **lift** (`deep/lift`) on the surface over
+it, fronting a road (a cart track out to it first if none); the deep **square** at the lift's lower door; streets along
+the wall's foot either way and one out across the floor; the **deep hall** by the square. Then the deep town grows
+(`deep/grow`, 210) to its share of the town (`deep_share`, a quarter, 6–120 folk): dwellings (`deep/dwelling`, rows by
+the square, the rest toward the wall on the rising rubble, cut into it), forges, glow gardens for half its food (the rest
+comes down the lift), a market at 14 folk.
+
+The deep town is planned with the surface's own machinery, level by level: `PlanState.deep` is a whole plan state of
+its own (roads, reservations, queue, issued specs, occupancy), its ground is the realm floor (`RealmTerrain`: the
+underground probe's floor; outside the realm the rock stands to the vault), and both levels see the settlement through a
+`LevelView` that shows only their plots (the lift on both). Its layout is a cliff town's (tight, terraces, plots cut into
+slopes). Its projects are handed out when the surface has none waiting. Every deep plot carries `realm`, stands at the
+realm floor (`origin.y`), and its `local` is the realm's (`Materials.realm`: its rock, and its glow — glowcaps,
+amber, prismite — for `light`).
+
+The planner reaches the underground through the terrain probe (`PlanModule.underground`); see requests/p3-plan.md.
+

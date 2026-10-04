@@ -87,4 +87,21 @@ class DeepTownTest {
 			}
 		}
 	}
+
+	@Test
+	void theDeepTownIsPlannedTheSameEveryTime() {
+		MiniSim a = grow(9, 150);
+		MiniSim b = grow(9, 150);
+		var specsA = PlanChecks.sorted(a.settlement).stream().map(PlotView::spec).toList();
+		var specsB = PlanChecks.sorted(b.settlement).stream().map(PlotView::spec).toList();
+		assertEquals(specsA, specsB, "the same seed plans the same town, above and below");
+		PlanState state = a.settlement.data(PlanModule.STATE);
+		if (state.deep != null) {
+			var once = PlanState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, state).getOrThrow();
+			PlanState back = PlanState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, once).getOrThrow();
+			assertNotNull(back.deep, "the deep plan survives a save");
+			assertEquals(state.deep.graph.edges().size(), back.deep.graph.edges().size());
+			assertEquals(once, PlanState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, back).getOrThrow(), "NBT round trip with the deep plan");
+		}
+	}
 }
