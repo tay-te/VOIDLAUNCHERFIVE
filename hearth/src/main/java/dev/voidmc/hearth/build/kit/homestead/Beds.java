@@ -63,7 +63,13 @@ public final class Beds {
 					boolean wall1 = !r.inside(s1[0], s1[1]) || d.isSolid(s1[0], r.y, s1[1]);
 					boolean wall2 = !r.inside(s2[0], s2[1]) || d.isSolid(s2[0], r.y, s2[1]);
 					int[] s = wall1 ? s2 : wall2 ? s1 : (Noise.unit(d.seed() ^ 0xBED, x, 0, z) < 0.5 ? s1 : s2);
-					if (wall1 && wall2 || !r.inside(s[0], s[1]) || !clear(d, r, s[0], s[1])) {
+					if (wall1 && wall2) {
+						// boxed in at the head (an alcove): get in beside the foot
+						int[] f1 = {fx + Dirs.dx(side), fz + Dirs.dz(side)};
+						int[] f2 = {fx - Dirs.dx(side), fz - Dirs.dz(side)};
+						s = r.inside(f1[0], f1[1]) && clear(d, r, f1[0], f1[1]) ? f1 : f2;
+					}
+					if (!r.inside(s[0], s[1]) || !clear(d, r, s[0], s[1])) {
 						continue;
 					}
 					int corner = wall1 || wall2 ? 2 : 0;

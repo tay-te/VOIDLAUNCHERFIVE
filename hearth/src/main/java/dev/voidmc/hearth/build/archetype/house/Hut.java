@@ -227,9 +227,13 @@ public final class Hut implements Archetype {
 	private static void round(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
+		// an odd ring (a whole-cell centre, the round one), half a block to one side on an even frontage; its cone
+		// overhangs where the plot has room for the eave
+		double cx = (w & 1) == 1 ? (w - 1) / 2.0 : (w - 2) / 2.0 + (d.chance(0.5) ? 1 : 0);
+		int spare = (int) Math.min(cx, w - 1 - cx);
 		double r = 2.0;
-		double cx = (w - 1) / 2.0;
-		double cz = dp - 1 - r - 1;
+		int eaves = Math.clamp(spare - 2, 0, 1);
+		double cz = dp - 1 - r - eaves;
 		if (cz - r - 1 < 0) {
 			cz = r + 1;
 		}
@@ -255,7 +259,10 @@ public final class Hut implements Archetype {
 				}
 			}
 		}
-		dev.voidmc.hearth.build.kit.homestead.Round.walls(d, ring, base, plate);
+		boolean painted = d.style().culture() == dev.voidmc.hearth.api.Culture.STEPPE;
+		dev.voidmc.hearth.build.kit.homestead.Round.walls(d, ring, base, plate, painted
+			? d.pick(dev.voidmc.hearth.build.kit.homestead.Round.Pattern.TRIANGLES, dev.voidmc.hearth.build.kit.homestead.Round.Pattern.STEPS)
+			: dev.voidmc.hearth.build.kit.homestead.Round.Pattern.NONE);
 		int[] door = ring.cellToward(Dirs.FRONT);
 		int doorX = door[0];
 		int dz = door[1];
@@ -274,10 +281,12 @@ public final class Hut implements Archetype {
 			pitch -= 0.1;
 		}
 		Mat cover = d.habits().roof().thatch() || d.chance(0.3) ? d.mat(Role.THATCH) : d.mat(Role.ROOF);
-		Roofs.Roof roof = dev.voidmc.hearth.build.kit.homestead.Round.cone(d, ring, plate, 1, pitch, cover);
+		Roofs.Roof roof = dev.voidmc.hearth.build.kit.homestead.Round.cone(d, ring, plate, eaves, pitch, cover, true);
 		Rooms.Room room = dev.voidmc.hearth.build.kit.homestead.Round.room(ring, 0, 2);
 		room.keep(doorX, dz + 1);
-		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		if (dev.voidmc.hearth.build.kit.homestead.Beds.place(d, room, 1) == 0) {
+			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		}
 		dev.voidmc.hearth.build.kit.homestead.Round.fire(d, ring, room, 0);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		if (dz >= 1) {
