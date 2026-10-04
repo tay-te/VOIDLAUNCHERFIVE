@@ -129,6 +129,18 @@ public final class DiceTables {
 			case LORD -> 250;
 		};
 		long most = Math.round(base * personality(r).stakeFactor);
+		if (base > 0) {
+			// anyone who plays at all will put up the smallest stake
+			int smallest = Integer.MAX_VALUE;
+			for (int st : SocialModule.config().dice().stakes()) {
+				if (st > 0) {
+					smallest = Math.min(smallest, st);
+				}
+			}
+			if (smallest != Integer.MAX_VALUE) {
+				most = Math.max(most, smallest);
+			}
+		}
 		return Math.max(0, Math.min(most, s.treasury() / 4));
 	}
 

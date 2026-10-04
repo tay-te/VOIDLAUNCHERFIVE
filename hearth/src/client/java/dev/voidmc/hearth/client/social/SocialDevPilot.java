@@ -58,8 +58,9 @@ public final class SocialDevPilot {
 	private void script() {
 		run(60, c -> {
 			c.getTutorial().setStep(TutorialSteps.NONE);
+			c.options.pauseOnLostFocus = false;
 			command(c, "gamemode survival");
-			command(c, "time set 13000");
+			command(c, "time set 6000");
 			command(c, "weather clear");
 			command(c, "hearth settlement found temperate");
 		});
@@ -86,12 +87,29 @@ public final class SocialDevPilot {
 		}
 		shot("dice_later");
 		run(5, c -> c.player.closeContainer());
-		run(20, c -> command(c, "time set 1000"));
+		run(20, c -> {
+			command(c, "time set 1000");
+			command(c, "hearth settlement tp 1");
+		});
 		run(20, c -> command(c, "hearth social force market"));
 		run(80, c -> command(c, "hearth social force festival lanterns"));
-		run(100, c -> c.gui.setScreen(null));
+		run(260, c -> {
+			c.gui.setScreen(null);
+			// creative and flying, not spectator: a spectator does not count as someone near the town
+			command(c, "gamemode creative");
+			command(c, "tp @s ~ ~18 ~-16 0 45");
+		});
+		run(5, c -> {
+			c.player.getAbilities().flying = true;
+			c.player.onUpdateAbilities();
+		});
 		shot("market_and_festival");
-		run(20, c -> command(c, "hearth social events"));
+		run(5, c -> command(c, "tp @s ~-16 ~ ~16 270 45"));
+		shot("market_and_festival_side");
+		run(20, c -> {
+			command(c, "hearth social events");
+			command(c, "hearth social status");
+		});
 		run(10, c -> c.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
 		shot("events_chat");
 		run(10, Minecraft::stop);
@@ -159,7 +177,12 @@ public final class SocialDevPilot {
 	}
 
 	private void shot(String name) {
-		run(SETTLE - 2, c -> c.gui.toastManager().clear());
+		run(SETTLE - 2, c -> {
+			c.gui.toastManager().clear();
+			if (c.gui.screen() instanceof net.minecraft.client.gui.screens.PauseScreen) {
+				c.gui.setScreen(null);
+			}
+		});
 		run(2, c -> Screenshot.takeScreenshot(c.gameRenderer.mainRenderTarget(), image -> {
 			try {
 				Path dir = c.gameDirectory.toPath().resolve("screenshots").resolve("social");

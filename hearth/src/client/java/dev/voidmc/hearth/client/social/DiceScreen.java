@@ -191,14 +191,18 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 	protected void extractLabels(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		DiceView v = this.menu.view();
 		g.text(this.font, this.title, 10, 7, ON_WOOD, true);
-		Component stake = v.stake() > 0 ? Component.translatable("hearth.social.dice.stake_shown", v.stake()) : Component.translatable("hearth.social.dice.no_stake");
+		Component stake = v.phaseEnum() == DiceGame.Phase.STAKE ? Component.translatable("hearth.social.dice.purse", v.balance())
+			: v.stake() > 0 ? Component.translatable("hearth.social.dice.stake_shown", v.stake()) : Component.translatable("hearth.social.dice.no_stake");
 		g.text(this.font, stake, W - 10 - this.font.width(stake), 7, ON_WOOD, true);
 
 		plaque(g, FELT_X0 + 6, FELT_Y0 + 6, Component.translatable("hearth.social.dice.you"), v.playerScore(), v.target(),
 			v.turn() == DiceGame.PLAYER && v.phaseEnum() != DiceGame.Phase.OVER);
-		Component folkName = Component.literal(v.folkName()).append(Component.literal(" · ")).append(
-			Component.translatable("hearth.social.dice.personality." + v.personality()).withStyle(ChatFormatting.ITALIC));
-		plaque(g, FELT_X1 - 6 - 96, FELT_Y0 + 6, folkName, v.folkScore(), v.target(), v.turn() == DiceGame.FOLK && v.phaseEnum() != DiceGame.Phase.OVER);
+		plaque(g, FELT_X1 - 6 - 96, FELT_Y0 + 6, Component.literal(v.folkName()), v.folkScore(), v.target(),
+			v.turn() == DiceGame.FOLK && v.phaseEnum() != DiceGame.Phase.OVER);
+		// the folk's temper, under their plaque
+		Component temper = Component.translatable("hearth.social.dice.temper",
+			Component.translatable("hearth.social.dice.personality." + v.personality())).withStyle(ChatFormatting.ITALIC);
+		g.text(this.font, temper, FELT_X1 - 6 - this.font.width(temper), FELT_Y0 + 34, 0xFFBFD8BF, false);
 
 		DiceGame.Phase p = v.phaseEnum();
 		int mx = mouseX - this.leftPos;
@@ -206,8 +210,10 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 		if (p == DiceGame.Phase.STAKE) {
 			g.centeredText(this.font, Component.translatable("hearth.social.dice.choose_stake"), W / 2, 92, ON_WOOD);
 			g.centeredText(this.font, Component.translatable("hearth.social.dice.first_to", v.target()), W / 2, 106, 0xFFBFD8BF);
-		} else {
+		} else if (p != DiceGame.Phase.OVER) {
 			drawTable(g, v, mx, my);
+		} else {
+			drawTray(g, v);
 		}
 		if (p == DiceGame.Phase.OVER) {
 			boolean won = v.winner() == DiceGame.PLAYER;
@@ -231,11 +237,6 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 		if (this.showRules) {
 			drawRules(g);
 		}
-		// purse, under the strip, on the wood
-		if (v.phaseEnum() == DiceGame.Phase.STAKE || v.phaseEnum() == DiceGame.Phase.OVER) {
-			Component purse = Component.translatable("hearth.social.dice.purse", v.balance());
-			g.text(this.font, purse, W - 12 - 24 - 8 - this.font.width(purse) - (v.loaded() > 0 ? 100 : 0), 194, ON_WOOD, true);
-		}
 	}
 
 	/** A brass plaque: name, score out of target, and a bar for the race. */
@@ -253,6 +254,16 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 		g.fill(x + 3, y + 21, x + 3 + bar, y + 23, 0xFF3F8A3A);
 		if (toMove) {
 			g.fill(x - 4, y + 9, x - 2, y + 15, GOLD);
+		}
+	}
+
+	private void drawTray(GuiGraphicsExtractor g, DiceView v) {
+		int k = 0;
+		for (int i = 0; i < Farkle.DICE; i++) {
+			if ((v.keptMask() >> i & 1) != 0) {
+				die(g, 100 + k * (SMALL + 3), 53, SMALL, v.dice()[i], false, false);
+				k++;
+			}
 		}
 	}
 

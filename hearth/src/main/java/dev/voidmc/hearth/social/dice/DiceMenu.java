@@ -225,8 +225,13 @@ public class DiceMenu extends AbstractContainerMenu {
 				ping(folkSide ? 0.8F : 1.4F);
 			}
 			case WON -> {
-				this.status = folkSide ? Component.translatable("hearth.social.dice.status.folk_wins", who, Hooks.coins(this.stake * 2))
-					: Component.translatable("hearth.social.dice.status.player_wins", Hooks.coins(this.stake * 2));
+				if (this.stake <= 0) {
+					this.status = folkSide ? Component.translatable("hearth.social.dice.status.folk_wins_honour", who)
+						: Component.translatable("hearth.social.dice.status.player_wins_honour");
+				} else {
+					this.status = folkSide ? Component.translatable("hearth.social.dice.status.folk_wins", who, Hooks.coins(this.stake * 2))
+						: Component.translatable("hearth.social.dice.status.player_wins", Hooks.coins(this.stake * 2));
+				}
 				this.line = DiceTables.say(pers, folkSide ? "folk_win" : "player_win", this.random);
 			}
 			case CHEAT_CAUGHT -> {

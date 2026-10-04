@@ -57,6 +57,7 @@ public final class TownLife {
 	private static final Map<Long, Map<String, List<Dressings.Stall>>> STALLS = new HashMap<>();
 	/** Events forced by command, by settlement (kept for their day). */
 	private static final Map<Long, List<TownEvent>> FORCED = new HashMap<>();
+	static final int RECONCILE_TICKS = 200;
 	private static long lastFolkDeath = Long.MIN_VALUE;
 	private static boolean lastFolkDeathByPlayer;
 	private static @Nullable MinecraftServer server;
@@ -370,6 +371,9 @@ public final class TownLife {
 		long gt = srv.overworld().getGameTime();
 		Bells.play(STROKES, gt);
 		SocialConfig cfg = cfg();
+		if (gt % RECONCILE_TICKS == 0 && cfg.life().enabled()) {
+			reconcile(srv);
+		}
 		if (!cfg.life().enabled() || gt % cfg.life().passTicks() != 0 || EMBODIED.isEmpty()) {
 			return;
 		}
@@ -463,6 +467,25 @@ public final class TownLife {
 			}
 			if (ATTENDED.size() > 4096) {
 				ATTENDED.clear();
+			}
+		}
+	}
+
+	/**
+	 * Picks up settlements that are embodied without an {@code EMBODIMENT_CHANGED} having been seen (founded next to a
+	 * player, loaded embodied): a boolean read per settlement every {@link #RECONCILE_TICKS}.
+	 */
+	private static void reconcile(MinecraftServer srv) {
+		for (ServerLevel level : srv.getAllLevels()) {
+			HearthWorld w = HearthWorld.of(level);
+			if (w == null) {
+				continue;
+			}
+			for (Settlement s : w.settlements()) {
+				if (s.embodied() && !EMBODIED.containsKey(s.id())) {
+					EMBODIED.put(s.id(), w);
+					cleanUp(w, s);
+				}
 			}
 		}
 	}
