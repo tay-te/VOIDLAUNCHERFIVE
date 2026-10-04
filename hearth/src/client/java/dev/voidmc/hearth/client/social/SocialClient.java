@@ -21,5 +21,6 @@ public final class SocialClient {
 				}
 			}
 		});
+		SocialDevPilot.initIfRequested();
 	}
 }

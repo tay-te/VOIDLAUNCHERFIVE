@@ -113,6 +113,7 @@ public final class SocialModule {
 			DiceTables.clear();
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> SocialCommands.register(dispatcher));
+		dev.voidmc.hearth.social.dev.SocialDevHarness.installIfRequested();
 	}
 
 	private static synchronized void registerBehaviours() {
@@ -124,6 +125,7 @@ public final class SocialModule {
 		npc.registerBehaviour(new CrierBehaviour());
 		npc.registerBehaviour(new StallKeeperBehaviour());
 		npc.registerBehaviour(new GatherBehaviour());
+		npc.registerBehaviour(new dev.voidmc.hearth.social.folk.TavernGamesBehaviour());
 		behavioursRegistered = true;
 	}
 

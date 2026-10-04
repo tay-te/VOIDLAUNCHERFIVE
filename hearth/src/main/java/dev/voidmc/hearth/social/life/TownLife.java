@@ -53,6 +53,8 @@ public final class TownLife {
 	private static final ArrayDeque<Bells.Stroke> STROKES = new ArrayDeque<>();
 	private static final Set<String> ATTENDED = new HashSet<>();
 	private static final Map<UUID, Long> MURDERED = new HashMap<>();
+	/** Stalls standing (and festivals already dressed, with no stalls), by settlement and event: outlive the day cache. */
+	private static final Map<Long, Map<String, List<Dressings.Stall>>> STALLS = new HashMap<>();
 	/** Events forced by command, by settlement (kept for their day). */
 	private static final Map<Long, List<TownEvent>> FORCED = new HashMap<>();
 	private static long lastFolkDeath = Long.MIN_VALUE;
@@ -67,7 +69,6 @@ public final class TownLife {
 		final long day;
 		final List<TownEvent> events;
 		final Map<String, Venues.Venue> venues = new HashMap<>();
-		final Map<String, List<Dressings.Stall>> stalls = new HashMap<>();
 		Bells.@Nullable Tower tower;
 		boolean towerKnown;
 
@@ -89,6 +90,7 @@ public final class TownLife {
 			ATTENDED.clear();
 			MURDERED.clear();
 			FORCED.clear();
+			STALLS.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(TownLife::tick);
 
@@ -128,15 +130,17 @@ public final class TownLife {
 				if (Dressings.takeDown(w.level(), ledger, Long.MAX_VALUE, true, null) > 0) {
 					s.markDirty();
 				}
-				Day d = DAYS.get(s.id());
-				if (d != null) {
-					d.stalls.clear();
-				}
+				STALLS.remove(s.id());
 			}
 		});
 		SettlementEvents.TIER_CHANGED.register((w, s, from, to) -> offices(w, s, w.day(), true));
 		SettlementEvents.BUILDING_COMPLETED.register((w, s, plot) -> {
-			DAYS.remove(s.id()); // venues and the bell tower may have changed
+			Day d = DAYS.get(s.id());
+			if (d != null) {
+				// venues and the bell tower may have changed; what is set up stays
+				d.venues.clear();
+				d.towerKnown = false;
+			}
 			String path = plot.spec().archetype().getPath();
 			if (path.startsWith("law/") || path.startsWith("noble/") || path.equals("civic/town_hall")) {
 				offices(w, s, w.day(), true);
@@ -193,8 +197,8 @@ public final class TownLife {
 
 	/** The stalls set up for a market (empty when none stand). */
 	public static List<Dressings.Stall> stalls(Settlement s, String eventKey) {
-		Day d = DAYS.get(s.id());
-		return d == null ? List.of() : d.stalls.getOrDefault(eventKey, List.of());
+		Map<String, List<Dressings.Stall>> m = STALLS.get(s.id());
+		return m == null ? List.of() : m.getOrDefault(eventKey, List.of());
 	}
 
 	/** The event of this kind on now, or null. */
@@ -387,6 +391,7 @@ public final class TownLife {
 		}
 
 		// dressings: up for what is on, down for what is over
+		Map<String, List<Dressings.Stall>> standing = STALLS.computeIfAbsent(s.id(), k -> new HashMap<>());
 		Set<String> on = new HashSet<>();
 		boolean changed = false;
 		for (TownEvent e : d.events) {
@@ -395,25 +400,28 @@ public final class TownLife {
 			}
 			on.add(e.key());
 			if (e.kind() == TownEvent.Kind.MARKET && cfg.market().enabled()) {
-				if (!d.stalls.containsKey(e.key())) {
+				if (!standing.containsKey(e.key())) {
 					if (Dressings.isUp(ledger, e.key())) {
 						Dressings.takeDownEvent(level, ledger, e.key()); // stalls from before a restart: set up anew
 					}
 					Venues.Venue v = venue(s, e);
-					d.stalls.put(e.key(), Dressings.setUpMarket(level, s, ledger, e, v.anchor(), stallCount(s, cfg.market())));
+					standing.put(e.key(), Dressings.setUpMarket(level, s, ledger, e, v.anchor(), stallCount(s, cfg.market())));
 					changed = true;
 				}
-			} else if (e.kind() == TownEvent.Kind.FESTIVAL && cfg.festivals().decorations() && !Dressings.isUp(ledger, e.key())
-				&& !d.stalls.containsKey(e.key())) {
+			} else if (e.kind() == TownEvent.Kind.FESTIVAL && cfg.festivals().decorations() && !standing.containsKey(e.key())) {
+				if (Dressings.isUp(ledger, e.key())) {
+					Dressings.takeDownEvent(level, ledger, e.key()); // from before a restart: dressed anew
+				}
 				Venues.Venue v = venue(s, e);
 				Dressings.setUpFestival(level, s, ledger, e, v.anchor(), 4 + 2 * Math.max(0, s.tier().ordinal() - 1));
-				d.stalls.put(e.key(), List.of()); // tried: do not search for room again today
+				standing.put(e.key(), List.of()); // tried: do not search for room again
 				changed = true;
 			}
 		}
 		if (!ledger.dressings.isEmpty() && Dressings.takeDown(level, ledger, now, false, on) > 0) {
 			changed = true;
 		}
+		standing.keySet().retainAll(on);
 		if (changed) {
 			s.markDirty();
 		}
