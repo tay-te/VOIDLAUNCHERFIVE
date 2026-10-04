@@ -136,7 +136,8 @@ public final class TowerHouse implements Archetype {
 		Groundwork.footings(d, 0, bz0, w - 1, bz1, -1);
 		battered(d, body, raisedDoor ? Integer.MIN_VALUE : door);
 		TownHouses.shell(d, body, facade, false);
-		openings(d, body, facade, t, doorK, door);
+		int loggiaK = crown == Crown.LOGGIA ? body.storeys() - 2 : -1;
+		openings(d, body, facade, t, doorK, door, loggiaK);
 
 		// the raised door's stair along the front, from the far side up to a landing before the door
 		if (raisedDoor) {
@@ -145,6 +146,8 @@ public final class TowerHouse implements Archetype {
 
 		// the crown
 		int topK = body.storeys() - 1;
+		// the storey the crown opens: the last full one (under a pitched roof the top storey is the roof's knee)
+		int crownK = flatTop || topK == 0 ? topK : topK - 1;
 		int[] tr = body.topRect();
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
@@ -157,17 +160,18 @@ public final class TowerHouse implements Archetype {
 				}
 			}
 			case LOGGIA -> {
-				Side s = body.side(topK, Dirs.FRONT);
-				Projections.arcade(d, s, 0, s.last(), body.floorY(topK), 3, 2, true);
-				Side l = body.side(topK, Dirs.LEFT);
-				Projections.arcade(d, l, 0, l.last(), body.floorY(topK), 3, 2, true);
+				Side s = body.side(crownK, Dirs.FRONT);
+				int ah = Math.min(3, body.height(crownK) - 1);
+				Projections.arcade(d, s, 0, s.last(), body.floorY(crownK), ah, 2, true);
+				Side l = body.side(crownK, Dirs.LEFT);
+				Projections.arcade(d, l, 0, l.last(), body.floorY(crownK), ah, 2, true);
 				roof = Rooflines.plan(d, tr[0], tr[1], tr[2], tr[3], body.plateY(), RoofForm.HIP, Direction.Axis.X, opts, false, false).draw(d).roof();
 			}
 			case GALLERY -> {
-				Side s = body.side(topK, Dirs.FRONT);
-				Projections.gallery(d, s, 0, s.last(), body.floorY(topK), true, false);
-				TownHouses.galleryDoor(d, s, body.floorY(topK), s.column(s.middle()));
-				for (int k = 1; k < topK; k++) {
+				Side s = body.side(crownK, Dirs.FRONT);
+				Projections.gallery(d, s, 0, s.last(), body.floorY(crownK), true, false);
+				TownHouses.galleryDoor(d, s, body.floorY(crownK), s.column(s.middle()));
+				for (int k = 1; k < crownK; k++) {
 					Side below = body.side(k - 1, Dirs.FRONT);
 					if (body.floorY(k) - 1 >= 3) {
 						Fronts.pent(d, below, 0, below.last(), body.floorY(k) - 1, 1);
@@ -240,9 +244,9 @@ public final class TowerHouse implements Archetype {
 				room.block(hearth[0], hearth[1]);
 				room.keep(hearth[0] + (wellLeft ? -1 : 1), hearth[1]);
 			}
-			boolean loggia = top && crown == Crown.LOGGIA;
+			boolean loggia = k == crownK && crown == Crown.LOGGIA;
 			int reachK = core.toK();
-			boolean chambers = reachK >= 3 || reachK == 2 && !(crown == Crown.LOGGIA && reachK == topK);
+			boolean chambers = reachK >= 3 || reachK == 2 && !(crown == Crown.LOGGIA && crownK == 2);
 			if (k == 0) {
 				Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 			} else if (k == 1) {
@@ -256,8 +260,8 @@ public final class TowerHouse implements Archetype {
 			} else {
 				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
 			}
-			if (k == core.toK()) {
-				// the lookout: the top room's front window (the loggia, the gallery door)
+			if (k == (crown == Crown.LOGGIA || crown == Crown.GALLERY ? crownK : core.toK())) {
+				// the lookout: the loggia, the gallery door, or the top room's front window
 				d.poi(PoiType.VIEWPOINT, (r[0] + r[2]) / 2, body.floorY(k), r[1] + 1, Dirs.FRONT);
 			}
 		}
@@ -355,13 +359,17 @@ public final class TowerHouse implements Archetype {
 	}
 
 	/** Slits low down, proper windows from the hall up, the door. */
-	private static void openings(Draft d, Body b, Facade f, Traits t, int doorK, int door) {
+	private static void openings(Draft d, Body b, Facade f, Traits t, int doorK, int door, int loggiaK) {
 		Habits.Windows hw = d.habits().windows();
 		for (int k = 0; k < b.storeys(); k++) {
 			if (b.height(k) < 3) {
 				continue;
 			}
 			for (Side s : b.sides(k)) {
+				if (k == loggiaK && (s.out() == Dirs.FRONT || s.out() == Dirs.LEFT)) {
+					// the loggia's arches open these walls: no windows, shutters or sills to stand in front of them
+					continue;
+				}
 				for (Facade.Opening o : f.openings(s.out())) {
 					if (!s.contains(o.at())) {
 						continue;
