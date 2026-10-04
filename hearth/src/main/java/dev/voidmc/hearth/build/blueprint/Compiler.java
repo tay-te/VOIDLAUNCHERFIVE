@@ -77,6 +77,8 @@ public final class Compiler {
 	public static BlueprintImpl compile(Draft d) {
 		Site site = d.site();
 		LocalFrame frame = d.frame();
+		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are resolved and steps ordered
+		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
 		ShapeResolver.resolve(d, site);
 
 		int[] main = d.entrances().isEmpty() ? new int[]{d.frontage() / 2, 0, -1} : d.entrances().get(0);

@@ -41,6 +41,10 @@ public final class IsoRenderer {
 		final float[] u = new float[3];
 		final float[] v = new float[3];
 		final float[] b = new float[3];
+		/** Night light colour per vertex (r, g, b), or null for daylight. */
+		float[] lr;
+		float[] lg;
+		float[] lb;
 		Assets.Texture tex;
 		int tint;
 		float depth;
@@ -54,6 +58,15 @@ public final class IsoRenderer {
 	 * @param background ARGB background (alpha 0 for transparent)
 	 */
 	public BufferedImage render(Voxels world, View view, int scale, int supersample, int background) {
+		return render(world, view, scale, supersample, background, null);
+	}
+
+	/**
+	 * Renders a scene by night: each vertex takes the colour of the block and sky light round it (smoothly averaged as
+	 * the game does), lanterns and candles glow, unlit corners go black. {@code light} is computed on the whole scene
+	 * (so a cutaway shows the light the full building gives).
+	 */
+	public BufferedImage render(Voxels world, View view, int scale, int supersample, int background, @org.jspecify.annotations.Nullable NightLight light) {
 		double yaw = Math.toRadians(view.yaw);
 		double pitch = Math.toRadians(view.pitch);
 		double cy = Math.cos(yaw);
@@ -103,6 +116,7 @@ public final class IsoRenderer {
 					shade = (float) (q.ny() >= 0 ? side + (1.0 - side) * q.ny() : side + (0.5 - side) * -q.ny());
 				}
 				float[] ao = q.aligned() ? ambient(world, q, bx, by, bz) : null;
+				float[] lc = light == null ? null : nightLight(light, q, bx, by, bz, state);
 				for (int i = 0; i < 4; i++) {
 					double wx = bx + q.pos()[i * 3] - cx0;
 					double wy = by + q.pos()[i * 3 + 1] - cy0;
@@ -133,6 +147,16 @@ public final class IsoRenderer {
 						tri.v[j] = q.uv()[i * 2 + 1];
 						tri.b[j] = br[i];
 						dsum += sz[i];
+					}
+					if (lc != null) {
+						tri.lr = new float[3];
+						tri.lg = new float[3];
+						tri.lb = new float[3];
+						for (int j = 0; j < 3; j++) {
+							tri.lr[j] = lc[idx[j] * 3];
+							tri.lg[j] = lc[idx[j] * 3 + 1];
+							tri.lb[j] = lc[idx[j] * 3 + 2];
+						}
 					}
 					tri.tex = q.tex();
 					tri.tint = q.tint();
@@ -191,6 +215,75 @@ public final class IsoRenderer {
 	private static boolean occludes(Voxels w, int x, int y, int z) {
 		BlockState s = w.get(x, y, z);
 		return s != null && (s.isSolidRender() || s.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
+	}
+
+	/**
+	 * Night colour per vertex (12 floats: r, g, b for each of the 4 vertices): the light of the cell the face looks into
+	 * averaged with the three round each corner that are not opaque, as smooth lighting does; glowing blocks glow.
+	 */
+	private static float[] nightLight(NightLight light, Quad q, int bx, int by, int bz, BlockState state) {
+		float[] out = new float[12];
+		if (state.getLightEmission() >= 10 || NightLight.marker(state)) {
+			java.util.Arrays.fill(out, 1.05f);
+			return out;
+		}
+		int dx = Math.round(q.nx());
+		int dy = Math.round(q.ny());
+		int dz = Math.round(q.nz());
+		boolean onFace = q.aligned() && (dx != 0 || dy != 0 || dz != 0);
+		for (int i = 0; i < 4; i++) {
+			float bl;
+			float sk;
+			if (!onFace) {
+				int sx = bx;
+				int sy = by;
+				int sz = bz;
+				if (light.opaque(bx, by, bz)) {
+					sx += dx;
+					sy += dy;
+					sz += dz;
+				}
+				bl = light.block(sx, sy, sz);
+				sk = light.sky(sx, sy, sz);
+			} else {
+				float px = q.pos()[i * 3] - 0.5f;
+				float py = q.pos()[i * 3 + 1] - 0.5f;
+				float pz = q.pos()[i * 3 + 2] - 0.5f;
+				int tx = dx != 0 ? 0 : (px > 0 ? 1 : -1);
+				int ty = dy != 0 ? 0 : (py > 0 ? 1 : -1);
+				int tz = dz != 0 ? 0 : (pz > 0 ? 1 : -1);
+				int fx = bx + dx;
+				int fy = by + dy;
+				int fz = bz + dz;
+				int[][] cells;
+				if (dx != 0) {
+					cells = new int[][]{{fx, fy, fz}, {fx, fy + ty, fz}, {fx, fy, fz + tz}, {fx, fy + ty, fz + tz}};
+				} else if (dy != 0) {
+					cells = new int[][]{{fx, fy, fz}, {fx + tx, fy, fz}, {fx, fy, fz + tz}, {fx + tx, fy, fz + tz}};
+				} else {
+					cells = new int[][]{{fx, fy, fz}, {fx + tx, fy, fz}, {fx, fy + ty, fz}, {fx + tx, fy + ty, fz}};
+				}
+				float sb = 0;
+				float ss = 0;
+				int n = 0;
+				for (int k = 0; k < 4; k++) {
+					int[] c = cells[k];
+					if (k > 0 && light.opaque(c[0], c[1], c[2])) {
+						continue;
+					}
+					sb += light.block(c[0], c[1], c[2]);
+					ss += light.sky(c[0], c[1], c[2]);
+					n++;
+				}
+				bl = sb / n;
+				sk = ss / n;
+			}
+			float[] col = NightLight.colour(bl, sk);
+			out[i * 3] = col[0];
+			out[i * 3 + 1] = col[1];
+			out[i * 3 + 2] = col[2];
+		}
+		return out;
 	}
 
 	/** Per-vertex ambient occlusion for a face on a block boundary, as the game's smooth lighting does it. */
@@ -270,9 +363,17 @@ public final class IsoRenderer {
 					continue;
 				}
 				float b = w0 * t.b[0] + w1 * t.b[1] + w2 * t.b[2];
-				int r = Math.min(255, (int) (((c >> 16) & 0xFF) * tr / 255f * b));
-				int g = Math.min(255, (int) (((c >> 8) & 0xFF) * tg / 255f * b));
-				int bl = Math.min(255, (int) ((c & 0xFF) * tb / 255f * b));
+				float mr = b;
+				float mg = b;
+				float mb = b;
+				if (t.lr != null) {
+					mr *= w0 * t.lr[0] + w1 * t.lr[1] + w2 * t.lr[2];
+					mg *= w0 * t.lg[0] + w1 * t.lg[1] + w2 * t.lg[2];
+					mb *= w0 * t.lb[0] + w1 * t.lb[1] + w2 * t.lb[2];
+				}
+				int r = Math.min(255, (int) (((c >> 16) & 0xFF) * tr / 255f * mr));
+				int g = Math.min(255, (int) (((c >> 8) & 0xFF) * tg / 255f * mg));
+				int bl = Math.min(255, (int) ((c & 0xFF) * tb / 255f * mb));
 				if (blend) {
 					float al = Math.max(a / 255f, 0.55f);
 					int d = color[i];
