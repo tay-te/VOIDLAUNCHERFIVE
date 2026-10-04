@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.properties.Half;
 
 /**
  * A stair that climbs a whole house floor after floor in one well: a switchback (up half a storey in one lane, a
@@ -24,6 +23,10 @@ import net.minecraft.world.level.block.state.properties.Half;
  * cells long from {@link #zStart} toward the climbing direction, with a landing row in front of it at
  * {@link #zFoot} (two rows after a storey five high, whose return flight is a step longer). Rooms keep the well and its
  * landing row free with {@link #keep(Rooms.Room)}.
+ *
+ * <p>A house three blocks wide inside has no room for a two-lane well and a bed beside it: there the stair is
+ * {@link #straight straight}, one lane against the side wall climbing the whole storey from {@link #zStart}, flight over
+ * flight, entered from and left onto the lane beside it ({@link #laneB}), which stays a passage on every floor.
  */
 public final class StairCore {
 	public final int laneA;
@@ -37,6 +40,7 @@ public final class StairCore {
 	private final Body body;
 	private final int fromK;
 	private final int toK;
+	private final boolean straight;
 	private final List<int[]> arrivals = new ArrayList<>();
 
 	/**
@@ -48,6 +52,11 @@ public final class StairCore {
 	 * @param toK    the storey the last flight arrives on
 	 */
 	public StairCore(Body body, int laneA, Direction across, int zStart, Direction climb, int fromK, int toK) {
+		this(body, laneA, across, zStart, climb, fromK, toK, false);
+	}
+
+	private StairCore(Body body, int laneA, Direction across, int zStart, Direction climb, int fromK, int toK, boolean straight) {
+		this.straight = straight;
 		this.body = body;
 		this.laneA = laneA;
 		this.laneB = laneA + Dirs.dx(across);
@@ -56,6 +65,28 @@ public final class StairCore {
 		this.zFoot = zStart - Dirs.dz(climb);
 		this.fromK = fromK;
 		this.toK = toK;
+	}
+
+	/**
+	 * A straight stair in one lane ({@code lane}) climbing from {@code zStart}, flight over flight, with the passage lane
+	 * beside it toward {@code across}: each flight is entered from the passage at its first step and left onto it at its
+	 * top. Needs as many rows as the tallest storey is high.
+	 */
+	public static StairCore straight(Body body, int lane, Direction across, int zStart, Direction climb, int fromK, int toK) {
+		return new StairCore(body, lane, across, zStart, climb, fromK, toK, true);
+	}
+
+	/** The rows a straight stair needs: the tallest rise among its flights. */
+	public static int straightRun(Body body, int fromK, int toK) {
+		int run = 0;
+		for (int k = fromK; k < toK; k++) {
+			run = Math.max(run, body.height(k));
+		}
+		return run;
+	}
+
+	public boolean isStraight() {
+		return this.straight;
 	}
 
 	/** The storeys the stair leaves from and arrives on. */
@@ -78,6 +109,10 @@ public final class StairCore {
 
 	/** The z range of the well with its landing rows (inclusive, either order normalised). */
 	public int[] zRange() {
+		if (this.straight) {
+			int b = this.zStart + (Math.max(1, straightRun(this.body, this.fromK, this.toK)) - 1) * Dirs.dz(this.climb);
+			return new int[]{Math.min(this.zStart, b), Math.max(this.zStart, b)};
+		}
 		int a = this.zFoot - Dirs.dz(this.climb);
 		int b = this.zStart + 2 * Dirs.dz(this.climb);
 		return new int[]{Math.min(a, b), Math.max(a, b)};
@@ -85,6 +120,9 @@ public final class StairCore {
 
 	/** Builds every flight from storey {@code fromK} up to {@code toK}. */
 	public StairCore build(Draft d) {
+		if (this.straight) {
+			return buildStraight(d);
+		}
 		Direction across = Dirs.of(this.laneB - this.laneA, 0);
 		for (int k = this.fromK; k < this.toK; k++) {
 			int rise = this.body.height(k);
@@ -108,6 +146,28 @@ public final class StairCore {
 		return this;
 	}
 
+	private StairCore buildStraight(Draft d) {
+		int dz = Dirs.dz(this.climb);
+		for (int k = this.fromK; k < this.toK; k++) {
+			int rise = this.body.height(k);
+			Stairs.straight(d, this.laneA, this.body.floorY(k), this.zStart, this.climb, rise, 1);
+			this.arrivals.add(new int[]{this.laneB, this.zStart + (rise - 1) * dz, k + 1});
+		}
+		// the passage beside the flights kept clear on every floor, so no joist, lantern or chest is put across it
+		int[] zr = zRange();
+		for (int k = this.fromK; k <= this.toK && k < this.body.storeys(); k++) {
+			int y0 = this.body.floorY(k);
+			for (int z = zr[0]; z <= zr[1]; z++) {
+				for (int y = y0; y <= y0 + 2; y++) {
+					if (d.isAbsent(this.laneB, y, z)) {
+						d.air(this.laneB, y, z);
+					}
+				}
+			}
+		}
+		return this;
+	}
+
 	/** The cell a flight arrives at on storey k (or null for the first storey). */
 	public int[] arrival(int k) {
 		for (int[] a : this.arrivals) {
@@ -122,6 +182,9 @@ public final class StairCore {
 	public void keep(Rooms.Room room, int k) {
 		int[] zr = zRange();
 		room.keepArea(x0(), zr[0], x1(), zr[1]);
+		if (this.straight) {
+			return;
+		}
 		if (k >= this.fromK && k < this.toK) {
 			room.keep(this.laneA, this.zFoot);
 		}
@@ -130,24 +193,6 @@ public final class StairCore {
 			room.keep(a[0], a[1]);
 		} else if (k == this.toK) {
 			room.keep(this.laneB, this.zFoot);
-		}
-	}
-
-	/**
-	 * A balustrade round the stairwell where the floor of storey k is open beside it: fence rails on the floor cells
-	 * that edge the hole on the sides away from the landing row. Purely visual; it never blocks the landing.
-	 */
-	public void balustrade(Draft d, int k) {
-		Mat rail = d.mat(Role.RAILING);
-		int y = this.body.floorY(k);
-		int far = this.zStart + 2 * Dirs.dz(this.climb) + Dirs.dz(this.climb);
-		try (var s = d.stage(StageKind.INTERIOR)) {
-			for (int x = x0(); x <= x1(); x++) {
-				// only a post at the far end where it stands on floor
-				if (d.isSolid(x, y - 1, far) && d.isEmpty(x, y, far) && d.isEmpty(x, y + 1, far)) {
-					d.set(x, y, far, rail.fence());
-				}
-			}
 		}
 	}
 
@@ -162,6 +207,9 @@ public final class StairCore {
 		int rise = deckY - y0;
 		if (rise < 3 || rise > 6 || deckY + 3 >= maxY) {
 			return null;
+		}
+		if (this.straight) {
+			return bulkheadStraight(d, y0, deckY, rise);
 		}
 		Direction across = Dirs.of(this.laneB - this.laneA, 0);
 		Stairs.switchback(d, this.laneA, y0, this.zStart, this.climb, rise, across);
@@ -205,6 +253,55 @@ public final class StairCore {
 		return new int[]{dx, deckY, dz + Dirs.dz(out)};
 	}
 
+	/** The straight stair's last flight up onto the deck inside a stair house over both lanes, the door at the front. */
+	private int[] bulkheadStraight(Draft d, int y0, int deckY, int rise) {
+		int dz = Dirs.dz(this.climb);
+		int zTop = this.zStart + (rise - 1) * dz;
+		int[] zr = zRange();
+		int lo = Math.min(this.zStart, zTop);
+		int hi = Math.max(this.zStart, zTop);
+		if (lo < zr[0] || hi > zr[1]) {
+			return null;
+		}
+		Stairs.straight(d, this.laneA, y0, this.zStart, this.climb, rise, 1);
+		Mat wall = d.mat(Role.WALL);
+		Mat roof = d.mat(Role.ROOF);
+		int hx0 = x0() - 1;
+		int hx1 = x1() + 1;
+		int hz0 = zr[0] - 1;
+		int hz1 = zr[1] + 1;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z = hz0; z <= hz1; z++) {
+				for (int x = hx0; x <= hx1; x++) {
+					boolean edge = x == hx0 || x == hx1 || z == hz0 || z == hz1;
+					for (int y = deckY; y < deckY + 3; y++) {
+						if (edge) {
+							if (d.isEmpty(x, y, z)) {
+								d.set(x, y, z, wall.full());
+							}
+						} else if (d.isAbsent(x, y, z)) {
+							d.air(x, y, z);
+						}
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int z = hz0; z <= hz1; z++) {
+				for (int x = hx0; x <= hx1; x++) {
+					d.set(x, deckY + 3, z, roof.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+				}
+			}
+		}
+		// the door at the passage's end away from the top of the flight
+		int doorZ = dz > 0 ? hz0 : hz1;
+		Direction out = dz > 0 ? Dirs.FRONT : Dirs.BACK;
+		int dx = this.laneB;
+		d.inStage(StageKind.OPENINGS, () -> d.door(dx, deckY, doorZ, d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR), out,
+			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		return new int[]{dx, deckY, doorZ + Dirs.dz(out)};
+	}
+
 	/**
 	 * Whether a roof stands clear of the flight up to storey k, so building it takes nothing off the roof: a straight
 	 * flight clears three blocks over every step and the landing three over its floor, and the arrival needs two to
@@ -216,6 +313,15 @@ public final class StairCore {
 		}
 		int y0 = this.body.floorY(k - 1);
 		int rise = this.body.height(k - 1);
+		if (this.straight) {
+			int dz = Dirs.dz(this.climb);
+			for (int i = 0; i < rise; i++) {
+				if (!over(roof, this.laneA, this.zStart + dz * i, y0 + i + 4)) {
+					return false;
+				}
+			}
+			return over(roof, this.laneB, this.zStart + dz * (rise - 1), y0 + rise + 2);
+		}
 		int first = rise / 2;
 		int second = rise - first;
 		int dz = Dirs.dz(this.climb);
@@ -244,11 +350,6 @@ public final class StairCore {
 
 	/** The same well stopping at another storey. */
 	public StairCore to(int k) {
-		return new StairCore(this.body, this.laneA, Dirs.of(this.laneB - this.laneA, 0), this.zStart, this.climb, this.fromK, k);
-	}
-
-	/** Stairs facing up the climb, for callers that draw a matching extra flight. */
-	public Half half() {
-		return Half.BOTTOM;
+		return new StairCore(this.body, this.laneA, Dirs.of(this.laneB - this.laneA, 0), this.zStart, this.climb, this.fromK, k, this.straight);
 	}
 }

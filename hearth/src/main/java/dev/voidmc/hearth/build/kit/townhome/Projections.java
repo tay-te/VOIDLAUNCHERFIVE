@@ -2,7 +2,6 @@ package dev.voidmc.hearth.build.kit.townhome;
 
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.StageKind;
-import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Paint;

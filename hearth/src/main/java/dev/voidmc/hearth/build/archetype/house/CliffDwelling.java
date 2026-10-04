@@ -24,12 +24,9 @@ import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.townhome.Fronts;
-import dev.voidmc.hearth.build.kit.townhome.Life;
-import dev.voidmc.hearth.build.kit.townhome.Rooflines;
 import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
-import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
@@ -38,7 +35,6 @@ import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
@@ -54,10 +50,10 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * <ul>
  *   <li>{@code stacked} (boolean): raised on the roof of the dwelling below ({@code stacked_on}); the front half is a
  *   terrace on that roof, nothing is founded down through it</li>
- *   <li>{@code level} (int, 1–2): the stack's storey (for variety only)</li>
- *   <li>{@code cut_into_slope} (boolean): the ground rises past the back: the rooms are cut into it, blind behind</li>
- *   <li>{@code roof} (RoofForm name), {@code variant} (int)</li>
+ *   <li>{@code variant} (int)</li>
  * </ul>
+ * The dwelling reads the slope itself ({@code cut_into_slope} and {@code level} are not needed): walls where the ground
+ * stands over them are left blind, the forecourt is cut and retained to the floor.
  * The roof deck's standing level is the plot's height (its deck block is the top course but one, under a one-course
  * parapet), so a dwelling stacked on this one (its floor at {@code floorY + maxHeight}) finds its terrace on the deck.
  */
@@ -81,8 +77,6 @@ public final class CliffDwelling implements Archetype {
 		boolean stacked = d.param("stacked", false);
 		boolean pueblo = t.pueblo() || t.walls() == WallKind.ADOBE;
 		boolean eastern = t.eastern();
-		// the roof is always a deck: the next dwelling's terrace (a pitched roof would leave it standing on a ridge)
-		boolean pitched = false;
 
 		// the rooms at the back, the forecourt (or terrace) in front
 		int zb0 = Math.max(2, Math.min(dp / 2 - 1, dp - 4));
@@ -90,16 +84,6 @@ public final class CliffDwelling implements Archetype {
 		int plate = maxH - 2;
 		int[] heights = {plate + 1};
 		Body body = new Body(0, zb0, w - 1, bz1, 0, heights, false, false);
-		if (pitched) {
-			// fit a gable under the height
-			Roofs.Opts o = Roofs.Opts.of(d).withPitch(Math.min(1.0, h.roof().pitch()));
-			int ridge = TownHouses.ridge(d, body, RoofForm.GABLE, Direction.Axis.X, o);
-			if (ridge + 2 >= maxH) {
-				pitched = false;
-				heights = new int[]{plate + 1};
-				body = new Body(0, zb0, w - 1, bz1, 0, heights, false, false);
-			}
-		}
 		d.body(0, zb0, w - 1, bz1);
 		int door = d.chance(0.5) ? Math.max(1, w / 2 - 1) : Math.min(w - 2, w / 2 + 1);
 
@@ -135,34 +119,26 @@ public final class CliffDwelling implements Archetype {
 		// the mountain tradition digs a rubble-stone house into the slope (its timber shows in the gallery and rail)
 		boolean mountain = !pueblo && !eastern && (h.walls().upper() != null || h.roof().eaves() >= 2);
 		TownHouses.shell(d, body, facade, mountain);
-		blindBack(d, body);
 		openings(d, body, facade, t, door);
 		if (eastern) {
 			sill(d, body);
 		}
 
-		// roof: a deck at the top of the height with its parapet, or the mountain house's gable
-		Roofs.Roof roof = null;
-		int deck;
+		// roof: always a deck at the top of the height with its parapet, the terrace of the next dwelling up (a pitched
+		// roof would leave it standing on a ridge); eaves round it in the karst and the mountains
 		int[] tr = body.topRect();
-		if (pitched) {
-			Roofs.Opts o = Roofs.Opts.of(d).withPitch(Math.min(1.0, h.roof().pitch()));
-			roof = TownHouses.pitched(d, body, RoofForm.GABLE, Direction.Axis.X, o, t, facade, false, false);
-			deck = Integer.MIN_VALUE;
-		} else {
-			deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], body.plateY(), true);
-			if (eastern || mountain) {
-				eaves(d, body);
-			}
-			if (mountain) {
-				// a timber rail round the deck instead of a stone parapet
-				Mat rail = d.mat(Role.RAILING);
-				try (var st = d.stage(StageKind.EXTERIOR)) {
-					for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
-						for (int i = 0; i < side.length(); i++) {
-							if (d.get(side.x(i), deck, side.z(i)) != null && !d.isEmpty(side.x(i), deck, side.z(i))) {
-								d.set(side.x(i), deck, side.z(i), rail.fence());
-							}
+		int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], body.plateY(), true);
+		if (eastern || mountain) {
+			eaves(d, body);
+		}
+		if (mountain) {
+			// a timber rail round the deck instead of a stone parapet
+			Mat rail = d.mat(Role.RAILING);
+			try (var st = d.stage(StageKind.EXTERIOR)) {
+				for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
+					for (int i = 0; i < side.length(); i++) {
+						if (d.get(side.x(i), deck, side.z(i)) != null && !d.isEmpty(side.x(i), deck, side.z(i))) {
+							d.set(side.x(i), deck, side.z(i), rail.fence());
 						}
 					}
 				}
@@ -170,21 +146,15 @@ public final class CliffDwelling implements Archetype {
 		}
 
 		// the way up onto the roof deck (the terrace of the dwelling stacked above)
-		int stairEndX = Integer.MIN_VALUE;
-		if (!pitched) {
-			if (pueblo) {
-				ladder(d, body, door, deck);
-			} else {
-				stairEndX = frontStair(d, body, door, deck);
-				if (stairEndX == Integer.MIN_VALUE) {
-					ladder(d, body, door, deck);
-				}
-			}
-			roofLife(d, body, deck, pueblo);
+		if (pueblo) {
+			ladder(d, body, door, deck);
+		} else if (frontStair(d, body, door, deck) == Integer.MIN_VALUE) {
+			ladder(d, body, door, deck);
 		}
+		roofLife(d, body, deck, pueblo);
 
 		// inside: a corner hearth, beds, stores
-		interior(d, body, roof, door, pueblo, eastern);
+		interior(d, body, null, door, pueblo, eastern);
 
 		// the forecourt's furniture: the oven, pots, drying racks, a bench
 		yardLife(d, zb0, door, pueblo, stacked);
@@ -196,8 +166,7 @@ public final class CliffDwelling implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, 0, zb0, w - 1, bz1, 0, door);
 		}
-		int top = roof != null ? roof.ridgeY : deck + 2;
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, top + 2));
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, deck + 4));
 	}
 
 	/**
@@ -262,11 +231,6 @@ public final class CliffDwelling implements Archetype {
 		}
 		// the gate in the front edge, where the way up from below arrives
 		d.entrance(gate, 0, -1);
-	}
-
-	/** The back wall against the slope is blind where the ground stands over it (cut into the hill). */
-	private static void blindBack(Draft d, Body b) {
-		// nothing to do here: the facade plan's back openings are skipped in openings() where the ground is high
 	}
 
 	/** Few, small openings: the door, deep windows in the front, slits or nothing at the back where it is dug in. */

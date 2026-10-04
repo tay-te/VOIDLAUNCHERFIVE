@@ -24,7 +24,6 @@ import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.townhome.Fronts;
 import dev.voidmc.hearth.build.kit.townhome.Life;
-import dev.voidmc.hearth.build.kit.townhome.Projections;
 import dev.voidmc.hearth.build.kit.townhome.StairCore;
 import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.style.Habits;
@@ -49,7 +48,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * wall with the merchant behind it and the customers in front, goods on shelves and in barrels, the merchant's barrel
  * and the stock chest. In the karst, stilt and hill-town traditions the upper storeys often come forward over the
  * pavement on piers, so a row of shophouses makes a covered arcade (the five-foot way, the portico) along the street.
- * A stair at the back climbs to the home: a living room, bedrooms, one under the roof.
+ * A stair at the back climbs to the home: a living room, bedrooms, one under the roof where the stair can reach it.
  *
  * <p>Params:
  * <ul>
@@ -240,7 +239,15 @@ public final class Shophouse implements Archetype {
 				room.block(hearth[0], hearth[1]);
 				room.keep(hearth[0] + (hearth[0] == r[0] + 1 ? 1 : -1), hearth[1]);
 			}
-			if (k == 1 && body.storeys() >= 3 && !(top && roof != null)) {
+			boolean home = k == 1 && body.storeys() >= 3 && !(top && roof != null);
+			if (home && k == core.toK()) {
+				// the attic is a loft the stair does not reach: the beds go in first, the kitchen round them
+				Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
+				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
+				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+				continue;
+			}
+			if (home) {
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 			}
@@ -397,7 +404,7 @@ public final class Shophouse implements Archetype {
 		int cz0 = iz0 + 1;
 		int cz1 = Math.min(iz1 - 1, cz0 + 2);
 		Direction toCustomer = coreLeft ? Dirs.LEFT : Dirs.RIGHT;
-		if (cx == door || mx == door || cz1 < cz0 || ix1 - ix0 < 2) {
+		if (cx == door || mx == door || cz1 < cz0 || ix1 - ix0 < 2 || cx >= core.x0() && cx <= core.x1()) {
 			// a narrow shop: the merchant's barrel at the back, the counter is its head
 			Furniture.workstation(d, JobType.MERCHANT, mx, y, iz1, Dirs.FRONT);
 			d.poi(PoiType.COUNTER, mx, y, iz1 - 1, Dirs.FRONT);

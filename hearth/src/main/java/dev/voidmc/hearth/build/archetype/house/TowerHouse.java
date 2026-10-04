@@ -32,13 +32,11 @@ import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:house/tower_house}: a family's tower, narrow and tall and built to be held: a vaulted store at the
@@ -243,7 +241,8 @@ public final class TowerHouse implements Archetype {
 				room.keep(hearth[0] + (wellLeft ? -1 : 1), hearth[1]);
 			}
 			boolean loggia = top && crown == Crown.LOGGIA;
-			boolean chambers = topK >= 3 || topK == 2 && !(crown == Crown.LOGGIA);
+			int reachK = core.toK();
+			boolean chambers = reachK >= 3 || reachK == 2 && !(crown == Crown.LOGGIA && reachK == topK);
 			if (k == 0) {
 				Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 			} else if (k == 1) {

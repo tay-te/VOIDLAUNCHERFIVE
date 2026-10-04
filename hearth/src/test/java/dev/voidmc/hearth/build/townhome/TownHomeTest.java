@@ -37,6 +37,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class TownHomeTest {
 	private static final String[] ROWS = {"house/rowhouse", "house/townhouse", "house/shophouse", "house/tenement"};
+	private static final String[] ARCHETYPES = {"house/rowhouse", "house/townhouse", "house/shophouse", "house/tenement", "house/manor",
+		"house/tower_house", "house/cliff_dwelling", "house/courtyard_house"};
 
 	static {
 		TownHomeSupport.SERVICE.archetypes();
@@ -221,6 +223,41 @@ class TownHomeTest {
 				long tenementBeds = pois("house/tenement", c, seed, probe).stream().filter(p -> p.type() == PoiType.BED).count();
 				if (tenementBeds < 6) {
 					problems.add(c.getSerializedName() + " tenement has " + tenementBeds + " beds");
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems));
+	}
+
+	/**
+	 * Every home sleeps someone at every size and height the catalogue allows, in every culture, and at its largest it
+	 * sleeps as many as the catalogue says (the planner sizes its housing by {@code beds}); attics the stair cannot reach
+	 * do not count.
+	 */
+	@Test
+	void everyHomeSleepsItsFamily() {
+		SyntheticTerrain probe = SyntheticTerrain.named("flat", 1);
+		List<String> problems = new ArrayList<>();
+		for (String a : ARCHETYPES) {
+			ArchetypeInfo info = TownHomeSupport.info(a);
+			int[][] sizes = {
+				{info.minFrontage(), info.minDepth(), info.minHeight()},
+				{info.maxFrontage(), info.minDepth(), info.maxHeight()},
+				{info.minFrontage(), info.maxDepth(), info.maxHeight()},
+				{info.maxFrontage(), info.maxDepth(), info.minHeight()},
+				{info.maxFrontage(), info.maxDepth(), info.maxHeight()}};
+			for (Culture c : Culture.values()) {
+				for (int i = 0; i < sizes.length; i++) {
+					int[] z = sizes[i];
+					long seed = 300L + i * 17L + c.ordinal();
+					PlotSpec spec = TownHomeSupport.plot(info, StyleRegistry.styleId(c), seed, Direction.SOUTH, probe, new CompoundTag(), z[0], z[1], z[2]);
+					int beds = TownHomeSupport.SERVICE.compiled(spec, probe).beds();
+					String where = a + " " + c.getSerializedName() + " " + z[0] + "x" + z[1] + " h" + z[2] + " seed " + seed;
+					if (beds < 1) {
+						problems.add(where + " has no bed");
+					} else if (i == sizes.length - 1 && beds < info.beds()) {
+						problems.add(where + " sleeps " + beds + " of " + info.beds());
+					}
 				}
 			}
 		}

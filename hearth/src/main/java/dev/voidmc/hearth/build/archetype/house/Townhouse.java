@@ -4,9 +4,7 @@ import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
 import dev.voidmc.hearth.api.JobType;
-import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
-import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
@@ -25,7 +23,6 @@ import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
-import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -43,7 +40,7 @@ import net.minecraft.core.Direction;
  * back storey by storey into terraces; stilt cultures stack posted galleries on the front; stone towns crow-step their
  * gables and raise their party walls over the roof with the chimneys on them. A switchback stair climbs the back of the
  * house floor after floor; the ground floor is a kitchen or a workroom with a shop window, a living room above,
- * bedrooms over that, one more under the roof.
+ * bedrooms over that, one more under the roof where the roof is high enough over the stair to reach it (else a loft).
  *
  * <p>Params:
  * <ul>
@@ -413,6 +410,9 @@ public final class Townhouse implements Archetype {
 	private static void interior(Draft d, Body b, Roofs.Roof roof, StairCore core, int door, boolean shop, int[] hearth, int terraceDoor,
 		List<int[]> keep, int loggiaK) {
 		int floors = b.storeys();
+		// the attic a loft the stair does not reach while the loggia takes the floor under it: the first floor sleeps
+		boolean atticLost = core != null && core.toK() < floors - 1;
+		boolean loft = atticLost && loggiaK >= 0;
 		for (int k = 0; k < floors && TownHouses.reached(core, k); k++) {
 			int[] r = b.rect(k);
 			boolean top = k == floors - 1;
@@ -438,8 +438,12 @@ public final class Townhouse implements Archetype {
 				}
 				Rooms.furnish(d, room, shop ? Rooms.Type.WORKSHOP : Rooms.Type.KITCHEN, 0, JobType.CARPENTER);
 			} else if (k == loggiaK) {
+				// in a house of few floors the loggia storey sleeps too, the beds back from the arches
+				if (loft || floors <= 4) {
+					Rooms.furnish(d, room, Rooms.Type.BEDROOM, floors <= 4 ? 2 : 1, JobType.NONE);
+				}
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
-			} else if (k == 1 && floors >= 4) {
+			} else if (k == 1 && floors >= 4 && !loft) {
 				// a door out onto a balcony or gallery stays reachable
 				for (int x = r[0] + 1; x <= r[2] - 1; x++) {
 					if (d.get(x, b.floorY(k), r[1]) != null && d.get(x, b.floorY(k), r[1]).getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
@@ -447,6 +451,10 @@ public final class Townhouse implements Archetype {
 					}
 				}
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+				if (r[2] - r[0] - 1 >= 5 && floors <= 4) {
+					// a wide house with few floors: a chamber behind the parlour
+					Rooms.furnish(d, room, Rooms.Type.BEDROOM, atticLost ? 2 : 1, JobType.NONE);
+				}
 			} else {
 				for (int x = r[0] + 1; x <= r[2] - 1; x++) {
 					if (d.get(x, b.floorY(k), r[1]) != null && d.get(x, b.floorY(k), r[1]).getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {

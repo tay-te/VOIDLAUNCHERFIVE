@@ -495,6 +495,11 @@ final class TownHouses {
 		boolean left = door > (r0[0] + r0[2]) / 2;
 		int laneA = left ? ix0 : ix1;
 		Direction across = left ? Dirs.RIGHT : Dirs.LEFT;
+		int run = StairCore.straightRun(b, 0, toK);
+		if (ix1 - ix0 + 1 <= 3 && run <= iz1 - (r0[1] + 1) + 1) {
+			// three wide inside: a straight stair up the side wall, the lane beside it a passage, room for beds in the third
+			return fit(StairCore.straight(b, laneA, across, iz1 - run + 1, Dirs.BACK, 0, toK), b, roof).build(d);
+		}
 		int zStart = iz1 - 2;
 		return fit(new StairCore(b, laneA, across, zStart, Dirs.BACK, 0, toK), b, roof).build(d);
 	}
