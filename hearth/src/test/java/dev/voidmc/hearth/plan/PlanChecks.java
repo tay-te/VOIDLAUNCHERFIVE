@@ -59,7 +59,7 @@ final class PlanChecks {
 					}
 					PlotView o = s.plot(other);
 					PlotSpec os = o.spec();
-					boolean allowed = other == stackedOn || os.params().getIntOr("stacked_on", -1) == p.id()
+					boolean allowed = stackedChain(s, p.id(), other) || stackedChain(s, other, p.id())
 						|| furniture && (Archetypes.isPlazaFurniture(os.archetype()) || os.archetype().equals(Archetypes.PLAZA))
 						|| sp.params().getIntOr("replaces", -1) == other || os.params().getIntOr("replaces", -1) == p.id()
 						|| defence(sp, c) && defence(os, c);
@@ -103,6 +103,22 @@ final class PlanChecks {
 			}
 		}
 		return out;
+	}
+
+	/** Whether {@code lower} is somewhere under {@code upper} in a stack of dwellings (stacked_on, transitively). */
+	private static boolean stackedChain(Settlement s, int upper, int lower) {
+		int at = upper;
+		for (int k = 0; k < 8 && at >= 0; k++) {
+			PlotView v = s.plot(at);
+			if (v == null) {
+				return false;
+			}
+			at = v.spec().params().getIntOr("stacked_on", -1);
+			if (at == lower) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean defence(PlotSpec s, Catalogue c) {
@@ -197,6 +213,10 @@ final class PlanChecks {
 				continue;
 			}
 			ArchetypeInfo info = c.info(sp.archetype());
+			if (dev.voidmc.hearth.plan.growth.Parcels.excavation(info)) {
+				// a quarry pit, a mine or a woodlot works the ground as it lies
+				continue;
+			}
 			int tol = info.flags().contains(SiteFlag.HILLSIDE) ? cfg.hillsideTolerance() : cfg.slopeTolerance();
 			int lo = Integer.MAX_VALUE;
 			int hi = Integer.MIN_VALUE;

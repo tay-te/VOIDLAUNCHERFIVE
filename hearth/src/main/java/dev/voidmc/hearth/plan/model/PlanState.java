@@ -55,11 +55,15 @@ public final class PlanState {
 	public long calls;
 	/** Needs that could not be placed, resting until the serial passes the value (sorted, so saves are stable). */
 	public final TreeMap<String, Long> cooldowns = new TreeMap<>();
+	/** The castle hill (x, z): the most commanding ground within reach, chosen at town tier and kept; null until then. */
+	public int @Nullable [] castleHill;
 
 	/** Rebuilt on demand from plots and this state; see the class comment. */
 	public transient @Nullable Occupancy occupancy;
 	/** Plot ids the occupancy grid already shows. */
 	public transient int @Nullable [] knownPlots;
+	/** What each plot is for housing by station, by plot id (derived from its spec; never saved). */
+	public final transient java.util.Map<Integer, dev.voidmc.hearth.plan.society.StationLedger.HomeFacts> homeFacts = new java.util.HashMap<>();
 
 	public void invalidate() {
 		this.occupancy = null;
@@ -121,6 +125,9 @@ public final class PlanState {
 		CompoundTag cd = new CompoundTag();
 		this.cooldowns.forEach(cd::putLong);
 		t.put("cooldowns", cd);
+		if (this.castleHill != null) {
+			t.putIntArray("castle_hill", this.castleHill);
+		}
 		return t;
 	}
 
@@ -168,6 +175,7 @@ public final class PlanState {
 		for (String key : cd.keySet()) {
 			s.cooldowns.put(key, cd.getLongOr(key, 0));
 		}
+		s.castleHill = Nbt.ints(t, "castle_hill").filter(a -> a.length >= 2).orElse(null);
 		return s;
 	}
 }

@@ -53,10 +53,97 @@ public final class Expand {
 			case EDGE, FARMSTEAD -> {
 				return outward(ctx, placement == Parcels.Placement.FARMSTEAD);
 			}
+			case GATEWAY, HOVELS, CROFTS -> {
+				// out along the main roads to where the town meets the country
+				return outward(ctx, false) || town(ctx);
+			}
+			case QUIET -> {
+				return quiet(ctx);
+			}
 			default -> {
 			}
 		}
 		return town(ctx);
+	}
+
+	/**
+	 * Grows toward a building's siting: a cart track out to its anchor when no road comes near it (a sawmill by a logging
+	 * camp across the valley), else the town's own streets.
+	 */
+	public static boolean toward(PlanContext ctx, dev.voidmc.hearth.plan.growth.Siting siting) {
+		if (nearestAccess(ctx, siting.x(), siting.z(), 24) > 20 && ctx.distanceToHeart(siting.x(), siting.z()) > ctx.coreRadius()) {
+			int[] at = freeNear(ctx, siting.x(), siting.z());
+			if (at != null && Roads.haul(ctx, at[0], at[1], RoadEdge.Role.TRACK, RoadKind.PATH, 3, false, "road: a track out to the works") != null) {
+				return true;
+			}
+		}
+		return ctx.distanceToHeart(siting.x(), siting.z()) > Parcels.edgeRing(ctx) ? outward(ctx, false) || town(ctx) : town(ctx);
+	}
+
+	/** Blocks to the nearest road, bridge or plaza column from (x, z), searched in rings out to {@code max} ({@code max + 1} if none). */
+	static int nearestAccess(PlanContext ctx, int x, int z, int max) {
+		for (int r = 0; r <= max; r += 2) {
+			for (int k = -r; k <= r; k += 2) {
+				if (Cell.isAccess(ctx.occ.get(x + k, z - r)) || Cell.isAccess(ctx.occ.get(x + k, z + r)) || Cell.isAccess(ctx.occ.get(x - r, z + k))
+					|| Cell.isAccess(ctx.occ.get(x + r, z + k))) {
+					return r;
+				}
+			}
+		}
+		return max + 1;
+	}
+
+	/** A free, dry column at or near (x, z) a road can end on, or null. */
+	static int @Nullable [] freeNear(PlanContext ctx, int x, int z) {
+		for (int r = 0; r <= 12; r += 3) {
+			for (int k = 0; k < 8; k++) {
+				int px = x + Roads.DX[k] * r;
+				int pz = z + Roads.DZ[k] * r;
+				if (Cell.isBuildable(ctx.occ.get(px, pz)) && !ctx.ground.isWater(px, pz)) {
+					return new int[]{px, pz};
+				}
+				if (r == 0) {
+					break;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Quiet ground outside the town for a monastery or convent: the highest open spot a little way beyond the edge,
+	 * apart from everything else, reached by a lane of its own.
+	 */
+	static boolean quiet(PlanContext ctx) {
+		if (!ctx.roadsMayGrow()) {
+			return false;
+		}
+		double ring = Parcels.edgeRing(ctx);
+		int[] best = null;
+		double bestScore = Double.NEGATIVE_INFINITY;
+		for (int r = (int) ring + 36; r <= ring + 84; r += 12) {
+			for (int k = 0; k < 24; k++) {
+				double a = k * Math.PI / 12 + r * 0.01;
+				int x = ctx.heartX() + (int) Math.round(StrictMath.cos(a) * r);
+				int z = ctx.heartZ() + (int) Math.round(StrictMath.sin(a) * r);
+				if (ctx.ground.isWater(x, z) || !Cell.isBuildable(ctx.occ.get(x, z))
+					|| dev.voidmc.hearth.plan.resource.Extraction.accessNear(ctx, x, z, 18)) {
+					// served already (a lane runs there): the frontage search finds it; a new lane would only run beside it
+					continue;
+				}
+				int[] range = ctx.ground.range(x - 10, z - 10, x + 10, z + 10, 4);
+				if (range[1] - range[0] > 6) {
+					continue;
+				}
+				double score = (ctx.ground.ground(x, z) - ctx.state.heartY) * 1.2 - r * 0.05 - (range[1] - range[0]) + ctx.hash(x, z, 211) * 4;
+				if (score > bestScore) {
+					bestScore = score;
+					best = new int[]{x, z};
+				}
+			}
+		}
+		return best != null && Roads.haul(ctx, best[0], best[1], RoadEdge.Role.APPROACH, RoadKind.LANE, 3, false,
+			"road: a lane out to quiet ground beyond the town") != null;
 	}
 
 	/**

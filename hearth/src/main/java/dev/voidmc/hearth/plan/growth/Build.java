@@ -11,6 +11,8 @@ import dev.voidmc.hearth.plan.model.District;
 import dev.voidmc.hearth.plan.model.RoadKind;
 import dev.voidmc.hearth.plan.road.Roads;
 import dev.voidmc.hearth.plan.road.Specs;
+import dev.voidmc.hearth.plan.society.Stations;
+import dev.voidmc.hearth.api.Station;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -69,13 +71,33 @@ public final class Build {
 			params.putBoolean("party_left", false);
 			params.putBoolean("party_right", false);
 		}
+		Station station = station(params);
 		if (info.category() == ArchetypeCategory.HOUSING && !params.contains("storeys")) {
-			params.putInt("storeys", storeys(ctx, info, p.zone));
+			int storeys = storeys(ctx, info, p.zone);
+			params.putInt("storeys", station == null ? storeys : Math.max(1, Math.min(storeys(ctx, info, 0) + 1, Stations.storeys(station, storeys))));
+		}
+		int finish = finish(ctx, info, p.zone, d);
+		if (station != null) {
+			finish = Math.max(0, Math.min(4, finish + Stations.finish(station)));
 		}
 		PlotSpec spec = new PlotSpec(info.id(), ctx.style, ctx.nextSeed(), new BlockPos(p.x0, p.floorY, p.z0), p.sizeX, p.sizeZ, p.facing,
-			height(ctx, info, p.zone), finish(ctx, info, p.zone, d), params);
+			height(ctx, info, p.zone), finish, params);
 		Roads.issue(ctx, spec, reason);
 		return spec;
+	}
+
+	/** The station a plot's params name, or null. */
+	public static @Nullable Station station(CompoundTag params) {
+		String name = params.getStringOr("station", "");
+		if (name.isEmpty()) {
+			return null;
+		}
+		for (Station s : Station.values()) {
+			if (s.getSerializedName().equals(name)) {
+				return s;
+			}
+		}
+		return null;
 	}
 
 	/** A terrace: a level platform at {@code level} with retaining walls on its downhill sides. */

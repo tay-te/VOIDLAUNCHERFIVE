@@ -39,7 +39,12 @@ public final class Growth {
 	}
 
 	/** A need, with how urgent it is and how to meet it. */
-	record Need(String key, double priority, Predicate<PlanContext> plan) {
+	public record Need(String key, double priority, Predicate<PlanContext> plan) {
+	}
+
+	/** A need other packages add to the list (the nobility, the chains, the law). */
+	public static Need need(String key, double priority, Predicate<PlanContext> plan) {
+		return new Need(key, priority, plan);
 	}
 
 	/** Plans the most urgent need that can be met; true if anything was queued. */
@@ -95,7 +100,8 @@ public final class Growth {
 		// cap what is planned but not yet built, so the plan does not run far ahead of the builders
 		boolean busy = needs.unbuilt > 4 + pop / 6;
 
-		int deficit = needs.housingDeficit(ctx.config.housingMargin());
+		int capacity = ctx.territory().capacity();
+		int deficit = needs.housingDeficit(ctx.config.housingMargin(), capacity);
 		if (deficit > 0) {
 			list.add(new Need("housing", 600 + Math.min(300, deficit * 12), c -> Housing.plan(c, needs, deficit)));
 		}
@@ -103,10 +109,13 @@ public final class Growth {
 		if (needs.food < mouths) {
 			list.add(new Need("food", 420 + Math.min(200, (mouths - needs.food) * 6), c -> Farms.plan(c, needs)));
 		}
-		// builders waiting on stone or timber the town hardly makes: the workplace that makes it, even while busy
+		// builders waiting on goods the town hardly makes: the workplace that makes them, even while busy
 		if (needs.waiting > 0) {
-			shortage(ctx, needs, list, dev.voidmc.hearth.api.Goods.STONE, JobType.QUARRIER);
-			shortage(ctx, needs, list, dev.voidmc.hearth.api.Goods.WOOD, JobType.FORESTER);
+			for (Shortage sh : SHORTAGES) {
+				if (tier.ordinal() >= sh.tier.ordinal()) {
+					shortage(ctx, needs, list, sh);
+				}
+			}
 		}
 		if (busy) {
 			return list;
@@ -124,7 +133,9 @@ public final class Growth {
 				continue;
 			}
 			int want = e.count().applyAsInt(pop);
-			ArchetypeInfo info = ctx.catalogue.resolve(e.id(), ctx.culture, tier);
+			// the living world's buildings are what they are: a monastery never falls back to a library
+			ArchetypeInfo info = dev.voidmc.hearth.plan.catalogue.DefaultCatalogue.isPhase3(e.id()) ? exact(ctx, e.id())
+				: ctx.catalogue.resolve(e.id(), ctx.culture, tier);
 			if (info == null) {
 				continue;
 			}
@@ -134,24 +145,15 @@ public final class Growth {
 			}
 			if (have < want) {
 				Identifier id = info.id();
-				list.add(new Need("program/" + id.getPath(), e.priority() - have * 15, c -> {
-					Lots.release(c, e.id());
-					if (id.equals(Archetypes.CHAPEL)) {
-						return Landmarks.chapel(c, info, "faith: the village raises its chapel on the rise");
-					}
-					if (id.equals(Archetypes.MARKET_STALL) || Archetypes.isPlazaFurniture(id) && c.state.squareEdge >= 0) {
-						if (Square.furniture(c, info, "market: a stall on the square")) {
-							return true;
-						}
-					}
-					return placeBuilding(c, info, e.placement(), e.district(), reasonFor(info, e.placement()), null);
-				}));
+				list.add(new Need("program/" + id.getPath(), e.priority() - have * 15, c -> program(c, e, info)));
 			}
 		}
 		if (tier.ordinal() >= SettlementTier.VILLAGE.ordinal() && !Square.paved(ctx) && ctx.catalogue.has(Archetypes.PLAZA)) {
 			list.add(new Need("plaza", 280, Square::pave));
 		}
 		Landmarks.needs(ctx, needs, list);
+		dev.voidmc.hearth.plan.society.Nobility.needs(ctx, needs, list);
+		Gates.needs(ctx, needs, list);
 		if (Docks.wanted(ctx, needs)) {
 			list.add(new Need("docks", 150, Docks::plan));
 		}
@@ -174,27 +176,99 @@ public final class Growth {
 		return list;
 	}
 
-	/** A workplace for a trade whose workers have nowhere to work. */
-	/** Below this much in store, with builders waiting, a town plans the workplace that makes the goods. */
-	private static final int SHORT = 200;
-
-	private static void shortage(PlanContext ctx, Needs needs, List<Need> list, dev.voidmc.hearth.api.Goods goods, JobType job) {
-		if (ctx.settlement.stockpile().get(goods) >= SHORT) {
-			return;
-		}
-		// one such workplace per forty souls is plenty
-		if (needs.slots.getOrDefault(job, 0) >= 2 * (1 + ctx.population / 40)) {
-			return;
-		}
-		list.add(new Need("short/" + goods.getSerializedName(), 380, c -> workplace(c, job)));
+	/**
+	 * A good builders may wait for, the trades that make it (the last step of its chain first, then what feeds it), how
+	 * little in store counts as short, and from which tier the town makes it itself.
+	 */
+	private record Shortage(dev.voidmc.hearth.api.Goods goods, int below, SettlementTier tier, JobType... jobs) {
 	}
 
+	/** Below this much in store, with builders waiting, a town plans the workplace that makes the goods. */
+	private static final List<Shortage> SHORTAGES = List.of(
+		new Shortage(dev.voidmc.hearth.api.Goods.STONE, 200, SettlementTier.CAMP, JobType.QUARRIER),
+		new Shortage(dev.voidmc.hearth.api.Goods.WOOD, 200, SettlementTier.CAMP, JobType.FORESTER),
+		new Shortage(dev.voidmc.hearth.api.Goods.LOGS, 120, SettlementTier.HAMLET, JobType.FORESTER),
+		new Shortage(dev.voidmc.hearth.api.Goods.DRESSED_STONE, 96, SettlementTier.VILLAGE, JobType.MASON, JobType.QUARRIER),
+		new Shortage(dev.voidmc.hearth.api.Goods.BRICK, 64, SettlementTier.VILLAGE, JobType.KILN_WORKER, JobType.CLAY_DIGGER),
+		new Shortage(dev.voidmc.hearth.api.Goods.GLASS, 32, SettlementTier.VILLAGE, JobType.GLASSMAKER, JobType.CLAY_DIGGER),
+		new Shortage(dev.voidmc.hearth.api.Goods.METAL, 32, SettlementTier.VILLAGE, JobType.SMELTER, JobType.MINER, JobType.SMITH),
+		new Shortage(dev.voidmc.hearth.api.Goods.FUEL, 24, SettlementTier.VILLAGE, JobType.CHARCOAL_BURNER),
+		new Shortage(dev.voidmc.hearth.api.Goods.CANDLES, 16, SettlementTier.VILLAGE, JobType.CHANDLER, JobType.BEEKEEPER));
+
+	private static void shortage(PlanContext ctx, Needs needs, List<Need> list, Shortage sh) {
+		if (ctx.settlement.stockpile().get(sh.goods) >= sh.below) {
+			return;
+		}
+		for (JobType job : sh.jobs) {
+			// one such workplace per forty souls is plenty
+			if (needs.slots.getOrDefault(job, 0) >= 2 * (1 + ctx.population / 40)) {
+				continue;
+			}
+			list.add(new Need("short/" + sh.goods.getSerializedName(), 380, c -> workplace(c, job)));
+			return;
+		}
+	}
+
+	/** An archetype exactly as registered and allowed here, or null (no fallback). */
+	static @Nullable ArchetypeInfo exact(PlanContext ctx, Identifier id) {
+		ArchetypeInfo info = ctx.catalogue.info(id);
+		return info != null && Catalogue.allowed(info, ctx.culture, ctx.tier) ? info : null;
+	}
+
+	/** Plans one of the program's buildings, as its entry says. */
+	static boolean program(PlanContext c, Program.Entry e, ArchetypeInfo info) {
+		Identifier id = info.id();
+		Lots.release(c, e.id());
+		if (id.equals(Archetypes.CHAPEL)) {
+			return Landmarks.chapel(c, info, "faith: the village raises its chapel on the rise");
+		}
+		if (e.custom() != null) {
+			return e.custom().test(c, info);
+		}
+		if (id.equals(Archetypes.MARKET_STALL) || Archetypes.isPlazaFurniture(id) && c.state.squareEdge >= 0) {
+			String what = id.equals(Archetypes.MARKET_STALL) ? "market: a stall on the square" : reasonFor(info, e.placement()) + " on the square";
+			if (Square.furniture(c, info, what)) {
+				return true;
+			}
+		}
+		Siting siting = e.siting() == null ? null : e.siting().apply(c);
+		Parcels.Request req = new Parcels.Request(info, e.placement(), e.district());
+		if (siting != null) {
+			req = req.sited(siting);
+		}
+		return placeBuilding(c, req, reasonFor(info, req.placement()), null);
+	}
+
+	/** A workplace for a trade whose workers have nowhere to work. */
 	static boolean workplace(PlanContext ctx, JobType job) {
 		for (ArchetypeInfo info : ctx.catalogue.forJob(job, ctx.culture, ctx.tier)) {
 			if (info.category() == ArchetypeCategory.FARM) {
 				return Farms.place(ctx, info, null);
 			}
+			// the deep town builds its own; the lord's seat is the nobility's to plan
+			if (info.category() == ArchetypeCategory.UNDERGROUND) {
+				continue;
+			}
 			if (info.maxPerSettlement() > 0 && Needs.of(ctx).count(info.id()) >= info.maxPerSettlement()) {
+				continue;
+			}
+			if (info.category() == ArchetypeCategory.NOBLE && dev.voidmc.hearth.plan.society.Nobility.isSeat(info.id())) {
+				if (dev.voidmc.hearth.plan.society.Nobility.seat(ctx)) {
+					return true;
+				}
+				continue;
+			}
+			if (info.category() == ArchetypeCategory.EXTRACTION || dev.voidmc.hearth.plan.resource.Extraction.kind(info.id()) != null) {
+				if (dev.voidmc.hearth.plan.resource.Extraction.place(ctx, info)) {
+					return true;
+				}
+				continue;
+			}
+			Program.Entry entry = Program.entry(info.id());
+			if (entry != null && entry.when().test(ctx) && (entry.siting() != null || entry.custom() != null)) {
+				if (program(ctx, entry, info)) {
+					return true;
+				}
 				continue;
 			}
 			Placement placement = info.flags().contains(SiteFlag.WATERFRONT) ? Placement.WATER
@@ -215,9 +289,15 @@ public final class Growth {
 	 */
 	public static boolean placeBuilding(PlanContext ctx, ArchetypeInfo info, Placement placement, District.@Nullable Kind district,
 		String reason, @Nullable CompoundTag params) {
-		Parcels.Request req = new Parcels.Request(info, placement, district);
+		return placeBuilding(ctx, new Parcels.Request(info, placement, district), reason, params);
+	}
+
+	/** {@link #placeBuilding(PlanContext, ArchetypeInfo, Placement, District.Kind, String, CompoundTag)} for a full request. */
+	public static boolean placeBuilding(PlanContext ctx, Parcels.Request req, String reason, @Nullable CompoundTag params) {
+		ArchetypeInfo info = req.info();
+		Placement placement = req.placement();
 		Parcels.Parcel p = Parcels.best(ctx, req, null);
-		if (p != null && !acceptable(ctx, placement, p)) {
+		if (p != null && !acceptable(ctx, req, p)) {
 			p = null;
 		}
 		boolean grew = false;
@@ -228,17 +308,17 @@ public final class Growth {
 				grew = true;
 				Parcels.Parcel q = Parcels.best(ctx, req, null);
 				// the new road may run through the old site, so it only stands if it is still clear
-				if (!Parcels.stillClear(ctx, p) || q != null && acceptable(ctx, placement, q)
+				if (!Parcels.stillClear(ctx, p) || q != null && acceptable(ctx, req, q)
 					&& ctx.distanceToHeart(q.x0 + q.sizeX / 2, q.z0 + q.sizeZ / 2) < ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2)) {
-					p = q != null && acceptable(ctx, placement, q) ? q : null;
+					p = q != null && acceptable(ctx, req, q) ? q : null;
 				}
 			}
 		}
 		if (p == null) {
-			grew = Expand.toward(ctx, placement);
+			grew = placement == Placement.SITED && req.siting() != null ? Expand.toward(ctx, req.siting()) : Expand.toward(ctx, placement);
 			if (grew) {
 				p = Parcels.best(ctx, req, null);
-				if (p != null && !acceptable(ctx, placement, p)) {
+				if (p != null && !acceptable(ctx, req, p)) {
 					p = null;
 				}
 			}
@@ -272,10 +352,21 @@ public final class Growth {
 	}
 
 	/** Rejects a place that misses the point of its placement (a rise that is not raised, an edge in the core). */
+	private static boolean acceptable(PlanContext ctx, Parcels.Request req, Parcels.Parcel p) {
+		if (req.placement() == Placement.SITED && req.siting() != null) {
+			Siting s = req.siting();
+			return Math.hypot(p.x0 + p.sizeX / 2.0 - s.x(), p.z0 + p.sizeZ / 2.0 - s.z()) <= s.maxDistance() + Math.max(p.sizeX, p.sizeZ) / 2.0 + 8;
+		}
+		return acceptable(ctx, req.placement(), p);
+	}
+
 	private static boolean acceptable(PlanContext ctx, Placement placement, Parcels.Parcel p) {
 		double d = ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2);
 		double core = ctx.coreRadius();
 		return switch (placement) {
+			case GATEWAY -> d > core * 0.6;
+			case QUIET -> d > Parcels.edgeRing(ctx) + 12;
+			case HOVELS, CROFTS -> d > core * 0.45;
 			case RISE, SUMMIT -> ctx.state.site == null || p.floorY >= ctx.state.heartY + Math.min(4, (ctx.state.site.riseY() - ctx.state.heartY) / 2)
 				|| d < core;
 			case EDGE -> d > core * 0.8 && (ctx.wallLine() <= 0 || d > ctx.wallLine());
@@ -296,6 +387,10 @@ public final class Growth {
 			case DEFENSE -> "defence: a " + name;
 			case LANDSCAPE -> "beauty: a " + name;
 			case LANDMARK -> "landmark: the town raises its " + name;
+			case LAW -> "law: the town raises its " + name;
+			case NOBLE -> "nobility: the lord's " + name;
+			case EXTRACTION -> "resources: a " + name;
+			case UNDERGROUND -> "the deep: a " + name;
 			default -> name;
 		};
 	}

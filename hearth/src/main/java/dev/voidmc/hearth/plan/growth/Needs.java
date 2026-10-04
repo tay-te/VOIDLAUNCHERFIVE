@@ -11,6 +11,7 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.plan.PlanContext;
 import dev.voidmc.hearth.plan.catalogue.Archetypes;
 import dev.voidmc.hearth.plan.model.QueuedProject;
+import dev.voidmc.hearth.plan.society.StationLedger;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -130,6 +131,10 @@ public final class Needs {
 		if (id.equals(Archetypes.HUNTERS_LODGE)) {
 			return 4;
 		}
+		if (id.equals(Archetypes.DEEP_GLOW_GARDEN)) {
+			// glowcaps and cave fruit under the vault
+			return Math.max(4, area / 40);
+		}
 		if (info.category() != ArchetypeCategory.FARM) {
 			return 0;
 		}
@@ -144,7 +149,29 @@ public final class Needs {
 
 	/** Beds still wanted: the population plus a margin for growth, minus beds built and planned. */
 	public int housingDeficit(double margin) {
+		return housingDeficit(margin, 0);
+	}
+
+	/**
+	 * Beds still wanted with the territory's carrying capacity as a ceiling (LIVING_WORLD.md §7.2): past what its land
+	 * and trade can feed a town plans no spare beds, so newcomers stop coming (the sim settles folk only while beds are
+	 * free) and it must specialise, import or send settlers away. {@code capacity} 0 means unbounded.
+	 */
+	public int housingDeficit(double margin, int capacity) {
 		int want = this.population + Math.max(2, (int) Math.ceil(this.population * margin));
+		if (capacity > 0) {
+			want = Math.min(want, Math.max(this.population, capacity));
+		}
 		return want - this.beds - this.plannedBeds;
 	}
+
+	/** Housing by station (built on first use; see {@link StationLedger}). */
+	public StationLedger stations(PlanContext ctx) {
+		if (this.stations == null) {
+			this.stations = StationLedger.of(ctx);
+		}
+		return this.stations;
+	}
+
+	private @org.jspecify.annotations.Nullable StationLedger stations;
 }

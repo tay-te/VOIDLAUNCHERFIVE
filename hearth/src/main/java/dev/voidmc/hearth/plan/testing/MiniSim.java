@@ -9,11 +9,14 @@ import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.SettlementPlanner;
+import dev.voidmc.hearth.api.SettlementTier;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.api.TerrainProbe;
 import dev.voidmc.hearth.api.testing.SimpleSettlement;
 import dev.voidmc.hearth.plan.catalogue.Archetypes;
 import dev.voidmc.hearth.plan.catalogue.Catalogue;
 import dev.voidmc.hearth.plan.growth.Needs;
+import dev.voidmc.hearth.plan.society.Stations;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -36,7 +39,7 @@ public final class MiniSim {
 	private static final int CAPACITY = 220;
 	private static final String[] NAMES = {"Ada", "Bram", "Cora", "Dain", "Edda", "Finn", "Gwen", "Hal", "Ivy", "Jory", "Kit", "Lene"};
 
-	public final SimpleSettlement settlement;
+	public final SurveyedSettlement settlement;
 	public final TerrainProbe terrain;
 	private final SettlementPlanner planner;
 	private final RandomSource random;
@@ -59,7 +62,8 @@ public final class MiniSim {
 		this.planner = planner;
 		this.random = RandomSource.create(seed);
 		this.catalogue = Catalogue.current();
-		this.settlement = new SimpleSettlement(seed, "Preview " + seed, culture, center, 0);
+		this.settlement = new SurveyedSettlement(seed, "Preview " + seed, culture, center, 0);
+		survey();
 		for (int i = 0; i < 4; i++) {
 			addResident(i == 0 ? JobType.BUILDER : i == 1 ? JobType.FARMER : JobType.NONE);
 		}
@@ -120,7 +124,96 @@ public final class MiniSim {
 		this.settlement.setBeds(beds());
 		grow();
 		employ();
+		house();
+		if (this.settlement.tier() != this.surveyedTier) {
+			survey();
+		}
 		plan();
+	}
+
+	/**
+	 * The territory and its sites (LIVING_WORLD.md §7.1), as the sim's survey would give them: the radius grows with the
+	 * tier, and the stand-in survey reads the probe again.
+	 */
+	private void survey() {
+		SettlementTier tier = this.settlement.tier();
+		int radius = switch (tier) {
+			case CAMP -> 112;
+			case HAMLET -> 144;
+			case VILLAGE -> 176;
+			case TOWN -> 224;
+			case CITY -> 288;
+		};
+		this.settlement.setTerritoryRadius(radius);
+		this.settlement.setSites(MiniSurvey.survey(this.terrain, this.settlement.center(), radius));
+		this.surveyedTier = tier;
+	}
+
+	private SettlementTier surveyedTier = SettlementTier.CAMP;
+
+	/**
+	 * Moves households into homes as the sim is asked to (docs/requests/p3-plan.md): the household a home was planned for
+	 * first, then those whose station the home serves, then anyone into any free bed.
+	 */
+	private void house() {
+		Map<Integer, Integer> free = new java.util.HashMap<>();
+		Map<Integer, Station> serves = new java.util.HashMap<>();
+		Map<String, Integer> named = new java.util.HashMap<>();
+		List<SimpleSettlement.SimplePlot> homes = new ArrayList<>();
+		for (SimpleSettlement.SimplePlot p : this.settlement.plots()) {
+			ArchetypeInfo info = this.catalogue.info(p.spec().archetype());
+			if (p.state != PlotState.BUILT || info == null || info.beds() <= 0 || !Stations.isHome(info)) {
+				continue;
+			}
+			homes.add(p);
+			free.put(p.id(), Needs.estimateBeds(info, p.spec()));
+			Station st = Stations.home(p.spec(), info);
+			if (st != null) {
+				serves.put(p.id(), st);
+			}
+			String head = p.spec().params().getCompoundOrEmpty("household").getStringOr("head", "");
+			if (!head.isEmpty()) {
+				named.put(head, p.id());
+			}
+		}
+		for (Resident r : this.settlement.residents()) {
+			if (r.home >= 0 && free.containsKey(r.home)) {
+				free.merge(r.home, -1, Integer::sum);
+			} else {
+				r.home = Resident.NO_PLOT;
+			}
+		}
+		List<Resident> residents = new ArrayList<>(this.settlement.residents());
+		residents.sort(java.util.Comparator.comparing(r -> r.id));
+		for (Resident r : residents) {
+			Station want = Stations.of(r, this.settlement.tier());
+			if (r.home >= 0 && serves.get(r.home) == want) {
+				continue;
+			}
+			// the home planned for this household, else one that serves its station, else (homeless) any free bed
+			Integer target = named.get(r.id.toString());
+			if (target != null && free.getOrDefault(target, 0) <= 0) {
+				target = null;
+			}
+			for (int pass = 0; pass < 2 && target == null; pass++) {
+				if (pass == 1 && r.home >= 0) {
+					break;
+				}
+				for (SimpleSettlement.SimplePlot h : homes) {
+					if (free.getOrDefault(h.id(), 0) > 0 && (pass == 1 || serves.get(h.id()) == want)) {
+						target = h.id();
+						break;
+					}
+				}
+			}
+			if (target != null) {
+				if (r.home >= 0) {
+					free.merge(r.home, 1, Integer::sum);
+				}
+				r.home = target;
+				free.merge(target, -1, Integer::sum);
+			}
+		}
 	}
 
 	private int builders() {
@@ -164,7 +257,7 @@ public final class MiniSim {
 		int beds = 0;
 		for (SimpleSettlement.SimplePlot p : this.settlement.plots()) {
 			ArchetypeInfo info = this.catalogue.info(p.spec().archetype());
-			if (p.state == PlotState.BUILT && info != null && info.category() == ArchetypeCategory.HOUSING) {
+			if (p.state == PlotState.BUILT && info != null && info.beds() > 0 && Stations.isHome(info)) {
 				beds += Needs.estimateBeds(info, p.spec());
 			}
 		}
@@ -215,14 +308,27 @@ public final class MiniSim {
 			if (held.getOrDefault(JobType.BUILDER, 0) < Math.max(1, pop / 6)) {
 				r.job = JobType.BUILDER;
 				held.merge(JobType.BUILDER, 1, Integer::sum);
+				r.station = Station.of(r.job);
 				continue;
 			}
 			for (JobType j : JobType.values()) {
 				if (j != JobType.NONE && j != JobType.BUILDER && slots.getOrDefault(j, 0) > held.getOrDefault(j, 0)) {
 					r.job = j;
 					held.merge(j, 1, Integer::sum);
+					r.station = Station.of(j);
 					break;
 				}
+			}
+		}
+		// the purse moves some households up, as the npc module's stations follow wealth: a few craftsmen prosper into
+		// merchants, and in a town a few old merchant families count as gentry
+		SettlementTier tier = this.settlement.tier();
+		for (Resident r : this.settlement.residents()) {
+			double luck = (r.appearance & 0xFFFF) / 65536.0;
+			if (r.station == Station.ARTISAN && tier.ordinal() >= SettlementTier.VILLAGE.ordinal() && luck < 0.12) {
+				r.station = Station.MERCHANT;
+			} else if (r.station == Station.MERCHANT && tier.ordinal() >= SettlementTier.TOWN.ordinal() && luck > 0.86) {
+				r.station = Station.GENTRY;
 			}
 		}
 	}

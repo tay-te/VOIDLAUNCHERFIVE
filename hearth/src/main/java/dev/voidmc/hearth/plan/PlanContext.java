@@ -98,24 +98,53 @@ public final class PlanContext {
 
 	/**
 	 * How far the town's homes and workshops reach from the heart (farms and roads aside): where the edge of town is,
-	 * so fields go beyond it rather than beside the square. Computed once per call.
+	 * so fields go beyond it rather than beside the square. The far end of the town proper: buildings that stand apart on
+	 * purpose (workings and the workshops by them, monasteries, hostels at the gate, shrines, watch houses, the lord's
+	 * lodge, a hermit's hut) are left out, and a few outliers do not count (the 92nd percentile of the rest). Computed
+	 * once per call.
 	 */
 	public double extent() {
 		if (this.extent < 0) {
-			double e = 0;
+			it.unimi.dsi.fastutil.doubles.DoubleArrayList d = new it.unimi.dsi.fastutil.doubles.DoubleArrayList();
 			for (var p : this.settlement.plots()) {
 				var info = this.catalogue.info(p.spec().archetype());
-				if (info == null || info.category() == dev.voidmc.hearth.api.ArchetypeCategory.FARM
-					|| info.category() == dev.voidmc.hearth.api.ArchetypeCategory.INFRASTRUCTURE
-					|| info.flags().contains(dev.voidmc.hearth.api.ArchetypeInfo.SiteFlag.OUTSKIRTS)) {
+				if (info == null || !townProper(info)) {
 					continue;
 				}
 				var s = p.spec();
-				e = Math.max(e, distanceToHeart(s.origin().getX() + s.sizeX() / 2, s.origin().getZ() + s.sizeZ() / 2));
+				d.add(distanceToHeart(s.origin().getX() + s.sizeX() / 2, s.origin().getZ() + s.sizeZ() / 2));
 			}
-			this.extent = e;
+			if (d.isEmpty()) {
+				this.extent = 0;
+			} else {
+				double[] a = d.toDoubleArray();
+				java.util.Arrays.sort(a);
+				this.extent = a.length < 8 ? a[a.length - 1] : a[(int) Math.floor(0.92 * (a.length - 1))];
+			}
 		}
 		return this.extent;
+	}
+
+	/** Whether a building is of the town proper (for its extent), not one that stands apart on purpose. */
+	private static boolean townProper(ArchetypeInfo info) {
+		var c = info.category();
+		if (info.flags().contains(ArchetypeInfo.SiteFlag.OUTSKIRTS)) {
+			return false;
+		}
+		switch (c) {
+			case HOUSING, WORKPLACE, COMMERCE, CIVIC, STORAGE -> {
+			}
+			default -> {
+				return false;
+			}
+		}
+		var id = info.id();
+		return !(id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.SHRINE) || id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.HOSTEL)
+			|| id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.CARAVANSERAI) || id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.CARAVAN_YARD)
+			|| id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.SAWMILL) || id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.QUARRY)
+			|| id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.MASONRY) || id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.TANNERY)
+			|| id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.GLASSWORKS) || id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.DYE_WORKS)
+			|| id.equals(dev.voidmc.hearth.plan.catalogue.Archetypes.CEMETERY));
 	}
 
 	private double extent = -1;
@@ -191,12 +220,40 @@ public final class PlanContext {
 		return this.catalogue.info(id);
 	}
 
-	/** Queues a project behind those already decided. */
+	/** What the land round the settlement gives it: sites, carrying capacity, wind, local materials (made once per call). */
+	public dev.voidmc.hearth.plan.resource.Territory territory() {
+		if (this.territory == null) {
+			this.territory = new dev.voidmc.hearth.plan.resource.Territory(this);
+		}
+		return this.territory;
+	}
+
+	private dev.voidmc.hearth.plan.resource.@Nullable Territory territory;
+	/** The {@code local} materials every plot of this call gets instead of the territory's (a deep town: its realm's). */
+	public net.minecraft.nbt.@Nullable CompoundTag localOverride;
+
+	/** Queues a project behind those already decided, with the territory's materials ({@code local}) on it. */
 	public void queue(PlotSpec spec, int replaces, String reason) {
+		spec = withLocal(spec);
 		this.state.queue.add(new QueuedProject(spec, replaces, reason));
 		if (!spec.archetype().getPath().startsWith("infra/")) {
 			this.buildings++;
 		}
+	}
+
+	/** The spec with the {@code local} param (LIVING_WORLD.md §8.5) if it has none and the land gives any. */
+	public PlotSpec withLocal(PlotSpec spec) {
+		net.minecraft.nbt.CompoundTag local = this.localOverride != null ? this.localOverride : territory().local();
+		if (local == null) {
+			return spec;
+		}
+		net.minecraft.nbt.CompoundTag params = spec.params();
+		if (params.contains("local")) {
+			return spec;
+		}
+		params.put("local", local.copy());
+		return new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
+			spec.tier(), params);
 	}
 
 	public long nextSeed() {

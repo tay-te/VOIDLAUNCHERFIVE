@@ -99,6 +99,85 @@ public final class Archetypes {
 	public static final Identifier PAGODA = id("landmark/pagoda");
 	public static final Identifier CLOCK_TOWER = id("landmark/clock_tower");
 
+	// ---- phase 3 (LIVING_WORLD.md §8.5): homes by station
+	public static final Identifier HOVEL = id("house/hovel");
+	public static final Identifier SHACK = id("house/shack");
+	public static final Identifier CROFT = id("house/croft");
+	public static final Identifier MERCHANT_HOUSE = id("house/merchant_house");
+	public static final Identifier REEVE_HOUSE = id("house/reeve_house");
+	public static final Identifier RECTORY = id("house/rectory");
+	public static final Identifier SCRIBE_HOUSE = id("house/scribe_house");
+	public static final Identifier HERMIT_HUT = id("house/hermit_hut");
+
+	// nobility
+	public static final Identifier KEEP = id("noble/keep");
+	public static final Identifier CASTLE = id("noble/castle");
+	public static final Identifier PALACE = id("noble/palace");
+	public static final Identifier HUNTING_LODGE = id("noble/hunting_lodge");
+	public static final Identifier STABLES = id("noble/stables");
+
+	// clergy and learning
+	public static final Identifier MONASTERY = id("civic/monastery");
+	public static final Identifier CONVENT = id("civic/convent");
+	public static final Identifier SHRINE = id("civic/shrine");
+	public static final Identifier UNIVERSITY = id("civic/university");
+	public static final Identifier OBSERVATORY = id("civic/observatory");
+	public static final Identifier ALCHEMIST_TOWER = id("work/alchemist_tower");
+
+	// social life
+	public static final Identifier TAVERN = id("commerce/tavern");
+	public static final Identifier HOSTEL = id("commerce/hostel");
+	public static final Identifier CARAVANSERAI = id("commerce/caravanserai");
+	public static final Identifier THIEVES_DEN = id("commerce/thieves_den");
+	public static final Identifier PLAYHOUSE = id("civic/playhouse");
+	public static final Identifier TILT_YARD = id("civic/tilt_yard");
+	public static final Identifier INFIRMARY = id("civic/infirmary");
+	public static final Identifier ALMSHOUSE = id("civic/almshouse");
+	public static final Identifier ORPHANAGE = id("civic/orphanage");
+	public static final Identifier CEMETERY = id("civic/cemetery");
+	public static final Identifier FESTIVAL_GROUND = id("landscape/festival_ground");
+
+	// law
+	public static final Identifier COURTHOUSE = id("law/courthouse");
+	public static final Identifier JAIL = id("law/jail");
+	public static final Identifier GALLOWS = id("law/gallows");
+	public static final Identifier PILLORY = id("law/pillory");
+	public static final Identifier WATCH_HOUSE = id("law/watch_house");
+	public static final Identifier TOLL_GATE = id("law/toll_gate");
+
+	// workshops of the chains
+	public static final Identifier LOGGING_CAMP = id("work/logging_camp");
+	public static final Identifier CHARCOAL_KILN = id("work/charcoal_kiln");
+	public static final Identifier BRICK_KILN = id("work/brick_kiln");
+	public static final Identifier GLASSWORKS = id("work/glassworks");
+	public static final Identifier SMELTER = id("work/smelter");
+	public static final Identifier TANNERY = id("work/tannery");
+	public static final Identifier BUTCHER = id("work/butcher");
+	public static final Identifier CHANDLER = id("work/chandler");
+	public static final Identifier DYE_WORKS = id("work/dye_works");
+	public static final Identifier PAPER_MILL = id("work/paper_mill");
+	public static final Identifier APIARY = id("work/apiary");
+	public static final Identifier SHIPYARD = id("work/shipyard");
+	public static final Identifier SALT_WORKS = id("work/salt_works");
+	public static final Identifier CARAVAN_YARD = id("commerce/caravan_yard");
+	public static final Identifier COUNTING_HOUSE = id("commerce/counting_house");
+
+	// extraction: blueprints whose steps are cuts (LIVING_WORLD.md §7.3)
+	public static final Identifier QUARRY_PIT = id("extract/quarry_pit");
+	public static final Identifier MINE = id("extract/mine");
+	public static final Identifier SHAFT = id("extract/shaft");
+	public static final Identifier CLAY_PIT = id("extract/clay_pit");
+	public static final Identifier SAND_PIT = id("extract/sand_pit");
+	public static final Identifier PLANTATION = id("extract/plantation");
+
+	// underground: the deep towns in the realms (LIVING_WORLD.md §8.2)
+	public static final Identifier DEEP_HALL = id("deep/hall");
+	public static final Identifier DEEP_DWELLING = id("deep/dwelling");
+	public static final Identifier DEEP_MARKET = id("deep/market");
+	public static final Identifier DEEP_FORGE = id("deep/forge");
+	public static final Identifier DEEP_GLOW_GARDEN = id("deep/glow_garden");
+	public static final Identifier DEEP_LIFT = id("deep/lift");
+
 	private Archetypes() {
 	}
 
@@ -112,9 +191,14 @@ public final class Archetypes {
 			|| id.equals(WALL) || id.equals(PALISADE);
 	}
 
+	/** Plots that stand over a road (the road runs through them along their facing): gatehouses, toll gates. */
+	public static boolean isOverRoad(Identifier id) {
+		return id.equals(GATEHOUSE) || id.equals(TOLL_GATE);
+	}
+
 	/** Small things that may stand inside a plaza without counting as an overlap (the plaza's {@code keep} lists them). */
 	public static boolean isPlazaFurniture(Identifier id) {
 		return id.equals(WELL) || id.equals(BELL) || id.equals(FOUNTAIN) || id.equals(STATUE) || id.equals(LAMP_POST)
-			|| id.equals(MARKET_STALL);
+			|| id.equals(MARKET_STALL) || id.equals(PILLORY) || id.equals(GALLOWS);
 	}
 }
