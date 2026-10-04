@@ -41,10 +41,11 @@ import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * {@code hearth:civic/school}: the schoolhouse. One airy classroom under the culture's roof with big windows down both
- * sides; rows of desks face the teacher's desk, lectern and blackboard at the far end; pegs and shelves for coats by the
- * door; a little bell turret on the roof calls the children in. Beside it a fenced schoolyard with a shade tree, a
- * bench, a bell on a post and chalked squares on its path.
+ * {@code hearth:civic/school}: the schoolhouse. One lofty classroom under the culture's roof with tall windows down
+ * both sides; rows of desks face the teacher's desk, lectern and blackboard at the far end; pegs and shelves for coats by
+ * the door, which has a porch (or, in the south, a colonnade along the front to wait in the shade); a little bell turret
+ * on the roof calls the children in. Beside it a fenced schoolyard with a shade tree, a bench, a bell on a post and
+ * chalked squares on its path.
  *
  * <p>POIs: SEATs at the desks, the LECTERN, TABLE, STORAGE, DOOR, a MEETING_POINT in the yard.
  *

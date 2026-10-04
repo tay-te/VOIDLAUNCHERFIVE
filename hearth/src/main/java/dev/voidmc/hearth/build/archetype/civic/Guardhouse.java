@@ -43,7 +43,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * {@code hearth:civic/guardhouse}: the watch's post. A stout two-storey house on a stone base: the guard room below
  * (the grindstone, racks of swords, crossbows and shields, helmets on the shelves, a table for cards, the stair), the
  * barracks above with their beds and lockers. Stone and southern traditions crown it with a walkable roof behind
- * battlements and a stair up to it; the others jetty the upper floor under a pitched roof and set a sentry box by the
+ * battlements and a stair up to it (latticed screens before the barracks windows in the dry south); the others may
+ * jetty the upper floor under a pitched roof, hang the alarm bell in a turret on its ridge and set a sentry box by the
  * door. A training dummy and a butt of arrows stand in its little yard; the town's banner hangs over the door.
  *
  * <p>POIs: the GUARD's JOB_SITE at the grindstone, GUARD_POSTs (by the door, on the roof), BEDs, STORAGE, SEAT, DOOR.

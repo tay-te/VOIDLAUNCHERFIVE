@@ -51,8 +51,9 @@ import net.minecraft.world.level.block.state.properties.Half;
  * with its kegs, tables, a big hearth, a bay window to the street) beside a carriage arch that runs through to the yard;
  * upstairs, over the arch too, the guest rooms open off a corridor at the back, reached by a stair from the tap room.
  * Behind lies the stable yard: a lean-to of stalls with hay and a trough, a woodpile, a cart. A painted sign hangs over
- * the street with the inn's name. Timber cultures jetty the upper floor; alpine and karst inns carry balconies; desert
- * and mesa ones a flat roof and an arcade on the yard; mediterranean ones a vine pergola over a front terrace.
+ * the street with the inn's name, a settle and casks of the house's ale stand by the door. Alpine and karst inns carry
+ * balconies; desert and mesa ones a flat roof with a shaded terrace, latticed screens, a striped awning and a palm in the
+ * yard; mediterranean ones a vine pergola over a front terrace; bayou and tropical ones stand on stilts.
  *
  * <p>POIs: COUNTER and MARKET_STALL at the bar and the INNKEEPER's JOB_SITE behind it, SEATs and TABLEs, the HEARTH,
  * BEDs, STORAGE, the DOOR.
@@ -60,7 +61,6 @@ import net.minecraft.world.level.block.state.properties.Half;
  * <p>Params:
  * <ul>
  *   <li>{@code arch_right} (boolean): the carriage arch on the right (seen from the street) (default by seed)</li>
- *   <li>{@code roof} (string, a {@code RoofForm} name)</li>
  *   <li>{@code name} (int): which of the inn names the sign shows (default by seed)</li>
  *   <li>{@code variant} (int): the style variant</li>
  * </ul>
@@ -113,7 +113,8 @@ public final class Inn implements Archetype {
 		int tx1 = arch ? (archRight ? part - 1 : x1 - 1) : x1 - 1;
 		int base = t.raised() ? Grounds.stiltBase(d, x0, zF, x1, zM) : 0;
 		Body body = new Body(x0, zF, x1, zM, base, new int[]{h0, 4}, false, false);
-		if (jetty) {
+		// a jettied front would hide the carriage arch's head behind its brackets and floor: only without an arch
+		if (jetty && !arch) {
 			body.jetty(1, Dirs.FRONT);
 		}
 		d.body(x0, zF, x1, zM);
@@ -389,6 +390,13 @@ public final class Inn implements Archetype {
 		if (t == Tradition.MEDITERRANEAN && zF >= 1) {
 			pergola(d, tx0, tx1, zF - 1, base);
 		}
+		if (Adobe.is(d) && level && zF >= 1 && h0 >= 4) {
+			// a striped awning shading the tap room's front
+			Adobe.awning(d, front, front.index(tx0), front.index(tx1), base + 3);
+		}
+		if (level && zF >= 1) {
+			outside(d, front, doorX, signX(doorX, archRight), tx0, tx1, zF - 1, base, archRight);
+		}
 		Grounds.approach(d, doorX, base, zF - 1);
 		if (level) {
 			Halls.lamp(d, archRight ? px0 - 1 : px1 + 1, 0, 0, 2);
@@ -407,6 +415,12 @@ public final class Inn implements Archetype {
 		}
 		if (arch && dp - 1 - yz0 >= 1) {
 			yard(d, x0, yz0, x1, dp - 1, archRight, px0, px1, base);
+			// a palm in the yard's far corner in the dry south
+			int palmX = archRight ? x0 + 1 : x1 - 1;
+			int palmZ = Math.min(dp - 2, yz0 + 1);
+			if (Adobe.is(d) && dp - 1 - yz0 >= 3 && d.isEmpty(palmX, base, palmZ) && d.isEmpty(palmX, base + 1, palmZ) && d.isSolid(palmX, base - 1, palmZ)) {
+				Adobe.palm(d, palmX, base, palmZ, 5);
+			}
 			// the way from the arch into the yard and out to the street
 			Grounds.approach(d, (px0 + px1) / 2, base, zF);
 		}
@@ -414,6 +428,44 @@ public final class Inn implements Archetype {
 			Garden.snowBanks(d, x0, zF, x1, zM, base, doorX);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+	}
+
+	/**
+	 * What stands outside an inn's door: a settle against the wall on one side, casks of the house's ale on the other
+	 * (a lantern on the top one), each only where the street row is free and level.
+	 */
+	static void outside(Draft d, Side front, int doorX, int signX, int tx0, int tx1, int z, int y, boolean archRight) {
+		int away = archRight ? -1 : 1;
+		// the settle: two seats side by side, on the side away from the arch
+		for (int x = doorX + 2 * away; x != doorX + 5 * away; x += away) {
+			int nx = x + away;
+			if (x < tx0 || x > tx1 || nx < tx0 || nx > tx1) {
+				break;
+			}
+			if (free(d, x, y, z) && free(d, nx, y, z)) {
+				Furniture.chair(d, x, y, z, Dirs.BACK);
+				Furniture.chair(d, nx, y, z, Dirs.BACK);
+				break;
+			}
+		}
+		// the casks toward the arch, clear of the sign
+		for (int x = doorX - 2 * away; x != doorX - 5 * away; x -= away) {
+			if (x < tx0 || x > tx1 || x == signX) {
+				continue;
+			}
+			if (free(d, x, y, z)) {
+				int fx = x;
+				d.inStage(StageKind.EXTERIOR, () -> {
+					d.set(fx, y, z, States.facing(Blocks.BARREL, Direction.UP));
+					d.set(fx, y + 1, z, States.lantern(d.mat(Role.LIGHT).mainOr(Form.FULL, Blocks.LANTERN), false));
+				});
+				break;
+			}
+		}
+	}
+
+	private static boolean free(Draft d, int x, int y, int z) {
+		return d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.isSolid(x, y - 1, z) && d.allowed(x, y + 1, z);
 	}
 
 	private static Integer doorOf(Facade f) {
