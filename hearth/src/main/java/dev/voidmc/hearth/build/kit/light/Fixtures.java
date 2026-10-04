@@ -245,6 +245,17 @@ final class Fixtures {
 				}
 			}
 		}
+		// a lantern set on the floor where the roof comes down too low to stand (under the eaves, under a stair): out of
+		// everyone's way, and how an attic is lit
+		for (int z = Math.max(r.az - 1, cz - radius); z <= Math.min(r.bz + 1, cz + radius); z++) {
+			for (int x = Math.max(r.ax - 1, cx - radius); x <= Math.min(r.bx + 1, cx + radius); x++) {
+				if (lowNook(s, r, x, y, z)) {
+					Fixture l = new Fixture(Fixture.Kind.LAMP, 1.0);
+					l.part(x, y, z, standing(s), StageKind.INTERIOR);
+					out.add(l);
+				}
+			}
+		}
 		// ceiling lanterns anywhere in the room, sconces and torches on its walls, light under rugs
 		for (int k = 0; k < r.cells.size(); k++) {
 			int i = r.cells.getInt(k);
@@ -276,6 +287,25 @@ final class Fixtures {
 				}
 			}
 		}
+	}
+
+	/**
+	 * A free cell at the room's standing level beside one of its cells, on a sturdy floor, where nobody can stand
+	 * because something is overhead at head height (a roof's slope, a stair's underside) and nobody's head passes.
+	 */
+	private static boolean lowNook(Session s, Session.Room r, int x, int y, int z) {
+		if (!s.free(x, y, z) || s.body(x, y, z) || s.climbRoom(x, y, z) || !Session.sturdyAbove(s.g.at(x, y - 1, z))
+			|| Spaces.passable(s.g.at(x, y + 1, z))) {
+			return false;
+		}
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			if (s.g.contains(nx, y, nz) && r.cells.contains(s.g.index(nx, y, nz))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean nearUnmet(Session s, int x, int y, int z, int radius) {
@@ -389,7 +419,8 @@ final class Fixtures {
 						}
 					}
 				}
-				Fixture eave = eave(s, x, ey, z);
+				// under the eave or the porch roof outside (not a lantern inside the room shining out through the door)
+				Fixture eave = s.sp.enclosed(x, ey, z) ? null : eave(s, x, ey, z);
 				if (eave != null) {
 					eave.bonus = beside || over ? 0.1 : 0;
 					out.add(eave);

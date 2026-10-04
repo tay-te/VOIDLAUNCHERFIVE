@@ -6,33 +6,33 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 /**
- * How a culture lights its buildings: the lantern it hangs (iron, brass-coloured copper, a verdigris ship's lamp), the
- * chain it hangs it from, whether its homes burn torches or lanterns on the walls, the colours of its candles, what
- * stands in its yards at night (a lamp post, a brazier, a stone lantern, a tiki torch) and what it hides under a rug.
+ * How a culture lights its buildings: whether its homes burn torches or lanterns on the walls, the colours of its
+ * candles, how its halls hang their lights, what stands in its yards at night (a lamp post, a brazier, a stone lantern, a
+ * tiki torch) and what it hides under a rug. Every surface culture hangs the iron lantern on an iron chain: its flame is
+ * a candle's (a copper lantern burns green, a soul lantern blue, and the surface has no coloured light).
  *
  * <table>
  *   <caption>the manners</caption>
  *   <tr><th>culture</th><th>lantern</th><th>walls</th><th>candles</th><th>yard</th><th>hall chandelier</th></tr>
  *   <tr><td>temperate, alpine, moorland</td><td>iron</td><td>lantern on a bracket</td><td>tallow, red, white</td><td>lamp post</td><td>wheel of lanterns</td></tr>
  *   <tr><td>northern, tundra</td><td>iron</td><td>torches</td><td>tallow, brown</td><td>brazier</td><td>wheel of candles</td></tr>
- *   <tr><td>maritime</td><td>verdigris copper</td><td>lantern on a bracket</td><td>white, blue</td><td>lamp post</td><td>wheel of lanterns</td></tr>
- *   <tr><td>mediterranean</td><td>copper</td><td>lantern on a bracket</td><td>white, yellow</td><td>lamp post</td><td>wheel of lanterns</td></tr>
- *   <tr><td>desert, mesa</td><td>copper</td><td>lantern on a bracket</td><td>orange, yellow, red</td><td>brazier</td><td>wheel of lanterns</td></tr>
+ *   <tr><td>maritime</td><td>iron</td><td>lantern on a bracket</td><td>white, blue</td><td>lamp post</td><td>wheel of lanterns</td></tr>
+ *   <tr><td>mediterranean</td><td>iron</td><td>lantern on a bracket</td><td>white, yellow</td><td>lamp post</td><td>wheel of lanterns</td></tr>
+ *   <tr><td>desert, mesa</td><td>iron</td><td>lantern on a bracket</td><td>orange, yellow, red</td><td>brazier</td><td>wheel of lanterns</td></tr>
  *   <tr><td>steppe</td><td>iron</td><td>lantern on a bracket</td><td>yellow, brown</td><td>brazier</td><td>wheel of lanterns</td></tr>
  *   <tr><td>karst, wisteria</td><td>iron</td><td>lantern on a bracket</td><td>red, white / white, red, brown</td><td>stone lantern</td><td>lanterns in a row</td></tr>
  *   <tr><td>bayou</td><td>iron</td><td>lantern on a bracket</td><td>tallow, yellow</td><td>lamp post</td><td>wheel of lanterns</td></tr>
  *   <tr><td>tropical</td><td>iron</td><td>torches</td><td>yellow, orange, brown</td><td>tiki torch</td><td>wheel of lanterns</td></tr>
  * </table>
  *
- * A style whose {@code light} role names a lantern other than the iron one (a soul lantern, a copper one) keeps it.
- * Copper is always waxed: a blueprint must not weather out of true (repairs compare blocks).
+ * A deep settlement's style may name another lantern in its {@code light} role (a soul lantern, an Expanse lamp); copper
+ * there is always waxed (a blueprint must not weather out of true: repairs compare blocks).
  *
  * <p><b>The surface burns only what folk burn</b> (lanterns, candles, torches, fires; glowstone or shroomlight hidden
  * under a rug): Expanse's glowing blocks (amber, glowcaps, prismite, lumenwood) belong to the realms underground, so a
@@ -71,22 +71,14 @@ public final class Manner {
 		Culture c = d.style().culture() == null ? Culture.TEMPERATE : d.style().culture();
 		this.culture = c;
 		this.deep = deep(d);
+		// the surface burns a candle's warm flame: the iron lantern everywhere (a copper lantern's flame is green, a soul
+		// lantern's blue); a deep settlement may hang what its style names (a soul lantern, an Expanse lamp)
 		Block styleLantern = d.mat(Role.LIGHT).mainOr(Form.FULL, Blocks.LANTERN);
-		if (!styleLantern.defaultBlockState().hasProperty(BlockStateProperties.HANGING)
-			|| !this.deep && !"minecraft".equals(BuiltInRegistries.BLOCK.getKey(styleLantern).getNamespace())) {
+		if (!this.deep || !styleLantern.defaultBlockState().hasProperty(BlockStateProperties.HANGING)) {
 			styleLantern = Blocks.LANTERN;
 		}
-		Block copper = States.block("minecraft:waxed_copper_lantern", Blocks.LANTERN);
-		Block verdigris = States.block("minecraft:waxed_weathered_copper_lantern", Blocks.LANTERN);
-		Block copperChain = States.block("minecraft:waxed_copper_chain", Blocks.IRON_CHAIN);
-		Block verdigrisChain = States.block("minecraft:waxed_weathered_copper_chain", Blocks.IRON_CHAIN);
-		boolean iron = styleLantern == Blocks.LANTERN;
-		this.lantern = !iron ? styleLantern : switch (c) {
-			case MEDITERRANEAN, DESERT, MESA -> copper;
-			case MARITIME -> verdigris;
-			default -> Blocks.LANTERN;
-		};
-		this.chain = this.lantern == copper ? copperChain : this.lantern == verdigris ? verdigrisChain : Blocks.IRON_CHAIN;
+		this.lantern = styleLantern;
+		this.chain = Blocks.IRON_CHAIN;
 		this.torches = switch (c) {
 			case NORTHERN, TUNDRA, TROPICAL -> true;
 			default -> false;

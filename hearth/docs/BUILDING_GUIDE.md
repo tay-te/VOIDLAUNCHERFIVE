@@ -601,12 +601,12 @@ with a body (a bracket, a post, a brazier's stand) it runs again on what that ma
 never touched; a linear work is lit only in columns it already builds in. `lighting=none` in the params skips the
 pass (previews and timing only).
 
-How each culture lights (`Manner`): iron lanterns and chains in most; waxed copper in the Mediterranean, the desert and
-the mesa; weathered (waxed) copper by the sea; torches on the walls in the north, the tundra and the tropics; candles
+How each culture lights (`Manner`): the iron lantern on an iron chain everywhere on the surface (a copper lantern's
+flame is green, a soul lantern's blue); torches on the walls in the north, the tundra and the tropics; candles
 tallow first and coloured as the house rises; yard lights a lamp post, a brazier (north, tundra, desert, mesa, steppe),
 a stone lantern (karst, wisteria) or a tiki torch (tropical); glowstone or shroomlight under rugs. **The surface burns
-only what folk burn.** A style's `light` role may name another vanilla lantern (soul, copper); an Expanse lamp there is
-ignored on the surface, and only the deep settlements hide amber in their floors.
+only what folk burn.** A style's `light` role is read only by the deep settlements (a soul lantern, an Expanse lamp),
+and only they hide amber in their floors.
 
 ### Lighting by design
 

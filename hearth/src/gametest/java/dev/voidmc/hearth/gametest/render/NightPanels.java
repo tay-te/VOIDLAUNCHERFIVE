@@ -74,6 +74,7 @@ public final class NightPanels {
 			int ceilingCap = Math.min(next - 1, floor + 7);
 			// the floor's walls to head height, and its lights hung above (lanterns, chains, the brackets and wheels they hang from)
 			Voxels c = world.cut(floor + 1, (x, y, z, st) -> y <= ceilingCap && (st.getLightEmission() > 0
+				&& !(st.getBlock() instanceof net.minecraft.world.level.block.CampfireBlock)
 				|| st.getBlock() instanceof net.minecraft.world.level.block.ChainBlock
 				|| st.getBlock() instanceof net.minecraft.world.level.block.FenceBlock && hangsLight(world, x, y, z)));
 			// hidden light blocks shown as lime markers
@@ -104,6 +105,8 @@ public final class NightPanels {
 			String name = "level " + (floor - spec.floorY());
 			labels.add(name + " plan" + (marked > 0 ? " (" + marked + " dark)" : ""));
 			labels.add(name + " cut");
+			cuts.add(levels(res, spec, floor, next));
+			labels.add(name + " light levels");
 		}
 		Map<LightRules.Kind, Integer> by = new EnumMap<>(LightRules.Kind.class);
 		for (LightRules.Need n : res.unmet()) {
@@ -113,6 +116,85 @@ public final class NightPanels {
 			+ fixtures(bp) + "   (lime: hidden light blocks; red/orange/magenta: dark room/door/ground cells)";
 		Files.createDirectories(file.getParent());
 		ImageIO.write(panel(front, back, cuts, labels, title, status), "png", file.toFile());
+	}
+
+	/**
+	 * The light-level map of one floor, front (the street) at the bottom: per column of the plot the level at its
+	 * standing cell (the one nearest to failing the rule in the floor's band). Rooms are full squares, yellow at 12 and
+	 * up, amber 8 to 11; the ground, porches and pockets smaller squares, pale at 8 and up, slate below; entrances
+	 * ringed in orange; anything under its need red (a room or a door) or magenta (never-dark ground).
+	 */
+	static BufferedImage levels(LightCheck.Result res, PlotSpec spec, int floor, int next) {
+		dev.voidmc.hearth.build.blueprint.LocalFrame f = new dev.voidmc.hearth.build.blueprint.LocalFrame(spec);
+		int cell = 18;
+		int pad = 4;
+		int fw = f.frontage();
+		int fd = f.depth();
+		java.util.Map<Long, LightRules.Need> show = new java.util.HashMap<>();
+		int lo = floor - 2;
+		int hi = Math.min(next - 2, floor + 4);
+		for (LightRules.Need n : res.needs()) {
+			if (n.y() < lo || n.y() >= hi || n.kind() == LightRules.Kind.STREET) {
+				continue;
+			}
+			int lx = f.localX(n.x(), n.z());
+			int lz = f.localZ(n.x(), n.z());
+			long key = net.minecraft.world.level.ChunkPos.pack(lx, lz);
+			LightRules.Need was = show.get(key);
+			if (was == null || res.light().at(n.x(), n.y(), n.z()) - n.min() < res.light().at(was.x(), was.y(), was.z()) - was.min()) {
+				show.put(key, n);
+			}
+		}
+		int gx0 = -1;
+		int gz0 = -2;
+		int gw = fw + 2;
+		int gd = fd + 3;
+		BufferedImage img = new BufferedImage(gw * cell + pad * 2, gd * cell + pad * 2, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = img.createGraphics();
+		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+		g.setColor(new Color(BG, true));
+		g.fillRect(0, 0, img.getWidth(), img.getHeight());
+		g.setColor(new Color(0x2A2F3C));
+		g.drawRect(pad + (0 - gx0) * cell, pad + (gd - 1 - (fd - 1 - gz0)) * cell, fw * cell, fd * cell);
+		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 10));
+		for (int lz = gz0; lz < gz0 + gd; lz++) {
+			for (int lx = gx0; lx < gx0 + gw; lx++) {
+				int px = pad + (lx - gx0) * cell;
+				// front (local z = -1, the street) at the bottom; the plot's left as seen from the street at the left
+				int pz = pad + (gd - 1 - (lz - gz0)) * cell;
+				int wx = f.worldX(lx, lz);
+				int wz = f.worldZ(lx, lz);
+				LightRules.Need n = show.get(net.minecraft.world.level.ChunkPos.pack(lx, lz));
+				if (n == null) {
+					// a wall at head height, or nothing
+					var st = res.grid().contains(wx, floor + 1, wz) ? res.grid().at(wx, floor + 1, wz) : null;
+					if (st != null && !st.isAir() && res.grid().placed(wx, floor + 1, wz) && !dev.voidmc.hearth.build.kit.light.Spaces.passable(st)) {
+						g.setColor(new Color(0x3A3F4C));
+						g.fillRect(px + 1, pz + 1, cell - 2, cell - 2);
+					}
+					continue;
+				}
+				int l = res.light().at(n.x(), n.y(), n.z());
+				boolean inside = n.kind() == LightRules.Kind.ROOM || n.kind() == LightRules.Kind.DOOR;
+				// rooms and doors warm (yellow 12+, amber 8+), the ground and pockets cool (pale 8+, slate 1+); unmet red or magenta
+				Color col = inside ? (l >= 12 ? new Color(0xF2C14E) : new Color(0xD98E32)) : l >= 8 ? new Color(0x9DB0CC) : new Color(0x5C6B86);
+				if (l < n.min()) {
+					col = inside ? new Color(0xE53935) : new Color(0xC2185B);
+				}
+				int inset = n.kind() == LightRules.Kind.ROOM ? 1 : 3;
+				g.setColor(col);
+				g.fillRect(px + inset, pz + inset, cell - inset * 2, cell - inset * 2);
+				if (n.kind() == LightRules.Kind.DOOR) {
+					g.setColor(new Color(0xFF8F00));
+					g.drawRect(px, pz, cell - 1, cell - 1);
+				}
+				g.setColor(new Color(0x1A1A1A));
+				String t = Integer.toString(l);
+				g.drawString(t, px + (cell - g.getFontMetrics().stringWidth(t)) / 2, pz + cell / 2 + 4);
+			}
+		}
+		g.dispose();
+		return img;
 	}
 
 	/** A bracket or a wheel's arm: a fence with a lantern under it, or beside one that has. */
