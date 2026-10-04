@@ -2,7 +2,14 @@
 	"required": true,
 	"package": "dev.voidmc.hearth.mixin.repair",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"BlockItemMixin",
+		"BucketItemMixin",
+		"FireBlockMixin",
+		"LevelMixin",
+		"ServerExplosionMixin",
+		"ServerPlayerGameModeMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	}
