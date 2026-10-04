@@ -698,6 +698,33 @@ final class TownHouses {
 		}
 	}
 
+	/**
+	 * A bedroom for {@code beds}: the furnisher's own placing first (it knows the narrow town rooms, their stairs and
+	 * their doors), then any bed it could not fit placed on purpose where a wall and a way in allow.
+	 */
+	static void bedroom(Draft d, Rooms.Room room, int beds) {
+		Rooms.furnish(d, room, Rooms.Type.BEDROOM, beds, JobType.NONE);
+		int short_ = beds - bedsIn(d, room);
+		if (short_ > 0) {
+			dev.voidmc.hearth.build.kit.homestead.Beds.place(d, room, short_);
+		}
+	}
+
+	/** The beds (counted by their heads) standing on a room's floor. */
+	static int bedsIn(Draft d, Rooms.Room room) {
+		int n = 0;
+		for (int z = room.z0; z <= room.z1; z++) {
+			for (int x = room.x0; x <= room.x1; x++) {
+				var st = d.get(x, room.y, z);
+				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.BedBlock
+					&& st.getValue(net.minecraft.world.level.block.BedBlock.PART) == net.minecraft.world.level.block.state.properties.BedPart.HEAD) {
+					n++;
+				}
+			}
+		}
+		return n;
+	}
+
 	/** Furnishes a storey as {@code type}, keeping the stair and any extra cells. */
 	static void furnish(Draft d, Rooms.Room room, StairCore core, int k, Rooms.Type type, int beds, List<int[]> keep) {
 		if (room == null) {

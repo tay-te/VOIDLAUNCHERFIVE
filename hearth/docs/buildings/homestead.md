@@ -19,8 +19,8 @@ Everything is registered in `build/archetype/HomesteadArchetypes.java`; names ar
 | `hearth:work/barn` | `archetype/work/Barn.java` | WORKPLACE, HERDER | 9–13 × 11–15 | 11–16 | – | hamlet | all | OUTSKIRTS | 1.0 |
 | `hearth:house/farmhouse` | `archetype/house/Farmhouse.java` | HOUSING | 11–17 × 11–17 | 11–15 | 2 | hamlet | all | OUTSKIRTS | 1.0 |
 | `hearth:house/longhouse` | `archetype/house/Longhouse.java` | HOUSING | 7–9 × 13–21 | 9–13 | 3 | camp | northern, tundra, moorland | – | 1.4 |
-| `hearth:house/round_house` | `archetype/house/RoundHouse.java` | HOUSING | 8–9 × 8–9 | 9–13 | 2 | camp | steppe, tropical | – | 1.5 |
-| `hearth:house/stilt_house` | `archetype/house/StiltHouse.java` | HOUSING | 7–9 × 7–9 | 9–13 | 2 | camp | bayou, tropical, maritime | ON_WATER | 1.5 |
+| `hearth:house/round_house` | `archetype/house/RoundHouse.java` | HOUSING | 9–13 × 9–13 | 10–15 | 2 | camp | steppe, tropical | – | 1.5 |
+| `hearth:house/stilt_house` | `archetype/house/StiltHouse.java` | HOUSING | 9–12 × 10–13 | 10–14 | 2 | camp | bayou, tropical, maritime | ON_WATER | 1.5 |
 | `hearth:house/cottage` | `archetype/house/Cottage.java` | HOUSING | 7–11 × 7–11 | 6–16 | 2 | camp | all | HILLSIDE | 1.0 |
 | `hearth:house/hut` | `archetype/house/Hut.java` | HOUSING | 5–7 × 5–7 | 5–10 | 1 | camp | all | – | 1.0 |
 
@@ -51,7 +51,8 @@ POIs: FARMER job sites (compost bin, stands by the trees), STORAGE. Params: `she
 walled cultures, a trampled patch round a trough and the herder's feed cauldron, an open-fronted shelter with hay and a
 hay rack, a pond in the lowest hollow of a big one, long flowery grass away from the gate, a shade tree, a second gate
 on a big one. No animals: the sim or the folk bring them.
-POIs: HERDER job sites (cauldron, hay rack, gate, out in the grass), STORAGE. Params: `shelter`, `pond`, `boundary`.
+POIs: HERDER job sites (cauldron, hay rack, gate, out in the grass), STORAGE, and **pens** (below). Params: `shelter`,
+`pond`, `boundary`.
 
 **`farm/paddy`** (karst, tropical). Flooded terraces down the hill, each a level sheet of water over mud with rows of
 seagrass rice (tall seagrass sunk a block so its head stays under the surface: it holds water in both halves and would
@@ -97,46 +98,92 @@ beds between the posts, the high seat and table at the far end, chests and banne
 snow banks outside. POIs: BED, HEARTH (both sides of the fire), SEAT, TABLE, STORAGE, DOOR. Params: `roof`
 (`shingle|turf|thatch|hip`), `bow` (bool).
 
-**`house/round_house`** (steppe, tropical). A ring of plaster or mud between posts with a coloured band, a cone of
-thatch, reed or tile with a clay pot or a thatch knob on the point, shuttered or latticed windows, a door between two
-posts; the ring is sized to hold two beds round a central fire. Stilted where the culture builds on stilts or over water:
-the floor on posts, and on a big plot a veranda round it under a two-tier roof (a skirt over the veranda, a steep cone
-over the house). A stone bench round the foot of the wall, pots and a woodpile.
-POIs: BED, HEARTH, DOOR, STORAGE, TABLE, VIEWPOINT (veranda). Params: `roof` (`thatch|tile`), `stilts` (bool).
+**`house/round_house`** (steppe, tropical). Truly round: always an odd ring (a whole-cell centre, the round circles:
+seven, nine or eleven across as the plot allows), so door, fire and the cone's point line up. *Steppe* (a rondavel): a
+mud-plastered wall on a dark plinth, five courses high on the bigger rings, painted between plinth and head band with
+bold figures (triangles, a stepped zigzag, lozenges) in whichever of the accent and the plinth stands out from the wall,
+on an even ground of the wall's main colour; a steep cone of thatch (where it can be laid in courses, or bales) or the
+culture's roofing, overhanging a block all round, with a **smoke hole** at its point under a little cap over the central
+fire; a stone bench round the foot of the wall, pots by the door. *Tropical*: a **veranda** two cells deep all round under
+one bell-cast cone that sweeps shallow over the deck on slender posts and steep over the house, raised on posts over water
+or wet ground (on a plinth elsewhere); a hammock, pots, lanterns under the eave. A ring too small for a veranda stands on
+posts with a landing at its door; a small ring sleeps its household first and cooks on its veranda. Inside: the fire,
+then the beds with their heads to the wall (placed first, so the house sleeps what it promises), chests, pots, a lantern.
+POIs: BED, HEARTH, DOOR, STORAGE, VIEWPOINT (veranda), SEAT (hammock). Params: `roof` (`thatch|tile`), `stilts`,
+`veranda` (bool), `station`, `household`.
 
-**`house/stilt_house`** (bayou, tropical, maritime; ON_WATER). The floor at the boardwalk's level, lifted on piles a
-block or two over the water (or two over wet ground), never more than two steps above the street; a deep gallery across
-the front under its own roof with rocking chairs, a lantern and a barrel; board walls, a stove and stovepipe; a side
-boardwalk to a landing stage at the back with a mooring post and lantern (or a little landing off a back door); Spanish
-moss (Expanse) or pale hanging moss from the bayou eaves. POIs: BED, DOOR, HEARTH (stove), STORAGE, TABLE, DOCK (landing
-over water, VIEWPOINT on dry ground). Params: `roof`, `side_walk` (bool).
+**`house/stilt_house`** (bayou, tropical, maritime; ON_WATER). A little house over the water, its life on its galleries.
+The floor at the boardwalk's level or a step or two up on piles; a **front porch** two deep under the roof (rocking chairs
+and a side table, pots on the rail heads by the steps, a lantern under the beam, slender turned posts between log corner
+posts); a **side gallery** two wide down one side on a wide plot (a hammock slung between two posts, nets on the rail by
+the sea) or a walk under the eave on a narrow one; a **back porch** with a back door, traps and a barrel, from which a step
+(a ladder where the drop is deeper) goes down to the **boat landing**: boards at the water with a mooring post and its
+lantern, crab traps or lobster pots, and a **punt** (a hull of stairs and slabs) moored alongside. *Bayou*: board walls
+(corner posts, sill and plate beams, clean boards between), tall shuttered windows, a steep tin roof with its gable to the
+boardwalk, bell-cast over the galleries so the eaves sweep low, barge boards down the rakes, a stovepipe, Spanish moss
+from the eaves. *Tropical*: palm and bamboo under a deep hipped bell-cast roof of bamboo or courses of thatch, lattice
+windows, the smoke left to find its way out. *Maritime*: a fisher's house of boards or whitewash under a straight slate
+gable, nets over the rail. On dry ground the same house stands on its posts with **lattice skirting** between them and a
+yard behind (a woodpile) instead of the landing. Inside: kitchen and living by the stove, the bedroom behind a partition
+on a deep plot (beds placed first), a boarded ceiling with a lantern. POIs: BED, DOOR, HEARTH (stove), STORAGE, TABLE,
+SEAT, VIEWPOINT, DOCK (the landing over water). Params: `roof` (`gable|hip|half_hip`), `side_walk` (bool), `station`,
+`household`.
 
 **`house/cottage`** (refined). The shared cottage (`HouseBuilder.cottage`) with: log walls peeled (stripped logs, corner
 posts left in bark) and a stone sill course in log cultures without a plinth, so northern cottages read warm rather than
-dark; and a **split-level** variant on hillside plots (rise or fall of 3+ to the back, not terraced): where the land
-falls, the street door opens into the main floor and the lower storey has a back door onto a terrace at the lower
-ground; where it rises, the street door opens into the lower storey cut into the bank and the upper floor has a side
-door out at grade. A cottage whose loft is too low for a bed sleeps downstairs. Params: `storeys`, `garden`, `outshot`,
-`split` (bool, default true), `terraced`.
+dark; in log cultures on grass, often (45%) a **turf roof**: a low gable of sods with flowers in them, barge boards at the
+rakes and an eave board, the house one storey under it; **crossed horns** over the gables of log houses and **drip caps**
+over the windows of log and board houses (the window joinery, white where the culture paints its trim); in flat-roofed
+cultures the **dry-land dressing** (`HouseBuilder.dryDress`): rounded-over parapets in the pueblos, corner pinnacles
+elsewhere, a **wind tower** with latticed vents rising from a back corner of the roof (desert), a latticed screen boxed out
+over the window above the door on a two-storey house, the door in a painted surround with a tile at its sill, jars, a
+palm-frond **ramada** before the door, a rug and seats on the roof terrace. And a **split-level** variant on hillside
+plots (rise or fall of 3+ to the back, not terraced): where the land falls, the street door opens into the main floor
+and the lower storey has a back door onto a terrace at the lower ground; where it rises, the street door opens into the
+lower storey cut into the bank and the upper floor has a side door out at grade. A cottage whose loft is too low for a
+bed sleeps downstairs (beds placed on purpose, `Beds`). Params: `storeys`, `garden`, `outshot`, `split` (bool, default
+true), `terraced`, `turf` (bool), `station`, `household`.
 
-**`house/hut`** (refined). Round cultures: a round hut on the Round kit (ring of posts and plaster, cone roof, bed then
-fire). Flat-roofed cultures: a boxy adobe cell with raised corner merlons, a ramada of poles and slabs on the roof, a
-smoker oven against the side and decorated pots. Elsewhere a small gabled hut with peeled logs and a stone sill in log
-country. One bed, and a chest or a table where they fit.
+**`house/hut`** (refined). Round cultures: a round hut on an odd ring of the Round kit (painted in the steppe, a smoke hole
+over its fire, the bed placed first). Flat-roofed cultures: an adobe cell with its parapet rounded over, a palm-frond shade
+before the door where the plot allows, a smoker oven against the side (the household's HEARTH before its mouth), jars and a
+tile at the sill. Elsewhere a small gabled hut with peeled logs and a stone sill in log country. One bed, and a chest or a
+table where they fit.
+
+## Pens: where beasts are kept
+
+Every enclosure marks where its beasts stand with a `WORK_FACE` POI for the `HERDER` (`Spots.pen`), facing its gate: the
+middle of a pasture's grass (and each quarter of a big one), each barn stall, a farmhouse kraal (compound) and pen
+(raised). The sim stocks and returns animals there; the herder works from the `JOB_SITE`s at the gate, the trough and the
+hay rack. The ground round a pen's mark is kept open (grass, bedding), so the herd has room.
+
+## Households (stations)
+
+Homes read `station` (a `Station` name) and `household` (`{job: <JobType>}`) and are dressed for who lives there
+(`kit/homestead/Household`, docs/LIVING_WORLD.md §8.1): a smith's anvil in the corner by the fire and tongs (a chain)
+hung beside the hearth; a fisher's creel, barrel and a net high in a corner; a farmer's hay and harvest; a scholar's,
+priest's or healer's bookshelves (a brewing stand for the healer); a merchant's carpets and a strongbox (`STRONGBOX` POI)
+in the bedroom; a tailor's loom; a mason's stonecutter. The station's finish on the materials (rougher for the poor,
+cleaner and finer for merchants and gentry) comes from the style (`StationFinish`), so the same cottage reads differently
+for different households. Every piece is claimed through the room, so doors, beds and stores stay reachable. Wired into
+every home of the family and of the town homes (stilt, round, cottage, farmhouse, hut, row, town, shop, tower, cliff and
+courtyard houses).
 
 ## Signature looks by culture
 
 - **Moorland**: stone laithe steadings and blackhouse longhouses inside dry-stone walls, fields of dry-stone banks.
 - **Tundra / northern**: longhouses with turf or shingle roofs and crossing horns round a fire; tun farmsteads of log
-  buildings and a granary on staddles; peeled-log cottages.
-- **Steppe**: round houses and compounds (round house, round granary, kraal) in rings.
-- **Bayou / tropical / maritime**: stilt houses over the water with galleries and landing stages; raised farmsteads;
-  tropical round houses on posts with veranda skirts.
+  buildings and a granary on staddles; peeled-log cottages under flowered turf or shingle, with horns and drip caps.
+- **Steppe**: painted rondavels under steep cones with smoke holes; compounds (round house, round granary, kraal).
+- **Bayou / tropical / maritime**: stilt houses over the water with porches, side galleries, hammocks, boat landings and
+  punts; raised farmsteads; tropical round houses under one sweeping cone over a veranda.
 - **Karst**: paddies stepping down the hill with bunds, shrine lanterns and thatched shelters; tea terraces; court
   farmsteads.
 - **Mediterranean / alpine**: dry-stone terraces of vines and olives, or hay meadows with beehives; alpine barns with a
   boarded loft over a stone byre.
-- **Desert / mesa**: court farmsteads behind walls, flat-roofed byres with rooftop hay under ramadas, adobe huts.
+- **Desert / mesa**: houses with wind towers, rounded or crested parapets, latticed screens, palm-frond shades and roof
+  terraces; court farmsteads behind walls with an arcade before the house and a painted gate; flat-roofed byres with a
+  palm shade before their doors and rooftop hay; adobe huts.
 
 ## The kit (`build/kit/homestead/`)
 
@@ -150,9 +197,17 @@ country. One bed, and a chest or a table where they fit.
 - `Spots` – standable cells, POI placement (never on the plot ring), `claimed` cells.
 - `Land` – raise-only mending, surface paths, yard levelling without water dykes.
 - `Barns` – barn halls (boards, logs, masonry), loft, cart doors, stalls and loft stair, side windows, cupola.
-- `Round` – rings, ring walls with posts, cone and skirt roofs, ring rooms, central fire, pots.
+- `Round` – rings, ring walls with posts or **paintings** (`Pattern`), cone roofs with a **smoke hole**, skirts, ring
+  rooms, central fire, pots.
 - `Turf` – turf roofs with an eave board, moss and tufts or snow.
 - `Logs` – peeled wall logs, stone sill course.
+- `Verandas` – decks on piles, posts, rails, rocking chairs, side tables, hammocks, lattice skirts, lanterns, rail pots.
+- `Waterside` – punts moored on the water, mooring posts with lanterns, crab traps and lobster pots, nets on the rail.
+- `Beds` – beds placed first and on purpose (heads to walls, a way in kept beside each, claimed through the room).
+- `Household` – the household's station and trade read from the spec, and the things that say so.
+- `RoofDress` – barge boards (a roof row or column restated in the trim).
+- `Carving` – crossed horns over gables, drip caps over openings.
+- `Adobe` – parapets (rounded or crested), wind towers, palm-frond ramadas, tiled thresholds, jars, roof-terrace life.
 
 ## Previews
 
@@ -185,8 +240,11 @@ piles; longhouses with a central fire and HEARTH POI; split-level cottages openi
 
 ## Known limits
 
-- Farm plots are drawn without animals or crops growing over time; the pasture expects the sim to stock it.
-- Round houses on the smallest plots are rounded squares; the 9-wide veranda house is the round one.
+- Farm plots are drawn without animals or crops growing over time; the pasture expects the sim to stock it (pens marked).
+- A seven-ring (the smallest round house) still steps like an octagon; nine and eleven read round.
 - Laithe and steading barns read best on deep plots (15+); at 13 deep the barn end of a laithe is easy to miss.
-- Desert and mesa byres are still boxes, dressed with a ramada and beam ends.
-- Cottages in the mesa, mediterranean and desert styles sometimes have one bed (no room for a second downstairs).
+- The court farmstead's arcade wants a court five deep; on a shallower one it is left out.
+- Northern timber stays brown in the base palette (spruce and dark oak): the silvered-and-tarred contrast and white trim
+  come with the style's variants (pale oak, birch); the drip caps and horns use the roles that carry them.
+- The mesa's terracotta has no stairs, so its parapets cannot be rounded over; pueblo walls stay square-topped.
+- Offline renders show vanilla stand-ins for Expanse woods (willow, palm, baobab, redwood).

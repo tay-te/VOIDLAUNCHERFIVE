@@ -580,6 +580,29 @@ public final class Barns {
 		}
 	}
 
+	/**
+	 * The back gable: a loft window high in its middle (shuttered in timber, a slit in masonry) and a slatted vent under
+	 * the ridge, so the back of a barn is not a blank wall.
+	 */
+	public static void backGable(Draft d, Hall h) {
+		Side back = Side.of(h.x0, h.z0, h.x1, h.z1, Dirs.BACK);
+		int mid = back.middle();
+		int x = back.x(mid);
+		int z = back.z(mid);
+		int y = Math.max(h.y + 3, h.loftY + 1);
+		if (Openings.isWallBlock(d, x, y, z) && Openings.isWallBlock(d, x, y + 1, z) && Openings.isWallBlock(d, x, y - 1, z)) {
+			Build b = build(d);
+			Openings.window(d, back, back.column(mid), y, 1, 1, b == Build.MASONRY ? Openings.WindowStyle.SLIT : Openings.WindowStyle.PLAIN,
+				new Openings.WindowOpts(b != Build.MASONRY, false, b != Build.MASONRY, true));
+		}
+		if (h.roof() != null) {
+			int top = h.roof().bottomY(x, z) - 1;
+			if (top - 1 > y + 1 && Openings.isWallBlock(d, x, top, z)) {
+				d.inStage(StageKind.OPENINGS, () -> d.set(x, top, z, d.mat(Role.SHUTTER).trapdoor(Dirs.FRONT, Half.BOTTOM, true)));
+			}
+		}
+	}
+
 	/** A cupola on the ridge of a big barn: a little louvred box under its own roof with a vane. */
 	public static void cupola(Draft d, Hall h) {
 		if (h.roof() == null) {

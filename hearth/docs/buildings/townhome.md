@@ -115,6 +115,7 @@ All optional; defaults are seeded choices. Party walls are always read through `
 | `shops` | tenement | workshops behind shop windows either side of the hall |
 | `stacked` | cliff_dwelling | raised on the roof of the dwelling below (`stacked_on`) |
 | `roof` | all but cliff_dwelling | a `RoofForm` name |
+| `station`, `household` | all but tenement and manor | who lives there (a `Station` name; `{job: <JobType>}`): the living room is dressed for the household's trade and station (`kit/homestead/Household`, see homestead.md), the materials' finish comes from the style |
 | `variant` | all | the style variant |
 
 **Stacking contract (cliff dwelling).** The roof deck's walking level is `floorY + maxHeight - 1` (deck block at

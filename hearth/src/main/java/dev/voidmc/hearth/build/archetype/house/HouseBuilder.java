@@ -632,6 +632,26 @@ final class HouseBuilder {
 				}
 			}
 		}
+		// a pueblo's ladder up its front to the roof, its rails over the parapet; a horno in the yard
+		if (t.pueblo()) {
+			Side front = b.side(0, Dirs.FRONT);
+			int[] r0 = b.rect(0);
+			for (int i : new int[]{1, front.last() - 1, 2, front.last() - 2}) {
+				int x = front.x(i);
+				if (door != null && Math.abs(x - door) <= 1) {
+					continue;
+				}
+				int deckY = terraceY != Integer.MIN_VALUE ? terraceY : deck;
+				if (dev.voidmc.hearth.build.kit.homestead.Adobe.ladder(d, x, r0[1] - 1, Dirs.FRONT, b.baseY, deckY)) {
+					break;
+				}
+			}
+			for (int x : new int[]{0, d.frontage() - 1}) {
+				if (r0[1] >= 3 && dev.voidmc.hearth.build.kit.homestead.Adobe.horno(d, x == 0 ? 0 : x, b.baseY, Math.max(1, r0[1] - 2), x == 0 ? Dirs.RIGHT : Dirs.LEFT)) {
+					break;
+				}
+			}
+		}
 		// the roof lived on: a rug in the shade, seats and jars
 		dev.voidmc.hearth.build.kit.homestead.Adobe.terraceLife(d, tr[0] + 1, tr[1] + 1, tr[2] - 1, tr[3] - 1, deck, tr[0] + 1, tr[3] - 1);
 	}
@@ -749,11 +769,17 @@ final class HouseBuilder {
 			}
 		}
 		boolean bedroomBelow = b.storeys() < 2;
-		Rooms.furnish(d, ground, bedroomBelow ? Rooms.Type.BEDROOM : Rooms.Type.KITCHEN, bedroomBelow ? 1 : 0, JobType.NONE);
+		int[] fire = hearth == null ? null : new int[]{hearth[0], hearth[1]};
 		if (bedroomBelow) {
+			// no loft: the household sleeps by the fire, its beds placed first, then the trade's piece, then the kitchen
+			TownHouses.bedroom(d, ground, 2);
+			dev.voidmc.hearth.build.kit.homestead.Household.first(d, ground, fire);
+			Rooms.furnish(d, ground, Rooms.Type.KITCHEN, 0, JobType.NONE);
+		} else {
+			dev.voidmc.hearth.build.kit.homestead.Household.first(d, ground, fire);
 			Rooms.furnish(d, ground, Rooms.Type.KITCHEN, 0, JobType.NONE);
 		}
-		dev.voidmc.hearth.build.kit.homestead.Household.dress(d, ground, ground, hearth == null ? null : new int[]{hearth[0], hearth[1]});
+		dev.voidmc.hearth.build.kit.homestead.Household.dress(d, ground, ground, fire);
 		// exposed joists under the ground floor's ceiling
 		if (b.storeys() >= 2) {
 			Floors.joists(d, ix0, iz0, ix1, iz1, b.floorY(1) - 1, (ix1 - ix0) <= (iz1 - iz0) ? Direction.Axis.X : Direction.Axis.Z, 2, b.baseY);

@@ -499,7 +499,7 @@ public final class StiltHouse implements Archetype {
 			if (beds < 2) {
 				beds += Beds.place(d, front, 2 - beds);
 			}
-			Rooms.furnish(d, back, Rooms.Type.BEDROOM, 0, JobType.NONE);
+			Rooms.furnish(d, back, Rooms.Type.BEDROOM, Math.max(0, 2 - beds), JobType.NONE);
 			Rooms.furnish(d, front, Rooms.Type.KITCHEN, 0, JobType.NONE);
 			Household.dress(d, front, back, stove);
 		} else {
@@ -512,8 +512,9 @@ public final class StiltHouse implements Archetype {
 				room.block(stove[0], stove[1]);
 				room.keep(stove[0] + (stove[0] == ix0 ? 1 : -1), stove[1]);
 			}
-			Beds.place(d, room, (ix1 - ix0 + 1) * (iz1 - iz0 + 1) >= 15 ? 2 : 1);
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 0, JobType.NONE);
+			int want = (ix1 - ix0 + 1) * (iz1 - iz0 + 1) >= 15 ? 2 : 1;
+			int placed = Beds.place(d, room, want);
+			Rooms.furnish(d, room, Rooms.Type.BEDROOM, Math.max(0, want - placed), JobType.NONE);
 			Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 			Household.dress(d, room, room, stove);
 		}
@@ -737,8 +738,8 @@ public final class StiltHouse implements Archetype {
 					if (!roof.covers(x, z) || Noise.unit(d.seed() ^ 0x3055, x, 0, z) > 0.4) {
 						continue;
 					}
-					// only at the roof's edge
-					boolean edge = !roof.covers(x - 1, z) || !roof.covers(x + 1, z) || !roof.covers(x, z - 1) || !roof.covers(x, z + 1);
+					// only along the eaves (the long sides), not down the gables' rakes
+					boolean edge = (!roof.covers(x - 1, z) || !roof.covers(x + 1, z)) && z > roof.z0 && z < roof.z1;
 					int y = roof.bottomY(x, z) - 1;
 					if (!edge || y <= base + 1 || !d.isAbsent(x, y, z) || !d.isAbsent(x, y - 1, z) || z < 0 && y - 1 < 3) {
 						continue;

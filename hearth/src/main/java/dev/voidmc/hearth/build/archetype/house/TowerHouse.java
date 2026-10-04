@@ -253,13 +253,13 @@ public final class TowerHouse implements Archetype {
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, null);
 				if (!chambers) {
-					Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
+					TownHouses.bedroom(d, room, 2);
 				}
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 			} else if (loggia) {
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 			} else {
-				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
+				TownHouses.bedroom(d, room, top && roof != null ? 1 : 2);
 			}
 			if (k == (crown == Crown.LOGGIA || crown == Crown.GALLERY ? crownK : core.toK())) {
 				// the lookout: the loggia, the gallery door, or the top room's front window

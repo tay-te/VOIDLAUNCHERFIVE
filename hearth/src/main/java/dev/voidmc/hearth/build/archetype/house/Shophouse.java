@@ -242,7 +242,7 @@ public final class Shophouse implements Archetype {
 			boolean home = k == 1 && body.storeys() >= 3 && !(top && roof != null);
 			if (home && k == core.toK()) {
 				// the attic is a loft the stair does not reach: the beds go in first, the kitchen round them
-				Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
+				TownHouses.bedroom(d, room, 2);
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 				continue;
@@ -252,7 +252,7 @@ public final class Shophouse implements Archetype {
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, hearth);
 			}
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
+			TownHouses.bedroom(d, room, top && roof != null ? 1 : 2);
 		}
 		TownHouses.joists(d, body, core);
 

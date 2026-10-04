@@ -78,6 +78,42 @@ public final class Household {
 	}
 
 	/**
+	 * The trade's signature piece, placed before the living room is furnished so the room keeps a corner for it (an
+	 * anvil by a smith's fire, a loom, a stonecutter, a brewing stand); {@link #dress} then adds the rest round it.
+	 */
+	public static void first(Draft d, Rooms.Room living, int @Nullable [] hearth) {
+		Who who = of(d);
+		BlockState piece = signature(who.job());
+		if (piece != null) {
+			place(d, living, hearth, piece, piece.is(Blocks.CHIPPED_ANVIL));
+		}
+	}
+
+	/** The one thing that says a trade, or null. */
+	private static @Nullable BlockState signature(JobType job) {
+		return switch (job) {
+			case SMITH, SMELTER, MINTER, GUARD -> Blocks.CHIPPED_ANVIL.defaultBlockState();
+			case TAILOR, DYER -> States.facing(Blocks.LOOM, Dirs.FRONT);
+			case MASON, QUARRIER, MINER, KILN_WORKER, CLAY_DIGGER -> Blocks.STONECUTTER.defaultBlockState();
+			case HEALER -> Blocks.BREWING_STAND.defaultBlockState();
+			default -> null;
+		};
+	}
+
+	/** Whether a block of the kind stands on the room's floor already. */
+	private static boolean has(Draft d, Rooms.Room r, Block block) {
+		for (int z = r.z0 - 1; z <= r.z1 + 1; z++) {
+			for (int x = r.x0 - 1; x <= r.x1 + 1; x++) {
+				BlockState st = d.get(x, r.y, z);
+				if (st != null && st.is(block)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Dresses a furnished home for its household: the living room (kitchen or hall) and the room the family sleeps in
 	 * (may be the same room); {@code hearth} is the fire's cell (or null).
 	 */
@@ -89,7 +125,10 @@ public final class Household {
 		switch (who.job()) {
 			case SMITH, SMELTER, MINTER, GUARD -> {
 				// the anvil in a corner by the fire, tongs (a chain) hung beside the hearth, a grindstone
-				place(d, living, hearth, Blocks.CHIPPED_ANVIL.defaultBlockState(), true);
+				if (!has(d, living, Blocks.CHIPPED_ANVIL) && !place(d, living, hearth, Blocks.CHIPPED_ANVIL.defaultBlockState(), true)) {
+					// no corner to spare inside: the smith's anvil stands out front by the door, as smiths' do
+					byTheDoor(d, Blocks.CHIPPED_ANVIL.defaultBlockState());
+				}
 				if (hearth != null) {
 					tongs(d, hearth, living.y);
 				}
@@ -111,17 +150,25 @@ public final class Household {
 			case SCHOLAR, PRIEST, JUDGE, HEALER, PAPERMAKER -> {
 				books(d, living, who.job() == JobType.HEALER ? 1 : 2);
 				books(d, sleeping, 1);
-				if (who.job() == JobType.HEALER) {
+				if (who.job() == JobType.HEALER && !has(d, living, Blocks.BREWING_STAND)) {
 					place(d, living, null, Blocks.BREWING_STAND.defaultBlockState(), false);
 				}
 			}
 			case MERCHANT, TRADER, COURIER, INNKEEPER -> merchant(d, living, sleeping);
-			case TAILOR, DYER -> place(d, living, null, States.facing(Blocks.LOOM, Dirs.FRONT), false);
+			case TAILOR, DYER -> {
+				if (!has(d, living, Blocks.LOOM)) {
+					place(d, living, null, States.facing(Blocks.LOOM, Dirs.FRONT), false);
+				}
+			}
 			case BAKER, BREWER, BUTCHER, CHANDLER -> {
 				place(d, living, null, States.facing(Blocks.BARREL, Direction.UP), false);
 				place(d, living, null, States.facing(Blocks.BARREL, Direction.UP), false);
 			}
-			case MASON, QUARRIER, MINER, KILN_WORKER, CLAY_DIGGER -> place(d, living, null, Blocks.STONECUTTER.defaultBlockState(), false);
+			case MASON, QUARRIER, MINER, KILN_WORKER, CLAY_DIGGER -> {
+				if (!has(d, living, Blocks.STONECUTTER)) {
+					place(d, living, null, Blocks.STONECUTTER.defaultBlockState(), false);
+				}
+			}
 			default -> {
 			}
 		}
@@ -213,6 +260,47 @@ public final class Household {
 				return;
 			}
 		}
+	}
+
+	/**
+	 * Places a block outside beside the house's door, against the wall two cells along from the doorstep (clear of the
+	 * step and the path to it), on standable ground. Returns whether it found a place.
+	 */
+	public static boolean byTheDoor(Draft d, BlockState state) {
+		for (boolean wallOnly : new boolean[]{true, false}) {
+			for (Draft.LocalPoi p : d.pois()) {
+				if (p.type() != PoiType.DOOR) {
+					continue;
+				}
+				// which way the door is from its step
+				Direction toDoor = null;
+				for (Direction dir : Dirs.HORIZONTAL) {
+					var st = d.get(p.x() + Dirs.dx(dir), p.y(), p.z() + Dirs.dz(dir));
+					if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+						toDoor = dir;
+					}
+				}
+				if (toDoor == null) {
+					continue;
+				}
+				Direction along = Dirs.right(toDoor);
+				for (int k : new int[]{2, -2, 3, -3}) {
+					int x = p.x() + Dirs.dx(along) * k;
+					int z = p.z() + Dirs.dz(along) * k;
+					int y = p.y();
+					if (x < 1 || x >= d.frontage() - 1 || z < 1 || z >= d.depth() - 1 || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || !d.isSolid(x, y - 1, z)) {
+						continue;
+					}
+					if (wallOnly && !d.isSolid(x + Dirs.dx(toDoor), y, z + Dirs.dz(toDoor))) {
+						continue;
+					}
+					BlockState st = state.hasProperty(BlockStateProperties.HORIZONTAL_FACING) ? state.setValue(BlockStateProperties.HORIZONTAL_FACING, along) : state;
+					d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, st));
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Places a block in a free corner of the room (near {@code near} when given). */

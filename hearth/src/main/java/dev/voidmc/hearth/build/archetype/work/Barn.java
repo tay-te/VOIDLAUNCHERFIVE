@@ -85,6 +85,7 @@ public final class Barn implements Archetype {
 		}
 		d.eave(hall.plateY());
 		Barns.sideWindows(d, hall);
+		Barns.backGable(d, hall);
 		Barns.interior(d, hall, doorW, false);
 		if (hall.roof() == null) {
 			roofHay(d, hall);

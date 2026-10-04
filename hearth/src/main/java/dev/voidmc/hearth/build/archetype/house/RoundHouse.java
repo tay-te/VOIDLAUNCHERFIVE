@@ -75,11 +75,16 @@ public final class RoundHouse implements Archetype {
 		boolean water = d.site().anyWater(0, 0, w - 1, dp - 1);
 		boolean tropical = d.style().culture() == Culture.TROPICAL || d.style().culture() == null && h.windows().lattice();
 		boolean stilted = d.param("stilts", h.plan().stilts() == Habits.Stilts.ALWAYS || water && h.plan().stilts() != Habits.Stilts.NEVER || water);
-		boolean wantVeranda = d.param("veranda", tropical || stilted);
 		// the ring: always an odd ring (a whole-cell centre: the door, the fire and the cone's point in line, and odd
 		// circles are the round ones), centred across the plot (half a block to one side on an even frontage)
 		double cx = (w & 1) == 1 ? (w - 1) / 2.0 : (w - 2) / 2.0 + (d.chance(0.5) ? 1 : 0);
 		int room = (int) Math.min(cx, w - 1 - cx);
+		if (stilted && !water && !d.hasParam("stilts") && Math.min((Math.min(w, dp - 2) - 3) / 2, room - 1) < 3
+			&& Math.min((Math.min(w, dp) - 3) / 2, room - 1) >= 3) {
+			// on dry ground a small plot would leave only a five-ring on its posts: a seven-ring on a plinth sleeps two
+			stilted = false;
+		}
+		boolean wantVeranda = d.param("veranda", tropical || stilted);
 		double r;
 		double outer;
 		// a raised house keeps rows in front for its stair (a row for each block it stands above the street); a veranda
@@ -158,9 +163,14 @@ public final class RoundHouse implements Archetype {
 		}
 		// ---- inside
 		int[] fire = interior(d, ring, base, roof, doorX, doorZ);
-		if (fire == null && veranda) {
+		boolean cooks = fire != null;
+		if (!cooks && veranda) {
 			// a small house cooks on its veranda: a fire on a clay hearth at the back of the deck
-			verandaFire(d, ring, deck, base);
+			cooks = verandaFire(d, ring, deck, base);
+		}
+		if (!cooks) {
+			// or out in the yard, on a ring of stones beside the house
+			yardFire(d, ring, doorX);
 		}
 		// ---- the way in
 		if (veranda) {
@@ -369,7 +379,11 @@ public final class RoundHouse implements Archetype {
 		boolean small = ring.r() < 3;
 		int[] fire = small ? null : Round.fire(d, ring, room, base);
 		int want = ring.r() >= 4 ? 3 : 2;
-		Beds.place(d, room, want);
+		int placed = Beds.place(d, room, want);
+		if (placed < 2) {
+			// the furnisher may still find room the deliberate placing did not
+			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2 - placed, JobType.NONE);
+		}
 		if (small) {
 			fire = null;
 		}
@@ -405,7 +419,7 @@ public final class RoundHouse implements Archetype {
 	}
 
 	/** A cooking fire on a clay hearth at the back of the veranda, its HEARTH beside it on the deck. */
-	private static void verandaFire(Draft d, Round.Ring ring, Round.Ring deck, int base) {
+	private static boolean verandaFire(Draft d, Round.Ring ring, Round.Ring deck, int base) {
 		for (Direction dir : new Direction[]{Dirs.BACK, Dirs.LEFT, Dirs.RIGHT}) {
 			int[] c = deck.cellToward(dir);
 			if (c == null) {
@@ -426,7 +440,54 @@ public final class RoundHouse implements Archetype {
 				d.set(fx, base, fz, States.lit(Blocks.CAMPFIRE, true).trySetValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false));
 			}
 			d.poi(PoiType.HEARTH, sx, base, sz, along.getOpposite());
-			return;
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * A cooking fire in the yard beside a small house (one with no room for a fire inside or a veranda to cook on): a
+	 * campfire on a stone in a ring of stone slabs on the ground clear of the house and the way in, its HEARTH where the
+	 * cook stands beside it.
+	 */
+	private static void yardFire(Draft d, Round.Ring ring, int doorX) {
+		Mat stone = d.mat(Role.FOUNDATION);
+		for (double rr : new double[]{ring.r() + 2.2, ring.r() + 3.2}) {
+			for (int[] c : Round.ring(ring.cx(), ring.cz(), rr).wall()) {
+				int fx = c[0];
+				int fz = c[1];
+				// beside or behind the house, never across the way in
+				if (fz < ring.cz() - 1 || !Verandas.in(d, fx, fz) || fx <= 0 || fx >= d.frontage() - 1 || fz >= d.depth() - 1) {
+					continue;
+				}
+				int y = Spots.level(d, fx, fz);
+				if (y + 3 >= d.maxHeight() || !Spots.standable(d, fx, y, fz) || !d.isAbsent(fx, y, fz) || d.site().water(fx, fz) != Site.NONE) {
+					continue;
+				}
+				// the cook's cell: toward the house, standable at the same level
+				Direction in = Math.abs(fx - ring.cx()) >= Math.abs(fz - ring.cz()) ? (fx < ring.cx() ? Dirs.RIGHT : Dirs.LEFT) : Dirs.FRONT;
+				int sx = fx + Dirs.dx(in);
+				int sz = fz + Dirs.dz(in);
+				if (Spots.level(d, sx, sz) != y || !Spots.standable(d, sx, y, sz) || !d.isAbsent(sx, y, sz)
+					|| ring.disc().stream().anyMatch(e -> e[0] == sx && e[1] == sz)) {
+					continue;
+				}
+				try (var s = d.stage(StageKind.EXTERIOR)) {
+					d.set(fx, y - 1, fz, stone.full());
+					d.set(fx, y, fz, States.lit(Blocks.CAMPFIRE, true).trySetValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false));
+					// the ring of stones round it, where the ground is free (never on the cook's cell)
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int ox = fx + Dirs.dx(dir);
+						int oz = fz + Dirs.dz(dir);
+						if ((ox != sx || oz != sz) && Verandas.in(d, ox, oz) && Spots.level(d, ox, oz) == y && Spots.standable(d, ox, y, oz) && d.isAbsent(ox, y, oz)
+							&& stone.has(Form.SLAB) && Noise.unit(d.seed() ^ 0xF1E, ox, y, oz) < 0.6) {
+							d.set(ox, y, oz, stone.slab(SlabType.BOTTOM));
+						}
+					}
+				}
+				d.poi(PoiType.HEARTH, sx, y, sz, in.getOpposite());
+				return;
+			}
 		}
 	}
 

@@ -60,7 +60,8 @@ public final class Adobe {
 					boolean corner = side.isCorner(i);
 					if (kind == Parapet.ROUNDED) {
 						// the coping turned over toward the outside: a stair whose high side is inward
-						Mat round = wall.has(Form.STAIRS) ? wall : accent.has(Form.STAIRS) ? accent : null;
+						Mat trim = d.mat(Role.ROOF_TRIM);
+						Mat round = wall.has(Form.STAIRS) ? wall : accent.has(Form.STAIRS) ? accent : trim.has(Form.STAIRS) ? trim : null;
 						if (round != null) {
 							d.set(x, y + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
 						}
@@ -177,6 +178,55 @@ public final class Adobe {
 					}
 				}
 			}
+		}
+		return true;
+	}
+
+	/**
+	 * A ladder up the outside of a wall to its roof (the pueblo's way up): rungs from standing level y to the deck at
+	 * (x, z), its rails standing a block over the parapet. The cell must be free all the way up; returns whether drawn.
+	 */
+	public static boolean ladder(Draft d, int x, int z, Direction out, int y, int deck) {
+		if (!Verandas.in(d, x, z) || deck + 2 >= d.maxHeight()) {
+			return false;
+		}
+		for (int yy = y; yy <= deck + 1; yy++) {
+			if (!d.isAbsent(x, yy, z)) {
+				return false;
+			}
+		}
+		if (!d.isSolid(x, y - 1, z) && y - 1 >= d.site().ground(x, z)) {
+			return false;
+		}
+		Mat pole = d.mat(Role.FRAME);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int yy = y; yy <= deck; yy++) {
+				d.set(x, yy, z, States.facing(Blocks.LADDER, out));
+			}
+			d.set(x, deck + 1, z, pole.fence());
+		}
+		return true;
+	}
+
+	/**
+	 * A horno, the beehive bread oven of the dry lands, standing in a yard at (x, y, z): a mouth (a smoker) facing
+	 * {@code facing}, a body of the culture's clay behind it, a domed top. Returns whether it was built.
+	 */
+	public static boolean horno(Draft d, int x, int y, int z, Direction facing) {
+		int bx = x - Dirs.dx(facing);
+		int bz = z - Dirs.dz(facing);
+		for (int[] c : new int[][]{{x, z}, {bx, bz}}) {
+			if (!Verandas.in(d, c[0], c[1]) || !d.isEmpty(c[0], y, c[1]) || !d.isEmpty(c[0], y + 1, c[1]) || !d.isSolid(c[0], y - 1, c[1])
+				&& y - 1 >= d.site().ground(c[0], c[1])) {
+				return false;
+			}
+		}
+		Mat clay = d.mat(Role.CHIMNEY);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			d.set(x, y, z, States.facing(Blocks.SMOKER, facing));
+			d.set(bx, y, bz, clay.full());
+			d.set(x, y + 1, z, clay.stairsOrSlab(facing.getOpposite(), Half.BOTTOM));
+			d.set(bx, y + 1, bz, clay.slab(SlabType.BOTTOM).orElse(clay.full()));
 		}
 		return true;
 	}

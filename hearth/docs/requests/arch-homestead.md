@@ -47,3 +47,24 @@ None of these blocks the family; each is worked around inside the archetypes.
   calling `FarmParts.ensureBeds(d, body, door, 2, through)`. A cottage whose roof space is too low for a bed got none
   (northern cottages had 0 beds in 17 of 18 test drawings); they now sleep downstairs. `cottage()` is only called by
   `house/cottage`.
+
+## Phase 3 polish of the homes (stage A, homes architect)
+
+9. **Catalogue sizes changed** (registered infos; `DefaultCatalogue` placeholders may want the same): stilt house
+   9–12 × 10–13, height 10–14 (it now has a front porch, a side gallery and a boat landing behind); round house
+   9–13 × 9–13, height 10–15 (odd rings seven to eleven across, a veranda round the tropical one). Bed counts unchanged
+   (2 each, tested).
+10. **Pens (for the sim).** Every enclosure registers a `WORK_FACE` POI with job `HERDER` where its beasts are kept,
+    facing its gate: a pasture's grass (one in the middle, one per quarter on a pasture 17 × 17 or more), each barn stall,
+    the compound's kraal, the raised farmstead's pen. Stock and return animals there; the herder's `JOB_SITE`s stay at
+    the gate, trough and rack. (A dedicated `PoiType.PEN` would still be cleaner; the convention maps onto it one to one.)
+11. **Households (for the planner and the sim).** Homes read `station` (a `Station` name) and `household`
+    (`{job: <JobType>}`) and dress their living room for them (`kit/homestead/Household`); a merchant's home registers a
+    `STRONGBOX`. Write `household.job` for the head of the household when a plot is assigned.
+12. **For the style director (palettes):** the northern cottages now carry drip caps over their windows in `window` and
+    horns in `beam`; a white `window` (birch) in the northern and tundra base dressing, and pale oak or birch beside the
+    dark oak `beam`, would give the silvered-and-tarred contrast the brief asks for. The steppe rondavel paints its wall in
+    `wall_accent` (or `plinth` where the accent is the wall's own colour): a contrasting accent (white or dark terracotta)
+    in the "red ochre" variant would make its figures read. The mesa's `wall` has no stairs, so its parapets cannot be
+    rounded over (a stairs override on its wall material would do it). Desert flat roofs show `wall_accent` copings,
+    `shutter` lattices on wind towers and screens, `door` paint and an `accent` tile at thresholds.
