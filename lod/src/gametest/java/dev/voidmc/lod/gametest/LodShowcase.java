@@ -359,12 +359,12 @@ public class LodShowcase implements FabricClientGameTest {
 		Spot from = new Spot(name, x + AWAY, eye, z, 90, pitch);
 		server.runCommand("gamerule max_block_modifications 1000000");
 
-		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
 		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
 		this.settle(context, SETTLE_MS);
 		this.photograph(context, name + "_before", false);
 
-		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 60", x, ground + 60, z));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d 0 60", x, ground + 60, z));
 		this.settle(context, SETTLE_MS);
 		long t0 = System.currentTimeMillis();
 		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d gold_block", x - 4, ground - 2, z - 4, x + 3, ground + 120, z + 3));
@@ -382,7 +382,7 @@ public class LodShowcase implements FabricClientGameTest {
 		System.out.printf(Locale.ROOT, "[lod] built at %d,%d (ground %d), read in %.1f s | %s%n", x, z, ground, (System.currentTimeMillis() - t0) / 1000.0,
 			ingest);
 
-		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
 		this.settle(context, SETTLE_MS);
 		context.runOnClient(mc -> VoidLod.get().setEnabled(false));
 		context.waitTicks(20);
