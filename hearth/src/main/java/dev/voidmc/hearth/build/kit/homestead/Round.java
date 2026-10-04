@@ -109,29 +109,63 @@ public final class Round {
 		return off < 0.28 / Math.max(1, ring.r / 3);
 	}
 
-	/**
-	 * The ring wall from standing level y up to {@code plate}: a plinth course, the culture's wall, posts at the quarters
-	 * and a band of the accent colour on the top course (in plaster and adobe cultures; timber banding elsewhere).
-	 */
+	/** How a rendered ring wall is painted between its plinth and its head band. */
+	public enum Pattern {
+		/** Plain. */
+		NONE,
+		/** A row of triangles standing on a painted dado. */
+		TRIANGLES,
+		/** A stepped zigzag. */
+		STEPS,
+		/** Lozenges between two lines. */
+		LOZENGES
+	}
+
+	/** {@link #walls(Draft, Ring, int, int, Pattern)} without paintings. */
 	public static void walls(Draft d, Ring ring, int y, int plate) {
+		walls(d, ring, y, plate, Pattern.NONE);
+	}
+
+	/**
+	 * The ring wall from standing level y up to {@code plate}: a plinth course, the culture's wall, a band of the accent
+	 * colour on the top course (rendered walls) or a ring beam (timber), posts at the quarters in timber, plank and
+	 * bamboo walls (a mud or plaster wall is all of a piece). A rendered wall may be painted between plinth and band:
+	 * triangles, a stepped zigzag or lozenges in the accent colour (the steppe's painted houses).
+	 */
+	public static void walls(Draft d, Ring ring, int y, int plate, Pattern pattern) {
 		Mat wall = d.mat(Role.WALL);
 		Mat frame = d.mat(Role.FRAME);
 		Mat plinth = d.mat(Role.PLINTH);
 		Mat accent = d.mat(Role.WALL_ACCENT);
 		var kind = d.habits().walls().kind();
 		boolean rendered = kind == Habits.WallKind.PLASTER || kind == Habits.WallKind.ADOBE || kind == Habits.WallKind.STONE;
+		boolean painted = rendered && pattern != Pattern.NONE;
+		// the painting in whichever of the accent and the plinth stands out from the wall (an ochre wall is painted in
+		// the dark earth, a pale one in the ochre)
+		Mat motif = accent.main(Form.FULL) != wall.main(Form.FULL) ? accent : plinth;
+		Mat second = motif == accent ? plinth : accent;
+		// a painted band is laid on one even ground (the wall's main colour), so the figures read crisp
+		Paint ground = Paint.of(wall.mainOr(Form.FULL, Blocks.TERRACOTTA).defaultBlockState());
+		int n = ring.wall.size();
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int[] c : ring.wall) {
-				boolean post = post(ring, c);
+				boolean post = !rendered && post(ring, c);
+				// the cell's place round the ring, in cells
+				double a = Math.atan2(c[1] - ring.cz, c[0] - ring.cx);
+				int i = Math.floorMod((int) Math.round((a + Math.PI) / (2 * Math.PI) * n), Math.max(1, n));
 				for (int yy = y; yy <= plate; yy++) {
 					Paint p;
+					int row = yy - y - 1;
 					if (yy == y && !post) {
 						p = plinth.full();
 					} else if (post) {
-						// rendered walls show their posts peeled and pale; timber walls keep the bark
-						p = rendered ? frame.strippedLog(Direction.Axis.Y).orElse(frame.log(Direction.Axis.Y)) : frame.log(Direction.Axis.Y);
+						p = frame.log(Direction.Axis.Y);
 					} else if (yy == plate && rendered) {
 						p = accent.full();
+					} else if (painted && paint(pattern, i, row, plate - y - 1)) {
+						p = (figure(pattern, i, plate - y - 1) & 1) == 1 ? second.full() : motif.full();
+					} else if (painted && row >= 0 && row < plate - y - 1) {
+						p = ground;
 					} else if (kind == Habits.WallKind.PLANK || kind == Habits.WallKind.BAMBOO) {
 						p = yy == plate ? d.mat(Role.BEAM).log(Direction.Axis.Y) : d.mat(Role.GABLE).full();
 					} else if (kind == Habits.WallKind.LOG) {
@@ -150,12 +184,51 @@ public final class Round {
 		}
 	}
 
+	/** Whether the painting covers cell i of the ring at {@code row} of a band {@code rows} high. */
+	static boolean paint(Pattern p, int i, int row, int rows) {
+		if (row < 0 || row >= rows) {
+			return false;
+		}
+		if (rows >= 3) {
+			// bold figures three courses high
+			int m = Math.floorMod(i, 6);
+			int k = Math.floorMod(i, 4);
+			return switch (p) {
+				case TRIANGLES -> row == 0 ? m <= 4 : row == 1 ? m >= 1 && m <= 3 : row == 2 && m == 2;
+				case STEPS -> row == 0 ? k <= 1 : row == 1 ? k == 1 || k == 2 : row == 2 && k >= 2;
+				case LOZENGES -> row == 1 ? m >= 1 && m <= 3 : row <= 2 && m == 2 || row == 0 && m == 5;
+				case NONE -> false;
+			};
+		}
+		int m = Math.floorMod(i, 4);
+		return switch (p) {
+			case TRIANGLES -> row == 0 ? m != 3 : row == 1 && m == 1;
+			case STEPS -> row == 0 ? m == 0 || m == 1 : row == 1 && (m == 1 || m == 2);
+			case LOZENGES -> row == 0 ? m == 1 || m == 2 : m == 2 || m == 3;
+			case NONE -> false;
+		};
+	}
+
+	/** Which figure of the painting cell i belongs to (to alternate their colours). */
+	static int figure(Pattern p, int i, int rows) {
+		return Math.floorDiv(i, rows >= 3 && p != Pattern.STEPS ? 6 : 4);
+	}
+
 	/**
 	 * A cone roof over the ring, overhanging the wall by {@code eaves}, its eave at {@code plate}; the wall filled up to
 	 * the roof's underside; a finial at the point (a clay pot where the culture works clay, a post and a ball of thatch
 	 * elsewhere). Covered in {@code roof} (the culture's roofing, or its thatch). Returns the roof.
 	 */
 	public static Roofs.Roof cone(Draft d, Ring ring, int plate, int eaves, double pitchIn, Mat roof) {
+		return cone(d, ring, plate, eaves, pitchIn, roof, false);
+	}
+
+	/**
+	 * As {@link #cone(Draft, Ring, int, int, double, Mat)}; with {@code smokeHole} the point of a cone over an odd ring is
+	 * left open round a post that carries a little cap a block above it, so the smoke of the fire below finds its way
+	 * out (and the cap reads against the sky).
+	 */
+	public static Roofs.Roof cone(Draft d, Ring ring, int plate, int eaves, double pitchIn, Mat roof, boolean smokeHole) {
 		double rr = ring.r + eaves;
 		// a covering laid in whole blocks (bales of thatch) steps a block per ring, so each course rests on the one below
 		double pitch = Math.min(1.0, pitchIn);
@@ -208,6 +281,17 @@ public final class Round {
 		int ax = (int) Math.round(ring.cx);
 		int az = (int) Math.round(ring.cz);
 		int top = r.surfaceY(ax, az);
+		boolean odd = Math.abs(ring.cx - Math.rint(ring.cx)) < 0.01 && Math.abs(ring.cz - Math.rint(ring.cz)) < 0.01;
+		if (smokeHole && odd && top != Integer.MIN_VALUE && top + 3 < d.maxHeight()) {
+			Mat frame = d.mat(Role.FRAME);
+			Mat trim = roof.has(Form.SLAB) ? roof : d.mat(Role.ROOF_TRIM);
+			try (var s = d.stage(StageKind.ROOF)) {
+				d.set(ax, top, az, frame.fence());
+				d.set(ax, top + 1, az, trim.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM).orElse(trim.full()));
+			}
+			r.ridgeY = Math.max(r.ridgeY, top + 1);
+			return r;
+		}
 		if (top != Integer.MIN_VALUE && top + 2 < d.maxHeight()) {
 			boolean clay = d.mat(Role.CHIMNEY).main(Form.FULL) == Blocks.MUD_BRICKS || d.mat(Role.WALL_ACCENT).main(Form.FULL) != null
 				&& String.valueOf(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(d.mat(Role.WALL_ACCENT).main(Form.FULL))).contains("terracotta");

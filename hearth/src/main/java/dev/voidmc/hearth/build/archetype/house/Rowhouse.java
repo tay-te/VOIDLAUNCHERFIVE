@@ -259,8 +259,9 @@ public final class Rowhouse implements Archetype {
 				}
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, hearth);
 			} else {
-				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
+				TownHouses.bedroom(d, room, top && roof != null ? 1 : 2);
 				if (core == null) {
 					Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				}

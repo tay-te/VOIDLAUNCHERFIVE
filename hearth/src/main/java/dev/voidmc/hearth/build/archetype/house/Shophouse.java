@@ -96,7 +96,9 @@ public final class Shophouse implements Archetype {
 		String trade = d.param("trade", TRADES[(int) Math.floorMod(Noise.hash(d.seed(), 0x7EADE), (long) TRADES.length)]);
 
 		// the arcade: upper storeys over the pavement on piers (a covered walk along the row)
-		double arcadeChance = t.eastern() || t.raised() ? 0.75 : t.masonry() && t.flatSome() ? 0.5 : t.masonry() ? 0.25 : 0.2;
+		boolean bohemian = dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d);
+		// (a Bohemian market town's houses stand over vaulted arcades round its square, the podloubi)
+		double arcadeChance = t.eastern() || t.raised() ? 0.75 : bohemian ? 0.55 : t.masonry() && t.flatSome() ? 0.5 : t.masonry() ? 0.25 : 0.2;
 		boolean arcade = dp >= 10 && d.param("arcade", d.chance(arcadeChance));
 		// the shop door in the middle of the front, the windows either side of it
 		int door = (w - 1) / 2;
@@ -108,7 +110,8 @@ public final class Shophouse implements Archetype {
 		int back = dp - setback >= 11 ? 2 : dp - setback >= 9 ? 1 : 0;
 		int bz0 = setback;
 		int bz1 = dp - 1 - back;
-		Direction.Axis ridge = d.chance(Math.max(0.35, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
+		// (and turn their tall gables to it)
+		Direction.Axis ridge = d.chance(bohemian ? 0.75 : Math.max(0.35, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
 		if (form == RoofForm.HIP || form == RoofForm.PAGODA || form == RoofForm.MANSARD) {
 			ridge = partyL || partyR ? Direction.Axis.X : Direction.Axis.Z;
 		}
@@ -242,7 +245,7 @@ public final class Shophouse implements Archetype {
 			boolean home = k == 1 && body.storeys() >= 3 && !(top && roof != null);
 			if (home && k == core.toK()) {
 				// the attic is a loft the stair does not reach: the beds go in first, the kitchen round them
-				Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
+				TownHouses.bedroom(d, room, 2);
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 				continue;
@@ -250,8 +253,9 @@ public final class Shophouse implements Archetype {
 			if (home) {
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, hearth);
 			}
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
+			TownHouses.bedroom(d, room, top && roof != null ? 1 : 2);
 		}
 		TownHouses.joists(d, body, core);
 
@@ -274,7 +278,9 @@ public final class Shophouse implements Archetype {
 		int[] r1 = b.rect(1);
 		int z = r1[1];
 		int top = b.floorY(1) - 2;
-		Mat pier = t.timber() && !t.masonry() ? d.mat(Role.FRAME) : d.mat(Role.WALL_ACCENT);
+		// timber posts and a beam in a timber town, except in Bohemia, whose market arcades are vaulted in stone
+		boolean wooden = t.timber() && !t.masonry() && !dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d);
+		Mat pier = wooden ? d.mat(Role.FRAME) : d.mat(Role.WALL_ACCENT);
 		Mat paving = d.mat(Role.PAVING);
 		Mat beam = d.mat(Role.BEAM);
 		int w = d.frontage();
@@ -290,10 +296,10 @@ public final class Shophouse implements Archetype {
 			for (int x : piers) {
 				int g = d.site().ground(x, z);
 				for (int y = Math.min(-1, g - 1); y <= top; y++) {
-					d.set(x, y, z, t.timber() && !t.masonry() ? pier.log(Direction.Axis.Y) : pier.full());
+					d.set(x, y, z, wooden ? pier.log(Direction.Axis.Y) : pier.full());
 				}
 				// the pier's base and capital
-				if (!t.timber() || t.masonry()) {
+				if (!wooden) {
 					d.set(x, top, z, pier.full());
 				}
 			}
@@ -304,7 +310,7 @@ public final class Shophouse implements Archetype {
 				int a = piers.get(i) + 1;
 				int c = piers.get(i + 1) - 1;
 				for (int x = a; x <= c; x++) {
-					if (t.timber() && !t.masonry()) {
+					if (wooden) {
 						d.set(x, top, z, beam.log(Direction.Axis.X));
 					} else if (c - a >= 1 && (x == a || x == c)) {
 						d.set(x, top, z, pier.stairsOrSlab(x == a ? Dirs.LEFT : Dirs.RIGHT, Half.TOP));

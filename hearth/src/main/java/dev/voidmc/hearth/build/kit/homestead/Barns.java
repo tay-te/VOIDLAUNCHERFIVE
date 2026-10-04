@@ -75,6 +75,10 @@ public final class Barns {
 	/** The roof a barn takes: a gambrel where the culture builds in timber (often), its own forms otherwise. */
 	public static RoofForm form(Draft d, boolean big) {
 		Habits h = d.habits();
+		if (Bohemia.is(d)) {
+			// a Bohemian barn: a steep gable or a half-hip, no gambrels in this countryside
+			return Bohemia.form(d);
+		}
 		RoofForm own = h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP, RoofForm.GAMBREL, RoofForm.PAGODA, RoofForm.FLAT);
 		if (own == RoofForm.FLAT) {
 			return RoofForm.FLAT;
@@ -200,7 +204,14 @@ public final class Barns {
 			}
 			o = o.withEaves(Math.max(1, Math.min(2, o.eaves())), Math.max(1, Math.min(1, o.gableOverhang())));
 			RoofForm draw = form == RoofForm.CROSS_GABLE ? RoofForm.GABLE : form;
+			if (Bohemia.is(d) && draw != RoofForm.GAMBREL) {
+				// a Bohemian barn stands under a roof as steep as its farmhouse's (as the plot's height allows)
+				o = o.withPitch(Bohemia.pitch(d, o.pitch(), plate, (x1 - x0 + 1) / 2.0, draw));
+			}
 			roof = Roofs.build(d, x0, z0, x1, z1, plate, draw, Direction.Axis.Z, o, partyL, partyR).roof();
+			if (Bohemia.is(d)) {
+				Bohemia.carryRidge(d, roof);
+			}
 			// the gable ends boarded like the walls (a timber barn has no plaster gables)
 			if (b != Build.MASONRY || d.habits().walls().upper() != null) {
 				for (Side side : new Side[]{Side.of(x0, z0, x1, z1, Dirs.FRONT), Side.of(x0, z0, x1, z1, Dirs.BACK)}) {
@@ -452,6 +463,8 @@ public final class Barns {
 					d.set(wx, h.y, zb, Noise.unit(d.seed(), wx, 0, zb) < 0.5 ? Blocks.COMPOSTER.defaultBlockState()
 						: Blocks.WATER_CAULDRON.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LEVEL_CAULDRON, 3));
 				}
+				// the stall's beast stands here, facing its gate on the aisle
+				Spots.pen(d, (wx + ex) / 2 == ex ? ex - side : (wx + ex) / 2, h.y, za, side < 0 ? Dirs.RIGHT : Dirs.LEFT);
 			}
 			// close the last stall's back
 			try (var s = d.stage(StageKind.INTERIOR)) {
@@ -537,7 +550,8 @@ public final class Barns {
 			if (p[0] > stairFoot + 1 && d.isEmpty(p[0], h.y, p[1]) && d.isEmpty(p[0], h.y, p[1] - 1)) {
 				Furniture.workstation(d, JobType.HERDER, p[0], h.y, p[1], Dirs.FRONT);
 				placed = true;
-				if (d.isEmpty(p[0] - 1, h.y, p[1]) && p[0] - 1 > stairFoot + 1) {
+				// the chest beside it, where the cell before it (the herder's place at it) is free floor
+				if (d.isEmpty(p[0] - 1, h.y, p[1]) && d.isEmpty(p[0] - 1, h.y, p[1] - 1) && p[0] - 1 > stairFoot + 1) {
 					Furniture.chest(d, p[0] - 1, h.y, p[1], Dirs.FRONT, List.of(new Object[]{"minecraft:wheat", 32}, new Object[]{"minecraft:lead", 3},
 						new Object[]{"minecraft:shears", 1}, new Object[]{"minecraft:bucket", 1}));
 				}
@@ -574,6 +588,29 @@ public final class Barns {
 					int z = side.z(i);
 					d.inStage(StageKind.OPENINGS, () -> d.set(x, h.plateY() - 1, z, d.mat(Role.SHUTTER).trapdoor(side.out().getOpposite(), Half.BOTTOM, true)));
 				}
+			}
+		}
+	}
+
+	/**
+	 * The back gable: a loft window high in its middle (shuttered in timber, a slit in masonry) and a slatted vent under
+	 * the ridge, so the back of a barn is not a blank wall.
+	 */
+	public static void backGable(Draft d, Hall h) {
+		Side back = Side.of(h.x0, h.z0, h.x1, h.z1, Dirs.BACK);
+		int mid = back.middle();
+		int x = back.x(mid);
+		int z = back.z(mid);
+		int y = Math.max(h.y + 3, h.loftY + 1);
+		if (Openings.isWallBlock(d, x, y, z) && Openings.isWallBlock(d, x, y + 1, z) && Openings.isWallBlock(d, x, y - 1, z)) {
+			Build b = build(d);
+			Openings.window(d, back, back.column(mid), y, 1, 1, b == Build.MASONRY ? Openings.WindowStyle.SLIT : Openings.WindowStyle.PLAIN,
+				new Openings.WindowOpts(b != Build.MASONRY, false, b != Build.MASONRY, true));
+		}
+		if (h.roof() != null) {
+			int top = h.roof().bottomY(x, z) - 1;
+			if (top - 1 > y + 1 && Openings.isWallBlock(d, x, top, z)) {
+				d.inStage(StageKind.OPENINGS, () -> d.set(x, top, z, d.mat(Role.SHUTTER).trapdoor(Dirs.FRONT, Half.BOTTOM, true)));
 			}
 		}
 	}

@@ -80,8 +80,9 @@ public final class Cottage implements Archetype {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
-		RoofForm form = HouseBuilder.roofParam(d, h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP, RoofForm.CROSS_GABLE,
-			RoofForm.PAGODA, RoofForm.SALTBOX));
+		boolean bohemian = dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d);
+		RoofForm form = HouseBuilder.roofParam(d, bohemian ? dev.voidmc.hearth.build.kit.homestead.Bohemia.form(d)
+			: h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP, RoofForm.CROSS_GABLE, RoofForm.PAGODA, RoofForm.SALTBOX));
 		if (form == RoofForm.FLAT) {
 			return false;
 		}
@@ -139,6 +140,13 @@ public final class Cottage implements Archetype {
 		openings(d, body, facade, entry, dx, falls, bdx);
 		// the roof
 		Roofs.Roof roof = HouseBuilder.pitchedRoof(d, body, form, ridge, facade, 1);
+		if (bohemian) {
+			if (form != RoofForm.HIP) {
+				dev.voidmc.hearth.build.kit.homestead.Bohemia.gables(d, roof, ridge, body.topRect(), body.plateY());
+			}
+			// the lower storey's walls stand on fieldstone where they meet the ground
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.fieldstone(d, x0, z0, x1, z1, base, base + Math.max(0, h.walls().plinth() - 1));
+		}
 		// the hearth in the lower storey's gable end (or back wall), its stack up through the roof
 		Direction chimneySide = ridge == Direction.Axis.X ? (d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT) : Dirs.BACK;
 		int[] hearth = HouseBuilder.hearthSpot(d, body, chimneySide, facade);
@@ -161,6 +169,9 @@ public final class Cottage implements Archetype {
 		}
 		// the street side: path, garden, fence
 		HouseBuilder.garden(d, upperFrontBody(body, falls), facade, front);
+		if (bohemian) {
+			HouseBuilder.bohemianYard(d, upperFrontBody(body, falls), door);
+		}
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, 0, door);
 		}

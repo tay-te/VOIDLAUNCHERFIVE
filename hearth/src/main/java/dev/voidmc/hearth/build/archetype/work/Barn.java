@@ -85,9 +85,11 @@ public final class Barn implements Archetype {
 		}
 		d.eave(hall.plateY());
 		Barns.sideWindows(d, hall);
+		Barns.backGable(d, hall);
 		Barns.interior(d, hall, doorW, false);
 		if (hall.roof() == null) {
 			roofHay(d, hall);
+			dryByre(d, hall, z0, base);
 		}
 		if (bw >= 11 && dp >= 13 && d.chance(0.6)) {
 			Barns.cupola(d, hall);
@@ -155,6 +157,27 @@ public final class Barn implements Archetype {
 				d.set(lx, y, lz, dev.voidmc.hearth.build.draft.States.facing(Blocks.LADDER, Dirs.LEFT));
 			}
 			d.set(lx, deck + 1, lz, fence.fence());
+		}
+	}
+
+	/**
+	 * A byre of the dry country made more than a box: its parapet rounded over, a shade of poles, slats and palm fronds
+	 * before the cart doors (posts clear of the cart way), jars by the doors.
+	 */
+	private static void dryByre(Draft d, Barns.Hall h, int z0, int y) {
+		int deck = h.deck();
+		if (deck != Integer.MIN_VALUE) {
+			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, h.x0(), h.z0(), h.x1(), h.z1(), deck,
+				dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED);
+		}
+		int mid = h.midX();
+		if (z0 >= 3) {
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, mid - 2, z0 - 2, mid + 2, z0 - 1, y);
+		}
+		for (int x : new int[]{mid - 3, mid + 3}) {
+			if (Spots.standable(d, x, y, z0 - 1)) {
+				dev.voidmc.hearth.build.kit.homestead.Adobe.jar(d, x, y, z0 - 1);
+			}
 		}
 	}
 

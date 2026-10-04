@@ -103,6 +103,15 @@ public final class Pasture implements Archetype {
 		// the herder's stands: at the gate and out in the grass
 		Spots.job(d, gateX, 1, Dirs.BACK, JobType.HERDER);
 		Spots.job(d, w / 2, dp / 2 + 1, Dirs.FRONT, JobType.HERDER);
+		// where the beasts graze: the middle of the grass, and each quarter of a big pasture (room for the herd the sim
+		// stocks: the open ground inside the boundary)
+		int px = Math.clamp(w / 2 + (gateX < w / 2 ? 2 : -2), 2, w - 3);
+		Spots.pen(d, px, Spots.level(d, px, dp / 2), dp / 2, Dirs.FRONT);
+		if (w >= 17 && dp >= 17) {
+			for (int[] q : new int[][]{{w / 4, dp / 4 + 2}, {3 * w / 4, dp / 4 + 2}, {w / 4, 3 * dp / 4}, {3 * w / 4, 3 * dp / 4}}) {
+				Spots.pen(d, q[0], Spots.level(d, q[0], q[1]), q[1], Dirs.FRONT);
+			}
+		}
 		// the boundary with its gate (and a second gate out the back onto the open land on a deep one)
 		List<int[]> gates = new ArrayList<>();
 		gates.add(new int[]{gateX, 0});

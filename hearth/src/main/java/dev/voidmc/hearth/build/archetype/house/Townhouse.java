@@ -437,10 +437,11 @@ public final class Townhouse implements Archetype {
 					room.keep(hearth[0] + (hearth[0] == r[0] + 1 ? 1 : -1), hearth[1]);
 				}
 				Rooms.furnish(d, room, shop ? Rooms.Type.WORKSHOP : Rooms.Type.KITCHEN, 0, JobType.CARPENTER);
+				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, hearth);
 			} else if (k == loggiaK) {
 				// in a house of few floors the loggia storey sleeps too, the beds back from the arches
 				if (loft || floors <= 4) {
-					Rooms.furnish(d, room, Rooms.Type.BEDROOM, floors <= 4 ? 2 : 1, JobType.NONE);
+					TownHouses.bedroom(d, room, floors <= 4 ? 2 : 1);
 				}
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 			} else if (k == 1 && floors >= 4 && !loft) {
@@ -453,7 +454,7 @@ public final class Townhouse implements Archetype {
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
 				if (r[2] - r[0] - 1 >= 5 && floors <= 4) {
 					// a wide house with few floors: a chamber behind the parlour
-					Rooms.furnish(d, room, Rooms.Type.BEDROOM, atticLost ? 2 : 1, JobType.NONE);
+					TownHouses.bedroom(d, room, atticLost ? 2 : 1);
 				}
 			} else {
 				for (int x = r[0] + 1; x <= r[2] - 1; x++) {
@@ -461,7 +462,7 @@ public final class Townhouse implements Archetype {
 						room.keep(x, r[1] + 1);
 					}
 				}
-				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
+				TownHouses.bedroom(d, room, top && roof != null ? 1 : 2);
 				if (core == null) {
 					Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				}

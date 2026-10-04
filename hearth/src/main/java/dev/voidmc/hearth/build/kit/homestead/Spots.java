@@ -89,6 +89,25 @@ public final class Spots {
 		return ground && at(d, type, x, y, z, facing, job);
 	}
 
+	/**
+	 * Marks where beasts are kept: a {@link PoiType#WORK_FACE} for the {@link JobType#HERDER} on a standable cell of an
+	 * enclosure (a pasture's grass, a stall, a kraal, a pen), facing its gate. The sim stocks and returns animals there;
+	 * the HERDER's JOB_SITE at the gate is where the herder stands to tend them. Tries the cell and its neighbours at
+	 * standing level y; answers whether one was registered.
+	 */
+	public static boolean pen(Draft d, int x, int y, int z, Direction toGate) {
+		int[][] around = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+		for (int[] o : around) {
+			int px = x + o[0];
+			int pz = z + o[1];
+			if (standable(d, px, y, pz)) {
+				d.poi(PoiType.WORK_FACE, px, y, pz, toGate, JobType.HERDER);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Registers a point of interest at an exact cell if it is standable. */
 	public static boolean at(Draft d, PoiType type, int x, int y, int z, Direction facing, JobType job) {
 		if (standable(d, x, y, z)) {

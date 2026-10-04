@@ -437,9 +437,170 @@ class HomesteadTest {
 		everyOption(Barn.INFO, "loft", List.of("1", "2", "3"), "flat", "slope", "river");
 	}
 
+	/** Round houses are round: the wall at head height mirrors itself across the ring, and a fire burns inside. */
+	@Test
+	void roundHousesAreRound() {
+		List<String> problems = new ArrayList<>();
+		for (Culture c : new Culture[]{Culture.STEPPE, Culture.TROPICAL}) {
+			for (int size = 9; size <= 13; size++) {
+				Built b = build(RoundHouse.INFO, c, "flat", 515L + size * 3L + c.ordinal(), FACINGS[size % 4], new CompoundTag(), size, size);
+				Draft d = b.draft();
+				if (b.bp().pois().stream().noneMatch(p -> p.type() == PoiType.HEARTH)) {
+					problems.add(c + " " + size + ": no hearth");
+				}
+				int floorY = d.pois().stream().filter(p -> p.type() == PoiType.DOOR).findFirst().map(Draft.LocalPoi::y).orElse(0);
+				// the solid cells two above the floor, across the plot: the ring wall (and posts, the veranda's posts)
+				Set<Long> wall = new HashSet<>();
+				d.forEach((x, y, z, cell) -> {
+					if (y == floorY + 2 && !cell.state().isAir()
+						&& !cell.state().getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty()) {
+						wall.add(BlockPos.asLong(x, 0, z));
+					}
+				});
+				if (wall.isEmpty()) {
+					problems.add(c + " " + size + ": no wall");
+					continue;
+				}
+				// mirrored across the line through the door (the ring's centre): a woodpile or a pot beside it may break it
+				int axis2 = 2 * d.pois().stream().filter(p -> p.type() == PoiType.DOOR).findFirst().map(Draft.LocalPoi::x).orElse(d.frontage() / 2);
+				int asym = 0;
+				for (long k : wall) {
+					if (!wall.contains(BlockPos.asLong(axis2 - BlockPos.getX(k), 0, BlockPos.getZ(k)))) {
+						asym++;
+					}
+				}
+				// a window, a shutter or a lantern may break the mirror; a lopsided or squared ring breaks it everywhere
+				if (asym > wall.size() / 6) {
+					StringBuilder map = new StringBuilder();
+					for (int z = -1; z < d.depth(); z++) {
+						map.append("\n    ");
+						for (int x = 0; x < d.frontage(); x++) {
+							map.append(wall.contains(BlockPos.asLong(x, 0, z)) ? '#' : '.');
+						}
+					}
+					problems.add(c + " " + size + ": wall not symmetric (" + asym + " of " + wall.size() + ") at y " + (floorY + 2) + map);
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), String.join("\n  ", problems));
+	}
+
+	/** A stilt house on the water moors at a landing behind it (DOCK) and keeps its life on its galleries (seats, views). */
+	@Test
+	void stiltHousesHaveALandingAndGalleries() {
+		for (Culture c : new Culture[]{Culture.BAYOU, Culture.TROPICAL, Culture.MARITIME}) {
+			int docks = 0;
+			for (int s = 0; s < 3; s++) {
+				Built b = build(StiltHouse.INFO, c, "lake", 4040L + s * 17L + c.ordinal(), FACINGS[s], new CompoundTag(), 11, 12);
+				assertTrue(b.problems().isEmpty(), "stilt house in " + c + ": " + b.problems());
+				if (b.bp().pois().stream().anyMatch(p -> p.type() == PoiType.DOCK)) {
+					docks++;
+				}
+				assertTrue(b.bp().pois().stream().filter(p -> p.type() == PoiType.VIEWPOINT || p.type() == PoiType.SEAT).count() >= 2,
+					"stilt house in " + c + " seed " + s + " has no life on its galleries");
+				assertTrue(b.bp().pois().stream().anyMatch(p -> p.type() == PoiType.HEARTH), "stilt house in " + c + " has no stove");
+			}
+			assertTrue(docks >= 2, "stilt houses in " + c + " moor at a landing only " + docks + " of 3 times");
+		}
+	}
+
+	/** Pastures and barn stalls mark where their beasts are kept (WORK_FACE for the HERDER). */
+	@Test
+	void pensMarkWhereBeastsAreKept() {
+		for (Culture c : new Culture[]{Culture.TEMPERATE, Culture.DESERT, Culture.NORTHERN, Culture.STEPPE}) {
+			Built p = build(Pasture.INFO, c, "flat", 707L + c.ordinal(), Direction.SOUTH, new CompoundTag());
+			assertTrue(p.bp().pois().stream().anyMatch(x -> x.type() == PoiType.WORK_FACE && x.job() == JobType.HERDER), "pasture in " + c + " has no pen");
+			CompoundTag loft = new CompoundTag();
+			loft.putInt("loft", 2);
+			Built b = build(Barn.INFO, c, "flat", 808L + c.ordinal(), Direction.SOUTH, loft);
+			if (b.bp().pois().stream().noneMatch(x -> x.type() == PoiType.WORK_FACE && x.job() == JobType.HERDER)) {
+				// a flat-roofed byre keeps its beasts in stalls too
+				assertTrue(false, "barn in " + c + " has no stall marked");
+			}
+		}
+	}
+
+	/** Homes dressed for their household: a merchant's strongbox, a smith's anvil; still sound. */
+	@Test
+	void householdsDressTheirHomes() {
+		List<String> problems = new ArrayList<>();
+		for (Culture c : new Culture[]{Culture.TEMPERATE, Culture.NORTHERN, Culture.DESERT, Culture.BAYOU}) {
+			CompoundTag merchant = params(t -> t.putString("station", "merchant"));
+			Built m = build(Cottage.INFO, c, "flat", 909L + c.ordinal(), Direction.SOUTH, merchant, 10, 10);
+			if (m.bp().pois().stream().noneMatch(p -> p.type() == PoiType.STRONGBOX)) {
+				problems.add(c + ": a merchant's cottage has no strongbox");
+			}
+			problems.addAll(m.problems().stream().map(x -> c + " merchant: " + x).toList());
+			CompoundTag smith = params(t -> {
+				CompoundTag h = new CompoundTag();
+				h.putString("job", "smith");
+				t.put("household", h);
+			});
+			Built s = build(Cottage.INFO, c, "flat", 919L + c.ordinal(), Direction.SOUTH, smith, 10, 10);
+			int[] anvils = {0};
+			s.draft().forEach((x, y, z, cell) -> {
+				if (cell.state().is(Blocks.CHIPPED_ANVIL)) {
+					anvils[0]++;
+				}
+			});
+			if (anvils[0] == 0) {
+				problems.add(c + ": a smith's cottage has no anvil");
+			}
+			problems.addAll(s.problems().stream().map(x -> c + " smith: " + x).toList());
+		}
+		assertTrue(problems.isEmpty(), String.join("\n  ", problems));
+	}
+
+	/**
+	 * Bohemian cottages (temperate) stand under steep gables boarded upright: on a tall enough plot most rise at least
+	 * one and a half blocks to one, and a gabled one has its stripped-timber boards above the eaves; all sound.
+	 */
+	@Test
+	void bohemianCottagesStandUnderSteepBoardedGables() {
+		List<String> problems = new ArrayList<>();
+		int steep = 0;
+		int boarded = 0;
+		int n = 0;
+		for (int s = 0; s < 12; s++) {
+			Built b = build(Cottage.INFO, Culture.TEMPERATE, "flat", 7100L + s * 13L, FACINGS[s % 4], params(t -> t.putBoolean("split", false)), 9 + s % 3,
+				8 + s % 4);
+			problems.addAll(b.problems().stream().map(x -> "seed " + b.spec().seed() + ": " + x).toList());
+			Draft d = b.draft();
+			int[] top = {Integer.MIN_VALUE};
+			int[] boards = {0};
+			d.forEach((x, y, z, cell) -> {
+				var st = cell.state();
+				if (!st.isAir()) {
+					top[0] = Math.max(top[0], y);
+				}
+				if (y >= 5 && st.getBlock().getDescriptionId().contains("stripped") && st.hasProperty(BlockStateProperties.AXIS)
+					&& st.getValue(BlockStateProperties.AXIS) == Direction.Axis.Y) {
+					boards[0]++;
+				}
+			});
+			// the walls (and knee wall) stand 6 high; the roof over a span of 7 to 9 rises 6 or more over them when steep
+			if (top[0] - 5 >= 6) {
+				steep++;
+			}
+			if (boards[0] >= 3) {
+				boarded++;
+			}
+			n++;
+		}
+		assertTrue(problems.isEmpty(), String.join("\n  ", problems));
+		assertTrue(steep * 3 >= n * 2, "only " + steep + " of " + n + " Bohemian cottages stand under a steep roof");
+		assertTrue(boarded * 2 >= n, "only " + boarded + " of " + n + " Bohemian cottages have boarded gables");
+	}
+
+	@Test
+	void turfAndShingleCottagesHoldTheInvariants() {
+		everyOption(Cottage.INFO, "turf", List.of("true", "false"), "flat", "slope", "steep");
+	}
+
 	@Test
 	void roundAndStiltHousesHoldTheInvariantsEitherWay() {
 		everyOption(RoundHouse.INFO, "stilts", List.of("true", "false"), "flat", "slope", "coast");
+		everyOption(RoundHouse.INFO, "veranda", List.of("true", "false"), "flat", "hills", "lake");
 		everyOption(StiltHouse.INFO, "side_walk", List.of("true", "false"), "lake", "coast", "river", "flat");
 	}
 }

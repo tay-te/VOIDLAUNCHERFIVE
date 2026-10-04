@@ -106,6 +106,10 @@ public final class Farmhouse implements Archetype {
 		d.air(gateX, 0, 1);
 		d.air(gateX, 1, 1);
 		Bounds.around(d, 0, 0, w - 1, dp - 1, layout == Layout.COURT ? Bounds.Kind.NONE : Bounds.kind(d), List.of(new int[]{gateX, 0}));
+		if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d) && (layout == Layout.STEADING || layout == Layout.LAITHE)) {
+			// the Bohemian farm's gate under its own little roof
+			top = Math.max(top, dev.voidmc.hearth.build.kit.homestead.Bohemia.roofedGate(d, gateX, 0) ? 5 : 0);
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 		// log walls peeled, the corner posts left in their bark
 		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
@@ -222,8 +226,13 @@ public final class Farmhouse implements Archetype {
 		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1);
 		if (form == RoofForm.GAMBREL) {
 			o = o.withPitch(Math.max(0.9, o.pitch()));
+		} else if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d)) {
+			o = o.withPitch(dev.voidmc.hearth.build.kit.homestead.Bohemia.pitch(d, o.pitch(), hall.plateY(), depth / 2.0, form));
 		}
 		Roofs.Roof roof = Roofs.build(d, x0, z0, x1, z1, hall.plateY(), form, Direction.Axis.X, o, false, false).roof();
+		if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d)) {
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.carryRidge(d, roof);
+		}
 		Barns.Build bb = Barns.build(d);
 		if (form != RoofForm.HIP && form != RoofForm.PAGODA) {
 			try (var s = d.stage(StageKind.WALLS)) {
@@ -273,24 +282,33 @@ public final class Farmhouse implements Archetype {
 		int hx1 = hx0 + houseLen - 1;
 		int bx0 = houseLeft ? hx1 + 1 : x0;
 		int bx1 = houseLeft ? x1 : hx0 - 1;
-		RoofForm form = d.habits().roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP);
+		boolean bohemian = dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d);
+		RoofForm form = bohemian ? dev.voidmc.hearth.build.kit.homestead.Bohemia.form(d)
+			: d.habits().roof().pick(d.random(), RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.HIP);
 		form = HouseBuilder.roofParam(d, form);
 		if (form != RoofForm.GABLE && form != RoofForm.HALF_HIP && form != RoofForm.HIP) {
 			form = RoofForm.GABLE;
 		}
 		int sh = Math.max(4, d.habits().walls().storeyHeight());
-		int storeys = Barn.ridge(d, RoofForm.GABLE, depth, 2 * sh - 1) + 2 < d.maxHeight() ? 2 : 1;
-		int plate = storeys * sh - 1;
+		// (a Bohemian range is one long low storey and a loft over a knee wall under a steep roof: house, byre and barn
+		// in a row)
+		int storeys = !bohemian && Barn.ridge(d, RoofForm.GABLE, depth, 2 * sh - 1) + 2 < d.maxHeight() ? 2 : 1;
+		int knee = bohemian ? 2 : 0;
+		int plate = storeys * sh - 1 + knee;
 		// the barn end first (its wall against the house is redrawn by the house)
 		Barns.Hall barn = null;
 		if (bx1 - bx0 + 1 >= 5) {
 			int groundH = storeys == 2 ? sh + 1 : sh;
+			// (a loft at least two high over the byre)
 			barn = Barns.shell(d, bx0, z0, bx1, z1, 0, groundH, plate - groundH + 1, null, 3, houseLeft, !houseLeft);
 			Barns.cartDoor(d, Side.of(bx0, z0, bx1, z1, Dirs.FRONT), 0, (bx1 - bx0 + 1) >= 7 ? 3 : 1);
 		}
 		// the house end
-		int[] heights = new int[storeys];
+		int[] heights = new int[storeys + (knee > 0 ? 1 : 0)];
 		java.util.Arrays.fill(heights, sh);
+		if (knee > 0) {
+			heights[storeys] = knee;
+		}
 		Body body = new Body(hx0, z0, hx1, z1, 0, heights, !houseLeft && barn != null, houseLeft && barn != null);
 		d.body(x0, z0, x1, z1);
 		d.eave(plate);
@@ -300,13 +318,23 @@ public final class Farmhouse implements Archetype {
 		HouseBuilder.openings(d, body, facade, true);
 		// one roof over the whole range
 		Roofs.Opts o = Roofs.Opts.of(d);
+		if (bohemian) {
+			o = o.withPitch(dev.voidmc.hearth.build.kit.homestead.Bohemia.pitch(d, o.pitch(), plate, depth / 2.0, form));
+		}
 		Roofs.Plan plan = Roofs.plan(d, x0, z0, x1, z1, plate, form, Direction.Axis.X, o, false, false);
-		if (storeys == 1 && depth >= 7 && d.chance(0.6)) {
+		if (storeys == 1 && depth >= 7 && !bohemian && d.chance(0.6)) {
 			// a dormer lighting the attic over the house end
 			Side front = body.side(0, Dirs.FRONT);
 			plan.dormer(front, (hx0 + hx1) / 2 + (houseLeft ? -1 : 1), 1, plate + 1);
 		}
 		Roofs.Roof roof = plan.draw(d).roof();
+		if (bohemian) {
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.carryRidge(d, roof);
+			if (form != RoofForm.HIP) {
+				dev.voidmc.hearth.build.kit.homestead.Bohemia.gables(d, roof, Direction.Axis.X, new int[]{x0, z0, x1, z1}, plate);
+			}
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.fieldstone(d, hx0, z0, hx1, z1, 0, Math.max(0, d.habits().walls().plinth() - 1));
+		}
 		// the barn end's gable boarded or walled as the barn is
 		if (barn != null && form != RoofForm.HIP) {
 			int gx = houseLeft ? x1 : x0;
@@ -347,7 +375,7 @@ public final class Farmhouse implements Archetype {
 			Furniture.hearth(d, hearth[0], 0, hearth[1], hearth[2] == 0 ? Dirs.RIGHT : hearth[2] == 1 ? Dirs.LEFT : Dirs.FRONT, false);
 			Chimneys.stack(d, hearth[0], hearth[1], 2, roof, roof.ridgeY + 1);
 		}
-		HouseBuilder.interior(d, body, facade, storeys >= 2 ? null : roof, hearth, null, FarmParts.stairRunsRight(d, body, hearth));
+		HouseBuilder.interior(d, body, facade, storeys >= 2 && knee == 0 ? null : roof, hearth, null, FarmParts.stairRunsRight(d, body, hearth));
 		Integer door = HouseBuilder.doorColumn(facade);
 		FarmParts.ensureBeds(d, body, door, 2);
 		FarmParts.House house = new FarmParts.House(body, facade, roof, Integer.MIN_VALUE, door);
@@ -421,6 +449,25 @@ public final class Farmhouse implements Archetype {
 		int cx1 = w - 2 - sw;
 		int cz0 = 2;
 		int cz1 = hz0 - 1;
+		if (flat) {
+			// the dry lands' court: an arcade before the house, rounded or crested parapets, a painted gate
+			if (cx1 - cx0 >= 4 && hz0 - 2 - cz0 >= 3) {
+				portico(d, cx0, cx1, hz0 - 2, hz0 - 1, house);
+				top = Math.max(top, 6);
+			}
+			// the side ranges are plain farm buildings: their parapets rounded over
+			var kind = dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED;
+			if (sz1 - sz0 + 1 >= 4) {
+				int rx0 = stableLeft ? 1 : w - 1 - sw;
+				int rx1 = stableLeft ? sw : w - 2;
+				int lx0 = stableLeft ? w - 1 - sw : 1;
+				int lx1 = stableLeft ? w - 2 : sw;
+				int deck = Math.max(4, d.habits().walls().storeyHeight()) - 1 + 1;
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, rx0, sz0, rx1, sz1, deck, kind);
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, lx0, sz0, lx1, sz1, deck, kind);
+			}
+			gate(d, gateX);
+		}
 		FarmParts.yardSurface(d, cx0, cz0, cx1, cz1, 0);
 		courtThings(d, cx0, cz0, cx1, cz1, house);
 		return top;
@@ -498,6 +545,52 @@ public final class Farmhouse implements Archetype {
 			Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		}
 		return top;
+	}
+
+	/**
+	 * An arcade before the house across the court: a row of piers and round-headed arches on {@code za}, a walk behind it
+	 * on {@code zw} against the house's front, roofed by a deck with a low parapet (a riwaq, a portal). Its walk is kept
+	 * clear; the house door opens onto it.
+	 */
+	private static void portico(Draft d, int x0, int x1, int za, int zw, FarmParts.House house) {
+		Mat wall = d.mat(Role.WALL);
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		Mat deck = d.mat(Role.ROOF);
+		int h = 3;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = x0; x <= x1; x++) {
+				for (int y = Math.min(-1, d.site().ground(x, za) - 1); y < 0; y++) {
+					d.set(x, y, za, d.mat(Role.FOUNDATION).full());
+				}
+				for (int y = 0; y <= h; y++) {
+					d.set(x, y, za, wall.full());
+				}
+				d.set(x, h + 1, za, accent.has(Form.SLAB) ? accent.slab(SlabType.BOTTOM) : wall.slab(SlabType.BOTTOM));
+			}
+		}
+		Side arc = Side.of(x0, za, x1, za, Dirs.FRONT);
+		dev.voidmc.hearth.build.kit.townhome.Projections.arcade(d, arc, 1, arc.last() - 1, 0, h, 2, false);
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int x = x0; x <= x1; x++) {
+				d.set(x, h, zw, deck.full());
+				d.set(x, -1, zw, d.mat(Role.PAVING).full());
+			}
+		}
+		// the walk stays clear; a lantern hangs in it
+		for (int x = x0; x <= x1; x++) {
+			d.air(x, 0, zw);
+			d.air(x, 1, zw);
+			d.air(x, 2, zw);
+		}
+		Furniture.hangingLantern(d, (x0 + x1) / 2, h, zw, 0);
+		Furniture.hangingLantern(d, house.door() != null && Math.abs(house.door() - (x0 + x1) / 2) > 1 ? house.door() : x0 + 1, h, zw, 0);
+	}
+
+	/** A painted gate (the style's door) in the gateway, a tile set in its threshold. */
+	private static void gate(Draft d, int gateX) {
+		d.inStage(StageKind.OPENINGS, () -> d.door(gateX, 0, 1, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
+			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		dev.voidmc.hearth.build.kit.homestead.Adobe.threshold(d, gateX, 0, 0);
 	}
 
 	/** The wall along the track: the culture's wall with a coping, a gateway with posts and a lintel at the gate. */
@@ -697,6 +790,9 @@ public final class Farmhouse implements Archetype {
 			}
 			int ox = kg[0] + (houseLeft ? -1 : 1);
 			Spots.job(d, ox, kg[1], houseLeft ? Dirs.RIGHT : Dirs.LEFT, JobType.HERDER);
+			int kx = (int) Math.round(k.cx());
+			int kz = (int) Math.round(k.cz());
+			Spots.pen(d, kx, Spots.level(d, kx, kz), kz, houseLeft ? Dirs.LEFT : Dirs.RIGHT);
 		} else {
 			int gz = Math.max(2, gring.z0() - 1);
 			Spots.job(d, (int) Math.round(gcx), gz, Dirs.BACK, JobType.HERDER);
@@ -829,6 +925,7 @@ public final class Farmhouse implements Archetype {
 			}
 		}
 		Spots.at(d, PoiType.JOB_SITE, gx, 0, z1 + 1, Dirs.BACK, JobType.HERDER);
+		Spots.pen(d, gx, 0, (z0 + z1) / 2, Dirs.FRONT);
 	}
 
 	// ------------------------------------------------------------------------------------------------ shared
