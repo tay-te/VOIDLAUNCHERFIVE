@@ -61,33 +61,35 @@ final class StandingClientTour {
 		ticks++;
 		switch (ticks) {
 			case 60 -> server.execute(() -> setUp(server, mc));
-			case 75 -> server.execute(() -> walkIn(server, mc));
-			case 130 -> shot(mc, "arrival");
-			case 260 -> server.execute(() -> {
+			case 140 -> {
+				// The player may have spawned in the town: forget that greeting so walking in greets again.
+				ClientStanding.reset();
+				server.execute(() -> walkIn(server, mc));
+			}
+			case 200 -> shot(mc, "arrival");
+			case 300 -> server.execute(() -> {
 				ServerPlayer p = player(server, mc);
 				if (p != null) {
 					StandingNetwork.sendPage(p);
 				}
 			});
-			case 290 -> shot(mc, "page");
-			case 300 -> {
-				mc.gui.setScreen(null);
-				server.execute(() -> talk(server, mc));
-			}
-			case 340 -> shot(mc, "conversation");
-			case 350 -> {
+			case 330 -> shot(mc, "page");
+			case 340 -> mc.gui.setScreen(null);
+			case 460 -> server.execute(() -> talk(server, mc));
+			case 500 -> shot(mc, "conversation");
+			case 510 -> {
 				if (folkId >= 0) {
 					ClientPlayNetworking.send(new TalkPayloads.Choose(folkId, "standing:flatter"));
 				}
 			}
-			case 380 -> shot(mc, "flattered");
-			case 390 -> {
+			case 540 -> shot(mc, "flattered");
+			case 550 -> {
 				if (folkId >= 0) {
 					ClientPlayNetworking.send(new TalkPayloads.Choose(folkId, "standing:reputation"));
 				}
 			}
-			case 420 -> shot(mc, "reputation_asked");
-			case 440 -> mc.stop();
+			case 580 -> shot(mc, "reputation_asked");
+			case 600 -> mc.stop();
 			default -> {
 			}
 		}
@@ -152,6 +154,7 @@ final class StandingClientTour {
 
 	private static void teleport(ServerPlayer p, BlockPos at) {
 		ServerLevel level = p.level();
+		level.getChunk(at.getX() >> 4, at.getZ() >> 4); // load it, so the heightmap is real
 		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
 		p.connection.teleport(at.getX() + 0.5, y, at.getZ() + 0.5, 270F, 8F);
 	}

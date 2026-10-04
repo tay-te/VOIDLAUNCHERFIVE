@@ -79,6 +79,14 @@ class StandingLogicTest {
 		assertTrue(m.size() <= O.memories());
 		assertTrue(m.all().stream().anyMatch(x -> x.weight() == -45), "the strongest memory survives a crowd of small ones");
 		assertEquals("law:theft", m.strongest(p, 30, O).kind());
+		// A town that remembers only strong things still takes in today's small kindness.
+		Memories full = Memories.empty();
+		for (int i = 0; i < O.memories(); i++) {
+			full.add(new Memories.Memory(new UUID(0, i), "law:assault", -50, 30), O);
+		}
+		full.add(new Memories.Memory(p, "standing:flatter", 6, 30), O);
+		assertTrue(full.has(p, "standing:flatter", 30));
+		assertEquals(O.memories(), full.size());
 	}
 
 	@Test

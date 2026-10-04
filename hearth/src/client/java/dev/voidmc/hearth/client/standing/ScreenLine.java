@@ -51,9 +51,18 @@ final class ScreenLine {
 			colours.add(Titles.colour(title));
 		}
 		if (t != null && !t.resident().isEmpty()) {
-			lines.add(Component.translatable("hearth.standing.screen.opinion", t.resident(), ClientStanding.opinionWord(t.opinion()),
-				ClientStanding.signed(t.opinion())));
-			colours.add(t.opinion() >= 10 ? 0xFF9EE09E : t.opinion() <= -10 ? 0xFFE09E7E : 0xFFE0D8C0);
+			// One line for where you stand and with whom, so the strip stays small over the conversation's options.
+			Component opinion = Component.translatable("hearth.standing.screen.opinion", t.resident(), ClientStanding.opinionWord(t.opinion()),
+				ClientStanding.signed(t.opinion()));
+			if (lines.isEmpty()) {
+				lines.add(opinion);
+			} else {
+				lines.set(0, Component.empty().append(lines.getFirst()).append("  ·  ").append(opinion));
+			}
+			colours.add(0, t.opinion() >= 10 ? 0xFF9EE09E : t.opinion() <= -10 ? 0xFFE09E7E : 0xFFE0D8C0);
+			if (colours.size() > 1) {
+				colours.remove(1);
+			}
 			if (!t.result().getString().isEmpty()) {
 				lines.add(t.result());
 				colours.add(0xFFE8E0C8);

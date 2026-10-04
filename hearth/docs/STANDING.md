@@ -38,7 +38,8 @@ data/hearth/hearth_standing/{deeds,gossip,attire}/*.json
 
 **Personal opinion** is the sum of what is left of a player's memories (each fades with a half-life of 20 days; strong
 ones, |weight| ≥ 40, four times slower) plus a quarter of the town's standing: folk see you partly as their town does.
-Memories are bounded per resident (the faintest is forgotten first) and the same kind of deed by the same player within
+Memories are bounded per resident (the faintest is forgotten first, never the one just made: today's small kindness
+pushes out an old faint memory rather than vanishing among strong ones) and the same kind of deed by the same player within
 a day is one memory (the stronger), so a crime reported once by the victim and again when confirmed is not counted
 twice. They live in the resident's record, so they are saved with the person and die with them.
 
@@ -229,8 +230,10 @@ in their ledgers and memories). Unit test: 500 deeds with gossip over 41 towns w
     -Dhearth.dev.standing=true -Dhearth.dev.standing.stop=true" ./gradlew runServer
   ```
 
-- Client screenshots (`run/screenshots/hearth_standing_*.png`: arrival line, page, conversation with odds, after
-  flattery), into a world with live towns (e.g. the dev server's world copied to `run/saves/`):
+- Client screenshots (`run/screenshots/hearth_standing_*.png`: arrival line under the banner, the page, a conversation
+  with the odds and the standing strip, after flattery, after asking what folk say), into a world with live towns (the
+  dev server's `run/world` copied to `run/saves/<world>`; in a fresh `run/`, set `onboardAccessibility:false` in
+  `options.txt` or the first-launch screen holds the client):
 
   ```
   JAVA_TOOL_OPTIONS="-Dhearth.dev.standing.tour=true" ./gradlew runClient --args="--quickPlaySingleplayer <world>"

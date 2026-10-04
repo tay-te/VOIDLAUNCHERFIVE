@@ -94,17 +94,28 @@ public final class Memories {
 			}
 		}
 		this.list.add(m);
-		forget(m.day, cfg);
+		forget(m.day, cfg, m);
 		return m;
 	}
 
 	/** Drops memories that have faded to nothing, then the faintest until within the limit. */
 	public void forget(long today, StandingConfig.Opinion cfg) {
-		this.list.removeIf(x -> Math.abs(x.value(today, cfg)) < 0.5);
+		forget(today, cfg, null);
+	}
+
+	/**
+	 * As {@link #forget(long, StandingConfig.Opinion)}, sparing {@code fresh}: what just happened is vivid, so a new small
+	 * memory pushes out the faintest old one rather than being forgotten at once among strong ones.
+	 */
+	private void forget(long today, StandingConfig.Opinion cfg, @Nullable Memory fresh) {
+		this.list.removeIf(x -> x != fresh && Math.abs(x.value(today, cfg)) < 0.5);
 		while (this.list.size() > cfg.memories()) {
-			int weakest = 0;
+			int weakest = -1;
 			double least = Double.MAX_VALUE;
 			for (int i = 0; i < this.list.size(); i++) {
+				if (this.list.get(i) == fresh) {
+					continue;
+				}
 				double v = Math.abs(this.list.get(i).value(today, cfg));
 				if (v < least) {
 					least = v;
