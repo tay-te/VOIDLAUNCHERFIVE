@@ -356,7 +356,7 @@ public final class BlueprintChecks {
 
 	/**
 	 * Folk can get about: from the street every entrance (the main one at least) can be walked to, and from the
-	 * entrances every bed, job site and store.
+	 * entrances every bed, job site and store, and in an excavation every work face (where its gatherers stand).
 	 */
 	public static void reach(BlueprintImpl bp, World w, List<String> out) {
 		PlotSpec spec = bp.spec();
@@ -381,6 +381,8 @@ public final class BlueprintChecks {
 		LongOpenHashSet inside = walk(w, bp.entrances().isEmpty() ? street : bp.entrances(), box);
 		int beds = 0;
 		int jobs = 0;
+		int faces = 0;
+		boolean excavation = excavation(spec);
 		String first = null;
 		for (Poi p : bp.pois()) {
 			boolean ok;
@@ -399,6 +401,11 @@ public final class BlueprintChecks {
 				if (!ok) {
 					jobs++;
 				}
+			} else if (excavation && p.type() == PoiType.WORK_FACE) {
+				ok = near(inside, p.pos());
+				if (!ok) {
+					faces++;
+				}
 			} else {
 				ok = true;
 			}
@@ -407,9 +414,15 @@ public final class BlueprintChecks {
 				first = p.type() + " at " + q + " (" + w.at(q.getX(), q.getY(), q.getZ()) + " on " + w.at(q.getX(), q.getY() - 1, q.getZ()) + ")";
 			}
 		}
-		if (beds + jobs > 0) {
-			out.add(beds + " beds and " + jobs + " job sites/stores cannot be walked to from a door, e.g. " + first);
+		if (beds + jobs + faces > 0) {
+			out.add(beds + " beds and " + jobs + " job sites/stores" + (faces > 0 ? " and " + faces + " work faces" : "") + " cannot be walked to from a door, e.g. "
+				+ first);
 		}
+	}
+
+	/** Whether a blueprint is an excavation's ({@code hearth:extract/...}): its work faces must be reachable too. */
+	public static boolean excavation(PlotSpec spec) {
+		return spec.archetype().getPath().startsWith("extract/");
 	}
 
 	/**
@@ -482,11 +495,16 @@ public final class BlueprintChecks {
 		}
 	}
 
-	/** Stages in StageKind order; structural blocks laid bottom-up within each building stage. */
+	/**
+	 * Stages in StageKind order (in a blueprint worked in parts, parts in order and each part's stages in StageKind
+	 * order); structural blocks laid bottom-up within each building stage.
+	 */
 	public static void order(BlueprintImpl bp, List<String> out) {
 		for (int s = 1; s < bp.stageCount(); s++) {
-			if (bp.stageKind(s).ordinal() <= bp.stageKind(s - 1).ordinal()) {
-				out.add("stage " + bp.stageKind(s) + " comes after " + bp.stageKind(s - 1));
+			if (bp.part(s) < bp.part(s - 1)) {
+				out.add("part " + bp.part(s) + " comes after part " + bp.part(s - 1));
+			} else if (bp.part(s) == bp.part(s - 1) && bp.stageKind(s).ordinal() <= bp.stageKind(s - 1).ordinal()) {
+				out.add("stage " + bp.stageKind(s) + " comes after " + bp.stageKind(s - 1) + (bp.part(s) > 0 ? " in part " + bp.part(s) : ""));
 			}
 		}
 		for (int s = 0; s < bp.stageCount(); s++) {

@@ -71,7 +71,7 @@ public final class Compiler {
 	}
 
 	private record Step(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, StageKind stage, double support, int rank, int dist,
-		int sequence) {
+		int sequence, int order) {
 	}
 
 	public static BlueprintImpl compile(Draft d) {
@@ -83,7 +83,9 @@ public final class Compiler {
 		ShapeResolver.resolve(d, site);
 
 		int[] main = d.entrances().isEmpty() ? new int[]{d.frontage() / 2, 0, -1} : d.entrances().get(0);
-		EnumMap<StageKind, List<Step>> byStage = new EnumMap<>(StageKind.class);
+		// a blueprint worked in parts (Draft#part) is emitted part by part, each part's stages in StageKind order
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap partOf = d.worksInParts() ? parts(d) : null;
+		java.util.TreeMap<Integer, EnumMap<StageKind, List<Step>>> byPart = new java.util.TreeMap<>();
 		List<Poi> pois = new ArrayList<>();
 		int[] beds = {0};
 		d.forEach((x, y, z, c) -> {
@@ -92,8 +94,9 @@ public final class Compiler {
 			int rank = rank(s);
 			int dx = x - main[0];
 			int dz = z - main[2];
-			byStage.computeIfAbsent(c.stage(), k -> new ArrayList<>())
-				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence()));
+			int part = partOf == null ? 0 : partOf.get(Draft.key(x, y, z));
+			byPart.computeIfAbsent(part, k -> new EnumMap<>(StageKind.class)).computeIfAbsent(c.stage(), k -> new ArrayList<>())
+				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence(), d.order(x, y, z)));
 			if (s.getBlock() instanceof BedBlock && s.getValue(BedBlock.PART) == BedPart.HEAD) {
 				beds[0]++;
 				pois.add(new Poi(PoiType.BED, frame.toWorld(x, y, z), frame.toWorld(s.getValue(BedBlock.FACING).getOpposite()), null));
@@ -109,14 +112,19 @@ public final class Compiler {
 
 		List<StageKind> kinds = new ArrayList<>();
 		List<List<Step>> stages = new ArrayList<>();
-		for (StageKind k : StageKind.values()) {
-			List<Step> list = byStage.get(k);
-			if (list == null || list.isEmpty()) {
-				continue;
+		IntArrayList stageParts = new IntArrayList();
+		for (var pe : byPart.entrySet()) {
+			EnumMap<StageKind, List<Step>> byStage = pe.getValue();
+			for (StageKind k : StageKind.values()) {
+				List<Step> list = byStage.get(k);
+				if (list == null || list.isEmpty()) {
+					continue;
+				}
+				list.sort(order(k));
+				kinds.add(k);
+				stages.add(list);
+				stageParts.add(pe.getKey().intValue());
 			}
-			list.sort(order(k));
-			kinds.add(k);
-			stages.add(list);
 		}
 
 		int minX = Integer.MAX_VALUE;
@@ -214,18 +222,69 @@ public final class Compiler {
 		}
 
 		Silhouette silhouette = silhouette(d, frame);
-		return new BlueprintImpl(d.spec(), bounds, kinds.toArray(StageKind[]::new), positions, stateIdx, palette.toArray(BlockState[]::new), tags,
-			chunks, work, goods, pois, entrances, beds[0], silhouette);
+		return new BlueprintImpl(d.spec(), bounds, kinds.toArray(StageKind[]::new), stageParts.toIntArray(), positions, stateIdx,
+			palette.toArray(BlockState[]::new), tags, chunks, work, goods, pois, entrances, beds[0], silhouette);
+	}
+
+	/**
+	 * The part of every cell of a draft worked in parts: the part it was drawn in, else the latest part among its six
+	 * neighbours (spread round by round, so what the lighting pass hung from a gallery's cap, or a chain below it, goes
+	 * with that gallery), else 0.
+	 */
+	private static it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap parts(Draft d) {
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap out = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+		out.defaultReturnValue(-1);
+		it.unimi.dsi.fastutil.longs.LongArrayList first = new it.unimi.dsi.fastutil.longs.LongArrayList();
+		d.forEach((x, y, z, c) -> {
+			int p = d.part(x, y, z);
+			if (p >= 0) {
+				out.put(Draft.key(x, y, z), p);
+			} else {
+				first.add(Draft.key(x, y, z));
+			}
+		});
+		it.unimi.dsi.fastutil.longs.LongArrayList open = first;
+		int[][] n6 = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+		while (!open.isEmpty()) {
+			it.unimi.dsi.fastutil.longs.LongArrayList still = new it.unimi.dsi.fastutil.longs.LongArrayList();
+			it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap round = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+			for (int i = 0; i < open.size(); i++) {
+				long k = open.getLong(i);
+				int x = Draft.keyX(k);
+				int y = Draft.keyY(k);
+				int z = Draft.keyZ(k);
+				int best = -1;
+				for (int[] o : n6) {
+					best = Math.max(best, out.get(Draft.key(x + o[0], y + o[1], z + o[2])));
+				}
+				if (best >= 0) {
+					round.put(k, best);
+				} else {
+					still.add(k);
+				}
+			}
+			if (round.isEmpty()) {
+				for (int i = 0; i < still.size(); i++) {
+					out.put(still.getLong(i), 0);
+				}
+				break;
+			}
+			out.putAll(round);
+			open = still;
+		}
+		return out;
 	}
 
 	private static Comparator<Step> order(StageKind kind) {
 		Comparator<Step> tail = Comparator.<Step>comparingInt(s -> s.rank).thenComparingInt(s -> s.dist).thenComparingInt(s -> s.x)
 			.thenComparingInt(s -> s.z).thenComparingInt(s -> s.y);
+		// order keys (Draft#order) come first in the ground stages; unkeyed steps share the lowest key, so a draft without
+		// keys is ordered exactly as before
 		if (kind == StageKind.CLEAR) {
-			return Comparator.<Step>comparingInt(s -> -s.y).thenComparing(tail);
+			return Comparator.<Step>comparingInt(s -> s.order).thenComparingInt(s -> -s.y).thenComparing(tail);
 		}
 		if (kind == StageKind.EARTHWORK) {
-			return Comparator.<Step>comparingInt(s -> s.state.isAir() ? 0 : 1)
+			return Comparator.<Step>comparingInt(s -> s.order).thenComparingInt(s -> s.state.isAir() ? 0 : 1)
 				.thenComparingInt(s -> s.state.isAir() ? -s.y : s.y)
 				.thenComparing(tail);
 		}

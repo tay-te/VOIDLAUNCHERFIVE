@@ -34,6 +34,13 @@ import net.minecraft.resources.Identifier;
  *   tier's spacing (every 14 blocks in a village or town, 10 in a city): between its first and last lamp, every
  *   walkable cell of its surface at ≥ 1; lanes, alleys, paths, tracks and highways are dark on purpose, and so is a
  *   camp's street (its light is the brazier at its heart)</td></tr>
+ *   <tr><td>{@link Family#EXTRACTION}</td><td>quarry pits, mines, shafts, clay and sand pits (the woodlot is a
+ *   {@code FARM})</td><td>the workings underground — every walkable cell reached in the plot with natural rock
+ *   anywhere over the head: a mine's galleries, a shaft's ladder way, a winze — at <b>≥ 8</b>, as rooms are (they are
+ *   where the miners work); rooms (the headhouse, the shaft house, the quarrymen's hut) at ≥ 8; under a shelter (a roof
+ *   at most four blocks over the head: a lean-to, the portal's hood, a crane's platform) never dark; the open pit, its
+ *   benches, the ramp and the spoil are open ground, dark on purpose like a field; outside every entrance <b>≥ 8</b> (the
+ *   pit head, the adit's mouth, the shaft house door all have their lamp)</td></tr>
  * </table>
  *
  * The lamp by the door is owed by buildings at every entrance, and by the other families only where a real door stands
@@ -58,7 +65,7 @@ public final class LightRules {
 	public static final int NEVER_DARK = 1;
 
 	public enum Family {
-		BUILDING, SQUARE, GROUNDS, FARM, WORKS, ROAD;
+		BUILDING, SQUARE, GROUNDS, FARM, WORKS, ROAD, EXTRACTION;
 
 		public boolean plotNeverDark() {
 			return this == BUILDING;
@@ -70,6 +77,9 @@ public final class LightRules {
 		String p = archetype.getPath();
 		if (p.startsWith("farm/") || p.startsWith("extract/plantation")) {
 			return Family.FARM;
+		}
+		if (p.startsWith("extract/")) {
+			return Family.EXTRACTION;
 		}
 		if (p.equals("infra/road")) {
 			return Family.ROAD;
@@ -128,7 +138,7 @@ public final class LightRules {
 		java.util.Set<Long> doorCells = new java.util.HashSet<>();
 		for (BlockPos e : entrances) {
 			int[] c = settle(sp, e);
-			if (c != null && !sp.wet(c[0], c[1], c[2]) && (f == Family.BUILDING || besideDoor(g, c[0], c[1], c[2]))) {
+			if (c != null && !sp.wet(c[0], c[1], c[2]) && (f == Family.BUILDING || f == Family.EXTRACTION || besideDoor(g, c[0], c[1], c[2]))) {
 				doorCells.add(BlockPos.asLong(c[0], c[1], c[2]));
 				out.add(new Need(c[0], c[1], c[2], DOOR, Kind.DOOR));
 			}
@@ -143,6 +153,10 @@ public final class LightRules {
 						continue;
 					}
 					boolean reached = sp.reached(x, y, z);
+					if (f == Family.EXTRACTION) {
+						extraction(sp, x, y, z, reached, out);
+						continue;
+					}
 					boolean roofed = sp.roofed(x, y, z);
 					boolean enclosed = roofed && sp.enclosed(x, y, z);
 					if (enclosed && reached && !sp.doorway(x, y, z)) {
@@ -154,6 +168,52 @@ public final class LightRules {
 			}
 		}
 		return out;
+	}
+
+	/** How far over the head a roof still shelters a cell of an open working (a lean-to, a portal's hood). */
+	public static final int SHELTER = 4;
+
+	/**
+	 * The {@link Family#EXTRACTION} rule for one walkable cell in the plot: underground workings and rooms at
+	 * {@link #ROOM}, sheltered cells never dark, the open pit dark on purpose. Sealed pockets (enclosed, not reached)
+	 * never dark, as everywhere.
+	 */
+	private static void extraction(Spaces sp, int x, int y, int z, boolean reached, List<Need> out) {
+		Grid g = sp.grid();
+		boolean roofed = sp.roofed(x, y, z);
+		boolean enclosed = roofed && sp.enclosed(x, y, z);
+		if (reached && !sp.doorway(x, y, z) && (enclosed || underground(g, x, y, z))) {
+			out.add(new Need(x, y, z, ROOM, Kind.ROOM));
+		} else if (enclosed && !reached && open(g, x, y, z) || reached && roofed && sp.roofY(x, y, z) - (y + 1) <= SHELTER) {
+			out.add(new Need(x, y, z, NEVER_DARK, Kind.DARK));
+		}
+	}
+
+	/**
+	 * Whether a cell is in a working under the land, not in an open pit: natural ground (rock or earth the blueprint does
+	 * not place) stands anywhere over the head (a gallery, a crosscut, a stall), or the feet are on a ladder in a narrow
+	 * way, walled within two blocks on all four sides at head height (the ladder way of a shaft or a winze).
+	 */
+	public static boolean underground(Grid g, int x, int y, int z) {
+		for (int yy = y + 2; yy < g.y0 + g.sy; yy++) {
+			if (!g.placed(x, yy, z) && Spaces.roofLike(g.at(x, yy, z))) {
+				return true;
+			}
+		}
+		if (!(g.at(x, y, z).getBlock() instanceof net.minecraft.world.level.block.LadderBlock)) {
+			return false;
+		}
+		for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			int[] s = g.step(d);
+			boolean closed = false;
+			for (int k = 1; k <= 2 && !closed; k++) {
+				closed = !Spaces.passable(g.at(x + s[0] * k, y + 1, z + s[2] * k));
+			}
+			if (!closed) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

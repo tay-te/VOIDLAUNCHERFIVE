@@ -36,6 +36,8 @@ public final class BlueprintImpl implements Blueprint {
 	private final PlotSpec spec;
 	private final BoundingBox bounds;
 	private final StageKind[] kinds;
+	/** The part each stage belongs to (a blueprint worked in parts, Draft#part; all 0 otherwise). */
+	private final int[] parts;
 	private final int[][] positions;
 	private final int[][] states;
 	private final BlockState[] palette;
@@ -51,9 +53,16 @@ public final class BlueprintImpl implements Blueprint {
 	BlueprintImpl(PlotSpec spec, BoundingBox bounds, StageKind[] kinds, int[][] positions, int[][] states, BlockState[] palette,
 		Int2ObjectMap<CompoundTag>[] tags, Long2ObjectMap<int[][]> chunks, int[] work, int[][] goods, List<Poi> pois, List<BlockPos> entrances,
 		int beds, Silhouette silhouette) {
+		this(spec, bounds, kinds, new int[kinds.length], positions, states, palette, tags, chunks, work, goods, pois, entrances, beds, silhouette);
+	}
+
+	BlueprintImpl(PlotSpec spec, BoundingBox bounds, StageKind[] kinds, int[] parts, int[][] positions, int[][] states, BlockState[] palette,
+		Int2ObjectMap<CompoundTag>[] tags, Long2ObjectMap<int[][]> chunks, int[] work, int[][] goods, List<Poi> pois, List<BlockPos> entrances,
+		int beds, Silhouette silhouette) {
 		this.spec = spec;
 		this.bounds = bounds;
 		this.kinds = kinds;
+		this.parts = parts;
 		this.positions = positions;
 		this.states = states;
 		this.palette = palette;
@@ -91,7 +100,21 @@ public final class BlueprintImpl implements Blueprint {
 		return this.kinds[stage];
 	}
 
-	/** The index of the stage of a kind, or -1 if the blueprint has none of that kind. */
+	/**
+	 * The part a stage belongs to: 0 for an ordinary building; for a blueprint worked in parts (an excavation, see
+	 * {@code Draft#part}) the opening works are part 0 and each bench, gallery or lift after it a part of its own, its
+	 * stages in {@link StageKind} order.
+	 */
+	public int part(int stage) {
+		return this.parts[stage];
+	}
+
+	/** How many parts the blueprint is worked in (1 for an ordinary building). */
+	public int partCount() {
+		return this.parts.length == 0 ? 1 : this.parts[this.parts.length - 1] + 1;
+	}
+
+	/** The index of the first stage of a kind, or -1 if the blueprint has none of that kind. */
 	public int stageIndex(StageKind kind) {
 		for (int i = 0; i < this.kinds.length; i++) {
 			if (this.kinds[i] == kind) {

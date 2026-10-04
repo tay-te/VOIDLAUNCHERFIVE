@@ -83,6 +83,13 @@ public final class Draft {
 	private final Set<String> missing = new java.util.TreeSet<>();
 	private final it.unimi.dsi.fastutil.longs.LongOpenHashSet drained = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	private @Nullable StageKind stage;
+	/** The part placements go to while a {@link #part(int)} scope is open (-1: none chosen). */
+	private int part = -1;
+	/** Explicit parts by position (a blueprint worked in parts: an excavation's benches and galleries). */
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap parts = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+	/** The order key placements carry while an {@link #order(int)} scope is open (MIN_VALUE: none). */
+	private int order = Integer.MIN_VALUE;
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap orders = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
 	private int sequence;
 	private int clipped;
 	private int eaveY = Integer.MIN_VALUE;
@@ -117,6 +124,8 @@ public final class Draft {
 		this.bodyZ0 = 0;
 		this.bodyX1 = frontage() - 1;
 		this.bodyZ1 = depth() - 1;
+		this.parts.defaultReturnValue(-1);
+		this.orders.defaultReturnValue(Integer.MIN_VALUE);
 	}
 
 	// ---------------------------------------------------------------------------------------------------- inputs
@@ -428,6 +437,52 @@ public final class Draft {
 		return this.stage;
 	}
 
+	/**
+	 * Places everything until the returned scope is closed in part {@code n} (n ≥ 0) of a blueprint <b>worked in
+	 * parts</b>: an excavation's benches, a mine's galleries, a shaft's lifts (docs/LIVING_WORLD.md §8.5), each worked
+	 * over days before the next is opened. The compiler emits the parts in order, each with its own stages in
+	 * {@link StageKind} order, so a quarry's blueprint is its opening works (part 0), then bench 1's cutting, bench 2's,
+	 * and so on. A placement made outside any part scope keeps the part of the cell it replaces, else goes with the latest
+	 * part among the cells beside it (a lantern the lighting pass hangs from a gallery's cap goes with that gallery), else
+	 * part 0. A draft that never opens a part scope compiles exactly as before.
+	 */
+	public StageScope part(int n) {
+		if (n < 0) {
+			throw new IllegalArgumentException("part " + n);
+		}
+		int previous = this.part;
+		this.part = n;
+		return () -> this.part = previous;
+	}
+
+	/** The part a cell was explicitly drawn in, or -1 (not drawn, or drawn outside any part scope). */
+	public int part(int x, int y, int z) {
+		return this.parts.get(key(x, y, z));
+	}
+
+	/** Whether any placement was made in a part scope (the blueprint is worked in parts). */
+	public boolean worksInParts() {
+		return !this.parts.isEmpty();
+	}
+
+	/**
+	 * Gives everything placed until the returned scope is closed an order key: in the {@code CLEAR} and
+	 * {@code EARTHWORK} stages steps are made by key first (lowest first), and only within one key by the usual rule
+	 * (cuts top-down before fills bottom-up, outward from the entrance). Draw an excavation's cuts slice by slice as the
+	 * face advances, with the props and rails that go in behind each slice under the next key, and a worker meets them
+	 * in that order. Unkeyed steps come first. No effect on the other stages.
+	 */
+	public StageScope order(int key) {
+		int previous = this.order;
+		this.order = key;
+		return () -> this.order = previous;
+	}
+
+	/** The order key a cell was drawn with, or {@code Integer.MIN_VALUE}. */
+	public int order(int x, int y, int z) {
+		return this.orders.get(key(x, y, z));
+	}
+
 	/** A stage scope; closing it restores the stage that was current before. */
 	@FunctionalInterface
 	public interface StageScope extends AutoCloseable {
@@ -499,7 +554,10 @@ public final class Draft {
 
 	/** Forgets a placement (the world is left as it is there). */
 	public void remove(int x, int y, int z) {
-		this.cells.remove(key(x, y, z));
+		long k = key(x, y, z);
+		this.cells.remove(k);
+		this.parts.remove(k);
+		this.orders.remove(k);
 	}
 
 	/**
@@ -530,13 +588,31 @@ public final class Draft {
 		return this.clipped;
 	}
 
+	/** The first few placements dropped for falling outside the plot, as "x,y,z state (stage)" (for debugging). */
+	public List<String> clippedSample() {
+		return Collections.unmodifiableList(this.clippedSample);
+	}
+
+	private final List<String> clippedSample = new ArrayList<>();
+
 	private void put(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, @Nullable StageKind paintStage) {
 		if (!allowed(x, y, z)) {
 			this.clipped++;
+			if (this.clippedSample.size() < 6) {
+				this.clippedSample.add(x + "," + y + "," + z + " " + state + " (" + (this.stage != null ? this.stage : paintStage) + ")");
+			}
 			return;
 		}
 		StageKind s = this.stage != null ? this.stage : paintStage != null ? paintStage : guessStage(x, y, z, state);
-		this.cells.put(key(x, y, z), new Cell(state, tag == null ? null : tag.copy(), s, this.sequence++));
+		long k = key(x, y, z);
+		this.cells.put(k, new Cell(state, tag == null ? null : tag.copy(), s, this.sequence++));
+		// a part or an order key belongs to the position: a placement outside those scopes keeps what the cell had
+		if (this.part >= 0) {
+			this.parts.put(k, this.part);
+		}
+		if (this.order != Integer.MIN_VALUE) {
+			this.orders.put(k, this.order);
+		}
 	}
 
 	private StageKind guessStage(int x, int y, int z, BlockState s) {
