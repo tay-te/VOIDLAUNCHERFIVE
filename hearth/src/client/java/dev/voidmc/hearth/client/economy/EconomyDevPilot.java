@@ -114,7 +114,11 @@ public final class EconomyDevPilot {
 		// phase 3: shops with their own stock and till, haggling, the fence, businesses, works and contracts
 		run(5, c -> command(c, "hearth economy sandbox shop 2"));
 		shot("shop_bakery");
-		run(5, c -> market(c, EconomyActionPayload.HAGGLE_START, 0, 1));
+		run(5, c -> {
+			if (c.player.containerMenu instanceof MarketMenu menu && !menu.view().sells().isEmpty()) {
+				market(c, EconomyActionPayload.HAGGLE_START, menu.view().sells().getFirst().id(), 1);
+			}
+		});
 		shot("haggle_open");
 		run(5, c -> haggleOffer(c, 0.45));
 		shot("haggle_insulted");
@@ -235,6 +239,13 @@ public final class EconomyDevPilot {
 
 	private void tick(Minecraft c) {
 		if (c.level == null || c.player == null) {
+			if (c.gui.screen() instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen) {
+				// a fresh run directory asks about accessibility first: skip it, as a player clicking through would
+				c.options.onboardAccessibility = false;
+				c.options.save();
+				c.gui.setScreen(new TitleScreen());
+				return;
+			}
 			if (!this.worldRequested && c.gui.screen() instanceof TitleScreen) {
 				this.worldRequested = true;
 				createWorld(c);

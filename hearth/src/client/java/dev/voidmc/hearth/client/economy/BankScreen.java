@@ -407,11 +407,9 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 		list(g, contracts.size(), lx, y0, mx, my, (i, x, y) -> {
 			BankView.ContractOffer c = contracts.get(i);
 			g.item(new ItemStack(icon(c.goods())), x + 3, y + 1);
-			int priceW = EconomyGui.coinsWidth(this.font, c.total());
 			Component name = Component.translatable("hearth.economy.screen.contract_row", c.units(), Component.translatable("hearth.goods." + c.goods()));
-			g.text(this.font, EconomyGui.trim(this.font, name.getString(), PAGE_W - 34 - priceW), x + 22, y + 5,
+			g.text(this.font, EconomyGui.trim(this.font, name.getString(), PAGE_W - 30), x + 22, y + 5,
 				c.has(BankView.ContractOffer.TAKEN) ? EconomyGui.INK_GREEN : EconomyGui.INK, false);
-			EconomyGui.coinsRight(g, this.font, x + PAGE_W - 8, y + 5, c.total(), EconomyGui.INK);
 		});
 
 		title(g, Component.translatable("hearth.economy.screen.contract"), rx, y0);

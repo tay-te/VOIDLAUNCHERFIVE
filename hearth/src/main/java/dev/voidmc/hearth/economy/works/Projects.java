@@ -8,6 +8,8 @@ import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.api.testing.SyntheticTerrain;
 import dev.voidmc.hearth.economy.EconomyConfig;
 import dev.voidmc.hearth.economy.EconomyModule;
 import dev.voidmc.hearth.economy.Reputation;
@@ -105,11 +107,13 @@ public final class Projects {
 	}
 
 	private static @Nullable Blueprint blueprint(PlotSpec spec, @Nullable HearthWorld world) {
-		if (world == null || !HearthServices.hasBlueprints()) {
+		if (!HearthServices.hasBlueprints()) {
 			return null;
 		}
 		try {
-			return HearthServices.blueprints().blueprint(spec, world.terrain());
+			// without the sim's world (a dev sandbox) the bill is read on flat ground: an estimate either way
+			TerrainProbe terrain = world != null ? world.terrain() : new SyntheticTerrain(SyntheticTerrain.Kind.FLAT, spec.seed());
+			return HearthServices.blueprints().blueprint(spec, terrain);
 		} catch (RuntimeException e) {
 			return null; // an archetype this server does not have: no estimate
 		}

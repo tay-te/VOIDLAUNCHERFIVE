@@ -253,7 +253,7 @@ public final class Shops {
 			}
 			double unit = pricer.unitMid(g) * cfg.wholesale();
 			int affordable = unit <= 0 ? want : (int) Math.min(want, Math.floor(shop.till / unit));
-			int units = Math.min(affordable, pricer.surplus(g));
+			int units = Math.min(affordable, spare(settlement, pricer, g, cfg));
 			if (units <= 0) {
 				continue;
 			}
@@ -265,6 +265,15 @@ public final class Shops {
 			shop.stock[i] += taken;
 			ledger.traded[i] -= taken; // the shop's stock is not the town eating its stores
 		}
+	}
+
+	/**
+	 * What the town's stores let its shops take of a goods: what it holds above {@code townFloor} of its target. The
+	 * shops' share comes before the market's surplus (a baker has bread to sell before the town has bread to spare), but
+	 * never digs into what the builders and the town itself need.
+	 */
+	static int spare(Settlement settlement, MarketPricer pricer, Goods g, EconomyConfig.Shops cfg) {
+		return (int) Math.max(0, settlement.stockpile().get(g) - pricer.target(g) * cfg.townFloor() - pricer.ledger().need(g));
 	}
 
 	/** Shelves fuller than the most a shop keeps send the rest back to the stores, if the treasury can pay wholesale. */

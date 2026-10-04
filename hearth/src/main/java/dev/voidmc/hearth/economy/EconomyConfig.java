@@ -283,10 +283,11 @@ public record EconomyConfig(Pricing pricing, Treasury treasury, Bank bank, Prope
 	 * @param workingTill      coin a till keeps for buying; the keeper takes a share of what is above it
 	 * @param keeperShare      share of the till above its working coin the keeper (or the owner) takes each day
 	 * @param dueRate          share of a shop's takings paid to the treasury as market dues
+	 * @param townFloor        shops restock from the town's stores down to this share of its target stock (never below)
 	 */
 	public record Shops(double stockDays, int minStock, int maxStock, double wholesale, long startingTill, long workingTill, double keeperShare,
-		double dueRate) {
-		public static final Shops DEFAULTS = new Shops(4, 16, 512, 0.75, 200, 400, 0.3, 0.08);
+		double dueRate, double townFloor) {
+		public static final Shops DEFAULTS = new Shops(4, 16, 512, 0.75, 200, 400, 0.3, 0.08, 0.6);
 
 		public static final Codec<Shops> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.DOUBLE.optionalFieldOf("stock_days", DEFAULTS.stockDays).forGetter(Shops::stockDays),
@@ -296,7 +297,8 @@ public record EconomyConfig(Pricing pricing, Treasury treasury, Bank bank, Prope
 			Codec.LONG.optionalFieldOf("starting_till", DEFAULTS.startingTill).forGetter(Shops::startingTill),
 			Codec.LONG.optionalFieldOf("working_till", DEFAULTS.workingTill).forGetter(Shops::workingTill),
 			Codec.doubleRange(0, 1).optionalFieldOf("keeper_share", DEFAULTS.keeperShare).forGetter(Shops::keeperShare),
-			Codec.doubleRange(0, 1).optionalFieldOf("due_rate", DEFAULTS.dueRate).forGetter(Shops::dueRate)
+			Codec.doubleRange(0, 1).optionalFieldOf("due_rate", DEFAULTS.dueRate).forGetter(Shops::dueRate),
+			Codec.doubleRange(0, 2).optionalFieldOf("town_floor", DEFAULTS.townFloor).forGetter(Shops::townFloor)
 		).apply(i, Shops::new));
 	}
 
