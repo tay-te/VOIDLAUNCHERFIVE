@@ -208,6 +208,21 @@ public final class Fountain implements Archetype {
 				d.set(cx, 4, cz, accent.full());
 				d.set(cx, 5, cz, Blocks.WATER.defaultBlockState());
 				top = 5;
+			} else if (d.maxHeight() >= 7) {
+				// a small basin still stands its column tall: a tazza over the water spilling into it, a finial with the jet
+				d.set(cx, 0, cz, accent.full());
+				d.set(cx, 1, cz, shaft);
+				d.set(cx, 2, cz, col.full());
+				for (Direction dir : Dirs.HORIZONTAL) {
+					d.set(cx + Dirs.dx(dir), 2, cz + Dirs.dz(dir), col.stairsOrSlab(dir.getOpposite(), Half.TOP));
+				}
+				for (int[] c : new int[][]{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
+					d.set(cx + c[0], 2, cz + c[1], col.slab(SlabType.TOP));
+				}
+				d.set(cx, 3, cz, shaft);
+				d.set(cx, 4, cz, accent.full());
+				d.set(cx, 5, cz, Blocks.WATER.defaultBlockState());
+				top = 5;
 			} else {
 				d.set(cx, 0, cz, col.full());
 				d.set(cx, 1, cz, shaft);
@@ -215,7 +230,17 @@ public final class Fountain implements Archetype {
 				d.set(cx, 3, cz, Blocks.WATER.defaultBlockState());
 				top = 3;
 			}
-		}
+			}
+			if (m == 0 && "square".equals(shape)) {
+				// lanterns on the rim's corner stones, so the water glints at night
+				try (var s = d.stage(StageKind.EXTERIOR)) {
+					for (int[] c : new int[][]{{0, 0}, {w - 1, 0}, {0, dp - 1}, {w - 1, dp - 1}}) {
+						if (d.isSolid(c[0], 0, c[1]) && d.isEmpty(c[0], 1, c[1])) {
+							d.set(c[0], 1, c[1], States.lantern(Lamps.lantern(d), false));
+						}
+					}
+				}
+			}
 		if (m >= 1) {
 			for (int[] c : new int[][]{{0, 0}, {w - 1, 0}, {0, dp - 1}, {w - 1, dp - 1}}) {
 				if (d.isAbsent(c[0], 0, c[1])) {

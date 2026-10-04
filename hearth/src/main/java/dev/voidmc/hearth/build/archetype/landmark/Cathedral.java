@@ -62,8 +62,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class Cathedral implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landmark/cathedral"), ArchetypeCategory.LANDMARK, Set.of(JobType.PRIEST), 0,
-		17, 25, 29, 41, 26, 44, SettlementTier.CITY,
-		Set.of(Culture.TEMPERATE, Culture.WISTERIA, Culture.MARITIME, Culture.ALPINE, Culture.MOORLAND, Culture.MEDITERRANEAN),
+		17, 25, 29, 41, 26, 56, SettlementTier.CITY,
+		Set.of(Culture.TEMPERATE, Culture.WISTERIA, Culture.MARITIME, Culture.ALPINE, Culture.MOORLAND, Culture.MEDITERRANEAN, Culture.NORTHERN),
 		Set.of(ArchetypeInfo.SiteFlag.VERTICAL), List.of(), 1, 1.0);
 
 	@Override
@@ -121,6 +121,11 @@ public final class Cathedral implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		if (d.style().culture() == Culture.NORTHERN) {
+			// the north raises a great stave church
+			StaveCathedral.draw(d);
+			return;
+		}
 		Plan p = plan(d);
 		Stone body = p.manner == Manner.GOTHIC ? Stone.ashlar(d) : Stone.masonry(d);
 		Stone dress = Stone.dressing(d);
@@ -164,8 +169,9 @@ public final class Cathedral implements Archetype {
 			p.n = 5;
 		} else {
 			p.n = p.w >= 23 ? 9 : p.w >= 19 ? 7 : 5;
-			if (p.n == 9) {
-				p.a = Math.min(4, (p.w - 9 - 6) / 2);
+			if (p.n == 9 && p.w >= 25) {
+				// broad aisles on the widest closes; aisles stay odd so the west towers over them centre their spires
+				p.a = 5;
 			}
 		}
 		int churchW = p.n + 2 * p.a + 6;
@@ -200,7 +206,8 @@ public final class Cathedral implements Archetype {
 		}
 		// heights
 		p.yA = p.top >= 32 ? 6 : 5;
-		p.yN = Math.max(p.yA + p.a + 6, (int) Math.round(p.top * (p.manner == Manner.ROMANESQUE ? 0.33 : 0.37)));
+		// the nave's height from a 44-block sky whatever the plot allows: extra height goes to the towers and spires
+		p.yN = Math.max(p.yA + p.a + 6, (int) Math.round(Math.min(p.top, 43) * (p.manner == Manner.ROMANESQUE ? 0.33 : 0.37)));
 		p.pitch = switch (p.manner) {
 			case GOTHIC -> 1.4;
 			case ROMANESQUE -> 0.6;
@@ -570,8 +577,10 @@ public final class Cathedral implements Archetype {
 			west.add(new Tower(left ? p.aL : p.nR, p.zF, p.t, body, dress, base, false));
 		}
 		int crownRows = Crowns.rows(westCrown, p.t, p.top);
+		// the west towers carry their belfries clear of the nave's ridge, then the crown: a gothic pair stands a full stage
+		// over the roof so the spires spring from the skyline, not from the roof
 		int yT = p.towers == Towers.CROSSING ? Math.min(p.top - crownRows, roof.ridgeY + 2)
-			: Math.min(p.top - crownRows, roof.ridgeY + (p.manner == Manner.ROMANESQUE ? 8 : 5));
+			: Math.min(p.top - crownRows, roof.ridgeY + (p.manner == Manner.ROMANESQUE ? 8 : p.manner == Manner.GOTHIC ? 8 : 6));
 		yT = Math.max(yT, p.yN + 4);
 		for (Tower t : west) {
 			peak = Math.max(peak, westTower(d, p, t, yT, westCrown, mats));
@@ -600,7 +609,7 @@ public final class Cathedral implements Archetype {
 			peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.DOME, cx0, cz0, cx1, cz1, drumTop, p.top, mats));
 		} else if (p.towers == Towers.CROSSING) {
 			Tower ct = new Tower(cx0, cz0, cx1 - cx0 + 1, body, dress, base, false);
-			int ycT = Math.min(p.top - Math.max(12, (int) Math.round(p.top * 0.38)), roof.ridgeY + 6);
+			int ycT = Math.min(p.top - Math.max(12, (int) Math.round(p.top * 0.4)), roof.ridgeY + 8);
 			ycT = Math.max(ycT, roof.ridgeY + 3);
 			ct.shaft(d, p.yN + 1, ycT - 1);
 			ct.openings(d, ycT - 5, 4, ct.size >= 9 ? Tower.Opening.TRIFORA : Tower.Opening.BIFORA, true, null);
@@ -624,17 +633,23 @@ public final class Cathedral implements Archetype {
 							}
 						}
 					}
+					// an open lantern: slender posts at the corners, the louvres open to the sky, the mast up its middle
+					Paint post = frame.has(Form.FENCE) ? frame.fence() : frame.log(Direction.Axis.Y);
 					for (int y = y0; y < y0 + 3; y++) {
 						for (int[] c : Draft.ring(fx - 1, fz - 1, fx + 1, fz + 1)) {
 							boolean corner = Crowns.isCorner(c, fx - 1, fz - 1, fx + 1, fz + 1);
 							Direction out = Dirs.nearest(c[0] - fx, c[1] - fz);
-							d.set(c[0], y, c[1], corner ? frame.log(Direction.Axis.Y)
-								: shutter.has(Form.TRAPDOOR) ? shutter.trapdoor(out.getOpposite(), Half.TOP, true) : frame.fence());
+							if (corner) {
+								d.set(c[0], y, c[1], post);
+							} else if (y == y0 + 2 && shutter.has(Form.TRAPDOOR)) {
+								d.set(c[0], y, c[1], shutter.trapdoor(out.getOpposite(), Half.TOP, false));
+							}
 						}
 						d.set(fx, y, fz, frame.log(Direction.Axis.Y));
 					}
+					Details.bell(d, fx, y0 + 1, fz - 1, Dirs.FRONT);
 				}
-				peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.SPIRE, fx - 1, fz - 1, fx + 1, fz + 1, y0 + 3, p.top, mats));
+				peak = Math.max(peak, Crowns.crown(d, Crowns.Kind.SPIRE, fx - 1, fz - 1, fx + 1, fz + 1, y0 + 3, Math.min(p.top, y0 + 3 + 12), mats));
 			}
 		}
 		return peak;

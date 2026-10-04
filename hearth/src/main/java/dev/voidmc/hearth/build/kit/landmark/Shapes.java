@@ -220,6 +220,261 @@ public final class Shapes {
 		}
 	}
 
+	// ------------------------------------------------------------------------------------------------ ladders
+
+	/**
+	 * A square of half-width {@code r} round (cx, cz) with its corners cut by {@code cut} (cells with
+	 * {@code |dx| + |dz| <= 2r - cut}): cut 0 is the square, cut 1 an octagon with the corner cells off, cut 2 a rounder
+	 * octagon, and half-width 1 with cut 1 the plus. Centres may be half-integers (even widths).
+	 */
+	public static Set<Long> oct(double cx, double cz, double r, int cut) {
+		Set<Long> s = new HashSet<>();
+		int x0 = (int) Math.floor(cx - r - 0.01);
+		int x1 = (int) Math.ceil(cx + r + 0.01);
+		int z0 = (int) Math.floor(cz - r - 0.01);
+		int z1 = (int) Math.ceil(cz + r + 0.01);
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				double dx = Math.abs(x - cx);
+				double dz = Math.abs(z - cz);
+				if (dx <= r + 0.01 && dz <= r + 0.01 && dx + dz <= 2 * r - cut + 0.01) {
+					s.add(key(x, z));
+				}
+			}
+		}
+		return s;
+	}
+
+	/** A half-width snapped to the centre's parity (whole for a centre on a block, half for one between blocks), rounding down. */
+	public static double snap(double c, double r) {
+		boolean half = Math.abs(c - Math.floor(c) - 0.5) < 0.25;
+		return half ? Math.floor(r - 0.5 + 0.01) + 0.5 : Math.floor(r + 0.01);
+	}
+
+	/**
+	 * The ladder of nested outlines a tapering form climbs from a square of half-width {@code r} to a point: square,
+	 * octagon, rounder octagon (where wide enough), the square one smaller, and so on down to the plus and the single
+	 * cell (a 2 × 2 for even widths). Each outline lies inside the one before, so a form stacked from them never
+	 * overhangs.
+	 */
+	public static List<Set<Long>> ladder(double cx, double cz, double r) {
+		List<Set<Long>> out = new ArrayList<>();
+		double min = Math.abs(r - Math.floor(r)) > 0.25 ? 0.5 : 0;
+		for (double rr = r; rr >= min - 0.01; rr -= 1) {
+			out.add(oct(cx, cz, rr, 0));
+			if (rr >= 0.99) {
+				out.add(oct(cx, cz, rr, 1));
+			}
+			if (rr >= 2.49) {
+				out.add(oct(cx, cz, rr, 2));
+			}
+		}
+		// drop repeats (a cut that removes nothing)
+		List<Set<Long>> clean = new ArrayList<>();
+		for (Set<Long> s : out) {
+			if (!s.isEmpty() && (clean.isEmpty() || !clean.get(clean.size() - 1).equals(s))) {
+				clean.add(s);
+			}
+		}
+		return clean;
+	}
+
+	/**
+	 * A form stacked from one outline per row (row i at {@code y0 + i}): every cell of a row is the body, except where the
+	 * row above draws in (a stair rising toward the axis: the slope of a spire or the shoulder of a dome) or where the row
+	 * swells out past the one below (an upside-down stair: the underside of an onion's bulb). The interior more than a
+	 * block in from every face is left undrawn. Returns the top row's y.
+	 */
+	public static int stack(Draft d, double cx, double cz, int y0, List<Set<Long>> rows, Paint body, Stone steps) {
+		boolean stairs = steps != null && steps.has(dev.voidmc.hearth.build.style.Form.STAIRS);
+		for (int i = 0; i < rows.size(); i++) {
+			Set<Long> row = rows.get(i);
+			Set<Long> above = i + 1 < rows.size() ? rows.get(i + 1) : Set.of();
+			Set<Long> below = i > 0 ? rows.get(i - 1) : row;
+			int y = y0 + i;
+			for (long k : row) {
+				int x = (int) (k >> 32);
+				int z = (int) k;
+				if (!d.allowed(x, y, z)) {
+					continue;
+				}
+				// deep inside: neighbours all round in this row, the row above and the row below
+				boolean deep = above.contains(k) && below.contains(k);
+				for (Direction dir : Dirs.HORIZONTAL) {
+					long n = key(x + Dirs.dx(dir), z + Dirs.dz(dir));
+					if (!row.contains(n) || !above.contains(n) || !below.contains(n)) {
+						deep = false;
+						break;
+					}
+				}
+				if (deep && i > 0 && i + 1 < rows.size()) {
+					continue;
+				}
+				Paint p = body;
+				if (row.size() == 1) {
+					// the point: a whole block, whatever comes over it
+					p = body;
+				} else if (stairs && !above.contains(k)) {
+					p = steps.stairs(inward(row, x, z, cx, cz), Half.BOTTOM);
+				} else if (stairs && i > 0 && !below.contains(k)) {
+					p = steps.stairs(inward(row, x, z, cx, cz), Half.TOP);
+				}
+				d.set(x, y, z, p);
+			}
+		}
+		return y0 + rows.size() - 1;
+	}
+
+	/**
+	 * The rows of an onion dome of half-width r (a drum of half-width r - 1 under it): a neck, the bulb swelling out over
+	 * it on upside-down stairs, held, then drawn in outline by outline to an ogee point two cells tall. Laid in blocks
+	 * this way (not as rasterised circles) a five- or seven-wide onion keeps its shape instead of reading as a stepped cone.
+	 */
+	public static List<Set<Long>> onionRows(double cx, double cz, double r) {
+		List<Set<Long>> rows = new ArrayList<>();
+		if (r < 1.49) {
+			// a three-wide onion: a plus for the neck, the square bulb, a plus, the point
+			rows.add(oct(cx, cz, r, 1));
+			rows.add(oct(cx, cz, r, 0));
+			rows.add(oct(cx, cz, r, 0));
+			rows.add(oct(cx, cz, r, 1));
+			rows.add(oct(cx, cz, r - 1, 0));
+			rows.add(oct(cx, cz, r - 1, 0));
+			return rows;
+		}
+		double n = r - 1;
+		rows.add(oct(cx, cz, n, n >= 0.99 ? 1 : 0));
+		// the bulb: swelling out over the neck on upside-down stairs, held, then rounding over
+		if (r >= 2.49) {
+			rows.add(oct(cx, cz, r, 2));
+		}
+		rows.add(oct(cx, cz, r, 1));
+		rows.add(oct(cx, cz, r, 1));
+		if (r < 2.49) {
+			rows.add(oct(cx, cz, r, 1));
+		} else {
+			rows.add(oct(cx, cz, r, 2));
+		}
+		// the shoulder drawn in quickly, then the ogee point: a slender spike two cells tall over a plus
+		if (r - 1 >= 1.99) {
+			rows.add(oct(cx, cz, r - 1, 1));
+		}
+		boolean half = Math.abs(r - Math.floor(r)) > 0.25;
+		if (!half) {
+			rows.add(oct(cx, cz, 1, 1));
+		}
+		Set<Long> point = oct(cx, cz, half ? 0.5 : 0, 0);
+		rows.add(point);
+		rows.add(point);
+		return rows;
+	}
+
+	/**
+	 * The rows of a dome of half-width r: the springing outline held two rows, then the ladder drawn in one outline a
+	 * row, so a dome is a little taller than half its width and round-shouldered at any size.
+	 */
+	public static List<Set<Long>> domeRows(double cx, double cz, double r) {
+		List<Set<Long>> rows = new ArrayList<>();
+		if (r < 1.49) {
+			// a three-wide cap: the square with its corners turned, the plus, the point
+			rows.add(oct(cx, cz, r, 0));
+			rows.add(oct(cx, cz, r, 1));
+			rows.add(oct(cx, cz, r - 1, 0));
+			return rows;
+		}
+		// the springing outline held two rows (the drum's line carried up), then an octagon a cell smaller each row: a
+		// round-shouldered dome, a little taller than half its width, never a stepped pyramid
+		Set<Long> spring = oct(cx, cz, r, r >= 2.49 ? 2 : 1);
+		rows.add(spring);
+		rows.add(spring);
+		for (double rr = r - 1; rr >= 0.99; rr -= 1) {
+			rows.add(oct(cx, cz, rr, 1));
+		}
+		double last = Math.abs(r - Math.floor(r)) > 0.25 ? 0.5 : 0;
+		rows.add(oct(cx, cz, last, 0));
+		return rows;
+	}
+
+	/** The way from a rim cell toward the axis: toward a neighbour in the outline, the nearest to the centre. */
+	private static Direction inward(Set<Long> row, int x, int z, double cx, double cz) {
+		Direction best = Dirs.nearest(cx - x, cz - z);
+		if (row.contains(key(x + Dirs.dx(best), z + Dirs.dz(best)))) {
+			return best;
+		}
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (row.contains(key(x + Dirs.dx(dir), z + Dirs.dz(dir)))) {
+				return dir;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * A tapering needle spire over the outline {@code ladder(cx, cz, r)} from row y0, {@code rows} high in all: each
+	 * outline of the ladder held for a share of the height (the broad ones briefly, the slender top longest, as a straight
+	 * spire's faces look when laid in blocks), then a shaft of wall posts and a rod. Returns the highest row drawn.
+	 */
+	public static int needle(Draft d, double cx, double cz, double r, int y0, int rows, Paint body, Stone steps, Paint post, int skip) {
+		List<Set<Long>> ladder = new ArrayList<>(ladder(cx, cz, r));
+		for (int k = 0; k < skip && ladder.size() > 1; k++) {
+			ladder.remove(0);
+		}
+		int n = ladder.size();
+		int tip = Math.max(1, Math.min(4, rows / 5));
+		int forBody = Math.max(n, rows - tip - 1);
+		// the rows each outline holds: the faces follow a slightly concave profile (width ~ (1 - h/H)^1.7, the way a
+		// needle spire draws in quickly off its base and runs long and slender to the point), measured by each outline's
+		// seen width (between its width square on and its width across the diagonal); never less than a row each
+		double w0 = seenWidth(ladder.get(0), cx, cz);
+		// a small spire (five wide) tapers straighter, or its slender top reads as a pencil on a skirt
+		double bow = r >= 2.9 ? 1.7 : 1.3;
+		List<Set<Long>> stackRows = new ArrayList<>();
+		int used = 0;
+		for (int i = 0; i < n; i++) {
+			double wNext = i + 1 < n ? seenWidth(ladder.get(i + 1), cx, cz) : 0;
+			double h = 1 - Math.pow(Math.max(0, wNext / w0), 1 / bow);
+			int until = (int) Math.round(h * forBody);
+			int want = Math.max(1, until - used);
+			if (i == n - 1) {
+				want = Math.max(1, forBody - used);
+			}
+			for (int k = 0; k < want; k++) {
+				stackRows.add(ladder.get(i));
+			}
+			used += want;
+		}
+		int top = stack(d, cx, cz, y0, stackRows, body, steps);
+		// the shaft: wall posts (or the body) up the axis of a one-cell top, then the rod
+		Set<Long> last = ladder.get(n - 1);
+		if (last.size() == 1) {
+			long k = last.iterator().next();
+			int x = (int) (k >> 32);
+			int z = (int) k;
+			for (int t = 0; t < tip && d.allowed(x, top + 1, z); t++) {
+				top++;
+				d.set(x, top, z, post);
+			}
+			if (d.allowed(x, top + 1, z)) {
+				top++;
+				d.set(x, top, z, Details.rod());
+			}
+		}
+		return top;
+	}
+
+	/** How wide an outline looks: the mean of its width square on and its width across the diagonal. */
+	static double seenWidth(Set<Long> o, double cx, double cz) {
+		double ax = 0;
+		double dg = 0;
+		for (long k : o) {
+			double dx = Math.abs((int) (k >> 32) - cx);
+			double dz = Math.abs((int) k - cz);
+			ax = Math.max(ax, Math.max(dx, dz));
+			dg = Math.max(dg, dx + dz);
+		}
+		return ((2 * ax + 1) + (2 * dg + 2) / Math.sqrt(2)) / 2;
+	}
+
 	private static Set<Long> cells(double cx, double cz, double r) {
 		Set<Long> s = new HashSet<>();
 		if (r < 0) {

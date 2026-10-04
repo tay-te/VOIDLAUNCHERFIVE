@@ -11,6 +11,10 @@ import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.level.block.state.properties.Half;
+import dev.voidmc.hearth.build.kit.Roofs;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Chimneys;
 import dev.voidmc.hearth.build.kit.Facade;
@@ -24,6 +28,7 @@ import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
+import dev.voidmc.hearth.build.kit.civic.Bohemian;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
 import dev.voidmc.hearth.build.kit.civic.Signs;
@@ -63,7 +68,7 @@ import net.minecraft.world.level.block.Blocks;
  */
 public final class TownHall implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("civic/town_hall"), ArchetypeCategory.CIVIC, Set.of(), 0,
-		13, 19, 13, 19, 14, 32, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 1, 1.0);
+		13, 19, 13, 19, 14, 36, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.CENTRAL), List.of(), 1, 1.0);
 
 	@Override
 	public ArchetypeInfo info() {
@@ -79,8 +84,11 @@ public final class TownHall implements Archetype {
 		Habits h = d.habits();
 		Tradition t = Tradition.of(d);
 		boolean raised = t.raised();
+		// the timber-framing towns build their hall the Bohemian way: stone and render, an arcade on the square, a corner
+		// tower with a gallery and a needle spire, a stepped show gable
+		boolean boh = t == Tradition.TIMBER;
 		String tw = d.param("tower", switch (t) {
-			case MEDITERRANEAN, STONE, ADOBE -> "corner";
+			case MEDITERRANEAN, STONE, ADOBE, TIMBER -> "corner";
 			default -> "centre";
 		});
 		boolean corner = tw.equals("corner");
@@ -113,25 +121,28 @@ public final class TownHall implements Archetype {
 		Grounds.cut(d, x0, z0, x1, z0 + loggia, base);
 		Grounds.forecourt(d, 0, w - 1, z0 - 1, !raised);
 		Facade fac = Facade.plan(d, body, -1, 1, 1, 0.9);
-		Storeys.walls(d, body, fac, 0, 1, Halls.masonry(d) ? null : Storeys.stoneBase(d, 2), true);
-		if (!Halls.masonry(d) && !raised) {
+		Storeys.walls(d, body, fac, 0, 1, boh ? new Habits.WallKind[]{Habits.WallKind.STONE, Habits.WallKind.STONE}
+			: Halls.masonry(d) ? null : Storeys.stoneBase(d, 2), true);
+		if (!Halls.masonry(d) && !raised && !boh) {
 			Storeys.stoneStorey(d, body, 0);
 			d.carve(x0 + 1, base, z0 + 1, x1 - 1, fy - 2, z1 - 1);
 		}
 		// the loggia: the front wall becomes an arcade, the hall's own front wall stands two rows in
 		Side front = body.side(0, Dirs.FRONT);
-		Arches.Kind ak = Arches.kind(t);
+		Arches.Kind ak = boh ? Arches.Kind.POINTED : Arches.kind(t);
 		if (ak == Arches.Kind.POSTED) {
 			ak = Arches.Kind.BRACED;
 		}
 		int[] lp = Storeys.oddPiers(0, front.last(), Arches.timber(ak) ? 3 : 4);
 		d.clearBox(x0 + 1, base, z0 + 1, x1 - 1, fy - 2, z0 + loggia);
-		Arches.arcade(d, front, lp, base, fy - 2, ak, Arches.pierPaint(d, ak), Arches.timber(ak) ? null : d.mat(Role.WALL_ACCENT).full());
+		// a Bohemian arcade is rendered with the walls, its arches turned in dressed stone
+		Arches.arcade(d, front, lp, base, fy - 2, ak, boh ? d.mat(Role.WALL).full() : Arches.pierPaint(d, ak), boh ? d.mat(Role.WALL).full()
+			: Arches.timber(ak) ? null : d.mat(Role.WALL_ACCENT).full());
 		int iz = z0 + loggia + 1;
 		Body hall = new Body(x0, iz, x1, z1, base, new int[]{h0}, false, false);
 		Side inner = hall.side(0, Dirs.FRONT);
-		if (Halls.masonry(d) || raised) {
-			Walls.side(d, hall, 0, inner, new Facade(), d.habits().walls().kind());
+		if (Halls.masonry(d) || raised || boh) {
+			Walls.side(d, hall, 0, inner, new Facade(), boh ? Habits.WallKind.STONE : d.habits().walls().kind());
 		} else {
 			Storeys.stoneStorey(d, hall, 0);
 			d.carve(x0 + 1, base, iz + 1, x1 - 1, fy - 2, z1 - 1);
@@ -147,7 +158,19 @@ public final class TownHall implements Archetype {
 			}
 		}
 		// windows: the chamber's tall ones, the hall's below
-		Storeys.windows(d, body, fac, 1, 1, h1 >= 6 ? 3 : 2);
+		if (boh) {
+			// the chamber's windows framed in dressed stone, tall under pointed heads
+			dev.voidmc.hearth.build.kit.landmark.Stone dress = dev.voidmc.hearth.build.kit.landmark.Stone.dressing(d);
+			for (Side s : body.sides(1)) {
+				for (Facade.Opening o : fac.openings(s.out())) {
+					if (s.contains(o.at()) && s.contains(o.at() + o.width() - 1) && s.index(o.at()) > 0 && s.index(o.at() + o.width() - 1) < s.last()) {
+						framedWindow(d, s, Math.min(s.index(o.at()), s.index(o.at() + o.width() - 1)), o.width(), fy + 1, h1 >= 6 ? 3 : 2, dress);
+					}
+				}
+			}
+		} else {
+			Storeys.windows(d, body, fac, 1, 1, h1 >= 6 ? 3 : 2);
+		}
 		int doorX = centre ? cx : cornerRight ? cx - 1 : cx + 1;
 		Openings.door(d, inner, doorX, base, 1, new Openings.DoorOpts(false, true, true));
 		for (Side s : new Side[]{hall.side(0, Dirs.LEFT), hall.side(0, Dirs.RIGHT), hall.side(0, Dirs.BACK)}) {
@@ -178,6 +201,8 @@ public final class TownHall implements Archetype {
 			top = new Storeys.Top(null, deck, deck + 2);
 			Halls.roofTerrace(d, tr, deck, !cornerRight);
 			Adobe.screens(d, body, body.storeys() - 1);
+		} else if (boh && bohRoofFits(d, body)) {
+			top = bohemianRoof(d, body, corner ? (cornerRight ? 1 : -1) : 0);
 		} else {
 			top = Storeys.roof(d, body, form, Direction.Axis.X, Math.max(1.0, h.roof().pitch()), centre || corner ? 12 : 1, true);
 		}
@@ -187,7 +212,9 @@ public final class TownHall implements Archetype {
 		}
 
 		// --- the tower
-		if (centre || corner) {
+		if (boh && corner && maxH - 1 - (plate + 3 + Bohemian.BELFRY) >= 6) {
+			skyline = Math.max(skyline, bohemianTower(d, tx0, tz0, base, plate, fy - 1, maxH, tier, cornerRight, z0));
+		} else if (centre || corner) {
 			skyline = Math.max(skyline, tower(d, t, tx0, tz0, tsz, base, plate, top, maxH, tier, centre));
 		} else if (top.roof() != null) {
 			skyline = Math.max(skyline, ChapelWestern.turret(d, t, cx, (z0 + z1) / 2 - 1, plate, top.roof().ridgeY, maxH));
@@ -198,13 +225,16 @@ public final class TownHall implements Archetype {
 		Side upper = body.side(1, Dirs.FRONT);
 		int bx0 = centre ? cx - 4 : cx - 1;
 		int bx1 = centre ? cx + 4 : cx + 1;
-		if (centre) {
+		if (boh) {
+			// an oriel on corbels over the arcade, under the show gable
+			oriel(d, upper, bohGableCentre(body, corner ? (cornerRight ? 1 : -1) : 0), fy, h1);
+		} else if (centre) {
 			Porches.balcony(d, upper, Math.max(x0 + 1, bx0), cx - 3, fy);
 			Porches.balcony(d, upper, cx + 3, Math.min(x1 - 1, bx1), fy);
 		} else {
 			Porches.balcony(d, upper, bx0, bx1, fy);
 		}
-		for (int x : centre ? new int[]{cx - 4, cx + 4} : new int[]{cx}) {
+		for (int x : boh ? new int[0] : centre ? new int[]{cx - 4, cx + 4} : new int[]{cx}) {
 			if (x <= x0 || x >= x1) {
 				continue;
 			}
@@ -212,8 +242,19 @@ public final class TownHall implements Archetype {
 			d.inStage(StageKind.OPENINGS, () -> d.door(fx, fy, z0, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
 				net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
 		}
-		// banners hung from the balcony's rail over the loggia
-		for (int x = x0 + 2; x <= x1 - 2; x += 2) {
+		// banners hung from the balcony's rail over the loggia (from the arcade's piers in a Bohemian hall)
+		if (boh) {
+			for (int k = 0; k < lp.length; k++) {
+				int x = front.x(lp[k]);
+				if (x <= x0 || x >= x1 || corner && x >= tx0 - 1 && x <= tx0 + tsz) {
+					continue;
+				}
+				if (z0 - 1 >= 0 && d.isEmpty(x, fy - 3, z0 - 1) && Openings.isWallBlock(d, x, fy - 3, z0)) {
+					Signs.wallBanner(d, x, fy - 3, z0 - 1, Dirs.FRONT, arms.field(), arms.layers());
+				}
+			}
+		}
+		for (int x = x0 + 2; x <= x1 - 2 && !boh; x += 2) {
 			if (centre && Math.abs(x - cx) <= 2) {
 				continue;
 			}
@@ -345,12 +386,224 @@ public final class TownHall implements Archetype {
 		int hz = (up[1] + up[3]) / 2 + 1;
 		if (d.isEmpty(hx, fy, hz) && top.roof() != null) {
 			Furniture.hearth(d, hx, fy, hz, stairLeft ? Dirs.LEFT : Dirs.RIGHT, false);
-			Chimneys.stack(d, stairLeft ? up[2] : up[0], hz, fy + 1, top.roof(), top.roof().ridgeY);
+			// (a rendered hall carries its flue inside, up through the roof, not as a brick stripe on its white gable)
+			Chimneys.stack(d, boh ? hx : stairLeft ? up[2] : up[0], hz, fy + 1, top.roof(), top.roof().ridgeY);
 		}
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, entryX);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+	}
+
+	// ------------------------------------------------------------------------------------------------ the Bohemian hall
+
+	/** The show gable's columns {from, width} over the front of a Bohemian hall, clear of a corner tower (-1 left, 1 right). */
+	static int[] bohGable(Body body, int towerSide) {
+		int[] r = body.rect(body.storeys() - 1);
+		int f0 = towerSide < 0 ? r[0] + 6 : r[0] + 2;
+		int f1 = towerSide > 0 ? r[2] - 6 : r[2] - 2;
+		int room = f1 - f0 + 1;
+		int width = room >= 7 ? 7 : room >= 5 ? 5 : 0;
+		int c = (f0 + f1) / 2;
+		return new int[]{c - width / 2, width};
+	}
+
+	/** The column under the show gable's middle (the middle of the front clear of the tower when there is none). */
+	static int bohGableCentre(Body body, int towerSide) {
+		int[] g = bohGable(body, towerSide);
+		int[] r = body.rect(body.storeys() - 1);
+		if (g[1] > 0) {
+			return g[0] + g[1] / 2;
+		}
+		return towerSide < 0 ? (r[0] + 6 + r[2]) / 2 : towerSide > 0 ? (r[0] + r[2] - 6) / 2 : (r[0] + r[2]) / 2;
+	}
+
+	/** Whether a plain gable roof (a block per cell) fits over the body under the plot's height. */
+	static boolean bohRoofFits(Draft d, Body body) {
+		int[] tr = body.topRect();
+		double half = (tr[3] - tr[1] + 1) / 2.0 + 1;
+		return body.plateY() + 1 + half + 1 <= d.maxHeight() - 1;
+	}
+
+	/**
+	 * The Bohemian hall's roof: a gable along the square at a block per cell, its ends rendered, and over the front a tall
+	 * show gable (a cross gable carried up toward the main ridge) whose wall rises in crow steps a course over its slopes,
+	 * each step capped in dressed stone, a pinnacle at its peak.
+	 */
+	static Storeys.Top bohemianRoof(Draft d, Body body, int towerSide) {
+		int[] tr = body.topRect();
+		int plate = body.plateY();
+		Roofs.Opts o = Roofs.Opts.of(d).withPitch(1.0).withEaves(1, 0);
+		Roofs.Plan plan = Roofs.plan(d, tr[0], tr[1], tr[2], tr[3], plate, RoofForm.GABLE, Direction.Axis.X, o, false, false);
+		int[] g = bohGable(body, towerSide);
+		Side front = body.side(body.storeys() - 1, Dirs.FRONT);
+		if (g[1] >= 5) {
+			plan.crossGable(front, g[0], g[1], d);
+		}
+		Roofs.Built b = plan.draw(d);
+		Roofs.Roof roof = b.roof();
+		Mat wall = d.mat(Role.WALL);
+		dev.voidmc.hearth.build.kit.landmark.Stone dress = dev.voidmc.hearth.build.kit.landmark.Stone.dressing(d);
+		// the gable walls in render: the two ends and the show gable (no timber in them)
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int z = tr[1]; z <= tr[3]; z++) {
+				for (int x : new int[]{tr[0], tr[2]}) {
+					renderUp(d, roof, x, z, plate, wall);
+				}
+			}
+			for (int x = g[0]; x < g[0] + g[1] && g[1] >= 5; x++) {
+				renderUp(d, roof, x, tr[1], plate, wall);
+			}
+		}
+		// the crow steps: the show gable's wall carried a course over its slopes in pairs of columns stepping up to the
+		// middle, each step capped with a slab of the dressing; a pinnacle on the peak
+		if (g[1] >= 5) {
+			int gc = g[0] + g[1] / 2;
+			int z = tr[1];
+			int peak = Integer.MIN_VALUE;
+			// the main eave stops at the show gable, whose wall rises flush from the front
+			for (int x = g[0]; x < g[0] + g[1]; x++) {
+				int ey = roof.surfaceY(x, z - 1);
+				if (ey != Integer.MIN_VALUE && ey <= plate + 2) {
+					for (int y = roof.bottomY(x, z - 1); y <= ey; y++) {
+						d.set(x, y, z - 1, Blocks.AIR.defaultBlockState());
+					}
+				}
+			}
+			try (var st = d.stage(StageKind.WALLS)) {
+				for (int x = g[0]; x < g[0] + g[1]; x++) {
+					int dx = Math.abs(x - gc);
+					if (dx == 0) {
+						continue;
+					}
+					// the pair this column belongs to (1-2, 3-4...) steps to the height of the slope over its inner column
+					int inner = gc + Integer.signum(x - gc) * (dx % 2 == 1 ? dx : dx - 1);
+					int sy = roof.surfaceY(inner, z);
+					int sx = roof.surfaceY(x, z);
+					if (sy == Integer.MIN_VALUE || sx == Integer.MIN_VALUE) {
+						continue;
+					}
+					int stepTop = sy + 2;
+					for (int y = Math.min(roof.bottomY(x, z), sx); y <= stepTop; y++) {
+						d.set(x, y, z, wall.full());
+					}
+					d.set(x, stepTop + 1, z, dress.slabOrNothing(SlabType.BOTTOM));
+					peak = Math.max(peak, stepTop);
+				}
+				int cy = roof.surfaceY(gc, z);
+				if (cy != Integer.MIN_VALUE) {
+					int ct = Math.max(cy + 2, peak + 1);
+					for (int y = roof.bottomY(gc, z); y <= ct; y++) {
+						d.set(gc, y, z, wall.full());
+					}
+					dev.voidmc.hearth.build.kit.landmark.Details.pinnacle(d, gc, ct + 1, z, 2, dress, true);
+				}
+			}
+		}
+		return new Storeys.Top(roof, Integer.MIN_VALUE, roof.ridgeY);
+	}
+
+	/**
+	 * A window of a Bohemian hall: glass {@code width} by {@code h} from cell i0 of wall s at y, a head of the dressing over
+	 * it and a dressed sill under it outside; the render round it left plain.
+	 */
+	static void framedWindow(Draft d, Side s, int i0, int width, int y, int h, dev.voidmc.hearth.build.kit.landmark.Stone dress) {
+		Paint glass = d.mat(Role.GLASS).pane();
+		try (var st = d.stage(StageKind.OPENINGS)) {
+			for (int c = 0; c < width; c++) {
+				int i = i0 + c;
+				for (int yy = y; yy < y + h; yy++) {
+					d.set(s.x(i), yy, s.z(i), glass);
+				}
+				if (Openings.isWallBlock(d, s.x(i), y + h, s.z(i))) {
+					d.set(s.x(i), y + h, s.z(i), dress.full());
+				}
+				int ox = s.outX(i, 1);
+				int oz = s.outZ(i, 1);
+				if (Walls.inPlot(d, ox, oz) && d.isEmpty(ox, y - 1, oz) && (oz >= 0 || y - 1 >= 3)) {
+					d.set(ox, y - 1, oz, dress.stairsOrSlab(s.out().getOpposite(), Half.TOP));
+				}
+			}
+		}
+	}
+
+	/** A wall column from over the plate to the roof's underside, in render where it is wall (glass and lights kept). */
+	private static void renderUp(Draft d, Roofs.Roof roof, int x, int z, int plate, Mat wall) {
+		if (!roof.covers(x, z)) {
+			return;
+		}
+		for (int y = plate + 1; y < roof.bottomY(x, z); y++) {
+			if (Openings.isWallBlock(d, x, y, z)) {
+				d.set(x, y, z, wall.full());
+			}
+		}
+	}
+
+	/**
+	 * The Bohemian hall's corner tower ({@link Bohemian#tower}): its foot the arcade's corner bay (an arch toward the square
+	 * and one into the loggia), its faces against the hall blind, clocks toward the square and along the street, the
+	 * ringer's ladder against its back wall. Returns the top.
+	 */
+	static int bohemianTower(Draft d, int tx0, int tz0, int base, int plate, int doorTop, int maxH, int tier, boolean right, int z0) {
+		Direction inner = right ? Dirs.LEFT : Dirs.RIGHT;
+		Direction outer = inner.getOpposite();
+		// the belfry clear of the roof where it meets the tower's back and inner faces
+		int yb = Bohemian.belfryFloor(plate, plate + 6, maxH);
+		int[] ladder = {right ? tx0 + 3 : tx0 + 1, tz0 + 3};
+		int top = Bohemian.tower(d, tx0, tz0, base, doorTop, yb, maxH, tier, Set.of(Dirs.BACK, inner), Set.of(Dirs.FRONT, outer), ladder,
+			Dirs.FRONT);
+		dev.voidmc.hearth.build.kit.landmark.Stone dress = dev.voidmc.hearth.build.kit.landmark.Stone.dressing(d);
+		Side f = Side.of(tx0, tz0, tx0 + 4, tz0 + 4, Dirs.FRONT);
+		try (var st = d.stage(StageKind.WALLS)) {
+			dev.voidmc.hearth.build.kit.landmark.Details.arch(d, f, 1, 3, base, 4, dress, null);
+			Side in = Side.of(tx0, tz0, tx0 + 4, tz0 + 4, inner);
+			int i0 = Math.min(in.index(z0 + 1), in.index(z0 + 2));
+			dev.voidmc.hearth.build.kit.landmark.Details.arch(d, in, i0, 2, base, 4, dress, null);
+		}
+		return top;
+	}
+
+	/**
+	 * An oriel on the upper front at column c: three cells a block proud of the wall on stepped corbels, a panel of the
+	 * dressing at the sill, a band of glass, a dressed head and a little roof sloping off it; the wall behind opened so it
+	 * is part of the chamber.
+	 */
+	static void oriel(Draft d, Side upper, int c, int fy, int h1) {
+		int i = upper.index(c);
+		if (i - 1 < 1 || i + 1 > upper.last() - 1) {
+			return;
+		}
+		int oz = upper.outZ(i, 1);
+		if (oz < 0 && fy - 2 < 3 || oz < -1) {
+			return;
+		}
+		dev.voidmc.hearth.build.kit.landmark.Stone dress = dev.voidmc.hearth.build.kit.landmark.Stone.dressing(d);
+		Mat roof = d.mat(Role.ROOF);
+		Paint glass = d.mat(Role.GLASS).pane();
+		Direction in = upper.out().getOpposite();
+		int h = Math.max(2, Math.min(3, h1 - 3));
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int k = -1; k <= 1; k++) {
+				int x = upper.outX(i + k, 1);
+				int z = upper.outZ(i + k, 1);
+				d.set(x, fy - 1, z, dress.stairsOrSlab(in, Half.TOP));
+				if (k == 0) {
+					d.set(x, fy - 2, z, dress.stairsOrSlab(in, Half.TOP));
+				}
+				d.set(x, fy, z, dress.full());
+				for (int y = fy + 1; y < fy + h; y++) {
+					d.set(x, y, z, glass);
+				}
+				d.set(x, fy + h, z, dress.full());
+				d.set(x, fy + h + 1, z, roof.has(Form.SLAB) ? roof.slab(SlabType.BOTTOM) : roof.stairsOrSlab(in, Half.BOTTOM));
+			}
+		}
+		// the wall behind opened into the chamber over the sill
+		for (int k = -1; k <= 1; k++) {
+			for (int y = fy + 1; y < fy + h; y++) {
+				d.set(upper.x(i + k), y, upper.z(i + k), Blocks.AIR.defaultBlockState());
+			}
+		}
 	}
 
 	/**

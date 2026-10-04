@@ -40,6 +40,11 @@ public final class Adobe {
 		Mat deck = d.mat(Role.ROOF);
 		Mat wall = d.mat(Role.WALL);
 		Mat coping = d.mat(Role.WALL_ACCENT).has(Form.SLAB) ? d.mat(Role.WALL_ACCENT) : d.mat(Role.ROOF_TRIM);
+		// the dressings in the style's accents: a frieze of the accent tile along the wall head over the front (all round a
+		// building of standing), the raised corners and the crest in the wall's dressed stone
+		Mat frieze = d.mat(Role.ACCENT);
+		Mat dressed = d.mat(Role.WALL_ACCENT);
+		boolean allRound = d.tier() >= 3;
 		int y = plate + 1;
 		int cx = (x0 + x1) / 2;
 		try (var s = d.stage(StageKind.ROOF)) {
@@ -49,17 +54,20 @@ public final class Adobe {
 				}
 			}
 			for (int[] c : Draft.ring(x0, z0, x1, z1)) {
-				d.set(c[0], plate, c[1], wall.full());
+				boolean corner = (c[0] == x0 || c[0] == x1) && (c[1] == z0 || c[1] == z1);
+				boolean front = c[1] == z0;
+				// the frieze: accent tiles alternating with the wall stone, a band of colour under the parapet
+				boolean tile = (front || allRound) && !corner && ((c[0] + c[1]) & 1) == 0 && frieze.has(Form.FULL);
+				d.set(c[0], plate, c[1], tile ? frieze.full() : corner ? dressed.full() : wall.full());
 				if (!parapet || !d.allowed(c[0], y, c[1])) {
 					continue;
 				}
-				boolean corner = (c[0] == x0 || c[0] == x1) && (c[1] == z0 || c[1] == z1);
 				int off = Math.abs(c[0] - cx);
-				boolean crested = crest && c[1] == z0 && off <= 2 && x1 - x0 >= 8;
+				boolean crested = crest && front && off <= 2 && x1 - x0 >= 8;
 				int h = corner ? 2 : crested ? (off <= 1 ? 2 + (off == 0 ? 1 : 0) : 2) : 1;
 				for (int k = 0; k < h; k++) {
 					if (d.allowed(c[0], y + k, c[1])) {
-						d.set(c[0], y + k, c[1], wall.full());
+						d.set(c[0], y + k, c[1], corner || crested ? dressed.full() : wall.full());
 					}
 				}
 				if (d.allowed(c[0], y + h, c[1])) {
@@ -206,7 +214,9 @@ public final class Adobe {
 	 * in its faces, then the dome of the roof's stone. Returns its top.
 	 */
 	public static int dome(Draft d, int cx, int cz, int deck, int r, int maxH) {
-		Fam fam = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
+		// the dome in the style's accent where it cuts into stairs (glazed and coloured where the style says so), else the
+		// dressed stone, else the roof's
+		Fam fam = domeSheet(d);
 		if (fam == null) {
 			return deck;
 		}
@@ -216,9 +226,28 @@ public final class Adobe {
 			int mid = s.middle();
 			d.inStage(StageKind.OPENINGS, () -> d.set(s.x(mid), deck, s.z(mid), Blocks.GLASS.defaultBlockState()));
 		}
-		double[] radii = r >= 2 ? new double[]{3.1, 2.9, 2.5, 1.8, 0.6} : new double[]{2.1, 1.8, 1.2, 0.5};
-		int top = Towers.lathe(d, cx, cz, deck + 2, radii, fam, maxH);
+		// the dome a cell wider than its drum all round, laid outline by outline
+		int top = Towers.stack(d, cx, cz, deck + 2, dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, r + 1), fam, maxH);
 		return Math.max(top, Towers.finial(d, cx, top + 1, cz, maxH, false));
+	}
+
+	/**
+	 * What the dry south covers its domes in: the accent where it cuts stairs (a glazed or coloured tile), else the dressed
+	 * stone where that does; else lime: whitewashed domes over walls of the earth's own colour, as the oases and missions
+	 * build them (a dome in the walls' own stone vanishes against them). Null only where nothing at all cuts.
+	 */
+	public static Fam domeSheet(Draft d) {
+		for (Role role : new Role[]{Role.ACCENT, Role.WALL_ACCENT}) {
+			Fam f = Fam.of(d, role, Form.FULL, StageKind.ROOF);
+			if (f != null && f.has(Form.STAIRS)) {
+				return f;
+			}
+		}
+		Fam lime = Fam.of("minecraft:smooth_quartz", StageKind.ROOF);
+		if (lime != null && lime.has(Form.STAIRS)) {
+			return lime;
+		}
+		return Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
 	}
 
 	/** A date palm: a slender trunk leaning nowhere, a crown of fronds drooping round it. */

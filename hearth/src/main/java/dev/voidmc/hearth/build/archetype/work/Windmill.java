@@ -113,19 +113,25 @@ public final class Windmill implements Archetype {
 		int dp = d.depth();
 		Habits h = d.habits();
 		int max = d.maxHeight();
-		double r = w >= 13 && dp >= 13 ? 3.4 : 3.0;
+		double r0 = w >= 13 && dp >= 13 ? 3.4 : 3.0;
 		// centred on a block, so the stair turns in the middle with a ring of floor round it
 		int icx = (w - 1) / 2;
 		double cx = icx;
-		int icz = (int) Math.round(Math.max(r + 2.6, Math.min(dp - 1.6 - r, (dp - 1) / 2.0 + 1)));
+		// forward in the plot, so the sails clear the street and a fantail or tail pole has room behind
+		int icz = (int) Math.round(Math.max(r0 + 2.6, Math.min(dp - 2.6 - r0, (dp - 1) / 2.0 + 0.5)));
 		double cz = icz;
 		// the sails as long as the plot is wide, the tower as tall as the sails and the cap allow
 		int arm = Math.min(7, Math.min(icx, w - 1 - icx));
-		int yt = Math.min(16, Math.min(max - 8, max - 3 - arm));
+		int yt = Math.min(16, Math.min(max - 9, max - 3 - arm));
 		if (yt < arm) {
 			arm = Math.max(3, yt);
 		}
 		yt = Math.max(arm, yt);
+		// the tower tapers as it climbs, by most of a block over its height
+		double rTop = r0 - 0.65;
+		int ytt = yt;
+		// the ground storey stands plumb (its door and stones keep their room); the taper starts above it
+		java.util.function.IntToDoubleFunction rad = y -> r0 - (r0 - rTop) * Math.max(0, Math.min(1, (y - 3) / (double) Math.max(1, ytt - 3)));
 		Yard.entrance(d);
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		// materials: masonry; a smock mill's boards and corner posts above a stone base where the culture builds in timber
@@ -133,24 +139,25 @@ public final class Windmill implements Archetype {
 		boolean timber = wk == Habits.WallKind.TIMBER_FRAME || wk == Habits.WallKind.LOG || wk == Habits.WallKind.PLANK || wk == Habits.WallKind.BAMBOO;
 		Mat skirt = d.mat(Role.PLINTH);
 		Mat lower = timber ? d.mat(Role.PLINTH) : d.mat(Role.WALL);
-		Mat upper = timber ? d.mat(Role.GABLE) : d.mat(Role.WALL);
+		// a smock mill is boarded: the gable boards where they are timber, else the floor's
+		Mat upper = timber ? (d.mat(Role.GABLE).has(Form.LOG) ? d.mat(Role.GABLE) : d.mat(Role.FLOOR)) : d.mat(Role.WALL);
 		Mat post = d.mat(Role.FRAME);
 		Mat band = d.mat(Role.WALL_ACCENT);
 		int split = timber ? Math.max(3, yt / 3) : Math.max(3, yt / 2);
-		d.body((int) Math.floor(cx - r), (int) Math.floor(cz - r), (int) Math.ceil(cx + r), (int) Math.ceil(cz + r));
+		d.body((int) Math.floor(cx - r0), (int) Math.floor(cz - r0), (int) Math.ceil(cx + r0), (int) Math.ceil(cz + r0));
 		d.eave(yt);
-		List<int[]> ring = Draft.ellipseCells(cx, cz, r, r, false);
-		List<int[]> disc = Draft.ellipseCells(cx, cz, r, r, true);
-		List<int[]> skirtRing = Draft.ellipseCells(cx, cz, r + 0.7, r + 0.7, false);
+		List<int[]> ring = Draft.ellipseCells(cx, cz, r0, r0, false);
+		List<int[]> disc = Draft.ellipseCells(cx, cz, r0, r0, true);
+		List<int[]> skirtRing = Draft.ellipseCells(cx, cz, r0 + 0.7, r0 + 0.7, false);
 		try (var s = d.stage(StageKind.FOUNDATION)) {
-			for (int[] c : Draft.ellipseCells(cx, cz, r + 0.7, r + 0.7, true)) {
+			for (int[] c : Draft.ellipseCells(cx, cz, r0 + 0.7, r0 + 0.7, true)) {
 				int g = d.site().ground(c[0], c[1]);
 				for (int y = Math.min(-1, g - 2); y <= -1; y++) {
 					d.set(c[0], y, c[1], d.mat(Role.FOUNDATION).full());
 				}
 			}
 		}
-		// a battered skirt two courses high round the foot, the tower above, a band where the body changes
+		// a battered skirt two courses high round the foot, the tapering tower above, a band where the body changes
 		try (var s = d.stage(StageKind.WALLS)) {
 			for (int[] c : skirtRing) {
 				if (!contains(disc, c)) {
@@ -159,22 +166,25 @@ public final class Windmill implements Archetype {
 				}
 			}
 			for (int y = 0; y <= yt; y++) {
-				for (int[] c : ring) {
+				double r = rad.applyAsDouble(y);
+				List<int[]> rowRing = Draft.ellipseCells(cx, cz, r, r, false);
+				Mat m = y < split ? lower : upper;
+				for (int[] c : rowRing) {
 					Paint p;
 					if (y == split) {
 						p = band.full();
-					} else if (y > split && timber && isTurn(ring, c)) {
+					} else if (y > split && timber && isTurn(rowRing, c)) {
 						p = post.log(Direction.Axis.Y);
 					} else {
-						p = y < split ? lower.full() : upper.full();
+						p = m.full();
 					}
 					d.set(c[0], y, c[1], p);
 				}
-			}
-		}
-		for (int[] c : disc) {
-			if (!contains(ring, c)) {
-				d.carve(c[0], 0, c[1], c[0], yt, c[1]);
+				for (int[] c : Draft.ellipseCells(cx, cz, r, r, true)) {
+					if (!contains(rowRing, c)) {
+						d.carve(c[0], y, c[1], c[0], y, c[1]);
+					}
+				}
 			}
 		}
 		// floors every four blocks, a stair turning up through them
@@ -183,15 +193,17 @@ public final class Windmill implements Archetype {
 			floors.add(y);
 		}
 		Mat floorMat = d.mat(Role.FLOOR);
-		List<int[]> inner = Draft.ellipseCells(cx, cz, r - 1, r - 1, true);
 		try (var s = d.stage(StageKind.FLOORS)) {
-			for (int[] c : inner) {
-				if (contains(ring, c)) {
-					continue;
-				}
+			for (int[] c : Draft.ellipseCells(cx, cz, r0 - 1, r0 - 1, true)) {
 				d.set(c[0], -1, c[1], floorMat.full());
-				for (int fy : floors) {
-					d.set(c[0], fy - 1, c[1], floorMat.full());
+			}
+			for (int fy : floors) {
+				double r = rad.applyAsDouble(fy - 1);
+				List<int[]> rr = Draft.ellipseCells(cx, cz, r, r, false);
+				for (int[] c : Draft.ellipseCells(cx, cz, r, r, true)) {
+					if (!contains(rr, c)) {
+						d.set(c[0], fy - 1, c[1], floorMat.full());
+					}
 				}
 			}
 		}
@@ -225,15 +237,18 @@ public final class Windmill implements Archetype {
 		}
 		d.poi(PoiType.DOOR, icx, 0, fdz - 1, Dirs.BACK);
 		d.entrance(icx, 0, fdz - 1);
-		windows(d, ring, icx, icz, yt);
-		if (yt >= 10) {
-			stage(d, cx, cz, r, split);
+		windows(d, cx, cz, rad, icx, icz, yt);
+		boolean staged = yt >= 10;
+		if (staged) {
+			stage(d, cx, cz, rad.applyAsDouble(split), split, icx);
 		}
-		// the cap: a curb at the top, a cone or a boat-shaped gable over it, the windshaft and the sails
-		int capTop = cap(d, cx, cz, r, yt, h);
+		// the cap: a curb at the top, a cone or a boat-shaped bonnet over it, the windshaft and the sails
+		double rc = rad.applyAsDouble(yt);
+		boolean cone = coneCap(d);
+		int[] capBox = cap(d, cx, cz, rc, yt, h, cone);
+		int capTop = capBox[0];
 		int hubY = yt + 2;
-		int sz = (int) Math.floor(cz - r) - 2;
-		sz = Math.max(0, sz);
+		int sz = Math.max(0, capBox[1] - 1);
 		Mat shaft = d.mat(Role.BEAM);
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int z = sz; z <= icz; z++) {
@@ -244,14 +259,21 @@ public final class Windmill implements Archetype {
 		Mills.SailPlan sp = plan(d);
 		Mat stock = Hall.woodFence(d);
 		Paint lattice = stock.has(Form.FENCE) ? stock.fence() : stock.full();
-		Mills.sails(d, icx, hubY, sz, Direction.Axis.Z, len, 2, sp, d.mat(Role.FRAME), cloth(d), lattice, 0.0);
-		interior(d, cx, cz, r, icx, icz, fdz);
+		Mills.sails(d, icx, hubY, sz, Direction.Axis.Z, len, 2, sp, d.mat(Role.FRAME), cloth(d), lattice, d.chance(0.5) ? 0.5 : 0.0);
+		// the cap is turned to the wind from behind: a fantail on a masonry tower's bonnet, a tail pole down to the stage
+		// on a smock mill or a cone
+		if (!cone && !timber) {
+			fantail(d, icx, yt, capBox[2], capTop, stock);
+		} else if (staged) {
+			tailPole(d, icx, yt + 1, capBox[2], split + 1, rad.applyAsDouble(split) + 1.0, cz);
+		}
+		interior(d, cx, cz, r0, icx, icz, fdz);
 		yard(d, w, dp, icx, ez);
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop, hubY + len) + 1);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop + 3, hubY + len) + 1);
 	}
 
-	/** Small windows up the tower, turning round it as the stair climbs. */
-	private static void windows(Draft d, List<int[]> ring, int icx, int icz, int yt) {
+	/** Small windows up the tower, turning round it as the stair climbs, set in the tapering wall. */
+	private static void windows(Draft d, double cx, double cz, java.util.function.IntToDoubleFunction rad, int icx, int icz, int yt) {
 		Mat glass = d.mat(Role.GLASS);
 		int[][] dirs = {{-1, 0}, {0, 1}, {1, 0}, {0, -1}};
 		int k = 0;
@@ -261,6 +283,8 @@ public final class Windmill implements Archetype {
 			if (dir[1] < 0 && y < 4) {
 				continue;
 			}
+			double r = rad.applyAsDouble(y);
+			List<int[]> ring = Draft.ellipseCells(cx, cz, r, r, false);
 			int[] best = null;
 			for (int[] c : ring) {
 				boolean onAxis = dir[0] != 0 ? c[1] == icz && Integer.signum(c[0] - icx) == dir[0] : c[0] == icx && Integer.signum(c[1] - icz) == dir[1];
@@ -277,45 +301,83 @@ public final class Windmill implements Archetype {
 		}
 	}
 
-	/** A reefing stage: a ring of boards round the tower at the band, its rail of posts and a brace now and then. */
-	private static void stage(Draft d, double cx, double cz, double r, int ys) {
+	/**
+	 * The stage: a gallery of boards round the tower at the band, out a block and a half, its railing of posts, raking
+	 * braces under it on the axes and diagonals, a few sacks on the deck: where the miller reefs the sails.
+	 */
+	private static void stage(Draft d, double cx, double cz, double r, int ys, int icx) {
 		List<int[]> wall = Draft.ellipseCells(cx, cz, r, r, true);
-		List<int[]> deck = Draft.ellipseCells(cx, cz, r + 1, r + 1, false);
+		List<int[]> deckDisc = Draft.ellipseCells(cx, cz, r + 1.6, r + 1.6, true);
+		List<int[]> rimRing = Draft.ellipseCells(cx, cz, r + 1.6, r + 1.6, false);
 		Mat boards = d.mat(Role.FLOOR);
 		Mat beam = d.mat(Role.BEAM);
 		Mat rail = d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : Hall.woodFence(d);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int[] c : deck) {
+			for (int[] c : deckDisc) {
 				if (contains(wall, c) || !d.allowed(c[0], ys + 1, c[1])) {
 					continue;
 				}
 				d.set(c[0], ys, c[1], boards.slab(SlabType.TOP));
-				d.set(c[0], ys + 1, c[1], rail.fence());
+				if (contains(rimRing, c)) {
+					d.set(c[0], ys + 1, c[1], rail.fence());
+				}
 			}
-			for (int[] c : deck) {
-				boolean axis = Math.abs(c[0] - Math.round(cx)) < 0.6 || Math.abs(c[1] - Math.round(cz)) < 0.6;
-				if (axis && !contains(wall, c) && d.allowed(c[0], ys - 1, c[1]) && d.isAbsent(c[0], ys - 1, c[1])) {
-					Direction toward = Dirs.nearest(cx - c[0], cz - c[1]);
-					d.set(c[0], ys - 1, c[1], beam.stairsOrSlab(toward.getOpposite(), Half.TOP));
+			// braces: an upside-down stair under the deck's outer edge on the axes and diagonals, a strut back to the wall
+			for (int[] c : rimRing) {
+				double ang = Math.atan2(c[1] - cz, c[0] - cx);
+				double oct = Math.abs(Math.IEEEremainder(ang, Math.PI / 4));
+				if (oct > 0.2 || !d.allowed(c[0], ys - 1, c[1]) || !d.isAbsent(c[0], ys - 1, c[1])) {
+					continue;
+				}
+				Direction toward = Dirs.nearest(cx - c[0], cz - c[1]);
+				d.set(c[0], ys - 1, c[1], beam.stairsOrSlab(toward.getOpposite(), Half.TOP));
+				int ix = c[0] + Dirs.dx(toward);
+				int iz = c[1] + Dirs.dz(toward);
+				if (!contains(wall, new int[]{ix, iz}) && d.isAbsent(ix, ys - 1, iz) && d.allowed(ix, ys - 1, iz)) {
+					d.set(ix, ys - 1, iz, beam.log(toward.getAxis()));
+				}
+				if (!contains(wall, new int[]{ix, iz}) && d.isAbsent(ix, ys - 2, iz) && d.allowed(ix, ys - 2, iz)) {
+					d.set(ix, ys - 2, iz, beam.stairsOrSlab(toward.getOpposite(), Half.TOP));
+				}
+			}
+			// a sack waiting on the deck
+			for (int[] c : deckDisc) {
+				if (c[0] == icx + 2 && c[1] > cz && !contains(wall, c) && !contains(rimRing, c) && d.isEmpty(c[0], ys + 1, c[1])) {
+					d.set(c[0], ys + 1, c[1], Blocks.WOOL.pick(DyeColor.WHITE).defaultBlockState());
+					break;
 				}
 			}
 		}
 	}
 
+	/** Whether the culture caps its mills with a cone (thatch, tile, the south) rather than a boat-shaped bonnet. */
+	private static boolean coneCap(Draft d) {
+		Habits h = d.habits();
+		return h.roof().pitch() <= 0.6 || Hall.flatCulture(d) || h.roof().weight(RoofForm.CONE) > 0 || h.roof().weight(RoofForm.PAGODA) > 1
+			|| h.roof().thatch();
+	}
+
 	/**
-	 * The cap on the tower: a curb of beams round the top, then (by culture) a cone of thatch or tile, or a boat-shaped
-	 * gable running front to back. Returns the cap's top.
+	 * The cap on the tower: a curb of beams round the top standing out on brackets, then a cone of thatch or tile, or a
+	 * boat-shaped bonnet running front to back (steep sides rounding over at the top, its breast boarded round the
+	 * windshaft between battens, a little window in its back gable). Returns {top, front z, back z}.
 	 */
-	private static int cap(Draft d, double cx, double cz, double r, int yt, Habits h) {
+	private static int[] cap(Draft d, double cx, double cz, double r, int yt, Habits h, boolean cone) {
 		Mat curb = d.mat(Role.BEAM);
 		Mat roof = d.mat(Role.ROOF);
+		int ax = (int) Math.round(cx);
+		int az = (int) Math.round(cz);
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int[] c : Draft.ellipseCells(cx, cz, r, r, true)) {
 				d.set(c[0], yt + 1, c[1], curb.full());
 			}
+			// the curb's brackets: an upside-down stair under the rim a block out
+			for (int[] c : Draft.ellipseCells(cx, cz, r + 1, r + 1, false)) {
+				if (d.allowed(c[0], yt, c[1]) && d.isAbsent(c[0], yt, c[1])) {
+					d.set(c[0], yt, c[1], curb.stairsOrSlab(Dirs.nearest(cx - c[0], cz - c[1]).getOpposite(), Half.TOP));
+				}
+			}
 		}
-		boolean cone = h.roof().pitch() <= 0.6 || Hall.flatCulture(d) || h.roof().weight(RoofForm.CONE) > 0 || h.roof().weight(RoofForm.PAGODA) > 1
-			|| h.roof().thatch();
 		int x0 = (int) Math.floor(cx - r) - 1;
 		int x1 = (int) Math.ceil(cx + r) + 1;
 		int z0 = (int) Math.floor(cz - r) - 1;
@@ -325,29 +387,105 @@ public final class Windmill implements Archetype {
 			rf = Roofs.raster(d, Roofs.cone(cx, cz, r + 1, 1.3), yt + 1, Math.max(0, x0), Math.max(0, z0), Math.min(d.frontage() - 1, x1),
 				Math.min(d.depth() - 1, z1), roof, d.mat(Role.ROOF_TRIM), Habits.Ridge.FULL);
 			dev.voidmc.hearth.build.kit.trade.Shed.solidify(d, rf, roof);
-			int ax = (int) Math.round(cx);
-			int az = (int) Math.round(cz);
+			Roofs.Roof cr = rf;
 			if (rf.ridgeY + 1 < d.maxHeight()) {
-				d.inStage(StageKind.ROOF, () -> d.set(ax, rf.ridgeY + 1, az, Hall.woodFence(d).fence()));
+				d.inStage(StageKind.ROOF, () -> d.set(ax, cr.ridgeY + 1, az, Hall.woodFence(d).fence()));
 			}
-		} else {
-			// a boat-shaped cap: a gable front to back over the curb, its gable to the sails boarded
-			Roofs.Field f = Roofs.gable(x0 + 1, z0, x1 - 1, z1, Direction.Axis.Z, Roofs.Profile.straight(1.0));
-			rf = Roofs.raster(d, f, yt + 1, Math.max(0, x0 + 1), Math.max(0, z0), Math.min(d.frontage() - 1, x1 - 1), Math.min(d.depth() - 1, z1), roof,
-				d.mat(Role.ROOF_TRIM), h.roof().ridge());
-			Mat gable = d.mat(Role.GABLE);
-			for (int zz : new int[]{Math.max(0, z0 + 1), Math.min(d.depth() - 1, z1 - 1)}) {
+			return new int[]{rf.ridgeY + 1, Math.max(0, z0 + 1), Math.min(d.depth() - 1, z1 - 1)};
+		}
+		// the bonnet: a hull upturned over the curb, its sides rounding over to the ridge, its back end rounded too, the breast
+		// square and boarded at the front where the windshaft comes through; it reaches a block forward over the sails
+		z1 = (int) Math.ceil(cz + r);
+		Roofs.Profile hull = dd -> 1 + Math.sqrt(Math.max(0, dd) * 3.0);
+		int fx0 = x0;
+		int fx1 = x1;
+		int fz0 = z0;
+		int fz1 = z1;
+		Roofs.Field f = (x, z) -> x < fx0 || x > fx1 || z < fz0 || z > fz1 ? Double.NaN
+			: Math.min(hull.at(Math.min(x - fx0, fx1 - x)), hull.at(fz1 - z) + 0.5);
+		rf = Roofs.raster(d, f, yt + 1, Math.max(0, x0), Math.max(0, z0), Math.min(d.frontage() - 1, x1), Math.min(d.depth() - 1, z1), roof,
+			d.mat(Role.ROOF_TRIM), h.roof().ridge());
+		Mat gable = d.mat(Role.GABLE);
+		Mat frame = d.mat(Role.FRAME);
+		int zf = Math.max(0, z0 + 1);
+		int zb = Math.min(d.depth() - 1, z1);
+		for (int zz : new int[]{zf}) {
+			try (var s = d.stage(StageKind.WALLS)) {
 				for (int x = x0 + 1; x <= x1 - 1; x++) {
 					if (!rf.covers(x, zz)) {
 						continue;
 					}
 					for (int y = yt + 2; y < rf.bottomY(x, zz); y++) {
-						d.set(x, y, zz, gable.full());
+						// boards with battens up the middle and the edges
+						boolean batten = x == ax || x == x0 + 1 || x == x1 - 1;
+						d.set(x, y, zz, batten && frame.has(Form.LOG) ? frame.log(Direction.Axis.Y) : gable.full());
 					}
 				}
 			}
 		}
-		return rf.ridgeY + 1;
+		return new int[]{rf.ridgeY + 1, zf, zb};
+	}
+
+	/**
+	 * A fantail on the back of a bonnet: a post rising off the curb behind the back gable carrying the little wind
+	 * wheel (spokes and vanes in the plane of the windshaft) that keeps the sails turned into the wind.
+	 */
+	private static void fantail(Draft d, int x, int yt, int zBack, int capTop, Mat stock) {
+		int fy = Math.min(capTop, yt + 4);
+		int wz = zBack + 1 < d.depth() ? zBack + 1 : zBack;
+		if (!d.allowed(x, fy + 1, wz)) {
+			return;
+		}
+		Paint fence = stock.has(Form.FENCE) ? stock.fence() : stock.full();
+		Paint vane = Paint.of(Blocks.WOOL.pick(DyeColor.WHITE).defaultBlockState());
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			// the strut up from the curb's back to the spindle
+			for (int y = yt + 1; y < fy - 1; y++) {
+				if (d.allowed(x, y, wz) && d.isEmpty(x, y, wz)) {
+					d.set(x, y, wz, fence);
+				}
+			}
+			// the wheel round (x, fy, wz): spokes of fence on the axes, vanes on the diagonals
+			for (int[] o : new int[][]{{0, 1}, {0, -1}, {1, 0}, {-1, 0}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}}) {
+				int yy = fy + o[0];
+				int zz = wz + o[1];
+				if (d.allowed(x, yy, zz) && d.isEmpty(x, yy, zz)) {
+					boolean diag = o[0] != 0 && o[1] != 0;
+					d.set(x, yy, zz, diag ? vane : fence);
+				}
+			}
+			if (d.allowed(x, fy, wz)) {
+				d.set(x, fy, wz, stock.log(Direction.Axis.X));
+			}
+		}
+	}
+
+	/**
+	 * A tail pole: from the bottom of the cap's back down to the stage's edge, where a wheel turns the cap into the wind
+	 * (a smock mill's way, and a southern mill's).
+	 */
+	private static void tailPole(Draft d, int x, int yTop, int zTop, int yFoot, double reach, double cz) {
+		int zFoot = (int) Math.round(cz + reach);
+		Mat beam = d.mat(Role.BEAM);
+		Mat fence = Hall.woodFence(d);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			int n = Math.max(1, yTop - yFoot);
+			for (int k = 0; k <= n; k++) {
+				int y = yTop - k;
+				int z = zTop + (int) Math.round((zFoot - zTop) * (k / (double) n));
+				if (d.allowed(x, y, z) && d.isEmpty(x, y, z)) {
+					d.set(x, y, z, beam.log(Direction.Axis.Y));
+				}
+			}
+			// the winding wheel at its foot: a ring of fences across the pole
+			for (int[] o : new int[][]{{-1, 0}, {1, 0}, {-1, 1}, {1, 1}, {0, 2}}) {
+				int xx = x + o[0];
+				int yy = yFoot + o[1];
+				if (d.allowed(xx, yy, zFoot) && d.isEmpty(xx, yy, zFoot)) {
+					d.set(xx, yy, zFoot, fence.fence());
+				}
+			}
+		}
 	}
 
 	/** The ground floor: the miller's stones, the grain bin, the flour chest and sacks round the stair's foot. */
@@ -423,7 +561,11 @@ public final class Windmill implements Archetype {
 		}
 		if (!chest) {
 			// no room for the flour chest inside: a barrel by the door
-			for (int[] c : new int[][]{{icx + 2, fdz - 1}, {icx - 2, fdz - 1}, {icx + 1, fdz - 2}, {icx - 1, fdz - 2}}) {
+			// beside the path to the door first; the cells either side of the door's step are the stones' and the bin's when
+			// those stand outside too
+			int[][] spots = k < 2 ? new int[][]{{icx + 1, fdz - 2}, {icx - 1, fdz - 2}} : new int[][]{{icx + 2, fdz - 1}, {icx - 2, fdz - 1}, {icx + 1, fdz - 2},
+				{icx - 1, fdz - 2}};
+			for (int[] c : spots) {
 				int ux = c[0] + (c[0] > icx ? -1 : 1);
 				if (c[1] >= 0 && d.isEmpty(c[0], 0, c[1]) && d.isEmpty(c[0], 1, c[1]) && d.isEmpty(ux, 0, c[1]) && d.isEmpty(ux, 1, c[1])) {
 					Props.store(d, c[0], 0, c[1], c[0] > icx ? Dirs.LEFT : Dirs.RIGHT, false, List.of(new Object[]{"minecraft:wheat", 48},
@@ -461,7 +603,8 @@ public final class Windmill implements Archetype {
 		int bx1 = bx0 + bw - 1;
 		int bz0 = 1;
 		int bz1 = bz0 + 4;
-		int yb = Math.min(4, dp - 1 - bz1);
+		// the body high on its trestle (the stair down behind needs a row of plot for every step)
+		int yb = Math.min(5, dp - 2 - bz1);
 		yb = Math.max(2, yb);
 		int cx = (bx0 + bx1) / 2;
 		int cz = (bz0 + bz1) / 2;
@@ -494,7 +637,7 @@ public final class Windmill implements Archetype {
 			}
 		}
 		// the body: a boarded box on the post, a gable front to back
-		Hall hall = Hall.of(d, bx0, bz0, bx1, bz1, yb, new int[]{4, 2}, false, false);
+		Hall hall = Hall.of(d, bx0, bz0, bx1, bz1, yb, new int[]{4, d.maxHeight() >= yb + 14 ? 3 : 2}, false, false);
 		hall.kind = Habits.WallKind.PLANK;
 		hall.facade(-1, 1, 1, 0.3);
 		Floors.boards(d, bx0, bz0, bx1, bz1, yb - 1);
@@ -512,8 +655,25 @@ public final class Windmill implements Archetype {
 		int[] in = hall.inner(0);
 		hall.door(0, Dirs.BACK, cx, 1, false, true);
 		Stairs.straight(d, cx, 0, bz1 + yb, Dirs.FRONT, yb, 1);
+		// the tail pole beside the stair, from under the body down to the ground behind, where the miller heaves on it to
+		// turn the whole mill into the wind
+		Mat tail = d.mat(Role.BEAM);
+		try (var s = d.stage(StageKind.FRAME)) {
+			int tx = cx + 1;
+			for (int k = 0; k < yb; k++) {
+				int y = yb - 1 - k;
+				int z = bz1 + 1 + k;
+				if (d.allowed(tx, y, z) && d.isEmpty(tx, y, z)) {
+					d.set(tx, y, z, tail.log(Direction.Axis.Z));
+				}
+			}
+			int fz = bz1 + yb + 1;
+			if (fz < dp && d.isEmpty(tx, 0, fz)) {
+				d.set(tx, 0, fz, d.mat(Role.FOUNDATION).full());
+			}
+		}
 		// the windshaft through the breast, the sails before it
-		int hubY = yb + 3;
+		int hubY = yb + 4;
 		int sz = bz0 - 1;
 		Mat shaft = d.mat(Role.BEAM);
 		d.inStage(StageKind.FRAME, () -> {

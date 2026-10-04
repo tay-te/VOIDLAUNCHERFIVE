@@ -318,8 +318,17 @@ public final class Smithy implements Archetype {
 			Props.heap(d, outer, z1 - 1, outer, z1, 0,
 				new net.minecraft.world.level.block.Block[]{Blocks.COAL_BLOCK, Blocks.COBBLESTONE, Blocks.GRAVEL}, null);
 		}
-		if (x1 - x0 >= 2) {
-			Props.crates(d, outer, 0, z0 + 3, Dirs.BACK, 1);
+		if (x1 - x0 >= 2 && z1 - z0 >= 4) {
+			// the ore come in from the mine: a cart of raw iron by the street, its shaft to the gate
+			int cxm = (x0 + x1) / 2;
+			if (d.isEmpty(cxm - 1, 0, z0 + 2) && d.isEmpty(cxm, 0, z0 + 2) && d.isEmpty(cxm + 1, 0, z0 + 2) && d.isEmpty(cxm, 0, z0 + 1)) {
+				Props.cart(d, cxm, 0, z0 + 2, Dirs.FRONT, Blocks.RAW_IRON_BLOCK.defaultBlockState());
+			} else {
+				Props.crates(d, outer, 0, z0 + 3, Dirs.BACK, 1);
+			}
+		} else if (x1 - x0 >= 1 && z1 - z0 >= 3) {
+			// a heap of ore and coal where the yard is narrow
+			Props.heap(d, outer, z0 + 2, outer, z0 + 2, 0, new net.minecraft.world.level.block.Block[]{Blocks.RAW_IRON_BLOCK, Blocks.COAL_BLOCK}, null);
 		}
 		List<int[]> gaps = new ArrayList<>();
 		for (int x = x0; x <= x1; x++) {

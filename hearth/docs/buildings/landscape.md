@@ -10,7 +10,7 @@ like, what it reads and registers, and how it meets the planner.
 | `hearth:landscape/plaza` | `landscape/Plaza.java` | 7–31 × 7–31 | 1–10 | camp | CENTRAL |
 | `hearth:landscape/well` | `landscape/Well.java` | 5–9 × 5–9 | 6–9 | camp | CENTRAL |
 | `hearth:landscape/fountain` | `landscape/Fountain.java` | 5–9 × 5–9 | 4–8 | village | CENTRAL |
-| `hearth:landscape/statue` | `landscape/Statue.java` | 5–7 × 5–7 | 7–11 | town | CENTRAL |
+| `hearth:landscape/statue` | `landscape/Statue.java` | 5–7 × 5–7 | 7–14 | town | CENTRAL |
 | `hearth:landscape/bell` | `landscape/Bell.java` | 3–5 × 3–5 | 5–9 | camp, max 1 | CENTRAL |
 | `hearth:landscape/lamp_post` | `landscape/LampPost.java` | 3–5 × 3–5 | 4–7 | village | CENTRAL |
 | `hearth:landscape/garden` | `landscape/GardenPlot.java` | 7–15 × 7–15 | 1–9 | hamlet | |
@@ -41,15 +41,18 @@ post, a long pole with a stone counterweight, the bucket on a chain); a wrought-
 (mediterranean); a domed kiosk on arched piers (desert, mesa). Benches, a trough, pots and corner lamps round it.
 
 **Fountain.** Built on top of the paving, never dug into it, so one set into a paved plaza keeps the plaza's floor as
-its basin's bed: a basin whose rim is a ring of stone seats, a column with a bowl (a second, wider bowl on 7+ plots)
-and a jet that spills when the game first updates it (temperate, wisteria, maritime, alpine, moorland; round on the
+its basin's bed: a basin whose rim is a ring of stone seats, a column carrying a tazza over the water (three wide even in
+a five-wide basin, where lanterns stand on the rim's corner stones) and a finial with the jet (a second, wider bowl on 7+
+plots), the jet spilling when the game first updates it (temperate, wisteria, maritime, alpine, moorland; round on the
 steppe and in the vale); a low octagon rimmed in alternating tiles with a short spout and pots (desert, mediterranean,
 mesa); a spring pool with a mossy (or log) edge, lilies, a bamboo spout into a stone bowl and a stone lantern (karst,
 tropical, bayou); a stone trough with a timber pump and a bucket (northern, tundra).
 
-**Statue.** A stepped plinth (a step all round, a pedestal with a moulded cap) and a lettered sign whose lines are
-translatable components with English fallbacks (`Inscriptions`). On it: a figure some three times a man's height (the
-founder with a raised sword and a cloak, a keeper holding up a lantern, an elder with a staff, a scholar with a book),
+**Statue.** A stepped plinth (a step all round, a base moulding, on plots 13+ high a die of two courses, a cornice
+overhanging it) and a lettered sign whose lines are translatable components with English fallbacks (`Inscriptions`). On
+it: a figure some seven blocks tall, three across at the chest with its arms beside (legs apart or a robe to the ground,
+the breast a little proud, sloping shoulders, a capped head): the founder with a raised sword and a cloak falling behind,
+a keeper holding up a lantern, an elder with a staff, a scholar with an open book;
 in polished stone, white marble (mediterranean, wisteria), green bronze (temperate, maritime, alpine towns), carved
 cypress (bayou); an obelisk with a capstone, gilded in towns (desert, mesa); a stele (steppe); a rune stone (northern,
 tundra); a seated sage in jade (karst); a tiki (tropical).

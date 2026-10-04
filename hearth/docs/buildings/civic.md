@@ -6,11 +6,11 @@ learn, bathe and keep watch. Nine archetypes, each built in the manner of every 
 
 | id | class | for | size (frontage × depth) | height | jobs, beds |
 |---|---|---|---|---|---|
-| `hearth:commerce/market_hall` | `archetype/commerce/MarketHall` | town+, CENTRAL | 11–17 × 13–21 | 12–24 | MERCHANT |
-| `hearth:commerce/inn` | `archetype/commerce/Inn` | village+ | 11–15 × 11–15 | 11–17 | INNKEEPER, 4 beds |
+| `hearth:commerce/market_hall` | `archetype/commerce/MarketHall` | town+, CENTRAL | 11–17 × 13–21 | 12–28 | MERCHANT |
+| `hearth:commerce/inn` | `archetype/commerce/Inn` | village+ | 11–15 × 11–17 | 11–22 | INNKEEPER, 4–8 beds |
 | `hearth:commerce/bank` | `archetype/commerce/Bank` | village+, CENTRAL | 9–13 × 9–13 | 9–16 | MINTER |
-| `hearth:civic/chapel` | `archetype/civic/Chapel` (+ `Chapel*`) | village+, VERTICAL | 9–13 × 13–19 | 12–30 | PRIEST |
-| `hearth:civic/town_hall` | `archetype/civic/TownHall` | town+, CENTRAL, max 1 | 13–19 × 13–19 | 14–32 | — |
+| `hearth:civic/chapel` | `archetype/civic/Chapel` (+ `Chapel*`) | village+, VERTICAL | 9–13 × 13–19 | 12–36 | PRIEST |
+| `hearth:civic/town_hall` | `archetype/civic/TownHall` | town+, CENTRAL, max 1 | 13–19 × 13–19 | 14–36 | — |
 | `hearth:civic/library` | `archetype/civic/Library` | town+ | 9–13 × 11–15 | 12–20 | SCHOLAR |
 | `hearth:civic/school` | `archetype/civic/School` | town+ | 11–15 × 11–15 | 9–15 | — |
 | `hearth:civic/bathhouse` | `archetype/civic/Bathhouse` | city | 11–15 × 11–17 | 8–16 | — |
@@ -22,20 +22,33 @@ height: a roof that cannot fit pitched becomes flat behind a parapet, towers and
 
 ## What each one is
 
-**Market hall.** An arcaded ground floor open on three sides, its piers and arches in the culture's manner (round
+**Market hall.** In the timber traditions (temperate, wisteria) a Bohemian market house: a lofty arcade of pointed
+arches rendered with the walls (the arch rings in dressed stone) open on three sides, the framed hall set flush on it
+(no jetty, so the arches read from the square), a tall framed gable turned to the square with the loft door under a
+hoist beam and its lantern, a balcony for proclamations in towns, the bell cupola on the ridge. Elsewhere: an arcaded
+ground floor open on three sides, its piers and arches in the culture's manner (round
 stone arches, pointed ones, braced timber posts, bracketed eastern posts), market counters under it with a merchant's
 place behind each; a back bay closed in for the stores and the stair; the hall upstairs with tables and benches under
 the roof; a cupola on the ridge with a bell and, in towns of standing, clock faces (front and back). Flat-roofed
 traditions put little domes on drums over the roof instead (the souk). Dormers light the deepest pitched roofs.
 
-**Inn.** A coaching inn: a stone carriage arch (voussoirs and keystone) through one side of the ground floor to the
-stable yard behind, a side door from the passage into the tap room; the tap room with its bar (kegs racked behind the
-innkeeper), tables and chairs, the hearth and its chimney; the stair up to a corridor along the back and guest rooms
-along the street with beds and chests; a settle and casks of ale with a lantern by the door; the hanging sign over
-the door with one of 16 names (translatable: "The Red Lion", "The Wheatsheaf"...); a bay window to the street;
-balconies (alpine, karst, raised), a vine pergola (mediterranean), a roof terrace, latticed screens, a striped awning
-and a palm in the yard (desert, mesa); behind, the stable with stalls and hay and a gallery along the yard. Raised
-traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch.
+**Inn.** A coaching inn, the broadest front in the street: its range runs the whole width of the plot, two storeys over
+a lofty ground floor (three on plots 13+ wide and 13+ deep where the height allows), the ground floor in stone wherever
+the culture builds in timber, the top storey jettied over the street in timber towns with a five-wide cross gable over
+the tap-room door (dormers instead on unjettied roofs), a stack at each gable end. Through one side runs the carriage
+arch (voussoirs, keystone, guard stones at its foot, the yard's gates folded back inside, a lantern under the boarded
+vault) to the stable yard; a side door from the passage into the tap room. The tap room shows itself to the street:
+tall windows, a bay, the door under the inn's painted sign hung from a wrought bracket (two fence posts out from the
+wall, a stair brace, the hanging sign on its chains; a wall hanging sign where the forecourt is one row), the name
+painted along the front on a board of wall signs (one of 16, translatable), a settle and casks with a lantern, a barrel
+table with stools in the forecourt's outer row; within, the bar with its kegs racked behind, tables and chairs, the
+hearth, lanterns hung from the joists over the tables and the bar. Upstairs, on every floor, a corridor along the back
+with a runner and lanterns, guest rooms along the street (a second flight beside the first on three-storey inns); the
+gallery looks over the yard, and across it stands a gabled stable (stalls behind half doors, hay and water, a hay door
+over the middle, a lantern). Alpine and karst inns carry a balcony across the upper front, the mediterranean a vine
+pergola, the dry south a flat roof with a shaded terrace, latticed screens, a striped awning and a palm in the yard;
+raised traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch. Params:
+`arch_right`, `name`, `storeys` (2–3).
 
 **Bank.** A rusticated stone storey whatever the culture (or a stone base under a karst hall), barred windows, a
 portico of columns and a pediment where the plot allows (a karst gate roof, an adobe crest), and on smaller plots an
@@ -46,7 +59,19 @@ across the banking hall with the minter's workstation at its end; the strongroom
 piston); a lectern for the ledgers. Two storeys where deep enough, else one tall hall.
 
 **Chapel.** One per tradition:
-- *Western parish church* (temperate, wisteria, moorland, maritime, alpine, tundra): nave of pews either side of an
+- *Bohemian parish church* (temperate, wisteria; `ChapelBohemian`): stone whatever the houses are. White render (the
+  style's own walls) between dressed quoins over a stone plinth, buttresses rendered with the church and finished with
+  a dressed set-off and weathering, tall lancets of coloured glass, a steep Gothic roof (two blocks per cell where the
+  height allows, one otherwise: pitches between terrace the roof in lips), gables in the render (no king post), a
+  narrower chancel ending in a three-sided apse with a buttress in every notch of its octagon and a light in every face
+  (a square east end on the shortest plots), a cross on the apse's hip. A town's church raises a west tower half-engaged
+  in the nave (its foot the narthex, an arch through into the nave, the font in the aisle beside it), or a tower beside
+  the nave's front on short wide plots: five square, rendered between corner stones, a pointed portal under a little
+  gable, slit lights, clocks to the street (and over the roof behind), a belfry of paired lights and the Bohemian crown
+  (a corbelled gallery with merlons and corner pinnacles round a slender needle spire); the ringer's ladder inside. A
+  village's church carries a slender shingled turret on the ridge over its west gable, its portal and a round window in
+  the gable. Lanterns from tie beams, banners between the windows, the churchyard behind a wall with a lychgate.
+- *Western parish church* (moorland, maritime, alpine, tundra): nave of pews either side of an
   aisle, a narrower chancel with the altar, lancets of stained glass, tie beams with lanterns, a bell in a cote, a
   turret on the ridge, a front tower with a spire and a clock, or a side tower (tier and seed decide); buttresses on
   stone ones; a churchyard of headstones and a dark tree.
@@ -62,7 +87,13 @@ piston); a lectern for the ledgers. Two storeys where deep enough, else one tall
   pavilion or under the porch beam.
 - *Raised chapel* (bayou, tropical): the western plan lifted on stilts with boards, a gallery and a belfry.
 
-**Town hall.** A loggia of arches inside the front, a stone ground floor (the clerk's lectern and the records, benches
+**Town hall.** In the timber traditions a Bohemian town hall: the whole hall rendered over a stone plinth, a rendered
+arcade of pointed arches (their rings in dressed stone) along the square with the town's banners on its piers, a corner
+tower (`kit/civic/Bohemian`) whose foot is the arcade's corner bay (arches to the square and into the loggia) rising to
+clocks, a belfry of paired lights and the gallery and needle spire, the chamber's windows framed in dressed stone, an
+oriel on stepped corbels over the arcade, a gable roof along the square with a crow-stepped show gable over the middle
+(each step capped in dressed stone, a pinnacle on its peak). Elsewhere: a loggia of arches
+inside the front, a stone ground floor (the clerk's lectern and the records, benches
 for those waiting, a runner to the stair), the council chamber above with its long
 table, chairs and the meeting point, the clerk's lectern, a fireplace; a balcony over the loggia hung with the
 settlement's banners; a tower (centre over the front, or at a corner in stone, mediterranean and adobe towns) with a
@@ -140,7 +171,7 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | class | what it builds |
 |---|---|
 | `Arches` | arcades: piers, pad stones, round, pointed, braced, bracketed, posted and flat heads |
-| `Towers` | shafts, belfries, bells, caps (spire, pyramid, onion, dome, pagoda, cone, battlements, hip), lathed domes, clocks, bell-cotes, bell walls, lookouts, flagpoles, finials |
+| `Towers` | shafts, belfries, bells, caps (spire, pyramid, onion, dome, pagoda, cone, battlements, hip), lathed domes, clocks, bell-cotes, bell walls, lookouts, flagpoles, finials; spires, domes, onions and every lathe course are laid from the octagon ladder of `kit/landmark/Shapes` (clean octagons drawn in a cell at a time, not rasterised circles), so a three- or five-wide dome is round-shouldered and an onion swells past its drum |
 | `Signs` | wall banners, the settlement's arms, hanging and post signs with translatable lines, the notice board |
 | `Grounds` | gentle-street checks, raised and stilt bases, forecourts, stair flights with footings, cuts into slopes |
 | `Halls` | floors, portals, iwans, double doors, lychgates, string courses, cornices, hanging lanterns, lamps, roof terraces |
@@ -150,7 +181,8 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | `Portico` | stylobate, columns, entablature, pediment (karst gate roof, adobe crest) |
 | `Baths` | pools, rock pools, steam grates, mosaics, benches |
 | `Eaves` | pent roofs skirting a raised core, lifted eave tips |
-| `Adobe` | the dry south's flat roofs (raised corners, crests, beam ends, spouts), latticed screens, awnings, domes on drums, palms |
+| `Bohemian` | the Bohemian towers of the timber traditions' churches and halls: five square, render between corner stones, stage courses, slits, clocks, a belfry of paired lights, the corbelled gallery with corner pinnacles round a needle spire; the pointed portal under a little gable |
+| `Adobe` | the dry south's flat roofs (raised corners and crest in the `wall_accent`, a frieze of the `accent` along the wall head, beam ends, spouts), latticed screens, awnings, domes on drums in the accent where it cuts stairs (else lime-washed: white domes over walls of the earth's colour, `domeSheet`, also used by the towers', library's and hammam's domes), palms |
 | `Fam` | block families recut from a role's material (stairs, slabs, walls of the same stone) |
 
 ## Previews

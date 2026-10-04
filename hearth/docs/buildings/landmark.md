@@ -12,7 +12,7 @@ in `build/kit/landmark/`.
 |---|---|---|---|---|---|---|---|
 | `hearth:landmark/bell_tower` | `BellTower` | 7–11 × 7–11 | 26–44 | town | temperate, wisteria, northern, alpine, moorland, maritime, mediterranean, bayou | VERTICAL | — |
 | `hearth:landmark/clock_tower` | `ClockTower` | 7–11 × 7–11 | 28–44 | city | all | VERTICAL, CENTRAL | — |
-| `hearth:landmark/cathedral` | `Cathedral` | 17–25 × 29–41 | 26–44 | city | temperate, wisteria, maritime, alpine, moorland, mediterranean | VERTICAL | PRIEST |
+| `hearth:landmark/cathedral` | `Cathedral` (+ `StaveCathedral`) | 17–25 × 29–41 | 26–56 | city | temperate, wisteria, maritime, alpine, moorland, mediterranean, northern | VERTICAL | PRIEST |
 | `hearth:landmark/temple` | `Temple` | 15–21 × 17–25 | 16–30 | city | desert, mediterranean, mesa, steppe, karst, tropical, bayou | — | PRIEST |
 | `hearth:landmark/pagoda` | `Pagoda` | 15–21 × 17–25 | 28–40 | town | karst, wisteria | VERTICAL | — |
 | `hearth:landmark/great_hall` | `GreatHall` | 15–23 × 21–31 | 14–22 | town | northern, tundra, moorland, alpine | — | — |
@@ -22,11 +22,14 @@ All have `maxPerSettlement` 1 and no `upgradesTo`. Every culture has at least on
 
 ### Bell tower
 A square campanile on a chamfered plinth: a core of walls with clasping corner piers (the faces are recessed panels),
-string courses over Lombard bands of little arches, a deep blind arch with a lancet in the long middle stage, paired
+string courses each over its Lombard band of little arches, the door stage banded in the base stone, a deep blind arch
+with a lancet in the long middle stage, the upper stage in dressed stone over the rendered shaft below (so the tower
+lightens as it climbs and no two stages read alike), paired
 lights or a clock higher up, the open belfry (a triple light or a big arch over a balustrade) with one to three bells on
 a beam, a corbelled cornice. Panels in the style's light walling where it is masonry (white plaster between stone piers),
 the belfry in dressed stone. Crowns by culture: needle, octagonal or broach spires behind a parapet with pinnacles
-(temperate, maritime, moorland, wisteria), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
+(maritime, moorland, wisteria; a temperate town's tower always takes the needle in its pinnacled gallery, as Bohemia's
+towers do), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
 a brick campanile (mediterranean), onion domes (alpine), curved hips (karst). Timber cultures (northern, tundra, bayou,
 tropical) raise a stone base under a pent skirt and, on a seven-wide core, step the framed shaft in a block behind it
 (braces, lights) before the louvred belfry flares out two blocks on raking brackets under stacked shingle caps or a tin
@@ -55,6 +58,19 @@ roofs below a clerestory; the nave, transept and apse roofed as one surface (val
   crossing.
 - **Baroque** (alpine): white walls with grey dressings, twin towers under copper onions, a dome over the crossing on
   half of them.
+- **Stave** (northern): a great stave church in the manner of Heddal and Borgund (`StaveCathedral`). A tall core of
+  staves (the midtrom) over columns and open arcades, aisles wrapping it under lean-to roofs (their ends boarded), the
+  svalgang gallery on arched posts round the foot of everything, the roofs climbing in tiers in timber shingles (never
+  slate); the west gable carved with a band and a round light; the roof turret rising from the ridge in two stages, a
+  louvred belfry with its bell under a skirt and a stave cap (or a slender spire on narrow closes); a lower chancel with
+  its own little louvred turret and needle, a round apse under a cone; a steep-gabled porch on carved posts; dragons
+  rearing from every apex. Inside: pews down the nave, lanterns from the tie beams and in the aisles, the altar and the
+  priest's lectern in the chancel, candles in the apse; a churchyard where the close leaves room.
+The west towers carry their belfries a full stage over the nave's ridge; the nave's height is reckoned from a 44-block
+sky whatever the plot allows, so the extra height of a 56-block plot goes to the towers and spires. Spires taper on a
+concave profile (`Shapes.needle`): on a five-wide tower an octagon on the cornice with pinnacles in the corners it leaves,
+on a broad one a parapet with corner pinnacles and the needle inside with lucarnes and a band of the dressing; the flèche
+is an open lantern of posts with a sanctus bell under a slender needle.
 On a close at least 24 wide and 33 deep a cloister opens off one aisle (walks under lean-to roofs round a garth with a
 basin and flowers). Inside: a chequered nave, pews either side of the central aisle (SEAT), banners on the piers,
 chandeliers, choir stalls, side altars, a font, the high altar with candles and gold (ALTAR), the priest's lectern by
@@ -93,10 +109,14 @@ SEAT) past a scroll room (LECTERN) and a bell to the lookout (VIEWPOINT).
 ### Great hall
 A long hall under a vast roof, gable to the street. Northern and tundra: log walls notched at the corners, raking braces
 leaning on them, boarded gables boarded with vertical battens and a sun-wheel light, whose barge boards cross over the apex
-and curl outward into carved dragon heads, smoke vents on the ridge, a porch on posts, banners either side of it. Moorland: rubble walls with quoins and buttresses, crow-stepped gables. Alpine: a broad low roof
-with deep eaves and a balcony across the gable. Inside: two rows of posts under tie beams, the long hearth down the middle
+and curl outward into carved dragon heads, smoke vents on the ridge, a porch on posts, banners either side of it; the
+roof, vents and porch shingled in the culture's own timber (the gable boards), so the hall reads warm brown over its dark
+logs rather than a black mass. Moorland: rubble walls with quoins and buttresses, crow-stepped gables. Alpine: two
+storeys, a whitewashed stone hall with arched lights and quoins under a boarded upper storey with shuttered windows and
+flower boxes, a broad low roof with eaves three deep, a balcony across the gable front, and a bell turret on the ridge
+(louvres, its bell, a copper onion). Inside: two rows of posts under tie beams, the long hearth down the middle
 (HEARTH), long tables with benches (TABLE, SEAT), the high seat on a dais under banners, mead barrels and a chest
-(STORAGE), lanterns on chains; woodpiles and a runestone outside.
+(STORAGE), lanterns on chains from every tie beam, staggered either side of the hearth; woodpiles and a runestone outside.
 
 ### Lighthouse
 A round tower on a mound of weathered rock: a flared plinth, the livery (the style's masonry walls, or white render, in
@@ -119,10 +139,10 @@ then its roofs and spires. Goods per stage at the largest sizes stay under about
 | class | what |
 |---|---|
 | `Stone` | a material with the cuts masonry needs; `masonry`, `ashlar`, `dressing` (crisp: main material only), `panel`, `footing` pick the style's best stone; `sheet` (roof stone, or copper over shingle towns), `copper`, `fixed`; a weathered stone-brick fallback for styles without stone |
-| `Tower` | a square tower raised stage by stage: plinth with chamfer, shaft with clasping piers or quoins, courses round any outline, Lombard bands, deep blind arches (`recess`), openings (slit, single, bifora, trifora, arch, louvre), floors, cornice and deck, spiral stair, bells |
+| `Tower` | a square tower raised stage by stage: plinth with chamfer, shaft with clasping piers or alternating quoins (corner stones alone on a five-wide core, so its render reads), courses round any outline, Lombard bands, deep blind arches (`recess`), openings (slit, single, bifora, trifora, arch, louvre), floors, cornice and deck, spiral stair, bells |
 | `Crowns` | spire, octagon, broach (with lucarnes and pinnacles), pyramid on brackets, onion (drum, ogee bulb, lantern), dome (drum, lantern), open cupola, crenellated parapet with a flag, stave caps, curved hip with lifted tips; `rows` estimates a crown's height for laying out stages |
 | `Details` | string courses, corbel tables, corbels, round-headed arches with voussoirs and jambs, paired and triple lights, slits, pinnacles, finials and rods, bells, clock dials, stone lanterns, banners, candles, ring courses |
-| `Shapes` | spire fields (octagon, broach, pyramid, bell-cast), capped and outside fields, solids of revolution (`turned`), a walkable spiral stair in any stone, roof `support` (no floating apexes or ridges), `reclad` |
+| `Shapes` | the octagon ladder (`oct`, `ladder`: square, octagons, the square a size smaller... down to the plus and the point) and forms stacked from it (`stack`: stairs where a row draws in, upside-down stairs under a swell): `needle` (a tapering spire held on a concave profile, a shaft of wall posts and a rod), `domeRows`, `onionRows`; spire fields (octagon, broach, pyramid, bell-cast), capped and outside fields, solids of revolution (`turned`), a walkable spiral stair in any stone, roof `support` (no floating apexes or ridges), `reclad` |
 | `Grounds` | footings, podiums, arched doorways, forecourts (approach, apron, bench, lamp, pots), robust trees (every leaf joined to the trunk) |
 | `Wooden` | timber belfry towers (stone base, pent skirt, framed stages, jettied louvred belfry) |
 | `Eaves` | curved skirts with lifted corners and brackets, hipped tops with a spire of rings |

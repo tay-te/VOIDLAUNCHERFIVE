@@ -162,7 +162,9 @@ public final class Tower {
 				for (Side f : faces()) {
 					for (int i = 0; i < f.length(); i++) {
 						boolean corner = f.isCorner(i);
-						boolean tooth = !this.piers && (i == 1 || i == f.length() - 2) && ((y & 1) == 0);
+						// alternating quoins: the long stone of each corner on one face, then the other, course by course
+						// (a narrow tower keeps its corner stones alone, so its render still reads between them)
+						boolean tooth = !this.piers && this.size >= 7 && (i == 1 && ((y & 1) == 1) || i == f.length() - 2 && ((y & 1) == 0));
 						d.set(f.x(i), y, f.z(i), corner || tooth ? this.dress.full() : this.body.full());
 					}
 				}

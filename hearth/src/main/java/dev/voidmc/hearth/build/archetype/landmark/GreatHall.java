@@ -22,6 +22,7 @@ import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.landmark.Details;
 import dev.voidmc.hearth.build.kit.landmark.Grounds;
+import dev.voidmc.hearth.build.kit.landmark.Shapes;
 import dev.voidmc.hearth.build.kit.landmark.Stone;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
@@ -77,12 +78,14 @@ public final class GreatHall implements Archetype {
 		int front = dp >= 25 ? 4 : 3;
 		int hz0 = front;
 		int hz1 = dp - 2;
-		int wallH = stone ? 5 : 4;
+		// the mountain hall stands two storeys: a whitewashed stone hall under a boarded upper storey
+		int wallH = chalet ? 7 : stone ? 5 : 4;
 		d.body(hx0, hz0, hx1, hz1);
 		d.eave(wallH);
 		Mat frame = d.mat(Role.FRAME);
 		Mat beam = d.mat(Role.BEAM);
 		Mat wall = d.mat(Role.WALL);
+		Mat boards = d.mat(Role.GABLE).has(Form.LOG) ? d.mat(Role.GABLE) : d.mat(Role.FLOOR);
 		Stone dress = Stone.dressing(d);
 		Stone found = Stone.footing(d);
 		Paint glass = d.mat(Role.GLASS).pane();
@@ -103,12 +106,22 @@ public final class GreatHall implements Archetype {
 				int x = s.x(i);
 				int z = s.z(i);
 				boolean corner = s.isCorner(i);
-				boolean post = !stone && (corner || i % 4 == 0);
+				boolean post = !stone && !chalet && (corner || i % 4 == 0);
 				for (int y = 0; y <= wallH; y++) {
 					Paint p;
 					StageKind st = StageKind.WALLS;
-					if (y == 0 && (stone || logs)) {
+					if (y == 0 && (stone || logs || chalet)) {
 						p = found.full();
+					} else if (chalet && y < 4) {
+						// the stone storey, quoined at the corners
+						p = corner || (i == 1 || i == s.length() - 2) && (y & 1) == 0 ? dress.full() : Stone.stony(d, Role.WALL) ? wall.full() : d.mat(Role.PLINTH).full();
+					} else if (chalet && y == 4) {
+						p = beam.log(s.axis());
+						st = StageKind.FRAME;
+					} else if (chalet) {
+						boolean cpost = corner || i % 4 == 0;
+						p = cpost ? frame.log(Direction.Axis.Y) : y == wallH ? beam.log(s.axis()) : boards.full();
+						st = cpost || y == wallH ? StageKind.FRAME : StageKind.WALLS;
 					} else if (stone) {
 						p = corner || (i == 1 || i == s.length() - 2) && (y & 1) == 0 ? dress.full() : wall.full();
 					} else if (post) {
@@ -145,15 +158,21 @@ public final class GreatHall implements Archetype {
 				continue;
 			}
 			for (int i = 2; i < s.length() - 2; i += 4) {
-				Openings.window(d, s, s.column(i), 2, 1, Math.max(1, wallH - 3), Openings.WindowStyle.DRESSED,
-					new Openings.WindowOpts(!stone, false, true, true));
+				if (chalet) {
+					// arched lights in the stone storey, shuttered windows with flower boxes in the boarded one
+					Openings.window(d, s, s.column(i), 1, 1, 2, Openings.WindowStyle.ARCHED, new Openings.WindowOpts(false, false, true, false));
+					Openings.window(d, s, s.column(i), 5, 1, 2, Openings.WindowStyle.DRESSED, new Openings.WindowOpts(true, true, true, false));
+				} else {
+					Openings.window(d, s, s.column(i), 2, 1, Math.max(1, wallH - 3), Openings.WindowStyle.DRESSED,
+						new Openings.WindowOpts(!stone, false, true, true));
+				}
 			}
 		}
 
 		// the roof: steep in the north, broad and low in the mountains; gables filled in the style's manner
-		double pitch = chalet ? 0.6 : stone ? 1.0 : 1.5;
-		int eaves = chalet ? 2 : 1;
-		Roofs.Opts o = Roofs.Opts.of(d).withPitch(pitch).withEaves(eaves, chalet ? 2 : 1);
+		double pitch = chalet ? 0.5 : stone ? 1.0 : 1.5;
+		int eaves = chalet ? 3 : 1;
+		Roofs.Opts o = Roofs.Opts.of(d).withPitch(pitch).withEaves(eaves, chalet ? 3 : 1);
 		double half = hw / 2.0 + eaves;
 		if (wallH + 1 + pitch * half > top - 3) {
 			o = o.withPitch(Math.max(0.5, (top - 4 - wallH) / half));
@@ -161,6 +180,10 @@ public final class GreatHall implements Archetype {
 		Roofs.Built rb = Roofs.build(d, hx0, hz0, hx1, hz1, wallH, Habits.RoofForm.GABLE, Direction.Axis.Z, o, false, false);
 		Roofs.Roof roof = rb.roof();
 		int ridge = roof.ridgeY;
+		if (logs && d.mat(Role.GABLE).has(Form.LOG)) {
+			// a northern hall is shingled in its own timber: warm boards, not slate, over the dark logs
+			Shapes.reclad(d, roof, Stone.of(d, Role.GABLE));
+		}
 		// the gables: vertical battens over the boards and a sun-wheel light high up (timber), or crow steps on stone
 		for (int z : new int[]{hz0, hz1}) {
 			if (!stone) {
@@ -201,9 +224,10 @@ public final class GreatHall implements Archetype {
 			int sy = roof.surfaceY(xc, vz);
 			if (sy != Integer.MIN_VALUE && sy + 2 <= top) {
 				try (var s = d.stage(StageKind.ROOF)) {
-					d.set(xc, sy + 1, vz, d.mat(Role.ROOF).slab(SlabType.BOTTOM));
-					d.set(xc - 1, sy, vz, d.mat(Role.ROOF).full());
-					d.set(xc + 1, sy, vz, d.mat(Role.ROOF).full());
+					Mat vent = logs && d.mat(Role.GABLE).has(Form.LOG) ? d.mat(Role.GABLE) : d.mat(Role.ROOF);
+					d.set(xc, sy + 1, vz, vent.slab(SlabType.BOTTOM));
+					d.set(xc - 1, sy, vz, vent.full());
+					d.set(xc + 1, sy, vz, vent.full());
 				}
 			}
 		}
@@ -216,10 +240,29 @@ public final class GreatHall implements Archetype {
 		Openings.door(d, frontWall, xc, 0, 1, Openings.DoorOpts.MAIN);
 		if (front >= 3) {
 			Porches.porch(d, frontWall, xc - 2, xc + 2, 2, 0, 3, xc);
+			if (logs && d.mat(Role.GABLE).has(Form.LOG)) {
+				// the porch shingled like the hall
+				Stone shingle = Stone.of(d, Role.GABLE);
+				for (int z = 0; z <= hz0; z++) {
+					for (int x = xc - 4; x <= xc + 4; x++) {
+						for (int y = 1; y <= 7; y++) {
+							Shapes.recladCell(d, x, y, z, shingle);
+						}
+					}
+				}
+			}
 		}
 		if (chalet) {
-			Side up = frontWall;
-			Porches.balcony(d, up, hx0 + 1, hx1 - 1, wallH + 1);
+			// the gable front: a balcony across the boarded storey on carved brackets, shuttered windows behind it,
+			// and the bell turret on the ridge with its copper onion
+			Porches.balcony(d, frontWall, hx0 + 1, hx1 - 1, 5);
+			for (int wx : new int[]{xc - 3, xc + 3}) {
+				if (wx > hx0 + 1 && wx < hx1 - 1) {
+					Openings.window(d, frontWall, wx, 5, 1, 2, Openings.WindowStyle.DRESSED, new Openings.WindowOpts(true, false, true, false));
+					Openings.window(d, frontWall, wx, 1, 1, 2, Openings.WindowStyle.ARCHED, new Openings.WindowOpts(false, false, true, false));
+				}
+			}
+			ridge = Math.max(ridge, turret(d, roof, xc, (hz0 + hz1) / 2, wallH, frame, beam, boards, top));
 		}
 		// banners on the front either side of the porch
 		for (int side : new int[]{-1, 1}) {
@@ -230,7 +273,7 @@ public final class GreatHall implements Archetype {
 		}
 		// raking braces leaning on the long walls (stone halls: buttresses)
 		for (Side s : Side.of(hx0, hz0, hx1, hz1)) {
-			if (s.out() != Dirs.LEFT && s.out() != Dirs.RIGHT) {
+			if (s.out() != Dirs.LEFT && s.out() != Dirs.RIGHT || chalet) {
 				continue;
 			}
 			for (int i = 3; i < s.length() - 2; i += 4) {
@@ -274,6 +317,42 @@ public final class GreatHall implements Archetype {
 			Garden.snowBanks(d, hx0, hz0, hx1, hz1, 0, xc);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, ridge + 4));
+	}
+
+	/**
+	 * The mountain hall's bell turret on the ridge at (x, z): three wide, boarded down to the roof round it, louvred on
+	 * every face where the bell hangs, under a copper onion with its ball and rod. Returns its top.
+	 */
+	private static int turret(Draft d, Roofs.Roof roof, int x, int z, int plate, Mat frame, Mat beam, Mat boards, int top) {
+		int x0 = x - 1;
+		int z0 = z - 1;
+		int y0 = roof.ridgeY;
+		if (y0 + 10 > top) {
+			return roof.ridgeY;
+		}
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int[] c : new int[][]{{x0, z0}, {x0 + 2, z0}, {x0, z0 + 2}, {x0 + 2, z0 + 2}}) {
+				for (int y = plate + 1; y < y0 + 4; y++) {
+					if (d.isEmpty(c[0], y, c[1]) || y >= roof.surfaceY(c[0], c[1])) {
+						d.set(c[0], y, c[1], frame.log(Direction.Axis.Y));
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (Side side : Side.of(x0, z0, x0 + 2, z0 + 2)) {
+				int i = 1;
+				int cx = side.x(i);
+				int cz = side.z(i);
+				for (int y = roof.surfaceY(cx, cz) + 1; y < y0 + 4; y++) {
+					boolean louvre = y >= y0 + 1 && y <= y0 + 2;
+					d.set(cx, y, cz, louvre && d.mat(Role.SHUTTER).has(Form.TRAPDOOR) ? d.mat(Role.SHUTTER).trapdoor(side.out().getOpposite(), Half.TOP, true)
+						: y == y0 + 3 ? beam.log(side.axis()) : boards.full());
+				}
+			}
+		}
+		Details.bell(d, x, y0 + 2, z, Dirs.FRONT);
+		return dev.voidmc.hearth.build.kit.civic.Towers.cap(d, x0, z0, 3, y0 + 3, dev.voidmc.hearth.build.kit.civic.Towers.Cap.ONION, top);
 	}
 
 	/** Crow steps up a stone gable at row z: the gable wall carried above the roof's edge in steps capped with slabs. */
@@ -407,9 +486,10 @@ public final class GreatHall implements Archetype {
 			d.set(hx0 + 1, 0, hz0 + 2, States.facing(Blocks.BARREL, Direction.UP));
 		}
 		Furniture.chest(d, hx1 - 1, 0, hz0 + 1, Dirs.LEFT, List.of(new Object[]{"minecraft:honey_bottle", 6}, new Object[]{"minecraft:cooked_beef", 8}));
-		for (int z = hz0 + 3; z < hz1 - 1; z += 6) {
-			Furniture.hangingLantern(d, xc - 2, wallH, z, 1);
-			Furniture.hangingLantern(d, xc + 2, wallH, z, 1);
+		// lanterns on chains from every tie beam, staggered either side of the hearth, so the long hall is lit end to end
+		for (int z = hz0 + 3; z < hz1 - 1; z += 3) {
+			int lx = ((z - hz0) / 3) % 2 == 0 ? xc - 2 : xc + 2;
+			Furniture.hangingLantern(d, lx, wallH, z, wallH >= 6 ? 3 : 1);
 		}
 		d.poi(PoiType.MEETING_POINT, xc - 1, 0, (hz0 + hz1) / 2, Dirs.RIGHT);
 		d.poi(PoiType.TABLE, xc - 3, 0, hzA, Dirs.RIGHT);

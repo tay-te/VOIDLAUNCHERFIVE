@@ -225,7 +225,7 @@ public final class Bathhouse implements Archetype {
 		int deck = Adobe.roof(d, x0, z0, x1, z1, plate, true, false);
 		// the hot room's dome in the middle, star-lights in it; little domes over the corners
 		int hcz = (z0 + z1) / 2 + 1;
-		Fam stone = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
+		Fam stone = Adobe.domeSheet(d);
 		if (stone == null) {
 			stone = Fam.of("minecraft:smooth_sandstone", StageKind.ROOF);
 		}
