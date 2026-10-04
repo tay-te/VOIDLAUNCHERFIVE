@@ -15,4 +15,12 @@ public interface TerrainSource {
 	default long version() {
 		return 0;
 	}
+
+	/**
+	 * Whether the source knows anything about the block area (max exclusive): a tile over land it knows nothing of
+	 * is not built or drawn. Only a source that can be ignorant (the chunks a client has seen, on a server) says no.
+	 */
+	default boolean covers(int minX, int minZ, int maxX, int maxZ) {
+		return true;
+	}
 }

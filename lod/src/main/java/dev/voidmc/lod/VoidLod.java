@@ -4,28 +4,42 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.VideoMode;
 import com.mojang.renderpearl.api.commands.RenderPass;
 import dev.voidmc.lod.core.AutoTune;
+import dev.voidmc.lod.core.ColumnFiles;
+import dev.voidmc.lod.core.ColumnStore;
+import dev.voidmc.lod.core.IngestSource;
 import dev.voidmc.lod.core.LodEngine;
 import dev.voidmc.lod.core.TerrainSource;
 import dev.voidmc.lod.core.TileBuilder;
 import dev.voidmc.lod.gui.LodDebugEntry;
 import dev.voidmc.lod.gui.LodSettingsScreen;
 import dev.voidmc.lod.render.LodRenderer;
+import dev.voidmc.lod.source.ChunkIngest;
+import dev.voidmc.lod.source.MaterialNames;
+import dev.voidmc.lod.source.Materials;
 import dev.voidmc.lod.source.WorldgenSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +48,12 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The terrain comes from the world's own generator, sampled one column per LOD cell without building
  * a chunk (and from Expanse's terrain model directly, when the world is an Earth world), so the view is
- * complete the moment a world loads, not once someone has walked it. The settings ({@link LodSettings}) live in
+ * complete the moment a world loads, not once someone has walked it. Over that goes what the client has
+ * really seen: every chunk it loads is read into a column store ({@link ChunkIngest}), so builds, dug-out land
+ * and structures stay in the far view once their chunks are out of range, kept on disk with the world (or per
+ * server) for the next visit. On a server, where there is no generator, that is all the LOD draws.
+ *
+ * <p> The settings ({@link LodSettings}) live in
  * {@code config/void_lod.json} and on a settings screen (buttons in Options and Video Settings, and a key,
  * unbound by default), where every change applies at once; {@code void.lod.*} system properties override the file for
  * a session. Auto-tune ({@link AutoTune}) keeps the detail within what the machine affords. F8 toggles it.
@@ -76,10 +95,26 @@ public final class VoidLod implements ClientModInitializer {
 	/** The frame time the game is held to (a frame limit, or vsync), 0 if it runs free: auto-tune leaves a game that holds it alone. */
 	private double capMillis;
 	private boolean enabled;
+	/** Whether the chunks the client loads go into the far view (builds, edits, a server's world) and onto disk. */
+	public final boolean ingestChunks = Boolean.parseBoolean(System.getProperty("void.lod.ingest", "true"));
+	/** Client-thread time each frame may spend reading arrived chunks, when any are waiting. */
+	private static final long INGEST_NANOS = 300_000L;
+	/** How long a world's LOD waits for the land saved near the player before it starts building without it. */
+	private static final long LOAD_WAIT_NANOS = 3_000_000_000L;
+	private static final long AROUND_NANOS = 2_000_000_000L;
+	private static final long SAVE_NANOS = 60_000_000_000L;
 	private LodEngine engine;
 	private LodRenderer renderer;
 	private ClientLevel level;
 	private long sourceVersion;
+	private ChunkIngest ingest;
+	private ColumnFiles files;
+	/** A new world's source, held back while the land saved near the player is read, so the first tiles have it. */
+	private TerrainSource waiting;
+	private CompletableFuture<Void> loading;
+	private long loadingSince;
+	private long aroundNanos;
+	private long savedNanos;
 	private KeyMapping toggle;
 	private KeyMapping openSettings;
 	private int resets;
@@ -116,6 +151,13 @@ public final class VoidLod implements ClientModInitializer {
 		this.toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.void_lod.toggle", InputConstants.KEY_F8, category));
 		this.openSettings = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.void_lod.settings", InputConstants.UNKNOWN.getValue(), category));
 		ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+		ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
+			ChunkIngest ingest = this.ingest;
+			if (ingest != null && level == this.level) {
+				ingest.loaded(chunk.getPos().x(), chunk.getPos().z());
+			}
+		});
+		ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> this.closeFiles(true));
 		LodDebugEntry.register();
 		LOGGER.info("VOID LOD: {} preset, radius {} blocks, detail {} px per cell ({} far), {} worker threads, auto-tune {}",
 			this.settings.preset.serializedName(), (int) this.radius, this.detail, this.farDetail, this.threads, this.settings.autoTune ? "on" : "off");
@@ -136,9 +178,38 @@ public final class VoidLod implements ClientModInitializer {
 		if (mc.level != this.level) {
 			this.level = mc.level;
 			this.resets++;
-			this.engine.reset(this.createSource(mc), this.gpu());
+			this.closeFiles(false);
+			this.ingest = null;
+			this.waiting = null;
+			this.loading = null;
+			this.engine.reset(null, this.gpu());
+			TerrainSource source = this.createSource(mc);
+			if (this.files != null && mc.player != null) {
+				// read the saved land around the player first, for at most a few seconds
+				this.waiting = source;
+				this.loading = this.files.loadAround(mc.player.getX(), mc.player.getZ(), this.radius);
+				this.loadingSince = System.nanoTime();
+			} else {
+				this.engine.reset(source, this.gpu());
+			}
 			this.tuner.reset();
 			this.apply();
+		}
+		long now = System.nanoTime();
+		if (this.loading != null && (this.loading.isDone() || now - this.loadingSince > LOAD_WAIT_NANOS)) {
+			this.loading = null;
+			this.engine.reset(this.waiting, this.gpu());
+			this.waiting = null;
+		}
+		if (this.files != null && mc.player != null && now - this.aroundNanos > AROUND_NANOS) {
+			// regions come in as the player nears them, and go once far beyond the LOD's reach
+			this.aroundNanos = now;
+			this.files.loadAround(mc.player.getX(), mc.player.getZ(), this.radius);
+			this.files.unloadBeyond(mc.player.getX(), mc.player.getZ(), this.radius * 1.5 + ColumnStore.REGION_BLOCKS);
+			if (now - this.savedNanos > SAVE_NANOS) {
+				this.savedNanos = now;
+				this.files.saveChanged();
+			}
 		}
 		if (++this.ticks % 20 == 0) {
 			this.capMillis = frameCap(mc);
@@ -218,12 +289,38 @@ public final class VoidLod implements ClientModInitializer {
 		this.tuner.setTargets(s.gpuTarget, s.prepareTarget);
 	}
 
-	/** The terrain source for the level the player is in, or null where there is none to be had. */
+	/**
+	 * The terrain source for the level the player is in, or null where there is none to be had: the loaded chunks
+	 * over the generator, the generator alone with ingestion off, the loaded chunks alone on a server.
+	 */
 	private TerrainSource createSource(Minecraft mc) {
 		if (mc.level == null || mc.level.dimensionType().hasCeiling()) {
 			// a ceiling hides the distance
 			return null;
 		}
+		Materials materials = new Materials();
+		TerrainSource generator = this.createGenerator(mc, materials);
+		if (!this.ingestChunks) {
+			return generator;
+		}
+		ColumnStore store = new ColumnStore();
+		store.setListener(this.engine::invalidate);
+		this.ingest = new ChunkIngest(mc.level, store, materials);
+		if (mc.player != null) {
+			// chunks that arrived before this world's LOD was set up
+			this.ingest.loadedAround(mc.player.chunkPosition().x(), mc.player.chunkPosition().z(), mc.options.getEffectiveRenderDistance() + 2);
+		}
+		Path dir = this.saveDir(mc);
+		if (dir != null) {
+			this.files = new ColumnFiles(dir, store, new MaterialNames(materials));
+		}
+		LOGGER.info("VOID LOD: reading the loaded chunks of {} into the far view{}, saved in {}", mc.level.dimension().identifier(),
+			generator == null ? " (no generator here: only what has been seen is drawn)" : " over the generator's terrain", dir);
+		return new IngestSource(store, generator);
+	}
+
+	/** The world's generator, sampled without building chunks: only where the server is ours (singleplayer, a LAN host). */
+	private TerrainSource createGenerator(Minecraft mc, Materials materials) {
 		var server = mc.getSingleplayerServer();
 		if (server == null) {
 			// on a remote server the generator and seed are the server's: nothing to sample
@@ -235,14 +332,70 @@ public final class VoidLod implements ClientModInitializer {
 		}
 		long version = ++this.sourceVersion;
 		if (FabricLoader.getInstance().isModLoaded("expanse")) {
-			WorldgenSource earth = dev.voidmc.lod.source.ExpanseSource.tryCreate(serverLevel, version);
+			WorldgenSource earth = dev.voidmc.lod.source.ExpanseSource.tryCreate(serverLevel, version, materials);
 			if (earth != null) {
 				LOGGER.info("VOID LOD: sampling Expanse's Earth terrain model for {}", mc.level.dimension().identifier());
 				return earth;
 			}
 		}
 		LOGGER.info("VOID LOD: sampling the world generator for {}", mc.level.dimension().identifier());
-		return new WorldgenSource(serverLevel, version);
+		return new WorldgenSource(serverLevel, version, materials);
+	}
+
+	/**
+	 * Where a level's seen land is kept: in the world's own save in singleplayer ({@code void_lod/<dimension>}), so
+	 * it travels with the world; under the game directory otherwise, per server address and world (the hashed seed
+	 * the server shares, so a server that starts a new world does not show the old one's land).
+	 */
+	private Path saveDir(Minecraft mc) {
+		var dimension = mc.level.dimension().identifier();
+		var server = mc.getSingleplayerServer();
+		if (server != null) {
+			return server.getWorldPath(LevelResource.ROOT).resolve(ID).resolve(dimension.getNamespace()).resolve(dimension.getPath()).normalize();
+		}
+		ServerData data = mc.getCurrentServer();
+		if (data == null || data.ip == null || data.ip.isBlank()) {
+			return null;
+		}
+		String address = data.ip.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]", "_");
+		String world = Long.toHexString(((dev.voidmc.lod.mixin.BiomeManagerAccessor) mc.level.getBiomeManager()).voidLod$biomeZoomSeed());
+		return mc.gameDirectory.toPath().resolve(ID).resolve("servers").resolve(address).resolve(world).resolve(dimension.getNamespace())
+			.resolve(dimension.getPath());
+	}
+
+	/**
+	 * Saves the current level's seen land in the background; when the game is closing, waits for every save still
+	 * under way (the last world's included: leaving it may have been this very tick).
+	 */
+	private void closeFiles(boolean wait) {
+		ColumnFiles files = this.files;
+		this.files = null;
+		if (files != null) {
+			files.close();
+		}
+		if (wait) {
+			try {
+				ColumnFiles.flush().get(15, TimeUnit.SECONDS);
+			} catch (Exception e) {
+				LOGGER.warn("VOID LOD: could not finish saving the far view", e);
+			}
+		}
+	}
+
+	/** A block changed in a client level: from the client level mixin. */
+	public void blockChanged(ClientLevel level, BlockPos pos) {
+		ChunkIngest ingest = this.ingest;
+		if (ingest != null && level == this.level) {
+			ingest.changed(pos.getX(), pos.getZ());
+		}
+	}
+
+	public ChunkIngest ingest() {
+		return this.ingest;
+	}
+
+	public ColumnFiles files() {
+		return this.files;
 	}
 
 	private LodEngine.Gpu gpu() {
@@ -288,6 +441,11 @@ public final class VoidLod implements ClientModInitializer {
 	// ---- called from the mixins, on the render thread -------------------------------------------------------
 
 	public void prepare(CameraRenderState camera, float sunAngle) {
+		ChunkIngest ingest = this.ingest;
+		if (ingest != null) {
+			// with the LOD toggled off too: what changes meanwhile should be there when it comes back
+			ingest.run(INGEST_NANOS);
+		}
 		if (!this.active()) {
 			return;
 		}
@@ -357,8 +515,25 @@ public final class VoidLod implements ClientModInitializer {
 			out.append(String.format(Locale.ROOT, " | source: model %.1f s, biomes %.1f s, total %.1f s",
 				WorldgenSource.TIMES.get(0) / 1e9, WorldgenSource.TIMES.get(1) / 1e9, WorldgenSource.TIMES.get(2) / 1e9));
 		}
-		if (e.source() instanceof WorldgenSource w) {
+		TerrainSource source = e.source();
+		if (source instanceof IngestSource seen) {
+			source = seen.fallback();
+		}
+		if (source instanceof WorldgenSource w) {
 			out.append(w.diagnostics());
+		}
+		ChunkIngest ingest = this.ingest;
+		if (ingest != null) {
+			out.append(String.format(Locale.ROOT, " | ingest: %d chunks (%d unchanged, %.3f ms avg, %.2f max), %d queued, %d known, %d surfaces",
+				ingest.chunks, ingest.unchanged, ingest.chunks == 0 ? 0 : ingest.nanos / 1e6 / ingest.chunks, ingest.maxNanos / 1e6,
+				ingest.queued(), ingest.store().chunkCount(), ingest.store().surfaceCount()));
+			out.append(String.format(Locale.ROOT, ", %d rebuilt, %d empty", e.rebuilt, e.tilesEmpty.get()));
+		}
+		ColumnFiles files = this.files;
+		if (files != null) {
+			out.append(String.format(Locale.ROOT, " | files: read %d regions (%.1f KB, %.0f ms), wrote %d (%d chunks, %.1f KB, %.0f ms)",
+				files.regionsRead.get(), files.bytesRead.get() / 1024.0, files.readNanos.get() / 1e6, files.regionsWritten.get(),
+				files.chunksWritten.get(), files.bytesWritten.get() / 1024.0, files.writeNanos.get() / 1e6));
 		}
 		return out.toString();
 	}

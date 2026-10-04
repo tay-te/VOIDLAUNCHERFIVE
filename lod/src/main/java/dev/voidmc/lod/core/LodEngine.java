@@ -1,6 +1,7 @@
 package dev.voidmc.lod.core;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
@@ -30,6 +31,13 @@ import java.util.concurrent.atomic.AtomicLong;
  *       30 frames a second and at 2000: a tile nobody draws, wants or falls back on stays 30 s.</li>
  *   <li>Workers run at minimum priority and leave cores for the game: the server thread, the chunk
  *       builders and the render thread come first.</li>
+ *   <li>When the land under built tiles changes ({@link #invalidate}: chunks ingested, blocks placed, a saved
+ *       region read back), the tiles keep drawing what they have while a new build is made behind them, and
+ *       swap only once it is on the GPU. Rebuilds wait for the changes to settle, happen only for tiles on
+ *       screen, at most one per worker at a time and behind every missing tile, and a change too small to see at a
+ *       tile's level (one chunk under 512-block cells) waits for more. A change inside the area vanilla's chunks
+ *       draw (where nearly all of them happen: grass spreading, water flowing, the player building) waits until
+ *       the camera has moved far enough for the LOD to show it.</li>
  * </ul>
  */
 public final class LodEngine implements LodSelector.Store, AutoCloseable {
@@ -61,6 +69,18 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	 * tiles never costs one frame milliseconds of copying.
 	 */
 	private static final long UPLOAD_BYTES_PER_FRAME = 4L << 20;
+	/** Changes to the land wait this long for more before their tiles rebuild: a burst of block updates is one rebuild. */
+	private static final long QUIET_NANOS = 1_000_000_000L;
+	/** A tile is rebuilt at most this often, and coarser ones (where any one change matters less) less often: twice as long every two levels. */
+	private static final long REBUILD_NANOS = 4_000_000_000L;
+	/** Changes adding up to less than one of a tile's cells wait this long, to be gathered into one rebuild. */
+	private static final long SMALL_CHANGE_NANOS = 30_000_000_000L;
+	/** Rebuilds queue behind every missing tile: a hole matters more than a stale tile. */
+	private static final float REBUILD_PRIORITY = 1e4F;
+	/** The occluders of a tile with nothing in it: it hides nothing. */
+	private static final short[] HIDES_NOTHING = filled(TileBuilder.OCCLUDERS * TileBuilder.OCCLUDERS, TileBuilder.NO_OCCLUDER);
+	/** What a tile over land the source knows nothing about is: nothing to draw. */
+	private static final ByteBuffer NOTHING = ByteBuffer.allocateDirect(0);
 
 	private record Job(Tile tile, float priority, long order) implements Comparable<Job> {
 		@Override
@@ -88,6 +108,20 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private final SampleCache samples = new SampleCache();
 	private final List<Worker> workers = new ArrayList<>();
 	private int workerNames;
+	/** Areas whose land changed, from any thread, as {minX, minZ, maxX, maxZ, columns changed}: marked on the next frame. */
+	private final ConcurrentLinkedQueue<int[]> invalidated = new ConcurrentLinkedQueue<>();
+	/** Tiles whose land changed since they were built. */
+	private final LongOpenHashSet dirty = new LongOpenHashSet();
+	/** Rebuilds now on the GPU, to take their tiles' places. */
+	private final List<Tile> swaps = new ArrayList<>();
+	/** Changes inside the area vanilla draws, per chunk, waiting for the camera to move away from them. */
+	private final Long2ObjectOpenHashMap<int[]> deferred = new Long2ObjectOpenHashMap<>();
+	private int rebuilding;
+	private int dirtyDrawn;
+	/** The camera and the radius vanilla's chunks cover, as of the latest frame. */
+	private double viewX;
+	private double viewZ;
+	private double clip;
 	private final AtomicLong order = new AtomicLong();
 	private volatile TerrainSource source;
 	private volatile long version;
@@ -116,6 +150,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	/** Built meshes thrown away (their tile was dropped or reset meanwhile), and ready tiles evicted. */
 	public long resultsDiscarded;
 	public long evictedReady;
+	/** Tiles rebuilt because the land under them changed, and tiles not built at all because the source knew nothing there. */
+	public long rebuilt;
+	public final AtomicLong tilesEmpty = new AtomicLong();
 
 	public LodEngine(int threads, long budgetBytes) {
 		this.budgetBytes = budgetBytes;
@@ -159,7 +196,26 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				gpu.free(tile);
 			}
 			tile.state = Tile.State.DEAD;
+			Tile next = tile.rebuild;
+			if (next != null) {
+				if (next.gpu != null) {
+					gpu.free(next);
+				}
+				next.state = Tile.State.DEAD;
+			}
 		}
+		for (Tile next : this.swaps) {
+			if (next.gpu != null) {
+				gpu.free(next);
+			}
+			next.state = Tile.State.DEAD;
+		}
+		this.swaps.clear();
+		this.dirty.clear();
+		this.deferred.clear();
+		this.invalidated.clear();
+		this.rebuilding = 0;
+		this.dirtyDrawn = 0;
 		this.tiles.clear();
 		this.gpuBytes = 0;
 		this.samples.clear();
@@ -173,6 +229,22 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	 */
 	public void forgetSamples(int minX, int minZ, int maxX, int maxZ) {
 		this.samples.forget(minX, minZ, maxX, maxZ);
+	}
+
+	/**
+	 * Marks the tiles over a block area (max exclusive) out of date at every level, from any thread: the land there
+	 * changed. They keep drawing what they have and are rebuilt in the background once the changes settle, while
+	 * they are on screen.
+	 */
+	public void invalidate(int minX, int minZ, int maxX, int maxZ) {
+		this.invalidate(minX, minZ, maxX, maxZ, (maxX - minX) * (maxZ - minZ));
+	}
+
+	/** The same, saying how many columns in the area changed: a tile rebuilds sooner the more of it did. */
+	public void invalidate(int minX, int minZ, int maxX, int maxZ, int columns) {
+		// the tiles rebuilt there must ask the source again, not copy their neighbours' old edges
+		this.samples.forget(minX, minZ, maxX, maxZ);
+		this.invalidated.add(new int[]{minX, minZ, maxX, maxZ, columns});
 	}
 
 	public TerrainSource source() {
@@ -197,6 +269,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		double farPixelsPerCell, LodSelector.Visibility visibility, double outOfView) {
 		++this.frame;
 		long nanos = this.frameNanos = System.nanoTime();
+		this.viewX = cx;
+		this.viewZ = cz;
+		this.clip = clip;
 		this.selecting = true;
 		this.asked = null;
 		LongList draw = this.source == null
@@ -204,11 +279,21 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, visibility, outOfView);
 		this.selecting = false;
 		this.asked = null;
+		if (!this.invalidated.isEmpty()) {
+			this.markDirty();
+		}
 		if (nanos - this.reprioritizedNanos > REPRIORITIZE_NANOS) {
 			this.reprioritizedNanos = nanos;
 			this.reprioritize();
+			if (!this.deferred.isEmpty()) {
+				this.undefer();
+			}
+			this.rebuildDirty(draw);
 		}
 		this.drainBuilt(gpu);
+		if (!this.swaps.isEmpty()) {
+			this.swap(gpu);
+		}
 		if (nanos - this.evictedNanos > EVICT_NANOS) {
 			this.evictedNanos = nanos;
 			this.evict(gpu);
@@ -309,7 +394,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			if (tile.state != Tile.State.QUEUED) {
 				continue;
 			}
-			if (this.frame - tile.wantedFrame > STALE_FRAMES) {
+			// a rebuild lives as long as the tile it replaces; anything else only while the selection asks for it
+			Tile old = tile.replaces;
+			if (old != null ? old.state == Tile.State.DEAD : this.frame - tile.wantedFrame > STALE_FRAMES) {
 				this.jobsDropped.incrementAndGet();
 				continue;
 			}
@@ -319,6 +406,16 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				continue;
 			}
 			tile.state = Tile.State.BUILDING;
+			int level = TileKey.level(tile.key);
+			int span = TileKey.span(level);
+			int x0 = TileKey.minX(tile.key);
+			int z0 = TileKey.minZ(tile.key);
+			if (!src.covers(x0, z0, x0 + span, z0 + span)) {
+				// nothing known there (a server's world, away from where the player has been): nothing to draw
+				this.built.add(new Built(tile, NOTHING, new TileBuilder.Mesh(NOTHING, 0, 0, level >= TileBuilder.smoothFrom, 0, 0, 0, HIDES_NOTHING, false), ver));
+				this.tilesEmpty.incrementAndGet();
+				continue;
+			}
 			long t0 = System.nanoTime();
 			try {
 				TileBuilder.Mesh mesh = builder.build(src, tile.key);
@@ -329,7 +426,12 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				this.quadsBuilt.addAndGet(mesh.quads());
 			} catch (Throwable t) {
 				// a source that throws for one column should not take the worker with it
-				tile.state = Tile.State.DEAD;
+				if (old != null) {
+					// the render thread gives the rebuild up, and the tile it was for keeps what it has
+					this.built.add(new Built(tile, null, null, ver));
+				} else {
+					tile.state = Tile.State.DEAD;
+				}
 				org.slf4j.LoggerFactory.getLogger("VOID LOD").warn("Failed to build {}", TileKey.toString(tile.key), t);
 			}
 			this.buildNanos.addAndGet(System.nanoTime() - t0);
@@ -344,7 +446,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		long now = this.frame;
 		for (Job job : jobs) {
 			Tile tile = job.tile();
-			if (tile.state == Tile.State.QUEUED && now - tile.wantedFrame <= STALE_FRAMES) {
+			boolean wanted = tile.replaces != null ? tile.replaces.state != Tile.State.DEAD : now - tile.wantedFrame <= STALE_FRAMES;
+			if (tile.state == Tile.State.QUEUED && wanted) {
 				this.queue.add(new Job(tile, tile.priority, job.order()));
 			} else {
 				tile.inQueue = false;
@@ -360,9 +463,13 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		long budget = UPLOAD_BYTES_PER_FRAME;
 		while ((b = this.waiting.peek()) != null && budget > 0) {
 			Tile tile = b.tile();
-			if (b.version() != this.version || tile.state != Tile.State.BUILDING) {
+			boolean orphan = tile.replaces != null && (b.mesh() == null || tile.replaces.state == Tile.State.DEAD);
+			if (b.version() != this.version || tile.state != Tile.State.BUILDING || orphan) {
 				this.waiting.poll();
 				this.resultsDiscarded++;
+				if (tile.replaces != null && b.version() == this.version) {
+					this.abandon(tile, gpu);
+				}
 				continue;
 			}
 			TileBuilder.Mesh mesh = b.mesh();
@@ -378,6 +485,10 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			if (mesh.vertexCount() == 0) {
 				this.waiting.poll();
 				tile.state = Tile.State.READY;
+				tile.builtNanos = this.frameNanos;
+				if (tile.replaces != null) {
+					this.swaps.add(tile);
+				}
 				continue;
 			}
 			// BUILT before the hand-off: a GPU may report the upload done before upload() even returns
@@ -395,8 +506,192 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	public void uploaded(Tile tile) {
 		if (tile.state == Tile.State.BUILT) {
 			tile.state = Tile.State.READY;
+			tile.builtNanos = this.frameNanos;
 			this.gpuBytes += tile.bytes();
+			if (tile.replaces != null) {
+				this.swaps.add(tile);
+			}
 		}
+	}
+
+	// ---- changes to the land ----------------------------------------------------------------------------
+
+	/**
+	 * Marks the built tiles over every area invalidated since the last frame, at every level; or, for a change
+	 * within one chunk inside the area vanilla draws, holds it until the camera moves away.
+	 */
+	private void markDirty() {
+		int[] area;
+		while ((area = this.invalidated.poll()) != null) {
+			if (this.source == null) {
+				continue;
+			}
+			if (area[0] >> 4 == (area[2] - 1) >> 4 && area[1] >> 4 == (area[3] - 1) >> 4 && this.hidden(area)) {
+				long chunk = (long) (area[0] >> 4) << 32 | (area[1] >> 4) & 0xFFFFFFFFL;
+				int[] had = this.deferred.get(chunk);
+				if (had == null) {
+					this.deferred.put(chunk, area);
+				} else {
+					had[0] = Math.min(had[0], area[0]);
+					had[1] = Math.min(had[1], area[1]);
+					had[2] = Math.max(had[2], area[2]);
+					had[3] = Math.max(had[3], area[3]);
+					had[4] += area[4];
+				}
+				continue;
+			}
+			this.mark(area);
+		}
+	}
+
+	/** Whether an area lies wholly where vanilla's chunks draw, so the LOD shows none of it from here. */
+	private boolean hidden(int[] area) {
+		double fx = Math.max(Math.abs(area[0] - this.viewX), Math.abs(area[2] - this.viewX));
+		double fz = Math.max(Math.abs(area[1] - this.viewZ), Math.abs(area[3] - this.viewZ));
+		return fx * fx + fz * fz < this.clip * this.clip;
+	}
+
+	/** Marks the held changes the camera has moved away from. */
+	private void undefer() {
+		var it = this.deferred.values().iterator();
+		while (it.hasNext()) {
+			int[] area = it.next();
+			if (!this.hidden(area)) {
+				this.mark(area);
+				it.remove();
+			}
+		}
+	}
+
+	/** Marks the built tiles over an area out of date, at every level. */
+	private void mark(int[] area) {
+		long now = this.frameNanos;
+		float size = area[4];
+		for (int level = 0; level <= TileKey.MAX_LEVEL; level++) {
+			int span = TileKey.span(level);
+			// a tile's samples reach a few cells past its edges: its border, and the square each sample stands for
+			int margin = 3 * TileKey.cell(level);
+			int tx0 = Math.floorDiv(area[0] - margin, span);
+			int tx1 = Math.floorDiv(area[2] - 1 + margin, span);
+			int tz0 = Math.floorDiv(area[1] - margin, span);
+			int tz1 = Math.floorDiv(area[3] - 1 + margin, span);
+			for (int tz = tz0; tz <= tz1; tz++) {
+				for (int tx = tx0; tx <= tx1; tx++) {
+					long key = TileKey.of(level, tx, tz);
+					Tile tile = this.tiles.get(key);
+					// a tile still waiting for its build will see the change anyway
+					if (tile == null || tile.state == Tile.State.QUEUED || tile.state == Tile.State.DEAD) {
+						continue;
+					}
+					if (tile.dirtyArea <= 0) {
+						tile.dirtySince = now;
+					}
+					tile.dirtyArea += size;
+					tile.dirtyLast = now;
+					this.dirty.add(key);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Queues rebuilds for the out-of-date tiles on screen whose changes have settled and are worth it: quiet for a
+	 * second, the tile not rebuilt in the last four seconds (more, for coarse tiles), and either a cell's worth of land
+	 * changed or the change is old.
+	 */
+	private void rebuildDirty(LongList draw) {
+		this.dirtyDrawn = 0;
+		if (this.dirty.isEmpty()) {
+			return;
+		}
+		long now = this.frameNanos;
+		for (int i = 0; i < draw.size(); i++) {
+			long key = draw.get(i);
+			if (!this.dirty.contains(key)) {
+				continue;
+			}
+			Tile tile = this.tiles.get(key);
+			if (tile == null || tile.dirtyArea <= 0) {
+				this.dirty.remove(key);
+				continue;
+			}
+			this.dirtyDrawn++;
+			if (tile.state != Tile.State.READY || tile.rebuild != null || this.rebuilding >= this.workers.size()) {
+				continue;
+			}
+			int cell = TileKey.cell(TileKey.level(key));
+			boolean settled = now - tile.dirtyLast >= QUIET_NANOS && now - tile.builtNanos >= REBUILD_NANOS << (TileKey.level(key) / 2);
+			boolean worth = tile.dirtyArea >= (float) cell * cell || now - tile.dirtySince >= SMALL_CHANGE_NANOS;
+			if (!settled || !worth) {
+				continue;
+			}
+			this.dirty.remove(key);
+			tile.dirtyArea = 0;
+			Tile next = new Tile(key);
+			next.replaces = tile;
+			next.priority = tile.priority + REBUILD_PRIORITY;
+			next.wantedFrame = this.frame;
+			next.inQueue = true;
+			tile.rebuild = next;
+			this.rebuilding++;
+			this.queue.add(new Job(next, next.priority, this.order.incrementAndGet()));
+		}
+	}
+
+	/** Puts rebuilds that have reached the GPU in their tiles' places, and frees what they replace. */
+	private void swap(Gpu gpu) {
+		for (Tile next : this.swaps) {
+			Tile old = next.replaces;
+			if (old == null || next.state != Tile.State.READY) {
+				// given up on meanwhile
+				continue;
+			}
+			next.replaces = null;
+			old.rebuild = null;
+			this.rebuilding--;
+			if (old.state == Tile.State.DEAD || this.tiles.get(next.key) != old) {
+				this.release(next, gpu);
+				continue;
+			}
+			next.usedFrame = old.usedFrame;
+			next.usedNanos = old.usedNanos;
+			next.wantedFrame = old.wantedFrame;
+			next.priority = old.priority;
+			if (old.dirtyArea > 0) {
+				// changed again while it was being rebuilt: still out of date
+				next.dirtyArea = old.dirtyArea;
+				next.dirtySince = old.dirtySince;
+				next.dirtyLast = old.dirtyLast;
+			}
+			this.tiles.put(next.key, next);
+			this.release(old, gpu);
+			this.rebuilt++;
+		}
+		this.swaps.clear();
+	}
+
+	/** Gives up on a rebuild: its tile went away, or the build failed. */
+	private void abandon(Tile next, Gpu gpu) {
+		Tile old = next.replaces;
+		if (old == null) {
+			return;
+		}
+		next.replaces = null;
+		if (old.rebuild == next) {
+			old.rebuild = null;
+		}
+		this.rebuilding--;
+		this.release(next, gpu);
+	}
+
+	private void release(Tile tile, Gpu gpu) {
+		if (tile.state == Tile.State.READY) {
+			this.gpuBytes -= tile.bytes();
+		}
+		if (tile.gpu != null) {
+			gpu.free(tile);
+		}
+		tile.state = Tile.State.DEAD;
 	}
 
 	private void evict(Gpu gpu) {
@@ -421,6 +716,10 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 					gpu.free(tile);
 				}
 				tile.state = Tile.State.DEAD;
+				if (tile.rebuild != null) {
+					this.abandon(tile.rebuild, gpu);
+				}
+				this.dirty.remove(tile.key);
 				it.remove();
 			}
 		}
@@ -444,9 +743,19 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		return this.frame;
 	}
 
+	/** Tiles on screen whose land changed since they were built, as of the last check. */
+	public int dirtyDrawn() {
+		return this.dirtyDrawn;
+	}
+
+	/** Rebuilds under way. */
+	public int rebuilding() {
+		return this.rebuilding;
+	}
+
 	/** True once nothing is queued, building or waiting to upload. */
 	public boolean idle() {
-		if (!this.queue.isEmpty() || !this.built.isEmpty() || !this.waiting.isEmpty()) {
+		if (!this.queue.isEmpty() || !this.built.isEmpty() || !this.waiting.isEmpty() || this.rebuilding > 0 || !this.swaps.isEmpty()) {
 			return false;
 		}
 		for (Tile tile : this.tiles.values()) {
@@ -471,7 +780,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			}
 		}
 		return "jobs " + this.queue.size() + ", results " + this.built.size() + ", waiting " + this.waiting.size()
-			+ ", wanted-queued " + queued + ", building " + building + ", uploading " + built;
+			+ ", wanted-queued " + queued + ", building " + building + ", uploading " + built + ", rebuilding " + this.rebuilding
+			+ ", dirty on screen " + this.dirtyDrawn;
 	}
 
 	@Override
@@ -480,5 +790,11 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		for (Worker worker : this.workers) {
 			worker.thread.interrupt();
 		}
+	}
+
+	private static short[] filled(int n, short value) {
+		short[] a = new short[n];
+		java.util.Arrays.fill(a, value);
+		return a;
 	}
 }

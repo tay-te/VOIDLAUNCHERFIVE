@@ -12,9 +12,13 @@ import java.util.Locale;
 import java.util.Set;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -49,7 +53,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * {@code lod.show.only} (a comma-separated list of view names), {@code lod.show.settings} (true to also
  * photograph the settings screen and a preset chosen on it, applied live, plus the F3 lines), {@code lod.show.compare}
  * (true to also shoot each view with horizon culling off, the same frame otherwise, to check it hides nothing that
- * shows).
+ * shows), {@code lod.show.ingest} (true: build something big in loaded chunks, photograph it from past the render
+ * distance, then leave, rejoin and photograph it again, from what was saved) and {@code lod.show.mp} (true: the same
+ * on a dedicated server, where only seen land is drawn).
  */
 public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
@@ -63,6 +69,10 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final boolean OFF = Boolean.parseBoolean(System.getProperty("lod.show.off", "true"));
 	private static final boolean SETTINGS = Boolean.getBoolean("lod.show.settings");
 	private static final boolean COMPARE = Boolean.getBoolean("lod.show.compare");
+	private static final boolean INGEST = Boolean.getBoolean("lod.show.ingest");
+	private static final boolean MULTIPLAYER = Boolean.getBoolean("lod.show.mp");
+	/** How far from the build the camera stands to photograph it: well past the render distance. */
+	private static final int AWAY = 480;
 
 	/** A view: where the camera stands and looks, through what lens, in which dimension, at what time and weather. */
 	private record Spot(String name, String dimension, int x, int y, int z, float yaw, float pitch, int fov, int time, String weather) {
@@ -100,6 +110,8 @@ public class LodShowcase implements FabricClientGameTest {
 			mc.options.framerateLimit().set(260);
 			mc.options.inactivityFpsLimit().set(InactivityFpsLimit.MINIMIZED);
 		});
+		TestWorldSave save;
+		Spot after = null;
 		try (TestSingleplayerContext world = context.worldBuilder()
 			.setUseConsistentSettings(false)
 			.adjustSettings(s -> {
@@ -108,6 +120,7 @@ public class LodShowcase implements FabricClientGameTest {
 				s.setAllowCommands(true);
 			})
 			.create()) {
+			save = world.getWorldSave();
 			world.getServer().runCommand("gamerule advance_time false");
 			world.getServer().runCommand("gamerule advance_weather false");
 			world.getServer().runCommand("weather clear");
@@ -232,6 +245,7 @@ public class LodShowcase implements FabricClientGameTest {
 				return found;
 			});
 
+			Spot valley = spots.stream().filter(spot -> spot.name().equals("low0")).findFirst().orElse(spots.get(0));
 			if (!ONLY.isEmpty()) {
 				List<String> names = List.of(ONLY.split(","));
 				spots.removeIf(spot -> !names.contains(spot.name()));
@@ -260,30 +274,7 @@ public class LodShowcase implements FabricClientGameTest {
 				}
 
 				context.runOnClient(mc -> VoidLod.get().setEnabled(true));
-				long start = System.currentTimeMillis();
-				long firstFrame = context.computeOnClient(mc -> VoidLod.get().engine().frame());
-				// wait for the LOD to finish building what it wants (twice in a row, so a view that has not caught up
-				// with the teleport yet does not count), then a few frames more to upload and fade in
-				int calm = 0;
-				while (System.currentTimeMillis() - start < 180_000 && calm < 3) {
-					context.waitTicks(10);
-					// done once it has drawn a while from here, holds tiles, and has nothing left to build
-					String state = context.computeOnClient(mc -> {
-						var engine = VoidLod.get().engine();
-						boolean done = engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0;
-						return (done ? "done " : "busy ") + (engine.frame() - firstFrame) + " frames, " + engine.busy();
-					});
-					boolean idle = state.startsWith("done");
-					if (Boolean.getBoolean("lod.show.trace")) {
-						System.out.println("[lod] waiting: " + state);
-					}
-					calm = idle ? calm + 1 : 0;
-				}
-				long loaded = System.currentTimeMillis() - start;
-				context.waitTicks(60);
-				this.shoot(context, spot.name() + "_on");
-				String stats = context.computeOnClient(mc -> VoidLod.get().stats() + String.format(Locale.ROOT, ", %d fps", mc.getFps()));
-				System.out.printf(Locale.ROOT, "[lod] %s: complete in %.1f s | %s%n", spot.name(), loaded / 1000.0, stats);
+				this.photograph(context, spot.name(), false);
 				if (COMPARE) {
 					context.runOnClient(mc -> LodRenderer.occlusion = false);
 					context.waitTicks(4);
@@ -296,6 +287,141 @@ public class LodShowcase implements FabricClientGameTest {
 			if (SETTINGS && !spots.isEmpty()) {
 				this.settings(context, spots.get(Math.min(VIEWS, spots.size()) - 1));
 			}
+
+			if (INGEST) {
+				after = this.build(context, world.getServer(), valley.x(), valley.z(), "ingest");
+			}
+		}
+		if (after != null) {
+			// back into the same world, standing where the last photograph was taken: the build's chunks are past the
+			// render distance and never load this time, so if it shows, it came off the disk
+			try (TestSingleplayerContext again = save.open()) {
+				context.runOnClient(mc -> VoidLod.get().setEnabled(true));
+				this.settle(context, SETTLE_MS);
+				this.photograph(context, "ingest_rejoin", true);
+				String files = save.getSaveDirectory().resolve(VoidLod.ID).toString();
+				System.out.printf(Locale.ROOT, "[lod] saved land in %s: %d KB%n", files, size(save.getSaveDirectory().resolve(VoidLod.ID)) / 1024);
+			}
+		}
+		if (MULTIPLAYER) {
+			this.multiplayer(context);
+		}
+	}
+
+	/**
+	 * Waits for the LOD to finish building what it wants (twice in a row, so a view that has not caught up with the
+	 * teleport yet does not count), then a few frames more to upload and fade in; photographs it and logs what it
+	 * drew and cost. With {@code changes}, also waits (a while at most) for tiles whose land changed to be rebuilt.
+	 */
+	private void photograph(ClientGameTestContext context, String name, boolean changes) {
+		long start = System.currentTimeMillis();
+		long firstFrame = context.computeOnClient(mc -> VoidLod.get().engine().frame());
+		int calm = 0;
+		while (System.currentTimeMillis() - start < 180_000 && calm < 3) {
+			context.waitTicks(10);
+			// done once it has drawn a while from here, holds tiles, and has nothing left to build
+			// a fresh world keeps changing for a while (grass spreading, leaves falling, water finding its level)
+			boolean settled = System.currentTimeMillis() - start > 30_000;
+			String state = context.computeOnClient(mc -> {
+				var engine = VoidLod.get().engine();
+				var ingest = VoidLod.get().ingest();
+				boolean done = engine.frame() - firstFrame > 200 && engine.tileCount() > 0 && engine.idle() && engine.queued() == 0
+					&& (!changes || settled || engine.dirtyDrawn() == 0 && (ingest == null || ingest.queued() == 0));
+				return (done ? "done " : "busy ") + (engine.frame() - firstFrame) + " frames, " + engine.busy();
+			});
+			boolean idle = state.startsWith("done");
+			if (Boolean.getBoolean("lod.show.trace")) {
+				System.out.println("[lod] waiting: " + state);
+			}
+			calm = idle ? calm + 1 : 0;
+		}
+		long loaded = System.currentTimeMillis() - start;
+		context.waitTicks(60);
+		this.shoot(context, name + "_on");
+		String stats = context.computeOnClient(mc -> VoidLod.get().stats() + String.format(Locale.ROOT, ", %d fps", mc.getFps()));
+		System.out.printf(Locale.ROOT, "[lod] %s: complete in %.1f s | %s%n", name, loaded / 1000.0, stats);
+	}
+
+	/**
+	 * Builds something big and unmistakable at {@code (x, z)} while its chunks are loaded (a red concrete deck pierced
+	 * by a gold tower, a trench cut across the land), and photographs it from {@value #AWAY} blocks away, past the
+	 * render distance: before, so the land is known, and after. It can only be in the second photograph if the
+	 * loaded chunks went into the LOD. Returns where the photographs were taken from.
+	 */
+	private Spot build(ClientGameTestContext context, TestServerContext server, int x, int z, String name) {
+		int[] heights = server.computeOnServer(s -> {
+			ServerLevel level = s.overworld();
+			return new int[]{level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), level.getHeight(Heightmap.Types.MOTION_BLOCKING, x + AWAY, z)};
+		});
+		int ground = heights[0];
+		int eye = Math.max(ground, heights[1]) + 140;
+		float pitch = (float) Math.toDegrees(Math.atan2(eye - (ground + 40), AWAY));
+		Spot from = new Spot(name, x + AWAY, eye, z, 90, pitch);
+		server.runCommand("gamerule max_block_modifications 1000000");
+
+		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
+		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
+		this.settle(context, SETTLE_MS);
+		this.photograph(context, name + "_before", false);
+
+		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 60", x, ground + 60, z));
+		this.settle(context, SETTLE_MS);
+		long t0 = System.currentTimeMillis();
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d gold_block", x - 4, ground - 2, z - 4, x + 3, ground + 120, z + 3));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d red_concrete", x - 64, ground + 40, z - 64, x + 63, ground + 42, z + 63));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d gold_block", x - 4, ground + 40, z - 4, x + 3, ground + 120, z + 3));
+		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d air", x - 64, ground - 24, z + 72, x + 63, ground + 80, z + 95));
+		// the block updates reach the client, settle, and are read
+		for (int i = 0; i < 60; i++) {
+			context.waitTicks(10);
+			if (i >= 4 && context.computeOnClient(mc -> VoidLod.get().ingest() == null || VoidLod.get().ingest().queued() == 0)) {
+				break;
+			}
+		}
+		String ingest = context.computeOnClient(mc -> VoidLod.get().stats());
+		System.out.printf(Locale.ROOT, "[lod] built at %d,%d (ground %d), read in %.1f s | %s%n", x, z, ground, (System.currentTimeMillis() - t0) / 1000.0,
+			ingest);
+
+		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
+		this.settle(context, SETTLE_MS);
+		context.runOnClient(mc -> VoidLod.get().setEnabled(false));
+		context.waitTicks(20);
+		this.shoot(context, name + "_after_off");
+		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
+		this.photograph(context, name + "_after", true);
+		return from;
+	}
+
+	/**
+	 * The same on a dedicated server: no generator to sample, so the LOD draws only the land the client has seen.
+	 * The build is photographed from far off; the land around it that was never loaded is not drawn at all.
+	 */
+	private void multiplayer(ClientGameTestContext context) {
+		java.util.Properties properties = new java.util.Properties();
+		properties.setProperty("level-seed", SEED);
+		properties.setProperty("view-distance", String.valueOf(DISTANCE));
+		properties.setProperty("gamemode", "spectator");
+		try (TestDedicatedServerContext server = context.worldBuilder().createServer(properties);
+			TestDedicatedServerConnection connection = server.connect()) {
+			server.runCommand("gamerule advance_time false");
+			server.runCommand("gamerule advance_weather false");
+			server.runCommand("weather clear");
+			server.runCommand("time set 6000");
+			server.runCommand("gamemode spectator @a");
+			context.runOnClient(mc -> mc.options.fov().set(70));
+			int[] at = server.computeOnServer(s -> {
+				var spawn = s.overworld().getRespawnData().pos();
+				return new int[]{spawn.getX(), spawn.getZ()};
+			});
+			this.build(context, server, at[0], at[1], "mp");
+		}
+	}
+
+	private static long size(java.nio.file.Path dir) {
+		try (var files = java.nio.file.Files.walk(dir)) {
+			return files.filter(java.nio.file.Files::isRegularFile).mapToLong(p -> p.toFile().length()).sum();
+		} catch (java.io.IOException e) {
+			return -1;
 		}
 	}
 

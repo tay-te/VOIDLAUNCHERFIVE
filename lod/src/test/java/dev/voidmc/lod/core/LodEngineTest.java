@@ -1,8 +1,10 @@
 package dev.voidmc.lod.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class LodEngineTest {
@@ -75,6 +77,131 @@ class LodEngineTest {
 		System.out.printf("moving camera: %d built, %d cached, %d frees%n", built, engine.tileCount(), gpu.frees);
 		// a 512-block walk changes a fraction of the view, not all of it nine times over
 		assertTrue(built < 3L * engine.tileCount(), "built " + built + " for " + engine.tileCount() + " cached");
+		engine.close();
+	}
+
+	private static void settle(LodEngine engine, InstantGpu gpu, double x) throws InterruptedException {
+		int frames = 0;
+		do {
+			engine.update(gpu, x, 150, 0, 4096, 150, 771, 5);
+			Thread.sleep(2);
+			frames++;
+		} while (!engine.idle() && frames < 3_000);
+	}
+
+	/** The drawn tile over block (x, z), or -1 if there is a hole there. */
+	private static long covering(LongList draw, int x, int z) {
+		for (int i = 0; i < draw.size(); i++) {
+			long key = draw.get(i);
+			int span = TileKey.span(TileKey.level(key));
+			if (x >= TileKey.minX(key) && x < TileKey.minX(key) + span && z >= TileKey.minZ(key) && z < TileKey.minZ(key) + span) {
+				return key;
+			}
+		}
+		return -1;
+	}
+
+	@Test
+	void changedLandIsRebuiltBehindWhatIsDrawn() throws InterruptedException {
+		AtomicInteger raise = new AtomicInteger();
+		TerrainSource land = (x, z, cell, out) -> {
+			out.ground = 64 + (x >= 500 && x < 700 && z >= -50 && z < 50 ? raise.get() : 0);
+			out.top = 0x60A040;
+		};
+		LodEngine engine = new LodEngine(2, 512L << 20);
+		InstantGpu gpu = new InstantGpu();
+		gpu.engine = engine;
+		engine.reset(land, gpu);
+		settle(engine, gpu, 0);
+		long before = engine.tilesBuilt.get();
+		int frees = gpu.frees;
+		// the land changes (a plateau built at 600, 0) and the engine is told
+		raise.set(40);
+		engine.invalidate(500, -50, 700, 50);
+		long start = System.nanoTime();
+		int top = 0;
+		while (System.nanoTime() - start < 15_000_000_000L) {
+			LongList draw = engine.update(gpu, 0, 150, 0, 4096, 150, 771, 5);
+			long key = covering(draw, 600, 0);
+			assertTrue(key != -1, "never a hole while the tile is rebuilt");
+			top = engine.tile(key).maxY;
+			if (top >= 104 && engine.idle()) {
+				break;
+			}
+			Thread.sleep(5);
+		}
+		System.out.printf("rebuild: %d tiles rebuilt, %d builds, %.1f s%n", engine.rebuilt, engine.tilesBuilt.get() - before,
+			(System.nanoTime() - start) / 1e9);
+		assertEquals(104, top, "the plateau shows");
+		assertTrue(engine.rebuilt > 0);
+		assertTrue(engine.tilesBuilt.get() - before <= 2L * engine.rebuilt + 4, "only the tiles over the change rebuild");
+		assertEquals(engine.rebuilt, gpu.frees - frees, "every replaced tile is freed");
+		engine.close();
+	}
+
+	@Test
+	void landNobodyKnowsIsNotBuilt() throws InterruptedException {
+		TerrainSource unknown = new TerrainSource() {
+			@Override
+			public void sample(int x, int z, int cell, ColumnSample out) {
+				throw new AssertionError("sampled land the source says it does not know");
+			}
+
+			@Override
+			public boolean covers(int minX, int minZ, int maxX, int maxZ) {
+				return false;
+			}
+		};
+		LodEngine engine = new LodEngine(2, 512L << 20);
+		InstantGpu gpu = new InstantGpu();
+		gpu.engine = engine;
+		engine.reset(unknown, gpu);
+		settle(engine, gpu, 0);
+		assertTrue(engine.idle(), engine.busy());
+		assertEquals(0, engine.tilesBuilt.get());
+		assertTrue(engine.tilesEmpty.get() > 0);
+		assertEquals(0, gpu.uploads);
+		engine.close();
+	}
+
+	@Test
+	void changesUnderTheChunksWaitUntilTheCameraMovesAway() throws InterruptedException {
+		AtomicInteger raise = new AtomicInteger();
+		TerrainSource land = (x, z, cell, out) -> {
+			out.ground = 64 + (x >= 80 && x < 96 && z >= 0 && z < 16 ? raise.get() : 0);
+			out.top = 0x60A040;
+		};
+		LodEngine engine = new LodEngine(2, 512L << 20);
+		InstantGpu gpu = new InstantGpu();
+		gpu.engine = engine;
+		engine.reset(land, gpu);
+		int frames = 0;
+		do {
+			engine.update(gpu, 0, 150, 0, 4096, 100, 771, 5);
+			Thread.sleep(2);
+		} while (!engine.idle() && ++frames < 3_000);
+		// built where vanilla's chunks draw (within 100 blocks): the tile over it is drawn, but none of the change shows
+		raise.set(40);
+		engine.invalidate(80, 0, 96, 16);
+		long start = System.nanoTime();
+		while (System.nanoTime() - start < 3_500_000_000L) {
+			engine.update(gpu, 0, 150, 0, 4096, 100, 771, 5);
+			Thread.sleep(5);
+		}
+		assertEquals(0, engine.rebuilt, "nothing rebuilt for a change the chunks hide");
+		// walk away: now the LOD shows that land, and it is rebuilt
+		int top = 0;
+		start = System.nanoTime();
+		while (System.nanoTime() - start < 15_000_000_000L) {
+			LongList draw = engine.update(gpu, -400, 150, 0, 4096, 100, 771, 5);
+			long key = covering(draw, 88, 8);
+			top = key == -1 ? 0 : engine.tile(key).maxY;
+			if (top >= 104 && engine.idle()) {
+				break;
+			}
+			Thread.sleep(5);
+		}
+		assertEquals(104, top, "the change shows once the camera has moved away");
 		engine.close();
 	}
 }
