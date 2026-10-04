@@ -228,17 +228,19 @@ inspection round and mends what it finds. `-Dhearth.dev.repair.nofolk=true` skip
 
 | | |
 |---|---|
-| index lookups over a whole town (20 000 random positions) | 1.6–2.4 µs cold (building sections), 0.5–0.7 µs warm |
-| section builds | 97 sections, 12 600 cells, 5.5–11.8 ms in all |
-| damage hooks inside settlements | 177–254 calls, 15–80 ms in all over the run, dominated by first lookups in a plot (its blueprint and sections built) |
-| explosion against a wall | 25–29 building blocks lost, all queued (+ the torches and doors that fell with them), one DAMAGED per plot per second |
+| index lookups over a whole town (20 000 random positions) | 1.5–3.4 µs cold (building sections), 0.4–0.7 µs warm |
+| section builds | 97 sections, 12 578 cells, 4.7–15.7 ms in all |
+| damage hooks inside settlements | 161–293 calls a run, 15–22 ms in all; dominated by the first lookup in a plot (its blueprint and sections built) |
+| explosion against a wall | 23–29 building blocks lost, 26–33 queued (with the torches and doors that fell with them); one DAMAGED per plot per second |
 | `destroyBlock`, player breaks | 12/12 and 4/4 queued, with the player as offender; a block put back by hand leaves the queue |
 | silent removal | 0 queued by events (as it must be); 6/6 found by inspection |
-| fire left to burn 90 s | 37–45 blocks queued as burned; one episode, FIRE_STARTED and FIRE_OUT once each |
-| inspection comparison | 1.1 µs a cell warm (0.02 ms a tick at a builder's 20 cells), 6–7 µs with cold sections |
-| abstract repair and applier | 114–148 blocks mended and written, 0 refused, 7–23 ms in all |
+| fire left to burn 90 s | 25–72 blocks queued as burned; one episode, FIRE_STARTED and FIRE_OUT once each |
+| inspection comparison | 0.9–1.3 µs a cell warm (about 0.02 ms a tick at a builder's 20 cells) |
+| abstract repair and applier | 108–161 blocks mended and written, 0 refused, 5–7 ms in all |
 | verify | 963 of 963 baseline blocks stand as the blueprint has them; every block the test broke is back; litter cleared |
-| bucket brigade (stand-ins) | 3 flames set: out in 41 ticks with 4 folk |
+| stand-in builder | 8 of 8 broken blocks put back in about 400 ticks; the burned roof of the next house mended from a scaffold column |
+| stand-in bucket brigade | 3 flames set in a timber house: 4 folk, 16 flames doused by bucket, out after 814 ticks (100 of them the quiet spell) |
+| stand-in inspection round | 3 of 3 blocks taken silently found and put back in about 2000 ticks |
 
 ## 9. Integration notes and limits
 
