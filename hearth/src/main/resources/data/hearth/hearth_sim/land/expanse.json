@@ -21,6 +21,12 @@
       "fertility": 0.0,
       "pasture": 0.0
     },
+    "expanse:red_dunes": {
+      "rock": "minecraft:red_sandstone",
+      "sand": "minecraft:red_sand",
+      "fertility": 0.0,
+      "pasture": 0.0
+    },
     "expanse:salt_flats": {
       "rock": "minecraft:sandstone",
       "salt": true,
@@ -100,6 +106,12 @@
         }
       ]
     },
+    "expanse:dolomite_peaks": {
+      "rock": "minecraft:calcite",
+      "rocky": true,
+      "fertility": 0.2,
+      "pasture": 0.5
+    },
     "expanse:painted_canyons": {
       "rock": "minecraft:terracotta",
       "sand": "minecraft:red_sand",
@@ -123,10 +135,38 @@
       "pasture": 0.1
     },
     "expanse:lumen_grove": {
-      "wood": "expanse:lumen_log",
+      "wood": "minecraft:birch_log",
       "fertility": 0.5
     },
+    "expanse:ancient_oakwood": {
+      "wood": "minecraft:dark_oak_log",
+      "fertility": 0.5,
+      "specialties": [
+        {
+          "item": "minecraft:brown_mushroom",
+          "goods": "produce",
+          "job": "forester",
+          "yield": 4,
+          "density": 0.4,
+          "regen": 0.02
+        }
+      ]
+    },
     "expanse:frostbloom_tundra": {
+      "fertility": 0.1,
+      "pasture": 0.5,
+      "specialties": [
+        {
+          "item": "minecraft:white_wool",
+          "goods": "wool",
+          "job": "hunter",
+          "yield": 4,
+          "density": 0.4,
+          "regen": 0.0067
+        }
+      ]
+    },
+    "expanse:lichen_tundra": {
       "fertility": 0.1,
       "pasture": 0.5,
       "specialties": [
@@ -193,6 +233,19 @@
     },
     "expanse:wisteria_vale": {
       "wood": "expanse:wisteria_log",
+      "fertility": 0.8,
+      "specialties": [
+        {
+          "item": "minecraft:honeycomb",
+          "goods": "wax",
+          "job": "beekeeper",
+          "yield": 4,
+          "density": 0.5,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:woodland_glades": {
       "fertility": 0.8,
       "specialties": [
         {

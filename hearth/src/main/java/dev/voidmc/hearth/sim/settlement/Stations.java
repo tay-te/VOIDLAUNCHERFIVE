@@ -36,7 +36,8 @@ public final class Stations {
 
 	static void daily(SimSettlement s, SimRules r, long day) {
 		SimConfig.Stations cfg = r.resources.stations();
-		if (!cfg.enabled()) {
+		if (!cfg.enabled() || s.ctx().economyHandlesWages()) {
+			// with the economy module running, its purse rule (economy/purse/StationRule) moves stations: one owner
 			return;
 		}
 		Int2ObjectLinkedOpenHashMap<List<Resident>> homes = new Int2ObjectLinkedOpenHashMap<>();

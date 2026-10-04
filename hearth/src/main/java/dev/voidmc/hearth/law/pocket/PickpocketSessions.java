@@ -223,8 +223,12 @@ public final class PickpocketSessions {
 			case COIN -> {
 				EconomyService economy = HearthServices.economy();
 				if (economy != null) {
-					economy.pay(player, item.bits());
-					s.value += item.bits();
+					// the mark's own coin, out of their purse: no new money (requests/p3-economy.md §1)
+					long got = economy.takeFromPurse(settlement, r, item.bits());
+					if (got > 0) {
+						economy.pay(player, got);
+						s.value += got;
+					}
 				}
 			}
 			case KEY -> {

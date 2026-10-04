@@ -48,7 +48,7 @@ public final class StandingNetwork {
 			return;
 		}
 		UUID id = player.getUUID();
-		double renown = engine.renown(id, town.center());
+		double renown = engine.renownAt(id, town.center());
 		int fame = engine.fame(id, town.center());
 		send(player, new StandingPayloads.Here(town.id(), town.name(), engine.standing(town, id), engine.title(town, id).getSerializedName(), fame,
 			fame < 5 ? 0 : renown >= 0 ? 1 : -1, arrived && StandingModule.config().town().arrivalLine()));
@@ -88,7 +88,7 @@ public final class StandingNetwork {
 		}
 		Look look = engine.look(player);
 		int fame = engine.fame(id, player.blockPosition());
-		double renown = engine.renown(id, player.blockPosition());
+		double renown = engine.renownAt(id, player.blockPosition());
 		Company c = StandingModule.config().companies().enabled() ? engine.host().region().companyOf(id) : null;
 		List<String> members = new ArrayList<>();
 		if (c != null) {

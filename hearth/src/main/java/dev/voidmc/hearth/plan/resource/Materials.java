@@ -115,16 +115,21 @@ public final class Materials {
 				case "willow_bayou":
 					return "wood:expanse:willow|wood:minecraft:mangrove";
 				case "lumen_grove":
-					return "wood:expanse:lumen|wood:minecraft:birch";
+					return "wood:minecraft:birch"; // lumen wood glows: the surface stays natural
+				case "woodland_glades":
+					return "wood:minecraft:oak";
+				case "ancient_oakwood":
+					return "wood:minecraft:dark_oak|wood:minecraft:oak";
 				case "amber_steppe":
 					return "wood:expanse:baobab|wood:minecraft:acacia";
 				case "jade_karst":
 					return "wood:minecraft:bamboo";
 				case "tepui", "cloud_forest":
 					return "wood:minecraft:jungle";
-				case "boreal_muskeg", "larch_taiga", "fjordlands", "frostbloom_tundra", "verdant_peaks", "prismatic_peaks", "heather_moor":
+				case "boreal_muskeg", "larch_taiga", "fjordlands", "frostbloom_tundra", "lichen_tundra", "verdant_peaks", "prismatic_peaks", "dolomite_peaks",
+					"heather_moor":
 					return "wood:minecraft:spruce";
-				case "opal_dunes", "saguaro_flats", "salt_flats", "painted_canyons", "volcanic_highlands", "sulfur_seeps":
+				case "opal_dunes", "red_dunes", "saguaro_flats", "salt_flats", "painted_canyons", "volcanic_highlands", "sulfur_seeps":
 					return null;
 				default:
 					break;
@@ -192,7 +197,7 @@ public final class Materials {
 					return new String[]{"expanse:limestone|minecraft:calcite", "expanse:limestone_bricks|minecraft:stone_bricks"};
 				case "opal_dunes":
 					return new String[]{"expanse:opal_sandstone|minecraft:sandstone", "expanse:cut_opal_sandstone|minecraft:cut_sandstone"};
-				case "painted_canyons":
+				case "painted_canyons", "red_dunes":
 					return new String[]{"minecraft:red_sandstone", "minecraft:cut_red_sandstone"};
 				case "saguaro_flats", "salt_flats":
 					return new String[]{"minecraft:sandstone", "minecraft:cut_sandstone"};
@@ -200,7 +205,7 @@ public final class Materials {
 					return new String[]{"minecraft:tuff", "minecraft:tuff_bricks"};
 				case "sulfur_seeps":
 					return new String[]{"minecraft:blackstone", "minecraft:polished_blackstone_bricks"};
-				case "prismatic_peaks":
+				case "prismatic_peaks", "dolomite_peaks":
 					return new String[]{"minecraft:calcite", "minecraft:polished_diorite"};
 				case "willow_bayou":
 					return new String[]{"minecraft:packed_mud", "minecraft:mud_bricks"};

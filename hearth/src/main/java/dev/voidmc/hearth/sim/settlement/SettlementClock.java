@@ -9,12 +9,16 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.api.SettlementPlanner;
 import dev.voidmc.hearth.api.SettlementTier;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.sim.land.Lands;
 import dev.voidmc.hearth.sim.model.SimContext;
 import dev.voidmc.hearth.sim.model.SimRules;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.RandomSource;
 import org.jspecify.annotations.Nullable;
 
@@ -93,14 +97,22 @@ public final class SettlementClock {
 		}
 		int builders = wf.workers[JobType.BUILDER.ordinal()];
 		if (builders == 0) {
+			s.builderLabourOffer = 0;
+			s.builderLabourTaken = 0;
 			return;
 		}
 		double pool = builders * r.labour.workPerBuilderHour() * r.labour.builderHoursPerDay() * days;
+		// labour other modules took for repairs since the last step comes out of construction (repairs come first)
+		double taken = Math.min(pool, s.builderLabourTaken);
+		s.builderLabourTaken = 0;
+		s.builderLabourOffer = pool;
+		pool -= taken;
 		int concurrent = maxConcurrent(builders, r);
 		long now = c.gameTime();
+		Iterable<SimPlot> order = playerFundedFirst(s);
 		for (int round = 0; round < 8 && pool > 0.5; round++) {
 			List<SimPlot> working = new ArrayList<>(concurrent);
-			for (SimPlot p : s.plots.values()) {
+			for (SimPlot p : order) {
 				if (working.size() >= concurrent) {
 					break;
 				}
@@ -140,6 +152,31 @@ public final class SettlementClock {
 	}
 
 	/**
+	 * The plots in construction order: those players paid toward (the economy's funded projects, LIVING_WORLD.md §5
+	 * "fund a specific project and the planner puts it first") before the rest.
+	 */
+	static Iterable<SimPlot> playerFundedFirst(SimSettlement s) {
+		dev.voidmc.hearth.api.EconomyService eco = dev.voidmc.hearth.api.HearthServices.economy();
+		java.util.Set<Integer> funded = eco == null ? java.util.Set.of() : eco.fundedPlots(s);
+		if (funded.isEmpty()) {
+			return s.plots.values();
+		}
+		List<SimPlot> out = new ArrayList<>(s.plots.size());
+		for (int id : funded) {
+			SimPlot p = s.plots.get(id);
+			if (p != null) {
+				out.add(p);
+			}
+		}
+		for (SimPlot p : s.plots.values()) {
+			if (!funded.contains(p.id())) {
+				out.add(p);
+			}
+		}
+		return out;
+	}
+
+	/**
 	 * Builders walking about as entities only build plots whose current stage has its goods in hand ({@code BUILDING},
 	 * not waiting): start the stages they will need, as many plots at once as there are pairs of them, or mark the plots
 	 * waiting (which fires the stall, and the supply quest) so they leave them be.
@@ -147,7 +184,7 @@ public final class SettlementClock {
 	private static void fundForEntities(SimSettlement s, int builders, SimRules r) {
 		int want = maxConcurrent(builders, r);
 		int working = 0;
-		for (SimPlot p : s.plots.values()) {
+		for (SimPlot p : playerFundedFirst(s)) {
 			if (working >= want) {
 				return;
 			}
@@ -602,7 +639,12 @@ public final class SettlementClock {
 		return res;
 	}
 
-	/** Gives the homeless beds in standing houses with room, and turns out anyone whose house is gone. */
+	/**
+	 * Gives the homeless beds in standing houses with room, and turns out anyone whose house is gone. Housing follows the
+	 * planner's class-aware homes (requests/p3-plan.md §5): a family a home was built for (its {@code household.head})
+	 * moves in first; then families into free homes of their station ({@code station} param); then anyone into any free
+	 * bed. A household living in another station's home moves into an empty home of its own station when one stands.
+	 */
 	static void assignHomes(SimSettlement s) {
 		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap used = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
 		for (Resident res : s.residents.values()) {
@@ -615,21 +657,124 @@ public final class SettlementClock {
 				}
 			}
 		}
-		var it = s.plots.values().iterator();
-		SimPlot house = null;
+		List<SimPlot> homes = new ArrayList<>();
+		for (SimPlot p : s.plots.values()) {
+			if (p.isStanding() && p.beds > 0) {
+				homes.add(p);
+			}
+		}
+		if (homes.isEmpty()) {
+			return;
+		}
+		// families: the homeless by family name (a head's spouse and children share it)
+		Map<String, List<Resident>> homeless = new LinkedHashMap<>();
 		for (Resident res : s.residents.values()) {
-			if (res.home != Resident.NO_PLOT) {
+			if (res.home == Resident.NO_PLOT) {
+				homeless.computeIfAbsent(res.familyName, k -> new ArrayList<>()).add(res);
+			}
+		}
+		if (!homeless.isEmpty()) {
+			// 1. the family a home was built for
+			for (SimPlot p : homes) {
+				String head = headOf(p);
+				if (head == null) {
+					continue;
+				}
+				for (List<Resident> fam : homeless.values()) {
+					if (!fam.isEmpty() && containsId(fam, head)) {
+						moveIn(fam, p, used);
+						break;
+					}
+				}
+			}
+			// 2. families into homes of their station, 3. anyone anywhere
+			for (int pass = 0; pass < 2; pass++) {
+				for (List<Resident> fam : homeless.values()) {
+					for (java.util.Iterator<Resident> it = fam.iterator(); it.hasNext(); ) {
+						Resident res = it.next();
+						SimPlot best = null;
+						for (SimPlot p : homes) {
+							if (used.get(p.id()) >= p.beds) {
+								continue;
+							}
+							if (pass == 0 && !res.station.getSerializedName().equals(stationOf(p))) {
+								continue;
+							}
+							best = p;
+							break;
+						}
+						if (best != null) {
+							res.home = best.id();
+							used.addTo(best.id(), 1);
+							it.remove();
+						}
+					}
+				}
+			}
+		}
+		// a household in another station's home moves to an empty one of its own (a few a day: folk move slowly)
+		Map<Integer, List<Resident>> households = new LinkedHashMap<>();
+		for (Resident res : s.residents.values()) {
+			if (res.home != Resident.NO_PLOT && res.age != AgeStage.CHILD) {
+				households.computeIfAbsent(res.home, k -> new ArrayList<>()).add(res);
+			}
+		}
+		int moves = 0;
+		for (Map.Entry<Integer, List<Resident>> e : households.entrySet()) {
+			if (moves >= 2) {
+				break;
+			}
+			SimPlot home = s.plots.get(e.getKey());
+			String st = home == null ? null : stationOf(home);
+			Station theirs = e.getValue().getFirst().station;
+			if (st == null || st.equals(theirs.getSerializedName())) {
 				continue;
 			}
-			while (house == null || used.get(house.id()) >= house.beds) {
-				if (!it.hasNext()) {
-					return;
+			int size = used.get(home.id());
+			for (SimPlot p : homes) {
+				if (p != home && used.get(p.id()) == 0 && p.beds >= size && theirs.getSerializedName().equals(stationOf(p))) {
+					for (Resident res : s.residents.values()) {
+						if (res.home == home.id()) {
+							res.home = p.id();
+						}
+					}
+					used.put(p.id(), size);
+					used.put(home.id(), 0);
+					moves++;
+					break;
 				}
-				SimPlot p = it.next();
-				house = p.isStanding() && p.beds > 0 ? p : null;
 			}
-			res.home = house.id();
-			used.addTo(house.id(), 1);
+		}
+	}
+
+	private static @Nullable String stationOf(SimPlot p) {
+		CompoundTag params = p.spec().params();
+		return params.contains("station") ? params.getStringOr("station", "") : null;
+	}
+
+	private static @Nullable String headOf(SimPlot p) {
+		String head = p.spec().params().getCompoundOrEmpty("household").getStringOr("head", "");
+		return head.isEmpty() ? null : head;
+	}
+
+	private static boolean containsId(List<Resident> fam, String id) {
+		for (Resident r : fam) {
+			if (r.id.toString().equals(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void moveIn(List<Resident> fam, SimPlot p, it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap used) {
+		for (java.util.Iterator<Resident> it = fam.iterator(); it.hasNext(); ) {
+			Resident res = it.next();
+			if (used.get(p.id()) >= p.beds) {
+				return;
+			}
+			res.home = p.id();
+			used.addTo(p.id(), 1);
+			it.remove();
 		}
 	}
 
@@ -654,6 +799,7 @@ public final class SettlementClock {
 		int[] filled = new int[jobs];
 		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap usedAt = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
 		List<Resident> idle = new ArrayList<>();
+		dev.voidmc.hearth.api.EconomyService eco = dev.voidmc.hearth.api.HearthServices.economy();
 		for (Resident res : s.residents.values()) {
 			if (res.age != AgeStage.ADULT) {
 				res.job = JobType.NONE;
@@ -661,6 +807,15 @@ public final class SettlementClock {
 				continue;
 			}
 			int j = res.job.ordinal();
+			if (eco != null && res.job != JobType.NONE && res.work != Resident.NO_PLOT && eco.businessOwner(s, res.work) != null) {
+				// hired into a player's business (requests/p3-economy.md §6): theirs to keep while it stands
+				SimPlot w = s.plots.get(res.work);
+				if (w != null && w.isStanding()) {
+					filled[j]++;
+					usedAt.addTo(res.work * jobs + j, 1);
+					continue;
+				}
+			}
 			boolean keep = res.job != JobType.NONE && filled[j] < slots[j];
 			if (keep && res.work != Resident.NO_PLOT) {
 				SimPlot w = s.plots.get(res.work);

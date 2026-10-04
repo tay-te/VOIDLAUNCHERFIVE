@@ -108,6 +108,10 @@ public final class DevHarness {
 						String.format(Locale.ROOT, "%.1f", nanos / 1e6), before, s.population(), s.plots().size(), s.plotCounts(), s.stockpile());
 				}
 			}
+			String living = System.getProperty("hearth.dev.living");
+			if (living != null) {
+				LivingHarness.run(server, w, towns, Integer.parseInt(living));
+			}
 			String excavate = System.getProperty("hearth.dev.sim.excavate");
 			if (excavate != null) {
 				for (SimSettlement s : towns) {
@@ -711,7 +715,7 @@ public final class DevHarness {
 			plots, matched, expected, expected == 0 ? 100 : 100.0 * matched / expected, ledgerAhead);
 	}
 
-	private static void sleep(long ms) {
+	static void sleep(long ms) {
 		try {
 			Thread.sleep(ms);
 		} catch (InterruptedException e) {

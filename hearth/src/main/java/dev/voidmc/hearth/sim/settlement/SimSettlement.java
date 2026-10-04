@@ -343,6 +343,87 @@ public final class SimSettlement implements Settlement {
 	}
 
 	@Override
+	public double prosperity() {
+		return land().prosperity();
+	}
+
+	@Override
+	public int fortunes() {
+		return land().mood();
+	}
+
+	@Override
+	public String fortunesWhy() {
+		return land().why();
+	}
+
+	@Override
+	public int carryingCapacity() {
+		return land().capacity();
+	}
+
+	@Override
+	public boolean deserted(int plotId) {
+		return land().isDeserted(plotId);
+	}
+
+	@Override
+	public @Nullable ResourceSite reportSite(ResourceSite.Kind kind, BlockPos pos, String reason) {
+		dev.voidmc.hearth.sim.land.SimSite site = dev.voidmc.hearth.sim.land.Lands.prospect(this, kind, pos, ctx());
+		if (site != null) {
+			dev.voidmc.hearth.Hearth.LOG.info("[hearth sim] {}: {} site {} added at {} ({})", this.name, kind.getSerializedName(), site.id(),
+				site.center().toShortString(), reason);
+		}
+		return site == null ? null : site.view();
+	}
+
+	/** Builder labour (work units) other modules took today before construction (repairs); spent by the clock. */
+	double builderLabourTaken;
+	/** What the clock offers to other modules a day before construction, and what is left of it today. */
+	double builderLabourOffer;
+
+	@Override
+	public int takeBuilderLabour(int units) {
+		if (units <= 0) {
+			return 0;
+		}
+		int granted = (int) Math.min(units, Math.max(0, this.builderLabourOffer - this.builderLabourTaken));
+		this.builderLabourTaken += granted;
+		return granted;
+	}
+
+	/** Real goods embodied gatherers brought in, per resident, not yet set against their labour credit (transient). */
+	private final java.util.Map<UUID, int[]> yieldCredits = new java.util.HashMap<>();
+
+	@Override
+	public void creditYield(UUID resident, Goods goods, int units) {
+		if (units <= 0 || this.residents.get(resident) == null) {
+			return;
+		}
+		int added = stockpile().add(goods, units);
+		int[] owed = this.yieldCredits.computeIfAbsent(resident, k -> new int[Goods.VALUES.length]);
+		owed[goods.ordinal()] += units;
+		// the land gives it up: the nearest site that yields this goods
+		dev.voidmc.hearth.sim.land.SimSite best = null;
+		double bestD = Double.MAX_VALUE;
+		for (dev.voidmc.hearth.sim.land.SimSite site : land().sites()) {
+			if (site.yieldsView()[goods.ordinal()] > 0 && site.remaining() > 0) {
+				double d = site.distanceTo(this.center);
+				if (d < bestD) {
+					bestD = d;
+					best = site;
+				}
+			}
+		}
+		if (best != null) {
+			dev.voidmc.hearth.sim.land.Lands.take(this, best, units, 0, false, ctx());
+		}
+		if (added > 0) {
+			markDirty();
+		}
+	}
+
+	@Override
 	public void addResident(Resident resident) {
 		if (this.residents.putIfAbsent(resident.id, resident) == null) {
 			markDirty();
@@ -357,6 +438,7 @@ public final class SimSettlement implements Settlement {
 	public boolean removeResident(UUID id) {
 		Resident r = this.residents.remove(id);
 		this.embodiedResidents.remove(id);
+		this.yieldCredits.remove(id);
 		if (r == null) {
 			return false;
 		}
@@ -509,7 +591,19 @@ public final class SimSettlement implements Settlement {
 	public void creditLabour(UUID resident, JobType job, int ticks) {
 		Resident res = this.residents.get(resident);
 		if (ticks > 0 && res != null) {
+			int[] owed = this.yieldCredits.remove(resident);
+			int[] before = owed == null ? null : stockpile().amounts().clone();
 			SettlementClock.credit(this, res, job, ticks / WORK_TICKS_PER_DAY);
+			if (owed != null) {
+				// the goods their entity really gathered were credited already (creditYield): not again from the time
+				int[] after = stockpile().amounts();
+				for (int g = 0; g < owed.length && g < after.length; g++) {
+					int twice = Math.min(owed[g], after[g] - before[g]);
+					if (twice > 0) {
+						stockpile().take(Goods.VALUES[g], twice);
+					}
+				}
+			}
 		}
 	}
 

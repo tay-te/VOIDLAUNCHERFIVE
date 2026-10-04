@@ -253,6 +253,11 @@ public final class DeepTown {
 				if (Math.hypot(x - ax, z - az) > 200 || !rt.open(x, z) || ctx.ground.isWater(x, z)) {
 					continue;
 				}
+				// the lift is sunk through rock: where the land dips almost to the realm floor the vault would be open
+				// sky, and a lift of a few blocks is no lift
+				if (ctx.ground.ground(x, z) - floor.ground(x, z) < 30) {
+					continue;
+				}
 				// a floor a town can stand on, some twenty blocks out from the wall's foot
 				int[] range = floor.range(x - 8, z - 8, x + 8, z + 8, 3);
 				if (range[1] - range[0] > 6) {
@@ -282,7 +287,8 @@ public final class DeepTown {
 			}
 		}
 		int[] range = floor.range(p.x0, p.z0, p.x1(), p.z1(), 2);
-		return range[1] - range[0] <= 3;
+		// and its head stands on a street well above the vault: the lift is sunk through rock
+		return range[1] - range[0] <= 3 && p.streetY - range[1] >= 30;
 	}
 
 	private static Direction cardinal(int dx, int dz) {

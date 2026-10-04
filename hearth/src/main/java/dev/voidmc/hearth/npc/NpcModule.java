@@ -102,6 +102,20 @@ public final class NpcModule {
 		// Folk lookups, perception, escorts and the behaviours other modules teach folk (guards, witnesses, repairs...).
 		HearthServices.setNpc(SERVICE);
 		SERVICE.registerBehaviour(new Escorts.Behaviour());
+		// escorts' outcomes, for the quest and law modules (SettlementEvents.ESCORT_ENDED)
+		Escorts.FINISHED.register((resident, player, status) -> {
+			net.minecraft.server.MinecraftServer server = NpcTime.server();
+			dev.voidmc.hearth.api.HearthWorld world = server == null ? null : dev.voidmc.hearth.api.HearthWorld.of(server.overworld());
+			if (world == null) {
+				return;
+			}
+			for (dev.voidmc.hearth.api.Settlement s : world.settlements()) {
+				if (s.resident(resident) != null) {
+					SettlementEvents.ESCORT_ENDED.invoker().onEscortEnded(world, s, resident, player, status == Escorts.Status.ARRIVED);
+					return;
+				}
+			}
+		});
 		DialogueProvider.register(new NpcDialogue());
 		NpcSandbox.init();
 		registerNetworking();

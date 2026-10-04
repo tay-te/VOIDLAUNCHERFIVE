@@ -134,6 +134,7 @@ class StationHousingTest {
 		for (PlotView p : sim.settlement.plots()) {
 			assertTrue(!p.spec().params().contains("station") || Nobility.isSeat(p.spec().archetype()), "no station without stations: " + p.spec().archetype());
 		}
-		assertTrue(sim.settlement.population() > 30, "and the town grows: " + sim.settlement.population());
+		// (the default catalogue now carries the build module's bed counts: two to a cottage, not three, so it grows a little slower)
+		assertTrue(sim.settlement.population() > 20, "and the town grows: " + sim.settlement.population());
 	}
 }

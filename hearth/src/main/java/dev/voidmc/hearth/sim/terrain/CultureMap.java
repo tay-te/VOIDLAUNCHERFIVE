@@ -27,18 +27,24 @@ public final class CultureMap implements Function<Holder<Biome>, Culture> {
 	private static final Map<Identifier, Culture> BY_ID = new HashMap<>();
 
 	static {
+		// Expanse renamed five biomes for a natural surface (2026-10); both names are kept so old worlds still read
 		expanse("frostbloom_tundra", Culture.TUNDRA);
+		expanse("lichen_tundra", Culture.TUNDRA);
 		expanse("heather_moor", Culture.MOORLAND);
 		expanse("wisteria_vale", Culture.WISTERIA);
+		expanse("woodland_glades", Culture.TEMPERATE);
 		expanse("redwood_giants", Culture.NORTHERN);
 		expanse("lumen_grove", Culture.TEMPERATE);
+		expanse("ancient_oakwood", Culture.TEMPERATE);
 		expanse("willow_bayou", Culture.BAYOU);
 		expanse("amber_steppe", Culture.STEPPE);
 		expanse("opal_dunes", Culture.DESERT);
+		expanse("red_dunes", Culture.DESERT);
 		expanse("jade_karst", Culture.KARST);
 		expanse("cloud_forest", Culture.TROPICAL);
 		expanse("verdant_peaks", Culture.ALPINE);
 		expanse("prismatic_peaks", Culture.ALPINE);
+		expanse("dolomite_peaks", Culture.ALPINE);
 		expanse("palm_coast", Culture.TROPICAL);
 		expanse("volcanic_highlands", Culture.MOORLAND);
 		expanse("painted_canyons", Culture.MESA);

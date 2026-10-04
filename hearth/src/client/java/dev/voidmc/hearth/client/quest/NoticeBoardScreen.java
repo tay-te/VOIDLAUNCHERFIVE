@@ -29,7 +29,7 @@ public class NoticeBoardScreen extends Screen {
 	private static final int CARD_H = 70;
 	/** The poster column's width, when the board has wanted posters. */
 	private static final int POSTERS_W = 92;
-	private static final int POSTER_H = 46;
+	private static final int POSTER_H = 56;
 	private QuestPayloads.Board board;
 	private QuestPayloads.Board.@Nullable Entry reading;
 	private int left;
@@ -148,8 +148,14 @@ public class NoticeBoardScreen extends Screen {
 			Component head = Component.translatable(p.outlaw() ? "hearth.quest.poster.outlaw" : "hearth.quest.poster.wanted").withStyle(st -> st.withBold(true));
 			g.centeredText(this.font, head, x + w / 2, y + 7, QuestUi.INK_RED);
 			g.centeredText(this.font, Component.literal(this.font.plainSubstrByWidth(p.name(), w - 6)), x + w / 2, y + 19, QuestUi.INK);
+			int line = y + 31;
+			if (!p.crime().isEmpty()) {
+				String crime = Component.translatable("hearth.quest.poster.for", Component.translatable(p.crime())).getString();
+				g.centeredText(this.font, Component.literal(this.font.plainSubstrByWidth(crime, w - 6)), x + w / 2, line, QuestUi.INK);
+				line += 12;
+			}
 			if (!p.owed().isEmpty()) {
-				g.centeredText(this.font, Component.literal(this.font.plainSubstrByWidth(p.owed(), w - 6)), x + w / 2, y + 31, QuestUi.INK_GOLD);
+				g.centeredText(this.font, Component.literal(this.font.plainSubstrByWidth(p.owed(), w - 6)), x + w / 2, line, QuestUi.INK_GOLD);
 			}
 		}
 	}

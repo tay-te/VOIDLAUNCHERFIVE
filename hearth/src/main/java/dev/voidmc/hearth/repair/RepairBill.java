@@ -50,7 +50,16 @@ public final class RepairBill {
 
 	/** The goods one block of this kind costs to put back (empty for free blocks). */
 	public static Goods[] of(BlockState state) {
-		return CACHE.computeIfAbsent(state.getBlock(), RepairBill::classify);
+		return CACHE.computeIfAbsent(state.getBlock(), b -> {
+			// one bill for building and mending: the build module's, when it answers (requests/p3-repair.md §2)
+			if (dev.voidmc.hearth.api.HearthServices.hasBlueprints()) {
+				Goods[] shared = dev.voidmc.hearth.api.HearthServices.blueprints().goodsOf(b.defaultBlockState());
+				if (shared != null) {
+					return shared;
+				}
+			}
+			return classify(b);
+		});
 	}
 
 	/** Whether the stockpile holds the goods for this block. */

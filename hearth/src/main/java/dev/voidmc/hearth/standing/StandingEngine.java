@@ -119,8 +119,50 @@ public final class StandingEngine implements StandingService {
 		return (int) Math.round(this.host.region().fameAt(player, near.getX(), near.getZ(), this.host.day(), f.radius(), f.halfLifeDays()));
 	}
 
+	@Override
+	public int renown(UUID player, BlockPos near) {
+		return (int) Math.round(Curves.clamp(renownAt(player, near), -100, 100));
+	}
+
+	@Override
+	public void remember(UUID resident, UUID player, String kind, int weight) {
+		Settlement s = home(resident);
+		Resident r = s == null ? null : s.resident(resident);
+		if (r != null) {
+			remember(r, player, kind, weight);
+			s.markDirty();
+		}
+	}
+
+	@Override
+	public Odds odds(ServerPlayer player, Settlement settlement, Resident resident, Speech kind, double difficulty, long bribeBits) {
+		return view(dev.voidmc.hearth.standing.speech.SpeechCheck.odds(player, settlement, resident, kindOf(kind), difficulty, bribeBits), kind);
+	}
+
+	@Override
+	public boolean attempt(ServerPlayer player, Settlement settlement, Resident resident, Speech kind, double difficulty, long bribeBits) {
+		return dev.voidmc.hearth.standing.speech.SpeechCheck.attempt(player, settlement, resident, kindOf(kind), difficulty, bribeBits).success();
+	}
+
+	@Override
+	public long expectedBribe(Resident resident, double difficulty) {
+		return dev.voidmc.hearth.standing.speech.SpeechCheck.expectedBribe(resident, difficulty);
+	}
+
+	private static dev.voidmc.hearth.standing.speech.SpeechKind kindOf(Speech kind) {
+		return dev.voidmc.hearth.standing.speech.SpeechKind.valueOf(kind.name());
+	}
+
+	private static Odds view(dev.voidmc.hearth.standing.speech.SpeechOdds.Odds o, Speech kind) {
+		List<Map.Entry<String, Double>> f = new ArrayList<>();
+		for (dev.voidmc.hearth.standing.speech.SpeechOdds.Factor x : o.factors()) {
+			f.add(Map.entry(x.key(), x.delta()));
+		}
+		return new Odds(kind, o.chance(), List.copyOf(f));
+	}
+
 	/** Signed renown at a place: positive if known for good deeds, negative for bad (fame itself is unsigned). */
-	public double renown(UUID player, BlockPos near) {
+	public double renownAt(UUID player, BlockPos near) {
 		StandingConfig.Fame f = config().fame();
 		return this.host.region().renown(player, near.getX(), near.getZ(), this.host.day(), f.radius(), f.halfLifeDays());
 	}
@@ -209,7 +251,8 @@ public final class StandingEngine implements StandingService {
 
 	@Override
 	public void deed(Deed d) {
-		if (d.kind().equals(Deeds.ADJUST) && this.mirroring) {
+		boolean adjust = Deeds.isAdjust(d.kind());
+		if (adjust && this.mirroring) {
 			return; // our own mirror coming back through a sim that delegates addReputation here
 		}
 		Settlement s = d.settlementId() == 0 ? null : this.host.settlement(d.settlementId());
@@ -223,7 +266,6 @@ public final class StandingEngine implements StandingService {
 			}
 			return;
 		}
-		boolean adjust = d.kind().equals(Deeds.ADJUST);
 		DeedRule rule = adjust ? DeedRule.ADJUST : StandingRules.get().rule(d.kind());
 		if (!rule.action().isEmpty()) {
 			this.host.action(d, rule);

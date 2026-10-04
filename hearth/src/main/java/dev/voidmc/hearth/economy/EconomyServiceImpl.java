@@ -55,19 +55,22 @@ public final class EconomyServiceImpl implements EconomyService {
 		return new MarketPricer(settlement).price(stack, null, playerBuys);
 	}
 
-	// ---------------------------------------------------------------- phase 3 (proposed for the api)
+	// ---------------------------------------------------------------- phase 3 (api since the phase 3 integration)
 
 	/** Coin a resident holds. */
+	@Override
 	public long purse(Resident resident) {
 		return Purses.get(resident);
 	}
 
 	/** All the coin a resident's household (everyone sharing their home) holds: what their station follows. */
+	@Override
 	public long householdWealth(Settlement settlement, Resident resident) {
 		return Households.wealth(settlement, resident);
 	}
 
 	/** What a service ({@link Tariff}: {@code inn_bed}, {@code bath}, {@code stable_hire_day}...) costs this player here. */
+	@Override
 	public long servicePrice(Settlement settlement, String service, @Nullable UUID player) {
 		return Tariff.price(settlement, service, player);
 	}
@@ -78,6 +81,7 @@ public final class EconomyServiceImpl implements EconomyService {
 	 *
 	 * @return the bits charged, or −1 if the player could not pay (nothing is taken) or the service is unknown
 	 */
+	@Override
 	public long chargeService(ServerPlayer player, Settlement settlement, String service, @Nullable UUID vendor) {
 		long bits = Tariff.price(settlement, service, player.getUUID());
 		if (bits <= 0 || !PlayerPurse.charge(player, bits)) {
@@ -104,6 +108,7 @@ public final class EconomyServiceImpl implements EconomyService {
 	}
 
 	/** A fine (or bail, or a bounty paid off): from the player to the settlement's treasury. False if they cannot pay. */
+	@Override
 	public boolean fine(ServerPlayer player, Settlement settlement, long bits) {
 		if (bits <= 0) {
 			return true;
@@ -117,6 +122,7 @@ public final class EconomyServiceImpl implements EconomyService {
 	}
 
 	/** A bribe: from the player into a resident's purse (a guard, a witness). False if they cannot pay. */
+	@Override
 	public boolean bribe(ServerPlayer player, Settlement settlement, Resident resident, long bits) {
 		if (bits <= 0 || !PlayerPurse.charge(player, bits)) {
 			return false;
@@ -126,7 +132,16 @@ public final class EconomyServiceImpl implements EconomyService {
 		return true;
 	}
 
+	@Override
+	public void payResident(Settlement settlement, Resident resident, long bits) {
+		if (bits > 0) {
+			Purses.add(resident, bits);
+			settlement.markDirty();
+		}
+	}
+
 	/** Coin taken from a resident (stolen by pickpocketing, confiscated): out of their purse; returns what they had of it. */
+	@Override
 	public long takeFromPurse(Settlement settlement, Resident resident, long bits) {
 		long t = Math.min(Math.max(0, bits), Purses.get(resident));
 		Purses.add(resident, -t);
@@ -135,11 +150,13 @@ public final class EconomyServiceImpl implements EconomyService {
 	}
 
 	/** Plots of unfinished buildings players have paid toward: the planner and the sim put them first. */
+	@Override
 	public Set<Integer> fundedPlots(Settlement settlement) {
 		return Projects.funded(settlement);
 	}
 
 	/** The player who owns the business at a plot (a workshop, shop, farm, extraction site), or null. */
+	@Override
 	public @Nullable UUID businessOwner(Settlement settlement, int plotId) {
 		return BusinessMarket.owner(settlement, plotId);
 	}

@@ -261,11 +261,16 @@ public final class PlanContext {
 	/** The spec with the {@code local} param (LIVING_WORLD.md §8.5) if it has none and the land gives any. */
 	public PlotSpec withLocal(PlotSpec spec) {
 		net.minecraft.nbt.CompoundTag local = this.localOverride != null ? this.localOverride : territory().local();
-		if (local == null && this.extraParams == null) {
+		boolean arms = flies(spec.archetype());
+		if (local == null && this.extraParams == null && !arms) {
 			return spec;
 		}
 		net.minecraft.nbt.CompoundTag params = spec.params();
 		boolean changed = false;
+		if (arms && !params.contains("banner")) {
+			params.putString("banner", banner());
+			changed = true;
+		}
 		if (this.extraParams != null) {
 			for (String key : this.extraParams.keySet()) {
 				if (!params.contains(key)) {
@@ -283,6 +288,45 @@ public final class PlanContext {
 		}
 		return new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
 			spec.tier(), params);
+	}
+
+	/** Whether a plot hangs the town's banner (civic, commercial, defensive, law, noble and landmark buildings). */
+	static boolean flies(net.minecraft.resources.Identifier archetype) {
+		String path = archetype.getPath();
+		return path.startsWith("civic/") || path.startsWith("commerce/") || path.startsWith("defense/") || path.startsWith("law/")
+			|| path.startsWith("noble/") || path.startsWith("landmark/") || path.equals("landscape/plaza");
+	}
+
+	private static final String[] FIELDS = {"blue", "red", "green", "yellow", "white", "black", "purple", "orange", "light_blue", "brown"};
+	private static final String[] CHARGES = {"cross", "straight_cross", "border", "stripe_center", "stripe_middle", "half_horizontal", "half_vertical",
+		"triangle_bottom", "triangle_top", "diagonal_left", "rhombus", "circle", "stripe_top", "stripe_bottom", "bricks", "curly_border"};
+
+	/**
+	 * The settlement's coat of arms, chosen once from its heart (stable for its whole life), in the form the civic
+	 * architects read: {@code "field;colour:pattern;colour:pattern"} with vanilla colour and pattern names
+	 * (requests/arch-civic.md §1: every building of a town flies the same flag).
+	 */
+	public String banner() {
+		long h = (this.state.heartX * 0x9E3779B97F4A7C15L) ^ (this.state.heartZ * 0xC2B2AE3D27D4EB4FL) ^ 0x5DEECE66DL;
+		h = (h ^ (h >>> 31)) * 0xBF58476D1CE4E5B9L;
+		int field = (int) Math.floorMod(h, FIELDS.length);
+		int c1 = (int) Math.floorMod(h >>> 8, FIELDS.length);
+		if (c1 == field) {
+			c1 = (c1 + 4) % FIELDS.length;
+		}
+		String p1 = CHARGES[(int) Math.floorMod(h >>> 16, CHARGES.length)];
+		StringBuilder b = new StringBuilder(FIELDS[field]).append(';').append(FIELDS[c1]).append(':').append(p1);
+		if (((h >>> 24) & 3) != 0) {
+			int c2 = (int) Math.floorMod(h >>> 32, FIELDS.length);
+			if (c2 == c1) {
+				c2 = (c2 + 3) % FIELDS.length;
+			}
+			String p2 = (((h >>> 40) & 1) == 0) ? "border" : "stripe_top";
+			if (!p2.equals(p1)) {
+				b.append(';').append(FIELDS[c2]).append(':').append(p2);
+			}
+		}
+		return b.toString();
 	}
 
 	public long nextSeed() {

@@ -71,6 +71,21 @@ public final class NpcServiceImpl implements NpcService {
 		return resident.id;
 	}
 
+	@Override
+	public @Nullable EscortStatus escort(UUID resident) {
+		Escorts.Status st = Escorts.status(resident);
+		return st == null ? null : EscortStatus.valueOf(st.name());
+	}
+
+	@Override
+	public java.util.Set<String> traits(Resident resident) {
+		java.util.Set<String> out = new java.util.HashSet<>();
+		for (dev.voidmc.hearth.npc.person.Trait t : dev.voidmc.hearth.npc.person.NpcData.of(resident).traits()) {
+			out.add(t.getSerializedName());
+		}
+		return out;
+	}
+
 	/** How an escort stands (active, arrived, lost), for modules that started one; null if there is none. */
 	public static Escorts.@Nullable Status escortStatus(UUID resident) {
 		return Escorts.status(resident);

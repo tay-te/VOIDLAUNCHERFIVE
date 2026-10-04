@@ -46,6 +46,33 @@ public final class Landmarks {
 	}
 
 	private static @Nullable ArchetypeInfo next(PlanContext ctx, Needs needs) {
+		// a close kept round the chapel since the village days is for the cathedral or temple: it takes a landmark's
+		// place before the towers can fill both slots (requests/arch-landmark.md §2)
+		if (ctx.state.reservation("close") != null && (needs.category(ArchetypeCategory.LANDMARK) >= 1 || ctx.tier == SettlementTier.CITY)) {
+			for (Identifier id : List.of(Archetypes.CATHEDRAL, Archetypes.TEMPLE)) {
+				ArchetypeInfo info = ctx.catalogue.info(id);
+				if (info != null && Catalogue.allowed(info, ctx.culture, ctx.tier) && needs.count(id) == 0 && needs.count(Archetypes.CATHEDRAL) == 0
+					&& needs.count(Archetypes.TEMPLE) == 0) {
+					return info;
+				}
+			}
+		}
+		if (ctx.state.signature == dev.voidmc.hearth.plan.model.Signature.NONE) {
+			// no signature: the culture's own landmark first (the most particular, fewest cultures), so a karst town
+			// raises its pagoda, a northern one its great hall, a maritime one its lighthouse (arch-landmark.md §1)
+			List<ArchetypeInfo> allowed = new java.util.ArrayList<>(Growth.allowed(ctx, ArchetypeCategory.LANDMARK));
+			allowed.sort(java.util.Comparator.comparingInt((ArchetypeInfo i) -> i.cultures().isEmpty() ? Integer.MAX_VALUE : i.cultures().size())
+				.thenComparingInt(i -> {
+					int k = ctx.state.signature.landmarks.indexOf(i.id());
+					return k < 0 ? 99 : k;
+				}));
+			for (ArchetypeInfo info : allowed) {
+				if (needs.count(info.id()) == 0) {
+					return info;
+				}
+			}
+			return null;
+		}
 		for (Identifier id : ctx.state.signature.landmarks) {
 			ArchetypeInfo info = ctx.catalogue.info(id);
 			if (info != null && Catalogue.allowed(info, ctx.culture, ctx.tier) && needs.count(id) == 0) {
@@ -58,6 +85,12 @@ public final class Landmarks {
 			}
 		}
 		return null;
+	}
+
+	/** The landmarks that need level ground (big footprints): never terraced up a slope. The lighthouse keeps its rocks. */
+	static boolean big(ArchetypeInfo info) {
+		return info.category() == ArchetypeCategory.LANDMARK && !info.id().equals(Archetypes.LIGHTHOUSE) && info.minFrontage() >= 11
+			&& info.minDepth() >= 11;
 	}
 
 	static boolean place(PlanContext ctx, ArchetypeInfo info) {
@@ -101,10 +134,18 @@ public final class Landmarks {
 			}
 		}
 		if (future != null) {
-			int f = Math.max(chapel.maxFrontage(), future.minFrontage());
-			int d = Math.max(chapel.maxDepth(), future.minDepth());
+			// the close at the cathedral's middle size where the land allows (a nave of seven, a cloister, twin towers;
+			// arch-landmark.md §3), else at its smallest
+			int f = Math.max(chapel.maxFrontage(), (future.minFrontage() + future.maxFrontage()) / 2);
+			int d = Math.max(chapel.maxDepth(), (future.minDepth() + future.maxDepth()) / 2);
 			Parcels.Request big = new Parcels.Request(chapel, Placement.RISE, District.Kind.CIVIC).withSize(f, d);
 			Parcels.Parcel p = Parcels.best(ctx, big, null);
+			if (p == null || p.terrace) {
+				f = Math.max(chapel.maxFrontage(), future.minFrontage());
+				d = Math.max(chapel.maxDepth(), future.minDepth());
+				big = new Parcels.Request(chapel, Placement.RISE, District.Kind.CIVIC).withSize(f, d);
+				p = Parcels.best(ctx, big, null);
+			}
 			if (p == null && Expand.toward(ctx, Placement.RISE)) {
 				p = Parcels.best(ctx, big, null);
 			}

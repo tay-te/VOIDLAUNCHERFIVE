@@ -396,6 +396,10 @@ public final class Growth {
 
 	/** Rejects a place that misses the point of its placement (a rise that is not raised, an edge in the core). */
 	private static boolean acceptable(PlanContext ctx, Parcels.Request req, Parcels.Parcel p) {
+		if (Landmarks.big(req.info()) && (p.terrace || p.hi - p.lo > ctx.config.slopeTolerance() + 1)) {
+			// a cathedral, a temple court, a great hall: on level ground or not at all, never on a terrace up a slope
+			return false;
+		}
 		if (req.placement() == Placement.SITED && req.siting() != null) {
 			Siting s = req.siting();
 			double d = ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2);

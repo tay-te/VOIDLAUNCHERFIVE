@@ -41,7 +41,12 @@ public final class Caravans {
 	 * @param doomed decided at departure from the road's risk (the sim's own bandits): it will be lost unless escorted
 	 */
 	public record Caravan(long id, long from, long to, int[] cargo, long value, long departTick, long arriveTick, boolean doomed, BlockPos fromPos,
-		BlockPos toPos) {
+		BlockPos toPos, boolean escorted) {
+		public Caravan(long id, long from, long to, int[] cargo, long value, long departTick, long arriveTick, boolean doomed, BlockPos fromPos,
+			BlockPos toPos) {
+			this(id, from, to, cargo, value, departTick, arriveTick, doomed, fromPos, toPos, false);
+		}
+
 		public static final Codec<Caravan> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.LONG.fieldOf("id").forGetter(Caravan::id),
 			Codec.LONG.fieldOf("from").forGetter(Caravan::from),
@@ -52,7 +57,8 @@ public final class Caravans {
 			Codec.LONG.fieldOf("arrive").forGetter(Caravan::arriveTick),
 			Codec.BOOL.optionalFieldOf("doomed", false).forGetter(Caravan::doomed),
 			BlockPos.CODEC.fieldOf("from_pos").forGetter(Caravan::fromPos),
-			BlockPos.CODEC.fieldOf("to_pos").forGetter(Caravan::toPos)
+			BlockPos.CODEC.fieldOf("to_pos").forGetter(Caravan::toPos),
+			Codec.BOOL.optionalFieldOf("escorted", false).forGetter(Caravan::escorted)
 		).apply(i, Caravan::new));
 
 		public int units() {
@@ -126,7 +132,7 @@ public final class Caravans {
 		for (int i = 0; i < active.size(); i++) {
 			Caravan c = active.get(i);
 			if (c.id == id) {
-				active.set(i, new Caravan(c.id, c.from, c.to, c.cargo, c.value, c.departTick, c.arriveTick, false, c.fromPos, c.toPos));
+				active.set(i, new Caravan(c.id, c.from, c.to, c.cargo, c.value, c.departTick, c.arriveTick, false, c.fromPos, c.toPos, true));
 				this.world.markDirty();
 				return true;
 			}
@@ -152,6 +158,32 @@ public final class Caravans {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The caravan's party was overcome on the road near a player (the npc module's embodied caravan killed or scattered):
+	 * the cargo is gone, the buyer pays nothing; {@code ROBBED} if someone robbed it, else {@code LOST}. Returns whether it
+	 * was on the road.
+	 */
+	public boolean lose(long id, boolean robbed) {
+		List<Caravan> active = this.state().active;
+		for (int i = 0; i < active.size(); i++) {
+			Caravan c = active.get(i);
+			if (c.id == id) {
+				active.remove(i);
+				this.state().lost++;
+				this.world.markDirty();
+				fire(c, robbed ? SettlementEvents.CaravanEvent.Kind.ROBBED : SettlementEvents.CaravanEvent.Kind.LOST);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The api's view of a caravan. */
+	public static dev.voidmc.hearth.api.HearthWorld.CaravanView view(Caravan c) {
+		return new dev.voidmc.hearth.api.HearthWorld.CaravanView(c.id, c.from, c.to, c.cargo.clone(), c.value, c.departTick, c.arriveTick, c.fromPos,
+			c.toPos, c.escorted);
 	}
 
 	/** Arrivals and losses that are due (every tick: only the head of the queue is looked at). */
@@ -196,7 +228,7 @@ public final class Caravans {
 		SimSettlement from = this.world.settlement(c.from);
 		SimSettlement to = this.world.settlement(c.to);
 		if (from != null && to != null) {
-			SettlementEvents.CARAVAN.invoker().onCaravan(this.world, from, to, kind, c.cargo.clone());
+			SettlementEvents.CARAVAN.invoker().onCaravan(this.world, from, to, kind, c.id, c.cargo.clone());
 		}
 	}
 

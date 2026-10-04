@@ -208,7 +208,7 @@ public final class Confrontations {
 				long amount = searchBribe();
 				double odds = SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener());
 				if (economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds) {
-					economy.charge(player, amount);
+					economy.bribe(player, s, guard, amount);
 					Law.state(s).addSuspicion(player.getUUID(), -50);
 					s.markDirty();
 					talk.state = State.SETTLED;
@@ -232,7 +232,7 @@ public final class Confrontations {
 				long amount = SpeechCheck.witnessBribe(fine);
 				double odds = SpeechCheck.bribe(amount, SpeechCheck.witnessBribe(fine), worst(reports), FolkTraits.of(witness).listener());
 				if (economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds) {
-					economy.charge(player, amount);
+					economy.bribe(player, s, witness, amount);
 					CrimeDesk.silence(s, witness.id, player.getUUID());
 					CrimeDesk.deed(s, player.getUUID(), "law:bribed_witness", -2, witness.id, player.blockPosition(), false);
 					talk.state = State.SETTLED;

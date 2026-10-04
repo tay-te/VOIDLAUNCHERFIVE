@@ -39,6 +39,8 @@ public final class RepairQueue {
 	public long lastAccrual;
 	/** Labour accrued and not yet spent, in blocks. */
 	public double carry;
+	/** Transient: REPAIR_STALLED fired and nothing has been mended since. */
+	public boolean stalled;
 	private @Nullable Long2ObjectOpenHashMap<LongArrayList> byChunk;
 	private @Nullable Int2IntOpenHashMap perPlot;
 

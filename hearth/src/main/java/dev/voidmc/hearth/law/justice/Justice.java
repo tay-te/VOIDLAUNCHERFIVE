@@ -62,10 +62,10 @@ public final class Justice {
 		if (w == null || !w.active()) {
 			return Result.SETTLED;
 		}
-		if (economy == null || w.bounty() <= 0 || !economy.charge(player, w.bounty())) {
+		// the fine goes to the treasury, through the economy (requests/p3-economy.md §1)
+		if (economy == null || w.bounty() <= 0 || !economy.fine(player, s, w.bounty())) {
 			return Result.UNABLE;
 		}
-		s.deposit(w.bounty());
 		long paid = w.bounty();
 		w.clear();
 		confiscate(player, s, false);
@@ -179,7 +179,8 @@ public final class Justice {
 		long day = Law.day(player.level());
 		s.markDirty();
 		if (player.getRandom().nextDouble() < odds) {
-			economy.charge(player, amount);
+			// the coin goes into the guard's own purse
+			economy.bribe(player, s, guard, amount);
 			w.clear();
 			Law.state(s).prune();
 			LawStatusSender.refresh(player);

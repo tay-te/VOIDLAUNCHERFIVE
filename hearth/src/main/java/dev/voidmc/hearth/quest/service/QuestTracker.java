@@ -824,6 +824,9 @@ public final class QuestTracker {
 		}
 		int size = Math.max(1, Math.max(o.count, o.data.getIntOr(Objective.Keys.CARAVAN, 1)));
 		LawBridge.report(offence, killer, s, victim.blockPosition(), null, o.data.getLongOr(Objective.Keys.VALUE, 0L) / size, drover);
+		if (offence == dev.voidmc.hearth.api.LawService.Offence.ROBBERY || offence == dev.voidmc.hearth.api.LawService.Offence.THEFT) {
+			LawBridge.markLoot(level, victim, s, killer);
+		}
 	}
 
 	/**

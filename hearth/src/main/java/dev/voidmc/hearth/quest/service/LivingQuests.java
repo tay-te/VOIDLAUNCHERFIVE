@@ -106,7 +106,7 @@ public final class LivingQuests {
 		return offer;
 	}
 
-	static void onDamaged(HearthWorld world, Settlement s, PlotView plot, SettlementEvents.Damaged.Cause cause, int blocks) {
+	static void onDamaged(HearthWorld world, Settlement s, PlotView plot, SettlementEvents.Damaged.Cause cause, int blocks, @Nullable UUID player) {
 		ServerLevel level = world.level();
 		switch (cause) {
 			case FIRE -> {
@@ -177,7 +177,7 @@ public final class LivingQuests {
 		happen(world.level(), s, Happening.DECLINING, -1, s.center(), -1, 1, "", why, false);
 	}
 
-	static void onCaravan(HearthWorld world, Settlement from, Settlement to, SettlementEvents.CaravanEvent.Kind kind, int[] cargo) {
+	static void onCaravan(HearthWorld world, Settlement from, Settlement to, SettlementEvents.CaravanEvent.Kind kind, long caravanId, int[] cargo) {
 		ServerLevel level = world.level();
 		String main = mainGoods(cargo);
 		String text = cargoText(cargo);
@@ -189,13 +189,14 @@ public final class LivingQuests {
 			case DEPARTED -> {
 				// an escort is worth offering only where someone could take it: the board of a town a player is in
 				if (from.embodied()) {
-					happen(level, from, Happening.CARAVAN_DEPARTED, -1, from.center(), to.id(), total, main, text, false);
+					// the caravan's id rides in the happening's plot field: an escort taken protects that very caravan
+					happen(level, from, Happening.CARAVAN_DEPARTED, (int) caravanId, from.center(), to.id(), total, main, text, false);
 				}
 			}
 			case ARRIVED -> {
 				SettlementQuests data = QuestStore.board(from);
 				for (Happening h : List.copyOf(data.happenings)) {
-					if (!h.resolved() && h.kind().equals(Happening.CARAVAN_DEPARTED) && h.other() == to.id()) {
+					if (!h.resolved() && h.kind().equals(Happening.CARAVAN_DEPARTED) && h.other() == to.id() && (h.plot() <= 0 || h.plot() == (int) caravanId)) {
 						data.resolve(h.id());
 						from.markDirty();
 					}
@@ -282,6 +283,9 @@ public final class LivingQuests {
 				ResourceSite.Kind kind = kind(o.data.getStringOr(Objective.Keys.RESOURCE, o.target));
 				if (kind != null) {
 					QuestEvents.SITE_PROSPECTED.invoker().onSiteProspected(level, s, kind, found, player);
+					// the sim surveys round it and adds the site (SITE_FOUND resolves the spent-site happening); the
+					// planner then opens a working there
+					s.reportSite(kind, found, "prospected by " + player.getName().getString());
 					player.sendSystemMessage(Component.translatable("hearth.quest.prospect.reported", s.name(),
 						Component.literal(found.getX() + ", " + found.getZ())).withStyle(ChatFormatting.GREEN));
 				}
@@ -296,12 +300,43 @@ public final class LivingQuests {
 		QuestTemplate t = QuestTemplates.get(q.template);
 		if (t != null && t.when().wanted() == QuestTemplate.Wanted.ONLY) {
 			QuestEvents.NAME_CLEARED.invoker().onNameCleared(player, s, q);
+			dev.voidmc.hearth.api.LawService law = dev.voidmc.hearth.api.HearthServices.law();
+			if (law != null) {
+				law.pardon(player.getUUID(), s.id(), "worked off: " + q.text.title());
+			}
 			player.sendSystemMessage(Component.translatable("hearth.quest.name_cleared", q.giver.name(), s.name()).withStyle(ChatFormatting.GREEN));
 		}
 	}
 
 	/** What a failed quest costs beyond standing: trapped miners not dug out in time die, where the server allows it. */
+	/** The sim's caravan an escort quest answers (its happening's plot field), or 0. */
+	static long caravanOf(Settlement s, QuestInstance q) {
+		int hid = q.extra.getIntOr(QuestInstance.Extra.HAPPENING, 0);
+		if (hid == 0) {
+			hid = SettlementQuests.happeningOf(q);
+		}
+		Happening h = hid == 0 ? null : QuestStore.board(s).happening(hid);
+		return h != null && h.kind().equals(Happening.CARAVAN_DEPARTED) && h.plot() > 0 ? h.plot() : 0;
+	}
+
+	/** A quest was taken: an escort of a real caravan rides with it, so whatever the road held, it arrives. */
+	static void accepted(ServerLevel level, Settlement s, ServerPlayer player, QuestInstance q) {
+		long caravan = caravanOf(s, q);
+		HearthWorld world = HearthWorld.of(level);
+		if (caravan > 0 && world != null && world.escortCaravan(caravan)) {
+			dev.voidmc.hearth.Hearth.LOG.debug("[hearth quest] {} escorts caravan {} from {}", player.getName().getString(), caravan, s.name());
+		}
+	}
+
 	static void ended(ServerLevel level, Settlement s, ServerPlayer player, QuestInstance q, QuestStatus outcome) {
+		if (outcome == QuestStatus.FAILED) {
+			// the escort was lost on the road: so was the caravan it rode with
+			long caravan = caravanOf(s, q);
+			HearthWorld world = HearthWorld.of(level);
+			if (caravan > 0 && world != null) {
+				world.caravanLost(caravan, null);
+			}
+		}
 		if (outcome != QuestStatus.FAILED || !QuestManager.config().living().rescueFailureKills()) {
 			return;
 		}

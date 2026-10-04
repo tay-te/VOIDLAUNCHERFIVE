@@ -48,6 +48,12 @@ class StandingEngineTest {
 
 	@Test
 	void seedsFromTheSettlementsOldNumberAndMirrorsChangesBack() {
+		// mirroring is off in the shipped config since the sim delegates to this service; a server may still turn it on
+		StandingConfig.Town t = StandingConfig.Town.DEFAULTS;
+		this.config = new StandingConfig(StandingConfig.Titles.DEFAULTS, new StandingConfig.Town(t.softCap(), t.negativeDriftPerDay(),
+			t.positiveDriftPerDay(), t.unwitnessedBad(), t.unwitnessedGood(), t.seedFromSettlement(), true, t.newsPerTown(), t.newsMinWeight(),
+			t.arrivalLine(), t.trackInterval()), StandingConfig.Opinion.DEFAULTS, StandingConfig.Gossip.DEFAULTS, StandingConfig.Fame.DEFAULTS,
+			StandingConfig.Appearance.DEFAULTS, StandingConfig.Speech.DEFAULTS, StandingConfig.Companies.DEFAULTS);
 		this.ashbrook.addReputation(ALEX, 30);
 		assertEquals(30, this.engine.standing(1, ALEX), "a player with no entry reads the sim's number");
 		this.engine.deed(deed("quest:completed", 10, null, true));

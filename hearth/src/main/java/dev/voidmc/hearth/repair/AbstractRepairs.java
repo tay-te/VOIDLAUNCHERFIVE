@@ -40,7 +40,7 @@ public final class AbstractRepairs {
 	/** Per level: chunk → settlements with mended blocks waiting there. */
 	private final Map<ResourceKey<Level>, Long2ObjectOpenHashMap<LongOpenHashSet>> pending = new HashMap<>();
 	private final ArrayDeque<Job> ready = new ArrayDeque<>();
-	/** Blocks mended per (settlement, plot) in the current round, for {@link RepairEvents#REPAIRED}. */
+	/** Blocks mended per (settlement, plot) in the current round, for {@link dev.voidmc.hearth.api.SettlementEvents#REPAIRED}. */
 	private final Map<Long, Int2IntOpenHashMap> rounds = new HashMap<>();
 	private long nextAccrual;
 	long mended;
@@ -146,8 +146,6 @@ public final class AbstractRepairs {
 		long elapsed = Math.min(clock - q.lastAccrual, cfg.abstractRepair().maxCatchUpDays() * 24000L);
 		q.lastAccrual = clock;
 		int builders = recordBuilders(s);
-		// builders who walk about as entities mend for themselves; abstract labour comes only from those who do not
-		double labour = labour(builders, cfg.abstractRepair().blocksPerBuilderHour(), elapsed, q.carry);
 		if (builders == 0) {
 			q.carry = 0;
 			s.markDirty();
@@ -161,9 +159,16 @@ public final class AbstractRepairs {
 				todo.add(d);
 			}
 		}
+		// builders who walk about as entities mend for themselves; abstract labour comes only from those who do not, and
+		// out of their construction hours (repairs come first; the sim grants what its builders had to give)
+		double could = labour(builders, cfg.abstractRepair().blocksPerBuilderHour(), elapsed, 0);
+		int want = (int) Math.ceil(Math.min(todo.size(), could));
+		double labour = q.carry + (want <= 0 ? 0 : s.takeBuilderLabour(want));
 		todo.sort(Comparator.comparingInt((Damage d) -> d.stage).thenComparingInt(d -> net.minecraft.core.BlockPos.getY(d.pos)));
 		PlotLocator.Source source = PlotLocator.services(world);
 		int done = 0;
+		dev.voidmc.hearth.api.Goods stalledFor = null;
+		int stalled = 0;
 		List<Damage> found = new ArrayList<>();
 		for (Damage d : todo) {
 			if (labour < 1.0) {
@@ -177,6 +182,8 @@ public final class AbstractRepairs {
 			if (!d.has(Damage.LITTER) && cfg.queue().chargeGoods()) {
 				if (!RepairBill.affordable(s.stockpile(), expected)) {
 					d.defer(now + cfg.queue().deferTicks());
+					stalledFor = stalledFor == null ? RepairBill.missing(s.stockpile(), expected) : stalledFor;
+					stalled++;
 					continue;
 				}
 				RepairBill.charge(s.stockpile(), expected);
@@ -189,6 +196,13 @@ public final class AbstractRepairs {
 		}
 		// labour nothing could use is not banked beyond a day's worth
 		q.carry = carry(labour, builders, cfg.abstractRepair().blocksPerBuilderHour());
+		// out of goods: once per stall, so quests can ask for them (SettlementEvents.REPAIR_STALLED)
+		if (stalledFor != null && done == 0 && !q.stalled) {
+			q.stalled = true;
+			dev.voidmc.hearth.api.SettlementEvents.REPAIR_STALLED.invoker().onRepairStalled(world, s, stalledFor, stalled);
+		} else if (done > 0) {
+			q.stalled = false;
+		}
 		if (done > 0) {
 			this.mended += done;
 			s.markDirty();
@@ -349,7 +363,7 @@ public final class AbstractRepairs {
 		}
 	}
 
-	/** A block of a plot was put back; when the plot has none left, {@link RepairEvents#REPAIRED} fires. */
+	/** A block of a plot was put back; when the plot has none left, {@link dev.voidmc.hearth.api.SettlementEvents#REPAIRED} fires. */
 	void mendedOne(HearthWorld world, Settlement s, int plot) {
 		Int2IntOpenHashMap round = this.rounds.computeIfAbsent(s.id(), k -> new Int2IntOpenHashMap());
 		int blocks = round.addTo(plot, 1) + 1;
@@ -357,7 +371,7 @@ public final class AbstractRepairs {
 		if (q.countOf(plot) == 0) {
 			round.remove(plot);
 			try {
-				RepairEvents.REPAIRED.invoker().onRepaired(world, s, plot, blocks);
+				dev.voidmc.hearth.api.SettlementEvents.REPAIRED.invoker().onRepaired(world, s, plot, blocks);
 			} catch (RuntimeException e) {
 				RepairModule.LOG.warn("a REPAIRED listener failed", e);
 			}

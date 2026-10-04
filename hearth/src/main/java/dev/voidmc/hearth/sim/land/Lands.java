@@ -138,6 +138,45 @@ public final class Lands {
 	}
 
 	/**
+	 * A player reported a resource of {@code kind} at {@code pos} (a prospecting quest): a small survey round it (48
+	 * blocks, fine cells) finds the patch, and a site of that kind is added (or an exhausted one found again is refilled
+	 * from the new ground), firing {@code SITE_FOUND}. Null if the land there does not bear it out. Server thread; cheap
+	 * (a few hundred probe columns).
+	 */
+	public static @Nullable SimSite prospect(SimSettlement s, ResourceSite.Kind kind, BlockPos pos, SimContext c) {
+		int radius = 48;
+		List<Survey.Found> found = Survey.run(Land.of(c.terrain(), c.underground()), pos, radius, c.data(), new Survey.Params(24, 4, 12), (x, z) -> false);
+		Survey.Found best = null;
+		double bestScore = 0;
+		for (Survey.Found f : found) {
+			if (f.kind() != kind) {
+				continue;
+			}
+			double dx = f.center().getX() - pos.getX();
+			double dz = f.center().getZ() - pos.getZ();
+			double score = f.capacity() / (1 + Math.sqrt(dx * dx + dz * dz) / 16);
+			if (score > bestScore) {
+				bestScore = score;
+				best = f;
+			}
+		}
+		if (best == null) {
+			return null;
+		}
+		LandState land = s.land();
+		SimSite site = new SimSite(land.nextSite++, best.kind(), best.center(), best.area(), best.capacity(), best.capacity(), best.regen(), best.density(),
+			best.yields().clone(), best.material(), PlotView.NONE, best.cells(), best.ore(), best.fuel(), 0, 0);
+		land.sites.add(site);
+		land.touched();
+		s.markDirty();
+		HearthWorld w = c.eventWorld();
+		if (w != null) {
+			SettlementEvents.SITE_FOUND.invoker().onSite(w, s, site.view());
+		}
+		return site;
+	}
+
+	/**
 	 * Takes {@code used} units from a site (a worker-day's wear, or an excavation's cut rock). An exhausted site fires
 	 * {@code SITE_DEPLETED} once; logs taken from a natural wood (no woodlot working it) are owed to the world, felled
 	 * where its chunks load, when {@code owe}.

@@ -46,7 +46,9 @@ public enum PoiType implements StringRepresentable {
 	THRONE("throne"),
 	STAGE("stage"),
 	SICKBED("sickbed"),
-	STRONGBOX("strongbox");
+	STRONGBOX("strongbox"),
+	/** Where beasts are kept: a pasture's middle, a kraal, a pen, a stall (the sim stocks and returns animals there). */
+	PEN("pen");
 
 	public static final StringRepresentable.EnumCodec<PoiType> CODEC = StringRepresentable.fromEnum(PoiType::values);
 

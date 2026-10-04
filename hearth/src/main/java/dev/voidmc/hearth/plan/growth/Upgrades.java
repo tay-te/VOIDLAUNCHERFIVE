@@ -132,6 +132,15 @@ public final class Upgrades {
 			if (r >= 0) {
 				out.add(r);
 			}
+			// houses left empty in a decline stand for folk to move back into, not to be built over (p3-sim.md §5)
+			if (ctx.settlement.deserted(p.id())) {
+				out.add(p.id());
+			}
+		}
+		// projects players paid toward are never replaced (requests/p3-economy.md §2); worldgen threads have no economy
+		dev.voidmc.hearth.api.EconomyService eco = dev.voidmc.hearth.plan.PlanModule.isServerThread() ? dev.voidmc.hearth.api.HearthServices.economy() : null;
+		if (eco != null) {
+			out.addAll(eco.fundedPlots(ctx.settlement));
 		}
 		return out;
 	}

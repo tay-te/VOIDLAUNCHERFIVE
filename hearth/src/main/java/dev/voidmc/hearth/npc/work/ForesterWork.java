@@ -214,6 +214,8 @@ final class ForesterWork implements WorkBehaviour {
 						level.playSound(null, to, SoundEvents.WOOD_PLACE, SoundSource.BLOCKS, 0.8F, 0.8F);
 						brain.swing();
 						brain.folk.setFolkPose(FolkPose.NONE);
+						// the real logs of the real tree go into the stores (requests/p3-npc.md §3), not an average
+						brain.settlement.creditYield(brain.resident.id, dev.voidmc.hearth.api.Goods.LOGS, this.felled);
 						this.phase = Phase.DONE;
 					}
 				}

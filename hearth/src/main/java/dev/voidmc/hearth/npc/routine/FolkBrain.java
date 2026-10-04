@@ -385,6 +385,23 @@ public final class FolkBrain {
 
 	// ---------------------------------------------------------------- people
 
+	/** Game tick (the folk's own count) until which this folk stays up though the routine says sleep: a fire, an alarm. */
+	private int wokenUntil;
+
+	/** Wakes the folk (a fire, an alarm bell, a caught thief): they get up and stay up for {@code ticks}. */
+	public void wake(int ticks) {
+		this.wokenUntil = Math.max(this.wokenUntil, this.folk.tickCount + ticks);
+		if (this.folk.isSleeping()) {
+			this.folk.stopSleeping();
+		}
+		this.folk.setFolkPose(FolkPose.NONE);
+	}
+
+	/** Whether the folk was woken and should not lie down again yet. */
+	public boolean woken() {
+		return this.folk.tickCount < this.wokenUntil;
+	}
+
 	/** A player started talking to them: stop, face the player, listen. */
 	public void engage(ServerPlayer player) {
 		this.engagedWith = player;

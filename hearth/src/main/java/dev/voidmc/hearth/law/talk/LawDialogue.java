@@ -109,7 +109,7 @@ public final class LawDialogue implements DialogueProvider {
 			return true;
 		}
 		if (player.getRandom().nextDouble() < SpeechCheck.bribe(amount, amount, worst, FolkTraits.of(r).listener())) {
-			economy.charge(player, amount);
+			economy.bribe(player, s, r, amount);
 			CrimeDesk.silence(s, r.id, player.getUUID());
 			CrimeDesk.deed(s, player.getUUID(), "law:bribed_witness", -2, r.id, player.blockPosition(), false);
 			tell(player, r, "hearth.law.witness.bribed");
@@ -151,7 +151,8 @@ public final class LawDialogue implements DialogueProvider {
 	/** A fence: a FENCE anywhere; in one town in three of village size or more, the innkeeper. */
 	static boolean isFence(Settlement s, Resident r) {
 		if (r.job == JobType.FENCE) {
-			return true;
+			// with the economy module a FENCE keeps a real shop (its till, its shelves): the market's fence, not this one
+			return HearthServices.economy() == null;
 		}
 		return r.job == JobType.INNKEEPER && s.tier().ordinal() >= SettlementTier.VILLAGE.ordinal() && Math.floorMod(s.id() * 0x9E3779B97F4A7C15L, 3) == 0;
 	}
@@ -181,7 +182,8 @@ public final class LawDialogue implements DialogueProvider {
 		CompoundTag tag = r.extra("law");
 		long spentDay = tag.getLongOr("fence_day", Long.MIN_VALUE);
 		long spent = spentDay == today ? tag.getLongOr("fence_spent", 0) : 0;
-		long cash = fenceCash(r, s) - spent;
+		// the fence's own coin: no more than their purse holds, paid out of it (no new money)
+		long cash = Math.min(fenceCash(r, s) - spent, economy.purse(r));
 		Inventory inv = player.getInventory();
 		long paid = 0;
 		int sold = 0;
@@ -201,6 +203,7 @@ public final class LawDialogue implements DialogueProvider {
 			inv.setItem(i, ItemStack.EMPTY);
 		}
 		if (paid > 0) {
+			paid = economy.takeFromPurse(s, r, paid);
 			economy.pay(player, paid);
 			tag.putLong("fence_day", today);
 			tag.putLong("fence_spent", spent + paid);

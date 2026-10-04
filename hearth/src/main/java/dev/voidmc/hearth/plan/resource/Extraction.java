@@ -226,7 +226,13 @@ public final class Extraction {
 		int cx = p.x0 + p.sizeX / 2;
 		int cz = p.z0 + p.sizeZ / 2;
 		String[] rock = Materials.rock(g.probe().biome(cx, cz), g.ground(cx, cz), g.seaLevel(), g.probe().temperature(cx, cz), ctx.hash(site.id(), 1, 93));
-		params.putString("rock", rock[0].contains("|") ? rock[0].substring(rock[0].lastIndexOf('|') + 1) : rock[0]);
+		String rockId = rock[0].contains("|") ? rock[0].substring(rock[0].lastIndexOf('|') + 1) : rock[0];
+		Identifier surveyed = site.material();
+		if (surveyed != null && (site.kind() == ResourceSite.Kind.STONE || site.kind() == ResourceSite.Kind.CLAY || site.kind() == ResourceSite.Kind.SAND)
+			&& knownNamespace(surveyed.getNamespace())) {
+			rockId = surveyed.toString(); // the survey's own reading of the face (requests/p3-sim.md §1)
+		}
+		params.putString("rock", rockId);
 		Direction face = p.facing.getOpposite();
 		params.putString("face", face.getSerializedName());
 		if (id.equals(Archetypes.QUARRY_PIT)) {
@@ -252,6 +258,18 @@ public final class Extraction {
 			params.putString("speciality", site.speciality().toString());
 		}
 		return params;
+	}
+
+	/** Whether blocks of this namespace exist in this game (vanilla, or a mod that is loaded: Expanse's rocks need Expanse). */
+	private static boolean knownNamespace(String ns) {
+		if (ns.equals("minecraft")) {
+			return true;
+		}
+		try {
+			return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(ns);
+		} catch (Throwable t) {
+			return false;
+		}
 	}
 
 	/** How far down a shaft reaches: to the realm floor if a realm lies under it, else down to where the ore is richest. */

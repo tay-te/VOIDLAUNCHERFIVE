@@ -79,7 +79,15 @@ public final class Territory {
 	 */
 	public int capacity() {
 		if (this.capacity < 0) {
-			this.capacity = estimateCapacity(this.sites, this.ctx.config.living());
+			// one carrying capacity: the sim's, when it reckons one (requests/p3-plan.md §2); else the planner's estimate
+			int sim = this.ctx.settlement.carryingCapacity();
+			if (!this.ctx.config.living().carryingCapacity()) {
+				this.capacity = 0;
+			} else if (sim > 0 && sim != Integer.MAX_VALUE) {
+				this.capacity = sim;
+			} else {
+				this.capacity = estimateCapacity(this.sites, this.ctx.config.living());
+			}
 		}
 		return this.capacity;
 	}

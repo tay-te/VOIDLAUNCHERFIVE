@@ -96,15 +96,15 @@ public final class SelfTest {
 
 	/** Counts the module's events while a test runs (registered once, at mod init; idle otherwise). */
 	public static void listen() {
-		dev.voidmc.hearth.api.SettlementEvents.DAMAGED.register((w, s, p, cause, n) -> {
+		dev.voidmc.hearth.api.SettlementEvents.DAMAGED.register((w, s, p, cause, n, who) -> {
 			if (running != null && running.phase != Phase.DONE) {
 				EVENTS[0]++;
 				EVENTS[1] += n;
 			}
 		});
-		dev.voidmc.hearth.repair.RepairEvents.FIRE_STARTED.register((w, s, at) -> EVENTS[2]++);
-		dev.voidmc.hearth.repair.RepairEvents.FIRE_OUT.register((w, s, burned, helpers) -> EVENTS[3]++);
-		dev.voidmc.hearth.repair.RepairEvents.REPAIRED.register((w, s, plot, blocks) -> EVENTS[4]++);
+		dev.voidmc.hearth.api.SettlementEvents.FIRE_STARTED.register((w, s, at) -> EVENTS[2]++);
+		dev.voidmc.hearth.api.SettlementEvents.FIRE_OUT.register((w, s, burned, helpers) -> EVENTS[3]++);
+		dev.voidmc.hearth.api.SettlementEvents.REPAIRED.register((w, s, plot, blocks) -> EVENTS[4]++);
 	}
 
 	/** Starts the dev self-test from a system property, once a settlement with buildings exists. */

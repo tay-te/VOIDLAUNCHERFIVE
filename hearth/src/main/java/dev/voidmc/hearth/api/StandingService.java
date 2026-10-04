@@ -43,6 +43,48 @@ public interface StandingService {
 	/** The company (a sworn band of players sharing some standing) the player belongs to, or null. */
 	@Nullable String company(UUID player);
 
+	/** Signed renown around {@code near}, −100 (infamous) to 100 (famous for good deeds); {@link #fame} is unsigned. */
+	default int renown(UUID player, BlockPos near) {
+		return 0;
+	}
+
+	/** A small personal memory without town effects (something said in conversation): moves one resident's opinion. */
+	default void remember(UUID resident, UUID player, String kind, int weight) {
+	}
+
+	// ---- speech checks (docs/LIVING_WORLD.md §5): one model for guards, witnesses, merchants and officials
+
+	/**
+	 * The odds of talking a resident round now, from standing, their opinion, the player's look and the resident's traits.
+	 *
+	 * @param difficulty how hard the ask is: 0 an easy favour, 0.2 a real favour, 0.5 asking them to break the law
+	 * @param bribeBits  coin offered (bribes only; compared with {@link #expectedBribe})
+	 */
+	default Odds odds(ServerPlayer player, Settlement settlement, Resident resident, Speech kind, double difficulty, long bribeBits) {
+		return new Odds(kind, 0.5, java.util.List.of());
+	}
+
+	/** Rolls a check and leaves its memory with the resident (a threat sours them even when it works). */
+	default boolean attempt(ServerPlayer player, Settlement settlement, Resident resident, Speech kind, double difficulty, long bribeBits) {
+		return player.getRandom().nextDouble() < odds(player, settlement, resident, kind, difficulty, bribeBits).chance();
+	}
+
+	/** What the resident expects to be paid to look the other way, in bits. */
+	default long expectedBribe(Resident resident, double difficulty) {
+		return Math.max(1, Math.round(20 * (1 + 3 * Math.max(0, difficulty))));
+	}
+
+	enum Speech {
+		PERSUADE, INTIMIDATE, BRIBE, FLATTER
+	}
+
+	/** @param factors translation keys (under {@code hearth.standing.factor.}) of the reasons, with their signed share */
+	record Odds(Speech kind, double chance, java.util.List<java.util.Map.Entry<String, Double>> factors) {
+		public int percent() {
+			return (int) Math.round(this.chance * 100);
+		}
+	}
+
 	/**
 	 * @param kind     a namespaced id of what happened ({@code quest:completed}, {@code law:theft}, {@code economy:donation},
 	 *                 {@code repair:helped}), which the standing module maps to effects and to the words of the gossip

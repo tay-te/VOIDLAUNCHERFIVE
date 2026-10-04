@@ -39,6 +39,11 @@ public interface TerrainProbe {
 	/** The surface temperature on vanilla's scale (below 0.15 it snows). */
 	float temperature(int x, int z);
 
+	/** The open spaces under this ground (Expanse realms) when the probe knows them, else null: deep towns read it. */
+	default @Nullable UndergroundProbe underground() {
+		return null;
+	}
+
 	default boolean isWater(int x, int z) {
 		return waterY(x, z) != NO_WATER;
 	}

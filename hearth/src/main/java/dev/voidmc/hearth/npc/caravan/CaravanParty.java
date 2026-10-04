@@ -308,6 +308,11 @@ public final class CaravanParty implements Folk.Controller {
 	}
 
 	/** Whether a player overcame the caravan (everyone of it dead by their hand). */
+	/** Who overcame the caravan (the last player who turned on it), or null. */
+	@org.jspecify.annotations.Nullable UUID robber() {
+		return this.hostile;
+	}
+
 	boolean robbed() {
 		return this.robbed;
 	}
@@ -415,6 +420,17 @@ public final class CaravanParty implements Folk.Controller {
 		if (source.getEntity() instanceof ServerPlayer player && !player.isCreative()) {
 			this.hostile = player.getUUID();
 			report(level, player, LawService.Offence.ROBBERY, animal.blockPosition(), this.journey.units() * BITS_PER_UNIT / Math.max(1, this.animals.size()));
+			// what it carried is the home town's, stolen: its merchants will know it (the fence will not mind)
+			LawService law = HearthServices.law();
+			if (law != null) {
+				LawService.Owner owner = new LawService.Owner(this.journey.fromId(), null, null, LawService.Owner.Kind.SETTLEMENT);
+				for (net.minecraft.world.entity.item.ItemEntity item : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+					animal.getBoundingBox().inflate(2.5), e -> e.tickCount < 5)) {
+					net.minecraft.world.item.ItemStack stack = item.getItem().copy();
+					law.markStolen(stack, owner, player.getUUID());
+					item.setItem(stack);
+				}
+			}
 		}
 	}
 

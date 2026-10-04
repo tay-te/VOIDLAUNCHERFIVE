@@ -21,6 +21,10 @@ public final class NpcTime {
 	}
 
 	/** Whole sim days since the world began (0 with no server running, as in tests). */
+	public static @Nullable MinecraftServer server() {
+		return server;
+	}
+
 	public static long today() {
 		MinecraftServer s = server;
 		if (s == null) {

@@ -53,7 +53,7 @@ class DeepTownTest {
 		assertEquals(1, lifts.size(), "one lift down to the realm");
 		PlotSpec lift = lifts.get(0).spec();
 		assertEquals(caved.theRealm().id(), lift.params().getLongOr("realm", 0));
-		assertTrue(lift.params().getIntOr("top_y", 0) > lift.floorY() + 30, "the lift runs from the street down to the realm floor");
+		assertTrue(lift.params().getIntOr("top_y", 0) > lift.floorY() + 30, "the lift runs from the street down to the realm floor: " + lift.params() + " floor " + lift.floorY());
 		int deep = 0;
 		for (PlotView p : sim.settlement.plots()) {
 			PlotSpec s = p.spec();
