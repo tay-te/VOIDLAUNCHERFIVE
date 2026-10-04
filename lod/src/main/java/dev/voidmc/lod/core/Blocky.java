@@ -66,6 +66,9 @@ final class Blocky {
 		this.occlusion();
 		this.tops();
 		this.walls(4 + 3 * this.s.cell);
+		if (this.out.pack()) {
+			this.beds(4 + 3 * this.s.cell);
+		}
 		if (floating) {
 			this.floors();
 			this.steps();
@@ -76,9 +79,9 @@ final class Blocky {
 	private boolean cells() {
 		Samples s = this.s;
 		double centre = s.cell == 1 ? 0.5 : 0;
-		// Heights in steps of a quarter of a cell: where cells are a few pixels across, a smaller step is under a
-		// pixel, and neighbours that come out level need no wall between them and merge their tops. Rounded up,
-		// so the surface never sinks below the ground it stands for.
+		// Tree crowns in steps of a quarter of a cell: where cells are a few pixels across, a smaller step is under a
+		// pixel, and crowns that come out level need no wall between them. (Not the ground: rounding it lifts a beach a
+		// block above the sea a whole step out of it.)
 		int q = Math.max(1, s.cell / 4);
 		boolean floating = false;
 		for (int j = -1; j <= N; j++) {
@@ -91,7 +94,6 @@ final class Blocky {
 					continue;
 				}
 				int g = (int) Math.ceil(s.ground[k] - 1e-3F);
-				g = Math.ceilDiv(g, q) * q;
 				this.ground[k] = g;
 				this.base[k] = Float.isInfinite(s.bottom[k]) ? DEEP : Math.min(g - 1, (int) Math.floor(s.bottom[k]));
 				floating |= this.base[k] != DEEP && i >= 0 && j >= 0 && i < N && j < N;
@@ -267,7 +269,8 @@ final class Blocky {
 						k = alongX ? this.s.at(a, row) : this.s.at(row, a);
 						int n = k + out;
 						t = this.top[k];
-						f = this.top[n];
+						// for a pack, whose water shows what is under it, a shore goes down to the bed beyond, not the surface
+						f = this.out.pack() && !this.wet[k] && this.wet[n] ? this.ground[n] : this.top[n];
 						if (this.s.empty[n]) {
 							// the rim of an island: down to its underside, with no floor to darken toward
 							b = this.base[k] != DEEP ? this.base[k] : this.ground[k] - RIM_DEPTH;
@@ -293,6 +296,87 @@ final class Blocky {
 				}
 			}
 		}
+	}
+
+	/**
+	 * The bed under the water, for a shader pack: its water program blends the surface over whatever lies beneath, so the
+	 * LOD draws the floor the water stands on, as the chunks have it, merged into rectangles where it is level, with
+	 * walls of rock where it steps down (and a skirt at the tile's edge). Our own renderer draws water opaque and skips it.
+	 */
+	private void beds(int skirt) {
+		Samples s = this.s;
+		Arrays.fill(this.done, false);
+		for (int j = 0; j < N; j++) {
+			for (int i = 0; i < N; i++) {
+				int k = s.at(i, j);
+				if (this.done[i + j * N] || !this.wet[k] || s.empty[k]) {
+					continue;
+				}
+				int w = 1;
+				while (i + w < N && this.bedMergeable(i + w, j, k)) {
+					w++;
+				}
+				int d = 1;
+				grow:
+				while (j + d < N) {
+					for (int a = 0; a < w; a++) {
+						if (!this.bedMergeable(i + a, j + d, k)) {
+							break grow;
+						}
+					}
+					d++;
+				}
+				for (int b = 0; b < d; b++) {
+					for (int a = 0; a < w; a++) {
+						this.done[i + a + (j + b) * N] = true;
+					}
+				}
+				int y = this.ground[k];
+				int c = s.top[k] & COLOR_MASK;
+				int m = TileBuilder.material(s.topMaterial[k]);
+				int ao = ao(0);
+				this.out.light(k);
+				this.out.vertex(i, y, j, TileBuilder.UP, c, ao, m, 0);
+				this.out.vertex(i, y, j + d, TileBuilder.UP, c, ao, m, 0);
+				this.out.vertex(i + w, y, j + d, TileBuilder.UP, c, ao, m, 0);
+				this.out.vertex(i + w, y, j, TileBuilder.UP, c, ao, m, 0);
+			}
+		}
+		for (int dir = 0; dir < 4; dir++) {
+			boolean alongX = dir < 2;
+			int out = switch (dir) {
+				case 0 -> -W;
+				case 1 -> W;
+				case 2 -> -1;
+				default -> 1;
+			};
+			for (int row = 0; row < N; row++) {
+				boolean border = dir == 0 || dir == 2 ? row == 0 : row == N - 1;
+				int edge = dir == 0 || dir == 2 ? row : row + 1;
+				for (int a = 0; a < N; a++) {
+					int k = alongX ? s.at(a, row) : s.at(row, a);
+					if (!this.wet[k] || s.empty[k]) {
+						continue;
+					}
+					int n = k + out;
+					int t = this.ground[k];
+					// the floor beyond: another bed, or the land's own top (its walls come down to this bed already)
+					int f = s.empty[n] ? t - skirt : this.wet[n] ? this.ground[n] : Math.min(t, this.top[n]);
+					int b = border ? Math.min(t, f) - skirt : f;
+					if (t > b) {
+						this.out.light(k);
+						this.band(dir, edge, a, a + 1, t, b, f, this.rock[k], s.rockMaterial[k]);
+					}
+				}
+			}
+		}
+	}
+
+	private boolean bedMergeable(int i, int j, int k) {
+		int o = this.s.at(i, j);
+		return !this.done[i + j * N] && this.wet[o] && !this.s.empty[o] && this.ground[o] == this.ground[k]
+			&& (this.s.top[o] & COLOR_MASK) == (this.s.top[k] & COLOR_MASK) && this.s.topMaterial[o] == this.s.topMaterial[k]
+			&& this.out.sameLight(o, k);
 	}
 
 	private boolean sameColumn(int a, int b) {

@@ -286,17 +286,29 @@ again after leaving and rejoining, when its chunks never load:
 * **Sodium** (0.9.2 tested) replaces the chunk renderer, but its chunks still draw inside vanilla's main
   pass, so the LOD draws right after them exactly as without it. Nothing to configure.
 * **Iris without a shader pack** renders like vanilla, and so does the LOD.
-* **Iris with a shader pack** renders the world into the pack's own buffers and lights them in the pack's
-  passes, which know nothing of the LOD: drawn in there, the LOD came out unlit and dark. So while a pack
-  is on (`compat/Shaders`), the LOD waits until the pack has written its final picture, then draws on top
-  of it in one more pass, tested against the depth the world left, so it covers only sky. Its haze fades
-  into a copy of the pack's picture rather than vanilla's fog colour, so the far land melts into the
-  pack's own sky, whatever colour that is. Costs: one screen-sized copy a frame, nothing else.
+* **Iris with a shader pack** renders the world into the pack's own buffers and lights it in the pack's
+  own passes. Most packs carry programs for Distant Horizons' far terrain (`dh_terrain`, `dh_water`), and
+  the LOD draws through those (`compat/iris`), so the pack lights the far land as it lights everything else:
+  its sun, sky light, fog, water, reflections, screen-space shadows and colour grading, with no seam where
+  the chunks end. Distant Horizons does not need to be installed. Mixins on Iris's Distant Horizons facade
+  (`DHCompat`) answer for it: the pack is compiled with `DISTANT_HORIZONS`, and its `dhRenderDistance`,
+  `dhProjection` and `dhDepthTex` are the LOD's. Tiles are then built in Distant Horizons' vertex layout
+  (position, colour, a material such as leaves, grass, stone or water, a face normal and the sky light
+  from the land's own occlusion), drawn into the pack's buffers before the chunks, which cover them
+  wherever they stand. The water goes after the world's translucent pass, through `dh_water`, over a bed
+  drawn under it, so the sea shows its floor in the shallows as the chunks do. Depth is reversed, as
+  everywhere in 26.3: Iris patches the pack's programs to write it reversed and to read every depth texture
+  back the usual way round, so the LOD's depth clears to 0 and tests greater-or-equal.
 
-  What that leaves out: the pack's lighting and shadows stay on the chunks (the LOD keeps its own sun
-  and relief), rain the pack draws in front of the far land is covered, and a pack's border fog still
-  fades the chunks' edge into sky just in front of the LOD; turn it off in the pack's settings if it has
-  the option, as for Distant Horizons.
+  A pack without Distant Horizons programs gets the fallback: the LOD waits until the pack has written its
+  final picture and draws on top of it, tested against the world's depth so it covers only sky, its haze
+  fading into a copy of the pack's picture so the far land melts into the pack's sky. The pack's lighting
+  stays on the chunks there, and its border fog fades the chunks' edge just in front of the LOD. With
+  Distant Horizons installed too, Iris keeps its own integration and the LOD takes the fallback.
+
+  Tested with Complementary Reimagined r5.9.3 at the High preset (8 km), on the showcase views:
+
+  ![dusk over the badlands, the far land lit by Complementary Reimagined](docs/shader_pack_dusk.jpg)
 
 The game test runs with them: `-Psodium` adds Sodium, `-Piris` Sodium and Iris (from Modrinth's Maven,
 for dev runs only; nothing of either ships). Put a pack in `build/run/clientGameTest/shaderpacks` and
@@ -335,7 +347,7 @@ override the file for the session without being written back (dev runs and the g
 | `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
 | `smoothFrom` | `void.lod.smoothFrom` | `10` (none) | the first level drawn as the smooth far field instead of blocks (read at start) |
 | | `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
-| | `void.lod.overPack` | `true` | with an Iris shader pack, draw over the pack's picture (`false`: inside its buffers, to compare) |
+| | `void.lod.overPack` | `true` | with a shader pack that has no Distant Horizons programs, draw over its picture (`false`: inside its buffers, unlit, to compare) |
 
 ### Quality presets
 
@@ -440,9 +452,10 @@ model, but only loads it when Expanse is installed.
 
 * **Land on a server nobody has seen.** Without the generator, the far view on a server is what the
   client has seen; a small server-side companion could stream column summaries of the rest.
-* **Shader-pack lighting on the LOD.** With a pack on, the LOD draws over the pack's picture in its own
-  style. Lighting it the pack's way needs a program in the pack for the LOD's vertices, as packs carry
-  for Distant Horizons.
+* **The LOD in a shader pack's shadow map.** Through a pack, the far land is lit by the pack but casts
+  no shadow into its shadow map (Distant Horizons' `dh_shadow`); Complementary covers it with its
+  screen-space shadows on the far terrain, other packs may not. Nor does the pack get block textures for
+  the far land (`dhBlockAtlas`): it draws the LOD's colours.
 * **Block textures from the real blocks.** The textures follow what the generator puts on the surface;
   loaded chunks could put their own blocks' ids on the faces through the same registry. A grass
   block's fringe takes the default grass tint against the biome's (the face's colour is the biome's).

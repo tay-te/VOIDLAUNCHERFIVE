@@ -1,0 +1,51 @@
+package dev.voidmc.lod.render;
+
+import java.util.Arrays;
+
+/**
+ * This frame's tiles for a shader pack's Distant Horizons programs, as plain GL handles and counts: per tile the vertex
+ * buffer it lives in, where its vertices start, its land and its water as index ranges, and where it is relative to the
+ * camera. Filled by {@link LodRenderer} while it prepares the frame, drawn by the pack renderer (compat.iris), which is
+ * the only part that knows Iris.
+ */
+public final class PackFrame {
+	public int count;
+	public int[] heap = new int[256];
+	public int[] baseVertex = new int[256];
+	public int[] landIndices = new int[256];
+	public int[] waterFirst = new int[256];
+	public int[] waterIndices = new int[256];
+	/** x, y, z per tile: its corner (y: the vertical offset its vertices carry) relative to the camera, in blocks. */
+	public float[] offset = new float[256 * 3];
+	/** The shared quad index buffer: its GL handle, the GL type of its indices and their size in bytes. */
+	public int indexBuffer;
+	public int indexType;
+	public int indexBytes;
+	/** How far vanilla's chunks reach: the pack's programs fade the LOD in toward it. */
+	public float clip;
+
+	void clear() {
+		this.count = 0;
+	}
+
+	void add(int heap, int baseVertex, int landIndices, int waterFirst, int waterIndices, double x, double y, double z) {
+		if (this.count == this.heap.length) {
+			int n = this.count * 2;
+			this.heap = Arrays.copyOf(this.heap, n);
+			this.baseVertex = Arrays.copyOf(this.baseVertex, n);
+			this.landIndices = Arrays.copyOf(this.landIndices, n);
+			this.waterFirst = Arrays.copyOf(this.waterFirst, n);
+			this.waterIndices = Arrays.copyOf(this.waterIndices, n);
+			this.offset = Arrays.copyOf(this.offset, n * 3);
+		}
+		int i = this.count++;
+		this.heap[i] = heap;
+		this.baseVertex[i] = baseVertex;
+		this.landIndices[i] = landIndices;
+		this.waterFirst[i] = waterFirst;
+		this.waterIndices[i] = waterIndices;
+		this.offset[i * 3] = (float) x;
+		this.offset[i * 3 + 1] = (float) y;
+		this.offset[i * 3 + 2] = (float) z;
+	}
+}

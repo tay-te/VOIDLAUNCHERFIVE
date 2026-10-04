@@ -3,6 +3,7 @@ package dev.voidmc.lod;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.VideoMode;
 import com.mojang.renderpearl.api.commands.RenderPass;
+import dev.voidmc.lod.compat.Shaders;
 import dev.voidmc.lod.core.AutoTune;
 import dev.voidmc.lod.core.ColumnFiles;
 import dev.voidmc.lod.core.ColumnStore;
@@ -300,6 +301,7 @@ public final class VoidLod implements ClientModInitializer {
 			return null;
 		}
 		Materials materials = new Materials();
+		TileBuilder.packMaterials = new dev.voidmc.lod.source.PackMaterials(materials);
 		TerrainSource generator = this.createGenerator(mc, materials);
 		if (!this.ingestChunks) {
 			return generator;
@@ -458,6 +460,13 @@ public final class VoidLod implements ClientModInitializer {
 		this.sun[1] = (float) Math.cos(sunAngle);
 		this.sun[2] = 0;
 		this.sun[3] = Math.max(0, Math.min(1, this.sun[1] * 4));
+		// a shader pack that draws the LOD itself needs its tiles in Distant Horizons' layout: built again when that changes
+		boolean pack = Shaders.packDraws();
+		if (pack != TileBuilder.packFormat) {
+			TileBuilder.packFormat = pack;
+			this.engine.reset(this.engine.source(), this.gpu());
+		}
+		this.renderer.setPackMode(pack);
 		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun, this.sky);
 		LodRenderer r = this.renderer;
 		if (this.settings.autoTune && r.lastTiles > 0 && !this.fogHidesLod
@@ -475,6 +484,21 @@ public final class VoidLod implements ClientModInitializer {
 	}
 
 	/** Draws over the shader pack's finished picture in the main target (see {@link LodRenderer#drawOver}). */
+	/**
+	 * Has the shader pack draw the prepared frame through its Distant Horizons programs, or only clear the LOD's depth
+	 * when there is nothing to draw (off, or hidden by fog), so the pack sees no far terrain.
+	 */
+	public void drawPack() {
+		LodRenderer r = this.renderer;
+		Shaders.drawPack(this.active() && r != null && !this.fogHidesLod ? r.packFrame : null);
+	}
+
+	/** This frame's tiles for the shader pack, or null when there is nothing for it to draw. */
+	public dev.voidmc.lod.render.PackFrame packFrame() {
+		LodRenderer r = this.renderer;
+		return this.active() && r != null && !this.fogHidesLod ? r.packFrame : null;
+	}
+
 	public void drawOverPack() {
 		if (this.active() && this.renderer != null && !this.fogHidesLod) {
 			this.renderer.drawOver(Minecraft.getInstance().gameRenderer.mainRenderTarget());

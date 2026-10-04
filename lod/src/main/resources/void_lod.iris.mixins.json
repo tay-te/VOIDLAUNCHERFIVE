@@ -1,0 +1,14 @@
+{
+	"required": false,
+	"package": "dev.voidmc.lod.mixin.iris",
+	"plugin": "dev.voidmc.lod.mixin.iris.IrisMixinPlugin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"DHCompatMixin",
+		"IrisPipelineMixin",
+		"StandardMacrosMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

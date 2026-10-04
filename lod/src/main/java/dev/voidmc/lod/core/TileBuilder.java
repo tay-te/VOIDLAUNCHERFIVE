@@ -44,6 +44,20 @@ public final class TileBuilder {
 	public static final int COMPACT_BYTES = 8;
 	/** The first level whose blocky tiles are compact. */
 	public static final int COMPACT_FROM = 2;
+	/**
+	 * Whether tiles are built for a shader pack's Distant Horizons programs ({@code compat.iris.PackLodRenderer}): every
+	 * level blocky, in Distant Horizons' vertex layout (16 bytes: x, y, z and light as unsigned shorts, x and z in blocks
+	 * from the tile's corner and y plus {@link #PACK_Y_OFFSET}; the colour; the material, the face and no texture), with
+	 * the water last so it can go through the pack's water program. Set before the engine's tiles are rebuilt.
+	 */
+	public static volatile boolean packFormat;
+	/** Added to every height in the pack layout, whose positions are unsigned. */
+	public static final int PACK_Y_OFFSET = 4096;
+	/**
+	 * The Distant Horizons material of a face's material id (leaves, stone, grass, water...), which packs shade by: set
+	 * with the world's material registry. Null: everything is stone.
+	 */
+	public static volatile java.util.function.IntUnaryOperator packMaterials;
 	public static final int UP = 0;
 	public static final int SMOOTH = 1;
 	/** The underside of land floating over the void. */
@@ -80,6 +94,8 @@ public final class TileBuilder {
 	private int lightFlags;
 	/** Whether this build writes compact vertices ({@link #COMPACT_BYTES}). */
 	private boolean compact;
+	/** Whether this build writes the Distant Horizons layout ({@link #packFormat}). */
+	private boolean pack;
 	private ByteBuffer out = ByteBuffer.allocateDirect(128 * 1024).order(ByteOrder.nativeOrder());
 	private int vertices;
 	private int minY;
@@ -117,8 +133,9 @@ public final class TileBuilder {
 	public Mesh build(TerrainSource source, long key, Heights heights) {
 		int level = TileKey.level(key);
 		this.begin();
-		boolean smooth = level >= smoothFrom;
-		this.compact = !smooth && level >= COMPACT_FROM;
+		this.pack = packFormat;
+		boolean smooth = !this.pack && level >= smoothFrom;
+		this.compact = !this.pack && !smooth && level >= COMPACT_FROM;
 		int indices;
 		int firstIndex = 0;
 		boolean holes = false;
@@ -144,8 +161,43 @@ public final class TileBuilder {
 		if (this.vertices == 0) {
 			this.minY = this.maxY = 0;
 		}
+		int land = this.pack ? this.waterLast() * 6 : indices;
 		this.out.flip();
-		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact);
+		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes, this.compact, land);
+	}
+
+	/**
+	 * Moves the water's quads after the land's, in a pack-layout mesh, so the two draw as separate ranges (the land through
+	 * the pack's terrain program, the water through its water program). Returns the land's quads.
+	 */
+	private int waterLast() {
+		int quads = this.vertices / 4;
+		int quadBytes = 4 * VERTEX_BYTES;
+		byte[] water = null;
+		int waterQuads = 0;
+		int land = 0;
+		byte[] quad = new byte[quadBytes];
+		for (int q = 0; q < quads; q++) {
+			// the material, in the first vertex's extra byte
+			boolean wet = (this.out.get(q * quadBytes + 12) & 0xFF) == PACK_WATER;
+			if (wet) {
+				if (water == null) {
+					water = new byte[quads * quadBytes];
+				}
+				this.out.get(q * quadBytes, water, waterQuads * quadBytes, quadBytes);
+				waterQuads++;
+			} else {
+				if (land != q) {
+					this.out.get(q * quadBytes, quad, 0, quadBytes);
+					this.out.put(land * quadBytes, quad, 0, quadBytes);
+				}
+				land++;
+			}
+		}
+		if (waterQuads > 0) {
+			this.out.put(land * quadBytes, water, 0, waterQuads * quadBytes);
+		}
+		return land;
 	}
 
 	/**
@@ -216,6 +268,11 @@ public final class TileBuilder {
 		this.lightFlags = this.horizons.occlusion[k] << 8;
 	}
 
+	/** Whether this build writes the Distant Horizons layout, for a shader pack: its water shows what lies under it. */
+	boolean pack() {
+		return this.pack;
+	}
+
 	/** Whether this build writes compact vertices: untextured, so what a face is made of does not matter. */
 	boolean compact() {
 		return this.compact;
@@ -261,6 +318,10 @@ public final class TileBuilder {
 	}
 
 	void vertex(int x, float y, int z, int flags, int top, int topAlpha, int side, int sideAlpha) {
+		if (this.pack) {
+			this.packVertex(x, y, z, flags, top, side);
+			return;
+		}
 		if (this.compact) {
 			this.compactVertex(x, y, z, flags, top, topAlpha);
 			return;
@@ -284,6 +345,46 @@ public final class TileBuilder {
 		}
 		if (hi > this.maxY) {
 			this.maxY = hi;
+		}
+	}
+
+	/** Distant Horizons' water material, which packs draw through their water program. */
+	static final int PACK_WATER = 12;
+	private static final int PACK_STONE = 2;
+	/** Our faces (0 up, 2..5 north, south, west, east, 6 down) as Distant Horizons numbers them (down, up, n, s, w, e). */
+	private static final int[] PACK_NORMAL = {1, 1, 2, 3, 4, 5, 0, 0};
+
+	private void packVertex(int x, float y, int z, int flags, int top, int side) {
+		if (this.out.remaining() < VERTEX_BYTES) {
+			ByteBuffer bigger = ByteBuffer.allocateDirect(this.out.capacity() * 2).order(ByteOrder.nativeOrder());
+			this.out.flip();
+			bigger.put(this.out);
+			this.out = bigger;
+		}
+		int cell = this.samples.cell;
+		int yb = Math.max(-PACK_Y_OFFSET, Math.min(65535 - PACK_Y_OFFSET, Math.round(y)));
+		// sky light from how much of the sky the land around hides: the pack's ambient light, darker down in valleys
+		int occlusion = this.lightFlags >> 8 & 255;
+		int sky = Math.max(8, 15 - Math.round(occlusion * 7 / 255.0F));
+		int material;
+		if ((flags & WATER) != 0) {
+			material = PACK_WATER;
+		} else {
+			int id = (side >> 16 & 0xFF) | (side & 0xFF00);
+			java.util.function.IntUnaryOperator materials = packMaterials;
+			material = id == 0 || materials == null ? PACK_STONE : materials.applyAsInt(id);
+		}
+		ByteBuffer b = this.out;
+		b.putShort((short) (x * cell)).putShort((short) (yb + PACK_Y_OFFSET)).putShort((short) (z * cell)).putShort((short) sky);
+		// water at about the opacity of vanilla's water texture, over the bed drawn under it (Blocky.beds)
+		b.put((byte) (top >> 16)).put((byte) (top >> 8)).put((byte) top).put((byte) (material == PACK_WATER ? 180 : 255));
+		b.put((byte) material).put((byte) PACK_NORMAL[flags & 7]).put((byte) 0).put((byte) 0);
+		this.vertices++;
+		if (yb < this.minY) {
+			this.minY = yb;
+		}
+		if (yb > this.maxY) {
+			this.maxY = yb;
 		}
 	}
 
@@ -357,11 +458,11 @@ public final class TileBuilder {
 	 * {@code holes}: a smooth mesh with void in it, which only the shader variant that discards can draw.
 	 */
 	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
-		short[] occluders, boolean holes, boolean compact) {
+		short[] occluders, boolean holes, boolean compact, int landIndices) {
 		/** The same mesh over other vertices: the copy handed to the renderer. */
 		public Mesh withVertices(ByteBuffer vertices) {
 			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders,
-				this.holes, this.compact);
+				this.holes, this.compact, this.landIndices);
 		}
 
 		/** Bytes a vertex of this mesh takes. */

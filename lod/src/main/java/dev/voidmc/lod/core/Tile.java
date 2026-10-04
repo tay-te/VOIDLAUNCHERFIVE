@@ -23,6 +23,8 @@ public final class Tile {
 	public int quads;
 	public int vertices;
 	public int indices;
+	/** Of those, the land's: a pack-layout tile's water comes after it ({@link TileBuilder#packFormat}). */
+	public int landIndices;
 	/** Where the tile's indices start in the index buffer it is drawn with: a flat smooth tile's are past the grid's. */
 	public int firstIndex;
 	public boolean smooth;

@@ -10,7 +10,7 @@
 	"entrypoints": {
 		"client": ["dev.voidmc.lod.VoidLod"]
 	},
-	"mixins": ["void_lod.mixins.json"],
+	"mixins": ["void_lod.mixins.json", "void_lod.iris.mixins.json"],
 	"depends": {
 		"fabricloader": ">=0.19.5",
 		"minecraft": "~26.3",

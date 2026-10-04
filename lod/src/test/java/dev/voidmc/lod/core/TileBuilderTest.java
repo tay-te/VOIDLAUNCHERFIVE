@@ -92,6 +92,52 @@ class TileBuilderTest {
 		}
 	}
 
+	@Test
+	void forAShaderPackTheWaterComesLastOverABedAndEveryFaceKnowsItsNormal() {
+		// a lake over the western half of a level 0 tile, its bed at 50, the land beside it at 70
+		TerrainSource shore = (x, z, cell, out) -> {
+			boolean lake = Math.floorMod(x, 64) < 32;
+			out.ground = lake ? 50 : 70;
+			if (lake) {
+				out.water = 63;
+				out.waterColor = 0x2050C0;
+			}
+			out.top = 0x40A040;
+		};
+		TileBuilder.Mesh mesh;
+		TileBuilder.packFormat = true;
+		try {
+			mesh = builder().build(shore, TileKey.of(0, 0, 0));
+		} finally {
+			TileBuilder.packFormat = false;
+		}
+		assertFalse(mesh.compact());
+		int quads = mesh.vertexCount() / 4;
+		int land = mesh.landIndices() / 6;
+		assertEquals(0, mesh.landIndices() % 6);
+		assertTrue(land > 0 && land < quads, land + " land quads of " + quads);
+		ByteBuffer v = vertices(mesh);
+		boolean sawBed = false;
+		// Distant Horizons' normals: down, up, north, south, west, east
+		int[] ours = {6, 0, 2, 3, 4, 5};
+		for (int q = 0; q < quads; q++) {
+			int o = q * 4 * TileBuilder.VERTEX_BYTES;
+			int material = v.get(o + 12) & 0xFF;
+			int normal = v.get(o + 13) & 0xFF;
+			// the land's range first, then the water's, which the pack's water program draws blended over it
+			assertEquals(q >= land, material == TileBuilder.PACK_WATER, "quad " + q + " of material " + material);
+			if (material == TileBuilder.PACK_WATER) {
+				assertEquals(180, v.get(o + 11) & 0xFF, "the water lets the bed show through");
+			}
+			int y = (v.getShort(o + 2) & 0xFFFF) - TileBuilder.PACK_Y_OFFSET;
+			if (q < land && normal == 1 && y == 50) {
+				sawBed = true;
+			}
+			assertFacing(ours[normal], normal(v, q * 4, q * 4 + 1, q * 4 + 2));
+		}
+		assertTrue(sawBed, "the lake's bed is drawn under its water");
+	}
+
 	private static void assertFacing(int face, long[] n) {
 		long[] expected = switch (face) {
 			case 0 -> new long[]{0, 1, 0};

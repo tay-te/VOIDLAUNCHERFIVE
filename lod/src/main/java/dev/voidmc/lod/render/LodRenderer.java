@@ -17,6 +17,7 @@ import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
 import com.mojang.renderpearl.api.pipeline.ColorTargetState;
 import com.mojang.renderpearl.api.pipeline.DepthStencilState;
 import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.backend.opengl.GlBuffer;
 import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.renderpearl.api.pipeline.UniformType;
@@ -84,6 +85,8 @@ import org.lwjgl.system.MemoryUtil;
  * </ul>
  */
 public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
+	private static final int GL_UNSIGNED_SHORT = 0x1403;
+	private static final int GL_UNSIGNED_INT = 0x1405;
 	public static final VertexFormat VERTEX = VertexFormat.builder(0)
 		.addAttribute("LodPos", GpuFormat.RGBA16_SINT)
 		.addAttribute("LodTop", GpuFormat.RGBA8_UNORM)
@@ -219,6 +222,12 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	// statistics
 	public int lastTiles;
+	/**
+	 * This frame's tiles for a shader pack's Distant Horizons programs, while {@link #setPackMode pack mode} is on: then
+	 * the frame is drawn by the pack ({@code compat.iris}) and not by this renderer's own pipelines.
+	 */
+	public final PackFrame packFrame = new PackFrame();
+	private boolean packMode;
 	public long lastQuads;
 	/** Tiles in the frustum that the horizon hid. */
 	public int lastOccluded;
@@ -355,6 +364,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		}
 		this.drawCount = 0;
 		this.lastTiles = 0;
+		this.packFrame.clear();
+		this.packFrame.clip = (float) clip;
 		this.lastQuads = 0;
 		this.lastOccluded = 0;
 		double cx = camera.pos.x;
@@ -453,6 +464,19 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			}
 			int level = TileKey.level(tile.key);
 			GpuBuffer heap = this.arena(tile).getGpuBuffer(alloc);
+			if (this.packMode) {
+				// the pack fades the LOD in toward the chunks itself; a tile on its way out would only double its successor
+				if (this.inViewFade[c] < 0) {
+					continue;
+				}
+				this.lastTiles++;
+				this.packFrame.add(((GlBuffer) heap).handle(), (int) (alloc.getOffsetFromHeap() / TileBuilder.VERTEX_BYTES), tile.landIndices,
+					tile.landIndices, tile.indices - tile.landIndices, TileKey.minX(tile.key) - cx, -TileBuilder.PACK_Y_OFFSET - cy,
+					TileKey.minZ(tile.key) - cz);
+				maxQuads = Math.max(maxQuads, tile.quads);
+				this.lastQuads += tile.quads;
+				continue;
+			}
 			Group group = this.group(heap, kind(tile), this.inViewClipped[c]);
 			int instance = this.lastTiles++;
 			this.ensureInstances(instance + 1);
@@ -463,6 +487,20 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 				maxQuads = Math.max(maxQuads, tile.quads);
 			}
 			this.lastQuads += tile.quads;
+		}
+		if (this.packMode) {
+			// the pack draws them: only the shared quad indices are needed, as GL handles
+			this.drawCount = 0;
+			if (this.lastTiles > 0) {
+				RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
+				this.indexBuffer = quads.getBuffer(Math.max(1, maxQuads) * 6);
+				this.indexType = quads.type();
+				this.packFrame.indexBuffer = ((GlBuffer) this.indexBuffer).handle();
+				this.packFrame.indexType = this.indexType == IndexType.SHORT ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+				this.packFrame.indexBytes = this.indexType == IndexType.SHORT ? 2 : 4;
+			}
+			this.lastPrepareNanos = System.nanoTime() - t0;
+			return;
 		}
 		if (this.lastTiles == 0) {
 			this.lastPrepareNanos = System.nanoTime() - t0;
@@ -528,6 +566,14 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	/** Draws the prepared tiles into vanilla's main pass, after its opaque terrain. */
 	public void draw(RenderPass pass) {
 		this.draw(pass, false);
+	}
+
+	/**
+	 * Whether a shader pack draws the LOD (through its Distant Horizons programs): then the frame goes into
+	 * {@link #packFrame} instead of this renderer's draws.
+	 */
+	public void setPackMode(boolean packMode) {
+		this.packMode = packMode;
 	}
 
 	/**

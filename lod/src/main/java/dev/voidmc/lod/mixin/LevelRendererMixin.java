@@ -44,8 +44,20 @@ public abstract class LevelRendererMixin {
 	)
 	private void voidLod$draw(ChunkSectionsToRender chunkSectionsToRender, FeatureRenderDispatcher.PreparedFrame featureFrame, RenderPass renderPass, CallbackInfo ci) {
 		VoidLod lod = VoidLod.get();
-		if (lod != null && !Shaders.drawOverPack()) {
+		if (lod != null && !Shaders.drawOverPack() && !Shaders.packDraws()) {
 			lod.draw(renderPass);
+		}
+	}
+
+	/**
+	 * With a shader pack that draws the LOD through its Distant Horizons programs: before the main pass, so before the
+	 * chunks, which then cover it wherever they stand (as Distant Horizons draws its own).
+	 */
+	@Inject(method = "lambda$addMainPass$0", at = @At("HEAD"), require = 1)
+	private void voidLod$drawThroughPack(CallbackInfo ci) {
+		VoidLod lod = VoidLod.get();
+		if (lod != null && Shaders.packDraws()) {
+			lod.drawPack();
 		}
 	}
 
