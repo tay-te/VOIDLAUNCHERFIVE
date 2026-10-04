@@ -59,7 +59,8 @@ public final class Bohemian {
 	 */
 	public static int tower(Draft d, int x0, int z0, int base, int doorTop, int yb, int maxH, int tier, Set<Direction> blind,
 		Set<Direction> clocks, int[] ladder, Direction ladderFacing) {
-		Stone body = Stone.panel(d);
+		// the tower in the same render as the church's or the hall's walls (they lay the wall role as render whatever it is)
+		Stone body = Stone.of(d, Role.WALL);
 		Stone dress = Stone.dressing(d);
 		Stone foot = Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
 		Tower t = new Tower(x0, z0, 5, body, dress, foot, false);
