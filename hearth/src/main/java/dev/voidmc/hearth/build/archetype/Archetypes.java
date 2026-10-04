@@ -28,5 +28,15 @@ public final class Archetypes {
 		LandmarkArchetypes.register(registry);
 		InfrastructureArchetypes.register(registry);
 		LandscapeArchetypes.register(registry);
+		// the living world's catalogue (stage B, LIVING_WORLD.md §8.5)
+		StationHomeArchetypes.register(registry);
+		NobleArchetypes.register(registry);
+		LearningArchetypes.register(registry);
+		LawHouseArchetypes.register(registry);
+		SocialLifeArchetypes.register(registry);
+		IndustryArchetypes.register(registry);
+		CraftArchetypes.register(registry);
+		ExtractionArchetypes.register(registry);
+		DeepArchetypes.register(registry);
 	}
 }
