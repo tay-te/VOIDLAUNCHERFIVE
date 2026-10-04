@@ -1,7 +1,9 @@
 {
   "values": {
     "expanse:amber": 4.0,
+    "expanse:azure_wisteria_blossoms": 0.4,
     "expanse:bluebells": 0.5,
+    "expanse:cattail": 0.5,
     "expanse:chiseled_limestone": 0.3,
     "expanse:chiseled_opal_sandstone": 0.35,
     "expanse:cooked_crab": 1.4,
@@ -12,9 +14,12 @@
     "expanse:cranberries": 0.25,
     "expanse:cut_opal_sandstone": 0.25,
     "expanse:desert_marigold": 0.5,
+    "expanse:desert_pea": 0.5,
     "expanse:edelweiss": 2.0,
     "expanse:fireweed": 0.5,
     "expanse:frostbloom": 2.0,
+    "expanse:glowcap": 1.5,
+    "expanse:glowroots": 0.8,
     "expanse:glowworm_silk": 2.0,
     "expanse:heather": 0.5,
     "expanse:insect_amber": 25.0,
@@ -36,11 +41,15 @@
     "expanse:opal_sandstone_wall": 0.2,
     "expanse:peat": 0.6,
     "expanse:polished_limestone": 0.2,
+    "expanse:prismite_block": 20.0,
     "expanse:prismite_cluster": 6.0,
     "expanse:red_earth": 0.08,
+    "expanse:reindeer_lichen": 0.5,
     "expanse:salt_block": 3.0,
     "expanse:smooth_opal_sandstone": 0.25,
+    "expanse:spanish_moss": 0.5,
     "expanse:venison": 1.0,
-    "expanse:volcanic_ash": 0.05
+    "expanse:volcanic_ash": 0.05,
+    "expanse:wisteria_blossoms": 0.4
   }
 }

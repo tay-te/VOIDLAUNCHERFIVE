@@ -1,0 +1,251 @@
+{
+  "workplaces": {
+    "commerce/market_stall": [
+      "*"
+    ],
+    "commerce/market_hall": [
+      "*"
+    ],
+    "commerce/counting_house": [
+      "*"
+    ],
+    "commerce/caravan_yard": [
+      "*"
+    ],
+    "commerce/caravanserai": [
+      "*"
+    ],
+    "commerce/thieves_den": [
+      "*"
+    ],
+    "deep/market": [
+      "*"
+    ],
+    "house/shophouse": [
+      "food",
+      "produce",
+      "cloth",
+      "candles",
+      "tools",
+      "luxury",
+      "books",
+      "dye"
+    ],
+    "house/merchant_house": [
+      "luxury",
+      "cloth",
+      "dye",
+      "salt",
+      "specialty",
+      "books"
+    ],
+    "commerce/inn": [
+      "food"
+    ],
+    "commerce/tavern": [
+      "food"
+    ],
+    "commerce/hostel": [
+      "food"
+    ],
+    "work/bakery": [
+      "food",
+      "flour"
+    ],
+    "work/brewery": [
+      "food",
+      "grain"
+    ],
+    "work/butcher": [
+      "meat",
+      "food",
+      "leather"
+    ],
+    "work/fishery": [
+      "fish",
+      "salt"
+    ],
+    "work/tailor": [
+      "cloth",
+      "wool",
+      "leather",
+      "dye"
+    ],
+    "work/smithy": [
+      "tools",
+      "metal"
+    ],
+    "deep/forge": [
+      "tools",
+      "metal",
+      "ore"
+    ],
+    "work/carpentry": [
+      "wood",
+      "logs"
+    ],
+    "work/sawmill": [
+      "wood",
+      "logs"
+    ],
+    "work/logging_camp": [
+      "logs",
+      "wood"
+    ],
+    "work/masonry": [
+      "dressed_stone",
+      "stone"
+    ],
+    "work/quarry": [
+      "stone",
+      "dressed_stone",
+      "sand"
+    ],
+    "work/brick_kiln": [
+      "brick",
+      "clay"
+    ],
+    "work/glassworks": [
+      "glass",
+      "sand"
+    ],
+    "work/smelter": [
+      "metal",
+      "ore"
+    ],
+    "work/charcoal_kiln": [
+      "fuel"
+    ],
+    "work/tannery": [
+      "leather"
+    ],
+    "work/chandler": [
+      "candles",
+      "wax"
+    ],
+    "work/apiary": [
+      "wax",
+      "produce"
+    ],
+    "work/paper_mill": [
+      "paper",
+      "books"
+    ],
+    "work/dye_works": [
+      "dye"
+    ],
+    "work/salt_works": [
+      "salt"
+    ],
+    "work/windmill": [
+      "flour",
+      "grain"
+    ],
+    "work/watermill": [
+      "flour",
+      "grain"
+    ],
+    "work/hunters_lodge": [
+      "meat",
+      "leather"
+    ],
+    "work/alchemist_tower": [
+      "luxury",
+      "specialty"
+    ],
+    "civic/library": [
+      "books",
+      "paper"
+    ],
+    "civic/monastery": [
+      "books",
+      "candles",
+      "wax",
+      "food"
+    ],
+    "farm/orchard": [
+      "produce"
+    ],
+    "deep/glow_garden": [
+      "specialty",
+      "produce"
+    ]
+  },
+  "jobs": {
+    "merchant": [
+      "*"
+    ],
+    "trader": [
+      "*"
+    ],
+    "fence": [
+      "*"
+    ],
+    "baker": [
+      "food",
+      "flour"
+    ],
+    "brewer": [
+      "food"
+    ],
+    "innkeeper": [
+      "food"
+    ],
+    "butcher": [
+      "meat",
+      "food"
+    ],
+    "fisher": [
+      "fish"
+    ],
+    "tailor": [
+      "cloth",
+      "dye"
+    ],
+    "smith": [
+      "tools",
+      "metal"
+    ],
+    "carpenter": [
+      "wood"
+    ],
+    "mason": [
+      "dressed_stone",
+      "stone"
+    ],
+    "kiln_worker": [
+      "brick"
+    ],
+    "glassmaker": [
+      "glass"
+    ],
+    "smelter": [
+      "metal"
+    ],
+    "tanner": [
+      "leather"
+    ],
+    "chandler": [
+      "candles",
+      "wax"
+    ],
+    "beekeeper": [
+      "wax",
+      "produce"
+    ],
+    "papermaker": [
+      "paper",
+      "books"
+    ],
+    "dyer": [
+      "dye"
+    ],
+    "salter": [
+      "salt"
+    ],
+    "scholar": [
+      "books",
+      "paper"
+    ]
+  }
+}

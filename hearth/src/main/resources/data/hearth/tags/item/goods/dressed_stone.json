@@ -1,0 +1,91 @@
+{
+  "values": [
+    "#minecraft:stone_bricks",
+    "minecraft:smooth_stone",
+    "minecraft:polished_andesite",
+    "minecraft:polished_diorite",
+    "minecraft:polished_granite",
+    "minecraft:polished_deepslate",
+    "minecraft:deepslate_bricks",
+    "minecraft:deepslate_tiles",
+    "minecraft:tuff_bricks",
+    "minecraft:polished_tuff",
+    "minecraft:smooth_sandstone",
+    "minecraft:cut_sandstone",
+    "minecraft:chiseled_sandstone",
+    "minecraft:smooth_red_sandstone",
+    "minecraft:cut_red_sandstone",
+    "minecraft:chiseled_red_sandstone",
+    "minecraft:polished_blackstone",
+    "minecraft:polished_blackstone_bricks",
+    "minecraft:stone_slab",
+    "minecraft:stone_stairs",
+    "minecraft:smooth_stone_slab",
+    "minecraft:stone_brick_slab",
+    "minecraft:stone_brick_stairs",
+    "minecraft:stone_brick_wall",
+    "minecraft:sandstone_slab",
+    "minecraft:sandstone_stairs",
+    "minecraft:sandstone_wall",
+    {
+      "id": "expanse:limestone_bricks",
+      "required": false
+    },
+    {
+      "id": "expanse:polished_limestone",
+      "required": false
+    },
+    {
+      "id": "expanse:chiseled_limestone",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone_wall",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone_brick_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone_brick_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:limestone_brick_wall",
+      "required": false
+    },
+    {
+      "id": "expanse:cut_opal_sandstone",
+      "required": false
+    },
+    {
+      "id": "expanse:smooth_opal_sandstone",
+      "required": false
+    },
+    {
+      "id": "expanse:chiseled_opal_sandstone",
+      "required": false
+    },
+    {
+      "id": "expanse:opal_sandstone_slab",
+      "required": false
+    },
+    {
+      "id": "expanse:opal_sandstone_stairs",
+      "required": false
+    },
+    {
+      "id": "expanse:opal_sandstone_wall",
+      "required": false
+    }
+  ]
+}

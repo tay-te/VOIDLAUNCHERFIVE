@@ -1,0 +1,27 @@
+{
+  "values": [
+    "#minecraft:eggs",
+    "minecraft:apple",
+    "minecraft:carrot",
+    "minecraft:potato",
+    "minecraft:beetroot",
+    "minecraft:melon_slice",
+    "minecraft:melon",
+    "minecraft:pumpkin",
+    "minecraft:sweet_berries",
+    "minecraft:glow_berries",
+    "minecraft:sugar",
+    "minecraft:sugar_cane",
+    "minecraft:red_mushroom",
+    "minecraft:brown_mushroom",
+    "minecraft:milk_bucket",
+    "minecraft:honey_bottle",
+    "minecraft:beetroot_seeds",
+    "minecraft:pumpkin_seeds",
+    "minecraft:melon_seeds",
+    {
+      "id": "expanse:cranberries",
+      "required": false
+    }
+  ]
+}

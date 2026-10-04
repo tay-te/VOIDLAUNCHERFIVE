@@ -53,10 +53,19 @@ public class MarketMenu extends AbstractContainerMenu implements EconomyMenu {
 
 	@Override
 	public void handle(ServerPlayer player, EconomyActionPayload action) {
-		if (this.market == null || action.action() != EconomyActionPayload.TRADE) {
+		if (this.market == null) {
 			return;
 		}
-		this.market.trade(player, action.index(), action.amount() != 0);
+		switch (action.action()) {
+			case EconomyActionPayload.TRADE -> this.market.trade(player, action.index(), action.amount() != 0);
+			case EconomyActionPayload.HAGGLE_START -> this.market.haggleStart(player, action.index(), action.amount() != 0);
+			case EconomyActionPayload.HAGGLE_OFFER -> this.market.haggleOffer(player, action.amount());
+			case EconomyActionPayload.HAGGLE_ACCEPT -> this.market.haggleAccept(player);
+			case EconomyActionPayload.HAGGLE_CANCEL -> this.market.haggleCancel();
+			default -> {
+				return;
+			}
+		}
 		this.view = this.market.view(player);
 		ServerPlayNetworking.send(player, new MarketViewPayload(this.containerId, this.view));
 	}

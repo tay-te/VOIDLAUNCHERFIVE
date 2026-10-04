@@ -1,0 +1,14 @@
+{
+  "values": [
+    "#minecraft:iron_ores",
+    "#minecraft:copper_ores",
+    "#minecraft:gold_ores",
+    "minecraft:raw_iron",
+    "minecraft:raw_iron_block",
+    "minecraft:raw_copper",
+    "minecraft:raw_copper_block",
+    "minecraft:raw_gold",
+    "minecraft:raw_gold_block",
+    "minecraft:ancient_debris"
+  ]
+}

@@ -3,13 +3,32 @@
     "food": 1.0,
     "wood": 0.125,
     "stone": 0.1,
-    "clay": 0.4,
+    "clay": 1.0,
     "glass": 0.4,
     "metal": 6.0,
     "cloth": 1.0,
     "fuel": 1.0,
     "tools": 10.0,
-    "luxury": 2.0
+    "luxury": 2.0,
+    "logs": 0.5,
+    "ore": 4.5,
+    "dressed_stone": 0.25,
+    "brick": 1.0,
+    "sand": 0.08,
+    "grain": 0.3,
+    "flour": 0.4,
+    "meat": 0.9,
+    "fish": 0.7,
+    "wool": 1.0,
+    "leather": 2.0,
+    "wax": 1.5,
+    "candles": 1.5,
+    "paper": 0.3,
+    "books": 2.0,
+    "dye": 0.4,
+    "salt": 0.5,
+    "produce": 0.4,
+    "specialty": 1.0
   },
   "defaults": {
     "food": 0.8,
@@ -21,7 +40,26 @@
     "cloth": 1.0,
     "fuel": 1.0,
     "tools": 15.0,
-    "luxury": 5.0
+    "luxury": 5.0,
+    "logs": 0.5,
+    "ore": 3.0,
+    "dressed_stone": 0.3,
+    "brick": 0.6,
+    "sand": 0.1,
+    "grain": 0.3,
+    "flour": 0.4,
+    "meat": 0.9,
+    "fish": 0.7,
+    "wool": 1.0,
+    "leather": 2.0,
+    "wax": 1.5,
+    "candles": 1.5,
+    "paper": 0.3,
+    "books": 3.0,
+    "dye": 0.4,
+    "salt": 0.5,
+    "produce": 0.4,
+    "specialty": 1.5
   },
   "untagged": 0.25,
   "rarity": {
@@ -38,23 +76,21 @@
     ],
     "wood": [
       "minecraft:oak_planks",
-      "minecraft:oak_log",
+      "minecraft:oak_slab",
       "minecraft:stick"
     ],
     "stone": [
       "minecraft:cobblestone",
-      "minecraft:stone_bricks",
-      "minecraft:stone"
+      "minecraft:stone",
+      "minecraft:gravel"
     ],
     "clay": [
-      "minecraft:bricks",
-      "minecraft:terracotta",
-      "minecraft:clay_ball"
+      "minecraft:clay"
     ],
     "glass": [
       "minecraft:glass",
       "minecraft:glass_pane",
-      "minecraft:sand"
+      "minecraft:glass_bottle"
     ],
     "metal": [
       "minecraft:iron_ingot",
@@ -62,13 +98,14 @@
       "minecraft:lantern"
     ],
     "cloth": [
-      "minecraft:white_wool",
-      "minecraft:leather",
-      "minecraft:string"
+      "minecraft:white_carpet",
+      "minecraft:string",
+      "minecraft:white_bed"
     ],
     "fuel": [
       "minecraft:charcoal",
-      "minecraft:coal"
+      "minecraft:coal",
+      "minecraft:torch"
     ],
     "tools": [
       "minecraft:iron_pickaxe",
@@ -77,9 +114,85 @@
       "minecraft:shears"
     ],
     "luxury": [
-      "minecraft:book",
+      "minecraft:amethyst_shard",
+      "minecraft:quartz",
+      "minecraft:lapis_lazuli"
+    ],
+    "logs": [
+      "minecraft:oak_log",
+      "minecraft:birch_log",
+      "minecraft:spruce_log"
+    ],
+    "ore": [
+      "minecraft:raw_iron",
+      "minecraft:raw_copper"
+    ],
+    "dressed_stone": [
+      "minecraft:stone_bricks",
+      "minecraft:smooth_stone",
+      "minecraft:polished_andesite"
+    ],
+    "brick": [
+      "minecraft:bricks",
+      "minecraft:terracotta"
+    ],
+    "sand": [
+      "minecraft:sand",
+      "minecraft:red_sand"
+    ],
+    "grain": [
+      "minecraft:wheat",
+      "minecraft:hay_block"
+    ],
+    "flour": [],
+    "meat": [
+      "minecraft:beef",
+      "minecraft:porkchop",
+      "minecraft:mutton"
+    ],
+    "fish": [
+      "minecraft:cod",
+      "minecraft:salmon"
+    ],
+    "wool": [
+      "minecraft:white_wool",
+      "minecraft:brown_wool"
+    ],
+    "leather": [
+      "minecraft:leather",
+      "minecraft:rabbit_hide"
+    ],
+    "wax": [
+      "minecraft:honeycomb"
+    ],
+    "candles": [
       "minecraft:candle",
+      "minecraft:white_candle"
+    ],
+    "paper": [
       "minecraft:paper"
+    ],
+    "books": [
+      "minecraft:book",
+      "minecraft:writable_book"
+    ],
+    "dye": [
+      "minecraft:red_dye",
+      "minecraft:yellow_dye",
+      "minecraft:blue_dye"
+    ],
+    "salt": [
+      "expanse:salt_block"
+    ],
+    "produce": [
+      "minecraft:apple",
+      "minecraft:carrot",
+      "minecraft:potato"
+    ],
+    "specialty": [
+      "minecraft:cocoa_beans",
+      "minecraft:bamboo",
+      "minecraft:kelp"
     ]
   }
 }

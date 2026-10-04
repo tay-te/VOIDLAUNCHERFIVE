@@ -9,10 +9,29 @@
     "cloth": 1.1,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 0.9
+    "luxury": 0.9,
+    "logs": 1.5,
+    "ore": 0.75,
+    "dressed_stone": 0.85,
+    "brick": 0.6,
+    "sand": 0.75,
+    "grain": 1.25,
+    "flour": 1.25,
+    "meat": 1.25,
+    "fish": 1.25,
+    "wool": 1.1,
+    "leather": 1.1,
+    "wax": 0.9,
+    "candles": 0.9,
+    "paper": 0.9,
+    "books": 0.9,
+    "dye": 0.85,
+    "salt": 1.0,
+    "produce": 1.25,
+    "specialty": 1.0
   },
   "wares": {
-    "clay": [
+    "brick": [
       "minecraft:terracotta",
       "minecraft:red_terracotta",
       "minecraft:orange_terracotta",
@@ -23,17 +42,26 @@
       "minecraft:gold_nugget",
       "minecraft:iron_ingot"
     ],
+    "ore": [
+      "minecraft:raw_gold",
+      "minecraft:raw_iron"
+    ],
     "stone": [
-      "minecraft:red_sandstone",
+      "minecraft:red_sandstone"
+    ],
+    "dressed_stone": [
       "minecraft:cut_red_sandstone",
       "minecraft:smooth_red_sandstone"
+    ],
+    "sand": [
+      "minecraft:red_sand"
     ],
     "food": [
       "minecraft:bread",
       "minecraft:cooked_rabbit",
       "minecraft:cooked_beef"
     ],
-    "luxury": [
+    "dye": [
       "minecraft:red_dye",
       "minecraft:orange_dye",
       "minecraft:brown_dye"

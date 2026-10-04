@@ -1,6 +1,5 @@
 {
   "values": [
-    "#minecraft:sand",
     "minecraft:glass",
     "minecraft:glass_pane",
     "minecraft:tinted_glass",
@@ -36,14 +35,6 @@
     "minecraft:brown_stained_glass_pane",
     "minecraft:green_stained_glass_pane",
     "minecraft:red_stained_glass_pane",
-    "minecraft:black_stained_glass_pane",
-    {
-      "id": "expanse:opal_sand",
-      "required": false
-    },
-    {
-      "id": "expanse:coral_sand",
-      "required": false
-    }
+    "minecraft:black_stained_glass_pane"
   ]
 }

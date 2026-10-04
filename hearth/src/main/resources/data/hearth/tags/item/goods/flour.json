@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "#c:flours",
+      "required": false
+    },
+    {
+      "id": "#c:foods/flour",
+      "required": false
+    }
+  ]
+}

@@ -1,15 +1,25 @@
 package dev.voidmc.hearth.economy.bank;
 
+import dev.voidmc.hearth.api.HearthWorld;
+import dev.voidmc.hearth.api.PlotState;
+import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.economy.EconomyConfig;
 import dev.voidmc.hearth.economy.EconomyModule;
+import dev.voidmc.hearth.economy.Reputation;
 import dev.voidmc.hearth.economy.coin.CoinFormat;
 import dev.voidmc.hearth.economy.coin.PlayerPurse;
+import dev.voidmc.hearth.economy.holdings.BusinessMarket;
 import dev.voidmc.hearth.economy.market.MarketLedger;
 import dev.voidmc.hearth.economy.net.EconomyActionPayload;
 import dev.voidmc.hearth.economy.property.PropertyMarket;
+import dev.voidmc.hearth.economy.works.Contracts;
+import dev.voidmc.hearth.economy.works.Projects;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Prediction;
 import net.minecraft.world.entity.player.Inventory;
@@ -18,18 +28,28 @@ import net.minecraft.world.item.Items;
 
 /**
  * A settlement's bank counter: deposits (one world-wide ledger), the money changer (emeralds, vanilla's villager
- * currency, for coin and back, through the treasury and the changer's own emerald reserve) and property sales.
+ * currency, for coin and back, through the treasury and the changer's own emerald reserve), property and business
+ * sales, and — at a bank or the town hall — public works to fund and supply contracts.
  */
 public final class Bank {
 	private final Settlement settlement;
 	private final boolean hasBank;
+	private final boolean hasWorks;
 	private int tab;
 	private Component status = Component.empty();
 
 	public Bank(Settlement settlement, boolean hasBank, int tab) {
+		this(settlement, hasBank, true, tab);
+	}
+
+	public Bank(Settlement settlement, boolean hasBank, boolean hasWorks, int tab) {
 		this.settlement = settlement;
 		this.hasBank = hasBank;
-		this.tab = hasBank ? tab : BankView.TAB_PROPERTY;
+		this.hasWorks = hasWorks;
+		this.tab = !hasBank && tab == BankView.TAB_BANK ? BankView.TAB_PROPERTY : tab;
+		if (!hasWorks && (tab == BankView.TAB_WORKS || tab == BankView.TAB_CONTRACTS)) {
+			this.tab = hasBank ? BankView.TAB_BANK : BankView.TAB_PROPERTY;
+		}
 	}
 
 	public Settlement settlement() {
@@ -38,29 +58,48 @@ public final class Bank {
 
 	public BankView view(ServerPlayer player) {
 		EconomyConfig.Bank cfg = EconomyModule.config().bank();
+		long day = EconomyModule.day(player.level());
+		HearthWorld world = player.level() instanceof ServerLevel level ? HearthWorld.of(level) : null;
+		List<BankView.PlotOffer> plots = new ArrayList<>(PropertyMarket.listings(this.settlement, player));
+		plots.addAll(BusinessMarket.listings(this.settlement, player));
 		return new BankView(this.settlement.name(), this.tab, DepositStore.balance(player.level().getServer(), player.getUUID()),
 			PlayerPurse.balance(player), this.settlement.treasury(), countEmeralds(player), reserve(), cfg.emeraldBuyPrice(), cfg.emeraldSellPrice(),
-			this.settlement.reputation(player.getUUID()), this.hasBank, PropertyMarket.listings(this.settlement, player), this.status);
+			Reputation.standing(this.settlement, player.getUUID()), this.hasBank, plots, this.status, this.hasWorks,
+			this.hasWorks ? Projects.listings(this.settlement, player, world) : List.of(),
+			this.hasWorks ? Contracts.listings(this.settlement, player, day) : List.of());
 	}
 
 	public void handle(ServerPlayer player, EconomyActionPayload a) {
-		if (!this.hasBank && a.action() != EconomyActionPayload.BUY_PLOT) {
+		boolean banking = a.action() >= EconomyActionPayload.DEPOSIT && a.action() <= EconomyActionPayload.BUY_EMERALDS;
+		boolean works = a.action() == EconomyActionPayload.FUND || a.action() == EconomyActionPayload.ACCEPT_CONTRACT
+			|| a.action() == EconomyActionPayload.DELIVER;
+		if (banking && !this.hasBank || works && !this.hasWorks) {
 			return;
 		}
+		long day = EconomyModule.day(player.level());
 		this.status = switch (a.action()) {
 			case EconomyActionPayload.DEPOSIT -> deposit(player, a.amount());
 			case EconomyActionPayload.WITHDRAW -> withdraw(player, a.amount());
 			case EconomyActionPayload.SELL_EMERALDS -> sellEmeralds(player, (int) Math.min(a.amount() < 0 ? Integer.MAX_VALUE : a.amount(), Integer.MAX_VALUE));
 			case EconomyActionPayload.BUY_EMERALDS -> buyEmeralds(player, (int) Math.min(Math.max(a.amount(), 0), 64 * 36));
 			case EconomyActionPayload.BUY_PLOT -> {
-				this.tab = BankView.TAB_PROPERTY;
-				yield PropertyMarket.buy(this.settlement, player, a.index());
+				PlotView plot = this.settlement.plot(a.index());
+				yield plot != null && plot.state() == PlotState.BUILT && BusinessMarket.isBusiness(plot.spec().archetype().getPath())
+					? BusinessMarket.buy(this.settlement, player, a.index(), day)
+					: PropertyMarket.buy(this.settlement, player, a.index());
 			}
+			case EconomyActionPayload.HIRE -> BusinessMarket.hire(this.settlement, player, a.index());
+			case EconomyActionPayload.FUND -> Projects.fund(this.settlement, player, a.index(), Math.max(0, a.amount()), day);
+			case EconomyActionPayload.ACCEPT_CONTRACT -> Contracts.accept(this.settlement, player, a.index(), day);
+			case EconomyActionPayload.DELIVER -> Contracts.deliver(this.settlement, player, a.index());
 			default -> this.status;
 		};
-		if (a.action() != EconomyActionPayload.BUY_PLOT) {
-			this.tab = BankView.TAB_BANK;
-		}
+		this.tab = switch (a.action()) {
+			case EconomyActionPayload.BUY_PLOT, EconomyActionPayload.HIRE -> BankView.TAB_PROPERTY;
+			case EconomyActionPayload.FUND -> BankView.TAB_WORKS;
+			case EconomyActionPayload.ACCEPT_CONTRACT, EconomyActionPayload.DELIVER -> BankView.TAB_CONTRACTS;
+			default -> BankView.TAB_BANK;
+		};
 	}
 
 	Component deposit(ServerPlayer player, long amount) {

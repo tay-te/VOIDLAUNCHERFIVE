@@ -19,9 +19,16 @@ import net.minecraft.network.codec.StreamCodec;
  * @param origin         the footprint's corner, at floor level
  * @param sizeX          footprint width
  * @param sizeZ          footprint depth
+ * @param business       the title to a business (a workshop, shop, farm or extraction site) rather than a home or land:
+ *                       its workers stay and its income goes to the holder
  */
 public record DeedData(long settlement, String settlementName, int plot, String building, boolean built, BlockPos origin, int sizeX,
-	int sizeZ) {
+	int sizeZ, boolean business) {
+
+	/** A deed to a house or a plot of land. */
+	public DeedData(long settlement, String settlementName, int plot, String building, boolean built, BlockPos origin, int sizeX, int sizeZ) {
+		this(settlement, settlementName, plot, building, built, origin, sizeX, sizeZ, false);
+	}
 
 	public static final Codec<DeedData> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.LONG.fieldOf("settlement").forGetter(DeedData::settlement),
@@ -31,7 +38,8 @@ public record DeedData(long settlement, String settlementName, int plot, String 
 		Codec.BOOL.optionalFieldOf("built", true).forGetter(DeedData::built),
 		BlockPos.CODEC.fieldOf("origin").forGetter(DeedData::origin),
 		Codec.INT.fieldOf("size_x").forGetter(DeedData::sizeX),
-		Codec.INT.fieldOf("size_z").forGetter(DeedData::sizeZ)
+		Codec.INT.fieldOf("size_z").forGetter(DeedData::sizeZ),
+		Codec.BOOL.optionalFieldOf("business", false).forGetter(DeedData::business)
 	).apply(i, DeedData::new));
 
 	public static final StreamCodec<ByteBuf, DeedData> STREAM_CODEC = StreamCodec.composite(
@@ -43,6 +51,7 @@ public record DeedData(long settlement, String settlementName, int plot, String 
 		BlockPos.STREAM_CODEC, DeedData::origin,
 		ByteBufCodecs.VAR_INT, DeedData::sizeX,
 		ByteBufCodecs.VAR_INT, DeedData::sizeZ,
+		ByteBufCodecs.BOOL, DeedData::business,
 		DeedData::new);
 
 	/** Whether {@code pos} lies within the plot's footprint (any height). */

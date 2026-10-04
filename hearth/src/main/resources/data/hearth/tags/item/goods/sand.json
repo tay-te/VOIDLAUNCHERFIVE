@@ -1,0 +1,13 @@
+{
+  "values": [
+    "#minecraft:sand",
+    {
+      "id": "expanse:opal_sand",
+      "required": false
+    },
+    {
+      "id": "expanse:coral_sand",
+      "required": false
+    }
+  ]
+}

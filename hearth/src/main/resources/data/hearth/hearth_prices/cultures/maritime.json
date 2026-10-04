@@ -9,23 +9,45 @@
     "cloth": 1.0,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 1.0
+    "luxury": 1.0,
+    "logs": 1.1,
+    "ore": 1.0,
+    "dressed_stone": 0.9,
+    "brick": 1.0,
+    "sand": 0.95,
+    "grain": 0.8,
+    "flour": 0.8,
+    "meat": 0.8,
+    "fish": 0.65,
+    "wool": 1.0,
+    "leather": 1.0,
+    "wax": 1.0,
+    "candles": 1.0,
+    "paper": 1.0,
+    "books": 1.0,
+    "dye": 1.0,
+    "salt": 0.75,
+    "produce": 0.8,
+    "specialty": 0.9
   },
   "wares": {
     "food": [
       "minecraft:cooked_cod",
       "minecraft:cooked_salmon",
       "minecraft:dried_kelp",
-      "expanse:cooked_crab|minecraft:tropical_fish"
+      "expanse:cooked_crab|minecraft:pumpkin_pie"
+    ],
+    "fish": [
+      "minecraft:cod",
+      "minecraft:salmon",
+      "expanse:crab_meat|minecraft:tropical_fish"
     ],
     "cloth": [
       "minecraft:string",
-      "minecraft:white_wool",
-      "minecraft:leather"
+      "minecraft:white_carpet"
     ],
-    "stone": [
+    "dressed_stone": [
       "minecraft:stone_bricks",
-      "minecraft:cobblestone",
       "minecraft:smooth_stone"
     ],
     "tools": [
@@ -33,10 +55,11 @@
       "minecraft:iron_axe",
       "minecraft:shears"
     ],
-    "luxury": [
-      "minecraft:book",
-      "minecraft:candle",
-      "minecraft:ink_sac"
+    "salt": [
+      "expanse:salt_block"
+    ],
+    "specialty": [
+      "minecraft:kelp"
     ]
   }
 }

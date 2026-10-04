@@ -9,30 +9,58 @@
     "cloth": 1.0,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 0.8
+    "luxury": 0.8,
+    "logs": 0.75,
+    "ore": 1.25,
+    "dressed_stone": 0.75,
+    "brick": 0.95,
+    "sand": 1.1,
+    "grain": 0.85,
+    "flour": 0.85,
+    "meat": 0.85,
+    "fish": 0.85,
+    "wool": 1.0,
+    "leather": 1.0,
+    "wax": 0.8,
+    "candles": 0.8,
+    "paper": 0.65,
+    "books": 0.8,
+    "dye": 0.8,
+    "salt": 1.0,
+    "produce": 0.85,
+    "specialty": 0.7
   },
   "wares": {
     "wood": [
-      "minecraft:bamboo_block",
       "minecraft:bamboo_planks",
-      "minecraft:bamboo",
-      "minecraft:bamboo_mosaic"
+      "minecraft:bamboo_mosaic",
+      "minecraft:bamboo_slab"
+    ],
+    "logs": [
+      "minecraft:bamboo_block"
+    ],
+    "dressed_stone": [
+      "expanse:limestone_bricks|minecraft:stone_bricks",
+      "expanse:polished_limestone|minecraft:smooth_stone"
     ],
     "stone": [
-      "expanse:limestone_bricks|minecraft:stone_bricks",
-      "expanse:polished_limestone|minecraft:smooth_stone",
-      "expanse:limestone|minecraft:calcite"
+      "expanse:limestone|minecraft:calcite",
+      "minecraft:cobblestone"
     ],
     "food": [
       "minecraft:cooked_cod",
       "minecraft:cooked_salmon",
-      "minecraft:bread",
-      "minecraft:glow_berries"
+      "minecraft:bread"
     ],
-    "luxury": [
-      "minecraft:paper",
-      "minecraft:book",
-      "minecraft:green_dye"
+    "paper": [
+      "minecraft:paper"
+    ],
+    "books": [
+      "minecraft:book"
+    ],
+    "specialty": [
+      "minecraft:bamboo",
+      "expanse:glowcap|minecraft:glow_lichen"
     ],
     "cloth": [
       "minecraft:string",

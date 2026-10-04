@@ -1,0 +1,13 @@
+{
+  "values": [
+    "minecraft:beef",
+    "minecraft:porkchop",
+    "minecraft:chicken",
+    "minecraft:mutton",
+    "minecraft:rabbit",
+    {
+      "id": "expanse:venison",
+      "required": false
+    }
+  ]
+}

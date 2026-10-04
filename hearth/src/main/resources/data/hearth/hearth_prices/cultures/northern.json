@@ -9,28 +9,53 @@
     "cloth": 0.9,
     "fuel": 0.85,
     "tools": 1.0,
-    "luxury": 1.2
+    "luxury": 1.2,
+    "logs": 0.6,
+    "ore": 1.0,
+    "dressed_stone": 1.0,
+    "brick": 1.15,
+    "sand": 1.25,
+    "grain": 1.15,
+    "flour": 0.95,
+    "meat": 0.85,
+    "fish": 0.95,
+    "wool": 0.9,
+    "leather": 0.85,
+    "wax": 1.2,
+    "candles": 1.2,
+    "paper": 1.2,
+    "books": 1.2,
+    "dye": 1.2,
+    "salt": 1.0,
+    "produce": 1.1,
+    "specialty": 1.0
   },
   "wares": {
     "wood": [
-      "expanse:redwood_log|minecraft:spruce_log",
       "expanse:pine_planks|minecraft:spruce_planks",
-      "minecraft:spruce_planks"
+      "minecraft:spruce_planks",
+      "minecraft:spruce_slab"
+    ],
+    "logs": [
+      "expanse:redwood_log|minecraft:spruce_log",
+      "expanse:pine_log|minecraft:dark_oak_log",
+      "minecraft:spruce_log"
     ],
     "food": [
       "expanse:cooked_venison|minecraft:cooked_beef",
-      "minecraft:sweet_berries",
       "minecraft:bread",
       "minecraft:cooked_salmon"
     ],
+    "meat": [
+      "expanse:venison|minecraft:beef",
+      "minecraft:rabbit"
+    ],
     "stone": [
       "minecraft:cobblestone",
-      "minecraft:mossy_cobblestone",
-      "minecraft:stone_bricks"
+      "minecraft:mossy_cobblestone"
     ],
-    "cloth": [
+    "leather": [
       "minecraft:leather",
-      "minecraft:brown_wool",
       "minecraft:rabbit_hide"
     ],
     "tools": [

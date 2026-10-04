@@ -1,0 +1,87 @@
+{
+  "values": [
+    "#minecraft:small_flowers",
+    "minecraft:bamboo",
+    "minecraft:cocoa_beans",
+    "minecraft:kelp",
+    "minecraft:chorus_fruit",
+    "minecraft:nether_wart",
+    "minecraft:glow_lichen",
+    {
+      "id": "expanse:amber",
+      "required": false
+    },
+    {
+      "id": "expanse:prismite_cluster",
+      "required": false
+    },
+    {
+      "id": "expanse:prismite_block",
+      "required": false
+    },
+    {
+      "id": "expanse:glowcap",
+      "required": false
+    },
+    {
+      "id": "expanse:glowroots",
+      "required": false
+    },
+    {
+      "id": "expanse:lavender",
+      "required": false
+    },
+    {
+      "id": "expanse:heather",
+      "required": false
+    },
+    {
+      "id": "expanse:edelweiss",
+      "required": false
+    },
+    {
+      "id": "expanse:desert_marigold",
+      "required": false
+    },
+    {
+      "id": "expanse:frostbloom",
+      "required": false
+    },
+    {
+      "id": "expanse:moth_orchid",
+      "required": false
+    },
+    {
+      "id": "expanse:bluebells",
+      "required": false
+    },
+    {
+      "id": "expanse:fireweed",
+      "required": false
+    },
+    {
+      "id": "expanse:wisteria_blossoms",
+      "required": false
+    },
+    {
+      "id": "expanse:azure_wisteria_blossoms",
+      "required": false
+    },
+    {
+      "id": "expanse:reindeer_lichen",
+      "required": false
+    },
+    {
+      "id": "expanse:cattail",
+      "required": false
+    },
+    {
+      "id": "expanse:desert_pea",
+      "required": false
+    },
+    {
+      "id": "expanse:spanish_moss",
+      "required": false
+    }
+  ]
+}

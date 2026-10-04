@@ -9,19 +9,44 @@
     "cloth": 0.8,
     "fuel": 0.8,
     "tools": 1.0,
-    "luxury": 1.05
+    "luxury": 1.05,
+    "logs": 1.35,
+    "ore": 1.0,
+    "dressed_stone": 0.75,
+    "brick": 1.0,
+    "sand": 1.15,
+    "grain": 1.0,
+    "flour": 1.0,
+    "meat": 0.9,
+    "fish": 1.0,
+    "wool": 0.7,
+    "leather": 0.8,
+    "wax": 1.05,
+    "candles": 1.05,
+    "paper": 1.05,
+    "books": 1.05,
+    "dye": 1.05,
+    "salt": 1.0,
+    "produce": 1.0,
+    "specialty": 1.0
   },
   "wares": {
     "stone": [
       "minecraft:cobblestone",
       "minecraft:mossy_cobblestone",
-      "minecraft:stone_bricks",
       "minecraft:cobbled_deepslate"
     ],
-    "cloth": [
+    "dressed_stone": [
+      "minecraft:stone_bricks",
+      "minecraft:deepslate_bricks"
+    ],
+    "wool": [
       "minecraft:white_wool",
-      "minecraft:light_gray_wool",
-      "minecraft:gray_carpet"
+      "minecraft:light_gray_wool"
+    ],
+    "cloth": [
+      "minecraft:gray_carpet",
+      "minecraft:white_carpet"
     ],
     "fuel": [
       "expanse:peat|minecraft:charcoal",
@@ -32,9 +57,8 @@
       "minecraft:baked_potato",
       "minecraft:bread"
     ],
-    "luxury": [
-      "expanse:heather|minecraft:allium",
-      "minecraft:book"
+    "specialty": [
+      "expanse:heather|minecraft:allium"
     ]
   }
 }

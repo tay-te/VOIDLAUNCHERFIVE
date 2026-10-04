@@ -1,0 +1,17 @@
+{
+  "values": [
+    "#minecraft:terracotta",
+    "minecraft:brick",
+    "minecraft:bricks",
+    "minecraft:brick_slab",
+    "minecraft:brick_stairs",
+    "minecraft:brick_wall",
+    "minecraft:packed_mud",
+    "minecraft:mud_bricks",
+    "minecraft:mud_brick_slab",
+    "minecraft:mud_brick_stairs",
+    "minecraft:mud_brick_wall",
+    "minecraft:flower_pot",
+    "minecraft:decorated_pot"
+  ]
+}

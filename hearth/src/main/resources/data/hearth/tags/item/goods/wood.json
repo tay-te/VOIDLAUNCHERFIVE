@@ -1,6 +1,5 @@
 {
   "values": [
-    "#minecraft:logs",
     "#minecraft:planks",
     "#minecraft:wooden_slabs",
     "#minecraft:wooden_stairs",
@@ -8,34 +7,17 @@
     "#minecraft:fence_gates",
     "#minecraft:wooden_doors",
     "#minecraft:wooden_trapdoors",
-    "#minecraft:bamboo_blocks",
     "#minecraft:wooden_shelves",
     "#minecraft:boats",
     "#minecraft:signs",
     "minecraft:stick",
-    "minecraft:bamboo",
     "minecraft:bamboo_mosaic",
     "minecraft:chest",
     "minecraft:barrel",
     "minecraft:crafting_table",
     "minecraft:ladder",
     "minecraft:bowl",
-    {
-      "id": "expanse:aspen_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_aspen_log",
-      "required": false
-    },
-    {
-      "id": "expanse:aspen_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_aspen_wood",
-      "required": false
-    },
+    "minecraft:scaffolding",
     {
       "id": "expanse:aspen_planks",
       "required": false
@@ -62,22 +44,6 @@
     },
     {
       "id": "expanse:aspen_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:baobab_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_baobab_log",
-      "required": false
-    },
-    {
-      "id": "expanse:baobab_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_baobab_wood",
       "required": false
     },
     {
@@ -109,22 +75,6 @@
       "required": false
     },
     {
-      "id": "expanse:beech_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_beech_log",
-      "required": false
-    },
-    {
-      "id": "expanse:beech_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_beech_wood",
-      "required": false
-    },
-    {
       "id": "expanse:beech_planks",
       "required": false
     },
@@ -150,22 +100,6 @@
     },
     {
       "id": "expanse:beech_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:eucalyptus_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_eucalyptus_log",
-      "required": false
-    },
-    {
-      "id": "expanse:eucalyptus_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_eucalyptus_wood",
       "required": false
     },
     {
@@ -197,22 +131,6 @@
       "required": false
     },
     {
-      "id": "expanse:kapok_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_kapok_log",
-      "required": false
-    },
-    {
-      "id": "expanse:kapok_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_kapok_wood",
-      "required": false
-    },
-    {
       "id": "expanse:kapok_planks",
       "required": false
     },
@@ -238,22 +156,6 @@
     },
     {
       "id": "expanse:kapok_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:lumen_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_lumen_log",
-      "required": false
-    },
-    {
-      "id": "expanse:lumen_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_lumen_wood",
       "required": false
     },
     {
@@ -285,22 +187,6 @@
       "required": false
     },
     {
-      "id": "expanse:maple_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_maple_log",
-      "required": false
-    },
-    {
-      "id": "expanse:maple_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_maple_wood",
-      "required": false
-    },
-    {
       "id": "expanse:maple_planks",
       "required": false
     },
@@ -326,22 +212,6 @@
     },
     {
       "id": "expanse:maple_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:olive_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_olive_log",
-      "required": false
-    },
-    {
-      "id": "expanse:olive_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_olive_wood",
       "required": false
     },
     {
@@ -373,22 +243,6 @@
       "required": false
     },
     {
-      "id": "expanse:palm_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_palm_log",
-      "required": false
-    },
-    {
-      "id": "expanse:palm_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_palm_wood",
-      "required": false
-    },
-    {
       "id": "expanse:palm_planks",
       "required": false
     },
@@ -414,22 +268,6 @@
     },
     {
       "id": "expanse:palm_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:pine_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_pine_log",
-      "required": false
-    },
-    {
-      "id": "expanse:pine_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_pine_wood",
       "required": false
     },
     {
@@ -461,22 +299,6 @@
       "required": false
     },
     {
-      "id": "expanse:redwood_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_redwood_log",
-      "required": false
-    },
-    {
-      "id": "expanse:redwood_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_redwood_wood",
-      "required": false
-    },
-    {
       "id": "expanse:redwood_planks",
       "required": false
     },
@@ -502,22 +324,6 @@
     },
     {
       "id": "expanse:redwood_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:teak_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_teak_log",
-      "required": false
-    },
-    {
-      "id": "expanse:teak_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_teak_wood",
       "required": false
     },
     {
@@ -549,22 +355,6 @@
       "required": false
     },
     {
-      "id": "expanse:willow_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_willow_log",
-      "required": false
-    },
-    {
-      "id": "expanse:willow_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_willow_wood",
-      "required": false
-    },
-    {
       "id": "expanse:willow_planks",
       "required": false
     },
@@ -590,22 +380,6 @@
     },
     {
       "id": "expanse:willow_trapdoor",
-      "required": false
-    },
-    {
-      "id": "expanse:wisteria_log",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_wisteria_log",
-      "required": false
-    },
-    {
-      "id": "expanse:wisteria_wood",
-      "required": false
-    },
-    {
-      "id": "expanse:stripped_wisteria_wood",
       "required": false
     },
     {

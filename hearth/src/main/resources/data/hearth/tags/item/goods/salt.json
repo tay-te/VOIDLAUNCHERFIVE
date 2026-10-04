@@ -1,0 +1,12 @@
+{
+  "values": [
+    {
+      "id": "expanse:salt_block",
+      "required": false
+    },
+    {
+      "id": "#c:salts",
+      "required": false
+    }
+  ]
+}

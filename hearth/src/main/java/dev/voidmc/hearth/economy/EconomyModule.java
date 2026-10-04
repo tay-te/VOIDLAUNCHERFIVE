@@ -10,6 +10,12 @@ import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.economy.bank.DepositStore;
 import dev.voidmc.hearth.economy.command.EconomyCommands;
 import dev.voidmc.hearth.economy.daily.SettlementEconomy;
+import dev.voidmc.hearth.economy.holdings.Holdings;
+import dev.voidmc.hearth.economy.purse.Inheritance;
+import dev.voidmc.hearth.economy.shop.ShopBook;
+import dev.voidmc.hearth.economy.shop.Shops;
+import dev.voidmc.hearth.economy.works.Projects;
+import dev.voidmc.hearth.economy.works.Works;
 import dev.voidmc.hearth.economy.dialogue.EconomyDialogue;
 import dev.voidmc.hearth.economy.item.EconomyComponents;
 import dev.voidmc.hearth.economy.item.EconomyItems;
@@ -23,20 +29,32 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.fabric.api.resource.v1.reloader.SimpleReloadListener;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The economy module: coin, pouches and deeds; prices and markets; banks, the money changer and property; the daily
- * settlement economy (taxes, trade, wages, the mint, price drift); coin in chest loot. Registers the
- * {@link dev.voidmc.hearth.api.EconomyService}. See docs/ECONOMY.md.
+ * The economy module: coin, pouches and deeds; prices and markets; shops with their own stock and tills, haggling,
+ * stolen goods and fences; residents' purses, wages and spending, and stations that follow them; banks, the money
+ * changer, property and businesses; public works and supply contracts; the daily settlement economy; coin in chest loot.
+ * Registers the {@link dev.voidmc.hearth.api.EconomyService}. See docs/ECONOMY.md.
  */
 public final class EconomyModule {
 	/** The economy's record of each settlement: price drift, use, builders' needs, the changer's emeralds, the books. */
 	public static final HearthDataKey<MarketLedger> LEDGER = HearthDataKey.register(Hearth.id("economy/ledger"), HearthDataKey.Scope.SETTLEMENT,
 		MarketLedger.CODEC, MarketLedger::new);
+	/** Each settlement's shops: their stock and tills, and merchants soured by haggling. */
+	public static final HearthDataKey<ShopBook> SHOPS = HearthDataKey.register(Hearth.id("economy/shops"), HearthDataKey.Scope.SETTLEMENT,
+		ShopBook.CODEC, ShopBook::new);
+	/** Businesses players own in each settlement. */
+	public static final HearthDataKey<Holdings> HOLDINGS = HearthDataKey.register(Hearth.id("economy/holdings"), HearthDataKey.Scope.SETTLEMENT,
+		Holdings.CODEC, Holdings::new);
+	/** Public works players fund and supply contracts in each settlement. */
+	public static final HearthDataKey<Works> WORKS = HearthDataKey.register(Hearth.id("economy/works"), HearthDataKey.Scope.SETTLEMENT,
+		Works.CODEC, Works::new);
 
 	private static final EconomyDialogue DIALOGUE = new EconomyDialogue();
 	/** Starting treasury per resident for a settlement the sim founds with an empty one. */
@@ -71,7 +89,7 @@ public final class EconomyModule {
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> PriceTable.invalidate());
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> Sandbox.clear());
 
-		SettlementEvents.DAY_PASSED.register((world, settlement, day) -> SettlementEconomy.dayPassed(settlement, day));
+		SettlementEvents.DAY_PASSED.register((world, settlement, day) -> SettlementEconomy.dayPassed(settlement, day, server(world)));
 		SettlementEvents.CONSTRUCTION_STALLED.register((world, settlement, plot, goods, missing) ->
 			SettlementEconomy.constructionStalled(settlement, plot, goods, missing, world.day()));
 		SettlementEvents.FOUNDED.register((world, settlement) -> {
@@ -79,6 +97,16 @@ public final class EconomyModule {
 				settlement.deposit(Math.max(4, settlement.population()) * FOUNDING_COIN_PER_HEAD);
 			}
 		});
+		// a new shop opens the day its building is finished; a gone plot ends its project (givers repaid) and its business
+		SettlementEvents.BUILDING_COMPLETED.register((world, settlement, plot) -> Shops.sync(settlement, world.day()));
+		SettlementEvents.PLOT_ABANDONED.register((world, settlement, plot, why) -> {
+			Projects.abandoned(settlement, plot.id(), server(world));
+			if (settlement.data(HOLDINGS).byPlot.remove(plot.id()) != null) {
+				settlement.markDirty();
+			}
+		});
+		// the dead leave their purse to their household, or to the town
+		SettlementEvents.RESIDENT_REMOVED.register((world, settlement, resident) -> Inheritance.settle(settlement, resident));
 
 		DialogueProvider.register(DIALOGUE);
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> EconomyCommands.register(dispatcher));
@@ -87,6 +115,19 @@ public final class EconomyModule {
 
 	public static EconomyConfig config() {
 		return config;
+	}
+
+	/** For tests and dev tools: replaces the loaded config. */
+	public static void setConfig(EconomyConfig cfg) {
+		config = cfg;
+	}
+
+	private static @Nullable MinecraftServer server(HearthWorld world) {
+		try {
+			return world.level().getServer();
+		} catch (RuntimeException e) {
+			return null; // a world without a level (tests)
+		}
 	}
 
 	public static EconomyDialogue dialogue() {

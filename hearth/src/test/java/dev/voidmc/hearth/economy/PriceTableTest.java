@@ -33,7 +33,7 @@ class PriceTableTest {
 			List.of(), ones, ones, 0.25, Map.of(Rarity.EPIC, 40.0),
 			Map.of(Goods.WOOD, List.of("minecraft:oak_planks")),
 			Map.of(Culture.KARST, new PriceData.CultureEntry(ones, Map.of(Goods.WOOD, List.of("expanse:not_installed|minecraft:bamboo_planks",
-				"minecraft:bamboo_block")))));
+				"minecraft:bamboo_block")))), Map.of(), Map.of());
 		PriceTable.setData(data);
 	}
 
