@@ -1,5 +1,7 @@
 package dev.voidmc.lod.core;
 
+import java.util.Arrays;
+
 /**
  * One tile's worth of columns, sampled from a {@link TerrainSource} on a regular grid with a border, so the
  * meshers can look at a cell's neighbours (for walls, normals and occlusion) without asking another tile.
@@ -17,36 +19,67 @@ final class Samples {
 	private static final long SALT_TONE = 0x70E5L;
 	private static final long SALT_HEIGHT = 0x7A11L;
 
-	final float[] ground = new float[MAX * MAX];
-	final int[] top = new int[MAX * MAX];
-	final int[] side = new int[MAX * MAX];
-	final int[] soil = new int[MAX * MAX];
-	final int[] soilDepth = new int[MAX * MAX];
-	final int[] rock = new int[MAX * MAX];
-	final int[][] bands = new int[MAX * MAX][];
-	final int[] bandHeight = new int[MAX * MAX];
-	final int[] bandOffset = new int[MAX * MAX];
-	final int[] water = new int[MAX * MAX];
-	final int[] waterColor = new int[MAX * MAX];
-	final boolean[] lava = new boolean[MAX * MAX];
-	final float[] canopy = new float[MAX * MAX];
-	final float[] cover = new float[MAX * MAX];
-	final int[] leaves = new int[MAX * MAX];
-	final float[] crown = new float[MAX * MAX];
-	final float[] conifer = new float[MAX * MAX];
-	final int[] topMaterial = new int[MAX * MAX];
-	final int[] sideMaterial = new int[MAX * MAX];
-	final int[] soilMaterial = new int[MAX * MAX];
-	final int[] rockMaterial = new int[MAX * MAX];
-	final int[] leavesMaterial = new int[MAX * MAX];
-	final boolean[] empty = new boolean[MAX * MAX];
-
+	// Every per-sample array: copy() lists each one, so a sample reused from a neighbour is the whole sample.
+	final float[] ground;
+	final int[] top;
+	final int[] side;
+	final int[] soil;
+	final int[] soilDepth;
+	final int[] rock;
+	final int[][] bands;
+	final int[] bandHeight;
+	final int[] bandOffset;
+	final int[] water;
+	final int[] waterColor;
+	final boolean[] lava;
+	final float[] canopy;
+	final float[] cover;
+	final int[] leaves;
+	final float[] crown;
+	final float[] conifer;
+	final int[] topMaterial;
+	final int[] sideMaterial;
+	final int[] soilMaterial;
+	final int[] rockMaterial;
+	final int[] leavesMaterial;
+	final boolean[] empty;
 	private final ColumnSample sample = new ColumnSample();
 	private final boolean variation;
+	/** Which samples of the tile being sampled were reused from {@link SampleCache}, so the source is not asked again. */
+	private final boolean[] known;
 	int border;
 
 	Samples(boolean variation) {
+		this(variation, MAX * MAX);
+	}
+
+	/** Room for {@code capacity} samples: a tile's grid, or the edges of one that {@link SampleCache} keeps. */
+	Samples(boolean variation, int capacity) {
 		this.variation = variation;
+		this.ground = new float[capacity];
+		this.top = new int[capacity];
+		this.side = new int[capacity];
+		this.soil = new int[capacity];
+		this.soilDepth = new int[capacity];
+		this.rock = new int[capacity];
+		this.bands = new int[capacity][];
+		this.bandHeight = new int[capacity];
+		this.bandOffset = new int[capacity];
+		this.water = new int[capacity];
+		this.waterColor = new int[capacity];
+		this.lava = new boolean[capacity];
+		this.canopy = new float[capacity];
+		this.cover = new float[capacity];
+		this.leaves = new int[capacity];
+		this.crown = new float[capacity];
+		this.conifer = new float[capacity];
+		this.topMaterial = new int[capacity];
+		this.sideMaterial = new int[capacity];
+		this.soilMaterial = new int[capacity];
+		this.rockMaterial = new int[capacity];
+		this.leavesMaterial = new int[capacity];
+		this.empty = new boolean[capacity];
+		this.known = new boolean[capacity];
 	}
 
 	/** Samples per row, border included. */
@@ -58,9 +91,11 @@ final class Samples {
 
 	/**
 	 * Samples tile {@code key}: cell centres ({@code corners} false, {@code TILE} samples a side) or cell corners
-	 * ({@code TILE + 1} a side), plus {@code border} samples beyond each edge.
+	 * ({@code TILE + 1} a side), plus {@code border} samples beyond each edge. With a {@code cache}, the samples it
+	 * holds from the neighbouring tiles at this level (the columns a tile shares with them along its edges, and
+	 * its border) are copied rather than asked of the source, and this tile's own edges go in for its neighbours.
 	 */
-	void sample(TerrainSource source, long key, boolean corners, int border) {
+	void sample(TerrainSource source, long key, boolean corners, int border, SampleCache cache) {
 		int level = TileKey.level(key);
 		this.cell = TileKey.cell(level);
 		this.border = border;
@@ -69,14 +104,19 @@ final class Samples {
 		int offset = corners ? 0 : this.cell >> 1;
 		this.x0 = TileKey.minX(key) + offset;
 		this.z0 = TileKey.minZ(key) + offset;
+		Arrays.fill(this.known, 0, this.size * this.size, false);
+		int found = cache == null ? 0 : cache.fill(this, source, key, corners);
 		ColumnSample s = this.sample;
 		for (int j = -border; j < inner + border; j++) {
 			for (int i = -border; i < inner + border; i++) {
+				int k = this.at(i, j);
+				if (this.known[k]) {
+					continue;
+				}
 				int x = this.x0 + i * this.cell;
 				int z = this.z0 + j * this.cell;
 				s.clear();
 				source.sample(x, z, this.cell, s);
-				int k = this.at(i, j);
 				this.ground[k] = s.ground;
 				this.water[k] = s.water;
 				this.waterColor[k] = s.waterColor;
@@ -125,6 +165,46 @@ final class Samples {
 				this.canopy[k] = canopy;
 			}
 		}
+		if (cache != null) {
+			cache.store(this, source, key, corners, found);
+		}
+	}
+
+	/** Takes sample {@code k} from {@code from}'s sample {@code f}, unless it is already known; true if it was not. */
+	boolean reuse(int k, Samples from, int f) {
+		if (this.known[k]) {
+			return false;
+		}
+		this.copy(k, from, f);
+		this.known[k] = true;
+		return true;
+	}
+
+	/** Copies sample {@code f} of {@code from} into sample {@code k}: every per-sample field, variation included. */
+	void copy(int k, Samples from, int f) {
+		this.ground[k] = from.ground[f];
+		this.top[k] = from.top[f];
+		this.side[k] = from.side[f];
+		this.soil[k] = from.soil[f];
+		this.soilDepth[k] = from.soilDepth[f];
+		this.rock[k] = from.rock[f];
+		this.bands[k] = from.bands[f];
+		this.bandHeight[k] = from.bandHeight[f];
+		this.bandOffset[k] = from.bandOffset[f];
+		this.water[k] = from.water[f];
+		this.waterColor[k] = from.waterColor[f];
+		this.lava[k] = from.lava[f];
+		this.canopy[k] = from.canopy[f];
+		this.cover[k] = from.cover[f];
+		this.leaves[k] = from.leaves[f];
+		this.crown[k] = from.crown[f];
+		this.conifer[k] = from.conifer[f];
+		this.topMaterial[k] = from.topMaterial[f];
+		this.sideMaterial[k] = from.sideMaterial[f];
+		this.soilMaterial[k] = from.soilMaterial[f];
+		this.rockMaterial[k] = from.rockMaterial[f];
+		this.leavesMaterial[k] = from.leavesMaterial[f];
+		this.empty[k] = from.empty[f];
 	}
 
 	int at(int i, int j) {

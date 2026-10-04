@@ -37,11 +37,20 @@ public final class TileBuilder {
 
 	/** Time all builders have spent asking terrain sources about columns: the rest of a build is meshing. */
 	public static final java.util.concurrent.atomic.AtomicLong SAMPLE_NANOS = new java.util.concurrent.atomic.AtomicLong();
+	/** Samples all builders have laid out, and those they took from neighbouring tiles ({@link SampleCache}) instead of their sources. */
+	public static final java.util.concurrent.atomic.AtomicLong SAMPLES = new java.util.concurrent.atomic.AtomicLong();
+	public static final java.util.concurrent.atomic.AtomicLong SAMPLES_REUSED = new java.util.concurrent.atomic.AtomicLong();
+
+	/** Squares along a side of a tile's occluder grid: see {@link Mesh#occluders}. */
+	public static final int OCCLUDERS = 2;
+	/** An occluder square with a hole in it, a column with no ground: it hides nothing. */
+	public static final short NO_OCCLUDER = Short.MIN_VALUE;
 
 	/** The first level drawn smooth; the levels below it are blocky. */
 	public static volatile int smoothFrom = Integer.getInteger("void.lod.smoothFrom", 2);
 
 	private final Samples samples;
+	private final SampleCache cache;
 	private final Blocky blocky;
 	private final Smooth smooth;
 	private ByteBuffer out = ByteBuffer.allocateDirect(128 * 1024).order(ByteOrder.nativeOrder());
@@ -55,6 +64,15 @@ public final class TileBuilder {
 
 	/** @param variation whether to add natural variation (patchy forests, drifting tones): off for tests */
 	public TileBuilder(boolean variation) {
+		this(variation, null);
+	}
+
+	/**
+	 * @param cache where builders that share it leave the edges of the tiles they build and take the columns
+	 *        each tile shares with its neighbours (null for none); they must agree on {@code variation}
+	 */
+	public TileBuilder(boolean variation, SampleCache cache) {
+		this.cache = cache;
 		this.samples = new Samples(variation);
 		this.blocky = new Blocky(this, this.samples);
 		this.smooth = new Smooth(this, this.samples);
@@ -66,12 +84,15 @@ public final class TileBuilder {
 		this.begin();
 		boolean smooth = level >= smoothFrom;
 		int indices;
+		int firstIndex = 0;
 		long t0 = System.nanoTime();
-		this.samples.sample(source, key, smooth, smooth ? 2 : 1);
+		this.samples.sample(source, key, smooth, smooth ? 2 : 1, this.cache);
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
+		SAMPLES.addAndGet((long) this.samples.size * this.samples.size);
 		if (smooth) {
-			this.smooth.mesh();
-			indices = Smooth.INDICES;
+			boolean flat = this.smooth.mesh();
+			indices = flat ? Smooth.FLAT_INDICES : Smooth.INDICES;
+			firstIndex = flat ? Smooth.FLAT_FIRST_INDEX : 0;
 		} else {
 			this.blocky.mesh();
 			indices = this.vertices / 4 * 6;
@@ -80,14 +101,50 @@ public final class TileBuilder {
 			this.minY = this.maxY = 0;
 		}
 		this.out.flip();
-		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY);
+		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth));
+	}
+
+	/**
+	 * The lowest the surface comes in each square of a {@link #OCCLUDERS} x {@link #OCCLUDERS} grid over the tile,
+	 * from the samples rather than the mesh, so it holds whatever the meshers make of them: a smooth surface is
+	 * never below its corners' ground or water, a blocky top never below its cell's. A square with an empty
+	 * column in it has a hole and hides nothing.
+	 */
+	private short[] occluders(boolean corners) {
+		Samples s = this.samples;
+		int step = TileKey.TILE / OCCLUDERS;
+		// a smooth square spans the corners around its cells, a blocky one just its cells' centres
+		int reach = corners ? step : step - 1;
+		short[] out = new short[OCCLUDERS * OCCLUDERS];
+		for (int b = 0; b < OCCLUDERS; b++) {
+			for (int a = 0; a < OCCLUDERS; a++) {
+				float low = Float.MAX_VALUE;
+				boolean hole = false;
+				for (int j = b * step; j <= b * step + reach && !hole; j++) {
+					for (int i = a * step; i <= a * step + reach; i++) {
+						int k = s.at(i, j);
+						if (s.empty[k]) {
+							hole = true;
+							break;
+						}
+						low = Math.min(low, s.wet(k) ? s.water[k] : s.ground[k]);
+					}
+				}
+				// a block under the lowest sample: the mesh rounds heights to an eighth, and blocky tops to blocks
+				out[a + b * OCCLUDERS] = hole ? NO_OCCLUDER : (short) Math.max(-32767, Math.min(32767, (int) Math.floor(low) - 1));
+			}
+		}
+		return out;
 	}
 
 	Samples samples() {
 		return this.samples;
 	}
 
-	/** The index buffer every smooth mesh is drawn with (16-bit triangles), to upload once. */
+	/**
+	 * The index buffer every smooth mesh is drawn with (16-bit triangles), to upload once: the grid's
+	 * {@link #smoothIndexCount} indices, then a flat tile's ({@link Mesh#firstIndex}).
+	 */
 	public static ByteBuffer smoothIndices() {
 		return Smooth.indices();
 	}
@@ -129,9 +186,19 @@ public final class TileBuilder {
 	/**
 	 * A built mesh. {@code vertices} is the builder's own buffer: copy it before building another tile.
 	 * Blocky meshes are quads drawn with the shared sequential quad index buffer; smooth meshes all share
-	 * one grid index buffer ({@link Smooth#indices}).
+	 * one grid index buffer ({@link Smooth#indices}), drawn from {@code firstIndex}.
+	 *
+	 * <p>{@code occluders} is the height the surface stays above in each square of a {@link #OCCLUDERS} x
+	 * {@link #OCCLUDERS} grid over the tile, row by row from its north-west corner (skirts and trees left out;
+	 * {@link #NO_OCCLUDER} where it has holes): what the renderer culls the land behind it with ({@link Horizon}).
 	 */
-	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY) {
+	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
+		short[] occluders) {
+		/** The same mesh over other vertices: the copy handed to the renderer. */
+		public Mesh withVertices(ByteBuffer vertices) {
+			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders);
+		}
+
 		public int bytes() {
 			return this.vertexCount * VERTEX_BYTES;
 		}

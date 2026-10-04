@@ -23,9 +23,13 @@ public final class Tile {
 	public int quads;
 	public int vertices;
 	public int indices;
+	/** Where the tile's indices start in the index buffer it is drawn with: a flat smooth tile's are past the grid's. */
+	public int firstIndex;
 	public boolean smooth;
 	public int minY;
 	public int maxY;
+	/** The surface's lower bound per square of the tile ({@link TileBuilder.Mesh#occluders}), for occlusion culling. */
+	public short[] occluders;
 	/** The renderer's handle on the uploaded mesh. */
 	public Object gpu;
 

@@ -5,6 +5,7 @@ import dev.voidmc.expanse.world.terrain.TerrainModel;
 import dev.voidmc.lod.LodSettings;
 import dev.voidmc.lod.VoidLod;
 import dev.voidmc.lod.gui.LodSettingsScreen;
+import dev.voidmc.lod.render.LodRenderer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -39,7 +40,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * vanilla chunks), {@code lod.show.views} (how many of the views to take), {@code lod.show.width} and
  * {@code lod.show.height} (screenshot size), {@code lod.show.off} (false to skip the vanilla shots),
  * {@code lod.show.only} (a comma-separated list of view names), {@code lod.show.settings} (true to also
- * photograph the settings screen and a preset chosen on it, applied live, plus the F3 lines).
+ * photograph the settings screen and a preset chosen on it, applied live, plus the F3 lines), {@code lod.show.compare}
+ * (true to also shoot each view with horizon culling off, the same frame otherwise, to check it hides nothing that
+ * shows).
  */
 public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
@@ -52,6 +55,7 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int HEIGHT = Integer.getInteger("lod.show.height", 900);
 	private static final boolean OFF = Boolean.parseBoolean(System.getProperty("lod.show.off", "true"));
 	private static final boolean SETTINGS = Boolean.getBoolean("lod.show.settings");
+	private static final boolean COMPARE = Boolean.getBoolean("lod.show.compare");
 
 	private record Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
 		Spot(String name, int x, int y, int z, float yaw, float pitch) {
@@ -184,6 +188,14 @@ public class LodShowcase implements FabricClientGameTest {
 				this.shoot(context, spot.name() + "_on");
 				String stats = context.computeOnClient(mc -> VoidLod.get().stats() + String.format(Locale.ROOT, ", %d fps", mc.getFps()));
 				System.out.printf(Locale.ROOT, "[lod] %s: complete in %.1f s | %s%n", spot.name(), loaded / 1000.0, stats);
+				if (COMPARE) {
+					context.runOnClient(mc -> LodRenderer.occlusion = false);
+					context.waitTicks(4);
+					this.shoot(context, spot.name() + "_unculled");
+					String unculled = context.computeOnClient(mc -> VoidLod.get().stats());
+					System.out.printf(Locale.ROOT, "[lod] %s unculled: %s%n", spot.name(), unculled.substring(unculled.indexOf('|') + 2));
+					context.runOnClient(mc -> LodRenderer.occlusion = true);
+				}
 			}
 			if (SETTINGS && !spots.isEmpty()) {
 				this.settings(context, spots.get(Math.min(VIEWS, spots.size()) - 1));

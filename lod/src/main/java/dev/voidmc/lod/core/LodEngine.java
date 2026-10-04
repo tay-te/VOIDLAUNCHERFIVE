@@ -84,6 +84,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private final ConcurrentLinkedQueue<Built> built = new ConcurrentLinkedQueue<>();
 	private final ArrayDeque<Built> waiting = new ArrayDeque<>();
 	private final LodSelector selector = new LodSelector();
+	/** The edges of recently built tiles, which their neighbours copy instead of sampling again. */
+	private final SampleCache samples = new SampleCache();
 	private final List<Worker> workers = new ArrayList<>();
 	private int workerNames;
 	private final AtomicLong order = new AtomicLong();
@@ -95,6 +97,14 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private long reprioritizedNanos;
 	private long evictedNanos;
 	private volatile boolean running = true;
+	/**
+	 * The tile the selection asked about last. It asks about each tile several times running (its height range,
+	 * whether it is ready, then wants or keeps it), so one map lookup serves them all. Only while it runs: in
+	 * between, tiles are evicted and made.
+	 */
+	private boolean selecting;
+	private long askedKey;
+	private Tile asked;
 	private long gpuBytes;
 	private long budgetBytes;
 
@@ -152,7 +162,17 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		}
 		this.tiles.clear();
 		this.gpuBytes = 0;
+		this.samples.clear();
 		this.source = source;
+	}
+
+	/**
+	 * Forgets the samples kept from built tiles over a block area whose terrain has changed under the same source
+	 * (a chunk arrived, a player built), so the tiles rebuilt there ask the source again rather than copying from
+	 * their neighbours' old edges.
+	 */
+	public void forgetSamples(int minX, int minZ, int maxX, int maxZ) {
+		this.samples.forget(minX, minZ, maxX, maxZ);
 	}
 
 	public TerrainSource source() {
@@ -177,9 +197,13 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 		double farPixelsPerCell, LodSelector.Visibility visibility, double outOfView) {
 		++this.frame;
 		long nanos = this.frameNanos = System.nanoTime();
+		this.selecting = true;
+		this.asked = null;
 		LongList draw = this.source == null
 			? new LongList()
 			: this.selector.select(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, visibility, outOfView);
+		this.selecting = false;
+		this.asked = null;
 		if (nanos - this.reprioritizedNanos > REPRIORITIZE_NANOS) {
 			this.reprioritizedNanos = nanos;
 			this.reprioritize();
@@ -199,15 +223,26 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 
 	// ---- LodSelector.Store ------------------------------------------------------------------------------
 
+	private Tile asked(long key) {
+		if (!this.selecting) {
+			return this.tiles.get(key);
+		}
+		if (this.asked == null || key != this.askedKey) {
+			this.askedKey = key;
+			this.asked = this.tiles.get(key);
+		}
+		return this.asked;
+	}
+
 	@Override
 	public boolean ready(long key) {
-		Tile tile = this.tiles.get(key);
+		Tile tile = this.asked(key);
 		return tile != null && tile.state == Tile.State.READY;
 	}
 
 	@Override
 	public boolean heightRange(long key, int[] out) {
-		Tile tile = this.tiles.get(key);
+		Tile tile = this.asked(key);
 		if (tile == null || tile.state == Tile.State.QUEUED || tile.state == Tile.State.BUILDING) {
 			// unbuilt: borrow the parent's range, which contains this tile's
 			for (int up = 0; up < 3 && TileKey.level(key) < TileKey.MAX_LEVEL; up++) {
@@ -228,10 +263,14 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 
 	@Override
 	public void want(long key, float priority) {
-		Tile tile = this.tiles.get(key);
+		Tile tile = this.asked(key);
 		if (tile == null) {
 			tile = new Tile(key);
 			this.tiles.put(key, tile);
+			if (this.selecting) {
+				this.askedKey = key;
+				this.asked = tile;
+			}
 		}
 		tile.wantedFrame = this.frame;
 		tile.usedNanos = this.frameNanos;
@@ -244,7 +283,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 
 	@Override
 	public void touch(long key) {
-		Tile tile = this.tiles.get(key);
+		Tile tile = this.asked(key);
 		if (tile != null) {
 			tile.usedFrame = this.frame;
 			tile.usedNanos = this.frameNanos;
@@ -254,7 +293,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	// ---- workers ----------------------------------------------------------------------------------------
 
 	private void work(Worker worker) {
-		TileBuilder builder = new TileBuilder();
+		TileBuilder builder = new TileBuilder(true, this.samples);
 		while (this.running && !worker.stop) {
 			Job job;
 			try {
@@ -286,7 +325,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 				ByteBuffer copy = ByteBuffer.allocateDirect(Math.max(1, mesh.bytes())).order(ByteOrder.nativeOrder());
 				copy.put(mesh.vertices()).flip();
 				// the record keeps the counts; its buffer is the builder's own and is about to be reused
-				this.built.add(new Built(tile, copy, new TileBuilder.Mesh(copy, mesh.vertexCount(), mesh.indexCount(), mesh.smooth(), mesh.minY(), mesh.maxY()), ver));
+				this.built.add(new Built(tile, copy, mesh.withVertices(copy), ver));
 				this.quadsBuilt.addAndGet(mesh.quads());
 			} catch (Throwable t) {
 				// a source that throws for one column should not take the worker with it
@@ -330,9 +369,11 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			tile.quads = mesh.quads();
 			tile.vertices = mesh.vertexCount();
 			tile.indices = mesh.indexCount();
+			tile.firstIndex = mesh.firstIndex();
 			tile.smooth = mesh.smooth();
 			tile.minY = mesh.minY();
 			tile.maxY = mesh.maxY();
+			tile.occluders = mesh.occluders();
 			if (mesh.vertexCount() == 0) {
 				this.waiting.poll();
 				tile.state = Tile.State.READY;
