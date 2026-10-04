@@ -136,7 +136,8 @@ public final class MiniSurvey {
 		if (under != null && relief >= 4 && h < 0.8 && under.realm(cx, cz) != null) {
 			return ResourceSite.Kind.ORE;
 		}
-		if (relief >= 10) {
+		// rock where the ground breaks: steep, broken cells, not every hillside
+		if (relief >= 14 || relief >= 10 && h < 0.35) {
 			return ResourceSite.Kind.STONE;
 		}
 		double forest = forest(t.seed(), cx, cz);

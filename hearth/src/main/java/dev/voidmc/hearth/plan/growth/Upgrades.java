@@ -290,7 +290,14 @@ public final class Upgrades {
 			}
 			params.putInt("replaces", p.id());
 			if (ctx.config.living().stations()) {
-				params.putString("station", rebuildStation(ctx, target).getSerializedName());
+				dev.voidmc.hearth.api.Station st = rebuildStation(ctx, target);
+				params.putString("station", st.getSerializedName());
+				var job = ctx.ledger == null ? null : ctx.ledger.commonJob(st);
+				if (job != null) {
+					CompoundTag household = new CompoundTag();
+					household.putString("job", job.getSerializedName());
+					params.put("household", household);
+				}
 			}
 			boolean attach = target.flags().contains(SiteFlag.ATTACHABLE);
 			if (attach) {

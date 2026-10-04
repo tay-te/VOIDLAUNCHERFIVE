@@ -361,6 +361,15 @@ public final class PlanRenderer {
 			int px = (a.minX() - this.scene.x0) * this.s;
 			int py = (a.minZ() - this.scene.z0) * this.s + this.header;
 			Color c = new Color(Palette.site(site.kind()));
+			// the land that feeds the town faintly; what is quarried, mined, dug and felled named
+			boolean food = site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.FISH || site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.FERTILE
+				|| site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.PASTURE;
+			if (food) {
+				g.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), 70));
+				g.setStroke(new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1, new float[]{3, 5}, 0));
+				g.drawRect(px + 2, py + 2, a.getXSpan() * this.s - 4, a.getZSpan() * this.s - 4);
+				continue;
+			}
 			g.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), 200));
 			g.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1, new float[]{6, 4}, 0));
 			g.drawRect(px + 2, py + 2, a.getXSpan() * this.s - 4, a.getZSpan() * this.s - 4);

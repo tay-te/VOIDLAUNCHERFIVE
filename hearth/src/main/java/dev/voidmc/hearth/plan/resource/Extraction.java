@@ -163,8 +163,15 @@ public final class Extraction {
 			if (ctx.distanceToHeart(target[0], target[1]) > ctx.config.living().haulMaxDistance() || accessNear(ctx, target[0], target[1], 14)) {
 				return false;
 			}
-			return Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, false,
-				"road: a cart track out to the " + site.kind().getSerializedName() + " for the " + Build.shortName(use)) != null;
+			String what = site.kind() == ResourceSite.Kind.ORE ? "ore" : site.kind().getSerializedName();
+			if (Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, false,
+				"road: a cart track out to the " + what + " for the " + Build.shortName(use)) != null) {
+				return true;
+			}
+			// too steep for carts all the way: a track with steps where it must (pack animals and porters)
+			ctx.routed = false;
+			return Roads.haul(ctx, target[0], target[1], RoadEdge.Role.HAUL, RoadKind.PATH, 3, true,
+				"road: a track with steps up to the " + what + " for the " + Build.shortName(use)) != null;
 		}
 		Build.building(ctx, use, best, reason(use, site), params(ctx, use, site, best));
 		return true;
@@ -277,7 +284,7 @@ public final class Extraction {
 	static double minDistance(PlanContext ctx) {
 		// planned for the town it is becoming (at least a town of a hundred), so it is not soon swallowed by its streets
 		double future = ctx.coreRadiusAt(Math.max(150, ctx.population * 2));
-		return Math.max(future * 1.35 + 8, Math.min(ctx.extent() + 10, future * 2.2));
+		return Math.max(future * 1.9 + 8, Math.min(ctx.extent() + 10, future * 2.6));
 	}
 
 	/**

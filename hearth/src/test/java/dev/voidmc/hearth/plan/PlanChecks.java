@@ -267,7 +267,9 @@ final class PlanChecks {
 				out.add("plot " + p.id() + " " + sp.archetype() + " is " + f + "x" + d + ", outside " + info.minFrontage() + "-" + info.maxFrontage()
 					+ " x " + info.minDepth() + "-" + info.maxDepth());
 			}
-			boolean wetOk = info.flags().contains(SiteFlag.ON_WATER) || info.flags().contains(SiteFlag.WATERFRONT);
+			// clay and sand pits take in the edge of their bank (a little water at the front is the point)
+			boolean wetOk = info.flags().contains(SiteFlag.ON_WATER) || info.flags().contains(SiteFlag.WATERFRONT)
+				|| sp.archetype().equals(Archetypes.CLAY_PIT) || sp.archetype().equals(Archetypes.SAND_PIT);
 			if (!wetOk) {
 				for (int z = sp.origin().getZ(); z < sp.origin().getZ() + sp.sizeZ(); z++) {
 					for (int x = sp.origin().getX(); x < sp.origin().getX() + sp.sizeX(); x++) {

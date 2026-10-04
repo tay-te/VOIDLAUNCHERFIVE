@@ -90,10 +90,21 @@ public final class Housing {
 		}
 		Parcels.Request req = request(probe, home, station);
 		Parcels.Parcel site = Parcels.best(ctx, req, null);
+		if (site == null && home.placement == Placement.SITED) {
+			// nothing by the chapel or the hall: in the station's quarter, else wherever homes go
+			home = new Home(Placement.CIVIC, home.district, null);
+			req = request(probe, home, station);
+			site = Parcels.best(ctx, req, null);
+		}
 		boolean grew = false;
 		if (site == null) {
 			grew = home.placement == Placement.HOME ? Expand.town(ctx) : Expand.toward(ctx, home.placement);
 			site = Parcels.best(ctx, req, null);
+			if (site == null && home.placement != Placement.HOME) {
+				home = new Home(Placement.HOME, home.district, null);
+				req = request(probe, home, station);
+				site = Parcels.best(ctx, req, null);
+			}
 			if (site == null) {
 				return grew;
 			}
@@ -218,13 +229,18 @@ public final class Housing {
 		CompoundTag params = new CompoundTag();
 		params.putString("station", station.getSerializedName());
 		Resident head = ledger == null ? null : ledger.head(station);
+		CompoundTag household = new CompoundTag();
 		if (head != null) {
-			CompoundTag household = new CompoundTag();
 			household.putString("job", head.job.getSerializedName());
 			household.putString("head", head.id.toString());
 			household.putString("name", head.familyName);
-			params.put("household", household);
 			ledger.name(head);
+		} else if (ledger != null && ledger.commonJob(station) != null) {
+			// no family named yet: the trade such a family most likely follows
+			household.putString("job", ledger.commonJob(station).getSerializedName());
+		}
+		if (!household.isEmpty()) {
+			params.put("household", household);
 		}
 		return params;
 	}

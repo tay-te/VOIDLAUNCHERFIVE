@@ -170,6 +170,10 @@ public final class Growth {
 				list.add(new Need("program/" + id.getPath(), e.priority() - have * 15, c -> program(c, e, info)));
 			}
 		}
+		if (Lots.missing(ctx)) {
+			// a lot on the square for the hall or the court, kept before the houses take every frontage
+			list.add(new Need("lots", 335, Lots::reserve));
+		}
 		if (tier.ordinal() >= SettlementTier.VILLAGE.ordinal() && !Square.paved(ctx) && ctx.catalogue.has(Archetypes.PLAZA)) {
 			list.add(new Need("plaza", 280, Square::pave));
 		}
@@ -264,7 +268,13 @@ public final class Growth {
 		if (siting != null) {
 			req = req.sited(siting);
 		}
-		return placeBuilding(c, req, reasonFor(info, req.placement()), null);
+		CompoundTag params = null;
+		if (c.config.living().stations() && dev.voidmc.hearth.plan.society.Stations.isHome(info) && info.beds() > 0) {
+			// a home the program raises (a manor on the hill, a hermit's hut) is for its station too
+			params = new CompoundTag();
+			params.putString("station", dev.voidmc.hearth.plan.society.Stations.inferred(id).getSerializedName());
+		}
+		return placeBuilding(c, req, reasonFor(info, req.placement()), params);
 	}
 
 	/** A workplace for a trade whose workers have nowhere to work. */

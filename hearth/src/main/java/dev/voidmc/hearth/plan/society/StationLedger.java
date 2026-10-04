@@ -37,10 +37,13 @@ public final class StationLedger {
 	private final Set<String> named = new HashSet<>();
 	/** Homes as {x, z, station ordinal}: what a new home's neighbours would be. */
 	private final List<int[]> homes = new ArrayList<>();
+	/** Householders' trades by station. */
+	private final List<java.util.Map<dev.voidmc.hearth.api.JobType, Integer>> jobs = new ArrayList<>();
 
 	private StationLedger() {
 		for (int i = 0; i < STATIONS.length; i++) {
 			this.waiting.add(new ArrayList<>());
+			this.jobs.add(new java.util.EnumMap<>(dev.voidmc.hearth.api.JobType.class));
 		}
 	}
 
@@ -90,6 +93,7 @@ public final class StationLedger {
 			}
 			Station s = Stations.of(r, ctx.tier);
 			adults[s.ordinal()]++;
+			l.jobs.get(s.ordinal()).merge(r.job, 1, Integer::sum);
 			Station home = r.home >= 0 ? byPlot.get(r.home) : null;
 			if (home != s) {
 				l.waiting.get(s.ordinal()).add(r);
@@ -198,6 +202,19 @@ public final class StationLedger {
 			}
 		}
 		return null;
+	}
+
+	/** The commonest trade among a station's householders (the household a new home of theirs most likely takes), or null. */
+	public dev.voidmc.hearth.api.@Nullable JobType commonJob(Station s) {
+		dev.voidmc.hearth.api.JobType best = null;
+		int n = 0;
+		for (var e : this.jobs.get(s.ordinal()).entrySet()) {
+			if (e.getValue() > n) {
+				n = e.getValue();
+				best = e.getKey();
+			}
+		}
+		return best;
 	}
 
 	/** Householders of a station still waiting for a home of their station. */

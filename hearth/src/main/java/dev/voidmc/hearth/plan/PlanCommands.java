@@ -71,6 +71,40 @@ final class PlanCommands {
 			}
 			src.sendSuccess(() -> Component.translatable("hearth.plan.command.districts", sb.toString().trim()), false);
 		}
+		// the living world: who lives where, the land worked, the lord, the deep
+		int[] folk = new int[dev.voidmc.hearth.api.Station.values().length];
+		for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+			folk[dev.voidmc.hearth.plan.society.Stations.of(r, s.tier()).ordinal()]++;
+		}
+		StringBuilder stations = new StringBuilder();
+		for (dev.voidmc.hearth.api.Station station : dev.voidmc.hearth.api.Station.values()) {
+			if (folk[station.ordinal()] > 0) {
+				stations.append(station.getSerializedName()).append(' ').append(folk[station.ordinal()]).append("  ");
+			}
+		}
+		src.sendSuccess(() -> Component.translatable("hearth.plan.command.stations", stations.toString().trim()), false);
+		int worked = 0;
+		for (var p : s.plots()) {
+			if (dev.voidmc.hearth.plan.resource.Extraction.kind(p.spec().archetype()) != null) {
+				worked++;
+			}
+		}
+		int workings = worked;
+		int capacity = dev.voidmc.hearth.plan.resource.Territory.estimateCapacity(s.sites(), PlanModule.planner().config().living());
+		src.sendSuccess(() -> Component.translatable("hearth.plan.command.land", s.sites().size(), workings, capacity > 0 ? capacity : "-"), false);
+		if (st.castleHill != null) {
+			src.sendSuccess(() -> Component.translatable("hearth.plan.command.castle", st.castleHill[0], st.castleHill[1]), false);
+		}
+		if (st.deep != null) {
+			int deepPlots = 0;
+			for (var p : s.plots()) {
+				if (dev.voidmc.hearth.plan.deep.LevelView.level(p.spec()) == 1) {
+					deepPlots++;
+				}
+			}
+			int dp = deepPlots;
+			src.sendSuccess(() -> Component.translatable("hearth.plan.command.deep", st.deep.heartX, st.deep.heartY, st.deep.heartZ, dp), false);
+		}
 		src.sendSuccess(() -> Component.translatable("hearth.plan.command.queue", st.queue.size()), false);
 		int n = 0;
 		for (QueuedProject q : st.queue) {
