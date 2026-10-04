@@ -389,6 +389,15 @@ public final class EmbodimentManager {
 		s.setResidentEmbodied(r.id, false);
 		creditLabour(brain);
 		s.removeResident(r.id);
+		if (source.getEntity() instanceof ServerPlayer killer && HearthServices.law() == null) {
+			// Without the law module nobody tries the killer, but the town does not forget.
+			dev.voidmc.hearth.api.StandingService standing = HearthServices.standing();
+			if (standing != null) {
+				standing.deed(new dev.voidmc.hearth.api.StandingService.Deed(killer.getUUID(), s.id(), "npc:killed", -100, r.id, folk.blockPosition(), true));
+			} else {
+				s.addReputation(killer.getUUID(), -50);
+			}
+		}
 		s.markDirty();
 		if (NpcModule.config().threats().deathMessages()) {
 			Component job = Component.translatable(r.age == AgeStage.CHILD ? "hearth.npc.child" : "hearth.npc.job." + r.job.getSerializedName());

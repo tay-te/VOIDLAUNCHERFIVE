@@ -649,9 +649,18 @@ public final class FolkBrain {
 
 	public void onHurt(ServerLevel level, DamageSource source) {
 		if (source.getEntity() instanceof ServerPlayer player) {
-			// Folk remember who hurt them; the town does too.
+			// Folk remember who hurt them; the town does too. With the law module, assault goes through witnesses and the
+			// courts (it reports the deed); without it, the standing module hears of it directly, or the raw number moves.
 			this.data.addMood(-15);
-			this.settlement.addReputation(player.getUUID(), -3);
+			if (dev.voidmc.hearth.api.HearthServices.law() == null) {
+				dev.voidmc.hearth.api.StandingService standing = dev.voidmc.hearth.api.HearthServices.standing();
+				if (standing != null) {
+					standing.deed(new dev.voidmc.hearth.api.StandingService.Deed(player.getUUID(), this.settlement.id(), "npc:hurt", -3, this.resident.id,
+						this.folk.blockPosition(), true));
+				} else {
+					this.settlement.addReputation(player.getUUID(), -3);
+				}
+			}
 			this.settlement.markDirty();
 			if (this.engagedWith == player) {
 				disengage();

@@ -204,7 +204,11 @@ final class HaulerWork implements WorkBehaviour {
 
 	/** What the load looks like in their arms. */
 	static ItemStack load(Kind kind, Culture culture) {
-		Item item = switch (kind) {
+		return new ItemStack(loadItem(kind, culture));
+	}
+
+	static Item loadItem(Kind kind, Culture culture) {
+		return switch (kind) {
 			case STONE -> Items.COBBLESTONE;
 			case ORE -> Items.RAW_IRON_BLOCK;
 			case CLAY -> Items.CLAY;
@@ -227,7 +231,6 @@ final class HaulerWork implements WorkBehaviour {
 			case SALT -> Items.BARREL;
 			case GOODS -> Items.BARREL;
 		};
-		return new ItemStack(item);
 	}
 
 	/** One load: to the source, loaded, carried (slowly), set down at the sink. */

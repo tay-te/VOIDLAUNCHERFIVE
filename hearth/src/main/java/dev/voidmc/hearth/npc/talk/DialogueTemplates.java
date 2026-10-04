@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import dev.voidmc.hearth.api.AgeStage;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.npc.person.Trait;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,12 +34,13 @@ import org.slf4j.LoggerFactory;
  * { "greeting": [
  *     { "text": "Morning, {player}. Ground's wet but the bread's warm.", "time": "morning", "weather": "rain",
  *       "rep": [10, 100], "traits": ["cheerful"], "jobs": ["baker"], "cultures": ["temperate"], "age": "adult",
- *       "mood": [-100, 100], "met": 2, "weight": 2 } ] }
+ *       "mood": [-100, 100], "met": 2, "stations": ["poor"], "weight": 2 } ] }
  * </pre>
  *
  * Conditions: {@code time} morning (5–11) / day (11–17) / evening (17–21) / night; {@code weather} clear / rain / storm;
  * {@code rep} the player's reputation range; {@code traits} any of; {@code jobs}, {@code cultures}; {@code age};
- * {@code mood}; {@code met} at least this many earlier conversations. Placeholders in text: {player} {name} {given}
+ * {@code mood}; {@code met} at least this many earlier conversations; {@code stations} any of (poor, peasant, artisan,
+ * merchant, clergy, scholar, official, gentry, lord). Placeholders in text: {player} {name} {given}
  * {settlement} {job} {building} {goods} {amount} {tier} {other} {direction} {distance} {landmark} {spouse} {culture}.
  */
 public final class DialogueTemplates {
@@ -51,11 +53,15 @@ public final class DialogueTemplates {
 
 	/** The situation a line is chosen for. */
 	public record Context(int minute, String weather, int reputation, Set<Trait> traits, JobType job, Culture culture, AgeStage age, int mood,
-		int met) {
+		int met, Station station) {
+		/** A context with the station the job usually brings. */
+		public Context(int minute, String weather, int reputation, Set<Trait> traits, JobType job, Culture culture, AgeStage age, int mood, int met) {
+			this(minute, weather, reputation, traits, job, culture, age, mood, met, Station.of(job));
+		}
 	}
 
 	public record Line(String text, @Nullable String time, @Nullable String weather, int repMin, int repMax, Set<Trait> traits, Set<JobType> jobs,
-		Set<Culture> cultures, @Nullable AgeStage age, int moodMin, int moodMax, int met, int weight) {
+		Set<Culture> cultures, @Nullable AgeStage age, int moodMin, int moodMax, int met, int weight, Set<Station> stations) {
 		boolean fits(Context c) {
 			if (this.time != null && !this.time.equals(timeOf(c.minute))) {
 				return false;
@@ -73,6 +79,9 @@ public final class DialogueTemplates {
 				return false;
 			}
 			if (!this.cultures.isEmpty() && !this.cultures.contains(c.culture)) {
+				return false;
+			}
+			if (!this.stations.isEmpty() && !this.stations.contains(c.station)) {
 				return false;
 			}
 			return this.age == null || this.age == c.age;
@@ -94,6 +103,9 @@ public final class DialogueTemplates {
 				s += 2;
 			}
 			if (!this.cultures.isEmpty()) {
+				s += 2;
+			}
+			if (!this.stations.isEmpty()) {
 				s += 2;
 			}
 			if (this.repMin > -100 || this.repMax < 100) {
@@ -193,7 +205,7 @@ public final class DialogueTemplates {
 	}
 
 	private static Line simple(String text) {
-		return new Line(text, null, null, -100, 100, Set.of(), Set.of(), Set.of(), null, -100, 100, 0, 1);
+		return new Line(text, null, null, -100, 100, Set.of(), Set.of(), Set.of(), null, -100, 100, 0, 1, Set.of());
 	}
 
 	private static Line line(JsonObject o) {
@@ -211,9 +223,13 @@ public final class DialogueTemplates {
 		for (String s : strings(o, "cultures")) {
 			cultures.add(Culture.valueOf(s.toUpperCase(Locale.ROOT)));
 		}
+		Set<Station> stations = EnumSet.noneOf(Station.class);
+		for (String s : strings(o, "stations")) {
+			stations.add(Station.valueOf(s.toUpperCase(Locale.ROOT)));
+		}
 		AgeStage age = o.has("age") ? AgeStage.valueOf(o.get("age").getAsString().toUpperCase(Locale.ROOT)) : null;
 		return new Line(o.get("text").getAsString(), str(o, "time"), str(o, "weather"), rep[0], rep[1], traits, jobs, cultures, age, mood[0], mood[1],
-			o.has("met") ? o.get("met").getAsInt() : 0, o.has("weight") ? o.get("weight").getAsInt() : 1);
+			o.has("met") ? o.get("met").getAsInt() : 0, o.has("weight") ? o.get("weight").getAsInt() : 1, stations);
 	}
 
 	private static @Nullable String str(JsonObject o, String k) {

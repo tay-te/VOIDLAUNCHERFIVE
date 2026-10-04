@@ -308,7 +308,7 @@ public final class Trees {
 	}
 
 	public static boolean isNaturalLeaves(BlockState st) {
-		return st.is(BlockTags.LEAVES) && st.hasProperty(LeavesBlock.PERSISTENT) && !st.getValue(LeavesBlock.PERSISTENT);
+		return st.getBlock() instanceof LeavesBlock && st.hasProperty(LeavesBlock.PERSISTENT) && !st.getValue(LeavesBlock.PERSISTENT);
 	}
 
 	/** Blocks only people make: planks, glass, torches, doors, anything with a block entity. */

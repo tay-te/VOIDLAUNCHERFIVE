@@ -36,10 +36,24 @@ public final class Greetings {
 		BlockPos at) {
 		NpcData data = NpcData.of(resident);
 		String weather = level.isThundering() ? "storm" : level.isRainingAt(at.above()) ? "rain" : "clear";
-		int rep = player == null ? 0 : settlement.reputation(player.getUUID());
+		int rep = player == null ? 0 : reputation(settlement, resident, player.getUUID());
 		int met = player == null ? 0 : data.timesMet(player.getUUID());
 		return new DialogueTemplates.Context(NpcTime.minuteOfDay(level), weather, rep, data.traits(), resident.job, settlement.culture(), resident.age,
-			data.mood(), met);
+			data.mood(), met, resident.station);
+	}
+
+	/**
+	 * How this resident regards the player, for choosing words: the town's standing from the standing module when it is
+	 * there (pulled a third of the way toward the resident's own opinion), else the settlement's raw reputation.
+	 */
+	public static int reputation(Settlement settlement, Resident resident, java.util.UUID player) {
+		dev.voidmc.hearth.api.StandingService standing = dev.voidmc.hearth.api.HearthServices.standing();
+		if (standing == null) {
+			return settlement.reputation(player);
+		}
+		int town = standing.standing(settlement.id(), player);
+		int own = standing.opinion(resident.id, player);
+		return Math.clamp(Math.round(town + (own - town) / 3.0F), -100, 100);
 	}
 
 	/** The common placeholders. */
@@ -167,7 +181,7 @@ public final class Greetings {
 	 * Rate-limited per player.
 	 */
 	public static void greetInPassing(ServerLevel level, FolkBrain brain, ServerPlayer player) {
-		int rep = brain.settlement.reputation(player.getUUID());
+		int rep = reputation(brain.settlement, brain.resident, player.getUUID());
 		if (rep < 25 && brain.data.timesMet(player.getUUID()) == 0) {
 			return;
 		}

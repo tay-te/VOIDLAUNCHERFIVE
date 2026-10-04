@@ -160,44 +160,52 @@ public class Folk extends PathfinderMob {
 	}
 
 	public Culture culture() {
-		int v = this.entityData.get(DATA_LOOK) & 31;
-		Culture[] all = Culture.values();
-		return v < all.length ? all[v] : Culture.TEMPERATE;
+		return look().culture();
 	}
 
 	public JobType job() {
-		int v = this.entityData.get(DATA_LOOK) >>> 5 & 127;
-		JobType[] all = JobType.values();
-		return v < all.length ? all[v] : JobType.NONE;
+		return look().job();
 	}
 
 	public AgeStage ageStage() {
-		int v = this.entityData.get(DATA_LOOK) >>> 12 & 3;
-		AgeStage[] all = AgeStage.values();
-		return v < all.length ? all[v] : AgeStage.ADULT;
+		return look().age();
 	}
 
 	public boolean female() {
-		return (this.entityData.get(DATA_LOOK) >>> 14 & 1) != 0;
+		return look().female();
 	}
 
 	public Station station() {
-		int v = this.entityData.get(DATA_LOOK) >>> 15 & 15;
-		Station[] all = Station.values();
-		return v < all.length ? all[v] : Station.PEASANT;
+		return look().station();
 	}
 
 	public Office office() {
-		return Office.byId(this.entityData.get(DATA_LOOK) >>> 19 & 3);
+		return look().office();
 	}
 
 	public FolkLook look() {
-		return new FolkLook(appearance(), culture(), job(), ageStage(), female(), station(), office());
+		return unpackLook(appearance(), this.entityData.get(DATA_LOOK));
 	}
 
-	static int packLook(Culture culture, JobType job, AgeStage age, boolean female, Station station, Office office) {
+	/** Culture, job, age, sex, station and office in one synced int (see {@code DATA_LOOK}). */
+	public static int packLook(Culture culture, JobType job, AgeStage age, boolean female, Station station, Office office) {
 		return culture.ordinal() & 31 | (job.ordinal() & 127) << 5 | (age.ordinal() & 3) << 12 | (female ? 1 : 0) << 14 | (station.ordinal() & 15) << 15
 			| (office.ordinal() & 3) << 19;
+	}
+
+	/** The look a packed int and an appearance genome stand for; out-of-range fields fall back to plain defaults. */
+	public static FolkLook unpackLook(int appearance, int packed) {
+		Culture[] cultures = Culture.values();
+		JobType[] jobs = JobType.values();
+		AgeStage[] ages = AgeStage.values();
+		Station[] stations = Station.values();
+		int c = packed & 31;
+		int j = packed >>> 5 & 127;
+		int a = packed >>> 12 & 3;
+		int st = packed >>> 15 & 15;
+		return new FolkLook(appearance, c < cultures.length ? cultures[c] : Culture.TEMPERATE, j < jobs.length ? jobs[j] : JobType.NONE,
+			a < ages.length ? ages[a] : AgeStage.ADULT, (packed >>> 14 & 1) != 0, st < stations.length ? stations[st] : Station.PEASANT,
+			Office.byId(packed >>> 19 & 3));
 	}
 
 	public QuestService.Marker marker() {

@@ -37,10 +37,15 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   /hearth npc spawn [job] [culture] [child|adult|elder]   a folk here, living in a camp of that culture
  *   /hearth npc sandbox [radius] [culture]                  a village from the beds and workstations built round you
- *   /hearth npc sandbox build cottage|tower                 stake out a building for the sandbox's builders, in front of you
+ *   /hearth npc sandbox build cottage|tower|quarry          stake out a building (or a quarry pit) for the sandbox, in front of you
  *   /hearth npc sandbox clear                               remove every sandbox settlement in this dimension
  *   /hearth npc info                                        who the folk you are looking at is and what they are doing
  *   /hearth npc stats                                       embodied folk and settlements
+ *   /hearth npc behaviours                                  the behaviours other modules have taught folk, by priority
+ *   /hearth npc escort &lt;pos&gt;                                the folk you look at follows you there (NpcService.follow)
+ *   /hearth npc station &lt;station&gt;                           sets the station of the folk you look at (to see the dress)
+ *   /hearth npc caravan                                     the caravans on the roads
+ *   /hearth npc caravan send                                sends a caravan from the nearest town to the next nearest
  * </pre>
  */
 public final class NpcCommands {
@@ -48,6 +53,8 @@ public final class NpcCommands {
 		java.util.Arrays.stream(JobType.values()).map(JobType::getSerializedName), b);
 	private static final SuggestionProvider<CommandSourceStack> CULTURES = (c, b) -> SharedSuggestionProvider.suggest(
 		java.util.Arrays.stream(Culture.values()).map(Culture::getSerializedName), b);
+	private static final SuggestionProvider<CommandSourceStack> STATIONS = (c, b) -> SharedSuggestionProvider.suggest(
+		java.util.Arrays.stream(dev.voidmc.hearth.api.Station.values()).map(dev.voidmc.hearth.api.Station::getSerializedName), b);
 	private static final SuggestionProvider<CommandSourceStack> AGES = (c, b) -> SharedSuggestionProvider.suggest(new String[]{"child", "adult", "elder"}, b);
 
 	private NpcCommands() {
@@ -69,13 +76,23 @@ public final class NpcCommands {
 				.then(Commands.literal("clear").executes(NpcCommands::clear))
 				.then(Commands.literal("build")
 					.then(Commands.literal("cottage").executes(c -> build(c, "cottage")))
-					.then(Commands.literal("tower").executes(c -> build(c, "tower"))))
+					.then(Commands.literal("tower").executes(c -> build(c, "tower")))
+					.then(Commands.literal("quarry").executes(c -> build(c, "quarry"))))
 				.then(Commands.argument("radius", IntegerArgumentType.integer(4, 48))
 					.executes(c -> sandbox(c, IntegerArgumentType.getInteger(c, "radius"), Culture.TEMPERATE))
 					.then(Commands.argument("culture", StringArgumentType.word()).suggests(CULTURES)
 						.executes(c -> sandbox(c, IntegerArgumentType.getInteger(c, "radius"), culture(c))))))
 			.then(Commands.literal("info").executes(NpcCommands::info))
-			.then(Commands.literal("stats").executes(NpcCommands::stats))));
+			.then(Commands.literal("stats").executes(NpcCommands::stats))
+			.then(Commands.literal("behaviours").executes(NpcCommands::behaviours))
+			.then(Commands.literal("escort")
+				.then(Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+					.executes(c -> escort(c, net.minecraft.commands.arguments.coordinates.BlockPosArgument.getBlockPos(c, "pos")))))
+			.then(Commands.literal("station")
+				.then(Commands.argument("station", StringArgumentType.word()).suggests(STATIONS).executes(NpcCommands::station)))
+			.then(Commands.literal("caravan")
+				.executes(NpcCommands::caravans)
+				.then(Commands.literal("send").executes(NpcCommands::sendCaravan)))));
 	}
 
 	private static JobType job(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
@@ -149,6 +166,122 @@ public final class NpcCommands {
 		return n;
 	}
 
+	/** The folk the player is looking at, within 24 blocks, or null. */
+	private static Folk lookedAt(ServerPlayer player) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 end = eye.add(player.getLookAngle().scale(24));
+		Folk target = null;
+		double best = Double.MAX_VALUE;
+		for (Folk f : player.level().getEntitiesOfClass(Folk.class, new AABB(eye, end).inflate(1))) {
+			if (f.getBoundingBox().inflate(0.3).clip(eye, end).isPresent() && f.distanceToSqr(player) < best) {
+				target = f;
+				best = f.distanceToSqr(player);
+			}
+		}
+		return target;
+	}
+
+	private static int behaviours(CommandContext<CommandSourceStack> c) {
+		StringBuilder sb = new StringBuilder("Folk behaviours (routine: sleep 90, work 50, meals 40, leisure 20; fleeing 250):");
+		for (dev.voidmc.hearth.api.NpcService.FolkBehaviour b : dev.voidmc.hearth.npc.service.Behaviours.all()) {
+			sb.append("\n ").append(b.priority()).append("  ").append(b.id());
+		}
+		int running = 0;
+		for (Folk f : NpcModule.embodiment().entities()) {
+			if (f.brain() != null && f.brain().behaviour() != null) {
+				running++;
+			}
+		}
+		int n = running;
+		c.getSource().sendSuccess(() -> Component.literal(sb + "\n" + n + " folk are in a behaviour now; "
+			+ dev.voidmc.hearth.npc.service.Escorts.active() + " escorts active."), false);
+		return dev.voidmc.hearth.npc.service.Behaviours.all().size();
+	}
+
+	private static int escort(CommandContext<CommandSourceStack> c, BlockPos destination) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		Folk f = lookedAt(player);
+		if (f == null || f.brain() == null) {
+			c.getSource().sendFailure(Component.literal("Look at a folk."));
+			return 0;
+		}
+		java.util.UUID id = NpcModule.service().follow(player, f.brain().settlement, f.brain().resident, destination);
+		if (id == null) {
+			c.getSource().sendFailure(Component.literal("They cannot follow you now."));
+			return 0;
+		}
+		String name = f.brain().resident.fullName();
+		c.getSource().sendSuccess(() -> Component.literal(name + " follows you to " + destination.toShortString() + "."), false);
+		return 1;
+	}
+
+	private static int station(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		Folk f = lookedAt(player);
+		if (f == null || f.brain() == null) {
+			c.getSource().sendFailure(Component.literal("Look at a folk."));
+			return 0;
+		}
+		String s = StringArgumentType.getString(c, "station");
+		for (dev.voidmc.hearth.api.Station st : dev.voidmc.hearth.api.Station.values()) {
+			if (st.getSerializedName().equals(s)) {
+				f.brain().resident.station = st;
+				f.brain().settlement.markDirty();
+				f.setStanding(st, f.office());
+				c.getSource().sendSuccess(() -> Component.literal(f.folkName() + " is now " + st.getSerializedName() + "."), false);
+				return 1;
+			}
+		}
+		c.getSource().sendFailure(Component.literal("No such station: " + s));
+		return 0;
+	}
+
+	private static int caravans(CommandContext<CommandSourceStack> c) {
+		ServerLevel level = c.getSource().getLevel();
+		java.util.List<String> lines = NpcModule.caravans().describe(level.getGameTime());
+		c.getSource().sendSuccess(() -> Component.literal(NpcModule.caravans().journeys() + " caravans on the roads, " + NpcModule.caravans().parties()
+			+ " met by players" + (lines.isEmpty() ? "." : ":\n " + String.join("\n ", lines))), false);
+		return lines.size();
+	}
+
+	private static int sendCaravan(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		ServerLevel level = player.level();
+		dev.voidmc.hearth.api.HearthWorld world = dev.voidmc.hearth.api.HearthWorld.of(level);
+		if (world == null) {
+			c.getSource().sendFailure(Component.literal("No Hearth world here."));
+			return 0;
+		}
+		Settlement from = null;
+		Settlement to = null;
+		double best = Double.MAX_VALUE;
+		double second = Double.MAX_VALUE;
+		for (Settlement s : world.settlements()) {
+			double d = s.center().distSqr(player.blockPosition());
+			if (d < best) {
+				to = from;
+				second = best;
+				from = s;
+				best = d;
+			} else if (d < second) {
+				to = s;
+				second = d;
+			}
+		}
+		if (from == null || to == null) {
+			c.getSource().sendFailure(Component.literal("Two settlements are needed for a caravan."));
+			return 0;
+		}
+		int[] cargo = new int[dev.voidmc.hearth.api.Goods.VALUES.length];
+		cargo[dev.voidmc.hearth.api.Goods.WOOD.ordinal()] = 96;
+		cargo[dev.voidmc.hearth.api.Goods.SALT.ordinal()] = 40;
+		NpcModule.caravans().depart(world, from, to, cargo);
+		Settlement f0 = from;
+		Settlement t0 = to;
+		c.getSource().sendSuccess(() -> Component.literal("A caravan sets out from " + f0.name() + " for " + t0.name() + "."), false);
+		return 1;
+	}
+
 	private static int info(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		ServerPlayer player = c.getSource().getPlayerOrException();
 		Vec3 eye = player.getEyePosition();
@@ -171,7 +304,8 @@ public final class NpcCommands {
 		ResidentPlaces p = b.places(player.level());
 		Schedule sch = b.schedule();
 		String text = r.fullName() + " (" + r.age.getSerializedName() + ", " + (r.female ? "f" : "m") + ") " + r.job.getSerializedName() + " of "
-			+ b.settlement.name() + "\n traits " + d.traits() + ", mood " + d.mood() + ", friends " + d.friends().size()
+			+ b.settlement.name() + ", " + r.station.getSerializedName() + (target.office() != dev.voidmc.hearth.npc.person.Office.NONE ? ", " + target.office() : "")
+			+ "\n traits " + d.traits() + ", mood " + d.mood() + ", friends " + d.friends().size()
 			+ "\n now: " + b.describe()
 			+ "\n bed " + (p.bed != null ? p.bed.toShortString() : "-") + ", home " + p.home.toShortString() + ", work "
 			+ (p.workSite != null ? p.workSite.pos().toShortString() : p.work.toShortString())

@@ -26,11 +26,12 @@ import org.jspecify.annotations.Nullable;
  * its tools in hand, its sounds and its sparks, chips, smoke or bubbles; between bouts they fetch from the store.
  */
 final class CraftWork implements WorkBehaviour {
-	private final Profile profile;
+	private final JobType job;
+	private @Nullable Profile profile;
 	private int bouts;
 
 	CraftWork(JobType job) {
-		this.profile = Profile.of(job);
+		this.job = job;
 	}
 
 	record Profile(FolkPose pose, ItemStack main, ItemStack off, @Nullable SoundEvent sound, float volume, int interval,
@@ -90,6 +91,10 @@ final class CraftWork implements WorkBehaviour {
 			Poi store = p.workStorage;
 			return new Tasks.Linger(store.pos(), store.pos().relative(store.facing()), FolkPose.CRAFT, 50, ItemStack.EMPTY, ItemStack.EMPTY,
 				Tasks.every(40, SoundEvents.CHEST_OPEN, 0.4F, null, true), "fetching from the store");
+		}
+		if (this.profile == null) {
+			// made on first use: item stacks need the game's registries bound
+			this.profile = Profile.of(this.job);
 		}
 		Profile pr = this.profile;
 		Tasks.Effect effect = Tasks.every(pr.interval, pr.sound, pr.volume, pr.particle == null ? null : (b, lvl, elapsed, at) -> {

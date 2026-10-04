@@ -199,6 +199,58 @@ public final class SandboxBlueprints {
 		return b.build(0x8A8A86, 0x7A6A50, oy + 11, oy + 13);
 	}
 
+	/**
+	 * A small quarry pit for trying gatherers out: {@code hearth:extract/quarry_pit}, 9×9, three benches stepping down two
+	 * blocks each (each bench its own stage, as the excavation contract has it), a ladder and a lantern on a post going in
+	 * at each bench, a barrel at the rim as the pit's store, and a {@code WORK_FACE} on every ledge.
+	 */
+	public static Blueprint quarry(BlockPos origin) {
+		CompoundTag params = new CompoundTag();
+		params.putString("kind", "stone");
+		params.putInt("depth", 6);
+		PlotSpec spec = new PlotSpec(Hearth.id("extract/quarry_pit"), Hearth.id("dev"), origin.asLong(), origin, 9, 9, Direction.NORTH, 8, 1, params);
+		int ox = origin.getX();
+		int oy = origin.getY();
+		int oz = origin.getZ();
+		List<StageKind> kinds = new ArrayList<>();
+		List<List<Step>> stages = new ArrayList<>();
+		List<Poi> pois = new ArrayList<>();
+		BoundingBox box = new BoundingBox(origin);
+		for (int bench = 0; bench < 3; bench++) {
+			List<Step> st = new ArrayList<>();
+			int lo = bench + 1;
+			int hi = 7 - bench;
+			int ledge = oy - 2 * bench;
+			// cut the bench: the upper layer, then the lower, row by row from the entrance side
+			for (int layer = 1; layer <= 2; layer++) {
+				for (int z = lo; z <= hi; z++) {
+					for (int x = lo; x <= hi; x++) {
+						st.add(new Step(ox + x, ledge - layer, oz + z, Blocks.AIR.defaultBlockState()));
+					}
+				}
+			}
+			// a ladder down from the ledge, and a lantern on a post at the ledge corner
+			st.add(new Step(ox + lo, ledge - 2, oz + 4, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.EAST)));
+			st.add(new Step(ox + lo, ledge - 1, oz + 4, Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.EAST)));
+			st.add(new Step(ox + bench, ledge, oz + bench, Blocks.OAK_FENCE.defaultBlockState()));
+			st.add(new Step(ox + bench, ledge + 1, oz + bench, Blocks.LANTERN.defaultBlockState()));
+			kinds.add(StageKind.EARTHWORK);
+			stages.add(st);
+			pois.add(new Poi(PoiType.WORK_FACE, new BlockPos(ox + bench, ledge, oz + 4), Direction.EAST, JobType.QUARRIER));
+			pois.add(new Poi(PoiType.WORK_FACE, new BlockPos(ox + 4, ledge, oz + bench), Direction.SOUTH, JobType.QUARRIER));
+			for (Step step : st) {
+				box.encapsulate(new BlockPos(step.x, step.y, step.z));
+			}
+		}
+		List<Step> rim = List.of(new Step(ox + 8, oy, oz + 8, Blocks.BARREL.defaultBlockState()));
+		kinds.add(StageKind.EXTERIOR);
+		stages.add(rim);
+		box.encapsulate(new BlockPos(ox + 8, oy, oz + 8));
+		pois.add(new Poi(PoiType.STORAGE, new BlockPos(ox + 7, oy, oz + 8), Direction.EAST, null));
+		return new ListBlueprint(spec, box, kinds, stages, List.copyOf(pois), List.of(new BlockPos(ox + 4, oy, oz - 1)), 0,
+			new Silhouette(0x8A8A86, 0x8A8A86, oy, oy));
+	}
+
 	/** No building: a scanned area of the world (a player-built village) the sandbox lives in. */
 	public static Blueprint area(BoundingBox box) {
 		BlockPos o = new BlockPos(box.minX(), box.minY() + 2, box.minZ());
