@@ -226,8 +226,13 @@ public final class Farmhouse implements Archetype {
 		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1);
 		if (form == RoofForm.GAMBREL) {
 			o = o.withPitch(Math.max(0.9, o.pitch()));
+		} else if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d)) {
+			o = o.withPitch(dev.voidmc.hearth.build.kit.homestead.Bohemia.pitch(d, o.pitch(), hall.plateY(), depth / 2.0, form));
 		}
 		Roofs.Roof roof = Roofs.build(d, x0, z0, x1, z1, hall.plateY(), form, Direction.Axis.X, o, false, false).roof();
+		if (dev.voidmc.hearth.build.kit.homestead.Bohemia.is(d)) {
+			dev.voidmc.hearth.build.kit.homestead.Bohemia.carryRidge(d, roof);
+		}
 		Barns.Build bb = Barns.build(d);
 		if (form != RoofForm.HIP && form != RoofForm.PAGODA) {
 			try (var s = d.stage(StageKind.WALLS)) {
