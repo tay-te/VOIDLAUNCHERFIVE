@@ -35,7 +35,7 @@
 		"ground": ["minecraft:sand"],
 		"fill": ["minecraft:sand"],
 		"stilt": ["wood:minecraft:jungle"],
-		"thatch": ["minecraft:hay_block"],
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}],
 		"sheet": [{"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:prismarine_bricks", "w": 1}],
 		"masonry": [{"m": "minecraft:cut_sandstone", "w": 3}, {"m": "minecraft:smooth_sandstone", "w": 1}, {"m": "minecraft:sandstone", "w": 1, "low": 1.5}]
 	},

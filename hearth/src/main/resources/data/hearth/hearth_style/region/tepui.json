@@ -8,7 +8,7 @@
 		"wall_accent": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:tuff_bricks", "w": 1}],
 		"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:tuff", "w": 1}],
 		"foundation": [{"m": "minecraft:tuff", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobbled_deepslate", "w": 1}],
-		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.18}],
+		"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.18}],
 		"roof": [{"m": "minecraft:bamboo_mosaic", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.18}],
 		"roof_trim": ["wood:expanse:palm|wood:minecraft:jungle"],
 		"frame": ["wood:minecraft:jungle"],

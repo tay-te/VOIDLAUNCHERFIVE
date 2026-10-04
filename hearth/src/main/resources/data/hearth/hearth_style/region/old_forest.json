@@ -12,7 +12,7 @@
 		"beam": ["wood:minecraft:dark_oak"],
 		"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1.2}, {"m": "minecraft:moss_block", "patch": 0.16}],
 		"roof_trim": ["wood:minecraft:dark_oak"],
-		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.22}],
+		"thatch": [{"m": "minecraft:stripped_oak_wood", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.22}],
 		"window": ["wood:minecraft:dark_oak"],
 		"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
 		"shutter": [{"m": "wood:minecraft:oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
@@ -51,6 +51,7 @@
 		"walls": {"kind": "stone", "upper": "plank", "plinth": 1, "beam_ends": 0.7},
 		"roof": {"eaves": 2, "gable_overhang": 1, "brackets": true, "ridge": "trim"},
 		"windows": {"shutters": 0.6, "boxes": 0.1, "tall": false},
-		"yard": {"garden": "cottage", "fence": "fence", "hedge": 0.4, "woodpile": 0.9}
+		"yard": {"garden": "cottage", "fence": "fence", "hedge": 0.4, "woodpile": 0.9},
+		"local": {"roles": {"gable": false, "floor": false}}
 	}
 }

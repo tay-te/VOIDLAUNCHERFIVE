@@ -70,7 +70,9 @@ public final class Walls {
 			int col = s.column(i);
 			boolean corner = s.isCorner(i);
 			boolean post = posts.contains(col);
-			boolean nextToCorner = i == 1 || i == s.length() - 2;
+			// the quoins' long-and-short toothing reaches in a block only on a wall long enough to carry it: on a small
+			// cottage it would turn half the front into corner stone
+			boolean nextToCorner = (i == 1 || i == s.length() - 2) && s.length() >= 8;
 			for (int y = ya; y <= yg; y++) {
 				boolean inPlinth = k == 0 && y < b.baseY + plinth;
 				Paint p = switch (kind) {

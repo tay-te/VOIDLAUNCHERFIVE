@@ -35,7 +35,7 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:dark_oak"],
-		"thatch": ["minecraft:hay_block"],
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}],
 		"sheet": [{"m": "minecraft:dark_prismarine", "w": 3}, {"m": "minecraft:waxed_oxidized_cut_copper", "w": 1}],
 		"masonry": [{"m": "expanse:limestone_bricks|minecraft:polished_diorite", "w": 3}, {"m": "expanse:limestone|minecraft:diorite", "w": 1}, {"m": "expanse:mossy_limestone|minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 1.5}]
 	},

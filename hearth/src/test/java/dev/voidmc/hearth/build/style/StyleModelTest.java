@@ -287,7 +287,7 @@ class StyleModelTest {
 	void stationsMoveTheFinish() {
 		Style t = culture(Culture.TEMPERATE);
 		Style merchant = t.dress(context("house/cottage", 2, "station", "merchant"), 1, null);
-		assertSame(Blocks.DEEPSLATE_TILES, merchant.palette(Role.ROOF, 2, -1).main().block(Form.FULL), "a merchant's house dresses a tier up");
+		assertSame(Blocks.BRICKS, merchant.palette(Role.ROOF, 2, -1).main().block(Form.FULL), "a merchant's house dresses a tier up (tier 3: red clay tile)");
 		Style poor = t.dress(context("house/cottage", 2, "station", "poor"), 1, null);
 		Palette roof = poor.palette(Role.ROOF, 2, -1);
 		assertFalse(roof.patches().isEmpty(), "a hovel's roof is mended in patches");

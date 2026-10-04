@@ -58,8 +58,11 @@ final class HouseBuilder {
 		boolean lowPitch = !flat && h.roof().pitch() < 0.9;
 		boolean logs = h.walls().kind() == WallKind.LOG;
 		// the north roofs its log cottages in turf: a low gable of sods with flowers in them, the house one storey under it
+		// (a Scandinavian and Arctic way of roofing: Bohemian and Alpine log houses keep their shingles and thatch)
 		boolean grassy = d.mat(Role.GROUND).main(dev.voidmc.hearth.build.style.Form.FULL) == Blocks.GRASS_BLOCK;
-		boolean turf = !flat && logs && grassy && d.param("turf", d.chance(0.45));
+		dev.voidmc.hearth.api.Culture culture = d.style().root().culture();
+		boolean turfCountry = culture == dev.voidmc.hearth.api.Culture.NORTHERN || culture == dev.voidmc.hearth.api.Culture.TUNDRA;
+		boolean turf = !flat && logs && grassy && d.param("turf", turfCountry && d.chance(0.45));
 		if (turf) {
 			form = RoofForm.GABLE;
 		}
