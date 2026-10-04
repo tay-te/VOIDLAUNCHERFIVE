@@ -29,7 +29,9 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 /**
  * Dev tooling, off unless the environment variable {@code HEARTH_DEV_ECONOMY=shots} is set: drives a dev client through
  * the economy without anyone at the keyboard — makes a creative test world, fills the hotbar with coins, opens the
- * sandbox market, buys, reports a builders' shortage and sells stone into it, opens the bank and buys a deed — and saves
+ * sandbox market, buys, reports a builders' shortage and sells stone into it, opens the bank and buys a deed, then (phase 3)
+ * opens the baker's and the tailor's shops, haggles (an insult, then a fair offer), visits the fence, buys a business,
+ * funds a building and takes a supply contract — and saves
  * a screenshot of each step to {@code run/screenshots/economy/}, then quits.
  *
  * <pre>HEARTH_DEV_ECONOMY=shots ./gradlew runClient</pre>
@@ -108,6 +110,90 @@ public final class EconomyDevPilot {
 		});
 		shot("property_bought");
 		run(5, c -> c.player.closeContainer());
+
+		// phase 3: shops with their own stock and till, haggling, the fence, businesses, works and contracts
+		run(5, c -> command(c, "hearth economy sandbox shop 2"));
+		shot("shop_bakery");
+		run(5, c -> market(c, EconomyActionPayload.HAGGLE_START, 0, 1));
+		shot("haggle_open");
+		run(5, c -> haggleOffer(c, 0.45));
+		shot("haggle_insulted");
+		run(5, c -> haggleOffer(c, 0.97));
+		shot("haggle_struck");
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox shop 3"));
+		shot("shop_tailor");
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox shop 6"));
+		shot("shop_fence");
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox property"));
+		run(SETTLE, c -> {
+			if (c.gui.screen() instanceof BankScreen screen && c.player.containerMenu instanceof BankMenu menu) {
+				List<BankView.PlotOffer> plots = menu.view().plots();
+				for (int i = 0; i < plots.size(); i++) {
+					if (plots.get(i).has(BankView.PlotOffer.BUSINESS)) {
+						screen.devSelect(i);
+						break;
+					}
+				}
+			}
+		});
+		shot("property_business");
+		run(5, c -> {
+			if (c.player.containerMenu instanceof BankMenu menu) {
+				menu.view().plots().stream().filter(p -> p.has(BankView.PlotOffer.BUSINESS)).findFirst()
+					.ifPresent(p -> bank(c, EconomyActionPayload.BUY_PLOT, p.plot(), 0));
+			}
+		});
+		shot("business_bought");
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox works"));
+		run(SETTLE, c -> {
+			if (c.gui.screen() instanceof BankScreen screen) {
+				screen.devTab(BankView.TAB_WORKS, 0);
+			}
+		});
+		shot("works");
+		run(5, c -> {
+			if (c.player.containerMenu instanceof BankMenu menu && !menu.view().projects().isEmpty()) {
+				bank(c, EconomyActionPayload.FUND, menu.view().projects().getFirst().plot(), 100);
+			}
+		});
+		run(SETTLE, c -> {
+			if (c.gui.screen() instanceof BankScreen screen) {
+				screen.devTab(BankView.TAB_WORKS, 0);
+			}
+		});
+		shot("works_funded");
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> command(c, "hearth economy sandbox contracts"));
+		run(SETTLE, c -> {
+			if (c.gui.screen() instanceof BankScreen screen) {
+				screen.devTab(BankView.TAB_CONTRACTS, 0);
+			}
+		});
+		shot("contracts");
+		run(5, c -> {
+			if (c.player.containerMenu instanceof BankMenu menu && !menu.view().contracts().isEmpty()) {
+				bank(c, EconomyActionPayload.ACCEPT_CONTRACT, menu.view().contracts().getFirst().id(), 0);
+			}
+		});
+		run(SETTLE, c -> {
+			if (c.gui.screen() instanceof BankScreen screen) {
+				screen.devTab(BankView.TAB_CONTRACTS, 0);
+			}
+		});
+		shot("contract_taken");
+		run(5, c -> c.player.closeContainer());
+		run(5, c -> {
+			command(c, "hearth economy sandbox days 30");
+			command(c, "hearth economy sandbox shops");
+			command(c, "hearth economy sandbox purses");
+		});
+		run(10, c -> c.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
+		shot("chat_shops_purses");
+		run(5, c -> c.gui.setScreen(null));
 		run(5, c -> {
 			command(c, "hearth money balance");
 			command(c, "hearth market \"Sandbox Desert\" prices");
@@ -197,6 +283,20 @@ public final class EconomyDevPilot {
 	private static void trade(Minecraft c, int id, boolean bulk) {
 		if (c.player.containerMenu instanceof MarketMenu menu) {
 			ClientPlayNetworking.send(new EconomyActionPayload(menu.containerId, EconomyActionPayload.TRADE, id, bulk ? 1 : 0));
+		}
+	}
+
+	private static void market(Minecraft c, int action, int index, long amount) {
+		if (c.player.containerMenu instanceof MarketMenu menu) {
+			ClientPlayNetworking.send(new EconomyActionPayload(menu.containerId, action, index, amount));
+		}
+	}
+
+	/** Offers a share of the merchant's last word in the haggle under way. */
+	private static void haggleOffer(Minecraft c, double share) {
+		if (c.player.containerMenu instanceof MarketMenu menu && menu.view().haggle() != null) {
+			long offer = Math.max(1, Math.round(menu.view().haggle().counter() * share));
+			ClientPlayNetworking.send(new EconomyActionPayload(menu.containerId, EconomyActionPayload.HAGGLE_OFFER, 0, offer));
 		}
 	}
 
