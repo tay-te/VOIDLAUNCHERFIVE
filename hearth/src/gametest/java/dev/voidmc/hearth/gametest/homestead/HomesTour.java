@@ -107,6 +107,12 @@ public class HomesTour implements FabricClientGameTest {
 				centres.add(world.getServer().computeOnServer(server -> build(server, plot, ox)));
 				x += plot.frontage() + 6;
 			}
+			// let the client load the row's chunks before the first shot
+			int[] first = centres.get(0);
+			if (first != null) {
+				shoot(context, world, "warmup", first[0] + 10, Y + 12, first[2] + 16, 150, 20);
+				settle(context, 8_000);
+			}
 			for (int i = 0; i < PLOTS.size(); i++) {
 				Plot plot = PLOTS.get(i);
 				int[] c = centres.get(i);
@@ -294,39 +300,91 @@ public class HomesTour implements FabricClientGameTest {
 	}
 
 	/**
-	 * The nearest temperate land to spawn on the surface (not sea, river, beach, snow or mountain): rings of samples
-	 * outward from spawn, the biome read at the ground; its ground level.
+	 * The nearest gentle temperate land to spawn (not sea, river, beach or mountain, the row's ground varying little):
+	 * rings of samples outward from spawn, the biome read at the ground; then the whole row's ground levelled to it (the
+	 * trees and hills over it cleared), so every shot has open ground round it.
 	 */
 	private static void findPlace(MinecraftServer server) {
 		ServerLevel level = server.overworld();
 		BlockPos spawn = level.getRespawnData().pos();
+		// read from the generator (nothing generated while searching: generating hundreds of chunks runs out of memory)
+		var gen = level.getChunkSource().getGenerator();
+		var rs = level.getChunkSource().randomState();
+		var biomes = gen.getBiomeSource().createResolver(rs.sampler());
+		java.util.function.IntBinaryOperator height = (x, z) -> gen.getBaseHeight(x, z, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG,
+			level, rs);
 		BlockPos best = spawn;
+		int bestRelief = Integer.MAX_VALUE;
 		String why = "nothing, at spawn";
 		search:
-		for (int r = 0; r <= 3072; r += 128) {
-			int n = Math.max(1, r / 64);
+		for (int r = 0; r <= 2560; r += 128) {
+			int n = Math.max(1, r / 96);
 			for (int k = 0; k < n; k++) {
 				double a = 2 * Math.PI * k / n;
 				int x = spawn.getX() + (int) (Math.cos(a) * r);
 				int z = spawn.getZ() + (int) (Math.sin(a) * r);
-				level.getChunk(x >> 4, z >> 4);
-				int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-				var h = level.getBiome(new BlockPos(x, y, z));
+				int y = height.applyAsInt(x, z);
+				var h = biomes.getNoiseBiome(net.minecraft.core.QuartPos.fromBlock(x), net.minecraft.core.QuartPos.fromBlock(y),
+					net.minecraft.core.QuartPos.fromBlock(z));
 				float t = h.value().getBaseTemperature();
 				boolean ok = t >= 0.6F && t <= 0.95F && !h.is(net.minecraft.tags.BiomeTags.IS_OCEAN) && !h.is(net.minecraft.tags.BiomeTags.IS_RIVER)
 					&& !h.is(net.minecraft.tags.BiomeTags.IS_BEACH) && !h.is(net.minecraft.tags.BiomeTags.IS_MOUNTAIN) && y > level.getSeaLevel() + 1;
-				if (ok) {
+				if (!ok) {
+					continue;
+				}
+				// the row runs 240 east of here: how much its ground rises and falls
+				int lo = y;
+				int hi = y;
+				for (int dx = 0; dx <= 240; dx += 24) {
+					for (int dz = -32; dz <= 32; dz += 32) {
+						int g = height.applyAsInt(x + dx, z + dz);
+						lo = Math.min(lo, g);
+						hi = Math.max(hi, g);
+					}
+				}
+				if (hi - lo < bestRelief) {
+					bestRelief = hi - lo;
 					best = new BlockPos(x, y, z);
-					why = h.unwrapKey().map(Object::toString).orElse("?");
-					break search;
+					why = h.unwrapKey().map(Object::toString).orElse("?") + ", relief " + (hi - lo);
+					if (bestRelief <= 6) {
+						break search;
+					}
 				}
 			}
 		}
 		X0 = best.getX();
 		Z0 = best.getZ();
-		level.getChunk(X0 >> 4, Z0 >> 4);
-		Y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, X0, Z0);
+		Y = best.getY();
 		log("found " + why);
+		// the row's ground levelled to Y: earth under, grass on top, nothing standing over it
+		int ax0 = X0 - 16;
+		int ax1 = X0 + 250;
+		int az0 = Z0 - 40;
+		int az1 = Z0 + 40;
+		BlockState air = Blocks.AIR.defaultBlockState();
+		BlockState dirt = Blocks.DIRT.defaultBlockState();
+		BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int x = ax0; x <= ax1; x++) {
+			for (int z = az0; z <= az1; z++) {
+				for (int y = Y - 4; y <= Y + 40; y++) {
+					BlockState want = y < Y - 1 ? dirt : y == Y - 1 ? grass : air;
+					p.set(x, y, z);
+					BlockState now = level.getBlockState(p);
+					if (y < Y - 1 && !now.isAir() && now.getFluidState().isEmpty()) {
+						continue;
+					}
+					if (now != want) {
+						level.setBlock(p, want, Block.UPDATE_CLIENTS);
+					}
+				}
+			}
+		}
+	}
+
+	private static int ground(ServerLevel level, int x, int z) {
+		level.getChunk(x >> 4, z >> 4);
+		return level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 	}
 
 	private static ServerPlayer player(MinecraftServer server) {

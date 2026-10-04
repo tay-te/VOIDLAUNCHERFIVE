@@ -96,6 +96,12 @@ public final class Bohemia {
 					for (int yy = y - 1; yy >= low && d.isEmpty(x, yy, z); yy--) {
 						d.set(x, yy, z, cover.full());
 					}
+					// a slab cap in the top half of its block would leave a slot of sky over the roofing under it
+					BlockState cap = d.get(x, y, z);
+					if (cap != null && cap.getBlock() instanceof net.minecraft.world.level.block.SlabBlock
+						&& cap.getValue(net.minecraft.world.level.block.SlabBlock.TYPE) == SlabType.TOP) {
+						d.set(x, y, z, cover.full());
+					}
 				}
 			}
 		}
