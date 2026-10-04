@@ -1,0 +1,27 @@
+// Gradle init script: registers `socialPreview` (the social-life family's large renders) without touching the shared
+// build files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/sociallife_preview.gradle socialPreview -Parchetype=commerce/tavern -Pstyle=temperate -Pseeds=2 -Pterrain=flat
+//
+// Optional: -Pparams=frontage=12,depth=13,tier=3,height=12,night=true  -Pscale=26. Output: build/previews/sociallife/.
+// See dev.voidmc.hearth.gametest.sociallife.SocialPreview.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('socialPreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders the social-life archetypes large to build/previews/sociallife/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.sociallife.SocialPreview'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+			args = [
+				p.findProperty('archetype') ?: 'commerce/tavern',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('seeds') ?: '2',
+				p.findProperty('terrain') ?: 'flat',
+				p.layout.buildDirectory.dir('previews/sociallife').get().asFile.path,
+				p.findProperty('params') ?: '',
+				p.findProperty('scale') ?: ''
+			]
+		}
+	}
+}

@@ -152,8 +152,11 @@ public record StyleContext(@Nullable Culture culture, String archetype, @Nullabl
 	 */
 	static @Nullable Station implied(String path, @Nullable ArchetypeCategory c, Set<String> purposes, @Nullable String district, int tier) {
 		switch (path) {
-			case "house/hovel", "house/shack", "house/hermit_hut", "civic/almshouse" -> {
+			case "house/hovel", "house/shack", "house/hermit_hut", "civic/almshouse", "commerce/thieves_den" -> {
 				return Station.POOR;
+			}
+			case "commerce/tavern", "commerce/hostel" -> {
+				return Station.ARTISAN;
 			}
 			case "house/croft", "house/hut" -> {
 				return Station.PEASANT;
