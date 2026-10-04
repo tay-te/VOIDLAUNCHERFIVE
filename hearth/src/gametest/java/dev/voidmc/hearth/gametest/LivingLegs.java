@@ -184,14 +184,19 @@ final class LivingLegs {
 		teleport(wood.getX() - 12, y + 18, wood.getZ() - 12, -45, 35);
 		settle(4_000);
 		spawnNear(id, new BlockPos(wood.getX(), y, wood.getZ()));
-		int[] before = countTrees(wood, y);
-		for (int i = 0; i < 4; i++) {
-			settle(20_000);
-			int[] now = countTrees(wood, y);
-			log(String.format(Locale.ROOT, "forester %d: logs %d -> %d, saplings %d -> %d; %s", i, before[0], now[0], before[1], now[1], doing(id)));
+		for (int i = 0; i < 6; i++) {
+			Vec3 here = folkAt(id);
+			BlockPos round = here == null ? wood : BlockPos.containing(here);
+			int[] before = countTrees(round, round.getY());
+			settle(15_000);
+			int[] now = countTrees(round, round.getY());
+			int logs = this.world.getServer().computeOnServer(server -> town(server).stockpile().get(Goods.LOGS));
+			log(String.format(Locale.ROOT, "forester %d: round %s logs %d -> %d, saplings %d -> %d; town logs %d; %s", i, round.toShortString(), before[0],
+				now[0], before[1], now[1], logs, doing(id)));
 			Vec3 at = folkAt(id);
 			if (at != null) {
-				shoot("forester_" + i, at.x - 8, at.y + 7, at.z - 8, -45, 30);
+				// close and low, under the crowns, looking at the forester
+				shoot("forester_" + i, at.x - 4, at.y + 2.5, at.z - 4, -45, 20);
 			} else {
 				this.context.takeScreenshot("hearth_int_forester_" + i);
 			}
@@ -538,10 +543,10 @@ final class LivingLegs {
 			return;
 		}
 		String view = this.world.getServer().computeOnServer(server -> marketLine(server, merchant));
-		log("merchant's view of the stolen goods: " + view);
+		log("merchant's view of the stolen goods (STOLEN: refused here): " + view + "; options " + options(merchant));
 		Integer entity = entityOf(merchant);
 		this.world.getServer().runOnServer(server -> NpcModule.conversations().choose(player(server), entity, "economy:trade"));
-		this.context.waitFor(mc -> mc.gui.screen() instanceof MarketScreen, 100);
+		waitScreen(MarketScreen.class, 100);
 		settle(1_500);
 		this.context.takeScreenshot("hearth_int_merchant_refuses");
 		this.context.runOnClient(mc -> mc.player.closeContainer());
@@ -747,7 +752,7 @@ final class LivingLegs {
 				+ st.renown(p.getUUID(), s.center()) + "; title events " + TITLE_EVENTS.get();
 		});
 		log("standing: " + line);
-		this.context.waitFor(mc -> mc.gui.screen() instanceof ReputationScreen, 100);
+		waitScreen(ReputationScreen.class, 100);
 		settle(1_500);
 		this.context.takeScreenshot("hearth_int_reputation");
 	}
@@ -843,6 +848,21 @@ final class LivingLegs {
 							break;
 						}
 					}
+				}
+			}
+			// an official's line starts with its first quest (the board may only show later ones): post the guard's first
+			for (String first : List.of("official/guard/night_patrol", "official/reeve/tithe_rolls", "official/priest/altar_candles")) {
+				if (took.contains("accepted true")) {
+					break;
+				}
+				var tmpl = dev.voidmc.hearth.quest.template.QuestTemplates.get(dev.voidmc.hearth.Hearth.id(first));
+				var board = QuestStore.board(s);
+				QuestInstance q = tmpl == null ? null : dev.voidmc.hearth.quest.gen.QuestGenerator.bind(tmpl,
+					QuestManager.generationContext(server.overworld(), s, board), null);
+				if (q != null) {
+					board.offers.add(q);
+					boolean ok = QuestManager.accept(p, s, q.id);
+					took += first + " '" + q.text.title() + "' from " + q.giver.name() + " accepted " + ok + "; ";
 				}
 			}
 			return "board: " + b + " | " + (took.isEmpty() ? "no contract or official's quest on the board" : took);
@@ -1053,7 +1073,7 @@ final class LivingLegs {
 					NpcModule.conversations().open(player(server), f);
 				}
 			});
-			this.context.waitFor(mc -> mc.gui.screen() instanceof ConversationScreen, 100);
+			waitScreen(ConversationScreen.class, 100);
 			settle(2_000);
 			return id;
 		}
@@ -1074,6 +1094,18 @@ final class LivingLegs {
 			}
 			return b.toString();
 		});
+	}
+
+	/** Waits up to {@code ticks} for a screen; false (and logged) if it never came, so a leg can go on. */
+	private boolean waitScreen(Class<?> screen, int ticks) {
+		for (int i = 0; i < ticks; i++) {
+			if (this.context.computeOnClient(mc -> screen.isInstance(mc.gui.screen()))) {
+				return true;
+			}
+			this.context.waitTick();
+		}
+		log("(no " + screen.getSimpleName() + " came up)");
+		return false;
 	}
 
 	private int surface(BlockPos at) {
