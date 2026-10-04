@@ -12,6 +12,7 @@
 		"client": ["dev.voidmc.hearth.client.HearthClient"]
 	},
 	"mixins": [
+		"hearth-world.mixins.json",
 		"hearth-sim.mixins.json",
 		"hearth-npc.mixins.json",
 		"hearth-economy.mixins.json",

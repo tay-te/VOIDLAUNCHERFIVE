@@ -420,7 +420,13 @@ settlements. Expanse owns the land between settlements: terrain, foliage and und
 features, ruins and small wayside sights. The surface stays natural (no glowing or coloured fantasy above ground;
 underground may stay fantastical), and the temperate culture carries the KCD II Bohemian village look Expanse's
 landscapes are built for. Hearth keeps its planned land clear of Expanse's structures and Expanse keeps its sights small
-and unpeopled.
+and unpeopled (it asks Hearth through its `LandClaims` hook before placing anything with a footprint).
+
+**Villages.** With Hearth installed, its living settlements replace the world's static villages: every structure set made
+only of `#minecraft:village` structures (vanilla's, Expanse's seven regional villages, any mod's) is left out of the
+world's possible structures (`world/VillageReplacement`, `mixin/world/ChunkGeneratorStructureStateMixin`;
+`config/hearth/villages.json` → `"replace_villages": false` keeps them). Expanse's settlement-like landmarks (Frostwatch
+Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to explore and quest to.
 
 - **Expanse** (optional, `compileOnly` + `localRuntime`; guard with `FabricLoader.isModLoaded("expanse")` and keep
   Expanse classes behind a separate class that is only loaded then). Cultures cover every Expanse biome; styles use

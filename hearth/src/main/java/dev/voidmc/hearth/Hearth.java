@@ -10,6 +10,7 @@ import dev.voidmc.hearth.repair.RepairModule;
 import dev.voidmc.hearth.sim.SimModule;
 import dev.voidmc.hearth.social.SocialModule;
 import dev.voidmc.hearth.standing.StandingModule;
+import dev.voidmc.hearth.world.VillageReplacement;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ public class Hearth implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		VillageReplacement.init(); // Hearth's settlements replace the world's static villages (ARCHITECTURE.md §11)
 		BuildModule.init();     // blueprints: styles, archetypes, the building generators
 		PlanModule.init();      // the settlement planner: layouts, roads, plots, growth
 		SimModule.init();       // settlements: records, persistence, the simulation clock, worldgen and chunk application

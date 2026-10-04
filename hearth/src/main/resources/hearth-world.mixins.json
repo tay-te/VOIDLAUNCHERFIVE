@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "dev.voidmc.hearth.mixin.world",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ChunkGeneratorStructureStateMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
