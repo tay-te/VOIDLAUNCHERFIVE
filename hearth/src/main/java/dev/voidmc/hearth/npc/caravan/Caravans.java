@@ -54,8 +54,12 @@ public final class Caravans {
 			}
 			HearthWorld.CaravanView view = caravanId > 0 ? world.caravan(caravanId) : null;
 			long now = world.level().getGameTime();
+			// the sim's ticks are on its own clock (the day clock, which /time moves); the party walks on game time, so
+			// the journey is carried over to game time once, here
+			long departed = view == null ? now : now - Math.max(0, world.clock() - view.departTick());
+			long arrives = view == null ? 0 : departed + Math.max(1, view.arriveTick() - view.departTick());
 			this.journeys.add(new Journey(this.nextId++, from.dimension(), from.id(), to.id(), to.name(), from.center(), to.center(), cargo.clone(),
-				view != null ? view.departTick() : now, caravanId, view != null ? view.arriveTick() : 0));
+				departed, caravanId, arrives));
 			return;
 		}
 		// arrived, robbed or lost: that caravan (or, for one without an id, the oldest on that road) ends
@@ -110,7 +114,10 @@ public final class Caravans {
 					}
 					continue;
 				}
-				if (party.nearestPlayer(level) > emb.despawnRadius()) {
+				HearthWorld hw = HearthWorld.of(level);
+				HearthWorld.CaravanView view = hw == null || j.simId() <= 0 ? null : hw.caravan(j.simId());
+				if (party.nearestPlayer(level) > emb.despawnRadius() || view != null && view.escorted()) {
+					// out of sight, or an escort quest's own train has taken this caravan's road
 					party.fold();
 					this.parties.remove(j.id());
 				}

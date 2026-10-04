@@ -187,6 +187,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 	}
 
 	/** The overworld clock: what sim time follows (sleeping through the night moves it, and the towns, forward). */
+	@Override
 	public long clock() {
 		return this.level.getServer().overworld().getOverworldClockTime();
 	}

@@ -20,6 +20,11 @@ public interface HearthWorld {
 	/** The sim calendar: whole days since the world began (the overworld's day count). */
 	long day();
 
+	/** The sim's clock in ticks (the overworld's day clock): caravans' depart and arrive ticks are on it. */
+	default long clock() {
+		return level().getServer().overworld().getOverworldClockTime();
+	}
+
 	/** Live (adopted) settlements: those that exist as records and are simulated. */
 	Collection<? extends Settlement> settlements();
 

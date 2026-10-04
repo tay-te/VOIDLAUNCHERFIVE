@@ -68,7 +68,9 @@ public final class FolkBrain {
 	public final Set<Trait> traits;
 	public final RandomSource random;
 	private final long seed;
-	private final WorkBehaviour work;
+	private WorkBehaviour work;
+	/** The trade {@link #work} was made for: when the sim moves the resident to another trade, the work follows. */
+	private JobType workJob;
 	private final BehaviourRunner behaviours = new BehaviourRunner();
 	private final FolkHandleImpl handle;
 	private final BehaviourRunner.Owner owner = new BehaviourRunner.Owner() {
@@ -126,6 +128,7 @@ public final class FolkBrain {
 		this.seed = resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits();
 		this.random = RandomSource.create(this.seed ^ folk.getId());
 		this.work = WorkBehaviour.of(resident.job, resident.age);
+		this.workJob = resident.job;
 		this.handle = new FolkHandleImpl(this);
 		this.lastThink = folk.tickCount;
 		// Stagger evaluations across a crowd.
@@ -639,6 +642,15 @@ public final class FolkBrain {
 	}
 
 	public WorkBehaviour work() {
+		if (this.workJob != this.resident.job) {
+			// the sim reassigned the trade (daily jobs, a player's hire): the old work's claims are let go
+			ServerLevel level = this.folk.level() instanceof ServerLevel l ? l : null;
+			if (level != null) {
+				this.work.onFold(this, level);
+			}
+			this.work = WorkBehaviour.of(this.resident.job, this.resident.age);
+			this.workJob = this.resident.job;
+		}
 		return this.work;
 	}
 

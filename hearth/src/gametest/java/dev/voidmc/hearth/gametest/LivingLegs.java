@@ -128,6 +128,10 @@ final class LivingLegs {
 
 	private void leg(String name, Runnable leg) {
 		log("---- " + name);
+		// back in town first: a leg out on the road leaves the town's chunks unloaded and its folk folded
+		BlockPos c = this.world.getServer().computeOnServer(server -> town(server).center());
+		teleport(c.getX() + 0.5, surface(c) + 3, c.getZ() + 0.5, 0, 20);
+		settle(6_000);
 		try {
 			leg.run();
 		} catch (Throwable t) {
@@ -313,8 +317,9 @@ final class LivingLegs {
 		}
 		for (int i = 0; i < 4; i++) {
 			BlockPos at = this.world.getServer().computeOnServer(server -> {
-				var v = HearthWorld.of(server.overworld()).caravan(ids[0]);
-				return v == null ? null : v.positionAt(server.overworld().getGameTime() + 400);
+				HearthWorld hw = HearthWorld.of(server.overworld());
+				var v = hw.caravan(ids[0]);
+				return v == null ? null : v.positionAt(hw.clock() + 400);
 			});
 			if (at == null) {
 				log("caravan " + i + ": no longer on the road");
@@ -437,13 +442,19 @@ final class LivingLegs {
 				continue;
 			}
 			var spec = p.spec();
-			for (int dx = 0; dx < spec.sizeX(); dx++) {
-				for (int dz = 0; dz < spec.sizeZ(); dz++) {
+			for (int dx = 1; dx < spec.sizeX() - 1; dx++) {
+				for (int dz = 1; dz < spec.sizeZ() - 1; dz++) {
 					int x = spec.origin().getX() + dx;
 					int z = spec.origin().getZ() + dz;
-					int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-					BlockPos at = new BlockPos(x, y, z);
-					if (!level.canSeeSky(at) || !level.getBlockState(at.below()).isSolid() || Math.abs(y - spec.floorY()) > 2) {
+					BlockPos at = null;
+					for (int y = spec.floorY(); y <= spec.floorY() + 2 && at == null; y++) {
+						BlockPos q = new BlockPos(x, y, z);
+						if (level.isLoaded(q) && level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir()
+							&& level.getBlockState(q.below()).isSolid() && level.getBlockState(q.below()).getBlock() != Blocks.FARMLAND) {
+							at = q;
+						}
+					}
+					if (at == null) {
 						continue;
 					}
 					level.setBlock(at, Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, Direction.NORTH), 3);
@@ -766,8 +777,10 @@ final class LivingLegs {
 			for (QuestType want : List.of(QuestType.CONTRACT, QuestType.OFFICIAL)) {
 				for (QuestInstance q : offers) {
 					if (q.type == want && q.takenBy.isEmpty()) {
+						String lock = QuestManager.lock(p, s, q, QuestStore.get(p));
 						boolean ok = QuestManager.accept(p, s, q.id);
-						took += want.getSerializedName() + " '" + q.text.title() + "' accepted " + ok + "; ";
+						took += want.getSerializedName() + " '" + q.text.title() + "' (from " + q.giver.name() + ") accepted " + ok
+							+ (lock.isEmpty() ? "" : " [" + lock + "]") + "; ";
 						break;
 					}
 				}
@@ -815,13 +828,17 @@ final class LivingLegs {
 
 	/** An adult of the town, preferring one {@code first} accepts, else one {@code then} accepts; not one already used. */
 	private @Nullable Resident pick(SimSettlement s, Predicate<Resident> first, Predicate<Resident> then) {
-		for (Predicate<Resident> want : List.of(first, then)) {
-			for (Resident r : s.residents()) {
-				if (r.age == AgeStage.ADULT && !this.used.contains(r.id) && want.test(r)) {
-					this.used.add(r.id);
-					return r;
+		for (int pass = 0; pass < 2; pass++) {
+			for (Predicate<Resident> want : List.of(first, then)) {
+				for (Resident r : s.residents()) {
+					if (r.age == AgeStage.ADULT && !this.used.contains(r.id) && want.test(r)) {
+						this.used.add(r.id);
+						return r;
+					}
 				}
 			}
+			// a small town has few adults: earlier legs' folk are asked again
+			this.used.clear();
 		}
 		return null;
 	}
