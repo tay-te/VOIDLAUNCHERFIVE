@@ -8,11 +8,11 @@
 #include <void_lod:lodinfo.glsl>
 
 // Per vertex: x and z in cells from the tile's corner (low bytes), y in eighths of a block, flags (face in the low
-// three bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east; +8 for water), then two colours. The high bytes of
-// x, z and flags are the light (Horizons): the sun's horizon to the east and to the west, in 255ths of a right
-// angle, and how much of the sky the land around hides. Blocky faces use the
-// first, with ambient occlusion (tops) or height above the floor (walls) in its alpha. Smooth vertices carry
-// the colour of the tops and of the risers, with the slope along x and z in the two alphas.
+// three bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east, 6 down; +8 for water, +16 over the void), then two
+// colours. The high bytes of x, z and flags are the light (Horizons): the sun's horizon to the east and to the west,
+// in 255ths of a right angle, and how much of the sky the land around hides. Blocky faces use the first colour,
+// with ambient occlusion (tops) or height above the floor (walls) in its alpha. Smooth vertices carry the colour of
+// the tops and of the risers, with the slope along x and z in the two alphas.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
 // -n fading out, in 255ths).
 layout(location = 0) in ivec4 LodPos;
@@ -29,6 +29,10 @@ layout(location = 4) flat out float tileFade;
 layout(location = 2) out vec3 sideColor;
 layout(location = 3) out vec4 stair;
 layout(location = 5) out float surfaceY;
+#ifdef LOD_CLIP
+// 1 on land, 0 over the void: a triangle with no land in it at all is cut out
+layout(location = 6) out float solid;
+#endif
 #else
 layout(location = 2) out vec3 blockPos;
 layout(location = 3) out vec2 occlusion;
@@ -41,12 +45,15 @@ float decodeSlope(float a) {
 
 // The optical depth of the air between the camera and a point, for haze that thins with height: dense in the
 // valleys, thin over the peaks, so a far range stands clear above the haze that fills the land in front of it.
+// Rain is a curtain on top that does not thin with height (VoidLod.RAIN_REACH, starting VoidLod.RAIN_OFFSET
+// blocks behind the camera as vanilla's rain fog does), so a downpour hides the far land from a peak too.
 float haze(vec3 pos, float worldY) {
     float cameraY = float(CameraBlockPos.y) - CameraOffset.y;
     float k = (worldY - cameraY) * LodHaze.y;
     float along = abs(k) < 1e-3 ? 1.0 - 0.5 * k : (1.0 - exp(-k)) / k;
     float density = exp(clamp((LodHaze.z - cameraY) * LodHaze.y, -8.0, 4.0));
-    return 1.0 - exp(-(length(pos) + LodHaze.w) * LodHaze.x * density * along);
+    float rain = (length(pos) + 160.0 * LodHaze.w) * LodHaze.w / 660.0;
+    return 1.0 - exp(-length(pos) * LodHaze.x * density * along - rain);
 }
 
 void main() {
@@ -80,11 +87,15 @@ void main() {
     sideColor = LodSide.rgb * light * relief;
     stair = vec4(wx / w, wz / w, slope);
     surfaceY = worldY;
+#ifdef LOD_CLIP
+    solid = (LodPos.w & 16) != 0 ? 0.0 : 1.0;
+#endif
 #else
-    // Minecraft's own directional shading: tops full, north and south a little darker, east and west more.
-    color = LodTop.rgb * (face == 0 ? 1.0 : (face <= 3 ? 0.8 : 0.6));
+    // Minecraft's own directional shading: tops full, north and south a little darker, east and west more,
+    // undersides (of End islands) darkest.
+    color = LodTop.rgb * (face == 0 ? 1.0 : (face <= 3 ? 0.8 : (face <= 5 ? 0.6 : 0.5)));
     vec3 normal = face == 0 ? vec3(0.0, 1.0, 0.0) : face == 2 ? vec3(0.0, 0.0, -1.0) : face == 3 ? vec3(0.0, 0.0, 1.0)
-        : face == 4 ? vec3(-1.0, 0.0, 0.0) : vec3(1.0, 0.0, 0.0);
+        : face == 4 ? vec3(-1.0, 0.0, 0.0) : face == 5 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, -1.0, 0.0);
     // just inside the block the face belongs to, so floor() names that block
     blockPos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) - 0.5 * normal;
     occlusion = face == 0 ? vec2(LodTop.a, 64.0) : vec2(1.0, LodTop.a * 255.0);
@@ -105,10 +116,12 @@ void main() {
     color *= mix(1.0, mix(0.55, 1.0, sunlit), LodSun.w * beyond) * (1.0 - 0.6 * skyHidden * beyond);
 
     if ((LodPos.w & 8) != 0) {
-        // Water at a low angle mirrors the sky. Only out past the chunks, where vanilla's own water ends.
+        // Water at a low angle mirrors the sky, right up to the seam: vanilla's own water there, seen as low,
+        // shows the sky through it (its bed is out of the chunks' reach), so the two meet in the same colour.
+        // Walls of water (the skirts under a tile's edge) too, as they show through vanilla's water. At night
+        // the sky is dark, and so is the water.
         float fresnel = pow(1.0 - max(toCamera.y, 0.0), 5.0);
-        float past = clamp((length(pos.xz) - LodClip.x) / max(LodClip.x, 96.0), 0.0, 1.0);
-        color = mix(color, FogColor.rgb, fresnel * 0.6 * past);
+        color = mix(color, FogColor.rgb, fresnel * 0.6);
     }
 
     float cylindrical = fog_cylindrical_distance(pos);

@@ -24,17 +24,22 @@ import java.nio.ByteOrder;
  *
  * <p>Vertex format, {@value #VERTEX_BYTES} bytes: {@code short x, y, z, flags}, then two RGBA8 colours. x and z
  * are in cells from the tile's corner (0..TILE) in their low byte, y in eighths of a block. The low three bits of
- * flags are the face ({@link #UP}, {@link #SMOOTH}, or a wall: 2 north, 3 south, 4 west, 5 east), and {@link #WATER}
- * marks water. The high bytes of x, z and flags carry the light ({@link Horizons}): the sun's horizon to the east
- * and to the west, and how much of the sky the land around hides. A blocky face carries its colour in the first RGBA (alpha: ambient occlusion on tops, height
- * above the floor on walls); a smooth vertex carries the colour of the tops and of the risers, with the
- * surface's slope in the two alphas.
+ * flags are the face ({@link #UP}, {@link #SMOOTH}, a wall: 2 north, 3 south, 4 west, 5 east, or {@link #DOWN}),
+ * {@link #WATER} marks water and {@link #EMPTY} a smooth vertex over the void. The high bytes of x, z and flags carry
+ * the light ({@link Horizons}): the sun's horizon to the east and to the west, and how much of the sky the land
+ * around hides. A blocky face carries its colour in the first RGBA (alpha: ambient occlusion on tops, height above
+ * the floor on walls); a smooth vertex carries the colour of the tops and of the risers, with the surface's slope in
+ * the two alphas.
  */
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
 	public static final int UP = 0;
 	public static final int SMOOTH = 1;
+	/** The underside of land floating over the void. */
+	public static final int DOWN = 6;
 	public static final int WATER = 8;
+	/** A smooth vertex over the void: the shader cuts out the triangles that have nothing but these. */
+	public static final int EMPTY = 16;
 
 	/** Time all builders have spent asking terrain sources about columns: the rest of a build is meshing. */
 	public static final java.util.concurrent.atomic.AtomicLong SAMPLE_NANOS = new java.util.concurrent.atomic.AtomicLong();
@@ -102,6 +107,7 @@ public final class TileBuilder {
 		boolean smooth = level >= smoothFrom;
 		int indices;
 		int firstIndex = 0;
+		boolean holes = false;
 		long t0 = System.nanoTime();
 		this.samples.sample(source, key, smooth, smooth ? 2 : 1, this.cache);
 		SAMPLE_NANOS.addAndGet(System.nanoTime() - t0);
@@ -114,9 +120,9 @@ public final class TileBuilder {
 			LIGHT_NANOS.addAndGet(System.nanoTime() - t1);
 		}
 		if (smooth) {
-			boolean flat = this.smooth.mesh();
-			indices = flat ? Smooth.FLAT_INDICES : Smooth.INDICES;
-			firstIndex = flat ? Smooth.FLAT_FIRST_INDEX : 0;
+			indices = this.smooth.mesh();
+			holes = indices > 0 && this.smooth.holes;
+			firstIndex = this.smooth.flat ? Smooth.FLAT_FIRST_INDEX : 0;
 		} else {
 			this.blocky.mesh();
 			indices = this.vertices / 4 * 6;
@@ -125,7 +131,7 @@ public final class TileBuilder {
 			this.minY = this.maxY = 0;
 		}
 		this.out.flip();
-		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth));
+		return new Mesh(this.out, this.vertices, indices, smooth, this.minY, this.maxY, firstIndex, this.occluders(smooth), holes);
 	}
 
 	/**
@@ -196,6 +202,11 @@ public final class TileBuilder {
 		this.lightFlags = this.horizons.occlusion[k] << 8;
 	}
 
+	/** No light for the vertices after this: faces the sun and the sky never reach, such as an island's underside. */
+	void unlit() {
+		this.lightX = this.lightZ = this.lightFlags = 0;
+	}
+
 	/** Whether two samples' light is close enough for their faces to merge into one. */
 	boolean sameLight(int a, int b) {
 		if (!this.lit) {
@@ -256,12 +267,14 @@ public final class TileBuilder {
 	 * <p>{@code occluders} is the height the surface stays above in each square of a {@link #OCCLUDERS} x
 	 * {@link #OCCLUDERS} grid over the tile, row by row from its north-west corner (skirts and trees left out;
 	 * {@link #NO_OCCLUDER} where it has holes): what the renderer culls the land behind it with ({@link Horizon}).
+	 * {@code holes}: a smooth mesh with void in it, which only the shader variant that discards can draw.
 	 */
 	public record Mesh(ByteBuffer vertices, int vertexCount, int indexCount, boolean smooth, int minY, int maxY, int firstIndex,
-		short[] occluders) {
+		short[] occluders, boolean holes) {
 		/** The same mesh over other vertices: the copy handed to the renderer. */
 		public Mesh withVertices(ByteBuffer vertices) {
-			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders);
+			return new Mesh(vertices, this.vertexCount, this.indexCount, this.smooth, this.minY, this.maxY, this.firstIndex, this.occluders,
+				this.holes);
 		}
 
 		public int bytes() {

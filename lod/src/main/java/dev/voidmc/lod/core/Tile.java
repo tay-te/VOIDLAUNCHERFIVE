@@ -26,12 +26,27 @@ public final class Tile {
 	/** Where the tile's indices start in the index buffer it is drawn with: a flat smooth tile's are past the grid's. */
 	public int firstIndex;
 	public boolean smooth;
+	/** A smooth tile with void in it (between End islands): drawn with the shader variant that cuts it out. */
+	public boolean holes;
 	public int minY;
 	public int maxY;
 	/** The surface's lower bound per square of the tile ({@link TileBuilder.Mesh#occluders}), for occlusion culling. */
 	public short[] occluders;
 	/** The renderer's handle on the uploaded mesh. */
 	public Object gpu;
+	/** When this tile's mesh was made: a tile is rebuilt at most so often. */
+	long builtNanos;
+	/**
+	 * The land under this tile changed since it was built (chunks ingested over it): how much, as an area in blocks,
+	 * and when the first and the latest of those changes came. Zero area: up to date.
+	 */
+	float dirtyArea;
+	long dirtySince;
+	long dirtyLast;
+	/** The newer build of this tile, made while this one stays on screen. */
+	Tile rebuild;
+	/** For such a build: the tile it will replace once it is on the GPU. */
+	Tile replaces;
 
 	Tile(long key) {
 		this.key = key;

@@ -1,8 +1,9 @@
 # `lod/` — VOID LOD
 
 Far terrain for **Minecraft 26.3** (Fabric): the land past your render distance, out to the horizon,
-sampled straight from the world generator, shaded to look like the blocks it stands for, and drawn in a
-handful of indirect draws on OpenGL or Vulkan.
+sampled straight from the world generator, with everything you have seen (builds, dug-out land,
+villages) read from the chunks themselves and kept on disk, shaded to look like the blocks it stands for,
+and drawn in a handful of indirect draws on OpenGL or Vulkan.
 
 ```
 Fabric Loader ≥ 0.19.5 · Fabric API 0.161.0+26.3 · Java 25 · optional: VOID Expanse
@@ -46,6 +47,30 @@ cache timers in frames, so at 1500 fps it evicted and rebuilt its coarsest tiles
 for 378 tiles, 150–185 jobs always queued) and spent **1.9–3.3 ms** of render thread per frame. Timers
 are in seconds now, and a split tile stays resident as its children's fallback.
 
+### The End, conifers, rain and the sea at dusk
+
+The End's outer islands, vanilla and with the LOD, and from 140 blocks above them: islands to the
+horizon, slabs over the void, sinking into the dark with distance.
+
+| Vanilla | VOID LOD |
+|---|---|
+| ![End islands, vanilla](docs/end0_vanilla.jpg) | ![End islands, VOID LOD](docs/end0_after.jpg) |
+
+![End islands from above](docs/end1_after.jpg)
+
+A conifer forest on a cold coast, from 140 blocks above it: cones close in, a dark, spiky canopy further
+out, the crowns' tops white with snow and their flanks not.
+
+![conifer forest under snow](docs/forest0_after.jpg)
+
+Rain from the peak, and dusk from just above the open sea, before and now: the far land goes in a
+downpour as it does in vanilla, and the far sea meets vanilla's water without a dark band.
+
+| Before | Now |
+|---|---|
+| ![rain, before](docs/rain0_before.jpg) | ![rain, now](docs/rain0_after.jpg) |
+| ![dusk at sea, before](docs/sea0_before.jpg) | ![dusk at sea, now](docs/sea0_after.jpg) |
+
 ## Why it is built this way
 
 Distant Horizons and Voxy both get their far terrain from **chunks**: Voxy only from chunks someone
@@ -60,6 +85,7 @@ in about two microseconds. The whole horizon is there the moment the world loads
 | | Distant Horizons | Voxy | VOID LOD |
 |---|---|---|---|
 | Terrain nobody has visited | runs the full generator | nothing until visited | sampled per column |
+| Builds and edits past the render distance | yes | yes | yes: the loaded chunks, read in and kept on disk |
 | Draw calls for the LOD | many | GPU-driven | an indirect draw per 64 MB heap and kind of tile |
 | Graphics API | OpenGL (Vulkan via add-on / 26.2+) | OpenGL 4.6 | Mojang's own GPU layer: OpenGL **and** Vulkan |
 | Depth | separate framebuffer, composited | separate | vanilla's own reversed-Z depth buffer, no composite |
@@ -77,7 +103,10 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   * Vanilla's ambient occlusion: each top corner darkens with the neighbours above it, quads split
     along the brighter diagonal, and every wall darkens along its lowest block.
   * Trees, one crown each (`core/Trees`): a jittered grid with the biome's density, each tree its own
-    height and shade, cones for tall narrow trees, domes for broad ones, darker under the canopy.
+    height and shade, darker under the canopy. Conifers are cones and broadleaf trees domes, in the
+    biome's own mix: `BiomeLooks` reads each tree feature's foliage placer (spruce, pine, mega pine) or,
+    for a modded tree, the names of its placers (Expanse's redwoods shape their crowns in the trunk
+    placer). In snowy forests the crowns' tops are white with the snow on the boughs, their flanks not.
   * A one-block grain in the shader, as the block textures give the chunks, fading out before it
     could shimmer.
 * **Smooth tiles, everywhere else** (`core/Smooth`, level 2 and up, where a block is under a pixel or
@@ -99,9 +128,11 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
     so it never shimmers.
   * Past the first kilometre or so, the sun models the relief: slopes toward it a little brighter,
     slopes away a little darker, so a far range has shape instead of flat light.
-  * Forests are a canopy raised as far as they are dense; valleys are slightly darker and ridges
-    slightly lighter; colours are softened across biome borders and mottled cell by cell; rivers
-    narrower than a cell are a thread of their water's colour.
+  * Forests are a canopy raised as far as they are dense: conifer forests darker, their tops showing
+    their spires' shaded flanks and a stronger mottle, broadleaf forests rounder and lighter; a cold
+    forest's tops partly white with snow, its flanks not. Valleys are slightly darker and ridges slightly
+    lighter; colours are softened across biome borders and mottled cell by cell; rivers narrower than a
+    cell are a thread of their water's colour.
   * Every smooth tile has the same topology, so they all share one index buffer: 70 KB a tile.
 * **Colours from the textures actually loaded** (`source/TextureColors`, `source/BiomeLooks`): each block
   face is the average of the sprites its model draws, in linear light like a mipmap, layered (grass side
@@ -113,12 +144,24 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 * **Snow where the chunks put it**: vanilla's own temperature test block by block near the chunks, and
   its snow line (temperature falling 0.05 per 40 blocks) as a soft band further out.
 * **Water by depth**: the water texture's tint over a bed that darkens a light level per block, so
-  shallows show their sand; past the chunks, water at a low angle mirrors the sky.
+  shallows show their sand; water at a low angle mirrors the sky, right up to the chunks, whose own
+  water there shows the sky through it.
 * **Aerial haze** (`lod.vsh`, `mixin/FogRendererMixin`): exponential haze that thins with height, dense in
   the valleys and thin over the peaks, so far ranges stand clear above the haze in front of them.
-  Vanilla's chunks get the same haze in linear form, matched at the camera's height, so the seam
-  disappears; rain and misty biomes (Expanse's cloud forest, fjords) thicken it; the land melts into the
-  sky at the LOD's edge.
+  Vanilla's chunks get the same haze in linear form, as thick as the LOD's where they meet it, so the
+  seam disappears; misty biomes (Expanse's cloud forest, fjords) thicken it; the land melts into the sky at
+  the LOD's edge. Rain hangs a curtain over it that does not thin with height, as dense as vanilla's
+  rain fog (two thirds by 660 blocks), so in a downpour the far land goes as it does in vanilla, from a
+  valley or a peak. Dusk and night darken the LOD through vanilla's own lightmap and haze it toward
+  vanilla's fog colour, as the chunks are; under water, in lava or blind, the LOD is not drawn at all.
+* **The End and other floating land**: where the generator fills with air instead of water, a column
+  is read whole for its top and the underside of its island, and a column with no ground is empty.
+  Close in, islands are slabs: walls hang from the rim to the underside, and the underside is drawn
+  step by step for when you are below it. Far out, the shared grid stays whole: vertices over the void
+  are flagged, those beside land hang to its underside as the island's flank, and the shader cuts out
+  every triangle with no land in it, only in tiles that have void (the rest keep early-Z). End stone
+  comes from the textures like every other block; there is no sea, and the haze is even and thicker,
+  so far islands sink into the dark rather than ending in a line at the LOD's edge.
 * **No popping** (`core/Fades`): when the selection swaps a tile for its children or back, the two
   cross-fade over 0.45 s through complementary dither, so every pixel shows exactly one of them.
 
@@ -156,6 +199,66 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 * **Shared depth** (`mixin/CameraMixin`). 26.3 renders reversed-Z into a 32-bit float buffer, so the far
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every
   LOD fragment hidden by nearby terrain is rejected before it is shaded.
+
+## Real chunks, kept
+
+The generator only knows the world as it was generated. Everything players do to it, and everything placed
+after the terrain (villages, structures), is in the chunks. So every chunk the client loads is also read
+into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
+
+* **Per column, a few ints.** Each column is followed down from its highest block: past plants, torches
+  and thin snow (which only colours the ground), through leaves (where the canopy's top is) and the trunks
+  under them, through water or lava (its surface), to the first solid block; then a few blocks further for
+  the soil and the rock. The column keeps its ground height, water depth, canopy height and an index into
+  the chunk's palette of *surfaces*: what its faces look like (the same texture colours and biome tints as
+  the generator path) and their material ids, worked out once per kind of column ever. A chunk is
+  256 ints and a short palette, about 1.3 KB in memory: ten thousand chunks explored, 13 MB.
+* **Cheap on the client thread.** Chunks queue as they arrive and are read within 0.3 ms a frame. A chunk
+  costs about 0.13 ms on forested Earth terrain (leaves, trunks and water to walk through) and 0.04 ms on
+  plain land. A changed chunk is read again once its block updates have been quiet for 0.75 s, so an
+  explosion or a big `/fill` is one read; a change nothing far off could see (a cave dug, a chest opened,
+  the grass under a placed block turning to dirt) changes nothing downstream. Leaves are one look whatever
+  their distance to a log, or every leaf update after a chunk generates would read as a change.
+* **Seen land wins, the generator fills in** (`core/IngestSource`, `core/ColumnStore`). A cell of `c`
+  blocks stands for the `c`-wide square around its sample, which is always four aligned squares half as
+  wide: a few columns added up, a chunk's own summary, or a cell of a per-region pyramid of summaries
+  (32 to 256 blocks) kept up to date as chunks come in. Summaries are sums, so every tile and level agrees
+  on what a square averages to: heights by kind (water where most of it is wet, otherwise land with the
+  water's colour mixed in by share, so a river narrower than a cell is a thread), colours, the share under
+  leaves, the commonest materials. Up close (cells of one or two blocks) a crown is leaf blocks, as the
+  chunks show it; far out it is a canopy statistic, as the smooth tiles draw it. Where a cell is only
+  partly seen, the seen part and the generator blend by share, so the explored land fades into the
+  generated land instead of stepping. Workers read without locks: chunks and summaries are immutable and
+  swapped in whole. Tiles over seen land build faster than over the generator: 1–5 ms for most levels
+  (12–17 ms at level 4, where a sample adds up 256 columns), against 40–55 ms from the Earth model and biome lookups.
+* **Rebuilt behind what is drawn** (`LodEngine.invalidate`). A change marks the tiles over it at every
+  level; a marked tile on screen is rebuilt in the background once the changes have settled (a second of
+  quiet, a tile at most every 2 s, coarse tiles less often, one rebuild per worker, behind every missing
+  tile) and swaps in only when its mesh is on the GPU, so nothing flickers or opens. A change smaller than
+  one of a tile's cells (a chunk under 512-block cells) waits for more, up to 30 s. Nearly every change
+  happens where vanilla's chunks are drawn (grass spreading, water flowing, the player building), where the
+  LOD shows nothing: those wait until the camera has moved far enough for the LOD to show them.
+* **Kept on disk** (`core/ColumnFiles`), in the world's save (`void_lod/<dimension>/r.<x>.<z>.vlod`) or,
+  on a server, under `void_lod/servers/<address>/`: one deflated file per 32 × 32 chunks, materials by
+  name so a file outlives the session. All file work is one background thread at minimum priority. On
+  joining, the saved land around the player is read before the first tile is built (a few hundred ms at
+  most, then it builds anyway); regions come in as they come within reach and are saved and forgotten once
+  far out of it, so memory follows the view, not the whole explored world. About 250 bytes a chunk on disk;
+  the showcase's 683 chunks are 157 KB, read back in 0.2 s.
+* **Multiplayer.** With no integrated server there is no generator: the LOD draws what the client has
+  seen (this session and every earlier one on that server), and a tile over land nobody has seen is not
+  built at all. Nothing in this path touches server classes.
+
+In the showcase world: a red concrete deck pierced by a gold tower and a trench cut across the land, built
+in loaded chunks, then seen from 480 blocks away (render distance 8: the chunks end at 128 blocks), and
+again after leaving and rejoining, when its chunks never load:
+
+| Before | Built, LOD off | Built, LOD on | Rejoined |
+|---|---|---|---|
+| ![before](docs/ingest_before.jpg) | ![built, vanilla](docs/ingest_after_vanilla.jpg) | ![built, LOD](docs/ingest_after.jpg) | ![rejoined](docs/ingest_rejoin.jpg) |
+
+`./gradlew runClientGameTest -Plod.show.only=none -Plod.show.ingest=true` takes these;
+`-Plod.show.mp=true` does the same on a dedicated server.
 
 ## Sodium and Iris
 
@@ -210,6 +313,7 @@ override the file for the session without being written back (dev runs and the g
 | `autoTune` | `void.lod.autoTune` | `true` (`false` in the game tests) | see below |
 | `gpuTarget`, `prepareTarget` | | `1.5`, `0.5` | auto-tune's targets, in ms a frame |
 | `smoothFrom` | `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky (read at start) |
+| | `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
 | | `void.lod.overPack` | `true` | with an Iris shader pack, draw over the pack's picture (`false`: inside its buffers, to compare) |
 
 ### Quality presets
@@ -298,7 +402,12 @@ cd lod
 ```
 
 The game test takes `-Plod.show.*` properties (seed, render distance, views, screenshot size; see
-`LodShowcase`) and logs, per view, what the LOD drew and what each part of a frame cost.
+`LodShowcase`) and logs, per view, what the LOD drew and what each part of a frame cost. Besides the
+peak, valley, air and long-lens views it photographs dusk (`dusk0`-`dusk2`), night (`night0`, `night1`),
+rain and thunder (`rain0`, `rain1`, `thunder0`), the open sea at dusk and night and under water (`sea0`,
+`sea1`, `water0`), a temperate and a snowy conifer forest (`forest0`, `forest1`) and the End's outer
+islands (`end0`-`end2`, the last from the void below them); `-Plod.show.only=end0,end1 -Plod.show.views=40`
+picks views by name.
 `-Plod.show.settings=true` also goes through Video Settings to the settings screen, chooses Low on it and
 photographs the view at each preset, then the F3 lines. Auto-tune is off in the game tests unless
 `-Pvoid.lod.autoTune=true`.
@@ -308,16 +417,26 @@ model, but only loads it when Expanse is installed.
 
 ## Not yet
 
-* **Multiplayer.** Sampling needs the server's generator and seed, so today the LOD runs in
-  singleplayer and on a LAN host. Next steps: ingest the chunks the client receives, and add a small
-  server-side companion that streams tile summaries.
-* **Edits.** Builds and dug-out terrain beyond the render distance show the generated land. Ingesting
-  loaded chunks over the generated tiles fixes this, using the same path as multiplayer.
+* **Land on a server nobody has seen.** Without the generator, the far view on a server is what the
+  client has seen; a small server-side companion could stream column summaries of the rest.
 * **Shader-pack lighting on the LOD.** With a pack on, the LOD draws over the pack's picture in its own
   style. Lighting it the pack's way needs a program in the pack for the LOD's vertices, as packs carry
   for Distant Horizons.
 * **Block textures on the blocky tiles.** Their colours are the textures' own averages and a grain stands
   in for the detail; sampling the block atlas itself would make the seam with the chunks vanish
   entirely at close range.
-* **Disk cache.** Expanse terrain builds faster than it would load, but the generic generator path
-  would benefit.
+* **A disk cache of built tiles.** The seen land is kept, and Expanse terrain builds faster than a mesh
+  would load; the generic generator path could still gain from caching the tiles themselves.
+* **Faster void worlds.** The End goes through the generic generator path, which sets up a noise chunk
+  for every column it reads, so an End tile takes several times as long to build as an Earth tile (150
+  to 260 ms against 40 to 70 in the showcase runs; the horizon fills in about 40 s). Reading a tile's
+  columns through one noise chunk would fix it.
+* **Stepped skylines.** Far ridges meet the sky in smooth curves, where Distant Horizons' real block
+  columns step. Tried in the shader: just in front of where a convex ridge turns away from the eye, cut
+  the uphill half of each block column above its top, so the skyline steps column by column (cutting
+  anywhere else would show the inside of the hill). It cost nothing measurable, even with `discard` in
+  every smooth tile, but changed only 70 to 200 scattered pixels of a 1600×900 frame: the shader's
+  columns are about three pixels across, so their steps are one or two pixels tall and read as aliasing,
+  not as steps. Steps that show need geometry at the cell scale (pairs of grid vertices collapsed into
+  flat-topped columns with walls between, which the shared index buffer allows), at the price of the
+  smooth far field's detail, so it was set aside.

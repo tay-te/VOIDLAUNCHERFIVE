@@ -6,7 +6,7 @@ layout(std140) uniform LodInfo {
     // x: radius around the camera that vanilla's chunks draw; y: width of the dithered seam beyond it
     vec4 LodClip;
     // Aerial haze. x: 1 / the haze's reach at the base height (0: use vanilla's fog instead), y: 1 / its scale
-    // height, z: the base height (sea level), w: blocks of haze before the first (rain's)
+    // height, z: the base height (sea level), w: how hard it rains, 0..1
     vec4 LodHaze;
     // The sun: xyz its direction, w how strongly it models the far relief (0 at night)
     vec4 LodSun;

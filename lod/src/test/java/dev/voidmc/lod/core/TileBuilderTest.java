@@ -64,13 +64,16 @@ class TileBuilderTest {
 		boolean sawWaterTop = false;
 		for (int i = 0; i < mesh.vertexCount(); i++) {
 			int flags = v.getShort(i * TileBuilder.VERTEX_BYTES + 6);
+			// the skirts under the surface too: through vanilla's water at the seam they must look like water
+			assertEquals(TileBuilder.WATER, flags & TileBuilder.WATER);
 			if ((flags & 7) == TileBuilder.UP) {
-				assertEquals(TileBuilder.WATER, flags & TileBuilder.WATER);
 				assertEquals(63 * 8, v.getShort(i * TileBuilder.VERTEX_BYTES + 2));
 				sawWaterTop = true;
 			}
 		}
 		assertTrue(sawWaterTop);
+		// and a block deep, not a curtain hanging into the sea
+		assertEquals(62, mesh.minY());
 	}
 
 	@Test
@@ -82,17 +85,182 @@ class TileBuilderTest {
 			int base = q * 4;
 			int face = v.getShort(base * TileBuilder.VERTEX_BYTES + 6) & 7;
 			long[] n = normal(v, base, base + 1, base + 2);
-			long[] expected = switch (face) {
-				case 0 -> new long[]{0, 1, 0};
-				case 2 -> new long[]{0, 0, -1};
-				case 3 -> new long[]{0, 0, 1};
-				case 4 -> new long[]{-1, 0, 0};
-				default -> new long[]{1, 0, 0};
-			};
-			for (int a = 0; a < 3; a++) {
-				assertEquals(Long.signum(expected[a]), Long.signum(n[a]), "normal of face " + face);
+			assertFacing(face, n);
+		}
+	}
+
+	private static void assertFacing(int face, long[] n) {
+		long[] expected = switch (face) {
+			case 0 -> new long[]{0, 1, 0};
+			case 2 -> new long[]{0, 0, -1};
+			case 3 -> new long[]{0, 0, 1};
+			case 4 -> new long[]{-1, 0, 0};
+			case 6 -> new long[]{0, -1, 0};
+			default -> new long[]{1, 0, 0};
+		};
+		for (int a = 0; a < 3; a++) {
+			assertEquals(Long.signum(expected[a]), Long.signum(n[a]), "normal of face " + face);
+		}
+	}
+
+	/** An island over the void: a disc of ground at y 60 whose underside sags to 40 at its middle. */
+	private static TerrainSource island(int cx, int cz, int radius) {
+		return (x, z, cell, out) -> {
+			double r = Math.hypot(x - cx, z - cz);
+			if (r > radius) {
+				out.empty = true;
+				return;
+			}
+			out.ground = 60;
+			out.bottom = (float) (40 + 18 * r / radius);
+			out.top = out.side = out.soil = out.rock = 0xDBDE9E;
+		};
+	}
+
+	@Test
+	void islandsAreSlabsOverTheVoid() {
+		TileBuilder.Mesh mesh = builder().build(island(32, 32, 20), TileKey.of(0, 0, 0));
+		assertFalse(mesh.holes());
+		Map<Integer, Integer> faces = faces(mesh);
+		assertTrue(faces.getOrDefault(TileBuilder.DOWN, 0) > 0, "an underside");
+		assertEquals(40, mesh.minY(), "down to the underside, no deeper");
+		ByteBuffer v = vertices(mesh);
+		for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+			int base = q * 4;
+			int face = v.getShort(base * TileBuilder.VERTEX_BYTES + 6) & 7;
+			assertFacing(face, normal(v, base, base + 1, base + 2));
+			// nothing at all over the void: every face lies within the island's footprint (a cell's corner)
+			for (int c = 0; c < 4; c++) {
+				long[] p = position(v, base + c);
+				assertTrue(Math.hypot(p[0] - 32, p[2] - 32) <= 20 + 1.5, "vertex over the void at " + p[0] + "," + p[2]);
 			}
 		}
+		// the rim's walls hang to the underside: some wall reaches below 50
+		boolean deep = false;
+		for (int i = 0; i < mesh.vertexCount(); i++) {
+			int face = v.getShort(i * TileBuilder.VERTEX_BYTES + 6) & 7;
+			deep |= face >= 2 && face <= 5 && v.getShort(i * TileBuilder.VERTEX_BYTES + 2) < 50 * 8;
+		}
+		assertTrue(deep, "rim walls down to the underside");
+	}
+
+	@Test
+	void voidAloneDrawsNothing() {
+		TerrainSource none = (x, z, cell, out) -> out.empty = true;
+		TileBuilder.Mesh blocky = builder().build(none, TileKey.of(0, 0, 0));
+		assertEquals(0, blocky.vertexCount());
+		TileBuilder.Mesh smooth = builder().build(none, TileKey.of(TileBuilder.smoothFrom + 2, 0, 0));
+		assertEquals(0, smooth.vertexCount());
+		assertEquals(0, smooth.indexCount());
+		assertFalse(smooth.holes());
+	}
+
+	@Test
+	void smoothIslandsKeepTheGridAndFlagTheVoid() {
+		int level = TileBuilder.smoothFrom + 1;
+		int cell = TileKey.cell(level);
+		// an island a quarter of the tile across, in its middle
+		TileBuilder.Mesh mesh = builder().build(island(32 * cell, 32 * cell, 16 * cell), TileKey.of(level, 0, 0));
+		assertTrue(mesh.holes(), "drawn with the variant that cuts out the void");
+		assertEquals(65 * 65 + 4 * 65, mesh.vertexCount());
+		assertEquals(TileBuilder.smoothIndexCount(), mesh.indexCount());
+		ByteBuffer v = vertices(mesh);
+		int land = 0, rim = 0;
+		for (int j = 0; j < 65; j++) {
+			for (int i = 0; i < 65; i++) {
+				int o = (i + j * 65) * TileBuilder.VERTEX_BYTES;
+				boolean empty = (v.getShort(o + 6) & TileBuilder.EMPTY) != 0;
+				boolean over = Math.hypot(i - 32, j - 32) > 16;
+				assertEquals(over, empty, "flag at " + i + "," + j);
+				if (!empty) {
+					assertEquals(60 * 8, v.getShort(o + 2), "the island's top stays level to its edge");
+					land++;
+				} else if (Math.hypot(i - 32, j - 32) <= 17.5) {
+					// next to land, the vertex hangs to the underside there: the island's flank
+					assertTrue(v.getShort(o + 2) < 60 * 8 && v.getShort(o + 2) >= 40 * 8, "rim at " + i + "," + j);
+					rim++;
+				}
+			}
+		}
+		assertTrue(land > 700 && rim > 50, land + " land, " + rim + " rim");
+		assertEquals(40, mesh.minY(), 1);
+	}
+
+	@Test
+	void conifersAreConesAndBroadleafDomes() {
+		float[] shade = new float[2];
+		double cones = 0, domes = 0;
+		for (int z = 0; z < 200; z++) {
+			for (int x = 0; x < 200; x++) {
+				cones += Trees.crown(x + 0.5, z + 0.5, 14, 0.8F, 3, 1, shade);
+				domes += Trees.crown(x + 0.5, z + 0.5, 14, 0.8F, 3, 0, shade);
+			}
+		}
+		// the same trees, but a cone holds about half the leaves of a dome over the same footprint
+		assertTrue(cones < 0.8 * domes, "cones " + cones + " vs domes " + domes);
+	}
+
+	private static TerrainSource farForest(float conifer, int leavesTop) {
+		return (x, z, cell, out) -> {
+			out.ground = 70;
+			out.top = 0x60A040;
+			out.canopy = 12;
+			out.cover = 0.9F;
+			out.leaves = 0x305828;
+			out.leavesTop = leavesTop;
+			out.conifer = conifer;
+		};
+	}
+
+	/** The mean brightness of the far grid's top colours, and of its side colours. */
+	private static float[] farColours(TerrainSource source) {
+		TileBuilder.Mesh mesh = builder().build(source, TileKey.of(TileBuilder.smoothFrom + 2, 0, 0));
+		ByteBuffer v = vertices(mesh);
+		float top = 0, side = 0;
+		for (int i = 0; i < 65 * 65; i++) {
+			int o = i * TileBuilder.VERTEX_BYTES;
+			top += (v.get(o + 8) & 0xFF) + (v.get(o + 9) & 0xFF) + (v.get(o + 10) & 0xFF);
+			side += (v.get(o + 12) & 0xFF) + (v.get(o + 13) & 0xFF) + (v.get(o + 14) & 0xFF);
+		}
+		return new float[]{top / (65 * 65 * 3), side / (65 * 65 * 3)};
+	}
+
+	@Test
+	void farConiferForestsAreDarkerAndSnowWhitensOnlyTheirTops() {
+		float[] broadleaf = farColours(farForest(0, -1));
+		float[] conifers = farColours(farForest(1, -1));
+		assertTrue(conifers[0] < 0.92F * broadleaf[0], "conifer tops darker: " + conifers[0] + " vs " + broadleaf[0]);
+		assertTrue(conifers[1] < 0.92F * broadleaf[1], "conifer flanks darker");
+		float[] snowy = farColours(farForest(1, 0xF8FCFC));
+		assertTrue(snowy[0] > 1.5F * conifers[0], "snowy tops partly white: " + snowy[0] + " vs " + conifers[0]);
+		assertEquals(conifers[1], snowy[1], 1, "the flanks keep their leaves");
+	}
+
+	@Test
+	void snowLiesOnTheCrownsTopsNotTheirFlanks() {
+		TerrainSource snowyForest = (x, z, cell, out) -> {
+			out.ground = 70;
+			out.top = 0xF0F8F8;
+			out.canopy = 10;
+			out.cover = 0.6F;
+			out.leaves = 0x2F4F2F;
+			out.leavesTop = 0xF8FCFC;
+			out.conifer = 1;
+		};
+		TileBuilder.Mesh mesh = builder().build(snowyForest, TileKey.of(0, 0, 0));
+		ByteBuffer v = vertices(mesh);
+		boolean whiteTop = false;
+		for (int i = 0; i < mesh.vertexCount(); i++) {
+			int o = i * TileBuilder.VERTEX_BYTES;
+			int face = v.getShort(o + 6) & 7;
+			int y = v.getShort(o + 2) / 8;
+			int green = v.get(o + 9) & 0xFF;
+			if (y > 72 && face >= 2 && face <= 5) {
+				assertTrue(green < 0x80, "a crown's flank is its leaves");
+			}
+			whiteTop |= y > 72 && face == TileBuilder.UP && green > 0xE0;
+		}
+		assertTrue(whiteTop, "snow on the crowns' tops");
 	}
 
 	/** Runs {@code body} with the far field drawn smooth from level 2, as it was by default before. */
