@@ -73,12 +73,19 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	private record Built(Tile tile, ByteBuffer vertices, TileBuilder.Mesh mesh, long version) {
 	}
 
+	/** A worker thread, and the flag that tells it to stop once the tile in hand is built. */
+	private static final class Worker {
+		Thread thread;
+		volatile boolean stop;
+	}
+
 	private final Long2ObjectOpenHashMap<Tile> tiles = new Long2ObjectOpenHashMap<>();
 	private final PriorityBlockingQueue<Job> queue = new PriorityBlockingQueue<>();
 	private final ConcurrentLinkedQueue<Built> built = new ConcurrentLinkedQueue<>();
 	private final ArrayDeque<Built> waiting = new ArrayDeque<>();
 	private final LodSelector selector = new LodSelector();
-	private final List<Thread> workers = new ArrayList<>();
+	private final List<Worker> workers = new ArrayList<>();
+	private int workerNames;
 	private final AtomicLong order = new AtomicLong();
 	private volatile TerrainSource source;
 	private volatile long version;
@@ -102,13 +109,29 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 
 	public LodEngine(int threads, long budgetBytes) {
 		this.budgetBytes = budgetBytes;
-		for (int i = 0; i < threads; i++) {
-			Thread t = new Thread(this::work, "VOID LOD worker " + i);
-			t.setDaemon(true);
-			t.setPriority(Thread.MIN_PRIORITY);
-			t.start();
-			this.workers.add(t);
+		this.setThreads(threads);
+	}
+
+	/**
+	 * Starts or stops workers until there are {@code threads} of them, live. A worker told to stop finishes the
+	 * tile in hand first, so no tile is left half built, and the queue simply has fewer takers.
+	 */
+	public void setThreads(int threads) {
+		while (this.workers.size() < threads) {
+			Worker worker = new Worker();
+			worker.thread = new Thread(() -> this.work(worker), "VOID LOD worker " + this.workerNames++);
+			worker.thread.setDaemon(true);
+			worker.thread.setPriority(Thread.MIN_PRIORITY);
+			worker.thread.start();
+			this.workers.add(worker);
 		}
+		while (this.workers.size() > Math.max(0, threads)) {
+			this.workers.removeLast().stop = true;
+		}
+	}
+
+	public int threads() {
+		return this.workers.size();
 	}
 
 	public void setBudget(long bytes) {
@@ -230,9 +253,9 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 
 	// ---- workers ----------------------------------------------------------------------------------------
 
-	private void work() {
+	private void work(Worker worker) {
 		TileBuilder builder = new TileBuilder();
-		while (this.running) {
+		while (this.running && !worker.stop) {
 			Job job;
 			try {
 				job = this.queue.poll(250, TimeUnit.MILLISECONDS);
@@ -412,8 +435,8 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 	@Override
 	public void close() {
 		this.running = false;
-		for (Thread t : this.workers) {
-			t.interrupt();
+		for (Worker worker : this.workers) {
+			worker.thread.interrupt();
 		}
 	}
 }

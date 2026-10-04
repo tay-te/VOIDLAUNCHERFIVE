@@ -2,7 +2,9 @@ package dev.voidmc.lod.gametest;
 
 import dev.voidmc.expanse.world.terrain.EarthChunkGenerator;
 import dev.voidmc.expanse.world.terrain.TerrainModel;
+import dev.voidmc.lod.LodSettings;
 import dev.voidmc.lod.VoidLod;
+import dev.voidmc.lod.gui.LodSettingsScreen;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -10,7 +12,18 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.InactivityFpsLimit;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.OptionsList;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.OptionsScreen;
+import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -25,7 +38,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * {@code lod.show.seed}, {@code lod.show.distance} (vanilla render distance), {@code lod.show.settle} (ms for
  * vanilla chunks), {@code lod.show.views} (how many of the views to take), {@code lod.show.width} and
  * {@code lod.show.height} (screenshot size), {@code lod.show.off} (false to skip the vanilla shots),
- * {@code lod.show.only} (a comma-separated list of view names).
+ * {@code lod.show.only} (a comma-separated list of view names), {@code lod.show.settings} (true to also
+ * photograph the settings screen and a preset chosen on it, applied live, plus the F3 lines).
  */
 public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
@@ -37,6 +51,7 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final int WIDTH = Integer.getInteger("lod.show.width", 1600);
 	private static final int HEIGHT = Integer.getInteger("lod.show.height", 900);
 	private static final boolean OFF = Boolean.parseBoolean(System.getProperty("lod.show.off", "true"));
+	private static final boolean SETTINGS = Boolean.getBoolean("lod.show.settings");
 
 	private record Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
 		Spot(String name, int x, int y, int z, float yaw, float pitch) {
@@ -170,7 +185,102 @@ public class LodShowcase implements FabricClientGameTest {
 				String stats = context.computeOnClient(mc -> VoidLod.get().stats() + String.format(Locale.ROOT, ", %d fps", mc.getFps()));
 				System.out.printf(Locale.ROOT, "[lod] %s: complete in %.1f s | %s%n", spot.name(), loaded / 1000.0, stats);
 			}
+			if (SETTINGS && !spots.isEmpty()) {
+				this.settings(context, spots.get(Math.min(VIEWS, spots.size()) - 1));
+			}
 		}
+	}
+
+	/**
+	 * The settings screen, reached the ways a player reaches it (the button in Options, the one at the end of
+	 * Video Settings), and the Low preset chosen on it while the world renders behind: the view is photographed
+	 * again once the LOD has settled at the new reach and detail, and at the other presets, with the stats saying
+	 * what changed. Then the F3 lines, and High restored, file included.
+	 */
+	private void settings(ClientGameTestContext context, Spot spot) {
+		context.runOnClient(mc -> mc.gui.setScreen(new OptionsScreen(null, mc.options)));
+		context.waitTicks(5);
+		this.shoot(context, "options");
+		context.clickScreenButton("options.void_lod.button");
+		context.waitForScreen(LodSettingsScreen.class);
+		context.waitTicks(40);
+		this.shoot(context, "settings");
+		context.runOnClient(mc -> ((LodSettingsScreen) mc.gui.screen()).choose(LodSettings.Preset.LOW));
+		context.waitTicks(40);
+		this.shoot(context, "settings_low");
+
+		context.runOnClient(mc -> mc.gui.setScreen(new VideoSettingsScreen(null, mc, mc.options)));
+		context.waitTicks(5);
+		context.runOnClient(mc -> {
+			// the button closes the list, which scrolls to it
+			OptionsList list = optionsList(mc.gui.screen());
+			list.setScrollAmount(list.maxScrollAmount());
+		});
+		context.waitTicks(5);
+		this.shoot(context, "video_settings");
+		context.runOnClient(mc -> {
+			String label = Component.translatable("options.void_lod.button").getString();
+			for (GuiEventListener entry : ((ContainerEventHandler) optionsList(mc.gui.screen())).children()) {
+				for (GuiEventListener child : ((ContainerEventHandler) entry).children()) {
+					if (child instanceof Button button && button.getMessage().getString().equals(label)) {
+						button.onPress(new MouseButtonInfo(0, 0));
+						return;
+					}
+				}
+			}
+			throw new AssertionError("no VOID LOD button in Video Settings");
+		});
+		context.waitForScreen(LodSettingsScreen.class);
+		context.runOnClient(mc -> mc.gui.setScreen(null));
+		this.settlePreset(context, spot, LodSettings.Preset.LOW);
+		// the other presets, for what each costs from the same place
+		for (LodSettings.Preset preset : new LodSettings.Preset[]{LodSettings.Preset.MEDIUM, LodSettings.Preset.ULTRA}) {
+			context.runOnClient(mc -> VoidLod.get().change(settings -> settings.apply(preset)));
+			this.settlePreset(context, spot, preset);
+		}
+
+		context.runOnClient(mc -> {
+			mc.gui.hud.toggle();
+			mc.debugEntries.setOverlayVisible(true);
+		});
+		context.waitTicks(20);
+		this.shoot(context, "debug");
+		context.runOnClient(mc -> {
+			mc.debugEntries.setOverlayVisible(false);
+			mc.gui.hud.toggle();
+			VoidLod.get().change(settings -> settings.apply(LodSettings.Preset.HIGH));
+			VoidLod.get().save();
+		});
+	}
+
+	/** Waits for the LOD to settle at a preset just chosen, then photographs the view and logs what it drew and cost. */
+	private void settlePreset(ClientGameTestContext context, Spot spot, LodSettings.Preset preset) {
+		long start = System.currentTimeMillis();
+		long firstFrame = context.computeOnClient(mc -> VoidLod.get().engine().frame());
+		int calm = 0;
+		while (System.currentTimeMillis() - start < 120_000 && calm < 3) {
+			context.waitTicks(10);
+			boolean idle = context.computeOnClient(mc -> {
+				var engine = VoidLod.get().engine();
+				return engine.frame() - firstFrame > 200 && engine.idle() && engine.queued() == 0;
+			});
+			calm = idle ? calm + 1 : 0;
+		}
+		context.waitTicks(60);
+		String name = spot.name() + "_" + preset.serializedName();
+		this.shoot(context, name);
+		String stats = context.computeOnClient(mc -> VoidLod.get().stats() + String.format(Locale.ROOT, ", radius %d, detail %.1f/%.1f, %d fps",
+			(int) VoidLod.get().radius, VoidLod.get().detail, VoidLod.get().farDetail, mc.getFps()));
+		System.out.printf(Locale.ROOT, "[lod] %s: complete in %.1f s | %s%n", name, (System.currentTimeMillis() - start) / 1000.0, stats);
+	}
+
+	private static OptionsList optionsList(Screen screen) {
+		for (AbstractWidget widget : Screens.getWidgets(screen)) {
+			if (widget instanceof OptionsList list) {
+				return list;
+			}
+		}
+		throw new AssertionError("no options list in " + screen);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {

@@ -4,10 +4,13 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"CameraMixin",
+		"DebugScreenEntryListMixin",
 		"FogRendererMixin",
 		"LevelRendererMixin",
 		"MaterialSystemAccessor",
-		"SpriteContentsAccessor"
+		"OptionsScreenMixin",
+		"SpriteContentsAccessor",
+		"VideoSettingsScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
