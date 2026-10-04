@@ -165,7 +165,7 @@ public final class PlanRenderer {
 		// lit from the north-west
 		double shade = 1.0 + (-hx - hz) * 0.07;
 		shade = Math.max(0.6, Math.min(1.3, shade));
-		int rgb = Palette.shade(Palette.land(h, sc.sea, sc.temperature[i]), shade);
+		int rgb = Palette.shade(sc.underground ? Palette.cave(h, sc.caveFloor) : Palette.land(h, sc.sea, sc.temperature[i]), shade);
 		boolean contour = Math.floorDiv(h, 4) != Math.floorDiv(sc.ground[z * sc.w + Math.min(sc.w - 1, x + 1)], 4)
 			|| Math.floorDiv(h, 4) != Math.floorDiv(sc.ground[Math.min(sc.d - 1, z + 1) * sc.w + x], 4);
 		return contour ? Palette.shade(rgb, 0.86) : rgb;

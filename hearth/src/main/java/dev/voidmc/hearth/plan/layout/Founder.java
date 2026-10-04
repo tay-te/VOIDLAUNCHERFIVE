@@ -114,7 +114,7 @@ public final class Founder {
 	}
 
 	/** The square's edge as a road-network edge: plots front onto the square along it. Clockwise, one in from the edge. */
-	private static void squareEdge(PlanContext ctx, int heart) {
+	public static void squareEdge(PlanContext ctx, int heart) {
 		int h = ctx.state.plazaHalf - 1;
 		int hx = ctx.heartX();
 		int hz = ctx.heartZ();
@@ -269,7 +269,7 @@ public final class Founder {
 	 * Plans a road from a node toward a direction and distance, routed over the land; builds its first {@code build}
 	 * blocks. Starts at the node (at the heart, on the square's edge).
 	 */
-	static @Nullable RoadEdge arm(PlanContext ctx, int from, double angle, double length, int width, RoadKind kind, RoadEdge.Role role, int build) {
+	public static @Nullable RoadEdge arm(PlanContext ctx, int from, double angle, double length, int width, RoadKind kind, RoadEdge.Role role, int build) {
 		RoadGraph.Node n = ctx.state.graph.node(from);
 		Ground g = ctx.ground;
 		int tx = n.x() + (int) Math.round(StrictMath.cos(angle) * length);

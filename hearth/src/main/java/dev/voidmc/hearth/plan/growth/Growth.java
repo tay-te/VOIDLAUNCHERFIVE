@@ -176,6 +176,7 @@ public final class Growth {
 		Landmarks.needs(ctx, needs, list);
 		dev.voidmc.hearth.plan.society.Nobility.needs(ctx, needs, list);
 		Gates.needs(ctx, needs, list);
+		dev.voidmc.hearth.plan.deep.DeepTown.needs(ctx, needs, list);
 		if (Docks.wanted(ctx, needs)) {
 			list.add(new Need("docks", 150, Docks::plan));
 		}
@@ -229,6 +230,11 @@ public final class Growth {
 			list.add(new Need("short/" + sh.goods.getSerializedName(), 380, c -> workplace(c, job)));
 			return;
 		}
+	}
+
+	/** {@link #exact} for other packages (the deep town, the nobility). */
+	public static @Nullable ArchetypeInfo exactInfo(PlanContext ctx, Identifier id) {
+		return exact(ctx, id);
 	}
 
 	/** An archetype exactly as registered and allowed here, or null (no fallback). */

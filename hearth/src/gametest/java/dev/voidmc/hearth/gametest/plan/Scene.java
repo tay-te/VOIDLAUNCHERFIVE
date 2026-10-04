@@ -44,6 +44,10 @@ public final class Scene {
 	/** Per column, the land's walking level where it was cut or filled (Integer.MIN_VALUE = natural). */
 	final int[] level;
 	public int blockCount;
+	/** A realm's floor rather than open land (a deep town's preview): the land is drawn as cave floor and rock. */
+	public boolean underground;
+	/** The realm's general floor level, for the cave colours. */
+	public int caveFloor;
 
 	public Scene(TerrainProbe terrain, int x0, int z0, int w, int d) {
 		this.x0 = x0;
@@ -130,6 +134,8 @@ public final class Scene {
 			}
 		}
 		r.blockCount = this.blockCount;
+		r.underground = this.underground;
+		r.caveFloor = this.caveFloor;
 		return r;
 	}
 

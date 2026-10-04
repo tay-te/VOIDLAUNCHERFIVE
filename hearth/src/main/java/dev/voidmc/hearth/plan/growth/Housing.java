@@ -312,6 +312,12 @@ public final class Housing {
 		return row(ctx, info, req, edge, units, reason, null, null);
 	}
 
+	/** A row of a deep town's dwellings, each with the same params (the miners' households). */
+	public static boolean deepRow(PlanContext ctx, ArchetypeInfo info, Parcels.Request req, int edge, int units, String reason,
+		@Nullable CompoundTag params) {
+		return rowWith(ctx, info, req, edge, units, reason, () -> params == null ? new CompoundTag() : params.copy());
+	}
+
 	/**
 	 * A row of attached houses along a street: the first where the frontage search puts it, the rest flush beside it
 	 * to its right (then left) while the street runs on, each floor meeting the street at its own door (a row steps
@@ -319,6 +325,14 @@ public final class Housing {
 	 */
 	static boolean row(PlanContext ctx, ArchetypeInfo info, Parcels.Request req, int edge, int units, String reason, @Nullable Station station,
 		@Nullable StationLedger ledger) {
+		return rowWith(ctx, info, req, edge, units, reason, () -> {
+			CompoundTag p = homeParams(ctx, station, ledger);
+			return p == null ? new CompoundTag() : p;
+		});
+	}
+
+	private static boolean rowWith(PlanContext ctx, ArchetypeInfo info, Parcels.Request req, int edge, int units, String reason,
+		java.util.function.Supplier<CompoundTag> paramsFor) {
 		Parcels.Parcel first = Parcels.best(ctx, req, e -> e == edge);
 		if (first == null) {
 			return false;
@@ -366,10 +380,7 @@ public final class Housing {
 		boolean ascending = right.getStepX() + right.getStepZ() > 0;
 		row.sort((a, b) -> ascending ? Integer.compare(a.x0 + a.z0, b.x0 + b.z0) : Integer.compare(b.x0 + b.z0, a.x0 + a.z0));
 		for (int i = 0; i < row.size(); i++) {
-			CompoundTag params = homeParams(ctx, station, ledger);
-			if (params == null) {
-				params = new CompoundTag();
-			}
+			CompoundTag params = paramsFor.get();
 			params.putBoolean("party_left", i > 0);
 			params.putBoolean("party_right", i < row.size() - 1);
 			params.putInt("row", row.size());

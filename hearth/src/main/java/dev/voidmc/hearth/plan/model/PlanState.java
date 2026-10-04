@@ -57,6 +57,12 @@ public final class PlanState {
 	public final TreeMap<String, Long> cooldowns = new TreeMap<>();
 	/** The castle hill (x, z): the most commanding ground within reach, chosen at town tier and kept; null until then. */
 	public int @Nullable [] castleHill;
+	/** The deep town's own plan (its roads, square, queue), on its realm's floor; null until one is founded. */
+	public @Nullable PlanState deep;
+	/** The id of the realm the deep town stands in. */
+	public long deepRealm;
+	/** Which level each plot is on (packed with a bit of its spec's seed), by plot id; never saved. */
+	public final transient java.util.Map<Integer, Integer> levels = new java.util.HashMap<>();
 
 	/** Rebuilt on demand from plots and this state; see the class comment. */
 	public transient @Nullable Occupancy occupancy;
@@ -68,6 +74,9 @@ public final class PlanState {
 	public void invalidate() {
 		this.occupancy = null;
 		this.knownPlots = null;
+		if (this.deep != null) {
+			this.deep.invalidate();
+		}
 	}
 
 	public @Nullable Reservation reservation(String tag) {
@@ -128,6 +137,10 @@ public final class PlanState {
 		if (this.castleHill != null) {
 			t.putIntArray("castle_hill", this.castleHill);
 		}
+		if (this.deep != null) {
+			t.put("deep", this.deep.save());
+			t.putLong("deep_realm", this.deepRealm);
+		}
 		return t;
 	}
 
@@ -176,6 +189,8 @@ public final class PlanState {
 			s.cooldowns.put(key, cd.getLongOr(key, 0));
 		}
 		s.castleHill = Nbt.ints(t, "castle_hill").filter(a -> a.length >= 2).orElse(null);
+		s.deep = t.getCompound("deep").map(PlanState::load).orElse(null);
+		s.deepRealm = t.getLongOr("deep_realm", 0);
 		return s;
 	}
 }

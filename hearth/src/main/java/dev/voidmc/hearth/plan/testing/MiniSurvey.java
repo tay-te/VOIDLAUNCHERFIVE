@@ -131,6 +131,11 @@ public final class MiniSurvey {
 		if (relief >= 16 && c.hi > sea + 18 && h < 0.6) {
 			return ResourceSite.Kind.ORE;
 		}
+		// over a realm the survey reads the cavern model: veins run toward the open spaces, and mines aim for them
+		var under = dev.voidmc.hearth.plan.PlanModule.underground(t);
+		if (under != null && relief >= 4 && h < 0.8 && under.realm(cx, cz) != null) {
+			return ResourceSite.Kind.ORE;
+		}
 		if (relief >= 10) {
 			return ResourceSite.Kind.STONE;
 		}

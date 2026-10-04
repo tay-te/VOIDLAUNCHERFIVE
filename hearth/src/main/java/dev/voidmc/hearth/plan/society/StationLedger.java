@@ -47,7 +47,8 @@ public final class StationLedger {
 	public static StationLedger of(PlanContext ctx) {
 		StationLedger l = new StationLedger();
 		Map<Integer, HomeFacts> cache = ctx.state.homeFacts;
-		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
+		// every level's homes count (a deep town's dwellings house the town's miners)
+		List<PlotView> plots = new ArrayList<>(dev.voidmc.hearth.plan.deep.LevelView.unwrap(ctx.settlement).plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
 		java.util.HashMap<Integer, Station> byPlot = new java.util.HashMap<>();
 		for (PlotView p : plots) {

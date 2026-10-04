@@ -26,8 +26,11 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 /**
  * A plain stand-in blueprint: a box of the plot's footprint and a height within its archetype's range (footings down to
  * the ground, walls, a flat roof), a paved corridor for roads, a deck for bridges, a platform for terraces, tilled land
- * for farms. Enough for the planner's previews and the sim's tests to have real steps, beds and work to count; the build
- * module's blueprints are the real thing.
+ * for farms; for workings, cuts — a quarry's benches stepping down to its {@code depth}, a mine's adit running
+ * {@code length} into the hill, a shaft, shallow pits, rows of saplings — and for a lift, a shaft walled from the realm
+ * floor up to its head. Homes are walled by station (mud for the poor up to stone for the gentry), so a preview shows
+ * who lives where. Enough for the planner's previews and the sim's tests to have real steps, beds and work to count; the
+ * build module's blueprints are the real thing.
  */
 public final class BoxBlueprint implements Blueprint {
 	private static final StageKind[] STAGES = {StageKind.FOUNDATION, StageKind.WALLS, StageKind.ROOF};
@@ -87,6 +90,10 @@ public final class BoxBlueprint implements Blueprint {
 					}
 				}
 			}
+		} else if (info.category() == ArchetypeCategory.EXTRACTION) {
+			working(spec, terrain);
+		} else if (id.equals(Archetypes.DEEP_LIFT)) {
+			lift(spec);
 		} else if (info.category() == ArchetypeCategory.FARM || id.equals(Archetypes.PLAZA) || id.equals(Archetypes.GARDEN) || id.equals(Archetypes.PARK)) {
 			BlockState top = id.equals(Archetypes.PLAZA) ? Blocks.STONE_BRICKS.defaultBlockState()
 				: info.category() == ArchetypeCategory.FARM ? Blocks.FARMLAND.defaultBlockState() : Blocks.MOSS_BLOCK.defaultBlockState();
@@ -105,7 +112,8 @@ public final class BoxBlueprint implements Blueprint {
 			int z0 = spec.origin().getZ();
 			int x1 = x0 + spec.sizeX() - 1;
 			int z1 = z0 + spec.sizeZ() - 1;
-			boolean stacked = spec.params().getBooleanOr("stacked", false);
+			boolean stacked = spec.params().getBooleanOr("stacked", false) || spec.params().contains("realm");
+			wall = stationWall(spec, wall);
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
 					int g = stacked ? y0 : Math.min(terrain.groundY(x, z), y0);
@@ -130,6 +138,115 @@ public final class BoxBlueprint implements Blueprint {
 			}
 		}
 		this.bounds = box[0] == Integer.MAX_VALUE ? new BoundingBox(spec.origin()) : new BoundingBox(box[0], box[1], box[2], box[3], box[4], box[5]);
+	}
+
+	/** A home's walls by who lives there: mud and planks for the poor and peasants up to stone and quartz for the rich. */
+	private static BlockState stationWall(PlotSpec spec, BlockState fallback) {
+		return switch (spec.params().getStringOr("station", "")) {
+			case "poor" -> Blocks.PACKED_MUD.defaultBlockState();
+			case "peasant" -> Blocks.OAK_PLANKS.defaultBlockState();
+			case "artisan" -> Blocks.SPRUCE_PLANKS.defaultBlockState();
+			case "merchant" -> Blocks.BRICKS.defaultBlockState();
+			case "clergy" -> Blocks.CALCITE.defaultBlockState();
+			case "scholar", "official" -> Blocks.STONE_BRICKS.defaultBlockState();
+			case "gentry" -> Blocks.SMOOTH_QUARTZ.defaultBlockState();
+			case "lord" -> Blocks.POLISHED_ANDESITE.defaultBlockState();
+			default -> fallback;
+		};
+	}
+
+	/**
+	 * A working cut into the land: a quarry's benches (three blocks down for every two in from the rim, to its depth), a
+	 * mine's adit (three wide, three high, from its mouth {@code length} into the hill along {@code face}), a shaft, a
+	 * shallow pit, or a woodlot's rows of saplings. Each stage cuts a deeper bench.
+	 */
+	private void working(PlotSpec spec, TerrainProbe terrain) {
+		var id = spec.archetype();
+		CompoundTag p = spec.params();
+		int x0 = spec.origin().getX();
+		int z0 = spec.origin().getZ();
+		int x1 = x0 + spec.sizeX() - 1;
+		int z1 = z0 + spec.sizeZ() - 1;
+		int y0 = spec.floorY();
+		BlockState air = Blocks.AIR.defaultBlockState();
+		if (id.equals(Archetypes.PLANTATION)) {
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					int g = terrain.groundY(x, z);
+					add(0, x, g - 1, z, Blocks.GRASS_BLOCK.defaultBlockState());
+					if ((x - x0) % 3 == 1 && (z - z0) % 3 == 1) {
+						add(1, x, g, z, Blocks.OAK_SAPLING.defaultBlockState());
+					}
+				}
+			}
+			return;
+		}
+		if (id.equals(Archetypes.MINE)) {
+			// the portal at the front, the adit behind it into the hill
+			var face = spec.facing().getOpposite();
+			boolean alongZ = face.getAxis() == net.minecraft.core.Direction.Axis.Z;
+			int mid = alongZ ? (x0 + x1) / 2 : (z0 + z1) / 2;
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					int across = alongZ ? x - mid : z - mid;
+					if (Math.abs(across) > 1) {
+						continue;
+					}
+					int g = terrain.groundY(x, z);
+					for (int y = y0; y < Math.min(y0 + 3, g + 1); y++) {
+						add(1, x, y, z, air);
+					}
+					add(0, x, y0 - 1, z, Blocks.GRAVEL.defaultBlockState());
+					if (Math.abs(across) == 1 && g > y0 + 3) {
+						add(2, x, y0 + 3, z, Blocks.SPRUCE_PLANKS.defaultBlockState());
+					}
+				}
+			}
+			return;
+		}
+		int depth = Math.max(1, p.getIntOr("depth", id.equals(Archetypes.SHAFT) ? 24 : 4));
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				int ring = Math.min(Math.min(x - x0, x1 - x), Math.min(z - z0, z1 - z));
+				int g = Math.max(terrain.groundY(x, z), y0);
+				int cut;
+				if (id.equals(Archetypes.SHAFT)) {
+					cut = ring >= 2 ? depth : 0;
+					if (ring < 2) {
+						add(2, x, g, z, Blocks.SPRUCE_FENCE.defaultBlockState());
+					}
+				} else if (id.equals(Archetypes.QUARRY_PIT)) {
+					cut = ring == 0 ? 0 : Math.min(depth, (ring + 1) / 2 * 3);
+				} else {
+					cut = ring == 0 ? 0 : Math.min(depth, 1 + ring);
+				}
+				for (int k = 0; k < cut + (g - y0); k++) {
+					int stage = Math.min(2, k * 3 / Math.max(1, depth + (g - y0)));
+					add(stage, x, g - 1 - k, z, air);
+				}
+			}
+		}
+	}
+
+	/** A lift: a walled shaft from the realm floor up to its head on the street, a ladder up its middle. */
+	private void lift(PlotSpec spec) {
+		CompoundTag p = spec.params();
+		int x0 = spec.origin().getX();
+		int z0 = spec.origin().getZ();
+		int x1 = x0 + spec.sizeX() - 1;
+		int z1 = z0 + spec.sizeZ() - 1;
+		int bottom = spec.floorY();
+		int top = p.getIntOr("top_y", bottom + 16);
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				boolean edge = x == x0 || x == x1 || z == z0 || z == z1;
+				for (int y = bottom; y < top + 4; y++) {
+					int stage = y < bottom + (top - bottom) / 3 ? 0 : y < top ? 1 : 2;
+					add(stage, x, y, z, edge ? Blocks.STONE_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState());
+				}
+				add(2, x, top + 4, z, Blocks.DARK_OAK_PLANKS.defaultBlockState());
+			}
+		}
 	}
 
 	/** The box's height: within the archetype's range and the plot's cap, chosen by the plot's seed. */

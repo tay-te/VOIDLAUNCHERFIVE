@@ -150,6 +150,13 @@ final class PlanChecks {
 				continue;
 			}
 			int[] e = PlotGeometry.entrance(sp);
+			if (deep(s) && sp.archetype().equals(Archetypes.DEEP_LIFT)) {
+				// the lift's door below opens toward the deep square
+				var below = net.minecraft.core.Direction.byName(params.getStringOr("deep_facing", "north"));
+				PlotSpec turned = new PlotSpec(sp.archetype(), sp.style(), sp.seed(), sp.origin(), sp.sizeX(), sp.sizeZ(),
+					below == null ? sp.facing() : below, sp.maxHeight(), sp.tier(), params);
+				e = PlotGeometry.entrance(turned);
+			}
 			if (pub.get(e[0], e[1]) == Cell.FREE && !squareGreen(s, e[0], e[1])) {
 				out.add("plot " + p.id() + " " + sp.archetype() + " at " + sp.origin() + " facing " + sp.facing() + ": entrance " + e[0] + "," + e[1]
 					+ " is not on a road");
@@ -161,8 +168,15 @@ final class PlanChecks {
 	/** The main square before it is paved is a village green: public ground all the same. */
 	private static boolean squareGreen(Settlement s, int x, int z) {
 		var st = s.data(PlanModule.STATE);
+		if (deep(s) && st.deep != null) {
+			st = st.deep;
+		}
 		var r = st.reservation("square");
 		return r != null && r.contains(x, z);
+	}
+
+	private static boolean deep(Settlement s) {
+		return s instanceof dev.voidmc.hearth.plan.deep.LevelView v && v.isDeep();
 	}
 
 	/** Road plots climbing faster than a road may, and stair plots steeper than a stair. */

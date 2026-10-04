@@ -124,6 +124,15 @@ final class Palette {
 		};
 	}
 
+	/** A realm's floor by height over its base: mossy floor, rubble slopes, the dark rock of its walls. */
+	static int cave(int y, int base) {
+		double t = (y - base) / 26.0;
+		if (t >= 0.95) {
+			return 0x2C2C32;
+		}
+		return lerp(0x3C5E4A, 0x76706A, Math.max(0, t));
+	}
+
 	/** Land by height above the sea: lowland green to upland olive, rock grey, snow. */
 	static int land(int y, int sea, float temperature) {
 		double t = (y - sea) / 60.0;

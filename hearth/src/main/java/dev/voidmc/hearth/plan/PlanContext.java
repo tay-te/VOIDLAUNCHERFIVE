@@ -246,6 +246,8 @@ public final class PlanContext {
 	public dev.voidmc.hearth.plan.society.@Nullable StationLedger ledger;
 	/** The {@code local} materials every plot of this call gets instead of the territory's (a deep town: its realm's). */
 	public net.minecraft.nbt.@Nullable CompoundTag localOverride;
+	/** Params every plot of this call carries (a deep town's plots: its {@code realm}). */
+	public net.minecraft.nbt.@Nullable CompoundTag extraParams;
 
 	/** Queues a project behind those already decided, with the territory's materials ({@code local}) on it. */
 	public void queue(PlotSpec spec, int replaces, String reason) {
@@ -259,14 +261,26 @@ public final class PlanContext {
 	/** The spec with the {@code local} param (LIVING_WORLD.md §8.5) if it has none and the land gives any. */
 	public PlotSpec withLocal(PlotSpec spec) {
 		net.minecraft.nbt.CompoundTag local = this.localOverride != null ? this.localOverride : territory().local();
-		if (local == null) {
+		if (local == null && this.extraParams == null) {
 			return spec;
 		}
 		net.minecraft.nbt.CompoundTag params = spec.params();
-		if (params.contains("local")) {
+		boolean changed = false;
+		if (this.extraParams != null) {
+			for (String key : this.extraParams.keySet()) {
+				if (!params.contains(key)) {
+					params.put(key, this.extraParams.get(key).copy());
+					changed = true;
+				}
+			}
+		}
+		if (local != null && !params.contains("local")) {
+			params.put("local", local.copy());
+			changed = true;
+		}
+		if (!changed) {
 			return spec;
 		}
-		params.put("local", local.copy());
 		return new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
 			spec.tier(), params);
 	}

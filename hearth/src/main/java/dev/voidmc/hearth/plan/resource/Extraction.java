@@ -235,7 +235,8 @@ public final class Extraction {
 			params.putInt("depth", shaftDepth(ctx, cx, cz, p.floorY));
 			UndergroundProbe.Realm realm = realmUnder(ctx, cx, cz);
 			if (realm != null) {
-				params.putLong("realm", realm.id());
+				// the shaft is sunk into a realm (it stands on the surface: "realm" is for plots down there)
+				params.putLong("realm_below", realm.id());
 			}
 		} else if (id.equals(Archetypes.CLAY_PIT) || id.equals(Archetypes.SAND_PIT)) {
 			params.putInt("depth", 3 + (int) (ctx.hash(site.id(), 3, 97) * 2));
