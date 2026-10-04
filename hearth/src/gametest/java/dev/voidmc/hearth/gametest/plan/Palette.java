@@ -75,6 +75,10 @@ final class Palette {
 			case FARM -> 0xC8B060;
 			case LANDSCAPE -> 0x6AAA50;
 			case INFRASTRUCTURE -> 0xA09888;
+			case EXTRACTION -> 0x8C7A64;
+			case LAW -> 0x4A4A6A;
+			case NOBLE -> 0xA03A3A;
+			case UNDERGROUND -> 0x5A6A70;
 		};
 	}
 
