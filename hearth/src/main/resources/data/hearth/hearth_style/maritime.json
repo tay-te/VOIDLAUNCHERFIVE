@@ -1,6 +1,7 @@
 {
 	"culture": "maritime",
 	"name": "Maritime: whitewashed harbour houses on grey stone under slate, painted shutters, net lofts",
+	"base_name": "harbour house",
 	"roles": {
 		"foundation": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
@@ -15,8 +16,8 @@
 		"gable": [{"m": "minecraft:white_concrete", "w": 2}, {"m": "minecraft:calcite", "w": 2}],
 		"window": ["minecraft:polished_andesite"],
 		"glass": ["minecraft:glass_pane"],
-		"door": ["wood:minecraft:warped"],
-		"shutter": ["wood:minecraft:warped"],
+		"door": [{"m": "wood:minecraft:warped", "w": 2}, {"m": "wood:minecraft:mangrove", "w": 1}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"shutter": [{"m": "wood:minecraft:warped", "w": 3}, {"m": "wood:minecraft:mangrove", "w": 1}],
 		"fence": ["wood:minecraft:spruce"],
 		"railing": ["wood:minecraft:spruce"],
 		"path": [{"m": "minecraft:gravel", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
@@ -34,13 +35,71 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": ["minecraft:hay_block"],
+		"sheet": [{"m": "minecraft:waxed_oxidized_cut_copper", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}],
+		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.8, "low": 2, "north": 1.5}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:white_concrete", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.8, "low": 2, "north": 1.5}], "roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.12}], "roof_trim": ["wood:minecraft:spruce"]},
+		"3": {"chimney": ["minecraft:stone_bricks"], "plinth": ["minecraft:polished_andesite"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}]},
 	"variants": [
-		{"name": "red boards", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:birch"], "window": ["wood:minecraft:birch"]}, "habits": {"walls": {"kind": "plank"}}},
-		{"name": "harbour stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}], "gable": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0}}},
-		{"name": "yellow plaster", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 3}], "gable": ["minecraft:smooth_sandstone"]}}
+		{"name": "red boards", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:pale_oak"]}, "habits": {"walls": {"kind": "plank"}},
+			"tiers": {"0": {"wall": ["wood:minecraft:mangrove"]}}},
+		{"name": "harbour stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}], "gable": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}]}, "habits": {"walls": {"kind": "stone", "plinth": 0}},
+			"tiers": {"0": {"wall": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}]}}},
+		{"name": "yellow plaster", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 3}], "gable": ["minecraft:smooth_sandstone"]}},
+		{"name": "colour-washed", "w": 0.8, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 3}, {"m": "minecraft:calcite", "w": 0.4, "low": 1}], "gable": ["minecraft:white_terracotta"], "shutter": ["wood:minecraft:pale_oak"], "window": ["minecraft:smooth_quartz"]}}
+	],
+	"substyles": [
+		{
+			"name": "net loft",
+			"w": 6,
+			"when": [{"archetypes": ["work/fishery", "storage/*", "work/sawmill", "work/carpentry"]}, {"districts": ["harbour"], "categories": ["workshop", "storage"]}, {"landforms": ["coast"], "categories": ["workshop", "storage"]}],
+			"roles": {
+				"wall": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}],
+				"gable": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}],
+				"frame": ["wood:minecraft:spruce"],
+				"beam": ["wood:minecraft:spruce"],
+				"window": ["wood:minecraft:pale_oak"],
+				"shutter": ["wood:minecraft:pale_oak"],
+				"door": ["wood:minecraft:spruce"],
+				"plinth": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.08}],
+				"roof_trim": ["wood:minecraft:pale_oak"]
+			},
+			"habits": {
+				"walls": {"kind": "plank", "plinth": 1, "beam_ends": 0.5},
+				"roof": {"forms": {"gable": 6}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "dormers": 0.3, "front_gable": 0.8},
+				"windows": {"shutters": 0.4, "boxes": 0.0, "bay": 0.0, "tall": false},
+				"chimney": 0.0,
+				"porch": 0.2
+			}
+		},
+		{
+			"name": "granite merchant house",
+			"w": 10,
+			"when": [{"stations": ["merchant", "official", "gentry", "lord"]}, {"archetypes": ["civic/town_hall", "commerce/bank", "commerce/inn", "house/manor"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:stone_bricks", "w": 4}, {"m": "minecraft:polished_andesite", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 0.4, "low": 2, "north": 1.5}],
+				"gable": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}],
+				"wall_accent": ["minecraft:smooth_stone"],
+				"plinth": ["minecraft:polished_andesite"],
+				"window": ["minecraft:smooth_quartz"],
+				"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
+				"shutter": ["wood:minecraft:dark_oak"],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 4}, {"m": "minecraft:polished_deepslate", "w": 0.4}],
+				"accent": ["minecraft:chiseled_stone_bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0},
+				"roof": {"forms": {"gable": 4, "hip": 2}, "pitch": 1.0, "eaves": 0, "gable_overhang": 0, "ridge": "trim", "dormers": 0.6},
+				"windows": {"shutters": 0.0, "boxes": 0.1, "bay": 0.3, "tall": true},
+				"chimney": 1.0
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "plaster", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.2},

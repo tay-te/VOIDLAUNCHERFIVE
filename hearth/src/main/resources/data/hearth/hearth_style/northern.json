@@ -1,30 +1,31 @@
 {
 	"culture": "northern",
-	"name": "Northern: log halls of redwood and spruce on fieldstone, steep shingle roofs, deep eaves",
+	"name": "Northern: silvered log halls on fieldstone, tar-black corners and roofs, white-painted trim, deep eaves",
+	"base_name": "log house",
 	"roles": {
 		"foundation": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.5}],
 		"plinth": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1.5, "low": 2, "north": 2}],
-		"wall": ["wood:expanse:redwood|wood:minecraft:spruce"],
+		"wall": [{"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log", "w": 4}, {"m": "wood:minecraft:spruce", "log": "minecraft:stripped_spruce_log", "w": 0.5, "low": 1.5}],
 		"wall_accent": ["minecraft:stone_bricks"],
 		"frame": ["wood:minecraft:dark_oak"],
 		"beam": ["wood:minecraft:dark_oak"],
 		"floor": ["wood:minecraft:spruce"],
 		"ceiling": ["wood:minecraft:spruce"],
-		"roof": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 2}],
+		"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}],
 		"roof_trim": ["wood:minecraft:spruce"],
-		"gable": ["wood:minecraft:spruce"],
-		"window": ["wood:minecraft:spruce"],
+		"gable": [{"m": "wood:minecraft:poplar", "w": 3}, {"m": "wood:minecraft:spruce", "w": 0.5}],
+		"window": ["wood:minecraft:pale_oak"],
 		"glass": ["minecraft:glass_pane"],
-		"door": ["wood:minecraft:spruce"],
-		"shutter": ["wood:minecraft:spruce"],
+		"door": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"shutter": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:pale_oak", "w": 1}],
 		"fence": ["wood:minecraft:spruce"],
-		"railing": ["wood:minecraft:spruce"],
+		"railing": ["wood:minecraft:pale_oak"],
 		"path": [{"m": "minecraft:coarse_dirt", "w": 2}, {"m": "minecraft:dirt_path", "w": 2}, {"m": "minecraft:podzol", "w": 1}],
 		"paving": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
 		"light": ["minecraft:lantern"],
 		"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
 		"furniture": ["wood:minecraft:spruce"],
-		"cloth": ["dye:green", "dye:brown", "dye:red"],
+		"cloth": ["dye:red", "dye:white", "dye:blue"],
 		"accent": ["minecraft:chiseled_stone_bricks"],
 		"garden": ["minecraft:fern", "minecraft:lily_of_the_valley", "minecraft:poppy", "minecraft:sweet_berry_bush", "expanse:fireweed|minecraft:allium"],
 		"crops": ["minecraft:potatoes", "minecraft:carrots", "minecraft:beetroots"],
@@ -34,17 +35,96 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
+		"sheet": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}]
 	},
 	"tiers": {
-		"0": {"roof": ["wood:minecraft:spruce"], "wall": ["wood:minecraft:spruce"]},
-		"3": {"roof": ["minecraft:deepslate_tiles"], "roof_trim": ["wood:minecraft:dark_oak"], "chimney": ["minecraft:stone_bricks"]}
+		"0": {
+			"wall": [{"m": "wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:poplar", "w": 1}],
+			"roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.25}],
+			"window": ["wood:minecraft:spruce"],
+			"roof_trim": ["wood:minecraft:spruce"]
+		},
+		"3": {
+			"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+			"roof_trim": ["minecraft:polished_deepslate"],
+			"chimney": ["minecraft:stone_bricks"]
+		}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious"]}]},
 	"variants": [
-		{"name": "falu red", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:birch"], "window": ["wood:minecraft:birch"], "shutter": ["wood:minecraft:birch"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}]}, "habits": {"walls": {"kind": "plank"}}},
-		{"name": "weathered grey", "w": 0.8, "roles": {"wall": ["wood:minecraft:pale_oak"], "gable": ["wood:minecraft:pale_oak"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}]}},
-		{"name": "birch trim", "w": 1, "roles": {"window": ["wood:minecraft:birch"], "shutter": ["wood:minecraft:birch"], "door": ["wood:minecraft:birch"], "roof": [{"m": "wood:minecraft:spruce", "w": 1}]}}
+		{"name": "falu red", "w": 1, "roles": {"wall": ["wood:minecraft:mangrove"], "gable": ["wood:minecraft:mangrove"], "frame": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:pale_oak"], "shutter": ["wood:minecraft:pale_oak"], "roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}]}, "habits": {"walls": {"kind": "plank"}}},
+		{"name": "weathered grey", "w": 0.8, "roles": {"wall": [{"m": "wood:minecraft:pale_oak", "w": 3}, {"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log", "w": 1}], "gable": ["wood:minecraft:pale_oak"], "window": ["wood:minecraft:dark_oak"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}]}},
+		{"name": "birch trim", "w": 1, "roles": {"window": ["wood:minecraft:birch"], "shutter": ["wood:minecraft:birch"], "door": ["wood:minecraft:birch"], "roof": [{"m": "wood:minecraft:spruce", "w": 1}]}},
+		{"name": "tarred logs", "w": 0.8, "roles": {"wall": ["wood:minecraft:dark_oak"], "gable": ["wood:minecraft:dark_oak"], "frame": ["wood:minecraft:spruce"], "roof": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.15}]}}
+	],
+	"substyles": [
+		{
+			"name": "stave and carved timber",
+			"w": 6,
+			"when": [{"categories": ["religious", "grand"]}, {"stations": ["gentry", "lord"]}, {"archetypes": ["civic/town_hall", "commerce/inn"]}],
+			"roles": {
+				"wall": [{"m": "wood:minecraft:spruce", "stripped_log": "minecraft:stripped_spruce_log"}],
+				"gable": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}],
+				"frame": ["wood:minecraft:dark_oak"],
+				"beam": ["wood:minecraft:dark_oak"],
+				"roof": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}],
+				"roof_trim": ["wood:minecraft:spruce"],
+				"window": ["wood:minecraft:spruce"],
+				"door": ["wood:minecraft:dark_oak"],
+				"shutter": ["wood:minecraft:dark_oak"],
+				"railing": ["wood:minecraft:spruce"],
+				"plinth": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 2}],
+				"accent": ["minecraft:chiseled_tuff_bricks"],
+				"cloth": ["dye:red", "dye:yellow", "dye:black"]
+			},
+			"habits": {
+				"walls": {"kind": "plank", "plinth": 1, "jetty": 0.3, "post_spacing": 2, "braces": 0, "beam_ends": 0.9},
+				"roof": {"forms": {"gable": 6, "cross_gable": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "trim", "dormers": 0.2, "front_gable": 0.6},
+				"windows": {"shutters": 0.2, "boxes": 0.0, "bay": 0.0, "tall": false},
+				"porch": 0.8
+			},
+			"base_weight": 2,
+			"variants": [
+				{"name": "carved log hall", "w": 1, "roles": {"wall": [{"m": "wood:minecraft:spruce", "log": "minecraft:stripped_spruce_log"}]}, "habits": {"walls": {"kind": "log"}}}
+			]
+		},
+		{
+			"name": "turf house",
+			"w": 3,
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:cobblestone", "log": "minecraft:spruce_log", "stripped_log": "minecraft:stripped_spruce_log", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:tuff", "w": 0.6}],
+				"wall_accent": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
+				"gable": [{"m": "wood:minecraft:pale_oak", "w": 3}, {"m": "wood:minecraft:poplar", "w": 1}],
+				"roof": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
+				"roof_trim": ["wood:minecraft:spruce"],
+				"window": ["wood:minecraft:pale_oak"],
+				"door": ["wood:minecraft:spruce"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 0, "jetty": 0, "beam_ends": 0},
+				"roof": {"forms": {"gable": 6, "half_hip": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 0, "ridge": "full", "dormers": 0.0, "front_gable": 0.5},
+				"windows": {"shutters": 0.2, "boxes": 0.0, "bay": 0.0, "tall": false},
+				"chimney": 0.9
+			}
+		},
+		{
+			"name": "redwood hall",
+			"w": 24,
+			"when": {"biomes": ["expanse:redwood_giants"]},
+			"roles": {
+				"wall": ["wood:expanse:redwood|wood:minecraft:spruce"],
+				"gable": ["wood:expanse:redwood|wood:minecraft:spruce"],
+				"frame": ["wood:minecraft:dark_oak"],
+				"beam": ["wood:minecraft:dark_oak"],
+				"floor": ["wood:expanse:redwood|wood:minecraft:spruce"],
+				"roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.1}],
+				"furniture": ["wood:expanse:redwood|wood:minecraft:spruce"]
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "log", "storey_height": 4, "plinth": 0, "jetty": 0.2, "post_spacing": 3, "braces": 0, "beam_ends": 0.7},

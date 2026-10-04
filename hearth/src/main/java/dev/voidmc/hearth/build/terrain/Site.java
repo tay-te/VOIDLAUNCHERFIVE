@@ -3,6 +3,8 @@ package dev.voidmc.hearth.build.terrain;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.TerrainProbe;
 import dev.voidmc.hearth.build.blueprint.LocalFrame;
+import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The natural ground under a plot, read once from the {@link TerrainProbe} into the plot's local frame. Heights are
@@ -29,6 +31,8 @@ public final class Site {
 	private final int[] water;
 	private final float temperature;
 	private final int seaLevel;
+	/** The biome at the plot's centre (null on synthetic terrain), for regional styles. */
+	private final @Nullable Identifier biome;
 
 	public Site(PlotSpec spec, TerrainProbe probe) {
 		this(new LocalFrame(spec), spec.floorY(), probe);
@@ -78,6 +82,8 @@ public final class Site {
 		int cz = frame.worldZ(this.frontage / 2, this.depth / 2);
 		this.temperature = probe.temperature(cx, cz);
 		this.seaLevel = probe.seaLevel() - floorY;
+		var key = probe.biome(cx, cz);
+		this.biome = key == null ? null : key.identifier();
 	}
 
 	private int index(int x, int z) {
@@ -199,5 +205,10 @@ public final class Site {
 	/** Sea level relative to the floor. */
 	public int seaLevel() {
 		return this.seaLevel;
+	}
+
+	/** The biome at the plot's centre, or null where the probe cannot say (synthetic terrain). */
+	public @Nullable Identifier biome() {
+		return this.biome;
 	}
 }

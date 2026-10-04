@@ -1,31 +1,32 @@
 {
 	"culture": "desert",
-	"name": "Desert: sandstone and adobe under flat roof terraces with parapets, arched openings, walled yards",
+	"name": "Desert: sandstone and adobe under flat roof terraces with parapets, red-banded, dark timber, blue doors, tile and awnings",
+	"base_name": "town house",
 	"roles": {
 		"foundation": [{"m": "minecraft:sandstone", "w": 2}, {"m": "minecraft:cut_sandstone", "w": 1}],
 		"plinth": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:sandstone", "w": 1}],
-		"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 1, "low": 1.5}, {"m": "expanse:smooth_opal_sandstone|minecraft:smooth_sandstone", "w": 0.6}],
-		"wall_accent": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:chiseled_sandstone", "w": 0.3}],
-		"frame": ["wood:minecraft:jungle"],
-		"beam": ["wood:minecraft:jungle"],
-		"floor": [{"m": "minecraft:smooth_sandstone", "w": 1}],
-		"ceiling": ["wood:minecraft:jungle"],
+		"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 1, "low": 1.5}, {"m": "expanse:smooth_opal_sandstone|minecraft:smooth_sandstone", "w": 0.6}, {"m": "minecraft:packed_mud", "w": 0.25, "low": 2}],
+		"wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall"}],
+		"frame": ["wood:minecraft:spruce"],
+		"beam": ["wood:minecraft:spruce"],
+		"floor": [{"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:terracotta", "w": 1}],
+		"ceiling": ["wood:minecraft:spruce"],
 		"roof": [{"m": "minecraft:smooth_sandstone", "w": 3}, {"m": "minecraft:sandstone", "w": 1}],
-		"roof_trim": ["minecraft:cut_sandstone"],
+		"roof_trim": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall"}],
 		"gable": ["minecraft:smooth_sandstone"],
-		"window": ["minecraft:smooth_sandstone"],
+		"window": ["wood:minecraft:spruce"],
 		"glass": ["minecraft:glass_pane"],
-		"door": ["wood:minecraft:jungle"],
-		"shutter": ["wood:minecraft:jungle"],
-		"fence": ["minecraft:sandstone"],
-		"railing": ["wood:minecraft:jungle"],
+		"door": [{"m": "wood:minecraft:warped", "w": 2}, {"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:jungle", "w": 1}],
+		"shutter": [{"m": "wood:minecraft:warped", "w": 1}, {"m": "wood:minecraft:spruce", "w": 2}],
+		"fence": [{"m": "minecraft:sandstone", "fence": "minecraft:spruce_fence", "fence_gate": "minecraft:spruce_fence_gate"}],
+		"railing": ["wood:minecraft:spruce"],
 		"path": [{"m": "minecraft:sand", "w": 2}, {"m": "minecraft:sandstone", "w": 1}],
-		"paving": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:sandstone", "w": 1}],
+		"paving": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:smooth_red_sandstone", "w": 0.5}],
 		"light": ["minecraft:lantern"],
 		"chimney": ["minecraft:sandstone"],
-		"furniture": ["wood:minecraft:jungle"],
-		"cloth": ["dye:orange", "dye:red", "dye:yellow"],
-		"accent": ["minecraft:chiseled_sandstone"],
+		"furniture": ["wood:minecraft:spruce"],
+		"cloth": ["dye:orange", "dye:red", "dye:yellow", "dye:blue"],
+		"accent": [{"m": "minecraft:cyan_glazed_terracotta", "w": 2}, {"m": "minecraft:light_blue_glazed_terracotta", "w": 1}],
 		"garden": ["minecraft:dead_bush", "expanse:desert_marigold|minecraft:dandelion", "minecraft:short_dry_grass", "minecraft:cactus_flower"],
 		"crops": ["minecraft:wheat", "minecraft:beetroots"],
 		"hedge": ["minecraft:jungle_leaves"],
@@ -34,18 +35,97 @@
 		"ground": ["minecraft:sand"],
 		"fill": ["minecraft:sand"],
 		"stilt": ["wood:minecraft:jungle"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": ["minecraft:hay_block"],
+		"sheet": [{"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:prismarine_bricks", "w": 1}],
+		"masonry": [{"m": "minecraft:cut_sandstone", "w": 3}, {"m": "minecraft:smooth_sandstone", "w": 1}, {"m": "minecraft:sandstone", "w": 1, "low": 1.5}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}, {"m": "minecraft:sandstone", "w": 1, "low": 1}], "roof": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}], "wall_accent": ["minecraft:mud_bricks"], "roof_trim": ["minecraft:mud_bricks"]},
+		"3": {"plinth": ["minecraft:cut_sandstone"], "paving": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:smooth_red_sandstone", "w": 1}]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}]},
 	"variants": [
-		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:white_concrete", "w": 5}, {"m": "minecraft:smooth_quartz", "w": 0.6}], "gable": ["minecraft:smooth_quartz"], "window": ["minecraft:smooth_quartz"], "door": ["wood:minecraft:warped"], "shutter": ["wood:minecraft:warped"], "cloth": ["dye:blue", "dye:white", "dye:light_blue"]}},
-		{"name": "mud brick", "w": 1, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:packed_mud", "w": 1}], "gable": ["minecraft:mud_bricks"], "window": ["minecraft:mud_bricks"], "roof": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}], "roof_trim": ["minecraft:mud_bricks"], "plinth": ["minecraft:mud_bricks"], "wall_accent": ["minecraft:packed_mud"], "frame": ["wood:minecraft:spruce"], "beam": ["wood:minecraft:spruce"]}},
-		{"name": "red sandstone", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_red_sandstone", "w": 3}, {"m": "minecraft:red_sandstone", "w": 1, "low": 1.5}], "gable": ["minecraft:smooth_red_sandstone"], "window": ["minecraft:smooth_red_sandstone"], "roof": ["minecraft:smooth_red_sandstone"], "roof_trim": ["minecraft:cut_red_sandstone"], "wall_accent": ["minecraft:cut_red_sandstone"], "plinth": ["minecraft:cut_red_sandstone"], "foundation": ["minecraft:red_sandstone"]}}
+		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:white_concrete", "w": 5}, {"m": "minecraft:smooth_quartz", "w": 0.6}], "gable": ["minecraft:smooth_quartz"], "window": ["wood:minecraft:warped"], "door": ["wood:minecraft:warped"], "shutter": ["wood:minecraft:warped"], "cloth": ["dye:blue", "dye:white", "dye:light_blue"], "wall_accent": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 1}]},
+			"tiers": {"0": {"wall": [{"m": "minecraft:white_concrete", "w": 3}, {"m": "minecraft:packed_mud", "w": 1, "low": 2}]}}},
+		{"name": "mud brick", "w": 1, "roles": {"wall": [{"m": "minecraft:mud_bricks", "w": 3}, {"m": "minecraft:packed_mud", "w": 1}], "gable": ["minecraft:mud_bricks"], "window": ["wood:minecraft:jungle"], "roof": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}], "roof_trim": ["minecraft:mud_bricks"], "plinth": ["minecraft:mud_bricks"], "wall_accent": [{"m": "minecraft:white_terracotta", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}], "frame": ["wood:minecraft:spruce"], "beam": ["wood:minecraft:spruce"]}},
+		{"name": "red sandstone", "w": 0.8, "roles": {"wall": [{"m": "minecraft:smooth_red_sandstone", "w": 3}, {"m": "minecraft:red_sandstone", "w": 1, "low": 1.5}], "gable": ["minecraft:smooth_red_sandstone"], "window": ["wood:minecraft:dark_oak"], "roof": ["minecraft:smooth_red_sandstone"], "roof_trim": ["minecraft:cut_sandstone"], "wall_accent": [{"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:cut_sandstone", "w": 1}], "plinth": ["minecraft:cut_red_sandstone"], "foundation": ["minecraft:red_sandstone"]},
+			"tiers": {"0": {"wall": [{"m": "minecraft:red_sandstone", "w": 2}, {"m": "minecraft:packed_mud", "w": 1}]}}}
+	],
+	"substyles": [
+		{
+			"name": "earthen adobe",
+			"w": 5,
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead", "workshop"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:packed_mud", "w": 3}, {"m": "minecraft:mud_bricks", "w": 1.5}, {"m": "minecraft:sandstone", "w": 0.4, "low": 1.5}],
+				"gable": ["minecraft:packed_mud"],
+				"wall_accent": [{"m": "minecraft:white_terracotta", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}],
+				"plinth": ["minecraft:mud_bricks"],
+				"roof": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mud_bricks", "w": 1}],
+				"roof_trim": ["minecraft:mud_bricks"],
+				"frame": ["wood:expanse:palm|wood:minecraft:jungle"],
+				"beam": ["wood:expanse:palm|wood:minecraft:jungle"],
+				"window": ["wood:minecraft:jungle"]
+			},
+			"habits": {
+				"walls": {"kind": "adobe", "plinth": 1, "beam_ends": 0.95},
+				"windows": {"shutters": 0.3, "arched": 0.2, "tall": false}
+			}
+		},
+		{
+			"name": "dressed sandstone",
+			"w": 8,
+			"when": [{"stations": ["merchant", "official", "clergy", "scholar"]}, {"categories": ["public", "trade"], "tiers": {"min": 2}}],
+			"roles": {
+				"wall": [{"m": "minecraft:cut_sandstone", "w": 3}, {"m": "minecraft:smooth_sandstone", "w": 2}],
+				"gable": ["minecraft:smooth_sandstone"],
+				"wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall"}],
+				"plinth": [{"m": "minecraft:smooth_red_sandstone", "w": 2}, {"m": "minecraft:cut_red_sandstone", "w": 1}],
+				"window": ["wood:minecraft:dark_oak"],
+				"roof_trim": ["minecraft:cut_sandstone"],
+				"accent": [{"m": "minecraft:chiseled_sandstone", "w": 1}, {"m": "minecraft:cyan_glazed_terracotta", "w": 1}],
+				"paving": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:smooth_red_sandstone", "w": 1}]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0.4},
+				"windows": {"shutters": 0.3, "arched": 0.8, "tall": true},
+				"plan": {"courtyard": 0.6, "tower": 0.3}
+			}
+		},
+		{
+			"name": "palace",
+			"w": 8,
+			"when": [{"stations": ["gentry", "lord"]}, {"categories": ["grand", "noble"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:white_concrete", "w": 2}, {"m": "minecraft:calcite", "w": 0.4, "low": 1}],
+				"gable": ["minecraft:smooth_quartz"],
+				"wall_accent": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 1}],
+				"plinth": ["minecraft:cut_sandstone"],
+				"window": ["wood:minecraft:dark_oak"],
+				"door": [{"m": "wood:minecraft:warped", "w": 1}, {"m": "wood:minecraft:dark_oak", "w": 1}],
+				"shutter": ["wood:minecraft:dark_oak"],
+				"roof": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:smooth_sandstone", "w": 1}],
+				"roof_trim": ["minecraft:cut_sandstone"],
+				"accent": [{"m": "minecraft:light_blue_glazed_terracotta", "w": 2}, {"m": "minecraft:cyan_glazed_terracotta", "w": 1}],
+				"paving": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:cut_sandstone", "w": 1}, {"m": "minecraft:cyan_glazed_terracotta", "w": 0.3}],
+				"sheet": [{"m": "minecraft:prismarine_bricks", "w": 2}, {"m": "minecraft:waxed_oxidized_cut_copper", "w": 1}],
+				"cloth": ["dye:blue", "dye:white", "dye:yellow"]
+			},
+			"habits": {
+				"walls": {"kind": "plaster", "plinth": 1, "beam_ends": 0.2},
+				"roof": {"forms": {"flat": 5, "dome": 3}},
+				"windows": {"shutters": 0.1, "arched": 0.95, "tall": true},
+				"plan": {"courtyard": 0.9, "tower": 0.5, "terraces": true},
+				"porch": 0.7,
+				"balcony": 0.4
+			}
+		}
 	],
 	"habits": {
-		"walls": {"kind": "adobe", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.6},
+		"walls": {"kind": "adobe", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.8},
 		"roof": {"forms": {"flat": 8, "dome": 1}, "pitch": 1.0, "eaves": 0, "gable_overhang": 0, "ridge": "slab", "dormers": 0.0, "parapet": true, "brackets": false},
-		"windows": {"shutters": 0.2, "boxes": 0.0, "arched": 0.6, "bay": 0.0, "tall": true},
+		"windows": {"shutters": 0.35, "boxes": 0.0, "arched": 0.6, "bay": 0.0, "tall": true},
 		"plan": {"courtyard": 0.5, "stilts": "water", "tower": 0.2, "terraces": true},
 		"yard": {"garden": "xeric", "fence": "wall", "hedge": 0.0, "woodpile": 0.0},
 		"chimney": 0.2,

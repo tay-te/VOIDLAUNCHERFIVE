@@ -1,0 +1,26 @@
+{
+	"name": "Fjord: tarred boards on silvered frames under turf, white trim, boathouse gables over the water (Fjordlands)",
+	"base_name": "fjord",
+	"region": {"when": [{"biomes": ["expanse:fjordlands"]}, {"landforms": ["fjord"]}], "priority": 10},
+	"roles": {
+		"wall": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"gable": [{"m": "wood:minecraft:dark_oak", "w": 3}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"frame": [{"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log"}],
+		"beam": [{"m": "wood:minecraft:poplar", "log": "minecraft:stripped_poplar_log"}],
+		"window": ["wood:minecraft:pale_oak"],
+		"shutter": ["wood:minecraft:pale_oak"],
+		"door": [{"m": "wood:minecraft:mangrove", "w": 1}, {"m": "wood:minecraft:spruce", "w": 1}],
+		"roof": [{"m": "minecraft:moss_block", "stairs": "minecraft:green_wool_stairs", "slab": "minecraft:green_wool_slab"}],
+		"roof_trim": ["wood:minecraft:pale_oak"],
+		"railing": ["wood:minecraft:pale_oak"],
+		"plinth": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}],
+		"stilt": ["wood:minecraft:dark_oak"],
+		"paving": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
+		"cloth": ["dye:red", "dye:white", "dye:blue"]
+	},
+	"habits": {
+		"walls": {"kind": "plank", "upper": "plank", "plinth": 1, "beam_ends": 0.6},
+		"roof": {"forms": {"gable": 6, "half_hip": 1}, "pitch": 1.0, "eaves": 1, "gable_overhang": 1, "ridge": "full", "front_gable": 0.7, "dormers": 0.1},
+		"windows": {"shutters": 0.5, "boxes": 0.1, "tall": false}
+	}
+}

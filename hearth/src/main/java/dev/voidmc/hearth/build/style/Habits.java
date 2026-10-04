@@ -13,8 +13,15 @@ import net.minecraft.util.RandomSource;
  * these to choose among the forms they can build, so each culture's buildings come out in its own manner. Every field
  * has a default, so a style JSON only says what is particular to it.
  */
-public record Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard yard, double chimney, double porch, double balcony, boolean snow) {
-	public static final Habits DEFAULT = new Habits(Walls.DEFAULT, Roof.DEFAULT, Windows.DEFAULT, Plan.DEFAULT, Yard.DEFAULT, 0.7, 0.4, 0.3, false);
+public record Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard yard, double chimney, double porch, double balcony, boolean snow,
+	Local local) {
+	public static final Habits DEFAULT = new Habits(Walls.DEFAULT, Roof.DEFAULT, Windows.DEFAULT, Plan.DEFAULT, Yard.DEFAULT, 0.7, 0.4, 0.3, false,
+		Local.DEFAULT);
+
+	/** Habits without a {@code local} section (the defaults allow every local material). */
+	public Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard yard, double chimney, double porch, double balcony, boolean snow) {
+		this(walls, roof, windows, plan, yard, chimney, porch, balcony, snow, Local.DEFAULT);
+	}
 
 	/** How walls are made. */
 	public enum WallKind {
@@ -229,6 +236,51 @@ public record Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard ya
 		}
 	}
 
+	/**
+	 * Which of a territory's materials ({@link LocalMaterials}, the plot param {@code local}) the culture builds with:
+	 * its timber, its stone, its clay (bricks and tiles), its thatch, and per role ({@code "roles": {"wall": false}}: a
+	 * whitewashed town renders its walls whatever stone lies under them).
+	 */
+	public record Local(boolean wood, boolean stone, boolean clay, boolean thatch, Map<Role, Boolean> roles) {
+		public static final Local DEFAULT = new Local(true, true, true, true, Map.of());
+
+		public Local {
+			roles = Map.copyOf(roles);
+		}
+
+		/** Whether a role may take a local material of a kind. */
+		public boolean allows(Role role, MaterialFamilies.Kind kind) {
+			Boolean r = this.roles.get(role);
+			if (r != null) {
+				return r;
+			}
+			return switch (kind) {
+				case WOOD -> this.wood;
+				case STONE -> this.stone;
+				case CLAY -> this.clay;
+				case THATCH -> this.thatch;
+				default -> true;
+			};
+		}
+
+		static Local parse(JsonObject o, Local d) {
+			Map<Role, Boolean> roles = d.roles;
+			if (o.has("roles")) {
+				EnumMap<Role, Boolean> m = new EnumMap<>(Role.class);
+				for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("roles").entrySet()) {
+					Role r = Role.byKey(e.getKey());
+					if (r == null) {
+						throw new IllegalArgumentException("unknown role '" + e.getKey() + "' in local habits");
+					}
+					m.put(r, e.getValue().getAsBoolean());
+				}
+				roles = m;
+			}
+			return new Local(Json.boolOr(o, "wood", d.wood), Json.boolOr(o, "stone", d.stone), Json.boolOr(o, "clay", d.clay),
+				Json.boolOr(o, "thatch", d.thatch), roles);
+		}
+	}
+
 	public static Habits parse(JsonObject o) {
 		Habits d = DEFAULT;
 		return new Habits(
@@ -240,7 +292,8 @@ public record Habits(Walls walls, Roof roof, Windows windows, Plan plan, Yard ya
 			Json.doubleOr(o, "chimney", d.chimney),
 			Json.doubleOr(o, "porch", d.porch),
 			Json.doubleOr(o, "balcony", d.balcony),
-			Json.boolOr(o, "snow", d.snow));
+			Json.boolOr(o, "snow", d.snow),
+			o.has("local") ? Local.parse(o.getAsJsonObject("local"), d.local) : d.local);
 	}
 
 	/** Small JSON readers with defaults. */

@@ -1,6 +1,7 @@
 {
 	"culture": "mediterranean",
 	"name": "Mediterranean: whitewashed stone, low terracotta roofs, arched windows, painted shutters, pots and olives",
+	"base_name": "hill-town house",
 	"roles": {
 		"foundation": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}],
 		"plinth": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:polished_andesite", "w": 1}],
@@ -17,7 +18,7 @@
 		"glass": ["minecraft:glass_pane"],
 		"door": ["wood:minecraft:dark_oak"],
 		"shutter": [{"m": "wood:minecraft:warped", "w": 2}, {"m": "wood:minecraft:dark_oak", "w": 1}],
-		"fence": ["minecraft:smooth_quartz|minecraft:diorite"],
+		"fence": [{"m": "minecraft:smooth_quartz|minecraft:diorite", "fence": "minecraft:dark_oak_fence", "fence_gate": "minecraft:dark_oak_fence_gate"}],
 		"railing": ["wood:minecraft:dark_oak"],
 		"path": [{"m": "minecraft:gravel", "w": 1}, {"m": "minecraft:coarse_dirt", "w": 1}],
 		"paving": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:polished_andesite", "w": 1}, {"m": "minecraft:cobblestone", "w": 1}],
@@ -34,13 +35,97 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:dark_oak"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": ["minecraft:hay_block"],
+		"sheet": [{"m": "minecraft:bricks", "w": 2}, {"m": "minecraft:waxed_oxidized_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:stone", "w": 1}, {"m": "minecraft:polished_andesite", "w": 0.6}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:white_concrete", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 0.4, "low": 2}], "roof": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mud_bricks", "patch": 0.15}]},
+		"3": {"accent": ["minecraft:light_blue_glazed_terracotta"], "paving": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}]},
 	"variants": [
 		{"name": "ochre", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.3, "low": 1}], "gable": ["minecraft:smooth_sandstone"], "chimney": ["minecraft:smooth_sandstone"], "shutter": ["wood:minecraft:dark_oak"]}},
 		{"name": "rose", "w": 0.8, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 3}], "gable": ["minecraft:white_terracotta"], "chimney": ["minecraft:white_terracotta"], "shutter": ["wood:minecraft:warped"]}},
 		{"name": "field stone", "w": 1, "roles": {"wall": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:granite", "w": 0.25}], "gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}], "chimney": ["minecraft:stone_bricks"], "wall_accent": ["minecraft:stone_bricks"]}, "habits": {"walls": {"kind": "stone", "plinth": 0}}}
+	],
+	"substyles": [
+		{
+			"name": "masseria farmhouse",
+			"w": 5,
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 1.5}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:granite", "w": 0.4}, {"m": "minecraft:mossy_cobblestone", "w": 0.4, "low": 2, "north": 1}],
+				"gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:smooth_sandstone", "w": 1}],
+				"wall_accent": [{"m": "minecraft:smooth_sandstone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"window": ["minecraft:smooth_sandstone"],
+				"shutter": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
+				"roof": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mud_bricks", "w": 0.6}, {"m": "minecraft:mossy_cobblestone", "patch": 0.06}],
+				"chimney": ["minecraft:stone_bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 0, "beam_ends": 0.5},
+				"roof": {"forms": {"gable": 4, "hip": 1, "shed": 1}, "pitch": 0.5},
+				"windows": {"shutters": 0.8, "boxes": 0.2, "arched": 0.3, "tall": false},
+				"porch": 0.7
+			}
+		},
+		{
+			"name": "palazzo",
+			"w": 10,
+			"when": [{"stations": ["merchant", "official"]}, {"archetypes": ["civic/town_hall", "commerce/bank", "commerce/market_hall", "civic/library"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 0.3, "low": 1}],
+				"gable": ["minecraft:smooth_sandstone"],
+				"wall_accent": [{"m": "minecraft:smooth_stone", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"plinth": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:polished_andesite", "w": 1}],
+				"window": ["minecraft:smooth_quartz"],
+				"shutter": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
+				"door": ["wood:minecraft:dark_oak"],
+				"roof": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:cinnabar_bricks|minecraft:bricks", "w": 1}],
+				"chimney": ["minecraft:smooth_sandstone"],
+				"accent": ["minecraft:chiseled_stone_bricks"],
+				"paving": [{"m": "minecraft:polished_andesite", "w": 2}, {"m": "minecraft:smooth_stone", "w": 1}]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 2, "beam_ends": 0},
+				"roof": {"forms": {"hip": 4, "flat": 1}, "pitch": 0.5, "eaves": 1, "gable_overhang": 0},
+				"windows": {"shutters": 0.8, "boxes": 0.1, "arched": 0.6, "bay": 0.0, "tall": true},
+				"balcony": 0.6,
+				"porch": 0.2
+			},
+			"base_weight": 2,
+			"variants": [
+				{"name": "venetian rose", "w": 1, "roles": {"wall": [{"m": "minecraft:white_terracotta", "w": 4}], "gable": ["minecraft:white_terracotta"], "wall_accent": ["minecraft:smooth_quartz"]}},
+				{"name": "sienna", "w": 0.7, "roles": {"wall": [{"m": "minecraft:terracotta", "w": 3}, {"m": "minecraft:orange_terracotta", "w": 0.5}], "gable": ["minecraft:terracotta"], "wall_accent": ["minecraft:smooth_quartz"], "window": ["minecraft:smooth_quartz"]}}
+			]
+		},
+		{
+			"name": "villa",
+			"w": 8,
+			"when": [{"stations": ["gentry", "lord"]}, {"archetypes": ["house/manor", "noble/palace", "noble/hunting_lodge"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:smooth_quartz", "w": 3}, {"m": "minecraft:white_concrete", "w": 2}],
+				"gable": ["minecraft:smooth_quartz"],
+				"frame": [{"m": "minecraft:quartz_block", "log": "minecraft:quartz_pillar", "stairs": "minecraft:quartz_stairs", "slab": "minecraft:quartz_slab", "fence": "minecraft:dark_oak_fence"}],
+				"wall_accent": ["minecraft:smooth_sandstone"],
+				"plinth": ["minecraft:cut_sandstone"],
+				"window": ["minecraft:smooth_sandstone"],
+				"shutter": ["wood:minecraft:warped"],
+				"roof": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:cinnabar_bricks|minecraft:bricks", "w": 1}],
+				"accent": ["minecraft:light_blue_glazed_terracotta"],
+				"paving": [{"m": "minecraft:smooth_quartz", "w": 1}, {"m": "minecraft:polished_andesite", "w": 1}]
+			},
+			"habits": {
+				"walls": {"kind": "plaster", "plinth": 1, "beam_ends": 0.2},
+				"roof": {"forms": {"hip": 4, "gable": 1}, "pitch": 0.5, "eaves": 1},
+				"windows": {"shutters": 0.9, "boxes": 0.3, "arched": 0.7, "tall": true},
+				"plan": {"courtyard": 0.6, "tower": 0.4, "terraces": true},
+				"porch": 0.9,
+				"balcony": 0.6
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "plaster", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.3},
@@ -48,6 +133,7 @@
 		"windows": {"shutters": 0.75, "boxes": 0.3, "arched": 0.5, "bay": 0.0, "tall": true},
 		"plan": {"courtyard": 0.4, "stilts": "water", "tower": 0.25, "terraces": true},
 		"yard": {"garden": "kitchen", "fence": "wall", "hedge": 0.1, "woodpile": 0.1},
+		"local": {"roles": {"wall": false, "gable": false}},
 		"chimney": 0.4,
 		"porch": 0.5,
 		"balcony": 0.5

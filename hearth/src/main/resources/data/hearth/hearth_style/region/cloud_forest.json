@@ -1,0 +1,32 @@
+{
+	"name": "Cloud forest monastic: mossy stone under deep bracketed eaves, dark timber galleries, moss on every roof (Cloud Forest)",
+	"base_name": "cloud forest",
+	"region": {"when": {"biomes": ["expanse:cloud_forest"]}, "priority": 10},
+	"roles": {
+		"wall": [{"m": "minecraft:mossy_stone_bricks", "w": 3}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.4}],
+		"gable": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 1}],
+		"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1}],
+		"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
+		"foundation": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:tuff", "w": 0.5}],
+		"frame": ["wood:minecraft:dark_oak"],
+		"beam": ["wood:minecraft:dark_oak"],
+		"roof": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.2}],
+		"roof_trim": ["wood:minecraft:spruce"],
+		"window": ["wood:minecraft:dark_oak"],
+		"door": ["wood:minecraft:dark_oak"],
+		"railing": ["wood:minecraft:dark_oak"],
+		"stilt": ["wood:minecraft:dark_oak"],
+		"paving": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
+		"chimney": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+		"cloth": ["dye:red", "dye:orange", "dye:yellow"],
+		"garden": ["minecraft:fern", "minecraft:blue_orchid", "minecraft:lily_of_the_valley"],
+		"masonry": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}]
+	},
+	"habits": {
+		"walls": {"kind": "stone", "upper": "plank", "plinth": 1, "beam_ends": 0.8},
+		"roof": {"forms": {"hip": 3, "half_hip": 2, "gable": 1}, "pitch": 1.0, "eaves": 2, "gable_overhang": 1, "brackets": true, "ridge": "trim"},
+		"windows": {"lattice": true, "shutters": 0.0, "tall": false},
+		"plan": {"stilts": "water", "round": 0.0},
+		"balcony": 0.6
+	}
+}

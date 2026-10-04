@@ -1,12 +1,13 @@
 {
 	"culture": "tropical",
 	"name": "Tropical: palm-wood houses on stilts under deep hipped thatch, lattice openings, jetties",
+	"base_name": "stilt house",
 	"roles": {
 		"foundation": [{"m": "wood:expanse:palm|wood:minecraft:jungle", "w": 1}],
 		"plinth": ["wood:expanse:palm|wood:minecraft:jungle"],
 		"wall": [{"m": "minecraft:bamboo_planks", "w": 2}, {"m": "wood:expanse:palm|wood:minecraft:jungle", "w": 1}],
 		"wall_accent": ["minecraft:bamboo_mosaic"],
-		"frame": ["wood:expanse:palm|wood:minecraft:jungle"],
+		"frame": [{"m": "wood:expanse:palm|wood:minecraft:jungle", "log": "minecraft:dark_oak_log"}],
 		"beam": ["wood:expanse:palm|wood:minecraft:jungle"],
 		"floor": ["wood:expanse:palm|wood:minecraft:jungle"],
 		"ceiling": ["minecraft:bamboo_planks"],
@@ -15,8 +16,8 @@
 		"gable": ["minecraft:bamboo_planks"],
 		"window": ["wood:minecraft:bamboo"],
 		"glass": ["minecraft:glass_pane"],
-		"door": ["wood:minecraft:bamboo"],
-		"shutter": ["wood:minecraft:bamboo"],
+		"door": [{"m": "wood:minecraft:bamboo", "w": 2}, {"m": "wood:minecraft:warped", "w": 0.6}],
+		"shutter": [{"m": "wood:minecraft:bamboo", "w": 2}, {"m": "wood:minecraft:warped", "w": 0.6}],
 		"fence": ["wood:minecraft:bamboo"],
 		"railing": ["wood:minecraft:bamboo"],
 		"path": [{"m": "minecraft:sand", "w": 2}, {"m": "minecraft:coarse_dirt", "w": 1}],
@@ -24,7 +25,7 @@
 		"light": ["minecraft:lantern"],
 		"chimney": ["minecraft:mud_bricks"],
 		"furniture": ["wood:minecraft:bamboo"],
-		"cloth": ["dye:cyan", "dye:yellow", "dye:light_blue"],
+		"cloth": ["dye:cyan", "dye:yellow", "dye:light_blue", "dye:orange"],
 		"accent": ["minecraft:bamboo_mosaic"],
 		"garden": ["minecraft:dandelion", "minecraft:orange_tulip", "minecraft:fern", "minecraft:short_grass"],
 		"crops": ["minecraft:carrots", "minecraft:potatoes", "minecraft:melon_stem"],
@@ -34,12 +35,71 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:expanse:palm|wood:minecraft:jungle"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": ["minecraft:hay_block"],
+		"sheet": [{"m": "minecraft:bamboo_mosaic", "w": 2}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "minecraft:bamboo_planks", "w": 2}, {"m": "minecraft:bamboo_block", "w": 1}], "roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]},
+		"3": {"roof_trim": ["wood:minecraft:dark_oak"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious"]}]},
 	"variants": [
 		{"name": "jungle boards", "w": 1, "roles": {"wall": ["wood:minecraft:jungle"], "gable": ["wood:minecraft:jungle"]}},
 		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full"}}}
+	],
+	"substyles": [
+		{
+			"name": "coral-stone colonial",
+			"w": 8,
+			"when": [{"stations": ["merchant", "official", "gentry", "lord"]}, {"archetypes": ["civic/town_hall", "commerce/bank", "commerce/inn", "house/manor", "commerce/market_hall"]}],
+			"roles": {
+				"wall": [{"m": "minecraft:calcite", "w": 3}, {"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:diorite", "w": 0.4, "low": 2}],
+				"gable": [{"m": "wood:minecraft:pale_oak", "w": 3}, {"m": "wood:minecraft:birch", "w": 1}],
+				"wall_accent": ["minecraft:smooth_sandstone"],
+				"plinth": ["minecraft:cut_sandstone"],
+				"foundation": [{"m": "minecraft:sandstone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
+				"frame": [{"m": "wood:minecraft:pale_oak", "log": "minecraft:stripped_pale_oak_log"}],
+				"beam": ["wood:minecraft:dark_oak"],
+				"window": ["wood:minecraft:pale_oak"],
+				"shutter": [{"m": "wood:minecraft:warped", "w": 2}, {"m": "wood:minecraft:jungle", "w": 1}],
+				"door": ["wood:minecraft:dark_oak"],
+				"railing": ["wood:minecraft:pale_oak"],
+				"fence": ["wood:minecraft:pale_oak"],
+				"roof": [{"m": "minecraft:bricks", "w": 2}, {"m": "minecraft:weathered_cut_copper", "w": 1}],
+				"roof_trim": ["wood:minecraft:dark_oak"],
+				"chimney": ["minecraft:bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "plaster", "upper": "plank", "plinth": 1, "beam_ends": 0.2},
+				"roof": {"forms": {"hip": 5, "gable": 1}, "pitch": 1.0, "eaves": 1, "dormers": 0.0},
+				"windows": {"shutters": 0.95, "lattice": false, "tall": true},
+				"plan": {"stilts": "water", "round": 0.0},
+				"yard": {"garden": "tropical", "fence": "fence"},
+				"porch": 0.9,
+				"balcony": 0.7
+			}
+		},
+		{
+			"name": "jungle shrine",
+			"w": 6,
+			"when": {"categories": ["religious"]},
+			"roles": {
+				"wall": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}, {"m": "minecraft:cracked_stone_bricks", "w": 0.5}],
+				"gable": [{"m": "minecraft:mossy_stone_bricks", "w": 2}, {"m": "minecraft:stone_bricks", "w": 1}],
+				"wall_accent": [{"m": "minecraft:stone_bricks", "w": 2}, {"m": "minecraft:mossy_stone_bricks", "w": 1}],
+				"plinth": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
+				"foundation": [{"m": "minecraft:mossy_cobblestone", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}],
+				"roof": [{"m": "minecraft:bamboo_mosaic", "w": 2}, {"m": "minecraft:moss_block", "patch": 0.15}],
+				"accent": ["minecraft:chiseled_stone_bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0},
+				"plan": {"stilts": "water"},
+				"windows": {"lattice": true, "tall": true}
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "plank", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.4},

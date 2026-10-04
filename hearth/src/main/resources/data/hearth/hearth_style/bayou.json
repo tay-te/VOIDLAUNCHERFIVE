@@ -1,6 +1,7 @@
 {
 	"culture": "bayou",
 	"name": "Bayou: board-and-batten stilt houses of willow and mangrove under rusted tin, deep galleries, hanging moss",
+	"base_name": "stilt house",
 	"roles": {
 		"foundation": ["wood:expanse:willow|wood:minecraft:mangrove"],
 		"plinth": ["wood:expanse:willow|wood:minecraft:mangrove"],
@@ -15,8 +16,8 @@
 		"gable": [{"m": "wood:expanse:willow|wood:minecraft:spruce", "w": 3}, {"m": "wood:minecraft:mangrove", "w": 1}],
 		"window": ["wood:minecraft:mangrove"],
 		"glass": ["minecraft:glass_pane"],
-		"door": ["wood:minecraft:mangrove"],
-		"shutter": ["wood:minecraft:mangrove"],
+		"door": [{"m": "wood:minecraft:mangrove", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
+		"shutter": [{"m": "wood:minecraft:mangrove", "w": 2}, {"m": "wood:minecraft:warped", "w": 1}],
 		"fence": ["wood:minecraft:mangrove"],
 		"railing": ["wood:minecraft:mangrove"],
 		"path": [{"m": "minecraft:mud", "w": 1}, {"m": "minecraft:coarse_dirt", "w": 1}],
@@ -34,13 +35,66 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:mud"],
 		"stilt": ["wood:minecraft:mangrove"],
-		"thatch": ["minecraft:hay_block"]
+		"thatch": ["minecraft:hay_block"],
+		"sheet": [{"m": "minecraft:waxed_weathered_cut_copper", "w": 2}, {"m": "minecraft:waxed_oxidized_cut_copper", "w": 1}],
+		"masonry": [{"m": "minecraft:mud_bricks", "w": 2}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2, "north": 2}]
+	},
+	"tiers": {
+		"0": {"wall": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:oak", "w": 1}, {"m": "wood:minecraft:mangrove", "w": 0.6}], "roof": [{"m": "minecraft:exposed_cut_copper", "w": 2}, {"m": "wood:minecraft:spruce", "patch": 0.25}]},
+		"3": {"roof": [{"m": "minecraft:deepslate_tiles", "w": 2}, {"m": "minecraft:weathered_cut_copper", "w": 1}], "roof_trim": ["wood:minecraft:dark_oak"]}
 	},
 	"base_weight": 2,
+	"base_when": {"not": [{"stations": ["gentry", "lord"]}, {"categories": ["religious"]}]},
 	"variants": [
 		{"name": "rust roof", "w": 1, "roles": {"roof": [{"m": "minecraft:exposed_cut_copper", "w": 2}, {"m": "minecraft:cut_copper", "w": 1}]}},
 		{"name": "cypress dark", "w": 1, "roles": {"wall": ["wood:minecraft:dark_oak"], "gable": ["wood:minecraft:dark_oak"]}},
 		{"name": "shingle roof", "w": 1, "roles": {"roof": ["wood:minecraft:spruce"], "roof_trim": ["wood:minecraft:dark_oak"]}}
+	],
+	"substyles": [
+		{
+			"name": "creole gallery house",
+			"w": 8,
+			"when": [{"stations": ["merchant", "official", "gentry", "lord", "clergy"]}, {"categories": ["religious", "public"]}],
+			"roles": {
+				"wall": [{"m": "wood:minecraft:pale_oak", "w": 4}, {"m": "wood:minecraft:birch", "w": 0.5}],
+				"gable": ["wood:minecraft:pale_oak"],
+				"frame": [{"m": "wood:minecraft:pale_oak", "log": "minecraft:stripped_pale_oak_log"}],
+				"beam": [{"m": "wood:minecraft:pale_oak", "log": "minecraft:stripped_pale_oak_log"}],
+				"wall_accent": ["wood:minecraft:pale_oak"],
+				"window": ["wood:minecraft:pale_oak"],
+				"shutter": [{"m": "wood:minecraft:dark_oak", "w": 1}, {"m": "wood:minecraft:warped", "w": 2}],
+				"door": ["wood:minecraft:dark_oak"],
+				"railing": ["wood:minecraft:pale_oak"],
+				"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:weathered_cut_copper", "w": 1}],
+				"roof_trim": ["wood:minecraft:dark_oak"],
+				"plinth": ["minecraft:bricks"],
+				"foundation": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1, "low": 2}],
+				"chimney": ["minecraft:bricks"]
+			},
+			"habits": {
+				"walls": {"kind": "plank", "plinth": 1, "post_spacing": 3, "beam_ends": 0.2},
+				"roof": {"forms": {"hip": 4, "gable": 2}, "pitch": 1.0, "eaves": 1, "dormers": 0.4},
+				"windows": {"shutters": 0.95, "boxes": 0.1, "tall": true},
+				"plan": {"stilts": "water", "stilt_height": 2},
+				"porch": 1.0,
+				"balcony": 0.8
+			}
+		},
+		{
+			"name": "fishing camp",
+			"w": 3,
+			"when": [{"stations": ["poor"]}, {"archetypes": ["work/fishery", "infra/dock"]}],
+			"roles": {
+				"wall": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:oak", "w": 1}, {"m": "wood:minecraft:mangrove", "w": 0.7}, {"m": "wood:minecraft:dark_oak", "w": 0.4}],
+				"gable": [{"m": "wood:minecraft:spruce", "w": 2}, {"m": "wood:minecraft:oak", "w": 1}],
+				"roof": [{"m": "minecraft:exposed_cut_copper", "w": 2}, {"m": "minecraft:weathered_cut_copper", "w": 1}, {"m": "wood:minecraft:spruce", "patch": 0.2}]
+			},
+			"habits": {
+				"roof": {"forms": {"shed": 2, "gable": 3}},
+				"windows": {"shutters": 0.5, "tall": false},
+				"porch": 0.6
+			}
+		}
 	],
 	"habits": {
 		"walls": {"kind": "plank", "storey_height": 4, "plinth": 0, "jetty": 0.0, "post_spacing": 2, "braces": 0, "beam_ends": 0.3},

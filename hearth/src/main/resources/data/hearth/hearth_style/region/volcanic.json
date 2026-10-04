@@ -1,0 +1,30 @@
+{
+	"name": "Volcanic: tuff and basalt holds on blackstone footings, slate roofs, cinnabar red in the carved work (Volcanic Highlands)",
+	"base_name": "volcanic",
+	"region": {"when": {"biomes": ["expanse:volcanic_highlands"]}, "priority": 10},
+	"roles": {
+		"wall": [{"m": "minecraft:tuff_bricks", "w": 4}, {"m": "minecraft:tuff", "w": 1.5}, {"m": "minecraft:polished_tuff", "w": 0.6, "high": 1}, {"m": "minecraft:smooth_basalt", "stairs": "minecraft:polished_deepslate_stairs", "slab": "minecraft:polished_deepslate_slab", "w": 0.4, "low": 2}],
+		"gable": [{"m": "minecraft:tuff_bricks", "w": 3}, {"m": "minecraft:tuff", "w": 1}],
+		"wall_accent": [{"m": "minecraft:polished_blackstone", "w": 2}, {"m": "minecraft:polished_tuff", "w": 1}],
+		"plinth": [{"m": "minecraft:polished_blackstone_bricks", "w": 3}, {"m": "minecraft:cracked_polished_blackstone_bricks", "w": 0.5, "low": 1}],
+		"foundation": [{"m": "minecraft:blackstone", "w": 2}, {"m": "minecraft:basalt", "w": 1}, {"m": "minecraft:cobbled_deepslate", "w": 1}],
+		"roof": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:cobbled_deepslate", "w": 0.5}],
+		"roof_trim": ["minecraft:polished_blackstone"],
+		"window": ["minecraft:polished_tuff"],
+		"chimney": [{"m": "minecraft:polished_blackstone_bricks", "w": 2}, {"m": "minecraft:tuff_bricks", "w": 1}],
+		"paving": [{"m": "minecraft:polished_tuff", "w": 2}, {"m": "minecraft:tuff_bricks", "w": 1}, {"m": "minecraft:polished_blackstone_bricks", "w": 1}],
+		"path": [{"m": "minecraft:gravel", "w": 2}, {"m": "expanse:volcanic_ash|minecraft:coarse_dirt", "w": 1}],
+		"accent": [{"m": "minecraft:chiseled_cinnabar|minecraft:chiseled_tuff_bricks", "w": 1}, {"m": "minecraft:chiseled_tuff_bricks", "w": 1}],
+		"cloth": ["dye:red", "dye:orange", "dye:black"],
+		"garden": ["expanse:fireweed|minecraft:allium", "minecraft:fern", "minecraft:short_grass"],
+		"masonry": [{"m": "minecraft:tuff_bricks", "w": 3}, {"m": "minecraft:polished_blackstone_bricks", "w": 1}]
+	},
+	"base_when": {"not": {"cultures": ["alpine"]}},
+	"variants": [
+		{"name": "volcanic chalet", "w": 1, "when": {"cultures": ["alpine"]}, "roles": {"gable": [{"m": "wood:minecraft:dark_oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}]}, "habits": {"walls": {"kind": "stone", "upper": "plank"}}}
+	],
+	"habits": {
+		"walls": {"kind": "stone", "plinth": 1, "beam_ends": 0},
+		"windows": {"shutters": 0.2, "boxes": 0.0, "tall": false}
+	}
+}
