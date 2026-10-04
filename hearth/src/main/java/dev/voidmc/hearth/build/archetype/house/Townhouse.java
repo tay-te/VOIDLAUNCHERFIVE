@@ -437,6 +437,7 @@ public final class Townhouse implements Archetype {
 					room.keep(hearth[0] + (hearth[0] == r[0] + 1 ? 1 : -1), hearth[1]);
 				}
 				Rooms.furnish(d, room, shop ? Rooms.Type.WORKSHOP : Rooms.Type.KITCHEN, 0, JobType.CARPENTER);
+				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, hearth);
 			} else if (k == loggiaK) {
 				// in a house of few floors the loggia storey sleeps too, the beds back from the arches
 				if (loft || floors <= 4) {

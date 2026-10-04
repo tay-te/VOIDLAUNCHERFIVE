@@ -91,7 +91,8 @@ public final class Hut implements Archetype {
 			}
 			base = Math.min(base, front + 1);
 		}
-		Body body = new Body(bx0, bz0, bx1, bz1, base, new int[]{Math.max(4, h.walls().storeyHeight())}, false, false);
+		int sh = Math.max(4, h.walls().storeyHeight());
+		Body body = new Body(bx0, bz0, bx1, bz1, base, new int[]{sh}, false, false);
 		d.body(bx0, bz0, bx1, bz1);
 		Facade facade = Facade.plan(d, body, (bx0 + bx1) / 2, 1, 1, 0.5);
 		Integer placed = HouseBuilder.doorColumn(facade);
@@ -147,18 +148,21 @@ public final class Hut implements Archetype {
 	 * mud building), a shade of poles and slabs before the door, a bread oven against a side wall, pots at the door.
 	 */
 	private static void flatDress(Draft d, int x0, int z0, int x1, int z1, int base, int deck, int door, boolean stilted) {
-		Mat wall = d.mat(Role.WALL);
-		Mat accent = d.mat(Role.WALL_ACCENT);
-		if (deck + 2 < d.maxHeight()) {
-			try (var s = d.stage(StageKind.ROOF)) {
-				for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
-					d.set(c[0], deck + 1, c[1], wall.full());
-					d.set(c[0], deck + 2, c[1], accent.has(Form.SLAB) ? accent.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM)
-						: wall.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
+		// a mud cell's parapet is rounded over (pinnacles on a hut five wide would make it a tower)
+		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, x0, z0, x1, z1, deck, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED);
+		if (stilted) {
+			return;
+		}
+		// a shade of poles, slats and palm fronds before the door
+		if (z0 - 2 >= 0 && dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, door - 1, z0 - 2, door + 1, z0 - 1, base)) {
+			Mat wall = d.mat(Role.WALL);
+			flatDressOven(d, x0, z0, x1, z1, base, wall);
+			for (int x : new int[]{door - 2, door + 2}) {
+				if (z0 - 1 >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z0 - 1)) {
+					dev.voidmc.hearth.build.kit.homestead.Adobe.jar(d, x, base, z0 - 1);
 				}
 			}
-		}
-		if (stilted) {
+			dev.voidmc.hearth.build.kit.homestead.Adobe.threshold(d, door, base, z0 - 1);
 			return;
 		}
 		// the shade: two poles before the door, a roof of slabs back to the wall
@@ -188,6 +192,18 @@ public final class Hut implements Archetype {
 				}
 			}
 		}
+		flatDressOven(d, x0, z0, x1, z1, base, d.mat(Role.WALL));
+		// pots either side of the door
+		for (int x : new int[]{door - 1, door + 1}) {
+			int z = z0 - 1;
+			if (z >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z)) {
+				d.inStage(StageKind.EXTERIOR, () -> d.set(x, base, z, States.of(Blocks.DECORATED_POT)));
+			}
+		}
+	}
+
+	/** A bread oven against a side wall where there is room. */
+	private static void flatDressOven(Draft d, int x0, int z0, int x1, int z1, int base, Mat wall) {
 		// a bread oven against the side wall where there is room
 		Mat clay = d.mat(Role.CHIMNEY);
 		for (int x : new int[]{x0 - 1, x1 + 1}) {
@@ -200,14 +216,12 @@ public final class Hut implements Archetype {
 					d.set(x, base + 1, z, clay.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM).orElse(clay.full()));
 					d.set(x, base + 1, z + 1, clay.stairsOrSlab(Dirs.FRONT, net.minecraft.world.level.block.state.properties.Half.BOTTOM));
 				}
+				// the household cooks here: its hearth before the oven's mouth
+				int fx = x < x0 ? x - 1 : x + 1;
+				if (fx >= 0 && fx < d.frontage() && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, fx, base, z)) {
+					d.poi(dev.voidmc.hearth.api.PoiType.HEARTH, fx, base, z, x < x0 ? Dirs.RIGHT : Dirs.LEFT);
+				}
 				break;
-			}
-		}
-		// pots either side of the door
-		for (int x : new int[]{door - 1, door + 1}) {
-			int z = z0 - 1;
-			if (z >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, x, base, z) && d.isAbsent(x, base, z)) {
-				d.inStage(StageKind.EXTERIOR, () -> d.set(x, base, z, States.of(Blocks.DECORATED_POT)));
 			}
 		}
 	}
@@ -218,6 +232,7 @@ public final class Hut implements Archetype {
 		room.keep(door, z0);
 		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
+		dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, null);
 	}
 
 	/**

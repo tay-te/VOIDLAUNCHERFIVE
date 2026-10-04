@@ -421,6 +421,25 @@ public final class Farmhouse implements Archetype {
 		int cx1 = w - 2 - sw;
 		int cz0 = 2;
 		int cz1 = hz0 - 1;
+		if (flat) {
+			// the dry lands' court: an arcade before the house, rounded or crested parapets, a painted gate
+			if (cx1 - cx0 >= 4 && hz0 - 2 - cz0 >= 3) {
+				portico(d, cx0, cx1, hz0 - 2, hz0 - 1, house);
+				top = Math.max(top, 6);
+			}
+			// the side ranges are plain farm buildings: their parapets rounded over
+			var kind = dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED;
+			if (sz1 - sz0 + 1 >= 4) {
+				int rx0 = stableLeft ? 1 : w - 1 - sw;
+				int rx1 = stableLeft ? sw : w - 2;
+				int lx0 = stableLeft ? w - 1 - sw : 1;
+				int lx1 = stableLeft ? w - 2 : sw;
+				int deck = Math.max(4, d.habits().walls().storeyHeight()) - 1 + 1;
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, rx0, sz0, rx1, sz1, deck, kind);
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, lx0, sz0, lx1, sz1, deck, kind);
+			}
+			gate(d, gateX);
+		}
 		FarmParts.yardSurface(d, cx0, cz0, cx1, cz1, 0);
 		courtThings(d, cx0, cz0, cx1, cz1, house);
 		return top;
@@ -498,6 +517,52 @@ public final class Farmhouse implements Archetype {
 			Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		}
 		return top;
+	}
+
+	/**
+	 * An arcade before the house across the court: a row of piers and round-headed arches on {@code za}, a walk behind it
+	 * on {@code zw} against the house's front, roofed by a deck with a low parapet (a riwaq, a portal). Its walk is kept
+	 * clear; the house door opens onto it.
+	 */
+	private static void portico(Draft d, int x0, int x1, int za, int zw, FarmParts.House house) {
+		Mat wall = d.mat(Role.WALL);
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		Mat deck = d.mat(Role.ROOF);
+		int h = 3;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = x0; x <= x1; x++) {
+				for (int y = Math.min(-1, d.site().ground(x, za) - 1); y < 0; y++) {
+					d.set(x, y, za, d.mat(Role.FOUNDATION).full());
+				}
+				for (int y = 0; y <= h; y++) {
+					d.set(x, y, za, wall.full());
+				}
+				d.set(x, h + 1, za, accent.has(Form.SLAB) ? accent.slab(SlabType.BOTTOM) : wall.slab(SlabType.BOTTOM));
+			}
+		}
+		Side arc = Side.of(x0, za, x1, za, Dirs.FRONT);
+		dev.voidmc.hearth.build.kit.townhome.Projections.arcade(d, arc, 1, arc.last() - 1, 0, h, 2, false);
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int x = x0; x <= x1; x++) {
+				d.set(x, h, zw, deck.full());
+				d.set(x, -1, zw, d.mat(Role.PAVING).full());
+			}
+		}
+		// the walk stays clear; a lantern hangs in it
+		for (int x = x0; x <= x1; x++) {
+			d.air(x, 0, zw);
+			d.air(x, 1, zw);
+			d.air(x, 2, zw);
+		}
+		Furniture.hangingLantern(d, (x0 + x1) / 2, h, zw, 0);
+		Furniture.hangingLantern(d, house.door() != null && Math.abs(house.door() - (x0 + x1) / 2) > 1 ? house.door() : x0 + 1, h, zw, 0);
+	}
+
+	/** A painted gate (the style's door) in the gateway, a tile set in its threshold. */
+	private static void gate(Draft d, int gateX) {
+		d.inStage(StageKind.OPENINGS, () -> d.door(gateX, 0, 1, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
+			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		dev.voidmc.hearth.build.kit.homestead.Adobe.threshold(d, gateX, 0, 0);
 	}
 
 	/** The wall along the track: the culture's wall with a coping, a gateway with posts and a lintel at the gate. */
@@ -697,6 +762,9 @@ public final class Farmhouse implements Archetype {
 			}
 			int ox = kg[0] + (houseLeft ? -1 : 1);
 			Spots.job(d, ox, kg[1], houseLeft ? Dirs.RIGHT : Dirs.LEFT, JobType.HERDER);
+			int kx = (int) Math.round(k.cx());
+			int kz = (int) Math.round(k.cz());
+			Spots.pen(d, kx, Spots.level(d, kx, kz), kz, houseLeft ? Dirs.LEFT : Dirs.RIGHT);
 		} else {
 			int gz = Math.max(2, gring.z0() - 1);
 			Spots.job(d, (int) Math.round(gcx), gz, Dirs.BACK, JobType.HERDER);
@@ -829,6 +897,7 @@ public final class Farmhouse implements Archetype {
 			}
 		}
 		Spots.at(d, PoiType.JOB_SITE, gx, 0, z1 + 1, Dirs.BACK, JobType.HERDER);
+		Spots.pen(d, gx, 0, (z0 + z1) / 2, Dirs.FRONT);
 	}
 
 	// ------------------------------------------------------------------------------------------------ shared

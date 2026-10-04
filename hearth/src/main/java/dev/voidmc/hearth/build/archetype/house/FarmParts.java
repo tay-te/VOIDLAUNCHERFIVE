@@ -84,6 +84,7 @@ final class FarmParts {
 			int[] tr = body.topRect();
 			deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], body.plateY(), true);
 			HouseBuilder.terraceAccess(d, body, deck);
+			HouseBuilder.dryDress(d, body, facade, deck, Integer.MIN_VALUE, door, storeys);
 		} else {
 			roof = HouseBuilder.pitchedRoof(d, body, form, ridge, facade, body.storeys() - 1);
 		}
@@ -167,7 +168,11 @@ final class FarmParts {
 				}
 			}
 		}
-		dev.voidmc.hearth.build.kit.Rooms.furnish(d, room, dev.voidmc.hearth.build.kit.Rooms.Type.BEDROOM, min - count, JobType.NONE);
+		// beds placed on purpose first (heads to the walls, a way in beside each), the furnisher's heuristic after
+		int placed = dev.voidmc.hearth.build.kit.homestead.Beds.place(d, room, min - count);
+		if (placed < min - count) {
+			dev.voidmc.hearth.build.kit.Rooms.furnish(d, room, dev.voidmc.hearth.build.kit.Rooms.Type.BEDROOM, min - count - placed, JobType.NONE);
+		}
 	}
 
 	/**

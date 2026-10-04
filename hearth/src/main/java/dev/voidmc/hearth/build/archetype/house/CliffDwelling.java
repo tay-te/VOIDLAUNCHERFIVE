@@ -455,6 +455,7 @@ public final class CliffDwelling implements Archetype {
 		}
 		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
 		Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
+		dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, null);
 	}
 
 	/** The forecourt's furniture: an oven (the pueblo's horno), pots, a woodpile or hay, a bench by the door. */

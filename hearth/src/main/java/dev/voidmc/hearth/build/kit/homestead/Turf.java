@@ -82,11 +82,19 @@ public final class Turf {
 						}
 						continue;
 					}
-					if (u < 0.1) {
+					// a summer meadow on the roof: grass and fern, the culture's flowers among them, moss creeping over
+					if (u < 0.12) {
 						d.set(x, y + 1, z, Blocks.SHORT_GRASS.defaultBlockState());
-					} else if (u < 0.14) {
+					} else if (u < 0.16) {
 						d.set(x, y + 1, z, Blocks.FERN.defaultBlockState());
-					} else if (u < 0.16 && top.is(Blocks.MOSS_BLOCK)) {
+					} else if (u < 0.24 && top.is(Blocks.GRASS_BLOCK)) {
+						net.minecraft.world.level.block.Block flower = d.mat(Role.GARDEN).block(Form.FULL, x, y + 1, z);
+						if (flower instanceof net.minecraft.world.level.block.FlowerBlock || flower == Blocks.FERN || flower == Blocks.SHORT_GRASS) {
+							d.set(x, y + 1, z, flower.defaultBlockState());
+						} else {
+							d.set(x, y + 1, z, (u < 0.2 ? Blocks.DANDELION : Blocks.OXEYE_DAISY).defaultBlockState());
+						}
+					} else if (u < 0.27 && top.is(Blocks.MOSS_BLOCK)) {
 						d.set(x, y + 1, z, Blocks.MOSS_CARPET.defaultBlockState());
 					}
 				}

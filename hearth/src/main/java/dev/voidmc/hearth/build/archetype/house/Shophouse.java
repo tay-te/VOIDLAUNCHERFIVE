@@ -250,6 +250,7 @@ public final class Shophouse implements Archetype {
 			if (home) {
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, hearth);
 			}
 			Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
 		}

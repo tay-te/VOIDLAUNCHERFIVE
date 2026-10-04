@@ -452,6 +452,8 @@ public final class Barns {
 					d.set(wx, h.y, zb, Noise.unit(d.seed(), wx, 0, zb) < 0.5 ? Blocks.COMPOSTER.defaultBlockState()
 						: Blocks.WATER_CAULDRON.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LEVEL_CAULDRON, 3));
 				}
+				// the stall's beast stands here, facing its gate on the aisle
+				Spots.pen(d, (wx + ex) / 2 == ex ? ex - side : (wx + ex) / 2, h.y, za, side < 0 ? Dirs.RIGHT : Dirs.LEFT);
 			}
 			// close the last stall's back
 			try (var s = d.stage(StageKind.INTERIOR)) {

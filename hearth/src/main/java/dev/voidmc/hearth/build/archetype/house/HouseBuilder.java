@@ -55,6 +55,12 @@ final class HouseBuilder {
 		boolean flat = form == RoofForm.FLAT;
 		boolean lowPitch = !flat && h.roof().pitch() < 0.9;
 		boolean logs = h.walls().kind() == WallKind.LOG;
+		// the north roofs its log cottages in turf: a low gable of sods with flowers in them, the house one storey under it
+		boolean grassy = d.mat(Role.GROUND).main(dev.voidmc.hearth.build.style.Form.FULL) == Blocks.GRASS_BLOCK;
+		boolean turf = !flat && logs && grassy && d.param("turf", d.chance(0.45));
+		if (turf) {
+			form = RoofForm.GABLE;
+		}
 
 		// the body on the plot: a front garden, a side margin where log corners or a path need it
 		int front = dp >= 10 ? 3 : dp >= 8 ? 2 : 1;
@@ -96,7 +102,7 @@ final class HouseBuilder {
 		}
 		int full = flat ? (bw * bd >= 49 ? 2 : 1) : lowPitch ? (bw * bd >= 56 ? 2 : 1) : 1;
 		full = Math.clamp(d.param("storeys", full), 1, 3);
-		boolean attic = !flat && !lowPitch;
+		boolean attic = !flat && !lowPitch && !turf;
 		int[] heights = new int[full + (attic ? 1 : 0)];
 		java.util.Arrays.fill(heights, sh);
 		if (attic) {
@@ -137,8 +143,10 @@ final class HouseBuilder {
 		ground(d, body, front, stilted);
 		shell(d, body, facade);
 		openings(d, body, facade, !stilted);
+		int terraceY = Integer.MIN_VALUE;
 		if (terraced) {
 			int ty = Roofs.terrace(d, body.rect(0), body.rect(1), body.floorY(1) - 1);
+			terraceY = ty;
 			// a door from the upper storey out onto the terrace, a ladder up from the yard
 			Side up = body.side(1, Dirs.FRONT);
 			int mid = up.middle();
@@ -161,6 +169,11 @@ final class HouseBuilder {
 				// a way down from the gallery's opening to the street
 				Groundwork.approach(d, door, base, bz0 - depth);
 			}
+		} else if (flat && door != null && front >= 2 && d.chance(Math.max(0.5, h.porch()))
+			&& dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, Math.max(0, door - 1), Math.max(0, bz0 - 2), Math.min(w - 1, door + 1), bz0 - 1, base)) {
+			// the dry lands shade their doors with poles, slats and palm fronds
+			porch = true;
+			Groundwork.approach(d, door, base, bz0 - 1);
 		} else if (door != null && front >= 3 && d.chance(h.porch())) {
 			Porches.porch(d, frontWall, Math.max(bx0, door - 1), Math.min(bx1, door + 1), 2, base, 3, door);
 			porch = true;
@@ -204,8 +217,19 @@ final class HouseBuilder {
 			deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, true);
 			roof = null;
 			terraceAccess(d, body, deck);
+			dryDress(d, body, facade, deck, terraceY, door, full);
+		} else if (turf) {
+			roof = turfRoof(d, body, ridge);
 		} else {
 			roof = pitchedRoof(d, body, form, ridge, facade, topK);
+		}
+		if (roof != null && logs && (form == RoofForm.GABLE || form == RoofForm.CROSS_GABLE || form == RoofForm.SALTBOX)) {
+			// carved horns over the gables, drip caps over the windows
+			dev.voidmc.hearth.build.kit.homestead.Carving.hornsAtGables(d, roof, ridge);
+		}
+		if (logs || h.walls().kind() == WallKind.PLANK) {
+			int[] r0 = body.rect(0);
+			dev.voidmc.hearth.build.kit.homestead.Carving.dripCaps(d, r0[0], r0[1], r0[2], r0[3], base, body.plateY());
 		}
 
 		// chimney and hearth on a gable end (or the back wall of a hipped house)
@@ -350,6 +374,56 @@ final class HouseBuilder {
 		room.keep(dx, z0 + 1);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		return new int[]{dx, z0 - 1};
+	}
+
+	/**
+	 * A turf roof over the top storey: a low gable (rising a block in two) of sods on boards with a timber eave board, the
+	 * gable ends laid up in the wall's logs to the roof. Returns the roof.
+	 */
+	static Roofs.Roof turfRoof(Draft d, Body b, Direction.Axis ridge) {
+		int[] tr = b.topRect();
+		int plate = b.plateY();
+		Habits.Roof hr = d.habits().roof();
+		int eave = Math.max(1, hr.eaves());
+		int go = Math.max(1, hr.gableOverhang());
+		boolean alongX = ridge == Direction.Axis.X;
+		int nx0 = tr[0] - (alongX ? go : eave);
+		int nx1 = tr[2] + (alongX ? go : eave);
+		int nz0 = tr[1] - (alongX ? eave : go);
+		int nz1 = tr[3] + (alongX ? eave : go);
+		double pitch = 0.6;
+		Roofs.Field f = Roofs.gable(nx0, nz0, nx1, nz1, ridge, Roofs.Profile.straight(pitch));
+		double hWall = 1 + pitch * eave;
+		int tWall = Math.max(1, (int) Math.round(hWall * 2));
+		int y0 = plate + 1 - ((tWall + 1) / 2 - 1);
+		Roofs.Roof r = dev.voidmc.hearth.build.kit.homestead.Turf.raster(d, f, y0, Math.max(0, nx0), Math.max(-1, nz0), Math.min(d.frontage() - 1, nx1),
+			Math.min(d.depth() - 1, nz1));
+		// the sods held at the gables' rakes by barge boards
+		if (alongX) {
+			dev.voidmc.hearth.build.kit.homestead.RoofDress.trimCol(d, r, r.x0, d.mat(Role.BEAM));
+			dev.voidmc.hearth.build.kit.homestead.RoofDress.trimCol(d, r, r.x1, d.mat(Role.BEAM));
+		} else {
+			dev.voidmc.hearth.build.kit.homestead.RoofDress.trimRow(d, r, r.z0, d.mat(Role.BEAM));
+			dev.voidmc.hearth.build.kit.homestead.RoofDress.trimRow(d, r, r.z1, d.mat(Role.BEAM));
+		}
+		Mat wall = d.mat(Role.WALL);
+		Mat gable = d.mat(Role.GABLE);
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
+				boolean end = side.axis() != ridge;
+				for (int i = 0; i < side.length(); i++) {
+					int x = side.x(i);
+					int z = side.z(i);
+					if (!r.covers(x, z)) {
+						continue;
+					}
+					for (int y = plate + 1; y < r.bottomY(x, z); y++) {
+						d.set(x, y, z, end ? wall.log(side.axis()).orElse(gable.full()) : gable.full());
+					}
+				}
+			}
+		}
+		return r;
 	}
 
 	/** The {@code roof} param (a roof form name) if given, else the chosen form. */
@@ -510,6 +584,58 @@ final class HouseBuilder {
 		return deck + 2;
 	}
 
+	/**
+	 * A flat-roofed house of the dry lands made more than a box: its parapets finished (rounded mud shoulders in the
+	 * pueblos, stepped merlons in stone and plaster), a wind tower in a back corner of the roof (desert), a latticed
+	 * wooden screen boxed out over an upper window, the door in a painted surround with a tile at its sill, jars on the
+	 * terrace and by the door.
+	 */
+	static void dryDress(Draft d, Body b, Facade f, int deck, int terraceY, Integer door, int full) {
+		var t = dev.voidmc.hearth.build.kit.townhome.Traits.of(d);
+		var kind = t.pueblo() ? dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED : dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.MERLONS;
+		int[] tr = b.topRect();
+		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck, kind);
+		if (terraceY != Integer.MIN_VALUE) {
+			int[] r0 = b.rect(0);
+			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, r0[0], r0[1], r0[2], r0[3], terraceY, kind);
+		}
+		// a wind tower over the back corner away from the stair hatch
+		if (!t.pueblo() && d.chance(0.8)) {
+			// a square tower rising from the parapet's back corner, its vents latticed on every face
+			if (tr[2] - tr[0] >= 4 && tr[3] - tr[1] >= 4) {
+				dev.voidmc.hearth.build.kit.homestead.Adobe.windTower(d, tr[2] - 1, tr[3] - 1, 2, deck, 4, true);
+			}
+		}
+		// a latticed screen boxed out over the window above the door
+		if (!t.pueblo() && full >= 2) {
+			Side up = b.side(1, Dirs.FRONT);
+			for (Facade.Opening o : f.openings(Dirs.FRONT)) {
+				if (o.kind() != Facade.Kind.WINDOW || !up.contains(o.at())) {
+					continue;
+				}
+				int i = up.index(o.at());
+				if (i >= 2 && i <= up.last() - 2) {
+					dev.voidmc.hearth.build.kit.townhome.Projections.oriel(d, up, i - 1, i + 1, b.floorY(1), 2, true);
+					break;
+				}
+			}
+		}
+		// the door: a painted surround, a tile at its sill, jars either side
+		if (door != null) {
+			Side front = b.side(0, Dirs.FRONT);
+			dev.voidmc.hearth.build.kit.townhome.Fronts.doorCase(d, front, door, 1, b.baseY, t);
+			int z = front.outZ(front.index(door), 1);
+			dev.voidmc.hearth.build.kit.homestead.Adobe.threshold(d, door, b.baseY, z);
+			for (int dx : new int[]{-1, 1}) {
+				if (z >= 0 && dev.voidmc.hearth.build.kit.homestead.Spots.standable(d, door + dx, b.baseY, z)) {
+					dev.voidmc.hearth.build.kit.homestead.Adobe.jar(d, door + dx, b.baseY, z);
+				}
+			}
+		}
+		// the roof lived on: a rug in the shade, seats and jars
+		dev.voidmc.hearth.build.kit.homestead.Adobe.terraceLife(d, tr[0] + 1, tr[1] + 1, tr[2] - 1, tr[3] - 1, deck, tr[0] + 1, tr[3] - 1);
+	}
+
 	/** A stair up to a flat roof terrace inside the back corner, a hatch-like opening, and furniture on the terrace. */
 	static void terraceAccess(Draft d, Body b, int deck) {
 		int[] r = b.topRect();
@@ -627,6 +753,7 @@ final class HouseBuilder {
 		if (bedroomBelow) {
 			Rooms.furnish(d, ground, Rooms.Type.KITCHEN, 0, JobType.NONE);
 		}
+		dev.voidmc.hearth.build.kit.homestead.Household.dress(d, ground, ground, hearth == null ? null : new int[]{hearth[0], hearth[1]});
 		// exposed joists under the ground floor's ceiling
 		if (b.storeys() >= 2) {
 			Floors.joists(d, ix0, iz0, ix1, iz1, b.floorY(1) - 1, (ix1 - ix0) <= (iz1 - iz0) ? Direction.Axis.X : Direction.Axis.Z, 2, b.baseY);

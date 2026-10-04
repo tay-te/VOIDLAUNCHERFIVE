@@ -699,6 +699,7 @@ public final class CourtyardHouse implements Archetype {
 			keepDoors(d, kitchen);
 			hearth(d, kitchen);
 			Rooms.furnish(d, kitchen, Rooms.Type.KITCHEN, 0, JobType.NONE);
+			dev.voidmc.hearth.build.kit.homestead.Household.dress(d, kitchen, kitchen, null);
 		}
 		Rooms.Room store = room(vb + 1, 1, w - 2, wd - 2, air);
 		if (store != null) {

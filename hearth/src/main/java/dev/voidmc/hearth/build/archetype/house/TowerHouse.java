@@ -251,6 +251,7 @@ public final class TowerHouse implements Archetype {
 				Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 			} else if (k == 1) {
 				Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
+				dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, null);
 				if (!chambers) {
 					Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
 				}
