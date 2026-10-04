@@ -46,6 +46,31 @@ public final class DevCatalogue implements BlueprintService {
 		for (ArchetypeInfo info : this.stand.archetypes()) {
 			this.infos.putIfAbsent(info.id(), info);
 		}
+		// phase 3 (LIVING_WORLD.md §8.5): the excavations and the chains' workshops, until the architects land them
+		for (ArchetypeInfo info : PlaceholderExcavations.infos()) {
+			this.infos.putIfAbsent(info.id(), info);
+		}
+		for (ArchetypeInfo info : workshops()) {
+			this.infos.putIfAbsent(info.id(), info);
+		}
+	}
+
+	/** The production chains' workshops of LIVING_WORLD.md §8.5, as plain stand-in buildings with their trades' job sites. */
+	static java.util.List<ArchetypeInfo> workshops() {
+		java.util.List<ArchetypeInfo> out = new java.util.ArrayList<>();
+		Object[][] table = {
+			{"work/logging_camp", JobType.FORESTER}, {"work/charcoal_kiln", JobType.CHARCOAL_BURNER}, {"work/brick_kiln", JobType.KILN_WORKER},
+			{"work/glassworks", JobType.GLASSMAKER}, {"work/smelter", JobType.SMELTER}, {"work/tannery", JobType.TANNER},
+			{"work/butcher", JobType.BUTCHER}, {"work/chandler", JobType.CHANDLER}, {"work/dye_works", JobType.DYER},
+			{"work/paper_mill", JobType.PAPERMAKER}, {"work/apiary", JobType.BEEKEEPER}, {"work/salt_works", JobType.SALTER},
+			{"work/shipyard", JobType.BOATWRIGHT}, {"commerce/caravan_yard", JobType.HAULER}};
+		for (Object[] row : table) {
+			Identifier id = dev.voidmc.hearth.Hearth.id((String) row[0]);
+			ArchetypeCategory cat = ((String) row[0]).startsWith("commerce/") ? ArchetypeCategory.COMMERCE : ArchetypeCategory.WORKPLACE;
+			out.add(new ArchetypeInfo(id, cat, java.util.Set.of((JobType) row[1]), 0, 7, 11, 7, 11, 5, 8, dev.voidmc.hearth.api.SettlementTier.HAMLET,
+				java.util.Set.of(), java.util.Set.of(ArchetypeInfo.SiteFlag.OUTSKIRTS), java.util.List.of(), 0, 1.0));
+		}
+		return out;
 	}
 
 	/** How many archetypes are the real ones (the rest are stand-ins). */
@@ -79,6 +104,9 @@ public final class DevCatalogue implements BlueprintService {
 			throw new IllegalArgumentException("unknown archetype " + spec.archetype());
 		}
 		Identifier id = spec.archetype();
+		if (PlaceholderExcavations.handles(id)) {
+			return PlaceholderExcavations.generate(spec, terrain);
+		}
 		if (id.equals(PlaceholderBlueprints.YARD)) {
 			return PlaceholderBlueprints.generate(spec, terrain);
 		}

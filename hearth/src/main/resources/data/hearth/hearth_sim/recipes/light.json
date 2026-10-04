@@ -1,0 +1,4 @@
+{ "recipes": [
+  { "job": "chandler", "inputs": { "wax": 4 }, "outputs": { "candles": 6 }, "priority": 1 },
+  { "job": "chandler", "inputs": { "meat": 6 }, "outputs": { "candles": 4 } }
+] }

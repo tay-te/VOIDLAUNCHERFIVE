@@ -64,6 +64,8 @@ public final class SimPlot implements PlotView {
 
 	/** Transient: waiting only because an earlier plot has first claim on the goods (no stall of its own was announced). */
 	boolean heldBack;
+	/** Transient: an excavation (its blueprint's cuts are yield; its own trade digs it). */
+	boolean digs;
 	/** Transient: when an embodied builder last advanced this plot (game time), and the blueprint facts. */
 	long lastEmbodiedAdvance = Long.MIN_VALUE;
 	@Nullable PlotFacts facts;
@@ -184,6 +186,14 @@ public final class SimPlot implements PlotView {
 	/** Whether its beds and workplaces count. */
 	public boolean isStanding() {
 		return this.state == PlotState.BUILT;
+	}
+
+	/**
+	 * Whether its job sites employ folk now: a standing building, or an excavation being worked (a quarry or a mine is a
+	 * workplace from the day it is staked out — its quarriers and miners are the ones who dig it).
+	 */
+	public boolean employs() {
+		return this.state == PlotState.BUILT || this.digs && isActive();
 	}
 
 	/** The progress counter as one comparable number. */

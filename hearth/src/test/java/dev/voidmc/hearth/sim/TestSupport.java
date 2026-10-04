@@ -73,6 +73,20 @@ public final class TestSupport {
 		return s;
 	}
 
+	/** A freshly founded settlement that fires events into a recording context. */
+	public static SimSettlement foundedWithEvents(String terrain, long seed, EventContext[] out) {
+		boot();
+		TerrainProbe t = SyntheticTerrain.named(terrain, seed);
+		EventContext ctx = new EventContext(context(t));
+		out[0] = ctx;
+		SimSettlement s = new SimSettlement(8, "Eventon", Culture.TEMPERATE, Level.OVERWORLD, new BlockPos(0, t.groundY(0, 0), 0), 0,
+			SimSettlement.NO_REGION, seed);
+		s.bind(ctx);
+		var f = ctx.rules().config.founding();
+		SettlementClock.found(s, ctx, f.residents(), f.goodsMap(), f.treasury());
+		return s;
+	}
+
 	public static BoundingBox region00() {
 		return Atlas.regionBox(0, 0);
 	}

@@ -1,0 +1,11 @@
+{ "recipes": [
+  { "job": "farmer", "workplace": "hearth:work/windmill", "inputs": { "grain": 12 }, "outputs": { "flour": 10 }, "priority": 1 },
+  { "job": "farmer", "workplace": "hearth:work/watermill", "inputs": { "grain": 16 }, "outputs": { "flour": 13 }, "priority": 1 },
+  { "job": "baker", "inputs": { "flour": 10 }, "outputs": { "food": 18 }, "priority": 2 },
+  { "job": "baker", "inputs": { "grain": 12 }, "outputs": { "food": 10 }, "priority": 1 },
+  { "job": "butcher", "inputs": { "meat": 8, "salt": 0.5 }, "outputs": { "food": 10 }, "priority": 1 },
+  { "job": "butcher", "inputs": { "meat": 8 }, "outputs": { "food": 8 } },
+  { "job": "brewer", "inputs": { "grain": 6 }, "outputs": { "luxury": 4 }, "priority": 1, "target": 0.4 },
+  { "job": "brewer", "inputs": { "produce": 6 }, "outputs": { "luxury": 3 }, "target": 0.4 },
+  { "job": "innkeeper", "inputs": { "food": 3 }, "outputs": { "luxury": 1 }, "target": 0.4, "tools": 0 }
+] }

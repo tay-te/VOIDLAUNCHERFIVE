@@ -9,6 +9,7 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.api.SettlementPlanner;
 import dev.voidmc.hearth.api.SettlementTier;
+import dev.voidmc.hearth.sim.land.Lands;
 import dev.voidmc.hearth.sim.model.SimContext;
 import dev.voidmc.hearth.sim.model.SimRules;
 import java.util.ArrayList;
@@ -48,17 +49,17 @@ public final class SettlementClock {
 		}
 		long start = k.simTick;
 		long end = Math.min(target, k.simTick + r.maxCatchUpTicks);
-		Workforce wf = Workforce.of(s);
+		Workforce wf = Workforce.of(s, c);
 		while (k.simTick < end) {
 			long dayEnd = (Math.floorDiv(k.simTick, SimRules.DAY) + 1) * SimRules.DAY;
 			long sliceEnd = Math.min(end, dayEnd);
 			double days = (sliceEnd - k.simTick) / (double) SimRules.DAY;
-			produce(s, wf, days, r, c.economyHandlesWages());
+			Production.produce(s, wf, days, r, c);
 			construct(s, wf, days, r, c);
 			k.simTick = sliceEnd;
 			if (sliceEnd == dayEnd) {
 				daily(s, r, c, Math.floorDiv(dayEnd, SimRules.DAY));
-				wf = Workforce.of(s);
+				wf = Workforce.of(s, c);
 			}
 			grow(s, wf, r, c);
 		}
@@ -73,88 +74,9 @@ public final class SettlementClock {
 	 * Labour an embodied resident did as an entity, credited at the abstract rates (the clock left them out of its head
 	 * count while they were embodied). {@code workerDays} is a working day's worth of their trade per unit.
 	 */
-	static void credit(SimSettlement s, JobType job, double workerDays) {
-		if (workerDays <= 0) {
-			return;
-		}
-		SimRules r = s.ctx().rules();
-		double[] row = r.production[job.ordinal()];
-		double[] frac = s.clock.fractions;
-		SimStockpile stock = s.stockpile();
-		double factor = 1;
-		for (int g = 0; g < row.length; g++) {
-			if (row[g] < 0) {
-				double need = -row[g] * workerDays;
-				double have = stock.get(Goods.VALUES[g]) + Math.max(0, frac[g]);
-				factor = Math.min(factor, need <= 0 ? 1 : have / need);
-			}
-		}
-		factor = Math.max(0, factor);
-		for (int g = 0; g < row.length; g++) {
-			if (row[g] != 0) {
-				frac[g] += row[g] * workerDays * factor;
-			}
-		}
-		if (!s.ctx().economyHandlesWages()) {
-			s.clock.coinFraction += r.coin[job.ordinal()] * workerDays;
-		}
-		s.markDirty();
-	}
-
-	private static void produce(SimSettlement s, Workforce wf, double days, SimRules r, boolean economyWages) {
-		SimSettlement.ClockState k = s.clock;
-		double[] frac = k.fractions;
-		SimStockpile stock = s.stockpile();
-		double coin = 0;
-		for (int j = 0; j < wf.workers.length; j++) {
-			int n = wf.workers[j];
-			if (n == 0) {
-				continue;
-			}
-			double[] row = r.production[j];
-			// inputs short? then the output shrinks with them
-			double factor = 1;
-			for (int g = 0; g < row.length; g++) {
-				if (row[g] < 0) {
-					double need = -row[g] * n * days;
-					double have = stock.get(Goods.VALUES[g]) + Math.max(0, frac[g]);
-					factor = Math.min(factor, need <= 0 ? 1 : have / need);
-				}
-			}
-			factor = Math.max(0, factor);
-			for (int g = 0; g < row.length; g++) {
-				if (row[g] != 0) {
-					frac[g] += row[g] * n * days * factor;
-				}
-			}
-			if (!economyWages) {
-				// the town's own income from its trades; with the economy module its taxes and wages take this place
-				coin += r.coin[j] * n * days;
-			}
-		}
-		frac[Goods.FOOD.ordinal()] -= (wf.adults * r.foodAdult + wf.children * r.foodChild + wf.elders * r.foodElder) * days;
-		for (int g = 0; g < frac.length; g++) {
-			if (frac[g] >= 1) {
-				int whole = (int) Math.floor(frac[g]);
-				int added = stock.addQuiet(g, whole);
-				// what the stores cannot hold goes to passing traders, cheaply
-				coin += (whole - added) * r.prices[g] * r.exportShare;
-				frac[g] -= whole;
-			} else if (frac[g] <= -1) {
-				int whole = (int) Math.ceil(-frac[g]);
-				int taken = stock.takeQuiet(g, whole);
-				frac[g] += taken;
-				if (taken < whole) {
-					// nothing left to take: hunger (or idle workshops), not a debt carried forward
-					frac[g] = Math.max(frac[g], -1);
-				}
-			}
-		}
-		k.coinFraction += coin;
-		if (k.coinFraction >= 1) {
-			long bits = (long) Math.floor(k.coinFraction);
-			s.treasury += bits;
-			k.coinFraction -= bits;
+	static void credit(SimSettlement s, Resident res, JobType job, double workerDays) {
+		if (workerDays > 0) {
+			Production.credit(s, res, job, workerDays);
 		}
 	}
 
@@ -183,6 +105,10 @@ public final class SettlementClock {
 					break;
 				}
 				if (!p.isActive()) {
+					continue;
+				}
+				if (Extraction.is(s, p)) {
+					// excavations are dug by their own trade (quarriers, miners), not by builders
 					continue;
 				}
 				if (s.embodied() && p.lastEmbodiedAdvance != Long.MIN_VALUE && now - p.lastEmbodiedAdvance < EMBODIED_HOLD) {
@@ -225,7 +151,7 @@ public final class SettlementClock {
 			if (working >= want) {
 				return;
 			}
-			if (!p.isActive()) {
+			if (!p.isActive() || Extraction.is(s, p)) {
 				continue;
 			}
 			PlotFacts f = s.facts(p);
@@ -279,7 +205,7 @@ public final class SettlementClock {
 		int active = 0;
 		int stalled = 0;
 		for (SimPlot p : s.plots.values()) {
-			if (p.isActive()) {
+			if (p.isActive() && !Extraction.is(s, p)) {
 				if (p.stalledOn != null) {
 					stalled++;
 				} else {
@@ -313,7 +239,7 @@ public final class SettlementClock {
 				k.noGrowthUntil = k.simTick + SimRules.DAY / 2;
 				return;
 			}
-			s.addPlot(project.spec(), project.replaces(), project.reason());
+			s.addPlot(Prosperity.finish(s, project.spec(), r), project.replaces(), project.reason());
 			if (isRoad(project.spec()) && roadsInARow < MAX_ROADS_IN_A_ROW) {
 				roadsInARow++;
 				tries--;
@@ -366,21 +292,28 @@ public final class SettlementClock {
 		RandomSource random = s.random();
 		k.daysLived++;
 		age(s, r, day);
-		k.hungerDays = s.population() > 0 && s.stockpile.get(Goods.FOOD) <= 0 ? k.hungerDays + 1 : 0;
+		var data = c.data();
+		Lands.daily(s, day, c);
+		Spoilage.daily(s, r, data);
+		k.hungerDays = s.population() > 0 && Production.edible(s, data) < 1 ? k.hungerDays + 1 : 0;
 		deaths(s, r, random);
 		int housing = s.beds() + r.population.tentSlots();
 		k.overcrowdDays = s.population() > housing ? k.overcrowdDays + 1 : 0;
 		if ((k.overcrowdDays > r.population.overcrowdDays() || k.hungerDays > r.population.hungerDays()) && random.nextFloat() < 0.5F) {
 			emigrate(s, random);
 		}
+		Prosperity.daily(s, r, c, day, random);
 		crowding(s, r, c, day);
 		imports(s, r);
+		necessities(s, r, c);
 		if (k.hungerDays == 0) {
 			births(s, r, c, random, day);
 			settlers(s, r, c, random, day);
 		}
 		assignHomes(s);
 		assignJobs(s, r);
+		Stations.daily(s, r, day);
+		c.trade(s, day);
 		SettlementTier from = s.tier;
 		SettlementTier to = tierFor(from, s.population());
 		if (to != from) {
@@ -403,7 +336,8 @@ public final class SettlementClock {
 	private static void crowding(SimSettlement s, SimRules r, SimContext c, long day) {
 		SimSettlement.ClockState k = s.clock;
 		var d = r.config.daughters();
-		boolean crowded = s.population() >= d.minPopulation() && s.population() >= s.beds();
+		// out of beds, or past what the land can feed: settlers set out (to land that has what this town lacks)
+		boolean crowded = s.population() >= d.minPopulation() && (s.population() >= s.beds() || s.population() > s.land().capacity());
 		k.crowdedDays = crowded ? k.crowdedDays + 1 : 0;
 		if (!d.enabled() || k.crowdedDays < d.crowdedDays() || k.daughters >= d.maxPerTown()
 			|| k.lastDaughterDay != Long.MIN_VALUE && day - k.lastDaughterDay < d.cooldownDays()) {
@@ -442,7 +376,7 @@ public final class SettlementClock {
 				s.treasury -= bought * price;
 				// then barter what overflows the stores, at a loss
 				for (int o = 0; o < need.length && bought < missing; o++) {
-					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], s.stockpile.capacity(Goods.FOOD) / 2);
+					int spare = s.stockpile.get(Goods.VALUES[o]) - Math.max(need[o], s.stockpile.capacity(Goods.VALUES[o]) / 2);
 					if (o == g || spare <= 0 || r.prices[o] <= 0) {
 						continue;
 					}
@@ -455,8 +389,45 @@ public final class SettlementClock {
 				}
 				if (bought > 0) {
 					s.stockpile.addQuiet(g, bought);
+					s.land().traded(0, bought * unit);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Passing traders keep a town in tools and, while its coin lasts, in food: a cartload of tools when it is down to a
+	 * few days' wear, and a few days' bread when it is starving. Dear (the import markup) and with coin only.
+	 */
+	private static void necessities(SimSettlement s, SimRules r, SimContext c) {
+		var data = c.data();
+		int tools = Goods.TOOLS.ordinal();
+		int adults = 0;
+		for (Resident res : s.residents.values()) {
+			if (res.age == AgeStage.ADULT && res.job != JobType.NONE) {
+				adults++;
+			}
+		}
+		int wantTools = (int) Math.ceil(adults * r.resources.chains().toolWear() * 10);
+		buy(s, r, tools, wantTools - s.stockpile.get(Goods.TOOLS));
+		double edible = Production.edible(s, data);
+		double need = s.population() * r.foodAdult;
+		if (edible < need * 2) {
+			buy(s, r, Goods.FOOD.ordinal(), (int) Math.ceil(need * 4 - edible));
+		}
+	}
+
+	private static void buy(SimSettlement s, SimRules r, int g, int want) {
+		if (want <= 0) {
+			return;
+		}
+		double unit = r.prices[g] * r.importMarkup;
+		long price = Math.max(1, (long) Math.ceil(unit));
+		int n = (int) Math.min(Math.min(want, r.importPerDay), s.treasury / price);
+		if (n > 0) {
+			s.treasury -= n * price;
+			s.stockpile.addQuiet(g, n);
+			s.land().traded(0, n * price);
 		}
 	}
 
@@ -517,6 +488,8 @@ public final class SettlementClock {
 		if (free <= 0) {
 			return;
 		}
+		// past what the land feeds, or in decline, fewer children are born
+		double odds = r.population.birthPerCoupleDay() * growthFactor(s, r);
 		List<Resident> mothers = new ArrayList<>();
 		List<Resident> fathers = new ArrayList<>();
 		for (Resident res : s.residents.values()) {
@@ -526,7 +499,7 @@ public final class SettlementClock {
 		}
 		int couples = Math.min(mothers.size(), fathers.size());
 		for (int i = 0; i < couples && free > 0; i++) {
-			if (random.nextDouble() >= r.population.birthPerCoupleDay()) {
+			if (random.nextDouble() >= odds) {
 				continue;
 			}
 			Resident mother = mothers.get(random.nextInt(mothers.size()));
@@ -549,7 +522,7 @@ public final class SettlementClock {
 
 	private static void settlers(SimSettlement s, SimRules r, SimContext c, RandomSource random, long day) {
 		int free = s.beds() - s.population();
-		if (free <= 0 || random.nextDouble() >= r.population.settlerPerDay()) {
+		if (free <= 0 || random.nextDouble() >= r.population.settlerPerDay() * settlerFactor(s, r)) {
 			return;
 		}
 		int group = Math.min(free, 1 + random.nextInt(3));
@@ -577,6 +550,34 @@ public final class SettlementClock {
 			// settlers bring a few days' food of their own
 			s.stockpile.addQuiet(Goods.FOOD.ordinal(), (int) (r.foodAdult * 10));
 		}
+	}
+
+	/** Births slow past the carrying capacity (to a quarter) and in decline (to half). */
+	static double growthFactor(SimSettlement s, SimRules r) {
+		var cfg = r.resources.prosperity();
+		if (!cfg.enabled()) {
+			return 1;
+		}
+		double f = 1;
+		if (cfg.capacityLimits() && s.population() >= s.land().capacity()) {
+			f *= 0.25;
+		}
+		if (s.land().mood() < 0) {
+			f *= 0.5;
+		}
+		return f;
+	}
+
+	/** Settlers come to a booming town, stay away from a failing one, and not at all past what the land can feed. */
+	static double settlerFactor(SimSettlement s, SimRules r) {
+		var cfg = r.resources.prosperity();
+		if (!cfg.enabled()) {
+			return 1;
+		}
+		if (cfg.capacityLimits() && s.population() >= s.land().capacity()) {
+			return 0;
+		}
+		return s.land().mood() < 0 ? 0.2 : s.land().mood() > 0 ? 1.4 : 1;
 	}
 
 	/** A new person from the resident factory, with the sim's own fields (age, birth day) set. */
@@ -645,7 +646,8 @@ public final class SettlementClock {
 				adults++;
 			}
 		}
-		boolean starving = s.stockpile.get(Goods.FOOD) < s.population() * r.foodAdult;
+		double edible = Production.edible(s, s.ctx().data());
+		boolean starving = edible < s.population() * r.foodAdult;
 		// never so many builders that nobody feeds them: two in five at most, one while food is short
 		slots[JobType.BUILDER.ordinal()] = Math.min(slots[JobType.BUILDER.ordinal()], starving ? 1 : Math.max(1, adults * 2 / 5));
 		int[] filled = new int[jobs];
@@ -661,7 +663,7 @@ public final class SettlementClock {
 			boolean keep = res.job != JobType.NONE && filled[j] < slots[j];
 			if (keep && res.work != Resident.NO_PLOT) {
 				SimPlot w = s.plots.get(res.work);
-				keep = w != null && w.isStanding() && usedAt.get(res.work * jobs + j) < w.jobSlots(res.job);
+				keep = w != null && w.employs() && usedAt.get(res.work * jobs + j) < w.jobSlots(res.job);
 			}
 			if (keep) {
 				filled[j]++;
@@ -680,14 +682,14 @@ public final class SettlementClock {
 		// order of preference: builders, food when short, then the rest as the workplaces come
 		List<JobType> order = new ArrayList<>();
 		order.add(JobType.BUILDER);
-		boolean hungry = s.stockpile.get(Goods.FOOD) < s.population() * r.foodAdult * 3;
+		boolean hungry = edible < s.population() * r.foodAdult * 3;
 		if (hungry) {
 			order.add(JobType.FARMER);
 			order.add(JobType.FISHER);
 			order.add(JobType.HUNTER);
 		}
 		// with a month's food in store, the food trades take what workers are left after the other workplaces
-		boolean plenty = s.stockpile.get(Goods.FOOD) > s.population() * r.foodAdult * 30;
+		boolean plenty = edible > s.population() * r.foodAdult * 30;
 		for (JobType j : JobType.values()) {
 			if (j != JobType.NONE && !order.contains(j) && !(plenty && foodTrade(j))) {
 				order.add(j);
@@ -720,7 +722,7 @@ public final class SettlementClock {
 	/** A standing plot with a free job site for this job, or none (builders without a yard work from home). */
 	private static int workplaceFor(SimSettlement s, JobType job, it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap usedAt, int jobs) {
 		for (SimPlot p : s.plots.values()) {
-			if (p.isStanding() && usedAt.get(p.id() * jobs + job.ordinal()) < p.jobSlots(job)) {
+			if (p.employs() && usedAt.get(p.id() * jobs + job.ordinal()) < p.jobSlots(job)) {
 				return p.id();
 			}
 		}
@@ -772,6 +774,8 @@ public final class SettlementClock {
 		s.recomputeDerived();
 		goods.forEach((g, n) -> s.stockpile.addQuiet(g.ordinal(), n));
 		s.treasury += treasury;
+		// the land is surveyed as the founders arrive (a history at once; the live world off the server thread)
+		c.survey(s);
 		assignJobs(s, c.rules());
 		s.markDirty();
 	}
@@ -785,8 +789,13 @@ public final class SettlementClock {
 		int children;
 		int elders;
 
-		static Workforce of(SimSettlement s) {
+		/** Working adults by trade and workplace, with their recipes and sites resolved (docs/SIM.md §16). */
+		final Production.Crews crews = new Production.Crews();
+
+		static Workforce of(SimSettlement s, SimContext c) {
 			Workforce w = new Workforce();
+			var data = c.data();
+			SimRules r = c.rules();
 			for (Resident res : s.residents.values()) {
 				switch (res.age) {
 					case CHILD -> w.children++;
@@ -796,6 +805,7 @@ public final class SettlementClock {
 				// embodied folk do their work as entities, not as numbers
 				if (res.age == AgeStage.ADULT && !s.isResidentEmbodied(res.id)) {
 					w.workers[res.job.ordinal()]++;
+					w.crews.counts[Production.crewOf(w.crews, s, res.job, res.work, data, r)]++;
 				} else if (res.age == AgeStage.ADULT && res.job == JobType.BUILDER) {
 					w.embodiedBuilders++;
 				}

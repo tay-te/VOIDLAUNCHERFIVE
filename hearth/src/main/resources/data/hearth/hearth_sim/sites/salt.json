@@ -1,0 +1,1 @@
+{ "kind": "salt", "per_cell": 4000, "regen": 0.01, "primary": "salter", "max_cells": 12, "max_sites": 3, "material": "expanse:salt_block" }

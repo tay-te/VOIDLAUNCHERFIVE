@@ -1,0 +1,1 @@
+{ "kind": "ore", "per_cell": 30000, "regen": 0, "primary": "miner", "max_cells": 10, "max_sites": 6, "material": "minecraft:raw_iron" }

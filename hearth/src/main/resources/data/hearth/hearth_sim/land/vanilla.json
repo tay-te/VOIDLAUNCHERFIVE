@@ -1,0 +1,35 @@
+{
+  "tags": {
+    "minecraft:is_badlands": { "rock": "minecraft:terracotta", "sand": "minecraft:red_sand", "fertility": 0.0, "pasture": 0.1, "rocky": true, "ore": { "gold": 4 } },
+    "minecraft:is_beach": { "sand": "minecraft:sand", "fertility": 0.1, "pasture": 0.1 },
+    "minecraft:is_ocean": { "sand": "minecraft:sand", "specialties": [ { "item": "minecraft:kelp", "goods": "produce", "job": "fisher", "yield": 6, "density": 0.5, "regen": 0.03 } ] },
+    "minecraft:is_river": { "clay": "minecraft:clay", "sand": "minecraft:sand" },
+    "minecraft:is_mountain": { "rocky": true, "fertility": 0.2, "pasture": 0.5, "ore": { "iron": 2, "coal": 1.3 } },
+    "minecraft:is_hill": { "pasture": 0.6, "ore": { "iron": 1.3 } },
+    "minecraft:is_jungle": { "fertility": 0.6, "pasture": 0.2, "specialties": [ { "item": "minecraft:cocoa_beans", "goods": "produce", "job": "farmer", "yield": 6, "density": 0.4, "regen": 0.03 } ] },
+    "minecraft:is_savanna": { "fertility": 0.5, "pasture": 0.9 },
+    "minecraft:is_taiga": { "fertility": 0.4, "pasture": 0.4, "specialties": [ { "item": "minecraft:sweet_berries", "goods": "produce", "job": "none", "yield": 4, "density": 0.3, "regen": 0.04 } ] },
+    "minecraft:is_forest": { "fertility": 0.6, "pasture": 0.4 },
+    "c:is_snowy": { "fertility": 0.1, "pasture": 0.2 },
+    "c:is_desert": { "rock": "minecraft:sandstone", "sand": "minecraft:sand", "fertility": 0.05, "pasture": 0.05 },
+    "c:is_swamp": { "clay": "minecraft:clay", "fertility": 0.4, "pasture": 0.2 },
+    "c:is_plains": { "fertility": 1.0, "pasture": 1.0 },
+    "c:is_flower_forest": { "specialties": [ { "item": "minecraft:honeycomb", "goods": "wax", "job": "beekeeper", "yield": 4, "density": 0.5, "regen": 0.03 } ] }
+  },
+  "biomes": {
+    "minecraft:plains": { "fertility": 1.0, "pasture": 1.0 },
+    "minecraft:sunflower_plains": { "fertility": 1.0, "pasture": 1.0, "specialties": [ { "item": "minecraft:honeycomb", "goods": "wax", "job": "beekeeper", "yield": 4, "density": 0.4, "regen": 0.03 } ] },
+    "minecraft:meadow": { "fertility": 0.6, "pasture": 1.0, "specialties": [ { "item": "minecraft:honeycomb", "goods": "wax", "job": "beekeeper", "yield": 4, "density": 0.5, "regen": 0.03 } ] },
+    "minecraft:cherry_grove": { "fertility": 0.6, "pasture": 0.7, "specialties": [ { "item": "minecraft:honeycomb", "goods": "wax", "job": "beekeeper", "yield": 4, "density": 0.5, "regen": 0.03 } ] },
+    "minecraft:desert": { "rock": "minecraft:sandstone", "sand": "minecraft:sand", "fertility": 0.05, "pasture": 0.05, "specialties": [ { "item": "minecraft:cactus", "goods": "dye", "job": "none", "yield": 3, "density": 0.3, "regen": 0.02 } ] },
+    "minecraft:bamboo_jungle": { "specialties": [ { "item": "minecraft:bamboo", "goods": "specialty", "job": "forester", "yield": 30, "density": 0.6, "regen": 0.05 } ] },
+    "minecraft:mangrove_swamp": { "clay": "minecraft:mud", "fertility": 0.3 },
+    "minecraft:swamp": { "clay": "minecraft:clay" },
+    "minecraft:dripstone_caves": { "ore": { "copper": 3 } },
+    "minecraft:stony_shore": { "rocky": true, "fertility": 0.0 },
+    "minecraft:stony_peaks": { "rocky": true, "fertility": 0.0, "pasture": 0.1 },
+    "minecraft:mushroom_fields": { "fertility": 0.7, "pasture": 0.6, "specialties": [ { "item": "minecraft:red_mushroom", "goods": "produce", "job": "none", "yield": 4, "density": 0.5, "regen": 0.04 } ] },
+    "minecraft:windswept_gravelly_hills": { "rocky": true, "rock": "minecraft:andesite" },
+    "minecraft:ice_spikes": { "fertility": 0.0, "pasture": 0.0 }
+  }
+}

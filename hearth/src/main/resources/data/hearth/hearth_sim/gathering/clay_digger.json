@@ -1,0 +1,3 @@
+{ "job": "clay_digger", "tools": 0.03,
+  "sites": [ { "kind": "clay", "yields": { "clay": 60 } }, { "kind": "sand", "yields": { "sand": 60 } } ],
+  "no_site": { "clay": 8 } }

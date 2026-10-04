@@ -1,0 +1,6 @@
+{ "job": "miner", "tools": 0.06,
+  "sites": [
+    { "kind": "ore", "yields": { "ore": 16, "fuel": 10, "stone": 60 } },
+    { "kind": "stone", "yields": { "stone": 120, "ore": 1 }, "share": 0.3 }
+  ],
+  "no_site": { "stone": 20, "ore": 1 } }

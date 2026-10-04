@@ -1,6 +1,12 @@
 package dev.voidmc.hearth.sim.model;
 
+import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.sim.SimConfig;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The model's numbers, read from {@link SimConfig} into flat arrays once so the clock touches no maps while it steps.
@@ -26,6 +32,10 @@ public final class SimRules {
 	public final SimConfig.Population population;
 	public final SimConfig.Storage storage;
 	public final long maxCatchUpTicks;
+	/** The resource economy's rules (territory, chains, spoilage, prosperity, caravans, stations, extraction). */
+	public final SimConfig.Resources resources;
+	/** Store room particular buildings add, by archetype, per goods ordinal. */
+	private final Map<Identifier, int[]> storageBy = new HashMap<>();
 
 	public SimRules(SimConfig config) {
 		this.config = config;
@@ -42,6 +52,46 @@ public final class SimRules {
 		this.population = config.population();
 		this.storage = config.storage();
 		this.maxCatchUpTicks = config.clock().maxCatchUpDays() * DAY;
+		this.resources = config.resources();
+		config.storage().byArchetype().forEach((id, room) -> {
+			Identifier key = Identifier.tryParse(id);
+			if (key == null) {
+				return;
+			}
+			int[] add = new int[Goods.VALUES.length];
+			room.forEach((what, n) -> {
+				for (Goods g : group(what)) {
+					add[g.ordinal()] += n;
+				}
+			});
+			this.storageBy.put(key, add);
+		});
+	}
+
+	/** What a building of this archetype adds to the stores, per goods ordinal, or null for the general allowance. */
+	public int @Nullable [] storageFor(Identifier archetype) {
+		return this.storageBy.get(archetype);
+	}
+
+	/** Goods named in the storage config: a goods name, or a group ({@code #all}, {@code #edible}, ...). */
+	static List<Goods> group(String what) {
+		if (!what.startsWith("#")) {
+			for (Goods g : Goods.VALUES) {
+				if (g.getSerializedName().equals(what)) {
+					return List.of(g);
+				}
+			}
+			return List.of();
+		}
+		return switch (what) {
+			case "#all" -> List.of(Goods.VALUES);
+			case "#edible" -> List.of(Goods.FOOD, Goods.GRAIN, Goods.FLOUR, Goods.MEAT, Goods.FISH, Goods.PRODUCE, Goods.SALT);
+			case "#building" -> List.of(Goods.WOOD, Goods.LOGS, Goods.STONE, Goods.DRESSED_STONE, Goods.BRICK, Goods.GLASS, Goods.CLAY, Goods.SAND);
+			case "#raw" -> java.util.Arrays.stream(Goods.VALUES).filter(g -> g.kind() == Goods.Kind.RAW).toList();
+			case "#processed" -> java.util.Arrays.stream(Goods.VALUES).filter(g -> g.kind() == Goods.Kind.PROCESSED).toList();
+			case "#finished" -> java.util.Arrays.stream(Goods.VALUES).filter(g -> g.kind() == Goods.Kind.FINISHED).toList();
+			default -> List.of();
+		};
 	}
 
 	public static SimRules defaults() {

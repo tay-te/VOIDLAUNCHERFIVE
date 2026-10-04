@@ -1,0 +1,1 @@
+{ "kind": "woods", "per_cell": 1800, "regen": 0.006, "primary": "forester", "max_cells": 16, "max_sites": 8, "material": "minecraft:oak_log" }

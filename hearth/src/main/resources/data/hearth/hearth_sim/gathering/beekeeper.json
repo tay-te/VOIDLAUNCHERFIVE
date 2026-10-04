@@ -1,0 +1,7 @@
+{ "job": "beekeeper", "tools": 0.01,
+  "sites": [
+    { "kind": "fertile", "yields": { "wax": 3, "produce": 3 }, "wear": 0.5 },
+    { "kind": "pasture", "yields": { "wax": 2, "produce": 2 }, "share": 0.5, "wear": 0.5 },
+    { "kind": "woods", "yields": { "wax": 2, "produce": 2 }, "share": 0.5, "wear": 0.5 }
+  ],
+  "no_site": { "wax": 1, "produce": 1 } }

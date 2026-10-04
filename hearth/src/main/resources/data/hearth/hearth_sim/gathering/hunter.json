@@ -1,0 +1,6 @@
+{ "job": "hunter", "tools": 0.02,
+  "sites": [
+    { "kind": "woods", "yields": { "meat": 9, "leather": 1.5 }, "share": 0.6, "wear": 2 },
+    { "kind": "pasture", "yields": { "meat": 6, "leather": 1 }, "share": 0.4, "wear": 4 }
+  ],
+  "no_site": { "meat": 4 } }

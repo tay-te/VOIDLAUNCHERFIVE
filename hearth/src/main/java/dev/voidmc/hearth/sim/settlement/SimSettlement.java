@@ -5,6 +5,10 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.HearthDataKey;
+import dev.voidmc.hearth.api.HearthServices;
+import dev.voidmc.hearth.api.ResourceSite;
+import dev.voidmc.hearth.api.StandingService;
+import dev.voidmc.hearth.sim.land.LandState;
 import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.Poi;
@@ -72,6 +76,9 @@ public final class SimSettlement implements Settlement {
 	final ClockState clock;
 
 	private boolean embodied;
+	/** Inside a call to the standing service: reads and writes go to the raw numbers. */
+	private boolean delegating;
+	private @Nullable LandState landCache;
 	private @Nullable SimContext ctx;
 	private boolean dirty;
 	private boolean derivedDirty = true;
@@ -80,6 +87,7 @@ public final class SimSettlement implements Settlement {
 	private final int[] jobSlots = new int[JobType.values().length];
 	private int storageBuildings;
 	private int buildings;
+	private final int[] coolCapacity = new int[Goods.VALUES.length];
 
 	public SimSettlement(long id, String name, Culture culture, ResourceKey<Level> dimension, BlockPos center, long foundedDay, long originRegion,
 		long seed) {
@@ -254,16 +262,83 @@ public final class SimSettlement implements Settlement {
 		return true;
 	}
 
+	/**
+	 * The player's standing here. While a {@link StandingService} is registered it is the authority (its settlement layer
+	 * folds in titles, deeds and company); the sim's own number is the fallback, and what is read while the standing
+	 * module itself asks (so a standing module built over these raw numbers cannot recurse).
+	 */
 	@Override
 	public int reputation(UUID player) {
+		StandingService standing = HearthServices.standing();
+		if (standing != null && !this.delegating) {
+			this.delegating = true;
+			try {
+				return standing.standing(this.id, player);
+			} finally {
+				this.delegating = false;
+			}
+		}
 		return this.reputation.getInt(player);
 	}
 
+	/**
+	 * Moves the player's standing. With a {@link StandingService} it is reported to it as a deed of kind
+	 * {@code hearth:reputation} (witnessed, at the heart, weighed by {@code delta}); without one, or from inside the
+	 * standing module's own call, the sim's raw number moves.
+	 */
 	@Override
 	public void addReputation(UUID player, int delta) {
+		StandingService standing = HearthServices.standing();
+		if (standing != null && !this.delegating) {
+			this.delegating = true;
+			try {
+				standing.deed(new StandingService.Deed(player, this.id, REPUTATION_DEED, delta, null, this.center, true));
+			} finally {
+				this.delegating = false;
+			}
+			return;
+		}
+		rawAddReputation(player, delta);
+	}
+
+	/** The deed kind a plain {@link #addReputation} becomes when a standing module is the authority. */
+	public static final String REPUTATION_DEED = "hearth:reputation";
+
+	/** The sim's own stored standing, whatever module is the authority (for the standing module and old saves). */
+	public int rawReputation(UUID player) {
+		return this.reputation.getInt(player);
+	}
+
+	public void rawAddReputation(UUID player, int delta) {
 		int v = Math.max(-100, Math.min(100, this.reputation.getInt(player) + delta));
 		this.reputation.put(player, v);
 		markDirty();
+	}
+
+	/** Players with a stored standing here. */
+	public java.util.Set<UUID> reputationHolders() {
+		return java.util.Collections.unmodifiableSet(this.reputation.keySet());
+	}
+
+	// ---------------------------------------------------------------- land (docs/SIM.md §16)
+
+	/** The settlement's territory, resource sites, prosperity and trade. */
+	public LandState land() {
+		LandState l = this.landCache;
+		if (l == null) {
+			l = this.landCache = this.data.get(LandState.KEY);
+		}
+		return l;
+	}
+
+	@Override
+	public int territoryRadius() {
+		return land().territory();
+	}
+
+	@Override
+	public List<ResourceSite> sites() {
+		return land().views();
 	}
 
 	@Override
@@ -377,6 +452,8 @@ public final class SimSettlement implements Settlement {
 		p.reason = reason == null ? "" : reason;
 		this.plots.put(p.id(), p);
 		this.bounds = null;
+		// an excavation employs its diggers from the day it is staked out
+		this.derivedDirty = true;
 		markDirty();
 		if (this.ctx != null) {
 			this.ctx.plotsChanged(this);
@@ -429,8 +506,9 @@ public final class SimSettlement implements Settlement {
 
 	@Override
 	public void creditLabour(UUID resident, JobType job, int ticks) {
-		if (ticks > 0 && this.residents.containsKey(resident)) {
-			SettlementClock.credit(this, job, ticks / WORK_TICKS_PER_DAY);
+		Resident res = this.residents.get(resident);
+		if (ticks > 0 && res != null) {
+			SettlementClock.credit(this, res, job, ticks / WORK_TICKS_PER_DAY);
 		}
 	}
 
@@ -478,10 +556,10 @@ public final class SimSettlement implements Settlement {
 		PlotFacts f = p.facts;
 		if (f == null) {
 			try {
-				f = PlotFacts.of(p.spec(), ctx().blueprints(), ctx().terrain());
+				f = PlotFacts.of(p.spec(), ctx().blueprints(), ctx().terrain(), ctx().data().extraction(p.spec().archetype()));
 			} catch (RuntimeException e) {
 				LOG.warn("settlement {} plot {} ({}): no blueprint ({}); abandoning it", this.id, p.id(), p.spec().archetype(), e.toString());
-				f = new PlotFacts(0, new int[0], new int[0], new int[0][], 0, new int[JobType.values().length], false);
+				f = new PlotFacts(0, new int[0], new int[0], new int[0][], 0, new int[JobType.values().length], false, null);
 				if (p.isActive()) {
 					p.state = PlotState.ABANDONED;
 					firePlotAbandoned(p, "no blueprint for " + p.spec().archetype());
@@ -498,6 +576,10 @@ public final class SimSettlement implements Settlement {
 	 */
 	public long applicable(SimPlot p) {
 		PlotFacts f = facts(p);
+		if (f.cuts() != null && this.ctx != null && this.ctx.rules().config.resources().extraction().abstractOnly()) {
+			// server owners may keep extraction as numbers only: an excavation changes no terrain
+			return Cursor.ZERO;
+		}
 		return switch (p.state) {
 			case BUILT -> f.complete();
 			// its rebuild has begun: it comes down (the applier clears what is left of it as its chunks load)
@@ -579,8 +661,8 @@ public final class SimSettlement implements Settlement {
 				continue;
 			}
 			int[] theirs = q.facts.goods()[q.stage];
-			int cap = this.stockpile.capacity(Goods.FOOD);
 			for (int g = 0; g < need.length && g < theirs.length; g++) {
+				int cap = this.stockpile.capacity(Goods.VALUES[g]);
 				if (need[g] > 0 && theirs[g] > 0 && this.stockpile.get(Goods.VALUES[g]) - Math.min(theirs[g], cap) < Math.min(need[g], cap)) {
 					return Goods.VALUES[g];
 				}
@@ -593,6 +675,10 @@ public final class SimSettlement implements Settlement {
 
 	/** The current stage is done: on to the next, or the whole plot. */
 	void finishStage(SimPlot p, PlotFacts f, boolean notify) {
+		if (f.cuts() != null && p.stage < f.cuts().length) {
+			// an excavation: what the stage cut out of the land is the yield (stone by its rock, ore by the survey's estimate)
+			Extraction.credit(this, p, f, p.stage);
+		}
 		p.stage++;
 		p.step = 0;
 		p.labour = 0;
@@ -655,6 +741,16 @@ public final class SimSettlement implements Settlement {
 		this.buildings = 0;
 		java.util.Arrays.fill(this.jobSlots, 0);
 		for (SimPlot p : this.plots.values()) {
+			if (p.isActive() && this.ctx != null && this.ctx.data().extraction(p.spec().archetype()) != null) {
+				// an excavation employs its diggers while it is being dug
+				p.digs = true;
+				int[] jobs = facts(p).jobs();
+				p.jobs = jobs.clone();
+				for (int j = 0; j < jobs.length && j < this.jobSlots.length; j++) {
+					this.jobSlots[j] += jobs[j];
+				}
+				continue;
+			}
 			if (!p.isStanding()) {
 				continue;
 			}
@@ -670,9 +766,42 @@ public final class SimSettlement implements Settlement {
 		}
 		SimRules rules = this.ctx == null ? null : this.ctx.rules();
 		if (rules != null) {
-			this.stockpile.setCapacity(rules.storage.base() + rules.storage.perStorage() * this.storageBuildings
-				+ rules.storage.perBuilding() * this.buildings);
+			// store room per goods: every building's lofts and cellars, storehouses, and each building type's own goods
+			int n = Goods.VALUES.length;
+			int[] cap = new int[n];
+			java.util.Arrays.fill(cap, rules.storage.base());
+			java.util.Arrays.fill(this.coolCapacity, 0);
+			var data = this.ctx.data();
+			for (SimPlot p : this.plots.values()) {
+				if (!p.isStanding()) {
+					continue;
+				}
+				int[] add = rules.storageFor(p.spec().archetype());
+				if (add != null) {
+					for (int g = 0; g < n; g++) {
+						cap[g] += add[g];
+					}
+				} else {
+					int all = p.storage ? rules.storage.perStorage() : rules.storage.perBuilding();
+					for (int g = 0; g < n; g++) {
+						cap[g] += all;
+					}
+				}
+				if (data.cool(p.spec().archetype())) {
+					int[] room = add != null ? add : null;
+					for (int g = 0; g < n; g++) {
+						this.coolCapacity[g] += room != null ? room[g] : rules.storage.perStorage();
+					}
+				}
+			}
+			this.stockpile.setCapacity(cap);
 		}
+	}
+
+	/** Store room kept cool (granaries, cellars) by goods ordinal: food there barely spoils. */
+	public int coolCapacity(int goods) {
+		ensureDerived();
+		return this.coolCapacity[goods];
 	}
 
 	/** Job sites in standing buildings, by job. */

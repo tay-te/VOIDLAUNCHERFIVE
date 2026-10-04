@@ -7,23 +7,26 @@ import java.util.Arrays;
 import java.util.stream.IntStream;
 
 /**
- * A settlement's stores. Capacity is the same for every kind of goods and is set by the settlement from its storage
- * buildings ({@link SimSettlement#recomputeDerived}). Changes mark the owner dirty so the economy module can sell to a
- * town without knowing about persistence.
+ * A settlement's stores. Capacity is per goods and is set by the settlement from its buildings (a granary holds food, a
+ * sawmill's yard logs and timber; {@link SimSettlement#recomputeDerived}). Changes mark the owner dirty so the economy
+ * module can sell to a town without knowing about persistence. Saves with fewer entries (phase 2 had ten goods) load
+ * with the rest at zero.
  */
 public final class SimStockpile implements Stockpile {
 	/** Amounts only; capacity is derived. */
 	public static final Codec<SimStockpile> CODEC = Codec.INT_STREAM.xmap(s -> new SimStockpile(s.toArray()), p -> IntStream.of(p.amounts));
 
 	private final int[] amounts = new int[Goods.VALUES.length];
-	private int capacity = Integer.MAX_VALUE;
+	private final int[] capacity = new int[Goods.VALUES.length];
 	private Runnable onChange = () -> {
 	};
 
 	public SimStockpile() {
+		Arrays.fill(this.capacity, Integer.MAX_VALUE);
 	}
 
 	private SimStockpile(int[] values) {
+		this();
 		System.arraycopy(values, 0, this.amounts, 0, Math.min(values.length, this.amounts.length));
 	}
 
@@ -32,7 +35,13 @@ public final class SimStockpile implements Stockpile {
 	}
 
 	void setCapacity(int capacity) {
-		this.capacity = Math.max(0, capacity);
+		Arrays.fill(this.capacity, Math.max(0, capacity));
+	}
+
+	void setCapacity(int[] capacity) {
+		for (int g = 0; g < this.capacity.length && g < capacity.length; g++) {
+			this.capacity[g] = Math.max(0, capacity[g]);
+		}
 	}
 
 	@Override
@@ -42,7 +51,7 @@ public final class SimStockpile implements Stockpile {
 
 	@Override
 	public int add(Goods goods, int amount) {
-		int added = Math.max(0, Math.min(amount, this.capacity - this.amounts[goods.ordinal()]));
+		int added = Math.max(0, Math.min(amount, this.capacity[goods.ordinal()] - this.amounts[goods.ordinal()]));
 		if (added > 0) {
 			this.amounts[goods.ordinal()] += added;
 			this.onChange.run();
@@ -62,13 +71,23 @@ public final class SimStockpile implements Stockpile {
 
 	@Override
 	public int capacity(Goods goods) {
+		return this.capacity[goods.ordinal()];
+	}
+
+	/** Capacity by ordinal (a view: do not change it). */
+	public int[] capacities() {
 		return this.capacity;
+	}
+
+	/** Amounts by ordinal (a view: do not change it). */
+	public int[] amounts() {
+		return this.amounts;
 	}
 
 	/** Whether every amount in {@code need} (by ordinal, each clamped to capacity) is in store. */
 	public boolean has(int[] need) {
 		for (int g = 0; g < need.length && g < this.amounts.length; g++) {
-			if (this.amounts[g] < Math.min(need[g], this.capacity)) {
+			if (this.amounts[g] < Math.min(need[g], this.capacity[g])) {
 				return false;
 			}
 		}
@@ -80,7 +99,7 @@ public final class SimStockpile implements Stockpile {
 		int worst = -1;
 		int missing = 0;
 		for (int g = 0; g < need.length && g < this.amounts.length; g++) {
-			int m = Math.min(need[g], this.capacity) - this.amounts[g];
+			int m = Math.min(need[g], this.capacity[g]) - this.amounts[g];
 			if (m > missing) {
 				missing = m;
 				worst = g;
@@ -90,25 +109,25 @@ public final class SimStockpile implements Stockpile {
 	}
 
 	public int shortfall(int[] need, int g) {
-		return Math.max(0, Math.min(need[g], this.capacity) - this.amounts[g]);
+		return Math.max(0, Math.min(need[g], this.capacity[g]) - this.amounts[g]);
 	}
 
 	/** Takes everything in {@code need} (clamped to capacity: what a store cannot hold, carts bring straight to site). */
 	public void takeAll(int[] need) {
 		for (int g = 0; g < need.length && g < this.amounts.length; g++) {
-			this.amounts[g] -= Math.min(this.amounts[g], Math.min(need[g], this.capacity));
+			this.amounts[g] -= Math.min(this.amounts[g], Math.min(need[g], this.capacity[g]));
 		}
 		this.onChange.run();
 	}
 
 	/** Adds without the change hook (the clock marks its settlement dirty once per step). */
-	int addQuiet(int g, int amount) {
-		int added = Math.max(0, Math.min(amount, this.capacity - this.amounts[g]));
+	public int addQuiet(int g, int amount) {
+		int added = Math.max(0, Math.min(amount, this.capacity[g] - this.amounts[g]));
 		this.amounts[g] += added;
 		return added;
 	}
 
-	int takeQuiet(int g, int amount) {
+	public int takeQuiet(int g, int amount) {
 		int taken = Math.max(0, Math.min(amount, this.amounts[g]));
 		this.amounts[g] -= taken;
 		return taken;

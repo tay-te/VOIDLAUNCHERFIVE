@@ -1,0 +1,1 @@
+{ "job": "salter", "tools": 0.02, "sites": [ { "kind": "salt", "yields": { "salt": 30 } } ], "no_site": { "salt": 1 } }

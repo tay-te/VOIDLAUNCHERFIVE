@@ -14,11 +14,11 @@ import java.util.Map;
  * numbers are documented in docs/SIM.md.
  */
 public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody embody, Clock clock, Applier applier, Atlas atlas,
-	Labour labour, Production production, Population population, Storage storage, Founding founding, Daughters daughters) {
+	Labour labour, Production production, Population population, Storage storage, Founding founding, Daughters daughters, Resources resources) {
 
 	public static final SimConfig DEFAULTS = new SimConfig(List.of("minecraft:overworld"), false, Embody.DEFAULTS, Clock.DEFAULTS,
 		Applier.DEFAULTS, Atlas.DEFAULTS, Labour.DEFAULTS, Production.DEFAULTS, Population.DEFAULTS, Storage.DEFAULTS, Founding.DEFAULTS,
-		Daughters.DEFAULTS);
+		Daughters.DEFAULTS, Resources.DEFAULTS);
 
 	public static final Codec<SimConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.STRING.listOf().optionalFieldOf("dimensions", DEFAULTS.dimensions).forGetter(SimConfig::dimensions),
@@ -33,7 +33,9 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 		Population.CODEC.optionalFieldOf("population", Population.DEFAULTS).forGetter(SimConfig::population),
 		Storage.CODEC.optionalFieldOf("storage", Storage.DEFAULTS).forGetter(SimConfig::storage),
 		Founding.CODEC.optionalFieldOf("founding", Founding.DEFAULTS).forGetter(SimConfig::founding),
-		Daughters.CODEC.optionalFieldOf("daughters", Daughters.DEFAULTS).forGetter(SimConfig::daughters)
+		Daughters.CODEC.optionalFieldOf("daughters", Daughters.DEFAULTS).forGetter(SimConfig::daughters),
+		// phase 3: territory, sites, chains, spoilage, prosperity, caravans, stations, extraction (docs/SIM.md §16)
+		Resources.CODEC.optionalFieldOf("resources", Resources.DEFAULTS).forGetter(SimConfig::resources)
 	).apply(i, SimConfig::new));
 
 	/**
@@ -217,14 +219,33 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 			Map<String, Double> m = new LinkedHashMap<>();
 			m.put("food", 0.5);
 			m.put("wood", 0.5);
-			m.put("stone", 0.4);
-			m.put("clay", 0.8);
+			m.put("stone", 0.25);
+			m.put("clay", 0.3);
 			m.put("glass", 2.0);
 			m.put("metal", 4.0);
 			m.put("cloth", 2.0);
 			m.put("fuel", 1.0);
 			m.put("tools", 6.0);
 			m.put("luxury", 5.0);
+			m.put("logs", 0.35);
+			m.put("ore", 1.5);
+			m.put("dressed_stone", 0.6);
+			m.put("brick", 0.8);
+			m.put("sand", 0.15);
+			m.put("grain", 0.25);
+			m.put("flour", 0.4);
+			m.put("meat", 0.5);
+			m.put("fish", 0.4);
+			m.put("wool", 0.8);
+			m.put("leather", 1.5);
+			m.put("wax", 1.5);
+			m.put("candles", 1.2);
+			m.put("paper", 1.0);
+			m.put("books", 12.0);
+			m.put("dye", 1.0);
+			m.put("salt", 0.8);
+			m.put("produce", 0.4);
+			m.put("specialty", 3.0);
 			return m;
 		}
 
@@ -251,29 +272,20 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 			return c;
 		}
 
+		/**
+		 * Phase 3: what each trade gathers and makes is data ({@code hearth_sim/gathering}, {@code hearth_sim/recipes}); this
+		 * table is for the trades that do neither (a merchant's trade goods, a priest's offerings), and is ignored for a job
+		 * the data covers, so an old config file with phase 2 rows does not pay a town twice.
+		 */
 		private static Map<String, Map<String, Double>> defaultTable() {
 			Map<String, Map<String, Double>> t = new LinkedHashMap<>();
-			row(t, JobType.NONE, "food", 2.5, "wood", 12, "stone", 10, "clay", 4, "fuel", 1);
-			row(t, JobType.BUILDER, "wood", 6, "stone", 6);
-			row(t, JobType.FARMER, "food", 20);
-			row(t, JobType.FORESTER, "wood", 200, "fuel", 12);
-			row(t, JobType.QUARRIER, "stone", 240, "clay", 24, "metal", 6);
-			row(t, JobType.FISHER, "food", 14);
-			row(t, JobType.HERDER, "food", 8, "cloth", 14);
-			row(t, JobType.HUNTER, "food", 10, "cloth", 3);
-			row(t, JobType.CARPENTER, "wood", -40, "tools", 2, "luxury", 2);
-			row(t, JobType.MASON, "stone", -30, "clay", 50, "glass", 30, "fuel", -4);
-			row(t, JobType.SMITH, "metal", -4, "fuel", -3, "tools", 4);
-			row(t, JobType.BAKER, "food", 14);
-			row(t, JobType.BREWER, "food", -4, "luxury", 4);
-			row(t, JobType.INNKEEPER, "food", -3, "luxury", 1);
-			row(t, JobType.MERCHANT, "luxury", 2, "metal", 1);
+			row(t, JobType.MERCHANT, "luxury", 2);
 			row(t, JobType.MINTER, "metal", -1);
 			row(t, JobType.GUARD);
 			row(t, JobType.PRIEST, "luxury", 1);
-			row(t, JobType.SCHOLAR, "luxury", 1);
-			row(t, JobType.COURIER, "luxury", 1, "metal", 1);
-			row(t, JobType.TAILOR, "cloth", 24);
+			row(t, JobType.COURIER, "luxury", 1);
+			row(t, JobType.TRADER, "luxury", 2);
+			row(t, JobType.HEALER, "produce", -1);
 			return t;
 		}
 
@@ -326,17 +338,59 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 	}
 
 	/**
+	 * Store room per goods (phase 3: each building type stores its own goods, docs/SIM.md §16).
+	 *
 	 * @param base        what a settlement can store of each kind of goods with no storehouse
-	 * @param perStorage  added per completed storage building (storehouse, granary, warehouse)
+	 * @param perStorage  added per completed storage building not listed in {@code byArchetype}
 	 * @param perBuilding added per other completed building (lofts, cellars, woodpiles)
+	 * @param byArchetype what particular buildings add, by archetype id, then goods name or group: {@code #all},
+	 *                    {@code #edible} (food, grain, flour, meat, fish, produce, salt), {@code #raw}, {@code #processed},
+	 *                    {@code #finished}, {@code #building} (timber, logs, stone, dressed stone, brick, glass, clay, sand)
 	 */
-	public record Storage(int base, int perStorage, int perBuilding) {
-		public static final Storage DEFAULTS = new Storage(2000, 2500, 120);
+	public record Storage(int base, int perStorage, int perBuilding, Map<String, Map<String, Integer>> byArchetype) {
+		public static final Storage DEFAULTS = new Storage(2000, 2500, 120, defaultByArchetype());
 		public static final Codec<Storage> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.intRange(0, 1_000_000).optionalFieldOf("base", DEFAULTS.base).forGetter(Storage::base),
 			Codec.intRange(0, 1_000_000).optionalFieldOf("per_storage", DEFAULTS.perStorage).forGetter(Storage::perStorage),
-			Codec.intRange(0, 1_000_000).optionalFieldOf("per_building", DEFAULTS.perBuilding).forGetter(Storage::perBuilding)
+			Codec.intRange(0, 1_000_000).optionalFieldOf("per_building", DEFAULTS.perBuilding).forGetter(Storage::perBuilding),
+			Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(Codec.STRING, Codec.intRange(0, 10_000_000))).optionalFieldOf("by_archetype",
+				DEFAULTS.byArchetype).forGetter(Storage::byArchetype)
 		).apply(i, Storage::new));
+
+		private static Map<String, Map<String, Integer>> defaultByArchetype() {
+			Map<String, Map<String, Integer>> m = new LinkedHashMap<>();
+			m.put("hearth:storage/storehouse", Map.of("#all", 2500));
+			m.put("hearth:storage/granary", Map.of("#edible", 6000));
+			m.put("hearth:storage/warehouse", Map.of("#all", 4000, "#building", 3000));
+			m.put("hearth:storage/cellar", Map.of("#edible", 2000));
+			m.put("hearth:work/sawmill", Map.of("logs", 1500, "wood", 1000));
+			m.put("hearth:work/logging_camp", Map.of("logs", 2000));
+			m.put("hearth:work/quarry", Map.of("stone", 3000, "dressed_stone", 800));
+			m.put("hearth:work/masonry", Map.of("dressed_stone", 1000, "brick", 1000));
+			m.put("hearth:work/carpentry", Map.of("wood", 800, "logs", 600));
+			m.put("hearth:work/smithy", Map.of("metal", 300, "tools", 200, "ore", 400, "fuel", 300));
+			m.put("hearth:work/smelter", Map.of("ore", 1200, "metal", 400, "fuel", 600));
+			m.put("hearth:work/charcoal_kiln", Map.of("fuel", 1200, "logs", 800));
+			m.put("hearth:work/brick_kiln", Map.of("brick", 1500, "clay", 1200));
+			m.put("hearth:work/glassworks", Map.of("glass", 800, "sand", 1200));
+			m.put("hearth:work/windmill", Map.of("grain", 2000, "flour", 1500));
+			m.put("hearth:work/watermill", Map.of("grain", 2000, "flour", 1500));
+			m.put("hearth:work/bakery", Map.of("flour", 600, "food", 600));
+			m.put("hearth:work/barn", Map.of("wool", 800, "meat", 400, "grain", 1200));
+			m.put("hearth:work/tannery", Map.of("leather", 600));
+			m.put("hearth:work/chandler", Map.of("candles", 600, "wax", 400));
+			m.put("hearth:work/salt_works", Map.of("salt", 2000));
+			m.put("hearth:work/apiary", Map.of("wax", 400, "produce", 400));
+			m.put("hearth:work/paper_mill", Map.of("paper", 800));
+			m.put("hearth:commerce/caravan_yard", Map.of("#all", 1500));
+			m.put("hearth:commerce/market_hall", Map.of("#finished", 1000, "#processed", 600));
+			m.put("hearth:extract/quarry_pit", Map.of("stone", 4000));
+			m.put("hearth:extract/mine", Map.of("ore", 1500, "stone", 2000, "fuel", 800));
+			m.put("hearth:extract/clay_pit", Map.of("clay", 2000));
+			m.put("hearth:extract/sand_pit", Map.of("sand", 2000));
+			m.put("hearth:extract/plantation", Map.of("logs", 2000));
+			return m;
+		}
 	}
 
 	/**
@@ -372,7 +426,189 @@ public record SimConfig(List<String> dimensions, boolean probeCorrection, Embody
 			m.put("fuel", 40);
 			m.put("tools", 20);
 			m.put("luxury", 0);
+			m.put("logs", 200);
+			m.put("grain", 120);
+			m.put("produce", 60);
+			m.put("dressed_stone", 60);
+			m.put("candles", 20);
 			return m;
 		}
+	}
+
+	/**
+	 * The resource economy (docs/LIVING_WORLD.md §7, docs/SIM.md §16). The goods' chains, the site tables and the land
+	 * of each biome are data ({@code data/<ns>/hearth_sim/}); these are the rules round them.
+	 */
+	public record Resources(Lands land, Chains chains, Spoilage spoilage, Prosperity prosperity, Caravans caravans, Stations stations,
+		Extraction extraction) {
+		public static final Resources DEFAULTS = new Resources(Lands.DEFAULTS, Chains.DEFAULTS, Spoilage.DEFAULTS, Prosperity.DEFAULTS,
+			Caravans.DEFAULTS, Stations.DEFAULTS, Extraction.DEFAULTS);
+		public static final Codec<Resources> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Lands.CODEC.optionalFieldOf("land", Lands.DEFAULTS).forGetter(Resources::land),
+			Chains.CODEC.optionalFieldOf("chains", Chains.DEFAULTS).forGetter(Resources::chains),
+			Spoilage.CODEC.optionalFieldOf("spoilage", Spoilage.DEFAULTS).forGetter(Resources::spoilage),
+			Prosperity.CODEC.optionalFieldOf("prosperity", Prosperity.DEFAULTS).forGetter(Resources::prosperity),
+			Caravans.CODEC.optionalFieldOf("caravans", Caravans.DEFAULTS).forGetter(Resources::caravans),
+			Stations.CODEC.optionalFieldOf("stations", Stations.DEFAULTS).forGetter(Resources::stations),
+			Extraction.CODEC.optionalFieldOf("extraction", Extraction.DEFAULTS).forGetter(Resources::extraction)
+		).apply(i, Resources::new));
+	}
+
+	/**
+	 * @param territory    the radius of land each tier works (blocks from the heart), never into another town's core
+	 * @param coreMargin   blocks beyond a settlement's bounds that count as its core, which no neighbour's territory enters
+	 * @param surveyCells  the survey grid is at most this many cells across the territory
+	 * @param surveyStep   and its cells at least this many blocks apart
+	 * @param maxSites     resource sites a settlement keeps at most
+	 * @param resurveyDays the territory is surveyed again this often (and whenever the tier changes)
+	 */
+	public record Lands(Map<String, Integer> territory, int coreMargin, int surveyCells, int surveyStep, int maxSites, int resurveyDays) {
+		public static final Lands DEFAULTS = new Lands(defaultTerritory(), 32, 36, 24, 48, 120);
+		public static final Codec<Lands> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.unboundedMap(Codec.STRING, Codec.intRange(32, 4096)).optionalFieldOf("territory", DEFAULTS.territory).forGetter(Lands::territory),
+			Codec.intRange(0, 512).optionalFieldOf("core_margin", DEFAULTS.coreMargin).forGetter(Lands::coreMargin),
+			Codec.intRange(8, 128).optionalFieldOf("survey_cells", DEFAULTS.surveyCells).forGetter(Lands::surveyCells),
+			Codec.intRange(8, 128).optionalFieldOf("survey_step", DEFAULTS.surveyStep).forGetter(Lands::surveyStep),
+			Codec.intRange(4, 512).optionalFieldOf("max_sites", DEFAULTS.maxSites).forGetter(Lands::maxSites),
+			Codec.intRange(1, 10000).optionalFieldOf("resurvey_days", DEFAULTS.resurveyDays).forGetter(Lands::resurveyDays)
+		).apply(i, Lands::new));
+
+		private static Map<String, Integer> defaultTerritory() {
+			Map<String, Integer> m = new LinkedHashMap<>();
+			m.put("camp", 96);
+			m.put("hamlet", 160);
+			m.put("village", 256);
+			m.put("town", 384);
+			m.put("city", 512);
+			return m;
+		}
+	}
+
+	/**
+	 * @param toolWear      tools a worker wears out a day where the data does not say (smiths and carpenters make more)
+	 * @param noToolsFactor what a worker manages without tools, as a share of a day's work
+	 * @param noSiteFactor  what a gatherer scrapes together where the territory has none of their kind of site, times the
+	 *                      data's {@code no_site} yields
+	 * @param builderShare  the share of a builder's day spent hewing timber and dressing stone for their own work
+	 * @param haulRange     sites further than this from the heart (blocks) yield less for the walk; haulers carry it back
+	 * @param haulPerHauler gatherers one hauler serves at full yield
+	 */
+	public record Chains(double toolWear, double noToolsFactor, double noSiteFactor, double builderShare, int haulRange, int haulPerHauler) {
+		public static final Chains DEFAULTS = new Chains(0.02, 0.6, 1.0, 0.15, 384, 4);
+		public static final Codec<Chains> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.doubleRange(0, 10).optionalFieldOf("tool_wear", DEFAULTS.toolWear).forGetter(Chains::toolWear),
+			Codec.doubleRange(0, 1).optionalFieldOf("no_tools_factor", DEFAULTS.noToolsFactor).forGetter(Chains::noToolsFactor),
+			Codec.doubleRange(0, 10).optionalFieldOf("no_site_factor", DEFAULTS.noSiteFactor).forGetter(Chains::noSiteFactor),
+			Codec.doubleRange(0, 1).optionalFieldOf("builder_share", DEFAULTS.builderShare).forGetter(Chains::builderShare),
+			Codec.intRange(16, 100000).optionalFieldOf("haul_range", DEFAULTS.haulRange).forGetter(Chains::haulRange),
+			Codec.intRange(1, 100).optionalFieldOf("haul_per_hauler", DEFAULTS.haulPerHauler).forGetter(Chains::haulPerHauler)
+		).apply(i, Chains::new));
+	}
+
+	/**
+	 * @param enabled whether food spoils at all
+	 * @param rate    multiplier on the data's per-good daily spoilage (outside cool stores)
+	 * @param cool    what still spoils inside a granary or cellar, as a share of the outside rate
+	 * @param salted  meat and fish spoil at this share of the rate while there is salt in store
+	 */
+	public record Spoilage(boolean enabled, double rate, double cool, double salted) {
+		public static final Spoilage DEFAULTS = new Spoilage(true, 1.0, 0.1, 0.4);
+		public static final Codec<Spoilage> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Spoilage::enabled),
+			Codec.doubleRange(0, 100).optionalFieldOf("rate", DEFAULTS.rate).forGetter(Spoilage::rate),
+			Codec.doubleRange(0, 1).optionalFieldOf("cool", DEFAULTS.cool).forGetter(Spoilage::cool),
+			Codec.doubleRange(0, 1).optionalFieldOf("salted", DEFAULTS.salted).forGetter(Spoilage::salted)
+		).apply(i, Spoilage::new));
+	}
+
+	/**
+	 * @param enabled        prosperity, carrying capacity, boom and bust at all
+	 * @param capacityLimits growth stops at what the land and the trade can feed (settlers and births dwindle past it)
+	 * @param declineBelow   prosperity under this is decline: folk leave, settlers stay away, empty houses are left
+	 * @param riseAbove      over this, a boom: the town builds finer and draws settlers
+	 * @param finishTier     prosperity raises (and poverty lowers) the finish tier of what the town builds, by one
+	 * @param emigration     the chance a day, in deep decline, that a household leaves
+	 * @param abandonSlack   empty beds a declining town keeps before it leaves a house standing empty
+	 * @param smoothing      how much of a day's fortunes moves the slow average (0.05: about three weeks)
+	 */
+	public record Prosperity(boolean enabled, boolean capacityLimits, double declineBelow, double riseAbove, boolean finishTier, double emigration,
+		int abandonSlack, double smoothing) {
+		public static final Prosperity DEFAULTS = new Prosperity(true, true, 0.35, 0.7, true, 0.25, 6, 0.05);
+		public static final Codec<Prosperity> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Prosperity::enabled),
+			Codec.BOOL.optionalFieldOf("capacity_limits_growth", DEFAULTS.capacityLimits).forGetter(Prosperity::capacityLimits),
+			Codec.doubleRange(0, 1).optionalFieldOf("decline_below", DEFAULTS.declineBelow).forGetter(Prosperity::declineBelow),
+			Codec.doubleRange(0, 1).optionalFieldOf("rise_above", DEFAULTS.riseAbove).forGetter(Prosperity::riseAbove),
+			Codec.BOOL.optionalFieldOf("finish_tier", DEFAULTS.finishTier).forGetter(Prosperity::finishTier),
+			Codec.doubleRange(0, 1).optionalFieldOf("emigration", DEFAULTS.emigration).forGetter(Prosperity::emigration),
+			Codec.intRange(0, 1000).optionalFieldOf("abandon_slack", DEFAULTS.abandonSlack).forGetter(Prosperity::abandonSlack),
+			Codec.doubleRange(0.001, 1).optionalFieldOf("smoothing", DEFAULTS.smoothing).forGetter(Prosperity::smoothing)
+		).apply(i, Prosperity::new));
+	}
+
+	/**
+	 * @param enabled      caravans between towns at all (the background trade with passing traders goes on either way)
+	 * @param maxDistance  towns further apart than this (blocks) do not trade
+	 * @param intervalDays a town sends a caravan at most this often
+	 * @param cargo        units a caravan carries
+	 * @param speed        blocks a laden caravan covers in a sim day on easy ground
+	 * @param risk         the chance per 1000 blocks that a caravan is lost to bandits or the wild (rough land more)
+	 * @param minValue     a caravan sets out only for a cargo worth this many bits to the buyer
+	 * @param margin       the seller's share of the price difference (the rest is the buyer's saving)
+	 */
+	public record Caravans(boolean enabled, int maxDistance, int intervalDays, int cargo, double speed, double risk, int minValue, double margin) {
+		public static final Caravans DEFAULTS = new Caravans(true, 3200, 4, 640, 1800, 0.03, 60, 0.5);
+		public static final Codec<Caravans> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Caravans::enabled),
+			Codec.intRange(100, 100000).optionalFieldOf("max_distance", DEFAULTS.maxDistance).forGetter(Caravans::maxDistance),
+			Codec.intRange(1, 1000).optionalFieldOf("interval_days", DEFAULTS.intervalDays).forGetter(Caravans::intervalDays),
+			Codec.intRange(1, 100000).optionalFieldOf("cargo", DEFAULTS.cargo).forGetter(Caravans::cargo),
+			Codec.doubleRange(10, 1_000_000).optionalFieldOf("speed", DEFAULTS.speed).forGetter(Caravans::speed),
+			Codec.doubleRange(0, 1).optionalFieldOf("risk", DEFAULTS.risk).forGetter(Caravans::risk),
+			Codec.intRange(0, 1_000_000).optionalFieldOf("min_value", DEFAULTS.minValue).forGetter(Caravans::minValue),
+			Codec.doubleRange(0, 1).optionalFieldOf("margin", DEFAULTS.margin).forGetter(Caravans::margin)
+		).apply(i, Caravans::new));
+	}
+
+	/**
+	 * @param enabled    households move up and down the stations with their means
+	 * @param periodDays each household is looked at this often (staggered, so a day only touches a few)
+	 * @param upAt       a household earning this many times what its trade usually earns moves up a station
+	 * @param downAt     one earning less than this share of it moves down
+	 * @param gentryAt   a merchant household earning this many times its trade's usual, in a town or city, becomes gentry
+	 */
+	public record Stations(boolean enabled, int periodDays, double upAt, double downAt, double gentryAt) {
+		public static final Stations DEFAULTS = new Stations(true, 10, 2.2, 0.5, 5.0);
+		public static final Codec<Stations> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Stations::enabled),
+			Codec.intRange(1, 1000).optionalFieldOf("period_days", DEFAULTS.periodDays).forGetter(Stations::periodDays),
+			Codec.doubleRange(1, 100).optionalFieldOf("up_at", DEFAULTS.upAt).forGetter(Stations::upAt),
+			Codec.doubleRange(0, 1).optionalFieldOf("down_at", DEFAULTS.downAt).forGetter(Stations::downAt),
+			Codec.doubleRange(1, 1000).optionalFieldOf("gentry_at", DEFAULTS.gentryAt).forGetter(Stations::gentryAt)
+		).apply(i, Stations::new));
+	}
+
+	/**
+	 * @param abstractOnly   extraction changes no terrain: excavations are not written into the world and natural woods
+	 *                       are not felled, the loop runs as numbers (LIVING_WORLD.md §7.8)
+	 * @param hoursPerDay    hours a quarrier or miner works an excavation a sim day (at the builders' rate per hour)
+	 * @param seamFactor     a mine follows the seams: its cuts meet this many times the ore of plain rock
+	 * @param fellWoods      trees taken abstractly from natural woods come down in loaded chunks (and saplings go in)
+	 * @param fellBudgetMs   time per tick for finding and felling them
+	 * @param fellAway       never fell a tree within this many blocks of a player (embodied foresters do that in view)
+	 * @param maxFellingDebt logs at most owed to the world per site (the rest are forgotten: the wood regrew meanwhile)
+	 */
+	public record Extraction(boolean abstractOnly, double hoursPerDay, double seamFactor, boolean fellWoods, double fellBudgetMs, int fellAway,
+		int maxFellingDebt) {
+		public static final Extraction DEFAULTS = new Extraction(false, 9, 6, true, 0.25, 48, 2000);
+		public static final Codec<Extraction> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("abstract_only", DEFAULTS.abstractOnly).forGetter(Extraction::abstractOnly),
+			Codec.doubleRange(0, 24).optionalFieldOf("hours_per_day", DEFAULTS.hoursPerDay).forGetter(Extraction::hoursPerDay),
+			Codec.doubleRange(0, 100).optionalFieldOf("seam_factor", DEFAULTS.seamFactor).forGetter(Extraction::seamFactor),
+			Codec.BOOL.optionalFieldOf("fell_natural_woods", DEFAULTS.fellWoods).forGetter(Extraction::fellWoods),
+			Codec.doubleRange(0, 50).optionalFieldOf("fell_budget_ms", DEFAULTS.fellBudgetMs).forGetter(Extraction::fellBudgetMs),
+			Codec.intRange(0, 512).optionalFieldOf("fell_away_from_players", DEFAULTS.fellAway).forGetter(Extraction::fellAway),
+			Codec.intRange(0, 1_000_000).optionalFieldOf("max_felling_debt", DEFAULTS.maxFellingDebt).forGetter(Extraction::maxFellingDebt)
+		).apply(i, Extraction::new));
 	}
 }

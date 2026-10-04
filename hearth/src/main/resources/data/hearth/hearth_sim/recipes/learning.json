@@ -1,0 +1,5 @@
+{ "recipes": [
+  { "job": "papermaker", "inputs": { "logs": 6 }, "outputs": { "paper": 8 }, "priority": 1 },
+  { "job": "papermaker", "inputs": { "cloth": 2 }, "outputs": { "paper": 4 } },
+  { "job": "scholar", "inputs": { "paper": 4 }, "outputs": { "books": 1 }, "target": 0.3, "tools": 0 }
+] }

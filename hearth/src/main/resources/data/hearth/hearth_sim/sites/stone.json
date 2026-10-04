@@ -1,0 +1,1 @@
+{ "kind": "stone", "per_cell": 40000, "regen": 0, "primary": "quarrier", "max_cells": 12, "max_sites": 6, "material": "minecraft:stone" }

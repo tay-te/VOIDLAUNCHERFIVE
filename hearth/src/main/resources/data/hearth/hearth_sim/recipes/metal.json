@@ -1,0 +1,6 @@
+{ "recipes": [
+  { "job": "smelter", "inputs": { "ore": 6, "fuel": 3 }, "outputs": { "metal": 4 } },
+  { "job": "smith", "inputs": { "metal": 4, "fuel": 2 }, "outputs": { "tools": 4 }, "priority": 2, "target": 0.5 },
+  { "job": "smith", "inputs": { "ore": 6, "fuel": 4 }, "outputs": { "metal": 3 }, "priority": 1, "target": 0.5 },
+  { "job": "smith", "inputs": { "metal": 3, "fuel": 1 }, "outputs": { "luxury": 2 }, "target": 0.2 }
+] }

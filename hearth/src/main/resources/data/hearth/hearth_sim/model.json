@@ -1,0 +1,13 @@
+{
+  "edible": { "produce": 1.0, "fish": 0.9, "meat": 0.9, "flour": 0.7, "grain": 0.5 },
+  "perishable": { "food": 0.02, "meat": 0.06, "fish": 0.08, "produce": 0.04, "flour": 0.01, "grain": 0.003 },
+  "cool": [ "hearth:storage/granary", "hearth:storage/cellar", "hearth:work/salt_works", "hearth:deep/hall" ],
+  "extraction": {
+    "extract/quarry_pit": { "job": "quarrier", "kind": "stone", "yields": { "stone": 1 } },
+    "extract/mine": { "job": "miner", "kind": "ore", "yields": { "stone": 0.6 } },
+    "extract/shaft": { "job": "miner", "kind": "ore", "yields": { "stone": 0.6 } },
+    "extract/clay_pit": { "job": "clay_digger", "kind": "clay", "yields": { "clay": 1 } },
+    "extract/sand_pit": { "job": "clay_digger", "kind": "sand", "yields": { "sand": 1 } },
+    "extract/plantation": { "job": "forester", "kind": "woods", "yields": { "logs": 1 }, "any_height": true }
+  }
+}

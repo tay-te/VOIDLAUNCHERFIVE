@@ -181,6 +181,46 @@
     {
       "id": "expanse:volcanic_ash",
       "required": false
+    },
+    "minecraft:gold_ore",
+    "minecraft:deepslate_gold_ore",
+    "minecraft:redstone_ore",
+    "minecraft:deepslate_redstone_ore",
+    "minecraft:lapis_ore",
+    "minecraft:deepslate_lapis_ore",
+    "minecraft:diamond_ore",
+    "minecraft:deepslate_diamond_ore",
+    "minecraft:emerald_ore",
+    "minecraft:deepslate_emerald_ore",
+    "minecraft:basalt",
+    "minecraft:budding_amethyst",
+    "minecraft:amethyst_cluster",
+    "minecraft:rooted_dirt",
+    "minecraft:hanging_roots",
+    "minecraft:glow_berries",
+    {
+      "id": "expanse:amber",
+      "required": false
+    },
+    {
+      "id": "expanse:insect_amber",
+      "required": false
+    },
+    {
+      "id": "expanse:prismite_block",
+      "required": false
+    },
+    {
+      "id": "expanse:prismite_cluster",
+      "required": false
+    },
+    {
+      "id": "expanse:glowroots",
+      "required": false
+    },
+    {
+      "id": "expanse:amber_spike",
+      "required": false
     }
   ]
 }

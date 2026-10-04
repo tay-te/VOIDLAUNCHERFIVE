@@ -104,6 +104,10 @@ public final class PlaceholderBlueprints implements BlueprintService {
 		info(WELL, ArchetypeCategory.LANDSCAPE, Set.of(), 0, 5, 5, 5, 5, 4, 5, SettlementTier.CAMP, Set.of(ArchetypeInfo.SiteFlag.CENTRAL));
 		info(STOREHOUSE, ArchetypeCategory.STORAGE, Set.of(), 0, 7, 11, 7, 11, 6, 8, SettlementTier.HAMLET, Set.of());
 		info(ROAD, ArchetypeCategory.INFRASTRUCTURE, Set.of(), 0, 1, 512, 1, 512, 3, 4, SettlementTier.CAMP, Set.of());
+		// phase 3: excavations, for the extraction loop (never proposed by the placeholder planner; tests add them)
+		for (ArchetypeInfo x : PlaceholderExcavations.infos()) {
+			this.archetypes.put(x.id(), x);
+		}
 	}
 
 	private void info(Identifier id, ArchetypeCategory category, Set<JobType> jobs, int beds, int minF, int maxF, int minD, int maxD, int minH,
@@ -165,6 +169,9 @@ public final class PlaceholderBlueprints implements BlueprintService {
 		}
 		if (a.equals(ROAD)) {
 			return road(spec, terrain);
+		}
+		if (PlaceholderExcavations.handles(a)) {
+			return PlaceholderExcavations.generate(spec, terrain);
 		}
 		throw new IllegalArgumentException("no placeholder for archetype " + a);
 	}
