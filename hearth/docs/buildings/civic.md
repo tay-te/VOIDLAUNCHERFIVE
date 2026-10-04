@@ -26,23 +26,24 @@ height: a roof that cannot fit pitched becomes flat behind a parapet, towers and
 stone arches, pointed ones, braced timber posts, bracketed eastern posts), market counters under it with a merchant's
 place behind each; a back bay closed in for the stores and the stair; the hall upstairs with tables and benches under
 the roof; a cupola on the ridge with a bell and, in towns of standing, clock faces (front and back). Flat-roofed
-traditions put little domes on drums over the roof instead (the souk). Dormers light pitched roofs.
+traditions put little domes on drums over the roof instead (the souk). Dormers light the deepest pitched roofs.
 
 **Inn.** A coaching inn: a stone carriage arch (voussoirs and keystone) through one side of the ground floor to the
 stable yard behind, a side door from the passage into the tap room; the tap room with its bar (kegs racked behind the
 innkeeper), tables and chairs, the hearth and its chimney; the stair up to a corridor along the back and guest rooms
-along the street with beds and chests; a settle and casks of ale with a lantern by the door; the hanging sign over the door with one of 16 names (translatable: "The Red
-Lion", "The Wheatsheaf"…); a bay window to the street; balconies (alpine, karst, raised), a vine pergola
-(mediterranean), a roof terrace, latticed screens, a striped awning and a palm in the yard (desert, mesa); behind, the stable with stalls and hay and a gallery along the yard.
-Raised traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch.
+along the street with beds and chests; a settle and casks of ale with a lantern by the door; the hanging sign over
+the door with one of 16 names (translatable: "The Red Lion", "The Wheatsheaf"...); a bay window to the street;
+balconies (alpine, karst, raised), a vine pergola (mediterranean), a roof terrace, latticed screens, a striped awning
+and a palm in the yard (desert, mesa); behind, the stable with stalls and hay and a gallery along the yard. Raised
+traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch.
 
 **Bank.** A rusticated stone storey whatever the culture (or a stone base under a karst hall), barred windows, a
 portico of columns and a pediment where the plot allows (a karst gate roof, an adobe crest), and on smaller plots an
 aedicule (two columns and a pediment framing the door); a low hipped roof behind a cornice whatever the houses do (a
 crested parapet, the beam ends in a row, latticed screens and a little dome on a drum in the dry south); the counter
 across the banking hall with the minter's workstation at its end; the strongroom behind an iron door with buttons
-(chests of coin, a block of gold); the press room with a blast furnace and an anvil; a lectern for the ledgers. Two
-storeys where deep enough, else one tall hall.
+(chests of coin, a block of gold); the press room with a blast furnace, an anvil and the coin press (a die under a
+piston); a lectern for the ledgers. Two storeys where deep enough, else one tall hall.
 
 **Chapel.** One per tradition:
 - *Western parish church* (temperate, wisteria, moorland, maritime, alpine, tundra): nave of pews either side of an
@@ -79,7 +80,8 @@ plot is deep; a glazed lantern on the ridge (a dome on a drum of lights in the d
 a bell on a post.
 
 **Bathhouse.** The Roman *thermae* (most traditions): a hall of columns round a sunken pool on a mosaic floor, a hot
-pool in the back with steam rising through grates (campfires beneath), benches, a clerestory lantern, a portico. The
+pool in the back with steam rising through grates (campfires beneath), benches, a clerestory lantern, a portico with
+basins of water either side fed from carved heads in the wall. The
 *hammam* (desert, mesa): an iwan front, a hot room under a dome with star-lights on a drum, little domes at the
 corners, the marble platform, basins, a cold pool. The *onsen* (karst): a rock pool steaming in a walled garden of
 stone lanterns behind a gate, a lattice bath hall under a curved roof. The *sauna* (northern): a log bath house with
