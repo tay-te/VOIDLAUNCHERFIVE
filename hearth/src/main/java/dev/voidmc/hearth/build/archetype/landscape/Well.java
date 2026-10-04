@@ -15,6 +15,9 @@ import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Roofs;
+import dev.voidmc.hearth.build.kit.landscape.Lamps;
+import dev.voidmc.hearth.build.kit.landscape.Manner;
+import dev.voidmc.hearth.build.kit.landscape.Paving;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
@@ -31,11 +34,14 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:landscape/well}: the village well, where folk meet. A stone curb round a deep shaft of water on a paved
- * square, two posts carrying a little roof in the culture's manner (a gable, a curved hip with lifted corners, a dome on
- * four posts in the desert) with a windlass beam and a bucket on a chain over the water, benches facing it, a trough,
- * flowers in pots and a lantern on a post at a corner.
+ * square, and over it the culture's well head: posts carrying a little roof (a gable, a hip, a half-hip, a curved
+ * karst roof) with a windlass and its crank, the bucket on a chain; a well sweep in the north and on the steppe (a tall
+ * post, a long pole with a stone on its short arm and the bucket on its long one); a wrought-iron arch with a lantern
+ * on its crown in the south; a domed kiosk on arched piers in the desert. Round it benches facing the curb, a trough,
+ * flowers in pots and lanterns on posts at the corners.
  *
- * <p>Registers a MEETING_POINT at the curb and an entrance at the middle of the street front. Params: none.
+ * <p>Registers a MEETING_POINT at the curb and an entrance at the middle of the street front. Params: {@code head}
+ * ({@code windlass}, {@code sweep}, {@code arch}, {@code kiosk}; default by culture).
  */
 public final class Well implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landscape/well"), ArchetypeCategory.LANDSCAPE, Set.of(), 0,
@@ -96,56 +102,13 @@ public final class Well implements Archetype {
 				}
 			}
 		}
-		// the roof over it in the culture's manner
-		RoofForm form = h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.PAGODA, RoofForm.DOME, RoofForm.FLAT, RoofForm.CONE);
-		int postH = 3;
-		Mat post = d.mat(Role.FRAME);
-		Mat fence = d.mat(Role.FENCE);
-		boolean four = form == RoofForm.DOME || form == RoofForm.HIP || form == RoofForm.PAGODA || form == RoofForm.CONE || form == RoofForm.FLAT;
-		int[][] posts = four ? new int[][]{{cx - r, cz - r}, {cx + r, cz - r}, {cx - r, cz + r}, {cx + r, cz + r}} : new int[][]{{cx - r, cz}, {cx + r, cz}};
-		try (var s = d.stage(StageKind.FRAME)) {
-			for (int[] p : posts) {
-				for (int y = 1; y <= postH + 1; y++) {
-					d.set(p[0], y, p[1], post.log(Direction.Axis.Y).orElse(fence.fence()));
-				}
-			}
-			// a frame of beams round the top of the posts carries the roof
-			Mat ringBeam = d.mat(Role.BEAM);
-			for (int dz = -r; dz <= r; dz++) {
-				for (int dx = -r; dx <= r; dx++) {
-					if (Math.abs(dx) == r || Math.abs(dz) == r) {
-						d.set(cx + dx, postH + 1, cz + dz, ringBeam.log(Math.abs(dz) == r ? Direction.Axis.X : Direction.Axis.Z));
-					}
-				}
-			}
-			// the windlass beam across, the chain and the bucket (a cauldron) over the water
-			for (int x = cx - r; x <= cx + r; x++) {
-				d.set(x, postH + 1, cz, d.mat(Role.BEAM).log(Direction.Axis.X));
-			}
-			d.set(cx, postH, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
-			d.set(cx, postH - 1, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
-			d.set(cx, postH - 2, cz, Blocks.CAULDRON.defaultBlockState());
-		}
-		int roofY = postH + 2;
-		switch (form) {
-			case DOME -> dome(d, cx, cz, r, roofY);
-			case FLAT -> {
-				Mat deck = d.mat(Role.ROOF);
-				try (var s = d.stage(StageKind.ROOF)) {
-					for (int dz = -r - 1; dz <= r + 1; dz++) {
-						for (int dx = -r - 1; dx <= r + 1; dx++) {
-							boolean rim = Math.abs(dx) == r + 1 || Math.abs(dz) == r + 1;
-							d.set(cx + dx, roofY, cz + dz, rim ? deck.slab(SlabType.TOP) : deck.full());
-						}
-					}
-				}
-			}
-			default -> {
-				Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1);
-				RoofForm f = form == RoofForm.CONE ? RoofForm.HIP : form;
-				Roofs.build(d, cx - r, cz - r, cx + r, cz + r, roofY - 1, f, Direction.Axis.X, o, false, false);
-			}
-		}
+		// what stands over the shaft, in the culture's manner
+		int roofY = switch (variant(d)) {
+			case SWEEP -> sweep(d, cx, cz, r, w, dp);
+			case ARCH -> arch(d, cx, cz, r);
+			case KIOSK -> kiosk(d, cx, cz, r);
+			default -> windlass(d, h, cx, cz, r);
+		};
 		d.poi(PoiType.MEETING_POINT, cx, 0, cz - r - 1, Dirs.BACK);
 		// benches facing the well, a trough, pots and a lamp
 		if (big) {
@@ -163,30 +126,176 @@ public final class Well implements Archetype {
 				Garden.pot(d, p[0], 0, p[1]);
 			}
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, roofY + 4);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roofY + 4));
 	}
 
-	/** A small dome on the four posts (desert wells): a ring of stairs, then slabs, then a finial. */
-	private static void dome(Draft d, int cx, int cz, int r, int y) {
-		Mat roof = d.mat(Role.ROOF);
-		Mat accent = d.mat(Role.WALL_ACCENT);
-		Roofs.Field dome = Roofs.dome(cx, cz, r + 1, 0.8);
-		Roofs.Roof rr = Roofs.raster(d, dome, y, cx - r - 1, cz - r - 1, cx + r + 1, cz + r + 1, roof, accent, Habits.Ridge.FULL);
-		// a drum over the ring beam carries the dome
-		try (var s = d.stage(StageKind.ROOF)) {
+	enum Head {
+		WINDLASS, SWEEP, ARCH, KIOSK
+	}
+
+	/** The well head a culture builds: a sweep in the north and on the steppe, an iron arch in the south, a domed kiosk in the desert. */
+	static Head variant(Draft d) {
+		String forced = d.param("head", "");
+		for (Head v : Head.values()) {
+			if (v.name().equalsIgnoreCase(forced)) {
+				return v;
+			}
+		}
+		return switch (Manner.culture(d)) {
+			case NORTHERN, TUNDRA, STEPPE -> Head.SWEEP;
+			case MEDITERRANEAN -> Head.ARCH;
+			case DESERT, MESA -> Head.KIOSK;
+			default -> Head.WINDLASS;
+		};
+	}
+
+	/** Posts carrying a little roof in the culture's form, a windlass with its crank, the bucket on its chain. Returns the top. */
+	private static int windlass(Draft d, Habits h, int cx, int cz, int r) {
+		RoofForm form = h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.PAGODA, RoofForm.HALF_HIP);
+		int postH = 3;
+		Mat post = d.mat(Role.FRAME);
+		Mat fence = d.mat(Role.FENCE);
+		boolean four = form == RoofForm.HIP || form == RoofForm.PAGODA;
+		int[][] posts = four ? new int[][]{{cx - r, cz - r}, {cx + r, cz - r}, {cx - r, cz + r}, {cx + r, cz + r}} : new int[][]{{cx - r, cz}, {cx + r, cz}};
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int[] p : posts) {
+				for (int y = 1; y <= postH + 1; y++) {
+					d.set(p[0], y, p[1], post.log(Direction.Axis.Y).orElse(fence.fence()));
+				}
+			}
+			Mat ringBeam = d.mat(Role.BEAM);
 			for (int dz = -r; dz <= r; dz++) {
 				for (int dx = -r; dx <= r; dx++) {
-					if (Math.abs(dx) != r && Math.abs(dz) != r || !rr.covers(cx + dx, cz + dz)) {
-						continue;
+					if (Math.abs(dx) == r || Math.abs(dz) == r) {
+						d.set(cx + dx, postH + 1, cz + dz, ringBeam.log(Math.abs(dz) == r ? Direction.Axis.X : Direction.Axis.Z));
 					}
-					for (int yy = y; yy < rr.bottomY(cx + dx, cz + dz); yy++) {
-						d.set(cx + dx, yy, cz + dz, accent.full());
-					}
+				}
+			}
+			// the windlass: a beam across with a crank handle out past one post, the chain and the bucket
+			for (int x = cx - r; x <= cx + r; x++) {
+				d.set(x, postH, cz, d.mat(Role.BEAM).log(Direction.Axis.X));
+			}
+			if (cx + r + 1 < d.frontage()) {
+				d.set(cx + r + 1, postH, cz, Lamps.post(d));
+			}
+			d.set(cx, postH - 1, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			d.set(cx, postH - 2, cz, Blocks.CAULDRON.defaultBlockState());
+		}
+		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1);
+		Roofs.Built b = Roofs.build(d, cx - r, cz - r, cx + r, cz + r, postH + 1, form, Direction.Axis.X, o, false, false);
+		return b.roof().ridgeY;
+	}
+
+	/**
+	 * A well sweep: a post beside the curb, a long pole pivoting on it with a counterweight stone at the short end and the
+	 * bucket on a chain over the shaft at the long one. Returns the top.
+	 */
+	private static int sweep(Draft d, int cx, int cz, int r, int w, int dp) {
+		Mat post = d.mat(Role.FRAME);
+		Mat beam = d.mat(Role.BEAM);
+		int px = Math.min(w - 1, cx + r + 1);
+		int pz = cz;
+		int top = Math.min(d.maxHeight() - 2, 5);
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int y = 0; y <= top; y++) {
+				d.set(px, y, pz, post.log(Direction.Axis.Y).orElse(post.full()));
+			}
+			int pivot = top + 1;
+			d.set(px, pivot, pz, beam.log(Direction.Axis.X).orElse(beam.full()));
+			// the long arm dips toward the shaft
+			for (int x = cx; x < px; x++) {
+				d.set(x, x == px - 1 ? pivot : pivot - 1, pz, beam.log(Direction.Axis.X).orElse(beam.full()));
+			}
+			// the short arm rises past the post with a stone hung on it
+			if (px + 1 < w) {
+				d.set(px + 1, pivot, pz, beam.log(Direction.Axis.X).orElse(beam.full()));
+				d.set(px + 1, pivot - 1, pz, Blocks.COBBLESTONE.defaultBlockState());
+			}
+			for (int y = pivot - 2; y >= 2; y--) {
+				d.set(cx, y, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			}
+			d.set(cx, 1, cz, Blocks.CAULDRON.defaultBlockState());
+		}
+		return top + 1;
+	}
+
+	/** A wrought-iron arch over the curb with a lantern on its crown, the bucket on its chain. Returns the top. */
+	private static int arch(Draft d, int cx, int cz, int r) {
+		Mat stone = d.mat(Role.WALL_ACCENT);
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int x : new int[]{cx - r, cx + r}) {
+				d.set(x, 2, cz, Blocks.IRON_BARS.defaultBlockState());
+				d.set(x, 3, cz, Blocks.IRON_BARS.defaultBlockState());
+			}
+			for (int x = cx - r; x <= cx + r; x++) {
+				d.set(x, 4, cz, Blocks.IRON_BARS.defaultBlockState());
+			}
+			d.set(cx, 5, cz, States.lantern(Lamps.lantern(d), false));
+			d.set(cx, 3, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			d.set(cx, 2, cz, Blocks.CAULDRON.defaultBlockState());
+		}
+		return 5;
+	}
+
+	/** A domed kiosk: masonry piers with arched openings, a flat roof and a stepped cupola. Returns the top. */
+	private static int kiosk(Draft d, int cx, int cz, int r) {
+		Mat stone = Manner.masonry(d);
+		Mat roof = d.mat(Role.ROOF);
+		Mat accent = Paving.inlay(d);
+		int x0 = cx - r - 1;
+		int x1 = cx + r + 1;
+		int z0 = cz - r - 1;
+		int z1 = cz + r + 1;
+		if (x0 < 0 || z0 < 0 || x1 >= d.frontage() || z1 >= d.depth()) {
+			x0 = cx - r;
+			x1 = cx + r;
+			z0 = cz - r;
+			z1 = cz + r;
+		}
+		int plate = 4;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
+				for (int y = 0; y < plate; y++) {
+					d.set(c[0], y, c[1], stone.full());
+				}
+			}
+			for (int[] c : Draft.ring(x0, z0, x1, z1)) {
+				d.set(c[0], plate, c[1], stone.full());
+			}
+			if (stone.has(Form.STAIRS) && x1 - x0 >= 4) {
+				for (int z : new int[]{z0, z1}) {
+					d.set(x0 + 1, plate - 1, z, stone.stairs(Dirs.LEFT, Half.TOP));
+					d.set(x1 - 1, plate - 1, z, stone.stairs(Dirs.RIGHT, Half.TOP));
+				}
+				for (int x : new int[]{x0, x1}) {
+					d.set(x, plate - 1, z0 + 1, stone.stairs(Dirs.FRONT, Half.TOP));
+					d.set(x, plate - 1, z1 - 1, stone.stairs(Dirs.BACK, Half.TOP));
 				}
 			}
 		}
 		try (var s = d.stage(StageKind.ROOF)) {
-			d.set(cx, rr.ridgeY + 1, cz, accent.has(Form.WALL) ? accent.wall() : d.mat(Role.FENCE).fence());
+			for (int z = z0 + 1; z < z1; z++) {
+				for (int x = x0 + 1; x < x1; x++) {
+					d.set(x, plate, z, roof.full());
+				}
+			}
+			for (int z = cz - 1; z <= cz + 1; z++) {
+				for (int x = cx - 1; x <= cx + 1; x++) {
+					if (x == cx && z == cz) {
+						d.set(x, plate + 1, z, roof.full());
+					} else if (x == cx || z == cz) {
+						d.set(x, plate + 1, z, roof.stairsOrSlab(Dirs.nearest(cx - x, cz - z), Half.BOTTOM));
+					} else {
+						d.set(x, plate + 1, z, roof.slab(SlabType.BOTTOM));
+					}
+				}
+			}
+			d.set(cx, plate + 2, cz, accent.full());
 		}
+		try (var s = d.stage(StageKind.FRAME)) {
+			d.set(cx, plate - 1, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			d.set(cx, plate - 2, cz, Blocks.CAULDRON.defaultBlockState());
+		}
+		return plate + 2;
 	}
 }
