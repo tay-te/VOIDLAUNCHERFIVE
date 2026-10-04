@@ -222,6 +222,7 @@ final class Smooth {
 	}
 
 	private void emit(int v, float drop, int i, int j) {
+		this.out.light(this.s.at(i, j));
 		this.out.vertex(i, this.vy[v] - drop, j, this.vflags[v], this.vtop[v], this.vgx[v], this.vside[v], this.vgz[v]);
 	}
 

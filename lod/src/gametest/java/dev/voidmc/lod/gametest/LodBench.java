@@ -109,6 +109,38 @@ public final class LodBench {
 				}
 			});
 			double reused = 100.0 * (TileBuilder.SAMPLES_REUSED.get() - reused0) / (TileBuilder.SAMPLES.get() - samples0);
+			if (Boolean.getBoolean("lod.bench.light") || Boolean.getBoolean("lod.bench.faces")) {
+				// coarse to fine, the order the game builds them in, lit, and what the blocky meshes are made of
+				TileBuilder lit = new TileBuilder();
+				long[][] faces = new long[TileKey.MAX_LEVEL + 1][2];
+				dev.voidmc.lod.core.Heights heights = Boolean.getBoolean("lod.bench.light") ? new dev.voidmc.lod.core.Heights() : null;
+				long light0 = TileBuilder.LIGHT_NANOS.get(), sample0 = TileBuilder.SAMPLE_NANOS.get();
+				long[] order = new long[tiles.size()];
+				for (int i = 0; i < order.length; i++) {
+					order[i] = tiles.get(i);
+				}
+				java.util.Arrays.sort(order);
+				for (int i = order.length - 1; i >= 0; i--) {
+					TileBuilder.Mesh mesh = lit.build(source, order[i], heights);
+					if (!mesh.smooth()) {
+						java.nio.ByteBuffer v = mesh.vertices();
+						int lvl = TileKey.level(order[i]);
+						for (int q = 0; q < mesh.vertexCount() / 4; q++) {
+							int face = v.getShort(q * 4 * TileBuilder.VERTEX_BYTES + 6) & 7;
+							faces[lvl][face == 0 ? 0 : 1]++;
+						}
+					}
+				}
+				for (int l = 0; l <= TileKey.MAX_LEVEL; l++) {
+					if (levels[l] > 0 && faces[l][0] + faces[l][1] > 0) {
+						System.out.printf(Locale.ROOT, "  L%d: %.0f tops, %.0f walls a tile%n", l, faces[l][0] / (double) levels[l], faces[l][1] / (double) levels[l]);
+					}
+				}
+				if (heights != null) {
+					System.out.printf(Locale.ROOT, "  light: %.1f ms a tile, %d lookups went coarser; sampling %.1f ms a tile%n",
+						(TileBuilder.LIGHT_NANOS.get() - light0) / 1e6 / tiles.size(), heights.coarser.get(), (TileBuilder.SAMPLE_NANOS.get() - sample0) / 1e6 / tiles.size());
+				}
+			}
 			int threads = Runtime.getRuntime().availableProcessors();
 			long parallel = best(() -> {
 				ThreadLocal<TileBuilder> builders = ThreadLocal.withInitial(TileBuilder::new);
