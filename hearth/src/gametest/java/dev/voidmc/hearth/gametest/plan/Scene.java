@@ -247,6 +247,11 @@ public final class Scene {
 		int floor = s.floorY();
 		int roof = Palette.roof(id, info);
 		int wall = Palette.wall(info);
+		dev.voidmc.hearth.api.Station station = dev.voidmc.hearth.plan.society.Stations.home(s, info);
+		if (station != null) {
+			// who lives there, on the roof, as on the plan
+			roof = Palette.station(station);
+		}
 		if (id.equals(Archetypes.TERRACE)) {
 			int lv = p.getIntOr("level", floor);
 			for (int z = z0; z <= z1; z++) {

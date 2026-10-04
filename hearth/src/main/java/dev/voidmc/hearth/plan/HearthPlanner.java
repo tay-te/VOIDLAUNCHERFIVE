@@ -77,6 +77,7 @@ public final class HearthPlanner implements SettlementPlanner {
 		state.queue.clear();
 		state.issued.clear();
 		state.cooldowns.clear();
+		state.failures.clear();
 		state.wallStage = 0;
 		state.wallRadius = 0;
 		state.squareEdge = -1;

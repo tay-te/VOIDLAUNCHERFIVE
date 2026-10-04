@@ -101,9 +101,13 @@ public final class Upgrades {
 		}
 		dev.voidmc.hearth.api.Station best = own;
 		double bestShort = ctx.ledger.shortfall(own, ctx.config.housingMargin());
+		boolean rooms = target.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.TENEMENT) || target.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.SHACK);
 		for (dev.voidmc.hearth.api.Station s : dev.voidmc.hearth.api.Station.values()) {
-			if (s == dev.voidmc.hearth.api.Station.LORD || s == dev.voidmc.hearth.api.Station.GENTRY
-				|| dev.voidmc.hearth.plan.society.Stations.affinity(s, target.id()) < 0.45) {
+			// a town's core is rebuilt for its townsfolk: the poor only in tenements and back-lane shacks, never the
+			// peasants (they live out by their fields), the gentry and the lord in their own houses
+			boolean townsfolk = s != dev.voidmc.hearth.api.Station.LORD && s != dev.voidmc.hearth.api.Station.GENTRY
+				&& s != dev.voidmc.hearth.api.Station.PEASANT && (s != dev.voidmc.hearth.api.Station.POOR || rooms);
+			if (!townsfolk || dev.voidmc.hearth.plan.society.Stations.affinity(s, target.id()) < 0.45) {
 				continue;
 			}
 			double sf = ctx.ledger.shortfall(s, ctx.config.housingMargin());
@@ -278,7 +282,7 @@ public final class Upgrades {
 			PlotView p = batch.get(i);
 			PlotSpec old = p.spec();
 			int[] r = fit(deepen(ctx, rects.get(i), facing, target.minDepth()), facing, target, alongX, ascending);
-			if (r == null) {
+			if (r == null || !doorOnStreet(ctx, old, r, facing)) {
 				continue;
 			}
 			CompoundTag params = new CompoundTag();
@@ -329,6 +333,17 @@ public final class Upgrades {
 			Roads.issue(ctx, walk.spec, "walkway: joining tall houses across the street");
 		}
 		return true;
+	}
+
+	/**
+	 * Whether the rebuilt house's door still opens onto the street: widened into the gap beside it, its middle may have
+	 * moved off a bending road (the old house's own door path does not reach a new door).
+	 */
+	private static boolean doorOnStreet(PlanContext ctx, PlotSpec old, int[] r, Direction facing) {
+		PlotSpec probe = new PlotSpec(old.archetype(), old.style(), 0, new BlockPos(r[0], old.floorY(), r[1]), r[2] - r[0] + 1, r[3] - r[1] + 1, facing, 1, 0,
+			new CompoundTag());
+		int[] e = dev.voidmc.hearth.plan.grid.PlotGeometry.entrance(probe);
+		return dev.voidmc.hearth.plan.grid.Cell.isAccess(ctx.occ.get(e[0], e[1]));
 	}
 
 	private static PlotSpec withParam(PlotSpec s, String key, int value) {

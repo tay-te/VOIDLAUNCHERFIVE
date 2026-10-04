@@ -77,6 +77,7 @@ public final class Growth {
 					met ? "planned" : "no room", (int) o[0], (System.nanoTime() - t0) / 1000);
 			}
 			if (met) {
+				ctx.state.failures.remove(need.key);
 				if (ctx.buildings > 0) {
 					ctx.state.cooldowns.remove(need.key);
 				} else if (ctx.state.queue.size() > before) {
@@ -85,7 +86,11 @@ public final class Growth {
 				}
 				return true;
 			}
-			ctx.state.cooldowns.put(need.key, ctx.state.calls + 4 + ctx.random.nextInt(5));
+			// a need that keeps finding no room rests longer each time (up to eight times as long), so a town that has no
+			// place for its observatory does not search for one on every other call
+			int failed = ctx.state.failures.merge(need.key, 1, Integer::sum);
+			boolean vital = need.key.equals("housing") || need.key.equals("food") || need.key.startsWith("short/");
+			ctx.state.cooldowns.put(need.key, ctx.state.calls + (4 + ctx.random.nextInt(5)) * (vital ? 1 : Math.min(8, failed)));
 			if (++attempts >= MAX_ATTEMPTS) {
 				break;
 			}

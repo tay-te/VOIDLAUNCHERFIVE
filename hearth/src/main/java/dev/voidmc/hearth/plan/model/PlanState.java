@@ -55,6 +55,8 @@ public final class PlanState {
 	public long calls;
 	/** Needs that could not be placed, resting until the serial passes the value (sorted, so saves are stable). */
 	public final TreeMap<String, Long> cooldowns = new TreeMap<>();
+	/** How many times in a row a need could not be placed: it rests longer each time (saved, so plans stay the same). */
+	public final TreeMap<String, Integer> failures = new TreeMap<>();
 	/** The castle hill (x, z): the most commanding ground within reach, chosen at town tier and kept; null until then. */
 	public int @Nullable [] castleHill;
 	/** The deep town's own plan (its roads, square, queue), on its realm's floor; null until one is founded. */
@@ -134,6 +136,11 @@ public final class PlanState {
 		CompoundTag cd = new CompoundTag();
 		this.cooldowns.forEach(cd::putLong);
 		t.put("cooldowns", cd);
+		if (!this.failures.isEmpty()) {
+			CompoundTag f = new CompoundTag();
+			this.failures.forEach(f::putInt);
+			t.put("failures", f);
+		}
 		if (this.castleHill != null) {
 			t.putIntArray("castle_hill", this.castleHill);
 		}
@@ -187,6 +194,10 @@ public final class PlanState {
 		CompoundTag cd = t.getCompoundOrEmpty("cooldowns");
 		for (String key : cd.keySet()) {
 			s.cooldowns.put(key, cd.getLongOr(key, 0));
+		}
+		CompoundTag fs = t.getCompoundOrEmpty("failures");
+		for (String key : fs.keySet()) {
+			s.failures.put(key, fs.getIntOr(key, 0));
 		}
 		s.castleHill = Nbt.ints(t, "castle_hill").filter(a -> a.length >= 2).orElse(null);
 		s.deep = t.getCompound("deep").map(PlanState::load).orElse(null);

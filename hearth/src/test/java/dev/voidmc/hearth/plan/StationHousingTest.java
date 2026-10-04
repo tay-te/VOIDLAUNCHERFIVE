@@ -84,7 +84,7 @@ class StationHousingTest {
 		List<Double> merchants = new ArrayList<>();
 		for (PlotView p : town.settlement.plots()) {
 			Station s = Stations.home(p.spec(), Catalogue.current().info(p.spec().archetype()));
-			if (s == null || p.spec().params().contains("replaces")) {
+			if (s == null) {
 				continue;
 			}
 			PlotSpec sp = p.spec();
@@ -94,11 +94,17 @@ class StationHousingTest {
 			} else if (s == Station.MERCHANT) {
 				merchants.add(d);
 			}
+
 		}
 		assertTrue(!poor.isEmpty() && !merchants.isEmpty(), "both stations have homes: poor " + poor.size() + ", merchants " + merchants.size());
-		double poorMean = poor.stream().mapToDouble(Double::doubleValue).average().orElse(0);
-		double merchantMean = merchants.stream().mapToDouble(Double::doubleValue).average().orElse(0);
-		assertTrue(poorMean > merchantMean * 1.3, "the poor live farther out than the merchants: " + (int) poorMean + " vs " + (int) merchantMean);
+		// the share of each station's homes in the core: merchants live by the market, the poor out at the edge (a city's
+		// poor also rent rooms in its core, and early hovels end up inside as the town grows past them)
+		double core = new PlanContext(town.settlement, st, town.terrain, net.minecraft.util.RandomSource.create(1), Catalogue.current(), PlanConfig.DEFAULTS)
+			.coreRadius();
+		double poorIn = poor.stream().filter(d -> d < core).count() / (double) poor.size();
+		double merchantsIn = merchants.stream().filter(d -> d < core).count() / (double) merchants.size();
+		assertTrue(merchantsIn >= poorIn + 0.15, "merchants live in the core more than the poor: " + (int) (merchantsIn * 100) + " % vs "
+			+ (int) (poorIn * 100) + " %");
 	}
 
 	@Test

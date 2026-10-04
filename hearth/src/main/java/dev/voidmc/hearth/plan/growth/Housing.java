@@ -122,6 +122,12 @@ public final class Housing {
 				return true;
 			}
 		}
+		// a merchant who finds no room by the market buys out a house in the core and rebuilds it (for the station
+		// shortest of homes, which is his)
+		if (station == Station.MERCHANT && ctx.tier.ordinal() >= SettlementTier.VILLAGE.ordinal()
+			&& ctx.distanceToHeart(site.x0 + site.sizeX / 2, site.z0 + site.sizeZ / 2) > ctx.coreRadius() && Upgrades.plan(ctx, needs, true)) {
+			return true;
+		}
 		// dense towns rebuild a crowded core taller before they sprawl
 		if (upgrades && site.zone >= 2 && (layout.dense || vertical > 1.2) && ctx.tier.ordinal() >= SettlementTier.VILLAGE.ordinal()
 			&& Upgrades.plan(ctx, needs, true)) {
@@ -165,8 +171,8 @@ public final class Housing {
 		var t = ctx.territory();
 		return switch (station) {
 			// in a city some of the poor rent rooms in the tenements of the core
-			case POOR -> ctx.tier == SettlementTier.CITY && ctx.random.nextDouble() < 0.35 ? new Home(Placement.HOME, District.Kind.POOR, null)
-				: new Home(Placement.HOVELS, District.Kind.POOR, null);
+			case POOR -> ctx.tier == SettlementTier.CITY && ctx.random.nextDouble() < 0.2 && ctx.catalogue.has(Archetypes.TENEMENT)
+				? new Home(Placement.HOME, District.Kind.POOR, null) : new Home(Placement.HOVELS, District.Kind.POOR, null);
 			case PEASANT -> new Home(Placement.CROFTS, District.Kind.RESIDENTIAL, null);
 			case ARTISAN -> new Home(Placement.MAIN, District.Kind.CRAFTS, null);
 			case MERCHANT -> new Home(Placement.CENTRAL, District.Kind.MARKET, null);
@@ -315,6 +321,10 @@ public final class Housing {
 			}
 			if (w > 0 && station != null) {
 				w *= Stations.affinity(station, id);
+				// in a city's core the poor rent rooms in tenements and live in the shacks of the back lanes, not in its rows
+				if (station == Station.POOR && zone == 0 && !id.equals(Archetypes.TENEMENT) && !id.equals(Archetypes.SHACK)) {
+					w *= 0.1;
+				}
 			}
 			if (w > 0) {
 				items.add(info);
