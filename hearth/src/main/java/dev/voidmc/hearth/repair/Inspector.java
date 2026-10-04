@@ -69,10 +69,6 @@ public final class Inspector {
 			return this.checked;
 		}
 
-		public int foundCount() {
-			return this.found.size();
-		}
-
 		public boolean committed() {
 			return this.committed;
 		}
@@ -214,6 +210,11 @@ public final class Inspector {
 		private final Map<Long, Long> next = new HashMap<>();
 		private final Map<Long, java.util.UUID> inspector = new HashMap<>();
 		private final Map<Long, Map<Integer, Long>> lastSeen = new HashMap<>();
+
+		/** Makes a settlement due for a round now. */
+		public void dueNow(long settlementId) {
+			this.next.remove(settlementId);
+		}
 
 		public boolean due(long settlementId, long now) {
 			return now >= this.next.getOrDefault(settlementId, 0L) && !this.inspector.containsKey(settlementId);

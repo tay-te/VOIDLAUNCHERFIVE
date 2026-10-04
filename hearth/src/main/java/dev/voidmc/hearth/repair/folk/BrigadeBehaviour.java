@@ -42,6 +42,8 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 		@Nullable BlockPos target;
 		int ticks;
 		int legTicks;
+		int douses;
+		int doused;
 	}
 
 	private final Map<UUID, Run> runs = new HashMap<>();
@@ -144,7 +146,8 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 				if (walk(f, run, flame, 1.1, 3.5)) {
 					f.lookAt(flame);
 					f.swing();
-					douse(level, e, flame, cfg.douseRadius());
+					run.douses++;
+					run.doused += douse(level, e, flame, cfg.douseRadius());
 					f.hold(new ItemStack(Items.BUCKET));
 					run.phase = Phase.FETCH;
 					run.target = null;
@@ -160,7 +163,8 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 				if (walk(f, run, flame, 1.0, 2.5) && run.ticks % 30 == 0) {
 					f.lookAt(flame);
 					f.swing();
-					douse(level, e, flame, Math.max(0, cfg.douseRadius() - 1));
+					run.douses++;
+					run.doused += douse(level, e, flame, Math.max(0, cfg.douseRadius() - 1));
 				}
 			}
 		}
@@ -183,7 +187,7 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 		return run.legTicks > 200 && d2 <= 8 * 8 || run.legTicks > 400;
 	}
 
-	private static void douse(ServerLevel level, FireWatch.Episode e, BlockPos at, int radius) {
+	private static int douse(ServerLevel level, FireWatch.Episode e, BlockPos at, int radius) {
 		int n = e.douse(at, radius);
 		Vec3 c = Vec3.atCenterOf(at);
 		level.sendParticles(ParticleTypes.SPLASH, c.x, c.y, c.z, 24, 0.8, 0.4, 0.8, 0.1);
@@ -192,6 +196,7 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 			level.playSound(null, at, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.7F, 1.6F + level.getRandom().nextFloat() * 0.4F);
 		}
 		level.playSound(null, at, SoundEvents.BUCKET_EMPTY, SoundSource.NEUTRAL, 1.0F, 1.0F);
+		return n;
 	}
 
 	private static @Nullable BlockPos nearest(List<BlockPos> list, BlockPos from) {
@@ -217,6 +222,13 @@ public final class BrigadeBehaviour implements FolkBehaviour {
 		}
 		f.stop();
 		f.hold(ItemStack.EMPTY);
+	}
+
+	/** What a folk of the brigade is doing (status and the self-test log). */
+	public String describe(UUID folk) {
+		Run run = this.runs.get(folk);
+		return run == null ? "not in the brigade" : run.phase.name().toLowerCase(java.util.Locale.ROOT) + (run.target == null ? "" : " " + run.target.toShortString())
+			+ " (" + run.douses + " buckets, " + run.doused + " flames out)";
 	}
 
 	public int running() {

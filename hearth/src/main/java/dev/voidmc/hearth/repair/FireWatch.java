@@ -9,7 +9,6 @@ import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -144,10 +143,6 @@ public final class FireWatch {
 
 	FireWatch(RepairRuntime runtime) {
 		this.runtime = runtime;
-	}
-
-	public Collection<Episode> episodes() {
-		return this.episodes.values();
 	}
 
 	public @Nullable Episode episode(long settlementId) {

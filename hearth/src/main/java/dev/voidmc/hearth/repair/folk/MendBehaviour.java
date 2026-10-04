@@ -196,11 +196,13 @@ public final class MendBehaviour implements FolkBehaviour {
 		}
 		BlockPos goal = job.stand != null ? job.stand : pos;
 		boolean path = true;
-		if (job.walkTicks % 40 == 0 && !f.arrived()) {
+		// set off at once, and ask again now and then (a door opened, a path freed)
+		if (job.walkTicks % 40 == 0) {
 			path = f.moveTo(goal, 0.7);
 		}
 		job.walkTicks++;
-		if (!path || f.arrived() && !Reach.canReach(folk, pos) || job.walkTicks > 400) {
+		boolean stopped = job.walkTicks > 10 && f.arrived();
+		if (!path || stopped && !Reach.canReach(folk, pos) || job.walkTicks > 400) {
 			// out of reach from anywhere one can stand: after a fair try, place it from close by (the builder stretches),
 			// or leave it for later; a block that has beaten them three times is put in from as near as they got (never
 			// leave a town with a hole over one awkward block, as builders do for construction)

@@ -81,6 +81,8 @@ public final class SelfTest {
 	private @Nullable RepairConfig savedConfig;
 	private boolean embodiedByTest;
 	private int maxScaffold;
+	private boolean sawFolkFire;
+	private int doused;
 	private long litterAt = Long.MIN_VALUE;
 	/** Events seen while a test runs (DAMAGED events and their blocks, fires started and put out, plots repaired). */
 	private static final int[] EVENTS = new int[5];
@@ -393,13 +395,25 @@ public final class SelfTest {
 				tickFolk(List.of(RepairModule.BRIGADE, RepairModule.MEND));
 				FireWatch.Episode e = rt.fires.episode(s.id());
 				long waited = now - this.phaseStart;
-				if (waited > 40 && e == null || waited > 2400) {
+				if (e != null) {
+					this.sawFolkFire = true;
+					this.doused = Math.max(this.doused, RepairModule.BRIGADE.running());
+					if (waited % 200 == 0) {
+						StringBuilder b = new StringBuilder();
+						for (DevFolk f : this.folk) {
+							b.append(f.resident().givenName).append(": ").append(RepairModule.BRIGADE.describe(f.resident().id)).append("; ");
+						}
+						log(String.format(Locale.ROOT, "  fire: %d flames known, %d water sources; %s", e.flames(), e.water(RepairModule.config().fire().waterSearch()).size(), b));
+					}
+				}
+				// the watch starts the episode on the first flame's tick, then calls it out after a quiet spell
+				if (this.sawFolkFire && e == null || !this.sawFolkFire && waited > 400 || waited > 2400) {
 					int lines = 0;
 					for (DevFolk f : this.folk) {
 						lines += f.said.size();
 					}
-					log(String.format(Locale.ROOT, "bucket brigade: fire %s after %d ticks (%d folk, %d lines said); %s", e == null ? "out" : "STILL BURNING", waited,
-						this.folk.size(), lines, rt.fires.stats()));
+					log(String.format(Locale.ROOT, "bucket brigade: fire %s after %d ticks (%d folk near, %d in the brigade at most, %d lines said in all); %s",
+						!this.sawFolkFire ? "NEVER TOOK HOLD" : e == null ? "out" : "STILL BURNING", waited, this.folk.size(), this.doused, lines, rt.fires.stats()));
 					if (e != null) {
 						e.douse(e.origin, 32);
 					}
@@ -416,17 +430,13 @@ public final class SelfTest {
 						+ RepairModule.MEND.describe(builder.resident().id) + "; queue " + q.size());
 				}
 				long waited = now - this.phaseStart;
-				int left = 0;
+				int back = 0;
 				for (int i = 0; i < this.folkTargets.size(); i++) {
-					left += q.get(this.folkTargets.getLong(i)) != null || !this.level.getBlockState(BlockPos.of(this.folkTargets.getLong(i))).isAir() ? 0 : 1;
+					long p = this.folkTargets.getLong(i);
+					int at = this.baseline.indexOf(p);
+					back += at >= 0 && DamageRules.sameBlock(Block.stateById(this.baselineStates.getInt(at)), this.level.getBlockState(BlockPos.of(p))) ? 1 : 0;
 				}
-				if (waited > 200 && left == 0 && builder.running() == null || waited > 4800) {
-					int back = 0;
-					for (int i = 0; i < this.folkTargets.size(); i++) {
-						long p = this.folkTargets.getLong(i);
-						int at = this.baseline.indexOf(p);
-						back += at >= 0 && DamageRules.sameBlock(Block.stateById(this.baselineStates.getInt(at)), this.level.getBlockState(BlockPos.of(p))) ? 1 : 0;
-					}
+				if (back == this.folkTargets.size() && builder.running() == null || waited > 4800) {
 					log(String.format(Locale.ROOT, "inspection round: %d of %d silently taken blocks found and put back in %d ticks; queue left %d; said %s", back,
 						this.folkTargets.size(), waited, q.size(), builder.said));
 					finish(rt);
@@ -688,6 +698,15 @@ public final class SelfTest {
 		DevFolk builder = this.folk.getFirst();
 		builder.entity().teleportTo(plot.spec().origin().getX() - 1.5, surface(plot.spec().origin().getX() - 2, plot.spec().origin().getZ() - 2).getY(),
 			plot.spec().origin().getZ() - 1.5);
+		// the round goes to this plot: every other one was looked at just now
+		var schedule = RepairModule.INSPECT.schedule();
+		for (PlotView other : s.plots()) {
+			if (other.id() != plot.id()) {
+				schedule.lastSeen(s.id()).put(other.id(), now);
+			}
+		}
+		schedule.lastSeen(s.id()).remove(plot.id());
+		schedule.dueNow(s.id());
 		log("folk inspection: " + this.folkTargets.size() + " blocks of plot " + plot.id() + " taken with no event; the builder makes a round");
 		next(Phase.FOLK_INSPECT, now);
 	}

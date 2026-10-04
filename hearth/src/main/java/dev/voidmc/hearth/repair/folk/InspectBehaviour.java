@@ -23,7 +23,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Inspection rounds (docs/LIVING_WORLD.md §2): now and then (one round per settlement every {@code interval_ticks}) an
@@ -131,11 +130,11 @@ public final class InspectBehaviour implements FolkBehaviour {
 
 		// walk the round, looking at the walls as one goes
 		BlockPos goal = w.waypoints.get(w.waypoint % w.waypoints.size());
-		if (w.legTicks % 40 == 0 && !f.arrived()) {
+		if (w.legTicks % 40 == 0) {
 			f.moveTo(goal, 0.55);
 		}
 		w.legTicks++;
-		if (f.arrived() || w.legTicks > 200) {
+		if (w.legTicks > 10 && f.arrived() || w.legTicks > 200) {
 			w.waypoint++;
 			w.legTicks = 0;
 		}
@@ -145,7 +144,8 @@ public final class InspectBehaviour implements FolkBehaviour {
 				f.lookAt(plot.spec().origin().offset(plot.spec().sizeX() / 2, 2, plot.spec().sizeZ() / 2));
 			}
 		}
-		if (!w.round.done() && w.ticks < cfg.maxTicks()) {
+		// a round is a walk round the building: the comparison runs ahead of the feet, the round ends at the last corner
+		if ((!w.round.done() || w.waypoint < w.waypoints.size()) && w.ticks < cfg.maxTicks()) {
 			return true;
 		}
 		int added = Inspector.commit(rt, level, world, s, w.round);
@@ -184,10 +184,9 @@ public final class InspectBehaviour implements FolkBehaviour {
 		f.hold(ItemStack.EMPTY);
 	}
 
-	/** The round a builder is on, if any (for status). */
-	public Inspector.@Nullable Round round(UUID folk) {
-		Walk w = this.walks.get(folk);
-		return w == null ? null : w.round;
+	/** Which plots were looked at when, and when each settlement is due (the self-test steers it). */
+	public Inspector.Schedule schedule() {
+		return this.schedule;
 	}
 
 	public int inspecting() {

@@ -160,20 +160,6 @@ public final class RepairQueue {
 		return out;
 	}
 
-	/** Chunks (packed) holding entries that abstract labour has mended and the world has not seen yet. */
-	public List<Long> mendedChunks() {
-		List<Long> out = new ArrayList<>();
-		for (Damage d : this.entries.values()) {
-			if (d.has(Damage.MENDED)) {
-				long k = chunkKey(d.pos);
-				if (!out.contains(k)) {
-					out.add(k);
-				}
-			}
-		}
-		return out;
-	}
-
 	static long chunkKey(long pos) {
 		return ChunkKeys.key(SectionPos.blockToSectionCoord(BlockPos.getX(pos)), SectionPos.blockToSectionCoord(BlockPos.getZ(pos)));
 	}
