@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "expanse:peat",
+      "count": 16
+    },
+    {
+      "item": "expanse:heather",
+      "count": 8
+    },
+    {
+      "item": "minecraft:mutton",
+      "count": 6
+    },
+    {
+      "item": "minecraft:gray_wool",
+      "count": 8
+    },
+    {
+      "item": "minecraft:dark_oak_log",
+      "count": 8
+    },
+    {
+      "item": "minecraft:honeycomb",
+      "count": 4
+    }
+  ]
+}

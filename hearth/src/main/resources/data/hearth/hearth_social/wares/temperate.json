@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "minecraft:apple",
+      "count": 8
+    },
+    {
+      "item": "minecraft:honey_bottle",
+      "count": 2
+    },
+    {
+      "item": "minecraft:wheat",
+      "count": 16
+    },
+    {
+      "item": "minecraft:white_wool",
+      "count": 8
+    },
+    {
+      "item": "expanse:maple_planks",
+      "count": 16
+    },
+    {
+      "item": "minecraft:cake",
+      "count": 1
+    }
+  ]
+}

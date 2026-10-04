@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "minecraft:bamboo",
+      "count": 16
+    },
+    {
+      "item": "expanse:limestone",
+      "count": 16
+    },
+    {
+      "item": "minecraft:paper",
+      "count": 12
+    },
+    {
+      "item": "minecraft:lantern",
+      "count": 2
+    },
+    {
+      "item": "minecraft:beetroot",
+      "count": 12
+    },
+    {
+      "item": "minecraft:red_dye",
+      "count": 6
+    }
+  ]
+}

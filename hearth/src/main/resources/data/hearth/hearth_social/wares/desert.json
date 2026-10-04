@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "minecraft:orange_dye",
+      "count": 8
+    },
+    {
+      "item": "minecraft:blue_dye",
+      "count": 6
+    },
+    {
+      "item": "expanse:opal_sandstone",
+      "count": 16
+    },
+    {
+      "item": "minecraft:cactus",
+      "count": 8
+    },
+    {
+      "item": "minecraft:gold_nugget",
+      "count": 6
+    },
+    {
+      "item": "expanse:desert_marigold",
+      "count": 6
+    }
+  ]
+}

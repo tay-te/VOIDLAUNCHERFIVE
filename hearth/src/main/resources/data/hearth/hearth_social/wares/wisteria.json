@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "expanse:wisteria_planks",
+      "count": 16
+    },
+    {
+      "item": "expanse:wisteria_blossoms",
+      "count": 8
+    },
+    {
+      "item": "minecraft:pink_petals",
+      "count": 8
+    },
+    {
+      "item": "minecraft:cherry_sapling",
+      "count": 2
+    },
+    {
+      "item": "minecraft:paper",
+      "count": 12
+    },
+    {
+      "item": "minecraft:cherry_planks",
+      "count": 16
+    }
+  ]
+}

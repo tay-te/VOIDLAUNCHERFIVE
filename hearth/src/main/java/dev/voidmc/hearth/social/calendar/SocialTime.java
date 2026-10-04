@@ -20,7 +20,8 @@ public final class SocialTime {
 
 	/** Ticks since sunrise of a minute of the day (0 = midnight, so 05:00 is late in the day that began at 06:00). */
 	public static long offset(int minute) {
-		return (long) Math.floorMod(minute - DAY_START_MINUTE, MINUTES) * DAY_TICKS / MINUTES;
+		// rounded up, so the tick of a minute reads back as that minute
+		return Math.ceilDiv((long) Math.floorMod(minute - DAY_START_MINUTE, MINUTES) * DAY_TICKS, MINUTES);
 	}
 
 	/** The town tick of a minute of a day. */

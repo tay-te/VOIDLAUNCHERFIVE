@@ -42,8 +42,14 @@ public final class Notices {
 		return false;
 	}
 
+	/** The notice's words. An argument written {@code @key} is itself translated (a festival's name, an office). */
 	public static Component text(SocialLedger.Notice n) {
-		return Component.translatable(n.key(), n.args().toArray());
+		Object[] args = new Object[n.args().size()];
+		for (int i = 0; i < args.length; i++) {
+			String a = n.args().get(i);
+			args[i] = a.startsWith("@") ? Component.translatable(a.substring(1)) : a;
+		}
+		return Component.translatable(n.key(), args);
 	}
 
 	/** Notices still current on {@code day} (put up within a week, or announcing something to come), newest first. */

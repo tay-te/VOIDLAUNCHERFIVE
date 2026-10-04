@@ -242,7 +242,7 @@ public final class TownLife {
 		// a feast day three days off is announced
 		Festival f = TownCalendar.festivalOn(day + 3, s.culture(), s.foundedDay(), s.tier(), cfg.festivals());
 		if (f != null) {
-			post(w, s, new FamilyLife.Posting("festival", day + 3, "hearth.social.notice.festival", List.of(f.translationKey())), day);
+			post(w, s, new FamilyLife.Posting("festival", day + 3, "hearth.social.notice.festival", List.of("@" + f.translationKey())), day);
 		}
 		ledger.rooms.removeIf(r -> r.until() + cfg.inn().roomGraceDays() < day);
 		ledger.beds.removeIf(r -> SocialTime.day(r.until()) < day - 1);
@@ -280,7 +280,7 @@ public final class TownLife {
 		for (Officials.Change c : changes) {
 			if (c.after() != null) {
 				post(w, s, new FamilyLife.Posting("office", day, "hearth.social.notice.appointed",
-					List.of(c.after().fullName(), c.office().translationKey())), day);
+					List.of(c.after().fullName(), "@" + c.office().translationKey())), day);
 			}
 		}
 		DAYS.remove(s.id());

@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "minecraft:cocoa_beans",
+      "count": 12
+    },
+    {
+      "item": "minecraft:melon_slice",
+      "count": 16
+    },
+    {
+      "item": "expanse:palm_planks",
+      "count": 16
+    },
+    {
+      "item": "minecraft:bamboo",
+      "count": 16
+    },
+    {
+      "item": "expanse:teak_planks",
+      "count": 16
+    },
+    {
+      "item": "minecraft:jungle_log",
+      "count": 8
+    }
+  ]
+}

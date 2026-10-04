@@ -397,9 +397,9 @@ public final class SocialDialogue implements DialogueProvider {
 		if (!player.getInventory().add(stack)) {
 			net.minecraft.world.Containers.dropItemStack(player.level(), player.getX(), player.getY(), player.getZ(), stack);
 		}
-		Component from = visit.from().isEmpty() ? Component.translatable("hearth.culture." + visit.culture().getSerializedName())
-			: Component.literal(visit.from());
-		say(player, r, s, Component.translatable("hearth.social.market.sold", from));
+		say(player, r, s, visit.from().isEmpty()
+			? Component.translatable("hearth.social.market.sold_far", Component.translatable("hearth.culture." + visit.culture().getSerializedName()))
+			: Component.translatable("hearth.social.market.sold", visit.from()));
 		return true;
 	}
 

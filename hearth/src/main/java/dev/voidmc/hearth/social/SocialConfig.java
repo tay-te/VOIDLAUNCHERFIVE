@@ -17,7 +17,7 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 		Offices.DEFAULTS, Inn.DEFAULTS, Bath.DEFAULTS, Stables.DEFAULTS, Wages.DEFAULTS, Dice.DEFAULTS);
 
 	/** "HH:MM" ↔ minute of the day. */
-	public static final Codec<Integer> CLOCK = Codec.STRING.comapFlatMap(SocialConfig::parseClock, SocialConfig::formatClock);
+	public static final Codec<Integer> CLOCK = Clock.CODEC;
 
 	public static final Codec<SocialConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Life.CODEC.optionalFieldOf("life", Life.DEFAULTS).forGetter(SocialConfig::life),
@@ -33,23 +33,35 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 		Dice.CODEC.optionalFieldOf("dice", Dice.DEFAULTS).forGetter(SocialConfig::dice)
 	).apply(i, SocialConfig::new));
 
-	static DataResult<Integer> parseClock(String s) {
-		String[] parts = s.trim().split(":");
-		try {
-			int h = Integer.parseInt(parts[0]);
-			int m = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
-			if (h < 0 || h > 23 || m < 0 || m > 59) {
-				return DataResult.error(() -> "not a time of day: " + s);
-			}
-			return DataResult.success(h * 60 + m);
-		} catch (NumberFormatException e) {
-			return DataResult.error(() -> "not a time of day (HH:MM): " + s);
-		}
+	public static String formatClock(int minute) {
+		return Clock.format(minute);
 	}
 
-	public static String formatClock(int minute) {
-		int m = Math.floorMod(minute, 24 * 60);
-		return String.format(java.util.Locale.ROOT, "%02d:%02d", m / 60, m % 60);
+	/** The "HH:MM" codec, in its own class so the nested settings can use it while this class is still initialising. */
+	static final class Clock {
+		static final Codec<Integer> CODEC = Codec.STRING.comapFlatMap(Clock::parse, Clock::format);
+
+		private Clock() {
+		}
+
+		static DataResult<Integer> parse(String s) {
+			String[] parts = s.trim().split(":");
+			try {
+				int h = Integer.parseInt(parts[0]);
+				int m = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+				if (h < 0 || h > 23 || m < 0 || m > 59) {
+					return DataResult.error(() -> "not a time of day: " + s);
+				}
+				return DataResult.success(h * 60 + m);
+			} catch (NumberFormatException e) {
+				return DataResult.error(() -> "not a time of day (HH:MM): " + s);
+			}
+		}
+
+		static String format(int minute) {
+			int m = Math.floorMod(minute, 24 * 60);
+			return String.format(java.util.Locale.ROOT, "%02d:%02d", m / 60, m % 60);
+		}
 	}
 
 	/**
@@ -81,7 +93,7 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 		public static final Bells DEFAULTS = new Bells(true, List.of(6 * 60, 12 * 60, 17 * 60), List.of(3, 4, 3), 5.0F);
 		public static final Codec<Bells> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Bells::enabled),
-			CLOCK.listOf().optionalFieldOf("times", DEFAULTS.times).forGetter(Bells::times),
+			Clock.CODEC.listOf().optionalFieldOf("times", DEFAULTS.times).forGetter(Bells::times),
 			Codec.intRange(1, 12).listOf().optionalFieldOf("strokes", DEFAULTS.strokes).forGetter(Bells::strokes),
 			Codec.floatRange(0.5F, 16F).optionalFieldOf("volume", DEFAULTS.volume).forGetter(Bells::volume)
 		).apply(i, Bells::new));
@@ -112,8 +124,8 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Market::enabled),
 			Codec.intRange(2, 60).optionalFieldOf("week_days", DEFAULTS.weekDays).forGetter(Market::weekDays),
 			SettlementTier.CODEC.optionalFieldOf("min_tier", DEFAULTS.minTier).forGetter(Market::minTier),
-			CLOCK.optionalFieldOf("open", DEFAULTS.open).forGetter(Market::open),
-			CLOCK.optionalFieldOf("close", DEFAULTS.close).forGetter(Market::close),
+			Clock.CODEC.optionalFieldOf("open", DEFAULTS.open).forGetter(Market::open),
+			Clock.CODEC.optionalFieldOf("close", DEFAULTS.close).forGetter(Market::close),
 			Codec.intRange(0, 32).optionalFieldOf("stalls", DEFAULTS.stalls).forGetter(Market::stalls),
 			Codec.intRange(0, 8).optionalFieldOf("stalls_per_tier", DEFAULTS.stallsPerTier).forGetter(Market::stallsPerTier),
 			Codec.intRange(0, 32).optionalFieldOf("max_stalls", DEFAULTS.maxStalls).forGetter(Market::maxStalls),
@@ -151,8 +163,8 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 			Codec.INT.optionalFieldOf("harvest_day", DEFAULTS.harvestDay).forGetter(Festivals::harvestDay),
 			Codec.BOOL.optionalFieldOf("founders_day", DEFAULTS.foundersDay).forGetter(Festivals::foundersDay),
 			SettlementTier.CODEC.optionalFieldOf("min_tier", DEFAULTS.minTier).forGetter(Festivals::minTier),
-			CLOCK.optionalFieldOf("start", DEFAULTS.start).forGetter(Festivals::start),
-			CLOCK.optionalFieldOf("end", DEFAULTS.end).forGetter(Festivals::end),
+			Clock.CODEC.optionalFieldOf("start", DEFAULTS.start).forGetter(Festivals::start),
+			Clock.CODEC.optionalFieldOf("end", DEFAULTS.end).forGetter(Festivals::end),
 			Codec.doubleRange(0, 1).optionalFieldOf("share", DEFAULTS.share).forGetter(Festivals::share),
 			Codec.doubleRange(0, 10).optionalFieldOf("feast_food_per_head", DEFAULTS.feastFoodPerHead).forGetter(Festivals::feastFoodPerHead),
 			Codec.BOOL.optionalFieldOf("decorations", DEFAULTS.decorations).forGetter(Festivals::decorations),
@@ -182,13 +194,13 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 			Codec.BOOL.optionalFieldOf("weddings", DEFAULTS.weddings).forGetter(Family::weddings),
 			Codec.doubleRange(0, 1).optionalFieldOf("wedding_chance", DEFAULTS.weddingChance).forGetter(Family::weddingChance),
 			Codec.intRange(0, 30).optionalFieldOf("banns_days", DEFAULTS.bannsDays).forGetter(Family::bannsDays),
-			CLOCK.optionalFieldOf("wedding_time", DEFAULTS.weddingTime).forGetter(Family::weddingTime),
+			Clock.CODEC.optionalFieldOf("wedding_time", DEFAULTS.weddingTime).forGetter(Family::weddingTime),
 			Codec.BOOL.optionalFieldOf("same_sex", DEFAULTS.sameSex).forGetter(Family::sameSex),
 			Codec.doubleRange(0, 1).optionalFieldOf("same_sex_share", DEFAULTS.sameSexShare).forGetter(Family::sameSexShare),
 			Codec.intRange(0, 1000).optionalFieldOf("wedding_food", DEFAULTS.weddingFood).forGetter(Family::weddingFood),
 			Codec.BOOL.optionalFieldOf("funerals", DEFAULTS.funerals).forGetter(Family::funerals),
 			Codec.intRange(0, 10).optionalFieldOf("funeral_delay_days", DEFAULTS.funeralDelayDays).forGetter(Family::funeralDelayDays),
-			CLOCK.optionalFieldOf("funeral_time", DEFAULTS.funeralTime).forGetter(Family::funeralTime),
+			Clock.CODEC.optionalFieldOf("funeral_time", DEFAULTS.funeralTime).forGetter(Family::funeralTime),
 			Codec.BOOL.optionalFieldOf("births", DEFAULTS.births).forGetter(Family::births),
 			Codec.doubleRange(0, 1).optionalFieldOf("guest_share", DEFAULTS.guestShare).forGetter(Family::guestShare),
 			Codec.doubleRange(0, 1).optionalFieldOf("mourner_share", DEFAULTS.mournerShare).forGetter(Family::mournerShare)
@@ -212,8 +224,8 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 			SettlementTier.CODEC.optionalFieldOf("reeve_tier", DEFAULTS.reeveTier).forGetter(Offices::reeveTier),
 			SettlementTier.CODEC.optionalFieldOf("lord_tier", DEFAULTS.lordTier).forGetter(Offices::lordTier),
 			Codec.BOOL.optionalFieldOf("judges", DEFAULTS.judges).forGetter(Offices::judges),
-			CLOCK.optionalFieldOf("court_start", DEFAULTS.courtStart).forGetter(Offices::courtStart),
-			CLOCK.optionalFieldOf("court_end", DEFAULTS.courtEnd).forGetter(Offices::courtEnd),
+			Clock.CODEC.optionalFieldOf("court_start", DEFAULTS.courtStart).forGetter(Offices::courtStart),
+			Clock.CODEC.optionalFieldOf("court_end", DEFAULTS.courtEnd).forGetter(Offices::courtEnd),
 			Codec.BOOL.optionalFieldOf("dynasties", DEFAULTS.dynasties).forGetter(Offices::dynasties)
 		).apply(i, Offices::new));
 	}
@@ -231,7 +243,7 @@ public record SocialConfig(Life life, Bells bells, Market market, Festivals fest
 		public static final Codec<Inn> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Inn::enabled),
 			Codec.intRange(0, 100_000).optionalFieldOf("bed", DEFAULTS.bed).forGetter(Inn::bed),
-			CLOCK.optionalFieldOf("checkout", DEFAULTS.checkout).forGetter(Inn::checkout),
+			Clock.CODEC.optionalFieldOf("checkout", DEFAULTS.checkout).forGetter(Inn::checkout),
 			Codec.intRange(0, 100_000).optionalFieldOf("room", DEFAULTS.room).forGetter(Inn::room),
 			Codec.intRange(0, 30).optionalFieldOf("room_grace_days", DEFAULTS.roomGraceDays).forGetter(Inn::roomGraceDays),
 			Codec.intRange(0, 100_000).optionalFieldOf("meal", DEFAULTS.meal).forGetter(Inn::meal),

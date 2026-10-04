@@ -17,6 +17,9 @@ import org.jspecify.annotations.Nullable;
  * age with each other. Pure (the caller supplies the random), so it is tested without a server.
  */
 public final class Matchmaker {
+	/** How many singles a match is sought among at once (a seeded draw from all of them). */
+	static final int MET = 8;
+
 	private Matchmaker() {
 	}
 
@@ -47,23 +50,24 @@ public final class Matchmaker {
 			singles.set(j, t);
 		}
 		boolean wantSameSex = sameSex && random.nextDouble() < sameSexShare;
-		for (Resident a : singles) {
-			Resident best = null;
-			long bestGap = Long.MAX_VALUE;
-			for (Resident b : singles) {
-				if (b == a || (a.female == b.female) != wantSameSex || FolkFacts.kin(a, b)) {
+		// among a handful met this season, the two nearest in age who may marry
+		List<Resident> met = singles.subList(0, Math.min(MET, singles.size()));
+		Match best = null;
+		long bestGap = Long.MAX_VALUE;
+		for (int i = 0; i < met.size(); i++) {
+			for (int j = i + 1; j < met.size(); j++) {
+				Resident a = met.get(i);
+				Resident b = met.get(j);
+				if ((a.female == b.female) != wantSameSex || FolkFacts.kin(a, b)) {
 					continue;
 				}
 				long gap = Math.abs(a.bornDay - b.bornDay);
 				if (gap < bestGap) {
 					bestGap = gap;
-					best = b;
+					best = new Match(a, b);
 				}
 			}
-			if (best != null) {
-				return new Match(a, best);
-			}
 		}
-		return null;
+		return best;
 	}
 }

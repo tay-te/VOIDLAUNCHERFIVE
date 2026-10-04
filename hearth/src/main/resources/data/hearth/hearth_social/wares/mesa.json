@@ -1,0 +1,28 @@
+{
+  "wares": [
+    {
+      "item": "minecraft:terracotta",
+      "count": 16
+    },
+    {
+      "item": "minecraft:orange_terracotta",
+      "count": 16
+    },
+    {
+      "item": "minecraft:gold_nugget",
+      "count": 8
+    },
+    {
+      "item": "minecraft:red_sand",
+      "count": 16
+    },
+    {
+      "item": "expanse:red_earth",
+      "count": 16
+    },
+    {
+      "item": "minecraft:cactus",
+      "count": 8
+    }
+  ]
+}
