@@ -390,7 +390,9 @@ public final class Inn implements Archetype {
 				int want = r[1] - r[0] + 1 >= 3 ? 2 : 1;
 				Rooms.furnish(d, room, Rooms.Type.BEDROOM, want, JobType.NONE);
 				beds += want;
-			}
+				// a lantern hung inside the front window, so the guest rooms glow over the street at night
+				Halls.lanternUnder(d, dx, fk, up[1] + 1, 0);
+				}
 			// the corridor: a runner, lanterns
 			try (var s = d.stage(StageKind.INTERIOR)) {
 				for (int x = Math.min(rx0, sx); x <= Math.max(rx1, sx); x++) {

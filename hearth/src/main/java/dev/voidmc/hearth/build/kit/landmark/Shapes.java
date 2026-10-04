@@ -344,17 +344,28 @@ public final class Shapes {
 		}
 		double n = r - 1;
 		rows.add(oct(cx, cz, n, n >= 0.99 ? 1 : 0));
+		// the bulb: swelling out over the neck on upside-down stairs, held, then rounding over
 		if (r >= 2.49) {
 			rows.add(oct(cx, cz, r, 2));
 		}
 		rows.add(oct(cx, cz, r, 1));
 		rows.add(oct(cx, cz, r, 1));
-		List<Set<Long>> ladder = ladder(cx, cz, r);
-		int from = ladder.indexOf(oct(cx, cz, r, 1)) + 1;
-		for (int i = Math.max(1, from); i < ladder.size(); i++) {
-			rows.add(ladder.get(i));
+		if (r < 2.49) {
+			rows.add(oct(cx, cz, r, 1));
+		} else {
+			rows.add(oct(cx, cz, r, 2));
 		}
-		rows.add(rows.get(rows.size() - 1));
+		// the shoulder drawn in quickly, then the ogee point: a slender spike two cells tall over a plus
+		if (r - 1 >= 1.99) {
+			rows.add(oct(cx, cz, r - 1, 1));
+		}
+		boolean half = Math.abs(r - Math.floor(r)) > 0.25;
+		if (!half) {
+			rows.add(oct(cx, cz, 1, 1));
+		}
+		Set<Long> point = oct(cx, cz, half ? 0.5 : 0, 0);
+		rows.add(point);
+		rows.add(point);
 		return rows;
 	}
 
@@ -364,15 +375,23 @@ public final class Shapes {
 	 */
 	public static List<Set<Long>> domeRows(double cx, double cz, double r) {
 		List<Set<Long>> rows = new ArrayList<>();
-		List<Set<Long>> ladder = ladder(cx, cz, r);
-		int spring = r >= 2.49 ? Math.min(2, ladder.size() - 1) : r >= 1.99 ? Math.min(1, ladder.size() - 1) : 0;
-		rows.add(ladder.get(spring));
-		if (r >= 1.99) {
-			rows.add(ladder.get(spring));
+		if (r < 1.49) {
+			// a three-wide cap: the square with its corners turned, the plus, the point
+			rows.add(oct(cx, cz, r, 0));
+			rows.add(oct(cx, cz, r, 1));
+			rows.add(oct(cx, cz, r - 1, 0));
+			return rows;
 		}
-		for (int i = spring + 1; i < ladder.size(); i++) {
-			rows.add(ladder.get(i));
+		// the springing outline held two rows (the drum's line carried up), then an octagon a cell smaller each row: a
+		// round-shouldered dome, a little taller than half its width, never a stepped pyramid
+		Set<Long> spring = oct(cx, cz, r, r >= 2.49 ? 2 : 1);
+		rows.add(spring);
+		rows.add(spring);
+		for (double rr = r - 1; rr >= 0.99; rr -= 1) {
+			rows.add(oct(cx, cz, rr, 1));
 		}
+		double last = Math.abs(r - Math.floor(r)) > 0.25 ? 0.5 : 0;
+		rows.add(oct(cx, cz, last, 0));
 		return rows;
 	}
 

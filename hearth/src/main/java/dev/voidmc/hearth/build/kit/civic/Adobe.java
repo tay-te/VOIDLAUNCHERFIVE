@@ -236,8 +236,8 @@ public final class Adobe {
 			int mid = s.middle();
 			d.inStage(StageKind.OPENINGS, () -> d.set(s.x(mid), deck, s.z(mid), Blocks.GLASS.defaultBlockState()));
 		}
-		double[] radii = r >= 2 ? new double[]{3.1, 2.9, 2.5, 1.8, 0.6} : new double[]{2.1, 1.8, 1.2, 0.5};
-		int top = Towers.lathe(d, cx, cz, deck + 2, radii, fam, maxH);
+		// the dome a cell wider than its drum all round, laid outline by outline
+		int top = Towers.stack(d, cx, cz, deck + 2, dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, r + 1), fam, maxH);
 		return Math.max(top, Towers.finial(d, cx, top + 1, cz, maxH, false));
 	}
 

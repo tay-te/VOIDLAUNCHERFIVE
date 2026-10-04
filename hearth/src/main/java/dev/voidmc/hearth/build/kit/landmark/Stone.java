@@ -100,6 +100,11 @@ public final class Stone {
 		if (stony(d, Role.WALL)) {
 			return of(d, Role.WALL);
 		}
+		// a timber-framing town's infill is a render whatever its block is made of: white panels between stone piers
+		Block w = d.mat(Role.WALL).main(Form.FULL);
+		if (d.habits().walls().kind() == WallKind.TIMBER_FRAME && w != null && !d.mat(Role.WALL).has(Form.LOG)) {
+			return of(d, Role.WALL);
+		}
 		return masonry(d);
 	}
 
