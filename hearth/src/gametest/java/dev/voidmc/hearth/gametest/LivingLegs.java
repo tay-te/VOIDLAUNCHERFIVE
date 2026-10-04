@@ -452,12 +452,40 @@ final class LivingLegs {
 		this.world.getServer().runOnServer(server -> player(server).closeContainer());
 		log("theft seen: " + lawLine() + "; witness " + doing(folk[0]) + "; guard " + doing(folk[1]));
 		this.context.takeScreenshot("hearth_int_theft_seen");
+		// out into the street, where the guard keeps watch
+		for (int i = 0; i < 20 && !this.world.getServer().computeOnServer(server -> HearthServices.law().wanted(player(server).getUUID(), town(server).id())); i++) {
+			settle(1_000);
+		}
+		log("after the witness had their say: " + lawLine());
+		Vec3 gat = folkAt(folk[1]);
+		if (gat != null) {
+			teleport(gat.x + 3, gat.y, gat.z + 3, 135, 10);
+			this.world.getServer().runOnServer(server -> {
+				ServerPlayer p = player(server);
+				p.getAbilities().flying = false;
+				p.onUpdateAbilities();
+			});
+		}
 		boolean confronted = false;
-		for (int i = 0; i < 60 && !confronted; i++) {
+		for (int i = 0; i < 45 && !confronted; i++) {
 			settle(1_000);
 			confronted = this.context.computeOnClient(mc -> mc.gui.screen() instanceof ConfrontScreen);
+			if (i % 15 == 14) {
+				log("waiting for the guard: " + doing(folk[1]) + "; " + lawLine());
+			}
 		}
 		log("guard confrontation on screen: " + confronted + "; guard " + doing(folk[1]));
+		if (!confronted) {
+			// the guard's behaviour did not take it up in time: the confrontation it would open, opened for the camera
+			this.world.getServer().runOnServer(server -> {
+				Folk gf = NpcModule.embodiment().entityOf(folk[1]);
+				if (gf != null && gf.brain() != null) {
+					Confrontations.open(player(server), gf.brain().handle(), Confrontations.Kind.ARREST);
+				}
+			});
+			confronted = waitScreen(ConfrontScreen.class, 60);
+			log("confrontation opened by the tour: " + confronted);
+		}
 		if (!confronted) {
 			return;
 		}
@@ -601,7 +629,7 @@ final class LivingLegs {
 			SimSettlement s = town(server);
 			MarketView v = new Market(s, Shops.keptBy(s, fence, HearthWorld.of(server.overworld()).day())).view(p);
 			for (MarketView.Offer o : v.buys()) {
-				if ((o.flags() & MarketView.STOLEN) != 0 && o.owned() > 0) {
+				if ((o.flags() & (MarketView.STOLEN | MarketView.FENCED)) != 0 && o.owned() > 0) {
 					return o.id();
 				}
 			}
@@ -865,17 +893,21 @@ final class LivingLegs {
 			}
 			// an official's line starts with its first quest (the board may only show later ones): post the guard's first
 			if (!took.contains("contract")) {
-				for (String c : List.of("contract/standing_order", "contract/smithy", "contract/sawmill", "contract/mill")) {
-					var tmpl = dev.voidmc.hearth.quest.template.QuestTemplates.get(dev.voidmc.hearth.Hearth.id(c));
-					var board = QuestStore.board(s);
-					QuestInstance q = tmpl == null ? null : dev.voidmc.hearth.quest.gen.QuestGenerator.bind(tmpl,
-						QuestManager.generationContext(server.overworld(), s, board), null);
-					if (q != null) {
-						board.offers.add(q);
+				// a workshop short of its inputs posts a standing contract: the town's stores of them run out, the board
+				// is refreshed
+				for (Goods g : List.of(Goods.FUEL, Goods.METAL, Goods.FLOUR, Goods.WOOL, Goods.CANDLES, Goods.FOOD, Goods.LOGS, Goods.STONE)) {
+					s.stockpile().take(g, s.stockpile().get(g));
+				}
+				var board = QuestManager.board(server.overworld(), s, true);
+				for (QuestInstance q : List.copyOf(board.offers)) {
+					if (q.type == QuestType.CONTRACT && q.takenBy.isEmpty()) {
 						boolean ok = QuestManager.accept(p, s, q.id);
-						took += c + " '" + q.text.title() + "' from " + q.giver.name() + " accepted " + ok + "; ";
+						took += "contract '" + q.text.title() + "' from " + q.giver.name() + " accepted " + ok + "; ";
 						break;
 					}
+				}
+				if (!took.contains("contract")) {
+					took += "no workshop short enough for a contract (needs: " + board.needs.size() + "); ";
 				}
 			}
 			for (String first : List.of("official/guard/night_patrol", "official/reeve/tithe_rolls", "official/priest/altar_candles")) {
