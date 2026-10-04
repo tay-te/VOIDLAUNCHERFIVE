@@ -293,7 +293,8 @@ final class ChapelBohemian {
 				}
 			}
 		}
-		Sacred.pews(d, nx0 + 1, nx1 - 1, iz0 + 1, zN1 - 2, base, cx, Dirs.BACK, nw >= 9);
+		// pews from the narthex (a row kept free inside a west door) up to the chancel arch, the altar being in the apse
+		Sacred.pews(d, nx0 + 1, nx1 - 1, bell == Bell.FRONT ? iz0 : iz0 + 1, apse ? zN1 - 1 : zN1 - 2, base, cx, Dirs.BACK, nw >= 9);
 		// the font just inside, on the side away from the bell rope
 		int fx = bell == Bell.FRONT ? (nw >= 9 ? nx0 + 1 : cx - 1) : nx0 + 1;
 		int fz = bell == Bell.FRONT ? (nw >= 9 ? zF + 3 : iz0) : zN0 + 1;
