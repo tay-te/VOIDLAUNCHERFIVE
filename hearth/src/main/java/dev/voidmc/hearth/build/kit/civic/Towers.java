@@ -250,8 +250,8 @@ public final class Towers {
 			}
 			case DOME -> {
 				Fam dome = Fam.of(d, Role.ROOF, Form.FULL, StageKind.ROOF);
-				double[] radii = domeRadii(size);
-				int top = lathe(d, cx, cz, baseY + 1, radii, dome != null ? dome : Fam.of("minecraft:smooth_sandstone", StageKind.ROOF), maxTop);
+				var rows = dev.voidmc.hearth.build.kit.landmark.Shapes.domeRows(cx, cz, dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, size / 2.0 - 0.4));
+				int top = stack(d, cx, cz, baseY + 1, rows, dome != null ? dome : Fam.of("minecraft:smooth_sandstone", StageKind.ROOF), maxTop);
 				return finial(d, (int) Math.floor(cx), top + 1, (int) Math.floor(cz), maxTop, false);
 			}
 			case ONION -> {
@@ -261,8 +261,17 @@ public final class Towers {
 				if (onion == null) {
 					onion = Fam.of("minecraft:oxidized_cut_copper", StageKind.ROOF);
 				}
-				double[] radii = onionRadii(size);
-				int top = lathe(d, cx, cz, baseY + 1, radii, onion, maxTop);
+				// the bulb swells a cell past the drum it stands on
+				// a small turret's onion swells out past its drum; a broad one keeps within its square
+				var rows = dev.voidmc.hearth.build.kit.landmark.Shapes.onionRows(cx, cz, dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, size <= 3 ? size / 2.0 + 0.6
+					: size / 2.0 - 0.4));
+				int top = stack(d, cx, cz, baseY + 1, rows, onion, maxTop);
+				if (top + 2 <= maxTop - 1) {
+					int fx = (int) Math.floor(cx);
+					int fz = (int) Math.floor(cz);
+					d.inStage(StageKind.ROOF, () -> d.set(fx, top + 1, fz, Blocks.GOLD_BLOCK.defaultBlockState()));
+					return finial(d, fx, top + 2, fz, maxTop, true);
+				}
 				return finial(d, (int) Math.floor(cx), top + 1, (int) Math.floor(cz), maxTop, true);
 			}
 			case BATTLEMENT -> {
@@ -279,37 +288,25 @@ public final class Towers {
 	 * of wall posts with a rod. Never rises past {@code maxTop}. Returns the top.
 	 */
 	public static int spire(Draft d, int x0, int z0, int size, int baseY, int maxTop) {
-		Mat roof = d.mat(Role.ROOF);
-		Mat trim = d.mat(Role.ROOF_TRIM);
-		int levels = (size - 1) / 2;
-		int needle = 2;
-		int room = maxTop - 1 - (baseY + 1);
-		int steep = levels == 0 ? 0 : Math.clamp((room - levels - needle) / levels, 0, 3);
-		int y = baseY + 1;
-		int top;
-		try (var st = d.stage(StageKind.ROOF)) {
-			top = y - 1;
-			for (int k = 1; k <= levels && y <= maxTop - 1; k++) {
-				if (k > 1) {
-					y++;
-				}
-				ringStairs(d, x0 + k - 1, z0 + k - 1, size - 2 * (k - 1), y, roof);
-				square(d, x0 + k, z0 + k, size - 2 * k, y, roof.full());
-				for (int c = 0; c < steep && y < maxTop - 1; c++) {
-					y++;
-					square(d, x0 + k, z0 + k, size - 2 * k, y, roof.full());
-				}
-				top = y;
-			}
-			int cx = x0 + size / 2;
-			int cz = z0 + size / 2;
-			Paint post = trim.has(Form.WALL) ? trim.wall() : d.mat(Role.WALL_ACCENT).has(Form.WALL) ? d.mat(Role.WALL_ACCENT).wall() : roof.full();
-			for (int k = 0; k < needle && top + 1 <= maxTop - 1; k++) {
-				top++;
-				d.set(cx, top, cz, post);
-			}
+		if ((size & 1) == 0) {
+			size--;
 		}
-		return finial(d, x0 + size / 2, top + 1, z0 + size / 2, maxTop, true);
+		Mat trim = d.mat(Role.ROOF_TRIM);
+		// shingles or slates of the roof; copper over a thatching town (straw does not make a spire)
+		dev.voidmc.hearth.build.kit.landmark.Stone skin = d.habits().roof().thatch() || !d.mat(Role.ROOF).has(Form.STAIRS)
+			? dev.voidmc.hearth.build.kit.landmark.Stone.copper(d) : dev.voidmc.hearth.build.kit.landmark.Stone.of(d, Role.ROOF);
+		double c = (size - 1) / 2.0;
+		double cx = x0 + c;
+		double cz = z0 + c;
+		// a parish spire: about three times as tall as the tower is wide, never past the plot's height
+		int rows = Math.min(maxTop - 1 - baseY, (int) Math.round(size * 3.2) + 2);
+		if (rows < 4) {
+			return cap(d, x0, z0, size, baseY, Cap.PYRAMID, maxTop);
+		}
+		Paint post = skin.has(Form.WALL) ? skin.wall() : trim.has(Form.WALL) ? trim.wall() : Paint.of(rod().defaultBlockState());
+		try (var st = d.stage(StageKind.ROOF)) {
+			return dev.voidmc.hearth.build.kit.landmark.Shapes.needle(d, cx, cz, c, baseY + 1, rows, skin.full(), skin, post, 0);
+		}
 	}
 
 	/** Fills a square of cells at height y (only where the plot allows). */
@@ -382,35 +379,48 @@ public final class Towers {
 	 * Returns the top course's y.
 	 */
 	public static int lathe(Draft d, double cx, double cz, int y0, double[] radii, Fam fam, int maxTop) {
+		// each course takes the outline of the octagon ladder nearest in area to the disc it asks for, so small domes and
+		// onions come out as clean octagons drawn in a cell at a time instead of lumpy rasterised circles
+		double rmax = 0;
+		for (double r : radii) {
+			rmax = Math.max(rmax, r);
+		}
+		java.util.List<java.util.Set<Long>> ladder = dev.voidmc.hearth.build.kit.landmark.Shapes.ladder(cx, cz,
+			dev.voidmc.hearth.build.kit.landmark.Shapes.snap(cx, rmax + 0.3));
+		java.util.List<java.util.Set<Long>> rows = new java.util.ArrayList<>();
+		for (double r : radii) {
+			int want = Math.max(1, Draft.ellipseCells(cx, cz, Math.max(0.1, r - 0.35), Math.max(0.1, r - 0.35), true).size());
+			java.util.Set<Long> best = ladder.get(ladder.size() - 1);
+			for (java.util.Set<Long> o : ladder) {
+				if (Math.abs(o.size() - want) < Math.abs(best.size() - want)) {
+					best = o;
+				}
+			}
+			rows.add(best);
+		}
 		int top = y0;
 		try (var s = d.stage(StageKind.ROOF)) {
-			for (int k = 0; k < radii.length; k++) {
+			for (int k = 0; k < rows.size(); k++) {
 				int y = y0 + k;
 				if (y > maxTop - 1) {
 					break;
 				}
-				double r = radii[k];
-				double above = k + 1 < radii.length ? radii[k + 1] : -1;
-				double below = k > 0 ? radii[k - 1] : r;
-				List<int[]> disc = Draft.ellipseCells(cx, cz, r - 0.35, r - 0.35, true);
-				if (disc.isEmpty()) {
-					disc = List.of(new int[]{(int) Math.floor(cx), (int) Math.floor(cz)});
-				}
-				for (int[] c : disc) {
-					int x = c[0];
-					int z = c[1];
+				java.util.Set<Long> row = rows.get(k);
+				java.util.Set<Long> above = k + 1 < rows.size() && y + 1 <= maxTop - 1 ? rows.get(k + 1) : java.util.Set.of();
+				java.util.Set<Long> below = k > 0 ? rows.get(k - 1) : row;
+				for (long key : row) {
+					int x = (int) (key >> 32);
+					int z = (int) key;
 					if (x < 0 || x >= d.frontage() || z < -1 || z >= d.depth() || z == -1 && y < 3) {
 						continue;
 					}
-					boolean inAbove = above > 0 && Draft.insideEllipse(x, z, cx, cz, above - 0.35, above - 0.35);
-					boolean inBelow = Draft.insideEllipse(x, z, cx, cz, below - 0.35, below - 0.35);
-					Direction in = Dirs.nearest(cx - x, cz - z);
+					Direction in = inward(row, x, z, cx, cz);
 					Paint p;
-					if (r < 0.7) {
+					if (row.size() == 1 && radii[k] < 0.7) {
 						p = fam.has(Form.WALL) ? fam.wall() : fam.full();
-					} else if (!inAbove && (k + 1 >= radii.length || above < r)) {
+					} else if (!above.contains(key)) {
 						p = fam.stairs(in, Half.BOTTOM);
-					} else if (!inBelow && below < r) {
+					} else if (k > 0 && !below.contains(key)) {
 						p = fam.stairs(in, Half.TOP);
 					} else {
 						p = fam.full();
@@ -421,6 +431,61 @@ public final class Towers {
 			}
 		}
 		return top;
+	}
+
+	/**
+	 * A form stacked from one outline per row from {@code y0} (see {@code landmark.Shapes.stack}): full blocks, stairs
+	 * rising inward where the next row draws in, upside-down stairs under a row that swells out; never past {@code maxTop}.
+	 * Returns the top row drawn.
+	 */
+	public static int stack(Draft d, double cx, double cz, int y0, java.util.List<java.util.Set<Long>> rows, Fam fam, int maxTop) {
+		int top = y0 - 1;
+		try (var s = d.stage(StageKind.ROOF)) {
+			for (int k = 0; k < rows.size(); k++) {
+				int y = y0 + k;
+				if (y > maxTop - 1) {
+					break;
+				}
+				java.util.Set<Long> row = rows.get(k);
+				java.util.Set<Long> above = k + 1 < rows.size() && y + 1 <= maxTop - 1 ? rows.get(k + 1) : java.util.Set.of();
+				java.util.Set<Long> below = k > 0 ? rows.get(k - 1) : row;
+				for (long key : row) {
+					int x = (int) (key >> 32);
+					int z = (int) key;
+					if (x < 0 || x >= d.frontage() || z < -1 || z >= d.depth() || z == -1 && y < 3) {
+						continue;
+					}
+					Direction in = inward(row, x, z, cx, cz);
+					Paint p;
+					if (row.size() == 1) {
+						p = fam.full();
+					} else if (!above.contains(key)) {
+						p = fam.stairs(in, Half.BOTTOM);
+					} else if (k > 0 && !below.contains(key)) {
+						p = fam.stairs(in, Half.TOP);
+					} else {
+						p = fam.full();
+					}
+					d.set(x, y, z, p);
+				}
+				top = y;
+			}
+		}
+		return top;
+	}
+
+	/** From a rim cell of an outline toward the axis: a neighbour in the outline, the one nearest the centre. */
+	private static Direction inward(java.util.Set<Long> row, int x, int z, double cx, double cz) {
+		Direction best = Dirs.nearest(cx - x, cz - z);
+		if (row.contains(dev.voidmc.hearth.build.kit.landmark.Shapes.cell(x + Dirs.dx(best), z + Dirs.dz(best)))) {
+			return best;
+		}
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (row.contains(dev.voidmc.hearth.build.kit.landmark.Shapes.cell(x + Dirs.dx(dir), z + Dirs.dz(dir)))) {
+				return dir;
+			}
+		}
+		return best;
 	}
 
 	/** A finial on a cap's apex: a lightning rod on spires and onions, a wall post and lantern elsewhere. */

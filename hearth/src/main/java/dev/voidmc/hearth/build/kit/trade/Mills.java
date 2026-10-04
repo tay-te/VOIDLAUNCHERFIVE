@@ -79,41 +79,57 @@ public final class Mills {
 	}
 
 	/**
-	 * Windmill sails in the plane across {@code shaft} (the windshaft's axis), centred on the hub at (cx, cy, cz):
-	 * {@code length} cells per arm, the cloth {@code width} wide on each arm's trailing side from the third cell out.
-	 * Stocks of {@code stock} (fences, logs near the hub), cloth of {@code cloth} (full blocks), lattice bars of
-	 * {@code lattice} where the cloth is furled ({@code furled} share of the cloth). Returns the cells drawn.
+	 * Windmill sails in the plane across {@code shaft} (the windshaft's axis), centred on the hub at (cx, cy, cz),
+	 * {@code length} cells per arm. Common sails (cross, saltire) are lattices: a whip of timber from the hub, sail bars
+	 * across it every third cell out to a hemlath along the trailing edge {@code width + 1} out, and cloth spread over the
+	 * frame between the bars; {@code furled} of the sails (by share, opposite pairs together) have their cloth taken in,
+	 * so the bare lattice shows against the sky. The Mediterranean star has eight spars, each with a triangle of cloth
+	 * widening from a third of the way out to the spar's tip. Stocks of {@code stock} (logs near the hub, fences beyond),
+	 * cloth of {@code cloth}, the lattice of {@code lattice} (fences). Returns the cells drawn.
 	 */
 	public static List<int[]> sails(Draft d, int cx, int cy, int cz, Direction.Axis shaft, int length, int width, SailPlan plan, Mat stock, Paint cloth,
 		Paint lattice, double furled) {
 		List<int[]> drawn = new ArrayList<>();
 		boolean planeX = shaft == Direction.Axis.Z;
+		Direction.Axis across = planeX ? Direction.Axis.X : Direction.Axis.Z;
 		int[][] arms = switch (plan) {
 			case CROSS -> new int[][]{{0, 1}, {-1, 0}, {0, -1}, {1, 0}};
 			case SALTIRE -> new int[][]{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}};
 			case STAR -> new int[][]{{0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}};
 		};
+		Paint fence = stock.has(Form.FENCE) ? stock.fence() : lattice;
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int[] a : arms) {
+			for (int n = 0; n < arms.length; n++) {
+				int[] a = arms[n];
 				boolean diag = a[0] != 0 && a[1] != 0;
-				int len = diag && plan == SailPlan.STAR ? Math.max(2, length * 7 / 10) : diag ? Math.max(2, length * 8 / 10) : length;
+				boolean star = plan == SailPlan.STAR;
+				int len = diag && star ? Math.max(2, length * 8 / 10) : diag ? Math.max(2, length * 8 / 10) : length;
 				// the trailing side: the arm turned a quarter (counter-clockwise seen from the front)
 				int tu = -a[1];
 				int tv = a[0];
+				// opposite sails go together: the second pair furled when asked
+				boolean bare = !star && furled > 0 && (n % 2 == 1) && furled >= 0.25 || furled >= 0.75;
 				for (int i = 1; i <= len; i++) {
 					int u = a[0] * i;
 					int v = a[1] * i;
-					boolean star = plan == SailPlan.STAR;
-					Paint st = i <= 1 && !star ? stock.log(Direction.Axis.Y) : stock.has(Form.FENCE) ? stock.fence() : stock.full();
-					put(d, cx, cy, cz, planeX, u, v, st, drawn);
+					// the whip: a beam near the hub, lighter timber out along the sail
+					Paint whip;
+					if (diag) {
+						whip = i <= 1 ? stock.full() : fence;
+					} else {
+						whip = i <= 2 ? stock.log(a[0] != 0 ? across : Direction.Axis.Y) : fence;
+					}
+					put(d, cx, cy, cz, planeX, u, v, whip, drawn);
 					if (diag && i < len) {
 						// a diagonal stock reads as a line when its steps are joined
-						put(d, cx, cy, cz, planeX, u + a[0], v, stock.has(Form.FENCE) ? stock.fence() : stock.full(), drawn);
+						put(d, cx, cy, cz, planeX, u + a[0], v, i <= 1 ? stock.full() : fence, drawn);
 					}
 					if (star) {
-						// a small sail of cloth toward the outer end of each spar
-						if (i >= len - 2) {
-							for (int k = 1; k <= 2; k++) {
+						// a triangle of cloth on the trailing side, widening from a third of the way out to the tip
+						int s0 = Math.max(2, len / 3);
+						if (i >= s0) {
+							int kMax = 1 + (int) Math.round((i - s0) / (double) Math.max(1, len - s0) * (width - 1));
+							for (int k = 1; k <= kMax; k++) {
 								put(d, cx, cy, cz, planeX, u + tu * k, v + tv * k, cloth, drawn);
 								if (diag) {
 									put(d, cx, cy, cz, planeX, u + tu * k + a[0], v + tv * k, cloth, drawn);
@@ -125,15 +141,19 @@ public final class Mills {
 					if (i < 2) {
 						continue;
 					}
+					// a bare sail shows its bars every other cell and at the tip; a spread one is cloth from whip to hemlath
+					boolean bar = bare && ((i - 2) % 2 == 0 || i == len);
 					for (int k = 1; k <= width + 1; k++) {
 						int pu = u + tu * k;
 						int pv = v + tv * k;
-						// the cloth, and the hemlath framing its trailing edge
 						boolean hem = k == width + 1;
-						boolean furl = !hem && furled > 0 && ((i + k) % 3 == 0 && furled > 0.3 || i > len - Math.round(furled * len));
-						Paint p = hem || furl ? lattice : cloth;
-						if (hem && i % 2 == 1 && i != len) {
+						Paint p;
+						if (hem || bar) {
+							p = fence;
+						} else if (bare) {
 							continue;
+						} else {
+							p = cloth;
 						}
 						put(d, cx, cy, cz, planeX, pu, pv, p, drawn);
 						if (diag) {
@@ -142,6 +162,8 @@ public final class Mills {
 					}
 				}
 			}
+			// the hub: a boss over the windshaft's end
+			put(d, cx, cy, cz, planeX, 0, 0, stock.log(planeX ? Direction.Axis.Z : Direction.Axis.X), drawn);
 		}
 		return drawn;
 	}
@@ -150,7 +172,8 @@ public final class Mills {
 		int x = planeX ? cx + u : cx;
 		int z = planeX ? cz : cz + u;
 		int y = cy + v;
-		if (!d.allowed(x, y, z)) {
+		// a sail never sweeps lower than a man's height over the yard
+		if (!d.allowed(x, y, z) || y < 2) {
 			return;
 		}
 		BlockState st = p.at(x, y, z);

@@ -128,9 +128,28 @@ public final class BellTower implements Archetype {
 		int mid = yb - doorTop >= 15 ? doorTop + (yb - doorTop) * 3 / 5 : -1;
 		t.course(d, doorTop, true);
 		t.course(d, yb, true);
+		// a Lombard band of little arches under every course, so each stage reads as its own
 		t.band(d, yb - 1);
+		t.band(d, doorTop - 1);
 		if (mid > 0) {
 			t.course(d, mid, true);
+			t.band(d, mid - 1);
+			// the upper stage in dressed stone over the rendered shaft below: the tower lightens as it climbs
+			if (t.body.main(Form.FULL) != t.dress.main(Form.FULL)) {
+				t.ring(d, mid + 1, yb - 1, t.dress);
+			}
+		}
+		// the door stage rusticated: every other course of its panels in the base stone
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int y = 2; y < doorTop - 1; y += 2) {
+				for (Side f : t.faces()) {
+					for (int i = 1; i < f.last(); i++) {
+						if (d.isSolid(f.x(i), y, f.z(i))) {
+							d.set(f.x(i), y, f.z(i), t.base.full());
+						}
+					}
+				}
+			}
 		}
 		// the door stage: a light over the door, slits on the other faces
 		for (Side f : t.faces()) {
@@ -140,7 +159,7 @@ public final class BellTower implements Archetype {
 		// the long shaft: a deep blind arch with a lancet in it (or a lancet in the panel on a small tower)
 		int lo = doorTop + 1;
 		int hi = (mid > 0 ? mid : yb - 1) - 1;
-		boolean clock = d.param("clock", t.size >= 7 && d.chance(0.35));
+		boolean clock = d.param("clock", t.size >= 7 && d.chance(0.55));
 		if (t.size >= 7 && hi - lo >= 4) {
 			t.recess(d, lo + 1, hi, 3);
 			int lh = Math.min(4, hi - lo - 1);

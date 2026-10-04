@@ -12,6 +12,8 @@ import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Role;
+import java.util.List;
+import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -101,8 +103,8 @@ public final class Crowns {
 	public static int rows(Kind k, int size, int height) {
 		double r = (size - 1) / 2.0;
 		return switch (k) {
-			case SPIRE, OCTAGON -> Math.max(9, (int) Math.round(height * 0.34));
-			case BROACH -> Math.max(8, (int) Math.round(height * 0.32));
+			case SPIRE, OCTAGON -> Math.max(11, (int) Math.round(height * 0.4));
+			case BROACH -> Math.max(10, (int) Math.round(height * 0.38));
 			case STAVE -> Math.max(9, (int) Math.round(height * 0.3));
 			case ONION -> Math.max(11, Math.min(17, (int) Math.round(height * 0.33)));
 			case PYRAMID -> (int) Math.round((r + 1) * 0.75) + 3;
@@ -143,70 +145,129 @@ public final class Crowns {
 			x1--;
 			z1--;
 		}
+		// an even square: the needle stands on the odd square inside it (half a block off the axis reads as true)
+		if (((x1 - x0) & 1) == 1) {
+			x1--;
+			z1--;
+		}
 		double r = (x1 - x0) / 2.0;
-		int room = top - y - 1;
-		double pitch = fit(5.0, r + 0.5, room);
 		double cx = (x0 + x1) / 2.0;
 		double cz = (z0 + z1) / 2.0;
-		Roofs.Field f = octagonal ? Shapes.octagon(cx, cz, r, pitch) : Shapes.pyramid(x0, z0, x1, z1, pitch);
-		Roofs.Roof roof = Roofs.raster(d, f, y, x0, z0, x1, z1, m.roof, m.trim, Habits.Ridge.FULL);
-		Shapes.support(d, roof, m.roof.full());
-		if (m.sheet != null) {
-			Shapes.reclad(d, roof, m.sheet);
-		}
-		if (octagonal && !parapet) {
+		Stone skin = skin(d, m);
+		Paint post = skin.has(Form.WALL) ? skin.wall() : m.dress.has(Form.WALL) ? m.dress.wall() : Paint.of(Details.rod());
+		int y0 = y;
+		double rr = r;
+		if (!parapet && r >= 2) {
+			// a small tower: the needle rises from an octagon on the cornice, pinnacles standing in the four corners it leaves
 			for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}}) {
-				top0 = Math.max(top0, Details.pinnacle(d, c[0], y, c[1], 1, m.dress, false));
+				top0 = Math.max(top0, Details.pinnacle(d, c[0], y, c[1], octagonal ? 1 : 2, m.dress, !octagonal));
 			}
 		}
-		// lucarnes: a little gabled light at the foot of the four cardinal faces
-		if (r >= 2.5) {
-			lucarnes(d, roof, (int) Math.round(cx), (int) Math.round(cz), x0, z0, x1, z1, y, m);
+		int rows = Math.max(6, top - y0);
+		List<Set<Long>> ladder = Shapes.ladder(cx, cz, rr);
+		if (!parapet && r >= 2 && ladder.size() > 1) {
+			// start the spire's outline at the octagon so the corners stay free for the pinnacles
+			int peak = Shapes.needle(d, cx, cz, rr, y0, rows, skin.full(), skin, post, 1);
+			bands(d, cx, cz, rr, y0, rows, m, octagonal);
+			return Math.max(top0, peak);
 		}
-		int peak = roof.ridgeY;
-		int fx = (int) Math.round(cx);
-		int fz = (int) Math.round(cz);
-		int fin = Details.finial(d, fx, peak + 1, fz, false);
-		return Math.max(top0, Math.max(peak, fin));
+		int peak = Shapes.needle(d, cx, cz, rr, y0, rows, skin.full(), skin, post, 0);
+		bands(d, cx, cz, rr, y0, rows, m, octagonal);
+		// lucarnes: a little gabled light at the foot of the four cardinal faces of a broad spire
+		if (r >= 2.5) {
+			lucarnes(d, (int) Math.round(cx), (int) Math.round(cz), x0, z0, x1, z1, y0, m, skin);
+		}
+		return Math.max(top0, peak);
 	}
 
-	/** Little gabled openings at the foot of a spire's four faces: a dark light under a pair of stairs. */
-	static void lucarnes(Draft d, Roofs.Roof roof, int cx, int cz, int x0, int z0, int x1, int z1, int y, Mats m) {
-		for (Side s : Side.of(x0, z0, x1, z1)) {
-			int i = s.index(s.axis() == Direction.Axis.X ? cx : cz);
-			if (i < 1 || i > s.last() - 1) {
+	/** The covering of a spire, dome or onion: the sheet where the town clads them (copper), else the roof. */
+	static Stone skin(Draft d, Mats m) {
+		return m.sheet != null ? m.sheet : Stone.of(d, Role.ROOF);
+	}
+
+	/**
+	 * A band round a broad octagonal needle a third of the way up, in the dressing (or the trim): the course a mason lays
+	 * where a spire's ribs are tied, which reads from far away as a ring of light on a dark slope.
+	 */
+	static void bands(Draft d, double cx, double cz, double r, int y0, int rows, Mats m, boolean octagonal) {
+		if (!octagonal || r < 2) {
+			return;
+		}
+		int yb = y0 + Math.max(2, rows / 3);
+		for (int x = (int) Math.floor(cx - r - 1); x <= (int) Math.ceil(cx + r + 1); x++) {
+			for (int z = (int) Math.floor(cz - r - 1); z <= (int) Math.ceil(cz + r + 1); z++) {
+				Draft.Cell c = d.cell(x, yb, z);
+				if (c == null || c.state().isAir() || c.stage() != StageKind.ROOF || !c.state().isCollisionShapeFullBlock(
+					net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+					continue;
+				}
+				// a face cell: open to the air on some side
+				boolean face = false;
+				for (Direction dir : Dirs.HORIZONTAL) {
+					if (d.isEmpty(x + Dirs.dx(dir), yb, z + Dirs.dz(dir))) {
+						face = true;
+						break;
+					}
+				}
+				if (face) {
+					d.set(x, yb, z, m.dress.full());
+				}
+			}
+		}
+	}
+
+	/**
+	 * Little gabled lights at the foot of a spire's four cardinal faces: on the axis through each face, the outermost
+	 * cell of the needle two rows up becomes a dark louvre under a little gable of the skin's stairs.
+	 */
+	static void lucarnes(Draft d, int cx, int cz, int x0, int z0, int x1, int z1, int y, Mats m, Stone skin) {
+		int ly = y + 2;
+		for (Direction out : Dirs.HORIZONTAL) {
+			int dx = Dirs.dx(out);
+			int dz = Dirs.dz(out);
+			int x = cx;
+			int z = cz;
+			// walk out along the axis to the face
+			while (d.isSolid(x + dx, ly, z + dz) && Math.abs(x + dx - cx) + Math.abs(z + dz - cz) < 12) {
+				x += dx;
+				z += dz;
+			}
+			if (x == cx && z == cz || !d.isSolid(x, ly + 1, z)) {
 				continue;
 			}
-			// one block in from the spire's foot on this face
-			int x = s.x(i) + Dirs.dx(s.out().getOpposite());
-			int z = s.z(i) + Dirs.dz(s.out().getOpposite());
-			int sy = roof.surfaceY(x, z);
-			if (sy == Integer.MIN_VALUE || sy < y + 2) {
-				continue;
-			}
-			int ly = y + 1;
-			// the light: a dark recess in the face, a little roof of stairs over it
-			d.set(s.x(i), ly, s.z(i), m.frame.trapdoor(s.out(), Half.BOTTOM, true));
-			d.set(s.x(i), ly + 1, s.z(i), m.roof.stairsOrSlab(s.out().getOpposite(), Half.BOTTOM));
-			for (int k : new int[]{-1, 1}) {
-				int ii = i + k;
-				d.set(s.x(ii), ly + 1, s.z(ii), m.roof.stairsOrSlab(k < 0 ? s.along() : s.along().getOpposite(), Half.BOTTOM));
+			Direction along = Dirs.right(out);
+			d.set(x, ly, z, m.frame.trapdoor(out, Half.BOTTOM, true));
+			if (skin.has(Form.STAIRS)) {
+				d.set(x + dx, ly + 1, z + dz, skin.stairs(out.getOpposite(), Half.BOTTOM));
+				d.set(x + dx, ly, z + dz, skin.stairs(out.getOpposite(), Half.TOP));
+				for (int k : new int[]{-1, 1}) {
+					int sx = x + dx + Dirs.dx(along) * k;
+					int sz = z + dz + Dirs.dz(along) * k;
+					if (d.allowed(sx, ly, sz) && d.isEmpty(sx, ly, sz) && d.isSolid(sx - dx, ly, sz - dz)) {
+						d.set(sx, ly, sz, skin.stairs(k < 0 ? along : along.getOpposite(), Half.BOTTOM));
+					}
+				}
 			}
 		}
 	}
 
 	/** An octagonal spire on broaches straight off the walls (no parapet). */
 	static int broach(Draft d, int x0, int z0, int x1, int z1, int y, int top, Mats m) {
-		double r = (x1 - x0) / 2.0;
-		double pitch = fit(4.5, r + 0.5, top - y - 1);
-		Roofs.Roof roof = Roofs.raster(d, Shapes.broach(x0, z0, x1, z1, pitch), y, x0, z0, x1, z1, m.roof, m.trim, Habits.Ridge.FULL);
-		Shapes.support(d, roof, m.roof.full());
-		if (m.sheet != null) {
-			Shapes.reclad(d, roof, m.sheet);
+		if (((x1 - x0) & 1) == 1) {
+			x1--;
+			z1--;
 		}
-		int fx = (x0 + x1) / 2;
-		int fz = (z0 + z1) / 2;
-		return Math.max(roof.ridgeY, Details.finial(d, fx, roof.ridgeY + 1, fz, false));
+		double r = (x1 - x0) / 2.0;
+		double cx = (x0 + x1) / 2.0;
+		double cz = (z0 + z1) / 2.0;
+		Stone skin = skin(d, m);
+		Paint post = skin.has(Form.WALL) ? skin.wall() : m.dress.has(Form.WALL) ? m.dress.wall() : Paint.of(Details.rod());
+		// straight off the walls: the square's corners carried up on broaches into the octagon, then the needle
+		int peak = Shapes.needle(d, cx, cz, r, y, Math.max(6, top - y), skin.full(), skin, post, 0);
+		if (r >= 2.5) {
+			lucarnes(d, (int) Math.round(cx), (int) Math.round(cz), x0, z0, x1, z1, y, m, skin);
+		}
+		return peak;
 	}
 
 	/** A low pyramid on eaves with brackets under them. */
@@ -243,6 +304,9 @@ public final class Crowns {
 		double cz = (z0 + z1) / 2.0;
 		double r = (x1 - x0) / 2.0;
 		Stone sheet = m.sheet != null ? m.sheet : Stone.sheet(d);
+		if (r <= 3.5 && r >= 1.5) {
+			return smallOnion(d, cx, cz, Shapes.snap(cx, r), y, top, m, sheet);
+		}
 		// the drum: an octagonal ring of the wall stone with little lights, a cornice over it
 		int drumH = 2;
 		double dr = r - 1.0;
@@ -283,6 +347,71 @@ public final class Crowns {
 		return Math.max(yl - 1, Details.finial(d, fx, yl, fz, false));
 	}
 
+	/**
+	 * An onion on a small tower (five to eight wide): a drum of the dressing with lights on its faces, then the bulb laid
+	 * outline by outline ({@link Shapes#onionRows}), a gilded ball and a rod.
+	 */
+	static int smallOnion(Draft d, double cx, double cz, double r, int y, int top, Mats m, Stone sheet) {
+		double dr = r - 1;
+		Set<Long> drum = Shapes.oct(cx, cz, dr, dr >= 2 ? 1 : 0);
+		int drumH = 2;
+		for (int k = 0; k < drumH; k++) {
+			for (long c : drum) {
+				int x = (int) (c >> 32);
+				int z = (int) c;
+				if (!onRim(drum, x, z)) {
+					continue;
+				}
+				boolean light = k == 0 && (Math.abs(x - cx) < 0.6 || Math.abs(z - cz) < 0.6);
+				d.set(x, y + k, z, light ? Paint.of(Blocks.GLASS_PANE.defaultBlockState()) : m.dress.full());
+			}
+		}
+		List<Set<Long>> rows = Shapes.onionRows(cx, cz, r);
+		int room = top - (y + drumH) - 2;
+		while (rows.size() > room && rows.size() > 4) {
+			// short of height: drop a held row of the bulb before its point
+			rows.remove(rows.size() > 6 ? 3 : rows.size() - 1);
+		}
+		int yt = Shapes.stack(d, cx, cz, y + drumH, rows, sheet.full(), sheet);
+		Set<Long> last = rows.get(rows.size() - 1);
+		long c = last.iterator().next();
+		int fx = (int) (c >> 32);
+		int fz = (int) c;
+		if (last.size() == 1 && yt + 2 <= top) {
+			return Details.finial(d, fx, yt + 1, fz, true);
+		}
+		return Math.max(yt, Details.finial(d, fx, yt + 1, fz, false));
+	}
+
+	/** A dome on a small square (five to eight wide), laid outline by outline ({@link Shapes#domeRows}). */
+	static int smallDome(Draft d, double cx, double cz, double r, int y, int top, Mats m, Stone sheet) {
+		List<Set<Long>> rows = Shapes.domeRows(cx, cz, r);
+		while (rows.size() > top - y - 2 && rows.size() > 2) {
+			rows.remove(1);
+		}
+		int yt = Shapes.stack(d, cx, cz, y, rows, sheet.full(), sheet);
+		Set<Long> last = rows.get(rows.size() - 1);
+		long c = last.iterator().next();
+		int fx = (int) (c >> 32);
+		int fz = (int) c;
+		if (last.size() == 1 && yt + 3 <= top) {
+			// a little lantern: a post, a cap, the gilded ball
+			d.set(fx, yt + 1, fz, m.dress.wallOrFull());
+			d.set(fx, yt + 2, fz, m.dress.has(Form.SLAB) ? m.dress.slab(SlabType.BOTTOM) : m.dress.full());
+			return Math.max(yt + 2, Details.finial(d, fx, yt + 3, fz, true));
+		}
+		return Math.max(yt, Details.finial(d, fx, yt + 1, fz, false));
+	}
+
+	private static boolean onRim(Set<Long> s, int x, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (!s.contains(Shapes.cell(x + Dirs.dx(dir), z + Dirs.dz(dir)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** A drum with lights, a dome over it, a lantern on top. */
 	static int dome(Draft d, int x0, int z0, int x1, int z1, int y, int top, Mats m) {
 		double cx = (x0 + x1) / 2.0;
@@ -298,6 +427,9 @@ public final class Crowns {
 		}
 		Details.ringCourse(d, cx, cz, r, y + drumH - 1, m.dress);
 		int yb = y + drumH;
+		if (r <= 3.6) {
+			return smallDome(d, cx, cz, Shapes.snap(cx, r), yb, top, m, sheet);
+		}
 		// a little pointed, as the great domes are: taller than a hemisphere, the profile drawn in toward the lantern
 		int h = (int) Math.ceil(r * 1.35) + 1;
 		h = Math.min(h, top - yb - 2);
