@@ -139,7 +139,7 @@ public final class QuestManager {
 		}
 		if (t != null && config.living().titleGates() && t.when().minTitle() != null
 			&& !Standings.meets(Standings.title(s, player.getUUID()), t.when().minTitle())) {
-			return Component.translatable("hearth.quest.lock.title", Component.translatable(t.when().minTitle().translationKey())).getString();
+			return Component.translatable("hearth.quest.lock.title", titleName(t.when().minTitle())).getString();
 		}
 		if (pq.active.size() >= config.maxActive()) {
 			return Component.translatable("hearth.quest.lock.full", config.maxActive()).getString();
@@ -165,8 +165,14 @@ public final class QuestManager {
 			}
 		}
 		int standing = Standings.standing(s, player.getUUID());
-		String title = Component.translatable(Standings.title(s, player.getUUID()).translationKey()).getString();
+		String title = titleName(Standings.title(s, player.getUUID())).getString();
 		return new QuestPayloads.Board(s.id(), boardPos, s.name(), s.tier().getSerializedName(), standing, entries, handIns, posters(level, s), title);
+	}
+
+	/** A title's name (the standing module's words, or the title itself where they are missing). */
+	static Component titleName(dev.voidmc.hearth.api.StandingService.Title title) {
+		String n = title.getSerializedName();
+		return Component.translatableWithFallback(title.translationKey(), Character.toUpperCase(n.charAt(0)) + n.substring(1));
 	}
 
 	/**

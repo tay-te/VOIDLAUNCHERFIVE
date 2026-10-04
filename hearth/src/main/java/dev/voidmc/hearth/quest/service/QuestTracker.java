@@ -448,7 +448,7 @@ public final class QuestTracker {
 	 * Where on the road an ambush springs: once the player has come {@code along} of the way from the town toward the
 	 * destination (within 160 blocks of the straight road), a little ahead of them. Null while they are short of it.
 	 */
-	static @org.jspecify.annotations.Nullable BlockPos alongRoute(Objective o, BlockPos pos) {
+	public static @org.jspecify.annotations.Nullable BlockPos alongRoute(Objective o, BlockPos pos) {
 		BlockPos from = BlockPos.of(o.data.getLongOr(Objective.Keys.ROUTE_FROM, o.pos == null ? 0L : o.pos.asLong()));
 		BlockPos to = BlockPos.of(o.data.getLongOr(Objective.Keys.ROUTE_TO, 0L));
 		double dx = to.getX() - from.getX();
