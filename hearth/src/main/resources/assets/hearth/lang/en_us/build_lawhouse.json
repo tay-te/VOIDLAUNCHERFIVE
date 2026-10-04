@@ -1,1 +1,11 @@
-{}
+{
+  "hearth.archetype.law.courthouse": "Courthouse",
+  "hearth.archetype.law.jail": "Jail",
+  "hearth.archetype.law.gallows": "Gallows",
+  "hearth.archetype.law.pillory": "Pillory",
+  "hearth.archetype.law.watch_house": "Watch House",
+  "hearth.archetype.law.toll_gate": "Toll Gate",
+  "hearth.build.law.jail": "Jail",
+  "hearth.build.law.toll": "Toll",
+  "hearth.build.law.watch": "Watch"
+}
