@@ -551,6 +551,47 @@ class HomesteadTest {
 		assertTrue(problems.isEmpty(), String.join("\n  ", problems));
 	}
 
+	/**
+	 * Bohemian cottages (temperate) stand under steep gables boarded upright: on a tall enough plot most rise at least
+	 * one and a half blocks to one, and a gabled one has its stripped-timber boards above the eaves; all sound.
+	 */
+	@Test
+	void bohemianCottagesStandUnderSteepBoardedGables() {
+		List<String> problems = new ArrayList<>();
+		int steep = 0;
+		int boarded = 0;
+		int n = 0;
+		for (int s = 0; s < 12; s++) {
+			Built b = build(Cottage.INFO, Culture.TEMPERATE, "flat", 7100L + s * 13L, FACINGS[s % 4], params(t -> t.putBoolean("split", false)), 9 + s % 3,
+				8 + s % 4);
+			problems.addAll(b.problems().stream().map(x -> "seed " + b.spec().seed() + ": " + x).toList());
+			Draft d = b.draft();
+			int[] top = {Integer.MIN_VALUE};
+			int[] boards = {0};
+			d.forEach((x, y, z, cell) -> {
+				var st = cell.state();
+				if (!st.isAir()) {
+					top[0] = Math.max(top[0], y);
+				}
+				if (y >= 5 && st.getBlock().getDescriptionId().contains("stripped") && st.hasProperty(BlockStateProperties.AXIS)
+					&& st.getValue(BlockStateProperties.AXIS) == Direction.Axis.Y) {
+					boards[0]++;
+				}
+			});
+			// the walls (and knee wall) stand 6 high; the roof over a span of 7 to 9 rises 6 or more over them when steep
+			if (top[0] - 5 >= 6) {
+				steep++;
+			}
+			if (boards[0] >= 3) {
+				boarded++;
+			}
+			n++;
+		}
+		assertTrue(problems.isEmpty(), String.join("\n  ", problems));
+		assertTrue(steep * 3 >= n * 2, "only " + steep + " of " + n + " Bohemian cottages stand under a steep roof");
+		assertTrue(boarded * 2 >= n, "only " + boarded + " of " + n + " Bohemian cottages have boarded gables");
+	}
+
 	@Test
 	void turfAndShingleCottagesHoldTheInvariants() {
 		everyOption(Cottage.INFO, "turf", List.of("true", "false"), "flat", "slope", "steep");

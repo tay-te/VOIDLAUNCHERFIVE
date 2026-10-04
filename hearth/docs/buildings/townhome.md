@@ -132,7 +132,9 @@ shophouse `COUNTER` (merchant's side) and `MARKET_STALL` (customers' side) with 
 ## Culture notes
 
 - **temperate, wisteria**: timber-framed jettied fronts over a stone or brick ground floor, gables to the street,
-  oriels, pentices; wisteria in pink-washed plaster and dark frame, flowers in window boxes.
+  oriels, pentices; wisteria in pink-washed plaster and dark frame, flowers in window boxes. Temperate towns are
+  Bohemian market towns: shophouses stand over stone arcades round the square (the *podloubí*, arched piers of the
+  wall accent rather than timber posts) more often than not, and three in four turn their gables to the street.
 - **northern, tundra**: log and plank, steep roofs, galleries on the alpine pattern, snow banks (tundra).
 - **alpine**: stone ground storey, timber upper storeys, deep eaves (no dormers through them), front galleries with
   railings; tower houses under tall hipped roofs; cliff dwellings dug into the slope.

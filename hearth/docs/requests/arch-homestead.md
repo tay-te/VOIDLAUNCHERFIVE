@@ -68,3 +68,13 @@ None of these blocks the family; each is worked around inside the archetypes.
     in the "red ochre" variant would make its figures read. The mesa's `wall` has no stairs, so its parapets cannot be
     rounded over (a stairs override on its wall material would do it). Desert flat roofs show `wall_accent` copings,
     `shutter` lattices on wind towers and screens, `door` paint and an `accent` tile at thresholds.
+13. **Bohemian temperate (for the style director and the planner).** The temperate cottages, farm houses and the
+    laithe now build Bohemian (`kit/homestead/Bohemia`, homestead.md): steep gables at 2:1 over a two-course knee wall
+    need height: a temperate cottage asks the planner for 14+ to get the full pitch (it falls back to 3:2, then the
+    culture's pitch, under a lower plot). Palette wishes: a weathered grey-brown shingle (the temperate `roof` is spruce,
+    it reads well) and, for the town tier, a red-brown tile to stand for Kuttenberg's clay roofs instead of deepslate
+    tiles; the board gables use `roof_trim` (tarred dark oak) under shingle and `door` (spruce) under thatch.
+14. **Expanse ids (natural surface rework).** Nothing in the homestead or town-home code reads Expanse biome ids. The
+    desert palette (`hearth_style/desert.json`, not mine) uses `expanse:smooth_opal_sandstone`; if the `opal_dunes` →
+    `red_dunes` rework renames the opal sandstone blocks, that fallback id wants updating (it falls back to vanilla, so
+    nothing breaks). No glowing blocks are used on any surface home.

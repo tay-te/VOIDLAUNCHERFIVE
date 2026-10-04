@@ -150,6 +150,25 @@ before the door where the plot allows, a smoker oven against the side (the house
 tile at the sill. Elsewhere a small gabled hut with peeled logs and a stone sill in log country. One bed, and a chest or a
 table where they fit.
 
+## The Bohemian village (temperate)
+
+The temperate culture's homes read as the villages of *Kingdom Come: Deliverance II*'s Bohemia (`kit/homestead/Bohemia`):
+
+- **Steep roofs**: gables at two blocks of rise to one (a stair on a block, clean courses) where the plot's height takes
+  it, three to two otherwise, over a **knee wall two courses high** so the loft stair comes up clear of the eave; a
+  quarter of the houses half-hipped at the culture's own pitch (a hipped end as steep as the gables steps like a
+  ziggurat); no cross gables or dormers. The ridge of a steep roof is carried on the roofing under it.
+- **Boarded gables** (*lomenice*): the gable above the plate clad in upright boards (stripped timber, the grain running
+  up; tarred dark under shingle, warm under thatch), a king post in the middle, and a **pent** of the roofing across the
+  gable's foot under the barge (*podlomenice*).
+- **Gables to the street** on half the cottages (all of the deeper ones), as a village turns its houses to the green.
+- **Fieldstone** plinths (the plinth course relaid in the culture's foundation rubble), whitewash between the timbers.
+- **Wattle** woven between the posts of the garden fence (mangrove roots, a block high), a **bench** by the door.
+- Farmsteads: the laithe becomes a long low range (house, byre and barn in a row) with a loft under one steep roof; a
+  steading's or laithe's **gate gets its own little roof** (*vrata*).
+- Market towns (townhome.md): shophouses stand over **stone arcades** round the square (*podloubí*) more often, and
+  turn tall gables to the street.
+
 ## Pens: where beasts are kept
 
 Every enclosure marks where its beasts stand with a `WORK_FACE` POI for the `HERDER` (`Spots.pen`), facing its gate: the
@@ -171,6 +190,8 @@ courtyard houses).
 
 ## Signature looks by culture
 
+- **Temperate (Bohemia)**: steep shingle and thatch gables boarded upright over a pent, timber frame and whitewash on
+  fieldstone, gables to the street, wattle and benches; long low ranges and roofed farm gates.
 - **Moorland**: stone laithe steadings and blackhouse longhouses inside dry-stone walls, fields of dry-stone banks.
 - **Tundra / northern**: longhouses with turf or shingle roofs and crossing horns round a fire; tun farmsteads of log
   buildings and a granary on staddles; peeled-log cottages under flowered turf or shingle, with horns and drip caps.
@@ -208,6 +229,8 @@ courtyard houses).
 - `RoofDress` – barge boards (a roof row or column restated in the trim).
 - `Carving` – crossed horns over gables, drip caps over openings.
 - `Adobe` – parapets (rounded or crested), wind towers, palm-frond ramadas, tiled thresholds, jars, roof-terrace life.
+- `Bohemia` – the Bohemian village: roof forms and steep pitches, the carried ridge, boarded gables with their pent,
+  fieldstone plinths, benches, wattle, roofed gates, log hives.
 
 ## Previews
 
@@ -248,3 +271,5 @@ piles; longhouses with a central fire and HEARTH POI; split-level cottages openi
   come with the style's variants (pale oak, birch); the drip caps and horns use the roles that carry them.
 - The mesa's terracotta has no stairs, so its parapets cannot be rounded over; pueblo walls stay square-topped.
 - Offline renders show vanilla stand-ins for Expanse woods (willow, palm, baobab, redwood).
+- Steep roofs in Minecraft step in courses (a stair on a block); a Bohemian roof under a low plot height falls back to
+  three to two or the culture's pitch. Barns keep the culture's pitch.
