@@ -1,0 +1,46 @@
+// Infrastructure close-ups without touching the shared build file: pass this as an init script.
+//   ./gradlew -I tools/infra/preview.gradle infraCloseups -Pculture=temperate -Pterrain=river -Pseed=2 -Pdays=200 -Pfocus=bridge
+//   (focus: heart, road, bridge, terrace, stairs, dock, walkway or all; -Pwindow=36 -Pcount=3)
+gradle.projectsEvaluated {
+	def p = gradle.rootProject
+	p.tasks.register('infraCloseups', JavaExec) {
+		group = 'hearth'
+		description = 'Renders textured close-ups of a planned town round its roads, bridges, terraces, stairs, docks and walkways'
+		classpath = p.sourceSets.gametest.runtimeClasspath
+		mainClass = 'dev.voidmc.hearth.gametest.infra.TownCloseups'
+		jvmArgs '-Djava.awt.headless=true', '-Xmx4g'
+		args = [
+			p.findProperty('culture') ?: 'temperate',
+			p.findProperty('terrain') ?: 'hills',
+			p.findProperty('seed') ?: '1',
+			p.findProperty('days') ?: '200',
+			p.findProperty('focus') ?: 'all',
+			p.findProperty('window') ?: '36',
+			p.findProperty('count') ?: '3',
+			p.layout.buildDirectory.dir('previews/closeups').get().asFile.path,
+			p.findProperty('scale') ?: '18',
+			p.findProperty('solo') ?: 'false'
+		]
+	}
+}
+
+// Larger shots of one archetype per style, with low side elevations:
+//   ./gradlew -I tools/infra/preview.gradle infraShots -Parchetype=infra/bridge -Pstyle=temperate,karst -Pseeds=1 "-Pterrain=river;facing=east;depth=30"
+gradle.projectsEvaluated {
+	def p = gradle.rootProject
+	p.tasks.register('infraShots', JavaExec) {
+		group = 'hearth'
+		description = 'Renders large shots and side elevations of an infrastructure archetype per style'
+		classpath = p.sourceSets.gametest.runtimeClasspath
+		mainClass = 'dev.voidmc.hearth.gametest.infra.InfraShots'
+		jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+		args = [
+			p.findProperty('archetype') ?: 'infra/bridge',
+			p.findProperty('style') ?: 'temperate',
+			p.findProperty('seeds') ?: '1',
+			p.findProperty('terrain') ?: 'flat',
+			p.layout.buildDirectory.dir('previews/shots').get().asFile.path,
+			p.findProperty('scale') ?: '20'
+		]
+	}
+}

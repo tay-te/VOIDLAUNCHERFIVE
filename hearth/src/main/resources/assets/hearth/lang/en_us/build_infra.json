@@ -1,1 +1,8 @@
-{}
+{
+  "hearth.archetype.infra.road": "Road",
+  "hearth.archetype.infra.stairs": "Stair Street",
+  "hearth.archetype.infra.bridge": "Bridge",
+  "hearth.archetype.infra.terrace": "Terrace",
+  "hearth.archetype.infra.walkway": "Walkway",
+  "hearth.archetype.infra.dock": "Dock"
+}
