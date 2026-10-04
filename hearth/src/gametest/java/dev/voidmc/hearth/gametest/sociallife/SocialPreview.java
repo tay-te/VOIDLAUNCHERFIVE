@@ -109,6 +109,14 @@ public final class SocialPreview {
 						System.out.println("CHECK " + a.info().id().getPath() + " " + c.getSerializedName() + " s" + s + " " + terrain + ": "
 							+ String.join(" | ", problems));
 						label += "  [" + problems.size() + " CHECK]";
+						var frame = new dev.voidmc.hearth.build.blueprint.LocalFrame(spec);
+						var m = java.util.regex.Pattern.compile("BlockPos\\{x=(-?\\d+), y=(-?\\d+), z=(-?\\d+)\\}").matcher(String.join(" ", problems));
+						while (m.find()) {
+							int wx = Integer.parseInt(m.group(1));
+							int wy = Integer.parseInt(m.group(2));
+							int wz = Integer.parseInt(m.group(3));
+							System.out.println("  local of " + m.group() + " = " + frame.localX(wx, wz) + "," + (wy - spec.floorY()) + "," + frame.localZ(wx, wz));
+						}
 					}
 					if (!reach.isEmpty()) {
 						for (String ys : reach.split("/")) {

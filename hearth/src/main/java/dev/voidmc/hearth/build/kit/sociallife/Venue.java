@@ -58,7 +58,7 @@ public final class Venue {
 		int[] step = stepCell(ax, az, bx, bz, toAudience);
 		int sx = step[0];
 		int sz = step[1];
-		if (d.isEmpty(sx, y, sz) && d.isSolid(sx, y - 1, sz)) {
+		if (d.isEmpty(sx, y, sz) && floor(d, sx, y, sz)) {
 			d.inStage(StageKind.INTERIOR, () -> d.set(sx, y, sz, wood.stairsOrSlab(back, Half.BOTTOM)));
 		}
 		// the players' places: the middle of the front row and the cell behind it
@@ -133,7 +133,7 @@ public final class Venue {
 		}
 		d.poi(PoiType.GAMING_TABLE, x, y, z, Dirs.right(run));
 		for (int[] e : new int[][]{{x - Dirs.dx(run), z - Dirs.dz(run), 1}, {bx + Dirs.dx(run), bz + Dirs.dz(run), 0}}) {
-			if (d.isEmpty(e[0], y, e[1]) && d.isEmpty(e[0], y + 1, e[1]) && d.isSolid(e[0], y - 1, e[1])) {
+			if (standable(d, e[0], y, e[1])) {
 				d.inStage(StageKind.INTERIOR, () -> d.set(e[0], y, e[1], wood.slab(SlabType.BOTTOM)));
 				d.poi(PoiType.SEAT, e[0], y, e[1], e[2] == 1 ? run : run.getOpposite());
 			}
@@ -186,7 +186,7 @@ public final class Venue {
 			for (int i = 0; i < n; i++) {
 				int px = x + Dirs.dx(run) * i + Dirs.dx(sd);
 				int pz = z + Dirs.dz(run) * i + Dirs.dz(sd);
-				if (d.isEmpty(px, y, pz) && d.isEmpty(px, y + 1, pz) && d.isSolid(px, y - 1, pz)) {
+				if (standable(d, px, y, pz)) {
 					d.inStage(StageKind.INTERIOR, () -> d.set(px, y, pz, wood.stairsOrSlab(sd, Half.BOTTOM)));
 					d.poi(PoiType.SEAT, px, y, pz, sd.getOpposite());
 				}
@@ -205,6 +205,16 @@ public final class Venue {
 		}
 		var st = banner.defaultBlockState().trySetValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING, facing);
 		d.inStage(stage, () -> d.set(x, y, z, st, dev.voidmc.hearth.build.draft.BlockEntities.banner(patterns)));
+	}
+
+	/** Something to stand on under (x, y, z): a drawn solid block, or the natural ground left as it is at that level. */
+	public static boolean floor(Draft d, int x, int y, int z) {
+		return d.isSolid(x, y - 1, z) || d.isAbsent(x, y - 1, z) && d.site().ground(x, z) == y && !d.site().isWater(x, z);
+	}
+
+	/** A free cell one can stand in: nothing drawn at feet or head, something to stand on. */
+	public static boolean standable(Draft d, int x, int y, int z) {
+		return d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && floor(d, x, y, z);
 	}
 
 	/** Candles (lit) on a table top or a sill: a thin wrapper so the venue's own fittings read together. */

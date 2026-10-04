@@ -873,7 +873,7 @@ public final class Tavern implements Archetype {
 	}
 
 	private static boolean free(Draft d, int x, int y, int z) {
-		return d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.isSolid(x, y - 1, z) && d.allowed(x, y + 1, z);
+		return Venue.standable(d, x, y, z) && d.allowed(x, y + 1, z);
 	}
 
 	/**

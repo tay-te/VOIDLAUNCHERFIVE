@@ -58,6 +58,8 @@ class SocialLifeTest {
 	static {
 		REQUIRED.put("commerce/tavern", EnumSet.of(PoiType.COUNTER, PoiType.MARKET_STALL, PoiType.STAGE, PoiType.GAMING_TABLE, PoiType.HEARTH, PoiType.SEAT,
 			PoiType.DOOR));
+		REQUIRED.put("civic/cemetery", EnumSet.of(PoiType.SEAT, PoiType.DOOR));
+		REQUIRED.put("landscape/festival_ground", EnumSet.of(PoiType.STAGE, PoiType.MEETING_POINT, PoiType.TABLE, PoiType.SEAT));
 	}
 
 	static List<ArchetypeInfo> family() {
