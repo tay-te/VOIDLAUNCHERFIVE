@@ -55,7 +55,7 @@
 	"tiers": {
 		"0": {
 			"wall": [{"m": "minecraft:packed_mud", "w": 2}, {"m": "minecraft:mushroom_stem", "w": 1}],
-			"roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}],
+			"roof": [{"m": "wood:minecraft:oak", "w": 2}, {"m": "wood:minecraft:spruce", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}],
 			"roof_trim": ["wood:minecraft:spruce"],
 			"plinth": ["minecraft:cobblestone"],
 			"chimney": [{"m": "minecraft:cobblestone", "w": 2}, {"m": "minecraft:mossy_cobblestone", "w": 1}],

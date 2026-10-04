@@ -210,7 +210,7 @@ class StyleModelTest {
 		assertNotNull(l);
 		Style n = culture(Culture.NORTHERN);
 		Palette walls = l.apply(Role.WALL, n.palette(Role.WALL, 2, -1), n.habits(-1), 1);
-		assertSame(Blocks.BIRCH_LOG, LocalMaterials.main(walls).material().block(Form.LOG), "a log town by a birch wood builds birch logs");
+		assertSame(Blocks.STRIPPED_BIRCH_LOG, LocalMaterials.main(walls).material().block(Form.LOG), "a log town by a birch wood builds hewn birch logs");
 		Style t = culture(Culture.TEMPERATE);
 		Palette frame = l.apply(Role.FRAME, t.palette(Role.FRAME, 2, -1), t.habits(-1), 1);
 		assertSame(t.palette(Role.FRAME, 2, -1), frame, "pale birch posts would vanish against white infill");
@@ -243,7 +243,7 @@ class StyleModelTest {
 		Style poor = t.dress(context("house/cottage", 2, "station", "poor"), 1, null);
 		Palette roof = poor.palette(Role.ROOF, 2, -1);
 		assertFalse(roof.patches().isEmpty(), "a hovel's roof is mended in patches");
-		assertSame(Blocks.HAY_BLOCK, roof.main().block(Form.FULL), "and thatched, at tier 0");
+		assertSame(Blocks.OAK_PLANKS, roof.main().block(Form.FULL), "in the rough shingles of tier 0");
 		assertFalse(roof.chooseOne(5).patches().isEmpty(), "patches survive the per-building choice");
 		Style lord = t.dress(context("house/manor", 2, "station", "lord"), 1, null);
 		Block lantern = lord.palette(Role.LIGHT, 2, -1).main().block(Form.FULL);

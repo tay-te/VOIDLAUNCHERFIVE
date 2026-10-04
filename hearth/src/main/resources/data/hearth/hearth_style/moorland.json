@@ -40,7 +40,7 @@
 		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 2}]
 	},
 	"tiers": {
-		"0": {"roof": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}], "window": ["minecraft:cobblestone"]},
+		"0": {"roof": [{"m": "minecraft:cobbled_deepslate", "w": 2}, {"m": "minecraft:deepslate_tiles", "w": 1}, {"m": "minecraft:moss_block", "patch": 0.12}], "window": ["minecraft:cobblestone"]},
 		"3": {"wall": [{"m": "minecraft:stone", "w": 3}, {"m": "minecraft:cobblestone", "w": 1.5}, {"m": "minecraft:andesite", "w": 1}, {"m": "minecraft:stone_bricks", "w": 1}], "chimney": ["minecraft:stone_bricks"]}
 	},
 	"base_weight": 2,

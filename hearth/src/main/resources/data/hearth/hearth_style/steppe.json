@@ -5,7 +5,7 @@
 	"roles": {
 		"foundation": [{"m": "minecraft:terracotta", "w": 2}, {"m": "minecraft:brown_terracotta", "w": 1}, {"m": "minecraft:packed_mud", "w": 1}],
 		"plinth": [{"m": "minecraft:terracotta", "w": 2}, {"m": "minecraft:brown_terracotta", "w": 1}],
-		"wall": [{"m": "minecraft:yellow_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 3}, {"m": "minecraft:smooth_sandstone", "w": 1}, {"m": "minecraft:sulfur_bricks|minecraft:yellow_terracotta", "w": 0.4}],
+		"wall": [{"m": "minecraft:yellow_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 4}, {"m": "minecraft:sulfur_bricks|minecraft:yellow_terracotta", "w": 0.6}, {"m": "minecraft:smooth_sandstone", "w": 0.3, "high": 1}],
 		"wall_accent": [{"m": "minecraft:orange_terracotta", "stairs": "minecraft:smooth_red_sandstone_stairs", "slab": "minecraft:smooth_red_sandstone_slab", "wall": "minecraft:red_sandstone_wall", "w": 2}, {"m": "minecraft:terracotta", "w": 1}],
 		"frame": [{"m": "wood:expanse:baobab|wood:minecraft:acacia", "log": "minecraft:dark_oak_log"}],
 		"beam": [{"m": "wood:expanse:baobab|wood:minecraft:acacia", "log": "minecraft:dark_oak_log"}],

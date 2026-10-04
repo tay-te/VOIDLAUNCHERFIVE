@@ -41,8 +41,9 @@ import org.jspecify.annotations.Nullable;
  *   <li>Some of the culture's own material stays in the mix (the station's {@link StationFinish#localShare}: a hovel is
  *   all local, a lord's house mostly bought in), and per-building choices (one frame wood per house) take the local
  *   wood on most houses, not all.</li>
- *   <li>A light local timber (birch, pale oak, aspen...) is not used for the posts of a timber frame against light infill,
- *   where it would disappear; it goes into the floors, boards and fences instead.</li>
+ *   <li>Walls are built of hewn logs (the local wood's stripped log), not of bark; a light local timber (birch, pale
+ *   oak, aspen...) never becomes frames and beams, which keep the culture's darker wood so a house keeps its lines (a
+ *   frame against light infill, the corners of a log house).</li>
  *   <li>The culture's habits may refuse a kind or a role ({@link Habits.Local}).</li>
  * </ul>
  */
@@ -139,6 +140,13 @@ public final class LocalMaterials {
 		return MATERIALS.computeIfAbsent(spec, MaterialFamilies::material);
 	}
 
+	/** A wood as walls are built of it: logs hewn of their bark (a birch wall is pale timber, not bark). */
+	static Material hewn(Local l) {
+		String w = l.wood;
+		String stripped = w.substring(0, w.indexOf(':') + 1) + "stripped_" + w.substring(w.indexOf(':') + 1) + "_log";
+		return MATERIALS.computeIfAbsent(l.spec + "#hewn", k -> Material.of(l.spec, Map.of(Form.LOG, stripped)));
+	}
+
 	/**
 	 * A role's palette with the territory's material blended in (unchanged when nothing local applies).
 	 *
@@ -166,9 +174,9 @@ public final class LocalMaterials {
 			if (!fits.contains(role)) {
 				return p;
 			}
-			// a light timber vanishes as the posts of a frame against light infill: it goes into floors and boards instead
-			if (l.kind == Kind.WOOD && (role == Role.FRAME || role == Role.BEAM) && MaterialFamilies.tone(l.wood) == MaterialFamilies.Tone.LIGHT
-				&& (habits.walls().kind(0) == Habits.WallKind.TIMBER_FRAME || habits.walls().kind(1) == Habits.WallKind.TIMBER_FRAME)) {
+			// a light timber makes a house without lines (a frame vanishes against light infill, a log house loses its dark
+			// corners): its frames and beams stay the culture's, and the local wood goes into walls, floors and boards
+			if (l.kind == Kind.WOOD && (role == Role.FRAME || role == Role.BEAM) && MaterialFamilies.tone(l.wood) == MaterialFamilies.Tone.LIGHT) {
 				return p;
 			}
 		}
@@ -182,9 +190,11 @@ public final class LocalMaterials {
 		int mainIndex = p.entries().indexOf(main(p));
 		for (int i = 0; i < p.entries().size(); i++) {
 			Palette.Entry e = p.entries().get(i);
-			Material target = target(l, e, i == mainIndex, explicit);
+			Material target = target(l, e, i == mainIndex, explicit, role == Role.WALL || role == Role.GABLE);
 			if (target == null) {
-				add(out, mats, e.material(), e);
+				// moss and cracks of the culture's stone kept in a local stone that has none of its own: fewer of them
+				boolean weather = l.kind == Kind.STONE && (e.low() > 0 || e.north() > 0) && MaterialFamilies.kind(e.material()) == Kind.STONE;
+				add(out, mats, e.material(), weather ? new Palette.Entry(e.material(), e.weight() * 0.5, e.low(), e.high(), e.north(), e.corner()) : e);
 				continue;
 			}
 			double local = perBuilding ? 3 * s : s;
@@ -226,15 +236,15 @@ public final class LocalMaterials {
 	}
 
 	/** What an entry becomes in the local material, or null to keep it as it is. */
-	private static @Nullable Material target(Local l, Palette.Entry e, boolean main, boolean explicit) {
+	private static @Nullable Material target(Local l, Palette.Entry e, boolean main, boolean explicit, boolean walling) {
 		Material m = e.material();
 		Kind k = MaterialFamilies.kind(m);
 		switch (l.kind) {
 			case WOOD -> {
-				if (k == Kind.WOOD) {
-					return material(l.spec);
+				if (k == Kind.WOOD || main && explicit) {
+					return walling ? hewn(l) : material(l.spec);
 				}
-				return main && explicit ? material(l.spec) : null;
+				return null;
 			}
 			case STONE -> {
 				String from = m.resolvedFrom();
