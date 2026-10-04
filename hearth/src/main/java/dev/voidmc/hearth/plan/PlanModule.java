@@ -4,6 +4,12 @@ import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.HearthConfig;
 import dev.voidmc.hearth.api.HearthDataKey;
 import dev.voidmc.hearth.api.HearthServices;
+import dev.voidmc.hearth.api.HearthWorld;
+import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.api.UndergroundProbe;
+import net.fabricmc.fabric.api.event.Event;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
+import net.minecraft.resources.Identifier;
 import dev.voidmc.hearth.plan.model.LayoutType;
 import dev.voidmc.hearth.plan.model.PlanState;
 import dev.voidmc.hearth.plan.terrain.Ground;
@@ -33,9 +39,42 @@ public final class PlanModule {
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> PlanCommands.register(dispatcher));
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> serverThread = server.getRunningThread());
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> serverThread = null);
+		// after the sim has made the level's Hearth world (it listens in the default phase), pair its probes for the planner
+		Identifier late = Hearth.id("plan/after_sim");
+		ServerLevelEvents.LOAD.addPhaseOrdering(Event.DEFAULT_PHASE, late);
+		ServerLevelEvents.LOAD.register(late, (server, level) -> {
+			HearthWorld world = HearthServices.world(level);
+			if (world != null) {
+				registerUnderground(world.terrain(), world.underground());
+			}
+		});
 	}
 
 	private static volatile @Nullable Thread serverThread;
+
+	/** Underground probes by the terrain probe of the same world (the planner only ever sees the terrain probe). */
+	private static final java.util.Map<TerrainProbe, UndergroundProbe> UNDERGROUND = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+	/**
+	 * The open spaces under the land a terrain probe describes (Expanse realms), or null: the probe itself if it is one,
+	 * else the one registered for it — by this module from each world's {@link HearthWorld#underground()} as its level
+	 * loads, or by tests and previews with {@link #registerUnderground}. Thread-safe.
+	 */
+	public static @Nullable UndergroundProbe underground(TerrainProbe terrain) {
+		if (terrain instanceof UndergroundProbe u) {
+			return u;
+		}
+		return UNDERGROUND.get(terrain);
+	}
+
+	/** Pairs a terrain probe with the underground probe of the same world (tests, previews, a sim that wires its own). */
+	public static void registerUnderground(TerrainProbe terrain, @Nullable UndergroundProbe underground) {
+		if (underground == null) {
+			UNDERGROUND.remove(terrain);
+		} else {
+			UNDERGROUND.put(terrain, underground);
+		}
+	}
 
 	/** Whether this is the running server's main thread (live planning, time-limited) rather than a history's worker. */
 	public static boolean isServerThread() {

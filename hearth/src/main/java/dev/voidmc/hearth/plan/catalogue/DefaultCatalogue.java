@@ -23,11 +23,14 @@ import java.util.Set;
 import net.minecraft.resources.Identifier;
 
 /**
- * The archetype catalogue of ARCHITECTURE.md §6.1 as {@link ArchetypeInfo}s: what the planner assumes when no build
- * module is registered (dev tools, the sim's own tests) and what the planner's test double serves. The build module's
- * real infos replace these whenever it is registered; sizes here follow the catalogue's tables.
+ * The archetype catalogue of ARCHITECTURE.md §6.1 and the phase 3 catalogue of LIVING_WORLD.md §8.5 as
+ * {@link ArchetypeInfo}s: what the planner assumes when no build module is registered (dev tools, the sim's own tests),
+ * what the planner's test double serves, and the templates {@code Catalogue.resolve} falls back from when the build
+ * module has not registered an id yet. The build module's real infos replace these whenever it is registered; sizes
+ * here follow the catalogue's tables.
  */
 public final class DefaultCatalogue {
+	private static final java.util.Set<Identifier> PHASE3 = new java.util.HashSet<>();
 	private static final List<ArchetypeInfo> ALL = build();
 
 	private DefaultCatalogue() {
@@ -98,7 +101,7 @@ public final class DefaultCatalogue {
 
 		ArchetypeCategory V = ArchetypeCategory.CIVIC;
 		l.add(info(Archetypes.CHAPEL, V, jobs(JobType.PRIEST), 0, 9, 13, 13, 19, 10, 18, SettlementTier.VILLAGE, cultures(), flags(VERTICAL), List.of(), 1, 1.0));
-		l.add(info(Archetypes.TOWN_HALL, V, jobs(), 0, 13, 19, 13, 19, 12, 18, SettlementTier.TOWN, cultures(), flags(CENTRAL), List.of(), 1, 1.0));
+		l.add(info(Archetypes.TOWN_HALL, V, jobs(JobType.REEVE), 0, 13, 19, 13, 19, 12, 18, SettlementTier.TOWN, cultures(), flags(CENTRAL), List.of(), 1, 1.0));
 		l.add(info(Archetypes.LIBRARY, V, jobs(JobType.SCHOLAR), 0, 9, 13, 11, 15, 9, 14, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
 		l.add(info(Archetypes.SCHOOL, V, jobs(), 0, 11, 15, 11, 15, 8, 12, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
 		l.add(info(Archetypes.BATHHOUSE, V, jobs(), 0, 11, 15, 11, 17, 7, 11, SettlementTier.CITY, cultures(), flags(), List.of(), 1, 1.0));
@@ -144,7 +147,146 @@ public final class DefaultCatalogue {
 			cultures(Culture.MARITIME, Culture.TROPICAL, Culture.MEDITERRANEAN), flags(VERTICAL, WATERFRONT), List.of(), 1, 1.0));
 		l.add(info(Archetypes.PAGODA, K, jobs(), 0, 9, 13, 9, 13, 24, 36, SettlementTier.TOWN, cultures(Culture.KARST, Culture.WISTERIA), flags(VERTICAL), List.of(), 1, 1.0));
 		l.add(info(Archetypes.CLOCK_TOWER, K, jobs(), 0, 7, 9, 7, 9, 24, 34, SettlementTier.CITY, cultures(), flags(VERTICAL, CENTRAL), List.of(), 1, 1.0));
+		phase3(l);
 		return Collections.unmodifiableList(l);
+	}
+
+	/**
+	 * LIVING_WORLD.md §8.5: homes by station, the nobility, clergy and learning, social life, law, the workshops of the
+	 * chains, extraction and the deep. Sizes are the planner's expectations; the architects' infos win once registered.
+	 */
+	/** Whether an id is of the phase 3 catalogue (LIVING_WORLD.md §8.5): these are asked for exactly, never by fallback. */
+	public static boolean isPhase3(Identifier id) {
+		return PHASE3.contains(id);
+	}
+
+	private static void phase3(List<ArchetypeInfo> l) {
+		int before = l.size();
+		phase3Infos(l);
+		for (int i = before; i < l.size(); i++) {
+			PHASE3.add(l.get(i).id());
+		}
+	}
+
+	private static void phase3Infos(List<ArchetypeInfo> l) {
+		ArchetypeCategory H = ArchetypeCategory.HOUSING;
+		Set<Culture> palaceCultures = cultures(Culture.DESERT, Culture.KARST, Culture.MEDITERRANEAN, Culture.WISTERIA, Culture.TROPICAL, Culture.STEPPE,
+			Culture.MESA);
+		Set<Culture> caravanCultures = cultures(Culture.DESERT, Culture.STEPPE, Culture.MESA, Culture.MEDITERRANEAN, Culture.KARST);
+		// homes by station
+		l.add(info(Archetypes.HOVEL, H, jobs(), 2, 4, 6, 4, 6, 3, 5, SettlementTier.CAMP, cultures(), flags(), List.of(Archetypes.COTTAGE), 0, 0.8));
+		l.add(info(Archetypes.SHACK, H, jobs(), 2, 4, 6, 5, 7, 3, 5, SettlementTier.CAMP, cultures(), flags(ATTACHABLE), List.of(Archetypes.ROWHOUSE), 0, 0.8));
+		l.add(info(Archetypes.CROFT, H, jobs(), 3, 6, 9, 6, 9, 4, 7, SettlementTier.CAMP, cultures(), flags(), List.of(Archetypes.COTTAGE), 0, 1.0));
+		l.add(info(Archetypes.MERCHANT_HOUSE, H, jobs(JobType.MERCHANT), 5, 7, 11, 10, 15, 10, 16, SettlementTier.VILLAGE, cultures(), flags(ATTACHABLE),
+			List.of(), 0, 1.0));
+		l.add(info(Archetypes.REEVE_HOUSE, H, jobs(), 4, 8, 11, 9, 12, 8, 12, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 2, 1.0));
+		l.add(info(Archetypes.RECTORY, H, jobs(), 3, 7, 10, 8, 11, 7, 11, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 2, 1.0));
+		l.add(info(Archetypes.SCRIBE_HOUSE, H, jobs(), 3, 5, 8, 8, 11, 9, 14, SettlementTier.TOWN, cultures(), flags(ATTACHABLE), List.of(), 0, 1.0));
+		l.add(info(Archetypes.HERMIT_HUT, H, jobs(), 1, 4, 6, 4, 6, 3, 5, SettlementTier.CAMP, cultures(), flags(OUTSKIRTS), List.of(), 1, 0.5));
+
+		ArchetypeCategory N = ArchetypeCategory.NOBLE;
+		l.add(info(Archetypes.KEEP, N, jobs(JobType.LORD, JobType.STEWARD, JobType.GUARD), 8, 15, 23, 15, 23, 18, 30, SettlementTier.TOWN, cultures(),
+			flags(VERTICAL), List.of(Archetypes.CASTLE, Archetypes.PALACE), 1, 1.0));
+		l.add(info(Archetypes.CASTLE, N, jobs(JobType.LORD, JobType.STEWARD, JobType.GUARD), 16, 29, 45, 29, 45, 22, 36, SettlementTier.CITY, cultures(),
+			flags(VERTICAL), List.of(), 1, 1.0));
+		l.add(info(Archetypes.PALACE, N, jobs(JobType.LORD, JobType.STEWARD), 16, 31, 47, 31, 47, 14, 26, SettlementTier.CITY, palaceCultures, flags(),
+			List.of(), 1, 1.0));
+		l.add(info(Archetypes.HUNTING_LODGE, N, jobs(JobType.HUNTER, JobType.STEWARD), 4, 9, 13, 9, 13, 7, 11, SettlementTier.TOWN, cultures(),
+			flags(OUTSKIRTS), List.of(), 1, 1.0));
+		l.add(info(Archetypes.STABLES, N, jobs(JobType.STABLEMASTER), 0, 9, 15, 11, 17, 6, 9, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 2, 1.0));
+
+		ArchetypeCategory V = ArchetypeCategory.CIVIC;
+		l.add(info(Archetypes.MONASTERY, V, jobs(JobType.PRIEST, JobType.SCHOLAR, JobType.BREWER), 10, 21, 31, 21, 31, 12, 22, SettlementTier.TOWN, cultures(),
+			flags(OUTSKIRTS), List.of(), 1, 1.0));
+		l.add(info(Archetypes.CONVENT, V, jobs(JobType.PRIEST, JobType.HEALER), 8, 17, 27, 17, 27, 10, 18, SettlementTier.TOWN, cultures(), flags(OUTSKIRTS),
+			List.of(), 1, 1.0));
+		l.add(info(Archetypes.SHRINE, V, jobs(), 0, 3, 5, 3, 5, 3, 6, SettlementTier.HAMLET, cultures(), flags(), List.of(), 0, 1.0));
+		l.add(info(Archetypes.UNIVERSITY, V, jobs(JobType.SCHOLAR), 8, 23, 33, 23, 33, 14, 24, SettlementTier.CITY, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.OBSERVATORY, V, jobs(JobType.SCHOLAR), 0, 9, 13, 9, 13, 16, 26, SettlementTier.CITY, cultures(), flags(VERTICAL), List.of(), 1,
+			1.0));
+		l.add(info(Archetypes.PLAYHOUSE, V, jobs(JobType.ENTERTAINER), 0, 15, 21, 15, 23, 10, 16, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.TILT_YARD, V, jobs(), 0, 15, 21, 33, 45, 3, 7, SettlementTier.TOWN, cultures(), flags(OUTSKIRTS), List.of(), 1, 1.0));
+		l.add(info(Archetypes.INFIRMARY, V, jobs(JobType.HEALER), 0, 11, 15, 11, 17, 7, 11, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.ALMSHOUSE, V, jobs(), 8, 11, 15, 11, 15, 7, 11, SettlementTier.TOWN, cultures(), flags(), List.of(), 2, 1.0));
+		l.add(info(Archetypes.ORPHANAGE, V, jobs(), 8, 11, 15, 11, 15, 8, 12, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.CEMETERY, V, jobs(JobType.PRIEST), 0, 13, 25, 13, 25, 1, 8, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 1,
+			1.0));
+
+		ArchetypeCategory W = ArchetypeCategory.WORKPLACE;
+		l.add(info(Archetypes.ALCHEMIST_TOWER, W, jobs(JobType.SCHOLAR), 1, 7, 9, 7, 9, 14, 22, SettlementTier.TOWN, cultures(), flags(VERTICAL), List.of(), 1,
+			1.0));
+		l.add(info(Archetypes.LOGGING_CAMP, W, jobs(JobType.FORESTER, JobType.HAULER), 0, 11, 17, 11, 17, 5, 8, SettlementTier.HAMLET, cultures(),
+			flags(OUTSKIRTS), List.of(), 0, 1.0));
+		l.add(info(Archetypes.CHARCOAL_KILN, W, jobs(JobType.CHARCOAL_BURNER), 0, 7, 11, 7, 11, 4, 7, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS),
+			List.of(), 0, 1.0));
+		l.add(info(Archetypes.BRICK_KILN, W, jobs(JobType.KILN_WORKER), 0, 9, 13, 9, 13, 6, 10, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(),
+			0, 1.0));
+		l.add(info(Archetypes.GLASSWORKS, W, jobs(JobType.GLASSMAKER), 0, 9, 13, 11, 15, 7, 11, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 0, 1.0));
+		l.add(info(Archetypes.SMELTER, W, jobs(JobType.SMELTER), 0, 9, 13, 9, 13, 8, 12, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.TANNERY, W, jobs(JobType.TANNER), 0, 9, 13, 11, 15, 6, 9, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.BUTCHER, W, jobs(JobType.BUTCHER), 0, 6, 9, 8, 11, 7, 10, SettlementTier.VILLAGE, cultures(), flags(ATTACHABLE), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.CHANDLER, W, jobs(JobType.CHANDLER), 0, 5, 8, 7, 10, 7, 10, SettlementTier.VILLAGE, cultures(), flags(ATTACHABLE), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.DYE_WORKS, W, jobs(JobType.DYER), 0, 9, 13, 9, 13, 6, 9, SettlementTier.TOWN, cultures(), flags(), List.of(), 0, 1.0));
+		l.add(info(Archetypes.PAPER_MILL, W, jobs(JobType.PAPERMAKER), 0, 9, 12, 10, 13, 8, 12, SettlementTier.TOWN, cultures(), flags(WATERFRONT), List.of(),
+			0, 1.0));
+		l.add(info(Archetypes.APIARY, W, jobs(JobType.BEEKEEPER), 0, 7, 11, 7, 11, 3, 6, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.SHIPYARD, W, jobs(JobType.BOATWRIGHT), 0, 11, 17, 15, 25, 8, 14, SettlementTier.VILLAGE, cultures(), flags(WATERFRONT),
+			List.of(), 0, 1.0));
+		l.add(info(Archetypes.SALT_WORKS, W, jobs(JobType.SALTER), 0, 11, 17, 11, 17, 3, 6, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS), List.of(), 0,
+			1.0));
+
+		ArchetypeCategory C = ArchetypeCategory.COMMERCE;
+		l.add(info(Archetypes.TAVERN, C, jobs(JobType.INNKEEPER, JobType.ENTERTAINER), 0, 9, 13, 10, 14, 8, 12, SettlementTier.VILLAGE, cultures(), flags(),
+			List.of(), 3, 1.0));
+		l.add(info(Archetypes.HOSTEL, C, jobs(JobType.INNKEEPER), 8, 11, 15, 11, 15, 8, 12, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.CARAVANSERAI, C, jobs(JobType.INNKEEPER, JobType.TRADER), 10, 21, 31, 21, 31, 7, 11, SettlementTier.TOWN, caravanCultures,
+			flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.THIEVES_DEN, C, jobs(JobType.FENCE), 0, 7, 10, 7, 10, 5, 8, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.CARAVAN_YARD, C, jobs(JobType.TRADER, JobType.HAULER), 0, 15, 21, 15, 21, 5, 8, SettlementTier.TOWN, cultures(), flags(),
+			List.of(), 1, 1.0));
+		l.add(info(Archetypes.COUNTING_HOUSE, C, jobs(JobType.MERCHANT, JobType.TRADER), 0, 7, 10, 9, 13, 9, 14, SettlementTier.TOWN, cultures(),
+			flags(ATTACHABLE), List.of(), 1, 1.0));
+
+		ArchetypeCategory L = ArchetypeCategory.LANDSCAPE;
+		l.add(info(Archetypes.FESTIVAL_GROUND, L, jobs(), 0, 21, 41, 21, 41, 1, 6, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 1, 1.0));
+
+		ArchetypeCategory J = ArchetypeCategory.LAW;
+		l.add(info(Archetypes.COURTHOUSE, J, jobs(JobType.JUDGE), 0, 13, 19, 13, 19, 12, 18, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.JAIL, J, jobs(JobType.JAILER, JobType.GUARD), 0, 9, 13, 9, 13, 7, 11, SettlementTier.TOWN, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.GALLOWS, J, jobs(), 0, 5, 7, 5, 7, 5, 8, SettlementTier.TOWN, cultures(), flags(CENTRAL), List.of(), 1, 1.0));
+		l.add(info(Archetypes.PILLORY, J, jobs(), 0, 3, 5, 3, 5, 3, 5, SettlementTier.VILLAGE, cultures(), flags(CENTRAL), List.of(), 1, 1.0));
+		l.add(info(Archetypes.WATCH_HOUSE, J, jobs(JobType.GUARD), 0, 5, 9, 5, 9, 7, 11, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 6, 1.0));
+		l.add(info(Archetypes.TOLL_GATE, J, jobs(JobType.GUARD), 0, 7, 11, 5, 7, 6, 10, SettlementTier.TOWN, cultures(), flags(), List.of(), 2, 1.0));
+
+		ArchetypeCategory E = ArchetypeCategory.EXTRACTION;
+		l.add(info(Archetypes.QUARRY_PIT, E, jobs(JobType.QUARRIER), 0, 15, 31, 15, 31, 4, 8, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS), List.of(),
+			0, 1.2));
+		l.add(info(Archetypes.MINE, E, jobs(JobType.MINER), 0, 7, 11, 16, 48, 6, 10, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS, HILLSIDE), List.of(),
+			0, 1.2));
+		l.add(info(Archetypes.SHAFT, E, jobs(JobType.MINER), 0, 7, 11, 7, 11, 8, 14, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 0, 1.0));
+		l.add(info(Archetypes.CLAY_PIT, E, jobs(JobType.CLAY_DIGGER), 0, 9, 17, 9, 17, 1, 3, SettlementTier.CAMP, cultures(), flags(OUTSKIRTS), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.SAND_PIT, E, jobs(JobType.CLAY_DIGGER), 0, 9, 17, 9, 17, 1, 3, SettlementTier.CAMP, cultures(), flags(OUTSKIRTS), List.of(), 0,
+			0.8));
+		l.add(info(Archetypes.PLANTATION, E, jobs(JobType.FORESTER), 0, 15, 31, 15, 31, 1, 8, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(),
+			0, 0.8));
+
+		ArchetypeCategory U = ArchetypeCategory.UNDERGROUND;
+		l.add(info(Archetypes.DEEP_HALL, U, jobs(JobType.REEVE), 0, 15, 23, 17, 27, 10, 18, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.DEEP_DWELLING, U, jobs(), 4, 7, 11, 7, 11, 6, 10, SettlementTier.VILLAGE, cultures(), flags(HILLSIDE, STACKABLE, ATTACHABLE),
+			List.of(), 0, 1.0));
+		l.add(info(Archetypes.DEEP_MARKET, U, jobs(JobType.MERCHANT), 0, 11, 17, 11, 17, 6, 10, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 1, 1.0));
+		l.add(info(Archetypes.DEEP_FORGE, U, jobs(JobType.SMITH, JobType.SMELTER), 0, 9, 13, 9, 13, 7, 11, SettlementTier.VILLAGE, cultures(), flags(),
+			List.of(), 0, 1.0));
+		l.add(info(Archetypes.DEEP_GLOW_GARDEN, U, jobs(JobType.FARMER), 0, 11, 19, 11, 19, 2, 5, SettlementTier.VILLAGE, cultures(), flags(), List.of(), 0,
+			1.0));
+		l.add(info(Archetypes.DEEP_LIFT, U, jobs(JobType.HAULER), 0, 5, 7, 5, 7, 8, 320, SettlementTier.VILLAGE, cultures(), flags(VERTICAL), List.of(), 2,
+			1.0));
 	}
 
 	private static ArchetypeInfo info(Identifier id, ArchetypeCategory category, Set<JobType> jobs, int beds, int minFront, int maxFront,

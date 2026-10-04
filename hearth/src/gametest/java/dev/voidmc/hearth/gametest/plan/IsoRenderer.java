@@ -75,7 +75,8 @@ public final class IsoRenderer {
 		int ground = s.level[i] != Integer.MIN_VALUE ? s.level[i] : s.ground[i];
 		int water = s.water[i];
 		boolean wet = water != TerrainProbe.NO_WATER && water > ground && s.level[i] == Integer.MIN_VALUE;
-		int topColor = s.surface[i] != 0 ? s.surface[i] : wet ? 0x7A6A50 : Palette.land(ground, s.sea, s.temperature[i]);
+		int topColor = s.surface[i] != 0 ? s.surface[i] : wet ? 0x7A6A50
+			: s.underground ? Palette.cave(ground, s.caveFloor) : Palette.land(ground, s.sea, s.temperature[i]);
 		double shade = 1.0;
 		if (s.surface[i] == 0 && !wet) {
 			int gx = heightAt(x + 1, z) - heightAt(x - 1, z);

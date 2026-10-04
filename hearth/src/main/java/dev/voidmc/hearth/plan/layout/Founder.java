@@ -79,14 +79,15 @@ public final class Founder {
 		squareEdge(ctx, heart.id());
 
 		skeleton(ctx, heart.id());
-		// the side lanes of the first stretches, planned ahead so the first houses keep their mouths open
+		// the lots on the square first (the hall, the market hall, the court), then the side lanes of the first stretches,
+		// planned ahead so the first houses keep their mouths open and the lanes go round the lots
+		dev.voidmc.hearth.plan.growth.Lots.reserve(ctx);
 		for (RoadEdge e : new ArrayList<>(state.graph.edges())) {
 			if (e.built > 0) {
 				dev.voidmc.hearth.plan.growth.Grid.planAhead(ctx, e, 0, e.built);
 			}
 		}
 		heartFeature(ctx);
-		dev.voidmc.hearth.plan.growth.Lots.reserve(ctx);
 		// the first needs: the builders' yard, homes for whoever founded it, a field
 		int rounds = 3 + ctx.population / 3;
 		for (int i = 0; i < rounds; i++) {
@@ -114,7 +115,7 @@ public final class Founder {
 	}
 
 	/** The square's edge as a road-network edge: plots front onto the square along it. Clockwise, one in from the edge. */
-	private static void squareEdge(PlanContext ctx, int heart) {
+	public static void squareEdge(PlanContext ctx, int heart) {
 		int h = ctx.state.plazaHalf - 1;
 		int hx = ctx.heartX();
 		int hz = ctx.heartZ();
@@ -269,7 +270,7 @@ public final class Founder {
 	 * Plans a road from a node toward a direction and distance, routed over the land; builds its first {@code build}
 	 * blocks. Starts at the node (at the heart, on the square's edge).
 	 */
-	static @Nullable RoadEdge arm(PlanContext ctx, int from, double angle, double length, int width, RoadKind kind, RoadEdge.Role role, int build) {
+	public static @Nullable RoadEdge arm(PlanContext ctx, int from, double angle, double length, int width, RoadKind kind, RoadEdge.Role role, int build) {
 		RoadGraph.Node n = ctx.state.graph.node(from);
 		Ground g = ctx.ground;
 		int tx = n.x() + (int) Math.round(StrictMath.cos(angle) * length);

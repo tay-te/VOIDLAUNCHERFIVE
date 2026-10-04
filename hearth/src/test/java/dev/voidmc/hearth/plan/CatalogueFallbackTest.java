@@ -43,6 +43,27 @@ class CatalogueFallbackTest {
 	}
 
 	@Test
+	void theLivingWorldsBuildingsAreNeverStoodInFor() {
+		// a build module that has only the phase 2 catalogue: no hovel, keep, quarry pit or courthouse is ever asked for,
+		// and the town still grows, its homes by station falling back to the houses that exist
+		CatalogueDouble phase2 = new CatalogueDouble(i -> !dev.voidmc.hearth.plan.catalogue.DefaultCatalogue.isPhase3(i.id()));
+		var previous = Plans.PLANNER != null ? HearthServices.blueprints() : null;
+		HearthServices.setBlueprints(phase2);
+		try {
+			HearthPlanner planner = new HearthPlanner(PlanModule.STATE, PlanConfig.DEFAULTS);
+			MiniSim sim = new MiniSim(Culture.TEMPERATE, new SyntheticTerrain(SyntheticTerrain.Kind.HILLS, 71), 71, planner);
+			sim.run(160);
+			for (PlotView p : sim.settlement.plots()) {
+				assertTrue(phase2.archetype(p.spec().archetype()) != null, "proposed unknown " + p.spec().archetype());
+			}
+			assertTrue(sim.settlement.population() > 60, "still grew: " + sim.settlement.population());
+			assertTrue(sim.settlement.plots().stream().anyMatch(p -> p.spec().params().contains("station")), "homes still name their station");
+		} finally {
+			HearthServices.setBlueprints(previous);
+		}
+	}
+
+	@Test
 	void resolveFallsBackWithinTheCategory() {
 		Catalogue c = new Catalogue(CatalogueDouble.without(List.of(Archetypes.BAKERY)).archetypes(), null);
 		var baker = c.resolve(Archetypes.BAKERY, Culture.TEMPERATE, SettlementTier.TOWN);

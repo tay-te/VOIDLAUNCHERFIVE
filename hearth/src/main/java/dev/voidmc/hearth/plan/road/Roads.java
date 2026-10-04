@@ -9,7 +9,9 @@ import dev.voidmc.hearth.plan.model.RoadEdge;
 import dev.voidmc.hearth.plan.model.RoadGraph;
 import dev.voidmc.hearth.plan.model.RoadKind;
 import dev.voidmc.hearth.plan.terrain.Ground;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.Nullable;
 
@@ -29,7 +31,7 @@ public final class Roads {
 	public static Profile.Rules rules(PlanContext ctx, RoadEdge.Role role) {
 		var cfg = ctx.config;
 		boolean stairs = switch (role) {
-			case TRACK, SWITCHBACK, BOARDWALK, RING -> false;
+			case TRACK, SWITCHBACK, BOARDWALK, RING, HAUL -> false;
 			case ARM -> ctx.state.layout.terraces;
 			default -> true;
 		};
@@ -75,7 +77,8 @@ public final class Roads {
 	 */
 	public static void build(PlanContext ctx, RoadEdge e, int upTo, String reason) {
 		upTo = Math.min(upTo, Math.min(e.length(), e.limit));
-		// never pave over something standing: the road ends where its way is blocked
+		// never pave over something standing: the road ends where its way is blocked (a quick look along the centreline
+		// first, then the exact corridors of the plots it would issue)
 		int blocked = firstBlocked(ctx, e, Math.max(0, e.built - 1), upTo);
 		if (blocked >= 0) {
 			e.limit = Math.max(e.built, blocked - 1);
@@ -85,6 +88,34 @@ public final class Roads {
 			e.built = Math.max(e.built, upTo);
 			return;
 		}
+		for (int attempt = 0; attempt < 4; attempt++) {
+			List<PlotSpec> specs = new ArrayList<>();
+			int reached = stretch(ctx, e, upTo, specs);
+			if (reached <= e.built) {
+				return;
+			}
+			int hit = firstBlocked(ctx, e, specs);
+			if (hit < 0) {
+				for (PlotSpec spec : specs) {
+					issue(ctx, spec, reason);
+				}
+				e.built = Math.max(e.built, reached);
+				return;
+			}
+			e.limit = Math.max(e.built, hit - 1);
+			upTo = Math.min(upTo, e.limit);
+			if (upTo <= e.built) {
+				return;
+			}
+		}
+	}
+
+	/**
+	 * The plots of the edge's next stretch, up to dense index {@code upTo} (exclusive): graded runs as roads, steep runs
+	 * as stairs, water runs as bridges or boardwalks, each no longer than the config's road plot length. Returns how far
+	 * the stretch really reaches (it stops short of a bridge it would cut).
+	 */
+	private static int stretch(PlanContext ctx, RoadEdge e, int upTo, List<PlotSpec> out) {
 		Polyline.Dense d = e.dense();
 		int maxLen = Math.max(8, ctx.config.roadPlotLength());
 		// a bridge goes up whole or not at all: stop short of one that would be cut
@@ -95,7 +126,7 @@ public final class Roads {
 			}
 		}
 		if (upTo <= e.built) {
-			return;
+			return upTo;
 		}
 		for (int r = 0; r < e.runCount(); r++) {
 			int type = e.runType(r);
@@ -116,7 +147,7 @@ public final class Roads {
 					int cEnd = Math.min(b, c + maxLen);
 					int[] pts = points(d, c, cEnd, e.runDeck(r), boardwalk);
 					int water = waterLevel(ctx.ground, d, c, cEnd);
-					issue(ctx, Specs.bridge(ctx, pts, e.width, e.runDeck(r), water, boardwalk, e.kind), reason);
+					out.add(Specs.bridge(ctx, pts, e.width, e.runDeck(r), water, boardwalk, e.kind));
 				}
 				continue;
 			}
@@ -146,37 +177,87 @@ public final class Roads {
 				if (e.role == RoadEdge.Role.ARM && kind == RoadKind.STREET && ctx.distanceToHeart(d.xs()[c], d.zs()[c]) > ctx.coreRadius() * 1.9) {
 					kind = RoadKind.HIGHWAY;
 				}
-				issue(ctx, Specs.road(ctx, archetype, pts, e.width, kind), reason);
+				out.add(Specs.road(ctx, archetype, pts, e.width, kind));
 				if (cEnd >= t - 1) {
 					break;
 				}
 				c = cEnd;
 			}
 		}
-		e.built = Math.max(e.built, upTo);
+		return upTo;
 	}
 
-	/** The first dense index in [from, to) whose corridor takes a column something already stands on, or -1. */
-	private static int firstBlocked(PlanContext ctx, RoadEdge e, int from, int to) {
+	/** The first dense index of the edge where one of these plots' corridors takes a column something stands on, or -1. */
+	private static int firstBlocked(PlanContext ctx, RoadEdge e, List<PlotSpec> specs) {
 		Polyline.Dense d = e.dense();
-		int r = e.width / 2;
-		for (int i = from; i < to; i++) {
-			int x = d.xs()[i];
-			int z = d.zs()[i];
-			for (int dz = -r; dz <= r; dz++) {
-				for (int dx = -r; dx <= r; dx++) {
-					if (dx * dx + dz * dz * 1.0 >= (e.width + 0.5) * (e.width + 0.5) / 4.0) {
-						continue;
-					}
-					byte c = ctx.occ.get(x + dx, z + dz);
-					if (Cell.isSolid(c) && c != Cell.WALL || c == Cell.WALL && !Cell.isAccess(ctx.occ.get(x, z))
-						&& ctx.occ.get(x, z) != Cell.PLANNED_ROAD) {
-						return i;
+		int from = Math.max(0, e.built - 2);
+		int to = Math.min(d.length() - 1, Math.max(from, e.built) + 4096);
+		int[] first = {Integer.MAX_VALUE};
+		for (PlotSpec spec : specs) {
+			PlotGeometry.forEachColumn(spec, (x, z) -> {
+				byte c = ctx.occ.get(x, z);
+				if (!Cell.isSolid(c)) {
+					return;
+				}
+				int i = from + nearest(d, from, to, x, z);
+				if (c == Cell.WALL) {
+					byte centre = ctx.occ.get(d.xs()[i], d.zs()[i]);
+					if (Cell.isAccess(centre) || centre == Cell.PLANNED_ROAD) {
+						return;
 					}
 				}
+				first[0] = Math.min(first[0], i);
+			});
+		}
+		return first[0] == Integer.MAX_VALUE ? -1 : first[0];
+	}
+
+
+	/**
+	 * The first dense index in [from, to) whose corridor takes a column something already stands on, or -1. The corridor
+	 * is the polyline's own (the contract's rule), so a bend never cuts the corner of a building beside it.
+	 */
+	private static int firstBlocked(PlanContext ctx, RoadEdge e, int from, int to) {
+		Polyline.Dense d = e.dense();
+		if (to - from < 1) {
+			return -1;
+		}
+		int a = Math.max(0, from);
+		int b = Math.min(d.length() - 1, to);
+		if (b <= a) {
+			return -1;
+		}
+		int[] pts = Polyline.fromDense(d.xs(), d.ys(), d.zs(), a, b).points();
+		int[] first = {Integer.MAX_VALUE};
+		Polyline.corridor(pts, e.width, (x, z) -> {
+			byte c = ctx.occ.get(x, z);
+			if (!Cell.isSolid(c)) {
+				return;
+			}
+			int i = a + nearest(d, a, b, x, z);
+			if (c == Cell.WALL) {
+				// the wall line is crossed where the road's own centreline is road already or kept for it: a gate
+				byte centre = ctx.occ.get(d.xs()[i], d.zs()[i]);
+				if (Cell.isAccess(centre) || centre == Cell.PLANNED_ROAD) {
+					return;
+				}
+			}
+			first[0] = Math.min(first[0], i);
+		});
+		return first[0] == Integer.MAX_VALUE ? -1 : first[0];
+	}
+
+	private static int nearest(Polyline.Dense d, int a, int b, int x, int z) {
+		int best = 0;
+		long bestD = Long.MAX_VALUE;
+		for (int i = a; i <= b; i++) {
+			long dd = d.distance2(i, x, z);
+			if (dd < bestD) {
+				bestD = dd;
+				best = i - a;
 			}
 		}
-		return -1;
+		return best;
 	}
 
 	private static int[] points(Polyline.Dense d, int a, int b, int deck, boolean boardwalk) {
@@ -413,12 +494,33 @@ public final class Roads {
 	 */
 	public static @Nullable RoadEdge approach(PlanContext ctx, int tx, int tz, RoadEdge.Role role, RoadKind kind, int width, int margin,
 		String reason) {
-		// one approach per call, its search bounded: an unreachable crag must not cost more than a few milliseconds
+		Router.Params params = new Router.Params(1, Math.min(margin, 24), ctx.config.roadGrade(), ctx.config.stairGrade(), -1, 1.2, true, 90_000);
+		return connect(ctx, tx, tz, role, kind, width, params, reason);
+	}
+
+	/**
+	 * A cart road out to a far place — a quarry, a mine, a logging camp, the castle hill, a monastery — routed back from
+	 * it to the nearest road on a grid coarse enough for the distance (no stairs: carts use it; water bridged where
+	 * short), planned from a junction there and built whole. One such route per call, like an approach.
+	 */
+	public static @Nullable RoadEdge haul(PlanContext ctx, int tx, int tz, RoadEdge.Role role, RoadKind kind, int width, boolean stairs, String reason) {
+		if (role == RoadEdge.Role.HAUL ? !ctx.haulMayGrow() : !ctx.roadsMayGrow()) {
+			return null;
+		}
+		double d = ctx.distanceToHeart(tx, tz);
+		int cell = d < 70 ? 1 : d < 170 ? 2 : 4;
+		Router.Params params = new Router.Params(cell, cell == 1 ? 20 : 32, ctx.config.roadGrade(), stairs ? ctx.config.stairGrade() : ctx.config.roadGrade(),
+			9, 2.5, true, 160_000, 0, 2);
+		return connect(ctx, tx, tz, role, kind, width, params, reason);
+	}
+
+	private static @Nullable RoadEdge connect(PlanContext ctx, int tx, int tz, RoadEdge.Role role, RoadKind kind, int width, Router.Params params,
+		String reason) {
+		// one route per call, its search bounded: an unreachable crag must not cost more than a few milliseconds
 		if (ctx.routed) {
 			return null;
 		}
 		ctx.routed = true;
-		Router.Params params = new Router.Params(1, Math.min(margin, 24), ctx.config.roadGrade(), ctx.config.stairGrade(), -1, 1.2, true, 90_000);
 		// searched from the site toward the heart, ending at the first road it reaches
 		int[][] path = Router.route(ctx.ground, ctx.occ, tx, tz, ctx.heartX(), ctx.heartZ(), params);
 		if (path == null || path[0].length < 3) {

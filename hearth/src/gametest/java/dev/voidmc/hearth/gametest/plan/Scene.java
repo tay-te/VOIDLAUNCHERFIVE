@@ -44,6 +44,10 @@ public final class Scene {
 	/** Per column, the land's walking level where it was cut or filled (Integer.MIN_VALUE = natural). */
 	final int[] level;
 	public int blockCount;
+	/** A realm's floor rather than open land (a deep town's preview): the land is drawn as cave floor and rock. */
+	public boolean underground;
+	/** The realm's general floor level, for the cave colours. */
+	public int caveFloor;
 
 	public Scene(TerrainProbe terrain, int x0, int z0, int w, int d) {
 		this.x0 = x0;
@@ -130,6 +134,8 @@ public final class Scene {
 			}
 		}
 		r.blockCount = this.blockCount;
+		r.underground = this.underground;
+		r.caveFloor = this.caveFloor;
 		return r;
 	}
 
@@ -241,6 +247,11 @@ public final class Scene {
 		int floor = s.floorY();
 		int roof = Palette.roof(id, info);
 		int wall = Palette.wall(info);
+		dev.voidmc.hearth.api.Station station = dev.voidmc.hearth.plan.society.Stations.home(s, info);
+		if (station != null) {
+			// who lives there, on the roof, as on the plan
+			roof = Palette.station(station);
+		}
 		if (id.equals(Archetypes.TERRACE)) {
 			int lv = p.getIntOr("level", floor);
 			for (int z = z0; z <= z1; z++) {

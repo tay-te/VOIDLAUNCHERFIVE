@@ -64,7 +64,19 @@ public final class Parcels {
 		/** Workshops: by the water or at the town's edge. */
 		CRAFTS,
 		/** As near a given point as can be (a farmstead's fields round its house). */
-		ANCHOR
+		ANCHOR,
+		/** The poor's homes: at the edge of town, downwind, on the low ground by the tannery and the fields. */
+		HOVELS,
+		/** Peasants' crofts and cottages: at the edge of town, by the fields they work. */
+		CROFTS,
+		/** As the request's {@link Siting} says: near its inputs, by the water, downwind, at the edge (the chains' workshops). */
+		SITED,
+		/** Where travellers come in: on a main road at the edge of town (or just outside the gate) — hostels, caravan yards. */
+		GATEWAY,
+		/** Hidden: on a lane or alley of the poor quarter, off the main streets (the thieves' den). */
+		HIDDEN,
+		/** Quiet ground outside the town, raised and apart: monasteries and convents outside the walls. */
+		QUIET
 	}
 
 	/**
@@ -73,21 +85,57 @@ public final class Parcels {
 	 * @param depth    depth to use, or -1 to choose
 	 */
 	public record Request(ArchetypeInfo info, Placement placement, District.@Nullable Kind district, int gap, int frontage, int depth,
-		boolean allowTerrace, int anchorX, int anchorZ) {
+		boolean allowTerrace, int anchorX, int anchorZ, @Nullable Siting siting, double sizeBias, dev.voidmc.hearth.api.@Nullable Station station) {
 		public Request(ArchetypeInfo info, Placement placement, District.@Nullable Kind district) {
-			this(info, placement, district, -1, -1, -1, true, 0, 0);
+			this(info, placement, district, -1, -1, -1, true, 0, 0, null, 0, null);
+		}
+
+		public Request(ArchetypeInfo info, Placement placement, District.@Nullable Kind district, int gap, int frontage, int depth,
+			boolean allowTerrace, int anchorX, int anchorZ) {
+			this(info, placement, district, gap, frontage, depth, allowTerrace, anchorX, anchorZ, null, 0, null);
+		}
+
+		/** A home for this station: neighbours of the same station draw it, the very different keep it off (a quarter forms). */
+		public Request forStation(dev.voidmc.hearth.api.@Nullable Station s) {
+			return new Request(this.info, this.placement, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, this.anchorX,
+				this.anchorZ, this.siting, this.sizeBias, s);
 		}
 
 		public Request withGap(int g) {
-			return new Request(this.info, this.placement, this.district, g, this.frontage, this.depth, this.allowTerrace, this.anchorX, this.anchorZ);
+			return new Request(this.info, this.placement, this.district, g, this.frontage, this.depth, this.allowTerrace, this.anchorX, this.anchorZ,
+				this.siting, this.sizeBias, this.station);
 		}
 
 		public Request withSize(int f, int d) {
-			return new Request(this.info, this.placement, this.district, this.gap, f, d, this.allowTerrace, this.anchorX, this.anchorZ);
+			return new Request(this.info, this.placement, this.district, this.gap, f, d, this.allowTerrace, this.anchorX, this.anchorZ, this.siting,
+				this.sizeBias, this.station);
 		}
 
 		public Request anchoredAt(int x, int z) {
-			return new Request(this.info, Placement.ANCHOR, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, x, z);
+			return new Request(this.info, Placement.ANCHOR, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, x, z, this.siting,
+				this.sizeBias, this.station);
+		}
+
+		/** Sited as {@code s} says (placement {@link Placement#SITED}). */
+		public Request sited(Siting s) {
+			return new Request(this.info, Placement.SITED, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, s.x(), s.z(), s,
+				this.sizeBias, this.station);
+		}
+
+		/** Leans the building's size within its archetype's range: negative smaller (a poor family), positive larger. */
+		public Request withSizeBias(double b) {
+			return new Request(this.info, this.placement, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, this.anchorX,
+				this.anchorZ, this.siting, b, this.station);
+		}
+
+		public Request withInfo(ArchetypeInfo i) {
+			return new Request(i, this.placement, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, this.anchorX, this.anchorZ,
+				this.siting, this.sizeBias, this.station);
+		}
+
+		public Request withPlacement(Placement p) {
+			return new Request(this.info, p, this.district, this.gap, this.frontage, this.depth, this.allowTerrace, this.anchorX, this.anchorZ,
+				this.siting, this.sizeBias, this.station);
 		}
 	}
 
@@ -233,8 +281,12 @@ public final class Parcels {
 		if (e.role == RoadEdge.Role.PATH) {
 			return false;
 		}
-		if (e.role == RoadEdge.Role.TRACK) {
-			return req.placement == Placement.FARMSTEAD || req.placement == Placement.EDGE || req.info.category() == ArchetypeCategory.FARM;
+		if (e.role == RoadEdge.Role.TRACK || e.role == RoadEdge.Role.HAUL) {
+			ArchetypeCategory c = req.info.category();
+			return switch (req.placement) {
+				case FARMSTEAD, EDGE, SITED, QUIET, GATEWAY, HOVELS, CROFTS, ANCHOR -> true;
+				default -> c == ArchetypeCategory.FARM || c == ArchetypeCategory.EXTRACTION || c == ArchetypeCategory.UNDERGROUND;
+			};
 		}
 		return true;
 	}
@@ -288,11 +340,58 @@ public final class Parcels {
 				s = g.ground(x, z) * 2.0 - toTop * 0.4 - dist * 0.05;
 			}
 			case WATER, ON_WATER -> s = -dist * 0.4 - ctx.waterDistance(x, z) * 3;
-			case EDGE -> s = -Math.abs(dist - edgeRing(ctx)) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
+			case EDGE -> {
+				// fields go a little way out, leaving the town room to grow before it reaches them
+				double ring = req.info.category() == ArchetypeCategory.FARM && !ctx.state.layout.expansive
+					? Math.max(edgeRing(ctx), ctx.coreRadiusAt(Math.max(40, (int) (ctx.population * 1.5))) * 1.25) : edgeRing(ctx);
+				s = -Math.abs(dist - ring) - (e.role == RoadEdge.Role.SQUARE ? 100 : 0);
+			}
 			case FARMSTEAD -> s = -Math.abs(dist - core * 2.2 * ctx.config.sprawlBias()) * 0.5 + (e.role == RoadEdge.Role.TRACK ? 30 : 0);
 			case RICH -> s = (g.ground(x, z) - ctx.state.heartY) * 1.5 - Math.abs(dist - core * 0.9) * 0.6;
 			case CRAFTS -> s = -Math.abs(dist - core * 0.9) - ctx.waterDistance(x, z) * 0.5;
 			case ANCHOR -> s = -Math.hypot(x - req.anchorX, z - req.anchorZ) * 2;
+			case HOVELS -> {
+				var t = ctx.territory();
+				// a walled town's poor live in the lanes along the inside of its wall, then in the suburbs outside the gates
+				double ring = ctx.wallLine() > 0 ? ctx.wallLine() * 0.85 : edgeRing(ctx) * 0.9;
+				s = -Math.abs(dist - ring) * 0.8 + t.downwind(x, z) * core * 0.45 - (g.ground(x, z) - ctx.state.heartY) * 0.6;
+				int[] tannery = t.nearest(dev.voidmc.hearth.plan.catalogue.Archetypes.TANNERY, x, z);
+				if (tannery != null) {
+					s -= Math.hypot(x - tannery[0], z - tannery[1]) * 0.35;
+				}
+			}
+			case CROFTS -> {
+				double ring = ctx.wallLine() > 0 ? ctx.wallLine() * 0.8 : edgeRing(ctx) * 0.85;
+				s = -Math.abs(dist - ring) * 0.8 - Math.max(0, ctx.territory().downwind(x, z)) * core * 0.15;
+			}
+			case SITED -> {
+				Siting st = req.siting;
+				if (st == null) {
+					s = -dist;
+				} else {
+					double toAnchor = Math.hypot(x - st.x(), z - st.z());
+					s = -toAnchor * st.anchor() - ctx.waterDistance(x, z) * st.water() + ctx.territory().downwind(x, z) * st.downwind() * core * 0.5
+						- Math.abs(dist - edgeRing(ctx)) * st.edge() + (g.ground(x, z) - ctx.state.heartY) * st.height()
+						+ (e.role == RoadEdge.Role.ARM || e.role == RoadEdge.Role.SQUARE ? st.main() * 10 : 0);
+					if (toAnchor > st.maxDistance()) {
+						s -= (toAnchor - st.maxDistance()) * 4;
+					}
+				}
+			}
+			case GATEWAY -> s = -Math.abs(dist - edgeRing(ctx)) + (e.role == RoadEdge.Role.ARM ? 40 : e.role == RoadEdge.Role.TRACK ? 8 : 0);
+			case HIDDEN -> {
+				s = -Math.abs(dist - core * 0.85) * 0.5 + switch (e.role) {
+					case LANE, ALLEY, STAIR -> 15;
+					case ARM, SQUARE, RING -> -45;
+					default -> 0;
+				};
+				District d = ctx.district(x, z);
+				if (d != null && d.kind() == District.Kind.POOR) {
+					s += 30;
+				}
+			}
+			case QUIET -> s = -Math.abs(dist - (edgeRing(ctx) + 60)) * 0.6 + (g.ground(x, z) - ctx.state.heartY) * 1.2
+				+ (e.role == RoadEdge.Role.TRACK || e.role == RoadEdge.Role.APPROACH ? 6 : 0);
 			default -> s = -dist;
 		}
 		// the square's frontage is kept for the buildings that make a square: hall, chapel, inn, bank, shops
@@ -303,14 +402,26 @@ public final class Parcels {
 		if (req.district != null && !ctx.state.districts.isEmpty()) {
 			District d = ctx.district(x, z);
 			if (d != null) {
-				s += d.kind() == req.district ? 18 : d.kind() == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
+				boolean home = req.info.category() == ArchetypeCategory.HOUSING && req.station != null;
+				s += d.kind() == req.district ? (home ? 40 : 18) : d.kind() == District.Kind.FARMS && req.info.category() != ArchetypeCategory.FARM ? -25 : 0;
+				// the hill and the castle are kept for the gentry and the lord; the poor quarter is not where others build homes
+				if (req.info.category() == ArchetypeCategory.HOUSING && d.kind() != req.district) {
+					s -= d.kind() == District.Kind.RICH || d.kind() == District.Kind.CASTLE ? (home ? 40 : 22)
+						: d.kind() == District.Kind.POOR ? (home ? 25 : 10)
+						: d.kind() == District.Kind.MARKET && req.station == dev.voidmc.hearth.api.Station.POOR ? 20 : 0;
+				}
 			}
+		}
+		if (req.station != null && ctx.ledger != null) {
+			s += ctx.ledger.neighbourhood(req.station, x, z);
 		}
 		// a walled town keeps its town inside the wall line and its farms and yards outside
 		double wall = ctx.wallLine();
 		if (wall > 0) {
 			boolean inside = dist < wall - 2;
-			boolean outer = req.placement == Placement.EDGE || req.placement == Placement.FARMSTEAD || req.info.category() == ArchetypeCategory.FARM;
+			boolean outer = req.placement == Placement.EDGE || req.placement == Placement.FARMSTEAD || req.placement == Placement.QUIET
+				|| req.placement == Placement.GATEWAY || req.info.category() == ArchetypeCategory.FARM || req.info.category() == ArchetypeCategory.EXTRACTION
+				|| req.placement == Placement.SITED && req.info.flags().contains(SiteFlag.OUTSKIRTS);
 			s += outer ? (inside ? -80 : 0) : (inside ? 45 : 0);
 		}
 		if (req.info.flags().contains(SiteFlag.VERTICAL)) {
@@ -384,8 +495,8 @@ public final class Parcels {
 			tf = 0.45;
 			td = 0.5;
 		}
-		tf = clamp01(tf + (ctx.hash(x, z, 1) - 0.5) * 0.4);
-		td = clamp01(td + (ctx.hash(x, z, 2) - 0.5) * 0.4);
+		tf = clamp01(tf + (ctx.hash(x, z, 1) - 0.5) * 0.4 + req.sizeBias);
+		td = clamp01(td + (ctx.hash(x, z, 2) - 0.5) * 0.4 + req.sizeBias * 0.6);
 		int f = req.frontage > 0 ? req.frontage : info.minFrontage() + (int) Math.round((info.maxFrontage() - info.minFrontage()) * tf);
 		int d = req.depth > 0 ? req.depth : info.minDepth() + (int) Math.round((info.maxDepth() - info.minDepth()) * td);
 		return new int[]{Math.max(1, f), Math.max(1, d)};
@@ -400,7 +511,7 @@ public final class Parcels {
 		Occupancy occ = ctx.occ;
 		Direction facing = pos.facing;
 		// out among the fields a farmstead may stand well back from its track, at the end of a drive
-		boolean rural = ctx.state.graph.edge(pos.edge).role == RoadEdge.Role.TRACK;
+		boolean rural = ctx.state.graph.edge(pos.edge).role == RoadEdge.Role.TRACK || ctx.state.graph.edge(pos.edge).role == RoadEdge.Role.HAUL;
 		int doorMax = rural ? Math.max(ctx.config.doorPathMax(), 7) : ctx.config.doorPathMax();
 		Parcel p = null;
 		for (int push = 0; push <= doorMax; push++) {
@@ -491,8 +602,16 @@ public final class Parcels {
 				}
 			}
 		}
+		boolean excavation = excavation(info);
 		if (onWater) {
 			if (wet * 2 < area || maxDepth > 8) {
+				return false;
+			}
+		} else if (excavation) {
+			// a clay or sand pit may take in the bank's edge; nothing else is dug under water
+			boolean bank = info.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.CLAY_PIT)
+				|| info.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.SAND_PIT);
+			if (bank ? wet * 100 > area * 35 || frontWet(g, p) : wet > 0) {
 				return false;
 			}
 		} else if (waterfront) {
@@ -514,7 +633,7 @@ public final class Parcels {
 			tol += 1;
 		}
 		p.floorY = streetY;
-		if (!onWater && wet < area) {
+		if (!onWater && wet < area && !excavation) {
 			int relief = p.hi - p.lo;
 			int cut = p.hi - streetY;
 			int fill = streetY - p.lo;
@@ -547,6 +666,14 @@ public final class Parcels {
 		}
 		corners(occ, p);
 		return true;
+	}
+
+	/**
+	 * Plots whose blueprint works the ground rather than standing on it — quarry pits, mines, shafts, clay and sand pits,
+	 * woodlots, a lift down to a realm: their floor is the street's level at the entrance, and they need no terrace.
+	 */
+	public static boolean excavation(ArchetypeInfo info) {
+		return info.category() == ArchetypeCategory.EXTRACTION || info.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.DEEP_LIFT);
 	}
 
 	/** Whether this settlement cuts its dwellings into slopes: cliff towns, mountain holds, pueblos and karst towns. */

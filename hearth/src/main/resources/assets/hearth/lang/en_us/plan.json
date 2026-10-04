@@ -5,6 +5,10 @@
 	"hearth.plan.command.roads": "Roads: %s, %s blocks built, %s stair runs, %s bridges and boardwalks",
 	"hearth.plan.command.districts": "Districts: %s",
 	"hearth.plan.command.queue": "Projects decided, not yet begun: %s",
+	"hearth.plan.command.stations": "Folk by station: %s",
+	"hearth.plan.command.land": "The land: %s resource sites, %s worked; it feeds about %s folk",
+	"hearth.plan.command.castle": "The castle hill: %s, %s",
+	"hearth.plan.command.deep": "The deep town: its square at %s %s %s, %s plots",
 	"hearth.plan.layout.farmsteads": "scattered farmsteads",
 	"hearth.plan.layout.crossroads": "crossroads village",
 	"hearth.plan.layout.linear": "linear",
@@ -34,5 +38,7 @@
 	"hearth.plan.district.rich": "The hill",
 	"hearth.plan.district.residential": "Residential quarter",
 	"hearth.plan.district.farms": "Farmland",
-	"hearth.plan.district.harbour": "Harbour"
+	"hearth.plan.district.harbour": "Harbour",
+	"hearth.plan.district.poor": "The poor quarter",
+	"hearth.plan.district.castle": "The castle hill"
 }

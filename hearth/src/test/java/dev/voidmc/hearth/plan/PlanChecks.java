@@ -59,7 +59,7 @@ final class PlanChecks {
 					}
 					PlotView o = s.plot(other);
 					PlotSpec os = o.spec();
-					boolean allowed = other == stackedOn || os.params().getIntOr("stacked_on", -1) == p.id()
+					boolean allowed = stackedChain(s, p.id(), other) || stackedChain(s, other, p.id())
 						|| furniture && (Archetypes.isPlazaFurniture(os.archetype()) || os.archetype().equals(Archetypes.PLAZA))
 						|| sp.params().getIntOr("replaces", -1) == other || os.params().getIntOr("replaces", -1) == p.id()
 						|| defence(sp, c) && defence(os, c);
@@ -105,6 +105,22 @@ final class PlanChecks {
 		return out;
 	}
 
+	/** Whether {@code lower} is somewhere under {@code upper} in a stack of dwellings (stacked_on, transitively). */
+	private static boolean stackedChain(Settlement s, int upper, int lower) {
+		int at = upper;
+		for (int k = 0; k < 8 && at >= 0; k++) {
+			PlotView v = s.plot(at);
+			if (v == null) {
+				return false;
+			}
+			at = v.spec().params().getIntOr("stacked_on", -1);
+			if (at == lower) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static boolean defence(PlotSpec s, Catalogue c) {
 		ArchetypeInfo info = c.info(s.archetype());
 		return info != null && info.category() == ArchetypeCategory.DEFENSE;
@@ -134,6 +150,13 @@ final class PlanChecks {
 				continue;
 			}
 			int[] e = PlotGeometry.entrance(sp);
+			if (deep(s) && sp.archetype().equals(Archetypes.DEEP_LIFT)) {
+				// the lift's door below opens toward the deep square
+				var below = net.minecraft.core.Direction.byName(params.getStringOr("deep_facing", "north"));
+				PlotSpec turned = new PlotSpec(sp.archetype(), sp.style(), sp.seed(), sp.origin(), sp.sizeX(), sp.sizeZ(),
+					below == null ? sp.facing() : below, sp.maxHeight(), sp.tier(), params);
+				e = PlotGeometry.entrance(turned);
+			}
 			if (pub.get(e[0], e[1]) == Cell.FREE && !squareGreen(s, e[0], e[1])) {
 				out.add("plot " + p.id() + " " + sp.archetype() + " at " + sp.origin() + " facing " + sp.facing() + ": entrance " + e[0] + "," + e[1]
 					+ " is not on a road");
@@ -145,8 +168,15 @@ final class PlanChecks {
 	/** The main square before it is paved is a village green: public ground all the same. */
 	private static boolean squareGreen(Settlement s, int x, int z) {
 		var st = s.data(PlanModule.STATE);
+		if (deep(s) && st.deep != null) {
+			st = st.deep;
+		}
 		var r = st.reservation("square");
 		return r != null && r.contains(x, z);
+	}
+
+	private static boolean deep(Settlement s) {
+		return s instanceof dev.voidmc.hearth.plan.deep.LevelView v && v.isDeep();
 	}
 
 	/** Road plots climbing faster than a road may, and stair plots steeper than a stair. */
@@ -197,6 +227,10 @@ final class PlanChecks {
 				continue;
 			}
 			ArchetypeInfo info = c.info(sp.archetype());
+			if (dev.voidmc.hearth.plan.growth.Parcels.excavation(info)) {
+				// a quarry pit, a mine or a woodlot works the ground as it lies
+				continue;
+			}
 			int tol = info.flags().contains(SiteFlag.HILLSIDE) ? cfg.hillsideTolerance() : cfg.slopeTolerance();
 			int lo = Integer.MAX_VALUE;
 			int hi = Integer.MIN_VALUE;
@@ -233,7 +267,9 @@ final class PlanChecks {
 				out.add("plot " + p.id() + " " + sp.archetype() + " is " + f + "x" + d + ", outside " + info.minFrontage() + "-" + info.maxFrontage()
 					+ " x " + info.minDepth() + "-" + info.maxDepth());
 			}
-			boolean wetOk = info.flags().contains(SiteFlag.ON_WATER) || info.flags().contains(SiteFlag.WATERFRONT);
+			// clay and sand pits take in the edge of their bank (a little water at the front is the point)
+			boolean wetOk = info.flags().contains(SiteFlag.ON_WATER) || info.flags().contains(SiteFlag.WATERFRONT)
+				|| sp.archetype().equals(Archetypes.CLAY_PIT) || sp.archetype().equals(Archetypes.SAND_PIT);
 			if (!wetOk) {
 				for (int z = sp.origin().getZ(); z < sp.origin().getZ() + sp.sizeZ(); z++) {
 					for (int x = sp.origin().getX(); x < sp.origin().getX() + sp.sizeX(); x++) {

@@ -17,29 +17,54 @@ import net.minecraft.resources.Identifier;
  * same way; see {@link Landmarks}.)
  */
 public final class Lots {
-	private static final List<Identifier> KEPT = List.of(Archetypes.TOWN_HALL, Archetypes.MARKET_HALL);
+	private static final List<Identifier> KEPT = List.of(Archetypes.TOWN_HALL, Archetypes.MARKET_HALL, Archetypes.COURTHOUSE);
 
 	private Lots() {
 	}
 
-	/** Reserves the lots fronting the square. Called once at founding. */
-	public static void reserve(PlanContext ctx) {
-		int square = ctx.state.squareEdge;
-		if (square < 0) {
-			return;
+	/**
+	 * Whether a lot the town will want on its square is neither kept nor built yet (none could be found at founding):
+	 * it is looked for again while the town is small, before the square's frontage is all taken.
+	 */
+	public static boolean missing(PlanContext ctx) {
+		if (ctx.state.squareEdge < 0 || ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal()) {
+			return false;
 		}
 		for (Identifier id : KEPT) {
 			ArchetypeInfo info = ctx.catalogue.info(id);
-			if (info == null || !info.suits(ctx.culture)) {
+			if (info != null && info.suits(ctx.culture) && ctx.state.reservation("lot/" + id.getPath()) == null
+				&& ctx.territory().first(id) == null && !(id.equals(Archetypes.COURTHOUSE) && !ctx.config.living().law())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Reserves the lots fronting the square that are not kept yet. Called at founding, and again while one is missing. */
+	public static boolean reserve(PlanContext ctx) {
+		int square = ctx.state.squareEdge;
+		if (square < 0) {
+			return false;
+		}
+		boolean any = false;
+		for (Identifier id : KEPT) {
+			if (ctx.state.reservation("lot/" + id.getPath()) != null || ctx.territory().first(id) != null) {
+				continue;
+			}
+			ArchetypeInfo info = ctx.catalogue.info(id);
+			if (info == null || !info.suits(ctx.culture) || id.equals(Archetypes.COURTHOUSE) && !ctx.config.living().law()) {
 				continue;
 			}
 			int f = info.minFrontage() + (info.maxFrontage() - info.minFrontage()) * 2 / 3;
 			int d = info.minDepth() + (info.maxDepth() - info.minDepth()) * 2 / 3;
-			Parcels.Request req = new Parcels.Request(info, id.equals(Archetypes.TOWN_HALL) ? Placement.CIVIC : Placement.CENTRAL, null, 1, f, d,
+			Parcels.Request req = new Parcels.Request(info, id.equals(Archetypes.MARKET_HALL) ? Placement.CENTRAL : Placement.CIVIC, null, 1, f, d,
 				false, 0, 0);
-			// on the square, or on a main street at the corner of it
+			// on the square, or on a main street at the corner of it; smaller if the square is small
 			Parcels.Parcel p = Parcels.best(ctx, req, e -> e == square || ctx.state.graph.edge(e).role == RoadEdge.Role.ARM);
 			if (p == null) {
+				p = Parcels.best(ctx, req.withSize(info.minFrontage(), info.minDepth()), e -> e == square || ctx.state.graph.edge(e).role == RoadEdge.Role.ARM);
+			}
+			if (p == null || ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.state.plazaHalf + 34) {
 				continue;
 			}
 			if (Growth.trace) {
@@ -47,7 +72,9 @@ public final class Lots {
 			}
 			ctx.state.reservations.add(new Reservation("lot/" + id.getPath(), p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED));
 			ctx.occ.markRect(p.x0, p.z0, p.x1(), p.z1(), Cell.RESERVED);
+			any = true;
 		}
+		return any;
 	}
 
 	/** Frees the lot kept for an archetype (if there is one) so it can be built on now. */

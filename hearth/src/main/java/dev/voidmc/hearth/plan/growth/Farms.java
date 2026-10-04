@@ -88,6 +88,11 @@ public final class Farms {
 	 * it, if the network does not reach that far yet).
 	 */
 	public static boolean farmstead(PlanContext ctx) {
+		return farmstead(ctx, null);
+	}
+
+	/** A farmstead whose farmhouse carries {@code params} (its station and household). */
+	public static boolean farmstead(PlanContext ctx, @Nullable CompoundTag params) {
 		ArchetypeInfo house = ctx.catalogue.resolve(Archetypes.FARMHOUSE, ctx.culture, ctx.tier);
 		if (house == null || house.category() != ArchetypeCategory.HOUSING) {
 			return false;
@@ -103,7 +108,7 @@ public final class Farms {
 				return true;
 			}
 		}
-		Build.building(ctx, house, p, "housing: a farmstead out along the " + Expand.describe(ctx.state.graph.edge(p.edge)), null);
+		Build.building(ctx, house, p, "housing: a farmstead out along the " + Expand.describe(ctx.state.graph.edge(p.edge)), params);
 		ArchetypeInfo field = choose(ctx);
 		if (field != null) {
 			int fields = 1 + ctx.random.nextInt(2);

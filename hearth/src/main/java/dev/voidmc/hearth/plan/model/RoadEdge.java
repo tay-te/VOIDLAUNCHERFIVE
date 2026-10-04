@@ -193,7 +193,12 @@ public final class RoadEdge {
 		/** The way up to a building on a rise: the chapel lane, the stair to a landmark. */
 		APPROACH("approach"),
 		/** Not a road: the line a walled town keeps for its wall from the founding, built as wall plots later. */
-		WALL_LINE("wall_line");
+		WALL_LINE("wall_line"),
+		/**
+		 * A cart track out to a working or a far place (a quarry, a mine, a logging camp, the lord's hunting woods): no
+		 * stairs, frontage only for what belongs out there, and outside the town's own road budget.
+		 */
+		HAUL("haul");
 
 		public static final StringRepresentable.EnumCodec<Role> CODEC = StringRepresentable.fromEnum(Role::values);
 		private final String name;

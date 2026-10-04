@@ -75,10 +75,10 @@ final class Palette {
 			case FARM -> 0xC8B060;
 			case LANDSCAPE -> 0x6AAA50;
 			case INFRASTRUCTURE -> 0xA09888;
-			case EXTRACTION -> 0x8C7A64;
-			case LAW -> 0x4A4A6A;
-			case NOBLE -> 0xA03A3A;
-			case UNDERGROUND -> 0x5A6A70;
+			case EXTRACTION -> 0x8C8478;
+			case LAW -> 0x4A3A5A;
+			case NOBLE -> 0x6A2A3A;
+			case UNDERGROUND -> 0x5A6A7A;
 		};
 	}
 
@@ -124,6 +124,15 @@ final class Palette {
 		};
 	}
 
+	/** A realm's floor by height over its base: mossy floor, rubble slopes, the dark rock of its walls. */
+	static int cave(int y, int base) {
+		double t = (y - base) / 26.0;
+		if (t >= 0.95) {
+			return 0x2C2C32;
+		}
+		return lerp(0x3C5E4A, 0x76706A, Math.max(0, t));
+	}
+
 	/** Land by height above the sea: lowland green to upland olive, rock grey, snow. */
 	static int land(int y, int sea, float temperature) {
 		double t = (y - sea) / 60.0;
@@ -156,8 +165,46 @@ final class Palette {
 
 	static boolean labelled(ArchetypeInfo info) {
 		ArchetypeCategory c = info.category();
-		return c == ArchetypeCategory.CIVIC || c == ArchetypeCategory.LANDMARK || c == ArchetypeCategory.COMMERCE && !info.id().equals(Archetypes.MARKET_STALL)
-			|| info.id().equals(Archetypes.BUILDERS_YARD) || info.id().equals(Archetypes.WATERMILL) || info.id().equals(Archetypes.WINDMILL)
-			|| info.id().equals(Archetypes.MANOR) || info.id().equals(Archetypes.GATEHOUSE);
+		Identifier id = info.id();
+		if (Archetypes.isPlazaFurniture(id) || id.equals(Archetypes.SHRINE) || id.equals(Archetypes.WATCH_HOUSE) || id.equals(Archetypes.DEEP_DWELLING)) {
+			return false;
+		}
+		return c == ArchetypeCategory.CIVIC || c == ArchetypeCategory.LANDMARK || c == ArchetypeCategory.COMMERCE
+			|| c == ArchetypeCategory.LAW || c == ArchetypeCategory.NOBLE || c == ArchetypeCategory.EXTRACTION || c == ArchetypeCategory.UNDERGROUND
+			|| id.equals(Archetypes.BUILDERS_YARD) || id.equals(Archetypes.WATERMILL) || id.equals(Archetypes.WINDMILL)
+			|| id.equals(Archetypes.MANOR) || id.equals(Archetypes.GATEHOUSE) || id.equals(Archetypes.TANNERY) || id.equals(Archetypes.SMELTER)
+			|| id.equals(Archetypes.SAWMILL) || id.equals(Archetypes.LOGGING_CAMP) || id.equals(Archetypes.BRICK_KILN) || id.equals(Archetypes.CHARCOAL_KILN)
+			|| id.equals(Archetypes.GLASSWORKS) || id.equals(Archetypes.SALT_WORKS) || id.equals(Archetypes.SHIPYARD);
+	}
+
+	/** Homes by station on the plan (LIVING_WORLD.md §8.1): mud for the poor, straw for peasants, up to the lord's red. */
+	static int station(dev.voidmc.hearth.api.Station s) {
+		return switch (s) {
+			case POOR -> 0xA89C8C;
+			case PEASANT -> 0xDCB448;
+			case ARTISAN -> 0xE07834;
+			case MERCHANT -> 0xA8205A;
+			case CLERGY -> 0xF0EAD8;
+			case SCHOLAR -> 0x4A78B0;
+			case OFFICIAL -> 0x2E7A6A;
+			case GENTRY -> 0x6A3AA0;
+			case LORD -> 0xD02828;
+		};
+	}
+
+	/** Resource sites by kind (LIVING_WORLD.md §7.1). */
+	static int site(dev.voidmc.hearth.api.ResourceSite.Kind k) {
+		return switch (k) {
+			case WOODS -> 0x1E5A1E;
+			case STONE -> 0x8A8A8A;
+			case ORE -> 0xC0602A;
+			case CLAY -> 0xA86A4A;
+			case SAND -> 0xE0CC88;
+			case SALT -> 0xFAFAFA;
+			case FERTILE -> 0xC8B020;
+			case PASTURE -> 0x7AB040;
+			case FISH -> 0x2A6AC0;
+			case SPECIALTY -> 0xC040C0;
+		};
 	}
 }

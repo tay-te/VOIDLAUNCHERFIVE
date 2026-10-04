@@ -77,9 +77,13 @@ public final class HearthPlanner implements SettlementPlanner {
 		state.queue.clear();
 		state.issued.clear();
 		state.cooldowns.clear();
+		state.failures.clear();
 		state.wallStage = 0;
 		state.wallRadius = 0;
 		state.squareEdge = -1;
+		state.castleHill = null;
+		state.deep = null;
+		state.deepRealm = 0;
 		state.invalidate();
 	}
 
@@ -87,7 +91,9 @@ public final class HearthPlanner implements SettlementPlanner {
 	public @Nullable GrowthProject next(Settlement settlement, TerrainProbe terrain, RandomSource random) {
 		PlanState state = settlement.data(this.key);
 		state.calls++;
-		PlanContext ctx = new PlanContext(settlement, state, terrain, random, Catalogue.current(), this.config);
+		// a settlement with a deep town is planned level by level: the surface sees only its own plots (and the lift)
+		Settlement view = state.deep != null ? dev.voidmc.hearth.plan.deep.LevelView.surface(settlement, state) : settlement;
+		PlanContext ctx = new PlanContext(view, state, terrain, random, Catalogue.current(), this.config);
 		if (PlanModule.isServerThread() && this.config.liveTimeLimitMs() > 0) {
 			ctx.deadline = System.nanoTime() + this.config.liveTimeLimitMs() * 1_000_000L;
 		}
@@ -107,17 +113,28 @@ public final class HearthPlanner implements SettlementPlanner {
 			onTier(ctx, state.lastTier, tier);
 			state.lastTier = tier;
 		}
-		if (state.queue.isEmpty()) {
+		if (state.queue.isEmpty() && (state.deep == null || state.deep.queue.isEmpty())) {
 			Growth.step(ctx);
 		}
 		QueuedProject project = poll(ctx);
 		state.issued.clear();
 		state.occupancy = ctx.occ;
+		boolean deep = false;
+		if (project == null && state.deep != null && !state.deep.queue.isEmpty()) {
+			// the deep town's projects, when the surface has none waiting
+			project = state.deep.queue.poll();
+			deep = true;
+		}
 		if (project == null) {
 			settlement.markDirty();
 			return null;
 		}
-		state.issued.add(project.spec());
+		if (deep) {
+			state.deep.issued.add(project.spec());
+			state.deep.serial++;
+		} else {
+			state.issued.add(project.spec());
+		}
 		state.serial++;
 		settlement.markDirty();
 		return new GrowthProject(project.spec(), project.replaces(), project.reason());
@@ -157,9 +174,16 @@ public final class HearthPlanner implements SettlementPlanner {
 	}
 
 	private static void onTier(PlanContext ctx, SettlementTier from, SettlementTier to) {
-		if (to.ordinal() >= SettlementTier.TOWN.ordinal() && ctx.state.districts.isEmpty()) {
+		// with housing by station the quarters are drawn at village tier, so a town's social map forms as it grows
+		SettlementTier at = ctx.config.living().stations() ? SettlementTier.VILLAGE : SettlementTier.TOWN;
+		if (to.ordinal() >= at.ordinal() && ctx.state.districts.isEmpty()) {
 			Districts.plan(ctx);
 		}
+	}
+
+	/** {@link #reconcile} for a level planned on its own (the deep town). */
+	public static void reconcileLevel(PlanContext ctx) {
+		reconcile(ctx);
 	}
 
 	/**

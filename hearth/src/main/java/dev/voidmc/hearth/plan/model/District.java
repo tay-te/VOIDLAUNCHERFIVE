@@ -27,7 +27,11 @@ public record District(Kind kind, int x, int z, double weight) {
 		/** The farmland outside the walls. */
 		FARMS("farms"),
 		/** Quays, warehouses and fisheries along the water. */
-		HARBOUR("harbour");
+		HARBOUR("harbour"),
+		/** The poor quarter: hovels and shacks downwind by the tannery and the fields, a tavern, a hidden thieves' den. */
+		POOR("poor"),
+		/** The castle hill: the most commanding ground, where the lord's keep and later the castle or palace stand. */
+		CASTLE("castle");
 
 		public static final StringRepresentable.EnumCodec<Kind> CODEC = StringRepresentable.fromEnum(Kind::values);
 		private final String name;

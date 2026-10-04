@@ -66,6 +66,28 @@ public final class RoadGraph {
 		return n;
 	}
 
+	/** Built road of the town itself: everything but the cart tracks out to its workings (they have their own budget). */
+	public int townLength() {
+		int n = 0;
+		for (RoadEdge e : this.edges) {
+			if (e.emits() && e.role != RoadEdge.Role.HAUL) {
+				n += Math.min(e.built, e.length());
+			}
+		}
+		return n;
+	}
+
+	/** Built length of the cart tracks out to the workings. */
+	public int haulLength() {
+		int n = 0;
+		for (RoadEdge e : this.edges) {
+			if (e.role == RoadEdge.Role.HAUL) {
+				n += Math.min(e.built, e.length());
+			}
+		}
+		return n;
+	}
+
 	CompoundTag save() {
 		CompoundTag t = new CompoundTag();
 		int[] ns = new int[this.nodes.size() * 4];

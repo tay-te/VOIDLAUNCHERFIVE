@@ -31,7 +31,10 @@ class PlanInvariantsTest {
 			Arguments.of(Culture.BAYOU, "lake", LayoutType.STILT, 8L),
 			Arguments.of(Culture.MARITIME, "coast", LayoutType.LINEAR, 9L),
 			Arguments.of(Culture.STEPPE, "flat", LayoutType.RING, 10L),
-			Arguments.of(Culture.WISTERIA, "river", LayoutType.LINEAR, 11L)
+			Arguments.of(Culture.WISTERIA, "river", LayoutType.LINEAR, 11L),
+			// phase 3: a mining town over a realm (the deep town checked as a level of its own), a desert town with its palace
+			Arguments.of(Culture.ALPINE, "steep+realm", LayoutType.MOUNTAIN, 6L),
+			Arguments.of(Culture.DESERT, "flat", LayoutType.WALLED, 2L)
 		);
 	}
 
@@ -41,18 +44,32 @@ class PlanInvariantsTest {
 		LayoutChooser.FORCED.set(layout);
 		MiniSim sim;
 		try {
-			sim = Plans.grow(culture, terrain, seed, 160);
+			sim = terrain.endsWith("+realm") ? DeepTownTest.grow(seed, 160) : Plans.grow(culture, terrain, seed, 160);
 		} finally {
 			LayoutChooser.FORCED.remove();
 		}
 		Catalogue c = Catalogue.current();
 		PlanConfig cfg = PlanConfig.DEFAULTS;
 		assertTrue(sim.settlement.population() > 30, "the settlement grew: " + sim.settlement.population());
-		check("overlaps", PlanChecks.overlaps(sim.settlement, c));
-		check("access", PlanChecks.access(sim.settlement, c));
-		check("grades", PlanChecks.grades(sim.settlement, cfg));
-		check("slopes", PlanChecks.slopes(sim.settlement, sim.terrain, c, cfg));
-		check("sizes", PlanChecks.sizes(sim.settlement, sim.terrain, c));
+		var state = sim.settlement.data(PlanModule.STATE);
+		if (state.deep == null) {
+			checkAll("", sim.settlement, sim.terrain, c, cfg);
+			return;
+		}
+		// a town with a deep town: each level on its own, the deep one over its realm's floor
+		checkAll("surface ", dev.voidmc.hearth.plan.deep.LevelView.surface(sim.settlement, state), sim.terrain, c, cfg);
+		var under = PlanModule.underground(sim.terrain);
+		var realm = under.realm(state.deep.heartX, state.deep.heartZ);
+		checkAll("deep ", dev.voidmc.hearth.plan.deep.LevelView.deep(sim.settlement, state, 10),
+			dev.voidmc.hearth.plan.deep.RealmTerrain.of(sim.terrain, under, realm), c, cfg);
+	}
+
+	private static void checkAll(String level, dev.voidmc.hearth.api.Settlement s, dev.voidmc.hearth.api.TerrainProbe t, Catalogue c, PlanConfig cfg) {
+		check(level + "overlaps", PlanChecks.overlaps(s, c));
+		check(level + "access", PlanChecks.access(s, c));
+		check(level + "grades", PlanChecks.grades(s, cfg));
+		check(level + "slopes", PlanChecks.slopes(s, t, c, cfg));
+		check(level + "sizes", PlanChecks.sizes(s, t, c));
 	}
 
 	private static void check(String what, List<String> violations) {

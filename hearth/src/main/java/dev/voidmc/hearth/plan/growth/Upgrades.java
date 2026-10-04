@@ -38,6 +38,9 @@ public final class Upgrades {
 	}
 
 	public static boolean plan(PlanContext ctx, Needs needs, boolean forHousing) {
+		if (ctx.config.living().stations()) {
+			needs.stations(ctx);
+		}
 		Set<Integer> replacing = replacing(ctx);
 		List<PlotView> plots = new ArrayList<>(ctx.settlement.plots());
 		plots.sort(Comparator.comparingInt(PlotView::id));
@@ -55,8 +58,17 @@ public final class Upgrades {
 			if (wall > 0 ? ctx.distanceToHeart(cx, cz) > wall : ctx.zone(cx, cz) > maxZone) {
 				continue;
 			}
-			if (target(ctx, s) == null) {
+			ArchetypeInfo t = target(ctx, s);
+			if (t == null) {
 				continue;
+			}
+			// rebuilding a house for another station turns its household out: only where its own station has room to spare
+			if (ctx.ledger != null) {
+				dev.voidmc.hearth.api.Station from = dev.voidmc.hearth.plan.society.Stations.home(s, ctx.info(s.archetype()));
+				if (from != null && from != dev.voidmc.hearth.plan.society.Stations.inferred(t.id())
+					&& ctx.ledger.shortfall(from, ctx.config.housingMargin()) > 1.5) {
+					continue;
+				}
 			}
 			candidates.add(p);
 			distances.add(ctx.distanceToHeart(cx, cz) + ctx.hash(cx, cz, 31) * 6);
@@ -76,6 +88,35 @@ public final class Upgrades {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Who a rebuilt house is for: of the stations it suits (a townhouse: merchants, or artisans, scholars and officials, or
+	 * rooms for the poor in a city), the one shortest of homes; the house's own station if none is short.
+	 */
+	static dev.voidmc.hearth.api.Station rebuildStation(PlanContext ctx, ArchetypeInfo target) {
+		dev.voidmc.hearth.api.Station own = dev.voidmc.hearth.plan.society.Stations.inferred(target.id());
+		if (ctx.ledger == null) {
+			return own;
+		}
+		dev.voidmc.hearth.api.Station best = own;
+		double bestShort = ctx.ledger.shortfall(own, ctx.config.housingMargin());
+		boolean rooms = target.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.TENEMENT) || target.id().equals(dev.voidmc.hearth.plan.catalogue.Archetypes.SHACK);
+		for (dev.voidmc.hearth.api.Station s : dev.voidmc.hearth.api.Station.values()) {
+			// a town's core is rebuilt for its townsfolk: the poor only in tenements and back-lane shacks, never the
+			// peasants (they live out by their fields), the gentry and the lord in their own houses
+			boolean townsfolk = s != dev.voidmc.hearth.api.Station.LORD && s != dev.voidmc.hearth.api.Station.GENTRY
+				&& s != dev.voidmc.hearth.api.Station.PEASANT && (s != dev.voidmc.hearth.api.Station.POOR || rooms);
+			if (!townsfolk || dev.voidmc.hearth.plan.society.Stations.affinity(s, target.id()) < 0.45) {
+				continue;
+			}
+			double sf = ctx.ledger.shortfall(s, ctx.config.housingMargin());
+			if (sf > 0.5 && sf > bestShort + 1) {
+				best = s;
+				bestShort = sf;
+			}
+		}
+		return best;
 	}
 
 	/** Plots already being replaced: by a queued project, or by a plot handed out but not built yet. */
@@ -102,6 +143,7 @@ public final class Upgrades {
 			return null;
 		}
 		ArchetypeInfo best = null;
+		double bestScore = Double.NEGATIVE_INFINITY;
 		for (Identifier id : info.upgradesTo()) {
 			ArchetypeInfo t = ctx.catalogue.info(id);
 			if (t == null || !Catalogue.allowed(t, ctx.culture, ctx.tier) || t.category() != ArchetypeCategory.HOUSING) {
@@ -112,9 +154,18 @@ public final class Upgrades {
 			if (front < t.minFrontage() || depth + 3 < t.minDepth()) {
 				continue;
 			}
-			// prefer the tallest the tier allows
-			if (best == null || t.maxHeight() > best.maxHeight()) {
+			// prefer the tallest the tier allows; with housing by station, the house of the station shortest of homes
+			double score = t.maxHeight();
+			if (ctx.ledger != null) {
+				double sf = ctx.ledger.shortfall(dev.voidmc.hearth.plan.society.Stations.inferred(t.id()), ctx.config.housingMargin());
+				score = sf * 4 + t.maxHeight() * 0.1;
+				if (sf <= 0) {
+					score -= 200;
+				}
+			}
+			if (best == null || score > bestScore) {
 				best = t;
+				bestScore = score;
 			}
 		}
 		return best;
@@ -231,7 +282,7 @@ public final class Upgrades {
 			PlotView p = batch.get(i);
 			PlotSpec old = p.spec();
 			int[] r = fit(deepen(ctx, rects.get(i), facing, target.minDepth()), facing, target, alongX, ascending);
-			if (r == null) {
+			if (r == null || !doorOnStreet(ctx, old, r, facing)) {
 				continue;
 			}
 			CompoundTag params = new CompoundTag();
@@ -242,6 +293,16 @@ public final class Upgrades {
 				}
 			}
 			params.putInt("replaces", p.id());
+			if (ctx.config.living().stations()) {
+				dev.voidmc.hearth.api.Station st = rebuildStation(ctx, target);
+				params.putString("station", st.getSerializedName());
+				var job = ctx.ledger == null ? null : ctx.ledger.commonJob(st);
+				if (job != null) {
+					CompoundTag household = new CompoundTag();
+					household.putString("job", job.getSerializedName());
+					params.put("household", household);
+				}
+			}
 			boolean attach = target.flags().contains(SiteFlag.ATTACHABLE);
 			if (attach) {
 				params.putBoolean("party_left", i > 0 && party[i - 1]);
@@ -272,6 +333,17 @@ public final class Upgrades {
 			Roads.issue(ctx, walk.spec, "walkway: joining tall houses across the street");
 		}
 		return true;
+	}
+
+	/**
+	 * Whether the rebuilt house's door still opens onto the street: widened into the gap beside it, its middle may have
+	 * moved off a bending road (the old house's own door path does not reach a new door).
+	 */
+	private static boolean doorOnStreet(PlanContext ctx, PlotSpec old, int[] r, Direction facing) {
+		PlotSpec probe = new PlotSpec(old.archetype(), old.style(), 0, new BlockPos(r[0], old.floorY(), r[1]), r[2] - r[0] + 1, r[3] - r[1] + 1, facing, 1, 0,
+			new CompoundTag());
+		int[] e = dev.voidmc.hearth.plan.grid.PlotGeometry.entrance(probe);
+		return dev.voidmc.hearth.plan.grid.Cell.isAccess(ctx.occ.get(e[0], e[1]));
 	}
 
 	private static PlotSpec withParam(PlotSpec s, String key, int value) {
