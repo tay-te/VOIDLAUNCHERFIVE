@@ -1,0 +1,1 @@
+{ "job": "fisher", "tools": 0.02, "sites": [ { "kind": "fish", "yields": { "fish": 16 } } ], "no_site": { "fish": 2 } }

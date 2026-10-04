@@ -1,0 +1,7 @@
+{ "job": "quarrier", "tools": 0.05,
+  "sites": [
+    { "kind": "stone", "yields": { "stone": 200 } },
+    { "kind": "ore", "yields": { "stone": 120, "ore": 5, "fuel": 3 }, "share": 0.4 },
+    { "kind": "clay", "yields": { "clay": 30 }, "share": 0.2 }
+  ],
+  "no_site": { "stone": 40 } }

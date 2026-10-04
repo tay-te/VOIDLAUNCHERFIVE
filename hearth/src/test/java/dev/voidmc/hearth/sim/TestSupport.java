@@ -48,6 +48,14 @@ public final class TestSupport {
 
 	private static boolean realPlanner;
 
+	/** The real planner over the build module's archetypes, stand-ins for the rest (as the dev harness's fillCatalogue). */
+	public static synchronized void useRealCatalogue() {
+		boot();
+		HearthServices.setBlueprints(new dev.voidmc.hearth.sim.dev.DevCatalogue(dev.voidmc.hearth.build.BuildModule.standalone()));
+		HearthServices.setPlanner(new dev.voidmc.hearth.plan.HearthPlanner(dev.voidmc.hearth.plan.PlanModule.STATE, dev.voidmc.hearth.plan.PlanConfig.DEFAULTS));
+		realPlanner = true;
+	}
+
 	public static SimRules rules() {
 		return SimRules.defaults();
 	}
@@ -66,6 +74,20 @@ public final class TestSupport {
 		TerrainProbe t = SyntheticTerrain.named(terrain, seed);
 		History.Context ctx = context(t);
 		SimSettlement s = new SimSettlement(7, "Testbury", Culture.TEMPERATE, Level.OVERWORLD, new BlockPos(0, t.groundY(0, 0), 0), 0,
+			SimSettlement.NO_REGION, seed);
+		s.bind(ctx);
+		var f = ctx.rules().config.founding();
+		SettlementClock.found(s, ctx, f.residents(), f.goodsMap(), f.treasury());
+		return s;
+	}
+
+	/** A freshly founded settlement that fires events into a recording context. */
+	public static SimSettlement foundedWithEvents(String terrain, long seed, EventContext[] out) {
+		boot();
+		TerrainProbe t = SyntheticTerrain.named(terrain, seed);
+		EventContext ctx = new EventContext(context(t));
+		out[0] = ctx;
+		SimSettlement s = new SimSettlement(8, "Eventon", Culture.TEMPERATE, Level.OVERWORLD, new BlockPos(0, t.groundY(0, 0), 0), 0,
 			SimSettlement.NO_REGION, seed);
 		s.bind(ctx);
 		var f = ctx.rules().config.founding();

@@ -56,6 +56,15 @@ public final class History {
 		public void plotsChanged(SimSettlement settlement) {
 		}
 
+		/** A history works no land beyond its region (so its sites never depend on a neighbour region's plan). */
+		@Override
+		public int territoryLimit(SimSettlement settlement, int wanted) {
+			var c = settlement.center();
+			int toEdge = Math.min(Math.min(c.getX() - this.land.minX(), this.land.maxX() - c.getX()),
+				Math.min(c.getZ() - this.land.minZ(), this.land.maxZ() - c.getZ()));
+			return Math.max(48, Math.min(wanted, toEdge));
+		}
+
 		@Override
 		public void progressed(SimSettlement settlement, SimPlot plot) {
 		}

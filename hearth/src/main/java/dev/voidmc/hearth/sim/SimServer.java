@@ -239,6 +239,8 @@ public final class SimServer {
 			w.applier().tick(applierBudget, this.rules.config.applier().maxBlocks());
 			// sites for daughter hamlets, a few candidates a tick
 			w.tickHamlets(HAMLET_BUDGET);
+			// caravans arriving, and trees owed by abstract foresters felled in loaded woods
+			w.tickLand((long) (this.rules.resources.extraction().fellBudgetMs() * 1e6));
 		}
 		if (this.ticks % 20 == 0) {
 			for (SimWorld w : this.worlds.values()) {

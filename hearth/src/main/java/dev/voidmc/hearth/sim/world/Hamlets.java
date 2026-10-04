@@ -1,6 +1,13 @@
 package dev.voidmc.hearth.sim.world;
 
+import dev.voidmc.hearth.api.ResourceSite;
 import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.sim.land.Land;
+import dev.voidmc.hearth.sim.land.SimSite;
+import dev.voidmc.hearth.sim.land.Survey;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 import dev.voidmc.hearth.sim.SimConfig;
 import dev.voidmc.hearth.sim.settlement.SimSettlement;
 import java.util.Iterator;
@@ -12,10 +19,15 @@ import net.minecraft.util.RandomSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Daughter hamlets (ARCHITECTURE.md §5.1): a settlement that has run out of beds for days sends a party of settlers out,
- * and this finds them a site 600–2500 blocks away — dry, gentle ground, water near, clear of every town live or historic
- * — a few candidates per tick under a time budget, never computing a region's history on the server thread (a region
- * not yet surveyed is surveyed off-thread and asked about again). Server thread only.
+ * Daughter hamlets (ARCHITECTURE.md §5.1): a settlement that has run out of beds (or of land to feed its people) for days
+ * sends a party of settlers out, and this finds them a site 600–2500 blocks away — dry, gentle ground, water near, clear
+ * of every town live or historic — a few candidates per tick under a time budget, never computing a region's history on
+ * the server thread (a region not yet surveyed is surveyed off-thread and asked about again).
+ *
+ * <p>Phase 3 (LIVING_WORLD.md §7.2): settlers go for what their town lacks. The parent's missing kinds of land (no
+ * woods, no stone, no ore, no fishing, little farmland) are worth a lot at a candidate, read with a small survey there —
+ * so a mountain town founds a farming hamlet on the plain and a plain town a mining hamlet by the ore, and the hamlet
+ * ships its goods to its parent (caravans favour kin). Server thread only.
  */
 final class Hamlets {
 	/** Candidates looked at per search before taking the best seen (or giving up). */
@@ -33,14 +45,42 @@ final class Hamlets {
 	private static final class Search {
 		final long parent;
 		final RandomSource random;
+		/** The kinds of land the parent lacks: worth seeking. */
+		final Set<ResourceSite.Kind> lacking;
 		int tried;
 		@Nullable BlockPos best;
 		double bestScore = Double.NEGATIVE_INFINITY;
+		Set<ResourceSite.Kind> bestHas = Set.of();
 
-		Search(long parent, long seed) {
+		Search(long parent, long seed, Set<ResourceSite.Kind> lacking) {
 			this.parent = parent;
 			this.random = RandomSource.create(seed);
+			this.lacking = lacking;
 		}
+	}
+
+	/** The kinds of land worth founding a hamlet for. */
+	private static final ResourceSite.Kind[] SOUGHT = {ResourceSite.Kind.FERTILE, ResourceSite.Kind.WOODS, ResourceSite.Kind.STONE,
+		ResourceSite.Kind.ORE, ResourceSite.Kind.FISH, ResourceSite.Kind.CLAY};
+	/** What a lacking kind found at a candidate is worth, against its ground's score (0–15). */
+	private static final double LACK_BONUS = 6;
+
+	/** The kinds of land a settlement has none of (or none left worth working). */
+	static Set<ResourceSite.Kind> lacking(SimSettlement s) {
+		Set<ResourceSite.Kind> lack = EnumSet.noneOf(ResourceSite.Kind.class);
+		for (ResourceSite.Kind k : SOUGHT) {
+			boolean has = false;
+			for (SimSite site : s.land().sites()) {
+				if (site.kind() == k && (site.fill() > 0.15 || site.renewable())) {
+					has = true;
+					break;
+				}
+			}
+			if (!has) {
+				lack.add(k);
+			}
+		}
+		return lack;
 	}
 
 	Hamlets(SimWorld world) {
@@ -55,7 +95,7 @@ final class Hamlets {
 		if (this.searches.size() >= MAX_SEARCHES) {
 			return false;
 		}
-		this.searches.put(s.id(), new Search(s.id(), s.id() * 0x9E3779B97F4A7C15L ^ s.simTick()));
+		this.searches.put(s.id(), new Search(s.id(), s.id() * 0x9E3779B97F4A7C15L ^ s.simTick(), lacking(s)));
 		this.started++;
 		return true;
 	}
@@ -95,8 +135,9 @@ final class Hamlets {
 		}
 		BlockPos site = q.best;
 		this.pending.add(site);
-		this.world.foundDaughterAsync(site, parent, Math.min(d.settlers(), Math.max(2, parent.population() / 8)),
-			"settlers from " + parent.name() + ", which had outgrown its beds", s -> this.pending.remove(site));
+		String why = q.bestHas.isEmpty() ? "settlers from " + parent.name() + ", which had outgrown its beds"
+			: "settlers from " + parent.name() + ", gone for the " + names(q.bestHas) + " it lacked";
+		this.world.foundDaughterAsync(site, parent, Math.min(d.settlers(), Math.max(2, parent.population() / 8)), why, s -> this.pending.remove(site));
 	}
 
 	/** Sites being laid out off-thread: not registered yet, so whyNotFound cannot see them. */
@@ -129,9 +170,15 @@ final class Hamlets {
 		double score = score(this.world.terrain(), x, z);
 		// a little nearer home is better: the settlers walk there
 		score -= 2.0 * (dist - d.minDistance()) / Math.max(1, d.maxDistance() - d.minDistance());
+		Set<ResourceSite.Kind> has = Set.of();
+		if (score > Double.NEGATIVE_INFINITY && !q.lacking.isEmpty()) {
+			has = offers(x, z, q.lacking);
+			score += LACK_BONUS * has.size();
+		}
 		if (score > q.bestScore) {
 			q.bestScore = score;
 			q.best = at;
+			q.bestHas = has;
 		}
 		return true;
 	}
@@ -169,6 +216,38 @@ final class Hamlets {
 		// not up on a mountain
 		score -= Math.max(0, g - t.seaLevel() - 60) / 10.0;
 		return score;
+	}
+
+	/** Which of the wanted kinds of land a small survey finds round a candidate (nine columns on a 48-block grid). */
+	private Set<ResourceSite.Kind> offers(int x, int z, Set<ResourceSite.Kind> wanted) {
+		Set<ResourceSite.Kind> out = EnumSet.noneOf(ResourceSite.Kind.class);
+		Land land = Land.of(this.world.terrain(), this.world.underground());
+		List<Survey.Found> found = Survey.run(land, new BlockPos(x, 0, z), 48, this.world.data(), PROBE, (a, b) -> false);
+		for (Survey.Found f : found) {
+			if (wanted.contains(f.kind())) {
+				out.add(f.kind());
+			}
+		}
+		return out;
+	}
+
+	/** A 3 × 3 grid of columns 48 apart: about what the ground score above already costs. */
+	private static final Survey.Params PROBE = new Survey.Params(2, 48, 16);
+
+	private static String names(Set<ResourceSite.Kind> kinds) {
+		List<String> n = new java.util.ArrayList<>();
+		for (ResourceSite.Kind k : kinds) {
+			n.add(switch (k) {
+				case FERTILE -> "farmland";
+				case WOODS -> "timber";
+				case STONE -> "stone";
+				case ORE -> "ore";
+				case FISH -> "fishing";
+				case CLAY -> "clay";
+				default -> k.getSerializedName();
+			});
+		}
+		return String.join(" and ", n);
 	}
 
 	String describe() {

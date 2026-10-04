@@ -6,7 +6,12 @@ import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.ResidentFactory;
 import dev.voidmc.hearth.api.SettlementPlanner;
 import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.api.UndergroundProbe;
+import dev.voidmc.hearth.sim.chains.SimData;
+import dev.voidmc.hearth.sim.land.Lands;
+import dev.voidmc.hearth.sim.land.Territory;
 import dev.voidmc.hearth.sim.settlement.SimPlot;
+import java.util.List;
 import dev.voidmc.hearth.sim.settlement.SimSettlement;
 import org.jspecify.annotations.Nullable;
 
@@ -76,6 +81,48 @@ public interface SimContext {
 	 * fire no events, so they keep the clock's coin (adoption trims what it piled up).
 	 */
 	default boolean economyHandlesWages() {
+		return false;
+	}
+
+	// ---------------------------------------------------------------- phase 3: the resource economy (docs/SIM.md §16)
+
+	/** The chains, gathering and site tables, and the land of each biome. */
+	default SimData data() {
+		return SimData.current();
+	}
+
+	/** The open spaces under the ground (Expanse realms), or null. */
+	default @Nullable UndergroundProbe underground() {
+		return null;
+	}
+
+	/**
+	 * Surveys the settlement's territory (again): a history does it at once, on its own thread; the live world off the
+	 * server thread, merging the result when it is done.
+	 */
+	default void survey(SimSettlement settlement) {
+		Lands.surveyNow(settlement, this);
+	}
+
+	/** The other settlements' cores round about, which this one's territory stops short of. */
+	default List<Territory.Core> cores(SimSettlement settlement) {
+		return List.of();
+	}
+
+	/** The largest territory this context allows (a history keeps to its region). */
+	default int territoryLimit(SimSettlement settlement, int wanted) {
+		return wanted;
+	}
+
+	/** Once a sim day: the settlement may send a caravan to a town short of its surplus (the live world only). */
+	default void trade(SimSettlement settlement, long day) {
+	}
+
+	/**
+	 * Whether this settlement's numbers have a world behind them: a live settlement owes the world the trees its foresters
+	 * took from natural woods (felled where chunks load); a history writes only its plots.
+	 */
+	default boolean inWorld() {
 		return false;
 	}
 }

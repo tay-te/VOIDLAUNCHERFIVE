@@ -20,6 +20,14 @@ import dev.voidmc.hearth.sim.apply.ChunkApplier;
 import dev.voidmc.hearth.sim.atlas.Atlas;
 import dev.voidmc.hearth.sim.atlas.RegionPlan;
 import dev.voidmc.hearth.sim.atlas.StructureAvoidance;
+import dev.voidmc.hearth.api.UndergroundProbe;
+import dev.voidmc.hearth.sim.land.Land;
+import dev.voidmc.hearth.sim.land.LandState;
+import dev.voidmc.hearth.sim.land.Lands;
+import dev.voidmc.hearth.sim.land.Survey;
+import dev.voidmc.hearth.sim.land.Territory;
+import dev.voidmc.hearth.sim.terrain.Undergrounds;
+import dev.voidmc.hearth.sim.trade.Caravans;
 import dev.voidmc.hearth.sim.model.SimContext;
 import dev.voidmc.hearth.sim.model.SimRules;
 import dev.voidmc.hearth.sim.settlement.Names;
@@ -83,12 +91,18 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private boolean quiet;
 	private boolean fastForward;
 	private final Hamlets hamlets = new Hamlets(this);
+	private final @Nullable UndergroundProbe underground;
+	private final Caravans caravans = new Caravans(this);
+	private final Woodcutter woodcutter = new Woodcutter(this);
+	private int surveys;
+	private final java.util.concurrent.atomic.LongAdder surveyNanos = new java.util.concurrent.atomic.LongAdder();
 
 	public SimWorld(ServerLevel level, SimServer server) {
 		this.level = level;
 		this.server = server;
 		SimRules rules = server.rules();
 		this.probe = Probes.create(level, rules.config.probeCorrection());
+		this.underground = Undergrounds.create(level);
 		StructureAvoidance avoidance = null;
 		try {
 			avoidance = new StructureAvoidance(level, rules.config.atlas());
@@ -139,6 +153,10 @@ public final class SimWorld implements HearthWorld, SimContext {
 		}
 		this.footprints.refresh(s);
 		this.server.schedule(this, s, isNew);
+		if (s.land().surveyed() == 0) {
+			// a phase 2 save, or a settlement whose survey never finished: survey its land now (off the server thread)
+			survey(s);
+		}
 	}
 
 	private static SimIndex.Entry entry(SimSettlement s) {
@@ -675,6 +693,97 @@ public final class SimWorld implements HearthWorld, SimContext {
 	@Override
 	public boolean economyHandlesWages() {
 		return HearthServices.economy() != null;
+	}
+
+	// ---------------------------------------------------------------- the land (docs/SIM.md §16)
+
+	@Override
+	public @Nullable UndergroundProbe underground() {
+		return this.underground;
+	}
+
+	@Override
+	public boolean inWorld() {
+		return true;
+	}
+
+	/** Caravans on the roads of this world. */
+	public Caravans caravans() {
+		return this.caravans;
+	}
+
+	@Override
+	public void trade(SimSettlement s, long day) {
+		if (this.settlements.get(s.id()) == s) {
+			this.caravans.consider(s, day);
+		}
+	}
+
+	/**
+	 * Surveys a settlement's territory off the server thread (the probe and the biome reading are thread-safe; the
+	 * request is a snapshot) and merges the result back here, firing {@code SITE_FOUND} for what is new.
+	 */
+	@Override
+	public void survey(SimSettlement s) {
+		LandState land = s.land();
+		if (land.isSurveying()) {
+			return;
+		}
+		land.setSurveying(true);
+		Lands.Request q = Lands.request(s, this);
+		Land ground = Land.of(this.probe, this.underground);
+		var data = data();
+		java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+			long t0 = System.nanoTime();
+			List<Survey.Found> found = Lands.run(q, ground, data);
+			this.surveyNanos.add(System.nanoTime() - t0);
+			return found;
+		}, SURVEYS).whenComplete((found, t) -> this.level.getServer().execute(() -> {
+			land.setSurveying(false);
+			if (t != null) {
+				LOG.warn("hearth: surveying the land of {} failed", s.name(), t);
+				return;
+			}
+			if (s.context() == this) {
+				this.surveys++;
+				Lands.merge(s, q.radius(), Survey.step(q.radius(), q.params()), found, day(), this);
+			}
+		}));
+	}
+
+	/** One low-priority worker for surveys of live settlements' land. */
+	private static final java.util.concurrent.ExecutorService SURVEYS = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+		Thread t = new Thread(r, "hearth-survey");
+		t.setDaemon(true);
+		t.setPriority(Thread.MIN_PRIORITY);
+		return t;
+	});
+
+	@Override
+	public List<Territory.Core> cores(SimSettlement s) {
+		List<Territory.Core> out = new ArrayList<>();
+		int margin = rules().resources.land().coreMargin();
+		int reach = 2 * Territory.byTier(dev.voidmc.hearth.api.SettlementTier.CITY, rules().resources.land().territory()) + 256;
+		long r2 = (long) reach * reach;
+		for (SimSettlement o : this.settlements.values()) {
+			if (o == s || o.center().distSqr(s.center()) > r2) {
+				continue;
+			}
+			out.add(new Territory.Core(o.center(), Lands.coreRadius(o, margin)));
+		}
+		return out;
+	}
+
+	/** Caravans that are due, and trees owed to the world felled in loaded woods (from the server tick). */
+	public void tickLand(long fellBudgetNanos) {
+		this.caravans.tick(clock());
+		this.woodcutter.tick(fellBudgetNanos);
+	}
+
+	/** Surveys run, felling and caravans this session, for {@code /hearth sim stats} and the harness. */
+	public String landStats() {
+		return String.format(java.util.Locale.ROOT, "%d surveys (%.1f ms avg, off-thread); %s; %s", this.surveys,
+			this.surveys == 0 ? 0 : this.surveyNanos.sum() / 1e6 / this.surveys, this.woodcutter.describe(), this.caravans.describe());
 	}
 
 	@Override

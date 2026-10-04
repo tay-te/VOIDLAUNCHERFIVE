@@ -1,0 +1,7 @@
+{ "recipes": [
+  { "job": "tailor", "inputs": { "wool": 16 }, "outputs": { "cloth": 12 }, "priority": 1 },
+  { "job": "tailor", "inputs": { "cloth": 4, "dye": 1 }, "outputs": { "luxury": 2 }, "target": 0.3 },
+  { "job": "none", "inputs": { "wool": 4 }, "outputs": { "cloth": 2 }, "labour": 0.5, "share": 0.2, "target": 0.3, "tools": 0 },
+  { "job": "tanner", "inputs": { "meat": 4, "logs": 1 }, "outputs": { "leather": 4 } },
+  { "job": "dyer", "inputs": { "produce": 6 }, "outputs": { "dye": 4 } }
+] }

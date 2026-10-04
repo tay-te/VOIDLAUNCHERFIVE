@@ -101,7 +101,10 @@ public final class PlaceholderBlueprint implements Blueprint {
 		this.silhouette = new Silhouette(b.wallColor, b.roofColor, b.spec.floorY() + b.eave, ridge == Integer.MIN_VALUE ? b.spec.floorY() : ridge);
 	}
 
-	/** The material bill: what goods a block costs. */
+	/**
+	 * The material bill: what goods a block costs (phase 3 goods: sawn timber for joinery, dressed stone for cut stone,
+	 * brick, glass, metal for lanterns and chains, candles).
+	 */
 	static @Nullable Goods goodsOf(BlockState state) {
 		if (state.is(BlockTags.LOGS) || state.is(BlockTags.PLANKS) || state.is(BlockTags.WOODEN_SLABS) || state.is(BlockTags.WOODEN_STAIRS)
 			|| state.is(BlockTags.WOODEN_FENCES) || state.is(BlockTags.WOODEN_DOORS) || state.is(BlockTags.WOODEN_TRAPDOORS)) {
@@ -110,31 +113,37 @@ public final class PlaceholderBlueprint implements Blueprint {
 		if (state.is(BlockTags.BEDS) || state.is(BlockTags.WOOL) || state.is(BlockTags.WOOL_CARPETS)) {
 			return Goods.CLOTH;
 		}
+		if (state.is(BlockTags.CANDLES)) {
+			return Goods.CANDLES;
+		}
 		String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
 		if (id.contains("glass")) {
 			return Goods.GLASS;
 		}
-		if (id.contains("lantern") || id.contains("chain") || id.contains("iron") || id.contains("copper")) {
+		if (id.contains("lantern") || id.contains("chain") || id.contains("iron") || id.contains("copper") || id.contains("rail")) {
 			return Goods.METAL;
 		}
-		if (id.contains("ladder")) {
+		if (id.contains("ladder") || id.contains("crafting") || id.contains("chest") || id.contains("barrel")) {
 			return Goods.WOOD;
 		}
+		if (id.contains("stone_brick") || id.contains("polished") || id.contains("smooth") || id.contains("cut_") || id.contains("chiseled")) {
+			// cut stone: the mason's work
+			return Goods.DRESSED_STONE;
+		}
 		if (id.contains("stone") || id.contains("deepslate") || id.contains("andesite") || id.contains("cobble")) {
-			// stone bricks are dressed stone, not clay
 			return Goods.STONE;
 		}
-		if (id.contains("brick") || id.contains("terracotta") || id.contains("mud") || id.contains("clay")) {
+		if (id.contains("brick") || id.contains("terracotta")) {
+			return Goods.BRICK;
+		}
+		if (id.contains("mud") || id.contains("clay")) {
 			return Goods.CLAY;
 		}
 		if (id.contains("torch")) {
 			return Goods.FUEL;
 		}
-		if (id.contains("crafting") || id.contains("chest") || id.contains("barrel")) {
-			return Goods.WOOD;
-		}
 		if (id.contains("farmland") || id.contains("dirt") || id.contains("grass") || id.contains("wheat") || id.contains("water")
-			|| id.contains("flower") || id.contains("poppy") || id.contains("dandelion")) {
+			|| id.contains("flower") || id.contains("poppy") || id.contains("dandelion") || id.contains("sapling")) {
 			return null;
 		}
 		return Goods.STONE;

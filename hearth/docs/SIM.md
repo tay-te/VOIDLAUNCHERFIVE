@@ -3,21 +3,27 @@
 The sim module is the engine under every Hearth settlement: the records, the clock that grows them while nobody is
 near, the atlas that gives the world a history from its seed, the world generation that writes that history, the chunk
 applier that writes what was built since, persistence, embodiment, commands and the dev harness. It implements
-ARCHITECTURE.md §4, §5, §11 and §12. Code: `dev.voidmc.hearth.sim` (+ `client.sim`, `mixin.sim`).
+ARCHITECTURE.md §4, §5, §11 and §12, and LIVING_WORLD.md §7 (towns thrive on the resources around them: territory,
+survey, sites, chains, extraction, prosperity, caravans; §16 below). Code: `dev.voidmc.hearth.sim` (+ `client.sim`,
+`mixin.sim`).
 
 ```
 sim/
   SimModule, SimServer, SimConfig, LodFootprints
-  settlement/  SimSettlement, SimPlot, SimStockpile, DataMap, SettlementClock, PlotFacts, Cursor, Names, PlainResidents
+  settlement/  SimSettlement, SimPlot, SimStockpile, DataMap, SettlementClock, PlotFacts, Cursor, Names, PlainResidents,
+               Production, Extraction, Prosperity, Spoilage, Stations
   model/       SimContext (what the model reaches outside itself), SimRules (the config as flat arrays)
-  world/       SimWorld (HearthWorld + SimContext), SettlementStore, SimIndex, SpatialIndex, Hamlets
+  chains/      SimData (the resource economy's data), Recipe, BiomeTable
+  land/        LandState, SimSite, Survey, Land, BiomeResources, BiomeLand, OreModel, Territory, Lands
+  trade/       Caravans
+  world/       SimWorld (HearthWorld + SimContext), SettlementStore, SimIndex, SpatialIndex, Hamlets, Woodcutter
   atlas/       Atlas, RegionPlan, SiteFinder, History, StructureAvoidance, PlotColumns
-  terrain/     GeneratorProbe, ExpanseProbe, Probes, CultureMap, CultureVote
+  terrain/     GeneratorProbe, ExpanseProbe, Probes, CultureMap, CultureVote, ExpanseUnderground, Undergrounds
   gen/         SettlementFeature (hearth:settlement), WorldgenGuard   + mixin/sim/FeaturePlacerMixin
   apply/       ChunkApplier, StepWriter, AppliedLedger, ChunkLedgers
   net/         ArrivalPayload
-  command/     SimCommands, AtlasMap, Report
-  dev/         DevHarness, DevCatalogue, PlaceholderBlueprints, PlaceholderBlueprint, PlaceholderPlanner
+  command/     SimCommands, LandCommands, AtlasMap, Report
+  dev/         DevHarness, DevCatalogue, PlaceholderBlueprints, PlaceholderBlueprint, PlaceholderPlanner, PlaceholderExcavations
 client/sim/    SimClient, ArrivalBanner
 ```
 
@@ -37,8 +43,10 @@ modules' `HearthDataKey` data. Everything except the embodied flags is saved.
   from the BlueprintService and kept transiently. A plot whose archetype no longer exists is abandoned, not crashed on.
 - **Module data**: `settlement.data(KEY)` decodes lazily on first use with the key's codec (registry ops in a running
   world); keys nobody registered are kept as raw NBT and written back unchanged.
-- **Stockpile capacity** = `storage.base` + `per_storage` × standing STORAGE buildings + `per_building` × others. A stage
-  needing more than the capacity is clamped to it (carts bring the rest straight to site).
+- **Stockpile capacity** is per goods (phase 3): `storage.base` for each, plus what each standing building adds —
+  `storage.by_archetype` (a granary holds food, a sawmill's yard logs and timber, a warehouse everything), else
+  `per_storage` for other STORAGE buildings and `per_building` for the rest. A stage needing more than the capacity is
+  clamped to it (carts bring the rest straight to site). Saves with fewer goods (phase 2 had ten) load with zeros.
 - **Tiers** follow population (`SettlementTier.forPopulation`) with a 20 % margin before falling back.
 
 ## 2. The clock
@@ -50,15 +58,10 @@ clock (1000 ticks an hour, 24000 a day; sleeping moves it, so towns grow while y
 Time is cut into **slices that never cross a day boundary**. Each slice integrates goods and labour; each day boundary
 runs the day's business. A step catches up at most `max_catch_up_days` (30); longer absences take several steps.
 
-**Goods** (per slice, by job; embodied residents are left out — their entities do the work):
-
-| | per worker per day (defaults) |
-|---|---|
-| none (gatherers) | food 2.5, wood 12, stone 10, clay 4, fuel 1 |
-| builder | wood 6, stone 6 (and their labour) |
-| farmer / fisher / hunter / herder | food 20 / 14 / 10 / 8 (+cloth 3 / 14) |
-| forester / quarrier | wood 200, fuel 12 / stone 240, clay 24, metal 6 |
-| carpenter, mason, smith, brewer, ... | convert inputs (negative) to outputs; output shrinks with short inputs |
+**Goods** (per slice; embodied residents are left out — their entities do the work): phase 3 moved this into data and
+§16 — gatherers yield from their territory's sites, workshops follow the recipes of `hearth_sim/recipes`, tools wear,
+folk eat bread or, without it, what the land gives. The config's `production.per_day` table is now only for trades the
+data does not cover (a merchant's trade goods, a priest's offerings).
 
 Food eaten: adult 2, child 1, elder 1.5 a day. Fractions carry over between slices. Coin per worker per day by job
 (1 for most, merchant 8, minter 20, ...) — only while no economy module is registered: with one, its daily books
@@ -67,7 +70,9 @@ Food eaten: adult 2, child 1, elder 1.5 a day. Fractions carry over between slic
 adoption trims an adopted town's treasury to 60 bits a head when the economy runs. **Trade** keeps a town from stalling forever on goods it cannot make: what the
 stores cannot hold is sold to passing traders at `export_share` (0.1) of its price; a stalled stage buys what it lacks
 (`import_per_day`, 96 units of each) at `import_markup` (1.5) × price, with coin first, then by bartering whatever
-overflows the stores at half value. Deliberately slow and dear: a player bringing the goods is faster.
+overflows the stores at half value. Deliberately slow and dear: a player bringing the goods is faster. Phase 3 adds
+the necessities (a town down to a few days' tools buys a cartload, a starving one a few days' food, coin permitting)
+and the trade between towns (caravans, §16.6).
 
 **Construction**: labour = builders × `work_per_builder_hour` (33, what an embodied builder manages) ×
 `builder_hours_per_day`/24 (16 h), spread evenly over up to ⌈builders / `builder_share`⌉ active plots (labour left
@@ -130,6 +135,11 @@ later; it never takes the server down.
 | `TIER_CHANGED` | at the day boundary the population crossed a tier |
 | `DAY_PASSED` | every sim day of every settlement |
 | `EMBODIMENT_CHANGED` | a player came within `radius` of its bounds / left beyond `radius + hysteresis` |
+| `SITE_FOUND` | a survey found a site the settlement did not have (founding, tier growth, every `resurvey_days`) — not during histories or adoption |
+| `SITE_DEPLETED` | a site's stock reached nothing (once; a renewable site regrown past half is re-armed) |
+| `PROSPERITY_CHANGED` | the fortunes turned: rising past `rise_above`, declining under `decline_below` (with a short why) |
+| `CARAVAN` | a caravan set out, arrived, was robbed or lost (§16.6) |
+| `PLOT_ABANDONED` | also: a house left standing empty in a decline (`left empty: <why>`) |
 
 ## 3. The atlas and history (§5.1)
 
@@ -287,6 +297,19 @@ Written with the defaults on first run; every field optional. (Delete it to pick
 | `founding.residents` / `goods` / `treasury` | 5 / food 240, wood 900, stone 700, … / 200 | a new camp |
 | `daughters.enabled` / `min_population` / `crowded_days` / `cooldown_days` | true / 30 / 5 / 40 | §2 daughter hamlets |
 | `daughters.min_distance` / `max_distance` / `settlers` / `max_per_town` | 600 / 2500 / 4 / 3 | |
+| `storage.by_archetype` | granary edible 6000, warehouse all 4000, sawmill logs/timber, ... | per goods, §1 |
+| `resources.land.territory` | camp 96, hamlet 160, village 256, town 384, city 512 | §16.1 |
+| `resources.land.core_margin` / `survey_cells` / `survey_step` / `max_sites` / `resurvey_days` | 32 / 36 / 24 / 48 / 120 | |
+| `resources.chains.tool_wear` / `no_tools_factor` / `no_site_factor` / `builder_share` | 0.02 / 0.6 / 1 / 0.15 | §16.2 |
+| `resources.chains.haul_range` / `haul_per_hauler` | 384 / 4 | far sites yield less without haulers |
+| `resources.spoilage.enabled` / `rate` / `cool` / `salted` | true / 1 / 0.1 / 0.4 | |
+| `resources.prosperity.enabled` / `capacity_limits_growth` / `decline_below` / `rise_above` | true / true / 0.35 / 0.7 | §16.4 |
+| `resources.prosperity.finish_tier` / `emigration` / `abandon_slack` / `smoothing` | true / 0.25 / 6 / 0.05 | |
+| `resources.caravans.enabled` / `max_distance` / `interval_days` / `cargo` | true / 3200 / 4 / 640 | §16.6 |
+| `resources.caravans.speed` / `risk` / `min_value` / `margin` | 1800 blocks a day / 0.03 per 1000 blocks / 60 / 0.5 | |
+| `resources.stations.enabled` / `period_days` / `up_at` / `down_at` / `gentry_at` | true / 10 / 2.2 / 0.5 / 5 | §16.7 |
+| `resources.extraction.abstract_only` / `hours_per_day` / `seam_factor` | false / 9 / 6 | §16.3 |
+| `resources.extraction.fell_natural_woods` / `fell_budget_ms` / `fell_away_from_players` / `max_felling_debt` | true / 0.25 / 48 / 2000 | |
 
 ## 11. Commands (operator level 2)
 
@@ -301,6 +324,11 @@ Written with the defaults on first run; every field optional. (Delete it to pick
 /hearth plot info                           the plot you stand on: spec, state, progress, writable cursor
 /hearth sim stats                           clock, atlas, probe, world generation, applier, adoption, save timings
 /hearth sim embody <id>                     hold a settlement embodied with nobody near, or let it go
+/hearth settlement sites [id]               the territory's sites: kind, material, where, what is left, who works it
+/hearth settlement economy [id]             prosperity, capacity, trade, trades, stations, stores by raw/processed/finished
+/hearth settlement survey [id]              survey the territory again (off the server thread)
+/hearth caravans                            caravans on the road: cargo, value, where, when they arrive
+/hearth underground                         the realm under you and those near (Expanse Earth worlds)
 ```
 
 ## 12. The dev harness
@@ -387,3 +415,197 @@ and `-Dhearth.dev.fillCatalogue=true`, the build module's archetypes are used wh
 the rest, so a town can be grown end to end while the architects land archetypes one by one. In a normal run only the
 registered service is used. `PlaceholderPlanner` is installed only if no planner is registered (the plan module always
 registers one).
+
+Phase 3 adds stand-ins for the excavations (`PlaceholderExcavations`: quarry, clay and sand pits a bench per stage, a
+propped and lit adit, a shaft, a woodlot) and the chains' workshops (smelter, kilns, glassworks, tannery, butcher,
+chandler, apiary, logging camp, paper mill, dye works, salt works, shipyard, caravan yard), so the resource loop can be
+grown end to end before the architects land them.
+
+## 16. Towns thrive on the resources around them (LIVING_WORLD.md §7)
+
+What lies round a settlement decides what it builds with, how large it grows, what it trades and what becomes of it when
+the land runs out. All of it is data on the record — sites and goods are numbers, so the cost stays where it was — and
+runs the same in histories (on world generation workers) and live towns. A settlement's land is saved under the
+settlement data key `hearth:sim/land` (`LandState`); phase 2 saves start without it and are surveyed when they load.
+
+### 16.1 Territory and survey (§7.1)
+
+- **Territory**: a radius by tier (`resources.land.territory`: camp 96 … city 512 blocks), never reaching into another
+  settlement's core (its bounds plus `core_margin`): where two territories meet, each stops short of the other's
+  built-up heart. A history's territory keeps to its region.
+- **Survey** (`land/Survey`, pure, no chunk loads): a grid over the disc of the territory (at most `survey_cells` across,
+  cells at least `survey_step` apart, so about a thousand columns at most), each column read from the terrain probe (the
+  Expanse model's rough view on Earth worlds) and its biome's land (`BiomeResources`), classified into what it could be:
+  - **woods** — tree cover and species from the biome's vegetation features (every tree feature through any nesting of
+    random selectors, weighted by its expected count per chunk and height — the reading VOID LOD uses for its forest
+    blanket), so a redwood valley gives `expanse:redwood_log` woods and a birch hillside birch;
+  - **stone** — steep ground, bare-rock biomes (peaks, badlands, stony shores) and high ground, with the surface rock
+    from the land table (sandstone, terracotta, Expanse limestone and opal sandstone, basalt and tuff on the volcanoes);
+  - **ore** — hills and mountains with rock to dig, and wherever Expanse's caverns open the rock (a realm or a great
+    tunnel under the column); the grade (ore and coal per block cut) estimated by `OreModel` from the overworld's ore
+    bands by height and the biome's multipliers (gold in the badlands, iron in the mountains, copper under dripstone);
+  - **clay, sand** — river and lake banks, shallows, beaches, dunes; **salt** — salt flats and hot dry shores;
+  - **fertile** — level or gently sloping, temperate, watered land (by the biome's fertility); **pasture** — open
+    grass; **fish** — water two blocks deep or more;
+  - **rarities** — the land table's specialties (amber, prismite, volcanic ash, glowcaps, peat, crab, venison, mammoth
+    wool, bamboo, cocoa, honeycomb, kelp...), thinned in clumps over their biomes; and under Expanse Earth worlds every
+    realm under the territory gives workings in its walls and its own rarities (`expanse:realm_<character>` entries).
+- Cells of a kind and material join into patches of at most `max_cells` (a vast forest becomes several woods), each a
+  **site** with capacity (density × the kind's `per_cell`), regrowth (`regen`: forests, pasture, fish, clay banks; never
+  stone or ore), the primary trade's yields scaled by density, its material, its grade. The richest and nearest are kept
+  (`max_sites` per kind and in all). Deterministic: the same land gives the same sites.
+- **When**: at founding (a history at once; the live world on the `hearth-survey` thread, merged on the server thread),
+  when the tier grows the territory, every `resurvey_days`, on `/hearth settlement survey`. A site found again keeps its
+  id, what was taken from it and its excavation; a new one fires `SITE_FOUND`.
+- `Settlement.territoryRadius()` and `Settlement.sites()` (the api's `ResourceSite` views; until the api has a
+  `material` field, `speciality` carries every site's material — see requests/p3-sim.md §1).
+
+### 16.2 Goods and production chains (§7.4, §7.5)
+
+All 29 `Goods` are stocked (arrays sized to the enum). Each step (`settlement/Production`), per **crew** — the working
+adults of one trade at one kind of workplace, resolved once a day:
+
+1. **Recipes** (`hearth_sim/recipes/*.json`, below): the scarcest output first; a recipe runs while its outputs are
+   under `target` of the store room, as far as inputs allow, for at most `share` of the day. Logs → timber at the sawmill
+   or carpenter, logs → charcoal, stone → dressed stone, clay + fuel → brick, sand + fuel → glass, ore + fuel → metal at
+   the smelter (or the smithy's bloomery), metal + fuel → tools, grain → flour at the mills, flour → bread, meat → food
+   (salt helps), wool → cloth, wax or tallow → candles, logs or rags → paper → books. Builders spend
+   `builder_share` of their day hewing timber and dressing stone for their own work; odd-job labourers hand-hew and spin.
+2. **Excavations** of the crew's trade (§16.3).
+3. **Gathering** (`hearth_sim/gathering/<job>.json`) with what is left: the day shared over the kinds of site the trade
+   works (an odd-job labourer gets every kind's yields at once), each kind over its best three sites by richness and
+   nearness; yield = the trade's yields × the site's density × its richness (the square root of how full it is; a
+   renewable site never gives under 0.35) × the haul (sites beyond half of `haul_range` give less, unless there are
+   enough haulers); the site loses what was taken. No site of its kinds: the trade's `no_site` yields.
+- **Tools** wear by the worker-day (`tool_wear` or the data's); short of tools, every trade but odd jobs manages
+  `no_tools_factor` of a day. Passing traders sell a toolless town a cartload a day while its coin lasts.
+- **Food**: folk eat prepared food; without it, what the land gives as it is (fish, meat, fruit, flour, grain at the
+  model's `edible` values — bread from the mill and bakery is worth more than grain eaten as porridge). Hunger counts
+  when nothing edible is left. A starving town with coin buys a few days' food.
+- **Spoilage** (daily): each perishable good loses its share (`model.json` `perishable`) outside cool stores
+  (granaries, cellars: the model's `cool` archetypes, up to their room), `cool` of it inside; meat and fish keep while
+  there is salt (which it uses).
+- **Construction bills** in whatever goods the blueprints report (timber, dressed stone, brick, glass, metal, candles...);
+  a stalled stage imports what it lacks (§2).
+
+### 16.3 Extraction is construction run backwards (§7.3, §8.5)
+
+An excavation (`hearth:extract/*`: quarry pit, mine, shaft, clay pit, sand pit, plantation) is a plot like any other —
+the single progress counter, the applier and its edit safety, abstract and embodied progress — with three differences:
+
+- its **labour** comes from its own trade (`model.json` `extraction`: quarrier, miner, clay digger, forester) at the
+  builders' rate per hour for `hours_per_day`, never from builders; it employs them from the day it is staked out (its
+  job sites count while PLANNED/BUILDING); a stage waiting for its goods (props, rails, lanterns) sends them back to
+  surface gathering meanwhile;
+- each stage's **cuts** (`PlotFacts.cuts`: air steps below the probe's ground; a woodlot's at any height) are its
+  **yield**, credited as the stage finishes, abstract or embodied alike: the extraction's goods per cut (stone, clay,
+  sand, logs) plus ore and coal at the site's grade × `seam_factor` for mines; the site (the plot's `site` param, else
+  the nearest of its kind) loses the cut rock. Never damage;
+- `resources.extraction.abstract_only` writes nothing of an excavation into the world (the loop runs as numbers).
+
+**Natural woods** without a woodlot: what abstract foresters take is owed to the world (`SimSite.fellingDebt`, capped)
+and felled where the wood's chunks are loaded (`world/Woodcutter`, `fell_budget_ms` a tick, a few random columns of a
+wood that owes): a natural tree (logs under decaying leaves, on dirt) is taken down whole, top to bottom, leaves and all,
+and a sapling of its kind goes in at the stump. Never within `fell_away_from_players` of a player (embodied foresters
+fell in view), never on planned or built ground, never by anything a player built (any block round the trunk that is
+not natural ground, plants, trees or water), never with `abstract_only`. An embodied forester's credited work is not
+owed again.
+
+### 16.4 Carrying capacity, prosperity, boom and bust (§7.2)
+
+- **Carrying capacity** (daily): what the food sites regrow a day, through the trade they are for, in food (a farm's
+  grain and fruit eaten), plus food the town's trade earnings would buy, over what an adult eats (× 1.15). With
+  `capacity_limits_growth`, settlers stop and births fall to a quarter past it; past it a crowded town sends settlers out.
+- **Prosperity** (0–1, daily, smoothed by `smoothing`): 0.2 × how full the sites in use are + 0.15 × days of food (30 is
+  full) + 0.1 × the share in work + 0.25 × trade per head (exports less imports) + 0.2 × coin per head + 0.1 × housing.
+  A town that merely feeds itself sits near 0.55.
+- **Turns** fire `PROSPERITY_CHANGED` with a why: above `rise_above` "trade is good", "the land round about is rich"...;
+  under `decline_below` "the iron ore at 412, -96 is worked out", "food is short", "the trade has gone"... A boom draws
+  settlers (×1.4) and raises the finish tier of new buildings by one (`finish_tier`; roads as planned); a decline keeps
+  settlers away (×0.2), halves births, lowers the finish, and households leave (`emigration` × how deep; a household is
+  everyone who shares a home). With more empty beds than `abandon_slack`, a house at the edge of town is left standing
+  empty: `ABANDONED` (its blocks stay; the build module's decay look applies to it), listed in `LandState.deserted`,
+  `PLOT_ABANDONED` "left empty: <why>". When folk need beds again, they move back in before anything new is built.
+
+### 16.5 Daughter hamlets at the resources the parent lacks (§7.2)
+
+A crowded town (no free bed, or past its capacity) sends settlers out as before (§2), but the search now values what the
+parent lacks — farmland, woods, stone, ore, fishing, clay — read with a nine-column survey at each candidate (+6 a kind),
+so a mountain town founds a farming hamlet on the plain and a plain town a mining hamlet by the ore ("settlers from
+Ashbrook, gone for the ore it lacked"). Hamlets ship to their parent first (caravans favour kin ×1.5).
+
+### 16.6 Caravans (§7.6)
+
+`trade/Caravans` (world data `hearth:sim/caravans`): once a sim day each town may, every `interval_days`, send a caravan
+of up to `cargo` units of its surplus (beyond a third of its store room, its food reserve and what its stalled builds
+wait for) to the town within `max_distance` that wants it most — value to the buyer (its price: dearer the shorter it is,
+up to three times), nearness, kin. Travel time from the distance and the road's roughness (water to ford, climbing:
+sampled along the way) at `speed`; the risk (`risk` per 1000 blocks × roughness, less with guards) decides at departure
+whether it will be lost. On arrival the buyer's stores fill and its treasury pays the seller (between the two prices,
+`margin`); trade feeds both towns' prosperity. `CARAVAN` fires DEPARTED, ARRIVED, ROBBED or LOST. The npc module can
+place a caravan on its road (`Caravans.positionAt`), the quest module escort it (`escort`: it arrives) or rob it
+(`rob`: cargo gone, ROBBED) — see requests/p3-sim.md §3 for the api asked for. Arrivals are a queue checked by its head
+each tick.
+
+### 16.7 Stations by the purse (§8.1)
+
+Each household (residents sharing a home) is looked at every `period_days`, staggered. Its means: the purse the economy
+module keeps per resident (`Resident.extra("economy").purse`, bits) against what its station's households usually keep;
+without one, what its trades earn × (0.5 + prosperity), against their usual (homeless: less). At `up_at` times the usual
+it moves up a station (poor → peasant → artisan → merchant; a merchant household at `gentry_at` in a town or city →
+gentry), under `down_at` down one, but only after two looks in a row agree — slow, as the design asks. When the
+household's trades change (a labourer becomes a smith), it takes the station they bring at once. Callings stay
+(clergy, scholars, officials, the lord). The planner reads `Resident.station` for class-aware housing.
+
+### 16.8 Settlement reputation
+
+`Settlement.reputation/addReputation` stay stored here, but while a `StandingService` is registered it is the authority:
+reads return its standing, writes become `deed(... "hearth:reputation" ...)`. Calls from inside the standing service's
+own `standing`/`deed` reach the raw numbers (no recursion); `SimSettlement.rawReputation/rawAddReputation` expose them.
+
+### 16.9 The underground probe
+
+`HearthWorld.underground()` on Expanse Earth worlds is `terrain/ExpanseUnderground` (class-loaded only with Expanse):
+realms from the cavern model's realm cells (one per 640 blocks at most) — centre, radius, the floor of its plateau, the
+vault over its centre, its character (`wilds`, `lush`, `dripstone`, `crystal`, `ember`, `mere`, `frozen`, `roots`,
+`fossil`, `tidal`, `amber`, `brimstone`) — and for any column the floor nearest a height (a realm's floor or lake, a
+great tunnel, a river tunnel's water, a passage or chamber) and the ceiling over it. `/hearth underground` shows it.
+
+### 16.10 The data (`data/<ns>/hearth_sim/`)
+
+Any data pack can add or override (same file id replaces ours); reloaded with `/reload`.
+
+```
+recipes/<name>.json    { "recipes": [ { "job": "smelter", "workplace": "hearth:work/smelter",
+                          "inputs": {"ore": 6, "fuel": 3}, "outputs": {"metal": 4}, "labour": 1.0,
+                          "tools": -1, "share": 1.0, "target": 0.9, "priority": 0 } ] }     (or one recipe per file)
+                        labour: worker-days a batch; workplace: only workers there; no job: every worker there
+gathering/<job>.json   { "job": "forester", "split": true, "tools": 0.04,
+                          "sites": [ { "kind": "woods", "yields": {"logs": 120, "fuel": 4}, "share": 1, "wear": -1 } ],
+                          "no_site": {"logs": 20} }
+sites/<kind>.json      { "kind": "woods", "per_cell": 1800, "regen": 0.006, "primary": "forester",
+                          "max_cells": 16, "max_sites": 8, "material": "minecraft:oak_log" }
+land/<name>.json       { "biomes": { "expanse:jade_karst": { "rock": "expanse:limestone", "rocky": true, "fertility": 0.5,
+                          "specialties": [ { "item": "minecraft:bamboo", "goods": "specialty", "job": "forester",
+                          "yield": 30, "density": 0.5, "regen": 0.05 } ] } },
+                          "tags": { "minecraft:is_badlands": { "ore": {"gold": 4}, ... } } }
+                        also: sand, clay, wood, trees, pasture, salt; ore multipliers coal/iron/copper/gold
+model.json             { "edible": {...}, "perishable": {...}, "cool": [archetypes], "extraction":
+                          { "extract/mine": { "job": "miner", "kind": "ore", "yields": {"stone": 0.6}, "any_height": false } } }
+```
+
+`SimDataTest` checks that every input of every recipe is made or gathered somewhere.
+
+### 16.11 Measured (seed 20261003, Expanse Earth terrain, the real planner and build module with stand-ins for the rest, 2026-10-03)
+
+| | |
+|---|---|
+| surveys | 7 live surveys, 336 ms avg on the `hearth-survey` thread (a city's 512-block territory: ~1100 columns, most of it biome lookups); none on the server thread |
+| histories with sites and chains | 9 regions settled, 426 ms avg per history (atlas workers); Thornfield (beach, 265 days old) a village of 34 at day 0, Plumvale a hamlet of 10 |
+| growth over 300 more days | Thornfield 34 → 247 souls (a city; capacity-bound at ~315: its fertile land worked down to 13 %), Plumvale 10 → 53, Torheim (taiga, poor soil) 5 → 52, declining with 12 houses left empty |
+| clock, hour steps (bench, 200 steps of 1.2 h, day boundaries included) | without planner calls: 0.039 ms (55 souls, 38 sites), 0.031 ms (57, 42 sites), 0.088 ms (242 souls, 58 sites); with them 0.04–0.10 ms. An earlier run with stand-in excavations being dug: 0.218 ms for 319 souls including planner calls |
+| woodcutter | 21–92 trees (146–666 logs) felled per 30 s in a wood's loaded chunks, 52–131 ms total (well inside 0.25 ms a tick) |
+| underground probe | 107 µs per column for realm + floor; 3 realms within 3000 blocks of spawn (dripstone, frozen, wilds) |
+| stand-in mine | 10 stages, 270 cuts; with two miners built in 20 days, 269 ore and stone credited, its site down 26 % |
+| world generation | 99.4–99.6 % of written positions hold their block (with the excavations' cuts) |
+| unit test (placeholder catalogue) | 124 souls, 28 sites: 0.02–0.08 ms per hour step (`StepCostTest`) |

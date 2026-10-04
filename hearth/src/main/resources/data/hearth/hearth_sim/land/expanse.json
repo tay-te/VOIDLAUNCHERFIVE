@@ -1,0 +1,526 @@
+{
+  "biomes": {
+    "expanse:jade_karst": {
+      "rock": "expanse:limestone",
+      "rocky": true,
+      "fertility": 0.5,
+      "specialties": [
+        {
+          "item": "minecraft:bamboo",
+          "goods": "specialty",
+          "job": "forester",
+          "yield": 30,
+          "density": 0.5,
+          "regen": 0.0167
+        }
+      ]
+    },
+    "expanse:opal_dunes": {
+      "rock": "expanse:opal_sandstone",
+      "sand": "expanse:opal_sand",
+      "fertility": 0.0,
+      "pasture": 0.0
+    },
+    "expanse:salt_flats": {
+      "rock": "minecraft:sandstone",
+      "salt": true,
+      "fertility": 0.0,
+      "pasture": 0.0,
+      "specialties": [
+        {
+          "item": "expanse:salt_block",
+          "goods": "salt",
+          "job": "salter",
+          "yield": 30,
+          "density": 0.8,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:amber_steppe": {
+      "fertility": 0.6,
+      "pasture": 1.0,
+      "specialties": [
+        {
+          "item": "expanse:amber",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 4,
+          "density": 0.3
+        }
+      ]
+    },
+    "expanse:volcanic_highlands": {
+      "rock": "minecraft:basalt",
+      "rocky": true,
+      "fertility": 0.4,
+      "pasture": 0.5,
+      "ore": {
+        "iron": 1.5,
+        "gold": 1.5
+      },
+      "specialties": [
+        {
+          "item": "expanse:volcanic_ash",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 12,
+          "density": 0.5
+        }
+      ]
+    },
+    "expanse:sulfur_seeps": {
+      "rock": "minecraft:tuff",
+      "rocky": true,
+      "fertility": 0.1,
+      "ore": {
+        "gold": 2
+      },
+      "specialties": [
+        {
+          "item": "expanse:volcanic_ash",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 12,
+          "density": 0.6
+        }
+      ]
+    },
+    "expanse:prismatic_peaks": {
+      "rocky": true,
+      "fertility": 0.2,
+      "pasture": 0.4,
+      "specialties": [
+        {
+          "item": "expanse:prismite_cluster",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 3,
+          "density": 0.3
+        }
+      ]
+    },
+    "expanse:painted_canyons": {
+      "rock": "minecraft:terracotta",
+      "sand": "minecraft:red_sand",
+      "rocky": true,
+      "fertility": 0.05,
+      "pasture": 0.1,
+      "ore": {
+        "gold": 3
+      }
+    },
+    "expanse:ghost_gum_outback": {
+      "rock": "minecraft:red_sandstone",
+      "sand": "minecraft:red_sand",
+      "fertility": 0.2,
+      "pasture": 0.5
+    },
+    "expanse:saguaro_flats": {
+      "rock": "minecraft:sandstone",
+      "sand": "minecraft:sand",
+      "fertility": 0.05,
+      "pasture": 0.1
+    },
+    "expanse:lumen_grove": {
+      "wood": "expanse:lumen_log",
+      "fertility": 0.5
+    },
+    "expanse:frostbloom_tundra": {
+      "fertility": 0.1,
+      "pasture": 0.5,
+      "specialties": [
+        {
+          "item": "minecraft:white_wool",
+          "goods": "wool",
+          "job": "hunter",
+          "yield": 4,
+          "density": 0.4,
+          "regen": 0.0067
+        }
+      ]
+    },
+    "expanse:fjordlands": {
+      "rocky": true,
+      "fertility": 0.3,
+      "pasture": 0.5,
+      "specialties": [
+        {
+          "item": "expanse:crab_meat",
+          "goods": "fish",
+          "job": "fisher",
+          "yield": 6,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:coral_coast": {
+      "sand": "expanse:coral_sand",
+      "specialties": [
+        {
+          "item": "expanse:crab_meat",
+          "goods": "fish",
+          "job": "fisher",
+          "yield": 6,
+          "density": 0.5,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:palm_coast": {
+      "sand": "minecraft:sand",
+      "specialties": [
+        {
+          "item": "expanse:crab_meat",
+          "goods": "fish",
+          "job": "fisher",
+          "yield": 6,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:redwood_giants": {
+      "wood": "expanse:redwood_log",
+      "trees": 0.8,
+      "fertility": 0.4
+    },
+    "expanse:maple_highlands": {
+      "wood": "expanse:maple_log",
+      "fertility": 0.5,
+      "pasture": 0.5
+    },
+    "expanse:wisteria_vale": {
+      "wood": "expanse:wisteria_log",
+      "fertility": 0.8,
+      "specialties": [
+        {
+          "item": "minecraft:honeycomb",
+          "goods": "wax",
+          "job": "beekeeper",
+          "yield": 4,
+          "density": 0.5,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:willow_bayou": {
+      "clay": "minecraft:mud",
+      "fertility": 0.3,
+      "specialties": [
+        {
+          "item": "expanse:peat",
+          "goods": "fuel",
+          "job": "clay_digger",
+          "yield": 12,
+          "density": 0.5,
+          "regen": 0.002
+        }
+      ]
+    },
+    "expanse:boreal_muskeg": {
+      "clay": "minecraft:mud",
+      "fertility": 0.2,
+      "specialties": [
+        {
+          "item": "expanse:peat",
+          "goods": "fuel",
+          "job": "clay_digger",
+          "yield": 12,
+          "density": 0.6,
+          "regen": 0.002
+        }
+      ]
+    },
+    "expanse:heather_moor": {
+      "fertility": 0.3,
+      "pasture": 0.8,
+      "specialties": [
+        {
+          "item": "expanse:peat",
+          "goods": "fuel",
+          "job": "clay_digger",
+          "yield": 10,
+          "density": 0.4,
+          "regen": 0.002
+        },
+        {
+          "item": "minecraft:honeycomb",
+          "goods": "wax",
+          "job": "beekeeper",
+          "yield": 3,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:larch_taiga": {
+      "fertility": 0.3,
+      "pasture": 0.4,
+      "specialties": [
+        {
+          "item": "expanse:venison",
+          "goods": "meat",
+          "job": "hunter",
+          "yield": 8,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:pine_heath": {
+      "wood": "expanse:pine_log",
+      "fertility": 0.3,
+      "pasture": 0.5,
+      "specialties": [
+        {
+          "item": "expanse:venison",
+          "goods": "meat",
+          "job": "hunter",
+          "yield": 8,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:aspen_parkland": {
+      "wood": "expanse:aspen_log",
+      "fertility": 0.8,
+      "pasture": 0.8,
+      "specialties": [
+        {
+          "item": "expanse:venison",
+          "goods": "meat",
+          "job": "hunter",
+          "yield": 8,
+          "density": 0.3,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:bluebell_woods": {
+      "wood": "expanse:beech_log",
+      "fertility": 0.6,
+      "specialties": [
+        {
+          "item": "minecraft:honeycomb",
+          "goods": "wax",
+          "job": "beekeeper",
+          "yield": 3,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:olive_groves": {
+      "wood": "expanse:olive_log",
+      "fertility": 0.7,
+      "pasture": 0.6
+    },
+    "expanse:kapok_rainforest": {
+      "wood": "expanse:kapok_log",
+      "fertility": 0.6,
+      "specialties": [
+        {
+          "item": "minecraft:cocoa_beans",
+          "goods": "produce",
+          "job": "farmer",
+          "yield": 6,
+          "density": 0.5,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:monsoon_forest": {
+      "wood": "expanse:teak_log",
+      "fertility": 0.7,
+      "specialties": [
+        {
+          "item": "minecraft:bamboo",
+          "goods": "specialty",
+          "job": "forester",
+          "yield": 30,
+          "density": 0.4,
+          "regen": 0.0167
+        }
+      ]
+    },
+    "expanse:cloud_forest": {
+      "rocky": true,
+      "fertility": 0.4,
+      "specialties": [
+        {
+          "item": "minecraft:cocoa_beans",
+          "goods": "produce",
+          "job": "farmer",
+          "yield": 5,
+          "density": 0.3,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:tepui": {
+      "rocky": true,
+      "fertility": 0.4,
+      "pasture": 0.3
+    },
+    "expanse:verdant_peaks": {
+      "rocky": true,
+      "fertility": 0.4,
+      "pasture": 0.9
+    },
+    "expanse:realm_wilds": {
+      "specialties": [
+        {
+          "item": "expanse:glowcap",
+          "goods": "specialty",
+          "job": "none",
+          "yield": 8,
+          "density": 0.6,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:realm_lush": {
+      "specialties": [
+        {
+          "item": "minecraft:glow_berries",
+          "goods": "produce",
+          "job": "none",
+          "yield": 5,
+          "density": 0.5,
+          "regen": 0.0133
+        }
+      ]
+    },
+    "expanse:realm_dripstone": {
+      "ore": {
+        "copper": 2.5
+      },
+      "specialties": [
+        {
+          "item": "minecraft:pointed_dripstone",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 6,
+          "density": 0.5
+        }
+      ]
+    },
+    "expanse:realm_crystal": {
+      "specialties": [
+        {
+          "item": "expanse:prismite_cluster",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 4,
+          "density": 0.5
+        },
+        {
+          "item": "minecraft:amethyst_shard",
+          "goods": "luxury",
+          "job": "miner",
+          "yield": 3,
+          "density": 0.4
+        }
+      ]
+    },
+    "expanse:realm_ember": {
+      "ore": {
+        "gold": 2.5,
+        "iron": 1.3
+      }
+    },
+    "expanse:realm_mere": {
+      "specialties": [
+        {
+          "item": "minecraft:sea_pickle",
+          "goods": "specialty",
+          "job": "fisher",
+          "yield": 4,
+          "density": 0.4,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:realm_frozen": {
+      "specialties": [
+        {
+          "item": "minecraft:packed_ice",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 10,
+          "density": 0.6
+        }
+      ]
+    },
+    "expanse:realm_roots": {
+      "specialties": [
+        {
+          "item": "expanse:glowroots",
+          "goods": "specialty",
+          "job": "none",
+          "yield": 5,
+          "density": 0.5,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:realm_fossil": {
+      "specialties": [
+        {
+          "item": "minecraft:bone_block",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 6,
+          "density": 0.4
+        }
+      ]
+    },
+    "expanse:realm_tidal": {
+      "specialties": [
+        {
+          "item": "expanse:salt_block",
+          "goods": "salt",
+          "job": "salter",
+          "yield": 20,
+          "density": 0.5,
+          "regen": 0.01
+        }
+      ]
+    },
+    "expanse:realm_amber": {
+      "specialties": [
+        {
+          "item": "expanse:amber",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 6,
+          "density": 0.6
+        },
+        {
+          "item": "expanse:insect_amber",
+          "goods": "luxury",
+          "job": "miner",
+          "yield": 1,
+          "density": 0.3
+        }
+      ]
+    },
+    "expanse:realm_brimstone": {
+      "ore": {
+        "gold": 1.5
+      },
+      "specialties": [
+        {
+          "item": "expanse:volcanic_ash",
+          "goods": "specialty",
+          "job": "miner",
+          "yield": 10,
+          "density": 0.6
+        }
+      ]
+    }
+  }
+}

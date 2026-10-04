@@ -10,6 +10,8 @@ import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.Poi;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.TerrainProbe;
+import dev.voidmc.hearth.sim.chains.SimData;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What the clock needs to know about a plot's blueprint, read once and kept with the plot (blueprints are cached by the
@@ -19,9 +21,16 @@ import dev.voidmc.hearth.api.TerrainProbe;
  * @param work      labour per stage
  * @param goods     goods per stage, {@code [stage][goods.ordinal()]}
  * @param jobs      job sites by {@link JobType#ordinal()}
+ * @param cuts      for an excavation ({@code hearth:extract/*}), the blocks each stage cuts out of the natural land (air
+ *                  steps below the probe's ground; a woodlot's felled blocks at any height), else null
  */
-public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goods, int beds, int[] jobs, boolean storage) {
+public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goods, int beds, int[] jobs, boolean storage, int @Nullable [] cuts) {
 	public static PlotFacts of(PlotSpec spec, BlueprintService blueprints, TerrainProbe terrain) {
+		return of(spec, blueprints, terrain, null);
+	}
+
+	/** As above; {@code extraction} (if the archetype is an excavation) says which cuts count. */
+	public static PlotFacts of(PlotSpec spec, BlueprintService blueprints, TerrainProbe terrain, SimData.@Nullable Extraction extraction) {
 		Blueprint bp = blueprints.blueprint(spec, terrain);
 		int n = bp.stageCount();
 		int[] steps = new int[n];
@@ -49,7 +58,24 @@ public record PlotFacts(int stageCount, int[] stepCount, int[] work, int[][] goo
 			}
 		}
 		boolean storage = info != null && info.category() == ArchetypeCategory.STORAGE;
-		return new PlotFacts(n, steps, work, goods, bp.beds(), jobs, storage);
+		int[] cuts = null;
+		if (extraction != null) {
+			cuts = new int[n];
+			boolean any = extraction.anyHeight();
+			for (int s = 0; s < n; s++) {
+				int[] count = {0};
+				for (int i = 0; i < steps[s]; i++) {
+					bp.step(s, i, (x, y, z, state, tag) -> {
+						// air below the natural ground is rock or earth taken out; a woodlot's air steps are felled trees
+						if (state.isAir() && (any || y < terrain.groundY(x, z))) {
+							count[0]++;
+						}
+					});
+				}
+				cuts[s] = count[0];
+			}
+		}
+		return new PlotFacts(n, steps, work, goods, bp.beds(), jobs, storage, cuts);
 	}
 
 	public long complete() {

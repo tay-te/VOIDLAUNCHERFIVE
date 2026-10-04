@@ -1,0 +1,3 @@
+{ "job": "farmer", "tools": 0.02,
+  "sites": [ { "kind": "fertile", "yields": { "grain": 20, "produce": 8 } } ],
+  "no_site": { "grain": 6, "produce": 3 } }

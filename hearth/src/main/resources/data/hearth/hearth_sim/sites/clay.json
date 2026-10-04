@@ -1,0 +1,1 @@
+{ "kind": "clay", "per_cell": 3000, "regen": 0.002, "primary": "clay_digger", "max_cells": 8, "max_sites": 4, "material": "minecraft:clay" }

@@ -1,0 +1,106 @@
+{
+  "recipes": [
+    {
+      "job": "forester",
+      "workplace": "hearth:work/sawmill",
+      "inputs": {
+        "logs": 40
+      },
+      "outputs": {
+        "wood": 32
+      },
+      "priority": 1
+    },
+    {
+      "job": "forester",
+      "workplace": "hearth:work/logging_camp",
+      "inputs": {
+        "logs": 20
+      },
+      "outputs": {
+        "wood": 14
+      },
+      "share": 0.3,
+      "target": 0.5
+    },
+    {
+      "job": "carpenter",
+      "inputs": {
+        "logs": 30
+      },
+      "outputs": {
+        "wood": 26
+      },
+      "priority": 3,
+      "target": 0.5
+    },
+    {
+      "job": "carpenter",
+      "inputs": {
+        "wood": 6,
+        "metal": 1
+      },
+      "outputs": {
+        "tools": 3
+      },
+      "priority": 2,
+      "target": 0.3
+    },
+    {
+      "job": "carpenter",
+      "inputs": {
+        "wood": 12
+      },
+      "outputs": {
+        "luxury": 3
+      },
+      "priority": 1,
+      "target": 0.25
+    },
+    {
+      "job": "builder",
+      "inputs": {
+        "logs": 40
+      },
+      "outputs": {
+        "wood": 32
+      },
+      "share": 1.0,
+      "target": 0.6,
+      "tools": 0
+    },
+    {
+      "job": "none",
+      "inputs": {
+        "logs": 4
+      },
+      "outputs": {
+        "wood": 3
+      },
+      "labour": 0.1,
+      "share": 0.4,
+      "target": 0.6,
+      "tools": 0
+    },
+    {
+      "job": "charcoal_burner",
+      "inputs": {
+        "logs": 12
+      },
+      "outputs": {
+        "fuel": 8
+      }
+    },
+    {
+      "job": "boatwright",
+      "inputs": {
+        "wood": 8,
+        "metal": 1,
+        "cloth": 1
+      },
+      "outputs": {
+        "luxury": 3
+      }
+    }
+  ]
+}

@@ -48,6 +48,13 @@ public final class SimModule {
 		return r;
 	}
 
+	/** The resource economy's data (chains, gathering, sites, the land of each biome) from the server's data packs. */
+	static void loadData(net.minecraft.server.packs.resources.ResourceManager resources) {
+		dev.voidmc.hearth.sim.chains.SimData data = dev.voidmc.hearth.sim.chains.SimData.load(resources);
+		dev.voidmc.hearth.sim.chains.SimData.setCurrent(data);
+		dev.voidmc.hearth.sim.land.BiomeResources.reset(data.land());
+	}
+
 	public static void init() {
 		SimRules r = rules();
 		HearthServices.setWorlds(SimServer::world);
@@ -55,6 +62,9 @@ public final class SimModule {
 		// the plain default; the npc module replaces it with folk who have personalities
 		HearthServices.setResidents(PlainResidents.INSTANCE);
 		ChunkLedgers.init();
+		// the land's and the roads' saved state: keys registered before any world loads
+		java.util.Objects.requireNonNull(dev.voidmc.hearth.sim.land.LandState.KEY);
+		java.util.Objects.requireNonNull(dev.voidmc.hearth.sim.trade.Caravans.KEY);
 		Registry.register(BuiltInRegistries.FEATURE_TYPE, Hearth.id("settlement"), SettlementFeature.CODEC);
 		BiomeModifications.addFeature(BiomeSelectors.foundInOverworld(), GenerationStep.Decoration.TOP_LAYER_MODIFICATION,
 			ResourceKey.create(Registries.PLACED_FEATURE, Hearth.id("settlement")));
@@ -79,7 +89,13 @@ public final class SimModule {
 				HearthServices.setPlanner(new PlaceholderPlanner());
 			}
 			WorldgenGuard.reset();
+			loadData(server.getResourceManager());
 			SimServer.start(server, r);
+		});
+		ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resources, success) -> {
+			if (success) {
+				loadData(server.getResourceManager());
+			}
 		});
 		ServerLevelEvents.LOAD.register((server, level) -> {
 			SimServer s = SimServer.current();
