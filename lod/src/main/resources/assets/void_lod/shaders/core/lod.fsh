@@ -12,6 +12,9 @@ layout(location = 4) flat in float tileFade;
 layout(location = 2) in vec3 sideColor;
 layout(location = 3) in vec4 stair;
 layout(location = 5) in float surfaceY;
+#ifdef LOD_CLIP
+layout(location = 6) in float solid;
+#endif
 #else
 layout(location = 2) in vec3 blockPos;
 layout(location = 3) in vec2 occlusion;
@@ -113,6 +116,12 @@ void main() {
     if (t < n || (tileFade > 0.0 && n >= tileFade) || (tileFade < 0.0 && n < -tileFade)) {
         discard;
     }
+#ifdef LOD_SMOOTH
+    // Over the void (between End islands): a triangle whose corners are all void has nothing to show.
+    if (solid < 1e-3) {
+        discard;
+    }
+#endif
 #endif
     vec3 color = vertexColor.rgb;
 #ifdef LOD_SMOOTH

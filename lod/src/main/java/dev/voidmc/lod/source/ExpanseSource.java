@@ -151,11 +151,13 @@ public final class ExpanseSource extends WorldgenSource {
 					out.side = Colors.mix(out.side, this.looks.sand, beach);
 				}
 			}
-			if (snow > 0 && look.ground() != BiomeLooks.Ground.SNOWCAP) {
-				out.top = Colors.mix(out.top, this.looks.snowTop, snow);
-				out.side = Colors.mix(out.side, this.looks.snowSide, snow * 0.8F);
-				// snow on the boughs
+			if (snow > 0) {
+				if (look.ground() != BiomeLooks.Ground.SNOWCAP) {
+					out.top = Colors.mix(out.top, this.looks.snowTop, snow);
+					out.side = Colors.mix(out.side, this.looks.snowSide, snow * 0.8F);
 				}
+				this.boughs(out, snow);
+			}
 			out.cover *= 1 - bare;
 		}
 		if (river > 0) {

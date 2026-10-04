@@ -374,6 +374,7 @@ public final class LodEngine implements LodSelector.Store, AutoCloseable {
 			tile.minY = mesh.minY();
 			tile.maxY = mesh.maxY();
 			tile.occluders = mesh.occluders();
+			tile.holes = mesh.holes();
 			if (mesh.vertexCount() == 0) {
 				this.waiting.poll();
 				tile.state = Tile.State.READY;

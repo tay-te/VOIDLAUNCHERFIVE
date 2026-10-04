@@ -386,8 +386,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			// does any of the tile reach into the clip ring (vanilla's area plus the dithered seam)?
 			double nx = Math.max(0, Math.max(x0 - cx, cx - (x0 + span)));
 			double nz = Math.max(0, Math.max(z0 - cz, cz - (z0 + span)));
-			// the dithered variant: tiles in the seam with vanilla's chunks, and tiles fading in or out
-			boolean clipped = tileFade != 0 || nx * nx + nz * nz < clipReach * clipReach;
+			// the dithered variant: tiles in the seam with vanilla's chunks, tiles fading in or out, and tiles with void
+			boolean clipped = tileFade != 0 || tile.holes || nx * nx + nz * nz < clipReach * clipReach;
 			if (inView == this.inView.length) {
 				int n = inView * 2;
 				this.inView = Arrays.copyOf(this.inView, n);

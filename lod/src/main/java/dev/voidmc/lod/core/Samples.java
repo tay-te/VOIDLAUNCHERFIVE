@@ -21,6 +21,8 @@ final class Samples {
 
 	// Every per-sample array: copy() lists each one, so a sample reused from a neighbour is the whole sample.
 	final float[] ground;
+	/** Where the land ends below (floating islands), or negative infinity for solid ground all the way down. */
+	final float[] bottom;
 	final int[] top;
 	final int[] side;
 	final int[] soil;
@@ -35,6 +37,8 @@ final class Samples {
 	final float[] canopy;
 	final float[] cover;
 	final int[] leaves;
+	/** The crowns' colour from above: the leaves', or snow on them. */
+	final int[] leavesTop;
 	final float[] crown;
 	final float[] conifer;
 	final int[] topMaterial;
@@ -57,6 +61,7 @@ final class Samples {
 	Samples(boolean variation, int capacity) {
 		this.variation = variation;
 		this.ground = new float[capacity];
+		this.bottom = new float[capacity];
 		this.top = new int[capacity];
 		this.side = new int[capacity];
 		this.soil = new int[capacity];
@@ -71,6 +76,7 @@ final class Samples {
 		this.canopy = new float[capacity];
 		this.cover = new float[capacity];
 		this.leaves = new int[capacity];
+		this.leavesTop = new int[capacity];
 		this.crown = new float[capacity];
 		this.conifer = new float[capacity];
 		this.topMaterial = new int[capacity];
@@ -118,6 +124,7 @@ final class Samples {
 				s.clear();
 				source.sample(x, z, this.cell, s);
 				this.ground[k] = s.ground;
+				this.bottom[k] = s.bottom;
 				this.water[k] = s.water;
 				this.waterColor[k] = s.waterColor;
 				this.lava[k] = s.lava;
@@ -140,6 +147,7 @@ final class Samples {
 					this.side[k] = s.side;
 					this.soil[k] = s.soil;
 					this.leaves[k] = s.leaves;
+					this.leavesTop[k] = s.leavesTop < 0 ? s.leaves : s.leavesTop;
 					this.cover[k] = s.cover;
 					this.canopy[k] = s.canopy;
 					continue;
@@ -154,8 +162,11 @@ final class Samples {
 				float cover = s.cover;
 				float canopy = s.canopy;
 				this.leaves[k] = s.leaves;
+				this.leavesTop[k] = s.leavesTop < 0 ? s.leaves : s.leavesTop;
 				if (cover > 0 && canopy > 0) {
-					this.leaves[k] = Colors.vary(s.leaves, 1 + 0.1F * Colors.fbm(SALT_TONE + 13, x, z, 260, this.cell, 3), sat);
+					float shade = 1 + 0.1F * Colors.fbm(SALT_TONE + 13, x, z, 260, this.cell, 3);
+					this.leaves[k] = Colors.vary(s.leaves, shade, sat);
+					this.leavesTop[k] = Colors.vary(this.leavesTop[k], shade, sat);
 					// clearings and thickets: the biome's density is an average, not a rule
 					float patch = Colors.fbm(SALT_COVER, x, z, 380, this.cell, 4);
 					cover = Math.min(1, cover * Math.max(0, 1 + 0.85F * patch));
@@ -183,6 +194,7 @@ final class Samples {
 	/** Copies sample {@code f} of {@code from} into sample {@code k}: every per-sample field, variation included. */
 	void copy(int k, Samples from, int f) {
 		this.ground[k] = from.ground[f];
+		this.bottom[k] = from.bottom[f];
 		this.top[k] = from.top[f];
 		this.side[k] = from.side[f];
 		this.soil[k] = from.soil[f];
@@ -197,6 +209,7 @@ final class Samples {
 		this.canopy[k] = from.canopy[f];
 		this.cover[k] = from.cover[f];
 		this.leaves[k] = from.leaves[f];
+		this.leavesTop[k] = from.leavesTop[f];
 		this.crown[k] = from.crown[f];
 		this.conifer[k] = from.conifer[f];
 		this.topMaterial[k] = from.topMaterial[f];

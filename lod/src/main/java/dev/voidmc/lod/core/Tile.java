@@ -26,6 +26,8 @@ public final class Tile {
 	/** Where the tile's indices start in the index buffer it is drawn with: a flat smooth tile's are past the grid's. */
 	public int firstIndex;
 	public boolean smooth;
+	/** A smooth tile with void in it (between End islands): drawn with the shader variant that cuts it out. */
+	public boolean holes;
 	public int minY;
 	public int maxY;
 	/** The surface's lower bound per square of the tile ({@link TileBuilder.Mesh#occluders}), for occlusion culling. */

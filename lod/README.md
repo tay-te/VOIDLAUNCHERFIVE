@@ -46,6 +46,30 @@ cache timers in frames, so at 1500 fps it evicted and rebuilt its coarsest tiles
 for 378 tiles, 150–185 jobs always queued) and spent **1.9–3.3 ms** of render thread per frame. Timers
 are in seconds now, and a split tile stays resident as its children's fallback.
 
+### The End, conifers, rain and the sea at dusk
+
+The End's outer islands, vanilla and with the LOD, and from 140 blocks above them: islands to the
+horizon, slabs over the void, sinking into the dark with distance.
+
+| Vanilla | VOID LOD |
+|---|---|
+| ![End islands, vanilla](docs/end0_vanilla.jpg) | ![End islands, VOID LOD](docs/end0_after.jpg) |
+
+![End islands from above](docs/end1_after.jpg)
+
+A conifer forest on a cold coast, from 140 blocks above it: cones close in, a dark, spiky canopy further
+out, the crowns' tops white with snow and their flanks not.
+
+![conifer forest under snow](docs/forest0_after.jpg)
+
+Rain from the peak, and dusk from just above the open sea, before and now: the far land goes in a
+downpour as it does in vanilla, and the far sea meets vanilla's water without a dark band.
+
+| Before | Now |
+|---|---|
+| ![rain, before](docs/rain0_before.jpg) | ![rain, now](docs/rain0_after.jpg) |
+| ![dusk at sea, before](docs/sea0_before.jpg) | ![dusk at sea, now](docs/sea0_after.jpg) |
+
 ## Why it is built this way
 
 Distant Horizons and Voxy both get their far terrain from **chunks**: Voxy only from chunks someone
@@ -77,7 +101,10 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   * Vanilla's ambient occlusion: each top corner darkens with the neighbours above it, quads split
     along the brighter diagonal, and every wall darkens along its lowest block.
   * Trees, one crown each (`core/Trees`): a jittered grid with the biome's density, each tree its own
-    height and shade, cones for tall narrow trees, domes for broad ones, darker under the canopy.
+    height and shade, darker under the canopy. Conifers are cones and broadleaf trees domes, in the
+    biome's own mix: `BiomeLooks` reads each tree feature's foliage placer (spruce, pine, mega pine) or,
+    for a modded tree, the names of its placers (Expanse's redwoods shape their crowns in the trunk
+    placer). In snowy forests the crowns' tops are white with the snow on the boughs, their flanks not.
   * A one-block grain in the shader, as the block textures give the chunks, fading out before it
     could shimmer.
 * **Smooth tiles, everywhere else** (`core/Smooth`, level 2 and up, where a block is under a pixel or
@@ -99,9 +126,11 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
     so it never shimmers.
   * Past the first kilometre or so, the sun models the relief: slopes toward it a little brighter,
     slopes away a little darker, so a far range has shape instead of flat light.
-  * Forests are a canopy raised as far as they are dense; valleys are slightly darker and ridges
-    slightly lighter; colours are softened across biome borders and mottled cell by cell; rivers
-    narrower than a cell are a thread of their water's colour.
+  * Forests are a canopy raised as far as they are dense: conifer forests darker, their tops showing
+    their spires' shaded flanks and a stronger mottle, broadleaf forests rounder and lighter; a cold
+    forest's tops partly white with snow, its flanks not. Valleys are slightly darker and ridges slightly
+    lighter; colours are softened across biome borders and mottled cell by cell; rivers narrower than a
+    cell are a thread of their water's colour.
   * Every smooth tile has the same topology, so they all share one index buffer: 70 KB a tile.
 * **Colours from the textures actually loaded** (`source/TextureColors`, `source/BiomeLooks`): each block
   face is the average of the sprites its model draws, in linear light like a mipmap, layered (grass side
@@ -113,12 +142,24 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 * **Snow where the chunks put it**: vanilla's own temperature test block by block near the chunks, and
   its snow line (temperature falling 0.05 per 40 blocks) as a soft band further out.
 * **Water by depth**: the water texture's tint over a bed that darkens a light level per block, so
-  shallows show their sand; past the chunks, water at a low angle mirrors the sky.
+  shallows show their sand; water at a low angle mirrors the sky, right up to the chunks, whose own
+  water there shows the sky through it.
 * **Aerial haze** (`lod.vsh`, `mixin/FogRendererMixin`): exponential haze that thins with height, dense in
   the valleys and thin over the peaks, so far ranges stand clear above the haze in front of them.
-  Vanilla's chunks get the same haze in linear form, matched at the camera's height, so the seam
-  disappears; rain and misty biomes (Expanse's cloud forest, fjords) thicken it; the land melts into the
-  sky at the LOD's edge.
+  Vanilla's chunks get the same haze in linear form, as thick as the LOD's where they meet it, so the
+  seam disappears; misty biomes (Expanse's cloud forest, fjords) thicken it; the land melts into the sky at
+  the LOD's edge. Rain hangs a curtain over it that does not thin with height, as dense as vanilla's
+  rain fog (two thirds by 660 blocks), so in a downpour the far land goes as it does in vanilla, from a
+  valley or a peak. Dusk and night darken the LOD through vanilla's own lightmap and haze it toward
+  vanilla's fog colour, as the chunks are; under water, in lava or blind, the LOD is not drawn at all.
+* **The End and other floating land**: where the generator fills with air instead of water, a column
+  is read whole for its top and the underside of its island, and a column with no ground is empty.
+  Close in, islands are slabs: walls hang from the rim to the underside, and the underside is drawn
+  step by step for when you are below it. Far out, the shared grid stays whole: vertices over the void
+  are flagged, those beside land hang to its underside as the island's flank, and the shader cuts out
+  every triangle with no land in it, only in tiles that have void (the rest keep early-Z). End stone
+  comes from the textures like every other block; there is no sea, and the haze is even and thicker,
+  so far islands sink into the dark rather than ending in a line at the LOD's edge.
 * **No popping** (`core/Fades`): when the selection swaps a tile for its children or back, the two
   cross-fade over 0.45 s through complementary dither, so every pixel shows exactly one of them.
 
@@ -298,7 +339,12 @@ cd lod
 ```
 
 The game test takes `-Plod.show.*` properties (seed, render distance, views, screenshot size; see
-`LodShowcase`) and logs, per view, what the LOD drew and what each part of a frame cost.
+`LodShowcase`) and logs, per view, what the LOD drew and what each part of a frame cost. Besides the
+peak, valley, air and long-lens views it photographs dusk (`dusk0`-`dusk2`), night (`night0`, `night1`),
+rain and thunder (`rain0`, `rain1`, `thunder0`), the open sea at dusk and night and under water (`sea0`,
+`sea1`, `water0`), a temperate and a snowy conifer forest (`forest0`, `forest1`) and the End's outer
+islands (`end0`-`end2`, the last from the void below them); `-Plod.show.only=end0,end1 -Plod.show.views=40`
+picks views by name.
 `-Plod.show.settings=true` also goes through Video Settings to the settings screen, chooses Low on it and
 photographs the view at each preset, then the F3 lines. Auto-tune is off in the game tests unless
 `-Pvoid.lod.autoTune=true`.
@@ -321,3 +367,16 @@ model, but only loads it when Expanse is installed.
   entirely at close range.
 * **Disk cache.** Expanse terrain builds faster than it would load, but the generic generator path
   would benefit.
+* **Faster void worlds.** The End goes through the generic generator path, which sets up a noise chunk
+  for every column it reads, so an End tile takes several times as long to build as an Earth tile (150
+  to 260 ms against 40 to 70 in the showcase runs; the horizon fills in about 40 s). Reading a tile's
+  columns through one noise chunk would fix it.
+* **Stepped skylines.** Far ridges meet the sky in smooth curves, where Distant Horizons' real block
+  columns step. Tried in the shader: just in front of where a convex ridge turns away from the eye, cut
+  the uphill half of each block column above its top, so the skyline steps column by column (cutting
+  anywhere else would show the inside of the hill). It cost nothing measurable, even with `discard` in
+  every smooth tile, but changed only 70 to 200 scattered pixels of a 1600×900 frame: the shader's
+  columns are about three pixels across, so their steps are one or two pixels tall and read as aliasing,
+  not as steps. Steps that show need geometry at the cell scale (pairs of grid vertices collapsed into
+  flat-topped columns with walls between, which the shared index buffer allows), at the price of the
+  smooth far field's detail, so it was set aside.

@@ -10,6 +10,11 @@ package dev.voidmc.lod.core;
 public final class ColumnSample {
 	/** The ground's surface height in blocks, fractional where the source knows it: solid below this y. */
 	public float ground;
+	/**
+	 * Where the ground ends below, for land floating over the void (End islands): solid from here up to
+	 * {@link #ground}. {@link Float#NEGATIVE_INFINITY} for ground that goes all the way down.
+	 */
+	public float bottom;
 	/** The top face of the surface block (grass top, snow, sand). */
 	public int top;
 	/** The side face of the surface block: grass side, snowy grass side, sand. */
@@ -39,6 +44,11 @@ public final class ColumnSample {
 	public float cover;
 	/** The leaves' colour. */
 	public int leaves;
+	/**
+	 * What the crowns look like from straight above, where that is not {@link #leaves}: snow on the boughs in
+	 * a cold forest. Negative for the leaves' own colour.
+	 */
+	public int leavesTop;
 	/** A crown's radius in blocks. */
 	public float crown;
 	/** The share of the trees that are conifers (spruce, pine: cones) rather than broadleaf (oak, birch: domes). */
@@ -58,6 +68,7 @@ public final class ColumnSample {
 
 	public void clear() {
 		this.ground = 0;
+		this.bottom = Float.NEGATIVE_INFINITY;
 		this.top = 0x7F7F7F;
 		this.side = 0x7F7F7F;
 		this.soil = 0x8A6346;
@@ -72,6 +83,7 @@ public final class ColumnSample {
 		this.canopy = 0;
 		this.cover = 0;
 		this.leaves = 0x3A5F1C;
+		this.leavesTop = -1;
 		this.crown = 2.5F;
 		this.conifer = 0;
 		this.topMaterial = 0;
