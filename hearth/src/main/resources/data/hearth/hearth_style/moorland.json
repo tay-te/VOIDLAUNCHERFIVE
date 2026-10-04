@@ -35,7 +35,7 @@
 		"ground": ["minecraft:grass_block"],
 		"fill": ["minecraft:dirt"],
 		"stilt": ["wood:minecraft:spruce"],
-		"thatch": ["minecraft:hay_block"],
+		"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}, {"m": "minecraft:moss_block", "patch": 0.08}],
 		"sheet": [{"m": "minecraft:deepslate_tiles", "w": 3}, {"m": "minecraft:waxed_weathered_cut_copper", "w": 1}],
 		"masonry": [{"m": "minecraft:stone_bricks", "w": 3}, {"m": "minecraft:cobblestone", "w": 1}, {"m": "minecraft:mossy_stone_bricks", "w": 1, "low": 2, "north": 2}]
 	},
@@ -48,7 +48,7 @@
 	"variants": [
 		{"name": "whitewashed", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 1}], "gable": ["minecraft:smooth_quartz"]}, "habits": {"walls": {"kind": "plaster", "plinth": 1}},
 			"tiers": {"3": {"wall": [{"m": "minecraft:smooth_quartz", "w": 2}, {"m": "minecraft:calcite", "w": 1}]}}},
-		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full", "forms": {"gable": 3, "half_hip": 2}}}}
+		{"name": "thatched", "w": 1, "roles": {"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab"}]}, "habits": {"roof": {"thatch": true, "ridge": "full", "forms": {"gable": 3, "half_hip": 2}}}}
 	],
 	"substyles": [
 		{
@@ -81,7 +81,7 @@
 				"wall": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 2, "low": 2, "north": 2}, {"m": "minecraft:andesite", "w": 1.5}, {"m": "minecraft:tuff", "w": 0.6}],
 				"gable": [{"m": "minecraft:cobblestone", "w": 3}, {"m": "minecraft:mossy_cobblestone", "w": 1}],
 				"wall_accent": [{"m": "minecraft:mossy_cobblestone", "w": 1}, {"m": "minecraft:cobblestone", "w": 1}],
-				"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:bamboo_mosaic_stairs", "slab": "minecraft:bamboo_mosaic_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.15}],
+				"thatch": [{"m": "minecraft:hay_block", "stairs": "minecraft:oak_stairs", "slab": "minecraft:oak_slab", "w": 3}, {"m": "minecraft:moss_block", "patch": 0.15}],
 				"window": ["minecraft:cobblestone"],
 				"door": ["wood:minecraft:spruce"]
 			},

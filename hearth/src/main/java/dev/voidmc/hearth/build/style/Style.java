@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
  * the base dressing's is {@code base_when}. A building draws by weight among the dressings whose condition holds for
  * its {@link StyleContext}; with no conditions anywhere the draw is the old seeded one, unchanged.
  *
- * <p>A style may also be a <b>region</b> ({@link #region()}): a regional overlay (lumen, volcanic, fjord...) worn over a
+ * <p>A style may also be a <b>region</b> ({@link #region()}): a regional overlay (old forest, volcanic, fjord...) worn over a
  * culture's dressing where its condition holds (a biome, a landform, the {@code region} param). It names only the roles
  * and habits it changes. Culture styles carry the regions they may wear ({@link #regions()}).
  *
@@ -112,8 +112,22 @@ public final class Style {
 	 * @param name     the region's name (the {@code region} param forces it)
 	 * @param when     where it is worn
 	 * @param priority which of several matching regions wins (higher first)
+	 * @param aliases  other names the {@code region} param may give it (a region renamed: {@code lumen} is now
+	 *                 {@code old_forest})
 	 */
-	public record Region(String name, @Nullable When when, int priority) {
+	public record Region(String name, @Nullable When when, int priority, List<String> aliases) {
+		public Region {
+			aliases = List.copyOf(aliases);
+		}
+
+		public Region(String name, @Nullable When when, int priority) {
+			this(name, when, priority, List.of());
+		}
+
+		/** Whether the {@code region} param names this region. */
+		public boolean named(String n) {
+			return this.name.equals(n) || this.aliases.contains(n);
+		}
 	}
 
 	public Style(Identifier id, @Nullable Culture culture, String name, Map<Role, Palette> base, Map<Integer, Map<Role, Palette>> tiers, Habits habits) {
@@ -291,11 +305,10 @@ public final class Style {
 			return -1;
 		}
 		boolean baseOk = When.holds(this.baseWhen, context);
+		double[] w = weights(context);
 		double total = baseOk ? this.baseWeight : 0;
-		for (Variant v : this.variants) {
-			if (When.holds(v.when(), context)) {
-				total += v.weight();
-			}
+		for (double x : w) {
+			total += x;
 		}
 		if (total <= 0) {
 			return -1;
@@ -309,17 +322,44 @@ public final class Style {
 		}
 		int last = -1;
 		for (int i = 0; i < this.variants.size(); i++) {
-			Variant v = this.variants.get(i);
-			if (!When.holds(v.when(), context)) {
+			if (w[i] <= 0) {
 				continue;
 			}
 			last = i;
-			u -= v.weight();
+			u -= w[i];
 			if (u < 0) {
 				return i;
 			}
 		}
 		return last;
+	}
+
+	/**
+	 * The weight of each variant for a context (0 where its condition fails). A sub-style competes with its whole weight
+	 * wherever any of its dressings may be chosen: the shares of its fashions whose own conditions fail (the church
+	 * fashion, for a house) go to those that hold. Fashions of the common manner keep their weights as they are.
+	 */
+	public double[] weights(StyleContext context) {
+		double[] w = new double[this.variants.size()];
+		Map<String, double[]> sums = new java.util.HashMap<>();
+		for (int i = 0; i < w.length; i++) {
+			Variant v = this.variants.get(i);
+			boolean ok = When.holds(v.when(), context);
+			w[i] = ok ? v.weight() : 0;
+			if (v.substyle() != null) {
+				double[] s = sums.computeIfAbsent(v.substyle(), k -> new double[2]);
+				s[0] += v.weight();
+				s[1] += w[i];
+			}
+		}
+		for (int i = 0; i < w.length; i++) {
+			Variant v = this.variants.get(i);
+			if (v.substyle() != null && w[i] > 0) {
+				double[] s = sums.get(v.substyle());
+				w[i] *= s[0] / s[1];
+			}
+		}
+		return w;
 	}
 
 	/** The indices of the dressings that could be chosen for a context (the base as -1). */
@@ -347,7 +387,7 @@ public final class Style {
 				return null;
 			}
 			for (Style r : rs) {
-				if (r.region.name().equals(context.region())) {
+				if (r.region.named(context.region())) {
 					return r;
 				}
 			}

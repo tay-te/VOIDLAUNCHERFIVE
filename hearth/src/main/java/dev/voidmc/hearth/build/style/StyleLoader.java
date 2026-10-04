@@ -55,7 +55,7 @@ import org.jspecify.annotations.Nullable;
  *   "stations": {                           // optional: how stations dress here, over StationFinish's defaults
  *     "lord": {"finish": 2, "weathering": 0.3, "patched_roof": false, "local_share": 0.3, "roles": {"accent": "..."}}
  *   },
- *   "region": {"when": {"biomes": ["expanse:lumen_grove"]}, "priority": 10}   // only in a regional overlay
+ *   "region": {"when": {"biomes": ["expanse:ancient_oakwood"]}, "priority": 10, "aliases": ["lumen"]}   // only in a regional overlay
  * }
  * </pre>
  *
@@ -126,7 +126,11 @@ public final class StyleLoader {
 			JsonObject r = json.getAsJsonObject("region");
 			String path = id.getPath();
 			String rname = r.has("name") ? r.get("name").getAsString() : path.substring(path.lastIndexOf('/') + 1);
-			region = new Style.Region(rname, When.parse(r.get("when")), r.has("priority") ? r.get("priority").getAsInt() : 0);
+			List<String> aliases = new ArrayList<>();
+			if (r.has("aliases")) {
+				r.getAsJsonArray("aliases").forEach(a -> aliases.add(a.getAsString().toLowerCase(Locale.ROOT)));
+			}
+			region = new Style.Region(rname, When.parse(r.get("when")), r.has("priority") ? r.get("priority").getAsInt() : 0, aliases);
 		}
 		List<Style.RoleOverride> overrides = new ArrayList<>();
 		if (json.has("overrides")) {

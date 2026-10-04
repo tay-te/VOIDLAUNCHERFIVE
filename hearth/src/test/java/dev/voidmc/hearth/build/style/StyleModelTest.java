@@ -117,6 +117,13 @@ class StyleModelTest {
 		When biome = When.parse(JsonParser.parseString("{\"biomes\": [\"expanse:*grove\"], \"landforms\": [\"flat\"]}"));
 		assertTrue(biome.test(context("house/cottage", 2, "biome", "expanse:lumen_grove")));
 		assertFalse(biome.test(context("house/cottage", 2, "biome", "expanse:fjordlands")));
+		// Expanse's renamed biomes answer to their old and new ids alike
+		When oak = When.parse(JsonParser.parseString("{\"biomes\": [\"expanse:ancient_oakwood\"]}"));
+		assertTrue(oak.test(context("house/cottage", 2, "biome", "expanse:lumen_grove")));
+		assertTrue(oak.test(context("house/cottage", 2, "biome", "expanse:ancient_oakwood")));
+		When vale = When.parse(JsonParser.parseString("{\"biomes\": [\"expanse:wisteria_vale\"]}"));
+		assertTrue(vale.test(context("house/cottage", 2, "biome", "expanse:woodland_glades")));
+		assertFalse(vale.test(context("house/cottage", 2, "biome", "expanse:ancient_oakwood")));
 		// stations implied by the archetype and the district
 		assertEquals(Station.GENTRY, context("house/manor", 2).station());
 		assertEquals(Station.CLERGY, context("civic/chapel", 2).station());
@@ -159,30 +166,71 @@ class StyleModelTest {
 	@Test
 	void stationsAndPurposesChooseTheDress() {
 		Style t = culture(Culture.TEMPERATE);
+		int town = 0;
 		int burgher = 0;
+		int village = 0;
+		int church = 0;
+		int castle = 0;
 		int n = 400;
 		for (long seed = 0; seed < n; seed++) {
-			int v = t.pickVariant(seed, context("house/townhouse", 2, "station", "merchant"));
-			if (v >= 0 && "burgher brick".equals(t.variants().get(v).substyle())) {
-				burgher++;
-			}
-			int lord = t.pickVariant(seed, context("house/manor", 3));
-			assertTrue(lord >= 0 && t.variants().get(lord).substyle() != null, "the gentry never wear the cottage manner");
-			int chapel = t.pickVariant(seed, context("civic/chapel", 3));
-			assertTrue(chapel >= 0 && "norman stone".equals(t.variants().get(chapel).substyle()), "chapels are Norman stone");
-			int cottage = t.pickVariant(seed, context("house/cottage", 2));
-			assertTrue(cottage < 0 || t.variants().get(cottage).substyle() == null, "an ordinary cottage wears the cottage manner");
+			String merchant = substyle(t, t.pickVariant(seed, context("house/townhouse", 2, "station", "merchant")));
+			town += "bohemian town".equals(merchant) ? 1 : 0;
+			burgher += "burgher brick".equals(merchant) ? 1 : 0;
+			String lord = substyle(t, t.pickVariant(seed, context("house/manor", 3)));
+			assertTrue(lord != null && !lord.equals("bohemian village"), "the gentry never wear a village manner: " + lord);
+			castle += "bohemian castle".equals(lord) ? 1 : 0;
+			String chapel = substyle(t, t.pickVariant(seed, context("civic/chapel", 3)));
+			assertTrue("norman stone".equals(chapel) || "bohemian church".equals(chapel), "chapels are white Bohemian churches or Norman stone: " + chapel);
+			church += "bohemian church".equals(chapel) ? 1 : 0;
+			String cottage = substyle(t, t.pickVariant(seed, context("house/cottage", 2)));
+			assertTrue(cottage == null || cottage.equals("bohemian village"), "an ordinary cottage wears a village manner: " + cottage);
+			village += "bohemian village".equals(cottage) ? 1 : 0;
 		}
-		assertTrue(burgher > n * 0.55 && burgher < n * 0.85, "merchants mostly build burgher brick: " + burgher + " of " + n);
+		// the Bohemian countryside is the temperate culture's main look; the English manners stay among it
+		assertTrue(village > n * 0.65 && village < n * 0.9, "cottages are mostly Bohemian: " + village + " of " + n);
+		assertTrue(town > n * 0.45 && burgher > n * 0.15, "merchants build Bohemian town houses with burgher brick among them: " + town + ", " + burgher);
+		assertTrue(church > n * 0.55, "chapels are mostly Bohemian: " + church);
+		assertTrue(castle > n * 0.55, "manors are mostly rendered Bohemian stone: " + castle);
+	}
+
+	private static String substyle(Style s, int v) {
+		return v < 0 ? null : s.variants().get(v).substyle();
+	}
+
+	@Test
+	void conditionalFashionsShareTheirSubstylesWeight() {
+		Style t = culture(Culture.TEMPERATE);
+		int barn = index(t, "bohemian village · plank barn");
+		int village = index(t, "bohemian village");
+		StyleContext house = context("house/cottage", 2);
+		StyleContext farm = context("work/barn", 2);
+		double[] wh = t.weights(house);
+		double[] wf = t.weights(farm);
+		assertEquals(0, wh[barn], "a house is never a plank barn");
+		double sumHouse = 0;
+		double sumFarm = 0;
+		for (int i = 0; i < wh.length; i++) {
+			if ("bohemian village".equals(t.variants().get(i).substyle())) {
+				sumHouse += wh[i];
+				sumFarm += wf[i];
+			}
+		}
+		assertEquals(20, sumHouse, 1e-9, "the village manner competes with its whole weight for a house");
+		assertEquals(20, sumFarm, 1e-9, "and for a barn");
+		assertTrue(wf[barn] > wf[village] * 2, "barns are mostly boarded");
 	}
 
 	@Test
 	void regionsAreWornWhereTheyBelong() {
 		Style t = culture(Culture.TEMPERATE);
-		assertEquals(6, SERVICE.styles().regions().size());
-		Style lumen = t.regionFor(context("house/cottage", 2, "biome", "expanse:lumen_grove"));
-		assertNotNull(lumen);
-		assertEquals("lumen", lumen.region().name());
+		assertEquals(7, SERVICE.styles().regions().size());
+		Style oak = t.regionFor(context("house/cottage", 2, "biome", "expanse:lumen_grove"));
+		assertNotNull(oak);
+		assertEquals("old_forest", oak.region().name(), "Lumen Grove is now the Ancient Oakwood");
+		assertSame(oak, t.regionFor(context("house/cottage", 2, "biome", "expanse:ancient_oakwood")));
+		assertSame(oak, t.regionFor(context("house/cottage", 2, "region", "lumen")), "the old region name still forces it");
+		assertEquals("glade", t.regionFor(context("house/cottage", 2, "biome", "expanse:wisteria_vale")).region().name());
+		assertEquals("glade", t.regionFor(context("house/cottage", 2, "biome", "expanse:woodland_glades")).region().name());
 		assertNull(t.regionFor(context("house/cottage", 2)));
 		assertNull(t.regionFor(context("house/cottage", 2, "biome", "expanse:lumen_grove", "region", "none")));
 		assertEquals("volcanic", t.regionFor(context("house/cottage", 2, "region", "volcanic")).region().name());
@@ -296,6 +344,50 @@ class StyleModelTest {
 			}
 		}
 		assertTrue(bad.isEmpty(), "unresolved materials:\n  " + String.join("\n  ", bad));
+	}
+
+	/** Glowing and fantasy materials, which belong underground (the deep region) and never on the surface. */
+	private static final List<String> UNDERGROUND_ONLY = List.of("sea_lantern", "glowstone", "shroomlight", "froglight", "prismite", "glowcap", "lumen",
+		"wisteria", "frostbloom", "opal", "amethyst", "end_rod", "crying_obsidian", "purpur", "expanse:amber", "glow_lichen", "magma");
+
+	/** Every culture and every surface region builds in nature's materials: nothing glows or comes in fantasy colours. */
+	@Test
+	void theSurfaceIsNatural() throws Exception {
+		List<String> bad = new ArrayList<>();
+		List<String> files = new ArrayList<>();
+		for (Culture c : Culture.values()) {
+			files.add(c.getSerializedName());
+		}
+		for (String r : StyleRegistry.BUILTIN_REGIONS) {
+			if (!r.equals("deep")) {
+				files.add("region/" + r);
+			}
+		}
+		for (String f : files) {
+			try (InputStream in = StyleModelTest.class.getResourceAsStream("/data/hearth/hearth_style/" + f + ".json")) {
+				JsonObject o = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+				natural(f, o, bad);
+			}
+		}
+		assertTrue(bad.isEmpty(), "fantasy materials on the surface:\n  " + String.join("\n  ", bad));
+	}
+
+	private static void natural(String where, JsonElement e, List<String> bad) {
+		if (e.isJsonObject()) {
+			for (Map.Entry<String, JsonElement> k : e.getAsJsonObject().entrySet()) {
+				if (!Set.of("culture", "when", "base_when", "habits", "region", "name", "base_name").contains(k.getKey())) {
+					natural(where, k.getValue(), bad);
+				}
+			}
+		} else if (e.isJsonArray()) {
+			e.getAsJsonArray().forEach(x -> natural(where, x, bad));
+		} else if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+			for (String deny : UNDERGROUND_ONLY) {
+				if (e.getAsString().contains(deny)) {
+					bad.add(where + ": " + e.getAsString());
+				}
+			}
+		}
 	}
 
 	private static void scan(String where, JsonElement e, List<String> bad) {

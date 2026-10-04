@@ -47,9 +47,10 @@ import net.minecraft.world.level.block.state.BlockState;
  * <pre>
  *   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=dress -Pstyle=temperate
  *   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=stations -Pstyle=all
- *   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=regions -Pstyle=lumen,volcanic
+ *   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=regions -Pstyle=old_forest,volcanic
  *   ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=local -Pstyle=temperate "-Pparams=wood=minecraft:birch,stone=expanse:limestone"
  *   args: mode (dress|stations|regions|local|street)  styles (cultures, regions, or all)  outDir  [variants: -1,0,3 or all]  [terrain]  [params k=v,k=v]
+ *   (the param px=16 renders larger: pixels per block, default 9)
  * </pre>
  */
 public final class StyleSheets {
@@ -57,8 +58,8 @@ public final class StyleSheets {
 	private static final String[] STATIONS = {"poor", "peasant", "artisan", "merchant", "gentry", "lord"};
 	/** Each region's home cultures (where the sim's culture map puts its land), for the region sheets. */
 	private static final String[][] REGION_HOMES = {
-		{"lumen", "temperate", "wisteria"}, {"cloud_forest", "tropical", "karst"}, {"volcanic", "moorland", "alpine"}, {"fjord", "maritime", "northern"},
-		{"tepui", "tropical", "mesa"}, {"deep", "northern", "temperate", "desert"}
+		{"old_forest", "temperate", "northern"}, {"glade", "wisteria", "temperate"}, {"cloud_forest", "tropical", "karst"}, {"volcanic", "moorland", "alpine"},
+		{"fjord", "maritime", "northern"}, {"tepui", "tropical", "mesa"}, {"deep", "northern", "temperate", "desert"}
 	};
 
 	public static void main(String[] args) throws Exception {
@@ -105,7 +106,12 @@ public final class StyleSheets {
 					sheets.town(c);
 				}
 			}
-			default -> throw new IllegalArgumentException("mode is dress, stations, regions, local or street");
+			case "set" -> {
+				for (Culture c : cultures(styleArg)) {
+					sheets.set(c);
+				}
+			}
+			default -> throw new IllegalArgumentException("mode is dress, stations, regions, local, street or set");
 		}
 		System.out.printf(Locale.ROOT, "style sheets in %.1f s to %s%n", (System.currentTimeMillis() - t0) / 1000.0, out.toAbsolutePath());
 	}
@@ -156,7 +162,7 @@ public final class StyleSheets {
 		check(bp, spec, probe);
 		Draft d = this.service.draw(spec, probe);
 		Voxels world = PreviewScene.build(bp, spec, probe, 2, c);
-		BufferedImage img = this.renderer.render(world, new View(38, 28), 9, 2, 0);
+		BufferedImage img = this.renderer.render(world, new View(38, 28), this.extra.getIntOr("px", 9), 2, 0);
 		return new Tile(img, label + " · " + d.dressing() + (d.station() != null ? " (" + d.station().getSerializedName() + ")" : ""));
 	}
 
@@ -227,7 +233,7 @@ public final class StyleSheets {
 				}
 			}
 		}
-		BufferedImage img = this.renderer.render(world, new View(22, 22), 8, 2, 0);
+		BufferedImage img = this.renderer.render(world, new View(22, 22), Math.max(4, this.extra.getIntOr("px", 9) - 1), 2, 0);
 		return new Tile(img, label);
 	}
 
@@ -364,6 +370,30 @@ public final class StyleSheets {
 				"house/rowhouse"}, 21 + k, 3, "street, districts " + String.join(",", districts[k]))));
 		}
 		write(this.out.resolve(c.getSerializedName() + "_streets.png"), c.getSerializedName() + ": streets by district", rows);
+	}
+
+	/** The buildings of a settlement as the planner issues them, nothing forced: each archetype wears what it draws. */
+	private static final String[] SET = {"house/cottage", "house/farmhouse", "work/barn", "work/smithy", "commerce/inn", "house/townhouse",
+		"civic/chapel", "house/manor", "defense/watchtower", "storage/granary", "house/hut", "commerce/market_hall"};
+
+	private void set(Culture c) throws java.io.IOException {
+		List<Tile> tiles = new ArrayList<>();
+		int tier = this.extra.getIntOr("tier", 2);
+		long base = this.extra.getIntOr("seed", 11);
+		for (int i = 0; i < SET.length; i++) {
+			if (this.service.archetype(dev.voidmc.hearth.Hearth.id(SET[i])) == null) {
+				continue;
+			}
+			CompoundTag p = new CompoundTag();
+			if (SET[i].equals("house/townhouse")) {
+				p.putInt("storeys", 3);
+			}
+			tiles.add(building(c, SET[i], base * 7919 + i * 131, p, SET[i].equals("civic/chapel") || SET[i].equals("house/manor") ? Math.max(3, tier) : tier,
+				SET[i].substring(SET[i].indexOf('/') + 1)));
+		}
+		write(this.out.resolve(c.getSerializedName() + "_set" + (this.extra.contains("biome") ? "_" + slug(-1, this.extra.getStringOr("biome", "")).substring(5) : "")
+			+ (this.extra.contains("seed") ? "_s" + base : "") + ".png"), c.getSerializedName() + ": a settlement's buildings as drawn" + (this.extra.contains("biome") ? " in " + this.extra.getStringOr("biome", "") : ""),
+			rows(tiles, 4));
 	}
 
 	private static CompoundTag with(CompoundTag t, String k, int v) {

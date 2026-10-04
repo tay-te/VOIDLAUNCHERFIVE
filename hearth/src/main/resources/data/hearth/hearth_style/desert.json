@@ -5,7 +5,7 @@
 	"roles": {
 		"foundation": [{"m": "minecraft:sandstone", "w": 2}, {"m": "minecraft:cut_sandstone", "w": 1}],
 		"plinth": [{"m": "minecraft:cut_sandstone", "w": 2}, {"m": "minecraft:sandstone", "w": 1}],
-		"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 1, "low": 1.5}, {"m": "expanse:smooth_opal_sandstone|minecraft:smooth_sandstone", "w": 0.6}, {"m": "minecraft:packed_mud", "w": 0.25, "low": 2}],
+		"wall": [{"m": "minecraft:smooth_sandstone", "w": 4}, {"m": "minecraft:sandstone", "w": 1, "low": 1.5}, {"m": "minecraft:packed_mud", "w": 0.25, "low": 2}],
 		"wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall"}],
 		"frame": ["wood:minecraft:spruce"],
 		"beam": ["wood:minecraft:spruce"],

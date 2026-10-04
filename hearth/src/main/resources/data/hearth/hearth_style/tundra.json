@@ -27,7 +27,7 @@
 		"furniture": ["wood:minecraft:spruce"],
 		"cloth": ["dye:light_blue", "dye:white", "dye:red"],
 		"accent": ["minecraft:packed_ice"],
-		"garden": ["expanse:frostbloom|minecraft:blue_orchid", "minecraft:fern", "expanse:reindeer_lichen|minecraft:short_grass"],
+		"garden": ["minecraft:oxeye_daisy", "minecraft:poppy", "minecraft:fern", "expanse:reindeer_lichen|minecraft:short_grass"],
 		"crops": ["minecraft:potatoes", "minecraft:beetroots"],
 		"hedge": ["minecraft:spruce_leaves"],
 		"tree_log": ["minecraft:spruce_log"],

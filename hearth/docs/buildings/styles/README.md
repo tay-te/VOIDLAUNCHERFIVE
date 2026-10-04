@@ -3,12 +3,23 @@
 How Hearth's buildings are dressed: what each culture builds with, which of its manners a building wears, and why. The
 art director and the architects work from these pages; the renders under `img/` are made with the preview tools
 (below) and are the reference for what each dressing should look like. LIVING_WORLD.md §8.2 is the brief; BUILDING_GUIDE.md
-§5 describes the JSON. One page per culture, one per regional style:
+§5 describes the JSON. One page per culture, one per regional style.
+
+**Two rules over everything** (the user's, October 2026):
+
+- **The surface is natural.** Every surface style looks like a real-world building tradition in real materials: no
+  pastel, coloured or glowing fantasy content (no lumenwood, wisteria wood, prismite, glowcaps, sea lanterns, opal
+  sandstone) above ground. Fantasy belongs underground only, in the `deep` region. `StyleModelTest.theSurfaceIsNatural`
+  holds every culture and surface region to it.
+- **Temperate is Bohemia.** Expanse's visual target is *Kingdom Come: Deliverance II*'s Bohemia, so the temperate
+  culture's main look is the Bohemian countryside: lime-plastered cottages with boarded gables on fieldstone, log
+  cottages, shingle and thatch roofs, plank barns, white stone churches with tall towers, market towns of rendered
+  houses under red tile, castles and manors of rendered stone. See [temperate.md](temperate.md).
 
 | culture | manners (sub-styles) | page |
 |---|---|---|
-| temperate | cottage · burgher brick · Norman stone · manorial | [temperate.md](temperate.md) |
-| wisteria | garden house · scholar's pavilion · canal merchant house | [wisteria.md](wisteria.md) |
+| temperate | **Bohemian village · Bohemian town · Bohemian church · Bohemian castle** (the main look) · English cottage · burgher brick · Norman stone · manorial | [temperate.md](temperate.md) |
+| wisteria (Woodland Glades) | garden house · scholar's pavilion · canal merchant house | [wisteria.md](wisteria.md) |
 | northern | log house · stave and carved timber · turf house · redwood hall | [northern.md](northern.md) |
 | alpine | chalet · patrician stone house · baroque church · hayloft barn | [alpine.md](alpine.md) |
 | tundra | longhouse · sod longhouse · fire hall | [tundra.md](tundra.md) |
@@ -21,7 +32,7 @@ art director and the architects work from these pages; the renders under `img/` 
 | karst | bamboo house · scholar's courtyard · temple | [karst.md](karst.md) |
 | bayou | stilt house · creole gallery house · fishing camp | [bayou.md](bayou.md) |
 | mesa | pueblo · cliff masonry · mission | [mesa.md](mesa.md) |
-| regions | lumen · cloud forest · volcanic · fjord · tepui · deep | [regions.md](regions.md) |
+| regions | old forest · glade · cloud forest · volcanic · fjord · tepui · deep | [regions.md](regions.md) |
 
 ---
 
@@ -63,13 +74,22 @@ the same dress as `d.mat(...)`. `d.style().root()` is the culture's style undres
 
 Keys: `stations`, `categories` (categories and purposes), `archetypes` (ids or paths, `*` wildcards), `tiers` (a list,
 a number or `{"min", "max"}`), `biomes` (ids with wildcards), `landforms`, `districts`, `regions`, `cultures`, `not`.
+Expanse's renamed surface biomes match by either id (`When.RENAMED_BIOMES`): `wisteria_vale` = `woodland_glades`,
+`lumen_grove` = `ancient_oakwood`, `opal_dunes` = `red_dunes`, `prismatic_peaks` = `dolomite_peaks`, `frostbloom_tundra` =
+`lichen_tundra`, so a style naming either works in worlds of either generation.
 `base_when` is the condition of the common manner; a culture's fashions share it. A dressing with no condition may be
 chosen anywhere, so JSON written before conditions existed draws exactly as it always did (tested).
 
-**Weights do the work.** A matching sub-style competes with the common manner by weight: temperate's burgher brick
-(`w` 14) takes about 70 % of merchants' houses against the cottage manner's 5.8, which keeps a merchant street mostly
-brick with the odd timber front, as real towns are. To exclude a manner from a purpose entirely, give the base a
-`base_when` (temperate's cottage manner never dresses a lord's house, a chapel or a town wall).
+**Weights do the work.** A matching sub-style competes with the common manner by weight: temperate's Bohemian village
+(`w` 20) dresses about three cottages in four against the English cottage manner's 5.8; Bohemian town (`w` 30) takes
+about 60 % of merchants' houses with burgher brick (14) and the odd timber cottage among them, as real towns mix. To
+exclude a manner from a purpose entirely, give the base a `base_when` (temperate's cottage manner never dresses a lord's
+house, a chapel or a town wall).
+
+**A sub-style keeps its weight.** A sub-style's fashions may carry their own `when` (the Bohemian village's plank barn is
+for farmsteads only): where a fashion's condition fails, its share goes to the sub-style's other dressings, so the
+sub-style competes with its whole weight wherever any of its dressings holds (`Style.weights`). Fashions of the common
+manner keep their own weights, as before.
 
 ## 3. Stations: who lives there
 
@@ -107,18 +127,21 @@ read `d.station()` to furnish and dress for the household (banners for a lord, b
   Basalt and calcite borrow polished deepslate's and polished diorite's cuts.
 - Some of the culture's material stays in the mix (the station's local share); per-building roles take the local wood on
   most houses, not all.
-- A light timber (birch, pale oak, aspen, lumen...) never becomes the posts of a timber frame against light infill; it
-  goes into floors and boards.
+- Log walls are built of the local wood hewn of its bark (a birch wood gives pale stripped birch logs, not white
+  bark). A light timber (birch, pale oak, aspen...) never becomes frames and beams, which keep the culture's darker wood
+  so a house keeps its lines (a frame against light infill, the corners of a log house); it goes into walls, floors and
+  boards.
 - A culture refuses what its habits say (`"habits": {"local": {"roles": {"wall": false}}}`): the Mediterranean renders
   its walls white whatever stone lies under them.
 
 ## 5. Regions
 
-Regional styles are worn over whatever culture builds there (the sim maps Lumen Grove to temperate, Cloud Forest and the
-Tepuis to tropical, Volcanic Highlands to moorland, Fjordlands to maritime), with a priority when several match (the
-deep wins over the land above it). A region is a style file with a `region` block; it may have conditional variants
-(lumen's prismite hall for temples and the gentry, volcanic's chalet variant for alpine towns). See
-[regions.md](regions.md).
+Regional styles are worn over whatever culture builds there (the sim maps the Ancient Oakwood to temperate, the Woodland
+Glades to wisteria, Cloud Forest and the Tepuis to tropical, Volcanic Highlands to moorland, Fjordlands to maritime),
+with a priority when several match (the deep wins over the land above it). A region is a style file with a `region`
+block (`when`, `priority`, `aliases`: the old names the `region` param still accepts, `lumen` for the old forest); it may
+have conditional variants (the old forest's great hall for temples and the gentry, volcanic's chalet variant for alpine
+towns). All but the deep are natural. See [regions.md](regions.md).
 
 ## 6. A town's works wear one dress
 
@@ -137,7 +160,14 @@ cd hearth
 ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=regions -Pstyle=all          # regions
 ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=street -Pstyle=temperate     # streets by district
 ./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=local -Pstyle=northern "-Pparams=wood=minecraft:birch,stone=minecraft:tuff"
+./gradlew -I docs/buildings/styles/styles_preview.gradle styleSheets -Pmode=set -Pstyle=temperate -Pparams=px=14     # a settlement's buildings, nothing forced
 ```
+
+`-Pparams=px=16` renders larger (pixels per block; default 9); `seed=` and `tier=` vary the sheets. The pictures in `img/`
+are the `dress` sheets of each culture's manners (cottage, town house, chapel and a street, the dressing forced on all of
+them so its materials show; an archetype's own manner may differ in play) and every culture's `all` overview, converted
+to WebP. To refresh them: render with the commands above, then convert (`python3` with Pillow:
+`Image.open(png).save(webp, quality=82)`).
 
 Output in `build/previews/styles/`. The offline renderer has no Expanse blocks: lumenwood, redwood, limestone, amber,
 glowcaps and the other Expanse materials render as their vanilla stand-ins (the second alternative of each chain), so

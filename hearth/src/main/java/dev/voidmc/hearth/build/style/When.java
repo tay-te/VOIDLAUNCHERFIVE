@@ -25,8 +25,8 @@ import org.jspecify.annotations.Nullable;
  * its archetype and district imply), {@code categories} (an {@link dev.voidmc.hearth.api.ArchetypeCategory} name or a
  * purpose: {@code home, workshop, religious, noble, fort, public, trade, farmstead, grand, underground}),
  * {@code archetypes} (ids or paths with {@code *} wildcards: {@code "civic/chapel*"}), {@code tiers} (a list, a number,
- * or {@code {"min": 2, "max": 4}}), {@code biomes} (ids with wildcards: {@code "expanse:lumen_grove"},
- * {@code "minecraft:*taiga*"}), {@code landforms} (see {@link StyleContext}), {@code districts} (the planner's district
+ * or {@code {"min": 2, "max": 4}}), {@code biomes} (ids with wildcards: {@code "expanse:ancient_oakwood"},
+ * {@code "minecraft:*taiga*"}; Expanse's renamed biomes match by their old or new id, see {@link #RENAMED_BIOMES}), {@code landforms} (see {@link StyleContext}), {@code districts} (the planner's district
  * kinds), {@code regions} (the {@code region} param), {@code cultures}, and {@code not} (a nested condition that must
  * fail). A missing {@code when} always holds.
  */
@@ -116,6 +116,23 @@ public final class When {
 		return b.toString();
 	}
 
+	/**
+	 * Expanse's surface biomes renamed when they became real-world landscapes (2026-10): old id to new. A {@code biomes}
+	 * condition naming either id matches a plot in either, so styles and worlds of both generations agree.
+	 */
+	public static final java.util.Map<String, String> RENAMED_BIOMES = java.util.Map.of(
+		"expanse:wisteria_vale", "expanse:woodland_glades",
+		"expanse:lumen_grove", "expanse:ancient_oakwood",
+		"expanse:opal_dunes", "expanse:red_dunes",
+		"expanse:prismatic_peaks", "expanse:dolomite_peaks",
+		"expanse:frostbloom_tundra", "expanse:lichen_tundra");
+
+	/** A biome id (or pattern) under its current name: Expanse's old ids become their new ones, anything else is unchanged. */
+	public static String canonicalBiome(String id) {
+		String l = id.toLowerCase(Locale.ROOT);
+		return RENAMED_BIOMES.getOrDefault(l, l);
+	}
+
 	/** Glob match with {@code *} wildcards, case-insensitive. */
 	static boolean glob(String pattern, String text) {
 		String p = pattern.toLowerCase(Locale.ROOT);
@@ -178,9 +195,12 @@ public final class When {
 				if (c.biome() == null) {
 					return false;
 				}
+				// Expanse's renamed biomes answer to their old ids and their new ones alike
+				String raw = c.biome().toString();
+				String canon = canonicalBiome(raw);
 				boolean any = false;
 				for (String b : this.biomes) {
-					if (glob(b, c.biome().toString())) {
+					if (glob(b, raw) || glob(canonicalBiome(b), canon)) {
 						any = true;
 						break;
 					}

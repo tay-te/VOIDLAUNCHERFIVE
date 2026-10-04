@@ -26,7 +26,7 @@ public final class StyleRegistry {
 	public static final String DIRECTORY = "hearth_style";
 
 	/** The regional styles shipped in the jar ({@code hearth_style/region/<name>.json}). */
-	public static final List<String> BUILTIN_REGIONS = List.of("lumen", "cloud_forest", "volcanic", "fjord", "tepui", "deep");
+	public static final List<String> BUILTIN_REGIONS = List.of("old_forest", "glade", "cloud_forest", "volcanic", "fjord", "tepui", "deep");
 
 	private volatile Map<Identifier, Style> styles = Map.of();
 	private volatile List<Style> regions = List.of();
