@@ -266,6 +266,19 @@ handed out was not taken; plots added since are marked incrementally. It can nev
   dev catalogue): 2830 live calls averaged 1.6 ms (93 % under 5 ms, max 15 ms) for towns up to ~600 souls; live founding
   138 ms on average. Cities past ~1000 plots are slower (see the integration report): a call after a plot disappears
   rebuilds the occupancy grid from every plot.
+- Phase 3 (measured 2026-10-03 on this shared machine): `PlanPerformanceTest` (towns past 200 folk, 430–490 plots, every
+  phase 3 building in the catalogue) median 0.2–0.3 ms, p90 0.4–1.2 ms, max 2.4–3.6 ms run alone (under load from other
+  builds p90 rose to ~5 ms). The fixed cost of a call that plans nothing is the per-call ledger, territory index and
+  needs list (~0.2–0.5 ms for a city); a need that keeps finding no room rests longer each time (up to eight times its
+  first rest, saved in the plan state), so a city with no place for its observatory does not search for one every few
+  calls. Cart tracks and the castle hill's road are routed once per call (160 000 states, a 2- or 4-block grid by
+  distance). In the sim (dedicated server, Expanse Earth terrain seed 20261003, the real planner over the dev catalogue,
+  phase 2 sim without a survey): 976 and 1065 live calls averaged 2.4 and 2.2 ms (85–87 % under 5 ms, max 21 ms at the
+  live time limit), history calls 0.5–1.9 ms. A deep town's founding scans the realm on a 10-block grid within 200
+  blocks of the mine (a few thousand underground probes) once, then rests if it found no spot.
+- New per-call state (`PlanContext.territory()`, `ledger`) and per-settlement caches (`PlanState.homeFacts`, `levels`)
+  are derived from the settlement's plots and specs and never change a plan; the deep town's plan state is a full plan
+  state of its own, so its determinism is the surface's.
 
 ## 11. Previews
 
@@ -274,6 +287,10 @@ handed out was not taken; plots added since are marked incrementally. It can nev
 ./gradlew settlementPreview -Pculture=temperate/walled,mediterranean/hillside -Pdays=150,400 -Pterrain=hills
 ./gradlew settlementPreview -Pculture=suite                        # 14 cultures × terrains at 30, 120, 400 days
 ./gradlew settlementPreview -Pculture=alpine -Pterrain=earth:1200:-800 -Pseed=8675309   # Expanse Earth terrain
+HEARTH_PREVIEW_BOXES=1 ./gradlew settlementPreview -Pculture=temperate/crossroads -Pdays=120,260 -Pterrain=hills -Pseed=51  # the social map, the keep
+HEARTH_PREVIEW_BOXES=1 ./gradlew settlementPreview -Pculture=alpine/mountain -Pdays=120,220 -Pterrain=steep+realm -Pseed=6  # a mine town and its deep town
+HEARTH_PREVIEW_BOXES=1 ./gradlew settlementPreview -Pculture=alpine -Pdays=240 -Pterrain=earthdeep:1200:-800 -Pseed=8675309  # a deep town in an Expanse realm
+HEARTH_PREVIEW_BOXES=1 ./gradlew settlementPreview -Pculture=desert/walled -Pdays=260 -Pterrain=flat -Pseed=2   # an oasis city with its palace
 ```
 
 `culture[/layout]` forces a layout; terrains are the synthetic kinds (`steep+realm`: with a realm under it, for a deep
