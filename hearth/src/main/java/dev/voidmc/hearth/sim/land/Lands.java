@@ -66,7 +66,8 @@ public final class Lands {
 
 	/**
 	 * Folds a survey into the settlement's sites: a site found again keeps its id, what was taken from it and the
-	 * excavation working it (a bigger survey grows its capacity in proportion); a new one fires {@code SITE_FOUND}; one
+	 * excavation working it (a bigger survey grows its capacity in proportion); a new one fires {@code SITE_FOUND} (not on
+	 * the first survey: that is what the founders knew of their land); one
 	 * no longer in the territory (a neighbour's core grew over it) is dropped unless it is being worked.
 	 */
 	public static void merge(SimSettlement s, int radius, int step, List<Survey.Found> found, long day, SimContext c) {
@@ -112,6 +113,8 @@ public final class Lands {
 					f.yields().clone(), f.material(), PlotView.NONE, f.cells(), f.ore(), f.fuel(), 0, 0));
 			}
 		}
+		// the first survey is what the founders knew of their land: no news to announce
+		boolean announce = land.surveyed > 0;
 		land.sites.clear();
 		for (int i = 0; i < before.size(); i++) {
 			SimSite e = before.get(i);
@@ -127,7 +130,7 @@ public final class Lands {
 		land.touched();
 		s.markDirty();
 		HearthWorld w = c.eventWorld();
-		if (w != null) {
+		if (w != null && announce) {
 			for (SimSite site : added) {
 				SettlementEvents.SITE_FOUND.invoker().onSite(w, s, site.view());
 			}

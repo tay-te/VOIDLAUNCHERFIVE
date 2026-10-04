@@ -29,6 +29,7 @@ public final class Stations {
 	/** The purse a household of each rung keeps per adult, in bits (the economy's wages and prices make these typical). */
 	private static final long[] TYPICAL_PURSE = {15, 60, 150, 450, 1500};
 	private static final String PUSH = "station_push";
+	private static final String BASE = "station_base";
 
 	private Stations() {
 	}
@@ -92,6 +93,14 @@ public final class Stations {
 			head = household.get(0);
 		}
 		Station now = movable(head.station) ? head.station : base;
+		int lastBase = head.extra("sim").getIntOr(BASE, -1);
+		if (lastBase != rank(base)) {
+			// the household's trades changed (a labourer became a smith): it takes the station they bring at once; only
+			// its means move it from there, slowly
+			now = base;
+			head.extra("sim").putInt(BASE, rank(base));
+			head.extra("sim").remove(PUSH);
+		}
 		Station target = now;
 		if (adults > 0) {
 			boolean homeless = head.home == Resident.NO_PLOT;

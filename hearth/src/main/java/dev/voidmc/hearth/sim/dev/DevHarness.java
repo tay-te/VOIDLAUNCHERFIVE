@@ -155,6 +155,7 @@ public final class DevHarness {
 				for (SimSettlement t : towns) {
 					LOG.info("[hearth-dev] {}", server.submit(() -> describe(t)).join());
 					LOG.info("[hearth-dev]   {}", server.submit(() -> growth(w, t)).join());
+					LOG.info("[hearth-dev]   {}", server.submit(() -> land(t)).join());
 				}
 				LOG.info("[hearth-dev] {}; {}", server.submit(w::foundingStats).join(), server.submit(w::daughterStats).join());
 				for (String line : server.submit(() -> hamletLines(w)).join()) {
@@ -176,6 +177,30 @@ public final class DevHarness {
 		return String.format(Locale.ROOT, "#%d %s: %s %s at %s, %d souls, %d beds, %d plots %s, treasury %d, stores %s", s.id(), s.name(),
 			s.culture().getSerializedName(), s.tier().getSerializedName(), s.center().toShortString(), s.population(), s.beds(), s.plots().size(),
 			s.plotCounts(), s.treasury(), s.stockpile());
+	}
+
+	/** A town's land and fortunes: territory, sites by kind and how much is left, prosperity, capacity, stations, trades. */
+	private static String land(SimSettlement s) {
+		var land = s.land();
+		java.util.Map<String, double[]> kinds = new java.util.TreeMap<>();
+		for (var site : land.sites()) {
+			double[] v = kinds.computeIfAbsent(site.kind().getSerializedName() + (site.material() == null ? "" : "(" + site.material().getPath() + ")"),
+				k -> new double[2]);
+			v[0] += site.remaining();
+			v[1] += site.capacity();
+		}
+		StringBuilder sites = new StringBuilder();
+		kinds.forEach((k, v) -> sites.append(k).append(' ').append(String.format(Locale.ROOT, "%.0f%%", v[1] <= 0 ? 0 : 100 * v[0] / v[1])).append(", "));
+		java.util.Map<dev.voidmc.hearth.api.Station, Integer> stations = new java.util.EnumMap<>(dev.voidmc.hearth.api.Station.class);
+		java.util.Map<dev.voidmc.hearth.api.JobType, Integer> jobs = new java.util.EnumMap<>(dev.voidmc.hearth.api.JobType.class);
+		for (var r : s.residents()) {
+			stations.merge(r.station, 1, Integer::sum);
+			jobs.merge(r.job, 1, Integer::sum);
+		}
+		return String.format(Locale.ROOT, "land: territory %d, %d sites [%s], prosperity %.2f (%s), feeds %s, trade in %.0f out %.0f, %d houses empty; stations %s; trades %s",
+			land.territory(), land.sites().size(), sites, land.prosperity(), land.mood() > 0 ? "rising" : land.mood() < 0 ? "declining: " + land.why() : "steady",
+			land.capacity() == Integer.MAX_VALUE ? "-" : Integer.toString(land.capacity()), land.exports(), land.imports(), land.deserted().size(), stations,
+			jobs);
 	}
 
 	/**

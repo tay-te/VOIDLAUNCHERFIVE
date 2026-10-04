@@ -88,6 +88,7 @@ public final class SimSettlement implements Settlement {
 	private int storageBuildings;
 	private int buildings;
 	private final int[] coolCapacity = new int[Goods.VALUES.length];
+	private int activeDigs;
 
 	public SimSettlement(long id, String name, Culture culture, ResourceKey<Level> dimension, BlockPos center, long foundedDay, long originRegion,
 		long seed) {
@@ -740,10 +741,12 @@ public final class SimSettlement implements Settlement {
 		this.storageBuildings = 0;
 		this.buildings = 0;
 		java.util.Arrays.fill(this.jobSlots, 0);
+		this.activeDigs = 0;
 		for (SimPlot p : this.plots.values()) {
 			if (p.isActive() && this.ctx != null && this.ctx.data().extraction(p.spec().archetype()) != null) {
 				// an excavation employs its diggers while it is being dug
 				p.digs = true;
+				this.activeDigs++;
 				int[] jobs = facts(p).jobs();
 				p.jobs = jobs.clone();
 				for (int j = 0; j < jobs.length && j < this.jobSlots.length; j++) {
@@ -796,6 +799,12 @@ public final class SimSettlement implements Settlement {
 			}
 			this.stockpile.setCapacity(cap);
 		}
+	}
+
+	/** Excavations being dug (so a step with none skips looking for them). */
+	public int activeDigs() {
+		ensureDerived();
+		return this.activeDigs;
 	}
 
 	/** Store room kept cool (granaries, cellars) by goods ordinal: food there barely spoils. */

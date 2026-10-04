@@ -221,9 +221,10 @@ public final class Caravans {
 		}
 		int n = Goods.VALUES.length;
 		int[] surplus = new int[n];
+		int[] mine = waiting(s);
 		boolean any = false;
 		for (int g = 0; g < n; g++) {
-			surplus[g] = surplus(s, g, r);
+			surplus[g] = surplus(s, g, r, mine);
 			any |= surplus[g] >= 16;
 		}
 		if (!any) {
@@ -243,7 +244,7 @@ public final class Caravans {
 			if (d2 > d2max) {
 				continue;
 			}
-			double value = value(s, o, surplus, cfg.cargo(), r, null);
+			double value = value(s, o, surplus, cfg.cargo(), r, null, waiting(o));
 			boolean kin = o.clockState().parent() == s.id() || s.clockState().parent() == o.id();
 			double score = value * (kin ? 1.5 : 1) / (1 + Math.sqrt(d2) / cfg.maxDistance());
 			if (score > bestScore) {
@@ -260,31 +261,40 @@ public final class Caravans {
 
 	/** What a town can spare of a good: what it holds beyond a third of its store room and what its builds are waiting for. */
 	static int surplus(SimSettlement s, int g, SimRules r) {
+		return surplus(s, g, r, waiting(s));
+	}
+
+	static int surplus(SimSettlement s, int g, SimRules r, int[] waiting) {
 		int have = s.stockpile().get(Goods.VALUES[g]);
 		int keep = (int) (s.stockpile().capacity(Goods.VALUES[g]) * 0.35);
 		if (g == Goods.FOOD.ordinal()) {
 			keep = Math.max(keep, (int) (s.population() * r.foodAdult * 20));
 		}
-		keep += waiting(s, g);
+		keep += waiting[g];
 		return Math.max(0, have - keep);
 	}
 
 	/** What a town is short of: up to a third of its store room, and twice what its stalled builds lack. */
 	static int shortage(SimSettlement s, int g, SimRules r) {
+		return shortage(s, g, r, waiting(s));
+	}
+
+	static int shortage(SimSettlement s, int g, SimRules r, int[] waiting) {
 		int have = s.stockpile().get(Goods.VALUES[g]);
 		int want = (int) (s.stockpile().capacity(Goods.VALUES[g]) * 0.3);
 		if (g == Goods.FOOD.ordinal()) {
 			want = Math.max(want, (int) (s.population() * r.foodAdult * 15));
 		}
-		want = Math.min(want, 2000) + 2 * waiting(s, g);
+		want = Math.min(want, 2000) + 2 * waiting[g];
 		return Math.max(0, want - have);
 	}
 
-	private static int waiting(SimSettlement s, int g) {
-		int n = 0;
+	/** Units a town's stalled builds are waiting for, by goods (a cartload each), from one pass over its plots. */
+	static int[] waiting(SimSettlement s) {
+		int[] n = new int[Goods.VALUES.length];
 		for (SimPlot p : s.plots()) {
-			if (p.isActive() && p.stalledOn() != null && p.stalledOn().ordinal() == g) {
-				n += 64;
+			if (p.isActive() && p.stalledOn() != null) {
+				n[p.stalledOn().ordinal()] += 64;
 			}
 		}
 		return n;
@@ -299,6 +309,10 @@ public final class Caravans {
 
 	/** What the cargo {@code from} could send is worth to {@code to}; fills {@code cargo} if given. */
 	static double value(SimSettlement from, SimSettlement to, int[] surplus, int capacity, SimRules r, int @Nullable [] cargo) {
+		return value(from, to, surplus, capacity, r, cargo, waiting(to));
+	}
+
+	static double value(SimSettlement from, SimSettlement to, int[] surplus, int capacity, SimRules r, int @Nullable [] cargo, int[] waiting) {
 		int n = surplus.length;
 		Integer[] order = new Integer[n];
 		double[] unit = new double[n];
@@ -313,7 +327,7 @@ public final class Caravans {
 			if (room <= 0 || unit[g] <= 0) {
 				break;
 			}
-			int k = Math.min(room, Math.min(surplus[g], shortage(to, g, r)));
+			int k = Math.min(room, Math.min(surplus[g], shortage(to, g, r, waiting)));
 			if (k <= 0) {
 				continue;
 			}
@@ -328,7 +342,7 @@ public final class Caravans {
 
 	private void depart(SimSettlement s, SimSettlement to, int[] surplus, SimConfig.Caravans cfg, SimRules r, long day) {
 		int[] cargo = new int[surplus.length];
-		value(s, to, surplus, cfg.cargo(), r, cargo);
+		value(s, to, surplus, cfg.cargo(), r, cargo, waiting(to));
 		long bits = 0;
 		for (int g = 0; g < cargo.length; g++) {
 			if (cargo[g] <= 0) {

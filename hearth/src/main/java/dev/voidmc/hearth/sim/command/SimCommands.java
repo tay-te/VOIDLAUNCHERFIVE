@@ -75,6 +75,7 @@ public final class SimCommands {
 			.then(Commands.literal("sim").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Commands.literal("stats").executes(SimCommands::stats))
 				.then(Commands.literal("embody").then(Commands.argument("id", LongArgumentType.longArg()).executes(SimCommands::embody)))));
+		LandCommands.register(dispatcher);
 	}
 
 	private static SimWorld world(CommandSourceStack source) throws CommandSyntaxException {
@@ -136,9 +137,11 @@ public final class SimCommands {
 			}
 		}
 		say(out, "  trades: " + jobs);
-		StringBuilder stock = new StringBuilder("  stores (cap " + s.stockpile().capacity(Goods.FOOD) + "):");
+		StringBuilder stock = new StringBuilder("  stores:");
 		for (Goods g : Goods.VALUES) {
-			stock.append(' ').append(g.getSerializedName()).append(' ').append(s.stockpile().get(g));
+			if (s.stockpile().get(g) > 0) {
+				stock.append(' ').append(g.getSerializedName()).append(' ').append(s.stockpile().get(g)).append('/').append(s.stockpile().capacity(g));
+			}
 		}
 		say(out, stock.toString());
 		say(out, "  plots: " + s.plotCounts() + "; sim at day " + Math.floorDiv(s.simTick(), SimRules.DAY) + " (world day " + w.day() + ", "

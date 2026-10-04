@@ -35,6 +35,9 @@ public final class Extraction {
 		if (perDay <= 0) {
 			return workerDays;
 		}
+		if (s.activeDigs() == 0) {
+			return workerDays;
+		}
 		double pool = workerDays * perDay;
 		SimData data = c.data();
 		long now = c.gameTime();

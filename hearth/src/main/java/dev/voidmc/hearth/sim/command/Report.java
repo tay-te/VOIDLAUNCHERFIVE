@@ -60,6 +60,21 @@ public final class Report {
 		}
 		out.add(String.format(Locale.ROOT, "world: %d live settlements, %d souls, %d plots (%d built), %d embodied, %d indexed chunks", w.settlements().size(),
 			pop, plots, built, server.embodiedCount(w), w.spatial().indexedChunks()));
+		int sites = 0;
+		int rising = 0;
+		int declining = 0;
+		int deserted = 0;
+		double prosperity = 0;
+		for (SimSettlement s : w.settlements()) {
+			sites += s.land().sites().size();
+			rising += s.land().mood() > 0 ? 1 : 0;
+			declining += s.land().mood() < 0 ? 1 : 0;
+			deserted += s.land().deserted().size();
+			prosperity += s.land().prosperity();
+		}
+		out.add(String.format(Locale.ROOT, "land: %d resource sites, prosperity %.2f avg (%d rising, %d declining), %d houses left empty; %s; underground: %s",
+			sites, w.settlements().isEmpty() ? 0 : prosperity / w.settlements().size(), rising, declining, deserted, w.landStats(),
+			w.underground() == null ? "none" : "Expanse caverns"));
 		return out;
 	}
 }

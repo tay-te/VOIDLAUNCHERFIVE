@@ -47,7 +47,11 @@ class FortunesTest {
 	void sitesAnnounceThemselvesAndTheirExhaustion() {
 		EventContext[] ctx = new EventContext[1];
 		SimSettlement s = TestSupport.foundedWithEvents("river", 51, ctx);
-		assertTrue(ctx[0].count("found ") >= 3, ctx[0].events.toString());
+		assertEquals(0, ctx[0].count("found "), "the founders' own land is no news");
+		// the town grows: its territory with it, and what the wider survey finds is announced
+		s.setTier(dev.voidmc.hearth.api.SettlementTier.VILLAGE);
+		dev.voidmc.hearth.sim.land.Lands.surveyNow(s, s.ctx());
+		assertTrue(ctx[0].count("found ") >= 2, ctx[0].events.toString());
 		SimSite site = s.land().sites().getFirst();
 		dev.voidmc.hearth.sim.land.Lands.take(s, site, site.capacity() + 1, 0, false, s.ctx());
 		dev.voidmc.hearth.sim.land.Lands.take(s, site, 10, 0, false, s.ctx());
