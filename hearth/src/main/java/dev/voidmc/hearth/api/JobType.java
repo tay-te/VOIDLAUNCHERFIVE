@@ -38,7 +38,34 @@ public enum JobType implements StringRepresentable {
 	SCHOLAR("scholar"),
 	/** Carries goods and letters between settlements along the roads. */
 	COURIER("courier"),
-	TAILOR("tailor");
+	TAILOR("tailor"),
+	// ---- phase 3 (LIVING_WORLD.md §4–§8): appended; codecs use names, so order is free
+	MINER("miner"),
+	HAULER("hauler"),
+	CHARCOAL_BURNER("charcoal_burner"),
+	KILN_WORKER("kiln_worker"),
+	GLASSMAKER("glassmaker"),
+	SMELTER("smelter"),
+	TANNER("tanner"),
+	BUTCHER("butcher"),
+	CHANDLER("chandler"),
+	BEEKEEPER("beekeeper"),
+	PAPERMAKER("papermaker"),
+	DYER("dyer"),
+	SALTER("salter"),
+	CLAY_DIGGER("clay_digger"),
+	BOATWRIGHT("boatwright"),
+	TRADER("trader"),
+	HEALER("healer"),
+	ENTERTAINER("entertainer"),
+	BATH_KEEPER("bath_keeper"),
+	STABLEMASTER("stablemaster"),
+	REEVE("reeve"),
+	JUDGE("judge"),
+	JAILER("jailer"),
+	FENCE("fence"),
+	STEWARD("steward"),
+	LORD("lord");
 
 	public static final StringRepresentable.EnumCodec<JobType> CODEC = StringRepresentable.fromEnum(JobType::values);
 

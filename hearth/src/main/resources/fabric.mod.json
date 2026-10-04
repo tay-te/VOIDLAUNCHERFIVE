@@ -16,10 +16,18 @@
 		"hearth-npc.mixins.json",
 		"hearth-economy.mixins.json",
 		"hearth-quest.mixins.json",
+		"hearth-standing.mixins.json",
+		"hearth-law.mixins.json",
+		"hearth-repair.mixins.json",
+		"hearth-social.mixins.json",
 		{"config": "hearth-sim.client.mixins.json", "environment": "client"},
 		{"config": "hearth-npc.client.mixins.json", "environment": "client"},
 		{"config": "hearth-economy.client.mixins.json", "environment": "client"},
-		{"config": "hearth-quest.client.mixins.json", "environment": "client"}
+		{"config": "hearth-quest.client.mixins.json", "environment": "client"},
+		{"config": "hearth-standing.client.mixins.json", "environment": "client"},
+		{"config": "hearth-law.client.mixins.json", "environment": "client"},
+		{"config": "hearth-repair.client.mixins.json", "environment": "client"},
+		{"config": "hearth-social.client.mixins.json", "environment": "client"}
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",

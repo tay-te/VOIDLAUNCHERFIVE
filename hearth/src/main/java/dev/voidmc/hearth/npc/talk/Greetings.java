@@ -133,6 +133,25 @@ public final class Greetings {
 			case FUEL -> "coal";
 			case TOOLS -> "tools";
 			case LUXURY -> "fine goods";
+			case LOGS -> "logs";
+			case ORE -> "ore";
+			case DRESSED_STONE -> "dressed stone";
+			case BRICK -> "brick";
+			case SAND -> "sand";
+			case GRAIN -> "grain";
+			case FLOUR -> "flour";
+			case MEAT -> "meat";
+			case FISH -> "fish";
+			case WOOL -> "wool";
+			case LEATHER -> "leather";
+			case WAX -> "wax";
+			case CANDLES -> "candles";
+			case PAPER -> "paper";
+			case BOOKS -> "books";
+			case DYE -> "dye";
+			case SALT -> "salt";
+			case PRODUCE -> "fresh produce";
+			case SPECIALTY -> "rare goods";
 		};
 	}
 

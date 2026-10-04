@@ -34,7 +34,19 @@ public enum PoiType implements StringRepresentable {
 	/** A settlement gate or the end of a road where it leaves. */
 	GATE("gate"),
 	/** A spot with a view: a balcony, a bench on a terrace, a tower top. Folk linger here on their free time. */
-	VIEWPOINT("viewpoint");
+	VIEWPOINT("viewpoint"),
+	// ---- phase 3 (LIVING_WORLD.md): appended; codecs use names, so order is free
+	CELL("cell"),
+	PILLORY("pillory"),
+	GALLOWS("gallows"),
+	BATH("bath"),
+	GAMING_TABLE("gaming_table"),
+	WORK_FACE("work_face"),
+	HITCHING_POST("hitching_post"),
+	THRONE("throne"),
+	STAGE("stage"),
+	SICKBED("sickbed"),
+	STRONGBOX("strongbox");
 
 	public static final StringRepresentable.EnumCodec<PoiType> CODEC = StringRepresentable.fromEnum(PoiType::values);
 

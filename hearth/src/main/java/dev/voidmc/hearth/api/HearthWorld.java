@@ -35,6 +35,11 @@ public interface HearthWorld {
 
 	void markDirty();
 
+	/** The open spaces under the ground (Expanse realms), or null where the world has no such model. */
+	default @Nullable UndergroundProbe underground() {
+		return null;
+	}
+
 	/**
 	 * Founds a live settlement at {@code at}: the planner lays it out and it is built by the runtime path (§5.1). Used for
 	 * hamlets founded by settlers from a crowded town and for sites a player scouted.

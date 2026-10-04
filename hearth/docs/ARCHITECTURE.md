@@ -68,6 +68,14 @@ This document is the contract between the modules. **Read it all before you writ
 | **economy** | `hearth-engineer` "economy" | `dev.voidmc.hearth.economy` | `client.economy` | `hearth-economy[.client]` | `economy.json` |
 | **quest** | `hearth-engineer` "quest" | `dev.voidmc.hearth.quest` | `client.quest` | `hearth-quest[.client]` | `quest.json` |
 
+| **standing** (phase 3) | — | `dev.voidmc.hearth.standing` | `client.standing` | `hearth-standing[.client]` | `standing.json` |
+| **law** (phase 3) | — | `dev.voidmc.hearth.law` | `client.law` | `hearth-law[.client]` | `law.json` |
+| **repair** (phase 3) | — | `dev.voidmc.hearth.repair` | `client.repair` | `hearth-repair[.client]` | `repair.json` |
+| **social** (phase 3) | — | `dev.voidmc.hearth.social` | `client.social` | `hearth-social[.client]` | `social.json` |
+
+Phase 3 (the living world: light, repairs, reputation, law and stealth, the resource economy, more architecture) is
+designed in **`docs/LIVING_WORLD.md`**, which extends this contract; its §8.5 lists the new archetype ids and params.
+
 Rules that keep parallel work mergeable:
 
 - Each module's `XxxModule.init()` (and `XxxClient.init()`) is already called from `Hearth` / `HearthClient` in the
@@ -101,6 +109,10 @@ culture     biome → Culture    sim      required
 residents   ResidentFactory    sim default; npc replaces it (names, looks, personality)
 economy     EconomyService     economy  optional    balance/charge/pay/format/price
 quests      QuestService       quest    optional    NPC quest markers
+npc         NpcService         npc      optional    folk lookups, perception, FolkBehaviours other modules add
+standing    StandingService    standing optional    reputation layers, deeds, gossip, charisma
+law         LawService         law      optional    ownership, stolen goods, wanted status, crime reports
+repairs     RepairService      repair   optional    damage against blueprints, repair claims
 ```
 
 Plus `DialogueProvider.register(...)` (economy and quest add conversation options; npc owns the screen) and

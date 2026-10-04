@@ -23,7 +23,12 @@ public enum ArchetypeCategory implements StringRepresentable {
 	/** Plazas, wells, fountains, gardens, parks, lamp posts, statues. */
 	LANDSCAPE("landscape"),
 	/** The one building a settlement is known for: a great hall, a cathedral, a lighthouse, a pagoda. */
-	LANDMARK("landmark");
+	LANDMARK("landmark"),
+	// ---- phase 3 (LIVING_WORLD.md §7–§8): appended; codecs use names, so order is free
+	EXTRACTION("extraction"),
+	LAW("law"),
+	NOBLE("noble"),
+	UNDERGROUND("underground");
 
 	public static final StringRepresentable.EnumCodec<ArchetypeCategory> CODEC = StringRepresentable.fromEnum(ArchetypeCategory::values);
 

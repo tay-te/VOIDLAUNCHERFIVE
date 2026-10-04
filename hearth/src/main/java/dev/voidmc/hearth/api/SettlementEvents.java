@@ -64,6 +64,56 @@ public final class SettlementEvents {
 		}
 	});
 
+	// ---- phase 3 (docs/LIVING_WORLD.md)
+
+	/** The law module saw or confirmed a crime in a settlement (fired once per crime, after witnesses had their say). */
+	public static final Event<CrimeCommitted> CRIME_COMMITTED = EventFactory.createArrayBacked(CrimeCommitted.class, ls -> (w, s, c) -> {
+		for (CrimeCommitted l : ls) {
+			l.onCrime(w, s, c);
+		}
+	});
+
+	public static final Event<StandingChanged> STANDING_CHANGED = EventFactory.createArrayBacked(StandingChanged.class,
+		ls -> (w, s, p, from, to) -> {
+			for (StandingChanged l : ls) {
+				l.onStandingChanged(w, s, p, from, to);
+			}
+		});
+
+	public static final Event<SiteChanged> SITE_DEPLETED = EventFactory.createArrayBacked(SiteChanged.class, ls -> (w, s, site) -> {
+		for (SiteChanged l : ls) {
+			l.onSite(w, s, site);
+		}
+	});
+
+	public static final Event<SiteChanged> SITE_FOUND = EventFactory.createArrayBacked(SiteChanged.class, ls -> (w, s, site) -> {
+		for (SiteChanged l : ls) {
+			l.onSite(w, s, site);
+		}
+	});
+
+	/** A settlement's fortunes turned: rising (new trade, rich sites) or declining (sites spent, folk leaving). */
+	public static final Event<ProsperityChanged> PROSPERITY_CHANGED = EventFactory.createArrayBacked(ProsperityChanged.class,
+		ls -> (w, s, rising, why) -> {
+			for (ProsperityChanged l : ls) {
+				l.onProsperityChanged(w, s, rising, why);
+			}
+		});
+
+	/** A caravan set out, arrived, or was lost (robbed, killed) between two settlements. */
+	public static final Event<CaravanEvent> CARAVAN = EventFactory.createArrayBacked(CaravanEvent.class, ls -> (w, from, to, k, cargo) -> {
+		for (CaravanEvent l : ls) {
+			l.onCaravan(w, from, to, k, cargo);
+		}
+	});
+
+	/** Blocks of a built plot were damaged (by a player, an explosion, fire). Fired by the repair module, batched. */
+	public static final Event<Damaged> DAMAGED = EventFactory.createArrayBacked(Damaged.class, ls -> (w, s, p, cause, n) -> {
+		for (Damaged l : ls) {
+			l.onDamaged(w, s, p, cause, n);
+		}
+	});
+
 	private SettlementEvents() {
 	}
 
@@ -108,5 +158,45 @@ public final class SettlementEvents {
 	@FunctionalInterface
 	public interface EmbodimentChanged {
 		void onEmbodimentChanged(HearthWorld world, Settlement settlement, boolean embodied);
+	}
+
+	@FunctionalInterface
+	public interface CrimeCommitted {
+		void onCrime(HearthWorld world, Settlement settlement, LawService.Crime crime);
+	}
+
+	@FunctionalInterface
+	public interface StandingChanged {
+		void onStandingChanged(HearthWorld world, Settlement settlement, java.util.UUID player, StandingService.Title from,
+			StandingService.Title to);
+	}
+
+	@FunctionalInterface
+	public interface SiteChanged {
+		void onSite(HearthWorld world, Settlement settlement, ResourceSite site);
+	}
+
+	@FunctionalInterface
+	public interface ProsperityChanged {
+		void onProsperityChanged(HearthWorld world, Settlement settlement, boolean rising, String why);
+	}
+
+	/** {@code cargo} by {@link Goods#ordinal()}. */
+	@FunctionalInterface
+	public interface CaravanEvent {
+		void onCaravan(HearthWorld world, Settlement from, Settlement to, Kind kind, int[] cargo);
+
+		enum Kind {
+			DEPARTED, ARRIVED, ROBBED, LOST
+		}
+	}
+
+	@FunctionalInterface
+	public interface Damaged {
+		void onDamaged(HearthWorld world, Settlement settlement, PlotView plot, Cause cause, int blocks);
+
+		enum Cause {
+			PLAYER, EXPLOSION, FIRE, OTHER
+		}
 	}
 }

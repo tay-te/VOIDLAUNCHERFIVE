@@ -303,7 +303,39 @@ and **accretion**: houses gain extensions, lean-tos, dormers and storeys as thei
 always being torn down and rebuilt. A street that grew over generations is never uniform. Town previews get a
 similarity check that flags neighbours that look copied.
 
-### 8.5 How quality is held
+### 8.5 The phase 3 catalogue (ids the planner, the sim and the architects share)
+
+As with ARCHITECTURE.md §6.1: the planner relies only on archetypes the build module registers, and these are the ids
+it will ask for. New `ArchetypeCategory` values: `EXTRACTION`, `LAW`, `NOBLE`, `UNDERGROUND`.
+
+| Family | Ids (`hearth:` …) |
+|---|---|
+| Homes by station | `house/hovel`, `house/shack`, `house/croft`, `house/merchant_house`, `house/reeve_house`, `house/rectory`, `house/scribe_house`, `house/hermit_hut` |
+| Nobility (`NOBLE`) | `noble/keep`, `noble/castle`, `noble/palace`, `noble/hunting_lodge`, `noble/stables` |
+| Clergy and learning | `civic/monastery`, `civic/convent`, `civic/shrine`, `civic/university`, `civic/observatory`, `work/alchemist_tower` |
+| Social life | `commerce/tavern`, `commerce/hostel`, `commerce/caravanserai`, `commerce/thieves_den`, `civic/playhouse`, `civic/tilt_yard`, `civic/infirmary`, `civic/almshouse`, `civic/orphanage`, `civic/cemetery`, `landscape/festival_ground` |
+| Law (`LAW`) | `law/courthouse`, `law/jail`, `law/gallows`, `law/pillory`, `law/watch_house`, `law/toll_gate` |
+| Workshops of the chains | `work/logging_camp`, `work/charcoal_kiln`, `work/brick_kiln`, `work/glassworks`, `work/smelter`, `work/tannery`, `work/butcher`, `work/chandler`, `work/dye_works`, `work/paper_mill`, `work/apiary`, `work/shipyard`, `work/salt_works`, `commerce/caravan_yard`, `commerce/counting_house` |
+| Extraction (`EXTRACTION`) | `extract/quarry_pit`, `extract/mine`, `extract/shaft`, `extract/clay_pit`, `extract/sand_pit`, `extract/plantation` |
+| Underground (`UNDERGROUND`) | `deep/hall`, `deep/dwelling`, `deep/market`, `deep/forge`, `deep/glow_garden`, `deep/lift` (a shaft with stairs or a lift from a surface town down to its realm) |
+
+**Shared params** (in addition to ARCHITECTURE.md §6.1 and PLANNING.md §8):
+
+- `local` (compound, role key → block id): the materials the territory gives (`{"wall": "minecraft:birch_planks",
+  "foundation": "expanse:limestone"}`), chosen by the planner from `Settlement.sites()`. Archetypes prefer them over the
+  culture's defaults wherever the culture's habits allow (§7.2: towns build with what they gather).
+- `station` (a `Station` name) on homes: who the household is; drives size, finish, interior and yard.
+- `household` (compound) on homes: the trade of the household (`job`), so a smith's house has tongs by the hearth.
+- Extraction plots: `site` (the `ResourceSite` id), `kind` (its `ResourceSite.Kind`), `rock` (the host rock's block id
+  from the survey), `depth` (pits and shafts: how far below the floor the plan reaches), `length` (mines: how far the
+  adit runs), `face` (the direction the working face advances). **An excavation blueprint has many stages** — one per
+  bench of a quarry, one per gallery of a mine — so it is worked for weeks or months; when one is finished the planner
+  may open another. Its steps are cuts (air) plus the props, rails, ladders, lanterns and spoil heaps that go with
+  them, and its `WORK_FACE` POIs tell gatherers where to stand. The sim credits each removed natural block as yield
+  (stone by `rock`, ore by the survey's estimate) and never treats an excavation's cuts as damage.
+- Underground plots: `realm` (the `UndergroundProbe.Realm` id); `origin.y` is the realm floor.
+
+### 8.6 How quality is held
 - A **style bible** per culture and sub-style (materials, roof forms, proportions, details, colour), with reference
   renders, kept in `docs/buildings/styles/`.
 - A **review gate** before anything merges: contact sheets, streets and whole towns, then in-game screenshots by day
@@ -366,4 +398,4 @@ and kilns before the resource economy goes live, the courthouse, jail and pillor
 dressings, the Expanse-native styles and the underground towns.
 
 Each phase is planned as module agents in worktrees against an updated api, as in phases 1–2; anything that places
-blocks to make architecture is done by architects at the highest effort, reviewed through the gate in §8.5.
+blocks to make architecture is done by architects at the highest effort, reviewed through the gate in §8.6.

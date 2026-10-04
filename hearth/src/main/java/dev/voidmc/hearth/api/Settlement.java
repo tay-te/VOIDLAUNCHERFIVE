@@ -102,6 +102,19 @@ public interface Settlement {
 	/** Sells or gives a plot to a player (null returns it to the settlement). */
 	void setPlotOwner(int plotId, @Nullable UUID player);
 
+	/**
+	 * The radius of land the settlement works around its centre (grows with tier; docs/LIVING_WORLD.md §7.1). The sim
+	 * module overrides this; 0 until it does.
+	 */
+	default int territoryRadius() {
+		return 0;
+	}
+
+	/** The resource sites the settlement's survey found in its territory (docs/LIVING_WORLD.md §7.1). */
+	default List<ResourceSite> sites() {
+		return List.of();
+	}
+
 	/** A module's own data for this settlement, created from the key's factory on first use and saved with it. */
 	<T> T data(HearthDataKey<T> key);
 

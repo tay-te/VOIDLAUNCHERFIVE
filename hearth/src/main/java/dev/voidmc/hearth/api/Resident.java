@@ -31,8 +31,13 @@ public final class Resident {
 		Codec.INT.optionalFieldOf("home", NO_PLOT).forGetter(r -> r.home),
 		Codec.INT.optionalFieldOf("work", NO_PLOT).forGetter(r -> r.work),
 		Codec.INT.fieldOf("appearance").forGetter(r -> r.appearance),
-		CompoundTag.CODEC.optionalFieldOf("extra", new CompoundTag()).forGetter(r -> r.extra)
-	).apply(i, Resident::new));
+		CompoundTag.CODEC.optionalFieldOf("extra", new CompoundTag()).forGetter(r -> r.extra),
+		Station.CODEC.optionalFieldOf("station").forGetter(r -> java.util.Optional.of(r.station))
+	).apply(i, (id, given, family, female, age, born, job, home, work, appearance, extra, station) -> {
+		Resident r = new Resident(id, given, family, female, age, born, job, home, work, appearance, extra);
+		station.ifPresent(st -> r.station = st);
+		return r;
+	}));
 
 	public final UUID id;
 	public String givenName;
@@ -49,6 +54,8 @@ public final class Resident {
 	/** Seed for their looks (skin tone, hair, build, clothes are derived from it with the culture and job). */
 	public int appearance;
 	public CompoundTag extra;
+	/** The household's place in society (docs/LIVING_WORLD.md §8.1); starts from the job, then follows the purse. */
+	public Station station;
 
 	public Resident(UUID id, String givenName, String familyName, boolean female, AgeStage age, long bornDay, JobType job,
 		int home, int work, int appearance, CompoundTag extra) {
@@ -63,6 +70,7 @@ public final class Resident {
 		this.work = work;
 		this.appearance = appearance;
 		this.extra = extra.copy();
+		this.station = Station.of(job);
 	}
 
 	public String fullName() {

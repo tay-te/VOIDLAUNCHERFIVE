@@ -19,6 +19,10 @@ import org.jspecify.annotations.Nullable;
  *   residents   sim (default) → npc module replaces it
  *   economy     economy module  optional (null if absent)
  *   quests      quest module    optional (null if absent)
+ *   npc         npc module      optional: folk lookups, perception, behaviours other modules add
+ *   standing    standing module optional: reputation layers, gossip, charisma
+ *   law         law module      optional: ownership, stolen goods, wanted status, crime reports
+ *   repairs     repair module   optional: damage and repair queues
  * </pre>
  */
 public final class HearthServices {
@@ -29,6 +33,10 @@ public final class HearthServices {
 	private static volatile @Nullable ResidentFactory residents;
 	private static volatile @Nullable EconomyService economy;
 	private static volatile @Nullable QuestService quests;
+	private static volatile @Nullable NpcService npc;
+	private static volatile @Nullable StandingService standing;
+	private static volatile @Nullable LawService law;
+	private static volatile @Nullable RepairService repairs;
 
 	private HearthServices() {
 	}
@@ -97,5 +105,37 @@ public final class HearthServices {
 
 	public static void setQuests(QuestService service) {
 		quests = service;
+	}
+
+	public static @Nullable NpcService npc() {
+		return npc;
+	}
+
+	public static void setNpc(NpcService service) {
+		npc = service;
+	}
+
+	public static @Nullable StandingService standing() {
+		return standing;
+	}
+
+	public static void setStanding(StandingService service) {
+		standing = service;
+	}
+
+	public static @Nullable LawService law() {
+		return law;
+	}
+
+	public static void setLaw(LawService service) {
+		law = service;
+	}
+
+	public static @Nullable RepairService repairs() {
+		return repairs;
+	}
+
+	public static void setRepairs(RepairService service) {
+		repairs = service;
 	}
 }
