@@ -21,9 +21,10 @@ street strip, pueblo ladders). Kit: `build/kit/townhome/`:
 
 - `Traits`: what a town house needs from the culture's habits (wall kinds, flat roofs, eastern, pueblo, timber,
   masonry, steep, raised, thatch, lattice, snow), read with the building's variant applied.
-- `StairCore`: the switchback well at the back of a narrow house, storey over storey; keeps its landing rows free,
-  stops a storey short of an attic whose roof would come down on the top flight (`clears`), and builds the stair
-  house (bulkhead) onto a flat roof.
+- `StairCore`: the switchback well at the back of a narrow house, storey over storey (in a house three wide inside,
+  a straight single-lane stair up the side wall with a passage beside it, so a bed fits in the third lane); keeps its
+  landing rows free, stops a storey short of an attic whose roof would come down on the top flight (`clears`), and
+  builds the stair house (bulkhead) onto a flat roof.
 - `Fronts`: string courses, quoins, door cases, pentices, shop fronts (glazed, arched, open), striped awnings,
   hanging signs with the trade's name, counters and wares, life on the step.
 - `Rooflines`: roofs planned across party walls (gabled at the party ends), ridge heights by dry run, parapets, crow
@@ -180,7 +181,8 @@ sites for each house, catalogue entries) on top of the shared `BlueprintInvarian
 ## Known limits
 
 - An attic under a low or front-gabled roof is a closed loft: the side-wall stair cannot reach it without cutting
-  the roof, so most row houses and shophouses sleep on the first floor only (2 beds as catalogued).
+  the roof, so most row houses and shophouses sleep on the first floor only (2 beds as catalogued; a five-wide house
+  often 1).
 - Timber fronts read dark in elevation; the karst palette is busy at small sizes.
 - The courtyard house and tower house are culture-limited; in other styles (forced in previews) they build, but the
   courtyard's cloister roofs look out of place under thatch or logs.
