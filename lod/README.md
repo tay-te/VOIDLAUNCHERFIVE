@@ -1,8 +1,9 @@
 # `lod/` — VOID LOD
 
 Far terrain for **Minecraft 26.3** (Fabric): the land past your render distance, out to the horizon,
-sampled straight from the world generator, shaded to look like the blocks it stands for, and drawn in a
-handful of indirect draws on OpenGL or Vulkan.
+sampled straight from the world generator, with everything you have seen (builds, dug-out land,
+villages) read from the chunks themselves and kept on disk, shaded to look like the blocks it stands for,
+and drawn in a handful of indirect draws on OpenGL or Vulkan.
 
 ```
 Fabric Loader ≥ 0.19.5 · Fabric API 0.161.0+26.3 · Java 25 · optional: VOID Expanse
@@ -60,6 +61,7 @@ in about two microseconds. The whole horizon is there the moment the world loads
 | | Distant Horizons | Voxy | VOID LOD |
 |---|---|---|---|
 | Terrain nobody has visited | runs the full generator | nothing until visited | sampled per column |
+| Builds and edits past the render distance | yes | yes | yes: the loaded chunks, read in and kept on disk |
 | Draw calls for the LOD | many | GPU-driven | an indirect draw per 64 MB heap and kind of tile |
 | Graphics API | OpenGL (Vulkan via add-on / 26.2+) | OpenGL 4.6 | Mojang's own GPU layer: OpenGL **and** Vulkan |
 | Depth | separate framebuffer, composited | separate | vanilla's own reversed-Z depth buffer, no composite |
@@ -157,6 +159,66 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
   plane moves out to the LOD's reach for free. The LOD draws right after the opaque chunks, so every
   LOD fragment hidden by nearby terrain is rejected before it is shaded.
 
+## Real chunks, kept
+
+The generator only knows the world as it was generated. Everything players do to it, and everything placed
+after the terrain (villages, structures), is in the chunks. So every chunk the client loads is also read
+into the LOD (`source/ChunkIngest`), and the far view shows the world as it is:
+
+* **Per column, a few ints.** Each column is followed down from its highest block: past plants, torches
+  and thin snow (which only colours the ground), through leaves (where the canopy's top is) and the trunks
+  under them, through water or lava (its surface), to the first solid block; then a few blocks further for
+  the soil and the rock. The column keeps its ground height, water depth, canopy height and an index into
+  the chunk's palette of *surfaces*: what its faces look like (the same texture colours and biome tints as
+  the generator path) and their material ids, worked out once per kind of column ever. A chunk is
+  256 ints and a short palette, about 1.3 KB in memory: ten thousand chunks explored, 13 MB.
+* **Cheap on the client thread.** Chunks queue as they arrive and are read within 0.3 ms a frame. A chunk
+  costs about 0.13 ms on forested Earth terrain (leaves, trunks and water to walk through) and 0.04 ms on
+  plain land. A changed chunk is read again once its block updates have been quiet for 0.75 s, so an
+  explosion or a big `/fill` is one read; a change nothing far off could see (a cave dug, a chest opened,
+  the grass under a placed block turning to dirt) changes nothing downstream. Leaves are one look whatever
+  their distance to a log, or every leaf update after a chunk generates would read as a change.
+* **Seen land wins, the generator fills in** (`core/IngestSource`, `core/ColumnStore`). A cell of `c`
+  blocks stands for the `c`-wide square around its sample, which is always four aligned squares half as
+  wide: a few columns added up, a chunk's own summary, or a cell of a per-region pyramid of summaries
+  (32 to 256 blocks) kept up to date as chunks come in. Summaries are sums, so every tile and level agrees
+  on what a square averages to: heights by kind (water where most of it is wet, otherwise land with the
+  water's colour mixed in by share, so a river narrower than a cell is a thread), colours, the share under
+  leaves, the commonest materials. Up close (cells of one or two blocks) a crown is leaf blocks, as the
+  chunks show it; far out it is a canopy statistic, as the smooth tiles draw it. Where a cell is only
+  partly seen, the seen part and the generator blend by share, so the explored land fades into the
+  generated land instead of stepping. Workers read without locks: chunks and summaries are immutable and
+  swapped in whole. Tiles over seen land build faster than over the generator: 1–5 ms for most levels
+  (12–17 ms at level 4, where a sample adds up 256 columns), against 40–55 ms from the Earth model and biome lookups.
+* **Rebuilt behind what is drawn** (`LodEngine.invalidate`). A change marks the tiles over it at every
+  level; a marked tile on screen is rebuilt in the background once the changes have settled (a second of
+  quiet, a tile at most every 2 s, coarse tiles less often, one rebuild per worker, behind every missing
+  tile) and swaps in only when its mesh is on the GPU, so nothing flickers or opens. A change smaller than
+  one of a tile's cells (a chunk under 512-block cells) waits for more, up to 30 s. Nearly every change
+  happens where vanilla's chunks are drawn (grass spreading, water flowing, the player building), where the
+  LOD shows nothing: those wait until the camera has moved far enough for the LOD to show them.
+* **Kept on disk** (`core/ColumnFiles`), in the world's save (`void_lod/<dimension>/r.<x>.<z>.vlod`) or,
+  on a server, under `void_lod/servers/<address>/`: one deflated file per 32 × 32 chunks, materials by
+  name so a file outlives the session. All file work is one background thread at minimum priority. On
+  joining, the saved land around the player is read before the first tile is built (a few hundred ms at
+  most, then it builds anyway); regions come in as they come within reach and are saved and forgotten once
+  far out of it, so memory follows the view, not the whole explored world. About 250 bytes a chunk on disk;
+  the showcase's 683 chunks are 157 KB, read back in 0.2 s.
+* **Multiplayer.** With no integrated server there is no generator: the LOD draws what the client has
+  seen (this session and every earlier one on that server), and a tile over land nobody has seen is not
+  built at all. Nothing in this path touches server classes.
+
+In the showcase world: a red concrete deck pierced by a gold tower and a trench cut across the land, built
+in loaded chunks, then seen from 480 blocks away (render distance 8: the chunks end at 128 blocks), and
+again after leaving and rejoining, when its chunks never load:
+
+| Before | Built, LOD off | Built, LOD on | Rejoined |
+|---|---|---|---|
+| ![before](docs/ingest_before.jpg) | ![built, vanilla](docs/ingest_after_vanilla.jpg) | ![built, LOD](docs/ingest_after.jpg) | ![rejoined](docs/ingest_rejoin.jpg) |
+
+`./gradlew runClientGameTest -Plod.show.only=none -Plod.show.ingest=true` takes these;
+`-Plod.show.mp=true` does the same on a dedicated server.
+
 ## Settings (system properties, for now)
 
 | Property | Default | |
@@ -168,6 +230,7 @@ a fraction of the cost. Two kinds of tile do it, chosen by level (`core/TileBuil
 | `void.lod.smoothFrom` | `2` | the first level drawn smooth; below it, blocky |
 | `void.lod.threads` | half the cores, max 4 | worker threads |
 | `void.lod.budget` | `512` | MB of GPU memory before least-recently-used tiles are evicted |
+| `void.lod.ingest` | `true` | read the chunks the client loads into the far view, and keep them on disk |
 | `void.lod.enabled` | `true` | |
 
 **F8** toggles the LOD in game.
@@ -206,14 +269,13 @@ model, but only loads it when Expanse is installed.
 
 ## Not yet
 
-* **Multiplayer.** Sampling needs the server's generator and seed, so today the LOD runs in
-  singleplayer and on a LAN host. Next steps: ingest the chunks the client receives, and add a small
-  server-side companion that streams tile summaries.
-* **Edits.** Builds and dug-out terrain beyond the render distance show the generated land. Ingesting
-  loaded chunks over the generated tiles fixes this, using the same path as multiplayer.
+* **Land on a server nobody has seen.** Without the generator, the far view on a server is what the
+  client has seen; a small server-side companion could stream column summaries of the rest.
+* **Unseen columns inside a seen tile.** On a server, a tile partly seen marks its unseen columns empty;
+  the meshers have to leave those out (shared with the End's empty columns).
 * **Shader packs.** These need Iris to know about the LOD's depth and pipeline.
 * **Block textures on the blocky tiles.** Their colours are the textures' own averages and a grain stands
   in for the detail; sampling the block atlas itself would make the seam with the chunks vanish
   entirely at close range.
-* **Disk cache.** Expanse terrain builds faster than it would load, but the generic generator path
-  would benefit.
+* **A disk cache of built tiles.** The seen land is kept, and Expanse terrain builds faster than a mesh
+  would load; the generic generator path could still gain from caching the tiles themselves.

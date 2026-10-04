@@ -3,7 +3,9 @@
 	"package": "dev.voidmc.lod.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"BiomeManagerAccessor",
 		"CameraMixin",
+		"ClientLevelMixin",
 		"FogRendererMixin",
 		"LevelRendererMixin",
 		"MaterialSystemAccessor",

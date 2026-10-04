@@ -28,6 +28,19 @@ public final class Tile {
 	public int maxY;
 	/** The renderer's handle on the uploaded mesh. */
 	public Object gpu;
+	/** When this tile's mesh was made: a tile is rebuilt at most so often. */
+	long builtNanos;
+	/**
+	 * The land under this tile changed since it was built (chunks ingested over it): how much, as an area in blocks,
+	 * and when the first and the latest of those changes came. Zero area: up to date.
+	 */
+	float dirtyArea;
+	long dirtySince;
+	long dirtyLast;
+	/** The newer build of this tile, made while this one stays on screen. */
+	Tile rebuild;
+	/** For such a build: the tile it will replace once it is on the GPU. */
+	Tile replaces;
 
 	Tile(long key) {
 		this.key = key;
