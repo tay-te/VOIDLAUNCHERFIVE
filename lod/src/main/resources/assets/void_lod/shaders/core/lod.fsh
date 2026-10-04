@@ -8,6 +8,7 @@
 layout(location = 0) in vec4 vertexColor;
 layout(location = 1) in vec2 horizontal;
 layout(location = 4) flat in float tileFade;
+layout(location = 7) in vec3 hazeColor;
 #ifdef LOD_SMOOTH
 layout(location = 2) in vec3 sideColor;
 layout(location = 3) in vec4 stair;
@@ -72,8 +73,10 @@ float lattice(vec2 rel, int shift) {
 // never shimmers.
 float detail(vec2 rel, float blocksPerPixel, int first) {
     float sum = 0.0;
-    float amp = 1.0;
-    for (int o = first; o < 7; o++) {
+    // octaves of two pixels or less fade to nothing: start past them (far away, that is most of them)
+    int start = max(first, int(ceil(log2(max(2.0 * blocksPerPixel, 1.0)))));
+    float amp = pow(0.82, float(start - first));
+    for (int o = start; o < 7; o++) {
         float fade = clamp(float(1 << o) / (2.0 * blocksPerPixel) - 1.0, 0.0, 1.0);
         sum += fade * amp * (lattice(rel, o) - 0.5);
         amp *= 0.82;
@@ -245,6 +248,6 @@ void main() {
 #ifdef LOD_OVER_PACK
     fragColor = vec4(mix(color, texelFetch(Sampler1, ivec2(gl_FragCoord.xy), 0).rgb, vertexColor.a), 1.0);
 #else
-    fragColor = vec4(mix(color, FogColor.rgb, vertexColor.a * FogColor.a), 1.0);
+    fragColor = vec4(mix(color, hazeColor, vertexColor.a * FogColor.a), 1.0);
 #endif
 }

@@ -84,7 +84,7 @@ public class LodShowcase implements FabricClientGameTest {
 		}
 
 		Spot(String name, int x, int y, int z, float yaw, float pitch, int fov) {
-			this(name, "minecraft:overworld", x, y, z, yaw, pitch, fov, 6000, "clear");
+			this(name, "minecraft:overworld", x, y, z, yaw, pitch, fov, TIME, "clear");
 		}
 
 		/** The same view at another time of day and weather. */

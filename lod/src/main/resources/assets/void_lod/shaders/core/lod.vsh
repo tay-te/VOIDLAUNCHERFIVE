@@ -34,6 +34,7 @@ uniform sampler2D Sampler2;
 layout(location = 0) out vec4 vertexColor;
 layout(location = 1) out vec2 horizontal;
 layout(location = 4) flat out float tileFade;
+layout(location = 7) out vec3 hazeColor;
 #ifdef LOD_SMOOTH
 layout(location = 2) out vec3 sideColor;
 layout(location = 3) out vec4 stair;
@@ -65,6 +66,13 @@ float haze(vec3 pos, float worldY) {
     float density = exp(clamp((LodHaze.z - cameraY) * LodHaze.y, -8.0, 4.0));
     float rain = (length(pos) + 160.0 * LodHaze.w) * LodHaze.w / 660.0;
     return 1.0 - exp(-length(pos) * LodHaze.x * density * along - rain);
+}
+
+// Vanilla's open-air fog colour as it would be looking along dir: its base colour, pulled toward the sunrise colour
+// as far as dir faces the sun's side of the sky, then toward the sky colour (AtmosphericFogEnvironment.getBaseColor).
+vec3 airColor(vec3 dir) {
+    float toward = max(dir.x * LodSkyBase.w, 0.0) * LodSunrise.a;
+    return mix(mix(LodSkyBase.rgb, LodSunrise.rgb, toward), LodSkyColor.rgb, LodSkyColor.w);
 }
 
 void main() {
@@ -154,13 +162,24 @@ void main() {
     float sunlit = smoothstep(horizon - 0.03, horizon + 0.03, sunElevation);
     color *= mix(1.0, mix(0.55, 1.0, sunlit), LodSun.w * beyond) * (1.0 - 0.6 * skyHidden * beyond);
 
+    // The haze takes the colour the sky has in this vertex's direction: at dusk the land toward the sun sinks into
+    // the glow, the land away from it into the blue. Vanilla gives the whole frame the colour the camera faces; the
+    // ratio to that keeps whatever it does to the colour afterwards (the night, the weather, the dimension).
+    vec3 forward = -vec3(ModelViewMat[0][2], ModelViewMat[1][2], ModelViewMat[2][2]);
+    hazeColor = FogColor.rgb * airColor(normalize(pos)) / max(airColor(forward), vec3(1e-3));
+    // And vanilla paints the sunset's glow over the sky as a fan, centred on the horizon toward the sun and reaching
+    // about 50 degrees either side (SkyRenderer.renderSunriseAndSunset): far land there sinks into the glow.
+    vec2 across = normalize(pos.xz + vec2(1e-4, 0.0));
+    float fan = LodSunrise.a * max(0.0, 1.0 - acos(clamp(across.x * LodSkyBase.w, -1.0, 1.0)) / 0.8727);
+    hazeColor = mix(hazeColor, LodSunrise.rgb, fan);
+
     if ((vpos.w & 8) != 0) {
         // Water at a low angle mirrors the sky, right up to the seam: vanilla's own water there, seen as low,
         // shows the sky through it (its bed is out of the chunks' reach), so the two meet in the same colour.
         // Walls of water (the skirts under a tile's edge) too, as they show through vanilla's water. At night
         // the sky is dark, and so is the water.
         float fresnel = pow(1.0 - max(toCamera.y, 0.0), 5.0);
-        color = mix(color, FogColor.rgb, fresnel * 0.6);
+        color = mix(color, hazeColor, fresnel * 0.6);
     }
 
     float cylindrical = fog_cylindrical_distance(pos);

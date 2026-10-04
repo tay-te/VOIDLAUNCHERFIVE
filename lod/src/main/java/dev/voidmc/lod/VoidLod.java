@@ -122,6 +122,7 @@ public final class VoidLod implements ClientModInitializer {
 	private final boolean logStats = Boolean.getBoolean("void.lod.logStats");
 	/** This frame's haze for the shader, from the fog mixin: 1 / reach (0 for vanilla's fog), 1 / scale height, base y, rain (0..1). */
 	private final float[] haze = new float[4];
+	private final float[] sky = new float[12];
 	/** This frame's sun for the shader: its direction, and how much of the far relief it lights (0 at night). */
 	private final float[] sun = new float[4];
 	/** Whether this frame's fog (water, lava, blindness) ends before the chunks do, hiding the LOD entirely. */
@@ -457,7 +458,7 @@ public final class VoidLod implements ClientModInitializer {
 		this.sun[1] = (float) Math.cos(sunAngle);
 		this.sun[2] = 0;
 		this.sun[3] = Math.max(0, Math.min(1, this.sun[1] * 4));
-		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun);
+		this.renderer.prepare(camera, this.radius, clipRadius(Minecraft.getInstance()), 16, this.detail, this.farDetail, this.haze, this.sun, this.sky);
 		LodRenderer r = this.renderer;
 		if (this.settings.autoTune && r.lastTiles > 0 && !this.fogHidesLod
 			&& this.tuner.sample(System.nanoTime(), r.gpuMillis, r.lastPrepareNanos / 1e6, this.engine.queued() > 0, this.capMillis)) {
@@ -484,6 +485,28 @@ public final class VoidLod implements ClientModInitializer {
 	 * Sets this frame's aerial haze: {@code reach} blocks at height {@code base} (0 for none, and vanilla's own
 	 * fog instead), and how hard it rains (0..1), which hangs a curtain of {@link #RAIN_REACH} over it.
 	 */
+	/**
+	 * Sets what vanilla's open-air fog colour is made of this frame (see {@code lodinfo.glsl}): the base fog colour, the
+	 * sun's side, the sunrise colour and strength, the sky colour and its share. A strength of 0 leaves the haze vanilla's
+	 * fog colour in every direction.
+	 */
+	public void setSky(float r, float g, float b, float sunX, float sr, float sg, float sb, float strength, float kr, float kg, float kb,
+		float skyShare) {
+		float[] s = this.sky;
+		s[0] = r;
+		s[1] = g;
+		s[2] = b;
+		s[3] = sunX;
+		s[4] = sr;
+		s[5] = sg;
+		s[6] = sb;
+		s[7] = strength;
+		s[8] = kr;
+		s[9] = kg;
+		s[10] = kb;
+		s[11] = skyShare;
+	}
+
 	public void setHaze(float reach, float base, float rain, boolean hidden) {
 		this.haze[0] = reach > 0 ? 1.0F / reach : 0;
 		this.haze[1] = 1.0F / HAZE_SCALE_HEIGHT;

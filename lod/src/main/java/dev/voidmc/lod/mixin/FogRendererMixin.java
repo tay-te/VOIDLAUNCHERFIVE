@@ -9,11 +9,15 @@ import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.fog.FogRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
+import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.material.FogType;
+import org.joml.Vector3fc;
+import org.joml.Vector4fc;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -70,10 +74,34 @@ public abstract class FogRendererMixin {
 			float hazed = Math.max(1e-4F, 1 - (float) Math.exp(-depth));
 			fog.environmentalEnd = fog.environmentalStart + Math.max(1, seam - fog.environmentalStart) / hazed;
 			lod.setHaze(reach, base, rain, false);
+			this.voidLod$sky(lod, camera, renderDistanceInChunks, deltaTracker.getGameTimeDeltaPartialTick(false), level);
 		} else {
 			lod.setHaze(0, 0, 0, fog.environmentalEnd < chunks);
+			lod.setSky(0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0);
 		}
 		fog.renderDistanceStart = far * 0.8F;
 		fog.renderDistanceEnd = far;
+	}
+
+	/**
+	 * What vanilla's open-air fog colour is made of (AtmosphericFogEnvironment.getBaseColor), so the LOD can work it out
+	 * for the direction of each vertex: at dusk vanilla gives the whole frame the sunset's colour as far as the camera
+	 * faces the sun, where the sky itself is that colour only on the sun's side.
+	 */
+	@Unique
+	private void voidLod$sky(VoidLod lod, Camera camera, int renderDistance, float partialTicks, ClientLevel level) {
+		var probe = camera.attributeProbe();
+		Vector3fc base = probe.getValue(EnvironmentAttributes.FOG_COLOR, partialTicks);
+		float sunAngle = probe.getValue(EnvironmentAttributes.SUN_ANGLE, partialTicks) * (float) (Math.PI / 180.0);
+		float sunX = Mth.sin(sunAngle) > 0.0F ? -1.0F : 1.0F;
+		Vector4fc sunrise = probe.getValue(EnvironmentAttributes.SUNRISE_SUNSET_COLOR, partialTicks);
+		Vector3fc sky = probe.getValue(EnvironmentAttributes.SKY_COLOR, partialTicks);
+		float rainLevel = level.getRainLevel(partialTicks), thunder = level.getThunderLevel(partialTicks);
+		float red = 1 - rainLevel * 0.5F, blue = 1 - rainLevel * 0.4F, dark = 1 - thunder * 0.5F;
+		float skyFogEnd = Math.min(probe.getValue(EnvironmentAttributes.SKY_FOG_END_DISTANCE, partialTicks) / 16.0F, renderDistance);
+		float share = 1.0F - (float) Math.pow(Mth.clampedLerp(skyFogEnd / 32.0F, 0.25F, 1.0F), 0.25);
+		float strength = renderDistance >= 4 ? sunrise.w() : 0;
+		lod.setSky(base.x(), base.y(), base.z(), sunX, sunrise.x(), sunrise.y(), sunrise.z(), strength,
+			sky.x() * red * dark, sky.y() * red * dark, sky.z() * blue * dark, share);
 	}
 }

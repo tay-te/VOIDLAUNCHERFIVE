@@ -98,7 +98,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		.withUniform("Sampler0", UniformType.COMBINED_IMAGE_SAMPLER)
 		.withUniform("LodMaterials", UniformType.TEXEL_BUFFER, GpuFormat.RGBA32_UINT)
 		.build();
-	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16;
+	private static final int LOD_INFO_SIZE = 64 + 16 + 16 + 16 + 48;
 	private static final int INSTANCE_BYTES = 16;
 	private static final int COMMAND_BYTES = 20;
 
@@ -348,7 +348,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	 * built, before any pass executes, so every upload lands outside a render pass.
 	 */
 	public void prepare(CameraRenderState camera, double radius, double clip, double fade, double pixelsPerCell, double farPixelsPerCell,
-		float[] haze, float[] sun) {
+		float[] haze, float[] sun, float[] sky) {
 		long t0 = System.nanoTime();
 		for (Group group : this.order) {
 			group.count = 0;
@@ -495,6 +495,9 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.info.putFloat((float) clip).putFloat((float) fade).putFloat(0).putFloat(0);
 		this.info.putFloat(haze[0]).putFloat(haze[1]).putFloat(haze[2]).putFloat(haze[3]);
 		this.info.putFloat(sun[0]).putFloat(sun[1]).putFloat(sun[2]).putFloat(sun[3]);
+		for (float f : sky) {
+			this.info.putFloat(f);
+		}
 		this.info.flip();
 		this.infoSlice = transient_.uploadGpu(this.info, this.device.getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
 		RenderSystem.AutoStorageIndexBuffer quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
