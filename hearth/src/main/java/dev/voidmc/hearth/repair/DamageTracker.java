@@ -50,6 +50,7 @@ public final class DamageTracker {
 	long litter;
 	long rebuiltByPlayers;
 	long hookNanos;
+	long hookCalls;
 
 	DamageTracker(RepairRuntime runtime) {
 		this.runtime = runtime;
@@ -106,6 +107,7 @@ public final class DamageTracker {
 			return;
 		}
 		long t0 = System.nanoTime();
+		this.hookCalls++;
 		try {
 			if (player != null && before.getBlock() instanceof BaseFireBlock) {
 				// putting out a fire by hand
@@ -206,9 +208,10 @@ public final class DamageTracker {
 		}
 	}
 
-	/** Fires the batched {@link SettlementEvents#DAMAGED} events (end of every server tick). */
+	/** Fires the batched {@link SettlementEvents#DAMAGED} events (checked every tick, sent once a second). */
 	void flush() {
-		if (this.batches.isEmpty()) {
+		// once a second: an explosion is one event per plot, a fire one per plot per second however much it burns
+		if (this.batches.isEmpty() || this.runtime.now() % 20 != 0) {
 			return;
 		}
 		Map<BatchKey, Batch> todo = new LinkedHashMap<>(this.batches);
@@ -227,7 +230,7 @@ public final class DamageTracker {
 	}
 
 	public String stats() {
-		return String.format(java.util.Locale.ROOT, "%d recorded, %d litter, %d put back by players, hooks %.1f ms in all", this.recorded, this.litter,
-			this.rebuiltByPlayers, this.hookNanos / 1e6);
+		return String.format(java.util.Locale.ROOT, "%d recorded, %d litter, %d put back by players; %d hook calls in settlements, %.1f ms in all (%.1f µs each)",
+			this.recorded, this.litter, this.rebuiltByPlayers, this.hookCalls, this.hookNanos / 1e6, this.hookCalls == 0 ? 0 : this.hookNanos / 1e3 / this.hookCalls);
 	}
 }

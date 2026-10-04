@@ -104,7 +104,7 @@ public final class FireWatch {
 			int n = 0;
 			BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 			for (int dx = -radius; dx <= radius; dx++) {
-				for (int dy = -1; dy <= radius; dy++) {
+				for (int dy = -radius; dy <= radius; dy++) {
 					for (int dz = -radius; dz <= radius; dz++) {
 						p.set(at.getX() + dx, at.getY() + dy, at.getZ() + dz);
 						if (this.level.isLoaded(p) && this.level.getBlockState(p).getBlock() instanceof BaseFireBlock) {

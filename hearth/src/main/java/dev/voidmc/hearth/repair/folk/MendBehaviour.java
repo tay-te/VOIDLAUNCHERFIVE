@@ -202,15 +202,18 @@ public final class MendBehaviour implements FolkBehaviour {
 		job.walkTicks++;
 		if (!path || f.arrived() && !Reach.canReach(folk, pos) || job.walkTicks > 400) {
 			// out of reach from anywhere one can stand: after a fair try, place it from close by (the builder stretches),
-			// or leave it for later
-			if (folk.distanceToSqr(Vec3.atCenterOf(pos)) < 8 * 8 && job.cooldown <= 0) {
+			// or leave it for later; a block that has beaten them three times is put in from as near as they got (never
+			// leave a town with a hole over one awkward block, as builders do for construction)
+			double d2 = folk.distanceToSqr(Vec3.atCenterOf(pos));
+			int missed = d2 < 8 * 8 ? 0 : d.missed();
+			if ((d2 < 8 * 8 || missed >= 3 && d2 < 24 * 24) && job.cooldown <= 0) {
 				f.lookAt(pos);
 				place(rt, f, level, world, s, d, current);
 				job.cooldown = cfg.builders().stepTicks();
 				job.blocks++;
 			} else {
 				d.release();
-				d.defer(now + cfg.queue().deferTicks());
+				d.defer(now + cfg.queue().deferTicks() / Math.max(1, 4 - missed));
 			}
 			job.claim = null;
 		}
@@ -269,6 +272,18 @@ public final class MendBehaviour implements FolkBehaviour {
 			job.column.removeAll(f, level);
 		}
 		f.hold(ItemStack.EMPTY);
+	}
+
+	/** What a builder is about, for the status command and the self-test log. */
+	public String describe(UUID folk) {
+		Job job = this.jobs.get(folk);
+		if (job == null) {
+			return "not mending";
+		}
+		Damage d = job.claim;
+		return (d == null ? "between blocks" : "on " + d.blockPos().toShortString() + " (" + (d.expected() == null ? "?" : d.expected().getBlock().getName().getString())
+			+ "), walked " + job.walkTicks + " ticks, stand " + (job.stand == null ? "none" : job.stand.toShortString())) + (job.column == null ? ""
+			: job.column.atTop() ? ", on a scaffold" : ", scaffolding") + ", " + job.blocks + " done";
 	}
 
 	/** Builders mending now (for status). */

@@ -63,6 +63,8 @@ public final class Damage {
 	@Nullable UUID claimedBy;
 	long claimedAt;
 	long deferUntil;
+	/** Times a builder went for it and could not get to it. */
+	int attempts;
 	@Nullable BlockState expected;
 
 	public Damage(long pos, int plot, int stage, int index, SettlementEvents.Damaged.Cause cause, long day, @Nullable UUID offender, int flags) {
@@ -113,6 +115,11 @@ public final class Damage {
 
 	public void setExpected(@Nullable BlockState state) {
 		this.expected = state;
+	}
+
+	/** A builder could not get to it; returns how many times that has happened. */
+	public int missed() {
+		return ++this.attempts;
 	}
 
 	/** Keeps a builder's claim fresh while they work on it. */

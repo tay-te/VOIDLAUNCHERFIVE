@@ -98,13 +98,13 @@ public final class RepairModule {
 			}
 			RepairRuntime rt = RepairRuntime.current();
 			if (rt != null) {
-				rt.locator.invalidate(settlement.id());
+				rt.locator.invalidateGrid(settlement.id());
 			}
 		});
 		SettlementEvents.BUILDING_COMPLETED.register((world, settlement, plot) -> {
 			RepairRuntime rt = RepairRuntime.current();
 			if (rt != null) {
-				rt.locator.invalidate(settlement.id());
+				rt.locator.invalidateGrid(settlement.id());
 			}
 		});
 		SettlementEvents.EMBODIMENT_CHANGED.register((world, settlement, embodied) -> {
@@ -116,6 +116,7 @@ public final class RepairModule {
 		});
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> RepairCommands.register(dispatcher));
+		SelfTest.listen();
 	}
 
 	private static synchronized void registerBehaviours() {

@@ -72,6 +72,10 @@ public final class Vandalism {
 
 	/** A player's damage to a building (a break, or TNT they lit). */
 	void note(ServerLevel level, Settlement settlement, ServerPlayer player, BlockPos pos, long worth) {
+		if (player instanceof net.fabricmc.fabric.api.entity.FakePlayer) {
+			// another mod's machine breaking blocks: damage to mend, but nobody to blame
+			return;
+		}
 		RepairConfig.Law cfg = RepairModule.config().law();
 		long now = this.runtime.now();
 		Spree s = this.sprees.computeIfAbsent(new Key(player.getUUID(), settlement.id()), k -> new Spree(level, pos.immutable(), now));
@@ -166,15 +170,17 @@ public final class Vandalism {
 			if (online != null && cfg.exemptCreative() && (online.isCreative() || online.isSpectator())) {
 				return;
 			}
-			tell(level, player, settlement, list.getFirst().blockPos(), worth, list.size(), false);
-			this.reportedUnwitnessed++;
+			if (tell(level, player, settlement, list.getFirst().blockPos(), worth, list.size(), false)) {
+				this.reportedUnwitnessed++;
+			}
 		});
 	}
 
-	private void tell(ServerLevel level, UUID player, Settlement settlement, BlockPos pos, long worth, int blocks, boolean witnessed) {
+	/** Reports to the law (or, without one, costs standing when witnessed); returns whether anyone was told. */
+	private boolean tell(ServerLevel level, UUID player, Settlement settlement, BlockPos pos, long worth, int blocks, boolean witnessed) {
 		RepairConfig.Law cfg = RepairModule.config().law();
 		if (!cfg.reportVandalism()) {
-			return;
+			return false;
 		}
 		LawService law = HearthServices.law();
 		if (law != null) {
@@ -188,14 +194,16 @@ public final class Vandalism {
 			law.report(new LawService.Crime(LawService.Offence.VANDALISM, player, settlement.id(), pos, victim, Math.max(1, worth), witnessed,
 				level.getGameTime()));
 			this.reported++;
-			return;
+			return true;
 		}
 		StandingService standing = HearthServices.standing();
 		if (standing != null && witnessed) {
 			int weight = Math.max(-30, cfg.deedPerBlock() * blocks);
 			standing.deed(new StandingService.Deed(player, settlement.id(), "repair:vandalism", weight, null, pos, true));
 			this.reported++;
+			return true;
 		}
+		return false;
 	}
 
 	/** A player put back a damaged block of a settlement's building. */

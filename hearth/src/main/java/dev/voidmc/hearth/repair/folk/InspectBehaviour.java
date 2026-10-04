@@ -163,7 +163,13 @@ public final class InspectBehaviour implements FolkBehaviour {
 		Walk w = this.walks.remove(f.resident().id);
 		RepairRuntime rt = RepairRuntime.current();
 		if (rt != null) {
-			this.schedule.finish(f.settlement().id(), f.resident().id, rt.now(), RepairModule.config().inspection().intervalTicks());
+			RepairConfig.Inspection cfg = RepairModule.config().inspection();
+			boolean interrupted = w != null && !w.round.done() && w.ticks < cfg.maxTicks();
+			if (interrupted) {
+				// called away (to mend what it found, say): the plot is looked at again soon, from the start
+				this.schedule.lastSeen(f.settlement().id()).remove(w.round.plotId);
+			}
+			this.schedule.finish(f.settlement().id(), f.resident().id, rt.now(), interrupted ? 200 : cfg.intervalTicks());
 		}
 		if (w != null) {
 			f.stop();

@@ -244,7 +244,15 @@ public final class PlotLocator {
 		return g;
 	}
 
-	/** Forget a settlement's grid and sections (plots finished, were given up or rebuilt). */
+	/**
+	 * Forget a settlement's grid (a plot finished or was given up): it is rebuilt on the next lookup, cheaply. Sections
+	 * stay: they are keyed by stages done, so a plot's change of progress already misses them.
+	 */
+	public void invalidateGrid(long settlementId) {
+		this.grids.remove(settlementId);
+	}
+
+	/** Forget a settlement's grid and sections (its plots were rebuilt from scratch, tests). */
 	public void invalidate(long settlementId) {
 		this.grids.remove(settlementId);
 		Iterator<Map.Entry<SectionKey, Section>> it = this.sections.entrySet().iterator();
