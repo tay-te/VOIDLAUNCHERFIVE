@@ -248,7 +248,8 @@ any grown worker there; with nobody at work it is shut (keeps its stock and till
   the treasury (`shops.starting_till`, 200, or a tenth of the treasury). Each day it **restocks** toward
   `stock_days` (4) days of its own sales (at least `min_stock` 16, at most `max_stock` 512 of each goods it deals in),
   only from what the stores hold above `town_floor` (60 %) of the town's target (less what the builders are waiting
-  on) and only what its till can pay at `wholesale` (75 %) of the town's mid price; shelves
+  on) and only what `restock_share` (half) of its till can pay at `wholesale` (75 %) of the town's mid price — the
+  rest stays in the till to buy from players with; shelves
   over the most it keeps go back to the stores, paid at wholesale if the treasury can. It pays `due_rate` (8 %) of its
   takings as market dues; the keeper takes `keeper_share` (30 %) of whatever the till holds above `working_till` (400) —
   into their purse, or into the owner's income if a player owns the shop.
@@ -402,7 +403,7 @@ a supply quest can offer, say, 1.5 × `price(settlement, needed, false)`.
 | | `starting_purse_days`, `wage_cap_share` | 10, 0.25 | |
 | | `consumed_goods` | cloth, candles, luxury, books, dye, specialty | goods folk use up (food is paid, not taken) |
 | `shops` | `stock_days`, `min_stock`, `max_stock` | 4, 16, 512 | |
-| | `wholesale`, `starting_till`, `working_till`, `keeper_share`, `due_rate`, `town_floor` | 0.75, 200, 400, 0.3, 0.08, 0.6 | |
+| | `wholesale`, `starting_till`, `working_till`, `keeper_share`, `due_rate`, `town_floor`, `restock_share` | 0.75, 200, 400, 0.3, 0.08, 0.6, 0.5 | |
 | `haggle` | `room`, `charisma_room`, `standing_room` | 0.15, 0.5, 0.4 | |
 | | `patience`, `round_cost`, `outrage_cost` | 100, 14, 90 | |
 | | `sour_days`, `sour_markup`, `sour_weight` | 1, 0.15, −2 | |

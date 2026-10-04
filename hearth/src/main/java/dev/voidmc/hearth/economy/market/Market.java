@@ -494,6 +494,9 @@ public final class Market {
 		if (plenty != null && this.shop == null) {
 			return Component.translatable("hearth.economy.market.note.plenty", goodsWord(plenty));
 		}
+		if (plenty == null && this.shop != null) {
+			return Component.translatable("hearth.economy.market.note.bare");
+		}
 		return Component.translatable(rep >= 50 ? "hearth.economy.market.note.friend" : rep < 0 ? "hearth.economy.market.note.wary" : "hearth.economy.market.note.welcome");
 	}
 

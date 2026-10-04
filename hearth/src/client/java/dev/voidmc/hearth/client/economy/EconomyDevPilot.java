@@ -112,6 +112,8 @@ public final class EconomyDevPilot {
 		run(5, c -> c.player.closeContainer());
 
 		// phase 3: shops with their own stock and till, haggling, the fence, businesses, works and contracts
+		run(5, c -> command(c, "hearth economy sandbox temperate")); // a town with bread to spare
+		run(5, c -> c.player.closeContainer());
 		run(5, c -> command(c, "hearth economy sandbox shop 2"));
 		shot("shop_bakery");
 		run(5, c -> {

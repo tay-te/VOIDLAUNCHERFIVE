@@ -93,7 +93,9 @@ class ShopsTest {
 		bakery.till = 5;
 		MarketPricer pricer = new MarketPricer(s);
 		Shops.daily(s, pricer, 0, (shop, bits) -> Shops.payKeeper(s, shop, bits));
-		assertTrue(bakery.stock(Goods.FOOD) <= 10, "five bits buy only a few units: " + bakery.stock(Goods.FOOD));
+		assertTrue(bakery.stock(Goods.FOOD) <= 5, "half of five bits buys only a few units: " + bakery.stock(Goods.FOOD));
+		Shop stall = shop(s, "commerce/market_stall");
+		assertTrue(stall.till >= 99, "a general shop keeps half its till to buy from players with: " + stall.till);
 
 		SimpleSettlement poor = Towns.village();
 		poor.stockpile().take(Goods.FOOD, 6000);

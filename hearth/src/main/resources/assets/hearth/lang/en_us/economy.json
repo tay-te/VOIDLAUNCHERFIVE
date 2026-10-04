@@ -312,5 +312,6 @@
  "hearth.economy.command.shops.header": "%s: %s shops",
  "hearth.economy.command.shops.line": "%s. %s, kept by %s: till %s; %s",
  "hearth.economy.command.purses.header": "%s: %s households holding %s; %s went hungry yesterday",
- "hearth.economy.command.purses.line": "%s (%s in the house, %s): %s"
+ "hearth.economy.command.purses.line": "%s (%s in the house, %s): %s",
+ "hearth.economy.market.note.bare": "\"My shelves are bare: the town's stores have nothing to spare me. I'll still buy, mind.\""
 }

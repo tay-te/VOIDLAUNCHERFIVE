@@ -242,6 +242,7 @@ public final class Shops {
 
 	/** Fills the shelves from what the town can spare, paying wholesale from the till. */
 	static void restock(Settlement settlement, MarketPricer pricer, MarketLedger ledger, Shop shop, EconomyConfig.Shops cfg) {
+		long budget = (long) Math.floor(shop.till * cfg.restockShare()); // the rest stays to buy from players with
 		for (Goods g : Goods.VALUES) {
 			if (!shop.deals(g)) {
 				continue;
@@ -252,14 +253,15 @@ public final class Shops {
 				continue;
 			}
 			double unit = pricer.unitMid(g) * cfg.wholesale();
-			int affordable = unit <= 0 ? want : (int) Math.min(want, Math.floor(shop.till / unit));
+			int affordable = unit <= 0 ? want : (int) Math.min(want, Math.floor(budget / unit));
 			int units = Math.min(affordable, spare(settlement, pricer, g, cfg));
 			if (units <= 0) {
 				continue;
 			}
 			int taken = settlement.stockpile().take(g, units);
 			long cost = (long) Math.ceil(taken * unit);
-			cost = Math.min(cost, shop.till);
+			cost = Math.min(cost, Math.min(budget, shop.till));
+			budget -= cost;
 			shop.till -= cost;
 			settlement.deposit(cost);
 			shop.stock[i] += taken;
