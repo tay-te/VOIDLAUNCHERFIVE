@@ -36,10 +36,10 @@ public final class Stations {
 
 	static void daily(SimSettlement s, SimRules r, long day) {
 		SimConfig.Stations cfg = r.resources.stations();
-		if (!cfg.enabled() || s.ctx().economyHandlesWages()) {
-			// with the economy module running, its purse rule (economy/purse/StationRule) moves stations: one owner
+		if (!cfg.enabled()) {
 			return;
 		}
+		boolean purseRule = s.ctx().economyHandlesWages();
 		Int2ObjectLinkedOpenHashMap<List<Resident>> homes = new Int2ObjectLinkedOpenHashMap<>();
 		List<List<Resident>> households = new ArrayList<>();
 		for (Resident res : s.residents.values()) {
@@ -57,7 +57,46 @@ public final class Stations {
 			if (Math.floorMod(head.id.hashCode() + day, cfg.periodDays()) != 0) {
 				continue;
 			}
-			review(s, household, cfg, r, prosperity);
+			if (purseRule) {
+				// the economy's purse rule (economy/purse/StationRule) moves stations up and down; the sim only gives a
+				// household the station its trades bring when they change (a labourer becomes a smith), as it always has
+				tradeChanged(s, household);
+			} else {
+				review(s, household, cfg, r, prosperity);
+			}
+		}
+	}
+
+	/** A household whose trades changed takes the station they bring (callings keep theirs). */
+	static void tradeChanged(SimSettlement s, List<Resident> household) {
+		Station base = Station.POOR;
+		Resident head = null;
+		for (Resident res : household) {
+			if (res.age == AgeStage.CHILD) {
+				continue;
+			}
+			Station st = Station.of(res.job);
+			if (movable(st) && rank(st) > rank(base)) {
+				base = st;
+			}
+			if (head == null && movable(res.station)) {
+				head = res;
+			}
+		}
+		if (head == null) {
+			return;
+		}
+		int lastBase = head.extra("sim").getIntOr(BASE, -1);
+		if (lastBase == rank(base)) {
+			return;
+		}
+		head.extra("sim").putInt(BASE, rank(base));
+		for (Resident res : household) {
+			Station st = res.age != AgeStage.CHILD && !movable(Station.of(res.job)) ? Station.of(res.job) : base;
+			if (res.station != st) {
+				res.station = st;
+				s.markDirty();
+			}
 		}
 	}
 

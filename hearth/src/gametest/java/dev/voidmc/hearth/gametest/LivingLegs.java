@@ -108,6 +108,11 @@ final class LivingLegs {
 					TITLE_EVENTS.incrementAndGet();
 					log("standing event: " + s.name() + " " + from.getSerializedName() + " -> " + to.getSerializedName());
 				});
+				SettlementEvents.DAMAGED.register((w, s, plot, cause, n, who) -> log("damage event: " + s.name() + " plot #" + plot.id() + " "
+					+ plot.spec().archetype().getPath() + ", " + n + " blocks by " + cause + (who == null ? "" : " (a player)")));
+				SettlementEvents.REPAIRED.register((w, s, plot, n) -> log("repaired event: " + s.name() + " plot #" + plot + ", " + n + " blocks"));
+				SettlementEvents.CRIME_COMMITTED.register((w, s, c) -> log("crime event: " + s.name() + " " + c.offence().getSerializedName() + " worth "
+					+ c.value() + ", witnessed " + c.witnessed()));
 			}
 			NpcConfig c = NpcModule.config();
 			// folk think every tick near the camera, so a minute shows real work
@@ -207,14 +212,11 @@ final class LivingLegs {
 				}
 			}
 			if (pit == null) {
-				StringBuilder b = new StringBuilder();
-				for (SimPlot p : s.plots()) {
-					if (p.spec().archetype().getPath().startsWith("extract/")) {
-						b.append(p.spec().archetype().getPath()).append(' ').append(p.state().getSerializedName()).append("; ");
-					}
+				pit = stakeQuarry(s);
+				if (pit == null) {
+					log("excavation: none under way in " + s.name() + ", and no ground to stake one");
+					return null;
 				}
-				log("excavation: none under way in " + s.name() + " (" + b + ")");
-				return null;
 			}
 			String path = pit.spec().archetype().getPath();
 			JobType trade = path.contains("mine") || path.contains("shaft") ? JobType.MINER
@@ -250,6 +252,42 @@ final class LivingLegs {
 			log("excavation " + i + ": " + line + "; " + doing(id));
 			shoot("excavation_" + i, mid.getX() - 10, surface(mid) + 12, mid.getZ() - 10, -45, 40);
 		}
+	}
+
+	/**
+	 * A small town has not opened a working yet: a quarry pit (the build module's, or the sim's stand-in with
+	 * {@code fillCatalogue}) is staked out by the town at its nearest stone, as the planner would, its first bench funded.
+	 */
+	private @Nullable SimPlot stakeQuarry(SimSettlement s) {
+		ResourceSite best = null;
+		for (ResourceSite site : s.sites()) {
+			if ((site.kind() == ResourceSite.Kind.STONE || site.kind() == ResourceSite.Kind.ORE) && site.remaining() > 0
+				&& (best == null || site.center().distSqr(s.center()) < best.center().distSqr(s.center()))) {
+				best = site;
+			}
+		}
+		BlockPos at = best != null && Math.sqrt(best.center().distSqr(s.center())) < 200 ? best.center()
+			: s.center().offset(s.bounds().getXSpan() / 2 + 24, 0, 0);
+		net.minecraft.nbt.CompoundTag params = new net.minecraft.nbt.CompoundTag();
+		params.putString("kind", "stone");
+		if (best != null) {
+			params.putInt("site", best.id());
+			if (best.material() != null) {
+				params.putString("rock", best.material().toString());
+			}
+		}
+		params.putInt("depth", 6);
+		int y = SimServer.world(s.dimension() == net.minecraft.world.level.Level.OVERWORLD ? SimServer.current().server().overworld() : null).terrain().groundY(at.getX(), at.getZ());
+		var spec = new dev.voidmc.hearth.api.PlotSpec(dev.voidmc.hearth.sim.dev.PlaceholderExcavations.QUARRY_PIT,
+			HearthServices.blueprints().style(s.culture()), at.getX() * 31L ^ at.getZ(), new BlockPos(at.getX() - 6, y, at.getZ() - 6), 13, 13,
+			Direction.SOUTH, 8, 1, params);
+		SimPlot plot = s.addPlot(spec, -1, "tour: a quarry pit staked out");
+		for (Goods g : Goods.VALUES) {
+			s.stockpile().add(g, 64);
+		}
+		log("excavation: staked " + spec.archetype().getPath() + " #" + plot.id() + " at " + spec.origin().toShortString() + (best == null ? ""
+			: " on the " + best.material() + " site #" + best.id()));
+		return plot;
 	}
 
 	private void hauler() {
@@ -466,6 +504,15 @@ final class LivingLegs {
 						c.setItem(4, new ItemStack(Items.WHEAT, 20));
 					}
 					LawService.Owner owner = Ownership.owner(level, at);
+					Locks.Lock lock = Locks.at(level, at, level.getBlockState(at));
+					if (lock != null && lock.locked()) {
+						Resident holder = Locks.keyHolder(s, p.id());
+						if (holder != null) {
+							// the household's key, lifted from a pocket earlier: the chest is locked while the family is out
+							player(server).getInventory().add(LawItems.key(Locks.keyData(s, p.id(), holder)));
+							log("theft: the chest is locked (tier " + lock.tier() + "); the player carries " + holder.fullName() + "'s key");
+						}
+					}
 					log("theft: a chest at " + at.toShortString() + " in plot #" + p.id() + " (" + spec.archetype().getPath() + "), owner "
 						+ (owner == null ? "nobody" : owner.kind() + " " + (owner.resident() == null ? "" : s.resident(owner.resident()) == null ? "?"
 							: s.resident(owner.resident()).fullName())));
@@ -575,7 +622,8 @@ final class LivingLegs {
 
 	private void lockpick() {
 		this.world.getServer().runCommand("time set 18500");
-		BlockPos lock = this.world.getServer().computeOnServer(server -> {
+		List<BlockPos> locks = this.world.getServer().computeOnServer(server -> {
+			List<BlockPos> found = new ArrayList<>();
 			ServerLevel level = server.overworld();
 			SimSettlement s = town(server);
 			for (SimPlot p : s.plots()) {
@@ -592,37 +640,47 @@ final class LivingLegs {
 							}
 							BlockState st = level.getBlockState(pos);
 							Locks.Lock l = Locks.lockable(st) ? Locks.at(level, pos, st) : null;
-							if (l != null && l.locked()) {
+							if (l != null && l.locked() && found.size() < 8) {
 								log("lockpick: " + (l.door() ? "door" : "chest") + " at " + pos.toShortString() + " tier " + l.tier() + " of plot #" + p.id()
 									+ " " + spec.archetype().getPath());
-								return pos;
+								found.add(pos);
 							}
 						}
 					}
 				}
 			}
-			return null;
+			return found;
 		});
-		if (lock == null) {
+		if (locks.isEmpty()) {
 			log("lockpick: no locked door or chest in loaded chunks (night locks need the hour)");
 			return;
 		}
-		stand(lock);
 		this.world.getServer().runCommand("gamemode survival @a");
-		settle(1_500);
-		this.world.getServer().runOnServer(server -> {
-			ServerPlayer p = player(server);
-			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(LawItems.LOCKPICK, 5));
-			BlockState st = server.overworld().getBlockState(lock);
-			Locks.Lock l = Locks.at(server.overworld(), lock, st);
-			if (l != null) {
-				LockpickSessions.start(p, l, new BlockHitResult(Vec3.atCenterOf(lock), Direction.UP, lock, false));
-			}
-		});
 		boolean shown = false;
-		for (int i = 0; i < 40 && !shown; i++) {
-			settle(100);
-			shown = this.context.computeOnClient(mc -> mc.gui.screen() instanceof LockpickScreen);
+		BlockPos lock = null;
+		for (BlockPos candidate : locks) {
+			stand(candidate);
+			settle(1_500);
+			boolean started = this.world.getServer().computeOnServer(server -> {
+				ServerPlayer p = player(server);
+				p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(LawItems.LOCKPICK, 5));
+				BlockState st = server.overworld().getBlockState(candidate);
+				Locks.Lock l = Locks.at(server.overworld(), candidate, st);
+				if (l != null) {
+					LockpickSessions.start(p, l, new BlockHitResult(Vec3.atCenterOf(candidate), Direction.UP, candidate, false));
+				}
+				return LockpickSessions.active(p.getUUID());
+			});
+			if (!started) {
+				log("lockpick: someone is watching at " + candidate.toShortString() + " (the law refuses a watched lock)");
+				continue;
+			}
+			lock = candidate;
+			for (int i = 0; i < 40 && !shown; i++) {
+				settle(100);
+				shown = this.context.computeOnClient(mc -> mc.gui.screen() instanceof LockpickScreen);
+			}
+			break;
 		}
 		settle(1_200);
 		this.context.takeScreenshot("hearth_int_lockpick");
@@ -778,10 +836,12 @@ final class LivingLegs {
 				for (QuestInstance q : offers) {
 					if (q.type == want && q.takenBy.isEmpty()) {
 						String lock = QuestManager.lock(p, s, q, QuestStore.get(p));
-						boolean ok = QuestManager.accept(p, s, q.id);
+						boolean ok = lock.isEmpty() && QuestManager.accept(p, s, q.id);
 						took += want.getSerializedName() + " '" + q.text.title() + "' (from " + q.giver.name() + ") accepted " + ok
 							+ (lock.isEmpty() ? "" : " [" + lock + "]") + "; ";
-						break;
+						if (ok) {
+							break;
+						}
 					}
 				}
 			}

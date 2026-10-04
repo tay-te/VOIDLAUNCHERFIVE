@@ -104,6 +104,12 @@ public class IntegrationTour implements FabricClientGameTest {
 			world.getServer().runOnServer(server -> forceChunks(server, town, false));
 
 			arrive(context, world, town);
+			if (Boolean.getBoolean("hearth.tour.livingonly")) {
+				// only the living world's legs (a quicker rerun)
+				settle(context, 8_000);
+				new LivingLegs(context, world, town.id).run();
+				return;
+			}
 			embodied(context, world, town);
 			builder(context, world, town, "builder");
 			questOffer(context, world, town);

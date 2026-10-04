@@ -109,6 +109,9 @@ public final class Production {
 	}
 
 	/** One slice of production and eating. */
+	/** The share of the trades' income a town keeps when the economy module pays wages from it. */
+	static final double ECONOMY_REVENUE = 1.0;
+
 	static void produce(SimSettlement s, SettlementClock.Workforce wf, double days, SimRules r, SimContext c) {
 		SimData data = c.data();
 		double[] frac = s.clock.fractions;
@@ -146,10 +149,10 @@ public final class Production {
 			Crew crew = wf.crews.crews.get(k);
 			double workerDays = n * days * (crew.toolWear() > 0 ? toolFactor : 1);
 			work(s, crew, workerDays, frac, amounts, caps, data, r, c, haulCover, true, reserved);
-			if (!economyWages) {
-				// the town's own income from its trades; with the economy module its taxes and wages take this place
-				coin += r.coin[crew.job().ordinal()] * n * days;
-			}
+			// the town's own income from its trades. With the economy module it is what the town pays its wages out of
+			// (into the residents' purses): without it the treasuries ran dry, wages stopped, every purse emptied and every
+			// household fell to poor by the purse rule (integration 3)
+			coin += r.coin[crew.job().ordinal()] * n * days * (economyWages ? ECONOMY_REVENUE : 1);
 		}
 		eat(s, wf, days, r, data, frac, amounts);
 		settle(s, r, frac, coin);
@@ -544,7 +547,7 @@ public final class Production {
 		double[] frac = s.clock.fractions;
 		SimStockpile stock = s.stockpile();
 		work(s, crew, workerDays, frac, stock.amounts(), stock.capacities(), data, r, c, 1, false, reserved(s));
-		double coin = c.economyHandlesWages() ? 0 : r.coin[job.ordinal()] * workerDays;
+		double coin = r.coin[job.ordinal()] * workerDays * (c.economyHandlesWages() ? ECONOMY_REVENUE : 1);
 		settle(s, r, frac, coin);
 		s.markDirty();
 	}

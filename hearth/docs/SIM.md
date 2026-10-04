@@ -625,3 +625,21 @@ model.json             { "edible": {...}, "perishable": {...}, "cool": [archetyp
 | stand-in mine | 10 stages, 270 cuts; with two miners built in 20 days, 269 ore and stone credited, its site down 26 % |
 | world generation | 99.4–99.6 % of written positions hold their block (with the excavations' cuts) |
 | unit test (placeholder catalogue) | 124 souls, 28 sites: 0.02–0.08 ms per hour step (`StepCostTest`) |
+
+### 16.12 Measured in integration 3 (seed 20261003, Expanse Earth terrain, every phase 3 module, stand-ins for the phase 3 archetypes the build module lacks, 2026-10-04)
+
+Run in the client's integrated server (`gametest/LivingRun`, `-Dhearth.tour=living` with the harness flags), because
+the dedicated server needs its EULA accepted in `hearth/run/eula.txt` first. Same harness, same numbers it would log.
+
+| | |
+|---|---|
+| world | 69 live settlements (6 adopted, 57 founded by `scale=80` and aged 30–300 days, 6 daughter hamlets), 741 souls, 2 210 plots, 2 185 resource sites |
+| the sim's tick work | 0.115 ms per server tick averaged over a minute with 65 settlements (server 0.62 ms/tick); 0.069 ms over the first run's 37 |
+| clock, hour steps (bench, 200 steps) | 0.0056 ms (camp, 4 souls) … 0.0353 ms (32 souls, with planner calls), 0.024–0.040 ms for a 103-soul village (151 plots, 61 sites) |
+| settlement-days | 0.40–0.58 ms per settlement per sim day run a day at a time, planner calls included (6 towns × 20 days) |
+| surveys | 132 live surveys, 4.7 ms avg, all off-thread |
+| chains (6 towns, 20 days) | timber, dressed stone, brick, glass, metal, cloth and fuel made, and construction's bills drew on them (e.g. Tidequay: wood +634 made, 292 built with; dressed stone +132, 134 built with; metal +15, 13 built with) |
+| caravans | 17 sent; on the world clock 14 arrived within three days, 0 lost |
+| decline | Tidequay declined on its own ("the fertile at -1628, 2513 is running out"), 3–5 houses left empty; Thornfield declined at 103 souls ("the treasury is empty"), 6 houses empty. Emptying every site of a 21-soul village at once did not turn it: renewable sites regrew (11 % → 74 % in 180 days) and prosperity bottomed at 0.46 |
+| daughter hamlets | 6 founded 617–1 991 blocks from their parents, e.g. "settlers from Torheim, gone for the stone and ore it lacked" |
+| a town of 150 | not reached: the largest grew to 103 souls in 720 more days (capacity 339, held back by an empty treasury). For a bigger town see §16.11 (0.088 ms for 242 souls) |
