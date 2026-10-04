@@ -14,6 +14,7 @@ import dev.voidmc.hearth.social.FolkFacts;
 import dev.voidmc.hearth.social.SocialConfig;
 import dev.voidmc.hearth.social.SocialLedger;
 import dev.voidmc.hearth.social.SocialModule;
+import dev.voidmc.hearth.social.talk.SocialDialogue;
 import dev.voidmc.hearth.social.calendar.Festival;
 import dev.voidmc.hearth.social.calendar.SocialTime;
 import dev.voidmc.hearth.social.calendar.TownCalendar;
@@ -110,14 +111,15 @@ public final class SocialCommands {
 		src.sendSuccess(() -> Component.translatable("hearth.social.command.events", s.name(), today, SocialConfig.formatClock(SocialTime.minute(now)),
 			TownCalendar.weekday(s.id(), today, cfg.market().weekDays())).withStyle(ChatFormatting.GOLD), false);
 		for (TownEvent e : TownLife.events(s)) {
-			String line = " " + e.key() + "  " + SocialConfig.formatClock(SocialTime.minute(e.start())) + "–" + SocialConfig.formatClock(SocialTime.minute(e.end()))
-				+ (e.activeAt(now) ? "  (on now)" : "") + (e.names().isEmpty() ? "" : "  " + String.join(" & ", e.names()));
-			src.sendSuccess(() -> Component.literal(line), false);
+			String span = "  [" + SocialConfig.formatClock(SocialTime.minute(e.start())) + "–" + SocialConfig.formatClock(SocialTime.minute(e.end())) + "]";
+			src.sendSuccess(() -> Component.literal(" ").append(SocialDialogue.eventLine(e, now)).append(Component.literal(span).withStyle(ChatFormatting.GRAY)),
+				false);
 		}
 		TownCalendar.Upcoming f = TownCalendar.nextFestival(today, s.culture(), s.foundedDay(), s.tier(), cfg.festivals());
 		long market = TownCalendar.nextMarketDay(s.id(), today, cfg.market());
-		src.sendSuccess(() -> Component.literal(" next market: day " + market + (f == null ? "" : ", next festival: " + f.festival().id() + " on day " + f.day())),
-			false);
+		src.sendSuccess(() -> f == null ? Component.translatable("hearth.social.command.next_market", SocialDialogue.days(market - today))
+			: Component.translatable("hearth.social.command.next_market_festival", SocialDialogue.days(market - today),
+				Component.translatable(f.festival().translationKey()), SocialDialogue.days(f.day() - today)), false);
 		return 1;
 	}
 
@@ -146,6 +148,9 @@ public final class SocialCommands {
 					+ " (" + r.job.getSerializedName() + ")"), false);
 			}
 		}
+		if (n == 0) {
+			c.getSource().sendSuccess(() -> Component.translatable("hearth.social.command.no_offices", Component.translatable(s.tier().translationKey())), false);
+		}
 		return n;
 	}
 
@@ -155,7 +160,7 @@ public final class SocialCommands {
 		if (e == null) {
 			return 0;
 		}
-		c.getSource().sendSuccess(() -> Component.translatable("hearth.social.command.forced", e.key(), s.name()), true);
+		c.getSource().sendSuccess(() -> Component.translatable("hearth.social.command.forced", SocialDialogue.eventLine(e, TownLife.now(s)), s.name()), true);
 		return 1;
 	}
 

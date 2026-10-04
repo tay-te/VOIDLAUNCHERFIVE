@@ -178,7 +178,8 @@ stand at the throne, petitioners come and go.
 - **Visiting trader** (market day): stallholders and merchants sell the wares of a trader from the nearest town of
   another culture (or far off): three wares a day from `data/<ns>/hearth_social/wares/<culture>.json`, `ware_stock` (4)
   lots each, at `visiting_markup` (1.3) over the town's own price; a fifth of the coin stays in town, the rest goes to
-  the trader's town if it is live.
+  the trader's town if it is live. Wares are real-world goods (no glowing or fantasy blocks: those belong underground);
+  items of a mod that is not installed, or that it renamed, are skipped. The module reads no Expanse biome ids.
 
 ## 4. Officials' business (conversation)
 

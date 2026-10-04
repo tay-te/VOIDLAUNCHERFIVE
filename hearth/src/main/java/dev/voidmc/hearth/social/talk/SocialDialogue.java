@@ -440,7 +440,8 @@ public final class SocialDialogue implements DialogueProvider {
 		return out;
 	}
 
-	static Component eventLine(TownEvent e, long now) {
+	/** One line saying what an event is and when, in the town's words ("Market day in the square, since 07:00."). */
+	public static Component eventLine(TownEvent e, long now) {
 		boolean on = e.activeAt(now);
 		String when = SocialConfig.formatClock(SocialTime.minute(e.start()));
 		return switch (e.kind()) {
@@ -458,7 +459,7 @@ public final class SocialDialogue implements DialogueProvider {
 		return i < e.names().size() ? e.names().get(i) : "?";
 	}
 
-	static Component days(long d) {
+	public static Component days(long d) {
 		return d <= 0 ? Component.translatable("hearth.social.when.today") : d == 1 ? Component.translatable("hearth.social.when.tomorrow")
 			: Component.translatable("hearth.social.when.days", d);
 	}
