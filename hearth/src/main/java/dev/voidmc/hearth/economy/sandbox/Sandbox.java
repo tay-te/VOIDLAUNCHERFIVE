@@ -10,6 +10,8 @@ import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.testing.SimpleSettlement;
+import dev.voidmc.hearth.economy.EconomyModule;
+import dev.voidmc.hearth.economy.daily.SettlementEconomy;
 import dev.voidmc.hearth.economy.price.PriceTable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,8 +29,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * Dev tooling: an in-memory {@link SimpleSettlement} per player, so the market, bank and property screens and every
  * transaction can be tried without the sim module ({@code /hearth economy sandbox}). Its stockpile follows the culture
- * (plentiful in its specialities, short of what it imports), it has a merchant, a minter, builders, a few houses for
- * sale and coin in its treasury. Forgotten when the server stops; never saved.
+ * (plentiful in its specialities, short of what it imports), it has a merchant at the market stall, a baker, a tailor,
+ * an innkeeper, a smith (whose smithy is for sale as a business), a fence, a minter, a reeve at the town hall, builders,
+ * households with purses, a few houses for sale, a chapel planned (to fund) and coin in its treasury. Forgotten when the
+ * server stops; never saved.
  */
 public final class Sandbox {
 	private static final Map<Long, SimpleSettlement> BY_ID = new HashMap<>();
@@ -103,23 +107,43 @@ public final class Sandbox {
 			Direction.EAST, 12, 2, new CompoundTag());
 		SimpleSettlement.SimplePlot bank = s.addPlot(bankSpec);
 		bank.state = PlotState.BUILT;
-		PlotSpec stallSpec = new PlotSpec(Hearth.id("commerce/market_stall"), Hearth.id(culture.getSerializedName()), 2L, center.offset(0, 0, -8), 5, 4,
-			Direction.SOUTH, 5, 1, new CompoundTag());
-		SimpleSettlement.SimplePlot stall = s.addPlot(stallSpec);
-		stall.state = PlotState.BUILT;
+		SimpleSettlement.SimplePlot stall = built(s, culture, "commerce/market_stall", center.offset(0, 0, -8), 5, 4, 2L);
+		SimpleSettlement.SimplePlot bakery = built(s, culture, "work/bakery", center.offset(-14, 0, -14), 9, 9, 3L);
+		SimpleSettlement.SimplePlot tailor = built(s, culture, "work/tailor", center.offset(-28, 0, -14), 7, 9, 4L);
+		SimpleSettlement.SimplePlot inn = built(s, culture, "commerce/inn", center.offset(0, 0, -26), 13, 11, 5L);
+		SimpleSettlement.SimplePlot smithy = built(s, culture, "work/smithy", center.offset(16, 0, -14), 9, 9, 6L);
+		SimpleSettlement.SimplePlot hall = built(s, culture, "civic/town_hall", center.offset(-16, 0, 16), 13, 13, 7L);
+		PlotSpec chapelSpec = new PlotSpec(Hearth.id("civic/chapel"), Hearth.id(culture.getSerializedName()), 8L, center.offset(30, 0, 20), 9, 15,
+			Direction.WEST, 20, 2, new CompoundTag());
+		s.addPlot(chapelSpec); // planned: a project to fund
 		s.setBeds(8);
 
 		addResident(s, random, "Wenna", "Marrow", JobType.MERCHANT, houses.get(2), stall.id());
 		addResident(s, random, "Osric", "Penhallow", JobType.MINTER, houses.get(2), bank.id());
+		addResident(s, random, "Hob", "Miller", JobType.BAKER, houses.get(1), bakery.id());
+		addResident(s, random, "Tamsin", "Weaver", JobType.TAILOR, houses.get(1), tailor.id());
+		addResident(s, random, "Jory", "Alewife", JobType.INNKEEPER, houses.get(0), inn.id());
+		addResident(s, random, "Bran", "Smith", JobType.SMITH, houses.get(0), smithy.id());
+		addResident(s, random, "Ezra", "Cole", JobType.FENCE, Resident.NO_PLOT, Resident.NO_PLOT);
+		addResident(s, random, "Mabyn", "Trevail", JobType.REEVE, houses.get(2), hall.id());
 		for (int i = 0; i < 4; i++) {
-			addResident(s, random, "Builder", String.valueOf(i + 1), JobType.BUILDER, Resident.NO_PLOT, Resident.NO_PLOT);
+			addResident(s, random, "Builder", String.valueOf(i + 1), JobType.BUILDER, houses.get(i % 3), Resident.NO_PLOT);
 		}
 		for (int i = 0; i < 10; i++) {
 			addResident(s, random, "Folk", String.valueOf(i + 1), i % 3 == 0 ? JobType.FARMER : i % 3 == 1 ? JobType.FORESTER : JobType.NONE,
-				Resident.NO_PLOT, Resident.NO_PLOT);
+				i < 6 ? houses.get(i % 3) : Resident.NO_PLOT, Resident.NO_PLOT);
 		}
-		s.addReputation(player.getUUID(), 30);
+		s.addReputation(player.getUUID(), 40);
+		// a day of its economy: purses seeded, shops opened and stocked, contracts offered
+		SettlementEconomy.dayPassed(s, EconomyModule.day(player.level()));
 		return s;
+	}
+
+	private static SimpleSettlement.SimplePlot built(SimpleSettlement s, Culture culture, String archetype, BlockPos origin, int w, int d, long seed) {
+		SimpleSettlement.SimplePlot plot = s.addPlot(new PlotSpec(Hearth.id(archetype), Hearth.id(culture.getSerializedName()), seed, origin, w, d,
+			Direction.SOUTH, 10, 1, new CompoundTag()));
+		plot.state = PlotState.BUILT;
+		return plot;
 	}
 
 	private static void addResident(SimpleSettlement s, RandomSource random, String given, String family, JobType job, int home, int work) {

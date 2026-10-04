@@ -12,6 +12,7 @@ import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.api.testing.SimpleSettlement;
 import dev.voidmc.hearth.economy.EconomyMenus;
 import dev.voidmc.hearth.economy.EconomyModule;
@@ -25,6 +26,11 @@ import dev.voidmc.hearth.economy.dialogue.EconomyDialogue;
 import dev.voidmc.hearth.economy.market.MarketLedger;
 import dev.voidmc.hearth.economy.price.MarketPricer;
 import dev.voidmc.hearth.economy.price.PriceTable;
+import dev.voidmc.hearth.economy.purse.Households;
+import dev.voidmc.hearth.economy.purse.Purses;
+import dev.voidmc.hearth.economy.shop.Shop;
+import dev.voidmc.hearth.economy.shop.ShopBook;
+import dev.voidmc.hearth.economy.shop.Shops;
 import dev.voidmc.hearth.economy.sandbox.Sandbox;
 import java.util.List;
 import java.util.Locale;
@@ -40,8 +46,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * {@code /hearth money ...}, {@code /hearth market <settlement> prices} and the dev sandbox {@code /hearth economy ...}.
- * Permission level 2 (game masters).
+ * {@code /hearth money ...}, {@code /hearth market <settlement> prices|shops|purses|open [shop]} and the dev sandbox
+ * {@code /hearth economy ...}. Permission level 2 (game masters).
  */
 public final class EconomyCommands {
 	private static final SimpleCommandExceptionType BAD_AMOUNT = new SimpleCommandExceptionType(Component.translatable("hearth.economy.command.bad_amount"));
@@ -77,10 +83,18 @@ public final class EconomyCommands {
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Commands.argument("settlement", StringArgumentType.string()).suggests(SETTLEMENTS)
 					.then(Commands.literal("prices").executes(EconomyCommands::prices))
+					.then(Commands.literal("shops").executes(EconomyCommands::shops))
+					.then(Commands.literal("purses").executes(EconomyCommands::purses))
+					.then(Commands.literal("counter").executes(c -> {
+						EconomyMenus.openBank(c.getSource().getPlayerOrException(), settlement(c), true, true, BankView.TAB_WORKS, false);
+						return 1;
+					}))
 					.then(Commands.literal("open").executes(c -> {
 						EconomyMenus.openMarket(c.getSource().getPlayerOrException(), settlement(c), false);
 						return 1;
-					}))))
+					})
+						.then(Commands.argument("shop", IntegerArgumentType.integer(1, 999))
+							.executes(c -> openShop(c, settlement(c)))))))
 			.then(Commands.literal("economy")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Commands.literal("sandbox")
@@ -89,6 +103,13 @@ public final class EconomyCommands {
 						.executes(c -> sandboxMarket(c, culture(c))))
 					.then(Commands.literal("bank").executes(c -> sandboxBank(c, BankView.TAB_BANK)))
 					.then(Commands.literal("property").executes(c -> sandboxBank(c, BankView.TAB_PROPERTY)))
+					.then(Commands.literal("works").executes(c -> sandboxBank(c, BankView.TAB_WORKS)))
+					.then(Commands.literal("contracts").executes(c -> sandboxBank(c, BankView.TAB_CONTRACTS)))
+					.then(Commands.literal("shop")
+						.then(Commands.argument("shop", IntegerArgumentType.integer(1, 999))
+							.executes(c -> openShop(c, Sandbox.forPlayer(c.getSource().getPlayerOrException(), null)))))
+					.then(Commands.literal("shops").executes(c -> shops(c, Sandbox.forPlayer(c.getSource().getPlayerOrException(), null))))
+					.then(Commands.literal("purses").executes(c -> purses(c, Sandbox.forPlayer(c.getSource().getPlayerOrException(), null))))
 					.then(Commands.literal("talk").executes(EconomyCommands::sandboxTalk))
 					.then(Commands.literal("days")
 						.then(Commands.argument("days", IntegerArgumentType.integer(1, 3650))
@@ -154,6 +175,82 @@ public final class EconomyCommands {
 		MarketLedger.Books b = ledger.books;
 		src.sendSuccess(() -> Component.translatable("hearth.economy.command.prices.books", CoinFormat.format(b.taxes() + b.trade()),
 			CoinFormat.format(b.wages() + b.upkeep()), CoinFormat.format(b.minted())).withStyle(ChatFormatting.GRAY), false);
+		src.sendSuccess(() -> Component.translatable("hearth.economy.command.prices.folk", CoinFormat.format(b.spent()), CoinFormat.format(b.dues()),
+			CoinFormat.format(b.income()), b.hungry()).withStyle(ChatFormatting.GRAY), false);
+		return 1;
+	}
+
+	private static int shops(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		return shops(c, settlement(c));
+	}
+
+	/** Each shop: where, who keeps it, its till and its fullest shelves. */
+	private static int shops(CommandContext<CommandSourceStack> c, Settlement s) {
+		CommandSourceStack src = c.getSource();
+		ShopBook book = Shops.ensure(s, EconomyModule.day(src.getLevel()));
+		src.sendSuccess(() -> Component.translatable("hearth.economy.command.shops.header", s.name(), book.shops.size()).withStyle(ChatFormatting.GOLD), false);
+		int i = 0;
+		for (Shop shop : book.shops.values()) {
+			int n = ++i;
+			Resident keeper = shop.keeper == null ? null : s.resident(shop.keeper);
+			StringBuilder shelves = new StringBuilder();
+			java.util.List<Goods> stocked = new java.util.ArrayList<>(java.util.Arrays.asList(Goods.VALUES));
+			stocked.removeIf(g -> shop.stock(g) <= 0);
+			stocked.sort((a, b) -> Integer.compare(shop.stock(b), shop.stock(a)));
+			for (int k = 0; k < Math.min(4, stocked.size()); k++) {
+				shelves.append(k == 0 ? "" : ", ").append(stocked.get(k).getSerializedName()).append(' ').append(shop.stock(stocked.get(k)));
+			}
+			Component line = Component.translatable("hearth.economy.command.shops.line", n, shop.kind, keeper == null ? "-" : keeper.fullName(),
+				CoinFormat.format(shop.till), shelves.toString()).withStyle(shop.open() ? ChatFormatting.WHITE : ChatFormatting.DARK_GRAY);
+			src.sendSuccess(() -> shop.fence ? line.copy().append(Component.literal(" [fence]").withStyle(ChatFormatting.DARK_PURPLE)) : line, false);
+		}
+		return book.shops.size();
+	}
+
+	private static int purses(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		return purses(c, settlement(c));
+	}
+
+	/** Households: how many, their coin, their stations, who went hungry, and the richest few. */
+	private static int purses(CommandContext<CommandSourceStack> c, Settlement s) {
+		CommandSourceStack src = c.getSource();
+		java.util.List<Households.Household> all = Households.of(s);
+		long total = 0;
+		int hungry = 0;
+		java.util.Map<Station, Integer> stations = new java.util.EnumMap<>(Station.class);
+		for (Households.Household h : all) {
+			total += h.wealth();
+			if (Purses.hunger(h.members().getFirst()) > 0) {
+				hungry++;
+			}
+			stations.merge(h.station(), 1, Integer::sum);
+		}
+		long sum = total;
+		int hungryCount = hungry;
+		src.sendSuccess(() -> Component.translatable("hearth.economy.command.purses.header", s.name(), all.size(), CoinFormat.format(sum), hungryCount)
+			.withStyle(ChatFormatting.GOLD), false);
+		StringBuilder line = new StringBuilder();
+		stations.forEach((st, n) -> line.append(line.isEmpty() ? "" : ", ").append(st.getSerializedName()).append(' ').append(n));
+		src.sendSuccess(() -> Component.literal(line.toString()).withStyle(ChatFormatting.GRAY), false);
+		java.util.List<Households.Household> rich = new java.util.ArrayList<>(all);
+		rich.sort((a, b) -> Long.compare(b.wealth(), a.wealth()));
+		for (int k = 0; k < Math.min(5, rich.size()); k++) {
+			Households.Household h = rich.get(k);
+			src.sendSuccess(() -> Component.translatable("hearth.economy.command.purses.line", h.members().getFirst().fullName(), h.members().size(),
+				h.station().getSerializedName(), CoinFormat.format(h.wealth())).withStyle(ChatFormatting.WHITE), false);
+		}
+		return all.size();
+	}
+
+	/** Opens the n-th shop's counter (as listed by {@code shops}). */
+	private static int openShop(CommandContext<CommandSourceStack> c, Settlement s) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		int n = IntegerArgumentType.getInteger(c, "shop");
+		java.util.List<Shop> list = new java.util.ArrayList<>(Shops.ensure(s, EconomyModule.day(player.level())).shops.values());
+		if (n > list.size()) {
+			throw NO_SETTLEMENT.create();
+		}
+		EconomyMenus.openShop(player, s, list.get(n - 1), false);
 		return 1;
 	}
 

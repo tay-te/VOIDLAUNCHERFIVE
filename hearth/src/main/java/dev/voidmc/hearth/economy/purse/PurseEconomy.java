@@ -16,8 +16,10 @@ import dev.voidmc.hearth.economy.shop.ShopBook;
 import dev.voidmc.hearth.economy.shop.Shops;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Money through people (docs/LIVING_WORLD.md §7.7), one sim day at a time: wages flow from the treasury, the shops and
@@ -53,9 +55,10 @@ public final class PurseEconomy {
 		Holdings holdings = settlement.data(EconomyModule.HOLDINGS);
 		Wages w = wages(settlement, book, holdings, h, cfg.holdings(), day);
 		long taxes = pollTax(settlement, h, day);
-		Spending s = spend(settlement, pricer, book, h, cfg.pricing().spread(), day);
+		List<Households.Household> households = Households.of(settlement);
+		Spending s = spend(settlement, pricer, book, households, h, cfg.pricing().spread(), day);
 		if (cfg.station().followPurse()) {
-			stations(settlement, h, cfg.station(), day);
+			stations(settlement, households, h, cfg.station(), day);
 		}
 		settlement.markDirty();
 		return new Day(w.paid, w.shortPaid, taxes, s.spent, s.tithes, s.hungry, seeded);
@@ -90,6 +93,17 @@ public final class PurseEconomy {
 	static Wages wages(Settlement settlement, ShopBook book, Holdings holdings, EconomyConfig.Households h, EconomyConfig.Holdings hc, long day) {
 		List<Resident> fromTreasury = new ArrayList<>();
 		List<Holdings.Holding> business = new ArrayList<>();
+		Map<Integer, Shop> byPlot = new HashMap<>();
+		Map<UUID, Shop> byKeeper = new HashMap<>();
+		for (Shop shop : book.shops.values()) {
+			if (shop.kind.startsWith("job/")) {
+				if (shop.keeper != null) {
+					byKeeper.put(shop.keeper, shop);
+				}
+			} else {
+				byPlot.put(shop.plot, shop);
+			}
+		}
 		double due = 0;
 		long paid = 0;
 		for (Resident r : settlement.residents()) {
@@ -104,9 +118,9 @@ public final class PurseEconomy {
 				due += wage * hc.productivity();
 				continue;
 			}
-			Shop shop = r.work != Resident.NO_PLOT ? book.get("p" + r.work) : null;
+			Shop shop = r.work != Resident.NO_PLOT ? byPlot.get(r.work) : null;
 			if (shop == null) {
-				shop = book.get("r" + r.id);
+				shop = byKeeper.get(r.id);
 			}
 			long whole = round(wage, settlement.id(), day, r.id.hashCode());
 			if (shop != null && shop.till >= whole) {
@@ -168,7 +182,8 @@ public final class PurseEconomy {
 	private record Spending(long spent, long tithes, int hungry) {
 	}
 
-	static Spending spend(Settlement settlement, MarketPricer pricer, ShopBook book, EconomyConfig.Households h, double spread, long day) {
+	static Spending spend(Settlement settlement, MarketPricer pricer, ShopBook book, List<Households.Household> households, EconomyConfig.Households h,
+		double spread, long day) {
 		EconomyConfig.Shops sc = EconomyModule.config().shops();
 		long spent = 0;
 		long tithes = 0;
@@ -176,7 +191,7 @@ public final class PurseEconomy {
 		List<Shop> foodVendors = honest(Shops.vendors(book, Goods.FOOD));
 		Shop inn = Shops.inn(book);
 		double foodUnit = pricer.unitMid(Goods.FOOD) * (1 + spread / 2);
-		List<Households.Household> households = Households.of(settlement);
+		Market market = new Market(pricer, book, h, spread);
 		for (int k = 0; k < households.size(); k++) {
 			Households.Household hh = households.get(k);
 			int n = hh.members().size();
@@ -209,7 +224,7 @@ public final class PurseEconomy {
 					takeIn(settlement, inn, got, sc.wholesale());
 					spent += got;
 				}
-				spent += comforts(settlement, pricer, book, hh, comfort - innSpend, h, spread, day, salt);
+				spent += comforts(settlement, market, hh, comfort - innSpend, day, salt);
 			}
 
 			long tithe = round(hh.wealth() * h.tithe(), settlement.id(), day, salt ^ 0x717E);
@@ -234,13 +249,58 @@ public final class PurseEconomy {
 		settlement.deposit(toTown);
 	}
 
+	/**
+	 * The day's market as folk see it, worked out once a day: each goods' price to folk, the shops that sell it, and
+	 * each station's basket.
+	 */
+	private static final class Market {
+		final MarketPricer pricer;
+		final double[] unit = new double[Goods.VALUES.length];
+		final List<List<Shop>> vendors = new ArrayList<>(Goods.VALUES.length);
+		final Map<Station, Map<Goods, Double>> baskets = new EnumMap<>(Station.class);
+		final EconomyConfig.Households h;
+		private final ShopBook book;
+		private final double spread;
+
+		Market(MarketPricer pricer, ShopBook book, EconomyConfig.Households h, double spread) {
+			this.pricer = pricer;
+			this.h = h;
+			this.book = book;
+			this.spread = spread;
+			for (Goods g : Goods.VALUES) {
+				this.unit[g.ordinal()] = -1;
+				this.vendors.add(null);
+			}
+		}
+
+		double unit(Goods g) {
+			int i = g.ordinal();
+			if (this.unit[i] < 0) {
+				this.unit[i] = this.pricer.unitMid(g) * (1 + this.spread / 2);
+			}
+			return this.unit[i];
+		}
+
+		List<Shop> vendors(Goods g) {
+			int i = g.ordinal();
+			if (this.vendors.get(i) == null) {
+				this.vendors.set(i, honest(Shops.vendors(this.book, g)));
+			}
+			return this.vendors.get(i);
+		}
+
+		Map<Goods, Double> basket(Station s) {
+			return this.baskets.computeIfAbsent(s, st -> PurseEconomy.basket(st, this.h.consumedGoods()));
+		}
+	}
+
 	/** Spends a household's comfort budget over its station's basket: from a shop's shelves, else the town's surplus. */
-	static long comforts(Settlement settlement, MarketPricer pricer, ShopBook book, Households.Household hh, long budget,
-		EconomyConfig.Households h, double spread, long day, long salt) {
+	private static long comforts(Settlement settlement, Market market, Households.Household hh, long budget, long day, long salt) {
 		if (budget <= 0) {
 			return 0;
 		}
-		Map<Goods, Double> basket = basket(hh.station(), h.consumedGoods());
+		MarketPricer pricer = market.pricer;
+		Map<Goods, Double> basket = market.basket(hh.station());
 		double weights = 0;
 		for (double w : basket.values()) {
 			weights += w;
@@ -251,7 +311,7 @@ public final class PurseEconomy {
 		long spent = 0;
 		for (Map.Entry<Goods, Double> e : basket.entrySet()) {
 			Goods g = e.getKey();
-			double unit = pricer.unitMid(g) * (1 + spread / 2);
+			double unit = market.unit(g);
 			if (unit <= 0) {
 				continue;
 			}
@@ -260,7 +320,7 @@ public final class PurseEconomy {
 				continue;
 			}
 			Shop vendor = null;
-			for (Shop s : honest(Shops.vendors(book, g))) {
+			for (Shop s : market.vendors(g)) {
 				if (s.stock(g) > 0) {
 					vendor = s;
 					break;
@@ -354,9 +414,10 @@ public final class PurseEconomy {
 	}
 
 	/** Moves each household's station after its purse, at most one step, and not again within the hold. */
-	static void stations(Settlement settlement, EconomyConfig.Households h, EconomyConfig.Station cfg, long day) {
+	static void stations(Settlement settlement, List<Households.Household> households, EconomyConfig.Households h, EconomyConfig.Station cfg,
+		long day) {
 		boolean gentry = settlement.tier().ordinal() >= SettlementTier.TOWN.ordinal();
-		for (Households.Household hh : Households.of(settlement)) {
+		for (Households.Household hh : households) {
 			Resident first = hh.members().getFirst();
 			long last = Purses.stationDay(first);
 			if (last != Long.MIN_VALUE && day - last < cfg.holdDays()) {

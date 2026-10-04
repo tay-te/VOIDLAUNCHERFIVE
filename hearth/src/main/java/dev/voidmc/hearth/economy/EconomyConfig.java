@@ -234,7 +234,7 @@ public record EconomyConfig(Pricing pricing, Treasury treasury, Bank bank, Prope
 	 */
 	public record Households(Map<String, Double> wages, double pollTax, double foodPerHead, double reserveDays, double comfortShare,
 		double innShare, double tithe, double startingPurseDays, double wageCapShare, List<String> consumedGoods, boolean enabled) {
-		public static final Households DEFAULTS = new Households(defaultWages(), 1.0, 1.0, 6, 0.12, 0.3, 0.004, 10, 0.25,
+		public static final Households DEFAULTS = new Households(defaultWages(), 1.0, 1.0, 6, 0.06, 0.3, 0.004, 10, 0.25,
 			List.of("cloth", "candles", "luxury", "books", "dye", "specialty"), true);
 
 		public static final Codec<Households> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -432,7 +432,7 @@ public record EconomyConfig(Pricing pricing, Treasury treasury, Bank bank, Prope
 	 * @param holdDays      days a station is kept before it can move again
 	 */
 	public record Station(boolean followPurse, double riseDays, double fallDays, int hungerDays, int holdDays) {
-		public static final Station DEFAULTS = new Station(true, 60, 2, 3, 10);
+		public static final Station DEFAULTS = new Station(true, 25, 2, 3, 10);
 
 		public static final Codec<Station> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("follow_purse", DEFAULTS.followPurse).forGetter(Station::followPurse),
