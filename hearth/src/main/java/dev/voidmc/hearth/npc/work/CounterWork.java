@@ -52,12 +52,20 @@ final class CounterWork implements WorkBehaviour {
 		BlockPos look = counter.pos().relative(counter.facing(), 3);
 		ItemStack held = switch (this.job) {
 			case MINTER -> new ItemStack(Items.GOLD_INGOT);
+			case TRADER -> this.round % 2 == 0 ? new ItemStack(Items.BUNDLE) : new ItemStack(Items.EMERALD);
+			case FENCE -> this.round % 3 == 0 ? new ItemStack(Items.GOLD_NUGGET) : ItemStack.EMPTY;
 			case INNKEEPER -> new ItemStack(Items.GLASS_BOTTLE);
 			default -> this.round % 2 == 0 ? new ItemStack(Items.PAPER) : ItemStack.EMPTY;
 		};
 		FolkPose pose = this.round % 3 == 1 ? FolkPose.CRAFT : FolkPose.NONE;
 		return new Tasks.Linger(counter.pos(), look, pose, 500 + brain.random.nextInt(400), held, ItemStack.EMPTY, null,
-			this.job == JobType.MERCHANT ? "at the stall" : this.job == JobType.MINTER ? "at the bank counter" : "behind the bar");
+			switch (this.job) {
+				case MERCHANT -> "at the stall";
+				case TRADER -> "trading at the stall";
+				case MINTER -> "at the bank counter";
+				case FENCE -> "minding the shop";
+				default -> "behind the bar";
+			});
 	}
 
 	private static @Nullable Poi counter(ResidentPlaces p) {

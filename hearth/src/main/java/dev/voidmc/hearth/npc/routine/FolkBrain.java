@@ -2,6 +2,7 @@ package dev.voidmc.hearth.npc.routine;
 
 import dev.voidmc.hearth.api.AgeStage;
 import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.NpcService;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.npc.NpcConfig;
@@ -14,6 +15,9 @@ import dev.voidmc.hearth.npc.entity.FolkSpots;
 import dev.voidmc.hearth.npc.person.NpcData;
 import dev.voidmc.hearth.npc.person.Trait;
 import dev.voidmc.hearth.npc.place.ResidentPlaces;
+import dev.voidmc.hearth.npc.service.BehaviourRunner;
+import dev.voidmc.hearth.npc.service.Behaviours;
+import dev.voidmc.hearth.npc.service.FolkHandleImpl;
 import dev.voidmc.hearth.npc.talk.Greetings;
 import dev.voidmc.hearth.npc.work.WorkBehaviour;
 import java.util.HashMap;
@@ -43,6 +47,10 @@ import org.jspecify.annotations.Nullable;
  * are doing about it now ({@link Task}), and the small human things on the side: looking at people, greeting the
  * player, chatting with neighbours.
  *
+ * <p>Other modules' {@link NpcService.FolkBehaviour}s run alongside the routine through a {@link BehaviourRunner}: the
+ * routine itself counts as priority {@link #routinePriority} (work 50, sleep 90, fleeing 250...), and a behaviour ranked
+ * above it takes the folk over until it is done; the routine then plans afresh.
+ *
  * <p>Cheap by design. It thinks every few ticks (more often when a player is close), re-reads its schedule once a
  * second, asks for paths only when it must and never more than once per cooldown, and looks for threats with one
  * small box query a second.
@@ -61,6 +69,21 @@ public final class FolkBrain {
 	public final RandomSource random;
 	private final long seed;
 	private final WorkBehaviour work;
+	private final BehaviourRunner behaviours = new BehaviourRunner();
+	private final FolkHandleImpl handle;
+	private final BehaviourRunner.Owner owner = new BehaviourRunner.Owner() {
+		@Override
+		public void takeOver(NpcService.FolkBehaviour behaviour) {
+			onTakeOver();
+		}
+
+		@Override
+		public void handBack(NpcService.FolkBehaviour behaviour) {
+			onHandBack();
+		}
+	};
+	private int nextPoll;
+	private @Nullable ServerLevel lastLevel;
 
 	private @Nullable Schedule schedule;
 	private long scheduleDay = Long.MIN_VALUE;
@@ -103,9 +126,11 @@ public final class FolkBrain {
 		this.seed = resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits();
 		this.random = RandomSource.create(this.seed ^ folk.getId());
 		this.work = WorkBehaviour.of(resident.job, resident.age);
+		this.handle = new FolkHandleImpl(this);
 		this.lastThink = folk.tickCount;
 		// Stagger evaluations across a crowd.
 		this.nextEvaluate = folk.tickCount + (int) Math.floorMod(this.seed, EVALUATE_EVERY);
+		this.nextPoll = folk.tickCount + 1 + (int) Math.floorMod(this.seed >> 5, NpcModule.config().perception().behaviourPoll());
 	}
 
 	public static NpcConfig.Ai config() {
@@ -116,6 +141,24 @@ public final class FolkBrain {
 
 	public void tick(ServerLevel level) {
 		int now = this.folk.tickCount;
+		this.lastLevel = level;
+		if (now >= this.nextPoll) {
+			this.nextPoll = now + NpcModule.config().perception().behaviourPoll();
+			List<NpcService.FolkBehaviour> all = Behaviours.all();
+			if (!all.isEmpty() && all.get(0).priority() > Math.max(routinePriority(), this.behaviours.priority())) {
+				this.behaviours.poll(this.handle, routinePriority(), all, this.owner);
+			}
+		}
+		if (this.behaviours.active()) {
+			// The day and its dangers stay current, so a reaction above the behaviour can still take over.
+			if (now >= this.nextEvaluate) {
+				this.nextEvaluate = now + EVALUATE_EVERY;
+				evaluate(level);
+			}
+			if (this.behaviours.active() && this.behaviours.tick(this.handle, this.owner)) {
+				return;
+			}
+		}
 		if (this.engagedWith != null) {
 			tickEngaged(level, now);
 			return;
@@ -140,14 +183,16 @@ public final class FolkBrain {
 		if (this.task == null) {
 			this.task = Plans.plan(this, level);
 		}
+		boolean bySteps = false;
 		if (this.task != null) {
+			bySteps = this.task.creditedBySteps();
 			Task.Status status = this.task.tick(this, level, elapsed);
 			if (status != Task.Status.RUNNING) {
 				this.task.stop(this, level);
 				this.task = null;
 			}
 		}
-		if (this.activity == Activity.WORK) {
+		if (this.activity == Activity.WORK && !bySteps) {
 			this.workTicks += elapsed;
 		}
 		social(level, now);
@@ -191,6 +236,21 @@ public final class FolkBrain {
 		} else if (want.outdoors() && level.isRainingAt(this.folk.blockPosition().above()) && !hardy(level)) {
 			want = Activity.SHELTER;
 		}
+		if (this.behaviours.active()) {
+			if (routinePriority(want) >= this.behaviours.priority()) {
+				// a reaction that outranks the behaviour (a monster, the alarm): the behaviour yields
+				this.behaviours.stop(this.handle, this.owner);
+			} else {
+				// the behaviour keeps the folk; the routine only notes where the day has got to
+				if (this.activity == Activity.WORK && want != Activity.WORK && this.workTicks > 0) {
+					this.data.addLabour(this.workTicks);
+					this.workTicks = 0;
+				}
+				this.activity = want;
+				this.block = b;
+				return;
+			}
+		}
 		if (want != this.activity || (want == b.activity() && !b.equals(this.block))) {
 			switchTo(level, want, b);
 		} else if (guard && this.threat != null && this.activity == Activity.WORK && (this.task == null || !this.task.urgent())) {
@@ -199,13 +259,17 @@ public final class FolkBrain {
 		}
 	}
 
-	/** Guards keep their watch in the rain and farmers their fields in a shower (not in a storm). */
+	/** Guards keep their watch in the rain (and miners are under ground); outdoor trades work through a shower, not a storm. */
 	private boolean hardy(ServerLevel level) {
 		JobType job = this.resident.job;
 		if (this.activity != Activity.WORK) {
 			return false;
 		}
-		return job == JobType.GUARD || (!level.isThundering() && (job == JobType.FARMER || job == JobType.FISHER || job == JobType.BUILDER));
+		return switch (job) {
+			case GUARD, JAILER, MINER -> true;
+			case FARMER, FISHER, BUILDER, FORESTER, QUARRIER, HERDER, HAULER, CLAY_DIGGER, SALTER, CHARCOAL_BURNER, STABLEMASTER -> !level.isThundering();
+			default -> false;
+		};
 	}
 
 	private void switchTo(ServerLevel level, Activity activity, Schedule.Block block) {
@@ -248,6 +312,75 @@ public final class FolkBrain {
 			}
 		}
 		return best;
+	}
+
+	// ---------------------------------------------------------------- behaviours from other modules
+
+	/** The routine's own priority now, against which other modules' behaviours are weighed (docs/FOLK.md §13). */
+	public int routinePriority() {
+		if (this.task != null && this.task.urgent()) {
+			return 299;
+		}
+		if (this.engagedWith != null) {
+			// in conversation with a player: only reactions and duty interrupt
+			return 199;
+		}
+		return routinePriority(this.activity);
+	}
+
+	/** The priority of each part of the day; reactions the brain handles itself rank with other modules' reactions. */
+	public static int routinePriority(Activity activity) {
+		return switch (activity) {
+			case FLEE -> 250;
+			case ALARM -> 240;
+			case SLEEP -> 90;
+			case SHELTER -> 60;
+			case WORK -> 50;
+			case EAT -> 40;
+			case WAKE, HOME -> 30;
+			case LEISURE -> 20;
+		};
+	}
+
+	private void onTakeOver() {
+		ServerLevel level = this.lastLevel;
+		if (this.task != null && level != null) {
+			this.task.stop(this, level);
+		}
+		this.task = null;
+		if (this.activity == Activity.WORK && this.workTicks > 0) {
+			this.data.addLabour(this.workTicks);
+			this.workTicks = 0;
+		}
+		endChat();
+		if (this.engagedWith != null) {
+			disengage();
+		}
+		this.folk.setFolkPose(FolkPose.NONE);
+		this.poseUntil = 0;
+		hold(ItemStack.EMPTY, ItemStack.EMPTY);
+		resetWalk();
+	}
+
+	private void onHandBack() {
+		this.folk.getNavigation().stop();
+		if (this.folk.isSleeping() && this.activity != Activity.SLEEP) {
+			this.folk.stopSleeping();
+		}
+		this.folk.setFolkPose(FolkPose.NONE);
+		hold(ItemStack.EMPTY, ItemStack.EMPTY);
+		resetWalk();
+		this.task = null;
+	}
+
+	/** This folk as other modules drive it. */
+	public FolkHandleImpl handle() {
+		return this.handle;
+	}
+
+	/** Other modules' behaviour now driving this folk, or null while the routine has them. */
+	public NpcService.@Nullable FolkBehaviour behaviour() {
+		return this.behaviours.current();
 	}
 
 	// ---------------------------------------------------------------- people
@@ -516,9 +649,18 @@ public final class FolkBrain {
 
 	public void onHurt(ServerLevel level, DamageSource source) {
 		if (source.getEntity() instanceof ServerPlayer player) {
-			// Folk remember who hurt them; the town does too.
+			// Folk remember who hurt them; the town does too. With the law module, assault goes through witnesses and the
+			// courts (it reports the deed); without it, the standing module hears of it directly, or the raw number moves.
 			this.data.addMood(-15);
-			this.settlement.addReputation(player.getUUID(), -3);
+			if (dev.voidmc.hearth.api.HearthServices.law() == null) {
+				dev.voidmc.hearth.api.StandingService standing = dev.voidmc.hearth.api.HearthServices.standing();
+				if (standing != null) {
+					standing.deed(new dev.voidmc.hearth.api.StandingService.Deed(player.getUUID(), this.settlement.id(), "npc:hurt", -3, this.resident.id,
+						this.folk.blockPosition(), true));
+				} else {
+					this.settlement.addReputation(player.getUUID(), -3);
+				}
+			}
 			this.settlement.markDirty();
 			if (this.engagedWith == player) {
 				disengage();
@@ -537,6 +679,8 @@ public final class FolkBrain {
 
 	/** The entity is being folded back into its record: end the task (taking down scaffolding), credit labour. */
 	public void onFold(ServerLevel level) {
+		this.lastLevel = level;
+		this.behaviours.stop(this.handle, this.owner);
 		if (this.task != null) {
 			this.task.stop(this, level);
 			this.task = null;
@@ -551,6 +695,10 @@ public final class FolkBrain {
 
 	public String describe() {
 		Schedule.Block b = this.block;
+		NpcService.FolkBehaviour running = this.behaviours.current();
+		if (running != null) {
+			return "behaviour " + running.id() + " (priority " + running.priority() + ") over " + this.activity;
+		}
 		return this.activity + (b != null && b.leisure() != null ? " (" + b.leisure() + ")" : "")
 			+ (this.task != null ? " / " + this.task.describe() : "") + (this.threat != null ? " / threat " + this.threat.getName().getString() : "");
 	}

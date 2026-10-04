@@ -1,5 +1,9 @@
 package dev.voidmc.hearth.npc.embody;
 
+import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.Resident;
+import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.npc.person.Office;
 import dev.voidmc.hearth.npc.place.SettlementPlaces;
 import dev.voidmc.hearth.npc.talk.TownNews;
 import java.util.HashMap;
@@ -19,9 +23,17 @@ public final class TownState {
 	public final TownNews news = new TownNews();
 	/** Plot id per builder resident, so builders spread over the plots under construction. */
 	public final Map<UUID, Integer> builderClaims = new HashMap<>();
+	/** Plot id per gatherer (miners, quarriers, diggers, foresters on a plantation), so they spread over excavations. */
+	public final Map<UUID, Integer> gatherClaims = new HashMap<>();
+	/** Trees a forester has marked for felling (log base, packed), so two foresters never take the same tree. */
+	public final java.util.Set<Long> treesClaimed = new java.util.HashSet<>();
 	private long alarmUntil = Long.MIN_VALUE;
 	private @Nullable BlockPos alarmAt;
 	private long bellRungAt = -1_000_000_000L;
+	/** Who holds each office (captain, master builder); recomputed when residents come or go. */
+	private final Map<Office, UUID> officeHolders = new java.util.EnumMap<>(Office.class);
+	private boolean officesDirty = true;
+	private boolean officesChanged;
 
 	public TownState(long settlementId) {
 		this.settlementId = settlementId;
@@ -48,6 +60,64 @@ public final class TownState {
 		}
 		this.bellRungAt = gameTime;
 		return true;
+	}
+
+	/** Residents came or went: offices may have changed hands. */
+	public void invalidateOffices() {
+		this.officesDirty = true;
+	}
+
+	/** The office a resident holds here (the guard captain, the master builder), or {@link Office#NONE}. */
+	public Office office(Settlement settlement, Resident resident) {
+		refreshOffices(settlement);
+		for (Map.Entry<Office, UUID> e : this.officeHolders.entrySet()) {
+			if (e.getValue().equals(resident.id)) {
+				return e.getKey();
+			}
+		}
+		return Office.NONE;
+	}
+
+	/** The holder of an office, or null if there is none (a trade needs two adults before one of them leads). */
+	public @Nullable UUID holder(Settlement settlement, Office office) {
+		refreshOffices(settlement);
+		return this.officeHolders.get(office);
+	}
+
+	/** True once after the offices changed hands, so embodied folk can be re-dressed. */
+	public boolean officesChanged() {
+		boolean c = this.officesChanged;
+		this.officesChanged = false;
+		return c;
+	}
+
+	private void refreshOffices(Settlement settlement) {
+		if (!this.officesDirty) {
+			return;
+		}
+		this.officesDirty = false;
+		Map<Office, UUID> before = new java.util.EnumMap<>(this.officeHolders);
+		this.officeHolders.clear();
+		for (Office o : Office.values()) {
+			JobType trade = o.trade();
+			UUID h = trade == null ? null : Office.holder(settlement, trade);
+			if (h != null) {
+				this.officeHolders.put(o, h);
+			}
+		}
+		if (!before.equals(this.officeHolders)) {
+			this.officesChanged = true;
+		}
+	}
+
+	public int gatherClaimsOn(int plotId) {
+		int n = 0;
+		for (int p : this.gatherClaims.values()) {
+			if (p == plotId) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	public int claimsOn(int plotId) {

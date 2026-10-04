@@ -19,6 +19,14 @@ public interface Task {
 		return false;
 	}
 
+	/**
+	 * True for work whose results reach the sim step by step through {@code Settlement.advanceConstruction} (building,
+	 * cutting an excavation): its time is then not also reported as labour, or the town would be paid twice.
+	 */
+	default boolean creditedBySteps() {
+		return false;
+	}
+
 	/** A short description for the debug command. */
 	default String describe() {
 		return getClass().getSimpleName();

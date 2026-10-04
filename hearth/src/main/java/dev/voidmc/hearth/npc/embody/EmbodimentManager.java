@@ -12,6 +12,9 @@ import dev.voidmc.hearth.npc.entity.Folk;
 import dev.voidmc.hearth.npc.entity.FolkEntities;
 import dev.voidmc.hearth.npc.entity.FolkSpots;
 import dev.voidmc.hearth.npc.person.NpcData;
+import dev.voidmc.hearth.npc.person.Office;
+import dev.voidmc.hearth.npc.person.Stations;
+import dev.voidmc.hearth.npc.service.Escorts;
 import dev.voidmc.hearth.npc.place.ResidentPlaces;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
 import dev.voidmc.hearth.npc.routine.RoutinePlacement;
@@ -131,8 +134,16 @@ public final class EmbodimentManager {
 		List<ServerPlayer> players = level.players();
 		List<EmbodimentSelector.Candidate> candidates = new ArrayList<>(settlement.population());
 		double nearestWish = Double.MAX_VALUE;
+		boolean offices = town.officesChanged();
 		for (Resident r : settlement.residents()) {
 			Folk f = this.embodied.get(r.id);
+			if (f != null && Stations.sync(r)) {
+				settlement.markDirty();
+			}
+			if (f != null && (offices || f.station() != r.station)) {
+				// a household rose or fell, or an office changed hands: dress them for it
+				f.setStanding(r.station, town.office(settlement, r));
+			}
 			BlockPos pos = f != null ? f.blockPosition() : placement(level, settlement, r, town).pos();
 			double d = Double.POSITIVE_INFINITY;
 			for (ServerPlayer p : players) {
@@ -158,7 +169,7 @@ public final class EmbodimentManager {
 			cfg.despawnRadius(), STICKINESS);
 		for (UUID id : plan.fold()) {
 			Folk f = this.embodied.get(id);
-			if (f != null) {
+			if (f != null && !Escorts.pinned(id)) {
 				fold(level, f, true);
 			}
 		}
@@ -233,9 +244,45 @@ public final class EmbodimentManager {
 		return folk;
 	}
 
+	/**
+	 * Makes a resident into an entity beside {@code near} rather than where their routine puts them (an escort that
+	 * begins where the player stands). Honours the server cap, making room by folding the entity farthest from any
+	 * player if it must. Returns null if there is no room or no place to stand.
+	 */
+	public @Nullable Folk spawnNear(ServerLevel level, Settlement settlement, Resident resident, BlockPos near) {
+		Folk existing = this.embodied.get(resident.id);
+		if (existing != null && !existing.isFolded()) {
+			return existing;
+		}
+		NpcConfig.Embodiment cfg = NpcModule.config().embodiment();
+		if (this.embodied.size() >= cfg.maxPerServer() && makeRoom(level.getServer(), 0) == 0) {
+			return null;
+		}
+		BlockPos stand = FolkSpots.standableNear(level, near, 4);
+		if (stand == null || !level.isPositionEntityTicking(stand)) {
+			return null;
+		}
+		Folk folk = FolkEntities.FOLK.create(level, EntitySpawnReason.EVENT);
+		if (folk == null) {
+			return null;
+		}
+		bind(level, folk, settlement, resident, town(settlement));
+		folk.snapTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, level.getRandom().nextFloat() * 360.0F, 0.0F);
+		if (!level.addFreshEntity(folk)) {
+			this.embodied.remove(resident.id, folk);
+			settlement.setResidentEmbodied(resident.id, false);
+			return null;
+		}
+		return folk;
+	}
+
 	/** Attaches an entity to a resident: identity, health, brain, bookkeeping. */
 	public void bind(ServerLevel level, Folk folk, Settlement settlement, Resident resident, TownState town) {
-		folk.setIdentity(resident.id, resident.fullName(), resident.appearance, settlement.culture(), resident.job, resident.age, resident.female);
+		if (Stations.sync(resident)) {
+			settlement.markDirty();
+		}
+		folk.setIdentity(resident.id, resident.fullName(), resident.appearance, settlement.culture(), resident.job, resident.age, resident.female,
+			resident.station, town.office(settlement, resident));
 		folk.setSettlementId(settlement.id());
 		NpcData data = NpcData.of(resident);
 		float health = data.health();
@@ -269,6 +316,7 @@ public final class EmbodimentManager {
 		if (id != null) {
 			this.embodied.remove(id, folk);
 			this.lastDistance.remove(id);
+			Escorts.gone(id);
 		}
 		folk.setBrain(null);
 		if (discard) {
@@ -291,6 +339,12 @@ public final class EmbodimentManager {
 		}
 	}
 
+	/** An escorted folk: followed through their settlement going abstract, until the escort ends. */
+	private static boolean pinned(Folk f) {
+		UUID id = f.residentId();
+		return id != null && Escorts.pinned(id);
+	}
+
 	public void foldAll(MinecraftServer server) {
 		for (Folk f : new ArrayList<>(this.embodied.values())) {
 			if (f.level() instanceof ServerLevel level) {
@@ -307,7 +361,7 @@ public final class EmbodimentManager {
 			ids.add(s.id());
 		}
 		for (Folk f : new ArrayList<>(this.embodied.values())) {
-			if (f.level() == level && !ids.contains(f.settlementId())) {
+			if (f.level() == level && !ids.contains(f.settlementId()) && !pinned(f)) {
 				fold(level, f, true);
 			}
 		}
@@ -331,6 +385,7 @@ public final class EmbodimentManager {
 		if (id != null) {
 			this.embodied.remove(id, folk);
 			this.lastDistance.remove(id);
+			Escorts.gone(id);
 		}
 		if (brain == null) {
 			return;
@@ -341,6 +396,15 @@ public final class EmbodimentManager {
 		s.setResidentEmbodied(r.id, false);
 		creditLabour(brain);
 		s.removeResident(r.id);
+		if (source.getEntity() instanceof ServerPlayer killer && HearthServices.law() == null) {
+			// Without the law module nobody tries the killer, but the town does not forget.
+			dev.voidmc.hearth.api.StandingService standing = HearthServices.standing();
+			if (standing != null) {
+				standing.deed(new dev.voidmc.hearth.api.StandingService.Deed(killer.getUUID(), s.id(), "npc:killed", -100, r.id, folk.blockPosition(), true));
+			} else {
+				s.addReputation(killer.getUUID(), -50);
+			}
+		}
 		s.markDirty();
 		if (NpcModule.config().threats().deathMessages()) {
 			Component job = Component.translatable(r.age == AgeStage.CHILD ? "hearth.npc.child" : "hearth.npc.job." + r.job.getSerializedName());
@@ -368,7 +432,7 @@ public final class EmbodimentManager {
 	/** The sim says a settlement stopped being embodied: everyone back to records. */
 	public void onSettlementAbstract(ServerLevel level, long settlementId) {
 		for (Folk f : new ArrayList<>(this.embodied.values())) {
-			if (f.level() == level && f.settlementId() == settlementId) {
+			if (f.level() == level && f.settlementId() == settlementId && !pinned(f)) {
 				fold(level, f, true);
 			}
 		}
@@ -484,6 +548,7 @@ public final class EmbodimentManager {
 				}
 			}
 		}
+		Escorts.housekeeping(server.overworld().getGameTime());
 		// Forget towns and cached places nobody has asked about in a while.
 		long now = server.getTickCount();
 		Iterator<Map.Entry<UUID, CachedPlaces>> it = this.placeCache.entrySet().iterator();

@@ -7,6 +7,7 @@ import dev.voidmc.hearth.api.HearthConfig;
 import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.SettlementEvents;
 import dev.voidmc.hearth.mixin.npc.MobAccessor;
+import dev.voidmc.hearth.npc.caravan.Caravans;
 import dev.voidmc.hearth.npc.dev.NpcCommands;
 import dev.voidmc.hearth.npc.dev.NpcSandbox;
 import dev.voidmc.hearth.npc.embody.EmbodimentManager;
@@ -15,6 +16,8 @@ import dev.voidmc.hearth.npc.entity.Folk;
 import dev.voidmc.hearth.npc.entity.FolkEntities;
 import dev.voidmc.hearth.npc.person.HearthResidentFactory;
 import dev.voidmc.hearth.npc.person.NameBank;
+import dev.voidmc.hearth.npc.service.Escorts;
+import dev.voidmc.hearth.npc.service.NpcServiceImpl;
 import dev.voidmc.hearth.npc.talk.Conversations;
 import dev.voidmc.hearth.npc.talk.DialogueTemplates;
 import dev.voidmc.hearth.npc.talk.Greetings;
@@ -57,6 +60,8 @@ public final class NpcModule {
 	private static NpcConfig config = NpcConfig.DEFAULTS;
 	private static final EmbodimentManager EMBODIMENT = new EmbodimentManager();
 	private static final Conversations CONVERSATIONS = new Conversations();
+	private static final NpcServiceImpl SERVICE = new NpcServiceImpl(EMBODIMENT);
+	private static final Caravans CARAVANS = new Caravans();
 
 	private NpcModule() {
 	}
@@ -78,12 +83,25 @@ public final class NpcModule {
 		return CONVERSATIONS;
 	}
 
+	/** Caravans on the roads between towns, met where a player is. */
+	public static Caravans caravans() {
+		return CARAVANS;
+	}
+
+	/** The npc module's {@link dev.voidmc.hearth.api.NpcService}, as registered with {@link HearthServices}. */
+	public static NpcServiceImpl service() {
+		return SERVICE;
+	}
+
 	public static void init() {
 		config = HearthConfig.load("npc", NpcConfig.CODEC, NpcConfig.DEFAULTS);
 		FolkEntities.init();
 		// Touch the key so it is registered before any world loads.
 		Hearth.LOG.debug("npc data key {}", ScaffoldLedger.KEY.id());
 		HearthServices.setResidents(new HearthResidentFactory(NpcTime::today));
+		// Folk lookups, perception, escorts and the behaviours other modules teach folk (guards, witnesses, repairs...).
+		HearthServices.setNpc(SERVICE);
+		SERVICE.registerBehaviour(new Escorts.Behaviour());
 		DialogueProvider.register(new NpcDialogue());
 		NpcSandbox.init();
 		registerNetworking();
@@ -102,17 +120,21 @@ public final class NpcModule {
 	private static void registerEvents() {
 		ServerLifecycleEvents.SERVER_STARTED.register(NpcTime::setServer);
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-			// Everyone back into their records before the sim saves them.
+			// Everyone back into their records before the sim saves them; caravans off the road.
 			EMBODIMENT.foldAll(server);
+			CARAVANS.foldAll();
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			EMBODIMENT.onServerStopped();
+			Escorts.clear();
+			CARAVANS.clear();
 			dev.voidmc.hearth.npc.talk.Rumours.clear();
 			NpcSandbox.clearAll();
 			NpcTime.setServer(null);
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			EMBODIMENT.tick(server);
+			CARAVANS.tick(server);
 			if (server.getTickCount() % 100 == 0) {
 				CONVERSATIONS.tick();
 			}
@@ -145,6 +167,7 @@ public final class NpcModule {
 			}
 		});
 		SettlementEvents.RESIDENT_ADDED.register((world, s, r) -> {
+			EMBODIMENT.town(s).invalidateOffices();
 			if (world.day() - s.foundedDay() > 0) {
 				EMBODIMENT.town(s).news.add(new TownNews.Item(TownNews.Kind.ARRIVED, world.day(), r.givenName, null, 0, null));
 			}
@@ -157,7 +180,15 @@ public final class NpcModule {
 			} else {
 				EMBODIMENT.town(s).news.add(new TownNews.Item(TownNews.Kind.LEFT, world.day(), leftFor, null, 0, null));
 			}
+			EMBODIMENT.town(s).invalidateOffices();
 			EMBODIMENT.onResidentRemoved(r.id);
+		});
+		// Caravans: the sim moves the goods; near a player the caravan is on the road.
+		SettlementEvents.CARAVAN.register(CARAVANS::onCaravan);
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity.level() instanceof net.minecraft.server.level.ServerLevel level && entity.entityTags().contains(Caravans.TAG)) {
+				CARAVANS.onAnimalDeath(level, entity, source);
+			}
 		});
 		SettlementEvents.FOUNDED.register((world, s) ->
 			EMBODIMENT.town(s).news.add(new TownNews.Item(TownNews.Kind.FOUNDED, world.day(), s.name(), null, 0, null)));

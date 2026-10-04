@@ -6,6 +6,7 @@ import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Resident;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.client.npc.ConversationScreen;
 import dev.voidmc.hearth.npc.NpcConfig;
 import dev.voidmc.hearth.npc.NpcModule;
@@ -14,6 +15,7 @@ import dev.voidmc.hearth.npc.dev.SandboxSettlement;
 import dev.voidmc.hearth.npc.entity.Folk;
 import dev.voidmc.hearth.npc.entity.FolkEntities;
 import dev.voidmc.hearth.npc.entity.FolkPose;
+import dev.voidmc.hearth.npc.person.Office;
 import dev.voidmc.hearth.npc.talk.TalkPayloads;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,16 +40,26 @@ import net.minecraft.world.item.Items;
  *
  * <p>Entrypoint: {@code dev.voidmc.hearth.gametest.npc.FolkPortraits}. System property {@code hearth.npc.tour.settle}
  * (ms per still shot, default 6000) and {@code hearth.npc.tour.build} (seconds to watch the builder, default 150); environment
- * {@code HEARTH_NPC_TOUR=builder} watches only the builder.
+ * {@code HEARTH_NPC_TOUR=builder} watches only the builder, {@code HEARTH_NPC_TOUR=living} only the phase 3 shots: dress by station
+ * and the new trades, a quarrier working a quarry pit, a forester felling and replanting, a caravan on the road, an
+ * escort, and another module's behaviour taking a folk over.
  */
 public class FolkPortraits implements FabricClientGameTest {
 	private static final long SETTLE_MS = Long.getLong("hearth.npc.tour.settle", 6_000L);
 	private static final int BUILD_SECONDS = Integer.getInteger("hearth.npc.tour.build", 150);
 	private static final int Y = 220;
 
-	private record Spec(Culture culture, JobType job, AgeStage age, boolean female, FolkPose pose) {
+	private record Spec(Culture culture, JobType job, AgeStage age, boolean female, FolkPose pose, Station station, Office office) {
+		Spec(Culture culture, JobType job, AgeStage age, boolean female, FolkPose pose) {
+			this(culture, job, age, female, pose, Station.of(job), Office.NONE);
+		}
+
 		Spec(Culture culture, JobType job, boolean female) {
 			this(culture, job, AgeStage.ADULT, female, FolkPose.NONE);
+		}
+
+		Spec(Culture culture, JobType job, boolean female, Station station, Office office) {
+			this(culture, job, AgeStage.ADULT, female, FolkPose.NONE, station, office);
 		}
 	}
 
@@ -89,6 +101,10 @@ public class FolkPortraits implements FabricClientGameTest {
 				village(context, world);
 				return;
 			}
+			if ("living".equals(System.getenv("HEARTH_NPC_TOUR"))) {
+				living(context, world);
+				return;
+			}
 			lineup(context, world, "lineup_1", List.of(
 				new Spec(Culture.TEMPERATE, JobType.BUILDER, false), new Spec(Culture.WISTERIA, JobType.MERCHANT, true),
 				new Spec(Culture.NORTHERN, JobType.GUARD, false), new Spec(Culture.DESERT, JobType.PRIEST, true),
@@ -124,7 +140,256 @@ public class FolkPortraits implements FabricClientGameTest {
 			conversation(context, world);
 			builder(context, world);
 			village(context, world);
+			living(context, world);
 		}
+	}
+
+	// ---------------------------------------------------------------- phase 3: the living world
+
+	private void living(ClientGameTestContext context, TestSingleplayerContext world) {
+		lineup(context, world, "stations", List.of(
+			new Spec(Culture.TEMPERATE, JobType.NONE, false, Station.POOR, Office.NONE),
+			new Spec(Culture.TEMPERATE, JobType.FARMER, true, Station.PEASANT, Office.NONE),
+			new Spec(Culture.TEMPERATE, JobType.SMITH, false, Station.ARTISAN, Office.NONE),
+			new Spec(Culture.TEMPERATE, JobType.MERCHANT, true, Station.MERCHANT, Office.NONE),
+			new Spec(Culture.TEMPERATE, JobType.NONE, false, Station.GENTRY, Office.NONE),
+			new Spec(Culture.TEMPERATE, JobType.LORD, false, Station.LORD, Office.NONE),
+			new Spec(Culture.TEMPERATE, JobType.LORD, true, Station.LORD, Office.NONE)));
+		lineup(context, world, "officials", List.of(
+			new Spec(Culture.ALPINE, JobType.REEVE, false), new Spec(Culture.ALPINE, JobType.JUDGE, false),
+			new Spec(Culture.ALPINE, JobType.GUARD, false, Station.OFFICIAL, Office.CAPTAIN), new Spec(Culture.ALPINE, JobType.JAILER, false),
+			new Spec(Culture.ALPINE, JobType.STEWARD, true), new Spec(Culture.ALPINE, JobType.BUILDER, false, Station.PEASANT, Office.MASTER_BUILDER),
+			new Spec(Culture.DESERT, JobType.LORD, false, Station.LORD, Office.NONE)));
+		lineup(context, world, "trades_1", List.of(
+			new Spec(Culture.NORTHERN, JobType.MINER, false), new Spec(Culture.TEMPERATE, JobType.HAULER, false),
+			new Spec(Culture.MOORLAND, JobType.CHARCOAL_BURNER, false), new Spec(Culture.MEDITERRANEAN, JobType.KILN_WORKER, true),
+			new Spec(Culture.MARITIME, JobType.GLASSMAKER, false), new Spec(Culture.ALPINE, JobType.SMELTER, false),
+			new Spec(Culture.STEPPE, JobType.TANNER, true)));
+		lineup(context, world, "trades_2", List.of(
+			new Spec(Culture.TEMPERATE, JobType.BUTCHER, false), new Spec(Culture.WISTERIA, JobType.CHANDLER, true),
+			new Spec(Culture.TEMPERATE, JobType.BEEKEEPER, true), new Spec(Culture.KARST, JobType.PAPERMAKER, false),
+			new Spec(Culture.DESERT, JobType.DYER, true), new Spec(Culture.MARITIME, JobType.SALTER, false),
+			new Spec(Culture.BAYOU, JobType.CLAY_DIGGER, false)));
+		lineup(context, world, "trades_3", List.of(
+			new Spec(Culture.NORTHERN, JobType.BOATWRIGHT, false), new Spec(Culture.STEPPE, JobType.TRADER, false),
+			new Spec(Culture.TROPICAL, JobType.HEALER, true), new Spec(Culture.MEDITERRANEAN, JobType.ENTERTAINER, false),
+			new Spec(Culture.WISTERIA, JobType.BATH_KEEPER, true), new Spec(Culture.ALPINE, JobType.STABLEMASTER, false),
+			new Spec(Culture.TEMPERATE, JobType.FENCE, false)));
+		behaviour(context, world);
+		escort(context, world);
+		quarry(context, world);
+		forester(context, world);
+		caravan(context, world);
+	}
+
+	/** Another module teaches folk something: a test behaviour at priority 150 takes a folk over from their work. */
+	private void behaviour(ClientGameTestContext context, TestSingleplayerContext world) {
+		int[] state = {0, 0};
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			SandboxSettlement camp = NpcSandbox.camp(level, new BlockPos(0, Y, 30), Culture.TEMPERATE);
+			Resident r = NpcSandbox.addFolk(camp, new BlockPos(2, Y, 12), JobType.CARPENTER, AgeStage.ADULT, RandomSource.create(5));
+			r.givenName = "Probe";
+			NpcModule.service().registerBehaviour(new dev.voidmc.hearth.api.NpcService.FolkBehaviour() {
+				@Override
+				public net.minecraft.resources.Identifier id() {
+					return net.minecraft.resources.Identifier.fromNamespaceAndPath("hearth-gametest", "walk_and_wave");
+				}
+
+				@Override
+				public int priority() {
+					return 150;
+				}
+
+				@Override
+				public boolean wants(dev.voidmc.hearth.api.NpcService.FolkHandle folk) {
+					return folk.resident().givenName.equals("Probe") && state[1] == 0;
+				}
+
+				@Override
+				public void start(dev.voidmc.hearth.api.NpcService.FolkHandle folk) {
+					state[0]++;
+					folk.say(Component.literal("Something to see to first!"), null);
+				}
+
+				@Override
+				public boolean tick(dev.voidmc.hearth.api.NpcService.FolkHandle folk) {
+					BlockPos spot = new BlockPos(-6, Y, 10);
+					folk.moveTo(spot, 0.7);
+					if (folk.arrived()) {
+						folk.swing();
+						state[1] = 1;
+						return false;
+					}
+					return true;
+				}
+
+				@Override
+				public void stop(dev.voidmc.hearth.api.NpcService.FolkHandle folk) {
+					folk.stop();
+				}
+			});
+			NpcModule.embodiment().spawn(level, camp, r);
+		});
+		world.getServer().runCommand("time set 3000");
+		settle(context, 12_000);
+		String what = world.getServer().computeOnServer(server -> describeAll());
+		System.out.println("[hearth npc tour] behaviour started " + state[0] + "x, finished " + (state[1] == 1) + ":" + what);
+		shoot(context, world, "behaviour", 0.0, Y + 4, -6, 0.0F, 25.0F);
+	}
+
+	/** An escort: a resident follows the player to a destination and says so on arrival. */
+	private void escort(ClientGameTestContext context, TestSingleplayerContext world) {
+		world.getServer().runCommand(String.format("fill -16 %d 16 16 %d 70 minecraft:grass_block", Y - 1, Y - 1));
+		world.getServer().runCommand("gamemode creative @a");
+		world.getServer().runCommand(String.format("tp @a 0 %d 14 0 20", Y));
+		settle(context, 2_000);
+		java.util.UUID id = world.getServer().computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			SandboxSettlement camp = NpcSandbox.camp(level, new BlockPos(0, Y, 30), Culture.TEMPERATE);
+			Resident r = NpcSandbox.addFolk(camp, new BlockPos(3, Y, 18), JobType.COURIER, AgeStage.ADULT, RandomSource.create(77));
+			return NpcModule.service().follow(server.getPlayerList().getPlayers().get(0), camp, r, new BlockPos(0, Y, 62));
+		});
+		for (int z = 20; z <= 64; z += 4) {
+			world.getServer().runCommand(String.format("tp @a 0 %d %d 0 20", Y, z));
+			settle(context, 1_500);
+		}
+		settle(context, 6_000);
+		String status = world.getServer().computeOnServer(server -> String.valueOf(dev.voidmc.hearth.npc.service.Escorts.status(id)));
+		System.out.println("[hearth npc tour] escort " + id + ": " + status);
+		shoot(context, world, "escort", 0.0, Y + 3, 56, 0.0F, 25.0F);
+		world.getServer().runCommand("gamemode spectator @a");
+	}
+
+	/** A quarrier working a quarry pit: the benches go down, ladders and lanterns going in behind. */
+	private void quarry(ClientGameTestContext context, TestSingleplayerContext world) {
+		int qx = -80;
+		world.getServer().runCommand(String.format("tp @a %d %d -20 0 30", qx, Y + 10));
+		settle(context, 5_000);
+		world.getServer().runCommand(String.format("fill %d %d -14 %d %d 20 minecraft:stone", qx - 16, Y - 9, qx + 16, Y - 2));
+		world.getServer().runCommand(String.format("fill %d %d -14 %d %d 20 minecraft:grass_block", qx - 16, Y - 1, qx + 16, Y - 1));
+		world.getServer().runCommand("time set 3000");
+		world.getServer().runOnServer(server -> {
+			NpcConfig c = NpcModule.config();
+			NpcModule.setConfig(c.withAi(new NpcConfig.Ai(1, 1, 1, 64, 128, 20, 5, true))
+				.withGathering(new NpcConfig.Gathering(true, 4, 320, 2, 8, true, true)));
+			ServerLevel level = server.overworld();
+			SandboxSettlement camp = NpcSandbox.camp(level, new BlockPos(qx, Y, -8), Culture.NORTHERN);
+			NpcSandbox.build(level, camp, new BlockPos(qx - 4, Y, 2), "quarry", level.getRandom());
+		});
+		for (int i = 0; i < 6; i++) {
+			settle(context, 25_000);
+			String progress = world.getServer().computeOnServer(server -> plots(server.overworld()) + describeAll());
+			System.out.println("[hearth npc tour] quarry " + i + ": " + progress);
+			shoot(context, world, "quarry_" + i, qx + 9, Y + 8, -6, 45.0F, 40.0F);
+		}
+	}
+
+	/** A forester fells a real tree top to bottom, replants, and carries the logs back. */
+	private void forester(ClientGameTestContext context, TestSingleplayerContext world) {
+		int fx = -80;
+		int fz = 200;
+		world.getServer().runCommand(String.format("tp @a %d %d %d 0 30", fx, Y + 30, fz - 50));
+		settle(context, 5_000);
+		world.getServer().runCommand(String.format("fill %d %d %d %d %d %d minecraft:dirt", fx - 44, Y - 3, fz - 44, fx + 44, Y - 2, fz + 44));
+		world.getServer().runCommand(String.format("fill %d %d %d %d %d %d minecraft:grass_block", fx - 44, Y - 1, fz - 44, fx + 44, Y - 1, fz + 44));
+		// beyond the camp's grounds (32 across) and their margin: where a forester may fell
+		int[][] trees = {{27, 0}, {-28, 3}, {2, 28}, {4, -29}, {24, 18}, {-22, -21}, {30, -10}, {-14, 27}};
+		for (int[] t : trees) {
+			world.getServer().runCommand(String.format("place feature minecraft:oak %d %d %d", fx + t[0], Y, fz + t[1]));
+		}
+		world.getServer().runCommand("time set 3000");
+		int[] logsBefore = new int[1];
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			logsBefore[0] = countLogs(level, fx, fz);
+			SandboxSettlement camp = NpcSandbox.camp(level, new BlockPos(fx, Y, fz), Culture.MOORLAND);
+			Resident r = NpcSandbox.addFolk(camp, new BlockPos(fx, Y, fz), JobType.FORESTER, AgeStage.ADULT, RandomSource.create(3));
+			NpcModule.embodiment().spawn(level, camp, r);
+		});
+		for (int i = 0; i < 5; i++) {
+			settle(context, 24_000);
+			String s = world.getServer().computeOnServer(server -> "logs " + logsBefore[0] + " -> " + countLogs(server.overworld(), fx, fz) + ", saplings "
+				+ countSaplings(server.overworld(), fx, fz) + "; " + describeAll());
+			System.out.println("[hearth npc tour] forester " + i + ": " + s);
+			shoot(context, world, "forester_" + i, fx, Y + 30, fz - 50, 0.0F, 35.0F);
+		}
+	}
+
+	/** A caravan sent between two camps, met on the road (a causeway in the sky, so the road is the same every run). */
+	private void caravan(ClientGameTestContext context, TestSingleplayerContext world) {
+		world.getServer().runCommand(String.format("tp @a 180 %d -14 20 20", Y + 6));
+		settle(context, 6_000);
+		for (int x = 150; x <= 300; x += 30) {
+			world.getServer().runCommand(String.format("fill %d %d -3 %d %d 3 minecraft:dirt_path", x, Y - 1, x + 29, Y - 1));
+		}
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			SandboxSettlement a = NpcSandbox.camp(level, new BlockPos(150, Y, 0), Culture.STEPPE);
+			SandboxSettlement b = NpcSandbox.camp(level, new BlockPos(550, Y, 0), Culture.TEMPERATE);
+			dev.voidmc.hearth.api.HearthWorld hw = dev.voidmc.hearth.api.HearthWorld.of(level);
+			int[] cargo = new int[dev.voidmc.hearth.api.Goods.VALUES.length];
+			cargo[dev.voidmc.hearth.api.Goods.WOOD.ordinal()] = 120;
+			cargo[dev.voidmc.hearth.api.Goods.SALT.ordinal()] = 50;
+			if (hw != null) {
+				NpcModule.caravans().depart(hw, a, b, cargo);
+			}
+		});
+		for (int i = 0; i < 4; i++) {
+			settle(context, 8_000);
+			String s = world.getServer().computeOnServer(server -> String.join("; ", NpcModule.caravans().describe(server.overworld().getGameTime())));
+			int x = world.getServer().computeOnServer(server -> {
+				for (Folk f : server.overworld().getEntitiesOfClass(Folk.class, new net.minecraft.world.phys.AABB(140, Y - 4, -20, 320, Y + 8, 20),
+					f -> f.controller() != null)) {
+					return (int) f.getX();
+				}
+				return 180;
+			});
+			System.out.println("[hearth npc tour] caravan " + i + ": " + s);
+			shoot(context, world, "caravan_" + i, x + 10, Y + 5, -10, 45.0F, 22.0F);
+		}
+	}
+
+	private static String plots(ServerLevel level) {
+		StringBuilder sb = new StringBuilder();
+		for (SandboxSettlement s : NpcSandbox.settlements(level)) {
+			for (PlotView p : s.plots()) {
+				sb.append(p.spec().archetype().getPath()).append(' ').append(p.state()).append(" stage ").append(p.stage()).append(" step ").append(p.step())
+					.append("; ");
+			}
+		}
+		return sb.toString();
+	}
+
+	private static String describeAll() {
+		StringBuilder sb = new StringBuilder();
+		for (Folk f : NpcModule.embodiment().entities()) {
+			if (f.brain() != null) {
+				sb.append(System.lineSeparator()).append("  ").append(f.folkName()).append(" (").append(f.brain().resident.job.getSerializedName())
+					.append("): ").append(f.brain().describe()).append(" at ").append(f.blockPosition().toShortString());
+			}
+		}
+		return sb.toString();
+	}
+
+	private static int countLogs(ServerLevel level, int cx, int cz) {
+		int n = 0;
+		for (BlockPos p : BlockPos.betweenClosed(cx - 40, Y, cz - 40, cx + 40, Y + 10, cz + 40)) {
+			if (level.getBlockState(p).is(net.minecraft.tags.BlockTags.LOGS)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	private static int countSaplings(ServerLevel level, int cx, int cz) {
+		int n = 0;
+		for (BlockPos p : BlockPos.betweenClosed(cx - 40, Y, cz - 40, cx + 40, Y + 2, cz + 40)) {
+			if (level.getBlockState(p).is(net.minecraft.tags.BlockTags.SAPLINGS)) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	/**
@@ -315,7 +580,7 @@ public class FolkPortraits implements FabricClientGameTest {
 		r.female = spec.female();
 		r.job = spec.job();
 		Folk folk = FolkEntities.FOLK.create(level, EntitySpawnReason.COMMAND);
-		folk.setIdentity(r.id, r.fullName(), r.appearance, spec.culture(), r.job, r.age, r.female);
+		folk.setIdentity(r.id, r.fullName(), r.appearance, spec.culture(), r.job, r.age, r.female, spec.station(), spec.office());
 		folk.setNoAi(true);
 		folk.snapTo(x, Y, z, 180.0F, 0.0F);
 		folk.setYHeadRot(180.0F);
@@ -344,6 +609,19 @@ public class FolkPortraits implements FabricClientGameTest {
 			case INNKEEPER -> new ItemStack(Items.HONEY_BOTTLE);
 			case MINTER -> new ItemStack(Items.GOLD_INGOT);
 			case TAILOR -> new ItemStack(Items.SHEARS);
+			case MINER -> new ItemStack(Items.IRON_PICKAXE);
+			case HAULER -> new ItemStack(Items.BARREL);
+			case CHARCOAL_BURNER, SALTER, CLAY_DIGGER -> new ItemStack(Items.IRON_SHOVEL);
+			case SMELTER -> new ItemStack(Items.RAW_IRON);
+			case BUTCHER, BOATWRIGHT -> new ItemStack(Items.IRON_AXE);
+			case CHANDLER -> new ItemStack(Items.CANDLE);
+			case BEEKEEPER -> new ItemStack(Items.HONEYCOMB);
+			case GLASSMAKER -> new ItemStack(Items.GLASS_PANE);
+			case ENTERTAINER -> new ItemStack(Items.GOAT_HORN);
+			case HEALER -> new ItemStack(Items.POTION);
+			case JAILER -> new ItemStack(Items.TRIPWIRE_HOOK);
+			case REEVE, STEWARD, JUDGE -> new ItemStack(Items.WRITABLE_BOOK);
+			case TRADER -> new ItemStack(Items.BUNDLE);
 			default -> ItemStack.EMPTY;
 		};
 	}

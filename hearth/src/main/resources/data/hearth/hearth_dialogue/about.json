@@ -2,46 +2,538 @@
 	"about": [
 		"I'm {name}. I'm the {job} here in {settlement}.",
 		"Name's {given}. {job}, by trade.",
-		{"text": "I'm {given}. I don't have a trade yet. Mum says I will when I'm bigger.", "age": "child"},
-		{"text": "{name}. I've been in {settlement} longer than the well.", "age": "elder"},
-		{"text": "{given}'s the name. I keep the {job}'s hours and the {job}'s worries.", "traits": ["grumpy"]},
-		{"text": "I'm {given}! I'm the {job}, and I love it.", "traits": ["cheerful"]},
-		{"text": "Oh, I'm... {given}. The {job}.", "traits": ["shy"]}
+		{
+			"text": "I'm {given}. I don't have a trade yet. Mum says I will when I'm bigger.",
+			"age": "child"
+		},
+		{
+			"text": "{name}. I've been in {settlement} longer than the well.",
+			"age": "elder"
+		},
+		{
+			"text": "{given}'s the name. I keep the {job}'s hours and the {job}'s worries.",
+			"traits": [
+				"grumpy"
+			]
+		},
+		{
+			"text": "I'm {given}! I'm the {job}, and I love it.",
+			"traits": [
+				"cheerful"
+			]
+		},
+		{
+			"text": "Oh, I'm... {given}. The {job}.",
+			"traits": [
+				"shy"
+			]
+		},
+		{
+			"text": "I'm {given}. We've not much, but we get by.",
+			"stations": [
+				"poor"
+			]
+		},
+		{
+			"text": "{name}. Don't look at the patches; look at the work.",
+			"stations": [
+				"poor"
+			]
+		},
+		{
+			"text": "{name}. My family has held land about {settlement} for generations.",
+			"stations": [
+				"gentry"
+			]
+		},
+		{
+			"text": "I am {name}, and {settlement} is under my protection.",
+			"stations": [
+				"lord"
+			]
+		},
+		{
+			"text": "{name}. I keep the watch here, and the watchmen.",
+			"jobs": [
+				"guard"
+			],
+			"stations": [
+				"official"
+			],
+			"weight": 1
+		}
 	],
 	"about.job": [
-		{"text": "I build. Houses, walls, the odd bridge. Every block goes where the plan says.", "jobs": ["builder"]},
-		{"text": "The fields keep this town fed. I keep the fields.", "jobs": ["farmer"]},
-		{"text": "I walk the woods and bring back timber. Plant two for every one I fell.", "jobs": ["forester"]},
-		{"text": "Stone's in my bones. I cut it from the hill.", "jobs": ["quarrier"]},
-		{"text": "Up before the gulls, out on the water.", "jobs": ["fisher"]},
-		{"text": "Sheep, goats, the odd stubborn cow. They're good company.", "jobs": ["herder"]},
-		{"text": "I track game in the hills. Quiet work.", "jobs": ["hunter"]},
-		{"text": "Tables, doors, carts, cradles. If it's wood, I make it.", "jobs": ["carpenter"]},
-		{"text": "Bricks, dressed stone, glass. The town's bones and skin.", "jobs": ["mason"]},
-		{"text": "Tools, nails, hinges, and the dies the mint strikes coin with.", "jobs": ["smith"]},
-		{"text": "Bread at dawn, pies by noon. I'm the reason this town smells so good.", "jobs": ["baker"]},
-		{"text": "Ale, cider, a little something stronger for winter.", "jobs": ["brewer"]},
-		{"text": "I keep the inn. Beds for travellers and the best stories in town.", "jobs": ["innkeeper"]},
-		{"text": "I keep the stall. Buy low, sell fair, that's my motto.", "jobs": ["merchant"]},
-		{"text": "I strike the coin and keep the treasury. Every bit is accounted for.", "jobs": ["minter"]},
-		{"text": "I keep the watch. Nothing comes through that gate without me knowing.", "jobs": ["guard"]},
-		{"text": "I tend the altar and the people who come to it.", "jobs": ["priest"]},
-		{"text": "I read, I write, I remember. Somebody has to.", "jobs": ["scholar"]},
-		{"text": "Letters, parcels, gossip. I carry them all between the towns.", "jobs": ["courier"]},
-		{"text": "Wool to thread, thread to cloth, cloth to coats.", "jobs": ["tailor"]},
-		{"text": "No trade, these days. I keep the house and mind everyone's business.", "jobs": ["none"]}
+		{
+			"text": "I build. Houses, walls, the odd bridge. Every block goes where the plan says.",
+			"jobs": [
+				"builder"
+			]
+		},
+		{
+			"text": "The fields keep this town fed. I keep the fields.",
+			"jobs": [
+				"farmer"
+			]
+		},
+		{
+			"text": "I walk the woods and bring back timber. Plant two for every one I fell.",
+			"jobs": [
+				"forester"
+			]
+		},
+		{
+			"text": "Stone's in my bones. I cut it from the hill.",
+			"jobs": [
+				"quarrier"
+			]
+		},
+		{
+			"text": "Up before the gulls, out on the water.",
+			"jobs": [
+				"fisher"
+			]
+		},
+		{
+			"text": "Sheep, goats, the odd stubborn cow. They're good company.",
+			"jobs": [
+				"herder"
+			]
+		},
+		{
+			"text": "I track game in the hills. Quiet work.",
+			"jobs": [
+				"hunter"
+			]
+		},
+		{
+			"text": "Tables, doors, carts, cradles. If it's wood, I make it.",
+			"jobs": [
+				"carpenter"
+			]
+		},
+		{
+			"text": "Bricks, dressed stone, glass. The town's bones and skin.",
+			"jobs": [
+				"mason"
+			]
+		},
+		{
+			"text": "Tools, nails, hinges, and the dies the mint strikes coin with.",
+			"jobs": [
+				"smith"
+			]
+		},
+		{
+			"text": "Bread at dawn, pies by noon. I'm the reason this town smells so good.",
+			"jobs": [
+				"baker"
+			]
+		},
+		{
+			"text": "Ale, cider, a little something stronger for winter.",
+			"jobs": [
+				"brewer"
+			]
+		},
+		{
+			"text": "I keep the inn. Beds for travellers and the best stories in town.",
+			"jobs": [
+				"innkeeper"
+			]
+		},
+		{
+			"text": "I keep the stall. Buy low, sell fair, that's my motto.",
+			"jobs": [
+				"merchant"
+			]
+		},
+		{
+			"text": "I strike the coin and keep the treasury. Every bit is accounted for.",
+			"jobs": [
+				"minter"
+			]
+		},
+		{
+			"text": "I keep the watch. Nothing comes through that gate without me knowing.",
+			"jobs": [
+				"guard"
+			]
+		},
+		{
+			"text": "I tend the altar and the people who come to it.",
+			"jobs": [
+				"priest"
+			]
+		},
+		{
+			"text": "I read, I write, I remember. Somebody has to.",
+			"jobs": [
+				"scholar"
+			]
+		},
+		{
+			"text": "Letters, parcels, gossip. I carry them all between the towns.",
+			"jobs": [
+				"courier"
+			]
+		},
+		{
+			"text": "Wool to thread, thread to cloth, cloth to coats.",
+			"jobs": [
+				"tailor"
+			]
+		},
+		{
+			"text": "No trade, these days. I keep the house and mind everyone's business.",
+			"jobs": [
+				"none"
+			]
+		},
+		{
+			"text": "I work the mine. Down the adit before sunrise, up after dark, and the hill a little emptier each day.",
+			"jobs": [
+				"miner"
+			]
+		},
+		{
+			"text": "Every gallery we cut, we prop and light behind us. The dark doesn't forgive a lazy miner.",
+			"jobs": [
+				"miner"
+			]
+		},
+		{
+			"text": "I carry. Stone to the mason, logs to the mill, grain to the granary. My back is this town's road.",
+			"jobs": [
+				"hauler"
+			]
+		},
+		{
+			"text": "Somebody has to move it all from where it's dug to where it's wanted. That's me.",
+			"jobs": [
+				"hauler"
+			]
+		},
+		{
+			"text": "I burn wood slow under turf till it's charcoal. Smells like smoke for days, but the smith can't work without me.",
+			"jobs": [
+				"charcoal_burner"
+			]
+		},
+		{
+			"text": "A good clamp burns three days and you don't sleep for any of them.",
+			"jobs": [
+				"charcoal_burner"
+			]
+		},
+		{
+			"text": "Clay in, bricks out. The kiln never quite cools.",
+			"jobs": [
+				"kiln_worker"
+			]
+		},
+		{
+			"text": "Every roof tile in {settlement} came through my kiln.",
+			"jobs": [
+				"kiln_worker"
+			]
+		},
+		{
+			"text": "Sand and fire and breath, and out comes a window. I never tire of it.",
+			"jobs": [
+				"glassmaker"
+			]
+		},
+		{
+			"text": "Glass is patient work. Hurry it and it cracks, and so does your temper.",
+			"jobs": [
+				"glassmaker"
+			]
+		},
+		{
+			"text": "Ore and charcoal go in, iron comes out. Hot, hard work, but the whole town stands on it.",
+			"jobs": [
+				"smelter"
+			]
+		},
+		{
+			"text": "I keep the furnace fed. Let it go cold and the smiths have nothing to hammer.",
+			"jobs": [
+				"smelter"
+			]
+		},
+		{
+			"text": "Hides to leather. It stinks, I know. Everyone tells me. Everyone wears my boots, too.",
+			"jobs": [
+				"tanner"
+			]
+		},
+		{
+			"text": "The vats need a month. Leather can't be rushed.",
+			"jobs": [
+				"tanner"
+			]
+		},
+		{
+			"text": "I'm the butcher. Clean cuts, fair weight, no questions about the sausages.",
+			"jobs": [
+				"butcher"
+			]
+		},
+		{
+			"text": "Meat for the inn, meat for the market, and the hides go to the tanner. Nothing wasted.",
+			"jobs": [
+				"butcher"
+			]
+		},
+		{
+			"text": "Candles. Every window lit in {settlement} after dark, that's my wax.",
+			"jobs": [
+				"chandler"
+			]
+		},
+		{
+			"text": "Dip, cool, dip again. Forty times for a good church candle.",
+			"jobs": [
+				"chandler"
+			]
+		},
+		{
+			"text": "I keep the bees. They know me, mostly. The honey's worth the stings.",
+			"jobs": [
+				"beekeeper"
+			]
+		},
+		{
+			"text": "Smoke them gentle, take only what they can spare. That's the whole secret.",
+			"jobs": [
+				"beekeeper"
+			]
+		},
+		{
+			"text": "Rags and reeds become paper here. The scholars can't write a word without me.",
+			"jobs": [
+				"papermaker"
+			]
+		},
+		{
+			"text": "A sheet a minute when the press is running well.",
+			"jobs": [
+				"papermaker"
+			]
+		},
+		{
+			"text": "Woad blue, madder red, weld yellow. My hands are every colour but my own.",
+			"jobs": [
+				"dyer"
+			]
+		},
+		{
+			"text": "A good dye takes; a bad one runs in the first rain. Mine take.",
+			"jobs": [
+				"dyer"
+			]
+		},
+		{
+			"text": "I work the salt pans. Sun and wind do most of it; I rake and carry the rest.",
+			"jobs": [
+				"salter"
+			]
+		},
+		{
+			"text": "Salt keeps the fish and the meat through winter. Worth its weight, they say. Nearly.",
+			"jobs": [
+				"salter"
+			]
+		},
+		{
+			"text": "I dig clay from the bank. Mud to the knees, but the kiln wants it.",
+			"jobs": [
+				"clay_digger"
+			]
+		},
+		{
+			"text": "Good clay's grey and sticky and smells of the river. You learn to know it.",
+			"jobs": [
+				"clay_digger"
+			]
+		},
+		{
+			"text": "Boats. Keel first, ribs after, then the planking. A good one outlives its builder.",
+			"jobs": [
+				"boatwright"
+			]
+		},
+		{
+			"text": "Every boat on the water here, I built or mended.",
+			"jobs": [
+				"boatwright"
+			]
+		},
+		{
+			"text": "I trade between the towns. Buy where it's plenty, sell where it's dear.",
+			"jobs": [
+				"trader"
+			]
+		},
+		{
+			"text": "The roads are my shop. Timber one way, salt the other.",
+			"jobs": [
+				"trader"
+			]
+		},
+		{
+			"text": "I'm the healer. Herbs, splints, a kind word. Mostly the kind word.",
+			"jobs": [
+				"healer"
+			]
+		},
+		{
+			"text": "Come see me if you're hurt. Don't wait till it festers like the last fool did.",
+			"jobs": [
+				"healer"
+			]
+		},
+		{
+			"text": "I play, I sing, I tell stories. Somebody has to keep this town from dying of boredom.",
+			"jobs": [
+				"entertainer"
+			]
+		},
+		{
+			"text": "Come to the inn tonight. I've a new song about a dragon and a very foolish knight.",
+			"jobs": [
+				"entertainer"
+			]
+		},
+		{
+			"text": "I keep the bathhouse. Hot water, clean towels, and the best gossip in town.",
+			"jobs": [
+				"bath_keeper"
+			]
+		},
+		{
+			"text": "You'd be surprised how much nicer folk are to a stranger who's had a bath.",
+			"jobs": [
+				"bath_keeper"
+			]
+		},
+		{
+			"text": "I keep the stables. Horses to hire, horses to buy, horses to mind.",
+			"jobs": [
+				"stablemaster"
+			]
+		},
+		{
+			"text": "A horse knows a liar. I trust them more than most men.",
+			"jobs": [
+				"stablemaster"
+			]
+		},
+		{
+			"text": "I'm the reeve. Rolls, rents, roads and quarrels. If it's the town's business, it's mine.",
+			"jobs": [
+				"reeve"
+			]
+		},
+		{
+			"text": "I keep the rolls of {settlement}. Every house, every field, every debt.",
+			"jobs": [
+				"reeve"
+			]
+		},
+		{
+			"text": "I sit in judgement. The law is the law, whoever you are.",
+			"jobs": [
+				"judge"
+			]
+		},
+		{
+			"text": "Fines for the small things, the pillory for the shameful, the rope for the worst. I take no pleasure in the last.",
+			"jobs": [
+				"judge"
+			]
+		},
+		{
+			"text": "I keep the keys to the cells. Nobody leaves before their time.",
+			"jobs": [
+				"jailer"
+			]
+		},
+		{
+			"text": "Quiet in the cells today. I like it quiet.",
+			"jobs": [
+				"jailer"
+			]
+		},
+		{
+			"text": "I buy and sell odds and ends. Don't ask where things come from and I won't ask where they're going.",
+			"jobs": [
+				"fence"
+			]
+		},
+		{
+			"text": "A little of this, a little of that. Honest prices for... honest goods.",
+			"jobs": [
+				"fence"
+			]
+		},
+		{
+			"text": "I keep the lord's household: the stores, the accounts, the servants. Everything that isn't the sword.",
+			"jobs": [
+				"steward"
+			]
+		},
+		{
+			"text": "The treasury balances. It always balances. I see to it.",
+			"jobs": [
+				"steward"
+			]
+		},
+		{
+			"text": "These lands and the people on them are in my keeping. I hold court in the hall each morning.",
+			"jobs": [
+				"lord"
+			]
+		},
+		{
+			"text": "A lord who doesn't know his people's names doesn't deserve their rents.",
+			"jobs": [
+				"lord"
+			]
+		}
 	],
 	"about.spouse": [
 		"My {spouse} and I have been together for years.",
-		{"text": "{spouse}? Oh, we argue like cats, but I'd be lost without them.", "traits": ["grumpy"]},
-		{"text": "Have you met my {spouse}? The finest person in {settlement}.", "traits": ["cheerful", "generous"]}
+		{
+			"text": "{spouse}? Oh, we argue like cats, but I'd be lost without them.",
+			"traits": [
+				"grumpy"
+			]
+		},
+		{
+			"text": "Have you met my {spouse}? The finest person in {settlement}.",
+			"traits": [
+				"cheerful",
+				"generous"
+			]
+		}
 	],
 	"about.children": [
 		"Our little ones keep us busy: {children}.",
-		{"text": "{children}. Mine, all of them, and every one a handful.", "traits": ["grumpy", "lazy"]}
+		{
+			"text": "{children}. Mine, all of them, and every one a handful.",
+			"traits": [
+				"grumpy",
+				"lazy"
+			]
+		}
 	],
 	"about.parents": [
-		{"text": "My mum and dad are {other}.", "age": "child"},
+		{
+			"text": "My mum and dad are {other}.",
+			"age": "child"
+		},
 		"I'm the child of {other}."
 	]
 }

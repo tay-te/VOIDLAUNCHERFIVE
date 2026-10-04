@@ -117,7 +117,9 @@ public class FolkRenderer extends MobRenderer<Folk, FolkRenderState, FolkModel> 
 		if (name.isEmpty()) {
 			return super.getNameTag(entity);
 		}
-		Component job = Component.translatable(entity.ageStage() == AgeStage.CHILD ? "hearth.npc.child" : "hearth.npc.job." + entity.job().getSerializedName());
+		// an office outranks the trade on the name tag: "Guard Captain", "Master Builder"
+		Component job = Component.translatable(entity.ageStage() == AgeStage.CHILD ? "hearth.npc.child"
+			: entity.office() != dev.voidmc.hearth.npc.person.Office.NONE ? entity.office().translationKey() : "hearth.npc.job." + entity.job().getSerializedName());
 		return Component.literal(name).append(Component.literal(" · ").withStyle(ChatFormatting.DARK_GRAY))
 			.append(job.copy().withStyle(ChatFormatting.GRAY));
 	}

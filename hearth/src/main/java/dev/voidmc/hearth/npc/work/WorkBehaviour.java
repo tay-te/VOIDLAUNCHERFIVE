@@ -24,8 +24,19 @@ public interface WorkBehaviour {
 			case BUILDER -> new BuilderWork();
 			case FARMER -> new FarmerWork();
 			case GUARD -> new GuardWork();
-			case FORESTER, QUARRIER, HUNTER, HERDER, FISHER, COURIER -> new FieldWork(job);
-			case MERCHANT, INNKEEPER, MINTER -> new CounterWork(job);
+			case FORESTER -> new ForesterWork();
+			// at the excavations (quarry pits, mines) when one is open; at the rock by the workplace when not
+			case MINER, QUARRIER -> new ExcavationWork(job, new FieldWork(JobType.QUARRIER));
+			case CLAY_DIGGER, SALTER -> new ExcavationWork(job, new DiggerWork(job));
+			case HERDER -> new HerderWork();
+			case FISHER -> new FisherWork();
+			case BEEKEEPER -> new BeekeeperWork();
+			case HAULER -> new HaulerWork();
+			case HUNTER, COURIER -> new FieldWork(job);
+			case MERCHANT, INNKEEPER, MINTER, TRADER, FENCE -> new CounterWork(job);
+			case REEVE, STEWARD, JUDGE, JAILER -> new OfficialWork(job);
+			case LORD -> new LordWork();
+			case ENTERTAINER, BATH_KEEPER, STABLEMASTER, HEALER -> new ServiceWork(job);
 			case NONE -> new ChoresWork();
 			default -> new CraftWork(job);
 		};

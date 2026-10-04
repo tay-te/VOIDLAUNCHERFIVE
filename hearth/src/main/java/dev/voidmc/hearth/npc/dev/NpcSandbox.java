@@ -166,19 +166,25 @@ public final class NpcSandbox {
 		return r;
 	}
 
-	/** Stakes out a building for the sandbox's builders: a cottage or a watchtower. */
+	/** Stakes out a building for the sandbox's builders (a cottage, a watchtower) or a quarry pit for its quarriers. */
 	public static SandboxSettlement.SimplePlot build(ServerLevel level, SandboxSettlement s, BlockPos origin, String kind, RandomSource random) {
-		Blueprint bp = kind.equals("tower") ? SandboxBlueprints.tower(origin) : SandboxBlueprints.cottage(origin);
+		Blueprint bp = switch (kind) {
+			case "tower" -> SandboxBlueprints.tower(origin);
+			case "quarry" -> SandboxBlueprints.quarry(origin);
+			default -> SandboxBlueprints.cottage(origin);
+		};
 		SandboxSettlement.SimplePlot plot = s.addPlot(bp, PlotState.BUILDING);
-		boolean hasBuilder = false;
+		// a builder for a building, a quarrier for a pit
+		JobType worker = kind.equals("quarry") ? JobType.QUARRIER : JobType.BUILDER;
+		boolean has = false;
 		for (Resident r : s.residents()) {
-			if (r.job == JobType.BUILDER && r.age != AgeStage.CHILD) {
-				hasBuilder = true;
+			if (r.job == worker && r.age != AgeStage.CHILD) {
+				has = true;
 				break;
 			}
 		}
-		if (!hasBuilder) {
-			addFolk(s, origin.offset(-3, 0, -3), JobType.BUILDER, AgeStage.ADULT, random);
+		if (!has) {
+			addFolk(s, origin.offset(-3, 0, -3), worker, AgeStage.ADULT, random);
 		}
 		return plot;
 	}

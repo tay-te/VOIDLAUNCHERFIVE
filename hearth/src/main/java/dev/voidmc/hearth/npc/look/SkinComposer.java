@@ -3,6 +3,7 @@ package dev.voidmc.hearth.npc.look;
 import dev.voidmc.hearth.api.AgeStage;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.npc.look.Palette.Dyes;
 import dev.voidmc.hearth.npc.look.Palette.Headwear;
 import dev.voidmc.hearth.npc.look.Palette.Pattern;
@@ -10,10 +11,13 @@ import dev.voidmc.hearth.npc.look.Palette.Sleeves;
 import dev.voidmc.hearth.npc.look.SkinCanvas.Face;
 import dev.voidmc.hearth.npc.look.SkinCanvas.Part;
 import dev.voidmc.hearth.npc.person.Genome;
+import dev.voidmc.hearth.npc.person.Office;
 
 /**
  * Draws a folk's skin, pixel by pixel, on the 64×64 player layout (both layers): skin tone, a face, hair in one of
- * many styles, facial hair, clothes cut and dyed after their culture, the marks of their trade, and the years on them.
+ * many styles, facial hair, clothes cut and dyed after their culture, the marks of their trade, their station in life (the
+ * poor in faded, patched clothes; merchants with buttons and trim; the gentry in deep colours and fine coats; the lord
+ * in royal colours with an ermine-trimmed mantle and a circlet), any office they hold, and the years on them.
  *
  * <p>A pure function of {@link FolkLook}: no randomness but a hash of the look, no game classes, so the same folk
  * looks the same on every client and the composition is tested without a GPU. The client wraps the pixels in a
@@ -46,7 +50,7 @@ public final class SkinComposer {
 
 	private SkinComposer(FolkLook look) {
 		this.look = look;
-		this.rng = new Rng(look.key() * 0x9E3779B97F4A7C15L + 0x632BE59BD9B4E019L);
+		this.rng = new Rng(look.baseKey() * 0x9E3779B97F4A7C15L + 0x632BE59BD9B4E019L);
 		this.noiseSeed = this.rng.nextLong();
 		this.slim = look.slim();
 		this.rArm = SkinCanvas.rightArm(this.slim);
@@ -88,8 +92,13 @@ public final class SkinComposer {
 		paintFace();
 		paintHair();
 		Outfit outfit = Outfit.choose(this.look, this.dyes, this.rng);
+		dressForStation(outfit);
 		paintClothes(outfit);
+		if (this.look.station() == Station.POOR && this.look.age() != AgeStage.CHILD) {
+			patches(outfit);
+		}
 		paintJob(outfit);
+		paintStation(outfit);
 		paintHeadwear(outfit);
 		paintAge(outfit);
 	}
@@ -1012,6 +1021,270 @@ public final class SkinComposer {
 		}
 	}
 
+	// ---------------------------------------------------------------- station
+
+	private static final int GOLD = 0xD8B848;
+	/** Deep, costly dyes: what the gentry wear. */
+	private static final int[] GENTRY = {0x6E1C28, 0x1C4636, 0x22325A, 0x44285A, 0x5A3A1C, 0x2A2A30};
+	/** Royal colours: purple, crimson, the deepest blue. */
+	private static final int[] ROYAL = {0x5E1A6E, 0x8E1616, 0x1A2A6E};
+
+	/** Faded, greyed-down cloth: what is left of a colour after years of wear and cheap dye. */
+	static int drab(int colour) {
+		int grey = Math.round(luma(colour) * 255);
+		int g = grey << 16 | grey << 8 | grey;
+		return shade(mix(mix(colour, g, 0.55F), 0x7A6A58, 0.3F), 0.88F);
+	}
+
+	/** A colour brought up: cleaner and a little richer, for those who can pay for good dye. */
+	static int rich(int colour) {
+		int r = colour >> 16 & 0xFF;
+		int g = colour >> 8 & 0xFF;
+		int b = colour & 0xFF;
+		int max = Math.max(r, Math.max(g, b));
+		int min = Math.min(r, Math.min(g, b));
+		if (max - min < 24) {
+			return colour;
+		}
+		// push each channel away from the mean
+		int mean = (r + g + b) / 3;
+		r = Math.clamp(mean + Math.round((r - mean) * 1.35F), 0, 255);
+		g = Math.clamp(mean + Math.round((g - mean) * 1.35F), 0, 255);
+		b = Math.clamp(mean + Math.round((b - mean) * 1.35F), 0, 255);
+		return r << 16 | g << 8 | b;
+	}
+
+	/** The outfit before it is painted, adjusted to the household's station. */
+	private void dressForStation(Outfit o) {
+		boolean child = this.look.age() == AgeStage.CHILD;
+		switch (this.look.station()) {
+			case POOR -> {
+				o.top = drab(o.top);
+				o.legs = drab(o.legs);
+				o.buttons = false;
+				if (o.topPattern == Pattern.EMBROIDERY || o.topPattern == Pattern.WOVEN) {
+					o.topPattern = Pattern.PLAIN;
+				}
+				o.vest = o.vest != 0 ? drab(o.vest) : 0;
+				o.shawl = o.shawl != 0 ? drab(o.shawl) : 0;
+				o.sash = o.sash != 0 ? drab(o.sash) : 0;
+				o.apron = o.apron != 0 ? drab(o.apron) : 0;
+				o.hem = 0;
+				o.furCollar = false;
+				o.boots = false;
+				o.furBoots = false;
+				o.shoes = shade(drab(o.shoes), 0.8F);
+				if (!child && (this.noiseSeed & 6) == 0) {
+					// worn through: bare feet in rag wraps
+					o.sandals = true;
+					o.shoes = 0x6A5A48;
+				}
+			}
+			case MERCHANT -> {
+				o.top = rich(o.top);
+				o.legs = rich(o.legs);
+				o.buttons = !child;
+				o.trimColour = GOLD;
+				o.boots = true;
+				o.sandals = false;
+			}
+			case GENTRY -> {
+				// fine linen under a coat (painted after the trade), dark hose, good boots
+				o.top = o.legKind == LegKind.ROBE ? GENTRY[(int) (this.noiseSeed >>> 7 & 0xFF) % GENTRY.length] : 0xF2EEE6;
+				o.topPattern = o.legKind == LegKind.ROBE ? Pattern.EMBROIDERY : Pattern.PLAIN;
+				o.legs = o.legKind == LegKind.ROBE ? o.top : o.legKind == LegKind.SKIRT ? GENTRY[(int) (this.noiseSeed >>> 9 & 0xFF) % GENTRY.length] : 0x22201E;
+				o.trimColour = GOLD;
+				o.buttons = !child;
+				o.boots = !o.sandals || o.legKind != LegKind.ROBE;
+				o.shoes = 0x2A2018;
+				o.hem = o.legKind == LegKind.TROUSERS ? 0 : GOLD;
+				o.apron = 0;
+			}
+			case LORD -> {
+				int royal = ROYAL[(int) (this.noiseSeed >>> 11 & 0xFF) % ROYAL.length];
+				o.top = royal;
+				o.topPattern = Pattern.EMBROIDERY;
+				o.legs = o.legKind == LegKind.TROUSERS || o.legKind == LegKind.SHORTS ? 0x1E1A1A : royal;
+				if (o.legKind == LegKind.SHORTS) {
+					o.legKind = LegKind.TROUSERS;
+				}
+				o.trimColour = GOLD;
+				o.buttons = false;
+				o.boots = true;
+				o.sandals = false;
+				o.shoes = 0x2A1A14;
+				o.hem = o.legKind == LegKind.TROUSERS ? 0 : GOLD;
+				o.apron = 0;
+				o.vest = 0;
+				o.shawl = 0;
+				o.belt = GOLD;
+				o.sash = 0;
+			}
+			default -> {
+			}
+		}
+		if (o.legKind == LegKind.ROBE) {
+			o.legs = o.top;
+		}
+	}
+
+	/** Patches sewn over the worn places, a frayed hem, the grime of hard living. */
+	private void patches(Outfit o) {
+		Part body = SkinCanvas.BODY;
+		int n = 2 + (int) (this.noiseSeed >>> 3 & 3);
+		for (int i = 0; i < n; i++) {
+			Part p = i % 2 == 0 ? body : (i % 4 == 1 ? SkinCanvas.RIGHT_LEG : SkinCanvas.LEFT_LEG);
+			int colour = mix(i % 2 == 0 ? o.top : o.legs, (this.noiseSeed >>> (i * 5) & 1) == 0 ? 0x8A7458 : 0x5A5A4E, 0.6F);
+			int s0 = (int) ((this.noiseSeed >>> (i * 7 + 2)) & 0xFF) % Math.max(1, p.around() - 2);
+			int y0 = 2 + (int) ((this.noiseSeed >>> (i * 7 + 9)) & 0xFF) % 7;
+			for (int ds = 0; ds < 2; ds++) {
+				for (int dy = 0; dy < 2; dy++) {
+					this.c.around(p, s0 + ds, y0 + dy, argb(jitter(colour, s0 + ds, y0 + dy + 1600, 0.05F)));
+				}
+			}
+			// the stitching round it
+			this.c.around(p, s0 + 2, y0, argb(shade(colour, 0.7F)));
+		}
+		// a ragged hem
+		for (int s = 0; s < body.around(); s++) {
+			if (hash(s, 11, 1610) > 0.3F) {
+				this.c.around(body, s, 11, argb(shade(this.c.getAround(body, s, 11) & 0xFFFFFF, 0.75F)));
+			}
+		}
+		dust(0x5A4A38, 0.78F, false);
+	}
+
+	/** What station adds over the trade's dress: the gentry's coat, the lord's mantle and chain. */
+	private void paintStation(Outfit o) {
+		if (this.look.age() == AgeStage.CHILD) {
+			return;
+		}
+		Part j = SkinCanvas.JACKET;
+		boolean bareJacket = this.c.getFront(j, 3, 5) == 0 && this.c.getFront(j, 1, 6) == 0;
+		switch (this.look.station()) {
+			case GENTRY -> {
+				if (bareJacket) {
+					int coat = GENTRY[(int) (this.noiseSeed >>> 7 & 0xFF) % GENTRY.length];
+					paintCoat(coat, GOLD, this.look.female() ? 9 : 11, true);
+				}
+				lace();
+			}
+			case LORD -> {
+				mantle(ROYAL[(int) (this.noiseSeed >>> 11 & 0xFF) % ROYAL.length]);
+				chainOfOffice(GOLD, true);
+			}
+			case MERCHANT -> {
+				if (bareJacket && this.look.job() != JobType.NONE && (this.noiseSeed & 1) == 0) {
+					paintVest(rich(this.dyes.accent()[0]), GOLD, true);
+				}
+			}
+			default -> {
+			}
+		}
+		if (this.look.office() == Office.CAPTAIN) {
+			// the captain's sash, shoulder to hip, over the tabard
+			for (int y = 0; y < 9; y++) {
+				this.c.front(j, 1 + y * 6 / 9, y, argb(GOLD));
+				this.c.back(j, 6 - y * 6 / 9, y, argb(GOLD));
+			}
+		} else if (this.look.office() == Office.MASTER_BUILDER) {
+			// the plans rolled at the belt
+			for (int y = 7; y <= 10; y++) {
+				this.c.left(j, 1, y, argb(y % 2 == 0 ? 0xEDE6D2 : 0x4A6A9A));
+			}
+		}
+	}
+
+	/** A white lace collar at the throat. */
+	private void lace() {
+		Part j = SkinCanvas.JACKET;
+		this.c.front(j, 3, 0, argb(0xF6F4EE));
+		this.c.front(j, 4, 0, argb(0xF6F4EE));
+		this.c.front(j, 3, 1, argb(0xE8E4DA));
+		this.c.front(j, 4, 1, argb(0xF6F4EE));
+	}
+
+	/** A chain of office: links over the shoulders and a medallion on the breast. */
+	private void chainOfOffice(int metal, boolean gem) {
+		Part j = SkinCanvas.JACKET;
+		this.c.front(j, 1, 0, argb(metal));
+		this.c.front(j, 6, 0, argb(metal));
+		this.c.front(j, 2, 1, argb(shade(metal, 0.85F)));
+		this.c.front(j, 5, 1, argb(shade(metal, 0.85F)));
+		this.c.front(j, 2, 2, argb(metal));
+		this.c.front(j, 5, 2, argb(metal));
+		this.c.front(j, 3, 3, argb(metal));
+		this.c.front(j, 4, 3, argb(shade(metal, 0.8F)));
+		this.c.front(j, 3, 4, argb(gem ? 0xB01A2A : shade(metal, 0.7F)));
+		this.c.front(j, 4, 4, argb(gem ? 0x80101A : shade(metal, 0.7F)));
+	}
+
+	/** The lord's mantle: royal cloth falling from the shoulders down the back, trimmed with ermine. */
+	private void mantle(int colour) {
+		Part j = SkinCanvas.JACKET;
+		for (int s = 0; s < j.around(); s++) {
+			Face side = SkinCanvas.sideOf(j, s);
+			if (side == Face.FRONT) {
+				// open in front: only the edges show
+				this.c.around(j, s, 0, argb(ermine(s, 0)));
+				continue;
+			}
+			for (int y = 0; y < 12; y++) {
+				this.c.around(j, s, y, argb(y == 0 ? ermine(s, y) : jitter(colour, s, y + 1700, 0.03F)));
+			}
+		}
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 4; z++) {
+				this.c.top(j, x, z, argb(ermine(x, z + 20)));
+			}
+		}
+		this.c.front(j, 3, 0, 0);
+		this.c.front(j, 4, 0, 0);
+		for (int y = 1; y < 12; y++) {
+			this.c.front(j, 0, y, argb(ermine(0, y)));
+			this.c.front(j, 7, y, argb(ermine(7, y)));
+		}
+		// the hem of the mantle down the legs at the back
+		for (Part pants : new Part[]{SkinCanvas.RIGHT_PANTS, SkinCanvas.LEFT_PANTS}) {
+			for (int x = 0; x < 4; x++) {
+				for (int y = 0; y < 10; y++) {
+					this.c.back(pants, x, y, argb(y == 9 ? ermine(x, y) : jitter(colour, x + pants.u(), y + 1710, 0.03F)));
+				}
+			}
+		}
+	}
+
+	/** White fur with its black tails. */
+	private int ermine(int x, int y) {
+		return (x * 3 + y * 5) % 7 == 0 ? 0x1A1A1A : jitter(0xF2F0EA, x, y + 1720, 0.03F);
+	}
+
+	/** Hands and forearms stained by the trade (dye, ink, tannin, soot). */
+	private void stain(int colour, float amount, int fromRow) {
+		for (Part arm : new Part[]{this.rArm, this.lArm}) {
+			for (int s = 0; s < arm.around(); s++) {
+				for (int y = fromRow; y < 12; y++) {
+					int px = this.c.getAround(arm, s, y);
+					if (px != 0) {
+						this.c.around(arm, s, y, argb(mix(px & 0xFFFFFF, colour, amount * (0.7F + 0.3F * hash(s, y, 1730)))));
+					}
+				}
+			}
+		}
+	}
+
+	/** Specks of something on an apron or the clothes' front: blood at the block, wax at the vat, dye at the tub. */
+	private void spatter(int colour, float threshold) {
+		Part j = SkinCanvas.JACKET;
+		for (int x = 1; x <= 6; x++) {
+			for (int y = 2; y < 12; y++) {
+				if (this.c.getFront(j, x, y) != 0 && hash(x, y, 1740) > threshold) {
+					this.c.front(j, x, y, argb(colour));
+				}
+			}
+		}
+	}
+
 	// ---------------------------------------------------------------- trades
 
 	private void paintJob(Outfit o) {
@@ -1217,6 +1490,220 @@ public final class SkinComposer {
 				}
 				this.c.front(j, 2, 3, argb(0x3A3226));
 				this.c.front(j, 5, 5, argb(0x3A3226));
+			}
+			// ---- phase 3: the trades of the chains, the services, the officials
+			case MINER -> {
+				rollSleeves(o);
+				toolBelt(0x4A3424, false);
+				dust(0x3A3634, 0.62F, false);
+				this.c.front(SkinCanvas.HEAD, 1, 6, argb(shade(this.skin, 0.75F)));
+				this.c.front(SkinCanvas.HEAD, 6, 5, argb(shade(this.skin, 0.78F)));
+			}
+			case HAULER -> {
+				rollSleeves(o);
+				// a leather pad on the shoulder for the loads, a rope across the chest
+				for (int x = 0; x < this.rSleeve.w(); x++) {
+					for (int z = 0; z < 4; z++) {
+						this.c.top(this.rSleeve, x, z, argb(0x6A4A30));
+					}
+				}
+				for (int s = 0; s < this.rSleeve.around(); s++) {
+					this.c.around(this.rSleeve, s, 0, argb(0x6A4A30));
+					this.c.around(this.rSleeve, s, 1, argb(0x5A3E26));
+				}
+				for (int y = 0; y < 9; y++) {
+					this.c.front(j, 6 - y * 6 / 9, y, argb(0xB8A070));
+				}
+				dust(0x8A7458, 0.8F, false);
+			}
+			case CHARCOAL_BURNER -> {
+				rollSleeves(o);
+				dust(0x262220, 0.5F, false);
+				stain(0x2A2624, 0.55F, 4);
+				this.c.front(SkinCanvas.HEAD, 2, 6, argb(shade(this.skin, 0.6F)));
+				this.c.front(SkinCanvas.HEAD, 5, 5, argb(shade(this.skin, 0.65F)));
+				this.c.front(SkinCanvas.HEAD, 6, 6, argb(shade(this.skin, 0.62F)));
+			}
+			case KILN_WORKER -> {
+				paintApron(0x6A4A34, false, false);
+				rollSleeves(o);
+				dust(0xB0583A, 0.72F, false);
+			}
+			case GLASSMAKER -> {
+				paintApron(0x5A4030, true, true);
+				rollSleeves(o);
+				spectacles(0x3A3A3A);
+			}
+			case SMELTER -> {
+				paintApron(0x3A2A20, true, true);
+				rollSleeves(o);
+				dust(0x3A3634, 0.7F, false);
+				// heavy gloves
+				stain(0x4A3424, 0.95F, 9);
+			}
+			case TANNER -> {
+				paintApron(0x6A4A2E, true, true);
+				spatter(0x4A3220, 0.55F);
+				rollSleeves(o);
+				stain(0x6A4A2A, 0.45F, 6);
+			}
+			case BUTCHER -> {
+				paintApron(0xF0EEE8, true, true);
+				spatter(0x9A1E1E, 0.6F);
+				rollSleeves(o);
+			}
+			case CHANDLER -> {
+				paintApron(0xE8DCC0, true, true);
+				spatter(0xFAF6EA, 0.5F);
+				rollSleeves(o);
+			}
+			case BEEKEEPER -> {
+				// pale, close-woven clothes the bees leave alone, and gloves
+				for (Part p : new Part[]{SkinCanvas.BODY, this.rArm, this.lArm}) {
+					for (int s = 0; s < p.around(); s++) {
+						for (int y = 0; y < (p == SkinCanvas.BODY ? 12 : 10); y++) {
+							this.c.around(p, s, y, argb(jitter(0xEEE8D6, s + p.u(), y + 1750, 0.03F)));
+						}
+					}
+				}
+				stain(0xD8C890, 0.9F, 9);
+				toolBelt(0x8A6A44, false);
+			}
+			case PAPERMAKER -> {
+				paintApron(0xD8D2C2, true, true);
+				rollSleeves(o);
+				stain(0x2A3A5A, 0.5F, 10);
+			}
+			case DYER -> {
+				int dye = this.dyes.accent()[(int) (this.noiseSeed >>> 15 & 0xFF) % this.dyes.accent().length];
+				paintApron(0x8A7A60, true, true);
+				spatter(dye, 0.45F);
+				spatter(0x2A3A7A, 0.7F);
+				rollSleeves(o);
+				stain(mix(dye, 0x2A3A7A, 0.5F), 0.6F, 6);
+			}
+			case SALTER -> {
+				rollSleeves(o);
+				dust(0xF4F4F0, 0.6F, true);
+			}
+			case CLAY_DIGGER -> {
+				rollSleeves(o);
+				for (Part leg : new Part[]{SkinCanvas.RIGHT_LEG, SkinCanvas.LEFT_LEG}) {
+					for (int s = 0; s < leg.around(); s++) {
+						for (int y = 6; y < 12; y++) {
+							int px = this.c.getAround(leg, s, y);
+							this.c.around(leg, s, y, argb(mix(px & 0xFFFFFF, 0x7A6050, 0.55F + 0.2F * hash(s, y, 1760))));
+						}
+					}
+				}
+				stain(0x8A7060, 0.4F, 8);
+			}
+			case BOATWRIGHT -> {
+				toolBelt(0x5A4030, true);
+				rollSleeves(o);
+				dust(0xE0C890, 0.84F, false);
+			}
+			case TRADER -> {
+				paintCoat(pick(0x6A4A30, 0x5A4A3A, 0x3A4A3A), 0xC8A860, 11, true);
+				for (int y = 0; y < 9; y++) {
+					this.c.front(j, 1 + y * 6 / 9, y, argb(0x5A3A22));
+				}
+				this.c.left(j, 1, 9, argb(0x8A6440));
+				this.c.left(j, 2, 9, argb(0x8A6440));
+				this.c.left(j, 1, 10, argb(0x6A4A2E));
+				this.c.left(j, 2, 10, argb(0x6A4A2E));
+			}
+			case HEALER -> {
+				paintApron(pick(0x5E7A5A, 0x6A7A62), true, true);
+				// a pouch of herbs at the hip
+				this.c.front(j, 6, 9, argb(0x7A5A3A));
+				this.c.front(j, 6, 10, argb(0x5A8A4A));
+			}
+			case ENTERTAINER -> {
+				// motley: the body halved in two colours, the sleeves crossed
+				int a = this.dyes.accent()[0];
+				int b = this.dyes.accent().length > 1 ? this.dyes.accent()[1] : 0xE0C050;
+				Part body2 = SkinCanvas.BODY;
+				for (int s = 0; s < body2.around(); s++) {
+					for (int y = 0; y < 12; y++) {
+						this.c.around(body2, s, y, argb(jitter(s < body2.around() / 2 ? a : b, s, y + 1770, 0.03F)));
+					}
+				}
+				for (int s = 0; s < this.rArm.around(); s++) {
+					for (int y = 0; y < 10; y++) {
+						this.c.around(this.rArm, s, y, argb(b));
+						this.c.around(this.lArm, s, y, argb(a));
+					}
+				}
+				for (int s = 0; s < SkinCanvas.RIGHT_LEG.around(); s++) {
+					for (int y = 0; y < 10; y++) {
+						this.c.around(SkinCanvas.RIGHT_LEG, s, y, argb(a));
+						this.c.around(SkinCanvas.LEFT_LEG, s, y, argb(b));
+					}
+				}
+			}
+			case BATH_KEEPER -> {
+				for (Part p : new Part[]{SkinCanvas.BODY, this.rArm, this.lArm}) {
+					for (int s = 0; s < p.around(); s++) {
+						for (int y = 0; y < (p == SkinCanvas.BODY ? 12 : 4); y++) {
+							this.c.around(p, s, y, argb(jitter(0xF4F2EC, s + p.u(), y + 1780, 0.02F)));
+						}
+					}
+				}
+				// a towel over the shoulder
+				for (int y = 0; y < 6; y++) {
+					this.c.front(j, 5, y, argb(0xD8E0E8));
+					this.c.back(j, 2, y, argb(0xD8E0E8));
+				}
+			}
+			case STABLEMASTER -> {
+				paintVest(0x6A4A30, 0x4A3220, false);
+				// riding boots to the knee
+				for (Part leg : new Part[]{SkinCanvas.RIGHT_LEG, SkinCanvas.LEFT_LEG}) {
+					for (int s = 0; s < leg.around(); s++) {
+						for (int y = 5; y < 12; y++) {
+							this.c.around(leg, s, y, argb(noisy(y == 5 ? 0x5A3A22 : 0x3A2618, s, y + 1790)));
+						}
+					}
+				}
+				dust(0x8A7458, 0.84F, true);
+			}
+			case REEVE -> {
+				paintCoat(pick(0x2E4A3A, 0x4A3A2A, 0x2E3A4A), 0xC8A860, 11, true);
+				chainOfOffice(0xC8C8C0, false);
+			}
+			case JUDGE -> {
+				paintRobe(0x1E1C20, 0x1E1C20, false);
+				// the white bands at the throat
+				this.c.front(j, 3, 0, argb(0xF6F4EE));
+				this.c.front(j, 4, 0, argb(0xF6F4EE));
+				this.c.front(j, 3, 1, argb(0xF6F4EE));
+				this.c.front(j, 4, 1, argb(0xF6F4EE));
+				this.c.front(j, 3, 2, argb(0xE8E6E0));
+				this.c.front(j, 4, 2, argb(0xE8E6E0));
+			}
+			case JAILER -> {
+				paintVest(0x5A4030, 0x3A2A1C, true);
+				toolBelt(0x3A2A1C, false);
+				// the keys at the belt
+				this.c.front(j, 1, 9, argb(0x9A9A9A));
+				this.c.front(j, 1, 10, argb(0x7A7A7A));
+				this.c.front(j, 2, 10, argb(0xA8A8A8));
+			}
+			case FENCE -> {
+				// nothing to see here: plain dark clothes and a cap pulled low
+				paintVest(0x3A3632, 0x2A2622, true);
+			}
+			case STEWARD -> {
+				paintCoat(pick(0x2A2A30, 0x3A2A2A, 0x2A3030), GOLD, 11, true);
+				chainOfOffice(GOLD, false);
+				this.c.left(j, 1, 9, argb(0x6A4A2E));
+				this.c.left(j, 2, 9, argb(0x6A4A2E));
+			}
+			case LORD -> {
+				// the station paints the mantle and chain; a gold belt clasp here
+				this.c.front(j, 3, 8, argb(GOLD));
+				this.c.front(j, 4, 8, argb(shade(GOLD, 0.8F)));
 			}
 			default -> {
 			}
@@ -1492,6 +1979,64 @@ public final class SkinComposer {
 	private void paintHeadwear(Outfit o) {
 		Headwear hw = o.headwear;
 		JobType job = this.look.job();
+		if (this.look.station() == Station.LORD && this.look.age() != AgeStage.CHILD) {
+			circlet();
+			return;
+		}
+		switch (job) {
+			case MINER -> {
+				cap(0x5A4430, 0x3A2A1A, 1);
+				// a candle on the brim to see by
+				this.c.front(SkinCanvas.HAT, 3, 0, argb(0xF4ECD8));
+				this.c.top(SkinCanvas.HAT, 3, 7, argb(0xF8C840));
+				return;
+			}
+			case BEEKEEPER -> {
+				veil();
+				return;
+			}
+			case JUDGE -> {
+				cap(0x1A1A1E, 0x1A1A1E, 2);
+				return;
+			}
+			case SALTER -> {
+				straw();
+				return;
+			}
+			case TRADER -> {
+				feltHat(pick(0x4A3A2A, 0x3A3230, 0x5A4632), 0xC8A860);
+				return;
+			}
+			case ENTERTAINER -> {
+				jesterHood();
+				return;
+			}
+			case FENCE, CHARCOAL_BURNER -> {
+				woolCap(0x3A3632);
+				return;
+			}
+			case BUTCHER, CHANDLER -> {
+				cap(0xF0EEE8, 0xE0DCD2, 1);
+				return;
+			}
+			default -> {
+			}
+		}
+		if (job == JobType.BUILDER && this.look.office() == Office.MASTER_BUILDER) {
+			feltHat(0x5A4632, 0xC8A860);
+			return;
+		}
+		if (job == JobType.GUARD && this.look.office() == Office.CAPTAIN) {
+			helmet();
+			plume(0xB01A2A);
+			return;
+		}
+		if (this.look.station() == Station.GENTRY && this.look.age() != AgeStage.CHILD && (this.noiseSeed & 8) == 0) {
+			feltHat(GENTRY[(int) (this.noiseSeed >>> 7 & 0xFF) % GENTRY.length], GOLD);
+			this.c.left(SkinCanvas.HAT, 5, 0, argb(0xF2F0EA));
+			this.c.left(SkinCanvas.HAT, 6, 0, argb(0xE0DCD0));
+			return;
+		}
 		if (job == JobType.FARMER && this.look.age() != AgeStage.CHILD) {
 			hw = Headwear.STRAW;
 		} else if (job == JobType.BAKER) {
@@ -1726,6 +2271,62 @@ public final class SkinComposer {
 			this.c.left(hat, 6, 0, argb(0x3A3A3A));
 			this.c.left(hat, 6, 1, argb(0xEAE6DA));
 		}
+	}
+
+	/** The lord's gold circlet, set with a stone at the brow; the hair shows beneath. */
+	private void circlet() {
+		Part hat = SkinCanvas.HAT;
+		for (int s = 0; s < hat.around(); s++) {
+			this.c.around(hat, s, 1, argb(s % 2 == 0 ? GOLD : shade(GOLD, 0.82F)));
+		}
+		for (int x = 1; x < 7; x += 2) {
+			this.c.front(hat, x, 0, argb(GOLD));
+		}
+		this.c.front(hat, 3, 1, argb(0xB01A2A));
+		this.c.front(hat, 4, 1, argb(0x80101A));
+	}
+
+	/** A wide hat with a veil of fine mesh before the face. */
+	private void veil() {
+		Part hat = SkinCanvas.HAT;
+		straw();
+		for (int y = 3; y < 8; y++) {
+			for (int x = 0; x < 8; x++) {
+				this.c.front(hat, x, y, 0x50303030);
+				this.c.back(hat, x, y, 0x50303030);
+			}
+			for (int z = 0; z < 8; z++) {
+				this.c.right(hat, z, y, 0x50303030);
+				this.c.left(hat, z, y, 0x50303030);
+			}
+		}
+	}
+
+	/** A plume rising from the helmet's crown. */
+	private void plume(int colour) {
+		Part hat = SkinCanvas.HAT;
+		for (int z = 2; z < 6; z++) {
+			this.c.top(hat, 3, z, argb(colour));
+			this.c.top(hat, 4, z, argb(shade(colour, 0.8F)));
+		}
+		this.c.back(hat, 3, 0, argb(colour));
+		this.c.back(hat, 4, 0, argb(shade(colour, 0.8F)));
+	}
+
+	/** A two-coloured hood with points. */
+	private void jesterHood() {
+		int a = this.dyes.accent()[0];
+		int b = this.dyes.accent().length > 1 ? this.dyes.accent()[1] : 0xE0C050;
+		hood(a);
+		Part hat = SkinCanvas.HAT;
+		for (int z = 0; z < 8; z++) {
+			for (int y = 0; y < 8; y++) {
+				this.c.left(hat, z, y, argb(jitter(b, z, y + 1800, 0.03F)));
+			}
+		}
+		// the bells
+		this.c.right(hat, 0, 0, argb(0xE8D060));
+		this.c.left(hat, 7, 0, argb(0xE8D060));
 	}
 
 	private void hood(int colour) {
