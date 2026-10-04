@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "voidhub",
+	"version": "${version}",
+	"name": "VOID Hub",
+	"description": "The VOID-drawn inventory: Minecraft's real inventory and chest menus, drawn with Ultralight (HTML/CSS) in the VOID design. Ultralight (c) 2024 Ultralight, Inc. All rights reserved. Ultralight is a trademark of Ultralight, Inc.",
+	"authors": ["VOID"],
+	"contact": {},
+	"license": "All-Rights-Reserved",
+	"icon": "assets/voidhub/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.voidmc.hub.VoidHub"]
+	},
+	"mixins": ["voidhub.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"custom": {
+		"credits": {
+			"ultralight": "Ultralight (c) 2024 Ultralight, Inc. All rights reserved. Ultralight is a trademark of Ultralight, Inc. Portions of this software are licensed from third parties; see natives/windows-x64/resources/NOTICES.md for full text.",
+			"outfit": "Outfit by the Outfit Project Authors, SIL Open Font License 1.1 (assets/voidhub/ui/fonts/OFL.txt)"
+		}
+	}
+}

@@ -24,7 +24,8 @@
 //   trips an assertion on the way. A mutex around these calls does not make them interchangeable;
 //   only pinning them does.
 //
-//   GL thread — viewTextureId for a CPU view, and nothing else that touches the engine. It may be
+//   GL thread — viewTextureId for a CPU view (and viewCopyDirtyRgba, its renderpearl-host
+//   counterpart, which copies out instead of uploading), and nothing else that touches the engine. It may be
 //   a different thread, and for that view it is: Minecraft's render thread, the only one with the
 //   game's context current, because that call *is* the upload of the surface into a texture.
 //   viewUvScaleX and viewUvScaleY may be called from it too, but only because for a CPU view they
@@ -115,6 +116,7 @@
 #include <jni.h>
 
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -579,7 +581,11 @@ JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_viewResize(JNIEnv* 
                                                                        jlong handle, jint w,
                                                                        jint h) {
   ULView v = view_of(handle);
-  if (v) ulViewResize(v, static_cast<unsigned int>(w), static_cast<unsigned int>(h));
+  if (!v) return;
+  // Under the surface lock: resizing reallocates the CPU surface, and viewCopyDirtyRgba may be
+  // reading it from the render thread at this moment.
+  std::lock_guard<std::mutex> guard(surface_lock());
+  ulViewResize(v, static_cast<unsigned int>(w), static_cast<unsigned int>(h));
 }
 
 JNIEXPORT void JNICALL Java_dev_voidclient_ultralight_Native_viewSetDeviceScale(JNIEnv* e, jclass,
@@ -969,6 +975,98 @@ JNIEXPORT jbyteArray JNICALL Java_dev_voidclient_ultralight_Native_viewReadPixel
   ulSurfaceUnlockPixels(surface);
   ulSurfaceClearDirtyBounds(surface);
   return out;
+}
+
+// CPU views only. The upload path for a host that owns its own texture (Minecraft 26.x's
+// renderpearl, on OpenGL *or* Vulkan) and so cannot use viewTextureId's raw-GL upload.
+//
+// Copies the surface's dirty rectangle — or the whole surface when `full` is set — into `dst`, a
+// direct ByteBuffer, as RGBA8: Ultralight paints BGRA and no renderpearl format is BGRA, so the
+// swap happens here, in one pass, instead of in Java afterwards. Alpha stays premultiplied. Rows
+// are tightly packed at the rectangle's width, which is what CommandEncoder.writeToTexture(
+// ByteBuffer, ...) expects. Writes {x, y, w, h} into `out` (w == 0: nothing was dirty) and clears
+// the dirty bounds. `out` is {x, y, w, h, surfaceWidth, surfaceHeight}.
+//
+// Returns the bytes written, 0 when nothing was dirty, -1 if `dst` is too small or not direct —
+// in which case nothing is copied and the damage is kept, so the next call can still upload it —
+// or -2 if `try_lock` was set and the surface was busy.
+//
+// readPixels() does the same job for the whole surface into a fresh byte[] every call: at
+// 1920x1080 that is an 8 MB allocation, an 8 MB JNI copy and an 8 MB upload per changed frame,
+// when a hover typically damages a few thousand pixels. This is the difference.
+JNIEXPORT jint JNICALL Java_dev_voidclient_ultralight_Native_viewCopyDirtyRgba(
+    JNIEnv* e, jclass, jlong handle, jobject dst, jboolean full, jboolean try_lock, jintArray out) {
+  ULView v = view_of(handle);
+  if (!v || !dst || !out || e->GetArrayLength(out) < 6) return -1;
+  ViewState* vs = state_of(handle);
+  if (vs->accelerated) return -1;
+
+  unsigned char* dst_ptr = static_cast<unsigned char*>(e->GetDirectBufferAddress(dst));
+  jlong capacity = e->GetDirectBufferCapacity(dst);
+  if (!dst_ptr || capacity < 0) return -1;
+
+  // The same lock rendererRender holds around ulRender for CPU views. On a host that drives the
+  // renderer from its own UI thread, the render thread calls this with try_lock: when the UI
+  // thread is mid-paint it gets -2 at once and simply uploads next frame, instead of waiting
+  // out a paint that can take milliseconds.
+  std::unique_lock<std::mutex> guard(surface_lock(), std::defer_lock);
+  if (try_lock == JNI_TRUE) {
+    if (!guard.try_lock()) return -2;
+  } else {
+    guard.lock();
+  }
+  ULSurface surface = ulViewGetSurface(v);
+  if (!surface) return -1;
+
+  const int sw = static_cast<int>(ulSurfaceGetWidth(surface));
+  const int sh = static_cast<int>(ulSurfaceGetHeight(surface));
+  const unsigned int row_bytes = ulSurfaceGetRowBytes(surface);
+  // The surface size travels with the rectangle: after a resize the host's texture and the
+  // surface can briefly disagree, and the host must not upload a rect from the old size.
+  jint dims[2] = {sw, sh};
+  e->SetIntArrayRegion(out, 4, 2, dims);
+
+  int x0 = 0, y0 = 0, x1 = sw, y1 = sh;
+  if (full != JNI_TRUE) {
+    ULIntRect r = ulSurfaceGetDirtyBounds(surface);
+    x0 = r.left < 0 ? 0 : r.left;
+    y0 = r.top < 0 ? 0 : r.top;
+    x1 = r.right > sw ? sw : r.right;
+    y1 = r.bottom > sh ? sh : r.bottom;
+  }
+  jint rect[4] = {x0, y0, 0, 0};
+  if (x1 <= x0 || y1 <= y0) {
+    e->SetIntArrayRegion(out, 0, 4, rect);
+    return 0;
+  }
+  const int w = x1 - x0;
+  const int h = y1 - y0;
+  const jlong needed = static_cast<jlong>(w) * h * 4;
+  if (needed > capacity) {
+    e->SetIntArrayRegion(out, 0, 4, rect);
+    return -1;
+  }
+
+  const unsigned char* src = static_cast<const unsigned char*>(ulSurfaceLockPixels(surface));
+  if (!src) return -1;
+  uint32_t* d = reinterpret_cast<uint32_t*>(dst_ptr);
+  for (int y = 0; y < h; ++y) {
+    const uint32_t* s = reinterpret_cast<const uint32_t*>(src + (y0 + y) * row_bytes) + x0;
+    // BGRA -> RGBA: keep G and A, swap the R and B bytes. Little-endian words; the compiler
+    // vectorises this loop.
+    for (int x = 0; x < w; ++x) {
+      const uint32_t p = s[x];
+      d[x] = (p & 0xFF00FF00u) | ((p >> 16) & 0xFFu) | ((p & 0xFFu) << 16);
+    }
+    d += w;
+  }
+  ulSurfaceUnlockPixels(surface);
+  ulSurfaceClearDirtyBounds(surface);
+
+  rect[2] = w;
+  rect[3] = h;
+  e->SetIntArrayRegion(out, 0, 4, rect);
+  return static_cast<jint>(needed);
 }
 
 } // extern "C"

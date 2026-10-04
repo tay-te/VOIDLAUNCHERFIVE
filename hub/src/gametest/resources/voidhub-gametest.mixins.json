@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "dev.voidmc.hub.gametest.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"MinecraftFrameMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

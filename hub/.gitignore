@@ -1,0 +1,32 @@
+# gradle (anchored: an unanchored build/ also hides any Java package named "build")
+/.gradle/
+/build/
+/out/
+/classes/
+
+# Ultralight binding + natives, staged from pvp/mod/native/build by `gradlew syncUltralight`
+/libs/
+
+# ide
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.vscode/
+/bin/
+.classpath
+.project
+*.DS_Store
+
+# fabric
+/run/
+
+# java
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+/run-client.log
+/launch-client.ps1
+/default/

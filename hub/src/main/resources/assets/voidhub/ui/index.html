@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VOID Hub</title>
+<link rel="stylesheet" href="hub.css">
+</head>
+<body class="inventory">
+<!-- The shell (Figma 261:50520): flat dim, three islands, the centred window, the world strip.
+     Wells are positioned by Java (one shared layout); everything inside the window is the
+     design's own coordinates, in CSS px = design units. Item stacks are drawn by Minecraft on top. -->
+<div id="dim"></div>
+
+<div class="island" id="mark">
+  <div class="ring" id="ring"></div>
+  <span class="wordmark">VOID</span>
+</div>
+
+<div class="island" id="pages">
+  <div class="page">Map</div>
+  <div class="page active">Inventory</div>
+  <div class="page">Quests</div>
+  <div class="page">Mods</div>
+  <div class="page">Friends</div>
+  <div class="sep"></div>
+  <div class="hint"><span class="keycap">Tab</span></div>
+</div>
+
+<div class="island" id="close" data-act="close">
+  <svg class="icon-x" width="16" height="16" viewBox="0 0 16 16"><g transform="translate(3.4167 3.4167)"><path d="M8.58333 0.583333L0.583333 8.58333" stroke="#9A9DA1" stroke-width="1.16667" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M0.583333 0.583333L8.58333 8.58333" stroke="#9A9DA1" stroke-width="1.16667" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></svg>
+  <span class="keycap">R-Shift</span>
+</div>
+
+<div class="island" id="strip">
+  <div class="world">
+    <div class="live"><span class="dot"></span><span id="world-status">WORLD · DAY 1</span></div>
+    <div class="name" id="world-name">World</div>
+  </div>
+  <div class="vsep"></div>
+  <div class="pill-button">
+    <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 14.4C8 14.4 3.4 10.3 3.4 6.9C3.4 5.68 3.88464 4.50998 4.74731 3.64731C5.60998 2.78464 6.78 2.3 8 2.3C9.22 2.3 10.39 2.78464 11.2527 3.64731C12.1154 4.50998 12.6 5.68 12.6 6.9C12.6 10.3 8 14.4 8 14.4Z" stroke="#EDEEEF" stroke-width="1.17" stroke-linejoin="round" fill="none"/><path d="M8.5 5.4H7.5C6.94772 5.4 6.5 5.84772 6.5 6.4V7.4C6.5 7.95228 6.94772 8.4 7.5 8.4H8.5C9.05228 8.4 9.5 7.95228 9.5 7.4V6.4C9.5 5.84772 9.05228 5.4 8.5 5.4Z" fill="#EDEEEF"/></svg>
+    <span>Waypoint here</span>
+  </div>
+</div>
+
+<div id="win">
+  <div class="segments" id="segments">
+    <div class="segment seg-chest active" data-seg="chest">Chest <span class="count" id="seg-chest-count">27</span></div>
+    <div class="segment active-inv" data-seg="inventory">Inventory <span class="count">36</span></div>
+    <div class="segment idle" data-seg="classes">Classes <span class="modmark"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+  </div>
+  <div class="search" id="search">
+    <svg width="15" height="15" viewBox="0 0 15 15"><path d="M6.74049 12.8164C10.0961 12.8164 12.8164 10.0961 12.8164 6.74049C12.8164 3.38485 10.0961 0.664555 6.74049 0.664555C3.38485 0.664555 0.664555 3.38485 0.664555 6.74049C0.664555 10.0961 3.38485 12.8164 6.74049 12.8164Z" stroke="#9A9DA1" stroke-width="1.48101" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.3354 14.3354L11.0696 11.0696" stroke="#9A9DA1" stroke-width="1.48101" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+  </div>
+
+  <!-- Inventory page, left column -->
+  <div class="page-inv">
+    <div class="player" id="player"><div class="label">DRAG TO TURN</div></div>
+    <div class="eyebrow" style="left:318px;top:100px">CRAFTING</div>
+    <div class="arrow" style="left:423px;top:156px"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="readout">
+      <div class="eyebrow small" style="left:11px;top:11px">ARMOUR</div>
+      <div class="cells" id="armour-cells" style="left:71px;top:12px"></div>
+      <div class="value" id="armour-value" style="top:8px">0</div>
+      <div class="eyebrow small" style="left:11px;top:39px">LEVEL</div>
+      <div class="cells" id="level-cells" style="left:71px;top:40px"></div>
+      <div class="value" id="level-value" style="top:36px">0</div>
+    </div>
+    <div class="eyebrow" style="left:28px;top:325px">STORAGE</div>
+    <div class="chips" style="left:221px;top:316px">
+      <div class="chip active" data-filter="all">All</div>
+      <div class="chip" data-filter="tools">Tools</div>
+      <div class="chip" data-filter="blocks">Blocks</div>
+      <div class="chip" data-filter="food">Food</div>
+      <div class="action" data-sort="storage"><span class="sorticon"><i></i><i></i><i></i></span>Sort</div>
+    </div>
+  </div>
+
+  <!-- Chest page, left column -->
+  <div class="page-chest">
+    <div class="eyebrow" id="chest-eyebrow" style="left:28px;top:109px">CHEST</div>
+    <div class="actions" style="right:497px;top:100px">
+      <div class="action" data-move="inventory"><span class="moveicon"><i></i><i></i><i></i><i></i><i></i><i></i></span>Move all to inventory</div>
+      <div class="action" data-sort="container"><span class="sorticon"><i></i><i></i><i></i></span>Sort</div>
+    </div>
+    <div class="scrollbar" id="scrollbar"><div class="thumb" id="thumb"></div></div>
+    <div class="eyebrow" style="left:28px;top:309px">INVENTORY</div>
+    <div class="actions" style="right:497px;top:300px">
+      <div class="action" data-move="container"><span class="moveicon"><i></i><i></i><i></i><i></i><i></i><i></i></span>Move all to chest</div>
+      <div class="action" data-sort="storage"><span class="sorticon"><i></i><i></i><i></i></span>Sort</div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="card" id="card-chest">
+    <div class="head">
+      <div class="glyph" id="chest-glyph"></div>
+      <div class="title">
+        <div class="name" id="chest-title">Chest</div>
+        <div class="eyebrow-inline" id="chest-coords"></div>
+      </div>
+      <div class="tag">VANILLA CONTAINER</div>
+    </div>
+    <div class="fill"><div class="cells fillcells" id="chest-fill"></div><span id="chest-fill-text">0 / 27</span></div>
+  </div>
+
+  <!-- The hovered-item card. Fixed geometry on purpose: a hover only ever changes text, classes
+       and visibility here, never layout, so Ultralight repaints the card and nothing else. -->
+  <div class="card" id="card-detail">
+    <div class="d-empty" id="detail-empty">
+      <div class="eyebrow-inline">NOTHING HOVERED</div>
+      <div class="hint-text">Hover a slot to see its item here.</div>
+    </div>
+    <div class="itemwell d-has"></div>
+    <div class="eyebrow-inline d-label d-has" id="detail-label"></div>
+    <div class="d-name d-has" id="detail-name"></div>
+    <div class="eyebrow-inline d-meta d-has" id="detail-meta"></div>
+    <div class="d-dur" id="detail-durability">
+      <span class="eyebrow-inline">DURABILITY</span><span class="num" id="durability-text"></span>
+      <div class="durcells" id="durability-cells"></div>
+    </div>
+    <div class="d-row d-r1" id="row-r1"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
+    <div class="eyebrow-inline d-eyebrow" id="ench-eyebrow">ENCHANTMENTS</div>
+    <div class="d-row d-r2" id="row-0"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
+    <div class="d-row d-r3" id="row-1"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
+    <div class="d-row d-r4" id="row-2"><span class="k"></span><span class="lvc"></span><span class="v"></span></div>
+  </div>
+
+  <div class="card purse" id="card-purse">
+    <div class="phead"><span class="ptitle">Purse</span><span class="source"><span class="modmark big"><i></i><i></i><i></i><i></i><i></i><i></i></span>from Hearth</span></div>
+    <div class="coins">
+      <div class="coin"><div class="coinart copper"></div><div><div class="cnum" id="coin-copper">0</div><div class="eyebrow-inline">COPPER BIT</div></div></div>
+      <div class="coin"><div class="coinart iron"></div><div><div class="cnum" id="coin-iron">0</div><div class="eyebrow-inline">IRON MARK</div></div></div>
+      <div class="coin"><div class="coinart gold"></div><div><div class="cnum" id="coin-gold">0</div><div class="eyebrow-inline">GOLD CROWN</div></div></div>
+    </div>
+    <div class="total"><span id="purse-total">0 BITS CARRIED  ·  1 BIT = 1 COPPER</span><span class="bank" id="purse-bank">HEARTH NOT LOADED</span></div>
+  </div>
+
+  <div class="card purse compact" id="card-purse-compact">
+    <div class="label"><div class="ptitle">Purse</div><div class="eyebrow-inline" id="purse-compact-total">0 BITS CARRIED</div></div>
+    <div class="minicoin"><div class="coinart copper small"></div><span id="mini-copper">0</span></div>
+    <div class="minicoin"><div class="coinart iron small"></div><span id="mini-iron">0</span></div>
+    <div class="minicoin"><div class="coinart gold small"></div><span id="mini-gold">0</span></div>
+  </div>
+
+  <div class="footer" id="footer-left"></div>
+  <div class="footer right" id="footer-right"></div>
+</div>
+
+<div id="wells"></div>
+
+<script src="hub.js"></script>
+</body>
+</html>

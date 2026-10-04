@@ -1,0 +1,160 @@
+plugins {
+	// 26.x ships unobfuscated, so there is no mappings line: the code below is written against
+	// Mojang's own names, and Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-hub'
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ultralight. The Java binding and the Windows natives are built by pvp/mod/native (CMake) and
+// staged into libs/ (git-ignored) by `./gradlew syncUltralight`:
+//
+//   libs/voidultralight-api.jar              dev.voidclient.ultralight, Java 8 bytecode
+//   libs/natives/windows-x64/                voidultralight.dll + Ultralight + resources/
+//
+// The API classes are shaded into the mod jar and the natives ride along under natives/<key>/,
+// where NativeLoader extracts them from. Dev runs skip extraction (void.ultralight.nativeDir).
+// ---------------------------------------------------------------------------------------------
+def ulApiJar = file('libs/voidultralight-api.jar')
+def ulNatives = file('libs/natives')
+def ulNativeDir = file('libs/natives/windows-x64')
+
+tasks.register('syncUltralight', Sync) {
+	group = 'voidhub'
+	description = 'Stages the Ultralight binding (jar + natives) from a pvp/mod/native build into libs/'
+	def src = file(project.findProperty('ultralightBuild') ?: '../pvp/mod/native/build')
+	from(new File(src, 'voidultralight-api.jar'))
+	from(new File(src, 'natives')) { into 'natives' }
+	into 'libs'
+}
+
+loom {
+	mods {
+		"voidhub" {
+			sourceSet sourceSets.main
+		}
+	}
+	runs {
+		configureEach {
+			vmArg "-Dvoid.ultralight.nativeDir=${ulNativeDir.absolutePath}"
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	implementation files(ulApiJar)
+
+	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+jar {
+	// Shade the binding's classes; ship every staged natives/<os>-<arch>/ tree.
+	from(zipTree(ulApiJar)) { exclude 'META-INF/**' }
+	from(ulNatives) { into 'natives' }
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+// Plain JUnit 5: the layout, tooltip model, bridge codec and click planning are pure Java and
+// run without the game.
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'passed', 'failed', 'skipped'
+		exceptionFormat 'full'
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// In-game tests: a client game test in its own source set (none of it ships).
+//   ./gradlew runClientGameTest          everything (perf + functional)
+//   ./gradlew hubFunctional              click assertions only
+//   ./gradlew hubPerf -Pbackend=vulkan   the perf regression gate on one backend
+// ---------------------------------------------------------------------------------------------
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "voidhub-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}
+
+def backend = (project.findProperty('backend') ?: 'opengl').toString().toLowerCase(Locale.ROOT)
+if (!(backend in ['opengl', 'vulkan'])) {
+	throw new GradleException("-Pbackend must be opengl or vulkan, not '${backend}'")
+}
+
+def hubTestRun = { String name, String mode ->
+	loom.runs.create(name) {
+		inherit loom.runs.client
+		configName = "VOID Hub ${mode}"
+		source sourceSets.gametest
+		property 'fabric.client.gametest'
+		property 'fabric.client.gametest.testModResourcesPath', file('src/gametest/resources').absolutePath
+		property 'voidhub.test', mode
+		property 'voidhub.test.backend', backend
+		property 'voidhub.test.out', file('build/perf').absolutePath
+		property 'voidhub.test.docs', file('docs').absolutePath
+		property 'voidhub.test.seconds', (project.findProperty('seconds') ?: '10').toString()
+		property 'voidhub.test.halt', 'true'
+		// The perf run measures Ultralight's cold start on the first open (and its memory), so it
+		// does not pre-warm at world join; the gate's first-open number excludes that one-off cost.
+		property 'voidhub.prewarm', mode == 'perf' ? 'false' : 'true'
+		programArgs '--username', 'Player0', '--graphicsBackend', backend.toUpperCase(Locale.ROOT)
+		runDir "build/run/${name}-${backend}"
+		ideConfigGenerated false
+	}
+}
+hubTestRun('hubPerfGame', 'perf')
+hubTestRun('hubFunctionalGame', 'functional')
+
+tasks.register('hubPerf') {
+	group = 'voidhub'
+	description = 'Perf regression gate: VOID inventory vs vanilla inventory (-Pbackend=opengl|vulkan)'
+	dependsOn 'runHubPerfGame'
+	def report = file("build/perf/${backend}.json")
+	doLast {
+		if (!report.isFile()) {
+			throw new GradleException("no perf report at ${report}")
+		}
+		def json = new groovy.json.JsonSlurper().parse(report)
+		println "VOID Hub perf (${backend}): ${json.verdict} — written to ${report} and docs/PERF.md"
+		if (json.verdict != 'PASS') {
+			throw new GradleException("VOID inventory is over budget on ${backend}: ${json.failures}")
+		}
+	}
+}
+
+tasks.register('hubFunctional') {
+	group = 'voidhub'
+	description = 'In-game click assertions (pickup/place, shift-click, 2x2 craft, chest move-all, sort)'
+	dependsOn 'runHubFunctionalGame'
+}

@@ -255,6 +255,38 @@ public final class View implements AutoCloseable {
     return Native.viewReadPixels(handle);
   }
 
+  /**
+   * The upload half of a CPU view for a host that owns its own texture (renderpearl on OpenGL or
+   * Vulkan, where {@link #glTextureId()}'s raw-GL upload is not an option).
+   *
+   * <p>Copies the surface's dirty rectangle into {@code dst} as RGBA8 — premultiplied, top-left
+   * origin, rows tightly packed at the rectangle's width — and clears the damage. Pass
+   * {@code full = true} to copy the whole surface regardless (a freshly created texture).
+   *
+   * <p>The one call besides {@link #glTextureId()} that may run on a thread other than the
+   * renderer's: it reads the surface under the same lock {@link Renderer#render()} paints it
+   * under. With {@code tryLock} it never waits for a paint in progress — it returns -2 and the
+   * caller uploads next frame.
+   *
+   * @param dst a direct buffer of at least {@code width() * height() * 4} bytes
+   * @param rectOut at least 6 ints; receives {x, y, w, h, surfaceWidth, surfaceHeight};
+   *     {@code w == 0} when nothing changed
+   * @return bytes written; 0 if nothing was dirty; -1 if {@code dst} is too small or not direct
+   *     (nothing copied, the damage is kept for the next call); -2 if busy (tryLock only)
+   */
+  public int copyDirtyRgba(java.nio.ByteBuffer dst, boolean full, boolean tryLock, int[] rectOut) {
+    checkOpen();
+    if (accelerated) {
+      throw new IllegalStateException("copyDirtyRgba() requires a view from createViewCpu()");
+    }
+    return Native.viewCopyDirtyRgba(handle, dst, full, tryLock, rectOut);
+  }
+
+  /** {@link #copyDirtyRgba(java.nio.ByteBuffer, boolean, boolean, int[])}, waiting for the lock. */
+  public int copyDirtyRgba(java.nio.ByteBuffer dst, boolean full, int[] rectOut) {
+    return copyDirtyRgba(dst, full, false, rectOut);
+  }
+
   /** View width in device-independent pixels. */
   public int width() {
     checkOpen();

@@ -1,0 +1,12 @@
+{
+	"schemaVersion": 1,
+	"id": "voidhub-gametest",
+	"version": "1.0.0",
+	"name": "VOID Hub perf + functional test",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.hub.gametest.HubGameTest"]
+	},
+	"mixins": ["voidhub-gametest.mixins.json"],
+	"depends": {"voidhub": "*"}
+}

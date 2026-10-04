@@ -95,6 +95,16 @@ final class Native {
 
   static native byte[] viewReadPixels(long view);
 
+  /**
+   * Copies the CPU surface's dirty rectangle (or all of it when {@code full}) into a direct
+   * buffer as tightly packed RGBA8, premultiplied, and clears the damage. Writes {x, y, w, h,
+   * surfaceWidth, surfaceHeight} to {@code rectOut}. Returns the bytes written, 0 when nothing was
+   * dirty, -1 when the buffer is too small or not direct (nothing copied, damage kept), -2 when
+   * {@code tryLock} was set and the UI thread was painting.
+   */
+  static native int viewCopyDirtyRgba(long view, java.nio.ByteBuffer dst, boolean full,
+      boolean tryLock, int[] rectOut);
+
   static native int viewWidth(long view);
 
   static native int viewHeight(long view);
