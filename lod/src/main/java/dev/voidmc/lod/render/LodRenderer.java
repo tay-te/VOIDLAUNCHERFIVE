@@ -22,15 +22,17 @@ import com.mojang.renderpearl.api.pipeline.UniformType;
 import com.mojang.renderpearl.api.textures.FilterMode;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 import dev.voidmc.lod.core.Fades;
+import dev.voidmc.lod.core.Horizon;
 import dev.voidmc.lod.core.LodEngine;
 import dev.voidmc.lod.core.LongList;
 import dev.voidmc.lod.core.Tile;
 import dev.voidmc.lod.core.TileBuilder;
 import dev.voidmc.lod.core.TileKey;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.LongPredicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -62,7 +64,8 @@ import org.lwjgl.system.MemoryUtil;
  *   <li><b>No discard where it is not needed.</b> Only tiles in the seam with vanilla's chunks, or
  *       cross-fading between levels ({@link Fades}), use the shader variant with {@code discard}; the rest
  *       keep early depth testing.</li>
- *   <li><b>Frustum culling per tile</b> on the CPU, against the tile's real height range.</li>
+ *   <li><b>Frustum and horizon culling per tile</b> on the CPU: against the tile's real height range, then
+ *       against the land in front of it ({@link Horizon}), so the valleys behind a ridge are not drawn.</li>
  *   <li><b>Bounded uploads.</b> Meshes reach the GPU through a fixed staging buffer; what does not fit
  *       this frame waits for the next.</li>
  *   <li><b>Measured.</b> Timestamp queries around the draws give the GPU time, logged with the statistics.</li>
@@ -121,8 +124,14 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private final boolean indirect;
 	private final boolean firstInstance;
 	private final int maxIndirect;
+	/** Whether tiles hidden behind nearer land are skipped ({@link Horizon}); off only to compare. */
+	public static volatile boolean occlusion = Boolean.parseBoolean(System.getProperty("void.lod.occlusion", "true"));
+
 	private final FrustumIntersection frustum = new FrustumIntersection();
 	private final Fades fades = new Fades();
+	private final Horizon horizon = new Horizon();
+	/** The engine's readiness test, made once: a method reference built every frame is an allocation every frame. */
+	private final LongPredicate ready;
 	private double viewX;
 	private double viewY;
 	private double viewZ;
@@ -133,8 +142,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private final Matrix4f viewProjection = new Matrix4f();
 	private final Matrix4f modelView = new Matrix4f();
 
-	// this frame's draws, grouped by heap and by pipeline variant
+	// this frame's draws, grouped by heap and by pipeline variant; groups are kept from frame to frame
 	private final List<Group> order = new ArrayList<>();
+	// this frame's tiles in the frustum, waiting for the horizon's verdict
+	private Tile[] inView = new Tile[256];
+	private int[] inViewFade = new int[256];
+	private boolean[] inViewClipped = new boolean[256];
+	private TlsfAllocator.Allocation[] inViewAlloc = new TlsfAllocator.Allocation[256];
 	private ByteBuffer instances = MemoryUtil.memAlloc(INSTANCE_BYTES * 1024);
 	private ByteBuffer commands = MemoryUtil.memAlloc(COMMAND_BYTES * 1024);
 	private final ByteBuffer info = MemoryUtil.memAlloc(LOD_INFO_SIZE);
@@ -150,6 +164,8 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	// statistics
 	public int lastTiles;
 	public long lastQuads;
+	/** Tiles in the frustum that the horizon hid. */
+	public int lastOccluded;
 	public long lastPrepareNanos;
 	/** Where the last prepare's time went: selection and uploads (engine), fades, staging copies, draw buffers. */
 	public long lastEngineNanos;
@@ -163,16 +179,32 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	private int timerSlot;
 
 	private static final class Group {
+		static final int DRAW_INTS = 4;
+
 		final GpuBuffer heap;
 		final boolean smooth;
 		final boolean clipped;
-		final List<int[]> draws = new ArrayList<>();
+		/** This frame's draws, {@value #DRAW_INTS} ints each: index count, first index, base vertex, instance. */
+		int[] draws = new int[DRAW_INTS * 64];
+		int count;
 		int firstCommand;
 
 		Group(GpuBuffer heap, boolean smooth, boolean clipped) {
 			this.heap = heap;
 			this.smooth = smooth;
 			this.clipped = clipped;
+		}
+
+		void add(int indices, int firstIndex, int baseVertex, int instance) {
+			int at = this.count * DRAW_INTS;
+			if (at == this.draws.length) {
+				this.draws = Arrays.copyOf(this.draws, at * 2);
+			}
+			this.draws[at] = indices;
+			this.draws[at + 1] = firstIndex;
+			this.draws[at + 2] = baseVertex;
+			this.draws[at + 3] = instance;
+			this.count++;
 		}
 
 		RenderPipeline pipeline() {
@@ -182,6 +214,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 
 	public LodRenderer(LodEngine engine) {
 		this.engine = engine;
+		this.ready = engine::ready;
 		this.device = RenderSystem.getDevice();
 		this.staging = StagingBuffer.create("VOID LOD", this.device, 16 << 20);
 		this.arena = new UberGpuBuffer<>("VOID LOD", GpuBuffer.USAGE_VERTEX, 64 << 20, TileBuilder.VERTEX_BYTES, this.staging);
@@ -251,10 +284,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 	public void prepare(CameraRenderState camera, double radius, double clip, double fade, double pixelsPerCell, double farPixelsPerCell,
 		float[] haze, float[] sun) {
 		long t0 = System.nanoTime();
-		this.order.clear();
+		for (Group group : this.order) {
+			group.count = 0;
+		}
 		this.drawCount = 0;
 		this.lastTiles = 0;
 		this.lastQuads = 0;
+		this.lastOccluded = 0;
 		double cx = camera.pos.x;
 		double cy = camera.pos.y;
 		double cz = camera.pos.z;
@@ -273,7 +309,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		LongList draw = this.engine.update(this, cx, cy, cz, radius, clip, scale, pixelsPerCell, farPixelsPerCell, this.visibility, outOfView);
 		long t1 = System.nanoTime();
 		this.lastEngineNanos = t1 - t0;
-		this.fades.update(draw, t1, this.engine::ready);
+		this.fades.update(draw, t1, this.ready);
 
 		CommandEncoder encoder = this.device.createCommandEncoder();
 		long t2 = System.nanoTime();
@@ -283,12 +319,12 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		long t3 = System.nanoTime();
 		this.lastStagingNanos = t3 - t2;
 
-		int bx = camera.blockPos.getX();
-		int by = camera.blockPos.getY();
-		int bz = camera.blockPos.getZ();
 		this.instances.clear();
 		int maxQuads = 0;
 		double clipReach = clip + fade;
+		// the frustum first; then the horizon, near to far, over what is left
+		this.horizon.begin(cx, cy, cz);
+		int inView = 0;
 		for (int i = 0; i < this.fades.size(); i++) {
 			long key = this.fades.key(i);
 			int tileFade = this.fades.fade(i);
@@ -318,12 +354,41 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 			double nz = Math.max(0, Math.max(z0 - cz, cz - (z0 + span)));
 			// the dithered variant: tiles in the seam with vanilla's chunks, and tiles fading in or out
 			boolean clipped = tileFade != 0 || nx * nx + nz * nz < clipReach * clipReach;
+			if (inView == this.inView.length) {
+				int n = inView * 2;
+				this.inView = Arrays.copyOf(this.inView, n);
+				this.inViewFade = Arrays.copyOf(this.inViewFade, n);
+				this.inViewClipped = Arrays.copyOf(this.inViewClipped, n);
+				this.inViewAlloc = Arrays.copyOf(this.inViewAlloc, n);
+			}
+			this.inView[inView] = tile;
+			this.inViewFade[inView] = tileFade;
+			this.inViewClipped[inView] = clipped;
+			this.inViewAlloc[inView] = alloc;
+			// a dithered tile hides nothing: some of its pixels are its partner's in a fade, or the chunks'
+			this.horizon.add(x0, z0, span, tile.maxY, clipped ? null : tile.occluders);
+			inView++;
+		}
+		boolean cull = occlusion;
+		if (cull) {
+			this.horizon.cull();
+			this.lastOccluded = this.horizon.culled();
+		}
+		for (int c = 0; c < inView; c++) {
+			Tile tile = this.inView[c];
+			TlsfAllocator.Allocation alloc = this.inViewAlloc[c];
+			this.inView[c] = null;
+			this.inViewAlloc[c] = null;
+			if (cull && this.horizon.hidden(c)) {
+				continue;
+			}
+			int level = TileKey.level(tile.key);
 			GpuBuffer heap = this.arena.getGpuBuffer(alloc);
-			Group group = this.group(heap, tile.smooth, clipped);
+			Group group = this.group(heap, tile.smooth, this.inViewClipped[c]);
 			int instance = this.lastTiles++;
 			this.ensureInstances(instance + 1);
-			this.instances.putInt(x0).putInt(z0).putInt(level).putInt(tileFade);
-			group.draws.add(new int[]{tile.indices, (int) (alloc.getOffsetFromHeap() / TileBuilder.VERTEX_BYTES), instance});
+			this.instances.putInt(TileKey.minX(tile.key)).putInt(TileKey.minZ(tile.key)).putInt(level).putInt(this.inViewFade[c]);
+			group.add(tile.indices, tile.firstIndex, (int) (alloc.getOffsetFromHeap() / TileBuilder.VERTEX_BYTES), instance);
 			if (!tile.smooth) {
 				maxQuads = Math.max(maxQuads, tile.quads);
 			}
@@ -339,9 +404,10 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		int command = 0;
 		for (Group group : this.order) {
 			group.firstCommand = command;
-			for (int[] d : group.draws) {
+			int[] d = group.draws;
+			for (int at = 0; at < group.count * Group.DRAW_INTS; at += Group.DRAW_INTS) {
 				this.ensureCommands(command + 1);
-				this.commands.putInt(d[0]).putInt(1).putInt(0).putInt(d[1]).putInt(d[2]);
+				this.commands.putInt(d[at]).putInt(1).putInt(d[at + 1]).putInt(d[at + 2]).putInt(d[at + 3]);
 				command++;
 			}
 		}
@@ -369,13 +435,18 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		this.lastPrepareNanos = t4 - t0;
 	}
 
-	/** At most four groups per heap (blocky or smooth, clipped or not), and a heap is 64 MB: the list stays short. */
+	/**
+	 * At most four groups per heap (blocky or smooth, clipped or not), and a heap is 64 MB: the list stays short.
+	 * Groups are kept from frame to frame, so only a new heap or variant makes one; the groups left empty go
+	 * then, so a heap the arena has let go of is not held.
+	 */
 	private Group group(GpuBuffer heap, boolean smooth, boolean clipped) {
 		for (Group g : this.order) {
 			if (g.heap == heap && g.smooth == smooth && g.clipped == clipped) {
 				return g;
 			}
 		}
+		this.order.removeIf(g -> g.count == 0);
 		Group g = new Group(heap, smooth, clipped);
 		this.order.add(g);
 		return g;
@@ -395,6 +466,9 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 		pass.setUniform("Sampler2", Minecraft.getInstance().gameRenderer.lightmap(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 		pass.setVertexBuffer(1, this.instanceSlice);
 		for (Group group : this.order) {
+			if (group.count == 0) {
+				continue;
+			}
 			pass.setPipeline(RenderSystem.getCompiledPipeline(group.pipeline()));
 			if (group.smooth) {
 				pass.setIndexBuffer(this.gridIndices, IndexType.SHORT);
@@ -402,7 +476,7 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 				pass.setIndexBuffer(this.indexBuffer, this.indexType);
 			}
 			pass.setVertexBuffer(0, group.heap.slice());
-			int count = group.draws.size();
+			int count = group.count;
 			if (this.indirect) {
 				long offset = this.commandSlice.offset() + (long) group.firstCommand * COMMAND_BYTES;
 				while (count > 0) {
@@ -412,12 +486,13 @@ public final class LodRenderer implements LodEngine.Gpu, AutoCloseable {
 					count -= n;
 				}
 			} else {
-				for (int[] d : group.draws) {
+				int[] d = group.draws;
+				for (int at = 0; at < count * Group.DRAW_INTS; at += Group.DRAW_INTS) {
 					if (this.firstInstance) {
-						pass.drawIndexed(d[0], 1, 0, d[1], d[2]);
+						pass.drawIndexed(d[at], 1, d[at + 1], d[at + 2], d[at + 3]);
 					} else {
-						pass.setVertexBuffer(1, this.instanceSlice.slice((long) d[2] * INSTANCE_BYTES, INSTANCE_BYTES));
-						pass.drawIndexed(d[0], 1, 0, d[1], 0);
+						pass.setVertexBuffer(1, this.instanceSlice.slice((long) d[at + 3] * INSTANCE_BYTES, INSTANCE_BYTES));
+						pass.drawIndexed(d[at], 1, d[at + 1], d[at + 2], 0);
 					}
 				}
 				if (!this.firstInstance) {

@@ -15,12 +15,24 @@ import java.nio.ByteOrder;
  * the camera sees. Forests are a canopy raised over the ground as far as they are dense, their tops leaf,
  * their flanks shaded leaf. Valleys darken and ridges catch a little more light, the large-scale version
  * of the corner occlusion the blocky tiles do block by block.
+ *
+ * <p>A tile whose every vertex would be the same (open sea, a lake: one level, one colour) is the same plane
+ * drawn with a coarser grid, {@value #FLAT_VERTICES} vertices instead of {@value #VERTICES}, from the second
+ * part of the shared index buffer. It keeps a vertex every {@value #FLAT_STEP} cells rather than four corners,
+ * because the vertex shader works out haze and the sky's reflection per vertex: over an eighth of a tile they
+ * still interpolate to within a step of colour of the full grid.
  */
 final class Smooth {
 	private static final int N = TileKey.TILE;
 	private static final int V = N + 1;
 	static final int VERTICES = V * V + 4 * V;
 	static final int INDICES = N * N * 6 + 4 * N * 6;
+	/** A flat tile's grid: a vertex every this many cells, and its share of the index buffer, after the full grid's. */
+	static final int FLAT_STEP = 8;
+	private static final int FV = N / FLAT_STEP + 1;
+	static final int FLAT_VERTICES = FV * FV + 4 * FV;
+	static final int FLAT_INDICES = (FV - 1) * (FV - 1) * 6 + 4 * (FV - 1) * 6;
+	static final int FLAT_FIRST_INDEX = INDICES;
 	private static final int MAX = N + 1 + 2 * Samples.MAX_BORDER;
 
 	private final TileBuilder out;
@@ -54,7 +66,8 @@ final class Smooth {
 		return canopy * (float) Math.sqrt(Math.min(1, cover * 1.25F)) * 0.9F;
 	}
 
-	void mesh() {
+	/** Meshes the samples; true if the tile came out flat, drawn with the flat grid's indices. */
+	boolean mesh() {
 		Samples s = this.s;
 		int cell = s.cell;
 		int b = s.border;
@@ -153,10 +166,29 @@ final class Smooth {
 			}
 		}
 
+		float skirt = Math.min(4 + 2 * cell, 256);
+		if (this.flat()) {
+			// every vertex is vertex 0: the same plane and skirts on a coarser grid
+			for (int v = 0; v < FV * FV; v++) {
+				this.emit(0, 0, v % FV * FLAT_STEP, v / FV * FLAT_STEP);
+			}
+			for (int i = 0; i < FV; i++) {
+				this.emit(0, skirt, i * FLAT_STEP, 0);
+			}
+			for (int i = 0; i < FV; i++) {
+				this.emit(0, skirt, i * FLAT_STEP, N);
+			}
+			for (int j = 0; j < FV; j++) {
+				this.emit(0, skirt, 0, j * FLAT_STEP);
+			}
+			for (int j = 0; j < FV; j++) {
+				this.emit(0, skirt, N, j * FLAT_STEP);
+			}
+			return true;
+		}
 		for (int v = 0; v < V * V; v++) {
 			this.emit(v, 0, v % V, v / V);
 		}
-		float skirt = Math.min(4 + 2 * cell, 256);
 		for (int i = 0; i < V; i++) {
 			this.emit(i, skirt, i, 0);
 		}
@@ -169,6 +201,20 @@ final class Smooth {
 		for (int j = 0; j < V; j++) {
 			this.emit(N + j * V, skirt, N, j);
 		}
+		return false;
+	}
+
+	/** Whether every vertex of the grid is the same: height, colours, slopes and flags. */
+	private boolean flat() {
+		float y = this.vy[0];
+		int top = this.vtop[0], side = this.vside[0], gx = this.vgx[0], gz = this.vgz[0], flags = this.vflags[0];
+		for (int v = 1; v < V * V; v++) {
+			if (this.vy[v] != y || this.vtop[v] != top || this.vside[v] != side || this.vgx[v] != gx || this.vgz[v] != gz
+				|| this.vflags[v] != flags) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private int ring(int i, int j) {
@@ -213,12 +259,24 @@ final class Smooth {
 		return e * Math.abs(e) / 2048.0F;
 	}
 
-	/** The index buffer every smooth tile shares: the grid as triangles, then the four skirts. 16-bit. */
+	/**
+	 * The index buffer every smooth tile shares, 16-bit: the grid as triangles, then the four skirts; then the
+	 * same for a flat tile's coarser grid, from {@link #FLAT_FIRST_INDEX}.
+	 */
 	static ByteBuffer indices() {
-		ByteBuffer buf = ByteBuffer.allocateDirect(INDICES * 2).order(ByteOrder.nativeOrder());
-		for (int j = 0; j < N; j++) {
-			for (int i = 0; i < N; i++) {
-				int a = i + j * V, b = i + (j + 1) * V, c = i + 1 + (j + 1) * V, d = i + 1 + j * V;
+		ByteBuffer buf = ByteBuffer.allocateDirect((INDICES + FLAT_INDICES) * 2).order(ByteOrder.nativeOrder());
+		grid(buf, N + 1);
+		grid(buf, FV);
+		buf.flip();
+		return buf;
+	}
+
+	/** A grid of {@code v} x {@code v} vertices as triangles, then its skirts, as the meshes lay them out. */
+	private static void grid(ByteBuffer buf, int v) {
+		int n = v - 1;
+		for (int j = 0; j < n; j++) {
+			for (int i = 0; i < n; i++) {
+				int a = i + j * v, b = i + (j + 1) * v, c = i + 1 + (j + 1) * v, d = i + 1 + j * v;
 				// alternate the diagonal, so ridges show no grain in one direction
 				if ((i + j & 1) == 0) {
 					tri(buf, a, b, c);
@@ -229,29 +287,27 @@ final class Smooth {
 				}
 			}
 		}
-		int base = V * V;
-		for (int i = 0; i < N; i++) {
+		int base = v * v;
+		for (int i = 0; i < n; i++) {
 			// north edge, facing -z
 			int t0 = i, t1 = i + 1, s0 = base + i, s1 = base + i + 1;
 			quad(buf, t0, t1, s1, s0);
 		}
-		for (int i = 0; i < N; i++) {
+		for (int i = 0; i < n; i++) {
 			// south edge, facing +z
-			int t0 = i + N * V, t1 = i + 1 + N * V, s0 = base + V + i, s1 = base + V + i + 1;
+			int t0 = i + n * v, t1 = i + 1 + n * v, s0 = base + v + i, s1 = base + v + i + 1;
 			quad(buf, t1, t0, s0, s1);
 		}
-		for (int j = 0; j < N; j++) {
+		for (int j = 0; j < n; j++) {
 			// west edge, facing -x
-			int t0 = j * V, t1 = (j + 1) * V, s0 = base + 2 * V + j, s1 = base + 2 * V + j + 1;
+			int t0 = j * v, t1 = (j + 1) * v, s0 = base + 2 * v + j, s1 = base + 2 * v + j + 1;
 			quad(buf, t1, t0, s0, s1);
 		}
-		for (int j = 0; j < N; j++) {
+		for (int j = 0; j < n; j++) {
 			// east edge, facing +x
-			int t0 = N + j * V, t1 = N + (j + 1) * V, s0 = base + 3 * V + j, s1 = base + 3 * V + j + 1;
+			int t0 = n + j * v, t1 = n + (j + 1) * v, s0 = base + 3 * v + j, s1 = base + 3 * v + j + 1;
 			quad(buf, t0, t1, s1, s0);
 		}
-		buf.flip();
-		return buf;
 	}
 
 	private static void tri(ByteBuffer buf, int a, int b, int c) {

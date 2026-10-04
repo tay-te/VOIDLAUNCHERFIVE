@@ -66,7 +66,7 @@ loom {
 		configureEach {
 			property 'void.lod.logStats', 'true'
 			['void.lod.radius', 'void.lod.detail', 'void.lod.farDetail', 'void.lod.threads', 'void.lod.budget', 'void.lod.enabled', 'void.lod.haze', 'void.lod.smoothFrom',
-			 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace'].each { key ->
+			 'void.lod.occlusion', 'lod.show.compare', 'lod.show.seed', 'lod.show.distance', 'lod.show.settle', 'lod.show.views', 'lod.show.width', 'lod.show.height', 'lod.show.off', 'lod.show.only', 'lod.show.trace'].each { key ->
 				if (project.hasProperty(key)) {
 					property key, project.property(key).toString()
 				}
