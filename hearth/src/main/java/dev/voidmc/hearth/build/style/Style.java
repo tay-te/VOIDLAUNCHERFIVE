@@ -243,6 +243,11 @@ public final class Style {
 		return this.variants;
 	}
 
+	/** The base dressing's weight among the variants. */
+	public double baseWeight() {
+		return this.baseWeight;
+	}
+
 	/** The base dressing's condition, or null (always). */
 	public @Nullable When baseWhen() {
 		return this.baseWhen;

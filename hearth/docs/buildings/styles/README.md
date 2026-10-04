@@ -146,7 +146,8 @@ towns). All but the deep are natural. See [regions.md](regions.md).
 ## 6. A town's works wear one dress
 
 Walls, towers, gates and palisades (the `fort` purpose: the defence category) are **pinned** to the town: they wear the
-dressing the settlement draws once (from `town_seed`, else one per culture) and choose their per-building materials by
+dressing the settlement draws once (from `town_seed`; without one, the culture's most likely dress for its works:
+Bohemian rubble walls under shingles for a temperate town) and choose their per-building materials by
 that seed too, so every tower of a town has the same roof. Any plot is pinned with `pin=town` (`pin=none` unpins a
 defence plot); an archetype may call `d.pinToTown()` first thing in `draw`; `d.townMat(role)` gives a role in the town's
 dress for pieces that must match (a gatehouse's banner poles). `town_variant` forces the town's dressing.

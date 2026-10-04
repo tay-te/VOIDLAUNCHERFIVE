@@ -8,9 +8,9 @@ Palette logic: white lime render (mushroom stem for the rough village render, ca
 
 A settlement's buildings as the planner issues them, nothing forced: each archetype draws its own manner (the village manner for cottages, farmhouses, barns, smithies and inns, the town manner for town houses and the market hall, the church manner for the chapel, the castle manner for the manor and the watchtower), with the English manners turning up among them about one time in four.
 
-![a temperate settlement's buildings as drawn](img/temperate_set.webp)
+![a temperate settlement's buildings as drawn](img/temperate_set_s7.webp)
 
-![the same with other seeds](img/temperate_set_s23.webp)
+![the same with other seeds](img/temperate_set_s41.webp)
 
 By station, the planner's `station` param on a cottage, a town house and a street (poor, peasant, artisan, merchant, gentry, lord):
 
@@ -55,7 +55,7 @@ By station, the planner's `station` param on a cottage, a town house and a stree
 | · red tile (w 0.8) | tier 3+ | · | bricks, mud bricks | stone |
 | **bohemian castle** (sub-style, w 14) | category fort / noble or station gentry / lord or archetype house/manor / landmark/great_hall | calcite, mushroom stem, smooth quartz | bricks, mud bricks | stone |
 | · grey stone (w 1.2) | as bohemian castle | stone bricks, cobblestone, andesite | dark oak, spruce | stone |
-| · town wall (w 2) | category fort | cobblestone, stone, andesite | dark oak, spruce | stone |
+| · town wall (w 2.5) | category fort | cobblestone, stone, andesite | dark oak, spruce | stone |
 | · shingled (w 0.8) | as bohemian castle | · | dark oak, spruce | stone |
 | · ochre render (w 0.6) | as bohemian castle | smooth sandstone, sandstone | · | stone |
 
@@ -99,13 +99,13 @@ The market town (Kuttenberg, Rattay): houses of rendered masonry with their gabl
 
 ### Bohemian church
 
-The parish church: white lime render over stone, quoins, buttresses and window tracery of stone bricks, arched windows, a plinth of mossy stone brick, a dark shingle roof and spire (the tower's cap is the archetype's: Hearth's temperate towers take needle spires). Fashions: **fieldstone** (bare rubble walls), **slate** (deepslate roof) and, from tier 3, **red tile**.
+The parish church: white lime render over stone, quoins, buttresses and window tracery in pale dressed stone (polished diorite) going to grey stone brick at the foot, arched windows, a plinth of mossy stone brick, a dark shingle roof and spire (the tower's cap is the archetype's: Hearth's temperate towers take needle spires). Fashions: **fieldstone** (bare rubble walls with grey stone-brick dressings), **slate** (deepslate roof) and, from tier 3, **red tile**.
 
 ![temperate bohemian church: cottage, town house, chapel and a street](img/temperate_v26_bohemian_church.webp)
 
 ### Bohemian castle
 
-Castles, manors and the gentry's houses (Rattay, Talmberg): rendered stone in white lime with stone-brick quoins and dressings, a little bare stone at the foot where the render has fallen, red tile roofs, hipped and gabled, dormers, bay windows. Fashions: **grey stone** (bare coursed stone under dark shingles, Talmberg), **town wall** (rubble walls with stone-brick dressings under shingles, for the defence works only, and the most likely dress of a temperate town's walls and towers), **shingled** and **ochre render**.
+Castles, manors and the gentry's houses (Rattay, Talmberg): rendered stone in white lime with pale dressed-stone quoins and window surrounds (stone brick at the foot), a little bare stone at the foot where the render has fallen, red tile roofs, hipped and gabled, dormers, bay windows. Fashions: **grey stone** (bare coursed stone under dark shingles, Talmberg), **town wall** (rubble walls with stone-brick dressings under shingles, for the defence works only, and the dress a temperate town's walls and towers wear unless the planner gives the town a seed of its own), **shingled** and **ochre render**.
 
 ![temperate bohemian castle: cottage, town house, chapel and a street](img/temperate_v30_bohemian_castle.webp)
 

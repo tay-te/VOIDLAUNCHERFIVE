@@ -214,7 +214,11 @@ public final class Draft {
 		return this.params.getLongOr("town_seed", 0xF0A7L + (c == null ? 0 : c.ordinal()) * 131L);
 	}
 
-	/** The dressing the settlement's pinned works wear (the param {@code town_variant} forces it). */
+	/**
+	 * The dressing the settlement's pinned works wear (the param {@code town_variant} forces it): drawn from the
+	 * {@code town_seed} when the planner gives one, else the culture's most likely dress for its works (a temperate town
+	 * without a seed walls itself in Bohemian rubble, not in whichever manner a fixed seed happens to land on).
+	 */
 	public int townVariant() {
 		return townVariant(this.style.root());
 	}
@@ -226,7 +230,19 @@ public final class Draft {
 		StyleContext c = this.context;
 		StyleContext town = new StyleContext(c.culture(), "defense/wall", ArchetypeCategory.DEFENSE, Set.of("fort", "public"), c.tier(), Station.OFFICIAL,
 			false, null, null, Set.of(), c.region());
-		return root.pickVariant(Noise.hash(townSeed(root), 0x7A1A), town);
+		if (this.params.contains("town_seed")) {
+			return root.pickVariant(Noise.hash(townSeed(root), 0x7A1A), town);
+		}
+		int best = -1;
+		double bestW = dev.voidmc.hearth.build.style.When.holds(root.baseWhen(), town) ? root.baseWeight() : 0;
+		double[] w = root.weights(town);
+		for (int i = 0; i < w.length; i++) {
+			if (w[i] > bestW + 1e-9) {
+				bestW = w[i];
+				best = i;
+			}
+		}
+		return best;
 	}
 
 	/** A role as the settlement's pinned works wear it (its town dressing, chosen and mixed by the town's seed). */
