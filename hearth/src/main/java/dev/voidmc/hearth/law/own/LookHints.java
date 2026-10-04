@@ -73,7 +73,12 @@ public final class LookHints {
 		if (!(block instanceof BlockHitResult hit) || block.getType() != HitResult.Type.BLOCK) {
 			return LawPayloads.Hint.NONE;
 		}
-		BlockPos pos = hit.getBlockPos();
+		return forBlock(player, hit.getBlockPos());
+	}
+
+	/** The hint for a block (what the HUD shows when the crosshair rests on it). */
+	public static LawPayloads.Hint forBlock(ServerPlayer player, BlockPos pos) {
+		ServerLevel level = player.level();
 		BlockState state = level.getBlockState(pos);
 		if (!interesting(level, pos, state)) {
 			return LawPayloads.Hint.NONE;

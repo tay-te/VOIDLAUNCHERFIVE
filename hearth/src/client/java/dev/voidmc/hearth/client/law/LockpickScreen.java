@@ -29,7 +29,7 @@ public class LockpickScreen extends Screen {
 	private static final int PX = 2;
 	private static final int FACE = 27;
 	private static final int CYLINDER = 13;
-	private static final int PICK_OUT = 46;
+	private static final int PICK_OUT = 38;
 	private static final int PICK_IN = 3;
 	private static final int WIDTH = 236;
 	private static final int HEIGHT = 214;
@@ -110,7 +110,7 @@ public class LockpickScreen extends Screen {
 	}
 
 	private int cy() {
-		return this.top + 112;
+		return this.top + 102;
 	}
 
 	/** Steps the game by real time, every frame, so the pick moves as smoothly as the mouse. */
@@ -239,9 +239,9 @@ public class LockpickScreen extends Screen {
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
 		int cx = cx();
-		g.centeredText(this.font, this.what, cx, this.top + 8, LawGui.TEXT);
+		g.centeredText(this.font, this.what, cx, this.top + 6, LawGui.TEXT);
 		Component tier = Component.translatable("hearth.law.lock.tier." + this.tier);
-		g.centeredText(this.font, Component.translatable("hearth.law.lockpick.difficulty", tier), cx, this.top + 20, tierColor(this.tier));
+		g.centeredText(this.font, Component.translatable("hearth.law.lockpick.difficulty", tier), cx, this.top + 16, tierColor(this.tier));
 
 		// pins: set ones in gold, the one being worked outlined
 		int pins = this.model.spec().pins();
@@ -249,7 +249,7 @@ public class LockpickScreen extends Screen {
 		int px0 = cx - (pins * pw + (pins - 1) * 4) / 2;
 		for (int i = 0; i < pins; i++) {
 			int x = px0 + i * (pw + 4);
-			int y = this.top + 34;
+			int y = this.top + HEIGHT - 48;
 			boolean set = i < this.model.setPins();
 			g.fill(x, y, x + pw, y + 14, 0xFF111114);
 			g.fill(x + 1, y + 1, x + pw - 1, y + 13, set ? 0xFFE0B84C : 0xFF4A4A52);
@@ -275,7 +275,7 @@ public class LockpickScreen extends Screen {
 		g.text(this.font, Component.literal("× " + this.picks), ix + 18, iy + 5, this.picks <= 1 ? LawGui.RED : LawGui.TEXT, true);
 
 		if (!this.message.getString().isEmpty()) {
-			g.centeredText(this.font, this.message, cx, this.top + 58, LawGui.TEXT);
+			g.centeredText(this.font, this.message, cx, this.top + 30, LawGui.TEXT);
 		}
 		g.centeredText(this.font, Component.translatable("hearth.law.lockpick.help"), cx, this.top + HEIGHT - 20, LawGui.TEXT_DIM);
 		g.centeredText(this.font, Component.translatable("hearth.law.lockpick.help2"), cx, this.top + HEIGHT - 10, LawGui.TEXT_DIM);

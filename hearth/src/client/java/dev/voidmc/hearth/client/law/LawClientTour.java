@@ -38,6 +38,9 @@ import org.jspecify.annotations.Nullable;
  */
 final class LawClientTour {
 	private static int ticks;
+	/** Ticks spent looking for a town with a lock (settlements are adopted as their chunks load). */
+	private static int searching;
+	private static volatile boolean found;
 	private static @Nullable BlockPos lockPos;
 
 	private LawClientTour() {
@@ -55,10 +58,26 @@ final class LawClientTour {
 		if (mc.player == null || mc.level == null || server == null) {
 			return;
 		}
+		if (!found && searching < 1200) {
+			if (++searching % 40 == 0) {
+				server.execute(() -> walkToLock(server, mc));
+			}
+			return;
+		}
 		ticks++;
 		switch (ticks) {
-			case 60 -> server.execute(() -> walkToLock(server, mc));
-			case 160 -> shot(mc, "red_hand");
+			case 90 -> server.execute(() -> {
+				// the camera rarely lands exactly on the lock: send the hint the crosshair on it would give
+				ServerPlayer p = player(server, mc);
+				if (p != null && lockPos != null) {
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, dev.voidmc.hearth.law.own.LookHints.forBlock(p, lockPos));
+				}
+			});
+			case 100 -> {
+				shot(mc, "red_hand");
+				Hearth.LOG.info("[law tour] HUD hint: owner '{}', lock tier {}, locked {}, key {}", LawHud.hint.owner().getString(), LawHud.hint.lockTier(),
+					LawHud.hint.locked(), LawHud.hint.hasKey());
+			}
 			case 170 -> server.execute(() -> kneel(server, mc));
 			case 200 -> shot(mc, "lockpick");
 			case 205 -> {
@@ -111,6 +130,17 @@ final class LawClientTour {
 			return;
 		}
 		ServerLevel level = player.level();
+		if (world.settlements().isEmpty()) {
+			// the towns are adopted as their chunks load: go to the nearest one the atlas knows
+			var sites = world.knownSites(player.blockPosition(), 4000);
+			if (!sites.isEmpty()) {
+				BlockPos c = sites.get(0).center();
+				player.teleportTo(c.getX() + 0.5, level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(),
+					c.getZ()) + 1, c.getZ() + 0.5);
+				Hearth.LOG.info("[law tour] going to {} at {}", sites.get(0).name(), c);
+			}
+			return;
+		}
 		List<Settlement> towns = new ArrayList<>(world.settlements());
 		towns.sort(java.util.Comparator.comparingDouble(s -> s.center().distSqr(player.blockPosition())));
 		for (Settlement s : towns) {
@@ -126,7 +156,7 @@ final class LawClientTour {
 							level.getChunkAt(pos);
 							BlockState state = level.getBlockState(pos);
 							Locks.Lock lock = Locks.lockable(state) ? Locks.at(level, pos, state) : null;
-							if (lock == null) {
+							if (lock == null || !lock.locked()) {
 								continue;
 							}
 							BlockPos stand = standing(level, pos);
@@ -134,6 +164,7 @@ final class LawClientTour {
 								continue;
 							}
 							lockPos = pos;
+							found = true;
 							Vec3 eye = Vec3.atBottomCenterOf(stand).add(0, player.getEyeHeight(), 0);
 							Vec3 at = Vec3.atCenterOf(pos);
 							double dx = at.x - eye.x;
@@ -142,6 +173,7 @@ final class LawClientTour {
 							float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
 							float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
 							player.teleportTo(level, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, java.util.Set.of(), yaw, pitch, true);
+							Hearth.LOG.info("[law tour] server hint for the lock: {}", dev.voidmc.hearth.law.own.LookHints.forBlock(player, pos));
 							Hearth.LOG.info("[law tour] at {} in {}: {} tier {} locked {} ({} of plot {} {})", pos, s.name(), lock.door() ? "door" : "chest",
 								lock.tier(), lock.locked(), lock.owner().kind(), p.id(), spec.archetype());
 							return;
@@ -150,16 +182,25 @@ final class LawClientTour {
 				}
 			}
 		}
-		Hearth.LOG.info("[law tour] no lock found in {} towns", towns.size());
+		Hearth.LOG.info("[law tour] no lock found yet in {} towns", towns.size());
 	}
 
+	/** A spot two or three blocks from the lock where a standing player's eyes see it. */
 	private static @Nullable BlockPos standing(ServerLevel level, BlockPos lock) {
-		for (Direction d : Direction.Plane.HORIZONTAL) {
-			BlockPos p = lock.relative(d, 2);
-			for (int dy = -1; dy <= 1; dy++) {
-				BlockPos q = p.above(dy);
-				if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && level.getBlockState(q.below()).isSolid()) {
-					return q;
+		for (int dist = 2; dist <= 3; dist++) {
+			for (Direction d : Direction.Plane.HORIZONTAL) {
+				BlockPos p = lock.relative(d, dist);
+				for (int dy = -1; dy <= 1; dy++) {
+					BlockPos q = p.above(dy);
+					if (!level.getBlockState(q).isAir() || !level.getBlockState(q.above()).isAir() || !level.getBlockState(q.below()).isSolid()) {
+						continue;
+					}
+					Vec3 eye = Vec3.atBottomCenterOf(q).add(0, 1.62, 0);
+					var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, Vec3.atCenterOf(lock), net.minecraft.world.level.ClipContext.Block.OUTLINE,
+						net.minecraft.world.level.ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
+					if (hit.getBlockPos().equals(lock)) {
+						return q;
+					}
 				}
 			}
 		}

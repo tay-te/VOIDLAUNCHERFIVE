@@ -25,7 +25,7 @@ final class LawHud implements HudElement {
 	private static boolean stealthActive;
 	private static float visibility;
 	private static float shownVisibility;
-	private static long noticedAt = Long.MIN_VALUE;
+	private static long noticedAt;
 	private static long statusAt;
 	private static float hintFade;
 
@@ -47,7 +47,7 @@ final class LawHud implements HudElement {
 		status = LawPayloads.Status.CLEAR;
 		stealthActive = false;
 		visibility = 0;
-		noticedAt = Long.MIN_VALUE;
+		noticedAt = 0;
 	}
 
 	@Override

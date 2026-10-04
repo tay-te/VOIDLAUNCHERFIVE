@@ -242,7 +242,11 @@ ownership, locks and marks still show).
   their town who have warrants or suspicion.
 - `DAY_PASSED` work is a few comparisons per warrant, report and unsolved crime of that settlement (spreading scans the
   settlement list once per warrant per spread).
-- Measured: see the dev harness (§11).
+- Measured (dedicated server, `found=3 generate=true law=true`, seed 20261003, this busy shared machine, 2026-10-03):
+  ownership lookups 0.9–2.0 µs each over 20 000 random positions per town (index included); a day's law for a town
+  with a warrant to spread 0.5 ms; Plumvale: 39 lockable blocks, 10 door halves and 12 chests with locks (tiers 1–2,
+  14 locked at 06:18), owners 4 households, 2 workshops, 2 town; word of a 100-bit theft in Torheim reached Thornfield
+  (933 blocks) as a 50-bit warrant.
 
 ## 11. Tests and the dev harness
 
@@ -255,3 +259,10 @@ warrants spreading to neighbours, the config (round trip, partial files, gentle 
 `-Dhearth.dev.law=true` on the dedicated server (with the sim's `found`/`generate`) logs `[hearth law]` lines: owners
 per town, ownership lookup time, every door and chest with a lock in loaded chunks, cells and pillories, and a crime
 filed, spread to neighbours by a day's passing, and pardoned.
+
+Client tour: copy a world with live settlements into `run/saves/<name>` (e.g. the dev server's `run/world`), then
+`JAVA_TOOL_OPTIONS="-Dhearth.dev.law.tour=true" ./gradlew runClient --args="--quickPlaySingleplayer <name>"` (set
+`onboardAccessibility:false` in `run/options.txt`). It goes to the nearest town, finds a locked door or chest, shows the
+real red-hand hint and kneels at it with lockpicks (the real lockpicking screen, then forced into strain), shows the
+pickpocketing and confrontation screens, the sneaking eye, the wanted and jail lines and a container's owner with
+made-up data (those need embodied folk), and writes `run/screenshots/hearth_law_*.png`.

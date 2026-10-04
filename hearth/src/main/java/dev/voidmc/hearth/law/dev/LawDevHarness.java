@@ -181,6 +181,8 @@ public final class LawDevHarness {
 
 	private static void justice(MinecraftServer server, HearthWorld world, Settlement s) {
 		LawService law = dev.voidmc.hearth.api.HearthServices.law();
+		// the first report loads classes; time the second
+		CrimeDesk.report(server, new Crime(Offence.TRESPASS, OFFENDER, s.id(), s.center(), null, 0, true, server.overworld().getGameTime()));
 		long t0 = System.nanoTime();
 		CrimeDesk.report(server, new Crime(Offence.THEFT, OFFENDER, s.id(), s.center(), null, 40, true, server.overworld().getGameTime()));
 		long fileUs = (System.nanoTime() - t0) / 1000;

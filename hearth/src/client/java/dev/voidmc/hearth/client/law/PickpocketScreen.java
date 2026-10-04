@@ -20,7 +20,7 @@ import net.minecraft.world.item.ItemStack;
  */
 public class PickpocketScreen extends Screen {
 	private static final int COLS = 3;
-	private static final int WIDTH = 176;
+	private static final int WIDTH = 236;
 
 	private LawPayloads.Pocket state;
 	private long stateAt;
