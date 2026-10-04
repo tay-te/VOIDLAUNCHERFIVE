@@ -440,16 +440,6 @@ public final class TownHall implements Archetype {
 		if (g[1] >= 5) {
 			plan.crossGable(front, g[0], g[1], d);
 		}
-		// dormers spaced along the back slope, lighting the roof space
-		Side backSide = body.side(body.storeys() - 1, Dirs.BACK);
-		int n = backSide.length();
-		int count = Math.max(1, (n - 2) / 6);
-		for (int k = 0; k < count; k++) {
-			int i = 2 + (int) Math.round((k + 0.5) * (n - 4) / count) - 1;
-			if (i >= 2 && i <= n - 3) {
-				plan.dormer(backSide, backSide.column(i), 1, plate + 1);
-			}
-		}
 		Roofs.Built b = plan.draw(d);
 		Roofs.Roof roof = b.roof();
 		Mat wall = d.mat(Role.WALL);

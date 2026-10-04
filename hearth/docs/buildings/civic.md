@@ -92,7 +92,7 @@ arcade of pointed arches (their rings in dressed stone) along the square with th
 tower (`kit/civic/Bohemian`) whose foot is the arcade's corner bay (arches to the square and into the loggia) rising to
 clocks, a belfry of paired lights and the gallery and needle spire, the chamber's windows framed in dressed stone, an
 oriel on stepped corbels over the arcade, a gable roof along the square with a crow-stepped show gable over the middle
-(each step capped in dressed stone, a pinnacle on its peak) and dormers on the back slope. Elsewhere: a loggia of arches
+(each step capped in dressed stone, a pinnacle on its peak). Elsewhere: a loggia of arches
 inside the front, a stone ground floor (the clerk's lectern and the records, benches
 for those waiting, a runner to the stair), the council chamber above with its long
 table, chairs and the meeting point, the clerk's lectern, a fireplace; a balcony over the loggia hung with the
