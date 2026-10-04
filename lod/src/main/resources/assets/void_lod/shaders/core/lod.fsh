@@ -16,8 +16,15 @@ layout(location = 5) in float surfaceY;
 layout(location = 6) in float solid;
 #endif
 #else
-layout(location = 2) in vec3 blockPos;
+layout(location = 2) in vec4 blockPos;
 layout(location = 3) in vec2 occlusion;
+
+#ifndef LOD_COMPACT
+uniform sampler2D Sampler0;
+// The material table (MaterialTable), a texel per layer and two per id: the sprite's corner and size in atlas
+// texels, its colour over the face's average (4.12 fixed point), and flags (1: turned at random, 2: an overlay).
+uniform usamplerBuffer LodMaterials;
+#endif
 #endif
 
 layout(location = 0) out vec4 fragColor;
@@ -99,6 +106,61 @@ vec3 voxels(vec2 planar, int shift, vec3 top, vec3 side) {
 }
 #endif
 
+#if !defined(LOD_SMOOTH) && !defined(LOD_COMPACT)
+// One layer of a block's texture, from its texel e of the material table, at p (0..1 across the face) with the
+// screen derivatives of p; its colour times its scale. Sampled as vanilla samples its terrain (sampleNearest):
+// crisp texels where they are bigger than a pixel, trilinear mipmaps where they are smaller, and never closer than
+// half a texel to the sprite's edge, so nothing next to it in the atlas bleeds in. The mip level comes from the
+// continuous coordinates, so the seam between one block and the next keeps it; worked out here rather than passed
+// as gradients, which measured a good deal slower, at the price of the anisotropic filtering the option may add.
+vec4 blockLayer(uvec4 e, vec2 p, vec2 dx, vec2 dy) {
+    vec2 corner = vec2(e.x & 0xFFFFu, e.x >> 16u);
+    vec2 texels = vec2(e.y & 0xFFFFu, e.y >> 16u);
+    vec2 tx = dx * texels;
+    vec2 ty = dy * texels;
+    vec2 t = p * texels;
+    vec2 centre = round(t) - 0.5;
+    vec2 perPixel = max(sqrt(tx * tx + ty * ty), vec2(1e-6));
+    t = centre + clamp((t - centre - 0.5) / perPixel + 0.5, 0.0, 1.0);
+    t = clamp(t, vec2(0.5), texels - 0.5);
+    float lod = 0.5 * log2(max(max(dot(tx, tx), dot(ty, ty)), 1e-12));
+    vec4 c = textureLod(Sampler0, (corner + t) / vec2(textureSize(Sampler0, 0)), lod);
+    return vec4(c.rgb * vec3(e.z & 0xFFFFu, e.z >> 16u, e.w & 0xFFFFu) / 4096.0, c.a);
+}
+
+// The face's block texture over its own average, from its first texel e in the material table at entry, at face
+// coordinates uv (blocks, continuous across them) with their screen derivatives: one on average, so the vertex
+// colour keeps the face's colour (its tint, snow, shading, occlusion) and the texture only adds its pattern.
+vec3 blockTexture(int entry, uvec4 e, bool top, vec2 uv, vec2 dx, vec2 dy) {
+    uint flags = e.w >> 16u;
+    vec2 p = fract(uv);
+    if ((flags & 1u) != 0u && top) {
+        // a top the block model turns at random (grass, sand, dirt): a quarter turn of its own per block
+        uint turn = hash2(ivec2(floor(uv)) + CameraBlockPos.xz) & 3u;
+        if (turn == 1u) {
+            p = vec2(p.y, 1.0 - p.x);
+            dx = vec2(dx.y, -dx.x);
+            dy = vec2(dy.y, -dy.x);
+        } else if (turn == 2u) {
+            p = 1.0 - p;
+            dx = -dx;
+            dy = -dy;
+        } else if (turn == 3u) {
+            p = vec2(1.0 - p.y, p.x);
+            dx = vec2(-dx.y, dx.x);
+            dy = vec2(-dy.y, dy.x);
+        }
+    }
+    vec3 c = blockLayer(e, p, dx, dy).rgb;
+    if ((flags & 2u) != 0u) {
+        // a second layer cut out over the first: a grass block's tinted fringe over its dirt
+        vec4 o = blockLayer(texelFetch(LodMaterials, entry + 1), p, dx, dy);
+        c = mix(c, o.rgb, smoothstep(0.4, 0.6, o.a));
+    }
+    return c;
+}
+#endif
+
 #ifdef LOD_CLIP
 // Interleaved gradient noise: a dither with no visible grid, for the seam to vanilla's chunks and for cross-fades.
 float dither(vec2 p) {
@@ -107,6 +169,11 @@ float dither(vec2 p) {
 #endif
 
 void main() {
+#ifndef LOD_SMOOTH
+    // before anything can discard: derivatives need the whole quad of pixels
+    vec3 blockDx = dFdx(blockPos.xyz);
+    vec3 blockDy = dFdy(blockPos.xyz);
+#endif
 #ifdef LOD_CLIP
     // Only tiles in the seam with vanilla's chunks, or fading between levels, use this variant: everywhere else
     // the shader has no discard, so the GPU keeps its early depth test for the bulk of the LOD. The seam fades
@@ -141,13 +208,37 @@ void main() {
     color *= occlusion.x * mix(0.8, 1.0, clamp(occlusion.y, 0.0, 1.0));
     // A grain of one block: each block a shade lighter or darker, as its texture makes it in the chunks.
     // It fades out as blocks shrink under a pixel, where it would only shimmer.
-    ivec3 b = ivec3(floor(blockPos)) + CameraBlockPos;
+    ivec3 b = ivec3(floor(blockPos.xyz)) + CameraBlockPos;
     uint h = uint(b.x) * 73856093u ^ uint(b.y) * 19349663u ^ uint(b.z) * 83492791u;
     h = (h ^ (h >> 13u)) * 0x5bd1e995u;
     h ^= h >> 15u;
-    vec3 w = fwidth(blockPos);
+    vec3 w = abs(blockDx) + abs(blockDy);
     float fade = clamp(1.8 - 1.4 * max(max(w.x, w.y), w.z), 0.0, 1.0);
-    color *= 1.0 + (float(h & 1023u) / 1023.0 - 0.5) * 0.11 * fade;
+    vec3 grain = vec3(1.0 + (float(h & 1023u) / 1023.0 - 0.5) * 0.11 * fade);
+#ifndef LOD_COMPACT
+    // Where the face knows its block, the block's own texture instead, as the chunks next to these tiles draw it.
+    // It gives way to the grain as a block shrinks from three pixels to one and a half: by then the mipmaps have
+    // melted the texture into little more than a shade per block, which the grain already is, so the tiles further
+    // out look as they always did, nothing shimmers, and only the pixels where it shows pay for the texture.
+    int entry = int(blockPos.w + 0.5) * 2;
+    float textured = clamp(inversesqrt(max(max(dot(blockDx, blockDx), dot(blockDy, blockDy)), 1e-8)) / 1.5 - 1.0, 0.0, 1.0);
+    if (entry > 0 && textured > 0.0 && entry + 1 < textureSize(LodMaterials)) {
+        uvec4 e = texelFetch(LodMaterials, entry);
+        if (e.y != 0u) {
+            // The face's own texture coordinates, u across it as seen from outside and v down it: the face lies
+            // where blockPos does not change, and faces the camera.
+            bool top = w.y <= min(w.x, w.z);
+            vec2 uv = top ? blockPos.xz : w.z <= w.x ? vec2(blockPos.z < 0.0 ? blockPos.x : -blockPos.x, -blockPos.y)
+                : vec2(blockPos.x < 0.0 ? -blockPos.z : blockPos.z, -blockPos.y);
+            vec2 dx = top ? blockDx.xz : w.z <= w.x ? vec2(blockPos.z < 0.0 ? blockDx.x : -blockDx.x, -blockDx.y)
+                : vec2(blockPos.x < 0.0 ? -blockDx.z : blockDx.z, -blockDx.y);
+            vec2 dy = top ? blockDy.xz : w.z <= w.x ? vec2(blockPos.z < 0.0 ? blockDy.x : -blockDy.x, -blockDy.y)
+                : vec2(blockPos.x < 0.0 ? -blockDy.z : blockDy.z, -blockDy.y);
+            grain = mix(grain, blockTexture(entry, e, top, uv, dx, dy), textured);
+        }
+    }
+#endif
+    color *= grain;
     vec2 planar = horizontal - CameraOffset.xz;
     color *= 1.0 + 0.07 * detail(planar, max(fwidth(planar.x), fwidth(planar.y)), 2);
 #endif

@@ -62,7 +62,7 @@ public class LodShowcase implements FabricClientGameTest {
 	private static final String SEED = System.getProperty("lod.show.seed", "8675309");
 	private static final int DISTANCE = Integer.getInteger("lod.show.distance", 8);
 	private static final long SETTLE_MS = Long.getLong("lod.show.settle", 30_000L);
-	private static final int VIEWS = Integer.getInteger("lod.show.views", 10);
+	private static final int VIEWS = Integer.getInteger("lod.show.views", 16);
 	/** Only the views with these names, comma separated (all when unset). */
 	private static final String ONLY = System.getProperty("lod.show.only", "");
 	private static final int WIDTH = Integer.getInteger("lod.show.width", 1600);
@@ -181,6 +181,12 @@ public class LodShowcase implements FabricClientGameTest {
 				found.add(new Spot("far0", bx, top + 24, bz, 90, 4, 30));
 				found.add(new Spot("far1", lx, lowTop + 12, lz, toPeak, 2, 30));
 				found.add(new Spot("far2", bx, top + 24, bz, 0, 3, 30));
+				// the seam with the chunks: the blocky tiles just past the render distance, through a long lens and a
+				// normal one
+				found.add(seam("seam0", model, lx, lowTop + 12, lz, toPeak + 90, 150, 30));
+				found.add(seam("seam1", model, bx, top + 24, bz, 90, 150, 30));
+				found.add(seam("seam2", model, lx, lowTop + 12, lz, toPeak + 90, 110, 70));
+				found.add(seam("seam3", model, lx, lowTop + 60, lz, toPeak + 90, 170, 30));
 				System.out.printf(Locale.ROOT, "[lod] high point %d,%d at y=%d; low point %d,%d at y=%d%n", bx, bz, top, lx, lz, lowTop);
 
 				// the peak looking west, into the sunset, and east, away from it; the valley at night and in the rain
@@ -362,12 +368,12 @@ public class LodShowcase implements FabricClientGameTest {
 		Spot from = new Spot(name, x + AWAY, eye, z, 90, pitch);
 		server.runCommand("gamerule max_block_modifications 1000000");
 
-		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
 		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
 		this.settle(context, SETTLE_MS);
 		this.photograph(context, name + "_before", false);
 
-		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d 0 60", x, ground + 60, z));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d 0 60", x, ground + 60, z));
 		this.settle(context, SETTLE_MS);
 		long t0 = System.currentTimeMillis();
 		server.runCommand(String.format(Locale.ROOT, "fill %d %d %d %d %d %d gold_block", x - 4, ground - 2, z - 4, x + 3, ground + 120, z + 3));
@@ -385,7 +391,7 @@ public class LodShowcase implements FabricClientGameTest {
 		System.out.printf(Locale.ROOT, "[lod] built at %d,%d (ground %d), read in %.1f s | %s%n", x, z, ground, (System.currentTimeMillis() - t0) / 1000.0,
 			ingest);
 
-		server.runCommand(String.format(Locale.ROOT, "tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d %.1f %.1f", from.x(), from.y(), from.z(), from.yaw(), from.pitch()));
 		this.settle(context, SETTLE_MS);
 		context.runOnClient(mc -> VoidLod.get().setEnabled(false));
 		context.waitTicks(20);
@@ -518,6 +524,14 @@ public class LodShowcase implements FabricClientGameTest {
 			}
 		}
 		throw new AssertionError("no options list in " + screen);
+	}
+
+	/** A view along {@code yaw} aimed down at the ground {@code reach} blocks out. */
+	private static Spot seam(String name, TerrainModel model, int x, int y, int z, float yaw, int reach, int fov) {
+		double a = Math.toRadians(yaw);
+		float ground = model.sample((int) Math.round(x - Math.sin(a) * reach), (int) Math.round(z + Math.cos(a) * reach)).height;
+		float pitch = (float) Math.toDegrees(Math.atan2(y + 1.62 - ground, reach));
+		return new Spot(name, x, y, z, yaw, pitch, fov);
 	}
 
 	private void shoot(ClientGameTestContext context, String name) {

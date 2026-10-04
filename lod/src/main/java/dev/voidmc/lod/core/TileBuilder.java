@@ -28,8 +28,9 @@ import java.nio.ByteOrder;
  * {@link #WATER} marks water and {@link #EMPTY} a smooth vertex over the void. The high bytes of x, z and flags carry
  * the light ({@link Horizons}): the sun's horizon to the east and to the west, and how much of the sky the land
  * around hides. A blocky face carries its colour in the first RGBA (alpha: ambient occlusion on tops, height above
- * the floor on walls); a smooth vertex carries the colour of the tops and of the risers, with the surface's slope in
- * the two alphas.
+ * the floor on walls) and what it is made of in the second: a 16-bit id in the world's material registry, low byte
+ * first, 0 for untextured ({@link #material}). A smooth vertex carries the colour of the tops and of the risers, with
+ * the surface's slope in the two alphas.
  */
 public final class TileBuilder {
 	public static final int VERTEX_BYTES = 16;
@@ -215,6 +216,11 @@ public final class TileBuilder {
 		this.lightFlags = this.horizons.occlusion[k] << 8;
 	}
 
+	/** Whether this build writes compact vertices: untextured, so what a face is made of does not matter. */
+	boolean compact() {
+		return this.compact;
+	}
+
 	/** No light for the vertices after this: faces the sun and the sky never reach, such as an island's underside. */
 	void unlit() {
 		this.lightX = this.lightZ = this.lightFlags = 0;
@@ -247,6 +253,11 @@ public final class TileBuilder {
 		this.vertices = 0;
 		this.minY = Integer.MAX_VALUE;
 		this.maxY = Integer.MIN_VALUE;
+	}
+
+	/** A blocky face's material id, as the {@code side} colour of {@link #vertex}: low byte in red, high byte in green. */
+	static int material(int id) {
+		return (id & 0xFF) << 16 | id & 0xFF00;
 	}
 
 	void vertex(int x, float y, int z, int flags, int top, int topAlpha, int side, int sideAlpha) {

@@ -11,10 +11,12 @@
 // three bits: 0 up, 1 smooth, 2/3 north/south, 4/5 west/east, 6 down; +8 for water, +16 over the void), then two
 // colours. The high bytes of x, z and flags are the light (Horizons): the sun's horizon to the east and to the west,
 // in 255ths of a right angle, and how much of the sky the land around hides. Blocky faces use the first colour,
-// with ambient occlusion (tops) or height above the floor (walls) in its alpha. Smooth vertices carry the colour of
-// the tops and of the risers, with the slope along x and z in the two alphas.
+// with ambient occlusion (tops) or height above the floor (walls) in its alpha, and carry what they are made of in
+// the second: a 16-bit material id, low byte in red (0: untextured). Smooth vertices carry the colour of the tops
+// and of the risers, with the slope along x and z in the two alphas.
 // Far blocky tiles (LOD_COMPACT) pack the same in two words (TileBuilder.COMPACT_BYTES): x, z, face and water, y in
-// whole blocks; then the colour in 5 bits a channel, the corner occlusion level and the light in 5 bits each.
+// whole blocks; then the colour in 5 bits a channel, the corner occlusion level and the light in 5 bits each. They
+// are untextured.
 // Per tile (one instance each): its corner in blocks, its level, and its cross-fade (Fades: 0 solid, +n fading in,
 // -n fading out, in 255ths).
 #ifdef LOD_COMPACT
@@ -41,7 +43,9 @@ layout(location = 5) out float surfaceY;
 layout(location = 6) out float solid;
 #endif
 #else
-layout(location = 2) out vec3 blockPos;
+// xyz: the position just inside the face's block; w: the face's material id, the same at every corner (it rides in
+// the slot's spare component: blocky tiles are a great many small quads, and every varying slot costs)
+layout(location = 2) out vec4 blockPos;
 layout(location = 3) out vec2 occlusion;
 #endif
 
@@ -132,7 +136,8 @@ void main() {
     vec3 normal = face == 0 ? vec3(0.0, 1.0, 0.0) : face == 2 ? vec3(0.0, 0.0, -1.0) : face == 3 ? vec3(0.0, 0.0, 1.0)
         : face == 4 ? vec3(-1.0, 0.0, 0.0) : face == 5 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, -1.0, 0.0);
     // just inside the block the face belongs to, so floor() names that block
-    blockPos = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) - 0.5 * normal;
+    blockPos.xyz = vec3(float(rel.x), worldY - float(CameraBlockPos.y), float(rel.y)) - 0.5 * normal;
+    blockPos.w = floor(side.r * 255.0 + 0.5) + floor(side.g * 255.0 + 0.5) * 256.0;
     occlusion = face == 0 ? vec2(top.a, 64.0) : vec2(1.0, top.a * 255.0);
 #endif
 

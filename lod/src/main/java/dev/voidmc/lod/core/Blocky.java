@@ -21,6 +21,10 @@ import java.util.Arrays;
  * <p>Columns with no ground at all (the void between End islands) draw nothing, and the land around them
  * reads as what it is, a slab floating over the void: walls hang from its rim down to its underside, and
  * the underside itself is drawn, step by step, for when the camera is below it.
+ *
+ * <p>Every face also says what block face it is made of (the sample's material ids), so the shader can draw the
+ * block textures themselves: tops merge only where they are made of the same thing, and walls break into a
+ * band per material.
  */
 final class Blocky {
 	private static final int N = TileKey.TILE;
@@ -37,6 +41,8 @@ final class Blocky {
 	private final int[] top = new int[W * W];
 	private final int[] ground = new int[W * W];
 	private final int[] color = new int[W * W];
+	/** What each cell's top is made of: its surface block, its tree's leaves, or 0 for water. */
+	private final int[] material = new int[W * W];
 	private final int[] crown = new int[W * W];
 	/** Where a crown's underside is: below it, the wall is the shade under the trees. */
 	private final int[] under = new int[W * W];
@@ -97,11 +103,13 @@ final class Blocky {
 					this.wet[k] = true;
 					this.top[k] = water;
 					this.color[k] = Colors.water(s.waterColor[k], s.top[k], water - s.ground[k], s.lava[k]) & COLOR_MASK;
+					this.material[k] = 0;
 					continue;
 				}
 				this.wet[k] = false;
 				this.top[k] = g;
 				this.color[k] = s.top[k] & COLOR_MASK;
+				this.material[k] = s.topMaterial[k];
 				if (s.canopy[k] > 0) {
 					float h = Trees.crown(s.x(i) + centre, s.z(j) + centre, s.canopy[k], s.cover[k], s.crown[k], s.conifer[k], this.shade);
 					int height = q == 1 ? Math.max(1, Math.round(h)) : Math.round(h / q) * q;
@@ -114,6 +122,7 @@ final class Blocky {
 						int leaves = Colors.scale(s.leaves[k], this.shade[0] * 1.15F);
 						// its top as it is from above: in a cold forest, the snow on the boughs
 						this.color[k] = (s.leavesTop[k] == s.leaves[k] ? leaves : Colors.scale(s.leavesTop[k], this.shade[0] * 1.15F)) & COLOR_MASK;
+						this.material[k] = s.leavesMaterial[k];
 						// its flanks get Minecraft's face shading in the shader; under the crown it is darker still
 						this.crown[k] = leaves & COLOR_MASK;
 						this.under[k] = g + Math.round(this.shade[1]);
@@ -153,7 +162,7 @@ final class Blocky {
 		return this.ao[base + 1] == a && this.ao[base + 2] == a && this.ao[base + 3] == a;
 	}
 
-	/** Greedy rectangles over cells that agree on height, colour, water and (flat) occlusion. */
+	/** Greedy rectangles over cells that agree on height, colour, material, water and (flat) occlusion. */
 	private void tops() {
 		Arrays.fill(this.done, false);
 		for (int j = 0; j < N; j++) {
@@ -203,7 +212,8 @@ final class Blocky {
 		if (this.done[i + j * N] || this.s.empty[o] || !this.uniform(i, j) || this.ao[(i + j * N) * 4] != level) {
 			return false;
 		}
-		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k] && this.out.sameLight(o, k);
+		return this.top[o] == this.top[k] && this.color[o] == this.color[k] && this.wet[o] == this.wet[k]
+			&& (this.out.compact() || this.material[o] == this.material[k]) && this.out.sameLight(o, k);
 	}
 
 	private void top(int i, int j, int w, int d, int k, int a0, int a1, int a2, int a3) {
@@ -211,18 +221,19 @@ final class Blocky {
 		this.out.light(k);
 		int y = this.top[k];
 		int c = this.color[k];
+		int m = TileBuilder.material(this.material[k]);
 		int b0 = ao(a0), b1 = ao(a1), b2 = ao(a2), b3 = ao(a3);
 		// split along the brighter diagonal, so a dark corner darkens its own triangle, not a stripe
 		if (b1 + b3 > b0 + b2) {
-			this.out.vertex(i, y, j + d, flags, c, b1, 0, 0);
-			this.out.vertex(i + w, y, j + d, flags, c, b2, 0, 0);
-			this.out.vertex(i + w, y, j, flags, c, b3, 0, 0);
-			this.out.vertex(i, y, j, flags, c, b0, 0, 0);
+			this.out.vertex(i, y, j + d, flags, c, b1, m, 0);
+			this.out.vertex(i + w, y, j + d, flags, c, b2, m, 0);
+			this.out.vertex(i + w, y, j, flags, c, b3, m, 0);
+			this.out.vertex(i, y, j, flags, c, b0, m, 0);
 		} else {
-			this.out.vertex(i, y, j, flags, c, b0, 0, 0);
-			this.out.vertex(i, y, j + d, flags, c, b1, 0, 0);
-			this.out.vertex(i + w, y, j + d, flags, c, b2, 0, 0);
-			this.out.vertex(i + w, y, j, flags, c, b3, 0, 0);
+			this.out.vertex(i, y, j, flags, c, b0, m, 0);
+			this.out.vertex(i, y, j + d, flags, c, b1, m, 0);
+			this.out.vertex(i + w, y, j + d, flags, c, b2, m, 0);
+			this.out.vertex(i + w, y, j, flags, c, b3, m, 0);
 		}
 	}
 
@@ -293,9 +304,12 @@ final class Blocky {
 		}
 		Samples s = this.s;
 		return this.ground[a] == this.ground[b] && this.crown[a] == this.crown[b] && (this.crown[a] < 0 || this.under[a] == this.under[b])
-			&& this.side[a] == this.side[b]
-			&& this.soil[a] == this.soil[b] && this.rock[a] == this.rock[b] && s.soilDepth[a] == s.soilDepth[b]
-			&& s.bands[a] == s.bands[b] && s.bandHeight[a] == s.bandHeight[b] && s.bandOffset[a] == s.bandOffset[b];
+			&& (this.crown[a] < 0 || s.leavesMaterial[a] == s.leavesMaterial[b])
+			&& this.side[a] == this.side[b] && s.sideMaterial[a] == s.sideMaterial[b]
+			&& this.soil[a] == this.soil[b] && s.soilMaterial[a] == s.soilMaterial[b]
+			&& this.rock[a] == this.rock[b] && s.rockMaterial[a] == s.rockMaterial[b] && s.soilDepth[a] == s.soilDepth[b]
+			&& s.bands[a] == s.bands[b] && s.bandMaterials[a] == s.bandMaterials[b] && s.bandHeight[a] == s.bandHeight[b]
+			&& s.bandOffset[a] == s.bandOffset[b];
 	}
 
 	/** One run of wall, from {@code t} down to {@code b}, in the bands its column is made of. */
@@ -305,14 +319,14 @@ final class Blocky {
 			// water's own face, flagged as water: a skirt under the surface at a tile's edge shows through
 			// vanilla's translucent water at the seam, and must mirror the sky as the surface beside it does,
 			// not stand there as a dark band
-			this.band(dir, edge, a0, a1, t, b, floor, this.color[k], TileBuilder.WATER);
+			this.band(dir, edge, a0, a1, t, b, floor, this.color[k], 0, TileBuilder.WATER);
 			return;
 		}
 		int g = this.ground[k];
 		if (this.crown[k] >= 0) {
 			int under = Math.min(t, this.under[k]);
-			this.band(dir, edge, a0, a1, t, Math.max(b, under), floor, this.crown[k]);
-			this.band(dir, edge, a0, a1, under, Math.max(b, g), floor, Colors.scale(this.crown[k], 0.45F) & COLOR_MASK);
+			this.band(dir, edge, a0, a1, t, Math.max(b, under), floor, this.crown[k], this.s.leavesMaterial[k]);
+			this.band(dir, edge, a0, a1, under, Math.max(b, g), floor, Colors.scale(this.crown[k], 0.45F) & COLOR_MASK, this.s.leavesMaterial[k]);
 		}
 		// Bands thinner than about a quarter of a cell are under a pixel where the cells are a few pixels across:
 		// past that they only cost quads. The one-block rim of the surface block goes first, then the soil, then
@@ -320,13 +334,13 @@ final class Blocky {
 		int cell = this.s.cell;
 		int soilTop = g;
 		if (cell < 8) {
-			this.band(dir, edge, a0, a1, Math.min(t, g), Math.max(b, g - 1), floor, this.side[k]);
+			this.band(dir, edge, a0, a1, Math.min(t, g), Math.max(b, g - 1), floor, this.side[k], this.s.sideMaterial[k]);
 			soilTop = g - 1;
 		}
 		int soilBottom = g - 1 - this.s.soilDepth[k];
 		int rockTop = soilTop;
 		if ((soilTop - soilBottom) * 4 >= cell) {
-			this.band(dir, edge, a0, a1, Math.min(t, soilTop), Math.max(b, soilBottom), floor, this.soil[k]);
+			this.band(dir, edge, a0, a1, Math.min(t, soilTop), Math.max(b, soilBottom), floor, this.soil[k], this.s.soilMaterial[k]);
 			rockTop = soilBottom;
 		}
 		int hi = Math.min(t, rockTop);
@@ -334,7 +348,7 @@ final class Blocky {
 			return;
 		}
 		if (this.s.bands[k] == null) {
-			this.band(dir, edge, a0, a1, hi, b, floor, this.rock[k]);
+			this.band(dir, edge, a0, a1, hi, b, floor, this.rock[k], this.s.rockMaterial[k]);
 			return;
 		}
 		if (this.s.bandHeight[k] * 4 < cell) {
@@ -342,25 +356,26 @@ final class Blocky {
 			return;
 		}
 		int bh = this.s.bandHeight[k];
-		// banded rock: a quad per run of one colour, down to a couple of bands under the floor; a skirt below
-		// that is plain
+		// banded rock: a quad per run of one colour and material, down to a couple of bands under the floor; a skirt
+		// below that is plain
 		int lo = Math.max(b, floor - 2 * bh);
 		if (lo >= hi) {
-			this.band(dir, edge, a0, a1, hi, b, floor, this.s.rockAt(k, hi - 1) & COLOR_MASK);
+			this.band(dir, edge, a0, a1, hi, b, floor, this.s.rockAt(k, hi - 1) & COLOR_MASK, this.s.rockMaterialAt(k, hi - 1));
 			return;
 		}
 		int y = hi;
 		while (y > lo) {
 			int c = this.s.rockAt(k, y - 1) & COLOR_MASK;
+			int m = this.s.rockMaterialAt(k, y - 1);
 			int bottom = y - 1;
-			while (bottom > lo && (this.s.rockAt(k, bottom - 1) & COLOR_MASK) == c) {
+			while (bottom > lo && (this.s.rockAt(k, bottom - 1) & COLOR_MASK) == c && this.s.rockMaterialAt(k, bottom - 1) == m) {
 				bottom--;
 			}
-			this.band(dir, edge, a0, a1, y, bottom, floor, c);
+			this.band(dir, edge, a0, a1, y, bottom, floor, c, m);
 			y = bottom;
 		}
 		if (lo > b) {
-			this.band(dir, edge, a0, a1, lo, b, floor, this.s.rockAt(k, lo - 1) & COLOR_MASK);
+			this.band(dir, edge, a0, a1, lo, b, floor, this.s.rockAt(k, lo - 1) & COLOR_MASK, this.s.rockMaterialAt(k, lo - 1));
 		}
 	}
 
@@ -455,41 +470,47 @@ final class Blocky {
 	}
 
 	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c) {
-		this.band(dir, edge, a0, a1, hi, lo, floor, c, 0);
+		this.band(dir, edge, a0, a1, hi, lo, floor, c, 0, 0);
 	}
 
-	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c, int water) {
+	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c, int material) {
+		this.band(dir, edge, a0, a1, hi, lo, floor, c, material, 0);
+	}
+
+	/** One band of wall in colour {@code c}, made of {@code material}, with {@code water} flagging water's own faces. */
+	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c, int material, int water) {
 		if (hi <= lo) {
 			return;
 		}
 		int face = dir + 2 | water;
 		int ah = Math.max(0, Math.min(255, hi - floor));
 		int al = Math.max(0, Math.min(255, lo - floor));
+		int m = TileBuilder.material(material);
 		TileBuilder o = this.out;
 		switch (dir) {
 			case 0 -> {
-				o.vertex(a0, hi, edge, face, c, ah, 0, 0);
-				o.vertex(a1, hi, edge, face, c, ah, 0, 0);
-				o.vertex(a1, lo, edge, face, c, al, 0, 0);
-				o.vertex(a0, lo, edge, face, c, al, 0, 0);
+				o.vertex(a0, hi, edge, face, c, ah, m, 0);
+				o.vertex(a1, hi, edge, face, c, ah, m, 0);
+				o.vertex(a1, lo, edge, face, c, al, m, 0);
+				o.vertex(a0, lo, edge, face, c, al, m, 0);
 			}
 			case 1 -> {
-				o.vertex(a1, hi, edge, face, c, ah, 0, 0);
-				o.vertex(a0, hi, edge, face, c, ah, 0, 0);
-				o.vertex(a0, lo, edge, face, c, al, 0, 0);
-				o.vertex(a1, lo, edge, face, c, al, 0, 0);
+				o.vertex(a1, hi, edge, face, c, ah, m, 0);
+				o.vertex(a0, hi, edge, face, c, ah, m, 0);
+				o.vertex(a0, lo, edge, face, c, al, m, 0);
+				o.vertex(a1, lo, edge, face, c, al, m, 0);
 			}
 			case 2 -> {
-				o.vertex(edge, hi, a1, face, c, ah, 0, 0);
-				o.vertex(edge, hi, a0, face, c, ah, 0, 0);
-				o.vertex(edge, lo, a0, face, c, al, 0, 0);
-				o.vertex(edge, lo, a1, face, c, al, 0, 0);
+				o.vertex(edge, hi, a1, face, c, ah, m, 0);
+				o.vertex(edge, hi, a0, face, c, ah, m, 0);
+				o.vertex(edge, lo, a0, face, c, al, m, 0);
+				o.vertex(edge, lo, a1, face, c, al, m, 0);
 			}
 			default -> {
-				o.vertex(edge, hi, a0, face, c, ah, 0, 0);
-				o.vertex(edge, hi, a1, face, c, ah, 0, 0);
-				o.vertex(edge, lo, a1, face, c, al, 0, 0);
-				o.vertex(edge, lo, a0, face, c, al, 0, 0);
+				o.vertex(edge, hi, a0, face, c, ah, m, 0);
+				o.vertex(edge, hi, a1, face, c, ah, m, 0);
+				o.vertex(edge, lo, a1, face, c, al, m, 0);
+				o.vertex(edge, lo, a0, face, c, al, m, 0);
 			}
 		}
 	}

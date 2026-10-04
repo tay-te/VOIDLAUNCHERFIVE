@@ -31,6 +31,11 @@ public final class ExpanseSource extends WorldgenSource {
 	private final int salt;
 	private final int ash;
 	private final int basalt;
+	/** The landforms' own blocks as material ids, tops and sides: salt flats, and volcanic basalt. */
+	private final int saltTopMaterial;
+	private final int saltSideMaterial;
+	private final int basaltTopMaterial;
+	private final int basaltSideMaterial;
 
 	private ExpanseSource(ServerLevel level, TerrainModel model, long version, Materials materials) {
 		super(level, version, materials);
@@ -38,6 +43,10 @@ public final class ExpanseSource extends WorldgenSource {
 		this.salt = this.looks.colorOf(LandformBlocks.SALT_BLOCK.defaultBlockState());
 		this.ash = this.looks.colorOf(LandformBlocks.VOLCANIC_ASH.defaultBlockState());
 		this.basalt = this.looks.colorOf(Blocks.BASALT.defaultBlockState());
+		this.saltTopMaterial = this.materials.id(LandformBlocks.SALT_BLOCK.defaultBlockState(), true);
+		this.saltSideMaterial = this.materials.id(LandformBlocks.SALT_BLOCK.defaultBlockState(), false);
+		this.basaltTopMaterial = this.materials.id(Blocks.BASALT.defaultBlockState(), true);
+		this.basaltSideMaterial = this.materials.id(Blocks.BASALT.defaultBlockState(), false);
 	}
 
 	@Override
@@ -114,6 +123,7 @@ public final class ExpanseSource extends WorldgenSource {
 		this.strata(x, z, out);
 		if (out.bands != null) {
 			out.side = ColumnSample.rockAt(out.bands, out.bandHeight, out.rock, top - 1 + out.bandOffset);
+			out.sideMaterial = ColumnSample.rockMaterialAt(out.bandMaterials, out.bandHeight, out.rockMaterial, top - 1 + out.bandOffset);
 		}
 		boolean wet = water != Integer.MIN_VALUE && water > ground;
 		if (wet) {
@@ -126,11 +136,15 @@ public final class ExpanseSource extends WorldgenSource {
 		switch (landform) {
 			case Landform.SALT_FLAT -> {
 				out.top = out.side = out.soil = this.salt;
+				out.topMaterial = this.saltTopMaterial;
+				out.sideMaterial = out.soilMaterial = this.saltSideMaterial;
 				out.cover = 0;
 			}
 			case Landform.VOLCANIC -> {
 				out.top = Colors.mix(this.basalt, this.ash, 0.4F);
 				out.side = out.soil = out.rock = this.basalt;
+				out.topMaterial = this.basaltTopMaterial;
+				out.sideMaterial = out.soilMaterial = out.rockMaterial = this.basaltSideMaterial;
 				out.cover = 0;
 			}
 			default -> {
@@ -144,17 +158,34 @@ public final class ExpanseSource extends WorldgenSource {
 			if (look.ground() == BiomeLooks.Ground.GRASS || look.ground() == BiomeLooks.Ground.PODZOL) {
 				out.top = Colors.mix(out.top, this.looks.stone, bare * 0.9F);
 				out.side = Colors.mix(out.side, this.looks.stone, bare);
+				// a mixed colour is textured as its larger share
+				if (bare * 0.9F >= 0.5F) {
+					out.topMaterial = this.looks.stoneTopMaterial;
+				}
+				if (bare >= 0.5F) {
+					out.sideMaterial = this.looks.stoneSideMaterial;
+				}
 				if (top <= this.seaLevel + 2 && coast < 48) {
 					// beaches
 					float beach = Colors.smooth(48, 20, coast);
 					out.top = Colors.mix(out.top, this.looks.sand, beach);
 					out.side = Colors.mix(out.side, this.looks.sand, beach);
+					if (beach >= 0.5F) {
+						out.topMaterial = this.looks.sandTopMaterial;
+						out.sideMaterial = this.looks.sandSideMaterial;
+					}
 				}
 			}
 			if (snow > 0) {
 				if (look.ground() != BiomeLooks.Ground.SNOWCAP) {
 					out.top = Colors.mix(out.top, this.looks.snowTop, snow);
 					out.side = Colors.mix(out.side, this.looks.snowSide, snow * 0.8F);
+					if (snow >= 0.5F) {
+						out.topMaterial = this.looks.snowTopMaterial;
+					}
+					if (snow * 0.8F >= 0.5F) {
+						out.sideMaterial = this.looks.snowSideMaterial;
+					}
 				}
 				this.boughs(out, snow);
 			}
@@ -164,6 +195,10 @@ public final class ExpanseSource extends WorldgenSource {
 			int surface = Colors.water(out.waterColor, look.bed(), 2, false);
 			out.top = Colors.mix(out.top, surface, river);
 			out.cover *= 1 - river;
+			if (river >= 0.5F) {
+				// mostly a thread of water: no block texture
+				out.topMaterial = 0;
+			}
 		}
 	}
 }

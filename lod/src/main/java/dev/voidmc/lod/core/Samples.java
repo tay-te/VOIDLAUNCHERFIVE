@@ -29,6 +29,8 @@ final class Samples {
 	final int[] soilDepth;
 	final int[] rock;
 	final int[][] bands;
+	/** Per band, its material id (null where there are no bands). */
+	final int[][] bandMaterials;
 	final int[] bandHeight;
 	final int[] bandOffset;
 	final int[] water;
@@ -68,6 +70,7 @@ final class Samples {
 		this.soilDepth = new int[capacity];
 		this.rock = new int[capacity];
 		this.bands = new int[capacity][];
+		this.bandMaterials = new int[capacity][];
 		this.bandHeight = new int[capacity];
 		this.bandOffset = new int[capacity];
 		this.water = new int[capacity];
@@ -140,6 +143,7 @@ final class Samples {
 				this.soilMaterial[k] = s.soilMaterial;
 				this.rockMaterial[k] = s.rockMaterial;
 				this.leavesMaterial[k] = s.leavesMaterial;
+				this.bandMaterials[k] = s.bands == null ? null : s.bandMaterials;
 				this.empty[k] = s.empty;
 
 				if (!this.variation) {
@@ -201,6 +205,7 @@ final class Samples {
 		this.soilDepth[k] = from.soilDepth[f];
 		this.rock[k] = from.rock[f];
 		this.bands[k] = from.bands[f];
+		this.bandMaterials[k] = from.bandMaterials[f];
 		this.bandHeight[k] = from.bandHeight[f];
 		this.bandOffset[k] = from.bandOffset[f];
 		this.water[k] = from.water[f];
@@ -238,6 +243,10 @@ final class Samples {
 
 	int rockAt(int k, int y) {
 		return ColumnSample.rockAt(this.bands[k], this.bandHeight[k], this.rock[k], y + this.bandOffset[k]);
+	}
+
+	int rockMaterialAt(int k, int y) {
+		return ColumnSample.rockMaterialAt(this.bandMaterials[k], this.bandHeight[k], this.rockMaterial[k], y + this.bandOffset[k]);
 	}
 
 	int rockBetween(int k, int y0, int y1) {

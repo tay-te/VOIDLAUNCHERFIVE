@@ -151,12 +151,14 @@ public final class TextureColors {
 		return new Layer((float) (r / alpha), (float) (g / alpha), (float) (b / alpha), (float) (alpha / (w * h)), -1);
 	}
 
-	private static float linear(int c) {
+	/** An sRGB channel, 0..255, in linear light. */
+	public static float linear(int c) {
 		float v = c / 255.0F;
 		return v <= 0.04045F ? v / 12.92F : (float) Math.pow((v + 0.055F) / 1.055F, 2.4);
 	}
 
-	private static float srgb(float l) {
+	/** A linear channel back in sRGB, 0..255. */
+	public static float srgb(float l) {
 		float v = l <= 0.0031308F ? l * 12.92F : (float) (1.055 * Math.pow(l, 1 / 2.4) - 0.055);
 		return v * 255;
 	}
