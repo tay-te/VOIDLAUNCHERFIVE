@@ -28,7 +28,8 @@ lightens as it climbs and no two stages read alike), paired
 lights or a clock higher up, the open belfry (a triple light or a big arch over a balustrade) with one to three bells on
 a beam, a corbelled cornice. Panels in the style's light walling where it is masonry (white plaster between stone piers),
 the belfry in dressed stone. Crowns by culture: needle, octagonal or broach spires behind a parapet with pinnacles
-(temperate, maritime, moorland, wisteria), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
+(maritime, moorland, wisteria; a temperate town's tower always takes the needle in its pinnacled gallery, as Bohemia's
+towers do), crenellated parapets with a flag (moorland), low tiled pyramids on brackets or
 a brick campanile (mediterranean), onion domes (alpine), curved hips (karst). Timber cultures (northern, tundra, bayou,
 tropical) raise a stone base under a pent skirt and, on a seven-wide core, step the framed shaft in a block behind it
 (braces, lights) before the louvred belfry flares out two blocks on raking brackets under stacked shingle caps or a tin
@@ -138,7 +139,7 @@ then its roofs and spires. Goods per stage at the largest sizes stay under about
 | class | what |
 |---|---|
 | `Stone` | a material with the cuts masonry needs; `masonry`, `ashlar`, `dressing` (crisp: main material only), `panel`, `footing` pick the style's best stone; `sheet` (roof stone, or copper over shingle towns), `copper`, `fixed`; a weathered stone-brick fallback for styles without stone |
-| `Tower` | a square tower raised stage by stage: plinth with chamfer, shaft with clasping piers or quoins, courses round any outline, Lombard bands, deep blind arches (`recess`), openings (slit, single, bifora, trifora, arch, louvre), floors, cornice and deck, spiral stair, bells |
+| `Tower` | a square tower raised stage by stage: plinth with chamfer, shaft with clasping piers or alternating quoins (corner stones alone on a five-wide core, so its render reads), courses round any outline, Lombard bands, deep blind arches (`recess`), openings (slit, single, bifora, trifora, arch, louvre), floors, cornice and deck, spiral stair, bells |
 | `Crowns` | spire, octagon, broach (with lucarnes and pinnacles), pyramid on brackets, onion (drum, ogee bulb, lantern), dome (drum, lantern), open cupola, crenellated parapet with a flag, stave caps, curved hip with lifted tips; `rows` estimates a crown's height for laying out stages |
 | `Details` | string courses, corbel tables, corbels, round-headed arches with voussoirs and jambs, paired and triple lights, slits, pinnacles, finials and rods, bells, clock dials, stone lanterns, banners, candles, ring courses |
 | `Shapes` | the octagon ladder (`oct`, `ladder`: square, octagons, the square a size smaller... down to the plus and the point) and forms stacked from it (`stack`: stairs where a row draws in, upside-down stairs under a swell): `needle` (a tapering spire held on a concave profile, a shaft of wall posts and a rod), `domeRows`, `onionRows`; spire fields (octagon, broach, pyramid, bell-cast), capped and outside fields, solids of revolution (`turned`), a walkable spiral stair in any stone, roof `support` (no floating apexes or ridges), `reclad` |

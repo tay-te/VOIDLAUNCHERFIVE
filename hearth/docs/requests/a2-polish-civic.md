@@ -44,6 +44,13 @@ style director.
    - `landscape/statue` 7–**14** (was 11): a figure some seven blocks tall on a pedestal with a die and cornice. Square
      furniture takes `info.maxHeight()` (`Square.furniture`), so nothing more is needed there.
 
+   - `civic/chapel` 12–**36** (was 30): the temperate and wisteria church (`ChapelBohemian`) raises a west tower whose
+     belfry clears a steep Gothic nave roof and still carries a gallery and a needle spire of ten rows or more; at 30 it
+     builds, with a flatter roof and a shorter spire. VERTICAL already gives it its maximum;
+   - `civic/town_hall` 14–**36** (was 32): the Bohemian hall's corner tower and its crown;
+   - `commerce/market_hall` 12–**28** (was 24): the Bohemian market house's lofty arcade and its framed gable to the
+     square under the cupola. Market halls are CENTRAL, so they stand in the core and get the full height.
+
 5. **Windmills want rises and room behind.** The tower mill now stands forward in its plot with its fantail or tail pole
    behind; plots 13+ deep give the fantail its full wheel. VERTICAL already gives it its maximum height (26): the
    reefing stage and tail pole appear from 16 up.
@@ -61,8 +68,30 @@ style director.
    the buildings stay one colour; an accent with a different hue (a blue or green glazed tile with stairs, red sandstone
    in the desert, smooth sandstone or white terracotta in the mesa) brings them to life without further code.
 
+7. **Tier overrides and variant gables (temperate).** `temperate.json`'s tier 3 overrides `wall` (white quartz and
+   calcite) but not `gable`, so a town building of the "ochre plaster" or "brick nogging" fashion gets white walls under
+   an ochre or brick gable. The church and the town hall now fill their gables with the wall role themselves; houses and
+   the other civic buildings still show the mismatch. Either override `gable` at tier 3 too, or let a variant's own
+   `wall` win over the tier's (a brick town stays brick as it prospers).
+
+8. **Bohemian roofs.** The visual target (KCD II's Bohemia) roofs its market towns in red clay tile and its villages in
+   shingle and thatch. Temperate tier 3 roofs are deepslate tiles today, which reads northern-French. Suggest tier 3+
+   `roof` in a red tile with stairs (`minecraft:bricks` stairs read as tile at a distance; `minecraft:granite` for a
+   paler, weathered tile) with `roof_trim` to match, keeping spruce shingles below tier 3. The Bohemian towers' spires
+   take the roof's covering, so they would turn red-tiled too, which is right for Bohemia (or keep them slate by giving
+   the style an `accent`/`roof_trim` in deepslate and asking for it; tell me which and I will route the spire to it).
+
+## For the sim and plan modules (Expanse rename)
+
+9. **Expanse biome ids, old and new.** Expanse is renaming its five fantasy biomes (`wisteria_vale` → `woodland_glades`,
+   `lumen_grove` → `ancient_oakwood`, `opal_dunes` → `red_dunes`, `prismatic_peaks` → `dolomite_peaks`,
+   `frostbloom_tundra` → `lichen_tundra`). Nothing in the build module reads biome ids, but
+   `sim/terrain/CultureMap.java` (the `expanse(...)` table) and `plan/layout/LayoutChooser.java` (the `case` labels on
+   `opal_dunes`, `wisteria_vale`, `frostbloom_tundra`) name only the old ones; each needs the new id beside the old.
+
 ## Shared files edited
 
 None. Everything is in the trade, civic, landmark, landscape and infrastructure archetypes and their kits
-(`kit/landmark/Shapes`, `kit/landmark/Crowns`, `kit/civic/Towers`, `kit/civic/Adobe`, `kit/trade/Mills`), plus the new
-`archetype/landmark/StaveCathedral.java`.
+(`kit/landmark/Shapes`, `kit/landmark/Crowns`, `kit/landmark/Tower`, `kit/landmark/Stone`, `kit/civic/Towers`,
+`kit/civic/Adobe`, `kit/trade/Mills`), plus the new `archetype/landmark/StaveCathedral.java`,
+`archetype/civic/ChapelBohemian.java` and `kit/civic/Bohemian.java`.
