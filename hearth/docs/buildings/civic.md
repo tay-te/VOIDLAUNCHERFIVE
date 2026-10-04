@@ -14,7 +14,7 @@ learn, bathe and keep watch. Nine archetypes, each built in the manner of every 
 | `hearth:civic/library` | `archetype/civic/Library` | town+ | 9–13 × 11–15 | 12–20 | SCHOLAR |
 | `hearth:civic/school` | `archetype/civic/School` | town+ | 11–15 × 11–15 | 9–15 | — |
 | `hearth:civic/bathhouse` | `archetype/civic/Bathhouse` | city | 11–15 × 11–17 | 8–16 | — |
-| `hearth:civic/guardhouse` | `archetype/civic/Guardhouse` | village+ | 7–11 × 7–11 | 8–14 | GUARD, 2 beds |
+| `hearth:civic/guardhouse` | `archetype/civic/Guardhouse` | village+ | 7–11 × 7–11 | 8–18 | GUARD, 2 beds |
 
 Heights are what each building needs to stand at its best (a chapel's spire, a town hall's tower). Civic buildings
 get their maximum from the planner; commerce gets less away from the core, so every one of them also fits its lowest
@@ -31,13 +31,15 @@ traditions put little domes on drums over the roof instead (the souk). Dormers l
 **Inn.** A coaching inn: a stone carriage arch (voussoirs and keystone) through one side of the ground floor to the
 stable yard behind, a side door from the passage into the tap room; the tap room with its bar (kegs racked behind the
 innkeeper), tables and chairs, the hearth and its chimney; the stair up to a corridor along the back and guest rooms
-along the street with beds and chests; the hanging sign over the door with one of 16 names (translatable: "The Red
-Lion", "The Wheatsheaf"…); a bay window over the door; balconies (alpine, karst, raised), a vine pergola
-(mediterranean), a roof terrace (flat roofs); behind, the stable with stalls and hay and a gallery along the yard.
+along the street with beds and chests; a settle and casks of ale with a lantern by the door; the hanging sign over the door with one of 16 names (translatable: "The Red
+Lion", "The Wheatsheaf"…); a bay window to the street; balconies (alpine, karst, raised), a vine pergola
+(mediterranean), a roof terrace, latticed screens, a striped awning and a palm in the yard (desert, mesa); behind, the stable with stalls and hay and a gallery along the yard.
 Raised traditions (bayou, tropical) lift it on stilts with a stair down to the street and no carriage arch.
 
 **Bank.** A rusticated stone storey whatever the culture (or a stone base under a karst hall), barred windows, a
-portico of columns and a pediment where the plot allows (a karst gate roof, an adobe crest), a cornice; the counter
+portico of columns and a pediment where the plot allows (a karst gate roof, an adobe crest), and on smaller plots an
+aedicule (two columns and a pediment framing the door); a low hipped roof behind a cornice whatever the houses do (a
+crested parapet, the beam ends in a row, latticed screens and a little dome on a drum in the dry south); the counter
 across the banking hall with the minter's workstation at its end; the strongroom behind an iron door with buttons
 (chests of coin, a block of gold); the press room with a blast furnace and an anvil; a lectern for the ledgers. Two
 storeys where deep enough, else one tall hall.
@@ -59,19 +61,22 @@ storeys where deep enough, else one tall hall.
   pavilion or under the porch beam.
 - *Raised chapel* (bayou, tropical): the western plan lifted on stilts with boards, a gallery and a belfry.
 
-**Town hall.** A loggia of arches inside the front, a stone ground floor, the council chamber above with its long
+**Town hall.** A loggia of arches inside the front, a stone ground floor (the clerk's lectern and the records, benches
+for those waiting, a runner to the stair), the council chamber above with its long
 table, chairs and the meeting point, the clerk's lectern, a fireplace; a balcony over the loggia hung with the
 settlement's banners; a tower (centre over the front, or at a corner in stone, mediterranean and adobe towns) with a
 belfry, clocks and a cap in the culture's form (spire, pyramid, onion, dome, two-tier pagoda, cone, battlements); a
-flagpole and the notice board by the door.
+flagpole and the notice board by the door. In the dry south the hall has a crested parapet over the front, a shaded
+terrace on its roof and latticed screens before the chamber's windows.
 
 **Library.** One tall storey with a gallery round three sides (two wide: shelves and a walk, a rail of trapdoors) and
 its stair; shelves and chiseled shelves floor to gallery on every wall; reading tables with chairs; lecterns at the
 back for the scholars; a rose window over the door, two tiers of windows (lancets or lattice); a portico where the
 plot is deep; a glazed lantern on the ridge (a dome on a drum of lights in the desert).
 
-**School.** A classroom of desks facing a blackboard and the teacher's lectern, a bell in a cote, turret or bell wall,
-a fenced yard with a tree, a bench and a bell on a post.
+**School.** A lofty classroom with tall windows, desks facing a blackboard and the teacher's lectern, a porched door
+(a colonnade along the front in the south), a bell in a cote, turret or bell wall, a fenced yard with a tree, a bench and
+a bell on a post.
 
 **Bathhouse.** The Roman *thermae* (most traditions): a hall of columns round a sunken pool on a mosaic floor, a hot
 pool in the back with steam rising through grates (campfires beneath), benches, a clerestory lantern, a portico. The
@@ -83,8 +88,8 @@ tiers of benches round the stove, a changing room, a plunge pool outside.
 **Guardhouse.** A stone ground floor with slit windows (iron bars), the guard room with the grindstone, chests and
 racks of arms built into the side walls (swords, crossbow, shield; helmets and a chestplate; bow, arrows, spear),
 a table; the barracks upstairs with beds; battlements on a walkable roof with a hatch stair (masonry and adobe) or the
-culture's pitched roof with a sentry box by the door; the settlement's banner over the door; a training yard with a
-dummy and a target on wider plots.
+culture's pitched roof with the alarm bell in a turret on its ridge and a sentry box by the door; the settlement's banner
+over the door; a training yard with a dummy and a target on wider plots.
 
 ## Points of interest
 
@@ -143,6 +148,7 @@ it registers the NOTICE_BOARD POI on the cell in front, facing the board.
 | `Portico` | stylobate, columns, entablature, pediment (karst gate roof, adobe crest) |
 | `Baths` | pools, rock pools, steam grates, mosaics, benches |
 | `Eaves` | pent roofs skirting a raised core, lifted eave tips |
+| `Adobe` | the dry south's flat roofs (raised corners, crests, beam ends, spouts), latticed screens, awnings, domes on drums, palms |
 | `Fam` | block families recut from a role's material (stairs, slabs, walls of the same stone) |
 
 ## Previews

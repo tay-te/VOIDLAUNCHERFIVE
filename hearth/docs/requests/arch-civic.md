@@ -10,12 +10,13 @@ What the civic and commercial buildings (`docs/buildings/civic.md`) need from fi
    settlement is founded, in the form `"field;colour:pattern;colour:pattern…"` (e.g. `"blue;yellow:cross;white:border"`,
    colours and patterns by their vanilla names), passed in every civic and commercial plot's params, makes them agree.
 2. **Heights.** The archetypes announce their own heights in `ArchetypeInfo` (chapel 12–30, town hall 14–32, market
-   hall 12–24, library 12–20, bathhouse 8–16, school 9–15, inn 11–17, bank 9–16, guardhouse 8–14). `DefaultCatalogue`
+   hall 12–24, library 12–20, bathhouse 8–16, school 9–15, inn 11–17, bank 9–16, guardhouse 8–18). `DefaultCatalogue`
    still carries lower placeholder maxima (chapel 18, town hall 18, market hall 14…); where the planner uses the
    catalogue rather than the registered info, towers and spires come out short or are left off. Please read heights
    from the registered `ArchetypeInfo`, or raise the catalogue's to match.
-3. **Inn beds.** The inn sleeps 4 (two guest rooms of two beds on a 11–15 plot; more on the widest plots), and
-   announces 4. `DefaultCatalogue` says 6. The guardhouse sleeps 2 (catalogue: 0).
+3. **Inn beds.** The inn sleeps 3 to 6 by its plot (guest rooms along the street, two beds to a room where it is wide
+   enough; 2 on the narrowest raised plots), 4 typically, and announces 4. `DefaultCatalogue` says 6. The guardhouse
+   sleeps 2 (catalogue: 0).
 4. **Commerce near the core.** The market hall's cupola and the inn's second storey want the core's full height; the
    commerce height rule (`min + (max - min) × t`) gives them that at the core and less beyond, and they adapt, but a
    market hall beyond the inner ring loses its cupola.

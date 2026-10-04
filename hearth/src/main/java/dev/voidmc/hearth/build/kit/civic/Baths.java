@@ -64,6 +64,44 @@ public final class Baths {
 	}
 
 	/**
+	 * A basin against a wall: water over cells {@code x0..x1} of row {@code z} at standing level y (on whatever floor or
+	 * terrace is there), held by a rim of the accent stone at the ends and along row {@code z - 1}, the front rim footed
+	 * down to the ground; a carved spout head in the wall behind (row {@code z + 1}) two above. Draws nothing unless the
+	 * cells are free and the floor under the water is solid.
+	 */
+	public static boolean basin(Draft d, int x0, int x1, int z, int y) {
+		if (z - 1 < 0) {
+			return false;
+		}
+		for (int x = x0 - 1; x <= x1 + 1; x++) {
+			if (x < 0 || x >= d.frontage() || !d.isEmpty(x, y, z) || !d.isSolid(x, y - 1, z) || !d.isEmpty(x, y, z - 1)
+				|| dev.voidmc.hearth.build.terrain.Groundwork.surface(d, x, z - 1) > y || d.site().isWater(x, z - 1)) {
+				return false;
+			}
+		}
+		Mat basin = d.mat(Role.PLINTH);
+		Mat accent = d.mat(Role.WALL_ACCENT);
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int x = x0 - 1; x <= x1 + 1; x++) {
+				for (int yy = dev.voidmc.hearth.build.terrain.Groundwork.surface(d, x, z - 1); yy < y; yy++) {
+					d.set(x, yy, z - 1, basin.full());
+				}
+				d.set(x, y, z - 1, accent.full());
+				if (x < x0 || x > x1) {
+					d.set(x, y, z, accent.full());
+				} else {
+					d.set(x, y, z, Blocks.WATER.defaultBlockState());
+				}
+			}
+		}
+		int sx = (x0 + x1) / 2;
+		if (dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, sx, y + 2, z + 1)) {
+			d.inStage(StageKind.WALLS, () -> d.set(sx, y + 2, z + 1, d.mat(Role.ACCENT).mainOr(Form.FULL, Blocks.CHISELED_STONE_BRICKS).defaultBlockState()));
+		}
+		return true;
+	}
+
+	/**
 	 * A rock pool: an irregular basin round (cx, cz) of radii rx, rz, edged with boulders of mossy stone and andesite, one
 	 * deep (two in the middle) below the standing level y.
 	 */

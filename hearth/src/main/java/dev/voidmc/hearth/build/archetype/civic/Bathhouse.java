@@ -118,6 +118,13 @@ public final class Bathhouse implements Archetype {
 		if (base >= 1 && !raised) {
 			Grounds.flight(d, cx - 2, cx + 2, z0 - 3 >= 0 ? z0 - 3 : z0 - 1, base, base);
 		}
+		// basins of water either side of the portico, fed from carved heads in the wall: the baths announce themselves
+		if (!raised && z0 >= 2) {
+			for (int side : new int[]{-1, 1}) {
+				int bx = cx + side * 4;
+				Baths.basin(d, Math.min(bx, bx + side), Math.max(bx, bx + side), z0 - 1, base);
+			}
+		}
 		Grounds.approach(d, cx, base, z0 - 1);
 		// the floor: mosaic; the long pool down the middle, a colonnade round it
 		int ix0 = x0 + 1;

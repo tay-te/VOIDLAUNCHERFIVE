@@ -10,6 +10,7 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
+import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Chimneys;
 import dev.voidmc.hearth.build.kit.Facade;
@@ -284,6 +285,27 @@ public final class TownHall implements Archetype {
 			new Object[]{"minecraft:writable_book", 2}));
 		entry.block(stairLeft ? ix1 : ix0, iz0);
 		entry.block(stairLeft ? ix1 : ix0, iz0 + 1);
+		// a runner from the door toward the stair, benches along the walls for those waiting on the council
+		Mat cloth = d.mat(Role.CLOTH);
+		if (cloth.has(Form.CARPET)) {
+			try (var s = d.stage(StageKind.INTERIOR)) {
+				for (int z = iz0; z < iz1; z++) {
+					if (d.isEmpty(doorX, base, z) && d.isSolid(doorX, base - 1, z)) {
+						d.set(doorX, base, z, cloth.carpet());
+					}
+				}
+			}
+		}
+		int benches = 0;
+		for (int z = iz0 + 2; z < iz1 - 1 && benches < 4; z++) {
+			for (int x : new int[]{stairLeft ? ix1 : ix0, stairLeft ? ix0 : ix1}) {
+				Direction back = x == ix0 ? Dirs.LEFT : Dirs.RIGHT;
+				if (benches < 4 && d.isEmpty(x, base, z) && d.isEmpty(x, base + 1, z) && entry.claim(x, z)) {
+					Furniture.chair(d, x, base, z, back);
+					benches++;
+				}
+			}
+		}
 		Rooms.furnish(d, entry, Rooms.Type.HALL, 0, JobType.NONE);
 		Floors.joists(d, ix0, iz0, ix1, iz1, fy - 1, Direction.Axis.Z, 3, base);
 		// the chamber: the long table down the middle, the mayor's chair at its head on a dais
