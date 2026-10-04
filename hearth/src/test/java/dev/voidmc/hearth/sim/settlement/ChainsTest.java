@@ -94,6 +94,37 @@ class ChainsTest {
 	}
 
 	@Test
+	void abstractFellingIsOwedToTheWorldButAnEntitysIsNot() {
+		dev.voidmc.hearth.sim.EventContext[] ctx = new dev.voidmc.hearth.sim.EventContext[1];
+		SimSettlement s = TestSupport.foundedWithEvents("flat", 34, ctx);
+		dev.voidmc.hearth.sim.land.SimSite woods = null;
+		for (var site : s.land().sites()) {
+			if (site.kind() == dev.voidmc.hearth.api.ResourceSite.Kind.WOODS) {
+				woods = site;
+			}
+		}
+		org.junit.jupiter.api.Assumptions.assumeTrue(woods != null, "no woods on this ground");
+		SettlementClock.Workforce wf = new SettlementClock.Workforce();
+		int k = Production.crewOf(wf.crews, s, JobType.FORESTER, Resident.NO_PLOT, s.ctx().data(), s.ctx().rules());
+		wf.crews.counts[k] = 3;
+		Production.produce(s, wf, 1.0, s.ctx().rules(), s.ctx());
+		double owed = 0;
+		for (var site : s.land().sites()) {
+			owed += site.fellingDebt();
+		}
+		assertTrue(owed > 50, "three foresters' day of logs is owed to the woods: " + owed);
+		// an embodied forester felled real trees: his credited day owes nothing more
+		Resident r = s.residents().iterator().next();
+		r.job = JobType.FORESTER;
+		Production.credit(s, r, JobType.FORESTER, 1.0);
+		double after = 0;
+		for (var site : s.land().sites()) {
+			after += site.fellingDebt();
+		}
+		assertEquals(owed, after, 1e-9);
+	}
+
+	@Test
 	void withoutBreadFolkEatWhatTheLandGives() {
 		SimSettlement s = TestSupport.founded("flat", 31);
 		s.stockpile().take(Goods.FOOD, 100_000);
