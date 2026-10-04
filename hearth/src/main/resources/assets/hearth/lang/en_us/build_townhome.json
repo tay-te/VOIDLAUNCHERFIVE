@@ -1,1 +1,9 @@
-{}
+{
+  "hearth.archetype.house.rowhouse": "Row House",
+  "hearth.archetype.house.shophouse": "Shophouse",
+  "hearth.archetype.house.tenement": "Tenement",
+  "hearth.archetype.house.tower_house": "Tower House",
+  "hearth.archetype.house.cliff_dwelling": "Cliff Dwelling",
+  "hearth.archetype.house.courtyard_house": "Courtyard House",
+  "hearth.archetype.house.manor": "Manor"
+}

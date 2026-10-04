@@ -5,56 +5,64 @@ import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.SettlementTier;
-import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.kit.Body;
-import dev.voidmc.hearth.build.kit.Chimneys;
 import dev.voidmc.hearth.build.kit.Facade;
-import dev.voidmc.hearth.build.kit.Floors;
-import dev.voidmc.hearth.build.kit.Furniture;
-import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
-import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.townhome.Fronts;
+import dev.voidmc.hearth.build.kit.townhome.Life;
+import dev.voidmc.hearth.build.kit.townhome.Projections;
+import dev.voidmc.hearth.build.kit.townhome.StairCore;
+import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
-import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * {@code hearth:house/townhouse}: a tall, narrow town house of three or four storeys and a roof storey, built to stand in
- * a row. Its upper floors oversail the street on jetties in timber cultures; its gable faces the street or its ridge
- * runs along it with dormers; a stair turns in a two-lane well at the back, floor after floor. The ground floor is a
- * parlour and kitchen or a workroom with a wide window under an awning; above are a living room and bedrooms; the roof
- * storey sleeps one more. Party walls are blind and carry no eaves, so a row of these makes a continuous street front
- * whose heights, gables and colours still differ house to house.
+ * {@code hearth:house/townhouse}: a tall, narrow town house of three to five storeys under a roof storey, built to stand
+ * in a row and to read on its own in one. Each culture raises it its own way: timber houses oversail the street on
+ * jetties, an oriel on corbels, a gable to the street or the ridge along it with dormers or a cross gable; hill-town
+ * houses are rendered over a stone base with banded floors, balconies with doors onto them, a loggia under the eaves
+ * or a roof terrace under a pergola; karst houses climb in tiers of pent roofs and latticed galleries under a curved
+ * roof; desert houses lift a latticed mashrabiya over the street and crenellate their roof terrace; pueblo houses step
+ * back storey by storey into terraces; stilt cultures stack posted galleries on the front; stone towns crow-step their
+ * gables and raise their party walls over the roof with the chimneys on them. A switchback stair climbs the back of the
+ * house floor after floor; the ground floor is a kitchen or a workroom with a shop window, a living room above,
+ * bedrooms over that, one more under the roof where the roof is high enough over the stair to reach it (else a loft).
  *
  * <p>Params:
  * <ul>
- *   <li>{@code storeys} (int, 3–4): full storeys under the roof (default 3 or 4 by seed)</li>
- *   <li>{@code party_left}, {@code party_right} (boolean): the building's own left/right side, looking out of its front
- *   door, shares a wall with a neighbour (no windows, no eaves); read through {@code Draft.partyLocalLeft/Right}</li>
+ *   <li>{@code storeys} (int, 3–5): suggested full storeys under the roof (a storey up or down by seed now and then so a
+ *   row steps its eaves; default 3 or 4)</li>
+ *   <li>{@code party_left}, {@code party_right} (boolean): the building's own sides shared with neighbours (blind, no
+ *   eaves; parapets and chimneys on them in masonry towns); read through {@code Draft.partyLocalLeft/Right}</li>
+ *   <li>{@code corner_left}, {@code corner_right} (boolean): a street runs along that own side too: windows on it, the
+ *   roof hipped toward it where the culture hips, an oriel on the corner</li>
  *   <li>{@code shop} (boolean): a workroom with a shop window on the ground floor (default by seed)</li>
+ *   <li>{@code terrace} (boolean): a flat-roofed house steps its top storey back behind a roof terrace (default by seed)</li>
+ *   <li>{@code walkway_y} (int, world y): a walkway from across the street meets the front here: a door at that level</li>
+ *   <li>{@code roof} (RoofForm name), {@code variant} (int): as for every house</li>
  * </ul>
  */
 public final class Townhouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/townhouse"), ArchetypeCategory.HOUSING, Set.of(), 4,
 		5, 8, 8, 13, 14, 24, SettlementTier.TOWN, Set.of(),
-		Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(), 0, 1.0);
+		Set.of(ArchetypeInfo.SiteFlag.ATTACHABLE, ArchetypeInfo.SiteFlag.VERTICAL), List.of(Hearth.id("house/tenement")), 0, 1.0);
 
 	private static final RoofForm[] FORMS = {RoofForm.GABLE, RoofForm.HALF_HIP, RoofForm.GAMBREL, RoofForm.MANSARD, RoofForm.HIP, RoofForm.PAGODA,
-		RoofForm.FLAT, RoofForm.CROSS_GABLE};
+		RoofForm.FLAT, RoofForm.CROSS_GABLE, RoofForm.SALTBOX, RoofForm.DOME};
 
 	@Override
 	public ArchetypeInfo info() {
@@ -66,60 +74,97 @@ public final class Townhouse implements Archetype {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
+		Traits t = Traits.of(d);
 		boolean partyL = d.partyLocalLeft();
 		boolean partyR = d.partyLocalRight();
-		RoofForm form = HouseBuilder.roofParam(d, h.roof().pick(d.random(), FORMS));
-		if (form == RoofForm.CROSS_GABLE) {
-			form = RoofForm.GABLE;
-		}
-		boolean flat = form == RoofForm.FLAT;
-		WallKind kind = h.walls().kind();
-		boolean timber = kind == WallKind.TIMBER_FRAME || kind == WallKind.PLANK || kind == WallKind.LOG || h.walls().upper() != null;
+		boolean cornerL = TownHouses.cornerLocalLeft(d) && !partyL;
+		boolean cornerR = TownHouses.cornerLocalRight(d) && !partyR;
+		int walkY = d.hasParam("walkway_y") ? d.param("walkway_y", 0) - d.spec().floorY() : Integer.MIN_VALUE;
 
-		// the body: the whole frontage; a step back from the street for the jetties to come forward over
-		int full = Math.clamp(d.param("storeys", d.chance(0.45) ? 4 : 3), 2, 5);
-		boolean jetties = timber && d.chance(Math.max(0.5, h.walls().jetty()));
-		// the door: to one side, on whichever side the street outside stands nearest the floor
-		int pref = partyL && !partyR ? w - 2 : partyR && !partyL ? 1 : d.chance(0.5) ? 1 : w - 2;
-		int alt = pref == 1 ? w - 2 : 1;
-		int door = misfit(d, alt) < misfit(d, pref) ? alt : pref;
-		// a street that is not level with the floor at the door: a row in front for steps up or down to it
-		boolean awkward = misfit(d, door) > 0;
-		int setback = dp >= 10 || jetties || awkward ? 1 : 0;
+		RoofForm form = HouseBuilder.roofParam(d, h.roof().pick(d.random(), FORMS));
+		if (form == RoofForm.DOME || form == RoofForm.SALTBOX && (partyL || partyR)) {
+			form = form == RoofForm.DOME ? RoofForm.FLAT : RoofForm.GABLE;
+		}
+		boolean frame = h.walls().kind(1) == WallKind.TIMBER_FRAME || h.walls().kind() == WallKind.TIMBER_FRAME;
+		boolean jetties = frame && walkY == Integer.MIN_VALUE && d.chance(Math.max(0.55, h.walls().jetty()));
+		boolean pueblo = t.pueblo() && form == RoofForm.FLAT && w >= 7;
+		boolean shop = d.param("shop", d.chance(0.4));
+		int sh = Math.max(4, h.walls().storeyHeight());
+		int wanted = TownHouses.storeys(d, 3, 5, d.chance(0.5) ? 4 : 3);
+
+		// the door, where the street meets the floor; a row in front for steps when it does not
+		int bx0 = cornerL && jetties ? 1 : 0;
+		int bx1 = cornerR && jetties ? w - 2 : w - 1;
+		int door = TownHouses.doorColumn(d, bx0, bx1, partyL, partyR);
+		boolean awkward = TownHouses.misfit(d, door) > 0;
+		// galleries on posts across the front where the street meets the floor (railed decks cannot step down to it)
+		boolean galleries = t.raised() && dp >= 10 && walkY == Integer.MIN_VALUE && !awkward;
+		int setback = galleries ? 2 : dp >= 10 || jetties || awkward || pueblo ? 1 : 0;
+		if (walkY != Integer.MIN_VALUE) {
+			setback = awkward ? 1 : 0;
+		}
 		int back = dp - setback >= 12 ? 2 : dp - setback >= 10 ? 1 : 0;
 		int bz0 = setback;
 		int bz1 = dp - 1 - back;
-		int bx0 = 0;
-		int bx1 = w - 1;
-		int sh = Math.max(4, h.walls().storeyHeight());
-		boolean shop = d.param("shop", d.chance(0.5));
-		int[] heights = new int[full + (flat ? 0 : 1)];
-		java.util.Arrays.fill(heights, sh);
-		heights[0] = shop ? sh + 1 : sh;
-		if (!flat) {
-			heights[full] = 1;
+		boolean flat = form == RoofForm.FLAT;
+		Direction.Axis ridge = d.chance(Math.max(0.5, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
+		if (form == RoofForm.MANSARD || form == RoofForm.CROSS_GABLE) {
+			ridge = Direction.Axis.X;
 		}
-		Body body = new Body(bx0, bz0, bx1, bz1, 0, heights, partyL, partyR);
-		// a flat-roofed house often steps its top storey back from the street behind a roof terrace
-		int bd = bz1 - bz0 + 1;
-		boolean terraced = flat && full >= 3 && bd >= 9 && d.param("terrace", d.chance(0.7));
-		if (terraced) {
-			body.setback(full - 1, Dirs.FRONT, bd >= 11 ? 3 : 2);
+		if (form == RoofForm.HIP || form == RoofForm.PAGODA) {
+			ridge = Direction.Axis.Z;
 		}
-		if (jetties) {
-			body.jetty(1, Dirs.FRONT);
-			if (full >= 3 && bz0 - 2 >= -1) {
-				body.jetty(2, Dirs.FRONT);
+		Roofs.Opts opts = Roofs.Opts.of(d);
+		if (ridge == Direction.Axis.Z && opts.pitch() < 1.0 && t.timber() && !t.eastern() && h.roof().eaves() < 2) {
+			// a timber town's gable to the street is steep
+			opts = opts.withPitch(1.0);
+		}
+		if (t.eastern() && (partyL || partyR) && (form == RoofForm.PAGODA || form == RoofForm.HIP)) {
+			// in a row the curved roof runs along the street, low, its corners lifted only where the house is free
+			form = RoofForm.HIP;
+			ridge = Direction.Axis.X;
+			opts = opts.withPitch(0.6);
+		}
+		boolean crow = !flat && ridge == Direction.Axis.Z && t.stoneGables() && (form == RoofForm.GABLE || form == RoofForm.CROSS_GABLE)
+			&& d.chance(0.7);
+		if (crow) {
+			opts = opts.withEaves(opts.eaves(), 0);
+		}
+
+		// fit the storeys and the roof under the plot's height (a pueblo has as many storeys as it can step back)
+		Body body = null;
+		int full = pueblo ? Math.max(2, Math.min(wanted, 1 + (bz1 - bz0 + 1 - 5) / 2)) : wanted;
+		for (int pass = 0; pass < 8; pass++) {
+			int ground = shop && walkY == Integer.MIN_VALUE ? sh + 1 : sh;
+			body = new Body(bx0, bz0, bx1, bz1, 0, TownHouses.heights(full, sh, ground, !flat), partyL, partyR);
+			shape(d, body, full, jetties, pueblo, flat, cornerL, cornerR, t);
+			int top = TownHouses.ridge(d, body, form, ridge, opts) + (flat ? 1 : 2);
+			if (top < d.maxHeight()) {
+				break;
+			}
+			if (full > 3 || full > 2 && pass >= 2) {
+				full--;
+			} else if (opts.pitch() > 0.5) {
+				opts = opts.withPitch(0.5);
+			} else {
+				form = RoofForm.FLAT;
+				flat = true;
 			}
 		}
 		d.body(bx0, bz0, bx1, bz1);
-		Direction.Axis ridge = d.chance(Math.max(0.55, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
-		if (form == RoofForm.MANSARD || form == RoofForm.HIP || form == RoofForm.PAGODA) {
-			ridge = Direction.Axis.Z;
+		boolean terraced = flat && !pueblo && full >= 3 && bz1 - bz0 + 1 >= 9 && d.param("terrace", d.chance(0.6));
+		if (terraced) {
+			body = new Body(bx0, bz0, bx1, bz1, 0, TownHouses.heights(full, sh, body.height(0), false), partyL, partyR);
+			shape(d, body, full, jetties, false, true, cornerL, cornerR, t);
+			body.setback(full - 1, Dirs.FRONT, bz1 - bz0 + 1 >= 11 ? 3 : 2);
 		}
 
-		// the facade: the door, windows in bays; a wide shop window on the ground floor
-		Facade facade = Facade.plan(d, body, door, 1, 1, 0.75);
+		// the facade: the door in its bay, windows over windows
+		int windowW = (frame || t.walls() == WallKind.PLANK) && w >= 7 ? 2 : w >= 8 && t.masonryUpper() && d.chance(0.3) ? 2 : 1;
+		Facade facade = TownHouses.planWithDoor(d, body, door, 1, windowW, frame ? 0.6 : 0.7);
+		if ((frame || t.walls() == WallKind.BAMBOO || t.walls() == WallKind.PLANK) && d.chance(0.75)) {
+			facade = TownHouses.pairedPanels(facade);
+		}
 		Integer placed = HouseBuilder.doorColumn(facade);
 		if (placed != null) {
 			door = placed;
@@ -129,58 +174,33 @@ public final class Townhouse implements Archetype {
 
 		// ground and shell
 		Groundwork.footings(d, bx0, bz0, bx1, bz1, -1);
-		if (setback > 0 && !awkward && d.site().maxGround(0, 0, w - 1, bz0 - 1) - d.site().minGround(0, 0, w - 1, bz0 - 1) <= 1) {
-			Groundwork.level(d, 0, 0, w - 1, bz0 - 1, 0);
-		}
-		HouseBuilder.shell(d, body, facade);
-		HouseBuilder.openings(d, body, facade, true);
+		boolean rusticate = t.walls() == WallKind.PLASTER && h.walls().kind(1) == WallKind.PLASTER && d.chance(0.45);
+		TownHouses.shell(d, body, facade, rusticate);
+		Openings.WindowStyle style = TownHouses.windowStyle(d, t);
+		Set<Integer> skip = new HashSet<>();
+		TownHouses.openings(d, body, facade, t, style, skip, true);
+		Side front0 = body.side(0, Dirs.FRONT);
+		Fronts.doorCase(d, front0, door, 1, 0, t);
 		if (shop) {
-			shopFront(d, body, door);
+			shopWindow(d, body, door, t);
 		}
-		int terraceDoor = Integer.MIN_VALUE;
-		if (terraced) {
-			int ty = Roofs.terrace(d, body.rect(full - 2), body.rect(full - 1), body.floorY(full - 1) - 1);
-			// a door out from the top storey, a pergola of posts and cloth over part of the terrace, pots on the parapet
-			Side up = body.side(full - 1, Dirs.FRONT);
-			int mid = up.middle();
-			int tx = up.x(mid);
-			terraceDoor = tx;
-			int tz = up.z(mid);
-			d.inStage(StageKind.OPENINGS, () -> d.door(tx, ty, tz, d.mat(Role.DOOR).mainOr(dev.voidmc.hearth.build.style.Form.DOOR,
-				net.minecraft.world.level.block.Blocks.SPRUCE_DOOR), Dirs.FRONT, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
-			int[] lower = body.rect(full - 2);
-			int[] upper = body.rect(full - 1);
-			int pz0 = lower[1] + 1;
-			int pz1 = upper[1] - 1;
-			var fence = d.mat(Role.FENCE);
-			var cloth = d.mat(Role.CLOTH);
-			int px0 = tx + 2 <= lower[2] - 2 ? tx + 2 : lower[0] + 1;
-			int px1 = Math.min(lower[2] - 1, px0 + 2);
-			if (pz1 >= pz0 && px1 > px0 && (px0 > tx + 1 || px1 < tx - 1)) {
-				try (var s = d.stage(StageKind.EXTERIOR)) {
-					for (int x = px0; x <= px1; x += Math.max(1, px1 - px0)) {
-						d.set(x, ty, pz0, fence.fence());
-						d.set(x, ty + 1, pz0, fence.fence());
-					}
-					for (int x = px0; x <= px1; x++) {
-						for (int z = pz0; z <= pz1; z++) {
-							d.set(x, ty + 2, z, cloth.slab(SlabType.BOTTOM));
-						}
-					}
-				}
-			}
-			for (int x = lower[0] + 1; x < lower[2]; x += 2) {
-				if (d.chance(0.5)) {
-					Garden.pot(d, x, ty + 2, lower[1]);
-				}
-			}
-			d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, tx, ty, pz0, Dirs.FRONT);
+		if (walkY != Integer.MIN_VALUE) {
+			TownHouses.walkwayDoor(d, body, walkY);
 		}
-		// beam ends under each jetty, balconies on the upper floors
-		if (full >= 3 && d.chance(h.balcony())) {
-			Side s2 = body.side(2, Dirs.FRONT);
-			int c = s2.column(s2.middle());
-			Porches.balcony(d, s2, c - (w >= 7 ? 1 : 0), c + (w >= 7 ? 1 : 0), body.floorY(2));
+		TownHouses.dress(d, body, t, flat, cornerL || cornerR, cornerL ? Dirs.LEFT : Dirs.RIGHT);
+
+		// what stands out from the upper storeys
+		List<int[]> upperKeep = new ArrayList<>();
+		character(d, body, facade, t, full, jetties, galleries, cornerL, cornerR, door, walkY);
+		// a hill town's house often opens its top storey into a loggia under the eaves
+		int loggiaK = -1;
+		if (t.masonry() && t.flatSome() && !flat && full >= 3 && !galleries && d.chance(0.5)) {
+			loggiaK = full - 1;
+			Side top = body.side(loggiaK, Dirs.FRONT);
+			Projections.arcade(d, top, 0, top.last(), body.floorY(loggiaK), body.height(loggiaK) - 1, top.length() >= 7 ? 2 : 1, true);
+			if (top.length() >= 5) {
+				Life.airing(d, top.x(1), body.floorY(loggiaK) + 1, top.z(1));
+			}
 		}
 
 		// roof
@@ -188,67 +208,76 @@ public final class Townhouse implements Archetype {
 		int[] tr = body.topRect();
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
+		int terraceDoor = Integer.MIN_VALUE;
 		if (flat) {
-			deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, true);
-			HouseBuilder.terraceAccess(d, body, deck);
+			if (pueblo) {
+				TownHouses.terraces(d, body, full);
+			}
+			if (terraced) {
+				terraceDoor = TownHouses.setbackTerrace(d, body, full);
+			}
+			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.6));
 		} else {
-			Roofs.Opts o = Roofs.Opts.of(d);
-			if (ridge == Direction.Axis.Z && o.pitch() < 1.0) {
-				o = o.withPitch(1.0);
+			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));
+			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers, crow);
+			if (ridge == Direction.Axis.Z && !t.eastern() && d.chance(t.masonryUpper() || frame ? 0.45 : 0.2)) {
+				TownHouses.hoist(d, body, roof);
 			}
-			Roofs.Plan plan = Roofs.plan(d, tr[0], tr[1], tr[2], tr[3], plate, form, ridge, o, partyL, partyR);
-			if (ridge == Direction.Axis.X && w >= 6 && form != RoofForm.GAMBREL) {
-				Side front = body.side(topK, Dirs.FRONT);
-				int col = front.column(front.middle());
-				plan.dormer(front, col, 1, body.floorY(topK));
-			}
-			roof = plan.draw(d).roof();
 		}
 
-		// chimney against the back wall, on the side away from the stair well (which is away from the door)
+		// the stair climbs the back; a chimney on the door's side (on a party wall when there is one)
 		boolean wellLeft = door > (bx0 + bx1) / 2;
-		int cx = wellLeft ? bx1 - 1 : bx0 + 1;
-		int cz = bz1 - 1;
-		if (d.chance(Math.max(0.5, h.chimney()))) {
-			Furniture.hearth(d, cx, 0, cz, cx == bx0 + 1 ? Dirs.RIGHT : Dirs.LEFT, false);
-			if (roof != null) {
-				Chimneys.stack(d, cx, cz, 2, roof, roof.ridgeY + 1);
-			} else {
-				HouseBuilder.chimneyFlat(d, cx, cz, deck);
+		int[] hearth = TownHouses.chimney(d, body, roof, deck, wellLeft, h.chimney());
+		int coreTop = topK;
+		StairCore core = pueblo ? null : TownHouses.core(d, body, door, coreTop, roof);
+		int[] roofExit = null;
+		if (pueblo) {
+			TownHouses.puebloLadders(d, body, full, deck, door);
+		} else if (flat && !terraced) {
+			roofExit = core.bulkhead(d, deck, d.maxHeight());
+			if (roofExit != null) {
+				Life.roofGarden(d, tr[0] + 1, tr[1] + 1, tr[2] - 1, tr[3] - 1, deck, roofExit[0], roofExit[2], false);
 			}
-		} else {
-			cx = Integer.MIN_VALUE;
 		}
+		interior(d, body, roof, core, door, shop, hearth, terraceDoor, upperKeep, loggiaK);
 
-		interior(d, body, facade, roof, door, shop, cx, cz, terraceDoor);
-		// the street front: steps if the floor stands above the pavement, a bench, a lantern
-		if (awkward) {
-			Groundwork.approach(d, door, 0, bz0 - 1);
-		} else if (setback > 0) {
-			int g = d.site().ground(door, bz0 - 1);
-			if (g < 0) {
-				Groundwork.steps(d, door, 0, bz0 - 1, Dirs.FRONT, 1);
-			} else {
-				Garden.path(d, List.of(new int[]{door, 0}), 0);
-				for (int x = bx0; x <= bx1; x++) {
-					if (x != door && d.isAbsent(x, 0, 0) && d.chance(0.35)) {
-						Garden.pot(d, x, 0, 0);
-					}
+		// the street in front and the yard behind
+		TownHouses.street(d, body, door, awkward, 0);
+		TownHouses.yard(d, body, 0);
+		if (h.snow()) {
+			dev.voidmc.hearth.build.kit.Garden.snowBanks(d, bx0, bz0, bx1, bz1, 0, door);
+		}
+		int top = roof != null ? roof.ridgeY : deck + 4;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+	}
+
+	/** Jetties, the pueblo's setbacks, a corner's oversailing side. */
+	private static void shape(Draft d, Body body, int full, boolean jetties, boolean pueblo, boolean flat, boolean cornerL, boolean cornerR, Traits t) {
+		if (jetties) {
+			body.jetty(1, Dirs.FRONT);
+			if (full >= 3 && body.z0 - 2 >= -1) {
+				body.jetty(2, Dirs.FRONT);
+			}
+			if (cornerL && body.x0 >= 1) {
+				body.jetty(1, Dirs.LEFT);
+			}
+			if (cornerR && body.x1 <= d.frontage() - 2) {
+				body.jetty(1, Dirs.RIGHT);
+			}
+		}
+		if (pueblo) {
+			// each storey steps back from the street: a stair of roof terraces
+			int depth = body.depth();
+			for (int k = 1; k < full; k++) {
+				if (depth - 2 * k >= 5) {
+					body.setback(k, Dirs.FRONT, 2);
 				}
 			}
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : plate + 3) + 2);
 	}
 
-	/** How far the street in front of column x stands from the floor, beyond the step up a doorway allows (0 if fine). */
-	private static int misfit(Draft d, int x) {
-		int wy = d.site().water(x, -1);
-		int s = Math.max(d.site().ground(x, -1), wy == dev.voidmc.hearth.build.terrain.Site.NONE ? Integer.MIN_VALUE : wy);
-		return s > 0 ? s : s < -1 ? -1 - s : 0;
-	}
-
-	/** A shop window: the ground floor's front glazed two wide beside the door under a cloth awning. */
-	private static void shopFront(Draft d, Body b, int door) {
+	/** A shop window two wide beside the door under a striped awning, a hanging sign over the street. */
+	private static void shopWindow(Draft d, Body b, int door, Traits t) {
 		Side front = b.side(0, Dirs.FRONT);
 		int y = b.floorY(0);
 		int c0 = door <= (b.x0 + b.x1) / 2 ? door + 2 : door - 3;
@@ -256,79 +285,188 @@ public final class Townhouse implements Archetype {
 		if (!front.contains(c0) || !front.contains(c1) || front.isCorner(front.index(c0)) || front.isCorner(front.index(c1))) {
 			return;
 		}
-		Openings.window(d, front, c0, y + 1, 2, 2, Openings.WindowStyle.PLAIN, new Openings.WindowOpts(false, false, true, true));
-		// an awning of cloth stairs over the window
-		var cloth = d.mat(Role.CLOTH);
-		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int c = c0 - 1; c <= c1 + 1; c++) {
-				if (!front.contains(c)) {
-					continue;
+		Fronts.ShopFront kind = Fronts.shopFront(t);
+		Fronts.shopFront(d, front, c0, c1, y, b.height(0) - 1, Integer.MIN_VALUE, kind == Fronts.ShopFront.OPEN ? Fronts.ShopFront.GLAZED : kind, t);
+		int ia = Math.min(front.index(c0), front.index(c1));
+		int ib = Math.max(front.index(c0), front.index(c1));
+		if (y + b.height(0) - 1 >= 3) {
+			Fronts.awning(d, front, ia - 1, ib + 1, y + b.height(0) - 1, d.chance(0.6));
+		}
+		Side s1 = b.side(1, Dirs.FRONT);
+		Fronts.hangingSign(d, s1, s1.index(door), b.floorY(1),
+			Fronts.tradeName(d, d.pick("Wares", "Goods", "Cloth", "Spices", "Books", "Tools")));
+	}
+
+	/** The culture's way of making a tall narrow house read from the street. */
+	private static void character(Draft d, Body b, Facade f, Traits t, int full, boolean jetties, boolean galleries, boolean cornerL, boolean cornerR,
+		int door, int walkY) {
+		Habits h = d.habits();
+		int w = d.frontage();
+		if (galleries) {
+			// stacked galleries on posts across the whole front, a door onto each
+			int[] floors = new int[full];
+			for (int k = 0; k < full; k++) {
+				floors[k] = b.floorY(k);
+			}
+			Side front = b.side(0, Dirs.FRONT);
+			Projections.postedGalleries(d, front, 0, front.last(), floors, 2, b.floorY(full) - 1, t.lattice(), front.index(door));
+			for (int k = 1; k < full; k++) {
+				TownHouses.galleryDoor(d, b.side(k, Dirs.FRONT), b.floorY(k), door);
+			}
+			return;
+		}
+		if (t.eastern()) {
+			// tiers: a latticed gallery on the first floor, pent roofs at every floor line above
+			for (int k = 1; k < full; k++) {
+				Side s = b.side(k, Dirs.FRONT);
+				Side below = b.side(k - 1, Dirs.FRONT);
+				if (k == 1 && walkY == Integer.MIN_VALUE && d.chance(Math.max(0.6, h.balcony()))) {
+					Projections.gallery(d, s, 0, s.last(), b.floorY(k), true, false);
+					TownHouses.galleryDoor(d, s, b.floorY(k), door);
+				} else if (b.floorY(k) - 1 >= 3) {
+					Fronts.pent(d, below, 0, below.last(), b.floorY(k) - 1, 1);
 				}
-				int i = front.index(c);
-				int x = front.outX(i, 1);
-				int z = front.outZ(i, 1);
-				if (z >= 0 || y + 3 >= 3) {
-					if (d.isAbsent(x, y + 3, z)) {
-						d.set(x, y + 3, z, cloth.stairsOrSlab(Dirs.BACK, Half.BOTTOM));
+			}
+			if (full >= 2) {
+				Side s = b.side(full - 1, Dirs.FRONT);
+				// a pent over the first-floor gallery
+				Side g = b.side(1, Dirs.FRONT);
+				if (full >= 3) {
+					Fronts.pent(d, g, 0, g.last(), b.floorY(2) - 1, 1);
+				}
+				if (s.length() > 0 && full >= 4 && d.chance(0.5)) {
+					Projections.gallery(d, s, 1, s.last() - 1, b.floorY(full - 1), true, false);
+				}
+			}
+			return;
+		}
+		if (t.walls() == WallKind.ADOBE && !t.pueblo()) {
+			// a mashrabiya: a latticed oriel over the street on the first floor (and the second in a tall house)
+			Side s = b.side(1, Dirs.FRONT);
+			int c = s.middle() - (s.length() >= 7 ? 1 : 0);
+			Projections.oriel(d, s, c, c + (s.length() >= 6 ? 1 : 0), b.floorY(1), 2, true);
+			if (full >= 4 && d.chance(0.5)) {
+				Side s3 = b.side(3, Dirs.FRONT);
+				Projections.oriel(d, s3, c, c + (s3.length() >= 6 ? 1 : 0), b.floorY(3), 2, true);
+			}
+			return;
+		}
+		if (t.pueblo()) {
+			return;
+		}
+		if (jetties) {
+			// an oriel on the first floor in some houses, flower boxes do the rest
+			if (d.chance(Math.max(0.35, h.windows().bay())) && full >= 3) {
+				Side s = b.side(1, Dirs.FRONT);
+				for (Facade.Opening o : f.openings(Dirs.FRONT)) {
+					int i = s.index(o.at());
+					if (o.kind() == Facade.Kind.WINDOW && i >= 1 && i + o.width() <= s.last()) {
+						Projections.oriel(d, s, i - (o.width() == 1 ? 0 : 0), i + o.width() - 1, b.floorY(1), 2, false);
+						break;
 					}
 				}
 			}
+			return;
+		}
+		// rendered and stone houses: balconies with doors onto them, a loggia under the eaves
+		boolean alpine = h.roof().eaves() >= 2 && h.roof().frontGable() >= 0.5;
+		for (int k = 1; k < full; k++) {
+			Side s = b.side(k, Dirs.FRONT);
+			if (walkY != Integer.MIN_VALUE && b.floorY(k) == walkY) {
+				continue;
+			}
+			if (alpine && k >= 1 && d.chance(0.8)) {
+				Projections.gallery(d, s, 0, s.last(), b.floorY(k), false, true);
+				TownHouses.galleryDoor(d, s, b.floorY(k), door);
+			} else if (d.chance(h.balcony() * (k == 1 ? 1.2 : 0.8))) {
+				int c = s.index(door);
+				int i0 = Math.max(1, c - (w >= 7 ? 1 : 0));
+				int i1 = Math.min(s.last() - 1, c + (w >= 7 ? 1 : 0));
+				Porches.balcony(d, s, s.column(i0), s.column(i1), b.floorY(k));
+				TownHouses.galleryDoor(d, s, b.floorY(k), door);
+				if (d.chance(0.5)) {
+					Life.airing(d, s.outX(i0, 1), b.floorY(k) + 1, s.outZ(i0, 1));
+				}
+			}
+		}
+		// sheets out of an upper window here and there in the hill towns
+		if (t.flatSome() && full >= 3) {
+			Side s = b.side(full - 1, Dirs.FRONT);
+			for (Facade.Opening o : f.openings(Dirs.FRONT)) {
+				if (o.kind() == Facade.Kind.WINDOW && d.chance(0.35)) {
+					Life.sheet(d, s, s.index(o.at()), b.floorY(full - 1));
+				}
+			}
+		}
+		// a corner house: an oriel on the side street at the front corner
+		if (cornerL || cornerR) {
+			Side s = b.side(1, cornerL ? Dirs.LEFT : Dirs.RIGHT);
+			int i = cornerL ? s.last() - 2 : 1;
+			Projections.oriel(d, s, i, i + 1, b.floorY(1), 2, t.lattice());
 		}
 	}
 
-	/** The stair well at the back, and every floor's rooms around it. */
-	private static void interior(Draft d, Body b, Facade f, Roofs.Roof roof, int door, boolean shop, int hx, int hz, int terraceDoor) {
-		int[] r0 = b.rect(0);
-		int ix0 = r0[0] + 1;
-		int ix1 = r0[2] - 1;
-		int iz1 = r0[3] - 1;
-		// the well: two lanes against the side wall away from the door, at the back
-		boolean left = door > (r0[0] + r0[2]) / 2;
-		int laneA = left ? ix0 : ix1;
-		Direction across = left ? Dirs.RIGHT : Dirs.LEFT;
+	/** The stair kept free on every floor, each floor's rooms. */
+	private static void interior(Draft d, Body b, Roofs.Roof roof, StairCore core, int door, boolean shop, int[] hearth, int terraceDoor,
+		List<int[]> keep, int loggiaK) {
 		int floors = b.storeys();
-		for (int k = 0; k + 1 < floors; k++) {
-			int rise = b.height(k);
-			int first = rise / 2;
-			int zStart = iz1 - first;
-			Stairs.switchback(d, laneA, b.floorY(k), zStart, Dirs.BACK, rise, across);
-		}
-		int laneB = laneA + Dirs.dx(across);
-		int wellZ0 = iz1 - b.height(0) / 2 - 1;
-		for (int k = 0; k < floors; k++) {
+		// the attic a loft the stair does not reach while the loggia takes the floor under it: the first floor sleeps
+		boolean atticLost = core != null && core.toK() < floors - 1;
+		boolean loft = atticLost && loggiaK >= 0;
+		for (int k = 0; k < floors && TownHouses.reached(core, k); k++) {
 			int[] r = b.rect(k);
 			boolean top = k == floors - 1;
-			Rooms.Room room;
-			if (top && roof != null) {
-				room = HouseBuilder.upperRoom(d, b, k, roof);
-			} else {
-				room = new Rooms.Room(r[0] + 1, r[1] + 1, r[2] - 1, r[3] - 1, b.floorY(k), b.height(k) - 1);
-			}
+			Rooms.Room room = TownHouses.room(d, b, k, top ? roof : null);
 			if (room == null) {
 				continue;
 			}
-			// the well's cells stay free; its foot and its head must be reachable
+			if (core != null) {
+				core.keep(room, k);
+			}
+			TownHouses.keepDoors(d, room, r, b.floorY(k));
+			for (int[] c : keep) {
+				room.keep(c[0], c[1]);
+			}
 			if (top && terraceDoor != Integer.MIN_VALUE) {
 				room.keep(terraceDoor, r[1] + 1);
 			}
-			room.keepArea(laneA, wellZ0, laneB, iz1);
-			room.keep(laneB, wellZ0 - 1);
-			room.keep(laneA, wellZ0 - 1);
 			if (k == 0) {
 				room.keep(door, r[1] + 1);
-				if (hx != Integer.MIN_VALUE) {
-					room.block(hx, hz);
-					room.keep(hx + (hx == ix0 ? 1 : -1), hz);
+				if (hearth != null) {
+					room.block(hearth[0], hearth[1]);
+					room.keep(hearth[0] + (hearth[0] == r[0] + 1 ? 1 : -1), hearth[1]);
 				}
 				Rooms.furnish(d, room, shop ? Rooms.Type.WORKSHOP : Rooms.Type.KITCHEN, 0, JobType.CARPENTER);
-				if (b.storeys() >= 2) {
-					Floors.joists(d, r[0] + 1, r[1] + 1, r[2] - 1, r[3] - 1, b.floorY(1) - 1, Direction.Axis.X, 2, b.floorY(0));
+			} else if (k == loggiaK) {
+				// in a house of few floors the loggia storey sleeps too, the beds back from the arches
+				if (loft || floors <= 4) {
+					Rooms.furnish(d, room, Rooms.Type.BEDROOM, floors <= 4 ? 2 : 1, JobType.NONE);
 				}
-			} else if (k == 1) {
 				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+			} else if (k == 1 && floors >= 4 && !loft) {
+				// a door out onto a balcony or gallery stays reachable
+				for (int x = r[0] + 1; x <= r[2] - 1; x++) {
+					if (d.get(x, b.floorY(k), r[1]) != null && d.get(x, b.floorY(k), r[1]).getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+						room.keep(x, r[1] + 1);
+					}
+				}
+				Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+				if (r[2] - r[0] - 1 >= 5 && floors <= 4) {
+					// a wide house with few floors: a chamber behind the parlour
+					Rooms.furnish(d, room, Rooms.Type.BEDROOM, atticLost ? 2 : 1, JobType.NONE);
+				}
 			} else {
-				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top ? 1 : 2, JobType.NONE);
+				for (int x = r[0] + 1; x <= r[2] - 1; x++) {
+					if (d.get(x, b.floorY(k), r[1]) != null && d.get(x, b.floorY(k), r[1]).getBlock() instanceof net.minecraft.world.level.block.DoorBlock) {
+						room.keep(x, r[1] + 1);
+					}
+				}
+				Rooms.furnish(d, room, Rooms.Type.BEDROOM, top && roof != null ? 1 : 2, JobType.NONE);
+				if (core == null) {
+					Rooms.furnish(d, room, Rooms.Type.KITCHEN, 0, JobType.NONE);
+				}
 			}
 		}
+		TownHouses.joists(d, b, core);
 	}
 }
