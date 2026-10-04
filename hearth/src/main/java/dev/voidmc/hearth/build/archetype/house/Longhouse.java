@@ -55,7 +55,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * </ul>
  */
 public final class Longhouse implements Archetype {
-	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/longhouse"), ArchetypeCategory.HOUSING, Set.of(), 4,
+	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/longhouse"), ArchetypeCategory.HOUSING, Set.of(), 3,
 		7, 9, 13, 21, 9, 13, SettlementTier.CAMP, Set.of(Culture.NORTHERN, Culture.TUNDRA, Culture.MOORLAND), Set.of(), List.of(), 0, 1.4);
 
 	@Override

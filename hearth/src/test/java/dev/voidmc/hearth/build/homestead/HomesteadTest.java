@@ -383,6 +383,39 @@ class HomesteadTest {
 		assertTrue(split >= 8, "only " + split + " split-level cottages opened a door on two levels");
 	}
 
+	/** Every home of the family sleeps someone wherever it stands, and about as many as it promises the planner. */
+	@Test
+	void everyHomeSleepsItsHousehold() {
+		List<String> problems = new ArrayList<>();
+		for (ArchetypeInfo info : List.of(Farmhouse.INFO, Longhouse.INFO, RoundHouse.INFO, StiltHouse.INFO, Cottage.INFO,
+			dev.voidmc.hearth.build.archetype.house.Hut.INFO)) {
+			for (Culture c : Culture.values()) {
+				if (!info.cultures().isEmpty() && !info.cultures().contains(c)) {
+					continue;
+				}
+				int sum = 0;
+				int n = 0;
+				for (String terrain : new String[]{"flat", "slope", "hills", "river", "coast", "steep"}) {
+					for (int s = 0; s < 2; s++) {
+						long seed = 7919L * (s + 1) + c.ordinal() * 104729L;
+						Built b = build(info, c, terrain, seed, FACINGS[(s + c.ordinal()) % 4], new CompoundTag());
+						int beds = b.bp().beds();
+						if (beds < 1) {
+							problems.add(info.id() + " in " + c.getSerializedName() + " on " + terrain + " seed " + seed + " has no bed");
+						}
+						sum += beds;
+						n++;
+					}
+				}
+				if (sum < 0.6 * info.beds() * n) {
+					problems.add(info.id() + " in " + c.getSerializedName() + " sleeps " + String.format("%.1f", sum / (double) n) + " on average, promises "
+						+ info.beds());
+				}
+			}
+		}
+		assertTrue(problems.isEmpty(), problems.size() + " problems:\n  " + String.join("\n  ", problems));
+	}
+
 	@Test
 	void cottagesGrowIntoTownHouses() {
 		assertEquals(Set.of(Hearth.id("house/rowhouse"), Hearth.id("house/shophouse"), Hearth.id("house/townhouse")), Set.copyOf(Cottage.INFO.upgradesTo()));

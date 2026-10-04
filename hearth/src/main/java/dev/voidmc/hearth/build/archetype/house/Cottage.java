@@ -153,7 +153,7 @@ public final class Cottage implements Archetype {
 		}
 		boolean runsRight = hearth != null ? hearth[2] == 1 : d.chance(0.5);
 		HouseBuilder.interior(d, body, facade, roof, hearth, keep, runsRight);
-		FarmParts.ensureBeds(d, body, falls ? null : door, 1, keep);
+		FarmParts.ensureBeds(d, body, falls ? null : door, 2, keep);
 		if (!falls) {
 			sideDoor(d, body, sh);
 		} else {

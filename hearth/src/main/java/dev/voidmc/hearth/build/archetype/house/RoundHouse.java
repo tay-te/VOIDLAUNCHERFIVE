@@ -48,7 +48,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class RoundHouse implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/round_house"), ArchetypeCategory.HOUSING, Set.of(), 2,
-		7, 9, 7, 9, 9, 13, SettlementTier.CAMP, Set.of(Culture.STEPPE, Culture.TROPICAL), Set.of(), List.of(), 0, 1.5);
+		8, 9, 8, 9, 9, 13, SettlementTier.CAMP, Set.of(Culture.STEPPE, Culture.TROPICAL), Set.of(), List.of(), 0, 1.5);
 
 	@Override
 	public ArchetypeInfo info() {
@@ -64,19 +64,56 @@ public final class RoundHouse implements Archetype {
 		boolean stilted = d.param("stilts", h.plan().stilts() == Habits.Stilts.ALWAYS || water && h.plan().stilts() != Habits.Stilts.NEVER || water);
 		int span = Math.min(w, dp);
 		boolean veranda = stilted && span >= 9;
-		double r = veranda ? 2 : span >= 9 ? 3 : 2;
-		int eaves = veranda ? 2 : 1;
+		// a ring big enough to sleep a household (six or seven cells across), its eave inside the plot; a seven-wide plot
+		// takes the seven-cell ring with its thatch starting at the wall head
+		double r = veranda ? 2 : 3;
+		int eaves = veranda ? 2 : w >= 8 ? 1 : 0;
 		double cx = (w - 1) / 2.0;
 		// back on the plot, a row left in front of the veranda (or the door) for the steps down to the street
 		double outer = veranda ? r + 1.3 : r;
 		double cz = Math.max(outer + 1.0, dp - 1 - Math.max(outer, r + eaves - 0.5));
+		int stiltLift = 1;
+		if (!veranda) {
+			// the biggest ring, and the deepest centre for it (in half blocks), that keeps its back eave on the plot and
+			// enough rows in front for the steps up to its floor (one, or one a block for a raised floor)
+			// (a ring that would otherwise not sleep its household lets its back eave run to the plot's edge)
+			// (and a raised floor may stand lower, a block over the ground and the water, rather than lose its beds)
+			boolean placed = false;
+			for (double cand : new double[]{3, 2.5, 2}) {
+				int e = cand >= 3 && w < 8 ? 0 : 1;
+				for (int back = e; back >= 0 && !placed; back--) {
+					for (int lift = 1; lift >= 0 && !placed; lift--) {
+						for (double c = dp - 1.0; c >= 1.0 && !placed; c -= 0.5) {
+							Round.Ring t = Round.ring(cx, c, cand);
+							int rows = stilted ? Math.max(1, raised(d, t, lift, lift + 1)) : 1;
+							if (t.z1() + back <= dp - 1 && t.z0() >= rows) {
+								r = cand;
+								eaves = e;
+								cz = c;
+								stiltLift = lift;
+								placed = true;
+							}
+						}
+					}
+				}
+				if (placed) {
+					break;
+				}
+			}
+			if (!placed) {
+				r = 2;
+				eaves = 1;
+				cz = Math.max(r + 1.0, dp - 1 - (r + eaves - 0.5));
+			}
+		}
 		Round.Ring ring = Round.ring(cx, cz, r);
-		int stiltH = veranda ? Math.max(2, h.plan().stiltHeight()) : 1;
+		int stiltH = veranda ? Math.max(2, h.plan().stiltHeight()) : stiltLift;
 		int base = 0;
 		if (stilted) {
+			int waterLift = veranda ? 2 : stiltLift + 1;
 			for (int[] c : ring.disc()) {
 				int wy = d.site().water(c[0], c[1]);
-				base = Math.max(base, Math.max(d.site().ground(c[0], c[1]) + stiltH + 1, wy == Site.NONE ? 0 : wy + 2));
+				base = Math.max(base, Math.max(d.site().ground(c[0], c[1]) + stiltH + 1, wy == Site.NONE ? 0 : wy + waterLift));
 			}
 			base = Math.min(base, 4);
 		}
@@ -147,6 +184,16 @@ public final class RoundHouse implements Archetype {
 		}
 		outside(d, ring, base, doorX, doorZ, stilted);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roof.ridgeY + 3));
+	}
+
+	/** How far a raised floor over this ring stands above the street: its piles clear the ground and the water. */
+	private static int raised(Draft d, Round.Ring ring, int stiltH, int waterLift) {
+		int base = 0;
+		for (int[] c : ring.disc()) {
+			int wy = d.site().water(c[0], c[1]);
+			base = Math.max(base, Math.max(d.site().ground(c[0], c[1]) + stiltH + 1, wy == Site.NONE ? 0 : wy + waterLift));
+		}
+		return Math.min(base, 4) - Math.max(0, dev.voidmc.hearth.build.kit.homestead.Terraces.street(d, (int) Math.round(ring.cx())));
 	}
 
 	/** Thatch (the culture's, or hay) by seed or param; else the culture's roofing (planks, mud tile). */
@@ -258,13 +305,12 @@ public final class RoundHouse implements Archetype {
 	private static void interior(Draft d, Round.Ring ring, int base, Roofs.Roof roof, int doorX, int doorZ) {
 		Rooms.Room room = Round.room(ring, base, 3);
 		room.keep(doorX, doorZ + 1);
-		// a big ring keeps its fire in the middle; a small one beds its folk first and fits the fire where it can
+		// the household's two beds against the wall first, then the fire in the middle (where the floor stays open round
+		// it), and a third bed in a big ring
+		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
+		Round.fire(d, ring, room, base);
 		if (ring.r() >= 3) {
-			Round.fire(d, ring, room, base);
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 3, JobType.NONE);
-		} else {
-			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
-			Round.fire(d, ring, room, base);
+			Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
 		}
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Round.pots(d, ring, room, base, 3);

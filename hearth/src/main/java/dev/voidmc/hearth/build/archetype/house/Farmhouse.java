@@ -69,7 +69,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * RoofForm name for the house), {@code storeys} (int 1–2).
  */
 public final class Farmhouse implements Archetype {
-	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/farmhouse"), ArchetypeCategory.HOUSING, Set.of(), 3,
+	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("house/farmhouse"), ArchetypeCategory.HOUSING, Set.of(), 2,
 		11, 17, 11, 17, 11, 15, SettlementTier.HAMLET, Set.of(), Set.of(ArchetypeInfo.SiteFlag.OUTSKIRTS), List.of(), 0, 1.0);
 
 	enum Layout {
@@ -624,8 +624,9 @@ public final class Farmhouse implements Archetype {
 		Roofs.Roof roof = Round.cone(d, ring, plate, 1, pitch, d.chance(0.25) ? d.mat(Role.THATCH) : d.mat(Role.ROOF));
 		Rooms.Room room = Round.room(ring, base, 3);
 		room.keep(door[0], door[1] + 1);
+		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);
 		Round.fire(d, ring, room, base);
-		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 3, JobType.NONE);
+		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		int top = roof.ridgeY + 2;
 		// the granary: a small round store on a stone plinth, its floor a step up, under a cone
@@ -743,8 +744,9 @@ public final class Farmhouse implements Archetype {
 			form = RoofForm.GABLE;
 		}
 		Roofs.Roof roof = Roofs.build(d, hx0, hz0, hx1, hz1, body.plateY(), form, Direction.Axis.X, Roofs.Opts.of(d), false, false).roof();
-		HouseBuilder.interior(d, body, facade, roof, null, null, d.chance(0.5));
+		// the household's beds before the stores and the kitchen fill the one room
 		FarmParts.ensureBeds(d, body, door, 2);
+		HouseBuilder.interior(d, body, facade, roof, null, null, d.chance(0.5));
 		Groundwork.approach(d, dx, base, hz0 - 2);
 		int top = roof.ridgeY + 2;
 		// a granary on posts beside the house
