@@ -3,6 +3,7 @@ package dev.voidmc.hearth.economy.price;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
+import dev.voidmc.hearth.api.JobType;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -147,6 +148,21 @@ public final class PriceTable {
 	public static double speciality(Culture culture, Goods goods) {
 		PriceData.CultureEntry entry = data.cultures().get(culture);
 		return entry == null ? 1.0 : entry.speciality(goods);
+	}
+
+	/** What a shop at this workplace (an archetype path, {@code work/bakery}) deals in, or {@link GoodsMask#NONE}. */
+	public static long shopMask(String workplace) {
+		return data.shopWorkplaces().getOrDefault(workplace, GoodsMask.NONE);
+	}
+
+	/** Whether a building of this archetype path is a shop at all. */
+	public static boolean isShop(String workplace) {
+		return data.shopWorkplaces().containsKey(workplace);
+	}
+
+	/** What a trader of this job deals in, or {@link GoodsMask#NONE}. */
+	public static long jobMask(JobType job) {
+		return data.shopJobs().getOrDefault(job.getSerializedName(), GoodsMask.NONE);
 	}
 
 	/** {@code "a|b|c"}: the first alternative that is a registered item. */

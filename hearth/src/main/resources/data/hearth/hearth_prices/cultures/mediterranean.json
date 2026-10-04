@@ -9,35 +9,61 @@
     "cloth": 1.0,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 0.9
+    "luxury": 0.9,
+    "logs": 1.15,
+    "ore": 1.1,
+    "dressed_stone": 0.85,
+    "brick": 0.75,
+    "sand": 1.0,
+    "grain": 0.85,
+    "flour": 0.85,
+    "meat": 0.85,
+    "fish": 0.9,
+    "wool": 1.0,
+    "leather": 1.0,
+    "wax": 0.85,
+    "candles": 0.9,
+    "paper": 0.9,
+    "books": 0.9,
+    "dye": 0.9,
+    "salt": 0.9,
+    "produce": 0.8,
+    "specialty": 1.0
   },
   "wares": {
-    "stone": [
+    "dressed_stone": [
       "minecraft:polished_diorite",
-      "minecraft:calcite",
-      "minecraft:stone_bricks",
-      "minecraft:smooth_sandstone"
+      "minecraft:smooth_sandstone",
+      "minecraft:stone_bricks"
     ],
-    "clay": [
+    "stone": [
+      "minecraft:calcite",
+      "minecraft:diorite"
+    ],
+    "brick": [
       "minecraft:terracotta",
       "minecraft:orange_terracotta",
       "minecraft:bricks",
       "minecraft:decorated_pot"
     ],
     "wood": [
-      "expanse:olive_planks|minecraft:oak_planks",
+      "expanse:olive_planks|minecraft:oak_planks"
+    ],
+    "logs": [
       "expanse:olive_log|minecraft:oak_log"
     ],
     "food": [
       "minecraft:bread",
-      "minecraft:apple",
       "minecraft:cooked_cod",
       "minecraft:beetroot_soup"
     ],
-    "luxury": [
+    "produce": [
+      "minecraft:apple",
       "minecraft:honey_bottle",
-      "minecraft:book",
-      "minecraft:candle"
+      "minecraft:beetroot"
+    ],
+    "wax": [
+      "minecraft:honeycomb"
     ]
   }
 }

@@ -3,33 +3,62 @@
     "food": 0.8,
     "wood": 0.8,
     "stone": 1.4,
-    "clay": 0.75,
+    "clay": 0.65,
     "glass": 1.2,
     "metal": 1.25,
     "cloth": 1.05,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 0.95
+    "luxury": 0.95,
+    "logs": 0.8,
+    "ore": 1.25,
+    "dressed_stone": 1.5,
+    "brick": 0.65,
+    "sand": 1.2,
+    "grain": 0.8,
+    "flour": 0.8,
+    "meat": 0.8,
+    "fish": 0.75,
+    "wool": 1.05,
+    "leather": 1.05,
+    "wax": 0.9,
+    "candles": 0.95,
+    "paper": 0.95,
+    "books": 0.95,
+    "dye": 0.95,
+    "salt": 1.0,
+    "produce": 0.85,
+    "specialty": 0.85
   },
   "wares": {
     "wood": [
       "expanse:willow_planks|minecraft:mangrove_planks",
-      "minecraft:mangrove_log",
       "minecraft:mangrove_planks"
     ],
+    "logs": [
+      "minecraft:mangrove_log",
+      "expanse:willow_log|minecraft:oak_log"
+    ],
     "clay": [
-      "minecraft:mud_bricks",
-      "minecraft:packed_mud",
+      "minecraft:clay",
       "minecraft:mud"
+    ],
+    "brick": [
+      "minecraft:mud_bricks",
+      "minecraft:packed_mud"
     ],
     "food": [
       "minecraft:cooked_cod",
       "minecraft:mushroom_stew",
       "expanse:cooked_crab|minecraft:cooked_salmon"
     ],
-    "luxury": [
-      "minecraft:candle",
-      "minecraft:honey_bottle"
+    "fish": [
+      "minecraft:cod",
+      "minecraft:salmon"
+    ],
+    "specialty": [
+      "expanse:spanish_moss|minecraft:glow_lichen",
+      "expanse:cattail|minecraft:blue_orchid"
     ]
   }
 }

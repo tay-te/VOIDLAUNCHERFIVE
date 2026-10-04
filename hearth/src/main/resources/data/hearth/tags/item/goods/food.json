@@ -1,25 +1,7 @@
 {
   "values": [
-    "#minecraft:meat",
-    "#minecraft:fishes",
-    "#minecraft:eggs",
     "minecraft:bread",
-    "minecraft:apple",
-    "minecraft:carrot",
-    "minecraft:potato",
     "minecraft:baked_potato",
-    "minecraft:beetroot",
-    "minecraft:wheat",
-    "minecraft:melon_slice",
-    "minecraft:melon",
-    "minecraft:pumpkin",
-    "minecraft:pumpkin_pie",
-    "minecraft:cookie",
-    "minecraft:cake",
-    "minecraft:sweet_berries",
-    "minecraft:glow_berries",
-    "minecraft:dried_kelp",
-    "minecraft:kelp",
     "minecraft:cooked_beef",
     "minecraft:cooked_porkchop",
     "minecraft:cooked_chicken",
@@ -30,38 +12,18 @@
     "minecraft:mushroom_stew",
     "minecraft:rabbit_stew",
     "minecraft:beetroot_soup",
-    "minecraft:sugar",
-    "minecraft:sugar_cane",
-    "minecraft:cocoa_beans",
-    "minecraft:milk_bucket",
-    "minecraft:red_mushroom",
-    "minecraft:brown_mushroom",
+    "minecraft:pumpkin_pie",
+    "minecraft:cookie",
+    "minecraft:cake",
+    "minecraft:dried_kelp",
     "minecraft:golden_carrot",
     "minecraft:golden_apple",
-    "minecraft:hay_block",
-    "minecraft:wheat_seeds",
-    "minecraft:beetroot_seeds",
-    "minecraft:pumpkin_seeds",
-    "minecraft:melon_seeds",
-    "minecraft:chorus_fruit",
-    {
-      "id": "expanse:venison",
-      "required": false
-    },
     {
       "id": "expanse:cooked_venison",
       "required": false
     },
     {
-      "id": "expanse:crab_meat",
-      "required": false
-    },
-    {
       "id": "expanse:cooked_crab",
-      "required": false
-    },
-    {
-      "id": "expanse:cranberries",
       "required": false
     }
   ]

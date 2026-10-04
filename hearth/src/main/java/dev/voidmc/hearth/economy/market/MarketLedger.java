@@ -122,9 +122,17 @@ public final class MarketLedger {
 	 * @param upkeep  spent on upkeep
 	 * @param minted  coin struck at the mint
 	 * @param unpaid  days in a row the treasury could not meet the wages
+	 * @param spent   what folk spent on food and comforts
+	 * @param dues    market dues and tithes paid to the treasury
+	 * @param income  what owned businesses paid their owners
+	 * @param hungry  households that could not pay for their food
 	 */
-	public record Books(long taxes, long trade, long wages, long upkeep, long minted, int unpaid) {
-		public static final Books EMPTY = new Books(0, 0, 0, 0, 0, 0);
+	public record Books(long taxes, long trade, long wages, long upkeep, long minted, int unpaid, long spent, long dues, long income, int hungry) {
+		public static final Books EMPTY = new Books(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+		public Books(long taxes, long trade, long wages, long upkeep, long minted, int unpaid) {
+			this(taxes, trade, wages, upkeep, minted, unpaid, 0, 0, 0, 0);
+		}
 
 		public static final Codec<Books> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.LONG.optionalFieldOf("taxes", 0L).forGetter(Books::taxes),
@@ -132,7 +140,11 @@ public final class MarketLedger {
 			Codec.LONG.optionalFieldOf("wages", 0L).forGetter(Books::wages),
 			Codec.LONG.optionalFieldOf("upkeep", 0L).forGetter(Books::upkeep),
 			Codec.LONG.optionalFieldOf("minted", 0L).forGetter(Books::minted),
-			Codec.INT.optionalFieldOf("unpaid", 0).forGetter(Books::unpaid)
+			Codec.INT.optionalFieldOf("unpaid", 0).forGetter(Books::unpaid),
+			Codec.LONG.optionalFieldOf("spent", 0L).forGetter(Books::spent),
+			Codec.LONG.optionalFieldOf("dues", 0L).forGetter(Books::dues),
+			Codec.LONG.optionalFieldOf("income", 0L).forGetter(Books::income),
+			Codec.INT.optionalFieldOf("hungry", 0).forGetter(Books::hungry)
 		).apply(i, Books::new));
 	}
 

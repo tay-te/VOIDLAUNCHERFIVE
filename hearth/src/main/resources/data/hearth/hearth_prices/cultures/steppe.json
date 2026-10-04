@@ -9,26 +9,58 @@
     "cloth": 0.75,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 1.0
+    "luxury": 1.0,
+    "logs": 1.4,
+    "ore": 1.1,
+    "dressed_stone": 1.1,
+    "brick": 0.9,
+    "sand": 1.3,
+    "grain": 0.9,
+    "flour": 0.9,
+    "meat": 0.8,
+    "fish": 0.9,
+    "wool": 0.7,
+    "leather": 0.7,
+    "wax": 1.0,
+    "candles": 1.0,
+    "paper": 1.0,
+    "books": 1.0,
+    "dye": 1.0,
+    "salt": 1.0,
+    "produce": 0.9,
+    "specialty": 1.0
   },
   "wares": {
     "wood": [
       "minecraft:acacia_planks",
+      "minecraft:acacia_slab",
+      "expanse:baobab_planks|minecraft:acacia_stairs"
+    ],
+    "logs": [
       "minecraft:acacia_log",
-      "expanse:baobab_planks|minecraft:acacia_slab"
+      "expanse:baobab_log|minecraft:acacia_wood"
+    ],
+    "wool": [
+      "minecraft:brown_wool",
+      "minecraft:white_wool"
+    ],
+    "leather": [
+      "minecraft:leather"
     ],
     "cloth": [
-      "minecraft:leather",
-      "minecraft:brown_wool",
-      "minecraft:white_wool",
-      "minecraft:yellow_carpet"
+      "minecraft:yellow_carpet",
+      "minecraft:brown_carpet"
     ],
     "food": [
       "minecraft:cooked_beef",
       "minecraft:cooked_mutton",
       "minecraft:bread"
     ],
-    "clay": [
+    "meat": [
+      "minecraft:beef",
+      "minecraft:mutton"
+    ],
+    "brick": [
       "minecraft:terracotta",
       "minecraft:orange_terracotta",
       "minecraft:yellow_terracotta"

@@ -2,7 +2,9 @@ package dev.voidmc.hearth.economy.item;
 
 import dev.voidmc.hearth.api.PlotView;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.economy.EconomyModule;
 import dev.voidmc.hearth.economy.SettlementLookup;
+import dev.voidmc.hearth.economy.holdings.Holdings;
 import dev.voidmc.hearth.economy.property.PropertyNames;
 import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
@@ -49,6 +51,9 @@ public class DeedItem extends Item {
 			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.void"));
 			return InteractionResult.FAIL;
 		}
+		if (deed.business()) {
+			return claimBusiness(level, player, settlement, plot, deed);
+		}
 		if (player.getUUID().equals(plot.owner())) {
 			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.yours", PropertyNames.lower(deed.building()), deed.settlementName()));
 			return InteractionResult.SUCCESS;
@@ -65,6 +70,30 @@ public class DeedItem extends Item {
 		return InteractionResult.SUCCESS;
 	}
 
+	/** A business deed moves the business (its income, its hiring) to whoever presents it there. */
+	private static InteractionResult claimBusiness(Level level, Player player, Settlement settlement, PlotView plot, DeedData deed) {
+		Holdings holdings = settlement.data(EconomyModule.HOLDINGS);
+		Holdings.Holding holding = holdings.get(plot.id());
+		if (holding == null) {
+			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.void"));
+			return InteractionResult.FAIL;
+		}
+		if (player.getUUID().equals(holding.owner)) {
+			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.yours", PropertyNames.lower(deed.building()), deed.settlementName()));
+			return InteractionResult.SUCCESS;
+		}
+		if (!deed.contains(player.blockPosition())) {
+			player.sendOverlayMessage(Component.translatable("hearth.economy.deed.go_there", deed.origin().getX(), deed.origin().getZ()));
+			return InteractionResult.FAIL;
+		}
+		holding.owner = player.getUUID();
+		settlement.markDirty();
+		level.playSound(null, player.blockPosition(), SoundEvents.BOOK_PAGE_TURN, SoundSource.PLAYERS, 1.0F, 0.9F);
+		player.sendSystemMessage(Component.translatable("hearth.economy.deed.claimed", PropertyNames.lower(deed.building()), deed.settlementName())
+			.withStyle(ChatFormatting.GOLD));
+		return InteractionResult.SUCCESS;
+	}
+
 	@Override
 	@SuppressWarnings("deprecation")
 	public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag flag) {
@@ -73,7 +102,7 @@ public class DeedItem extends Item {
 			builder.accept(Component.translatable("hearth.economy.deed.blank").withStyle(ChatFormatting.GRAY));
 			return;
 		}
-		builder.accept(Component.translatable(deed.built() ? "hearth.economy.deed.house" : "hearth.economy.deed.plot",
+		builder.accept(Component.translatable(deed.business() ? "hearth.economy.deed.business" : deed.built() ? "hearth.economy.deed.house" : "hearth.economy.deed.plot",
 			PropertyNames.lower(deed.building()), deed.settlementName()).withStyle(ChatFormatting.GOLD));
 		builder.accept(Component.translatable("hearth.economy.deed.size", deed.sizeX(), deed.sizeZ(), deed.origin().getX(),
 			deed.origin().getY(), deed.origin().getZ()).withStyle(ChatFormatting.GRAY));

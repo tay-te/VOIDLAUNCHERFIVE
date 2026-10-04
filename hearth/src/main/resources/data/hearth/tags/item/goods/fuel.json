@@ -6,6 +6,7 @@
     "minecraft:coal_block",
     "minecraft:dried_kelp_block",
     "minecraft:blaze_rod",
+    "minecraft:torch",
     {
       "id": "expanse:peat",
       "required": false

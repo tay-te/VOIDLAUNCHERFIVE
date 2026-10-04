@@ -11,23 +11,39 @@ import dev.voidmc.hearth.api.Stockpile;
 import dev.voidmc.hearth.economy.EconomyConfig;
 import dev.voidmc.hearth.economy.EconomyModule;
 import dev.voidmc.hearth.economy.market.MarketLedger;
+import dev.voidmc.hearth.economy.holdings.BusinessMarket;
+import dev.voidmc.hearth.economy.price.MarketPricer;
 import dev.voidmc.hearth.economy.price.PriceModel;
 import dev.voidmc.hearth.economy.price.PriceTable;
+import dev.voidmc.hearth.economy.purse.PurseEconomy;
+import dev.voidmc.hearth.economy.shop.Shops;
+import dev.voidmc.hearth.economy.works.Contracts;
+import dev.voidmc.hearth.economy.works.Projects;
+import net.minecraft.server.MinecraftServer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A settlement's money, one sim day at a time: on {@code SettlementEvents.DAY_PASSED} (including every day caught up
- * while nobody was near), so it is a handful of arithmetic per settlement and touches no world.
+ * while nobody was near), so it is arithmetic over the settlement's records and touches no world.
  *
  * <pre>
- *   income   taxes (per head) + passing trade (a share of the market value of its surplus)
- *   out      wages (per working adult) + upkeep (a small share of the treasury: keeps treasuries bounded)
- *   mint     with a minter or a bank, metal from the stockpile is struck into coin
  *   prices   each goods' price wanders a little, pulled back toward normal; the town's own use of each goods is
  *            tracked (trade with players excluded) so prices know how fast it eats through its stores
  *   builders a shortage the builders reported is forgotten once it is in store or a week has passed
+ *   shops    matched to the buildings and folk ({@link Shops#sync})
+ *   purses   wages to residents, poll tax and tithes to the treasury, food and comforts bought from the shops and
+ *            the stores ({@link PurseEconomy}); stations follow purses
+ *   treasury passing trade (a share of the market value of its surplus) in, upkeep (a small share of the treasury,
+ *            keeping treasuries bounded) out
+ *   mint     with a minter or a bank, metal from the stockpile is struck into coin
+ *   shops    restock at wholesale, return surplus, pay dues; their keepers (or owners) take a share of full tills
+ *   holdings owned businesses pay their owners, into their bank accounts
+ *   works    funded projects buy what their construction lacks; supply contracts lapse and are offered
  * </pre>
  *
- * The sim module owns production and population; this only moves coin, and metal into the mint.
+ * With {@code households.enabled} off (an older, simpler economy), the treasury instead collects {@code taxPerHead} from
+ * nobody in particular and pays {@code wagePerWorker} to nobody in particular, as in phase 2. The sim module owns
+ * production and population; this moves coin, the goods folk buy, and metal into the mint.
  */
 public final class SettlementEconomy {
 	/** Days a builders' shortage is remembered without being met. */
@@ -39,6 +55,11 @@ public final class SettlementEconomy {
 	}
 
 	public static void dayPassed(Settlement settlement, long day) {
+		dayPassed(settlement, day, null);
+	}
+
+	/** @param server for paying business income and refunds into bank accounts; null holds them over (tests, dev tools) */
+	public static void dayPassed(Settlement settlement, long day, @Nullable MinecraftServer server) {
 		EconomyConfig cfg = EconomyModule.config();
 		MarketLedger ledger = settlement.data(EconomyModule.LEDGER);
 		if (ledger.lastDay == day) {
@@ -75,18 +96,36 @@ public final class SettlementEconomy {
 				minters++;
 			}
 		}
-		long taxes = Math.round(settlement.population() * t.taxPerHead());
+		MarketPricer pricer = new MarketPricer(settlement);
+		Shops.sync(settlement, day);
 		long trade = Math.round(surplusValue(settlement, pricing) * t.tradeIncomeRate());
-		settlement.deposit(taxes + trade);
+		settlement.deposit(trade);
 
-		long wages = Math.round(workers * t.wagePerWorker());
+		long taxes;
+		long wages;
+		long spent = 0;
+		long tithes = 0;
+		int hungry = 0;
 		int unpaid = ledger.books.unpaid();
-		if (settlement.withdraw(wages)) {
-			unpaid = 0;
+		if (cfg.households().enabled()) {
+			PurseEconomy.Day d = PurseEconomy.daily(settlement, pricer, day);
+			taxes = d.taxes();
+			wages = d.wages();
+			spent = d.spent();
+			tithes = d.tithes();
+			hungry = d.hungry();
+			unpaid = d.shortPaid() ? unpaid + 1 : 0;
 		} else {
-			wages = settlement.treasury();
-			settlement.withdraw(wages);
-			unpaid++;
+			taxes = Math.round(settlement.population() * t.taxPerHead());
+			settlement.deposit(taxes);
+			wages = Math.round(workers * t.wagePerWorker());
+			if (settlement.withdraw(wages)) {
+				unpaid = 0;
+			} else {
+				wages = settlement.treasury();
+				settlement.withdraw(wages);
+				unpaid++;
+			}
 		}
 		long upkeep = (long) Math.floor(settlement.treasury() * t.upkeepRate());
 		settlement.withdraw(upkeep);
@@ -104,18 +143,31 @@ public final class SettlementEconomy {
 			}
 		}
 
-		ledger.books = new MarketLedger.Books(taxes, trade, wages, upkeep, minted, unpaid);
+		long dues = Shops.daily(settlement, pricer, day, (shop, bits) -> {
+			if (!BusinessMarket.creditShop(settlement, shop, bits)) {
+				Shops.payKeeper(settlement, shop, bits);
+			}
+		});
+		long income = BusinessMarket.settle(settlement, server);
+		Projects.daily(settlement, server);
+		Contracts.daily(settlement, pricer, day);
+
+		ledger.books = new MarketLedger.Books(taxes, trade, wages, upkeep, minted, unpaid, spent, dues + tithes, income, hungry);
 		ledger.standingGain.values().removeIf(packed -> (packed >> 8) < day);
 		settlement.markDirty();
 	}
 
-	/** Remembers what the builders are short of, for the market (and its note) until it is in store. */
+	/**
+	 * Remembers what the builders are short of, for the market (and its note) until it is in store; a project players
+	 * have funded buys it in at once.
+	 */
 	public static void constructionStalled(Settlement settlement, PlotView plot, Goods goods, int missing, long day) {
 		MarketLedger ledger = settlement.data(EconomyModule.LEDGER);
 		int i = goods.ordinal();
 		ledger.need[i] = Math.max(ledger.need[i], missing);
 		ledger.needDay[i] = day;
 		ledger.needFor[i] = plot.spec().archetype().getPath();
+		Projects.stalled(settlement, plot, goods, missing);
 		settlement.markDirty();
 	}
 

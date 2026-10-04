@@ -1,50 +1,30 @@
 {
   "values": [
-    "#minecraft:stone_bricks",
     "minecraft:cobblestone",
     "minecraft:stone",
-    "minecraft:smooth_stone",
     "minecraft:mossy_cobblestone",
     "minecraft:andesite",
     "minecraft:diorite",
     "minecraft:granite",
-    "minecraft:polished_andesite",
-    "minecraft:polished_diorite",
-    "minecraft:polished_granite",
     "minecraft:deepslate",
     "minecraft:cobbled_deepslate",
-    "minecraft:polished_deepslate",
-    "minecraft:deepslate_bricks",
-    "minecraft:deepslate_tiles",
     "minecraft:tuff",
-    "minecraft:tuff_bricks",
-    "minecraft:polished_tuff",
     "minecraft:calcite",
     "minecraft:sandstone",
-    "minecraft:smooth_sandstone",
-    "minecraft:cut_sandstone",
-    "minecraft:chiseled_sandstone",
     "minecraft:red_sandstone",
-    "minecraft:smooth_red_sandstone",
-    "minecraft:cut_red_sandstone",
-    "minecraft:chiseled_red_sandstone",
     "minecraft:blackstone",
-    "minecraft:polished_blackstone_bricks",
     "minecraft:basalt",
     "minecraft:gravel",
     "minecraft:flint",
     "minecraft:cobblestone_slab",
     "minecraft:cobblestone_stairs",
     "minecraft:cobblestone_wall",
-    "minecraft:stone_slab",
-    "minecraft:stone_stairs",
-    "minecraft:stone_brick_slab",
-    "minecraft:stone_brick_stairs",
-    "minecraft:stone_brick_wall",
-    "minecraft:smooth_stone_slab",
-    "minecraft:sandstone_slab",
-    "minecraft:sandstone_stairs",
-    "minecraft:sandstone_wall",
+    "minecraft:mossy_cobblestone_slab",
+    "minecraft:mossy_cobblestone_stairs",
+    "minecraft:mossy_cobblestone_wall",
+    "minecraft:cobbled_deepslate_slab",
+    "minecraft:cobbled_deepslate_stairs",
+    "minecraft:cobbled_deepslate_wall",
     "minecraft:dripstone_block",
     "minecraft:obsidian",
     {
@@ -52,71 +32,11 @@
       "required": false
     },
     {
-      "id": "expanse:limestone_bricks",
-      "required": false
-    },
-    {
-      "id": "expanse:polished_limestone",
-      "required": false
-    },
-    {
-      "id": "expanse:chiseled_limestone",
-      "required": false
-    },
-    {
       "id": "expanse:mossy_limestone",
       "required": false
     },
     {
-      "id": "expanse:limestone_slab",
-      "required": false
-    },
-    {
-      "id": "expanse:limestone_stairs",
-      "required": false
-    },
-    {
-      "id": "expanse:limestone_wall",
-      "required": false
-    },
-    {
-      "id": "expanse:limestone_brick_slab",
-      "required": false
-    },
-    {
-      "id": "expanse:limestone_brick_stairs",
-      "required": false
-    },
-    {
-      "id": "expanse:limestone_brick_wall",
-      "required": false
-    },
-    {
       "id": "expanse:opal_sandstone",
-      "required": false
-    },
-    {
-      "id": "expanse:cut_opal_sandstone",
-      "required": false
-    },
-    {
-      "id": "expanse:smooth_opal_sandstone",
-      "required": false
-    },
-    {
-      "id": "expanse:chiseled_opal_sandstone",
-      "required": false
-    },
-    {
-      "id": "expanse:opal_sandstone_slab",
-      "required": false
-    },
-    {
-      "id": "expanse:opal_sandstone_stairs",
-      "required": false
-    },
-    {
-      "id": "expanse:opal_sandstone_wall",
       "required": false
     },
     {

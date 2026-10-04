@@ -8,6 +8,7 @@ import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.economy.EconomyConfig;
 import dev.voidmc.hearth.economy.EconomyModule;
+import dev.voidmc.hearth.economy.Reputation;
 import dev.voidmc.hearth.economy.bank.BankView;
 import dev.voidmc.hearth.economy.coin.CoinFormat;
 import dev.voidmc.hearth.economy.coin.PlayerPurse;
@@ -38,7 +39,7 @@ public final class PropertyMarket {
 	/** What is for sale here (and what this player already owns here), cheapest first. */
 	public static List<BankView.PlotOffer> listings(Settlement settlement, ServerPlayer player) {
 		EconomyConfig.Property cfg = EconomyModule.config().property();
-		int rep = settlement.reputation(player.getUUID());
+		int rep = Reputation.standing(settlement, player.getUUID());
 		long balance = PlayerPurse.balance(player);
 		Set<Integer> occupied = new HashSet<>();
 		for (Resident r : settlement.residents()) {
@@ -112,7 +113,7 @@ public final class PropertyMarket {
 			return Component.translatable("hearth.economy.property.gone").withStyle(ChatFormatting.DARK_RED);
 		}
 		EconomyConfig.Property cfg = EconomyModule.config().property();
-		int rep = settlement.reputation(player.getUUID());
+		int rep = Reputation.standing(settlement, player.getUUID());
 		boolean built = plot.state() == PlotState.BUILT;
 		int min = built ? cfg.houseMinReputation() : cfg.plotMinReputation();
 		if (rep < min) {
@@ -125,6 +126,8 @@ public final class PropertyMarket {
 		settlement.deposit(price);
 		settlement.setPlotOwner(plot.id(), player.getUUID());
 		settlement.markDirty();
+		// owning property here makes the buyer a burgher in the standing service's eyes
+		Reputation.deed(settlement, player.getUUID(), Reputation.BOUGHT_PROPERTY, 2, null, player.blockPosition(), true);
 		PlotSpec s = plot.spec();
 		ItemStack deed = DeedItem.create(new DeedData(settlement.id(), settlement.name(), plot.id(), s.archetype().getPath(), built, s.origin(),
 			s.sizeX(), s.sizeZ()));

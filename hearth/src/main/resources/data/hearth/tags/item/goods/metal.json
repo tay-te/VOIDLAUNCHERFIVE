@@ -1,33 +1,25 @@
 {
   "values": [
-    "#minecraft:iron_ores",
-    "#minecraft:copper_ores",
-    "#minecraft:gold_ores",
     "#minecraft:chains",
     "#minecraft:lanterns",
     "#minecraft:rails",
     "#minecraft:anvil",
     "minecraft:iron_ingot",
     "minecraft:iron_nugget",
-    "minecraft:raw_iron",
     "minecraft:iron_block",
-    "minecraft:raw_iron_block",
     "minecraft:copper_ingot",
-    "minecraft:raw_copper",
     "minecraft:copper_block",
-    "minecraft:raw_copper_block",
     "minecraft:copper_nugget",
     "minecraft:gold_ingot",
     "minecraft:gold_nugget",
-    "minecraft:raw_gold",
     "minecraft:gold_block",
-    "minecraft:raw_gold_block",
     "minecraft:iron_bars",
     "minecraft:cauldron",
     "minecraft:bucket",
     "minecraft:minecart",
     "minecraft:hopper",
     "minecraft:netherite_ingot",
-    "minecraft:netherite_scrap"
+    "minecraft:netherite_scrap",
+    "minecraft:bell"
   ]
 }

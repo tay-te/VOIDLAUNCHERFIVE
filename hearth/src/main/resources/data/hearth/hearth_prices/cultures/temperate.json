@@ -9,38 +9,67 @@
     "cloth": 0.9,
     "fuel": 1.0,
     "tools": 1.0,
-    "luxury": 1.1
+    "luxury": 1.1,
+    "logs": 0.9,
+    "ore": 1.1,
+    "dressed_stone": 1.0,
+    "brick": 1.0,
+    "sand": 1.1,
+    "grain": 0.8,
+    "flour": 0.85,
+    "meat": 0.85,
+    "fish": 0.85,
+    "wool": 0.9,
+    "leather": 0.9,
+    "wax": 0.95,
+    "candles": 1.1,
+    "paper": 1.1,
+    "books": 1.1,
+    "dye": 1.1,
+    "salt": 1.1,
+    "produce": 0.85,
+    "specialty": 1.15
   },
   "wares": {
     "wood": [
-      "minecraft:oak_log",
       "minecraft:oak_planks",
+      "minecraft:oak_slab",
       "expanse:beech_planks|minecraft:birch_planks"
+    ],
+    "logs": [
+      "minecraft:oak_log",
+      "expanse:beech_log|minecraft:birch_log"
     ],
     "food": [
       "minecraft:bread",
       "minecraft:baked_potato",
-      "minecraft:apple",
-      "minecraft:cooked_porkchop"
+      "minecraft:cooked_porkchop",
+      "minecraft:pumpkin_pie"
     ],
     "stone": [
       "minecraft:cobblestone",
+      "minecraft:stone"
+    ],
+    "dressed_stone": [
       "minecraft:stone_bricks",
       "minecraft:smooth_stone"
     ],
-    "clay": [
+    "brick": [
       "minecraft:bricks",
       "minecraft:terracotta"
     ],
     "cloth": [
-      "minecraft:white_wool",
-      "minecraft:leather",
-      "minecraft:white_carpet"
+      "minecraft:white_carpet",
+      "minecraft:white_bed"
+    ],
+    "produce": [
+      "minecraft:apple",
+      "minecraft:potato",
+      "minecraft:carrot"
     ],
     "luxury": [
-      "minecraft:book",
-      "minecraft:candle",
-      "minecraft:honey_bottle"
+      "minecraft:amethyst_shard",
+      "minecraft:lapis_lazuli"
     ]
   }
 }

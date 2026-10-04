@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
  * <pre>
  *   hearth_prices/goods.json            unit values, defaults per goods and rarity, the default wares
  *   hearth_prices/cultures/&lt;c&gt;.json    a culture's specialities and wares
+ *   hearth_prices/shops.json            what each kind of shop deals in: by workplace archetype path and by job
  *   hearth_prices/**.json (any other)   base values: {"values": {"minecraft:bread": 1.0, "#minecraft:logs": 0.5}}
  * </pre>
  *
@@ -34,12 +35,14 @@ import org.slf4j.LoggerFactory;
  * its alternatives that exists.
  */
 public record PriceData(Map<Identifier, Double> items, List<TagValue> tags, double[] unitValues, double[] goodsDefaults,
-	double untaggedDefault, Map<Rarity, Double> rarity, Map<Goods, List<String>> defaultWares, Map<Culture, CultureEntry> cultures) {
+	double untaggedDefault, Map<Rarity, Double> rarity, Map<Goods, List<String>> defaultWares, Map<Culture, CultureEntry> cultures,
+	Map<String, Long> shopWorkplaces, Map<String, Long> shopJobs) {
 
 	private static final Logger LOG = LoggerFactory.getLogger("hearth");
 	public static final String DIRECTORY = "hearth_prices";
 
-	public static final PriceData EMPTY = new PriceData(Map.of(), List.of(), filled(1.0), filled(1.0), 0.25, Map.of(), Map.of(), Map.of());
+	public static final PriceData EMPTY = new PriceData(Map.of(), List.of(), filled(1.0), filled(1.0), 0.25, Map.of(), Map.of(), Map.of(),
+		Map.of(), Map.of());
 
 	/** A tag's value, in load order (a later entry for the same tag replaces the earlier). */
 	public record TagValue(Identifier tag, double value) {
@@ -78,6 +81,8 @@ public record PriceData(Map<Identifier, Double> items, List<TagValue> tags, doub
 		Map<Rarity, Double> rarity = new EnumMap<>(Rarity.class);
 		Map<Goods, List<String>> defaultWares = new EnumMap<>(Goods.class);
 		Map<Culture, CultureEntry> cultures = new EnumMap<>(Culture.class);
+		Map<String, Long> shopWorkplaces = new HashMap<>();
+		Map<String, Long> shopJobs = new HashMap<>();
 
 		// Sorted so the result does not depend on hash order: namespaces and files alphabetically, later wins.
 		Map<Identifier, Resource> files = new java.util.TreeMap<>(manager.listResources(DIRECTORY, id -> id.getPath().endsWith(".json")));
@@ -107,6 +112,9 @@ public record PriceData(Map<Identifier, Double> items, List<TagValue> tags, doub
 						}
 					}
 					readWares(json.getAsJsonObject("wares"), defaultWares);
+				} else if (rel.equals("shops")) {
+					readShops(json.getAsJsonObject("workplaces"), shopWorkplaces);
+					readShops(json.getAsJsonObject("jobs"), shopJobs);
 				} else if (rel.startsWith("cultures/")) {
 					Culture culture = Culture.CODEC.byName(rel.substring("cultures/".length()));
 					if (culture == null) {
@@ -147,7 +155,19 @@ public record PriceData(Map<Identifier, Double> items, List<TagValue> tags, doub
 		List<TagValue> tagList = new ArrayList<>();
 		tags.forEach((k, v) -> tagList.add(new TagValue(k, v)));
 		return new PriceData(Map.copyOf(items), List.copyOf(tagList), units, defaults, untagged, Map.copyOf(rarity), Map.copyOf(defaultWares),
-			Map.copyOf(cultures));
+			Map.copyOf(cultures), Map.copyOf(shopWorkplaces), Map.copyOf(shopJobs));
+	}
+
+	/** {"commerce/market_stall": ["*"], "work/bakery": ["food", "flour"]}: later files add to and replace earlier entries. */
+	private static void readShops(JsonObject json, Map<String, Long> into) {
+		if (json == null) {
+			return;
+		}
+		for (Map.Entry<String, JsonElement> e : json.entrySet()) {
+			List<String> names = new ArrayList<>();
+			e.getValue().getAsJsonArray().forEach(el -> names.add(el.getAsString()));
+			into.put(e.getKey(), GoodsMask.parse(names));
+		}
 	}
 
 	private static void readGoods(JsonObject json, double[] into) {
