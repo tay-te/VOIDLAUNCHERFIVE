@@ -310,7 +310,7 @@ public class HomesTour implements FabricClientGameTest {
 		// read from the generator (nothing generated while searching: generating hundreds of chunks runs out of memory)
 		var gen = level.getChunkSource().getGenerator();
 		var rs = level.getChunkSource().randomState();
-		var biomes = gen.getBiomeSource().createResolver(rs.sampler());
+		var biomes = level.uncachedBiomeResolver();
 		java.util.function.IntBinaryOperator height = (x, z) -> gen.getBaseHeight(x, z, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG,
 			level, rs);
 		BlockPos best = spawn;
