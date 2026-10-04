@@ -1,0 +1,44 @@
+// Gradle init script: registers `agePreview` (contact sheets of decay, dressings and accretion) and `ageTown` (a town
+// with a declining quarter and streets that grew over generations) without touching the shared build files. From hearth/:
+//
+//   ./gradlew -I docs/buildings/age_preview.gradle agePreview -Pmode=decay -Parchetype=house/cottage,house/townhouse -Pstyle=temperate -Pterrain=flat
+//   ./gradlew -I docs/buildings/age_preview.gradle agePreview -Pmode=dress -Parchetype=house/shophouse -Pstyle=all
+//   ./gradlew -I docs/buildings/age_preview.gradle agePreview -Pmode=grow -Parchetype=all-housing -Pstyle=temperate -Pparams=levels=0/2/4
+//   ./gradlew -I docs/buildings/age_preview.gradle ageTown -Pculture=temperate -Pdays=300 -Pterrain=hills -Pseed=2
+//
+// Output: build/previews/age/*.png. See dev.voidmc.hearth.gametest.age.AgeSheets and AgeTown for the arguments.
+rootProject { p ->
+	p.afterEvaluate {
+		p.tasks.register('agePreview', JavaExec) {
+			group = 'hearth'
+			description = 'Renders decay, dressing and accretion contact sheets to build/previews/age/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.age.AgeSheets'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx3g'
+			args = [
+				p.findProperty('mode') ?: 'decay',
+				p.findProperty('archetype') ?: 'house/cottage',
+				p.findProperty('style') ?: 'temperate',
+				p.findProperty('terrain') ?: 'flat',
+				p.findProperty('seeds') ?: '1',
+				p.layout.buildDirectory.dir('previews/age').get().asFile.path,
+				p.findProperty('params') ?: ''
+			]
+		}
+		p.tasks.register('ageTown', JavaExec) {
+			group = 'hearth'
+			description = 'Renders a grown town with a declining quarter and accreted streets to build/previews/age/*.png'
+			classpath = p.sourceSets.gametest.runtimeClasspath
+			mainClass = 'dev.voidmc.hearth.gametest.age.AgeTown'
+			jvmArgs '-Djava.awt.headless=true', '-Xmx5g'
+			args = [
+				p.findProperty('culture') ?: 'temperate',
+				p.findProperty('days') ?: '300',
+				p.findProperty('terrain') ?: 'hills',
+				p.findProperty('seed') ?: '2',
+				p.layout.buildDirectory.dir('previews/age').get().asFile.path,
+				p.findProperty('params') ?: ''
+			]
+		}
+	}
+}

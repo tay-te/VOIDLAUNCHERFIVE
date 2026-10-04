@@ -373,6 +373,11 @@ public final class Draft {
 		this.bodyZ1 = Math.max(z0, z1);
 	}
 
+	/** The main body declared with {@link #body} as {x0, z0, x1, z1} (the whole footprint when none was declared). */
+	public int[] bodyRect() {
+		return new int[]{this.bodyX0, this.bodyZ0, this.bodyX1, this.bodyZ1};
+	}
+
 	double lowness(int x, int y, int z) {
 		int above = y - this.site.ground(x, z);
 		return Math.clamp(1.0 - above / 2.5, 0, 1);
@@ -854,6 +859,14 @@ public final class Draft {
 
 	public List<LocalPoi> pois() {
 		return Collections.unmodifiableList(this.pois);
+	}
+
+	/**
+	 * Keeps only the points of interest the filter accepts: for passes over a finished drawing (an abandoned house is
+	 * nobody's bed or workplace any more, {@code build.age.Decay}).
+	 */
+	public void retainPois(java.util.function.Predicate<LocalPoi> keep) {
+		this.pois.removeIf(p -> !keep.test(p));
 	}
 
 	/** The y where the walls meet the roof (for the far-away silhouette and the material mix). */

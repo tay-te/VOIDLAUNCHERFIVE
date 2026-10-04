@@ -104,6 +104,8 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		Draft d = new Draft(spec, style, site);
 		try {
 			a.draw(d);
+			// what time has done to it: additions over generations, then decay (docs/buildings/age.md)
+			dev.voidmc.hearth.build.age.Age.apply(a.info(), d);
 		} catch (RuntimeException e) {
 			// a broken generator must not take world generation down with it: log once per kind, build nothing
 			if (this.reported.add(spec.archetype() + "/" + spec.style())) {
