@@ -46,7 +46,7 @@ cache timers in frames, so at 1500 fps it evicted and rebuilt its coarsest tiles
 for 378 tiles, 150–185 jobs always queued) and spent **1.9–3.3 ms** of render thread per frame. Timers
 are in seconds now, and a split tile stays resident as its children's fallback.
 
-### The End, conifers and rain
+### The End, conifers, rain and the sea at dusk
 
 The End's outer islands, vanilla and with the LOD, and from 140 blocks above them: islands to the
 horizon, slabs over the void, sinking into the dark with distance.
@@ -62,11 +62,13 @@ out, the crowns' tops white with snow and their flanks not.
 
 ![conifer forest under snow](docs/forest0_after.jpg)
 
-Rain from the peak, before and now: the far land goes in a downpour as it does in vanilla.
+Rain from the peak, and dusk from just above the open sea, before and now: the far land goes in a
+downpour as it does in vanilla, and the far sea meets vanilla's water without a dark band.
 
 | Before | Now |
 |---|---|
 | ![rain, before](docs/rain0_before.jpg) | ![rain, now](docs/rain0_after.jpg) |
+| ![dusk at sea, before](docs/sea0_before.jpg) | ![dusk at sea, now](docs/sea0_after.jpg) |
 
 ## Why it is built this way
 
