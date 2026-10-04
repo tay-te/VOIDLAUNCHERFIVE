@@ -76,6 +76,8 @@ public final class Draft {
 	private int sequence;
 	private int clipped;
 	private int eaveY = Integer.MIN_VALUE;
+	/** The lighting pass has run over this draft (docs/LIVING_WORLD.md §1; {@code kit.light.AutoLighter}). */
+	private boolean lit;
 	private int bodyX0;
 	private int bodyZ0;
 	private int bodyX1;
@@ -723,6 +725,16 @@ public final class Draft {
 
 	public int eaveY() {
 		return this.eaveY;
+	}
+
+	/**
+	 * Marks the draft as lit by the lighting pass, which runs once per draft (the compiler runs it; a test or a preview
+	 * that ran it first is not lit twice). Returns whether it was already lit.
+	 */
+	public boolean markLit() {
+		boolean was = this.lit;
+		this.lit = true;
+		return was;
 	}
 
 	/** A point of interest in local coordinates. */

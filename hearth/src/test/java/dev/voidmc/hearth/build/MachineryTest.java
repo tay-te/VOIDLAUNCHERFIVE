@@ -161,10 +161,10 @@ class MachineryTest {
 	void materialsBillMapsBlocksToGoods() {
 		assertGoods(Blocks.OAK_PLANKS.defaultBlockState(), Goods.WOOD);
 		assertGoods(Blocks.SPRUCE_STAIRS.defaultBlockState(), Goods.WOOD);
-		assertGoods(Blocks.STONE_BRICKS.defaultBlockState(), Goods.STONE);
+		assertGoods(Blocks.STONE_BRICKS.defaultBlockState(), Goods.DRESSED_STONE);
 		assertGoods(Blocks.COBBLESTONE_WALL.defaultBlockState(), Goods.STONE);
-		assertGoods(Blocks.BRICKS.defaultBlockState(), Goods.CLAY);
-		assertGoods(Blocks.TERRACOTTA.defaultBlockState(), Goods.CLAY);
+		assertGoods(Blocks.BRICKS.defaultBlockState(), Goods.BRICK);
+		assertGoods(Blocks.TERRACOTTA.defaultBlockState(), Goods.BRICK);
 		assertGoods(Blocks.GLASS_PANE.defaultBlockState(), Goods.GLASS);
 		assertGoods(Blocks.IRON_BARS.defaultBlockState(), Goods.METAL);
 		assertGoods(Blocks.CARPET.pick(net.minecraft.world.item.DyeColor.RED).defaultBlockState(), Goods.CLOTH);
@@ -174,7 +174,7 @@ class MachineryTest {
 		int[] lantern = new int[Goods.VALUES.length];
 		MaterialBill.add(Blocks.LANTERN.defaultBlockState(), lantern);
 		assertEquals(1, lantern[Goods.METAL.ordinal()]);
-		assertEquals(1, lantern[Goods.FUEL.ordinal()]);
+		assertEquals(1, lantern[Goods.CANDLES.ordinal()]);
 	}
 
 	private static void assertGoods(BlockState s, Goods g) {

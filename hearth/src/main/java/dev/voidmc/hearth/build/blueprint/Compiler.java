@@ -77,6 +77,9 @@ public final class Compiler {
 	public static BlueprintImpl compile(Draft d) {
 		Site site = d.site();
 		LocalFrame frame = d.frame();
+		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
+		// resolves the archetype's shapes to read light through them; resolving again settles its own fixtures)
+		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
 		ShapeResolver.resolve(d, site);
 
 		int[] main = d.entrances().isEmpty() ? new int[]{d.frontage() / 2, 0, -1} : d.entrances().get(0);
@@ -184,7 +187,10 @@ public final class Compiler {
 					}
 				} else {
 					work[si]++;
-					MaterialBill.add(world, goods[si]);
+					// fill moved about the site costs work, not goods
+					if (s.stage != StageKind.EARTHWORK || !MaterialBill.earth(world.getBlock())) {
+						MaterialBill.add(world, goods[si]);
+					}
 				}
 				long ck = ChunkPos.pack(wx >> 4, wz >> 4);
 				List<IntArrayList> per = chunkLists.get(ck);

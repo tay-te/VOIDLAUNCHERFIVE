@@ -266,6 +266,12 @@ public final class BlueprintPreview {
 			: style.pickVariant(dev.voidmc.hearth.build.draft.Noise.hash(spec.seed(), 0x7A1A));
 		String label = culture.getSerializedName() + " s" + index + " " + spec.frontage() + "x" + spec.depth() + " " + spec.facing().getSerializedName()
 			+ (variant >= 0 ? " · " + style.variants().get(variant).name() : "");
+		if (extra.getBooleanOr("night", false)) {
+			// night renders: the light the building gives, outside and storey by storey, with unmet light needs marked
+			dev.voidmc.hearth.gametest.render.NightPanels.write(renderer, world, bp, spec, probe, yaw, style.habits().walls().storeyHeight(),
+				out.resolve(slug(info.id())).resolve(culture.getSerializedName() + "_s" + index + "_" + terrain + "_night.png"),
+				info.id() + "  " + label + "  " + terrain + "  by night");
+		}
 		BufferedImage front = renderer.render(world, new View(yaw, 30), 16, 2, 0);
 		if (panels) {
 			BufferedImage back = renderer.render(world, new View(yaw + 180, 30), 16, 2, 0);

@@ -208,7 +208,8 @@ class LandmarkTest {
 			}
 		}
 		assertTrue(frame >= 0 && walls > frame, "no FRAME stage before WALLS");
-		assertTrue(bp.goods(frame)[Goods.STONE.ordinal()] > 100, "the frame stage lays little stone: " + bp.goods(frame)[Goods.STONE.ordinal()]);
+		int stone = bp.goods(frame)[Goods.STONE.ordinal()] + bp.goods(frame)[Goods.DRESSED_STONE.ordinal()];
+		assertTrue(stone > 100, "the frame stage lays little stone: " + stone);
 		// the roofs and spires come after the walls
 		boolean roofAfter = false;
 		for (int s = walls + 1; s < bp.stageCount(); s++) {

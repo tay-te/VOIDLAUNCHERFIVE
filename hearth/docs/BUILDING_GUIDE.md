@@ -14,7 +14,7 @@ Everything below lives in `hearth/src/main/java/dev/voidmc/hearth/build/`:
 | `build.terrain` | `Site` (the ground under the plot), `Groundwork` (clearing, footings, levelling, steps, approaches, stilts) |
 | `build.style` | `Style`, `StyleLoader`, `StyleRegistry`, `Role`, `Material`, `Palette`, `Form`, `Habits` |
 | `build.archetype` | the archetypes, registered in `Archetypes.registerAll` |
-| `build.check` | `BlueprintChecks`: bounds, floating blocks, walkability, chunk index, stage order |
+| `build.check` | `BlueprintChecks`: bounds, floating blocks, walkability, chunk index, stage order, light (`LightCheck`, §13) |
 | `build.command` | `/hearth build` |
 
 Styles are JSON in `src/main/resources/data/hearth/hearth_style/<culture>.json`. Previews and their renderer are in the
@@ -131,9 +131,10 @@ Air drawn in stage `CLEAR` under natural water is dropped (clearing never drains
 pages)`, `banner(patterns)`, `pot(back, left, right, front)`, `container(items)`, `shelf(items)`, where items are
 `List<Object[]>` of `{"minecraft:bread", 6}`.
 
-The bill of goods per stage is computed from the steps (`MaterialBill`, documented mapping: wood blocks → WOOD, stone
-and stone bricks → STONE, bricks/terracotta/mud → CLAY, glass → GLASS, iron/copper/lanterns/chains → METAL,
-wool/carpet/beds/banners → CLOTH...); `work` counts non-air steps plus excavation.
+The bill of goods per stage is computed from the steps (`MaterialBill`, processed goods as LIVING_WORLD.md §7.5 asks:
+logs → LOGS, timber → WOOD, rubble → STONE, cut stone → DRESSED_STONE, brick and terracotta → BRICK, lanterns → METAL
++ CANDLES...; the table is in §13); `work` counts non-air steps plus excavation. Before shapes are resolved the compiler
+lights whatever the archetype left dark (§13).
 
 ## 4. The kit
 
@@ -540,3 +541,131 @@ and style generation) and the service is thread-safe, so the sim may ask from wo
 access and allocation-heavy loops over large volumes; use the kit's helpers, which work on the plot only. Blueprints
 store steps packed (an int position and an int palette index per step, block entities aside) with a per-chunk index, so a builder or the off-screen applier touches only the
 chunks it is in.
+
+## 13. Lighting
+
+The user's rule (LIVING_WORLD.md §1): **interiors are well lit**. Every standing cell in a room is at block light ≥ 8,
+nowhere folk stand in a building's plot is at 0 (hostile mobs spawn only at 0), and every entrance has a lamp. It is
+enforced: `BlueprintChecks.all` runs the light check, so `BlueprintInvariantsTest` (and every family test) fails on a
+dark room. Everything is in `build/kit/light/` and `build/check/LightCheck.java`.
+
+### The check
+
+`LightCheck.evaluate(bp, probe)` reads the blueprint over its natural terrain (8 columns round the plot, 2 below and
+6 above) into a `Grid` and floods block light by 26.3's engine rules (`LightField`: every emitter holds its emission,
+a neighbour gets it less `max(1, dampening)`, faces that occlude stop it; a level read there is the level F3 shows in
+the world, before daylight). `Spaces` classifies standing cells by the walking rules of `BlueprintChecks`: **reached**
+(walked to from the street row or an entrance), **roofed** (anything solid or glazed over the head; not leaves, chains
+or hung lanterns), **enclosed** (roofed, and a wall before the roof ends in all four directions: a room, not a porch).
+Candles, lanterns, pots and cakes are not stood on.
+
+| family (`LightRules.family`) | archetypes | rule |
+|---|---|---|
+| `BUILDING` | homes, workplaces, commerce, civic, storage, landmarks, gatehouses, watchtowers | rooms ≥ 8; everything reached in the plot ≥ 1 where a mob could spawn (the open stairs of a roof need nothing; under a roof every cell counts); sealed pockets under the roofs ≥ 1; outside every entrance ≥ 8 |
+| `SQUARE` | plazas | ≥ 1 within half a lamp spacing (in steps) of its own lamps; under any roof ≥ 1 |
+| `GROUNDS` | wells, fountains, statues, lamp posts, bells, parks, gardens | rooms as a building; under roofs ≥ 1; the open ground is the street's |
+| `FARM` | fields, orchards, pastures, paddies, terraces, plantations | sheds as a building; the open land dark on purpose |
+| `WORKS` | walls, palisades, bridges, stair streets, terraces, docks, walkways | rooms (a covered bridge, a wall tower) as a building; under roofs ≥ 1; open decks are the street's |
+| `ROAD` | roads | a street (5 wide) in a village or larger: ≥ 1 within half the tier's lamp spacing of its lamps (14 in a village or town, 10 in a city); lanes, paths, tracks and camp streets dark on purpose |
+
+Cells in water and cells above the plot's height are never counted; door cells count only for "never dark". On the
+surface the light must be what folk burn: a blueprint that is not an underground settlement's (`deep/` archetypes,
+`deep` styles) placing a glowing Expanse block (amber, glowcaps, prismite, lumenwood light) fails the check.
+
+### The auto-lighter
+
+`Compiler.compile` runs `AutoLighter.light(d)` after the archetype has drawn, before shapes are final and steps are
+ordered. It resolves the archetype's shapes (light is read through stair corners and wall posts), then lights what the
+family's rule still needs, as a builder would, in this order:
+
+1. **doors**: a lantern on a bracket beside the door at lintel height (a torch in the north and the tropics), else a
+   lantern under the eave or porch roof, on a fence or wall post, or the culture's yard light beside the path (up on
+   the bank when the door is at its foot);
+2. **rooms**, biggest first: small rooms (up to 24 cells) with a table, barrel, counter or shelf get one or two groups
+   of candles (2 in a poor house, 3 in an ordinary one, 4 in a fine one); otherwise the fewest ceiling lanterns, evenly
+   along the room's middle (over the table when there is one; on chains in tall rooms; a wheel of four lanterns, or of
+   candles round a lantern in the north, in halls 7 high; rows of lanterns in the eastern cultures). Then the dark
+   corners: unlit candles already there are lit, candles on furniture, a lantern on a chest or counter, a lantern set
+   on the floor under the eaves (or, in a room too low to hang one, in a corner out of everyone's way), sconces on
+   the walls, and only then light under a rug (glowstone or shroomlight swapped for the floor block, a carpet of the
+   house's cloth over it);
+3. **ground** (porches, galleries, yards): lanterns under the roof, on the posts that are there, on the house walls,
+   then the culture's lamp post, brazier, stone lantern or tiki torch where it cuts no way through;
+4. **last resort**: vanilla's invisible `light` block at the lowest level that clears what nothing else reaches (sealed
+   pockets under roofs, behind a press), or a glowing recess in the floor where there is no air beside the cell (the
+   foot of a ladder in a shaft).
+
+Fixtures never go in doorways or the cells beside doors, on stairs, beds, paths, job sites or the cells round POIs,
+never where anyone walks or bumps their head (lanterns hang above head height), and always hang from or stand on
+something. They are drawn in stage INTERIOR inside and EXTERIOR outside, supports first. When a pass puts up something
+with a body (a bracket, a post, a brazier's stand) it runs again on what that made (at most three passes). A road is
+never touched; a linear work is lit only in columns it already builds in. `lighting=none` in the params skips the
+pass (previews and timing only). The pass costs a few milliseconds for a house, 20 to 30 for a hall and about 165 for
+a cathedral, once per blueprint (the service caches them).
+
+How each culture lights (`Manner`): the iron lantern on an iron chain everywhere on the surface (a copper lantern's
+flame is green, a soul lantern's blue); torches on the walls in the north, the tundra and the tropics; candles
+tallow first and coloured as the house rises; yard lights a lamp post, a brazier (north, tundra, desert, mesa, steppe),
+a stone lantern (karst, wisteria) or a tiki torch (tropical); glowstone or shroomlight under rugs. **The surface burns
+only what folk burn.** A style's `light` role is read only by the deep settlements (a soul lantern, an Expanse lamp),
+and only they hide amber in their floors.
+
+### Lighting by design
+
+The pass lights anything; an archetype that lights its own rooms looks better and gives the pass nothing to do.
+`Lighting` (in `build/kit/light/`) is the kit component:
+
+```java
+Lighting.room(d, room);                         // a furnished Rooms.Room to the rule, with the pass's taste (after walls, ceiling, furniture)
+Lighting.room(d, x0, z0, x1, z1, floorY);       // any rectangle at a standing level
+Lighting.chandelier(d, x, z, ceilingY, lanternY);   // a lantern on a chain from the ceiling block at ceilingY
+Lighting.wheel(d, x, z, ceilingY, hubY);        // a wheel of four lanterns (candles round a lantern in the north); 3 x 3 free at the hub
+Lighting.sconce(d, x, y, z, toWall);            // a bracket and lantern (a torch where torches are burnt), the light at y
+Lighting.flank(d, x, y, z, toWall, spread);     // a pair either side of a hearth, an altar, a door
+Lighting.candles(d, x, y, z, count);            // 1-4 lit candles in the culture's colours, standing on what is below
+Lighting.lamp(d, x, y, z);                      // a lantern standing on a chest or counter
+Lighting.doorLamp(d, x, y, z, toWall);          // outside, beside the door, two above the step (EXTERIOR)
+Lighting.post(d, x, y, z);                      // the culture's yard light on the ground at y (EXTERIOR)
+Lighting.underRug(d, x, y, z);                  // glow under the floor at y - 1, a carpet over it (ground floors only)
+```
+
+The fittings check nothing (the archetype knows its plan); `room` does, like the pass.
+
+### Looking at it
+
+Night renders: add `night=true` to the preview terrain, e.g.
+`./gradlew blueprintPreview -Parchetype=cottage -Pstyle=temperate -Pseeds=1 -Pterrain="flat;night=true"`. Each
+building gets `<culture>_s<n>_<terrain>_night.png`: both corners by night, then per storey a plan and a cutaway lit by
+the light engine's levels (warm pools round lanterns and candles, faint blue where only the sky reaches), the lights
+hung above each floor kept in the cut, hidden light blocks as lime markers, and unmet needs marked on the floor (red: a
+room under 8, orange: an entrance under 8, magenta: dark ground or a pocket). The title line lists the fixtures.
+
+Surveys (not gates; each prints a table): `HEARTH_LIGHT_SURVEY=1` (or an archetype name) runs `LightSurveyTest` over
+every archetype x culture x six terrains x two seeds: failures per need kind, fixtures per blueprint and why hidden
+lights were used. `HEARTH_LIGHT_TIMING=1` runs `LightTimingTest` (the pass's cost per archetype),
+`HEARTH_BILL_SURVEY=1` runs `BillSurveyTest` (the largest stage bill per archetype). One spec in detail:
+`HEARTH_LIGHT_DEBUG=archetype,culture,terrain,seed,facing,height[,frontage,depth[,terrainSeed]]` with
+`HEARTH_LIGHT_PARAMS=key=value;...` runs `LightDebugTest` (the fixtures placed, the unmet cells with the light round
+them, the check without the pass); add `HEARTH_LIGHT_TRACE=x,y,z` to follow one local cell through the pass's phases
+and `HEARTH_LIGHT_REACH=<y>` to compare what the pass and the check count as walked to. Run them with
+`./gradlew test --rerun --tests '*LightSurveyTest*'` (`--rerun`: environment variables are not test inputs).
+
+In the game: `JAVA_TOOL_OPTIONS="-Dhearth.tour=light" ./gradlew runClientGameTest` (take a game slot first) builds the
+cottage, townhouse, tenement, inn, chapel, cathedral, smithy, longhouse and courtyard house on a superflat world at
+midnight, each lit and unlit (`lighting=none`), and photographs both from the same cameras: the street, and the front of
+the biggest room on the two main floors. `-Dhearth.light.only=cottage,inn` narrows it. Screenshots:
+`build/run/clientGameTest/screenshots/*hearth_light_*` (`_before`: unlit).
+
+### The bill of goods
+
+`MaterialBill` (LIVING_WORLD.md §7.5: bills ask for processed goods) maps each block to one good, or two for blocks of
+two materials; its javadoc has the full table. In short: logs and stripped wood → LOGS; planks and everything cut from
+them, chests, barrels, ladders → WOOD; cobble, rubble and rock laid as it is → STONE; stone bricks, polished, smooth,
+cut and chiseled stone, deepslate and tuff bricks, quartz → DRESSED_STONE; bricks, terracotta, flower pots → BRICK;
+clay, packed mud, mud bricks, plaster → CLAY; sand, gravel, concrete → SAND; glass → GLASS; iron, copper, chains, bars,
+bells, anvils → METAL (gold + LUXURY); lanterns → METAL + CANDLES; candles → CANDLES per candle; the light block →
+CANDLES (a lamp kept burning out of sight); torches → FUEL; campfires → LOGS + FUEL; wool, carpets, banners → CLOTH;
+beds → CLOTH + WOOD; bookshelves and lecterns → WOOD + BOOKS; hay and thatch → GRAIN; anything dyed + DYE; glowstone,
+shroomlight and Expanse rarities → SPECIALTY. Air, plants, snow, ice and earth dug on the spot are free, and earth laid
+as fill in an EARTHWORK stage is free (the work is counted, not the goods). The largest stage in the catalogue (a
+cathedral's walls) asks for about two thousand units.

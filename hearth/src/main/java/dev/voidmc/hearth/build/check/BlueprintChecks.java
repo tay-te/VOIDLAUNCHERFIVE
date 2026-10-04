@@ -44,8 +44,8 @@ import net.minecraft.world.level.pathfinder.PathComputationType;
 /**
  * Invariants every blueprint must keep, checked on the finished blueprint against the terrain it was made for: it stays
  * in its plot and height, nothing floats, every bed and job site can be walked to from a door, the main door can be
- * walked to from the street, the chunk index agrees with the steps, and stages come in order with structure laid
- * bottom-up. Used by the unit tests over every archetype, style and terrain; cheap enough to run in a dev command.
+ * walked to from the street, the chunk index agrees with the steps, stages come in order with structure laid
+ * bottom-up, and the building is lit to the light rule of docs/LIVING_WORLD.md §1 ({@link LightCheck}). Used by the unit tests over every archetype, style and terrain; cheap enough to run in a dev command.
  */
 public final class BlueprintChecks {
 	private BlueprintChecks() {
@@ -95,6 +95,7 @@ public final class BlueprintChecks {
 		reach(bp, w, out);
 		chunks(bp, out);
 		order(bp, out);
+		LightCheck.light(bp, w, out);
 		return out;
 	}
 
