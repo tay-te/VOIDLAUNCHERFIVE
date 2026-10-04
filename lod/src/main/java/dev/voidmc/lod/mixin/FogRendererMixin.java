@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * <p>Instead the LOD gets haze that thins with height ({@code lod.vsh}): thick in the valleys, thin over the
  * peaks, reaching {@code void.lod.haze} blocks at sea level. The chunks get the same haze in vanilla's linear
- * form, matched to it at the camera's height, so the seam between them disappears; the render-distance fog
+ * form, as thick as the LOD's where the two meet, so the seam between them disappears; the render-distance fog
  * moves out to the LOD's edge, where the land finally melts into the sky. Misty biomes thicken the haze; rain
  * hangs a curtain over it that does not thin with height, as dense as vanilla's rain fog, so in a downpour the
  * far land goes as it does in vanilla, even from a peak. Water, lava, powder snow, blindness and boss fog keep

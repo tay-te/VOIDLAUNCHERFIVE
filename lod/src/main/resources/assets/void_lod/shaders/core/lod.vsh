@@ -105,8 +105,9 @@ void main() {
 
     if ((LodPos.w & 8) != 0) {
         // Water at a low angle mirrors the sky, right up to the seam: vanilla's own water there, seen as low,
-        // shows the sky through it (its bed is out of the chunks' reach), so the two meet in the same colour
-        // instead of across a band of dark LOD water at dusk. At night the sky is dark, and so is the water.
+        // shows the sky through it (its bed is out of the chunks' reach), so the two meet in the same colour.
+        // Walls of water (the skirts under a tile's edge) too, as they show through vanilla's water. At night
+        // the sky is dark, and so is the water.
         float fresnel = pow(1.0 - max(toCamera.y, 0.0), 5.0);
         color = mix(color, FogColor.rgb, fresnel * 0.6);
     }

@@ -252,7 +252,9 @@ final class Blocky {
 							b = this.base[k] != DEEP ? this.base[k] : this.ground[k] - RIM_DEPTH;
 							f = b - 256;
 						} else {
-							b = Math.max(border ? Math.min(t, f) - skirt : f, this.base[k]);
+							// water's skirt needs only a block: the surface beyond is flat, and a deep one shows through
+							// vanilla's translucent water where the LOD meets the chunks
+							b = Math.max(border ? Math.min(t, f) - (this.wet[k] ? 1 : skirt) : f, this.base[k]);
 						}
 						has = !this.s.empty[k] && t > b;
 					}
@@ -289,7 +291,10 @@ final class Blocky {
 	/** One run of wall, from {@code t} down to {@code b}, in the bands its column is made of. */
 	private void wall(int dir, int edge, int a0, int a1, int t, int b, int floor, int k) {
 		if (this.wet[k]) {
-			this.band(dir, edge, a0, a1, t, b, floor, this.color[k]);
+			// water's own face, flagged as water: a skirt under the surface at a tile's edge shows through
+			// vanilla's translucent water at the seam, and must mirror the sky as the surface beside it does,
+			// not stand there as a dark band
+			this.band(dir, edge, a0, a1, t, b, floor, this.color[k], TileBuilder.WATER);
 			return;
 		}
 		int g = this.ground[k];
@@ -421,10 +426,14 @@ final class Blocky {
 	}
 
 	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c) {
+		this.band(dir, edge, a0, a1, hi, lo, floor, c, 0);
+	}
+
+	private void band(int dir, int edge, int a0, int a1, int hi, int lo, int floor, int c, int water) {
 		if (hi <= lo) {
 			return;
 		}
-		int face = dir + 2;
+		int face = dir + 2 | water;
 		int ah = Math.max(0, Math.min(255, hi - floor));
 		int al = Math.max(0, Math.min(255, lo - floor));
 		TileBuilder o = this.out;

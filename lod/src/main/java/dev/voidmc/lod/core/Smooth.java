@@ -241,10 +241,11 @@ final class Smooth {
 	/**
 	 * Where the tile has void, works out what each empty sample next to land stands for: the flank of that
 	 * land, hanging from its rim down to its underside. Every triangle that touches land keeps its vertices,
-	 * the empty ones pulled down to the underside of the land beside them, so an island's edge is a slope
-	 * of rock under its rim instead of a paper-thin cut; triangles with no land at all are cut out by the
-	 * shader ({@link TileBuilder#EMPTY}). For the slopes and the shading, an empty sample's surface is the
-	 * land beside it, so the island's own top stays level to its edge.
+	 * the empty ones pulled down to the underside of the land around them (averaged over the land up to two
+	 * samples away, for an even lower edge rather than a tooth per vertex), so an island's edge is a slope of
+	 * rock under its rim instead of a paper-thin cut; triangles with no land at all are cut out by the shader
+	 * ({@link TileBuilder#EMPTY}). For the slopes and the shading, an empty sample's surface is the land
+	 * beside it, so the island's own top stays level to its edge.
 	 */
 	private void rims(float lowest) {
 		Samples s = this.s;
@@ -256,11 +257,12 @@ final class Smooth {
 					continue;
 				}
 				float sum = 0;
-				float under = Float.MAX_VALUE;
+				float under = 0;
 				int n = 0;
+				int m = 0;
 				int near = -1;
-				for (int dz = -1; dz <= 1; dz++) {
-					for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -2; dz <= 2; dz++) {
+					for (int dx = -2; dx <= 2; dx++) {
 						int x = i + dx, z = j + dz;
 						if (x < -b || z < -b || x >= V + b || z >= V + b) {
 							continue;
@@ -269,8 +271,12 @@ final class Smooth {
 						if (s.empty[o]) {
 							continue;
 						}
+						under += this.under[o];
+						m++;
+						if (Math.abs(dx) > 1 || Math.abs(dz) > 1) {
+							continue;
+						}
 						sum += this.surface[o];
-						under = Math.min(under, this.under[o]);
 						// the nearest land along an axis, where there is some, gives the flank its direction
 						if (near < 0 || dx == 0 || dz == 0) {
 							near = o;
@@ -280,7 +286,7 @@ final class Smooth {
 				}
 				this.near[k] = near;
 				this.surface[k] = n > 0 ? sum / n : lowest;
-				this.under[k] = n > 0 ? under : lowest;
+				this.under[k] = n > 0 ? under / m : lowest;
 			}
 		}
 	}

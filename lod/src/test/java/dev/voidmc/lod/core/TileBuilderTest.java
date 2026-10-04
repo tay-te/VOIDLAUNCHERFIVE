@@ -64,13 +64,16 @@ class TileBuilderTest {
 		boolean sawWaterTop = false;
 		for (int i = 0; i < mesh.vertexCount(); i++) {
 			int flags = v.getShort(i * TileBuilder.VERTEX_BYTES + 6);
+			// the skirts under the surface too: through vanilla's water at the seam they must look like water
+			assertEquals(TileBuilder.WATER, flags & TileBuilder.WATER);
 			if ((flags & 7) == TileBuilder.UP) {
-				assertEquals(TileBuilder.WATER, flags & TileBuilder.WATER);
 				assertEquals(63 * 8, v.getShort(i * TileBuilder.VERTEX_BYTES + 2));
 				sawWaterTop = true;
 			}
 		}
 		assertTrue(sawWaterTop);
+		// and a block deep, not a curtain hanging into the sea
+		assertEquals(62, mesh.minY());
 	}
 
 	@Test
