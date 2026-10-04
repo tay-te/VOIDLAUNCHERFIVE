@@ -28,6 +28,7 @@ import dev.voidmc.hearth.build.kit.Porches;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -274,6 +275,9 @@ final class HouseBuilder {
 		interior(d, body, facade, roof, hearth, through, leftward);
 		// a loft too low for a bed leaves the household sleeping downstairs
 		FarmParts.ensureBeds(d, body, door, 2, through);
+		if (logs && hearth != null) {
+			warmHearth(d, body, hearth);
+		}
 
 		// outside
 		garden(d, body, facade, front);
@@ -284,6 +288,36 @@ final class HouseBuilder {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : plate + 2) + 2);
+	}
+
+	/**
+	 * A log house's warmth: a rug of the household's cloth laid on the free floor before the hearth (only where the
+	 * floor is boarded and nothing stands), so the room by the fire reads lived in.
+	 */
+	static void warmHearth(Draft d, Body b, int[] hearth) {
+		int y = b.baseY;
+		int fx = hearth[2] == 0 ? hearth[0] + 1 : hearth[2] == 1 ? hearth[0] - 1 : hearth[0];
+		int fz = hearth[2] == 2 ? hearth[1] - 1 : hearth[1];
+		int[] r = b.rect(0);
+		Block carpet = d.mat(Role.CLOTH).palette().main().block(dev.voidmc.hearth.build.style.Form.CARPET);
+		if (carpet == null) {
+			return;
+		}
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int dx = -1; dx <= 1; dx++) {
+					int x = fx + (hearth[2] == 2 ? dx : dx + (hearth[2] == 0 ? 1 : -1));
+					int z = fz + (hearth[2] == 2 ? dz - 1 : dz);
+					if (x <= r[0] || x >= r[2] || z <= r[1] || z >= r[3]) {
+						continue;
+					}
+					if (d.isEmpty(x, y, z) && d.isEmpty(x, y + 1, z) && d.isSolid(x, y - 1, z)
+						&& !(d.get(x, y - 1, z).getBlock() instanceof net.minecraft.world.level.block.StairBlock)) {
+						d.set(x, y, z, carpet.defaultBlockState());
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -863,6 +897,16 @@ final class HouseBuilder {
 		if (door != null) {
 			int[] r = b.rect(0);
 			dev.voidmc.hearth.build.kit.homestead.Bohemia.bench(d, door, r[1], b.baseY);
+		}
+		// a hive in a back corner of the yard, where the ground is free
+		if (d.chance(0.4)) {
+			int z = d.depth() - 1;
+			for (int x : new int[]{0, d.frontage() - 1}) {
+				int y = dev.voidmc.hearth.build.kit.homestead.Spots.level(d, x, z);
+				if (dev.voidmc.hearth.build.kit.homestead.Bohemia.hive(d, x, y, z, Dirs.FRONT)) {
+					break;
+				}
+			}
 		}
 	}
 

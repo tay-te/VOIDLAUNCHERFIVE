@@ -78,3 +78,7 @@ None of these blocks the family; each is worked around inside the archetypes.
     desert palette (`hearth_style/desert.json`, not mine) uses `expanse:smooth_opal_sandstone`; if the `opal_dunes` →
     `red_dunes` rework renames the opal sandstone blocks, that fallback id wants updating (it falls back to vanilla, so
     nothing breaks). No glowing blocks are used on any surface home.
+15. **Seen in game (for the style director).** The bayou base palette's weathered-copper roof reads green-turquoise in
+    game and, with the mangrove-red trim and railings, makes the stilt house look like a pagoda rather than a bayou
+    house; the "rust roof" variant (exposed and plain cut copper) or a grey tin stand-in, with willow or dark oak trim,
+    would read as Louisiana. Expanse willow walls look right.

@@ -93,7 +93,7 @@ public final class Bohemia {
 					if (!ridge || low == Integer.MAX_VALUE || y - low < 2) {
 						continue;
 					}
-					for (int yy = y - 1; yy > low && d.isEmpty(x, yy, z); yy--) {
+					for (int yy = y - 1; yy >= low && d.isEmpty(x, yy, z); yy--) {
 						d.set(x, yy, z, cover.full());
 					}
 				}
@@ -316,7 +316,7 @@ public final class Bohemia {
 	 * the cell is free ground. Returns whether it was set.
 	 */
 	public static boolean hive(Draft d, int x, int y, int z, Direction facing) {
-		if (x < 1 || x >= d.frontage() - 1 || z < 1 || z >= d.depth() - 1 || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || !d.isSolid(x, y - 1, z)) {
+		if (x < 0 || x >= d.frontage() || z < 1 || z >= d.depth() || !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || !d.isSolid(x, y - 1, z)) {
 			return false;
 		}
 		try (var s = d.stage(StageKind.EXTERIOR)) {
