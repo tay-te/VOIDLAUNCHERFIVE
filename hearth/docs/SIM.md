@@ -603,7 +603,7 @@ model.json             { "edible": {...}, "perishable": {...}, "cool": [archetyp
 | surveys | 7 live surveys, 336 ms avg on the `hearth-survey` thread (a city's 512-block territory: ~1100 columns, most of it biome lookups); none on the server thread |
 | histories with sites and chains | 9 regions settled, 426 ms avg per history (atlas workers); Thornfield (beach, 265 days old) a village of 34 at day 0, Plumvale a hamlet of 10 |
 | growth over 300 more days | Thornfield 34 → 247 souls (a city; capacity-bound at ~315: its fertile land worked down to 13 %), Plumvale 10 → 53, Torheim (taiga, poor soil) 5 → 52, declining with 12 houses left empty |
-| clock, hour steps | 0.031 ms (49 souls), 0.133 ms (78), 0.218 ms (319) avg per 1.2-hour step **including planner calls**; see the bench line for the step without them |
+| clock, hour steps (bench, 200 steps of 1.2 h, day boundaries included) | without planner calls: 0.039 ms (55 souls, 38 sites), 0.031 ms (57, 42 sites), 0.088 ms (242 souls, 58 sites); with them 0.04–0.10 ms. An earlier run with stand-in excavations being dug: 0.218 ms for 319 souls including planner calls |
 | woodcutter | 21–92 trees (146–666 logs) felled per 30 s in a wood's loaded chunks, 52–131 ms total (well inside 0.25 ms a tick) |
 | underground probe | 107 µs per column for realm + floor; 3 realms within 3000 blocks of spawn (dripstone, frozen, wilds) |
 | stand-in mine | 10 stages, 270 cuts; with two miners built in 20 days, 269 ore and stone credited, its site down 26 % |
