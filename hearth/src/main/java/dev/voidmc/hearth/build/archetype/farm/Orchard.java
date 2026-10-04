@@ -40,7 +40,7 @@ import net.minecraft.world.level.block.Blocks;
  *
  * <p>Job sites (FARMER): the shed's compost bin, and a stand beside every other tree. Storage: the shed's chest.
  *
- * <p>Params (all optional): {@code shed} (boolean), {@code spacing} (int 3–5: blocks between trunks), {@code boundary}
+ * <p>Params (all optional): {@code shed} (boolean), {@code spacing} (int 4–7: trunk to trunk, default 5 or 6), {@code boundary}
  * (string: drystone, hedge, rails, bund, none).
  */
 public final class Orchard implements Archetype {
