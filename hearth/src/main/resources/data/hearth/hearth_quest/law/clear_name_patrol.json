@@ -1,0 +1,52 @@
+{
+	"type": "law",
+	"weight": 12,
+	"when": {
+		"wanted": "only",
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"jailer",
+			"judge"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "kill",
+			"entity": "monster",
+			"count": [
+				8,
+				12
+			],
+			"night": true,
+			"label": "Stand the night watch: kill {count} {mob} near {settlement} after dark"
+		}
+	],
+	"text": {
+		"title": [
+			"Work off your name",
+			"A night on the walls"
+		],
+		"summary": [
+			"You are wanted in {settlement}. {giver} offers a way to make it right: a night's hard watch in place of the fine."
+		],
+		"offer": [
+			"You owe this town, and I would rather have your sword than your coin or your neck. Stand the watch tonight and kill what comes for the walls, and I will speak for you before the court."
+		],
+		"progress": [
+			"The night is long. Keep at it."
+		],
+		"complete": [
+			"You stood the watch. I will speak for you; as far as I am concerned, your name is clean."
+		]
+	},
+	"reward": {
+		"reputation": 10,
+		"deed": "hearth:quest/name_cleared"
+	},
+	"deadline_days": 2,
+	"cooldown_days": 1,
+	"repeatable": true
+}

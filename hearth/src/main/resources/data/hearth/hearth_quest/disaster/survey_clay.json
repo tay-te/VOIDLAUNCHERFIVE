@@ -1,0 +1,58 @@
+{
+	"type": "disaster",
+	"weight": 4,
+	"when": {
+		"trigger": "none",
+		"requires": [
+			"job:kiln_worker",
+			"!site:clay"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"kiln_worker",
+			"mason",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "prospect",
+			"resource": "clay",
+			"distance": [
+				48,
+				400
+			],
+			"label": "Find a {site} {distance} from {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"Clay for the kiln",
+			"Find a clay bank"
+		],
+		"summary": [
+			"{settlement} has no {site} of its own. {giver} wants one found, {distance} from the town."
+		],
+		"offer": [
+			"The kiln stands idle half the year for want of clay. Find a good bank — a river bed, a lake shore — {distance} out."
+		],
+		"progress": [
+			"Any luck?"
+		],
+		"complete": [
+			"That will do very well. We open it this season."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			100
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/site_prospected"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

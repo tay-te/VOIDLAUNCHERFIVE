@@ -1,0 +1,67 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "town",
+		"prerequisites": [
+			"hearth:official/lord/game_for_the_table"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				4,
+				6
+			],
+			"distance": [
+				160,
+				320
+			],
+			"health": 1.3,
+			"radius": 40,
+			"target_name": "brigands",
+			"label": "Clear the brigands from the lord's road"
+		}
+	],
+	"text": {
+		"title": [
+			"The lord's road",
+			"Brigands on the high road"
+		],
+		"summary": [
+			"Brigands have taken to the lord's road {direction} of {settlement}. The lord wants them gone."
+		],
+		"offer": [
+			"Tolls are down by half and his lordship is not pleased. A band of brigands works the high road {distance} {direction} of here. He has asked for you by name."
+		],
+		"progress": [
+			"The road is still not safe."
+		],
+		"complete": [
+			"His lordship is pleased. That is not a small thing."
+		]
+	},
+	"reward": {
+		"coin": [
+			140,
+			220
+		],
+		"reputation": 9,
+		"deed": "hearth:quest/official_lord"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 2,
+	"repeatable": false
+}

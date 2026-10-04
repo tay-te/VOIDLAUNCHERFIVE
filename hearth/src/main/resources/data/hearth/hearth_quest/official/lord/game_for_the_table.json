@@ -1,0 +1,58 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "town"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:rabbit",
+				"minecraft:beef",
+				"minecraft:mutton",
+				"minecraft:porkchop"
+			],
+			"count": [
+				10,
+				16
+			],
+			"label": "Bring {count} × {item} for the lord's table"
+		}
+	],
+	"text": {
+		"title": [
+			"Game for the lord's table",
+			"The great hall's feast"
+		],
+		"summary": [
+			"The lord of {settlement} gives a feast, and the steward needs {count} × {item} for the high table."
+		],
+		"offer": [
+			"His lordship has guests from three towns at the end of the week, and the huntsmen have brought in nothing but excuses. {count} × {item}, the best you can find."
+		],
+		"progress": [
+			"The kitchen is waiting."
+		],
+		"complete": [
+			"The feast will be talked of for a year. His lordship asks your name."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			100
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/official_lord"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

@@ -108,7 +108,18 @@ public final class QuestManager {
 		if (pq.get(offer.id) != null || offer.takenBy.contains(player.getUUID())) {
 			return HIDDEN;
 		}
+		for (Objective o : offer.objectives) {
+			if (o.kind == ObjectiveKind.HUNT && player.getUUID().equals(o.entity)) {
+				// nobody is offered the bounty on their own head
+				return HIDDEN;
+			}
+		}
 		QuestTemplate t = QuestTemplates.get(offer.template);
+		QuestTemplate.Wanted policy = t == null ? QuestTemplate.Wanted.REFUSE : t.when().wanted();
+		boolean wanted = LawBridge.wanted(player.getUUID(), s);
+		if (policy == QuestTemplate.Wanted.ONLY && !wanted) {
+			return HIDDEN;
+		}
 		if (t != null) {
 			for (Identifier pre : t.when().prerequisites()) {
 				if (pq.completed(pre) == 0) {
@@ -119,9 +130,16 @@ public final class QuestManager {
 				return HIDDEN;
 			}
 		}
-		int rep = s.reputation(player.getUUID());
+		if (wanted && policy == QuestTemplate.Wanted.REFUSE && config.living().refuseWanted()) {
+			return Component.translatable("hearth.quest.lock.wanted").getString();
+		}
+		int rep = Standings.standing(s, player.getUUID());
 		if (rep < offer.rules.minReputation()) {
 			return Component.translatable("hearth.quest.lock.reputation", offer.rules.minReputation()).getString();
+		}
+		if (t != null && config.living().titleGates() && t.when().minTitle() != null
+			&& !Standings.meets(Standings.title(s, player.getUUID()), t.when().minTitle())) {
+			return Component.translatable("hearth.quest.lock.title", Component.translatable(t.when().minTitle().translationKey())).getString();
 		}
 		if (pq.active.size() >= config.maxActive()) {
 			return Component.translatable("hearth.quest.lock.full", config.maxActive()).getString();
@@ -146,7 +164,34 @@ public final class QuestManager {
 				handIns.add(q.id);
 			}
 		}
-		return new QuestPayloads.Board(s.id(), boardPos, s.name(), s.tier().getSerializedName(), s.reputation(player.getUUID()), entries, handIns);
+		int standing = Standings.standing(s, player.getUUID());
+		String title = Component.translatable(Standings.title(s, player.getUUID()).translationKey()).getString();
+		return new QuestPayloads.Board(s.id(), boardPos, s.name(), s.tier().getSerializedName(), standing, entries, handIns, posters(level, s), title);
+	}
+
+	/**
+	 * The wanted posters on a board (docs/LIVING_WORLD.md §4): players online whom the law wants in this settlement, with
+	 * what they owe. Read from the law service on demand when the board is opened.
+	 */
+	public static List<QuestPayloads.Board.Poster> posters(ServerLevel level, Settlement s) {
+		List<QuestPayloads.Board.Poster> out = new ArrayList<>();
+		if (dev.voidmc.hearth.api.HearthServices.law() == null) {
+			return out;
+		}
+		dev.voidmc.hearth.api.EconomyService economy = dev.voidmc.hearth.api.HearthServices.economy();
+		for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) {
+			if (!LawBridge.wanted(p.getUUID(), s)) {
+				continue;
+			}
+			long bounty = LawBridge.bounty(p.getUUID(), s);
+			String owed = bounty <= 0 ? "" : economy != null ? economy.format(bounty).getString()
+				: Component.translatable("hearth.quest.reward.emeralds", Rewards.emeralds(bounty, config.bitsPerEmerald())).getString();
+			out.add(new QuestPayloads.Board.Poster(p.getName().getString(), owed, LawBridge.outlaw(p.getUUID(), s)));
+			if (out.size() >= 6) {
+				break;
+			}
+		}
+		return out;
 	}
 
 	// ------------------------------------------------------------------ accepting
@@ -250,7 +295,7 @@ public final class QuestManager {
 		}
 		QuestProgress.ItemSource inv = QuestItems.inventory(player);
 		for (Objective o : q.currentObjectives()) {
-			if (QuestProgress.carried(o, inv) > 0) {
+			if (QuestProgress.carried(o, inv) > 0 || (o.kind == ObjectiveKind.PAY && Rewards.canPay(player, config))) {
 				return true;
 			}
 		}
@@ -295,6 +340,22 @@ public final class QuestManager {
 					player.sendSystemMessage(Component.translatable("hearth.quest.delivered", d.amount(),
 						d.objective().data.getStringOr(Objective.Keys.TARGET_NAME, d.objective().target), d.objective().progress, d.objective().count)
 						.withStyle(ChatFormatting.GREEN));
+				}
+				for (Objective o : q.currentObjectives()) {
+					if (o.kind != ObjectiveKind.PAY || o.done()) {
+						continue;
+					}
+					long paid = Rewards.collect(player, o.remaining(), config);
+					if (paid > 0) {
+						o.advance((int) paid);
+						s.deposit(paid);
+						s.markDirty();
+						changed = true;
+						player.sendSystemMessage(Component.translatable("hearth.quest.paid", Rewards.coinText(paid, config), s.name())
+							.withStyle(ChatFormatting.GREEN));
+					} else {
+						player.sendSystemMessage(Component.translatable("hearth.quest.cannot_pay").withStyle(ChatFormatting.RED));
+					}
 				}
 			}
 			if (changed) {
@@ -345,9 +406,8 @@ public final class QuestManager {
 		}
 		int total = units * d.amount();
 		s.stockpile().add(goods, total);
-		int plot = o.data.getIntOr(Objective.Keys.PLOT, -1);
-		if (plot >= 0) {
-			QuestStore.board(s).satisfy(plot, goods, total);
+		if (o.data.contains(Objective.Keys.PLOT)) {
+			QuestStore.board(s).satisfy(o.data.getIntOr(Objective.Keys.PLOT, -1), goods, o.data.getStringOr(Objective.Keys.SOURCE, ""), total);
 		}
 		s.markDirty();
 	}
@@ -384,7 +444,26 @@ public final class QuestManager {
 	static void complete(ServerPlayer player, PlayerQuests pq, QuestInstance q) {
 		MinecraftServer server = player.level().getServer();
 		Settlement s = QuestWorlds.byId(server, q.settlementId);
+		boolean killed = false;
+		for (Objective o : q.objectives) {
+			if (o.kind == ObjectiveKind.APPREHEND && o.data.contains(Objective.Keys.ALIVE) && !o.data.getBooleanOr(Objective.Keys.ALIVE, true)) {
+				killed = true;
+			}
+		}
+		if (killed && q.escrow > 0) {
+			// dead, the culprit is worth the price without the alive bonus; the rest goes back to the treasury
+			double bonus = Math.max(1.0, q.extra.getDoubleOr(QuestInstance.Extra.ALIVE_BONUS, 1.5));
+			long keep = Math.round(q.escrow / bonus);
+			if (s != null && q.escrow > keep) {
+				s.deposit(q.escrow - keep);
+			}
+			q.escrow = keep;
+		}
 		Component paid = Rewards.pay(player, s, q, config);
+		if (s != null) {
+			Standings.deed(s, player.getUUID(), q.extra.getStringOr(QuestInstance.Extra.DEED, "hearth:quest/" + q.type.getSerializedName()),
+				q.reward.reputation(), q.giver.resident().orElse(null), player.blockPosition(), config.living().deeds());
+		}
 		QuestItems.takeAll(player, q.id, QuestItems.ROLE_PARCEL);
 		pq.finish(q, QuestStatus.COMPLETED, QuestWorlds.day(player.level()));
 		say(player, q, q.text.complete());
@@ -395,7 +474,7 @@ public final class QuestManager {
 			player.sendSystemMessage(Component.translatable("hearth.quest.reward", paid).withStyle(ChatFormatting.GRAY));
 		}
 		if (q.reward.reputation() != 0 && s != null) {
-			player.sendSystemMessage(Component.translatable("hearth.quest.reputation.up", q.reward.reputation(), s.name(), s.reputation(player.getUUID()))
+			player.sendSystemMessage(Component.translatable("hearth.quest.reputation.up", q.reward.reputation(), s.name(), Standings.standing(s, player.getUUID()))
 				.withStyle(ChatFormatting.DARK_GREEN));
 		}
 		sound(player, SoundEvents.PLAYER_LEVELUP, 1.2F);
@@ -409,6 +488,7 @@ public final class QuestManager {
 					QuestEvents.SITE_SCOUTED.invoker().onSiteScouted(level, s, site, player);
 				}
 			}
+			LivingQuests.completed(level, s, player, q);
 		}
 		QuestEvents.COMPLETED.invoker().onCompleted(player, s, q);
 	}
@@ -452,9 +532,13 @@ public final class QuestManager {
 		Settlement s = QuestWorlds.byId(server, q.settlementId);
 		Rewards.refund(s, q);
 		int delta = outcome == QuestStatus.ABANDONED ? config.reputationAbandon() : config.reputationFail();
-		if (s != null && delta != 0) {
-			s.addReputation(player.getUUID(), delta);
-			s.markDirty();
+		if (s != null) {
+			Standings.deed(s, player.getUUID(), outcome == QuestStatus.ABANDONED ? "hearth:quest/abandoned" : "hearth:quest/failed", delta,
+				q.giver.resident().orElse(null), player.blockPosition(), config.living().deeds());
+			ServerLevel level = QuestWorlds.level(server, s);
+			if (level != null) {
+				LivingQuests.ended(level, s, player, q, outcome);
+			}
 		}
 		QuestItems.takeAll(player, q.id, QuestItems.ROLE_PARCEL);
 		QuestItems.takeAll(player, q.id, QuestItems.ROLE_GRANT);

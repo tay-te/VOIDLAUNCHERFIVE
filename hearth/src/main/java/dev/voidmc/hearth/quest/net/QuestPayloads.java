@@ -35,9 +35,11 @@ public final class QuestPayloads {
 	 *
 	 * @param entries   the offers, each with why this player cannot take it yet (empty if they can)
 	 * @param handIns   the player's quests that can be handed in or delivered here
+	 * @param posters   wanted posters: players the law wants in this settlement
+	 * @param title     the player's title here, as words ("Friend of the town")
 	 */
 	public record Board(long settlementId, BlockPos boardPos, String settlementName, String tier, int reputation, List<Entry> entries,
-		List<UUID> handIns) implements CustomPacketPayload {
+		List<UUID> handIns, List<Poster> posters, String title) implements CustomPacketPayload {
 		public static final Type<Board> TYPE = new Type<>(Hearth.id("quest/board"));
 		private static final Codec<Board> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.LONG.fieldOf("settlement").forGetter(Board::settlementId),
@@ -46,13 +48,29 @@ public final class QuestPayloads {
 			Codec.STRING.fieldOf("tier").forGetter(Board::tier),
 			Codec.INT.fieldOf("reputation").forGetter(Board::reputation),
 			Entry.CODEC.listOf().fieldOf("entries").forGetter(Board::entries),
-			UUIDUtil.CODEC.listOf().fieldOf("hand_ins").forGetter(Board::handIns)
+			UUIDUtil.CODEC.listOf().fieldOf("hand_ins").forGetter(Board::handIns),
+			Poster.CODEC.listOf().optionalFieldOf("posters", List.of()).forGetter(Board::posters),
+			Codec.STRING.optionalFieldOf("title", "").forGetter(Board::title)
 		).apply(i, Board::new));
 		public static final StreamCodec<RegistryFriendlyByteBuf, Board> STREAM_CODEC = ByteBufCodecs.fromCodecWithRegistriesTrusted(CODEC);
 
 		@Override
 		public Type<Board> type() {
 			return TYPE;
+		}
+
+		/**
+		 * A wanted poster.
+		 *
+		 * @param owed   the fine and bounty, as words, or empty
+		 * @param outlaw an outlaw of the region (attacked on sight), not merely wanted
+		 */
+		public record Poster(String name, String owed, boolean outlaw) {
+			static final Codec<Poster> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.STRING.fieldOf("name").forGetter(Poster::name),
+				Codec.STRING.optionalFieldOf("owed", "").forGetter(Poster::owed),
+				Codec.BOOL.optionalFieldOf("outlaw", false).forGetter(Poster::outlaw)
+			).apply(i, Poster::new));
 		}
 
 		/** An offer and, if this player cannot take it, why ("Needs standing 10"). */

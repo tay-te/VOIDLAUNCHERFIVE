@@ -1,0 +1,53 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/reeve/tithe_rolls"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"reeve",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier",
+			"recipient": true,
+			"label": "Bring the market charter to {recipient} in {target}"
+		}
+	],
+	"text": {
+		"title": [
+			"The market charter",
+			"A charter for {settlement}"
+		],
+		"summary": [
+			"{giver} has drawn up a market charter with {target} and needs it carried to {recipient} for their seal."
+		],
+		"offer": [
+			"If {target} seals this charter, their merchants come to our market every week. {recipient} is expecting it. Do not lose it."
+		],
+		"progress": [
+			"Has {recipient} sealed it?"
+		],
+		"complete": [
+			"Sealed! Market days will be busy from now on. The town is in your debt."
+		]
+	},
+	"reward": {
+		"coin": [
+			50,
+			90
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/official_reeve"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2,
+	"repeatable": false
+}

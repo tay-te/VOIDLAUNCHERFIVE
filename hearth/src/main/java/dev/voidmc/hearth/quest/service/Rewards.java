@@ -56,7 +56,10 @@ public final class Rewards {
 		quest.escrow = 0;
 	}
 
-	/** Pays a completed quest: the escrowed coin, the items, the standing. Returns a line describing it. */
+	/**
+	 * Pays a completed quest: the escrowed coin and the items. Returns a line describing it. (Standing moves through the
+	 * deed the manager reports, {@link Standings#deed}.)
+	 */
 	public static Component pay(ServerPlayer player, @Nullable Settlement settlement, QuestInstance quest, QuestConfig config) {
 		QuestReward reward = quest.reward;
 		MutableComponent line = Component.empty();
@@ -84,11 +87,54 @@ public final class Rewards {
 			}
 			line.append(Component.literal(item.count() + " × ")).append(new ItemStack(it).getHoverName());
 		}
-		if (settlement != null && reward.reputation() != 0) {
-			settlement.addReputation(player.getUUID(), reward.reputation());
-			settlement.markDirty();
-		}
 		return line;
+	}
+
+	/** Whether the player has any coin to hand over (coin and pouches with the economy, emeralds without). */
+	public static boolean canPay(ServerPlayer player, QuestConfig config) {
+		EconomyService economy = HearthServices.economy();
+		if (economy != null) {
+			return economy.balance(player) > 0;
+		}
+		return player.getInventory().countItem(Items.EMERALD) > 0;
+	}
+
+	/**
+	 * Takes up to {@code bits} from the player for a town's treasury: coin through the economy, or emeralds at
+	 * {@link QuestConfig#bitsPerEmerald} without it. Returns the bits taken (0 if the player has nothing).
+	 */
+	public static long collect(ServerPlayer player, long bits, QuestConfig config) {
+		if (bits <= 0) {
+			return 0;
+		}
+		EconomyService economy = HearthServices.economy();
+		if (economy != null) {
+			long take = Math.min(bits, economy.balance(player));
+			return take > 0 && economy.charge(player, take) ? take : 0;
+		}
+		int per = Math.max(1, config.bitsPerEmerald());
+		int carried = player.getInventory().countItem(Items.EMERALD);
+		int want = (int) Math.min(carried, (bits + per - 1) / per);
+		if (want <= 0) {
+			return 0;
+		}
+		int left = want;
+		var inv = player.getInventory();
+		for (int i = 0; i < inv.getContainerSize() && left > 0; i++) {
+			ItemStack stack = inv.getItem(i);
+			if (stack.is(Items.EMERALD)) {
+				int n = Math.min(left, stack.getCount());
+				stack.shrink(n);
+				left -= n;
+			}
+		}
+		return Math.min(bits, (long) (want - left) * per);
+	}
+
+	/** How a sum reads: the economy's coin names, or emeralds. */
+	public static Component coinText(long bits, QuestConfig config) {
+		EconomyService economy = HearthServices.economy();
+		return economy != null ? economy.format(bits) : Component.translatable("hearth.quest.reward.emeralds", emeralds(bits, config.bitsPerEmerald()));
 	}
 
 	private static void giveStacks(ServerPlayer player, Item item, int count) {

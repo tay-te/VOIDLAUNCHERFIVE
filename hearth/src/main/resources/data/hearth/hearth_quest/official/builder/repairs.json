@@ -1,0 +1,64 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/builder/haul_stone"
+		],
+		"requires": [
+			"damaged"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"carpenter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:oak_planks",
+				"minecraft:cobblestone",
+				"minecraft:glass"
+			],
+			"count": [
+				32,
+				48
+			],
+			"label": "Bring {count} × {item} for the repairs"
+		}
+	],
+	"text": {
+		"title": [
+			"Mending the town",
+			"The repair crews"
+		],
+		"summary": [
+			"The master builder of {settlement} has buildings to mend and needs {count} × {item}."
+		],
+		"offer": [
+			"Every broken window and burned beam goes back as it was — but not from nothing. {count} × {item} for the repair crews."
+		],
+		"progress": [
+			"The crews are waiting on supplies."
+		],
+		"complete": [
+			"Good as new — better, some of it. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			35,
+			60
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/official_builder"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"leather"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"tanner",
+			"tailor",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Leather for the {place}",
+			"Hides wanted"
+		],
+		"summary": [
+			"The {place} in {settlement} needs straps, hinges and harness, and the tannery is empty. Bring {count} × {item}.",
+			"{settlement} wants {count} × {item}."
+		],
+		"offer": [
+			"Buckets, bellows, door straps — all leather, and I have none. {count} × {item} for the {place}?",
+			"The tannery has nothing in the pits. {count} × {item}, please."
+		],
+		"progress": [
+			"Still no leather.",
+			"The straps won't make themselves."
+		],
+		"complete": [
+			"Good, supple leather.",
+			"That will do the {place} proud."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

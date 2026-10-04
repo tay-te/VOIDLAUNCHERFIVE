@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"ore"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"smelter",
+			"smith",
+			"miner"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Ore for the smelter",
+			"The furnace is cold"
+		],
+		"summary": [
+			"The smelter of {settlement} has run out of ore, and the {place} needs its ironwork. Bring {count} × {item}.",
+			"No ore, no iron, no {place}. {giver} wants {count} × {item}."
+		],
+		"offer": [
+			"The mine is behind and the furnace has gone cold. {count} × {item}, and the {place} gets its nails and hinges.",
+			"I can smelt anything you bring me, but I need {count} × {item} for the {place}."
+		],
+		"progress": [
+			"The furnace is still cold.",
+			"Not a lump of ore since you left."
+		],
+		"complete": [
+			"That will smelt down beautifully. The bellows go tomorrow.",
+			"Good ore, rich and heavy. My thanks."
+		]
+	},
+	"reward": {
+		"coin": [
+			10,
+			22
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

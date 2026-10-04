@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"books"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"scholar",
+			"priest",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Books for the {place}",
+			"Empty shelves"
+		],
+		"summary": [
+			"The shelves of the {place} in {settlement} stand empty. Bring {count} × {item}.",
+			"{settlement} needs {count} × {item} to fill its {place}."
+		],
+		"offer": [
+			"What is a {place} without books? {count} × {item}, and I will see them shelved myself.",
+			"The binders are a season behind. Could you bring {count} × {item}?"
+		],
+		"progress": [
+			"The shelves are bare.",
+			"Any books?"
+		],
+		"complete": [
+			"Ah, what a smell. Thank you.",
+			"The {place} has its library."
+		]
+	},
+	"reward": {
+		"coin": [
+			14,
+			26
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"candles"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"chandler",
+			"builder",
+			"priest",
+			"innkeeper"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Candles for the {place}",
+			"Light for the new rooms"
+		],
+		"summary": [
+			"The {place} in {settlement} is finished but for its light: {count} × {item} are needed.",
+			"Nobody will live in a dark house. {settlement} needs {count} × {item} for its {place}."
+		],
+		"offer": [
+			"A home must be lit, inside and out, or the night comes in with the cold. {count} × {item} for the {place}.",
+			"The chandler is behind. Bring {count} × {item}, and the {place} will be lit tonight."
+		],
+		"progress": [
+			"The rooms are still dark.",
+			"Candles, friend. The {place} waits in the dark."
+		],
+		"complete": [
+			"Look at the windows glow. Thank you.",
+			"Light at last. The family moves in tomorrow."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

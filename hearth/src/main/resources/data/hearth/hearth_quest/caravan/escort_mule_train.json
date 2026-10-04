@@ -1,0 +1,96 @@
+{
+	"type": "caravan",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_tier": "hamlet",
+		"cultures": {
+			"*": 1.0,
+			"steppe": 0,
+			"desert": 0,
+			"mesa": 0,
+			"alpine": 0,
+			"tundra": 0
+		}
+	},
+	"giver": {
+		"jobs": [
+			"trader",
+			"merchant",
+			"courier"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "escort",
+			"entity": "minecraft:mule",
+			"caravan": 3,
+			"cargo": true,
+			"names": [
+				"Saffron",
+				"Old Dusty",
+				"Thistle",
+				"Bramble",
+				"Juniper",
+				"Clover",
+				"Pepper"
+			],
+			"label": "Bring the caravan with {cargo} safe to {target}"
+		},
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				2,
+				4
+			],
+			"place": "route",
+			"along": 0.5,
+			"target_name": "highwaymen",
+			"label": "Fight off the highwaymen on the road"
+		}
+	],
+	"text": {
+		"title": [
+			"The caravan to {target}",
+			"Ride with the {cargo}"
+		],
+		"summary": [
+			"A caravan of {cargo} leaves {settlement} for {target}, {distance} to the {direction}. The roads are not safe; {giver} wants a guard."
+		],
+		"offer": [
+			"The caravan for {target} leaves now, and I have heard of highwaymen on that road. Walk with it, keep the animals whole, and the caravan master pays well. {distance}, {direction}."
+		],
+		"progress": [
+			"Is the caravan through?"
+		],
+		"complete": [
+			"The caravan made it whole. Here is your share, with the master's thanks."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"items": [
+			{
+				"item": "minecraft:leather",
+				"count": [
+					2,
+					4
+				]
+			}
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/caravan_escorted"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 1
+}

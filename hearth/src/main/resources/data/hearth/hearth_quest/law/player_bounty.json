@@ -1,0 +1,48 @@
+{
+	"type": "law",
+	"weight": 8,
+	"when": {
+		"min_tier": "village",
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"judge"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "hunt",
+			"label": "Hunt down the outlaw {name}"
+		}
+	],
+	"text": {
+		"title": [
+			"Bounty: {name}",
+			"The outlaw {name}"
+		],
+		"summary": [
+			"The court of {settlement} has declared {name} an outlaw, to be struck down on sight. {giver} pays the bounty."
+		],
+		"offer": [
+			"{name} is outlawed in this region, and there is a price on their head. Bring them down and the price is yours."
+		],
+		"progress": [
+			"{name} still walks free."
+		],
+		"complete": [
+			"The outlaw is dead. The bounty is yours."
+		]
+	},
+	"reward": {
+		"coin": [
+			150,
+			260
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/bounty_collected"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 1
+}

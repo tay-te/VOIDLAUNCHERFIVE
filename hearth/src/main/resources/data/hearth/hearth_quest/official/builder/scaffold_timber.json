@@ -1,0 +1,65 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/builder/haul_stone"
+		],
+		"min_title": "known",
+		"requires": [
+			"stalled"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"carpenter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:oak_log",
+				"minecraft:spruce_log",
+				"minecraft:birch_log"
+			],
+			"count": [
+				32,
+				48
+			],
+			"label": "Bring {count} × {item} for scaffolds"
+		}
+	],
+	"text": {
+		"title": [
+			"Timber for the scaffolds",
+			"Up the walls"
+		],
+		"summary": [
+			"The master builder of {settlement} needs {count} × {item} for scaffolds on the stalled works."
+		],
+		"offer": [
+			"We cannot raise a wall above a man's head without scaffolds, and the scaffolds went into the last roof. {count} × {item}, and we go up again."
+		],
+		"progress": [
+			"Still waiting on that timber."
+		],
+		"complete": [
+			"Up the walls we go. I like working with you."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			70
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/official_builder"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

@@ -8,6 +8,7 @@ import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.Goods;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.SettlementTier;
+import dev.voidmc.hearth.api.StandingService;
 import dev.voidmc.hearth.quest.model.ObjectiveKind;
 import dev.voidmc.hearth.quest.model.QuestType;
 import dev.voidmc.hearth.quest.model.TurnIn;
@@ -111,7 +112,12 @@ public final class TemplateParser {
 		for (String s : strings(json, "goods", "when.goods")) {
 			goods.add(enumByName(Goods.class, s, "when.goods"));
 		}
-		return new QuestTemplate.Conditions(trigger, cultures, other, minTier, maxTier, minRep, prereqs, mods, goods);
+		StandingService.Title minTitle = json.has("min_title") ? enumValue(json, "min_title", StandingService.Title.class, null, "when.min_title") : null;
+		QuestTemplate.Wanted wanted = enumValue(json, "wanted", QuestTemplate.Wanted.class, QuestTemplate.Wanted.REFUSE, "when.wanted");
+		List<String> requires = strings(json, "requires", "when.requires");
+		List<String> events = strings(json, "events", "when.events");
+		return new QuestTemplate.Conditions(trigger, cultures, other, minTier, maxTier, minRep, prereqs, mods, goods, minTitle, wanted, requires,
+			events);
 	}
 
 	private static ObjectiveSpec objective(JsonObject json, String path) {
@@ -145,8 +151,23 @@ public final class TemplateParser {
 		boolean recipient = bool(json, "recipient", false, path + ".recipient");
 		int clearance = integer(json, "clearance", 0, path + ".clearance");
 		String targetName = string(json, "target_name", "", path + ".target_name");
+		String place = string(json, "place", "", path + ".place");
+		double along = number(json, "along", 0.5, path + ".along");
+		if (along < 0 || along > 1) {
+			throw new TemplateException(path + ".along", "must be between 0 and 1");
+		}
+		int hold = integer(json, "hold", 0, path + ".hold");
+		String resource = string(json, "resource", "", path + ".resource");
+		String crime = string(json, "crime", "", path + ".crime");
+		int caravan = integer(json, "caravan", 1, path + ".caravan");
+		if (caravan < 1 || caravan > 6) {
+			throw new TemplateException(path + ".caravan", "must be 1 to 6");
+		}
+		boolean cargo = bool(json, "cargo", false, path + ".cargo");
+		boolean lethal = bool(json, "lethal", false, path + ".lethal");
 		return new ObjectiveSpec(kind, label, items, entities, count, Math.max(0, radius), Math.max(0, minDistance), Math.max(0, maxDistance),
-			structures, biomes, names, night, health, grant, recipient, Math.max(0, clearance), targetName);
+			structures, biomes, names, night, health, grant, recipient, Math.max(0, clearance), targetName, place, along, Math.max(0, hold), resource,
+			crime, caravan, cargo, lethal);
 	}
 
 	private static QuestTemplate.RewardSpec reward(JsonObject json) {
@@ -176,7 +197,15 @@ public final class TemplateParser {
 			}
 		}
 		int reputation = integer(json, "reputation", 0, "reward.reputation");
-		return new QuestTemplate.RewardSpec(Math.max(0, min), Math.max(0, max), Math.max(0, premium), items, reputation);
+		String deed = string(json, "deed", "", "reward.deed");
+		if (!deed.isEmpty() && Identifier.tryParse(deed) == null) {
+			throw new TemplateException("reward.deed", "not a valid id: " + deed);
+		}
+		double aliveBonus = number(json, "alive_bonus", 1.5, "reward.alive_bonus");
+		if (aliveBonus < 1) {
+			throw new TemplateException("reward.alive_bonus", "must be at least 1");
+		}
+		return new QuestTemplate.RewardSpec(Math.max(0, min), Math.max(0, max), Math.max(0, premium), items, reputation, deed, aliveBonus);
 	}
 
 	// ------------------------------------------------------------------ helpers

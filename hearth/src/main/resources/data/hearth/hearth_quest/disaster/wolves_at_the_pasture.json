@@ -1,0 +1,73 @@
+{
+	"type": "disaster",
+	"weight": 7,
+	"when": {
+		"trigger": "none",
+		"requires": [
+			"job:herder"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"herder",
+			"farmer",
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entity": "minecraft:wolf",
+			"count": [
+				3,
+				5
+			],
+			"place": "site:pasture",
+			"distance": [
+				40,
+				100
+			],
+			"night": true,
+			"radius": 32,
+			"target_name": "wolves",
+			"label": "Drive the wolves off the pasture at night"
+		}
+	],
+	"text": {
+		"title": [
+			"Wolves at the pasture",
+			"The flock is taken"
+		],
+		"summary": [
+			"Wolves come down to the pasture of {settlement} at night and take the flock. {giver} wants them driven off."
+		],
+		"offer": [
+			"Three ewes gone this week and the dog torn open. The wolves come at night — wait for them by the pasture, {direction} of here, and see them off."
+		],
+		"progress": [
+			"Lost another lamb last night."
+		],
+		"complete": [
+			"A quiet night at last. The flock thanks you, and so do I."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			80
+		],
+		"items": [
+			{
+				"item": "minecraft:mutton",
+				"count": [
+					3,
+					6
+				]
+			}
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/wolves_driven_off"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 4
+}

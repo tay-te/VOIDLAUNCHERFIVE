@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"sand"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"glassmaker",
+			"mason",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Sand for the glassworks",
+			"A cartload of sand"
+		],
+		"summary": [
+			"The glassworks of {settlement} needs {count} × {item} to glaze the windows of the {place}.",
+			"{settlement} is short of sand for mortar and glass: {count} × {item}."
+		],
+		"offer": [
+			"The windows of the {place} are gaping holes, and I have no sand to melt. {count} × {item}, please.",
+			"Mortar wants sand, glass wants sand, and we have none. {count} × {item}?"
+		],
+		"progress": [
+			"The furnace is waiting on that sand.",
+			"Sand, friend. Just sand."
+		],
+		"complete": [
+			"Fine and clean. That will make clear glass.",
+			"Perfect. The {place} will have windows yet."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

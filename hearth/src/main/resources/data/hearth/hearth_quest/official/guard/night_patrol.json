@@ -1,0 +1,54 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"jailer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "kill",
+			"entity": "monster",
+			"count": [
+				6,
+				10
+			],
+			"night": true,
+			"label": "Walk the night patrol: kill {count} {mob} near {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"The night patrol",
+			"A turn on the watch"
+		],
+		"summary": [
+			"The guard captain of {settlement} is short of hands for the night watch."
+		],
+		"offer": [
+			"Half my watch is down with a fever and the other half is drinking it off. Walk the patrol with us tonight and kill what comes near the walls."
+		],
+		"progress": [
+			"Long night, isn't it?"
+		],
+		"complete": [
+			"You fought well. Come and see me again — I have work for someone who can handle themselves."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			60
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/official_guard"
+	},
+	"deadline_days": 2,
+	"cooldown_days": 2,
+	"repeatable": false
+}

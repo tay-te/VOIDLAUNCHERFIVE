@@ -1,0 +1,74 @@
+{
+	"type": "law",
+	"weight": 6,
+	"when": {
+		"min_tier": "village",
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"judge",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "apprehend",
+			"entities": [
+				"minecraft:vindicator",
+				"minecraft:pillager"
+			],
+			"names": [
+				"Black Aldous",
+				"Red Wenna",
+				"Corvin the Knife",
+				"Mad Hob",
+				"Gerta Ironhand"
+			],
+			"distance": [
+				110,
+				240
+			],
+			"health": 2.0,
+			"lethal": true,
+			"radius": 36,
+			"label": "Bring in {name}, dead or alive ({direction}, {distance})",
+			"grant": {
+				"item": "minecraft:paper",
+				"name": "The warrant for {name}",
+				"lore": "Sealed by the court of {settlement}",
+				"required": false
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"Wanted, dead or alive: {name}",
+			"The warrant for {name}"
+		],
+		"summary": [
+			"The court of {settlement} has a warrant out for {name}, who hides {distance} to the {direction}. Alive pays better."
+		],
+		"offer": [
+			"{name} has a hanging owed and a camp {distance} {direction} of here. Bring them in alive and the court pays in full; dead, half. Your choice — theirs, really."
+		],
+		"progress": [
+			"Still at large, then?"
+		],
+		"complete": [
+			"The court thanks you. Justice is served."
+		]
+	},
+	"reward": {
+		"coin": [
+			120,
+			200
+		],
+		"alive_bonus": 2.0,
+		"reputation": 10,
+		"deed": "hearth:quest/outlaw_brought_in"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 5
+}

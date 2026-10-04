@@ -128,6 +128,45 @@ public final class Objective {
 		public static final String RECIPIENT = "recipient";
 		/** A display name for the target (a structure, a biome, a settlement). */
 		public static final String TARGET_NAME = "target_name";
+		// ---- phase 3
+		/** Supply/contract: the workshop job a contract supplies (empty for a stalled build). */
+		public static final String SOURCE = "source";
+		/** The settlement happening ({@code SettlementQuests.Happening#id}) the objective answers. */
+		public static final String HAPPENING = "happening";
+		/** Ambush: the band is raised partway along the road from {@code pos} to {@code ROUTE_TO}, at this fraction. */
+		public static final String ALONG = "along";
+		public static final String ROUTE_TO = "route_to";
+		public static final String ROUTE_FROM = "route_from";
+		/** Ambush: where the band was raised. */
+		public static final String SPRUNG_AT = "sprung_at";
+		/** Ambush/apprehend: the creatures have been raised; their UUIDs. */
+		public static final String SPRUNG = "sprung";
+		public static final String MEMBERS = "members";
+		/** Ambush: entity ids to raise, comma-separated (the target holds the same). */
+		public static final String ENTITIES = "entities";
+		/** Ambush/apprehend: only raised after dark. */
+		public static final String AT_NIGHT = "at_night";
+		/** Apprehend: the culprit was taken alive (true) or killed (false); absent while at large. */
+		public static final String ALIVE = "alive";
+		/** Apprehend: killing the culprit also counts. */
+		public static final String LETHAL = "lethal";
+		/** Ambush/escort: killing these creatures is this crime ({@code LawService.Offence} name), reported to the law. */
+		public static final String CRIME = "crime";
+		/** Ambush/escort: what they carry, in bits (sets the fine when it is a crime). */
+		public static final String VALUE = "value";
+		/** Escort: pack animals in the caravan (1 for a lone mule). */
+		public static final String CARAVAN = "caravan";
+		/** Escort/ambush: the pack animals carry cargo chests of this goods name. */
+		public static final String CARGO = "cargo";
+		/** Rescue: checks to stay at the place; checks stayed so far. */
+		public static final String HOLD = "hold";
+		public static final String HELD = "held";
+		/** Extinguish: the most fires seen burning at once near the place. */
+		public static final String FIRES = "fires";
+		/** Prospect: the resource kind ({@code ResourceSite.Kind} name). */
+		public static final String RESOURCE = "resource";
+		/** Hunt: the hunted player's name. */
+		public static final String QUARRY = "quarry";
 
 		private Keys() {
 		}

@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"dye"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"dyer",
+			"tailor",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Dye for the {place}",
+			"Colour for the hangings"
+		],
+		"summary": [
+			"The hangings of the {place} in {settlement} are grey as ash. Bring {count} × {item}.",
+			"{settlement} wants {count} × {item} for its dyers."
+		],
+		"offer": [
+			"The vats are empty and the {place} wants its colours. {count} × {item}?",
+			"A banner is nothing without its colour. {count} × {item}, please."
+		],
+		"progress": [
+			"The vats are still clear.",
+			"Any dye?"
+		],
+		"complete": [
+			"What a colour. Thank you.",
+			"The {place} will be bright for the feast."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

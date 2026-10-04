@@ -1,0 +1,55 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"produce"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"farmer",
+			"baker",
+			"innkeeper",
+			"builder"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Produce for the market",
+			"Something green"
+		],
+		"summary": [
+			"The market of {settlement} has nothing fresh, and the crew of the {place} is sickening. Bring {count} × {item}.",
+			"{settlement} wants {count} × {item}."
+		],
+		"offer": [
+			"Bread and meat will not keep a crew well all season. {count} × {item}, please.",
+			"The gardens failed this year. {count} × {item}?"
+		],
+		"progress": [
+			"Still nothing fresh.",
+			"Any greens?"
+		],
+		"complete": [
+			"Fresh and good. Thank you.",
+			"The crew will be glad of it."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

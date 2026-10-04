@@ -1,0 +1,73 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/priest/altar_candles"
+		],
+		"min_title": "friend"
+	},
+	"giver": {
+		"jobs": [
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "reach",
+			"distance": [
+				700,
+				1200
+			],
+			"radius": 8,
+			"names": [
+				"the ruined abbey",
+				"the saint's cairn",
+				"the drowned chapel"
+			],
+			"grant": {
+				"item": "minecraft:amethyst_shard",
+				"name": "The relic of {target}",
+				"lore": "Lost a hundred years, found by a friend of {settlement}",
+				"required": true
+			},
+			"label": "Recover the relic from {target}, {direction} of {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"The lost relic",
+			"What was taken from the chapel"
+		],
+		"summary": [
+			"A relic of the chapel of {settlement} was carried to {target} in a bad year and never came back. The priest asks a trusted friend to fetch it."
+		],
+		"offer": [
+			"A hundred years ago, in the plague, the relic was carried to {target} and left there with the dead. Bring it home. I would not ask anyone I did not trust."
+		],
+		"progress": [
+			"The relic is still far away."
+		],
+		"complete": [
+			"Home at last. You will be remembered in our prayers as long as the chapel stands."
+		]
+	},
+	"reward": {
+		"coin": [
+			120,
+			200
+		],
+		"reputation": 12,
+		"deed": "hearth:quest/official_priest",
+		"items": [
+			{
+				"item": "minecraft:golden_apple",
+				"count": 1
+			}
+		]
+	},
+	"deadline_days": 8,
+	"cooldown_days": 2,
+	"repeatable": false
+}

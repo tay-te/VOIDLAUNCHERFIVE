@@ -96,7 +96,7 @@ public final class QuestTracker {
 			if (q.status != QuestStatus.ACTIVE) {
 				continue;
 			}
-			boolean changed = false;
+			boolean changed = takeAway(level, q);
 			if (level.dimension() == Level.OVERWORLD) {
 				for (Objective o : QuestProgress.onPosition(q, pos, biome -> inBiome(level, pos, biome))) {
 					changed = true;
@@ -115,6 +115,11 @@ public final class QuestTracker {
 						changed |= state != EscortState.UNCHANGED;
 					}
 					case SCOUT -> changed |= scout(level, player, q, o, pos);
+					case AMBUSH -> changed |= ambush(level, player, q, o, pos);
+					case APPREHEND -> changed |= apprehend(level, player, q, o, pos);
+					case RESCUE -> changed |= rescue(level, player, q, o, pos);
+					case EXTINGUISH -> changed |= extinguish(level, player, q, o, pos);
+					case PROSPECT -> changed |= prospect(level, player, q, o, pos);
 					default -> {
 					}
 				}
@@ -213,6 +218,18 @@ public final class QuestTracker {
 			return EscortState.MOVED;
 		}
 		o.complete();
+		for (Objective other : q.objectives) {
+			// highwaymen waiting further along a road the caravan never took never came: the road was safe
+			if (other.kind == ObjectiveKind.AMBUSH && !other.done() && other.data.contains(Objective.Keys.ROUTE_TO)
+				&& !other.data.getBooleanOr(Objective.Keys.SPRUNG, false)) {
+				other.complete();
+			}
+		}
+		for (UUID id : QuestSpawns.members(o)) {
+			if (level.getEntity(id) instanceof net.minecraft.world.entity.Leashable leashable && leashable.isLeashed()) {
+				leashable.dropLeash();
+			}
+		}
 		if (e instanceof net.minecraft.world.entity.Leashable leashable && leashable.isLeashed()) {
 			leashable.dropLeash();
 		}
@@ -271,25 +288,46 @@ public final class QuestTracker {
 		return true;
 	}
 
-	/** Kills toward bounties; a dead escort fails its quest; a dead beast completes its slayer's. */
+	/**
+	 * Kills toward bounties; a dead escort fails its quest (a caravan's follower costs part of the reward); a dead beast
+	 * completes its slayer's; an ambush's members count down; a culprit killed counts only if the quest allows it; an
+	 * outlaw player killed completes a hunt. Killing a caravan's animals is reported to the law as robbery.
+	 */
 	public static void onDeath(LivingEntity entity, DamageSource source) {
 		if (!(entity.level() instanceof ServerLevel level)) {
 			return;
 		}
 		MinecraftServer server = level.getServer();
+		ServerPlayer killerPlayer = source.getEntity() instanceof ServerPlayer p ? p : null;
 		if (entity.entityTags().contains(QuestSpawns.TAG)) {
 			Optional<UUID> quest = QuestSpawns.questOf(entity);
 			Optional<UUID> owner = QuestSpawns.ownerOf(entity);
 			ServerPlayer player = owner.map(id -> server.getPlayerList().getPlayer(id)).orElse(null);
+			if (killerPlayer != null && quest.isPresent()) {
+				reportKill(level, killerPlayer, entity, player, quest.get());
+			}
 			if (player != null && quest.isPresent()) {
 				if (entity.entityTags().contains(QuestSpawns.ROLE_ESCORT)) {
-					QuestManager.fail(player, quest.get(), Component.translatable("hearth.quest.reason.killed", entity.getName()));
+					if (entity.entityTags().contains(QuestSpawns.FOLLOWER)) {
+						followerLost(player, quest.get(), entity);
+					} else {
+						QuestManager.fail(player, quest.get(), Component.translatable("hearth.quest.reason.killed", entity.getName()));
+					}
 					return;
 				}
 				if (entity.entityTags().contains(QuestSpawns.ROLE_BEAST)) {
 					beastSlain(player, quest.get());
 				}
+				if (entity.entityTags().contains(QuestSpawns.ROLE_AMBUSH)) {
+					memberDown(player, quest.get(), entity.getUUID());
+				}
+				if (entity.entityTags().contains(QuestSpawns.ROLE_CULPRIT)) {
+					culpritKilled(player, quest.get(), entity);
+				}
 			}
+		}
+		if (entity instanceof ServerPlayer victim && killerPlayer != null && killerPlayer != victim) {
+			hunted(killerPlayer, victim);
 		}
 		if (!(source.getEntity() instanceof ServerPlayer killer)) {
 			return;
@@ -343,6 +381,454 @@ public final class QuestTracker {
 				o.complete();
 			}
 		}
+		QuestStatus settled = QuestProgress.settle(q);
+		if (settled == QuestStatus.COMPLETED) {
+			QuestManager.complete(owner, pq, q);
+		} else if (settled == QuestStatus.READY) {
+			QuestManager.readyNotice(owner, q);
+		}
+		owner.setAttached(QuestStore.PLAYER, pq);
+	}
+
+	// ------------------------------------------------------------------ the living world (phase 3)
+
+	/**
+	 * An ambush: raised when the player comes within its radius (after dark if it waits for night) — or, on the road to an
+	 * escort's destination, once the player is past its point along the way — and raised again where it was if the band
+	 * vanished (the player went away and its chunks unloaded) before it was beaten.
+	 */
+	private static boolean ambush(ServerLevel level, ServerPlayer player, QuestInstance q, Objective o, BlockPos pos) {
+		if (o.pos == null || level.dimension() != Level.OVERWORLD) {
+			return false;
+		}
+		int r = Math.max(24, o.radius);
+		if (!o.data.getBooleanOr(Objective.Keys.SPRUNG, false)) {
+			if (o.data.getBooleanOr(Objective.Keys.AT_NIGHT, false) && !level.isDarkOutside()) {
+				return false;
+			}
+			BlockPos at = null;
+			if (QuestProgress.horizontalDistSq(o.pos, pos) <= (double) r * r) {
+				at = new BlockPos(o.pos.getX(), pos.getY(), o.pos.getZ());
+			} else if (o.data.contains(Objective.Keys.ROUTE_TO)) {
+				at = alongRoute(o, pos);
+			}
+			if (at == null) {
+				return false;
+			}
+			if (QuestSpawns.spawnGroup(level, player, q, o, at, o.remaining()) == 0) {
+				return false;
+			}
+			o.data.putLong(Objective.Keys.SPRUNG_AT, at.asLong());
+			player.sendSystemMessage(Component.translatable("hearth.quest.ambush", o.data.getStringOr(Objective.Keys.TARGET_NAME, "?"))
+				.withStyle(ChatFormatting.DARK_RED, ChatFormatting.ITALIC));
+			return true;
+		}
+		for (UUID id : QuestSpawns.members(o)) {
+			Entity e = level.getEntity(id);
+			if (e != null && e.isAlive()) {
+				o.data.putInt(MISSES, 0);
+				return false;
+			}
+		}
+		BlockPos at = BlockPos.of(o.data.getLongOr(Objective.Keys.SPRUNG_AT, o.pos.asLong()));
+		if (QuestProgress.horizontalDistSq(at, pos) > (double) r * r || !level.hasChunkAt(at)) {
+			return false;
+		}
+		int misses = o.data.getIntOr(MISSES, 0) + 1;
+		o.data.putInt(MISSES, misses);
+		if (misses < ESCORT_MISSES) {
+			return true;
+		}
+		o.data.putInt(MISSES, 0);
+		QuestSpawns.spawnGroup(level, player, q, o, at, o.remaining());
+		return true;
+	}
+
+	/**
+	 * Where on the road an ambush springs: once the player has come {@code along} of the way from the town toward the
+	 * destination (within 160 blocks of the straight road), a little ahead of them. Null while they are short of it.
+	 */
+	static @org.jspecify.annotations.Nullable BlockPos alongRoute(Objective o, BlockPos pos) {
+		BlockPos from = BlockPos.of(o.data.getLongOr(Objective.Keys.ROUTE_FROM, o.pos == null ? 0L : o.pos.asLong()));
+		BlockPos to = BlockPos.of(o.data.getLongOr(Objective.Keys.ROUTE_TO, 0L));
+		double dx = to.getX() - from.getX();
+		double dz = to.getZ() - from.getZ();
+		double len2 = dx * dx + dz * dz;
+		if (len2 < 1) {
+			return null;
+		}
+		double px = pos.getX() - from.getX();
+		double pz = pos.getZ() - from.getZ();
+		double t = (px * dx + pz * dz) / len2;
+		double off = Math.abs(px * dz - pz * dx) / Math.sqrt(len2);
+		if (t < o.data.getDoubleOr(Objective.Keys.ALONG, 0.5) || t > 0.98 || off > 160) {
+			return null;
+		}
+		double len = Math.sqrt(len2);
+		return new BlockPos(pos.getX() + (int) Math.round(dx / len * 20), pos.getY(), pos.getZ() + (int) Math.round(dz / len * 20));
+	}
+
+	/** A culprit: raised at its place when the player comes near (after dark if it keeps to the night). */
+	private static boolean apprehend(ServerLevel level, ServerPlayer player, QuestInstance q, Objective o, BlockPos pos) {
+		if (o.pos == null || level.dimension() != Level.OVERWORLD) {
+			return false;
+		}
+		int r = Math.max(16, o.radius);
+		if (QuestProgress.horizontalDistSq(o.pos, pos) > (double) r * r) {
+			return false;
+		}
+		if (o.data.getBooleanOr(Objective.Keys.AT_NIGHT, false) && !level.isDarkOutside()) {
+			return false;
+		}
+		if (o.data.getBooleanOr(Objective.Keys.SPAWNED, false) && o.entity != null && level.getEntity(o.entity) != null) {
+			return false;
+		}
+		if (QuestSpawns.spawnCulprit(level, player, q, o) != null) {
+			player.sendSystemMessage(Component.translatable("hearth.quest.culprit", o.data.getStringOr(Objective.Keys.NAME, "?"))
+				.withStyle(ChatFormatting.RED, ChatFormatting.ITALIC));
+			return true;
+		}
+		return false;
+	}
+
+	/** A culprit who yielded is taken away by the watch at the next check (it was the quest's own creature). */
+	private static boolean takeAway(ServerLevel level, QuestInstance q) {
+		boolean changed = false;
+		for (Objective o : q.objectives) {
+			if (o.kind != ObjectiveKind.APPREHEND || !o.done() || o.entity == null) {
+				continue;
+			}
+			Entity e = level.getEntity(o.entity);
+			if (e != null && e.entityTags().contains(QuestSpawns.YIELDED)) {
+				e.discard();
+				changed = true;
+			}
+		}
+		return changed;
+	}
+
+	/** Digging out the trapped: time spent at the place with a pickaxe or shovel in hand. */
+	private static boolean rescue(ServerLevel level, ServerPlayer player, QuestInstance q, Objective o, BlockPos pos) {
+		if (o.pos == null || !QuestProgress.near(o.pos, pos, Math.max(4, o.radius))) {
+			return false;
+		}
+		net.minecraft.world.item.ItemStack hand = player.getMainHandItem();
+		if (!hand.is(net.minecraft.tags.ItemTags.PICKAXES) && !hand.is(net.minecraft.tags.ItemTags.SHOVELS)) {
+			player.sendSystemMessage(Component.translatable("hearth.quest.rescue.tool").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		int held = o.data.getIntOr(Objective.Keys.HELD, 0) + QuestManager.config().trackerInterval();
+		int need = Math.max(1, o.data.getIntOr(Objective.Keys.HOLD, 30)) * 20;
+		o.data.putInt(Objective.Keys.HELD, held);
+		level.playSound(null, pos, net.minecraft.sounds.SoundEvents.GRAVEL_BREAK, net.minecraft.sounds.SoundSource.BLOCKS, 0.8F, 0.9F);
+		if (held >= need) {
+			o.complete();
+			player.sendSystemMessage(Component.translatable("hearth.quest.rescue.done", o.data.getStringOr(Objective.Keys.TARGET_NAME, "?"))
+				.withStyle(ChatFormatting.GREEN));
+		} else {
+			player.sendSystemMessage(Component.translatable("hearth.quest.rescue.digging", held * 100 / need).withStyle(ChatFormatting.GOLD), true);
+		}
+		return true;
+	}
+
+	/** The bucket brigade: the fires in the burning plot's box, counted while the player is there; done when none are left. */
+	private static boolean extinguish(ServerLevel level, ServerPlayer player, QuestInstance q, Objective o, BlockPos pos) {
+		if (o.pos == null || level.dimension() != Level.OVERWORLD) {
+			return false;
+		}
+		int r = Math.max(16, o.radius);
+		if (QuestProgress.horizontalDistSq(o.pos, pos) > (double) r * r) {
+			return false;
+		}
+		BlockPos min = BlockPos.of(o.data.getLongOr(Objective.Keys.BOX_MIN, o.pos.offset(-12, -6, -12).asLong()));
+		BlockPos max = BlockPos.of(o.data.getLongOr(Objective.Keys.BOX_MAX, o.pos.offset(12, 16, 12).asLong()));
+		int fires = Fires.count(level, min, max);
+		if (fires < 0) {
+			return false;
+		}
+		int seen = Math.max(o.data.getIntOr(Objective.Keys.FIRES, 0), fires);
+		boolean changed = seen != o.data.getIntOr(Objective.Keys.FIRES, 0);
+		o.data.putInt(Objective.Keys.FIRES, seen);
+		if (fires == 0) {
+			o.complete();
+			player.sendSystemMessage(Component.translatable("hearth.quest.fire.out", o.data.getStringOr(Objective.Keys.TARGET_NAME, "?"))
+				.withStyle(ChatFormatting.GREEN));
+			return true;
+		}
+		player.sendSystemMessage(Component.translatable("hearth.quest.fire.left", fires).withStyle(ChatFormatting.GOLD), true);
+		return changed;
+	}
+
+	/**
+	 * Prospecting: in the distance band from the town and outside every town, the blocks in a small cube round the player
+	 * show enough of the resource (a rock face, ore in a cave wall, clay in a river bed).
+	 */
+	private static boolean prospect(ServerLevel level, ServerPlayer player, QuestInstance q, Objective o, BlockPos pos) {
+		if (level.dimension() != Level.OVERWORLD || !QuestProgress.inScoutBand(o, pos) || QuestWorlds.at(level, pos) != null) {
+			return false;
+		}
+		dev.voidmc.hearth.api.ResourceSite.Kind kind = null;
+		for (dev.voidmc.hearth.api.ResourceSite.Kind k : dev.voidmc.hearth.api.ResourceSite.Kind.values()) {
+			if (k.getSerializedName().equals(o.data.getStringOr(Objective.Keys.RESOURCE, o.target))) {
+				kind = k;
+			}
+		}
+		dev.voidmc.hearth.quest.gen.Prospecting.Rule rule = kind == null ? null : dev.voidmc.hearth.quest.gen.Prospecting.rule(kind);
+		if (rule == null) {
+			return false;
+		}
+		int r = rule.radius();
+		if (!level.hasChunksAt(pos.getX() - r - 1, pos.getZ() - r - 1, pos.getX() + r + 1, pos.getZ() + r + 1)) {
+			return false;
+		}
+		int matching = 0;
+		int exposed = 0;
+		BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
+		BlockPos.MutableBlockPos side = new BlockPos.MutableBlockPos();
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dy = -r; dy <= r / 2; dy++) {
+					at.set(pos.getX() + dx, pos.getY() + dy, pos.getZ() + dz);
+					if (!rule.matches().test(level.getBlockState(at))) {
+						continue;
+					}
+					matching++;
+					for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) {
+						side.setWithOffset(at, d);
+						if (level.getBlockState(side).isAir()) {
+							exposed++;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (!dev.voidmc.hearth.quest.gen.Prospecting.found(rule, matching, exposed)) {
+			return false;
+		}
+		o.complete();
+		o.data.putLong(Objective.Keys.FOUND, pos.asLong());
+		player.sendSystemMessage(Component.translatable("hearth.quest.prospect.found", o.data.getStringOr(Objective.Keys.TARGET_NAME, "?"))
+			.withStyle(ChatFormatting.GREEN));
+		return true;
+	}
+
+	/** One of an ambush's band is down (by anyone's hand): its objective counts it. */
+	private static void memberDown(ServerPlayer owner, UUID questId, UUID member) {
+		PlayerQuests pq = QuestStore.get(owner).copy();
+		QuestInstance q = pq.get(questId);
+		if (q == null) {
+			return;
+		}
+		boolean changed = false;
+		for (Objective o : q.objectives) {
+			if (o.kind == ObjectiveKind.AMBUSH && !o.done() && QuestSpawns.members(o).contains(member)) {
+				changed |= o.advance(1) > 0;
+				owner.sendSystemMessage(Component.literal(o.label + " (" + o.progress + "/" + o.count + ")").withStyle(ChatFormatting.GRAY), true);
+				if (o.done()) {
+					// what the band carried (a caravan's stolen cargo) is the victor's to bring back
+					grant(owner, q, o);
+				}
+			}
+		}
+		if (changed) {
+			settleAndAttach(owner, pq, q);
+		}
+	}
+
+	/** The culprit died: with a dead-or-alive warrant it counts (at the smaller reward); otherwise the quest fails. */
+	private static void culpritKilled(ServerPlayer owner, UUID questId, Entity culprit) {
+		PlayerQuests pq = QuestStore.get(owner).copy();
+		QuestInstance q = pq.get(questId);
+		if (q == null) {
+			return;
+		}
+		for (Objective o : q.objectives) {
+			if (o.kind != ObjectiveKind.APPREHEND || o.done()) {
+				continue;
+			}
+			if (!o.data.getBooleanOr(Objective.Keys.LETHAL, false)) {
+				QuestManager.fail(owner, questId, Component.translatable("hearth.quest.reason.culprit_dead", culprit.getName()));
+				return;
+			}
+			o.complete();
+			o.data.putBoolean(Objective.Keys.ALIVE, false);
+			grant(owner, q, o);
+			owner.sendSystemMessage(Component.translatable("hearth.quest.culprit.dead", culprit.getName()).withStyle(ChatFormatting.GOLD));
+		}
+		settleAndAttach(owner, pq, q);
+	}
+
+	/**
+	 * A culprit about to fall yields instead (unless the blow would kill outright on a dead-or-alive warrant): it stops,
+	 * drops its weapon hand, and the watch takes it away at the next check. Returns false to cancel the damage.
+	 */
+	public static boolean onDamage(LivingEntity entity, DamageSource source, float amount) {
+		if (!entity.entityTags().contains(QuestSpawns.ROLE_CULPRIT) || !(entity.level() instanceof ServerLevel level)) {
+			return true;
+		}
+		if (entity.entityTags().contains(QuestSpawns.YIELDED)) {
+			return false;
+		}
+		if (entity.getHealth() - amount > entity.getMaxHealth() * 0.25F) {
+			return true;
+		}
+		Optional<UUID> quest = QuestSpawns.questOf(entity);
+		ServerPlayer owner = QuestSpawns.ownerOf(entity).map(id -> level.getServer().getPlayerList().getPlayer(id)).orElse(null);
+		if (owner == null || quest.isEmpty()) {
+			return true;
+		}
+		PlayerQuests pq = QuestStore.get(owner).copy();
+		QuestInstance q = pq.get(quest.get());
+		if (q == null) {
+			return true;
+		}
+		Objective target = null;
+		for (Objective o : q.objectives) {
+			if (o.kind == ObjectiveKind.APPREHEND && !o.done() && entity.getUUID().equals(o.entity)) {
+				target = o;
+			}
+		}
+		if (target == null) {
+			return true;
+		}
+		if (target.data.getBooleanOr(Objective.Keys.LETHAL, false) && amount >= entity.getHealth()) {
+			// a killing blow on a dead-or-alive warrant kills
+			return true;
+		}
+		entity.addTag(QuestSpawns.YIELDED);
+		if (entity instanceof net.minecraft.world.entity.Mob mob) {
+			mob.setNoAi(true);
+			mob.setTarget(null);
+		}
+		entity.setHealth(Math.max(1F, entity.getHealth()));
+		target.complete();
+		target.data.putBoolean(Objective.Keys.ALIVE, true);
+		grant(owner, q, target);
+		Component name = entity.getName();
+		owner.sendSystemMessage(Component.translatable("hearth.quest.culprit.yields", name).withStyle(ChatFormatting.GREEN));
+		if (source.getEntity() instanceof ServerPlayer hitter && hitter != owner) {
+			hitter.sendSystemMessage(Component.translatable("hearth.quest.culprit.yields", name).withStyle(ChatFormatting.GREEN));
+		}
+		settleAndAttach(owner, pq, q);
+		return false;
+	}
+
+	/** A caravan animal behind the leader is lost: its share of the reward goes back to the treasury. */
+	private static void followerLost(ServerPlayer owner, UUID questId, Entity animal) {
+		PlayerQuests pq = QuestStore.get(owner).copy();
+		QuestInstance q = pq.get(questId);
+		if (q == null) {
+			return;
+		}
+		int size = 1;
+		for (Objective o : q.objectives) {
+			if (o.kind == ObjectiveKind.ESCORT) {
+				size = Math.max(size, o.data.getIntOr(Objective.Keys.CARAVAN, 1));
+			}
+		}
+		long share = q.escrow / Math.max(1, size);
+		Settlement s = QuestWorlds.byId(owner.level().getServer(), q.settlementId);
+		if (s != null && share > 0) {
+			s.deposit(share);
+			s.markDirty();
+		}
+		q.escrow -= share;
+		q.reward = dev.voidmc.hearth.quest.gen.RewardText.withText(q.reward.withCoin(q.escrow), GameFactsImpl.INSTANCE);
+		owner.sendSystemMessage(Component.translatable("hearth.quest.caravan.lost_one", animal.getName()).withStyle(ChatFormatting.RED));
+		owner.setAttached(QuestStore.PLAYER, pq);
+	}
+
+	/** A player killed a wanted player: every hunt of theirs for that player is done. */
+	private static void hunted(ServerPlayer hunter, ServerPlayer quarry) {
+		PlayerQuests current = QuestStore.get(hunter);
+		if (current.active.isEmpty()) {
+			return;
+		}
+		PlayerQuests pq = current.copy();
+		boolean changed = false;
+		List<QuestInstance> done = new ArrayList<>();
+		for (QuestInstance q : pq.active) {
+			for (Objective o : q.currentObjectives()) {
+				if (o.kind == ObjectiveKind.HUNT && quarry.getUUID().equals(o.entity)) {
+					o.complete();
+					changed = true;
+					hunter.sendSystemMessage(Component.translatable("hearth.quest.hunt.done", quarry.getName()).withStyle(ChatFormatting.GOLD));
+				}
+			}
+			if (changed) {
+				QuestStatus settled = QuestProgress.settle(q);
+				if (settled == QuestStatus.COMPLETED) {
+					done.add(q);
+				} else if (settled == QuestStatus.READY) {
+					QuestManager.readyNotice(hunter, q);
+				}
+			}
+		}
+		for (QuestInstance q : done) {
+			QuestManager.complete(hunter, pq, q);
+		}
+		if (changed) {
+			hunter.setAttached(QuestStore.PLAYER, pq);
+		}
+	}
+
+	/**
+	 * Killing a quest's creature that is somebody's property — a caravan's pack animal, a robbery's target — is robbery,
+	 * reported to the law. A drover still standing near is a witness.
+	 */
+	private static void reportKill(ServerLevel level, ServerPlayer killer, LivingEntity victim, @org.jspecify.annotations.Nullable ServerPlayer owner,
+		UUID questId) {
+		boolean escort = victim.entityTags().contains(QuestSpawns.ROLE_ESCORT);
+		if (!escort && !victim.entityTags().contains(QuestSpawns.CRIMINAL)) {
+			return;
+		}
+		if (!QuestManager.config().living().reportCrimes()) {
+			return;
+		}
+		QuestInstance q = owner == null ? null : QuestStore.get(owner).get(questId);
+		if (q == null) {
+			return;
+		}
+		Objective o = null;
+		for (Objective x : q.objectives) {
+			if ((x.kind == ObjectiveKind.ESCORT || x.kind == ObjectiveKind.AMBUSH) && !x.data.getStringOr(Objective.Keys.CRIME, "").isEmpty()
+				&& (victim.getUUID().equals(x.entity) || QuestSpawns.members(x).contains(victim.getUUID()))) {
+				o = x;
+			}
+		}
+		if (o == null) {
+			return;
+		}
+		dev.voidmc.hearth.api.LawService.Offence offence = LawBridge.offence(o.data.getStringOr(Objective.Keys.CRIME, ""));
+		Settlement s = QuestWorlds.byId(level.getServer(), escort ? q.settlementId : o.settlement);
+		if (offence == null || s == null) {
+			return;
+		}
+		boolean drover = false;
+		for (UUID id : QuestSpawns.members(o)) {
+			Entity e = level.getEntity(id);
+			if (e instanceof net.minecraft.world.entity.npc.wanderingtrader.WanderingTrader && e.isAlive() && e.distanceTo(killer) < 32) {
+				drover = true;
+			}
+		}
+		int size = Math.max(1, Math.max(o.count, o.data.getIntOr(Objective.Keys.CARAVAN, 1)));
+		LawBridge.report(offence, killer, s, victim.blockPosition(), null, o.data.getLongOr(Objective.Keys.VALUE, 0L) / size, drover);
+	}
+
+	/** Gives the item an objective grants (stolen goods recovered from a culprit). */
+	private static void grant(ServerPlayer player, QuestInstance q, Objective o) {
+		String item = o.data.getStringOr(Objective.Keys.GRANT_ITEM, "");
+		Identifier id = item.isEmpty() ? null : Identifier.tryParse(item);
+		if (id != null) {
+			String name = o.data.getStringOr(Objective.Keys.GRANT_NAME, "");
+			QuestItems.give(player, QuestItems.make(id, name, o.data.getStringOr(Objective.Keys.GRANT_LORE, ""), q.id, QuestItems.ROLE_GRANT));
+			player.sendSystemMessage(Component.translatable("hearth.quest.found", Component.literal(name).withStyle(ChatFormatting.GOLD))
+				.withStyle(ChatFormatting.GREEN));
+		}
+	}
+
+	private static void settleAndAttach(ServerPlayer owner, PlayerQuests pq, QuestInstance q) {
 		QuestStatus settled = QuestProgress.settle(q);
 		if (settled == QuestStatus.COMPLETED) {
 			QuestManager.complete(owner, pq, q);

@@ -1,0 +1,61 @@
+{
+	"type": "disaster",
+	"weight": 8,
+	"when": {
+		"trigger": "none",
+		"requires": [
+			"damaged"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"carpenter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:oak_log",
+				"minecraft:spruce_log",
+				"minecraft:cobblestone",
+				"minecraft:stone"
+			],
+			"count": [
+				32,
+				48
+			],
+			"label": "Bring {count} × {item} for the repairs"
+		}
+	],
+	"text": {
+		"title": [
+			"Mending {settlement}",
+			"After the damage"
+		],
+		"summary": [
+			"{settlement} has broken buildings to mend. {giver} needs {count} × {item} for the repairs."
+		],
+		"offer": [
+			"We will put every stone back where it was, but we have run through our stores doing it. {count} × {item} would help."
+		],
+		"progress": [
+			"The scaffolds are still up."
+		],
+		"complete": [
+			"Thank you. The town will look itself again soon."
+		]
+	},
+	"reward": {
+		"coin": [
+			25,
+			50
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/repairs_supplied"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2
+}

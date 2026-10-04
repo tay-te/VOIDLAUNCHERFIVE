@@ -1,0 +1,54 @@
+{
+	"type": "supply",
+	"weight": 10,
+	"when": {
+		"goods": [
+			"logs"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"carpenter",
+			"forester"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "$goods_item",
+			"count": "$missing"
+		}
+	],
+	"text": {
+		"title": [
+			"Logs for the {place}",
+			"The saw stands idle"
+		],
+		"summary": [
+			"The {place} in {settlement} waits on timber: {giver} needs {count} × {item}, whole and unsplit, for the saw.",
+			"There is no timber in the yard of {settlement} for its {place}. Bring {count} × {item}."
+		],
+		"offer": [
+			"We have the frame of the {place} drawn out on the ground and not a log to cut it from. {count} × {item}, if you can fell them — I pay above market.",
+			"The foresters are behind and the {place} will not wait. Could you bring {count} × {item}?"
+		],
+		"progress": [
+			"The sawpit is empty still.",
+			"Logs, friend. The saw wants feeding."
+		],
+		"complete": [
+			"Good straight timber. The {place} will have its beams by the week's end.",
+			"That fills the yard nicely. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			8,
+			18
+		],
+		"reputation": 4,
+		"deed": "hearth:quest/supplied_build"
+	},
+	"cooldown_days": 0
+}

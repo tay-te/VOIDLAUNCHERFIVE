@@ -1,0 +1,71 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/guard/night_patrol"
+		],
+		"min_title": "known",
+		"requires": [
+			"crime"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"jailer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "apprehend",
+			"entity": "minecraft:wandering_trader",
+			"names": [
+				"Pick the cutpurse",
+				"Nell Quickfingers",
+				"the Magpie",
+				"Wat the Weasel"
+			],
+			"place": "poi:market_stall",
+			"night": true,
+			"radius": 28,
+			"label": "Catch {name} in the market at night, alive",
+			"grant": {
+				"item": "minecraft:bundle",
+				"name": "The stolen goods",
+				"lore": "From the stalls of {settlement}",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The thief in the market",
+			"Catch the thief"
+		],
+		"summary": [
+			"Theft is rife in {settlement}. The guard captain wants the market thief caught — alive."
+		],
+		"offer": [
+			"The stallholders are at my door every morning. There is a thief working the market at night, and the folk say the watch is asleep. Prove them wrong: catch the thief, alive, and bring back what they took."
+		],
+		"progress": [
+			"Any luck in the market?"
+		],
+		"complete": [
+			"Caught! The court will deal with them. You have done the watch proud."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			120
+		],
+		"reputation": 7,
+		"deed": "hearth:quest/official_guard"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 2,
+	"repeatable": false
+}

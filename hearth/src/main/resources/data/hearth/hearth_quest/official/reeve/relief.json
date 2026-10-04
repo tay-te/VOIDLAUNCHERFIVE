@@ -1,0 +1,65 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "hamlet",
+		"prerequisites": [
+			"hearth:official/reeve/charter"
+		],
+		"min_title": "friend",
+		"requires": [
+			"declining"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"reeve",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "pay",
+			"count": [
+				200,
+				400
+			],
+			"label": "Give {count} to the town's relief fund"
+		}
+	],
+	"text": {
+		"title": [
+			"The relief fund",
+			"Hard times for {settlement}"
+		],
+		"summary": [
+			"{settlement} is in decline. The reeve asks its friends to give to the relief fund."
+		],
+		"offer": [
+			"You know how things stand: trade is down and families are packing their carts. I am asking the town's friends — the real ones — to give to the relief fund. Anything."
+		],
+		"progress": [
+			"Every coin keeps a family here."
+		],
+		"complete": [
+			"You have kept families in their homes. {settlement} will remember who stood by it."
+		]
+	},
+	"reward": {
+		"coin": [
+			0,
+			0
+		],
+		"reputation": 16,
+		"deed": "hearth:quest/official_reeve",
+		"items": [
+			{
+				"item": "minecraft:emerald",
+				"count": 1
+			}
+		]
+	},
+	"deadline_days": 0,
+	"cooldown_days": 2,
+	"repeatable": false
+}

@@ -1,0 +1,56 @@
+{
+	"type": "law",
+	"weight": 10,
+	"when": {
+		"wanted": "only",
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"jailer",
+			"judge",
+			"reeve",
+			"guard"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:cobblestone",
+				"minecraft:oak_log",
+				"minecraft:spruce_log"
+			],
+			"count": [
+				48,
+				64
+			],
+			"label": "Haul {count} × {item} for the town's works"
+		}
+	],
+	"text": {
+		"title": [
+			"Labour for the town",
+			"Pay with your back"
+		],
+		"summary": [
+			"You are wanted in {settlement}. {giver} will take labour in place of the fine: haul {count} × {item} for the town's works."
+		],
+		"offer": [
+			"The court will take work in place of coin from those who have none. Haul {count} × {item} to the town's works, and I will see your name struck from the roll."
+		],
+		"progress": [
+			"The pile is not big enough yet."
+		],
+		"complete": [
+			"That is a fair day's labour. Your name is struck from the roll, as far as I can see to it."
+		]
+	},
+	"reward": {
+		"reputation": 8,
+		"deed": "hearth:quest/name_cleared"
+	},
+	"deadline_days": 2,
+	"cooldown_days": 1,
+	"repeatable": true
+}

@@ -1,0 +1,73 @@
+{
+	"type": "caravan",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_robbed"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"trader",
+			"merchant"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				3,
+				5
+			],
+			"health": 1.2,
+			"place": "route",
+			"along": 0.5,
+			"target_name": "the robbers",
+			"label": "Find the robbers' camp on the road to {other} and break it"
+		}
+	],
+	"text": {
+		"title": [
+			"The robbers on the {other} road",
+			"Avenge the caravan"
+		],
+		"summary": [
+			"Bandits robbed the caravan from {other} on the road, {distance} to the {direction}. {giver} wants them found and their camp broken."
+		],
+		"offer": [
+			"They took {cargo} and left the drovers bleeding in the ditch. Their camp is somewhere on the road to {other}, {direction} of here. Break it."
+		],
+		"progress": [
+			"Are the robbers still out there?"
+		],
+		"complete": [
+			"The road to {other} is ours again. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			90,
+			150
+		],
+		"items": [
+			{
+				"item": "minecraft:iron_ingot",
+				"count": [
+					2,
+					5
+				]
+			}
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/bandits_routed"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2
+}

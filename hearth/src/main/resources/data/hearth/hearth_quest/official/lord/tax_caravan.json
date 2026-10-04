@@ -1,0 +1,84 @@
+{
+	"type": "official",
+	"weight": 8,
+	"when": {
+		"min_tier": "town",
+		"prerequisites": [
+			"hearth:official/lord/the_kings_road"
+		],
+		"min_title": "friend"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "escort",
+			"entity": "minecraft:mule",
+			"caravan": 2,
+			"cargo": true,
+			"names": [
+				"the tax mules",
+				"Gold and Silver"
+			],
+			"label": "Bring the tax caravan safe to {target}"
+		},
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				3,
+				4
+			],
+			"radius": 40,
+			"target_name": "thieves after the tax",
+			"label": "Beat off the thieves who wait for it",
+			"place": "route",
+			"along": 0.6
+		}
+	],
+	"text": {
+		"title": [
+			"The tax caravan",
+			"His lordship's silver"
+		],
+		"summary": [
+			"The tax of {settlement} goes to {target} under guard, and the lord wants it guarded by someone he trusts."
+		],
+		"offer": [
+			"The tax goes to {target} this week, and every cutthroat in the county knows it. His lordship will trust it to nobody else. {distance}, {direction}."
+		],
+		"progress": [
+			"Is the tax safe?"
+		],
+		"complete": [
+			"Every coin accounted for. His lordship names you a friend of his house."
+		]
+	},
+	"reward": {
+		"coin": [
+			220,
+			340
+		],
+		"reputation": 14,
+		"deed": "hearth:quest/official_lord",
+		"items": [
+			{
+				"item": "minecraft:gold_ingot",
+				"count": [
+					2,
+					4
+				]
+			}
+		]
+	},
+	"deadline_days": 4,
+	"cooldown_days": 2,
+	"repeatable": false
+}

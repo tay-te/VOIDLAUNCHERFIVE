@@ -1,0 +1,52 @@
+{
+	"type": "disaster",
+	"weight": 8,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"declining"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"merchant",
+			"trader",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier",
+			"recipient": true,
+			"label": "Carry the offer of trade to {recipient} in {target}"
+		}
+	],
+	"text": {
+		"title": [
+			"Trade for {settlement}",
+			"Letters to the merchants of {target}"
+		],
+		"summary": [
+			"{settlement} needs new trade. Carry {giver}'s offer to {recipient} in {target}, {distance} to the {direction}."
+		],
+		"offer": [
+			"Nobody comes to buy any more. I have written to {recipient} in {target} offering our goods cheap — carry the letter, and pray they bite."
+		],
+		"progress": [
+			"Any word from {target}?"
+		],
+		"complete": [
+			"They will send a caravan! You may have saved us."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			60
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/town_aided"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 0
+}

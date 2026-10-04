@@ -1,0 +1,61 @@
+{
+	"type": "disaster",
+	"weight": 10,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"blast"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"builder",
+			"mason",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:cobblestone",
+				"minecraft:stone_bricks",
+				"minecraft:oak_planks",
+				"minecraft:glass"
+			],
+			"count": [
+				24,
+				40
+			],
+			"label": "Bring {count} × {item} to mend the {place}"
+		}
+	],
+	"text": {
+		"title": [
+			"The blast at the {place}",
+			"Mend the {place}"
+		],
+		"summary": [
+			"Something blew a hole in the {place} in {settlement}. {giver} needs {count} × {item} to mend it."
+		],
+		"offer": [
+			"A creeper, they say — walked right up to the {place} and went off. The builders can mend it, but not from nothing: {count} × {item}."
+		],
+		"progress": [
+			"The hole is still there."
+		],
+		"complete": [
+			"That will patch it nicely. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			60
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/repairs_supplied"
+	},
+	"deadline_days": 0,
+	"cooldown_days": 0
+}
