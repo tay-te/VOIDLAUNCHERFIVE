@@ -63,6 +63,9 @@ import org.slf4j.LoggerFactory;
 public final class DevHarness {
 	private static final Logger LOG = LoggerFactory.getLogger("hearth");
 
+	/** Set when the harness has done everything it was asked (the client's living run waits for it). */
+	public static volatile boolean finished;
+
 	private DevHarness() {
 	}
 
@@ -193,6 +196,8 @@ public final class DevHarness {
 		} catch (Throwable t) {
 			LOG.error("[hearth-dev] harness failed", t);
 		}
+		LOG.info("[hearth-dev] harness done");
+		finished = true;
 		if (Boolean.getBoolean("hearth.dev.stop")) {
 			// let unloads of the chunks this run forced settle first: a burst of them at shutdown overflows the stack in
 			// vanilla's mailbox draining

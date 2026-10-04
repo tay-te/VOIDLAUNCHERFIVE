@@ -584,7 +584,6 @@ public final class SimSettlement implements Settlement {
 
 	/** Ticks of an entity's WORK routine that make one abstract worker-day (a folk works about nine hours a day). */
 	private static final double WORK_TICKS_PER_DAY = 9000;
-	private @Nullable List<Poi> poiCache;
 	private int poiCacheKey = -1;
 
 	@Override
@@ -607,36 +606,42 @@ public final class SimSettlement implements Settlement {
 		}
 	}
 
+	/** POIs of the built plots by type, rebuilt when the set of built plots changes (checked at most once a game tick). */
+	private java.util.@Nullable EnumMap<PoiType, List<Poi>> poiByType;
+	private long poiCheckedAt = Long.MIN_VALUE;
+
 	@Override
 	public List<Poi> pois(PoiType type) {
-		// rebuilt only when the set of built plots changes; blueprints are cached by the build module
-		int key = 0;
-		for (SimPlot p : this.plots.values()) {
-			if (p.state == PlotState.BUILT) {
-				key = key * 31 + p.id() + 1;
-			}
-		}
-		if (this.poiCache == null || key != this.poiCacheKey) {
-			List<Poi> all = new ArrayList<>();
+		// other modules ask often (locks, the law's cells, the notice board): the plots are walked at most once a tick, and
+		// the lists are rebuilt only when the set of built plots changes; blueprints are cached by the build module
+		long now = this.ctx == null ? Long.MIN_VALUE : this.ctx.gameTime();
+		if (this.poiByType == null || now != this.poiCheckedAt || now == Long.MIN_VALUE) {
+			this.poiCheckedAt = now;
+			int key = 0;
 			for (SimPlot p : this.plots.values()) {
 				if (p.state == PlotState.BUILT) {
-					try {
-						all.addAll(ctx().blueprints().blueprint(p.spec(), ctx().terrain()).pois());
-					} catch (RuntimeException e) {
-						// an archetype that no longer exists has no points of interest
-					}
+					key = key * 31 + p.id() + 1;
 				}
 			}
-			this.poiCache = all;
-			this.poiCacheKey = key;
-		}
-		List<Poi> out = new ArrayList<>();
-		for (Poi poi : this.poiCache) {
-			if (poi.type() == type) {
-				out.add(poi);
+			if (this.poiByType == null || key != this.poiCacheKey) {
+				java.util.EnumMap<PoiType, List<Poi>> byType = new java.util.EnumMap<>(PoiType.class);
+				for (SimPlot p : this.plots.values()) {
+					if (p.state == PlotState.BUILT) {
+						try {
+							for (Poi poi : ctx().blueprints().blueprint(p.spec(), ctx().terrain()).pois()) {
+								byType.computeIfAbsent(poi.type(), k -> new ArrayList<>()).add(poi);
+							}
+						} catch (RuntimeException e) {
+							// an archetype that no longer exists has no points of interest
+						}
+					}
+				}
+				this.poiByType = byType;
+				this.poiCacheKey = key;
 			}
 		}
-		return out;
+		List<Poi> found = this.poiByType.get(type);
+		return found == null ? new ArrayList<>() : new ArrayList<>(found);
 	}
 
 	private void firePlotAbandoned(SimPlot p, String why) {

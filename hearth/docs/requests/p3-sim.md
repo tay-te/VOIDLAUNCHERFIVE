@@ -5,6 +5,8 @@ each is worked around inside `sim` until the lead merges it.
 
 ## 1. `ResourceSite`: a `material` of its own, and the ore estimate
 
+**Done** (integration 3): `ResourceSite.material` (every site's material; `speciality` now only on SPECIALTY sites) with `oreGrade` and `coalGrade`; `worker` was left out (the kind and `model.json` already name the trade). The planner takes `rock` from `material` on stone, clay and sand sites.
+
 **Why**: §7.2 "local materials" — the planner resolves style palettes against the territory's sites (a birch town builds
 in birch, a limestone town in limestone). The planner needs each site's material: the wood's log, the quarry face's rock,
 the bank's clay or mud, the beach's sand. `ResourceSite.speciality` is documented as "an item id for a land's rarity".
@@ -26,6 +28,8 @@ public record ResourceSite(int id, Kind kind, BlockPos center, BoundingBox area,
 ```
 
 ## 2. `Settlement`: prosperity, carrying capacity, houses left empty
+
+**Done** (integration 3): `Settlement.prosperity/fortunes/fortunesWhy/carryingCapacity/deserted`, implemented from `LandState`. The planner's carrying capacity is the sim's; `Upgrades` never rebuilds a deserted plot.
 
 **Why**: the planner should build finer in a boom and leave a declining town alone; quests and dialogue want "the mine
 ran out, folk are leaving"; the build module's decay look needs to know which `ABANDONED` plots were left empty in a
@@ -50,6 +54,8 @@ default boolean deserted(int plotId) { return false; }
 
 ## 3. Caravans: an id in the event, and a view for the npc and quest modules
 
+**Done** (integration 3): `CaravanEvent` carries the caravan id; `HearthWorld.caravans/caravan/escortCaravan/robCaravan/caravanLost` and `CaravanView` (with `escorted`). npc parties follow the sim's timing and report losses; escort quests protect the real caravan.
+
 **Why**: §7.6 — the npc module meets caravans on the road near players, the quest module makes escorts and robberies.
 `SettlementEvents.CaravanEvent` has no caravan id, and nothing outside `sim` can see or touch a caravan.
 
@@ -73,6 +79,8 @@ record CaravanView(long id, long from, long to, int[] cargo, long value, long de
 
 ## 4. Economy: where the purse lives
 
+**Done** (integration 3): agreed at `Resident.extra("economy").purse`; `EconomyService.purse/householdWealth` are in the api. With the economy registered the sim's `Stations` stands aside: the economy's `StationRule` is the only one that moves stations.
+
 **Agreement asked**: the economy module keeps a resident's purse at `Resident.extra("economy").purse` (a `long`, bits).
 `sim/settlement/Stations` reads it (constants `Stations.PURSE_MODULE` / `PURSE_KEY`) to move a household's
 `Resident.station` up and down slowly; without it, means are derived from the household's trades and the town's
@@ -83,6 +91,8 @@ The sim's own coin (per worker per day) still stands aside when an economy modul
 passing traders, caravans paying between treasuries — all through `Settlement.deposit/withdraw`.
 
 ## 5. Planner: excavations, local materials, empty houses, finish tier
+
+**Done** (integration 3): the planner already opens excavations with the §8.5 params and resolves `local`; deserted plots are now never rebuilt. The finish-tier nudge stays with the sim (`resources.prosperity.finish_tier` true); the planner does not do it as well.
 
 - **Excavations**: open `hearth:extract/*` plots for sites from `Settlement.sites()` with the §8.5 params (`site` = the
   site id, `kind`, `rock` = the site's material, `depth`/`length`, `face`). The sim links the plot to the site, credits its
@@ -98,6 +108,8 @@ passing traders, caravans paying between treasuries — all through `Settlement.
 
 ## 6. NPC: miners and quarriers, foresters, caravans
 
+**Done** (integration 3): the npc module's excavation work places steps under the builders' contract; foresters now report the logs they really fell with `Settlement.creditYield`, and the sim takes the same goods back off their labour credit. Caravans: §3.
+
 - Embodied quarriers/miners/clay diggers work `hearth:extract/*` plots under the same contract as builders: place exactly
   step `(stage, step)` of the plot's blueprint (cuts are air steps) and call `advanceConstruction(plotId, 1)`. Leave plots
   that are `waitingForGoods()` (a gallery waiting for timber for its props). Stage yields are credited by the sim as each
@@ -107,6 +119,8 @@ passing traders, caravans paying between treasuries — all through `Settlement.
 - Caravans near players: request 3.
 
 ## 7. Build: excavation blueprints, the bill, decay
+
+Open (build architects): excavation blueprints, the new goods bill and the decay look are the build module's. The sim's stand-ins (`-Dhearth.dev.fillCatalogue=true`) cover them until then.
 
 - Excavation blueprints (`hearth:extract/*`): steps that cut are air; the sim counts air steps below the terrain probe's
   ground as cut rock (a plantation's air steps at any height as felled logs). Many stages (a bench or a gallery each),
@@ -118,6 +132,8 @@ passing traders, caravans paying between treasuries — all through `Settlement.
 
 ## 8. Standing: reputation goes through the service
 
+**Done** (integration 3): the standing module treats `hearth:reputation` as a plain adjustment (`Deeds.isAdjust`). The old numbers go over once a session as `hearth:seed` deeds (`SimWorld.handReputationOver`), and mirroring back is off by default.
+
 `Settlement.reputation(player)` returns `StandingService.standing(id, player)` when a standing service is registered;
 `Settlement.addReputation(player, delta)` becomes `StandingService.deed(new Deed(player, id, "hearth:reputation", delta,
 null, center, true))`. Calls made from inside the standing service's own `standing`/`deed` read and write the sim's raw
@@ -127,11 +143,15 @@ kind to a plain standing change.
 
 ## 9. Repair: excavations are never damage
 
+**Done** (integration 3): the repair module skips `extract/*` plots (`PlotLocator`). With `abstract_only` the sim's applicable cursor is 0, so `HearthWorld.written` never reports anything to restore.
+
 The cuts of `hearth:extract/*` plots are their blueprint, not damage, and with `resources.extraction.abstract_only` the
 sim writes nothing of them at all (an excavation is then numbers only) — the repair module should not "restore" them
 either way (the applicable cursor is 0 then; ask the sim, or skip `extract/*`).
 
 ## 10. `UndergroundProbe.Realm.character`
+
+**Done** (integration 3): the `UndergroundProbe.Realm` Javadoc lists the characters and the id scheme. `TerrainProbe.underground()` and `UndergroundProbe.waterY` were added (the sim's probes answer `underground()`; `waterY` keeps its default).
 
 The sim's implementation names realms by Expanse's realm biome names: `wilds`, `lush`, `dripstone`, `crystal`, `ember`,
 `mere`, `frozen`, `roots`, `fossil`, `tidal`, `amber`, `brimstone` (biome `expanse:realm_<character>`). Proposed: say so

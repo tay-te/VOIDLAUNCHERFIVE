@@ -104,8 +104,34 @@ final class LivingHarness {
 			server.submit(() -> w.caravanTrade().describe()).join());
 		LOG.info("[hearth-living] events over the run: {}", events());
 
-		// the land runs out: every site of the last town worked out, and the town run on
-		SimSettlement poor = towns.getLast();
+		// caravans arrive in real time (the world clock), not in a fast-forward: let three days pass on the world clock
+		long sent = server.submit(() -> {
+			long n = 0;
+			for (int i = 0; i + 1 < towns.size(); i++) {
+				n += w.caravanTrade().dispatch(towns.get(i), towns.get(i + 1)) != 0 ? 1 : 0;
+			}
+			return n;
+		}).join();
+		LOG.info("[hearth-living] {} more caravans sent between neighbouring towns; {}", sent, server.submit(() -> w.caravanTrade().describe()).join());
+		for (int d = 0; d < 12; d++) {
+			server.submit(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "time add 6000")).join();
+			DevHarness.sleep(2500);
+		}
+		LOG.info("[hearth-living] after three days on the world clock: {}; events {}", server.submit(() -> w.caravanTrade().describe()).join(), events());
+
+		// a town of a hundred and fifty: the biggest grown on until it is one, then its hour-step timed
+		SimSettlement big = towns.stream().max(java.util.Comparator.comparingInt(SimSettlement::population)).orElseThrow();
+		int grown = 0;
+		while (server.submit(big::population).join() < 150 && grown < 720) {
+			server.submit(() -> w.simulate(big, 30)).join();
+			grown += 30;
+		}
+		LOG.info("[hearth-living] {} grown {} more days: {} souls, {} plots, {} sites, {}", big.name(), grown, big.population(), big.plots().size(),
+			big.land().sites().size(), server.submit(() -> fortunes(big)).join());
+		LOG.info("[hearth-living] bench {}", server.submit(() -> bench(w, big)).join());
+
+		// the land runs out: every site of a town worked out at once, and the town run on until its fortunes turn
+		SimSettlement poor = towns.stream().filter(t -> t != big).max(java.util.Comparator.comparingInt(SimSettlement::population)).orElse(big);
 		LOG.info("[hearth-living] decline: {} before: {}", poor.name(), server.submit(() -> fortunes(poor)).join());
 		server.submit(() -> {
 			for (SimSite site : List.copyOf(poor.land().sites())) {
@@ -113,9 +139,13 @@ final class LivingHarness {
 			}
 			return null;
 		}).join();
-		for (int d = 0; d < 40; d += 10) {
-			server.submit(() -> w.simulate(poor, 10)).join();
-			LOG.info("[hearth-living] decline: {} +{} days: {}", poor.name(), d + 10, server.submit(() -> fortunes(poor)).join());
+		for (int d = 0; d < 180; d += 15) {
+			server.submit(() -> w.simulate(poor, 15)).join();
+			String line = server.submit(() -> fortunes(poor)).join();
+			LOG.info("[hearth-living] decline: {} +{} days: {}", poor.name(), d + 15, line);
+			if (server.submit(() -> poor.fortunes() < 0 && !poor.land().deserted().isEmpty()).join()) {
+				break;
+			}
 		}
 
 		// a daughter hamlet at a resource the parent lacks
@@ -137,6 +167,28 @@ final class LivingHarness {
 			LOG.info("[hearth-living] sim tick work so far: {}", server.submit(() -> String.format(Locale.ROOT, "%.4f ms avg per server tick over %d ticks",
 				sim.stats().tickNanos.sum() / 1e6 / Math.max(1, sim.ticks()), sim.ticks())).join());
 		}
+	}
+
+	/** 200 hour-long clock steps, as the sim harness's bench, with and without the planner's calls. */
+	private static String bench(SimWorld w, SimSettlement s) {
+		int reps = 200;
+		long total = 0;
+		long max = 0;
+		long plannerNanos = dev.voidmc.hearth.sim.settlement.SettlementClock.PlannerTimings.LIVE_NANOS.sum();
+		long plannerCalls = dev.voidmc.hearth.sim.settlement.SettlementClock.PlannerTimings.LIVE_CALLS.sum();
+		for (int i = 0; i < reps; i++) {
+			s.addTimeOffset(1200);
+			long t0 = System.nanoTime();
+			dev.voidmc.hearth.sim.settlement.SettlementClock.advance(s, w.simNow(s));
+			long dt = System.nanoTime() - t0;
+			total += dt;
+			max = Math.max(max, dt);
+		}
+		long planner = dev.voidmc.hearth.sim.settlement.SettlementClock.PlannerTimings.LIVE_NANOS.sum() - plannerNanos;
+		long calls = dev.voidmc.hearth.sim.settlement.SettlementClock.PlannerTimings.LIVE_CALLS.sum() - plannerCalls;
+		return String.format(Locale.ROOT, "%s (%d souls, %d plots, %d sites): %.4f ms per hour-step avg, %.3f ms max over %d steps; without the planner's "
+			+ "%d calls (%.1f ms) %.4f ms", s.name(), s.population(), s.plots().size(), s.land().sites().size(), total / 1e6 / reps, max / 1e6, reps, calls,
+			planner / 1e6, (total - planner) / 1e6 / reps);
 	}
 
 	private static String survey(SimSettlement s) {

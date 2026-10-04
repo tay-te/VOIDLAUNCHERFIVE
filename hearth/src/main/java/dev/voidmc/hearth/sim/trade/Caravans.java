@@ -412,6 +412,22 @@ public final class Caravans {
 		fire(c, SettlementEvents.CaravanEvent.Kind.DEPARTED);
 	}
 
+	/**
+	 * Sends a caravan now with what {@code from} can spare for {@code to} (dev commands and the client tour; the clock
+	 * decides by itself otherwise). Returns its id, or 0 if there was nothing worth carrying.
+	 */
+	public long dispatch(SimSettlement from, SimSettlement to) {
+		SimRules r = this.world.rules();
+		SimConfig.Caravans cfg = r.resources.caravans();
+		int[] surplus = new int[Goods.VALUES.length];
+		for (int g = 0; g < surplus.length; g++) {
+			surplus[g] = Math.max(0, from.stockpile().get(Goods.VALUES[g]) - 8);
+		}
+		long before = this.state().nextId;
+		depart(from, to, surplus, cfg, r, Math.floorDiv(from.simTick(), SimRules.DAY));
+		return this.state().nextId == before ? 0 : before;
+	}
+
 	/** How hard the road is: water to ford or go round, and climbing, sampled along the way (0 easy, 1+ hard). */
 	static double roughness(TerrainProbe t, BlockPos a, BlockPos b) {
 		int samples = 16;

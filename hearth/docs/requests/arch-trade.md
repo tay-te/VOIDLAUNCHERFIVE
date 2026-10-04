@@ -8,6 +8,7 @@ know. Nothing here blocks: each item has a workaround inside the trade package.
 1. **`DefaultCatalogue` is behind the registered infos.** The planner uses the build module's `ArchetypeInfo`s when
    the build module is present, so this only matters for the fallback catalogue (tests and runs without the build
    module), but the two disagree:
+   **Done** (integration 3): the catalogue matches the registered infos.
 
    | id | DefaultCatalogue (w × d, h) | registered (w × d, h) | why |
    |---|---|---|---|
@@ -32,11 +33,13 @@ know. Nothing here blocks: each item has a workaround inside the trade package.
 2. **Windmill plots.** The windmill needs a frontage of 13+ for its sails (they turn across the front of the plot).
    It is VERTICAL and OUTSKIRTS; a site on a rise or ridge suits it best. If the planner ever gives it a plot narrower
    than 13, the blueprint still builds, with shorter sails.
+   Noted.
 
 3. **WATERFRONT means water behind.** The fishery and watermill expect the water at the back of the plot (the
    planner's current rule: water behind, at most 45 % wet). The fishery's jetty, DOCK and jetty job site appear only
    when water lies within the plot behind the house; on a dry plot it is a fish house with nets. The watermill's race
    runs in on the side where the water lies; on a dry plot the race is still built and filled with water.
+   Noted.
 
 4. **Height at the edges.** The planner gives zones beyond the inner ring half the height range. The trade buildings
    budget their storeys down to fit (warehouse floors, tailor/bakery storeys, the raised store's posts), so low plots
@@ -44,13 +47,16 @@ know. Nothing here blocks: each item has a workaround inside the trade package.
    the brewery's oast (13+), the warehouse (14+). The windmill is VERTICAL and so already gets its max; giving the
    brewery and the warehouse at least three quarters of their range wherever they go would keep the oast and the
    hoist gable from being budgeted away.
+   **Done** (integration 3): the brewery and warehouse (with the market hall, inn and outskirts buildings) keep at least three quarters of their height range.
 
 5. **Params the trade blueprints read** (all optional): `roof` (a `RoofForm` name, everywhere a choice exists),
    `variant`; `party_left`/`party_right` (bakery, tailor); `storeys` (bakery 1–2, tailor 1–3, fishery 1–3, warehouse
    1–4); `raised` (storehouse; ignored on plots under 9 deep); `kiln` (brewery); `kind` (windmill `tower`/`post`,
    granary `staddle`/`bins`/`domes`); `sails` (windmill `cross`/`saltire`/`star`).
+   Noted.
 
 6. **Builders' yard `max` is 3** (as in the catalogue): a city may want a second yard near its growing edge.
+   Noted.
 
 ## For the lead (shared files)
 
@@ -58,3 +64,4 @@ know. Nothing here blocks: each item has a workaround inside the trade package.
    wheel only when water happens to run behind the plot; a WATERFRONT variant would need a second archetype id or a
    planner-side choice of plot. Proposed wording: "`sawmill` (FORESTER, CARPENTER, OUTSKIRTS; a water wheel where water
    runs behind)".
+   **Done** (integration 3): ARCHITECTURE.md §6.1 reworded.

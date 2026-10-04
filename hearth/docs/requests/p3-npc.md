@@ -5,6 +5,8 @@ file (`npc.md`) is unchanged.
 
 ## 1. Escort outcomes in the api (api)
 
+**Done** (integration 3): `NpcService.escort(UUID)` returns an `EscortStatus`, and `SettlementEvents.ESCORT_ENDED` (bridged from `Escorts.FINISHED`) reports how it ended.
+
 **Why.** `NpcService.follow` starts an escort but gives the caller no way to learn that it arrived or was lost, which
 the quest module's escort quests and the law module's walk to the cell both need.
 
@@ -24,6 +26,8 @@ or a `SettlementEvents.ESCORT_ENDED (world, settlement, resident, player, arrive
 
 ## 2. Excavations: who advances them and what is credited (sim)
 
+**Done** (sim, checked in integration 3): the sim credits cuts as yield, digs excavations with the gathering trades, and keeps `waitingForGoods` meaningful for excavation stages.
+
 **What the npc module does.** Plots whose archetype is `EXTRACTION` (or an `extract/` id) are never touched by builders.
 Miners, quarriers, clay diggers, salters (and foresters, for plantations) work them under the builders' contract and call
 `advanceConstruction(plot, 1)` per step — cuts (air) and the props, ladders and lanterns. **Time spent cutting is not
@@ -42,6 +46,8 @@ diggers without a pit) is reported with `creditLabour` as before.
 
 ## 3. Exact yields (api + sim, optional)
 
+**Done** (integration 3): `Settlement.creditYield`. Foresters report the logs of each tree when they carry them to the yard; the sim depletes the nearest site that yields them and takes the same goods back off their labour credit.
+
 **Why.** A forester near a player fells a real tree of, say, 46 logs; the sim credits wood from their working time. The
 two agree on average but not tree by tree.
 
@@ -52,6 +58,8 @@ catch (`FISH`).
 
 ## 4. Caravans overcome near a player (api + sim)
 
+**Done** (integration 3): `HearthWorld.caravanLost(id, robbedBy)`. A party overcome near a player reports its sim caravan lost, and the animals' drops are marked stolen from the home town.
+
 **Why.** When a player kills a caravan's party (§15 of FOLK.md), the npc module drops the journey and reports the
 robbery to the law, but the sim still thinks the cargo is on the road and will deliver it.
 
@@ -59,6 +67,8 @@ robbery to the law, but the sim still thinks the cargo is on the road and will d
 `CARAVAN ROBBED` itself and loses the cargo). Meanwhile nothing reaches the sim.
 
 ## 5. Blueprints the gatherers and officials rely on (build, plan)
+
+Open (build architects): the POIs and job sites in the new blueprints are theirs.
 
 - **Excavations**: `WORK_FACE` POIs on every bench or gallery, each standing within reach (4.6 blocks from the eyes, eyes
   1.62 above the POI) of the cuts it serves; a way out of every bench (ladder or stairs, as steps); a `STORAGE` POI (the
@@ -73,10 +83,14 @@ robbery to the law, but the sim still thinks the cargo is on the road and will d
 
 ## 6. Goods names (economy)
 
+**Done** (economy, checked): every goods key exists.
+
 The caravan traders' lines name their cargo with `Goods.translationKey()` (`hearth.goods.*`), including the phase 3
 goods (`hearth.goods.logs`, `...salt` ...). The economy module owns those keys.
 
 ## 7. Law and standing (notes for those modules)
+
+Noted (integration 3): unchanged. Caravan loot is now marked stolen.
 
 - The npc module sends no deed about hurt or killed residents when `HearthServices.law()` is set: witnesses and the
   courts are the law module's, and it reports deeds itself. Without a law module it sends `npc:hurt` (−3) and
@@ -89,16 +103,22 @@ goods (`hearth.goods.logs`, `...salt` ...). The economy module owns those keys.
 
 ## 8. Repairs (repair module)
 
+Noted: no change.
+
 Builders do not consult `RepairService` themselves: the repair module's builders' behaviour (a `FolkBehaviour` at
 100–199) takes a builder over between steps, which stops the construction task cleanly (scaffolding comes down) and the
 routine resumes after.
 
 ## 9. Carts (later)
 
+Open (later): carts.
+
 Haulers carry loads in their arms; carts on roads need an entity (or a drawn vehicle model) that does not exist yet.
 Caravans use vanilla pack animals.
 
 ## 10. The gametest source set does not compile at `b452cf1` (lead)
+
+**Done** (lead, before this integration): `compileGametestJava` is green.
 
 `gametest/plan/Palette.java` switches over `ArchetypeCategory` without the phase 3 values, so `compileGametestJava`
 fails (the `build` task does not compile that source set, so the build stays green). To run the npc tour I added a

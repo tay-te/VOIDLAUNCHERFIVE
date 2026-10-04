@@ -448,7 +448,17 @@ priority 280): the folk follows two to four blocks behind, catches up out of sig
 behind, and ends **arrived** within `escort.arrive_distance` of the destination ("Here we are. Thank you...") or **lost**
 if the player is gone (logged off, dead, another dimension, spectating) for `escort.lose_after` ticks, or if the folk dies
 or is folded. The outcome is kept ten minutes: `NpcServiceImpl.escortStatus(resident)` / `Escorts.FINISHED` (an api form
-is requested in docs/requests/p3-npc.md).
+is in the api as `NpcService.escort(resident)` and the event `SettlementEvents.ESCORT_ENDED`).
+
+**Waking.** `FolkHandle.wake()` gets a sleeping folk up and keeps them up for two minutes (the repair module's brigade
+wakes the town for a fire). `NpcService.traits(resident)` gives the trait names other modules read.
+
+**Real yields.** A forester who carries a felled tree's logs to the yard reports them with `Settlement.creditYield`; the
+sim credits those logs and takes the same goods back off the forester's labour credit when the entity folds.
+
+**Caravans of the sim.** A journey keeps the sim's caravan id and timing (`HearthWorld.caravan(id)`), so the party walks
+where the sim says the caravan is; a party overcome is reported with `caravanLost` (its drops marked stolen from the home
+town); a caravan an escort quest protects (`escorted`) gets no second party.
 
 ## 14. What the npc module tells other modules
 

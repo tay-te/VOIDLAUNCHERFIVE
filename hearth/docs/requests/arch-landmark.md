@@ -11,17 +11,21 @@ edits none. These are notes for the plan module, the styles' owner and the integ
    never its great hall (the bell tower suits northern first), a maritime town never its lighthouse. Suggest: for
    `NONE`, rank the allowed landmarks by how specific their `cultures` are (fewest cultures first), or keep a small
    culture → landmark preference table beside the signatures.
+   **Done** (integration 3): with `Signature.NONE` the allowed landmarks are ranked most particular first (fewest cultures), so a karst town takes its pagoda and a northern town its great hall.
 2. **The cathedral almost never comes.** With `NONE` a temperate town takes the bell tower at town tier and the clock
    tower at city tier, and the two-landmark cap is reached before the cathedral, though the chapel's close is reserved
    for it from the village days (`Landmarks.chapel`). Suggest the city's second landmark prefer the cathedral or temple
    whenever a close is reserved.
+   **Done** (integration 3): when a close is reserved, the city's second landmark is the cathedral or temple before any tower.
 3. **The close's size.** `Landmarks.chapel` reserves `max(chapel.maxFrontage, cathedral.minFrontage)` ×
    `max(chapel.maxDepth, cathedral.minDepth)`, so the cathedral nearly always gets its minimum, 17 × 29. It is designed to
    stand there (tested), but 21–25 × 35–41 lets it grow a nave of seven, a cloister (24 × 33 and up) and twin towers with
    room. Suggest reserving the mid size (21 × 35) where the land allows, falling back to the minimum.
+   **Done** (integration 3): the close is reserved at the cathedral's middle size where the land allows, else at its minimum. Big landmarks (11 × 11 and up, not the lighthouse) are never placed on a terrace or on ground steeper than the slope tolerance + 1.
 4. **The lighthouse's parcel.** It is WATERFRONT with a keeper's cottage at the front and the tower on rocks at the back;
    its jetty is laid only where the plot itself holds water (it never builds outside its plot). Parcels with water in
    their back third give the best result; a dry headland still gets tower, rocks and cottage.
+   Open: the lighthouse parcel does not prefer water in its back third yet.
 5. **Sizes and heights changed from `DefaultCatalogue`** (the build module's infos replace these at runtime; please align
    the defaults so dev tools and tests agree):
    - `lighthouse` 11–15 × 13–21, height 26–40 (was 7–9 × 7–9, 24–36: a tower alone; the brief asks for a cottage and a
@@ -30,10 +34,12 @@ edits none. These are notes for the plan module, the styles' owner and the integ
      bridge);
    - `bell_tower` height 26–44 (was 24–40), `clock_tower` 28–44 (was 24–34), `cathedral` 26–44 (was 24–44),
      `temple` 16–30 (was 14–28), `great_hall` 14–22 (was 12–20); temple depth 17–25 (was 15–25).
+   **Done** (integration 3): the catalogue matches the registered sizes and heights.
 6. **Cultures changed:** bell tower adds `northern` and `bayou` (forest-hall and stilt towns list it) and drops nothing;
    cathedral drops `northern` (no stave church yet: northern towns take the great hall and bell tower); temple adds
    `mediterranean` (a colonnaded temple) and keeps the eastern and warm cultures; lighthouse adds `northern` (fjord
    harbours); clock tower is for all cultures.
+   **Done** (integration 3): the catalogue's cultures match.
 7. **Params the landmarks read** (all optional; defaults are seeded):
    - every landmark: `variant`;
    - `bell_tower`: `crown` (`spire`, `octagon`, `broach`, `pyramid`, `onion`, `dome`, `cupola`, `parapet`, `stave`,
@@ -44,9 +50,11 @@ edits none. These are notes for the plan module, the styles' owner and the integ
    - `temple`: `form` (`colonnade`, `dome`, `pyramid`, `hall`, `round`);
    - `pagoda`: `tiers` (5 or 7);
    - `lighthouse`: `bands` (boolean).
+   Noted: the optional params are left to the archetypes' seeded defaults.
 8. **Entrances.** Each landmark's first entrance is its main door's outside cell (bell, clock and lighthouse towers, the
    cathedral's west portal, the great hall's porch) or the street cell under its gateway (pagoda, temples with a court).
    Floors meet the street at the front's middle; the forecourts step to the street where the levels differ.
+   Noted.
 
 ## For the styles' owner (no style was edited)
 
@@ -54,13 +62,17 @@ edits none. These are notes for the plan module, the styles' owner and the integ
    that must be masonry (a lighthouse tower, a pyramid, a cathedral in previews) fall back to the first stony role
    (`chimney`: mud bricks) or to a fixed weathered stone-brick mix (`Stone.FALLBACK`). A stony `foundation` entry (mossy
    cobblestone, mud bricks) or a dedicated `masonry` role in those two styles would let them choose their own stone.
+   Noted.
 10. **Domes and onions in shingle-roofed styles** (alpine, temperate at tier 2, northern, tropical, karst bamboo roofs)
     are sheathed in patinated copper (`Stone.copper`), since a wooden onion reads as a pinecone; spires take copper on a
     share of towers whatever the roof. A `sheet` role (dome and spire covering) per style would make this data.
+   Noted.
 11. **The clock dial** is white and black concrete with gold marks and a rim of the roof trim, the same in every style.
+   Noted.
 
 ## For the integrator
 
 12. Shared classes edited: **none**. New files only: `build/archetype/landmark/*`, `build/kit/landmark/*`,
     `build/archetype/LandmarkArchetypes.java` (registrations), `lang/en_us/build_landmark.json`,
     `test/.../build/landmark/LandmarkTest.java`, `docs/buildings/landmark.md`, this file.
+   Noted.

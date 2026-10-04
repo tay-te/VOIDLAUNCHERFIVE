@@ -6,6 +6,8 @@ removes a workaround or a risk of two modules doing the same thing.
 
 ## 1. `EconomyService`: the phase 3 methods (api)
 
+**Done** (integration 3): all of it is in `EconomyService` as defaults, implemented by `EconomyServiceImpl`, plus `payResident`. The law now uses `fine`, `bribe` and `takeFromPurse`.
+
 **Why.** The social module charges for inns, baths and stables; the law module collects fines and takes bribes and
 confiscates purses; the sim moves stations by household wealth; the planner and the sim put funded projects first; the
 law and standing modules need to know who owns a business. Today `EconomyService` has only `balance/charge/pay/format/price`.
@@ -52,6 +54,8 @@ with `pay`, so the coin is the resident's real coin, not new money.
 
 ## 2. Funded projects first (plan, sim)
 
+**Done** (integration 3): the sim works funded plots first (`SettlementClock.playerFundedFirst`, for abstract and embodied builders), and the planner never rebuilds them (`Upgrades.replacing`). The planner does not drop plots, so nothing more was needed.
+
 **What.** A player can pay toward any unfinished public building (not homes, not extraction plots) at the bank, the
 town hall, the reeve or the master builder (`TAB_WORKS`). The economy keeps the fund and, when the plot's construction
 stalls (`CONSTRUCTION_STALLED`), buys the missing goods from passing traders straight into the stockpile.
@@ -67,6 +71,8 @@ givers are repaid into their bank accounts).
 
 ## 3. Station follows the purse (npc/sim, plan)
 
+**Done** (integration 3): the economy is the only one that moves stations. The sim's `Stations` stands aside while an economy is registered; the npc module only follows a change of trade.
+
 **What.** The economy moves `Resident.station` on `DAY_PASSED`, per household (everyone sharing a home plot): one rung up
 the ladder poor → peasant → artisan → merchant → gentry (gentry only at town tier and up) when the household holds
 `station.rise_days` (25) days of the next rung's wage per head and is not hungry; one rung down (as far as poor) after
@@ -80,6 +86,8 @@ The planner reads `Resident.station` as it is.
 
 ## 4. What folk consume (sim)
 
+**Done** (integration 3): checked. The sim consumes none of `consumed_goods` for households (it eats food and buys tools, nothing else), so nothing is eaten twice.
+
 **What.** Households pay for their food every day (`households.food_per_head` units of FOOD at the town's price) but the
 economy does **not** take FOOD from the stockpile: the sim already eats it. Households **do** take the comforts in
 `households.consumed_goods` (default cloth, candles, luxury, books, dye, specialty) off shop shelves (shops restock from
@@ -91,12 +99,16 @@ asks for are not affected: shops and households only take the surplus above the 
 
 ## 5. Shop stock is the town's (sim)
 
+Noted, no change (integration 3): shop shelves are small next to a town's stores, and carrying capacity is reckoned from food sites, not stores.
+
 Shops buy their stock from the stockpile at wholesale (coin to the treasury) and return what they cannot hold. The units
 on shop shelves are no longer in `Stockpile.get`, so the sim's carrying capacity reads a little low for a town with full
 shops (a market stall holds at most `shops.max_stock` (512) of each goods it deals in, usually 16–60). If that matters,
 the sim can add `settlement.data(EconomyModule.SHOPS)` stock to its view of the stores, or I can cap shop stock lower.
 
 ## 6. Hiring into a player's business (sim)
+
+**Done** (integration 3): `assignJobs` keeps the workers of a player-owned business (`businessOwner != null`) where they are while the plot stands.
 
 **What.** The owner of a business may hire an idle adult (job NONE, no workplace) into it at the property tab: the
 economy sets `resident.job` (from the archetype's `ArchetypeInfo.jobs`) and `resident.work`.
@@ -105,6 +117,8 @@ economy sets `resident.job` (from the archetype's `ArchetypeInfo.jobs`) and `res
 `businessOwner(settlement, resident.work) != null`), and not move an owned workplace's workers elsewhere.
 
 ## 7. Ownership for the law and standing modules (law, standing)
+
+**Done** (integration 3): law ownership says `PLAYER` for a player-owned business (`OwnerRules`). The economy's market refuses goods stolen in its town and its fence buys them. The law's own fence now gives way to the economy's for FENCE residents, and the innkeeper-fence pays out of their purse. The standing module has rules for the economy's deed kinds. `stealFromShop` was not needed.
 
 - A player-owned business is the player's property: `LawService.owner(pos)` inside its plot should say
   `Owner(settlementId, null, player, PLAYER)` when `businessOwner` names them; its stock is still worked by its folk.
@@ -125,17 +139,23 @@ economy sets `resident.job` (from the archetype's `ArchetypeInfo.jobs`) and `res
 
 ## 8. Traits by name (npc)
 
+**Done** (integration 3): checked. The npc module's `Trait` names are unchanged (greedy, generous, cheerful, grumpy, sociable, shy), and `NpcService.traits(Resident)` is now in the api.
+
 Haggling reads a merchant's traits from `Resident.extra("npc").traits` as strings (`greedy`, `generous`, `cheerful`,
 `grumpy`, `sociable`, `shy`) without importing the npc module. If the npc module renames a trait or moves that list,
 please keep those six names or tell me.
 
 ## 9. Names the economy reads (build, standing)
 
+Noted (integration 3): no action needed.
+
 `hearth.archetype.<category>.<name>` (build) names shops and businesses ("Edda Miller's bakery"); `hearth.goods.*` are
 defined here for all 29 goods (including `tag.item.hearth.goods.*`). `hearth.station.*` and `hearth.title.*` are the
 standing module's; the economy does not show them yet.
 
 ## 10. Gametest (optional)
+
+**Done** differently (integration 3): `IntegrationTour`'s living legs now use the economy for real: the merchant refuses stolen goods, the fence buys them, and a fine is paid.
 
 The dev pilot covers the new screens (`HEARTH_DEV_ECONOMY=shots ./gradlew runClient`: shops, a haggle, the fence, a
 business, works, contracts). If the integration tour wants it, the steps can move into `IntegrationTour` against a sim

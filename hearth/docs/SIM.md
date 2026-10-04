@@ -457,8 +457,9 @@ settlement data key `hearth:sim/land` (`LandState`); phase 2 saves start without
 - **When**: at founding (a history at once; the live world on the `hearth-survey` thread, merged on the server thread),
   when the tier grows the territory, every `resurvey_days`, on `/hearth settlement survey`. A site found again keeps its
   id, what was taken from it and its excavation; a new one fires `SITE_FOUND`.
-- `Settlement.territoryRadius()` and `Settlement.sites()` (the api's `ResourceSite` views; until the api has a
-  `material` field, `speciality` carries every site's material — see requests/p3-sim.md §1).
+- `Settlement.territoryRadius()` and `Settlement.sites()`: the api's `ResourceSite` views, with each site's `material`, its
+  `oreGrade` and `coalGrade` (`speciality` only on SPECIALTY sites). `Settlement.reportSite(kind, pos, why)` runs a small
+  survey (48 blocks, 4-block cells) round a spot a player prospected and adds the best site of that kind (`SITE_FOUND`).
 
 ### 16.2 Goods and production chains (§7.4, §7.5)
 
@@ -542,10 +543,12 @@ wait for) to the town within `max_distance` that wants it most — value to the 
 up to three times), nearness, kin. Travel time from the distance and the road's roughness (water to ford, climbing:
 sampled along the way) at `speed`; the risk (`risk` per 1000 blocks × roughness, less with guards) decides at departure
 whether it will be lost. On arrival the buyer's stores fill and its treasury pays the seller (between the two prices,
-`margin`); trade feeds both towns' prosperity. `CARAVAN` fires DEPARTED, ARRIVED, ROBBED or LOST. The npc module can
-place a caravan on its road (`Caravans.positionAt`), the quest module escort it (`escort`: it arrives) or rob it
-(`rob`: cargo gone, ROBBED) — see requests/p3-sim.md §3 for the api asked for. Arrivals are a queue checked by its head
-each tick.
+`margin`); trade feeds both towns' prosperity. `CARAVAN` fires DEPARTED, ARRIVED, ROBBED or LOST with the caravan's id.
+Through the api (`HearthWorld.caravans()`, `caravan(id)`, `CaravanView.positionAt`) the npc module puts the party on its
+road at the sim's own pace and reports it overcome (`caravanLost`); an escort quest protects it (`escortCaravan`: it
+arrives; the view's `escorted` tells the npc module not to put a second party there) and a failed escort loses it;
+`robCaravan` takes the cargo. Arrivals follow the world clock (a fast-forward does not move them), a queue checked by its
+head each tick. `Caravans.dispatch(from, to)` sends one now (dev tools and the client tour).
 
 ### 16.7 Stations by the purse (§8.1)
 
@@ -555,7 +558,20 @@ without one, what its trades earn × (0.5 + prosperity), against their usual (ho
 it moves up a station (poor → peasant → artisan → merchant; a merchant household at `gentry_at` in a town or city →
 gentry), under `down_at` down one, but only after two looks in a row agree — slow, as the design asks. When the
 household's trades change (a labourer becomes a smith), it takes the station they bring at once. Callings stay
-(clergy, scholars, officials, the lord). The planner reads `Resident.station` for class-aware housing.
+(clergy, scholars, officials, the lord). The planner reads `Resident.station` for class-aware housing. **While an economy
+module is registered this stands aside**: the economy's purse rule (`economy/purse/StationRule`) is the one that moves
+stations, so they never fight.
+
+**Housing by station** (`SettlementClock.assignHomes`, requests/p3-plan.md §5): the homeless move first into a home built
+for their family (`household.head`), then families into free homes whose `station` param is theirs, then anyone into any
+free bed; up to two households a day move from another station's home into an empty one of their own. Workers hired into
+a player's business (`EconomyService.businessOwner`) keep their places in `assignJobs`, and plots players paid toward
+(`EconomyService.fundedPlots`) are built first, by records and entities alike.
+
+**Builder labour for repairs**: `Settlement.takeBuilderLabour(units)` grants up to a step's builder pool, which the next
+construction step does not spend (repairs come first). **Real yields**: `Settlement.creditYield(resident, goods, units)`
+adds what an embodied gatherer really brought in (a forester's felled logs) and depletes the nearest site that gives it;
+when that resident's labour is credited, the same goods are taken back off it, so nothing is counted twice.
 
 ### 16.8 Settlement reputation
 
