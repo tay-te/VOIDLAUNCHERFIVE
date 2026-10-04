@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "N": "minecraft:iron_nugget",
+    "S": "minecraft:stick"
+  },
+  "pattern": [
+    "  N",
+    " N ",
+    "S  "
+  ],
+  "result": {
+    "id": "hearth:lockpick",
+    "count": 4
+  }
+}
