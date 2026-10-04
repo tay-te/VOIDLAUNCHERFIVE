@@ -3,6 +3,7 @@
 	"package": "dev.voidmc.hearth.mixin.npc",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
+		"EntityNoSaveMixin",
 		"MobAccessor"
 	],
 	"injectors": {

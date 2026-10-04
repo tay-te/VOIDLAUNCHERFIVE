@@ -52,6 +52,27 @@ final class CraftWork implements WorkBehaviour {
 				case SCHOLAR -> new Profile(FolkPose.READ, new ItemStack(Items.BOOK), ItemStack.EMPTY, SoundEvents.BOOK_PAGE_TURN, 0.6F, 140,
 					null, 0, "reading at the lectern");
 				case PRIEST -> new Profile(FolkPose.PRAY, ItemStack.EMPTY, ItemStack.EMPTY, null, 0.0F, 200, ParticleTypes.ENCHANT, 6, "tending the altar");
+				// ---- the workshops of the chains (docs/LIVING_WORLD.md 7.5)
+				case CHARCOAL_BURNER -> new Profile(FolkPose.TEND, new ItemStack(Items.IRON_SHOVEL), new ItemStack(Items.CHARCOAL), SoundEvents.CAMPFIRE_CRACKLE,
+					0.7F, 50, ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, 1, "tending the charcoal clamp");
+				case KILN_WORKER -> new Profile(FolkPose.CRAFT, new ItemStack(Items.BRICK), new ItemStack(Items.CLAY_BALL), SoundEvents.FURNACE_FIRE_CRACKLE,
+					0.6F, 60, ParticleTypes.LARGE_SMOKE, 2, "firing bricks at the kiln");
+				case GLASSMAKER -> new Profile(FolkPose.CRAFT, new ItemStack(Items.BLAZE_ROD), new ItemStack(Items.GLASS_PANE), SoundEvents.FIRE_AMBIENT,
+					0.6F, 50, ParticleTypes.FLAME, 3, "blowing glass");
+				case SMELTER -> new Profile(FolkPose.HAMMER, new ItemStack(Items.IRON_SHOVEL), new ItemStack(Items.RAW_IRON), SoundEvents.BLASTFURNACE_FIRE_CRACKLE,
+					0.7F, 40, ParticleTypes.LAVA, 2, "working the smelter");
+				case TANNER -> new Profile(FolkPose.TEND, new ItemStack(Items.LEATHER), ItemStack.EMPTY, SoundEvents.BUCKET_EMPTY, 0.4F, 70,
+					ParticleTypes.SPLASH, 6, "scraping hides at the vats");
+				case BUTCHER -> new Profile(FolkPose.HAMMER, new ItemStack(Items.IRON_AXE), new ItemStack(Items.BEEF), SoundEvents.PLAYER_ATTACK_STRONG, 0.4F,
+					30, null, 0, "at the block");
+				case CHANDLER -> new Profile(FolkPose.CRAFT, new ItemStack(Items.CANDLE), new ItemStack(Items.HONEYCOMB), SoundEvents.CANDLE_EXTINGUISH, 0.4F,
+					80, ParticleTypes.SMALL_FLAME, 1, "dipping candles");
+				case PAPERMAKER -> new Profile(FolkPose.CRAFT, new ItemStack(Items.PAPER), new ItemStack(Items.SUGAR_CANE), SoundEvents.BOOK_PAGE_TURN, 0.5F,
+					70, ParticleTypes.SPLASH, 3, "pressing paper");
+				case DYER -> new Profile(FolkPose.TEND, new ItemStack(Items.DYE.pick(net.minecraft.world.item.DyeColor.BLUE)), new ItemStack(Items.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE)), SoundEvents.BUCKET_EMPTY, 0.4F, 70,
+					ParticleTypes.SPLASH, 5, "at the dye vats");
+				case BOATWRIGHT -> new Profile(FolkPose.HAMMER, new ItemStack(Items.IRON_AXE), new ItemStack(Items.OAK_PLANKS), SoundEvents.WOOD_HIT, 0.6F, 18,
+					new BlockParticleOption(ParticleTypes.BLOCK, Blocks.OAK_PLANKS.defaultBlockState()), 5, "building a boat");
 				default -> new Profile(FolkPose.CRAFT, ItemStack.EMPTY, ItemStack.EMPTY, null, 0.0F, 60, null, 0, "working");
 			};
 		}

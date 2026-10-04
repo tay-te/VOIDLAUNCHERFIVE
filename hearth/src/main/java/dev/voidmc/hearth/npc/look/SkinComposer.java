@@ -46,7 +46,7 @@ public final class SkinComposer {
 
 	private SkinComposer(FolkLook look) {
 		this.look = look;
-		this.rng = new Rng(look.key() * 0x9E3779B97F4A7C15L + 0x632BE59BD9B4E019L);
+		this.rng = new Rng(look.baseKey() * 0x9E3779B97F4A7C15L + 0x632BE59BD9B4E019L);
 		this.noiseSeed = this.rng.nextLong();
 		this.slim = look.slim();
 		this.rArm = SkinCanvas.rightArm(this.slim);

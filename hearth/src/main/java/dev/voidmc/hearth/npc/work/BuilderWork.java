@@ -10,6 +10,7 @@ import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.npc.entity.Folk;
 import dev.voidmc.hearth.npc.entity.FolkPose;
 import dev.voidmc.hearth.npc.entity.FolkSpots;
+import dev.voidmc.hearth.npc.person.Office;
 import dev.voidmc.hearth.npc.place.BlueprintSource;
 import dev.voidmc.hearth.npc.place.ResidentPlaces;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
@@ -77,7 +78,29 @@ final class BuilderWork implements WorkBehaviour {
 				ItemStack.EMPTY, Tasks.every(20, SoundEvents.WOOD_HIT, 0.5F, null, true), "at the builders' yard");
 		}
 		brain.town.builderClaims.put(brain.resident.id, plot.id());
+		// The master builder walks the other sites with the plans between stints of building.
+		if (++this.rounds % 3 == 0 && brain.town.office(brain.settlement, brain.resident) == Office.MASTER_BUILDER) {
+			PlotView other = inspect(brain, plot);
+			if (other != null) {
+				BlockPos at = ResidentPlaces.centre(other.spec()).relative(other.spec().facing(), other.spec().depth() / 2 + 1);
+				return new Tasks.Linger(at, ResidentPlaces.centre(other.spec()), FolkPose.TALK, 240, new ItemStack(Items.PAPER), ItemStack.EMPTY, null,
+					"directing the crew (plot " + other.id() + ")");
+			}
+		}
 		return new Build(plot.id());
+	}
+
+	private int rounds;
+
+	/** Another site under construction where builders are at work: where the master builder goes to look in. */
+	private static @Nullable PlotView inspect(FolkBrain brain, PlotView mine) {
+		PlotView best = null;
+		for (PlotView p : brain.settlement.plots()) {
+			if (p.id() != mine.id() && buildable(p) && brain.town.claimsOn(p.id()) > 0 && (best == null || brain.random.nextBoolean())) {
+				best = p;
+			}
+		}
+		return best;
 	}
 
 	@Override
@@ -120,11 +143,12 @@ final class BuilderWork implements WorkBehaviour {
 
 	/** Under construction with its current stage's goods in hand: a plot waiting for goods is left until they come. */
 	static boolean buildable(PlotView p) {
-		return p.state() == PlotState.BUILDING && !p.waitingForGoods();
+		// excavations (quarry pits, mines, clay pits, plantations) are the gatherers' to work, not the builders'
+		return p.state() == PlotState.BUILDING && !p.waitingForGoods() && !Extraction.is(p);
 	}
 
 	/** One step of a blueprint, as read. */
-	private record Step(int stage, int index, BlockPos pos, BlockState state, @Nullable CompoundTag tag) {
+	record Step(int stage, int index, BlockPos pos, BlockState state, @Nullable CompoundTag tag) {
 	}
 
 	/** The next solid steps of the stage, in order. */
@@ -156,7 +180,7 @@ final class BuilderWork implements WorkBehaviour {
 		return out;
 	}
 
-	private static @Nullable Step read(Blueprint blueprint, int stage, int index) {
+	static @Nullable Step read(Blueprint blueprint, int stage, int index) {
 		Step[] out = new Step[1];
 		blueprint.step(stage, index, (x, y, z, state, tag) -> out[0] = new Step(stage, index, new BlockPos(x, y, z), state, tag));
 		return out[0];
@@ -390,12 +414,17 @@ final class BuilderWork implements WorkBehaviour {
 		}
 
 		@Override
+		public boolean creditedBySteps() {
+			return true;
+		}
+
+		@Override
 		public String describe() {
 			return this.doing + " (plot " + this.plotId + ")";
 		}
 	}
 
-	private static boolean sameAs(BlockState there, BlockState wanted) {
+	static boolean sameAs(BlockState there, BlockState wanted) {
 		return there == wanted || wanted.isAir() && there.isAir();
 	}
 
@@ -412,7 +441,7 @@ final class BuilderWork implements WorkBehaviour {
 	}
 
 	/** Somewhere to stand within reach of a block, not in its way. */
-	private static @Nullable BlockPos standFor(ServerLevel level, BlockPos target, Folk folk) {
+	static @Nullable BlockPos standFor(ServerLevel level, BlockPos target, Folk folk) {
 		BlockPos best = null;
 		double bestD = Double.MAX_VALUE;
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
@@ -441,7 +470,7 @@ final class BuilderWork implements WorkBehaviour {
 		return best;
 	}
 
-	private static @Nullable BlockPos store(FolkBrain brain, ServerLevel level) {
+	static @Nullable BlockPos store(FolkBrain brain, ServerLevel level) {
 		ResidentPlaces p = brain.places(level);
 		if (p.workStorage != null) {
 			return p.workStorage.pos();
@@ -456,7 +485,7 @@ final class BuilderWork implements WorkBehaviour {
 		return best != null && best.pos().distSqr(brain.folk.blockPosition()) < 64 * 64 ? best.pos() : null;
 	}
 
-	private static void loadBlockEntity(ServerLevel level, BlockPos pos, BlockState state, CompoundTag tag) {
+	static void loadBlockEntity(ServerLevel level, BlockPos pos, BlockState state, CompoundTag tag) {
 		BlockEntity be = level.getBlockEntity(pos);
 		if (be == null) {
 			return;

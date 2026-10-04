@@ -4,8 +4,10 @@ import dev.voidmc.hearth.api.AgeStage;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.QuestService;
+import dev.voidmc.hearth.api.Station;
 import dev.voidmc.hearth.npc.NpcModule;
 import dev.voidmc.hearth.npc.look.FolkLook;
+import dev.voidmc.hearth.npc.person.Office;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,12 +55,17 @@ public class Folk extends PathfinderMob {
 	private static final EntityDataAccessor<String> DATA_RESIDENT = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.STRING);
 	private static final EntityDataAccessor<String> DATA_NAME = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.STRING);
 	private static final EntityDataAccessor<Integer> DATA_APPEARANCE = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.INT);
-	/** Culture, job, age stage and sex packed into one int: they change together and rarely. */
+	/**
+	 * Culture (bits 0-4), job (5-11), age stage (12-13), sex (14), station (15-18) and office (19-20) packed into one int:
+	 * they change together and rarely.
+	 */
 	private static final EntityDataAccessor<Integer> DATA_LOOK = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Byte> DATA_MARKER = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.BYTE);
 	private static final EntityDataAccessor<Byte> DATA_POSE = SynchedEntityData.defineId(Folk.class, EntityDataSerializers.BYTE);
 
 	private @Nullable FolkBrain brain;
+	/** Drives folk who are not residents of a settlement (a caravan's traders and guards on the road). */
+	private @Nullable Controller controller;
 	private long settlementId = Long.MIN_VALUE;
 	/** Set once the entity has been folded back into its record, so removal does not fold it twice. */
 	private boolean folded;
@@ -93,7 +100,7 @@ public class Folk extends PathfinderMob {
 		entityData.define(DATA_RESIDENT, "");
 		entityData.define(DATA_NAME, "");
 		entityData.define(DATA_APPEARANCE, 0);
-		entityData.define(DATA_LOOK, packLook(Culture.TEMPERATE, JobType.NONE, AgeStage.ADULT, false));
+		entityData.define(DATA_LOOK, packLook(Culture.TEMPERATE, JobType.NONE, AgeStage.ADULT, false, Station.POOR, Office.NONE));
 		entityData.define(DATA_MARKER, (byte) 0);
 		entityData.define(DATA_POSE, (byte) 0);
 	}
@@ -110,11 +117,26 @@ public class Folk extends PathfinderMob {
 
 	/** Binds this entity to a resident: what it shows and who it is. Server only. */
 	public void setIdentity(UUID resident, String name, int appearance, Culture culture, JobType job, AgeStage age, boolean female) {
+		setIdentity(resident, name, appearance, culture, job, age, female, Station.of(job), Office.NONE);
+	}
+
+	/** Binds this entity to a resident, with their station (dress and bearing) and any office they hold. Server only. */
+	public void setIdentity(UUID resident, String name, int appearance, Culture culture, JobType job, AgeStage age, boolean female, Station station,
+		Office office) {
 		this.entityData.set(DATA_RESIDENT, resident.toString());
 		this.entityData.set(DATA_NAME, name);
 		this.entityData.set(DATA_APPEARANCE, appearance);
-		this.entityData.set(DATA_LOOK, packLook(culture, job, age, female));
+		this.entityData.set(DATA_LOOK, packLook(culture, job, age, female, station, office));
 		this.refreshDimensions();
+	}
+
+	/** Changes station or office in place (a household rose or fell, the captain died and the next guard took over). */
+	public void setStanding(Station station, Office office) {
+		int look = this.entityData.get(DATA_LOOK);
+		int packed = look & ~(0x3F << 15) | (station.ordinal() & 15) << 15 | (office.ordinal() & 3) << 19;
+		if (packed != look) {
+			this.entityData.set(DATA_LOOK, packed);
+		}
 	}
 
 	public @Nullable UUID residentId() {
@@ -144,27 +166,38 @@ public class Folk extends PathfinderMob {
 	}
 
 	public JobType job() {
-		int v = this.entityData.get(DATA_LOOK) >>> 5 & 31;
+		int v = this.entityData.get(DATA_LOOK) >>> 5 & 127;
 		JobType[] all = JobType.values();
 		return v < all.length ? all[v] : JobType.NONE;
 	}
 
 	public AgeStage ageStage() {
-		int v = this.entityData.get(DATA_LOOK) >>> 10 & 3;
+		int v = this.entityData.get(DATA_LOOK) >>> 12 & 3;
 		AgeStage[] all = AgeStage.values();
 		return v < all.length ? all[v] : AgeStage.ADULT;
 	}
 
 	public boolean female() {
-		return (this.entityData.get(DATA_LOOK) >>> 12 & 1) != 0;
+		return (this.entityData.get(DATA_LOOK) >>> 14 & 1) != 0;
+	}
+
+	public Station station() {
+		int v = this.entityData.get(DATA_LOOK) >>> 15 & 15;
+		Station[] all = Station.values();
+		return v < all.length ? all[v] : Station.PEASANT;
+	}
+
+	public Office office() {
+		return Office.byId(this.entityData.get(DATA_LOOK) >>> 19 & 3);
 	}
 
 	public FolkLook look() {
-		return new FolkLook(appearance(), culture(), job(), ageStage(), female());
+		return new FolkLook(appearance(), culture(), job(), ageStage(), female(), station(), office());
 	}
 
-	private static int packLook(Culture culture, JobType job, AgeStage age, boolean female) {
-		return culture.ordinal() | job.ordinal() << 5 | age.ordinal() << 10 | (female ? 1 : 0) << 12;
+	static int packLook(Culture culture, JobType job, AgeStage age, boolean female, Station station, Office office) {
+		return culture.ordinal() & 31 | (job.ordinal() & 127) << 5 | (age.ordinal() & 3) << 12 | (female ? 1 : 0) << 14 | (station.ordinal() & 15) << 15
+			| (office.ordinal() & 3) << 19;
 	}
 
 	public QuestService.Marker marker() {
@@ -203,6 +236,14 @@ public class Folk extends PathfinderMob {
 
 	public void setBrain(@Nullable FolkBrain brain) {
 		this.brain = brain;
+	}
+
+	public @Nullable Controller controller() {
+		return this.controller;
+	}
+
+	public void setController(@Nullable Controller controller) {
+		this.controller = controller;
 	}
 
 	public boolean isFolded() {
@@ -290,6 +331,8 @@ public class Folk extends PathfinderMob {
 		super.customServerAiStep(level);
 		if (this.brain != null) {
 			this.brain.tick(level);
+		} else if (this.controller != null) {
+			this.controller.tick(level, this);
 		} else if (this.tickCount > 40 && !this.folded) {
 			// An entity nobody manages (summoned by command, loaded from an old save): adopt it or let it go.
 			NpcModule.embodiment().adoptStray(level, this);
@@ -302,7 +345,11 @@ public class Folk extends PathfinderMob {
 			return InteractionResult.PASS;
 		}
 		if (player instanceof ServerPlayer sp) {
-			NpcModule.conversations().open(sp, this);
+			if (this.brain == null && this.controller != null) {
+				this.controller.interact(sp, this);
+			} else {
+				NpcModule.conversations().open(sp, this);
+			}
 		}
 		return InteractionResult.SUCCESS;
 	}
@@ -312,6 +359,8 @@ public class Folk extends PathfinderMob {
 		boolean hurt = super.hurtServer(level, source, damage);
 		if (hurt && this.brain != null) {
 			this.brain.onHurt(level, source);
+		} else if (hurt && this.controller != null) {
+			this.controller.hurt(level, this, source);
 		}
 		return hurt;
 	}
@@ -320,7 +369,11 @@ public class Folk extends PathfinderMob {
 	public void die(DamageSource source) {
 		super.die(source);
 		if (this.level() instanceof ServerLevel level) {
-			NpcModule.embodiment().onDeath(level, this, source);
+			if (this.controller != null) {
+				this.controller.died(level, this, source);
+			} else {
+				NpcModule.embodiment().onDeath(level, this, source);
+			}
 		}
 	}
 
@@ -328,7 +381,11 @@ public class Folk extends PathfinderMob {
 	public void onRemoval(Entity.RemovalReason reason) {
 		super.onRemoval(reason);
 		if (this.level() instanceof ServerLevel level && reason != Entity.RemovalReason.KILLED && !this.folded) {
-			NpcModule.embodiment().onRemoved(level, this);
+			if (this.controller != null) {
+				this.controller.removed(level, this);
+			} else {
+				NpcModule.embodiment().onRemoved(level, this);
+			}
 		}
 	}
 
@@ -362,6 +419,27 @@ public class Folk extends PathfinderMob {
 		SpawnGroupData data = super.finalizeSpawn(level, difficulty, reason, groupData);
 		this.setLeftHanded(this.random.nextFloat() < 0.1F);
 		return data;
+	}
+
+	/**
+	 * What drives a folk who is not a settlement's resident made flesh: the people of a caravan on the road between
+	 * towns. They have no record to fold back into; the controller decides everything.
+	 */
+	public interface Controller {
+		void tick(ServerLevel level, Folk folk);
+
+		/** A player right-clicked them (there is no conversation screen without a resident). */
+		void interact(ServerPlayer player, Folk folk);
+
+		default void hurt(ServerLevel level, Folk folk, DamageSource source) {
+		}
+
+		default void died(ServerLevel level, Folk folk, DamageSource source) {
+		}
+
+		/** Removed by the game (chunk unload, command) rather than killed. */
+		default void removed(ServerLevel level, Folk folk) {
+		}
 	}
 
 	// ---------------------------------------------------------------- sounds: people, not villagers

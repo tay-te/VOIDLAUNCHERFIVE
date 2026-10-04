@@ -145,8 +145,8 @@ public final class Schedule {
 			}
 		}
 
-		// Night watch: a third of the guards keep the dark hours.
-		if (job == JobType.GUARD && Math.floorMod(seed >> 12, 3) == 0) {
+		// Night watch: a third of the guards keep the dark hours, and half the jailers.
+		if (job == JobType.GUARD && Math.floorMod(seed >> 12, 3) == 0 || job == JobType.JAILER && Math.floorMod(seed >> 12, 2) == 0) {
 			b.add(new Block(7 * 60, Activity.SLEEP, null, Where.HOME));
 			b.add(new Block(15 * 60, Activity.WAKE, null, Where.HOME));
 			b.add(new Block(15 * 60 + 30, Activity.EAT, null, Where.HOME));
@@ -161,7 +161,10 @@ public final class Schedule {
 		int lunchEnd = siesta ? 14 * 60 + 30 : 13 * 60;
 		int workEnd = 17 * 60;
 		Where lunchAt = switch (job) {
-			case BUILDER, FARMER, FORESTER, QUARRIER, FISHER, HERDER, HUNTER, GUARD -> Where.WORK;
+			case BUILDER, FARMER, FORESTER, QUARRIER, FISHER, HERDER, HUNTER, GUARD, MINER, HAULER, CLAY_DIGGER, SALTER, CHARCOAL_BURNER, BEEKEEPER,
+				STABLEMASTER, JAILER -> Where.WORK;
+			// the lord and the steward dine in the keep, which is their home
+			case LORD, STEWARD -> Where.HOME;
 			default -> traits.contains(Trait.SOCIABLE) ? Where.INN : Where.HOME;
 		};
 		switch (job) {
@@ -174,7 +177,40 @@ public final class Schedule {
 				workEnd = 14 * 60;
 				bedtime = Math.min(bedtime, 20 * 60 + 30);
 			}
-			case MERCHANT, TAILOR, MINTER -> workEnd = 18 * 60;
+			case MERCHANT, TAILOR, MINTER, TRADER, HEALER, STEWARD -> workEnd = 18 * 60;
+			case LORD -> {
+				// late to rise, court in the morning, the domain in the afternoon, late to bed
+				wake = 7 * 60 + 30;
+				workStart = 9 * 60;
+				lunch = 12 * 60 + 30;
+				lunchEnd = 14 * 60;
+				workEnd = 17 * 60 + 30;
+				bedtime = Math.max(bedtime, 22 * 60 + 30);
+			}
+			case REEVE -> workStart = Math.max(workStart, 8 * 60);
+			case JUDGE -> {
+				workStart = Math.max(workStart, 9 * 60);
+				workEnd = 16 * 60;
+			}
+			case ENTERTAINER -> {
+				// they play when others are at leisure: up late, on until near midnight
+				wake += 120;
+				workStart = wake + 60;
+				lunch = 14 * 60;
+				lunchEnd = 15 * 60;
+				workEnd = 23 * 60;
+				bedtime = 23 * 60 + 30;
+			}
+			case BATH_KEEPER -> {
+				workStart = Math.max(workStart, 7 * 60);
+				workEnd = 19 * 60;
+			}
+			case STABLEMASTER, BUTCHER -> {
+				wake = Math.min(wake, 5 * 60 + 30);
+				workStart = wake + 30;
+				workEnd = 16 * 60;
+			}
+			case CHARCOAL_BURNER -> workEnd = 19 * 60;
 			case INNKEEPER -> {
 				wake += 90;
 				workStart = wake + 45;
@@ -219,7 +255,7 @@ public final class Schedule {
 			b.add(new Block(lunchEnd, job == JobType.NONE ? Activity.LEISURE : Activity.WORK, job == JobType.NONE ? leisure(traits, daySeed, 2) : null, null));
 		}
 		int supper = Math.min(siesta ? 21 * 60 : 19 * 60, bedtime - 75);
-		if (job == JobType.INNKEEPER) {
+		if (job == JobType.INNKEEPER || job == JobType.ENTERTAINER) {
 			b.add(new Block(bedtime, Activity.SLEEP, null, Where.HOME));
 			return new Schedule(trim(b));
 		}

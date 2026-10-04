@@ -24,7 +24,7 @@ import org.jspecify.annotations.Nullable;
  * come from the resident's own places (bed, table, fire, seat, door) and the town's public ones (squares, inns,
  * benches, altars, lecterns, viewpoints), with sensible fallbacks when a town has none of a kind.
  */
-final class Plans {
+public final class Plans {
 	private Plans() {
 	}
 
@@ -161,7 +161,7 @@ final class Plans {
 	}
 
 	/** The town's heart: a meeting point (the bell, the well) or its founding centre. */
-	static BlockPos plaza(FolkBrain brain, ServerLevel level) {
+	public static BlockPos plaza(FolkBrain brain, ServerLevel level) {
 		List<Poi> meet = brain.town.places.all(level, brain.settlement, PoiType.MEETING_POINT);
 		if (!meet.isEmpty()) {
 			// Folk favour the meeting point nearest their home.

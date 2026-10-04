@@ -4,6 +4,7 @@ import dev.voidmc.hearth.api.Poi;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.npc.entity.Folk;
 import dev.voidmc.hearth.npc.entity.FolkPose;
+import dev.voidmc.hearth.npc.person.Office;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
 import dev.voidmc.hearth.npc.routine.Task;
 import dev.voidmc.hearth.npc.routine.Tasks;
@@ -20,7 +21,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The watch: guards walk a round of the town's guard posts and gates (or its edges, where it has none), stand a while
- * at each, and go for any monster that comes near — and to wherever the alarm was raised.
+ * at each, and go for any monster that comes near — and to wherever the alarm was raised. The guard captain (the senior
+ * guard, {@link Office#CAPTAIN}) drills at the guardhouse in the early morning, makes quick inspections of the posts,
+ * and reports to the lord's hall (or the town hall) once in the morning.
  */
 final class GuardWork implements WorkBehaviour {
 	private int post;
@@ -37,8 +40,59 @@ final class GuardWork implements WorkBehaviour {
 				new Tasks.Linger(null, alarm, FolkPose.NONE, 200, sword(), shield(), null, "on guard"));
 		}
 		List<BlockPos> round = round(brain, level);
+		if (brain.town.office(brain.settlement, brain.resident) == Office.CAPTAIN) {
+			Task t = captain(brain, level, round);
+			if (t != null) {
+				return t;
+			}
+		}
 		BlockPos target = round.get(this.post++ % round.size());
 		return new Tasks.Linger(target, null, FolkPose.NONE, 300 + brain.random.nextInt(300), sword(), shield(), null, "keeping watch");
+	}
+
+	private int captainBout;
+	private long reportedDay = Long.MIN_VALUE;
+
+	/** The captain's day: drill at dawn, inspections, the morning report. Null to keep an ordinary watch. */
+	private @Nullable Task captain(FolkBrain brain, ServerLevel level, List<BlockPos> round) {
+		this.captainBout++;
+		int minute = dev.voidmc.hearth.npc.NpcTime.minuteOfDay(level);
+		long day = dev.voidmc.hearth.npc.NpcTime.today();
+		if (minute < 12 * 60 && day != this.reportedDay) {
+			Poi seat = OfficialWork.first(brain, level, PoiType.THRONE);
+			if (seat != null) {
+				this.reportedDay = day;
+				return OfficialWork.attend(seat, sword(), "reporting to the lord");
+			}
+		}
+		if (minute < 9 * 60 && this.captainBout % 2 == 1) {
+			// drill: sword strokes at a post of the guardhouse, or the first post of the round
+			BlockPos at = drillGround(brain, level, round);
+			return new Tasks.Linger(at, null, FolkPose.HAMMER, 300, sword(), shield(),
+				Tasks.every(14, net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_SWEEP, 0.5F, null, true), "drilling");
+		}
+		if (this.captainBout % 3 == 0) {
+			// a quick inspection of three posts in a row
+			Task[] stops = new Task[Math.min(3, round.size())];
+			for (int i = 0; i < stops.length; i++) {
+				BlockPos p = round.get((this.post++) % round.size());
+				stops[i] = new Tasks.Linger(p, null, FolkPose.TALK, 80, sword(), shield(), null, "inspecting the posts");
+			}
+			return new Tasks.Sequence("inspecting the posts", stops);
+		}
+		return null;
+	}
+
+	private static BlockPos drillGround(FolkBrain brain, ServerLevel level, List<BlockPos> round) {
+		dev.voidmc.hearth.api.PlotView hall = OfficialWork.plot(brain, "civic/guardhouse");
+		if (hall != null) {
+			for (Poi p : brain.town.places.plot(level, brain.settlement, hall)) {
+				if (p.type() == PoiType.GUARD_POST || p.type() == PoiType.JOB_SITE) {
+					return p.pos();
+				}
+			}
+		}
+		return round.get(0);
 	}
 
 	private static ItemStack sword() {
